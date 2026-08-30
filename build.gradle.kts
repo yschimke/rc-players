@@ -43,7 +43,9 @@ val publishedProjects =
     ":rc-player-protocol",
     ":rc-player-runtime",
     ":rc-player-compose",
+    ":rc-player-wasm-dist",
     ":third-party-rc-embedded-player",
+    ":third-party-rc-embedded-player-jvm",
   )
 
 tasks.register("publishPlayers") {

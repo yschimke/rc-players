@@ -39,6 +39,10 @@
 plugins {
   id("composeai.base-conventions")
   alias(libs.plugins.kotlin.jvm)
+  // Published for TESTING and TOOLING only — see `composeAiMavenPublishing` at the bottom of this
+  // file. Like its Android sibling, this is the repo's pinned, locally patched AndroidX player, not
+  // a supported API.
+  id("composeai.maven-publishing")
   alias(libs.plugins.compose.multiplatform)
   alias(libs.plugins.compose.compiler)
 }
@@ -265,4 +269,21 @@ dependencies {
   // needs them here is `DesktopTextPlatformTest`, which rasterizes for real rather than mocking the
   // canvas — the whole reason it can catch a measure/draw disagreement.
   @Suppress("DEPRECATION") testRuntimeOnly(compose.desktop.currentOs)
+}
+
+// Published so `compose-preview serve` can stage this module's runtime jars into its `lib-rcjvm/`
+// sidecar without a source checkout of this repository. That consumer is the reason the artifact
+// exists at all: it spawns `RcJvmRenderMain` as a one-shot subprocess to render a captured
+// `ir/<id>.rc` to PNG for the viewer's cmp-jvm chip, and it needs the jars, not the sources.
+//
+// NOT a supported API, and the description says so. This is a vendored, locally patched copy of
+// AndroidX's player pinned to one alpha; its surface follows upstream's, not semver. Depend on
+// `rc-player-compose` for a supported Compose Multiplatform player.
+composeAiMavenPublishing {
+  coordinates(
+    artifactId = "third-party-rc-embedded-player-jvm",
+    displayName = "Remote Compose Player — vendored AndroidX embedded player (desktop JVM)",
+    description =
+      "The desktop-JVM cut of this repository's vendored, locally patched AndroidX Remote Compose embedded player. Published so tooling can run the comparison lane without a source checkout; not a supported API, and pinned to one AndroidX alpha. See third_party/rc-embedded-player/PROVENANCE.md.",
+  )
 }

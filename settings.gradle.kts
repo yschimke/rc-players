@@ -107,6 +107,13 @@ include(":rc-player-wasm")
 
 project(":rc-player-wasm").projectDir = file("rc-player/wasm")
 
+// The `wasmPlayerDist` bundle, wrapped as one publishable zip so a Gradle consumer in another
+// repository can resolve it. See that module's build file for why it is not a second publication on
+// `:rc-player-wasm`.
+include(":rc-player-wasm-dist")
+
+project(":rc-player-wasm-dist").projectDir = file("rc-player/wasm-dist")
+
 include(":rc-player-compat-tests")
 
 project(":rc-player-compat-tests").projectDir = file("rc-player/compat-tests")
