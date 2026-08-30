@@ -133,6 +133,13 @@ include(":third-party-rc-embedded-player")
 
 project(":third-party-rc-embedded-player").projectDir = file("third_party/rc-embedded-player")
 
+// The vendored TypeScript player's committed browser bundle, wrapped as one publishable zip for
+// the same reason `:rc-player-wasm-dist` is. See `third_party/remote-compose-player/PROVENANCE.md`.
+include(":third-party-remote-compose-player-dist")
+
+project(":third-party-remote-compose-player-dist").projectDir =
+  file("third_party/remote-compose-player-dist")
+
 // The desktop-JVM cut of the same vendored player. See
 // `third_party/rc-embedded-player/PROVENANCE.md`.
 include(":third-party-rc-embedded-player-jvm")

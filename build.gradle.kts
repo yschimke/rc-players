@@ -46,6 +46,7 @@ val publishedProjects =
     ":rc-player-wasm-dist",
     ":third-party-rc-embedded-player",
     ":third-party-rc-embedded-player-jvm",
+    ":third-party-remote-compose-player-dist",
   )
 
 tasks.register("publishPlayers") {

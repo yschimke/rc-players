@@ -162,6 +162,25 @@ See the `rc-embedded` column of the catalogs' `rc-compare.html` for the current 
 the baked PNG. Local deltas over the upstream snapshot are listed here as they are made, each with
 the upstream tracking issue it was reported under.
 
+**Each delta that is a genuine upstream fix now has an issue on this repository**, so the patch has a
+home and a place to be retired from. They are the ones to work off — the rest of what `diff -r`
+shows against an androidx checkout is this repo's own restructuring (the platform seams that make the
+JVM cut possible, and a few file splits), not something upstream owes anyone:
+
+| Issue | Delta |
+| --- | --- |
+| [#1](https://github.com/yschimke/rc-players/issues/1) | Default Compose paint colour is transparent, not black — an icon with a `SRC_IN` filter and no base `COLOR` draws nothing |
+| [#2](https://github.com/yschimke/rc-players/issues/2) | Indexed `ColorTheme` values are never resolved at cold start (no `ThemeSupport.mapColors` pass) |
+| [#3](https://github.com/yschimke/rc-players/issues/3) | `Rc.AndroidColors` is wrong for 21 of 196 indices — upstream's data, not its rendering |
+| [#4](https://github.com/yschimke/rc-players/issues/4) | `Theme.UNSPECIFIED` default renders every themed document dark |
+| [#5](https://github.com/yschimke/rc-players/issues/5) | Published `ui-text-google-fonts` AAR ships no GMS font-provider certificates |
+| [#6](https://github.com/yschimke/rc-players/issues/6) | `GraphContext` extends `AndroidRemoteContext` for behaviour it never uses (upstream issue #12) |
+| [#7](https://github.com/yschimke/rc-players/issues/7) | Frame loop uses `withFrameMillis`, so an animated document never reaches idle |
+
+Two more used to be here and are gone: the action-dispatch pair, restored verbatim when alpha17
+published `LambdaAction`, `PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` /
+`.pendingIntents`. That is the pattern working — the list is meant to shrink.
+
 - **Default Compose paint colour aligned with the framework player** (`RcPlayerPaint.kt`).
   `ComposeLocalPaint.color` initialized to transparent ARGB `0`, while `android.graphics.Paint`
   initializes to opaque black. A Remote Compose icon paint bundle sets a `SRC_IN` colour filter but
