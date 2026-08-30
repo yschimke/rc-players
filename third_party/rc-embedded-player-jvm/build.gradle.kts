@@ -228,7 +228,9 @@ dependencies {
   // Production `compose/figma-svg` export for the serve cmp-jvm lane. The player still owns only
   // the Remote Compose interpretation; this connector turns the resulting ordinary CMP scene's
   // slot tables + semantics into the same layered SVG the desktop preview daemon emits.
-  implementation(project(":data-layoutinspector-connector"))
+  // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
+  // was extracted into this repository.
+  implementation(libs.composeai.data.layoutinspector.connector)
   implementation(libs.composeai.data.layoutinspector.core)
 
   // Downloadable fonts for the jvm text seams (`GoogleFontTypefaceResolver`). Android resolves a
@@ -236,7 +238,9 @@ dependencies {
   // is fetched through the same `(family, weight, italic) -> File` cache the Robolectric
   // downloadable-font shadow and the figma-svg embed path use — one cache and one resolution rule,
   // so every lane draws the same file for the same family.
-  implementation(project(":data-fonts-google"))
+  // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
+  // was extracted into this repository.
+  implementation(libs.composeai.data.fonts.google)
 
   // androidx.tracing 2.x, used directly (not through `:rc-player-trace`) by `RcJvmRenderer`. This
   // module renders through AndroidX's own embedded player, so it traces with AndroidX's own tracer;

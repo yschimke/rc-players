@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,
+  # both vendored players, and the build-only fixture generators.
+  #
+  # `checkKotlinAbi` is deliberately NOT here. The committed dumps include a `.klib.api` covering the
+  # iOS and wasmJs targets, and those klibs only build on macOS — running the gate on Linux would
+  # diff a partial surface against a complete dump. It runs in `players-macos` below, which is the
+  # one job that can see all of it.
+  jvm:
+    name: JVM + Android players
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+
+      # `:third-party-rc-embedded-player` is an Android library, so this lane needs an SDK. The
+      # runner image ships one; AGP resolves it from ANDROID_HOME.
+      - name: Run the JVM and Android player suites
+        run: |
+          ./gradlew \
+            :rc-player-trace:jvmTest \
+            :rc-player-protocol:jvmTest \
+            :rc-player-runtime:jvmTest \
+            :rc-player-compose:jvmTest \
+            :rc-player-compat-tests:test \
+            :rc-player-metrics:test \
+            :rc-player-profile:test \
+            :third-party-rc-embedded-player:testDebugUnitTest \
+            :third-party-rc-embedded-player-jvm:check
+
+      # The Wasm distribution and its size ratchet. `wasmPlayerTestDist` also stages the AndroidX
+      # generated fixtures next to the bundle, so the browser smoke input is built from the real
+      # writer rather than from the player's own output.
+      - name: Build the Wasm player distribution
+        run: ./gradlew :rc-player-wasm:wasmPlayerTestDist
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jvm-test-reports
+          path: |
+            **/build/reports/tests/**
+            **/build/test-results/**
+          retention-days: 7
+
+  # The macOS lane: the iOS targets, and the ABI gate that depends on them.
+  players-macos:
+    name: iOS players + ABI gate
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+
+      # Compose Multiplatform 1.11's `ui-uikit` links against iOS 26 SDK symbols — `CMPLayoutRegion`
+      # references `UIViewLayoutRegion`, which does not exist before iOS 26. The `macos-15` image
+      # ships several Xcode 26.x alongside 16.4 but still *defaults* to 16.4 (iOS 18.5 SDK), so
+      # `:rc-player-compose:linkDebugTestIosSimulatorArm64` dies with
+      # `Undefined symbols for architecture arm64: "_OBJC_CLASS_$_UIViewLayoutRegion"`. Select the
+      # newest installed Xcode 26 rather than pinning one, so an image refresh that retires a point
+      # release doesn't take the job with it.
+      - name: Select an Xcode with the iOS 26 SDK
+        run: |
+          set -euo pipefail
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$xcode" ]; then
+            echo "No Xcode 26 on this image; Compose Multiplatform's iOS targets need its SDK." >&2
+            ls -d /Applications/Xcode*.app >&2
+            exit 1
+          fi
+          sudo xcode-select --switch "$xcode/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphonesimulator
+
+      # No `iosX64` anywhere in this list. `:rc-player-compose` never had one — CMP 1.11 dropped the
+      # Intel-iOS-simulator variant — and its three siblings dropped theirs when the stack became
+      # publishable, because publishing a stack that resolves three of four artifacts on one target
+      # is worse than not offering it. Naming a task that no longer exists fails the whole
+      # invocation ("Cannot locate tasks that match ..."), not just that one target.
+      #
+      # `allTests` does not imply `check`, so the ABI gate has to be named explicitly. Regenerate
+      # the dumps with `./gradlew :rc-player-<module>:updateKotlinAbi` when a surface change is
+      # intended.
+      - name: Run the iOS player tests and the ABI gate
+        run: |
+          ./gradlew \
+            :rc-player-trace:checkKotlinAbi \
+            :rc-player-protocol:checkKotlinAbi \
+            :rc-player-runtime:checkKotlinAbi \
+            :rc-player-compose:checkKotlinAbi \
+            :rc-player-trace:allTests \
+            :rc-player-protocol:allTests \
+            :rc-player-runtime:allTests \
+            :rc-player-compose:allTests \
+            :rc-player-protocol:compileTestKotlinIosArm64 \
+            :rc-player-protocol:compileTestKotlinIosSimulatorArm64 \
+            :rc-player-runtime:compileTestKotlinIosArm64 \
+            :rc-player-runtime:compileTestKotlinIosSimulatorArm64 \
+            :rc-player-compose:compileTestKotlinIosArm64 \
+            :rc-player-compose:compileTestKotlinIosSimulatorArm64
+
+      # `Package.swift`'s two SPM-verified values are written by the release job, never by hand.
+      # This proves the writer still works before a release depends on it.
+      - name: Run the Package.swift rewriter self-test
+        run: scripts/update-package-swift.sh --self-test
+
+      # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
+      # Exits 0 and says so when no framework is present, so it is honest about what it checked.
+      #
+      # NOTE: `./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum` belongs above — it is the
+      # only place CI would *link* a release framework, and the same task `release.yml` runs, so a
+      # linker failure would surface on the PR rather than mid-release. It is left out because the
+      # release links run out of heap on this runner and `release.yml`'s `publish-xcframework` is
+      # skipped for the same reason; CI should not pre-flight a step the release does not take.
+      # Restore both together — a green link here is the evidence that re-enabling the release job
+      # is safe. Without the link this step checks nothing, which is why it is a no-op today rather
+      # than a false green.
+      - name: Type-check the Swift usage sample
+        run: scripts/check-swift-sample.sh
+
+      - name: Upload player test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-test-reports
+          path: |
+            rc-player/**/build/reports/tests/**
+            rc-player/**/build/test-results/**
+          retention-days: 7

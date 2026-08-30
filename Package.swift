@@ -15,7 +15,7 @@
 // once it exists, which is why the release job writes one. See docs/design/RC_PLAYER_SWIFT.md for
 // the window before it does:
 //
-//     .package(url: "https://github.com/yschimke/compose-ai-tools.git", from: "1.15.1")
+//     .package(url: "https://github.com/yschimke/rc-players.git", from: "0.2.0")
 //
 // Coverage: `iosArm64` (device) and `iosSimulatorArm64` (Apple-silicon simulator) only. There is no
 // Intel-simulator slice anywhere in this stack — Compose Multiplatform 1.11 stopped publishing the
@@ -33,7 +33,7 @@ let package = Package(
     .binaryTarget(
       name: "RcComposePlayer",
       url:
-        "https://github.com/yschimke/compose-ai-tools/releases/download/v0.0.0/RcComposePlayer.xcframework.zip",
+        "https://github.com/yschimke/rc-players/releases/download/v0.0.0/RcComposePlayer.xcframework.zip",
       // Placeholder until the first release job runs. A resolve against this fails loudly with a
       // checksum mismatch rather than silently fetching something else.
       checksum: "0000000000000000000000000000000000000000000000000000000000000000"

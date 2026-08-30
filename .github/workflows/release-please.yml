@@ -1,0 +1,54 @@
+name: Release PR
+
+# Keeps a "chore(main): release X.Y.Z" pull request up to date from conventional-commit history
+# since the last tag. When that PR is merged, release-please creates the tag and a draft GitHub
+# Release, and this workflow hands the tag to `release.yml`.
+#
+# One button: merging the release PR triggers the full publish. No manual tag push, no dispatch
+# step.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Ordinary main pushes share one pending slot so release-please PR updates coalesce during a merge
+  # burst. A merged release PR must not share that slot: if it is still pending, the next main push
+  # can replace it before any publish job starts.
+  # Quoted: the `chore(main): release ` literal contains `: `, which YAML would otherwise read as a
+  # nested mapping and reject the whole workflow at startup.
+  group: "release-please-${{ github.ref }}-${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(main): release ') && github.sha || 'updates' }}"
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create tags + GitHub Releases
+      pull-requests: write # open/update the release PR
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: rp
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  release:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets:
+      MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+      SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}

@@ -38,7 +38,7 @@ what it coded against — not which release it happens to have. `window.rcPlayer
 `document.documentElement.dataset.rcPlayerContract` both carry it, and this package's **major**
 tracks it.
 
-Full reference: [RC_PLAYER_EMBED.md](https://github.com/yschimke/compose-ai-tools/blob/main/docs/design/RC_PLAYER_EMBED.md).
+Full reference: [RC_PLAYER_EMBED.md](https://github.com/yschimke/rc-players/blob/main/docs/design/RC_PLAYER_EMBED.md).
 Summary:
 
 | parameter | meaning |

@@ -1,0 +1,55 @@
+name: Snapshot
+
+# Publishes `<next patch>-SNAPSHOT` of the five Maven artifacts on every push to main, so a
+# consumer can pick up an unreleased fix without waiting for a release. The version comes from
+# `ComposeAiMavenPublishingPlugin`, which derives it from `.release-please-manifest.json` when
+# `PLUGIN_VERSION` is unset — so nothing here needs to know the number.
+#
+# Snapshots are NOT signed (the plugin only calls `signAllPublications()` for a non-SNAPSHOT
+# version), which is why this job needs no signing secrets.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: snapshot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish snapshots
+    # macOS for the same reason `release.yml`'s `publish-maven` is: four of the five artifacts carry
+    # iOS klibs, and those only build on a Mac. A Linux snapshot would ship KMP metadata with the
+    # iOS variants missing.
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+        with:
+          cache-read-only: "true"
+      - name: Select an Xcode with the iOS 26 SDK
+        run: |
+          set -euo pipefail
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$xcode" ]; then
+            echo "No Xcode 26 on this image; Compose Multiplatform's iOS targets need its SDK." >&2
+            exit 1
+          fi
+          sudo xcode-select --switch "$xcode/Contents/Developer"
+      - name: Publish snapshots
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: ./gradlew publishPlayers

@@ -20,7 +20,7 @@ Implements #4068.
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/yschimke/compose-ai-tools.git", from: "1.15.1")
+.package(url: "https://github.com/yschimke/rc-players.git", from: "0.2.0")
 ```
 
 ```swift

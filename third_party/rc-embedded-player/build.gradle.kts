@@ -196,7 +196,9 @@ dependencies {
   // takes no variation settings, so applying axes needs the face's bytes — and the pre-instancing
   // file, which the CSS API never serves. Shared with the Robolectric downloadable-font shadow, the
   // figma-svg embed path and the jvm player on purpose: one cache, one resolution rule.
-  implementation(project(":data-fonts-google"))
+  // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
+  // was extracted into this repository.
+  implementation(libs.composeai.data.fonts.google)
   implementation(libs.androidx.collection)
 
   // `RcEmbeddedRenderHarness` — rasterizes `.rc` documents through the player for the rc-compare
@@ -220,5 +222,7 @@ dependencies {
   // captured tree, so it needs the producers themselves (`ComposeSemanticsDataProducer`,
   // `LayoutInspectorDataProducer`, `ComposeFigmaSvgDataProducer`). The connector `api`-exposes
   // `:data-layoutinspector-core`, which carries the payload DTOs the test walks.
-  testImplementation(project(":data-layoutinspector-connector"))
+  // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
+  // was extracted into this repository.
+  testImplementation(libs.composeai.data.layoutinspector.connector)
 }

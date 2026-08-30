@@ -1,0 +1,295 @@
+name: Release
+
+# Publishes the players for a given tag: the five Maven artifacts to Maven Central, the Wasm bundle
+# to npm, and (when re-enabled) the iOS XCFramework onto the GitHub Release with `Package.swift`
+# rewritten to describe it.
+#
+# Entry points:
+#   - workflow_call: called from release-please.yml after release-please merges the release PR and
+#     creates the tag + Release. Primary path.
+#   - workflow_dispatch: re-run the release build for an existing tag (e.g. after a transient
+#     publish failure).
+#   - push: tags (v*): escape hatch for manually-pushed tags.
+#
+# All three resolve to `TAG_NAME`, so the jobs don't care which fired.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Tag name to release (e.g. v0.2.0)."
+        required: true
+        type: string
+    secrets:
+      MAVEN_CENTRAL_USERNAME: { required: true }
+      MAVEN_CENTRAL_PASSWORD: { required: true }
+      SIGNING_KEY: { required: true }
+      SIGNING_KEY_ID: { required: true }
+      SIGNING_KEY_PASSWORD: { required: true }
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to (re)release, e.g. v0.2.0. Must already exist."
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+# Both tag-push and workflow_call/dispatch for the same tag serialize through the same group, so a
+# re-run can't race a fresh release.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+# Every job consumes TAG_NAME (never GITHUB_REF_NAME) so the steps work the same whether triggered
+# by tag push or by workflow_call/dispatch. Templated once here; scripts read it via `$TAG_NAME`
+# from the env, which keeps tag content out of shell arg positions.
+env:
+  TAG_NAME: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  # The Maven artifacts: rc-player-{trace,protocol,runtime,compose} and the vendored Android player.
+  #
+  # macOS, not Linux: `rc-player-compose` and its three siblings publish iOS klibs, and those only
+  # build on a Mac. A Linux publish would silently ship a KMP module whose iOS variants are missing
+  # from the Gradle module metadata — resolvable on JVM, broken on iOS, and only discovered by a
+  # consumer.
+  publish-maven:
+    name: Publish to Maven Central
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG_NAME }}
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+        with:
+          cache-read-only: "true"
+
+      # `ComposeAiMavenPublishingPlugin` reads this; without it the version falls back to the next
+      # patch `-SNAPSHOT` derived from `.release-please-manifest.json`, which is right for local
+      # builds and wrong for a release.
+      - name: Derive version from tag
+        run: echo "PLUGIN_VERSION=${TAG_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Select an Xcode with the iOS 26 SDK
+        run: |
+          set -euo pipefail
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$xcode" ]; then
+            echo "No Xcode 26 on this image; Compose Multiplatform's iOS targets need its SDK." >&2
+            exit 1
+          fi
+          sudo xcode-select --switch "$xcode/Contents/Developer"
+
+      # `publishPlayers` (root build) names the five publishing projects explicitly, so a module
+      # that does not publish can never be swept in by task-name matching.
+      - name: Publish
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: ./gradlew publishPlayers
+
+  # The Wasm bundle, published to npm so a web consumer can drop the player into a page without
+  # cloning this repo and running Gradle.
+  #
+  # `rcPlayerNpmPackage` only *stages* the directory; `npm` runs here and nowhere else. Keeping Node
+  # out of the Gradle build is a deliberate constraint (docs/design/RC_CMP_WASM_PLAYER.md).
+  publish-wasm-player:
+    name: Publish the Wasm player to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    permissions:
+      # `write`, not `read`: the last step calls `gh release upload`, which mutates the Release.
+      # With `read` that step fails authorization, and because the job is `continue-on-error` the
+      # release would quietly ship without the promised bundle.
+      contents: write
+      id-token: write # OIDC trusted publishing + provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG_NAME }}
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+        with:
+          cache-read-only: "true"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - name: Upgrade npm (OIDC trusted publishing needs >= 11.5.1)
+        run: npm install -g npm@latest
+
+      # The size budget in `wasmPlayerDist` is the gate in front of an irreversible publish: npm
+      # refuses to overwrite a version, so a bundle that ballooned would have to be superseded.
+      - name: Stage the npm package
+        run: ./gradlew :rc-player-wasm:rcPlayerNpmPackage
+
+      - name: Set version from the tag
+        working-directory: rc-player/wasm/build/npmPackage
+        # The committed version is a 0.0.0 placeholder. Read from $TAG_NAME in the env rather than
+        # templating it, so a tag name cannot inject arguments.
+        run: npm version --no-git-tag-version --allow-same-version "${TAG_NAME#v}"
+
+      - name: Publish
+        env:
+          IS_RECOVERY: ${{ github.event_name == 'workflow_dispatch' }}
+        working-directory: rc-player/wasm/build/npmPackage
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          if npm view "@yschimke/remote-compose-player-cmp@${version}" version >/dev/null 2>&1; then
+            echo "skip @yschimke/remote-compose-player-cmp@${version} (already published)"
+            exit 0
+          fi
+          flags=(--access public)
+          if [ "${IS_RECOVERY}" = "true" ]; then
+            flags+=(--provenance=false)
+            echo "recovery publish: provenance disabled (ref does not name the built tree)"
+          fi
+          npm publish "${flags[@]}"
+
+      # Also attach the raw bundle to the Release, for a consumer who wants the files without npm.
+      # Cheap, and it means a failed npm publish still leaves the release usable. `!cancelled()` is
+      # the whole point: a step's implicit condition is `success()`, and job-level
+      # `continue-on-error` only tolerates the *job* failing — it does not un-skip later steps.
+      - name: Attach the raw bundle to the Release
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          (cd rc-player/wasm/build/wasmDist && zip -qr "$RUNNER_TEMP/rc-player-wasm.zip" .)
+          gh release upload "$TAG_NAME" "$RUNNER_TEMP/rc-player-wasm.zip" --clobber
+
+  # macOS-only: `xcodebuild -create-xcframework` and the Kotlin/Native Apple linker both need it.
+  publish-xcframework:
+    name: Publish the iOS XCFramework
+    # DISABLED. The Kotlin/Native release link this job drives
+    # (`linkReleaseFramework{IosArm64,IosSimulatorArm64}`, via `rcPlayerXcframeworkChecksum`) runs
+    # out of heap on `macos-15`, and a failure here would take the whole release down with it —
+    # after `publish-maven` has already published to Central, leaving it half-published. Skipping
+    # keeps `release.yml` green; a skipped job does not fail the workflow.
+    #
+    # Nothing regresses by skipping it: this job has never completed a release, `Package.swift`
+    # still carries its placeholder `v0.0.0` / all-zero checksum, and no bare `X.Y.Z` tag exists on
+    # the remote — the Swift distribution has never shipped. The iOS klibs are untouched;
+    # `publish-maven` still puts them on Central.
+    #
+    # Re-enable by deleting this one `if:`, once the link is proven to complete in CI (restore the
+    # `rcPlayerXcframeworkChecksum` step in `ci.yml` at the same time — a green link there is the
+    # evidence). A literal rather than a flag because a job-level `if:` cannot read the `env`
+    # context.
+    if: ${{ false }}
+    needs: [publish-maven]
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The released source, so the binary matches the tag it is attached to. `main` is fetched
+          # separately below, once the asset exists and `Package.swift` can describe it.
+          ref: ${{ env.TAG_NAME }}
+          persist-credentials: true
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+        with:
+          cache-read-only: "true"
+      - name: Derive version from tag
+        run: echo "PLUGIN_VERSION=${TAG_NAME#v}" >> "$GITHUB_ENV"
+      - name: Select an Xcode with the iOS 26 SDK
+        run: |
+          set -euo pipefail
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$xcode" ]; then
+            echo "No Xcode 26 on this image; Compose Multiplatform's iOS targets need its SDK." >&2
+            exit 1
+          fi
+          sudo xcode-select --switch "$xcode/Contents/Developer"
+      - name: Assemble and package the XCFramework
+        run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum
+      - name: Upload the XCFramework to the Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG_NAME" \
+            rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip --clobber
+
+      # Every step here is idempotent, because `workflow_dispatch` re-releasing an existing tag is a
+      # documented recovery path and the second run finds the work already done: `Package.swift`
+      # already describes this asset (the zip is built reproducibly, so the checksum is the same
+      # bytes), and the Swift tag already exists. A re-run must be a no-op, not a failure. A tag
+      # that exists but points somewhere ELSE is still a hard error: that means the asset and the
+      # tag disagree, which is the one thing this scheme exists to prevent.
+      - name: Point Package.swift at the uploaded asset and tag it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          checksum="$(cat rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip.sha256)"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/RcComposePlayer.xcframework.zip"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Bare `<version>`, which is what SwiftPM resolves: it only reads a tag as a semantic
+          # version when the whole ref is `X.Y.Z` or `vX.Y.Z`.
+          swift_tag="${PLUGIN_VERSION}"
+
+          # THE EXISTING TAG IS CHECKED FIRST, before anything is written. A `workflow_dispatch`
+          # re-release of an older version runs against a `main` that has since advanced, so
+          # rewriting and pushing first would commit this release's (older) url and checksum over a
+          # newer `Package.swift` and only then discover the tag was already there. Deciding from
+          # the TAG's own `Package.swift` — not from `main`'s — is also what makes the idempotent
+          # case honest. `--refs` drops the peeled `^{}` line, so a lightweight tag yields one SHA.
+          existing="$(git ls-remote --refs --tags origin "refs/tags/${swift_tag}" | cut -f1)"
+          if [ -n "$existing" ]; then
+            git fetch --no-tags --depth 1 origin "$existing"
+            tagged="$(git show "${existing}:Package.swift")"
+            if printf '%s' "$tagged" | grep -qF "\"$url\"" &&
+              printf '%s' "$tagged" | grep -qF "checksum: \"$checksum\""; then
+              echo "tag ${swift_tag} already describes this asset; nothing to do"
+              exit 0
+            fi
+            echo "tag ${swift_tag} exists at ${existing} but its Package.swift describes a" >&2
+            echo "different asset than ${TAG_NAME}'s. Refusing to move it." >&2
+            exit 1
+          fi
+
+          # The build above ran against $TAG_NAME; the commit has to land on main.
+          git fetch --no-tags origin main
+          git checkout -B release-package-swift FETCH_HEAD
+
+          scripts/update-package-swift.sh "$url" "$checksum"
+          if git diff --quiet -- Package.swift; then
+            echo "Package.swift already points at ${TAG_NAME}'s asset; no commit needed"
+          else
+            git add Package.swift
+            git commit -m "chore(release): point Package.swift at ${TAG_NAME}"
+            git push origin HEAD:main
+          fi
+          git tag "$swift_tag"
+          git push origin "$swift_tag"

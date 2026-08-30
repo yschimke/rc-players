@@ -35,18 +35,14 @@ tasks.register<Sync>("wasmPlayerDist") {
     include("skiko.mjs", "skiko.wasm")
   }
   from(layout.projectDirectory.dir("src/wasmJsMain/resources")) { include("index.html") }
-  from(
-    rootProject.layout.projectDirectory.dir(
-      "samples/cmp-wasm-catalog/src/wasmJsMain/resources/fonts"
-    )
-  ) {
-    into("fonts")
-  }
-  from(
-    rootProject.layout.projectDirectory.file(
-      "samples/cmp-wasm-catalog/src/wasmJsMain/resources/js-joda.esm.js"
-    )
-  )
+  // The font faces and the js-joda ESM shim used to be read out of `:samples:cmp-wasm-catalog` in
+  // compose-ai-tools, which is where they were first vendored. They live here now — this lane is
+  // manifest-only and never fetches, so a named family the distribution doesn't carry fails
+  // `RcComposeSupport.fontFamilyIssue`'s availability check outright, and reaching across a repo
+  // boundary for a load-bearing payload is not something the extraction could keep. Licences ride
+  // with the faces (`fonts/*-OFL.txt`, `fonts/LICENSE.txt`).
+  from(layout.projectDirectory.dir("dist-assets/fonts")) { into("fonts") }
+  from(layout.projectDirectory.file("dist-assets/js-joda.esm.js"))
   into(layout.buildDirectory.dir("wasmDist"))
   // Ratchet, not a target: it exists to make an unintended size jump fail the build, so it should
   // only move when the growth is understood. Raised from 23_000_000 for the Compose Multiplatform

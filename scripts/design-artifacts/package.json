@@ -1,0 +1,10 @@
+{
+  "name": "rc-players-scoring",
+  "private": true,
+  "type": "module",
+  "description": "The Node dependencies the lane-A/B scorer needs. This directory is what remains here of compose-ai-tools' design-artifacts driver: `rc-lane-ab-score.mjs` came across with `scripts/rc-lane-ab/`, which resolves `pixelmatch` and `pngjs` from a bare import relative to the scorer's own directory. The rest of that driver — the Playwright browser tests, the figma adapters, the catalog export — stayed behind, because it drives compose-ai-tools' renderers rather than these players.",
+  "dependencies": {
+    "pixelmatch": "^7.0.0",
+    "pngjs": "^7.0.0"
+  }
+}

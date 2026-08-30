@@ -1,0 +1,8 @@
+.gradle/
+build/
+local.properties
+node_modules/
+.kotlin/
+*.hprof
+.DS_Store
+.idea/

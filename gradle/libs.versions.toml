@@ -1,0 +1,568 @@
+[versions]
+# Held at 2.4.0: CodeQL's Kotlin extractor doesn't support 2.4.10 yet — it aborts with
+# `Kotlin version too new`, which fails the `Analyze (java-kotlin)` job as a configuration error
+# and leaves the repo's main language unscanned. Bump once the CodeQL bundle catches up (the
+# alternative, disabling Kotlin extraction, would trade away the scan itself).
+kotlin = "2.4.10"
+# Kotlin language/api floor for published modules. Set lower than `kotlin`
+# so consumers on an older Kotlin can still link against our artifacts —
+# tapmoc enforces this and fails the build if a transitive API dep raises
+# the floor. Bump only when the published surface needs a newer feature.
+# 2.0.21 captures consumers on Kotlin 2.0.x (e.g. apps still on Gradle 8.x,
+# whose embedded Kotlin runtime tops out around 2.0.21); we use no 2.1+
+# language features in any published module so dropping to 2.0.21 has zero
+# cost on our source today.
+# Caveat: the 2.3.x compiler emits `Language version 2.0 is deprecated and
+# its support will be removed in a future version of Kotlin`. That warning
+# is silenced via `-Xsuppress-version-warnings` in the modules calling
+# `configureKotlinCompatibility(...)`; remove the flag (and bump this to
+# `2.1.x`) when the removal lands and we're ready to drop 2.0.x consumers.
+kotlinCoreLibraries = "2.0.21"
+agp = "9.3.2"
+ktfmt = "0.27.0"
+tapmoc = "0.4.2"
+# Released versions only. Robolectric publishes `4.17-SNAPSHOT` to Sonatype, and Renovate ranks it
+# above `4.17-beta-2` — but no snapshot repository is declared here (nor should one be, for a
+# reproducible build), so a snapshot pin fails dependency resolution outright. The
+# `org.robolectric:robolectric` rule in `.github/renovate.json` keeps that bump from coming back.
+#
+# Unpinned from `4.17-beta-2` in #4549. From `4.17-beta-3` Robolectric rewrites every `FrameInfo`
+# timestamp into the host's monotonic clock domain before handing a frame to hwui, which paced a
+# held session's render-thread animations (Material's `RippleDrawable`) by wall-clock time instead
+# of the simulated clock — the live lane's press feedback went dark, measured in pixels by
+# `LivePressRippleTest` and `AndroidRippleFrameTest`. `ShadowPausedClockHardwareRenderer` in
+# `:daemon:android` draws held frames with those timestamps untranslated, which restores beta-2
+# behaviour inside the daemon sandbox; those two tests are the acceptance check for any bump here,
+# not just a green build.
+robolectric = "4.17-beta-4"
+roborazzi = "1.73.0"
+# androidx.tracing — atrace-level sections for the Android daemon's render phases (see
+# `AndroidxTraceSections` in :daemon:android). Version-pinned (not BOM-managed) because the daemon
+# ships it in the standalone lib-daemon-android sidecar where no BOM applies.
+androidx-tracing = "2.0.1"
+# androidx.tracing 2.x — the Kotlin Multiplatform rewrite, used by the CMP Remote Compose player
+# stack through `:rc-player-trace`. Pinned separately from `androidx-tracing` above rather than
+# bumping it: 2.x drags `kotlinx-coroutines-core` and `androidx.collection` in, which the daemon's
+# standalone `lib-daemon-android` sidecar would then have to package, and the daemon only wants the
+# atrace-shaped `Trace.beginSection` that 1.3.0 already gives it. The two coordinates never meet on
+# one classpath. Note 2.x publishes only `androidJvm` + `jvm` variants — there is no wasmJs or Apple
+# klib, which is the whole reason `:rc-player-trace` is an `expect`/`actual` facade.
+androidx-tracing-kmp = "2.0.1"
+classgraph = "4.8.194"
+# Stable BOM line — what samples use and what `composePreviewRender` /
+# `Compare previews` is exercised against. Renovate updates this freely;
+# the variant below (`compose-bom-compat`) is the older line that
+# renderer-android compiles its public API against.
+compose-bom-stable = "2026.08.00"
+# renderer-android compiles its public API surface against this OLDER BOM so
+# the emitted bytecode only references Compose 1.9.x method signatures.
+# AndroidX honours binary-backward-compatibility within a major version, so
+# consumer apps on any Compose 1.9+ runtime (including the current 1.10.x /
+# 1.11.x BOMs) can invoke it without NoSuchMethodError. When bumping this,
+# check `./gradlew :renderer-android:compileKotlin` against the new floor.
+# 2025.11.01 pins compose-ui AND compose-runtime to 1.9.5 — latest 1.9.x
+# release line. See https://developer.android.com/develop/ui/compose/bom/bom-mapping
+# Renovate is constrained to the 2025.11.x line in `.github/renovate.json` —
+# raising the supported-Compose-minimum is a manual decision.
+compose-bom-compat = "2025.11.01"
+# The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP
+# player. This version is also a CEILING CONSTRAINT ON EVERY CATALOG THE SERVE HOST RENDERS LIVE:
+# it must be >= the newest `compose-multiplatform` of any catalog served from this host. A catalog
+# that upgrades ahead of the host pairs its newer `org.jetbrains.skia.*` bindings with the sidecar's
+# older `libskiko` and every live render dies with `UnsatisfiedLinkError` — silently, at
+# regeneration time, with baked PNGs still serving fine. That is issue #3447: m3-catalog moved to
+# CMP 1.11.1 (skiko 0.144.6, which introduced `org.jetbrains.skia.PathBuilder`) while the host was
+# on 1.10.3 (skiko 0.9.37.4, whose native exports no `PathBuilder_*` symbol at all). Bumping this
+# ref is therefore a SERVE-HOST RELEASE concern, not just a build-hygiene one — see
+# `docs/RENDERER_COMPATIBILITY.md`.
+#
+# HELD AT 1.11.1 — 1.12.0 is not a minor/patch bump this ref can take on its own (#4503):
+#   * `androidx.compose.*:1.12.0` AAR metadata declares `minCompileSdk = 37`, so every Android
+#     module on the conventions default (`compileSdk = 36`) fails `checkAarMetadata` — the bump is
+#     a repo-wide platform move, not a version-ref edit.
+#   * skiko 0.150.1 (what 1.12.0 resolves) REMOVES the mutating `org.jetbrains.skia.Path` API that
+#     m144 had only deprecated at `DeprecationLevel.ERROR`. `Path.conicTo` is gone, which breaks
+#     `PathConic.{jvm,wasm,ios}.kt` and the vendored `FloatsToPath.kt`; the replacement
+#     (`PathBuilder`) is build-then-`snapshot()`, so those seams have to be restructured.
+#   * `compose-multiplatform-material3` (1.11.0-alpha07) and `compottie` (built against foundation
+#     1.11.0) move in lockstep with this ref — see their comments below.
+# The Renovate rule for `org.jetbrains.compose**` in `.github/renovate.json` now tracks the 1.11.x
+# line so the group stops re-proposing this; moving to 1.12 is a deliberate, coordinated change.
+compose-multiplatform = "1.11.1"
+# Consumer runtime used by renderer forward-compatibility tests. Keep this on the newest CMP line
+# that catalogs are expected to adopt; it intentionally does not affect production compilation.
+compose-multiplatform-forward = "1.12.0-rc01"
+# The Compose M3 design catalog (`:samples:design-catalog-m3`) pins material3
+# FORWARD of `compose-bom-stable` (which carries 1.4.0) solely for the Material 3
+# **inset focus ring** APIs — `LocalRippleThemeConfiguration` +
+# `RippleDefaults.InsetFocusRingRippleThemeConfiguration`, added in
+# material3 1.5.0-alpha18. The catalog documents the focus indicator the design
+# system now ships, so it needs the real API; the override is scoped to that one
+# module (its build.gradle.kts) and nothing else in the repo rides the alpha.
+# alpha19+ jump to the Compose 1.12.0-alpha line, whose AAR metadata declares
+# minCompileSdk 37 (via `androidx.compose.animation:animation-core-android:1.12.0-alpha03`).
+# `:samples:design-catalog-m3-android` therefore builds at `compileSdk = 37` (see its
+# build.gradle.kts) rather than the repo default 36 — a scoped divergence, like
+# `:samples:remotecompose`. Drop this pin and revert to `libs.compose.material3`
+# once material3 1.5.0 is stable in `compose-bom-stable`.
+compose-material3-catalog = "1.5.0-alpha27"
+# JetBrains Compose Multiplatform material3 tracks its own line, so the explicit coordinate must
+# use this version rather than `compose-multiplatform`. Matched to what `m3-catalog` pins on the
+# 1.11 line, so the largest live-rendered catalog and the host agree on the material3 ABI as well
+# as on Skiko. (This artifact itself declares foundation/ui `1.11.0-beta03`; the `1.11.1` ref above
+# is newer, so Gradle's conflict resolution keeps one coherent 1.11.1 Compose graph.)
+compose-multiplatform-material3 = "1.11.0-alpha07"
+graphics-shapes = "1.1.0"
+# Compottie — the KMP Lottie runtime that powers `:lottie-preview-runtime`. Tracks the same Compose
+# minor as `compose-multiplatform`: 2.2.x is built against JetBrains Compose foundation 1.11.0, which
+# is what the 1.11 line above now ships. (On the old 1.10.3 floor this was held at 2.1.0 precisely so
+# it could not drag a *newer* Compose onto the renderer classpath — the failure direction
+# `docs/RENDERER_COMPATIBILITY.md` warns about. Bump only in lockstep with `compose-multiplatform`.)
+compottie = "2.2.4"
+activity-compose = "1.13.0"
+# `androidx.navigation:navigation-compose` — used only by the
+# `:samples:android` NavHost preview that exercises the daemon's
+# `data/navigation` data product (Intent + back-pressed snapshot) and the
+# `navigation.*` script-event surface end-to-end. Activity-compose 1.13's
+# transitive `androidx.navigationevent` floor (see CompatRules.kt) means
+# this stays compatible with the renderer's compileOnly stack.
+navigation-compose = "2.10.0"
+# `androidx.glance:glance-appwidget` — used only by `:samples:android`'s Glance widget
+# preview (`GlanceWidgetPreview` in `AppWidgetPreviews.kt`). Renders a `GlanceAppWidget` to
+# `RemoteViews` via `GlanceAppWidget.compose(...)` and inflates that into the preview surface.
+# 1.1.x is the current stable line; bump when the Glance team ships a 1.2.x with the planned
+# preview-DSL stabilisation.
+glance-appwidget = "1.2.0"
+wear-compose = "1.7.0-beta02"
+wear-tiles = "1.6.2"
+wear-protolayout = "1.4.2"
+wear-tooling-preview = "1.0.0"
+# Jetpack Compose Glimmer — the Compose UI toolkit for Android XR display AI
+# glasses (`androidx.xr.glimmer`). Alpha10+ requires AGP 9.2+ and
+# `compileSdk = 37` (matched by `:samples:xr-glimmer`'s `compileSdk` and our
+# `agp = 9.2.x` toolchain). Alpha13 was published 2026-05-19.
+xr-glimmer = "1.0.0-alpha18"
+# Jetpack Compose for XR (`androidx.xr.compose`) — the spatial-UI toolkit
+# (`Subspace`, `SpatialPanel`, `Orbiter`, `SpatialElevation`, `SpatialDialog`).
+# AAR metadata declares `minCompileSdk = 36` / `minAgp = 8.9.1`, so it builds on
+# the repo's default `compileSdk = 36` + AGP 9.2.x — no need for the platform-37
+# bump Glimmer requires. Used by `:samples:xr-spatial`, which renders the
+# 2D Home-Space fallback of these composables through the Android Robolectric
+# pipeline (see docs/design/XR_SPATIAL_PREVIEW.md). Alpha14 was published
+# 2026-05-19.
+xr-compose = "1.0.0-alpha17"
+# XR `*-testing` fakes injected onto the offline render/test classpath (the
+# Robolectric `composePreviewRenderXr` path + `:renderer-xr` / sample tests).
+# Single source of truth: the plugin bakes these into a generated resource (see
+# `gradle-plugin/build.gradle.kts`) so the hard injection in
+# `AndroidPreviewSupport.kt` can't drift from the catalog. The runtime/scenecore
+# alpha line runs one ahead of the compose/arcore line — bump together with
+# `xr-compose`.
+xr-runtime-testing = "1.0.0-beta02"
+xr-scenecore-testing = "1.0.0-beta02"
+xr-arcore-testing = "1.0.0-beta02"
+# The published `xr-composite` native compositor the CLI provisions on demand and
+# the Gradle plugin reads from the shared cache. Deliberately a PIN, not the repo's
+# own version: the compositor's C++ changed 13 times in this repo's life while 226
+# releases republished it, because both consumers used to address the binary by
+# THEIR version (`BUNDLE_VERSION` / `PluginVersion`), forcing an asset to exist at
+# every release. It now lives and releases in yschimke/compose-preview-xr, and this
+# line is the whole interface to it: bumping it is how a new compositor is taken.
+# `check_xr_composite_pin.py` fails a PR whose value does not name a real release
+# there with all three platform tarballs — a 404 downstream is a graceful skip.
+# renovate: datasource=github-releases depName=yschimke/compose-preview-xr
+xr-composite = "1.0.1"
+# `androidx.wear:wear` carries `androidx.wear.ambient.AmbientLifecycleObserver` —
+# the AOSP entry point both horologist's `AmbientAware` and direct subscribers
+# wrap. Used only by `:data-ambient-connector` (the Robolectric shadow + state
+# controller) so consumer code wired to `AmbientAware { ... }` can render under
+# a synthetic ambient state without flashing a real watch.
+wear = "1.4.0"
+# Horologist's `AmbientAware` composable + `AmbientState` sealed type — the
+# de-facto helper most Wear apps use to wrap their root content. Used by
+# `:samples:wear` previews to demonstrate the ambient override end-to-end.
+horologist = "0.7.15"
+# Remote Compose — released alpha coordinates from Google Maven. See
+# https://developer.android.com/jetpack/androidx/releases/compose-remote.
+# Used by `:samples:remotecompose` to demonstrate `RemotePreview` +
+# `@PreviewWrapper(RemotePreviewWrapper::class)`, by the daemon connector, and
+# by the vendored embedded player. Re-check minCompileSdk / AGP requirements
+# when bumping — the line has historically tightened them.
+#  * ui-tooling-preview 1.11.0-rc01 is the first released artifact that
+#    contains `PreviewWrapper` / `PreviewWrapperProvider` — 1.10.x (the
+#    current BOM) doesn't have them. Declared explicitly because the
+#    sample doesn't depend on compose-bom.
+#  * This ref and the `wear-compose-remote` / `glance-wear` refs below MUST be
+#    bumped as one set, to versions built against the same `remote-creation*`.
+#    The three groups only work together when they were, and matching them by
+#    hand kept going wrong: alpha09 dropped
+#    `…creation.compose.modifier.ClickActionModifierKt` that
+#    `remote-material3:alpha02` still called, giving a runtime
+#    `NoClassDefFoundError` inside `RemoteButtonImpl` at render time; a Renovate
+#    bump of the `alpha11` / `alpha04` pair took CI red on both the Kotlin
+#    compile and the daemon-harness render; and #2823 once pinned a
+#    `wear-compose-remote` version that didn't exist yet (every artifact 404'd),
+#    making every Remote Compose module here unresolvable. Check the POMs
+#    before landing a bump: `remote-material3:1.0.0-alpha10` and
+#    `androidx.glance.wear:*:1.0.0-alpha17` both declare `remote-creation*`
+#    `1.0.0-alpha18`, which is what makes the current trio consistent.
+#  * To try an API that has landed on androidx-main but is not released yet, run
+#    with `-Pcomposeai.remoteCompose=snapshot`: `settings.gradle.kts` then adds
+#    the build-id-pinned androidx.dev repository and rewrites all three refs to
+#    `1.0.0-SNAPSHOT`. The snapshot lane is opt-in and temporary — CI, published
+#    consumers and every default build stay on these released pins.
+#  * API drift still happens between alphas, and it lands in the samples +
+#    connector, not just in resolution. Past migrations, for shape: `HostAction`
+#    went `internal` (build actions via the public `hostAction(...)` factory
+#    returning `Action`); `captureSingleRemoteDocument` took on
+#    `RemoteCreationDisplayInfo` + `RemoteDensity` + `LayoutDirection`;
+#    `RemotePreview` became `RemoteContentPreview`; `RemoteDensity.from` dropped
+#    its trailing `Context` arg. Expect the same class of fix when these pins
+#    move — verify a render, not just a compile.
+compose-remote = "1.0.0-alpha18"
+# Matches what the `compose-bom-compat` Compose artifacts already resolve collection to; pinned
+# explicitly because `:third-party-rc-embedded-player` names `ObjectIntMap`/`IntObjectMap` directly.
+androidx-collection = "1.6.0"
+# `FontRequest` / `FontsContractCompat` — the downloadable-fonts provider API the vendored embedded
+# player's typeface resolver uses to service `google:` font prefixes.
+androidx-core = "1.19.0"
+# Wear Compose Remote Material 3 — `androidx.wear.compose.remote:remote-material3`,
+# the Wear M3 widget layer on top of Remote Compose, used by `:samples:remotecompose`
+# and `:samples:wear-widget` (and, out of tree, by the `remote-m3` catalog in
+# yschimke/wear-m3-catalog, which resolves this same coordinate from Google Maven).
+# Its POM declares the `remote-creation*`
+# version it was compiled against (alpha10 → alpha18), so bump it together with
+# `compose-remote` above and `glance-wear` below. It also pulls
+# `androidx.compose.remote.foundation:foundation`, which used to exist only on the
+# androidx-main snapshot line and now publishes to Google Maven — that is what
+# unblocked the move back to released coordinates.
+wear-compose-remote = "1.0.0-alpha10"
+# Glance Wear — the Wear OS *widget* layer on top of Remote Compose. Used by
+# `:samples:wear-widget` to sticker the widget **container** (the
+# squircle the host draws around widget content) via the
+# `wear-tooling-preview` artifact's `WearWidgetPreview` wrapper. Declares
+# `remote-creation*` itself (alpha17 → alpha18), so a skewed pin risks exactly
+# the creation/player drift the Remote Compose comment describes — bump it with
+# the two pins above.
+glance-wear = "1.0.0-alpha17"
+# Pre-release compose-ui artifacts used by `:samples:remotecompose`, which
+# deliberately diverges from `compose-bom-stable` (1.10.x) to track what
+# wear-compose-remote-material3 alpha pulls in transitively — compose 1.11.0+
+# is the first release that ships `PreviewWrapper`. Renovate updates this
+# freely; the sample is meant to ride the latest prerelease compose.
+compose-ui-prerelease = "1.12.0"
+kotlinx-coroutines = "1.11.0"
+kotlinx-datetime = "0.8.0"
+kotlinx-serialization = "1.11.0"
+mcp-kotlin-sdk = "0.15.0"
+okio = "3.18.1"
+fontbox = "3.0.8"
+junit = "4.13.2"
+# A skiko resolved ONLY into `:renderer-desktop`'s `skikoEncodeProbe` configuration — never onto a
+# compile, runtime or test classpath — so `SkikoBridgeShapeTest` can bind against the real
+# `Image.encodeToData` shape of a version this repo does not otherwise resolve.
+#
+# 0.150.0 is where that shape changed (`(format, quality)` → `(format, quality, compressionLevel)`),
+# which is what stopped every desktop capture encoding against Compose Multiplatform 1.12.0-beta01+
+# (#4190). `compose-multiplatform` above cannot be raised to reach it: that ref is a CEILING on every
+# catalog the serve host renders live, so bumping it is a serve-host release decision. Probing the
+# jar in isolation gets the coverage without touching what anything actually runs against.
+#
+# A Renovate bump here is WELCOME and is the point: it re-points the probe at the newest skiko, and
+# the test then says whether the late binding still holds against it.
+skiko-encode-probe = "0.150.1"
+truth = "1.4.5"
+maven-publish = "0.37.0"
+# Google's host-side screenshot testing plugin (Layoutlib-backed). Used only
+# by `:samples:android-screenshot-test`, which exercises our co-existence
+# path: our renderer discovers previews in the `screenshotTest` source set
+# that Google's plugin creates, and renders them via Robolectric without
+# driving Google's own `validate*ScreenshotTest` tasks. Still alpha —
+# re-check compatibility when bumping AGP.
+android-compose-screenshot = "0.0.1-alpha16"
+# Checker Framework qualifier annotations. ATF (`accessibility-test-framework`,
+# pulled in transitively by `roborazzi-accessibility-check`) annotates its
+# nullable getters with `@org.checkerframework.checker.nullness.qual.Nullable`.
+# When that annotation isn't on the renderer's compile classpath the Kotlin
+# 2.3+ compiler emits `INACCESSIBLE_TYPE` warnings (becomes an error in
+# language version 2.4 — KT-80247) on every call site that reads such a
+# getter. Adding `compileOnly(libs.checker.qual)` is enough to silence the
+# warning without exporting the annotation to consumers (it's marker-only;
+# zero runtime impact).
+checker-qual = "4.2.2"
+# KMP port of Google's Material Color Utilities. Powers the wallpaper data
+# extension's seed → ColorScheme derivation (HCT tonal palettes, palette
+# styles, contrast level) so the result matches what Android's wallpaper-
+# derived dynamic theming actually produces.
+# Pinned to the 4.0.x line: `:data-wallpaper-connector` is a published
+# module and its consumers live on the renderer-android Compose floor
+# (`compose-bom-compat`, Compose 1.9.5). 4.1.0 rebuilt against Compose
+# Multiplatform 1.10.0 + Kotlin 2.3.0 and switched from an Android library
+# to a "Multiplatform Android library" — both move the transitive floor
+# above what our published surface targets. Renovate is constrained to
+# 4.0.x in `.github/renovate.json`; bumping the supported floor is a
+# manual decision (re-check `:data-wallpaper-connector:compileKotlin`
+# against `compose-bom-compat` when raising it).
+material-kolor = "4.0.5"
+# Metro — Zac Sweers' compile-time DI framework, used only by the JDK 21+
+# `:samples:sdk21:android-metro-viewmodel` module to demonstrate that
+# constructor-injected ViewModels render under the renderer's @Preview
+# pipeline. The 1.x Gradle plugin jar is compiled to Java 21 bytecode, so
+# the consuming module lives in the conditionally-included `samples/sdk21/`
+# subtree (see `settings.gradle.kts`) — the rest of the repo can keep
+# building under JDK 17. Kotlin 2.3.21 is supported per Metro's
+# compatibility table (`docs/compatibility.md` upstream).
+metro = "1.4.2"
+# Ktor HTTP client (+ OkHttp engine) for downloading bundles given a URL. Ktor 3.x is current and
+# compatible with Kotlin 2.3 / coroutines 1.11; OkHttp 5.x is the stable engine backing it.
+ktor = "3.5.2"
+okhttp = "5.5.0"
+# Pure-Java mDNS/DNS-SD (Bonjour) responder used by `compose-preview serve --lan` to advertise the
+# `_composeai._tcp` service the mobile/wear clients browse for. No slf4j dep (uses java.util.logging),
+# so it doesn't perturb the strict slf4j pin in :cli.
+jmdns = "3.6.3"
+# Coil — image loading. `compileOnly` in `:renderer-android` (see `CoilPreviewSupport`), which
+# swaps the singleton `ImageLoader` for an inline-dispatcher one so `AsyncImage` resolves before a
+# preview is captured (issue #2952). Both majors are pinned because they are separate,
+# non-overlapping package trees (`coil.*` vs `coil3.*`) and a consumer may be on either; we compile
+# against both and pick at runtime. Versions here only bound what the renderer *compiles* against —
+# the consumer's own coil is what runs, and the builder APIs we touch are stable across each major.
+coil2 = "2.7.0"
+# coil3: pinned to the 3.5.x line. 3.6.0 depends on `org.jetbrains.compose.foundation:
+# foundation-android:1.12.0`, which resolves `androidx.compose.foundation`/`ui` 1.12.0 — the same
+# Compose line held out of this repo for `compose-multiplatform` (#4527). coil3 is `compileOnly` in
+# `:renderer-android` but `testImplementation` for its own unit tests, so that upgrade lands
+# directly on a test classpath whose code is compiled against `compose-bom-compat`, and
+# `FigmaSvgRasterizedTextFieldRenderTest` dies with `AbstractMethodError` inside the Compose test
+# rule. 3.5.0 stops at foundation 1.11.2 and is green. Bump this when the repo's Compose floor
+# moves to 1.12, not before; the pin lives in `.github/renovate.json`.
+coil3 = "3.5.0"
+
+# The wire contracts, now published from yschimke/compose-preview-contracts rather than built
+# here. This repository consumes them; it no longer owns these coordinates. A change to a contract
+# reaches this build only through a release there — see that repository's docs/VERSIONING.md.
+# A point pin, deliberately: a range would let a contract change arrive without a pull request.
+composeai-contracts = "2.1.0"
+
+# compose-ai-tools itself, for the two modules this build consumes from it: `data-fonts-google`
+# (the `(family, weight, italic) -> File` downloadable-font cache both vendored players share) and
+# `data-layoutinspector-connector` (the production `compose/figma-svg` export the players' captured
+# trees are run through). Both were `project(...)` deps until the player stack was extracted into
+# this repository; they ride compose-ai-tools' own release train, which is a different number from
+# `composeai-contracts` above.
+composeai-tools = "1.53.1"
+
+# The preview server, published from yschimke/compose-preview-server since its 2.0.0 — the
+# extraction #4732 planned. This repository no longer owns `cli/serve`: `compose-preview serve`,
+# `bundle render` and `history manifest` consume the published library, so a server change reaches
+# this build only through a release there. A point pin for the same reason as the contracts above:
+# a range would let the server move under the CLI without a pull request.
+#
+# Note the version lines are independent. `compose-preview-serve` went to 2.0.0 when it left; this
+# repository is still on 1.x. The server's own POM depends back on this repository's 1.53.0
+# contracts, which Gradle resolves to the workspace projects (same coordinates, project wins), so
+# the loop is closed at build time rather than by a version bump on either side.
+composeai-preview-serve = "2.0.0"
+
+[libraries]
+
+# Wire contracts consumed from compose-preview-contracts (see `composeai-contracts`).
+composeai-daemon-protocol = { module = "ee.schimke.composeai:daemon-protocol", version.ref = "composeai-contracts" }
+composeai-daemon-devices = { module = "ee.schimke.composeai:daemon-devices", version.ref = "composeai-contracts" }
+composeai-daemon-bta = { module = "ee.schimke.composeai:daemon-bta", version.ref = "composeai-contracts" }
+composeai-agent-grant-protocol = { module = "ee.schimke.composeai:agent-grant-protocol", version.ref = "composeai-contracts" }
+composeai-data-render-core = { module = "ee.schimke.composeai:data-render-core", version.ref = "composeai-contracts" }
+composeai-data-layoutinspector-core = { module = "ee.schimke.composeai:data-layoutinspector-core", version.ref = "composeai-contracts" }
+composeai-data-theme-core = { module = "ee.schimke.composeai:data-theme-core", version.ref = "composeai-contracts" }
+composeai-data-preview-overrides-core = { module = "ee.schimke.composeai:data-preview-overrides-core", version.ref = "composeai-contracts" }
+composeai-common-io = { module = "ee.schimke.composeai:common-io", version.ref = "composeai-contracts" }
+
+# compose-ai-tools modules (see `composeai-tools`).
+composeai-data-fonts-google = { module = "ee.schimke.composeai:data-fonts-google", version.ref = "composeai-tools" }
+composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data-layoutinspector-connector", version.ref = "composeai-tools" }
+
+# The preview server (see `composeai-preview-serve`). `-test-fixtures` rides the same coordinates
+# as a Gradle feature variant, so `testFixtures(libs.composeai.preview.serve)` picks it up without
+# a second catalog entry.
+composeai-preview-serve = { module = "ee.schimke.composeai:compose-preview-serve", version.ref = "composeai-preview-serve" }
+# `@com.android.tools.screenshot.PreviewTest` — the marker Google's screenshot plugin requires on a
+# `@Preview` before it will render it (alpha15+ discovers nothing without it). Only the Studio-parity
+# fixtures in `:samples:android-screenshot-test` need it, on the `screenshotTest` classpath; version
+# is pinned to the plugin's own so the annotation and the JUnit engine reading it can't skew.
+android-screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "android-compose-screenshot" }
+# Ktor HTTP client (OkHttp engine) — backs the `:cli` / `:bundle-viewer` bundle downloader. Same
+# `ktor` version ref as the server below so the two can't skew and re-trip the strict slf4j pin in
+# :cli. (The `ktor-client-websockets` entry was dropped when the session-viewer clients — its only
+# consumer — moved to yschimke/compose-preview-client; see issue #2533.)
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+# Embedded Ktor server (CIO engine — pure-Kotlin/coroutines, no Netty) backing the
+# `compose-preview serve` LAN preview server. Same `ktor` version ref as the client so the two
+# can't skew and re-trip the strict slf4j pin in :cli (see cli/build.gradle.kts constraints).
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
+# WebSockets plugin for the embedded server — backs the `serve` streamed-frame lane (`/ws/{id}`).
+# Same `ktor` version ref so it can't skew the slf4j pin in :cli.
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+# Response compression for the embedded server. Text-ish payloads only (see ServeHttpServer) —
+# the catalog PNG/bundle lanes are already-compressed bytes and are excluded. Same `ktor` version
+# ref so it can't skew the slf4j pin in :cli.
+ktor-server-compression = { module = "io.ktor:ktor-server-compression", version.ref = "ktor" }
+# HEAD-answers-GET for the embedded server. Every `serve` route is registered with `get`, so
+# without this plugin a HEAD probe — what link unfurlers, link checkers and `curl -I` send before
+# committing to a download — got a 404/405 across the whole site. Same `ktor` version ref so it
+# can't skew the slf4j pin in :cli.
+ktor-server-auto-head-response = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+jmdns = { module = "org.jmdns:jmdns", version.ref = "jmdns" }
+# Coil 2 / coil 3 — see the version comments above. `coil-compose` (not `coil-base`) because the
+# `:samples:android` fixture renders a real `AsyncImage`; the renderer itself only needs the
+# `ImageLoader` / `EventListener` surface from the base artifact, which `coil-compose` brings in.
+coil2-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil2" }
+coil3-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil3" }
+coil3-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil3" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+classgraph = { module = "io.github.classgraph:classgraph", version.ref = "classgraph" }
+compose-bom-stable = { module = "androidx.compose:compose-bom", version.ref = "compose-bom-stable" }
+compose-bom-compat = { module = "androidx.compose:compose-bom", version.ref = "compose-bom-compat" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+# Downloadable Google-Fonts faces (`Font(GoogleFont("Orbitron"), provider)`). Test-only here: the
+# fixture preview that proves the figma-svg export names a branded downloadable family instead of
+# collapsing to Roboto. Versioned by `compose-bom-compat`.
+compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+# Version-pinned material3 for the M3 design catalog's inset focus ring (see the
+# `compose-material3-catalog` version note). Overrides the stable BOM's 1.4.0 for
+# `:samples:design-catalog-m3` only.
+compose-material3-catalog = { module = "androidx.compose.material3:material3", version.ref = "compose-material3-catalog" }
+# Stock `Icons.*` vectors, for the fixture preview that proves the figma-svg export recovers a
+# Material icon's canonical fonts.google.com identity off the live `VectorPainter`. Versioned by
+# `compose-bom-compat`.
+compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-runtime = { module = "androidx.compose.runtime:runtime" }
+compose-runtime-tracing = { module = "androidx.compose.runtime:runtime-tracing" }
+androidx-tracing = { module = "androidx.tracing:tracing", version.ref = "androidx-tracing" }
+androidx-tracing-kmp = { module = "androidx.tracing:tracing", version.ref = "androidx-tracing-kmp" }
+androidx-tracing-wire = { module = "androidx.tracing:tracing-wire", version.ref = "androidx-tracing-kmp" }
+jetbrains-compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+jetbrains-compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+jetbrains-compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+jetbrains-compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "compose-multiplatform" }
+jetbrains-compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "compose-multiplatform" }
+jetbrains-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform-material3" }
+graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "graphics-shapes" }
+jetbrains-compose-components-ui-tooling-preview = { module = "org.jetbrains.compose.components:components-ui-tooling-preview", version.ref = "compose-multiplatform" }
+jetbrains-compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-multiplatform" }
+compottie = { module = "io.github.alexzhirkevich:compottie", version.ref = "compottie" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
+glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance-appwidget" }
+glance-preview = { module = "androidx.glance:glance-preview", version.ref = "glance-appwidget" }
+wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wear-compose" }
+wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wear-compose" }
+wear-compose-ui-tooling = { module = "androidx.wear.compose:compose-ui-tooling", version.ref = "wear-compose" }
+wear-compose-navigation = { module = "androidx.wear.compose:compose-navigation", version.ref = "wear-compose" }
+wear-tiles = { module = "androidx.wear.tiles:tiles", version.ref = "wear-tiles" }
+wear-tiles-renderer = { module = "androidx.wear.tiles:tiles-renderer", version.ref = "wear-tiles" }
+wear-tiles-tooling = { module = "androidx.wear.tiles:tiles-tooling", version.ref = "wear-tiles" }
+wear-tiles-tooling-preview = { module = "androidx.wear.tiles:tiles-tooling-preview", version.ref = "wear-tiles" }
+xr-glimmer = { module = "androidx.xr.glimmer:glimmer", version.ref = "xr-glimmer" }
+xr-glimmer-google-fonts = { module = "androidx.xr.glimmer:glimmer-google-fonts", version.ref = "xr-glimmer" }
+xr-compose = { module = "androidx.xr.compose:compose", version.ref = "xr-compose" }
+xr-compose-testing = { module = "androidx.xr.compose:compose-testing", version.ref = "xr-compose" }
+# Fake ARCore perception runtime (`FakePerceptionRuntimeFactory` + settable
+# `FakeRuntimeArDevice` head pose). Registered via `ServiceLoader` alongside the
+# scenecore/rendering fakes so the offline XR render/test path can drive
+# `rotateToLookAtUser` (the "face the viewer" billboard modifier reads the head
+# pose from an `ArDevice` perception job). Pinned literally like the other XR
+# `*-testing` artifacts; bump alongside `xr-compose`.
+xr-arcore-testing = { module = "androidx.xr.arcore:arcore-testing", version.ref = "xr-arcore-testing" }
+xr-runtime-testing = { module = "androidx.xr.runtime:runtime-testing", version.ref = "xr-runtime-testing" }
+xr-scenecore-testing = { module = "androidx.xr.scenecore:scenecore-testing", version.ref = "xr-scenecore-testing" }
+wear-tooling-preview = { module = "androidx.wear:wear-tooling-preview", version.ref = "wear-tooling-preview" }
+wear = { module = "androidx.wear:wear", version.ref = "wear" }
+horologist-compose-layout = { module = "com.google.android.horologist:horologist-compose-layout", version.ref = "horologist" }
+compose-remote-tooling-preview = { module = "androidx.compose.remote:remote-tooling-preview", version.ref = "compose-remote" }
+compose-remote-creation = { module = "androidx.compose.remote:remote-creation", version.ref = "compose-remote" }
+compose-remote-creation-compose = { module = "androidx.compose.remote:remote-creation-compose", version.ref = "compose-remote" }
+compose-remote-player-compose = { module = "androidx.compose.remote:remote-player-compose", version.ref = "compose-remote" }
+compose-remote-player-core = { module = "androidx.compose.remote:remote-player-core", version.ref = "compose-remote" }
+compose-remote-player-view = { module = "androidx.compose.remote:remote-player-view", version.ref = "compose-remote" }
+# The document/operation model itself. Upstream builds this one as a plain `java-library` (no
+# Android), which is what makes a jvm target of `:third-party-rc-embedded-player` possible — the
+# vendored player reads `androidx.compose.remote.core.*` directly rather than only through the
+# Android-only `remote-player-core`.
+compose-remote-core = { module = "androidx.compose.remote:remote-core", version.ref = "compose-remote" }
+# `ObjectIntMap` / `IntObjectMap` in the vendored embedded player's public signatures. Compose pulls
+# collection in transitively, but the player names the types directly so it declares them itself.
+androidx-collection = { module = "androidx.collection:collection", version.ref = "androidx-collection" }
+androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
+wear-compose-remote-material3 = { module = "androidx.wear.compose.remote:remote-material3", version.ref = "wear-compose-remote" }
+glance-wear = { module = "androidx.glance.wear:wear", version.ref = "glance-wear" }
+glance-wear-core = { module = "androidx.glance.wear:wear-core", version.ref = "glance-wear" }
+glance-wear-tooling-preview = { module = "androidx.glance.wear:wear-tooling-preview", version.ref = "glance-wear" }
+compose-ui-tooling-preview-wrapper = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "compose-ui-prerelease" }
+compose-ui-tooling-prerelease = { module = "androidx.compose.ui:ui-tooling", version.ref = "compose-ui-prerelease" }
+wear-protolayout = { module = "androidx.wear.protolayout:protolayout", version.ref = "wear-protolayout" }
+wear-protolayout-material3 = { module = "androidx.wear.protolayout:protolayout-material3", version.ref = "wear-protolayout" }
+wear-protolayout-expression = { module = "androidx.wear.protolayout:protolayout-expression", version.ref = "wear-protolayout" }
+# protolayout-proto carries the generated `androidx.wear.protolayout.proto.*` messages that
+# `Layout.toProto()` / `Resources.toProto()` return; protolayout-external-protobuf carries the
+# shaded `androidx.wear.protolayout.protobuf.*` runtime (GeneratedMessageLite, with the inherited
+# `toByteArray()` / `parseFrom(byte[])`). Both are `runtime`-scope transitives of `protolayout`, so
+# the renderer takes them `compileOnly` to serialise the tile IR for a bundle without dragging them
+# onto a consumer's classpath (the consumer already brings them at runtime via protolayout).
+wear-protolayout-proto = { module = "androidx.wear.protolayout:protolayout-proto", version.ref = "wear-protolayout" }
+wear-protolayout-external-protobuf = { module = "androidx.wear.protolayout:protolayout-external-protobuf", version.ref = "wear-protolayout" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+# Reads a class file's `@kotlin.Metadata` to recover the real Kotlin signature (parameter names,
+# types, defaults) of a discovered target composable — the JVM bytecode alone drops names and
+# carries Compose's synthetic Composer/changed params. Version tracks the Kotlin toolchain.
+kotlin-metadata-jvm = { module = "org.jetbrains.kotlin:kotlin-metadata-jvm", version.ref = "kotlin" }
+mcp-kotlin-sdk-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcp-kotlin-sdk" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+okio-fakefilesystem = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
+fontbox = { module = "org.apache.pdfbox:fontbox", version.ref = "fontbox" }
+ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-accessibility-check = { module = "io.github.takahirom.roborazzi:roborazzi-accessibility-check", version.ref = "roborazzi" }
+checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "checker-qual" }
+roborazzi-annotations = { module = "io.github.takahirom.roborazzi:roborazzi-annotations", version.ref = "roborazzi" }
+junit = { module = "junit:junit", version.ref = "junit" }
+skiko-awt-encode-probe = { module = "org.jetbrains.skiko:skiko-awt", version.ref = "skiko-encode-probe" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
+# ASM — used by `:daemon:harness`'s `S3_5RecompileSaveLoopRealModeTest` to mint two
+# `.class` files with the same FQN (`ee.schimke.composeai.daemon.MutableSquare`) but different
+# bytecode at test time. The B2.0 disposable user-classloader test asserts that the daemon
+# actually re-reads bytecode after a `fileChanged` notification; without two distinct `.class`
+# files the test can't differentiate "stale" from "fresh".
+asm = { module = "org.ow2.asm:asm", version = "9.10.1" }
+asm-commons = { module = "org.ow2.asm:asm-commons", version = "9.10.1" }
+material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "material-kolor" }
+# `metroViewModel()` + `LocalMetroViewModelFactory` + the `MetroViewModelFactory` /
+# `ViewModelGraph` base types live here. Used by `:samples:android-metro-viewmodel`.
+metro-viewmodel-compose = { module = "dev.zacsweers.metro:metrox-viewmodel-compose", version.ref = "metro" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
+android-compose-screenshot = { id = "com.android.compose.screenshot", version.ref = "android-compose-screenshot" }
+ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
+tapmoc = { id = "com.gradleup.tapmoc", version.ref = "tapmoc" }
+# Metro compiler plugin — `:samples:android-metro-viewmodel` applies this to
+# get `@DependencyGraph` / `@Inject` / `@ContributesIntoMap` codegen.
+metro = { id = "dev.zacsweers.metro", version.ref = "metro" }

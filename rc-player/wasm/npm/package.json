@@ -11,14 +11,14 @@
   ],
   "license": "Apache-2.0",
   "author": "Yuri Schimke",
-  "homepage": "https://github.com/yschimke/compose-ai-tools/blob/main/docs/design/RC_PLAYER_EMBED.md",
+  "homepage": "https://github.com/yschimke/rc-players/blob/main/docs/design/RC_PLAYER_EMBED.md",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yschimke/compose-ai-tools.git",
+    "url": "git+https://github.com/yschimke/rc-players.git",
     "directory": "rc-player/wasm"
   },
   "bugs": {
-    "url": "https://github.com/yschimke/compose-ai-tools/issues"
+    "url": "https://github.com/yschimke/rc-players/issues"
   },
   "type": "module",
   "files": [
