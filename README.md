@@ -140,11 +140,12 @@ consumers see.
 equivalent.
 
 **The version line continues compose-ai-tools'.** `rc-player-trace`, `-protocol`, `-runtime`,
-`-compose` and `third-party-rc-embedded-player` were published from there through `1.53.1`, so this
-repository's manifest starts at `1.53.1` and the first release cut here is `1.54.0`. Restarting at
+`-compose` and `third-party-rc-embedded-player` were published from there through `1.54.0`, so this
+repository's manifest starts at `1.54.0` and the first release cut here is `1.55.0`. Restarting at
 `0.1.0` would have published a version *below* what consumers already resolve — a downgrade to
-anything using a range or a BOM, and silently invisible to everything else. `rc-player-wasm-dist`
-and `third-party-rc-embedded-player-jvm` are new coordinates and first appear at that release. The version comes from `PLUGIN_VERSION` in the environment, or from
+anything using a range or a BOM, and silently invisible to everything else. `rc-player-wasm-dist`,
+`third-party-rc-embedded-player-jvm` and `remote-compose-player-js-dist` are new coordinates and
+first appear at that release. The version comes from `PLUGIN_VERSION` in the environment, or from
 `.release-please-manifest.json` bumped to the next patch `-SNAPSHOT` for local builds. The npm bundle
 and the XCFramework are assembled by the release workflow, which is the only thing that should write
 `Package.swift`.
