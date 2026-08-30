@@ -48,7 +48,24 @@ jobs:
             exit 1
           fi
           sudo xcode-select --switch "$xcode/Contents/Developer"
+      # Skip rather than fail when the credentials are absent. A snapshot is a convenience, not a
+      # gate: on the first push to this repository the job compiled every iOS klib and then died on
+      # an HTTP 401 from Sonatype, which reports a missing credential as a red main build. Nothing
+      # is wrong with the tree in that case, and a red main teaches people to ignore red mains.
+      # `release.yml` takes the opposite line, correctly — there a missing credential is fatal.
+      - name: Check whether publishing credentials are configured
+        id: creds
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+        run: |
+          if [ -n "${MAVEN_CENTRAL_USERNAME:-}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No MAVEN_CENTRAL_USERNAME configured — skipping the snapshot publish."
+          fi
       - name: Publish snapshots
+        if: ${{ steps.creds.outputs.configured == 'true' }}
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
