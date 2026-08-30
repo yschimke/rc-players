@@ -46,9 +46,22 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
-    # `inherit`, not a five-line explicit map. Naming each secret at the call site means the *call*
-    # fails at startup when one is not configured — `startup_failure`, with no job, no log and no
-    # indication of which secret is missing. That is what this repository's very first Release PR run
-    # did. Inheriting lets the workflow start and fail at the publish step instead, where the
-    # preflight below names exactly what is absent.
+    # `inherit`, not a five-line explicit map. Naming each secret at the call site makes the *call*
+    # fail at startup when one is not configured — no job, no log, no indication of which secret is
+    # missing. Inheriting lets the workflow start and fail at `publish-maven`'s preflight instead,
+    # which names exactly what is absent. (That was not the cause of this repository's early
+    # `startup_failure` runs — see the permissions note below — but it is still the better shape.)
     secrets: inherit
+    # A called workflow CANNOT ELEVATE what its caller granted. This workflow's top-level
+    # `permissions` is `contents: read`, and this job does not override it — so every job in
+    # `release.yml` asking for `contents: write` (creating the Release, uploading assets, pushing the
+    # `Package.swift` commit) or `id-token: write` (npm Trusted Publishing's OIDC exchange) asks for
+    # more than it was given, and the CALL fails at startup: no job, no log, no cause.
+    #
+    # That is what `startup_failure` on this repository's first two Release PR runs actually was. It
+    # survived the switch to `secrets: inherit` because the secrets were never the problem — this
+    # block simply did not come across when the workflow was ported from compose-ai-tools, where it
+    # has always been present and carries the same warning.
+    permissions:
+      contents: write
+      id-token: write
