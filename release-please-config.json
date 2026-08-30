@@ -11,7 +11,8 @@
       "extra-files": [
         "README.md"
       ],
-      "bootstrap-sha": "a92c278dd4e9cebfbe06e5eb53803661e9bd10c2"
+      "bootstrap-sha": "a92c278dd4e9cebfbe06e5eb53803661e9bd10c2",
+      "last-release-sha": "a92c278dd4e9cebfbe06e5eb53803661e9bd10c2"
     }
   }
 }
