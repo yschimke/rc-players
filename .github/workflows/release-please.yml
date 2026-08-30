@@ -46,9 +46,9 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
-    secrets:
-      MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-      MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-      SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-      SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID }}
-      SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+    # `inherit`, not a five-line explicit map. Naming each secret at the call site means the *call*
+    # fails at startup when one is not configured — `startup_failure`, with no job, no log and no
+    # indication of which secret is missing. That is what this repository's very first Release PR run
+    # did. Inheriting lets the workflow start and fail at the publish step instead, where the
+    # preflight below names exactly what is absent.
+    secrets: inherit
