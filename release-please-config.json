@@ -7,8 +7,11 @@
     ".": {
       "package-name": "rc-players",
       "include-component-in-tag": false,
-      "draft": true,
-      "extra-files": ["README.md"]
+      "draft": false,
+      "extra-files": [
+        "README.md"
+      ],
+      "bootstrap-sha": "a92c278dd4e9cebfbe06e5eb53803661e9bd10c2"
     }
   }
 }
