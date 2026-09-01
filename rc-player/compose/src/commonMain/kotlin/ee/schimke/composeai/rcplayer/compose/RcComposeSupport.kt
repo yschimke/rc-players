@@ -1163,6 +1163,8 @@ private fun paintIssue(paint: RcPaintData): String? {
           PAINT_STROKE_JOIN,
           PAINT_BLEND_MODE,
           PAINT_CLEAR_COLOR_FILTER -> 0
+          PAINT_SHADER_MATRIX -> 1
+          PAINT_TEXTURE -> 3
           PAINT_FONT_AXIS -> (command ushr 16) * 2
           else -> return "paint command $type is not implemented"
         }
@@ -1241,7 +1243,9 @@ private const val PAINT_COLOR_ID = 19
 private const val PAINT_COLOR_FILTER_ID = 20
 private const val PAINT_TYPEFACE = 16
 private const val PAINT_CLEAR_COLOR_FILTER = 21
+private const val PAINT_SHADER_MATRIX = 22
 private const val PAINT_FONT_AXIS = 23
+private const val PAINT_TEXTURE = 24
 
 private const val FONT_AXIS_WEIGHT = 0x77676874 // wght
 private const val FONT_AXIS_ITALIC = 0x6974616c // ital

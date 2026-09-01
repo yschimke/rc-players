@@ -77,6 +77,7 @@ import { TextLookup } from './operations/TextLookup';
 import { TextLookupInt } from './operations/TextLookupInt';
 import { ColorTheme } from './operations/ColorTheme';
 import { ColorAttribute } from './operations/ColorAttribute';
+import { ImageAttribute } from './operations/ImageAttribute';
 import { DataMapLookup } from './operations/DataMapLookup';
 import { TextMeasure } from './operations/TextMeasure';
 import { TextAttribute } from './operations/TextAttribute';
@@ -245,6 +246,7 @@ export class Operations {
         m.set(TextLookupInt.OP_CODE, TextLookupInt.read);
         m.set(ColorTheme.OP_CODE, ColorTheme.read);
         m.set(ColorAttribute.OP_CODE, ColorAttribute.read);
+        m.set(ImageAttribute.OP_CODE, ImageAttribute.read);
         m.set(TextLayout.OP_CODE, TextLayout.read);
         m.set(PathAppend.OP_CODE, PathAppend.read);
         m.set(ImpulseOperation.OP_CODE, ImpulseOperation.read);
