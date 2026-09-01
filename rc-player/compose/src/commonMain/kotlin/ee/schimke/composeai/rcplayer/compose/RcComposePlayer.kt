@@ -63,11 +63,14 @@ import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
@@ -2974,6 +2977,7 @@ private class RcPaintState {
   var blendMode: BlendMode = BlendMode.SrcOver
   var blendModeValue: Int = 3
   var brush: Brush? = null
+  var baseShader: Shader? = null
   var colorFilter: ColorFilter? = null
   var textSize: Float = 16f
   var fontFamily: FontFamily = FontFamily.Default
@@ -3129,7 +3133,7 @@ private fun DrawScope.drawOperations(
     }
     if (filterTheme && !isThemeVisible(requestedTheme, currentTheme)) continue
     when (operation) {
-      is RcPaintData -> applyPaint(operation, paint, state)
+      is RcPaintData -> applyPaint(operation, paint, state, images)
       is RcDraw4 -> draw4(operation, paint, state)
       is RcDraw3 -> draw3(operation, paint, state)
       is RcDraw6 -> draw6(operation, paint, state)
@@ -4211,7 +4215,12 @@ private fun DrawScope.transform2(operation: RcTransform2, state: RcPlayerState) 
   }
 }
 
-private fun applyPaint(operation: RcPaintData, state: RcPaintState, values: RcPlayerState) {
+private fun applyPaint(
+  operation: RcPaintData,
+  state: RcPaintState,
+  values: RcPlayerState,
+  images: Map<Int, ImageBitmap>,
+) {
   var index = 0
   while (index < operation.words.size) {
     val command = operation.words[index++]
@@ -4238,6 +4247,7 @@ private fun applyPaint(operation: RcPaintData, state: RcPaintState, values: RcPl
       9 -> {
         val shaderId = operation.words[index++]
         check(shaderId == 0) { "Shader id $shaderId is not implemented by the CMP backend" }
+        state.baseShader = null
         state.brush = null
       }
       11 -> index = applyGradient(operation.words, index, command, state, values)
@@ -4270,6 +4280,15 @@ private fun applyPaint(operation: RcPaintData, state: RcPaintState, values: RcPl
           )
       }
       21 -> state.colorFilter = null
+      22 -> {
+        val matrixId =
+          ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++]).referencedId
+        val shader = state.baseShader
+        if (shader != null) {
+          state.brush =
+            constantShaderBrush(transformRcShader(shader, matrixId?.let(values::matrixValues)))
+        }
+      }
       23 -> {
         val count = command ushr 16
         repeat(count) {
@@ -4286,6 +4305,20 @@ private fun applyPaint(operation: RcPaintData, state: RcPaintState, values: RcPl
               state.fontStyle = if (value != 0f) FontStyle.Italic else FontStyle.Normal
           }
         }
+      }
+      24 -> {
+        val imageId = operation.words[index++]
+        val tileModes = operation.words[index++]
+        index++ // filter/max-anisotropy; Compose owns bitmap sampling.
+        state.baseShader =
+          images[imageId]?.let {
+            ImageShader(
+              it,
+              gradientTileMode(tileModes and 0xf),
+              gradientTileMode((tileModes ushr 16) and 0xf),
+            )
+          }
+        state.brush = state.baseShader?.let(::constantShaderBrush)
       }
       16 -> {
         val style = command ushr 16
@@ -4326,6 +4359,9 @@ private fun applyGradient(
   val stopCount = words[index++]
   val stops = List(stopCount) { values.resolve(RcFloatWord(words[index++])) }
   fun coordinate(): Float = values.resolve(RcFloatWord(words[index++]))
+  // A gradient replaces the preceding shader, so a following SHADER_MATRIX clear must not
+  // resurrect an image texture from an earlier PaintData operation.
+  state.baseShader = null
   state.brush =
     when (command ushr 16) {
       0 -> {
@@ -4367,6 +4403,13 @@ private fun applyGradient(
     }
   return index
 }
+
+private fun constantShaderBrush(shader: Shader): Brush =
+  object : ShaderBrush() {
+    override fun createShader(size: Size): Shader = shader
+  }
+
+internal expect fun transformRcShader(shader: Shader, matrix: FloatArray?): Shader
 
 private fun gradientTileMode(value: Int): TileMode =
   when (value) {

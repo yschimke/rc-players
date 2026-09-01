@@ -34,6 +34,15 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
 
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Run the vendored JS player conformance test
+        working-directory: third_party/remote-compose-player
+        run: |
+          npm ci
+          npm test
+
       # `:third-party-rc-embedded-player` is an Android library, so this lane needs an SDK. The
       # runner image ships one; AGP resolves it from ANDROID_HOME.
       - name: Run the JVM and Android player suites

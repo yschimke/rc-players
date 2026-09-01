@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit",
+    "test": "esbuild src/conformance.test.ts --bundle --platform=node --format=cjs --outfile=build-test/conformance.cjs && node build-test/conformance.cjs",
     "build": "tsc",
     "bundle": "esbuild src/web/main.ts --bundle --outfile=web-player/bundle.js --format=iife --target=es2020 --global-name=RC",
     "build:standalone": "bash build-standalone.sh",

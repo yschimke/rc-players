@@ -99,6 +99,12 @@ tasks.register<Sync>("wasmPlayerTestDist") {
   )
   from(project(":rc-player-compat-tests").layout.buildDirectory.file("fixtures/androidx-layout.rc"))
   from(project(":rc-player-compat-tests").layout.buildDirectory.file("fixtures/androidx-scroll.rc"))
+  from(
+    project(":rc-player-compose")
+      .layout
+      .projectDirectory
+      .file("src/jvmTest/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc")
+  )
   into(layout.buildDirectory.dir("wasmTestDist"))
 }
 

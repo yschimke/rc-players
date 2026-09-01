@@ -1,5 +1,5 @@
 "use strict";
-var RC = (() => {
+var RcdPlayerBundle = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -18,7 +18,7 @@ var RC = (() => {
   };
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // third_party/remote-compose-player/src/web/main.ts
+  // src/web/main.ts
   var main_exports = {};
   __export(main_exports, {
     GOOGLE_PREFIX: () => GOOGLE_PREFIX,
@@ -41,7 +41,7 @@ var RC = (() => {
     webFontsReady: () => webFontsReady
   });
 
-  // third_party/remote-compose-player/src/core/operations/Utils.ts
+  // src/core/operations/Utils.ts
   var _dv = new DataView(new ArrayBuffer(4));
   function intBitsToFloat(bits) {
     _dv.setInt32(0, bits, false);
@@ -148,7 +148,7 @@ var RC = (() => {
     return a << 24 | r << 16 | g << 8 | b | 0;
   }
 
-  // third_party/remote-compose-player/src/core/operations/utilities/IntMap.ts
+  // src/core/operations/utilities/IntMap.ts
   var NOT_PRESENT = -2147483648;
   var DEFAULT_CAPACITY = 16;
   var LOAD_FACTOR = 0.75;
@@ -255,7 +255,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/IntFloatMap.ts
+  // src/core/operations/utilities/IntFloatMap.ts
   var NOT_PRESENT2 = -2147483648;
   var DEFAULT_CAPACITY2 = 16;
   var LOAD_FACTOR2 = 0.75;
@@ -334,7 +334,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/IntIntMap.ts
+  // src/core/operations/utilities/IntIntMap.ts
   var NOT_PRESENT3 = -2147483648;
   var DEFAULT_CAPACITY3 = 16;
   var LOAD_FACTOR3 = 0.75;
@@ -406,8 +406,8 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/RemoteComposeState.ts
-  var _RemoteComposeState = class _RemoteComposeState {
+  // src/core/RemoteComposeState.ts
+  var RemoteComposeState = class _RemoteComposeState {
     constructor() {
       this.mIntDataMap = new IntMap();
       this.mIntWrittenMap = new IntMap();
@@ -431,6 +431,15 @@ var RC = (() => {
       this.mAllVarListeners = [];
       this.mLastRepaint = NaN;
       this.mRepaintSeconds = NaN;
+    }
+    static {
+      this.START_ID = 42;
+    }
+    static {
+      this.BITMAP_TEXTURE_ID_OFFSET = 2e3;
+    }
+    static {
+      this.MAX_DATA = 1e4;
     }
     getFromId(id) {
       return this.mIntDataMap.get(id);
@@ -713,12 +722,8 @@ var RC = (() => {
       }
     }
   };
-  _RemoteComposeState.START_ID = 42;
-  _RemoteComposeState.BITMAP_TEXTURE_ID_OFFSET = 2e3;
-  _RemoteComposeState.MAX_DATA = 1e4;
-  var RemoteComposeState = _RemoteComposeState;
 
-  // third_party/remote-compose-player/src/core/RemoteClock.ts
+  // src/core/RemoteClock.ts
   function createSnapshot(millis) {
     const d = new Date(millis);
     const year = d.getFullYear();
@@ -761,10 +766,10 @@ var RC = (() => {
   };
   var SYSTEM_CLOCK = SystemClock;
 
-  // third_party/remote-compose-player/src/core/RemoteContext.ts
+  // src/core/RemoteContext.ts
   var DENSITY_BEHAVIOR_LEGACY = 0;
   var DENSITY_BEHAVIOR_DP = 2;
-  var _RemoteContext = class _RemoteContext {
+  var RemoteContext = class _RemoteContext {
     constructor(clock = SYSTEM_CLOCK) {
       this.mRemoteComposeState = new RemoteComposeState();
       this.mPaintContext = null;
@@ -786,6 +791,9 @@ var RC = (() => {
       this.mTouchVersion = 0;
       this.mClock = clock;
       this.mDocLoadTime = clock.millis();
+    }
+    static {
+      this.MAX_OP_COUNT = 2e4;
     }
     supportsVersion(major, minor, patch) {
       return this.mDocument?.mVersion?.supportsVersion(major, minor, patch) ?? false;
@@ -931,83 +939,210 @@ var RC = (() => {
     getCollectionsAccess() {
       return this.mRemoteComposeState;
     }
+    static {
+      // --- System variable IDs ---
+      this.ID_CONTINUOUS_SEC = 1;
+    }
+    static {
+      this.ID_TIME_IN_SEC = 2;
+    }
+    static {
+      this.ID_TIME_IN_MIN = 3;
+    }
+    static {
+      this.ID_TIME_IN_HR = 4;
+    }
+    static {
+      this.ID_WINDOW_WIDTH = 5;
+    }
+    static {
+      this.ID_WINDOW_HEIGHT = 6;
+    }
+    static {
+      this.ID_COMPONENT_WIDTH = 7;
+    }
+    static {
+      this.ID_COMPONENT_HEIGHT = 8;
+    }
+    static {
+      this.ID_CALENDAR_MONTH = 9;
+    }
+    static {
+      this.ID_OFFSET_TO_UTC = 10;
+    }
+    static {
+      this.ID_WEEK_DAY = 11;
+    }
+    static {
+      this.ID_DAY_OF_MONTH = 12;
+    }
+    static {
+      this.ID_TOUCH_POS_X = 13;
+    }
+    static {
+      this.ID_TOUCH_POS_Y = 14;
+    }
+    static {
+      this.ID_TOUCH_VEL_X = 15;
+    }
+    static {
+      this.ID_TOUCH_VEL_Y = 16;
+    }
+    static {
+      this.ID_ACCELERATION_X = 17;
+    }
+    static {
+      this.ID_ACCELERATION_Y = 18;
+    }
+    static {
+      this.ID_ACCELERATION_Z = 19;
+    }
+    static {
+      this.ID_GYRO_ROT_X = 20;
+    }
+    static {
+      this.ID_GYRO_ROT_Y = 21;
+    }
+    static {
+      this.ID_GYRO_ROT_Z = 22;
+    }
+    static {
+      this.ID_MAGNETIC_X = 23;
+    }
+    static {
+      this.ID_MAGNETIC_Y = 24;
+    }
+    static {
+      this.ID_MAGNETIC_Z = 25;
+    }
+    static {
+      this.ID_LIGHT = 26;
+    }
+    static {
+      this.ID_DENSITY = 27;
+    }
+    static {
+      this.ID_API_LEVEL = 28;
+    }
+    static {
+      this.ID_TOUCH_EVENT_TIME = 29;
+    }
+    static {
+      this.ID_ANIMATION_TIME = 30;
+    }
+    static {
+      this.ID_ANIMATION_DELTA_TIME = 31;
+    }
+    static {
+      this.ID_EPOCH_SECOND = 32;
+    }
+    static {
+      this.ID_FONT_SIZE = 33;
+    }
+    static {
+      this.ID_DAY_OF_YEAR = 34;
+    }
+    static {
+      this.ID_YEAR = 35;
+    }
+    static {
+      this.ID_FIRST_BASELINE = 36;
+    }
+    static {
+      this.ID_LAST_BASELINE = 37;
+    }
+    static {
+      // NaN-encoded float versions of system variables
+      this.FLOAT_DENSITY = asNan(27);
+    }
+    static {
+      this.FLOAT_CONTINUOUS_SEC = asNan(1);
+    }
+    static {
+      this.FLOAT_TIME_IN_SEC = asNan(2);
+    }
+    static {
+      this.FLOAT_TIME_IN_MIN = asNan(3);
+    }
+    static {
+      this.FLOAT_TIME_IN_HR = asNan(4);
+    }
+    static {
+      this.FLOAT_WINDOW_WIDTH = asNan(5);
+    }
+    static {
+      this.FLOAT_WINDOW_HEIGHT = asNan(6);
+    }
+    static {
+      this.FLOAT_COMPONENT_WIDTH = asNan(7);
+    }
+    static {
+      this.FLOAT_COMPONENT_HEIGHT = asNan(8);
+    }
+    static {
+      this.FLOAT_CALENDAR_MONTH = asNan(9);
+    }
+    static {
+      this.FLOAT_OFFSET_TO_UTC = asNan(10);
+    }
+    static {
+      this.FLOAT_WEEK_DAY = asNan(11);
+    }
+    static {
+      this.FLOAT_DAY_OF_MONTH = asNan(12);
+    }
+    static {
+      this.FLOAT_TOUCH_POS_X = asNan(13);
+    }
+    static {
+      this.FLOAT_TOUCH_POS_Y = asNan(14);
+    }
+    static {
+      this.FLOAT_TOUCH_VEL_X = asNan(15);
+    }
+    static {
+      this.FLOAT_TOUCH_VEL_Y = asNan(16);
+    }
+    static {
+      this.FLOAT_TOUCH_EVENT_TIME = asNan(29);
+    }
+    static {
+      this.FLOAT_ANIMATION_TIME = asNan(30);
+    }
+    static {
+      this.FLOAT_ANIMATION_DELTA_TIME = asNan(31);
+    }
+    static {
+      this.FLOAT_DAY_OF_YEAR = asNan(34);
+    }
+    static {
+      this.FLOAT_YEAR = asNan(35);
+    }
+    static {
+      this.FLOAT_API_LEVEL = asNan(28);
+    }
+    static {
+      this.FLOAT_FONT_SIZE = asNan(33);
+    }
+    static {
+      this.FIRST_BASELINE = asNan(36);
+    }
+    static {
+      this.LAST_BASELINE = asNan(37);
+    }
     static isTime(fl) {
       const value = idFromNan(fl);
       return value >= _RemoteContext.ID_CONTINUOUS_SEC && value <= _RemoteContext.ID_DAY_OF_MONTH;
     }
   };
-  _RemoteContext.MAX_OP_COUNT = 2e4;
-  // --- System variable IDs ---
-  _RemoteContext.ID_CONTINUOUS_SEC = 1;
-  _RemoteContext.ID_TIME_IN_SEC = 2;
-  _RemoteContext.ID_TIME_IN_MIN = 3;
-  _RemoteContext.ID_TIME_IN_HR = 4;
-  _RemoteContext.ID_WINDOW_WIDTH = 5;
-  _RemoteContext.ID_WINDOW_HEIGHT = 6;
-  _RemoteContext.ID_COMPONENT_WIDTH = 7;
-  _RemoteContext.ID_COMPONENT_HEIGHT = 8;
-  _RemoteContext.ID_CALENDAR_MONTH = 9;
-  _RemoteContext.ID_OFFSET_TO_UTC = 10;
-  _RemoteContext.ID_WEEK_DAY = 11;
-  _RemoteContext.ID_DAY_OF_MONTH = 12;
-  _RemoteContext.ID_TOUCH_POS_X = 13;
-  _RemoteContext.ID_TOUCH_POS_Y = 14;
-  _RemoteContext.ID_TOUCH_VEL_X = 15;
-  _RemoteContext.ID_TOUCH_VEL_Y = 16;
-  _RemoteContext.ID_ACCELERATION_X = 17;
-  _RemoteContext.ID_ACCELERATION_Y = 18;
-  _RemoteContext.ID_ACCELERATION_Z = 19;
-  _RemoteContext.ID_GYRO_ROT_X = 20;
-  _RemoteContext.ID_GYRO_ROT_Y = 21;
-  _RemoteContext.ID_GYRO_ROT_Z = 22;
-  _RemoteContext.ID_MAGNETIC_X = 23;
-  _RemoteContext.ID_MAGNETIC_Y = 24;
-  _RemoteContext.ID_MAGNETIC_Z = 25;
-  _RemoteContext.ID_LIGHT = 26;
-  _RemoteContext.ID_DENSITY = 27;
-  _RemoteContext.ID_API_LEVEL = 28;
-  _RemoteContext.ID_TOUCH_EVENT_TIME = 29;
-  _RemoteContext.ID_ANIMATION_TIME = 30;
-  _RemoteContext.ID_ANIMATION_DELTA_TIME = 31;
-  _RemoteContext.ID_EPOCH_SECOND = 32;
-  _RemoteContext.ID_FONT_SIZE = 33;
-  _RemoteContext.ID_DAY_OF_YEAR = 34;
-  _RemoteContext.ID_YEAR = 35;
-  _RemoteContext.ID_FIRST_BASELINE = 36;
-  _RemoteContext.ID_LAST_BASELINE = 37;
-  // NaN-encoded float versions of system variables
-  _RemoteContext.FLOAT_DENSITY = asNan(27);
-  _RemoteContext.FLOAT_CONTINUOUS_SEC = asNan(1);
-  _RemoteContext.FLOAT_TIME_IN_SEC = asNan(2);
-  _RemoteContext.FLOAT_TIME_IN_MIN = asNan(3);
-  _RemoteContext.FLOAT_TIME_IN_HR = asNan(4);
-  _RemoteContext.FLOAT_WINDOW_WIDTH = asNan(5);
-  _RemoteContext.FLOAT_WINDOW_HEIGHT = asNan(6);
-  _RemoteContext.FLOAT_COMPONENT_WIDTH = asNan(7);
-  _RemoteContext.FLOAT_COMPONENT_HEIGHT = asNan(8);
-  _RemoteContext.FLOAT_CALENDAR_MONTH = asNan(9);
-  _RemoteContext.FLOAT_OFFSET_TO_UTC = asNan(10);
-  _RemoteContext.FLOAT_WEEK_DAY = asNan(11);
-  _RemoteContext.FLOAT_DAY_OF_MONTH = asNan(12);
-  _RemoteContext.FLOAT_TOUCH_POS_X = asNan(13);
-  _RemoteContext.FLOAT_TOUCH_POS_Y = asNan(14);
-  _RemoteContext.FLOAT_TOUCH_VEL_X = asNan(15);
-  _RemoteContext.FLOAT_TOUCH_VEL_Y = asNan(16);
-  _RemoteContext.FLOAT_TOUCH_EVENT_TIME = asNan(29);
-  _RemoteContext.FLOAT_ANIMATION_TIME = asNan(30);
-  _RemoteContext.FLOAT_ANIMATION_DELTA_TIME = asNan(31);
-  _RemoteContext.FLOAT_DAY_OF_YEAR = asNan(34);
-  _RemoteContext.FLOAT_YEAR = asNan(35);
-  _RemoteContext.FLOAT_API_LEVEL = asNan(28);
-  _RemoteContext.FLOAT_FONT_SIZE = asNan(33);
-  _RemoteContext.FIRST_BASELINE = asNan(36);
-  _RemoteContext.LAST_BASELINE = asNan(37);
-  var RemoteContext = _RemoteContext;
 
-  // third_party/remote-compose-player/src/core/Operation.ts
-  var _Operation = class _Operation {
+  // src/core/Operation.ts
+  var Operation = class _Operation {
     constructor() {
       this.mDirty = true;
+    }
+    static {
+      this.ENABLE_DIRTY_FLAG_OPTIMIZATION = true;
     }
     /**
      * Materialize this operation during macro (loom) expansion. Default behaviour
@@ -1039,11 +1174,74 @@ var RC = (() => {
       return true;
     }
   };
-  _Operation.ENABLE_DIRTY_FLAG_OPTIMIZATION = true;
-  var Operation = _Operation;
 
-  // third_party/remote-compose-player/src/core/operations/Header.ts
-  var _Header = class _Header extends Operation {
+  // src/core/operations/Header.ts
+  var Header = class _Header extends Operation {
+    static {
+      this.OP_CODE = 0;
+    }
+    static {
+      this.MAGIC_NUMBER = 76283904;
+    }
+    static {
+      this.MAX_TABLE_SIZE = 1e3;
+    }
+    static {
+      // Property keys
+      this.DOC_WIDTH = 5;
+    }
+    static {
+      this.DOC_HEIGHT = 6;
+    }
+    static {
+      this.DOC_DENSITY_AT_GENERATION = 7;
+    }
+    static {
+      this.DOC_DESIRED_FPS = 8;
+    }
+    static {
+      this.DOC_CONTENT_DESCRIPTION = 9;
+    }
+    static {
+      this.DOC_SOURCE = 11;
+    }
+    static {
+      this.DOC_DATA_UPDATE = 12;
+    }
+    static {
+      this.HOST_EXCEPTION_HANDLER = 13;
+    }
+    static {
+      this.DOC_PROFILES = 14;
+    }
+    static {
+      this.FEATURE_PAINT_MEASURE = 15;
+    }
+    static {
+      this.DEBUG = 16;
+    }
+    static {
+      this.FEATURE_MEASURE_VERSION = 17;
+    }
+    static {
+      this.FEATURE_TOUCH_VERSION = 18;
+    }
+    static {
+      this.DOC_DENSITY_BEHAVIOR = 27;
+    }
+    static {
+      // Data types
+      this.DATA_TYPE_INT = 0;
+    }
+    static {
+      this.DATA_TYPE_FLOAT = 1;
+    }
+    static {
+      this.DATA_TYPE_LONG = 2;
+    }
+    static {
+      this.DATA_TYPE_STRING = 3;
+    }
     constructor(majorVersion, minorVersion, patchVersion, properties = null, width = 256, height = 256, capabilities = 0) {
       super();
       this.mMajorVersion = majorVersion;
@@ -1182,33 +1380,12 @@ var RC = (() => {
       operations.push(header);
     }
   };
-  _Header.OP_CODE = 0;
-  _Header.MAGIC_NUMBER = 76283904;
-  _Header.MAX_TABLE_SIZE = 1e3;
-  // Property keys
-  _Header.DOC_WIDTH = 5;
-  _Header.DOC_HEIGHT = 6;
-  _Header.DOC_DENSITY_AT_GENERATION = 7;
-  _Header.DOC_DESIRED_FPS = 8;
-  _Header.DOC_CONTENT_DESCRIPTION = 9;
-  _Header.DOC_SOURCE = 11;
-  _Header.DOC_DATA_UPDATE = 12;
-  _Header.HOST_EXCEPTION_HANDLER = 13;
-  _Header.DOC_PROFILES = 14;
-  _Header.FEATURE_PAINT_MEASURE = 15;
-  _Header.DEBUG = 16;
-  _Header.FEATURE_MEASURE_VERSION = 17;
-  _Header.FEATURE_TOUCH_VERSION = 18;
-  _Header.DOC_DENSITY_BEHAVIOR = 27;
-  // Data types
-  _Header.DATA_TYPE_INT = 0;
-  _Header.DATA_TYPE_FLOAT = 1;
-  _Header.DATA_TYPE_LONG = 2;
-  _Header.DATA_TYPE_STRING = 3;
-  var Header = _Header;
 
-  // third_party/remote-compose-player/src/core/operations/layout/ContainerEnd.ts
-  var _ContainerEnd = class _ContainerEnd extends Operation {
+  // src/core/operations/layout/ContainerEnd.ts
+  var ContainerEnd = class _ContainerEnd extends Operation {
+    static {
+      this.OP_CODE = 214;
+    }
     write(buffer) {
       buffer.start(_ContainerEnd.OP_CODE);
     }
@@ -1221,10 +1398,8 @@ var RC = (() => {
       operations.push(new _ContainerEnd());
     }
   };
-  _ContainerEnd.OP_CODE = 214;
-  var ContainerEnd = _ContainerEnd;
 
-  // third_party/remote-compose-player/src/core/PaintOperation.ts
+  // src/core/PaintOperation.ts
   var PTR_DEREFERENCE = 1 << 30;
   var VALUE_MASK = 65535;
   function isContainer(op) {
@@ -1234,6 +1409,12 @@ var RC = (() => {
     return typeof op.updateVariables === "function";
   }
   var PaintOperation = class extends Operation {
+    static {
+      this.PTR_DEREFERENCE = PTR_DEREFERENCE;
+    }
+    static {
+      this.VALUE_MASK = VALUE_MASK;
+    }
     apply(context) {
       if (context.mMode === "PAINT" /* PAINT */) {
         const paintContext = context.getPaintContext();
@@ -1265,10 +1446,8 @@ var RC = (() => {
       return returnId;
     }
   };
-  PaintOperation.PTR_DEREFERENCE = PTR_DEREFERENCE;
-  PaintOperation.VALUE_MASK = VALUE_MASK;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/Easing.ts
+  // src/core/operations/utilities/easing/Easing.ts
   var Easing = class {
     constructor() {
       this.mType = 0;
@@ -1276,19 +1455,39 @@ var RC = (() => {
     getType() {
       return this.mType;
     }
+    static {
+      this.CUBIC_STANDARD = 1;
+    }
+    static {
+      this.CUBIC_ACCELERATE = 2;
+    }
+    static {
+      this.CUBIC_DECELERATE = 3;
+    }
+    static {
+      this.CUBIC_LINEAR = 4;
+    }
+    static {
+      this.CUBIC_ANTICIPATE = 5;
+    }
+    static {
+      this.CUBIC_OVERSHOOT = 6;
+    }
+    static {
+      this.CUBIC_CUSTOM = 11;
+    }
+    static {
+      this.SPLINE_CUSTOM = 12;
+    }
+    static {
+      this.EASE_OUT_BOUNCE = 13;
+    }
+    static {
+      this.EASE_OUT_ELASTIC = 14;
+    }
   };
-  Easing.CUBIC_STANDARD = 1;
-  Easing.CUBIC_ACCELERATE = 2;
-  Easing.CUBIC_DECELERATE = 3;
-  Easing.CUBIC_LINEAR = 4;
-  Easing.CUBIC_ANTICIPATE = 5;
-  Easing.CUBIC_OVERSHOOT = 6;
-  Easing.CUBIC_CUSTOM = 11;
-  Easing.SPLINE_CUSTOM = 12;
-  Easing.EASE_OUT_BOUNCE = 13;
-  Easing.EASE_OUT_ELASTIC = 14;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/CubicEasing.ts
+  // src/core/operations/utilities/easing/CubicEasing.ts
   var STANDARD = [0.4, 0, 0.2, 1];
   var ACCELERATE = [0.4, 0.05, 0.8, 0.7];
   var DECELERATE = [0, 0, 0.2, 0.95];
@@ -1381,7 +1580,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/BounceCurve.ts
+  // src/core/operations/utilities/easing/BounceCurve.ts
   var N1 = 7.5625;
   var D1 = 2.75;
   var BounceCurve = class extends Easing {
@@ -1421,7 +1620,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/ElasticOutCurve.ts
+  // src/core/operations/utilities/easing/ElasticOutCurve.ts
   var C4 = 2 * Math.PI / 3;
   var TWENTY_PI = 20 * Math.PI;
   var LOG_8 = Math.log(8);
@@ -1437,7 +1636,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/MonotonicCurveFit.ts
+  // src/core/operations/utilities/easing/MonotonicCurveFit.ts
   var MonotonicCurveFit = class _MonotonicCurveFit {
     constructor(time, y) {
       // same shape as mY
@@ -1551,7 +1750,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/StepCurve.ts
+  // src/core/operations/utilities/easing/StepCurve.ts
   var StepCurve = class _StepCurve extends Easing {
     constructor(params, offset, len) {
       super();
@@ -1588,7 +1787,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/FloatAnimation.ts
+  // src/core/operations/utilities/easing/FloatAnimation.ts
   var _dv2 = new DataView(new ArrayBuffer(4));
   function floatToRawIntBits2(v) {
     _dv2.setFloat32(0, v, false);
@@ -1747,7 +1946,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/utilities/easing/SpringStopEngine.ts
+  // src/core/operations/utilities/easing/SpringStopEngine.ts
   var SpringStopEngine = class {
     constructor(parameters) {
       this.mDamping = 0.5;
@@ -1838,12 +2037,12 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/FloatExpression.ts
+  // src/core/operations/FloatExpression.ts
   var ARR_SENTINEL = 2 ** 42;
   function arrIdFromStack(x) {
     return x >= ARR_SENTINEL ? x - ARR_SENTINEL | 0 : idFromNan(x);
   }
-  var _FloatExpression = class _FloatExpression extends Operation {
+  var FloatExpression = class _FloatExpression extends Operation {
     constructor(id, bits, animation) {
       super();
       // Animation support
@@ -1869,6 +2068,9 @@ var RC = (() => {
           this.mFloatAnimation = new FloatAnimation(animation);
         }
       }
+    }
+    static {
+      this.OP_CODE = 81;
     }
     write(_buffer) {
     }
@@ -1942,6 +2144,17 @@ var RC = (() => {
         const result = this.evaluate(context);
         context.loadFloat(this.mId, result);
       }
+    }
+    static {
+      // Math operator offset: all operator IDs are OFFSET + index
+      this.OFFSET = 3211264;
+    }
+    static {
+      // 3211264
+      this.ID_REGION_MASK = 7340032;
+    }
+    static {
+      this.ID_REGION_ARRAY = 2097152;
     }
     /**
      * Evaluate now, without waiting for this operation's turn in the frame.
@@ -2476,26 +2689,31 @@ var RC = (() => {
       operations.push(new _FloatExpression(id, bits, animation));
     }
   };
-  _FloatExpression.OP_CODE = 81;
-  // Math operator offset: all operator IDs are OFFSET + index
-  _FloatExpression.OFFSET = 3211264;
-  // 3211264
-  _FloatExpression.ID_REGION_MASK = 7340032;
-  _FloatExpression.ID_REGION_ARRAY = 2097152;
-  var FloatExpression = _FloatExpression;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/AnimatedFloatExpression.ts
+  // src/core/operations/utilities/AnimatedFloatExpression.ts
   var ARR_SENTINEL2 = 2 ** 42;
   function arrIdFromStack2(x) {
     return x >= ARR_SENTINEL2 ? x - ARR_SENTINEL2 | 0 : idFromNan(x);
   }
-  var _AnimatedFloatExpression = class _AnimatedFloatExpression {
+  var AnimatedFloatExpression = class _AnimatedFloatExpression {
     constructor() {
       this.mStack = new Float32Array(128);
       this.mR0 = 0;
       this.mR1 = 0;
       this.mR2 = 0;
       this.mR3 = 0;
+    }
+    static {
+      this.OFFSET = 3211264;
+    }
+    static {
+      this.LAST_OP = _AnimatedFloatExpression.OFFSET + 79;
+    }
+    static {
+      this.ID_REGION_MASK = 7340032;
+    }
+    static {
+      this.ID_REGION_ARRAY = 2097152;
     }
     static isMathOperator(v) {
       if (!Number.isNaN(v)) return false;
@@ -2914,13 +3132,8 @@ var RC = (() => {
       return sp;
     }
   };
-  _AnimatedFloatExpression.OFFSET = 3211264;
-  _AnimatedFloatExpression.LAST_OP = _AnimatedFloatExpression.OFFSET + 79;
-  _AnimatedFloatExpression.ID_REGION_MASK = 7340032;
-  _AnimatedFloatExpression.ID_REGION_ARRAY = 2097152;
-  var AnimatedFloatExpression = _AnimatedFloatExpression;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/touch/VelocityEasing.ts
+  // src/core/operations/utilities/touch/VelocityEasing.ts
   var Stage = class {
     constructor(n) {
       this.mStartV = 0;
@@ -3144,8 +3357,8 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/TouchExpression.ts
-  var _TouchExpression = class _TouchExpression extends Operation {
+  // src/core/operations/TouchExpression.ts
+  var TouchExpression = class _TouchExpression extends Operation {
     constructor(id, exp, defValueBits, minBits, maxBits, touchEffects, velocityId, stopMode, stopSpec, easingSpec) {
       super();
       this.mMaxTime = 1;
@@ -3206,6 +3419,33 @@ var RC = (() => {
           this.mMaxVelocity = easingSpec[3];
         }
       }
+    }
+    static {
+      this.OP_CODE = 157;
+    }
+    static {
+      this.STOP_GENTLY = 0;
+    }
+    static {
+      this.STOP_INSTANTLY = 1;
+    }
+    static {
+      this.STOP_ENDS = 2;
+    }
+    static {
+      this.STOP_NOTCHES_EVEN = 3;
+    }
+    static {
+      this.STOP_NOTCHES_PERCENTS = 4;
+    }
+    static {
+      this.STOP_NOTCHES_ABSOLUTE = 5;
+    }
+    static {
+      this.STOP_ABSOLUTE_POS = 6;
+    }
+    static {
+      this.STOP_NOTCHES_SINGLE_EVEN = 7;
     }
     write(_buffer) {
     }
@@ -3577,19 +3817,31 @@ var RC = (() => {
       ));
     }
   };
-  _TouchExpression.OP_CODE = 157;
-  _TouchExpression.STOP_GENTLY = 0;
-  _TouchExpression.STOP_INSTANTLY = 1;
-  _TouchExpression.STOP_ENDS = 2;
-  _TouchExpression.STOP_NOTCHES_EVEN = 3;
-  _TouchExpression.STOP_NOTCHES_PERCENTS = 4;
-  _TouchExpression.STOP_NOTCHES_ABSOLUTE = 5;
-  _TouchExpression.STOP_ABSOLUTE_POS = 6;
-  _TouchExpression.STOP_NOTCHES_SINGLE_EVEN = 7;
-  var TouchExpression = _TouchExpression;
 
-  // third_party/remote-compose-player/src/core/operations/layout/Component.ts
-  var _Visibility = class _Visibility {
+  // src/core/operations/layout/Component.ts
+  var Visibility = class _Visibility {
+    static {
+      // Matches Java Component.Visibility encoding
+      this.GONE = 0;
+    }
+    static {
+      this.VISIBLE = 1;
+    }
+    static {
+      this.INVISIBLE = 2;
+    }
+    static {
+      this.OVERRIDE_GONE = 16;
+    }
+    static {
+      this.OVERRIDE_VISIBLE = 32;
+    }
+    static {
+      this.OVERRIDE_INVISIBLE = 64;
+    }
+    static {
+      this.CLEAR_OVERRIDE = 128;
+    }
     static isGone(v) {
       if (v >> 4 > 0) return (v & _Visibility.OVERRIDE_GONE) === _Visibility.OVERRIDE_GONE;
       return v === _Visibility.GONE;
@@ -3616,15 +3868,6 @@ var RC = (() => {
       return result;
     }
   };
-  // Matches Java Component.Visibility encoding
-  _Visibility.GONE = 0;
-  _Visibility.VISIBLE = 1;
-  _Visibility.INVISIBLE = 2;
-  _Visibility.OVERRIDE_GONE = 16;
-  _Visibility.OVERRIDE_VISIBLE = 32;
-  _Visibility.OVERRIDE_INVISIBLE = 64;
-  _Visibility.CLEAR_OVERRIDE = 128;
-  var Visibility = _Visibility;
   var Component = class _Component extends PaintOperation {
     constructor(componentId, animationId = -1, x = 0, y = 0, width = 0, height = 0) {
       super();
@@ -3953,8 +4196,8 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/layout/measure/ComponentMeasure.ts
-  var _ComponentMeasure = class _ComponentMeasure {
+  // src/core/operations/layout/measure/ComponentMeasure.ts
+  var ComponentMeasure = class _ComponentMeasure {
     constructor(id, x, y, w, h, visibility = _ComponentMeasure.VISIBLE) {
       this.mAllowsAnimation = true;
       this.mId = id;
@@ -3963,6 +4206,16 @@ var RC = (() => {
       this.mW = w;
       this.mH = h;
       this.mVisibility = visibility;
+    }
+    static {
+      // Visibility constants — matches Java Component.Visibility encoding
+      this.GONE = 0;
+    }
+    static {
+      this.VISIBLE = 1;
+    }
+    static {
+      this.INVISIBLE = 2;
     }
     getX() {
       return this.mX;
@@ -4040,13 +4293,8 @@ var RC = (() => {
       this.mVisibility = v;
     }
   };
-  // Visibility constants — matches Java Component.Visibility encoding
-  _ComponentMeasure.GONE = 0;
-  _ComponentMeasure.VISIBLE = 1;
-  _ComponentMeasure.INVISIBLE = 2;
-  var ComponentMeasure = _ComponentMeasure;
 
-  // third_party/remote-compose-player/src/core/operations/layout/measure/MeasurePass.ts
+  // src/core/operations/layout/measure/MeasurePass.ts
   var MeasurePass = class {
     constructor() {
       this.mList = /* @__PURE__ */ new Map();
@@ -4088,12 +4336,15 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/layout/RootLayoutComponent.ts
-  var _RootLayoutComponent = class _RootLayoutComponent extends Component {
+  // src/core/operations/layout/RootLayoutComponent.ts
+  var RootLayoutComponent = class _RootLayoutComponent extends Component {
     constructor(componentId = -1) {
       super(componentId);
       this.mCurrentId = -1;
       this.mHasTouchListeners = false;
+    }
+    static {
+      this.OP_CODE = 200;
     }
     getHasTouchListeners() {
       return this.mHasTouchListeners;
@@ -4225,10 +4476,8 @@ var RC = (() => {
       operations.push(component);
     }
   };
-  _RootLayoutComponent.OP_CODE = 200;
-  var RootLayoutComponent = _RootLayoutComponent;
 
-  // third_party/remote-compose-player/src/core/TimeVariables.ts
+  // src/core/TimeVariables.ts
   var TimeVariables = class {
     constructor(clock) {
       this.mLastAnimationTime = -1;
@@ -4265,7 +4514,7 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/paint/PaintBundle.ts
+  // src/core/operations/paint/PaintBundle.ts
   var _f32dv = new DataView(new ArrayBuffer(4));
   function intBitsToFloat2(bits) {
     _f32dv.setInt32(0, bits);
@@ -4295,12 +4544,105 @@ var RC = (() => {
       context.listensTo(idFromBitsLocal(val), op);
     }
   }
-  var _PaintBundle = class _PaintBundle {
+  var PaintBundle = class _PaintBundle {
     constructor() {
       // The flat int array and current position
       this.mArray = [];
       this.mOutArray = null;
       this.mPos = 0;
+    }
+    static {
+      // Paint property tags (matching Java PaintBundle constants)
+      this.TEXT_SIZE = 1;
+    }
+    static {
+      this.COLOR = 4;
+    }
+    static {
+      this.STROKE_WIDTH = 5;
+    }
+    static {
+      this.STROKE_MITER = 6;
+    }
+    static {
+      this.STROKE_CAP = 7;
+    }
+    static {
+      this.STYLE = 8;
+    }
+    static {
+      this.SHADER = 9;
+    }
+    static {
+      this.IMAGE_FILTER_QUALITY = 10;
+    }
+    static {
+      this.GRADIENT = 11;
+    }
+    static {
+      this.ALPHA = 12;
+    }
+    static {
+      this.COLOR_FILTER = 13;
+    }
+    static {
+      this.ANTI_ALIAS = 14;
+    }
+    static {
+      this.STROKE_JOIN = 15;
+    }
+    static {
+      this.TYPEFACE = 16;
+    }
+    static {
+      this.FILTER_BITMAP = 17;
+    }
+    static {
+      this.BLEND_MODE = 18;
+    }
+    static {
+      this.COLOR_ID = 19;
+    }
+    static {
+      this.COLOR_FILTER_ID = 20;
+    }
+    static {
+      this.CLEAR_COLOR_FILTER = 21;
+    }
+    static {
+      this.SHADER_MATRIX = 22;
+    }
+    static {
+      this.FONT_AXIS = 23;
+    }
+    static {
+      this.TEXTURE = 24;
+    }
+    static {
+      this.PATH_EFFECT = 25;
+    }
+    static {
+      this.FALLBACK_TYPEFACE = 26;
+    }
+    static {
+      // Gradient types (wire format values)
+      this.LINEAR_GRADIENT = 0;
+    }
+    static {
+      this.RADIAL_GRADIENT = 1;
+    }
+    static {
+      this.SWEEP_GRADIENT = 2;
+    }
+    static {
+      // Style constants
+      this.FILL = 0;
+    }
+    static {
+      this.STROKE = 1;
+    }
+    static {
+      this.FILL_AND_STROKE = 2;
     }
     read(buffer) {
       const len = buffer.readInt();
@@ -4601,43 +4943,39 @@ var RC = (() => {
       return i;
     }
   };
-  // Paint property tags (matching Java PaintBundle constants)
-  _PaintBundle.TEXT_SIZE = 1;
-  _PaintBundle.COLOR = 4;
-  _PaintBundle.STROKE_WIDTH = 5;
-  _PaintBundle.STROKE_MITER = 6;
-  _PaintBundle.STROKE_CAP = 7;
-  _PaintBundle.STYLE = 8;
-  _PaintBundle.SHADER = 9;
-  _PaintBundle.IMAGE_FILTER_QUALITY = 10;
-  _PaintBundle.GRADIENT = 11;
-  _PaintBundle.ALPHA = 12;
-  _PaintBundle.COLOR_FILTER = 13;
-  _PaintBundle.ANTI_ALIAS = 14;
-  _PaintBundle.STROKE_JOIN = 15;
-  _PaintBundle.TYPEFACE = 16;
-  _PaintBundle.FILTER_BITMAP = 17;
-  _PaintBundle.BLEND_MODE = 18;
-  _PaintBundle.COLOR_ID = 19;
-  _PaintBundle.COLOR_FILTER_ID = 20;
-  _PaintBundle.CLEAR_COLOR_FILTER = 21;
-  _PaintBundle.SHADER_MATRIX = 22;
-  _PaintBundle.FONT_AXIS = 23;
-  _PaintBundle.TEXTURE = 24;
-  _PaintBundle.PATH_EFFECT = 25;
-  _PaintBundle.FALLBACK_TYPEFACE = 26;
-  // Gradient types (wire format values)
-  _PaintBundle.LINEAR_GRADIENT = 0;
-  _PaintBundle.RADIAL_GRADIENT = 1;
-  _PaintBundle.SWEEP_GRADIENT = 2;
-  // Style constants
-  _PaintBundle.FILL = 0;
-  _PaintBundle.STROKE = 1;
-  _PaintBundle.FILL_AND_STROKE = 2;
-  var PaintBundle = _PaintBundle;
 
-  // third_party/remote-compose-player/src/core/operations/layout/modifiers/ModifierOperations.ts
-  var _WidthModifier = class _WidthModifier extends Operation {
+  // src/core/operations/layout/modifiers/ModifierOperations.ts
+  var WidthModifier = class _WidthModifier extends Operation {
+    static {
+      this.OP_CODE = 16;
+    }
+    static {
+      this.EXACT = 0;
+    }
+    static {
+      this.FILL = 1;
+    }
+    static {
+      this.WRAP = 2;
+    }
+    static {
+      this.WEIGHT = 3;
+    }
+    static {
+      this.INTRINSIC_MIN = 4;
+    }
+    static {
+      this.INTRINSIC_MAX = 5;
+    }
+    static {
+      this.EXACT_DP = 6;
+    }
+    static {
+      this.FILL_PARENT_MAX_WIDTH = 7;
+    }
+    static {
+      this.FILL_PARENT_MAX_HEIGHT = 8;
+    }
     constructor(type, valueBits) {
       super();
       this.mType = type;
@@ -4677,18 +5015,37 @@ var RC = (() => {
       operations.push(new _WidthModifier(buffer.readInt(), buffer.readInt()));
     }
   };
-  _WidthModifier.OP_CODE = 16;
-  _WidthModifier.EXACT = 0;
-  _WidthModifier.FILL = 1;
-  _WidthModifier.WRAP = 2;
-  _WidthModifier.WEIGHT = 3;
-  _WidthModifier.INTRINSIC_MIN = 4;
-  _WidthModifier.INTRINSIC_MAX = 5;
-  _WidthModifier.EXACT_DP = 6;
-  _WidthModifier.FILL_PARENT_MAX_WIDTH = 7;
-  _WidthModifier.FILL_PARENT_MAX_HEIGHT = 8;
-  var WidthModifier = _WidthModifier;
-  var _HeightModifier = class _HeightModifier extends Operation {
+  var HeightModifier = class _HeightModifier extends Operation {
+    static {
+      this.OP_CODE = 67;
+    }
+    static {
+      this.EXACT = 0;
+    }
+    static {
+      this.FILL = 1;
+    }
+    static {
+      this.WRAP = 2;
+    }
+    static {
+      this.WEIGHT = 3;
+    }
+    static {
+      this.INTRINSIC_MIN = 4;
+    }
+    static {
+      this.INTRINSIC_MAX = 5;
+    }
+    static {
+      this.EXACT_DP = 6;
+    }
+    static {
+      this.FILL_PARENT_MAX_WIDTH = 7;
+    }
+    static {
+      this.FILL_PARENT_MAX_HEIGHT = 8;
+    }
     constructor(type, valueBits) {
       super();
       this.mType = type;
@@ -4728,18 +5085,10 @@ var RC = (() => {
       operations.push(new _HeightModifier(buffer.readInt(), buffer.readInt()));
     }
   };
-  _HeightModifier.OP_CODE = 67;
-  _HeightModifier.EXACT = 0;
-  _HeightModifier.FILL = 1;
-  _HeightModifier.WRAP = 2;
-  _HeightModifier.WEIGHT = 3;
-  _HeightModifier.INTRINSIC_MIN = 4;
-  _HeightModifier.INTRINSIC_MAX = 5;
-  _HeightModifier.EXACT_DP = 6;
-  _HeightModifier.FILL_PARENT_MAX_WIDTH = 7;
-  _HeightModifier.FILL_PARENT_MAX_HEIGHT = 8;
-  var HeightModifier = _HeightModifier;
-  var _WidthInModifier = class _WidthInModifier extends Operation {
+  var WidthInModifier = class _WidthInModifier extends Operation {
+    static {
+      this.OP_CODE = 231;
+    }
     constructor(minBits, maxBits) {
       super();
       this.mMinBits = minBits;
@@ -4772,9 +5121,10 @@ var RC = (() => {
       operations.push(new _WidthInModifier(buffer.readInt(), buffer.readInt()));
     }
   };
-  _WidthInModifier.OP_CODE = 231;
-  var WidthInModifier = _WidthInModifier;
-  var _HeightInModifier = class _HeightInModifier extends Operation {
+  var HeightInModifier = class _HeightInModifier extends Operation {
+    static {
+      this.OP_CODE = 232;
+    }
     constructor(minBits, maxBits) {
       super();
       this.mMinBits = minBits;
@@ -4807,9 +5157,10 @@ var RC = (() => {
       operations.push(new _HeightInModifier(buffer.readInt(), buffer.readInt()));
     }
   };
-  _HeightInModifier.OP_CODE = 232;
-  var HeightInModifier = _HeightInModifier;
-  var _CollapsiblePriorityModifier = class _CollapsiblePriorityModifier extends Operation {
+  var CollapsiblePriorityModifier = class _CollapsiblePriorityModifier extends Operation {
+    static {
+      this.OP_CODE = 235;
+    }
     constructor(orientation, priority) {
       super();
       this.mOrientation = orientation;
@@ -4832,9 +5183,7 @@ var RC = (() => {
       operations.push(new _CollapsiblePriorityModifier(buffer.readInt(), buffer.readFloat()));
     }
   };
-  _CollapsiblePriorityModifier.OP_CODE = 235;
-  var CollapsiblePriorityModifier = _CollapsiblePriorityModifier;
-  var _BackgroundModifier = class _BackgroundModifier extends Operation {
+  var BackgroundModifier = class _BackgroundModifier extends Operation {
     constructor(flags, colorId, r, g, b, a, shapeType) {
       super();
       this.mComponent = null;
@@ -4851,6 +5200,12 @@ var RC = (() => {
       this.mOutB = isNaNBits(b) ? 0 : intBitsToFloat(b);
       this.mOutA = isNaNBits(a) ? 0 : intBitsToFloat(a);
       this.mShapeType = shapeType;
+    }
+    static {
+      this.OP_CODE = 55;
+    }
+    static {
+      this.COLOR_REF = 2;
     }
     setComponent(c) {
       this.mComponent = c;
@@ -4924,10 +5279,7 @@ var RC = (() => {
       operations.push(new _BackgroundModifier(flags, colorId, r, g, b, a, shapeType));
     }
   };
-  _BackgroundModifier.OP_CODE = 55;
-  _BackgroundModifier.COLOR_REF = 2;
-  var BackgroundModifier = _BackgroundModifier;
-  var _BorderModifier = class _BorderModifier extends Operation {
+  var BorderModifier = class _BorderModifier extends Operation {
     constructor(flags, colorId, borderWidth, roundedCorner, r, g, b, a, shapeType) {
       super();
       this.mComponent = null;
@@ -4942,6 +5294,12 @@ var RC = (() => {
       this.mB = b;
       this.mA = a;
       this.mShapeType = shapeType;
+    }
+    static {
+      this.OP_CODE = 107;
+    }
+    static {
+      this.COLOR_REF = 2;
     }
     setComponent(c) {
       this.mComponent = c;
@@ -5010,10 +5368,10 @@ var RC = (() => {
       operations.push(new _BorderModifier(flags, colorId, borderWidth, roundedCorner, r, g, b, a, shapeType));
     }
   };
-  _BorderModifier.OP_CODE = 107;
-  _BorderModifier.COLOR_REF = 2;
-  var BorderModifier = _BorderModifier;
-  var _PaddingModifier = class _PaddingModifier extends Operation {
+  var PaddingModifier = class _PaddingModifier extends Operation {
+    static {
+      this.OP_CODE = 58;
+    }
     constructor(l, t, r, b) {
       super();
       this.mLeft = l;
@@ -5062,9 +5420,7 @@ var RC = (() => {
       ));
     }
   };
-  _PaddingModifier.OP_CODE = 58;
-  var PaddingModifier = _PaddingModifier;
-  var _RoundedClipRectModifier = class _RoundedClipRectModifier extends Operation {
+  var RoundedClipRectModifier = class _RoundedClipRectModifier extends Operation {
     constructor(topStart, topEnd, bottomStart, bottomEnd) {
       super();
       this.mLayoutW = 0;
@@ -5078,6 +5434,9 @@ var RC = (() => {
       this.mTopEndValue = isNaNBits(topEnd) ? 0 : intBitsToFloat(topEnd);
       this.mBottomStartValue = isNaNBits(bottomStart) ? 0 : intBitsToFloat(bottomStart);
       this.mBottomEndValue = isNaNBits(bottomEnd) ? 0 : intBitsToFloat(bottomEnd);
+    }
+    static {
+      this.OP_CODE = 54;
     }
     registerListening(context) {
       if (isNaNBits(this.mTopStart)) context.listensTo(idFromBits(this.mTopStart), this);
@@ -5151,14 +5510,15 @@ var RC = (() => {
       ));
     }
   };
-  _RoundedClipRectModifier.OP_CODE = 54;
-  var RoundedClipRectModifier = _RoundedClipRectModifier;
-  var _ClipRectModifier = class _ClipRectModifier extends Operation {
+  var ClipRectModifier = class _ClipRectModifier extends Operation {
     constructor() {
       super();
       this.mComponent = null;
       this.mLayoutW = 0;
       this.mLayoutH = 0;
+    }
+    static {
+      this.OP_CODE = 108;
     }
     setComponent(c) {
       this.mComponent = c;
@@ -5186,13 +5546,14 @@ var RC = (() => {
       operations.push(new _ClipRectModifier());
     }
   };
-  _ClipRectModifier.OP_CODE = 108;
-  var ClipRectModifier = _ClipRectModifier;
-  var _ClickModifier = class _ClickModifier extends Operation {
+  var ClickModifier = class _ClickModifier extends Operation {
     constructor() {
       super();
       this.mList = [];
       this.mComponent = null;
+    }
+    static {
+      this.OP_CODE = 59;
     }
     getList() {
       return this.mList;
@@ -5218,15 +5579,25 @@ var RC = (() => {
       operations.push(new _ClickModifier());
     }
   };
-  _ClickModifier.OP_CODE = 59;
-  var ClickModifier = _ClickModifier;
-  var _MultiClickModifier = class _MultiClickModifier extends Operation {
+  var MultiClickModifier = class _MultiClickModifier extends Operation {
     constructor(clickType = 0) {
       super();
       this.mClickType = 0;
       this.mList = [];
       this.mComponent = null;
       this.mClickType = clickType;
+    }
+    static {
+      this.OP_CODE = 83;
+    }
+    static {
+      this.CLICK_TYPE_SINGLE = 0;
+    }
+    static {
+      this.CLICK_TYPE_LONG = 1;
+    }
+    static {
+      this.CLICK_TYPE_DOUBLE = 2;
     }
     getList() {
       return this.mList;
@@ -5267,12 +5638,22 @@ var RC = (() => {
       operations.push(new _MultiClickModifier(clickType));
     }
   };
-  _MultiClickModifier.OP_CODE = 83;
-  _MultiClickModifier.CLICK_TYPE_SINGLE = 0;
-  _MultiClickModifier.CLICK_TYPE_LONG = 1;
-  _MultiClickModifier.CLICK_TYPE_DOUBLE = 2;
-  var MultiClickModifier = _MultiClickModifier;
-  var _DimensionConstraintsModifier = class _DimensionConstraintsModifier extends Operation {
+  var DimensionConstraintsModifier = class _DimensionConstraintsModifier extends Operation {
+    static {
+      this.OP_CODE = 243;
+    }
+    static {
+      this.HORIZONTAL = 0;
+    }
+    static {
+      this.VERTICAL = 1;
+    }
+    static {
+      this.REQUIRED_HORIZONTAL = 2;
+    }
+    static {
+      this.REQUIRED_VERTICAL = 3;
+    }
     constructor(type, min, max) {
       super();
       this.mType = type;
@@ -5302,16 +5683,13 @@ var RC = (() => {
       operations.push(new _DimensionConstraintsModifier(type, min, max));
     }
   };
-  _DimensionConstraintsModifier.OP_CODE = 243;
-  _DimensionConstraintsModifier.HORIZONTAL = 0;
-  _DimensionConstraintsModifier.VERTICAL = 1;
-  _DimensionConstraintsModifier.REQUIRED_HORIZONTAL = 2;
-  _DimensionConstraintsModifier.REQUIRED_VERTICAL = 3;
-  var DimensionConstraintsModifier = _DimensionConstraintsModifier;
-  var _TouchDownModifier = class _TouchDownModifier extends Operation {
+  var TouchDownModifier = class _TouchDownModifier extends Operation {
     constructor() {
       super();
       this.mList = [];
+    }
+    static {
+      this.OP_CODE = 219;
     }
     getList() {
       return this.mList;
@@ -5332,12 +5710,13 @@ var RC = (() => {
       operations.push(new _TouchDownModifier());
     }
   };
-  _TouchDownModifier.OP_CODE = 219;
-  var TouchDownModifier = _TouchDownModifier;
-  var _TouchUpModifier = class _TouchUpModifier extends Operation {
+  var TouchUpModifier = class _TouchUpModifier extends Operation {
     constructor() {
       super();
       this.mList = [];
+    }
+    static {
+      this.OP_CODE = 220;
     }
     getList() {
       return this.mList;
@@ -5358,12 +5737,13 @@ var RC = (() => {
       operations.push(new _TouchUpModifier());
     }
   };
-  _TouchUpModifier.OP_CODE = 220;
-  var TouchUpModifier = _TouchUpModifier;
-  var _TouchCancelModifier = class _TouchCancelModifier extends Operation {
+  var TouchCancelModifier = class _TouchCancelModifier extends Operation {
     constructor() {
       super();
       this.mList = [];
+    }
+    static {
+      this.OP_CODE = 225;
     }
     getList() {
       return this.mList;
@@ -5384,14 +5764,15 @@ var RC = (() => {
       operations.push(new _TouchCancelModifier());
     }
   };
-  _TouchCancelModifier.OP_CODE = 225;
-  var TouchCancelModifier = _TouchCancelModifier;
-  var _VisibilityModifier = class _VisibilityModifier extends Operation {
+  var VisibilityModifier = class _VisibilityModifier extends Operation {
     constructor(visibilityId) {
       super();
       this.mVisibility = Visibility.VISIBLE;
       this.mParent = null;
       this.mVisibilityId = visibilityId;
+    }
+    static {
+      this.OP_CODE = 211;
     }
     setParent(parent) {
       this.mParent = parent;
@@ -5443,9 +5824,10 @@ var RC = (() => {
       operations.push(new _VisibilityModifier(buffer.readInt()));
     }
   };
-  _VisibilityModifier.OP_CODE = 211;
-  var VisibilityModifier = _VisibilityModifier;
-  var _OffsetModifier = class _OffsetModifier extends Operation {
+  var OffsetModifier = class _OffsetModifier extends Operation {
+    static {
+      this.OP_CODE = 221;
+    }
     constructor(x, y) {
       super();
       this.mOffX = x;
@@ -5484,9 +5866,10 @@ var RC = (() => {
       operations.push(new _OffsetModifier(buffer.readInt(), buffer.readInt()));
     }
   };
-  _OffsetModifier.OP_CODE = 221;
-  var OffsetModifier = _OffsetModifier;
-  var _ZIndexModifier = class _ZIndexModifier extends Operation {
+  var ZIndexModifier = class _ZIndexModifier extends Operation {
+    static {
+      this.OP_CODE = 223;
+    }
     constructor(valueBits) {
       super();
       this.mValueBits = valueBits;
@@ -5509,13 +5892,54 @@ var RC = (() => {
       operations.push(new _ZIndexModifier(buffer.readInt()));
     }
   };
-  _ZIndexModifier.OP_CODE = 223;
-  var ZIndexModifier = _ZIndexModifier;
-  var _GraphicsLayerModifier = class _GraphicsLayerModifier extends Operation {
+  var GraphicsLayerModifier = class _GraphicsLayerModifier extends Operation {
     constructor(attributes) {
       super();
       this.mAttributes = /* @__PURE__ */ new Map();
       this.mAttributes = attributes;
+    }
+    static {
+      this.OP_CODE = 224;
+    }
+    static {
+      // Attribute tag IDs (lower 10 bits of the tag word)
+      this.SCALE_X = 0;
+    }
+    static {
+      this.SCALE_Y = 1;
+    }
+    static {
+      this.ROTATION_X = 2;
+    }
+    static {
+      this.ROTATION_Y = 3;
+    }
+    static {
+      this.ROTATION_Z = 4;
+    }
+    static {
+      this.TRANSLATION_X = 5;
+    }
+    static {
+      this.TRANSLATION_Y = 6;
+    }
+    static {
+      this.TRANSLATION_Z = 7;
+    }
+    static {
+      this.ALPHA = 8;
+    }
+    static {
+      this.SHADOW_ELEVATION = 9;
+    }
+    static {
+      this.CAMERA_DISTANCE = 10;
+    }
+    static {
+      this.BLUR_RADIUS_X = 15;
+    }
+    static {
+      this.BLUR_RADIUS_Y = 16;
     }
     getAlpha() {
       const attr = this.mAttributes.get(_GraphicsLayerModifier.ALPHA);
@@ -5571,23 +5995,7 @@ var RC = (() => {
       operations.push(new _GraphicsLayerModifier(attributes));
     }
   };
-  _GraphicsLayerModifier.OP_CODE = 224;
-  // Attribute tag IDs (lower 10 bits of the tag word)
-  _GraphicsLayerModifier.SCALE_X = 0;
-  _GraphicsLayerModifier.SCALE_Y = 1;
-  _GraphicsLayerModifier.ROTATION_X = 2;
-  _GraphicsLayerModifier.ROTATION_Y = 3;
-  _GraphicsLayerModifier.ROTATION_Z = 4;
-  _GraphicsLayerModifier.TRANSLATION_X = 5;
-  _GraphicsLayerModifier.TRANSLATION_Y = 6;
-  _GraphicsLayerModifier.TRANSLATION_Z = 7;
-  _GraphicsLayerModifier.ALPHA = 8;
-  _GraphicsLayerModifier.SHADOW_ELEVATION = 9;
-  _GraphicsLayerModifier.CAMERA_DISTANCE = 10;
-  _GraphicsLayerModifier.BLUR_RADIUS_X = 15;
-  _GraphicsLayerModifier.BLUR_RADIUS_Y = 16;
-  var GraphicsLayerModifier = _GraphicsLayerModifier;
-  var _ScrollModifier = class _ScrollModifier extends Operation {
+  var ScrollModifier = class _ScrollModifier extends Operation {
     constructor(direction, positionId, max, notchMax) {
       super();
       this.mList = [];
@@ -5595,6 +6003,15 @@ var RC = (() => {
       this.mPositionId = positionId;
       this.mMax = max;
       this.mNotchMax = notchMax;
+    }
+    static {
+      this.OP_CODE = 226;
+    }
+    static {
+      this.VERTICAL = 0;
+    }
+    static {
+      this.HORIZONTAL = 1;
     }
     getList() {
       return this.mList;
@@ -5632,11 +6049,7 @@ var RC = (() => {
       operations.push(new _ScrollModifier(direction, position, max, notchMax));
     }
   };
-  _ScrollModifier.OP_CODE = 226;
-  _ScrollModifier.VERTICAL = 0;
-  _ScrollModifier.HORIZONTAL = 1;
-  var ScrollModifier = _ScrollModifier;
-  var _MarqueeModifier = class _MarqueeModifier extends Operation {
+  var MarqueeModifier = class _MarqueeModifier extends Operation {
     constructor(iterations, animationMode, repeatDelay, initialDelay, spacing, velocity) {
       super();
       this.mComponent = null;
@@ -5651,6 +6064,9 @@ var RC = (() => {
       this.mInitialDelayMillis = initialDelay;
       this.mSpacing = spacing;
       this.mVelocity = velocity;
+    }
+    static {
+      this.OP_CODE = 228;
     }
     setComponent(c) {
       this.mComponent = c;
@@ -5700,9 +6116,10 @@ var RC = (() => {
       operations.push(new _MarqueeModifier(iterations, animationMode, repeatDelay, initialDelay, spacing, velocity));
     }
   };
-  _MarqueeModifier.OP_CODE = 228;
-  var MarqueeModifier = _MarqueeModifier;
-  var _RippleModifier = class _RippleModifier extends Operation {
+  var RippleModifier = class _RippleModifier extends Operation {
+    static {
+      this.OP_CODE = 229;
+    }
     constructor() {
       super();
     }
@@ -5717,9 +6134,10 @@ var RC = (() => {
       operations.push(new _RippleModifier());
     }
   };
-  _RippleModifier.OP_CODE = 229;
-  var RippleModifier = _RippleModifier;
-  var _DrawContentModifier = class _DrawContentModifier extends Operation {
+  var DrawContentModifier = class _DrawContentModifier extends Operation {
+    static {
+      this.OP_CODE = 174;
+    }
     constructor() {
       super();
     }
@@ -5734,9 +6152,10 @@ var RC = (() => {
       operations.push(new _DrawContentModifier());
     }
   };
-  _DrawContentModifier.OP_CODE = 174;
-  var DrawContentModifier = _DrawContentModifier;
-  var _AlignByModifier = class _AlignByModifier extends Operation {
+  var AlignByModifier = class _AlignByModifier extends Operation {
+    static {
+      this.OP_CODE = 237;
+    }
     constructor(line, flags) {
       super();
       this.mLine = line;
@@ -5753,9 +6172,10 @@ var RC = (() => {
       operations.push(new _AlignByModifier(buffer.readFloat(), buffer.readInt()));
     }
   };
-  _AlignByModifier.OP_CODE = 237;
-  var AlignByModifier = _AlignByModifier;
-  var _AccessibilitySemantics = class _AccessibilitySemantics extends Operation {
+  var AccessibilitySemantics = class _AccessibilitySemantics extends Operation {
+    static {
+      this.OP_CODE = 250;
+    }
     constructor(contentDescriptionId, role, textId, stateDescriptionId, mode, enabled, clickable) {
       super();
       this.mContentDescriptionId = contentDescriptionId;
@@ -5795,17 +6215,18 @@ var RC = (() => {
       ));
     }
   };
-  _AccessibilitySemantics.OP_CODE = 250;
-  var AccessibilitySemantics = _AccessibilitySemantics;
 
-  // third_party/remote-compose-player/src/core/operations/DataOperations.ts
+  // src/core/operations/DataOperations.ts
   var NANMAP_PATH_BASE = 3145728;
   function isPathMarkerBits(b) {
     if (!isNaNBits(b)) return false;
     const id = idFromBits(b);
     return id >= 10 && id <= 17 || id >= NANMAP_PATH_BASE && id <= NANMAP_PATH_BASE + 6;
   }
-  var _TextData = class _TextData extends Operation {
+  var TextData = class _TextData extends Operation {
+    static {
+      this.OP_CODE = 102;
+    }
     constructor(textId, text) {
       super();
       this.mTextId = textId;
@@ -5828,9 +6249,10 @@ var RC = (() => {
       operations.push(new _TextData(id, text));
     }
   };
-  _TextData.OP_CODE = 102;
-  var TextData = _TextData;
-  var _BitmapData = class _BitmapData extends Operation {
+  var BitmapData = class _BitmapData extends Operation {
+    static {
+      this.OP_CODE = 101;
+    }
     constructor(imageId, encoding, type, width, height, bitmap) {
       super();
       this.mImageId = imageId;
@@ -5880,9 +6302,10 @@ var RC = (() => {
       operations.push(new _BitmapData(id, encoding, type, rawWidth, rawHeight, bitmap));
     }
   };
-  _BitmapData.OP_CODE = 101;
-  var BitmapData = _BitmapData;
-  var _PaintData = class _PaintData extends Operation {
+  var PaintData = class _PaintData extends Operation {
+    static {
+      this.OP_CODE = 40;
+    }
     constructor(paintBundle) {
       super();
       this.mPaintBundle = paintBundle;
@@ -5908,9 +6331,7 @@ var RC = (() => {
       operations.push(new _PaintData(bundle));
     }
   };
-  _PaintData.OP_CODE = 40;
-  var PaintData = _PaintData;
-  var _PathData = class _PathData extends Operation {
+  var PathData = class _PathData extends Operation {
     constructor(pathId, winding, pathBits) {
       super();
       this.mPathChanged = false;
@@ -5918,6 +6339,9 @@ var RC = (() => {
       this.mWinding = winding;
       this.mPathBits = pathBits;
       this.mOutputPath = Int32Array.from(pathBits);
+    }
+    static {
+      this.OP_CODE = 123;
     }
     write(_buffer) {
     }
@@ -5963,9 +6387,14 @@ var RC = (() => {
       operations.push(new _PathData(id, winding, data));
     }
   };
-  _PathData.OP_CODE = 123;
-  var PathData = _PathData;
-  var _FloatConstant = class _FloatConstant extends Operation {
+  var FloatConstant = class _FloatConstant extends Operation {
+    static {
+      this.OP_CODE = 80;
+    }
+    static {
+      // RAND operator ID: OFFSET(0x310000) + 39 = 0x310027
+      this.RAND_ID = 3211303;
+    }
     constructor(id, valueBits) {
       super();
       this.mId = id;
@@ -5988,11 +6417,10 @@ var RC = (() => {
       operations.push(new _FloatConstant(id, value));
     }
   };
-  _FloatConstant.OP_CODE = 80;
-  // RAND operator ID: OFFSET(0x310000) + 39 = 0x310027
-  _FloatConstant.RAND_ID = 3211303;
-  var FloatConstant = _FloatConstant;
-  var _ColorConstant = class _ColorConstant extends Operation {
+  var ColorConstant = class _ColorConstant extends Operation {
+    static {
+      this.OP_CODE = 138;
+    }
     constructor(id, color) {
       super();
       this.mId = id;
@@ -6010,9 +6438,22 @@ var RC = (() => {
       operations.push(new _ColorConstant(buffer.readInt(), buffer.readInt()));
     }
   };
-  _ColorConstant.OP_CODE = 138;
-  var ColorConstant = _ColorConstant;
-  var _Theme = class _Theme extends Operation {
+  var Theme = class _Theme extends Operation {
+    static {
+      this.OP_CODE = 63;
+    }
+    static {
+      this.UNSPECIFIED = -1;
+    }
+    static {
+      this.DARK = -2;
+    }
+    static {
+      this.LIGHT = -3;
+    }
+    static {
+      this.SYSTEM = 0;
+    }
     constructor(theme) {
       super();
       this.mTheme = theme;
@@ -6029,13 +6470,10 @@ var RC = (() => {
       operations.push(new _Theme(buffer.readInt()));
     }
   };
-  _Theme.OP_CODE = 63;
-  _Theme.UNSPECIFIED = -1;
-  _Theme.DARK = -2;
-  _Theme.LIGHT = -3;
-  _Theme.SYSTEM = 0;
-  var Theme = _Theme;
-  var _ClickArea = class _ClickArea extends Operation {
+  var ClickArea = class _ClickArea extends Operation {
+    static {
+      this.OP_CODE = 64;
+    }
     constructor(id, cdId, left, top, right, bottom, metaId) {
       super();
       this.mId = id;
@@ -6091,9 +6529,31 @@ var RC = (() => {
       ));
     }
   };
-  _ClickArea.OP_CODE = 64;
-  var ClickArea = _ClickArea;
-  var _NamedVariable = class _NamedVariable extends Operation {
+  var NamedVariable = class _NamedVariable extends Operation {
+    static {
+      this.OP_CODE = 137;
+    }
+    static {
+      this.STRING_TYPE = 0;
+    }
+    static {
+      this.FLOAT_TYPE = 1;
+    }
+    static {
+      this.COLOR_TYPE = 2;
+    }
+    static {
+      this.IMAGE_TYPE = 3;
+    }
+    static {
+      this.INT_TYPE = 4;
+    }
+    static {
+      this.LONG_TYPE = 5;
+    }
+    static {
+      this.FLOAT_ARRAY_TYPE = 6;
+    }
     constructor(varName, varId, varType) {
       super();
       this.mVarName = varName;
@@ -6115,16 +6575,10 @@ var RC = (() => {
       operations.push(new _NamedVariable(name, id, type));
     }
   };
-  _NamedVariable.OP_CODE = 137;
-  _NamedVariable.STRING_TYPE = 0;
-  _NamedVariable.FLOAT_TYPE = 1;
-  _NamedVariable.COLOR_TYPE = 2;
-  _NamedVariable.IMAGE_TYPE = 3;
-  _NamedVariable.INT_TYPE = 4;
-  _NamedVariable.LONG_TYPE = 5;
-  _NamedVariable.FLOAT_ARRAY_TYPE = 6;
-  var NamedVariable = _NamedVariable;
-  var _RootContentDescription = class _RootContentDescription extends Operation {
+  var RootContentDescription = class _RootContentDescription extends Operation {
+    static {
+      this.OP_CODE = 103;
+    }
     constructor(contentDescription) {
       super();
       this.mContentDescription = contentDescription;
@@ -6141,9 +6595,65 @@ var RC = (() => {
       operations.push(new _RootContentDescription(buffer.readInt()));
     }
   };
-  _RootContentDescription.OP_CODE = 103;
-  var RootContentDescription = _RootContentDescription;
-  var _RootContentBehavior = class _RootContentBehavior extends Operation {
+  var RootContentBehavior = class _RootContentBehavior extends Operation {
+    static {
+      this.OP_CODE = 65;
+    }
+    static {
+      this.NONE = 0;
+    }
+    static {
+      this.SIZING_LAYOUT = 1;
+    }
+    static {
+      this.SIZING_SCALE = 2;
+    }
+    static {
+      this.ALIGNMENT_TOP = 1;
+    }
+    static {
+      this.ALIGNMENT_VERTICAL_CENTER = 2;
+    }
+    static {
+      this.ALIGNMENT_BOTTOM = 4;
+    }
+    static {
+      this.ALIGNMENT_START = 16;
+    }
+    static {
+      this.ALIGNMENT_HORIZONTAL_CENTER = 32;
+    }
+    static {
+      this.ALIGNMENT_END = 64;
+    }
+    static {
+      this.ALIGNMENT_CENTER = 34;
+    }
+    static {
+      // H_CENTER + V_CENTER
+      this.SCALE_INSIDE = 1;
+    }
+    static {
+      this.SCALE_FIT = 2;
+    }
+    static {
+      this.SCALE_FILL_WIDTH = 3;
+    }
+    static {
+      this.SCALE_FILL_HEIGHT = 4;
+    }
+    static {
+      this.SCALE_CROP = 5;
+    }
+    static {
+      this.SCALE_FILL_BOUNDS = 6;
+    }
+    static {
+      this.LAYOUT_MATCH_PARENT = 0;
+    }
+    static {
+      this.LAYOUT_WRAP_CONTENT = 1;
+    }
     constructor(scroll, alignment, sizing, mode) {
       super();
       this.mScroll = scroll;
@@ -6168,30 +6678,9 @@ var RC = (() => {
       ));
     }
   };
-  _RootContentBehavior.OP_CODE = 65;
-  _RootContentBehavior.NONE = 0;
-  _RootContentBehavior.SIZING_LAYOUT = 1;
-  _RootContentBehavior.SIZING_SCALE = 2;
-  _RootContentBehavior.ALIGNMENT_TOP = 1;
-  _RootContentBehavior.ALIGNMENT_VERTICAL_CENTER = 2;
-  _RootContentBehavior.ALIGNMENT_BOTTOM = 4;
-  _RootContentBehavior.ALIGNMENT_START = 16;
-  _RootContentBehavior.ALIGNMENT_HORIZONTAL_CENTER = 32;
-  _RootContentBehavior.ALIGNMENT_END = 64;
-  _RootContentBehavior.ALIGNMENT_CENTER = 34;
-  // H_CENTER + V_CENTER
-  _RootContentBehavior.SCALE_INSIDE = 1;
-  _RootContentBehavior.SCALE_FIT = 2;
-  _RootContentBehavior.SCALE_FILL_WIDTH = 3;
-  _RootContentBehavior.SCALE_FILL_HEIGHT = 4;
-  _RootContentBehavior.SCALE_CROP = 5;
-  _RootContentBehavior.SCALE_FILL_BOUNDS = 6;
-  _RootContentBehavior.LAYOUT_MATCH_PARENT = 0;
-  _RootContentBehavior.LAYOUT_WRAP_CONTENT = 1;
-  var RootContentBehavior = _RootContentBehavior;
 
-  // third_party/remote-compose-player/src/core/operations/StubOperations.ts
-  var _ImpulseOperation = class _ImpulseOperation extends PaintOperation {
+  // src/core/operations/StubOperations.ts
+  var ImpulseOperation = class _ImpulseOperation extends PaintOperation {
     constructor(duration, startAt) {
       super();
       this.mList = [];
@@ -6201,6 +6690,9 @@ var RC = (() => {
       this.mStartAt = startAt;
       this.mOutDuration = duration;
       this.mOutStartAt = startAt;
+    }
+    static {
+      this.OP_CODE = 164;
     }
     getList() {
       return this.mList;
@@ -6255,12 +6747,13 @@ var RC = (() => {
       operations.push(new _ImpulseOperation(duration, startAt));
     }
   };
-  _ImpulseOperation.OP_CODE = 164;
-  var ImpulseOperation = _ImpulseOperation;
-  var _ImpulseProcess = class _ImpulseProcess extends PaintOperation {
+  var ImpulseProcess = class _ImpulseProcess extends PaintOperation {
     constructor() {
       super();
       this.mList = [];
+    }
+    static {
+      this.OP_CODE = 165;
     }
     getList() {
       return this.mList;
@@ -6284,9 +6777,10 @@ var RC = (() => {
       operations.push(new _ImpulseProcess());
     }
   };
-  _ImpulseProcess.OP_CODE = 165;
-  var ImpulseProcess = _ImpulseProcess;
-  var _DebugMessage = class _DebugMessage extends Operation {
+  var DebugMessage = class _DebugMessage extends Operation {
+    static {
+      this.OP_CODE = 179;
+    }
     constructor() {
       super();
     }
@@ -6304,9 +6798,10 @@ var RC = (() => {
       operations.push(new _DebugMessage());
     }
   };
-  _DebugMessage.OP_CODE = 179;
-  var DebugMessage = _DebugMessage;
-  var _HostActionMetadataOperation = class _HostActionMetadataOperation extends Operation {
+  var HostActionMetadataOperation = class _HostActionMetadataOperation extends Operation {
+    static {
+      this.OP_CODE = 216;
+    }
     constructor() {
       super();
     }
@@ -6323,12 +6818,13 @@ var RC = (() => {
       operations.push(new _HostActionMetadataOperation());
     }
   };
-  _HostActionMetadataOperation.OP_CODE = 216;
-  var HostActionMetadataOperation = _HostActionMetadataOperation;
-  var _RunActionOperation = class _RunActionOperation extends PaintOperation {
+  var RunActionOperation = class _RunActionOperation extends PaintOperation {
     constructor() {
       super();
       this.mList = [];
+    }
+    static {
+      this.OP_CODE = 236;
     }
     getList() {
       return this.mList;
@@ -6351,9 +6847,10 @@ var RC = (() => {
       operations.push(new _RunActionOperation());
     }
   };
-  _RunActionOperation.OP_CODE = 236;
-  var RunActionOperation = _RunActionOperation;
-  var _ValueFloatExpressionChangeAction = class _ValueFloatExpressionChangeAction extends Operation {
+  var ValueFloatExpressionChangeAction = class _ValueFloatExpressionChangeAction extends Operation {
+    static {
+      this.OP_CODE = 227;
+    }
     constructor(targetValueId, valueExpressionId) {
       super();
       this.mTargetValueId = targetValueId;
@@ -6376,9 +6873,10 @@ var RC = (() => {
       operations.push(new _ValueFloatExpressionChangeAction(valueId, expressionId));
     }
   };
-  _ValueFloatExpressionChangeAction.OP_CODE = 227;
-  var ValueFloatExpressionChangeAction = _ValueFloatExpressionChangeAction;
-  var _PathTween = class _PathTween extends Operation {
+  var PathTween = class _PathTween extends Operation {
+    static {
+      this.OP_CODE = 158;
+    }
     constructor() {
       super();
     }
@@ -6397,9 +6895,10 @@ var RC = (() => {
       operations.push(new _PathTween());
     }
   };
-  _PathTween.OP_CODE = 158;
-  var PathTween = _PathTween;
-  var _HapticFeedback = class _HapticFeedback extends Operation {
+  var HapticFeedback = class _HapticFeedback extends Operation {
+    static {
+      this.OP_CODE = 177;
+    }
     constructor() {
       super();
     }
@@ -6415,9 +6914,10 @@ var RC = (() => {
       operations.push(new _HapticFeedback());
     }
   };
-  _HapticFeedback.OP_CODE = 177;
-  var HapticFeedback = _HapticFeedback;
-  var _WakeIn = class _WakeIn extends Operation {
+  var WakeIn = class _WakeIn extends Operation {
+    static {
+      this.OP_CODE = 191;
+    }
     constructor() {
       super();
     }
@@ -6433,9 +6933,55 @@ var RC = (() => {
       operations.push(new _WakeIn());
     }
   };
-  _WakeIn.OP_CODE = 191;
-  var WakeIn = _WakeIn;
-  var _TimeAttribute = class _TimeAttribute extends PaintOperation {
+  var TimeAttribute = class _TimeAttribute extends PaintOperation {
+    static {
+      this.OP_CODE = 172;
+    }
+    static {
+      this.TIME_FROM_NOW_SEC = 0;
+    }
+    static {
+      this.TIME_FROM_NOW_MIN = 1;
+    }
+    static {
+      this.TIME_FROM_NOW_HR = 2;
+    }
+    static {
+      this.TIME_FROM_ARG_SEC = 3;
+    }
+    static {
+      this.TIME_FROM_ARG_MIN = 4;
+    }
+    static {
+      this.TIME_FROM_ARG_HR = 5;
+    }
+    static {
+      this.TIME_IN_SEC = 6;
+    }
+    static {
+      this.TIME_IN_MIN = 7;
+    }
+    static {
+      this.TIME_IN_HR = 8;
+    }
+    static {
+      this.TIME_DAY_OF_MONTH = 9;
+    }
+    static {
+      this.TIME_MONTH_VALUE = 10;
+    }
+    static {
+      this.TIME_DAY_OF_WEEK = 11;
+    }
+    static {
+      this.TIME_YEAR = 12;
+    }
+    static {
+      this.TIME_FROM_LOAD_SEC = 14;
+    }
+    static {
+      this.TIME_DAY_OF_YEAR = 15;
+    }
     constructor(id, timeId, type, args) {
       super();
       this.mId = id;
@@ -6530,31 +7076,17 @@ var RC = (() => {
       operations.push(new _TimeAttribute(id, timeId, type, args));
     }
   };
-  _TimeAttribute.OP_CODE = 172;
-  _TimeAttribute.TIME_FROM_NOW_SEC = 0;
-  _TimeAttribute.TIME_FROM_NOW_MIN = 1;
-  _TimeAttribute.TIME_FROM_NOW_HR = 2;
-  _TimeAttribute.TIME_FROM_ARG_SEC = 3;
-  _TimeAttribute.TIME_FROM_ARG_MIN = 4;
-  _TimeAttribute.TIME_FROM_ARG_HR = 5;
-  _TimeAttribute.TIME_IN_SEC = 6;
-  _TimeAttribute.TIME_IN_MIN = 7;
-  _TimeAttribute.TIME_IN_HR = 8;
-  _TimeAttribute.TIME_DAY_OF_MONTH = 9;
-  _TimeAttribute.TIME_MONTH_VALUE = 10;
-  _TimeAttribute.TIME_DAY_OF_WEEK = 11;
-  _TimeAttribute.TIME_YEAR = 12;
-  _TimeAttribute.TIME_FROM_LOAD_SEC = 14;
-  _TimeAttribute.TIME_DAY_OF_YEAR = 15;
-  var TimeAttribute = _TimeAttribute;
 
-  // third_party/remote-compose-player/src/core/operations/loom/PatternOperations.ts
-  var _ReferencedOperations = class _ReferencedOperations extends Operation {
+  // src/core/operations/loom/PatternOperations.ts
+  var ReferencedOperations = class _ReferencedOperations extends Operation {
     constructor(id) {
       super();
       this.mList = [];
       this.mBody = null;
       this.mId = id;
+    }
+    static {
+      this.OP_CODE = 142;
     }
     getId() {
       return this.mId;
@@ -6590,14 +7122,15 @@ var RC = (() => {
       operations.push(new _ReferencedOperations(buffer.declareId()));
     }
   };
-  _ReferencedOperations.OP_CODE = 142;
-  var ReferencedOperations = _ReferencedOperations;
-  var _PatternInflation = class _PatternInflation extends Operation {
+  var PatternInflation = class _PatternInflation extends Operation {
     constructor(id, argIds) {
       super();
       this.mList = [];
       this.mId = id;
       this.mArgIds = argIds;
+    }
+    static {
+      this.OP_CODE = 247;
     }
     getId() {
       return this.mId;
@@ -6659,13 +7192,14 @@ var RC = (() => {
       operations.push(new _PatternInflation(id, argIds));
     }
   };
-  _PatternInflation.OP_CODE = 247;
-  var PatternInflation = _PatternInflation;
-  var _PatternBlock = class _PatternBlock extends Operation {
+  var PatternBlock = class _PatternBlock extends Operation {
     constructor(paramIndex) {
       super();
       this.mList = [];
       this.mParamIndex = paramIndex;
+    }
+    static {
+      this.OP_CODE = 249;
     }
     getParamIndex() {
       return this.mParamIndex;
@@ -6692,15 +7226,16 @@ var RC = (() => {
       operations.push(new _PatternBlock(buffer.readInt()));
     }
   };
-  _PatternBlock.OP_CODE = 249;
-  var PatternBlock = _PatternBlock;
-  var _PatternForEach = class _PatternForEach extends Operation {
+  var PatternForEach = class _PatternForEach extends Operation {
     constructor(collectionId, localItemId) {
       super();
       this.mList = [];
       this.mBody = null;
       this.mCollectionId = collectionId;
       this.mLocalItemId = localItemId;
+    }
+    static {
+      this.OP_CODE = 244;
     }
     getCollectionId() {
       return this.mCollectionId;
@@ -6758,9 +7293,10 @@ var RC = (() => {
       operations.push(new _PatternForEach(collectionId, localItemId));
     }
   };
-  _PatternForEach.OP_CODE = 244;
-  var PatternForEach = _PatternForEach;
-  var _IncludeReferencedOperations = class _IncludeReferencedOperations extends Operation {
+  var IncludeReferencedOperations = class _IncludeReferencedOperations extends Operation {
+    static {
+      this.OP_CODE = 245;
+    }
     constructor(id) {
       super();
       this.mId = id;
@@ -6801,9 +7337,10 @@ var RC = (() => {
       operations.push(new _IncludeReferencedOperations(buffer.readId()));
     }
   };
-  _IncludeReferencedOperations.OP_CODE = 245;
-  var IncludeReferencedOperations = _IncludeReferencedOperations;
-  var _PatternArgument = class _PatternArgument extends Operation {
+  var PatternArgument = class _PatternArgument extends Operation {
+    static {
+      this.OP_CODE = 248;
+    }
     constructor(paramIndex) {
       super();
       this.mParamIndex = paramIndex;
@@ -6828,9 +7365,7 @@ var RC = (() => {
       operations.push(new _PatternArgument(buffer.readInt()));
     }
   };
-  _PatternArgument.OP_CODE = 248;
-  var PatternArgument = _PatternArgument;
-  var _PatternDefine = class _PatternDefine extends Operation {
+  var PatternDefine = class _PatternDefine extends Operation {
     constructor(id, paramIds, body, isContainer3) {
       super();
       this.mList = [];
@@ -6841,6 +7376,9 @@ var RC = (() => {
       if (isContainer3) {
         this.getList = () => this.mList;
       }
+    }
+    static {
+      this.OP_CODE = 246;
     }
     getId() {
       return this.mId;
@@ -6889,15 +7427,13 @@ var RC = (() => {
       operations.push(new _PatternDefine(id, paramIds, body, isContainer3));
     }
   };
-  _PatternDefine.OP_CODE = 246;
-  var PatternDefine = _PatternDefine;
   function makeChild(parent, loomManager, ctx, blocks, depth) {
     const Ctor = parent.constructor;
     return new Ctor(loomManager, parent.getDocument(), ctx, blocks, parent.isSafeMode(), depth);
   }
 
-  // third_party/remote-compose-player/src/core/WireBuffer.ts
-  var _WireBuffer = class _WireBuffer {
+  // src/core/WireBuffer.ts
+  var WireBuffer = class _WireBuffer {
     constructor(size = _WireBuffer.BUFFER_SIZE) {
       this.mIndex = 0;
       this.mStartingIndex = 0;
@@ -6907,6 +7443,9 @@ var RC = (() => {
       const ab = new ArrayBuffer(size);
       this.mBuffer = new Uint8Array(ab);
       this.mDataView = new DataView(ab);
+    }
+    static {
+      this.BUFFER_SIZE = 1024 * 1024;
     }
     static fromArrayBuffer(data) {
       const wb = new _WireBuffer(data.byteLength);
@@ -7157,10 +7696,8 @@ var RC = (() => {
       }
     }
   };
-  _WireBuffer.BUFFER_SIZE = 1024 * 1024;
-  var WireBuffer = _WireBuffer;
 
-  // third_party/remote-compose-player/src/core/operations/DrawBase4.ts
+  // src/core/operations/DrawBase4.ts
   var DrawBase4 = class extends PaintOperation {
     // Constructed from the raw int32 bits of each coordinate (see read()).
     constructor(x1Bits, y1Bits, x2Bits, y2Bits) {
@@ -7193,8 +7730,11 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/DrawRect.ts
-  var _DrawRect = class _DrawRect extends DrawBase4 {
+  // src/core/operations/DrawRect.ts
+  var DrawRect = class _DrawRect extends DrawBase4 {
+    static {
+      this.OP_CODE = 42;
+    }
     paintBase4(context, x1, y1, x2, y2) {
       context.drawRect(x1, y1, x2, y2);
     }
@@ -7210,10 +7750,8 @@ var RC = (() => {
       ));
     }
   };
-  _DrawRect.OP_CODE = 42;
-  var DrawRect = _DrawRect;
 
-  // third_party/remote-compose-player/src/core/operations/DrawBase3.ts
+  // src/core/operations/DrawBase3.ts
   var DrawBase3 = class extends PaintOperation {
     constructor(v1Bits, v2Bits, v3Bits) {
       super();
@@ -7241,8 +7779,11 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/DrawCircle.ts
-  var _DrawCircle = class _DrawCircle extends DrawBase3 {
+  // src/core/operations/DrawCircle.ts
+  var DrawCircle = class _DrawCircle extends DrawBase3 {
+    static {
+      this.OP_CODE = 46;
+    }
     paintBase3(context, v1, v2, v3) {
       context.drawCircle(v1, v2, v3);
     }
@@ -7253,11 +7794,12 @@ var RC = (() => {
       operations.push(new _DrawCircle(buffer.readInt(), buffer.readInt(), buffer.readInt()));
     }
   };
-  _DrawCircle.OP_CODE = 46;
-  var DrawCircle = _DrawCircle;
 
-  // third_party/remote-compose-player/src/core/operations/DrawOval.ts
-  var _DrawOval = class _DrawOval extends DrawBase4 {
+  // src/core/operations/DrawOval.ts
+  var DrawOval = class _DrawOval extends DrawBase4 {
+    static {
+      this.OP_CODE = 56;
+    }
     paintBase4(context, x1, y1, x2, y2) {
       context.drawOval(x1, y1, x2, y2);
     }
@@ -7273,10 +7815,8 @@ var RC = (() => {
       ));
     }
   };
-  _DrawOval.OP_CODE = 56;
-  var DrawOval = _DrawOval;
 
-  // third_party/remote-compose-player/src/core/operations/DrawBase6.ts
+  // src/core/operations/DrawBase6.ts
   var DrawBase6 = class extends PaintOperation {
     constructor(v1Bits, v2Bits, v3Bits, v4Bits, v5Bits, v6Bits) {
       super();
@@ -7316,8 +7856,11 @@ var RC = (() => {
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/DrawRoundRect.ts
-  var _DrawRoundRect = class _DrawRoundRect extends DrawBase6 {
+  // src/core/operations/DrawRoundRect.ts
+  var DrawRoundRect = class _DrawRoundRect extends DrawBase6 {
+    static {
+      this.OP_CODE = 51;
+    }
     paintBase6(context, v1, v2, v3, v4, v5, v6) {
       context.drawRoundRect(v1, v2, v3, v4, v5, v6);
     }
@@ -7335,11 +7878,12 @@ var RC = (() => {
       ));
     }
   };
-  _DrawRoundRect.OP_CODE = 51;
-  var DrawRoundRect = _DrawRoundRect;
 
-  // third_party/remote-compose-player/src/core/operations/DrawArc.ts
-  var _DrawArc = class _DrawArc extends DrawBase6 {
+  // src/core/operations/DrawArc.ts
+  var DrawArc = class _DrawArc extends DrawBase6 {
+    static {
+      this.OP_CODE = 152;
+    }
     paintBase6(context, v1, v2, v3, v4, v5, v6) {
       context.drawArc(v1, v2, v3, v4, v5, v6);
     }
@@ -7357,11 +7901,12 @@ var RC = (() => {
       ));
     }
   };
-  _DrawArc.OP_CODE = 152;
-  var DrawArc = _DrawArc;
 
-  // third_party/remote-compose-player/src/core/operations/DrawSector.ts
-  var _DrawSector = class _DrawSector extends DrawBase6 {
+  // src/core/operations/DrawSector.ts
+  var DrawSector = class _DrawSector extends DrawBase6 {
+    static {
+      this.OP_CODE = 52;
+    }
     paintBase6(context, v1, v2, v3, v4, v5, v6) {
       context.drawSector(v1, v2, v3, v4, v5, v6);
     }
@@ -7379,11 +7924,12 @@ var RC = (() => {
       ));
     }
   };
-  _DrawSector.OP_CODE = 52;
-  var DrawSector = _DrawSector;
 
-  // third_party/remote-compose-player/src/core/operations/DrawPath.ts
-  var _DrawPath = class _DrawPath extends PaintOperation {
+  // src/core/operations/DrawPath.ts
+  var DrawPath = class _DrawPath extends PaintOperation {
+    static {
+      this.OP_CODE = 124;
+    }
     constructor(pathId, start, end) {
       super();
       this.mPathId = pathId;
@@ -7403,11 +7949,12 @@ var RC = (() => {
       operations.push(new _DrawPath(id, 0, 1));
     }
   };
-  _DrawPath.OP_CODE = 124;
-  var DrawPath = _DrawPath;
 
-  // third_party/remote-compose-player/src/core/operations/DrawTweenPath.ts
-  var _DrawTweenPath = class _DrawTweenPath extends PaintOperation {
+  // src/core/operations/DrawTweenPath.ts
+  var DrawTweenPath = class _DrawTweenPath extends PaintOperation {
+    static {
+      this.OP_CODE = 125;
+    }
     constructor(path1Id, path2Id, tweenBits, startBits, endBits) {
       super();
       this.mPath1Id = path1Id;
@@ -7447,15 +7994,16 @@ var RC = (() => {
       ));
     }
   };
-  _DrawTweenPath.OP_CODE = 125;
-  var DrawTweenPath = _DrawTweenPath;
 
-  // third_party/remote-compose-player/src/core/operations/DrawContent.ts
-  var _DrawContent = class _DrawContent extends PaintOperation {
+  // src/core/operations/DrawContent.ts
+  var DrawContent = class _DrawContent extends PaintOperation {
     constructor() {
       super(...arguments);
       this.mLayoutComponent = null;
       this.mInProcessing = false;
+    }
+    static {
+      this.OP_CODE = 139;
     }
     setComponent(component) {
       this.mLayoutComponent = component;
@@ -7478,11 +8026,12 @@ var RC = (() => {
       operations.push(new _DrawContent());
     }
   };
-  _DrawContent.OP_CODE = 139;
-  var DrawContent = _DrawContent;
 
-  // third_party/remote-compose-player/src/core/operations/DrawBitmap.ts
-  var _DrawBitmap = class _DrawBitmap extends PaintOperation {
+  // src/core/operations/DrawBitmap.ts
+  var DrawBitmap = class _DrawBitmap extends PaintOperation {
+    static {
+      this.OP_CODE = 44;
+    }
     constructor(imageId, leftBits, topBits, rightBits, bottomBits, cdId) {
       super();
       this.mImageId = imageId;
@@ -7532,11 +8081,12 @@ var RC = (() => {
       operations.push(new _DrawBitmap(id, left, top, right, bottom, cdId));
     }
   };
-  _DrawBitmap.OP_CODE = 44;
-  var DrawBitmap = _DrawBitmap;
 
-  // third_party/remote-compose-player/src/core/operations/DrawBitmapInt.ts
-  var _DrawBitmapInt = class _DrawBitmapInt extends PaintOperation {
+  // src/core/operations/DrawBitmapInt.ts
+  var DrawBitmapInt = class _DrawBitmapInt extends PaintOperation {
+    static {
+      this.OP_CODE = 66;
+    }
     constructor(imageId, srcL, srcT, srcR, srcB, dstL, dstT, dstR, dstB, cdId) {
       super();
       this.mImageId = imageId;
@@ -7584,16 +8134,38 @@ var RC = (() => {
       ));
     }
   };
-  _DrawBitmapInt.OP_CODE = 66;
-  var DrawBitmapInt = _DrawBitmapInt;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/ImageScaling.ts
-  var _ImageScaling = class _ImageScaling {
+  // src/core/operations/utilities/ImageScaling.ts
+  var ImageScaling = class _ImageScaling {
     constructor() {
       this.mFinalDstLeft = 0;
       this.mFinalDstTop = 0;
       this.mFinalDstRight = 0;
       this.mFinalDstBottom = 0;
+    }
+    static {
+      this.SCALE_NONE = 0;
+    }
+    static {
+      this.SCALE_INSIDE = 1;
+    }
+    static {
+      this.SCALE_FILL_WIDTH = 2;
+    }
+    static {
+      this.SCALE_FILL_HEIGHT = 3;
+    }
+    static {
+      this.SCALE_FIT = 4;
+    }
+    static {
+      this.SCALE_CROP = 5;
+    }
+    static {
+      this.SCALE_FILL_BOUNDS = 6;
+    }
+    static {
+      this.SCALE_FIXED_SCALE = 7;
     }
     setup(srcLeft, srcTop, srcRight, srcBottom, dstLeft, dstTop, dstRight, dstBottom, scaleType, scaleFactor) {
       const sw = srcRight - srcLeft | 0;
@@ -7689,18 +8261,9 @@ var RC = (() => {
       this.mFinalDstTop = dTop + dstTop;
     }
   };
-  _ImageScaling.SCALE_NONE = 0;
-  _ImageScaling.SCALE_INSIDE = 1;
-  _ImageScaling.SCALE_FILL_WIDTH = 2;
-  _ImageScaling.SCALE_FILL_HEIGHT = 3;
-  _ImageScaling.SCALE_FIT = 4;
-  _ImageScaling.SCALE_CROP = 5;
-  _ImageScaling.SCALE_FILL_BOUNDS = 6;
-  _ImageScaling.SCALE_FIXED_SCALE = 7;
-  var ImageScaling = _ImageScaling;
 
-  // third_party/remote-compose-player/src/core/operations/DrawBitmapScaled.ts
-  var _DrawBitmapScaled = class _DrawBitmapScaled extends PaintOperation {
+  // src/core/operations/DrawBitmapScaled.ts
+  var DrawBitmapScaled = class _DrawBitmapScaled extends PaintOperation {
     // Args are raw int32 bits for the float fields (see read()).
     constructor(imageId, srcL, srcT, srcR, srcB, dstL, dstT, dstR, dstB, scaleType, scaleFactor, cdId) {
       super();
@@ -7730,6 +8293,9 @@ var RC = (() => {
       this.mScaleFactor = scaleFactor;
       this.mOutScaleFactor = lit(scaleFactor);
       this.mCdId = cdId;
+    }
+    static {
+      this.OP_CODE = 149;
     }
     write(_buffer) {
     }
@@ -7807,11 +8373,12 @@ var RC = (() => {
       operations.push(new _DrawBitmapScaled(id, srcL, srcT, srcR, srcB, dstL, dstT, dstR, dstB, scaleType, scaleFactor, cdId));
     }
   };
-  _DrawBitmapScaled.OP_CODE = 149;
-  var DrawBitmapScaled = _DrawBitmapScaled;
 
-  // third_party/remote-compose-player/src/core/operations/DrawText.ts
-  var _DrawText = class _DrawText extends PaintOperation {
+  // src/core/operations/DrawText.ts
+  var DrawText = class _DrawText extends PaintOperation {
+    static {
+      this.OP_CODE = 43;
+    }
     constructor(textId, start, end, contextStart, contextEnd, xBits, yBits, rtl) {
       super();
       this.mTextId = textId;
@@ -7864,11 +8431,12 @@ var RC = (() => {
       ));
     }
   };
-  _DrawText.OP_CODE = 43;
-  var DrawText = _DrawText;
 
-  // third_party/remote-compose-player/src/core/operations/DrawTextOnPath.ts
-  var _DrawTextOnPath = class _DrawTextOnPath extends PaintOperation {
+  // src/core/operations/DrawTextOnPath.ts
+  var DrawTextOnPath = class _DrawTextOnPath extends PaintOperation {
+    static {
+      this.OP_CODE = 53;
+    }
     constructor(textId, pathId, hOffsetBits, vOffsetBits) {
       super();
       this.mTextId = textId;
@@ -7903,11 +8471,12 @@ var RC = (() => {
       operations.push(new _DrawTextOnPath(textId, pathId, hOffsetBits, vOffsetBits));
     }
   };
-  _DrawTextOnPath.OP_CODE = 53;
-  var DrawTextOnPath = _DrawTextOnPath;
 
-  // third_party/remote-compose-player/src/core/operations/DrawToBitmap.ts
-  var _DrawToBitmap = class _DrawToBitmap extends PaintOperation {
+  // src/core/operations/DrawToBitmap.ts
+  var DrawToBitmap = class _DrawToBitmap extends PaintOperation {
+    static {
+      this.OP_CODE = 190;
+    }
     constructor(bitmapId, mode, color) {
       super();
       this.mBitmapId = bitmapId;
@@ -7926,11 +8495,12 @@ var RC = (() => {
       operations.push(new _DrawToBitmap(buffer.readInt(), buffer.readInt(), buffer.readInt()));
     }
   };
-  _DrawToBitmap.OP_CODE = 190;
-  var DrawToBitmap = _DrawToBitmap;
 
-  // third_party/remote-compose-player/src/core/operations/DrawLine.ts
-  var _DrawLine = class _DrawLine extends DrawBase4 {
+  // src/core/operations/DrawLine.ts
+  var DrawLine = class _DrawLine extends DrawBase4 {
+    static {
+      this.OP_CODE = 47;
+    }
     paintBase4(context, x1, y1, x2, y2) {
       context.drawLine(x1, y1, x2, y2);
     }
@@ -7946,15 +8516,28 @@ var RC = (() => {
       ));
     }
   };
-  _DrawLine.OP_CODE = 47;
-  var DrawLine = _DrawLine;
 
-  // third_party/remote-compose-player/src/core/PaintContext.ts
+  // src/core/PaintContext.ts
   var PaintContext = class {
     constructor(context) {
       this.mNeedsRepaint = false;
       this.mMeasureVersion = 0;
       this.mContext = context;
+    }
+    static {
+      this.TEXT_MEASURE_MONOSPACE_WIDTH = 1;
+    }
+    static {
+      this.TEXT_MEASURE_FONT_HEIGHT = 2;
+    }
+    static {
+      this.TEXT_MEASURE_SPACES = 4;
+    }
+    static {
+      this.TEXT_COMPLEX = 8;
+    }
+    static {
+      this.TEXT_MEASURE_AUTOSIZE = 16;
     }
     getContext() {
       return this.mContext;
@@ -8008,14 +8591,9 @@ var RC = (() => {
       this.mContext.mRemoteComposeState.wakeIn(seconds);
     }
   };
-  PaintContext.TEXT_MEASURE_MONOSPACE_WIDTH = 1;
-  PaintContext.TEXT_MEASURE_FONT_HEIGHT = 2;
-  PaintContext.TEXT_MEASURE_SPACES = 4;
-  PaintContext.TEXT_COMPLEX = 8;
-  PaintContext.TEXT_MEASURE_AUTOSIZE = 16;
 
-  // third_party/remote-compose-player/src/core/operations/DrawTextAnchored.ts
-  var _DrawTextAnchored = class _DrawTextAnchored extends PaintOperation {
+  // src/core/operations/DrawTextAnchored.ts
+  var DrawTextAnchored = class _DrawTextAnchored extends PaintOperation {
     constructor(textId, xBits, yBits, panXBits, panYBits, flags) {
       super();
       // Cached text measurement
@@ -8031,6 +8609,21 @@ var RC = (() => {
       this.mOutY = isNaNBits(yBits) ? 0 : intBitsToFloat(yBits);
       this.mOutPanX = isNaNBits(panXBits) ? 0 : intBitsToFloat(panXBits);
       this.mOutPanY = intBitsToFloat(panYBits);
+    }
+    static {
+      this.OP_CODE = 133;
+    }
+    static {
+      this.ANCHOR_TEXT_RTL = 1;
+    }
+    static {
+      this.ANCHOR_MONOSPACE_MEASURE = 2;
+    }
+    static {
+      this.MEASURE_EVERY_TIME = 4;
+    }
+    static {
+      this.BASELINE_RELATIVE = 8;
     }
     write(_buffer) {
     }
@@ -8102,21 +8695,18 @@ var RC = (() => {
       ));
     }
   };
-  _DrawTextAnchored.OP_CODE = 133;
-  _DrawTextAnchored.ANCHOR_TEXT_RTL = 1;
-  _DrawTextAnchored.ANCHOR_MONOSPACE_MEASURE = 2;
-  _DrawTextAnchored.MEASURE_EVERY_TIME = 4;
-  _DrawTextAnchored.BASELINE_RELATIVE = 8;
-  var DrawTextAnchored = _DrawTextAnchored;
 
-  // third_party/remote-compose-player/src/core/operations/MatrixOperations.ts
+  // src/core/operations/MatrixOperations.ts
   function listenFloat(bits, context, op) {
     if (isNaNBits(bits)) context.listensTo(idFromBits(bits), op);
   }
   function resolveFloat(bits, context) {
     return isNaNBits(bits) ? context.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
   }
-  var _MatrixSave = class _MatrixSave extends Operation {
+  var MatrixSave = class _MatrixSave extends Operation {
+    static {
+      this.OP_CODE = 130;
+    }
     write(_buffer) {
     }
     apply(context) {
@@ -8134,9 +8724,10 @@ var RC = (() => {
       operations.push(new _MatrixSave());
     }
   };
-  _MatrixSave.OP_CODE = 130;
-  var MatrixSave = _MatrixSave;
-  var _MatrixRestore = class _MatrixRestore extends Operation {
+  var MatrixRestore = class _MatrixRestore extends Operation {
+    static {
+      this.OP_CODE = 131;
+    }
     write(_buffer) {
     }
     apply(context) {
@@ -8154,9 +8745,10 @@ var RC = (() => {
       operations.push(new _MatrixRestore());
     }
   };
-  _MatrixRestore.OP_CODE = 131;
-  var MatrixRestore = _MatrixRestore;
-  var _MatrixTranslate = class _MatrixTranslate extends Operation {
+  var MatrixTranslate = class _MatrixTranslate extends Operation {
+    static {
+      this.OP_CODE = 127;
+    }
     constructor(tx, ty) {
       super();
       this.mTranslateX = tx;
@@ -8182,9 +8774,10 @@ var RC = (() => {
       operations.push(new _MatrixTranslate(buffer.readInt(), buffer.readInt()));
     }
   };
-  _MatrixTranslate.OP_CODE = 127;
-  var MatrixTranslate = _MatrixTranslate;
-  var _MatrixScale = class _MatrixScale extends Operation {
+  var MatrixScale = class _MatrixScale extends Operation {
+    static {
+      this.OP_CODE = 126;
+    }
     constructor(sx, sy, cx, cy) {
       super();
       this.mScaleX = sx;
@@ -8216,9 +8809,10 @@ var RC = (() => {
       operations.push(new _MatrixScale(buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt()));
     }
   };
-  _MatrixScale.OP_CODE = 126;
-  var MatrixScale = _MatrixScale;
-  var _MatrixRotate = class _MatrixRotate extends Operation {
+  var MatrixRotate = class _MatrixRotate extends Operation {
+    static {
+      this.OP_CODE = 129;
+    }
     constructor(angle, px, py) {
       super();
       this.mAngle = angle;
@@ -8247,9 +8841,10 @@ var RC = (() => {
       operations.push(new _MatrixRotate(buffer.readInt(), buffer.readInt(), buffer.readInt()));
     }
   };
-  _MatrixRotate.OP_CODE = 129;
-  var MatrixRotate = _MatrixRotate;
-  var _MatrixSkew = class _MatrixSkew extends Operation {
+  var MatrixSkew = class _MatrixSkew extends Operation {
+    static {
+      this.OP_CODE = 128;
+    }
     constructor(sx, sy) {
       super();
       this.mSkewX = sx;
@@ -8275,9 +8870,10 @@ var RC = (() => {
       operations.push(new _MatrixSkew(buffer.readInt(), buffer.readInt()));
     }
   };
-  _MatrixSkew.OP_CODE = 128;
-  var MatrixSkew = _MatrixSkew;
-  var _MatrixFromPath = class _MatrixFromPath extends Operation {
+  var MatrixFromPath = class _MatrixFromPath extends Operation {
+    static {
+      this.OP_CODE = 181;
+    }
     constructor(pathId, fraction, vOffset, flags) {
       super();
       this.mPathId = pathId;
@@ -8307,9 +8903,10 @@ var RC = (() => {
       operations.push(new _MatrixFromPath(buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt()));
     }
   };
-  _MatrixFromPath.OP_CODE = 181;
-  var MatrixFromPath = _MatrixFromPath;
-  var _ClipRect = class _ClipRect extends Operation {
+  var ClipRect = class _ClipRect extends Operation {
+    static {
+      this.OP_CODE = 39;
+    }
     constructor(l, t, r, b) {
       super();
       this.mLeft = l;
@@ -8341,9 +8938,10 @@ var RC = (() => {
       operations.push(new _ClipRect(buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt()));
     }
   };
-  _ClipRect.OP_CODE = 39;
-  var ClipRect = _ClipRect;
-  var _ClipPath = class _ClipPath extends Operation {
+  var ClipPath = class _ClipPath extends Operation {
+    static {
+      this.OP_CODE = 38;
+    }
     constructor(pathId, regionOp) {
       super();
       this.mPathId = pathId;
@@ -8365,11 +8963,33 @@ var RC = (() => {
       operations.push(new _ClipPath(id, regionOp));
     }
   };
-  _ClipPath.OP_CODE = 38;
-  var ClipPath = _ClipPath;
 
-  // third_party/remote-compose-player/src/core/operations/ColorExpression.ts
-  var _ColorExpression = class _ColorExpression extends Operation {
+  // src/core/operations/ColorExpression.ts
+  var ColorExpression = class _ColorExpression extends Operation {
+    static {
+      this.OP_CODE = 134;
+    }
+    static {
+      this.COLOR_COLOR_INTERPOLATE = 0;
+    }
+    static {
+      this.ID_COLOR_INTERPOLATE = 1;
+    }
+    static {
+      this.COLOR_ID_INTERPOLATE = 2;
+    }
+    static {
+      this.ID_ID_INTERPOLATE = 3;
+    }
+    static {
+      this.HSV_MODE = 4;
+    }
+    static {
+      this.ARGB_MODE = 5;
+    }
+    static {
+      this.IDARGB_MODE = 6;
+    }
     constructor(id, param1, param2, param3, param4) {
       super();
       this.mId = id;
@@ -8519,18 +9139,9 @@ var RC = (() => {
       ));
     }
   };
-  _ColorExpression.OP_CODE = 134;
-  _ColorExpression.COLOR_COLOR_INTERPOLATE = 0;
-  _ColorExpression.ID_COLOR_INTERPOLATE = 1;
-  _ColorExpression.COLOR_ID_INTERPOLATE = 2;
-  _ColorExpression.ID_ID_INTERPOLATE = 3;
-  _ColorExpression.HSV_MODE = 4;
-  _ColorExpression.ARGB_MODE = 5;
-  _ColorExpression.IDARGB_MODE = 6;
-  var ColorExpression = _ColorExpression;
 
-  // third_party/remote-compose-player/src/core/operations/IntegerExpression.ts
-  var _IntegerExpression = class _IntegerExpression extends Operation {
+  // src/core/operations/IntegerExpression.ts
+  var IntegerExpression = class _IntegerExpression extends Operation {
     constructor(id, mask, values) {
       super();
       this.mPreCalcValues = null;
@@ -8543,6 +9154,12 @@ var RC = (() => {
       this.mId = id;
       this.mMask = mask;
       this.mValues = values;
+    }
+    static {
+      this.OP_CODE = 144;
+    }
+    static {
+      this.OFFSET = 65536;
     }
     write(_buffer) {
     }
@@ -8739,12 +9356,12 @@ var RC = (() => {
       operations.push(new _IntegerExpression(id, mask, values));
     }
   };
-  _IntegerExpression.OP_CODE = 144;
-  _IntegerExpression.OFFSET = 65536;
-  var IntegerExpression = _IntegerExpression;
 
-  // third_party/remote-compose-player/src/core/operations/IntegerConstant.ts
-  var _IntegerConstant = class _IntegerConstant extends Operation {
+  // src/core/operations/IntegerConstant.ts
+  var IntegerConstant = class _IntegerConstant extends Operation {
+    static {
+      this.OP_CODE = 140;
+    }
     constructor(id, value) {
       super();
       this.mId = id;
@@ -8765,11 +9382,12 @@ var RC = (() => {
       operations.push(new _IntegerConstant(buffer.readInt(), buffer.readInt()));
     }
   };
-  _IntegerConstant.OP_CODE = 140;
-  var IntegerConstant = _IntegerConstant;
 
-  // third_party/remote-compose-player/src/core/operations/BooleanConstant.ts
-  var _BooleanConstant = class _BooleanConstant extends Operation {
+  // src/core/operations/BooleanConstant.ts
+  var BooleanConstant = class _BooleanConstant extends Operation {
+    static {
+      this.OP_CODE = 143;
+    }
     constructor(id, value) {
       super();
       this.mId = id;
@@ -8786,11 +9404,12 @@ var RC = (() => {
       operations.push(new _BooleanConstant(buffer.readInt(), buffer.readBoolean()));
     }
   };
-  _BooleanConstant.OP_CODE = 143;
-  var BooleanConstant = _BooleanConstant;
 
-  // third_party/remote-compose-player/src/core/operations/LongConstant.ts
-  var _LongConstant = class _LongConstant extends Operation {
+  // src/core/operations/LongConstant.ts
+  var LongConstant = class _LongConstant extends Operation {
+    static {
+      this.OP_CODE = 148;
+    }
     constructor(id, value) {
       super();
       this.mId = id;
@@ -8814,11 +9433,9 @@ var RC = (() => {
       operations.push(new _LongConstant(buffer.readInt(), buffer.readLong()));
     }
   };
-  _LongConstant.OP_CODE = 148;
-  var LongConstant = _LongConstant;
 
-  // third_party/remote-compose-player/src/core/operations/ShaderData.ts
-  var _ShaderData = class _ShaderData extends Operation {
+  // src/core/operations/ShaderData.ts
+  var ShaderData = class _ShaderData extends Operation {
     constructor(shaderId, shaderTextId, floatMap, intMap, bitmapMap) {
       super();
       this.mShaderValid = false;
@@ -8839,6 +9456,9 @@ var RC = (() => {
         this.mUniformRawFloatMap = null;
         this.mUniformFloatMap = null;
       }
+    }
+    static {
+      this.OP_CODE = 45;
     }
     getShaderTextId() {
       return this.mShaderTextId;
@@ -8950,10 +9570,8 @@ var RC = (() => {
       operations.push(sd);
     }
   };
-  _ShaderData.OP_CODE = 45;
-  var ShaderData = _ShaderData;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/StringUtils.ts
+  // src/core/operations/utilities/StringUtils.ts
   var GROUPING_NONE = 0;
   var GROUPING_BY3 = 1;
   var GROUPING_BY4 = 2;
@@ -9167,7 +9785,7 @@ var RC = (() => {
     return "-" + integerPartString + decSep + fact;
   }
 
-  // third_party/remote-compose-player/src/core/operations/TextFromFloat.ts
+  // src/core/operations/TextFromFloat.ts
   var PAD_AFTER_NONE = 1;
   var PAD_AFTER_ZERO = 3;
   var PAD_PRE_NONE = 4;
@@ -9181,7 +9799,10 @@ var RC = (() => {
   var OPTIONS_NEGATIVE_PARENTHESES = 1 << 8;
   var OPTIONS_ROUNDING = 2 << 8;
   var LEGACY_MODE = 1 << 10;
-  var _TextFromFloat = class _TextFromFloat extends Operation {
+  var TextFromFloat = class _TextFromFloat extends Operation {
+    static {
+      this.OP_CODE = 135;
+    }
     constructor(textId, valueBits, digitsBefore, digitsAfter, flags) {
       super();
       this.mTextId = textId;
@@ -9286,11 +9907,12 @@ var RC = (() => {
       operations.push(new _TextFromFloat(textId, valueBits, digitsBefore, digitsAfter, flags));
     }
   };
-  _TextFromFloat.OP_CODE = 135;
-  var TextFromFloat = _TextFromFloat;
 
-  // third_party/remote-compose-player/src/core/operations/TextMerge.ts
-  var _TextMerge = class _TextMerge extends Operation {
+  // src/core/operations/TextMerge.ts
+  var TextMerge = class _TextMerge extends Operation {
+    static {
+      this.OP_CODE = 136;
+    }
     constructor(textId, srcId1, srcId2) {
       super();
       this.mTextId = textId;
@@ -9318,11 +9940,36 @@ var RC = (() => {
       operations.push(new _TextMerge(buffer.readInt(), buffer.readInt(), buffer.readInt()));
     }
   };
-  _TextMerge.OP_CODE = 136;
-  var TextMerge = _TextMerge;
 
-  // third_party/remote-compose-player/src/core/operations/ComponentValue.ts
-  var _ComponentValue = class _ComponentValue extends Operation {
+  // src/core/operations/ComponentValue.ts
+  var ComponentValue = class _ComponentValue extends Operation {
+    static {
+      this.OP_CODE = 150;
+    }
+    static {
+      this.WIDTH = 0;
+    }
+    static {
+      this.HEIGHT = 1;
+    }
+    static {
+      this.POS_X = 2;
+    }
+    static {
+      this.POS_Y = 3;
+    }
+    static {
+      this.POS_ROOT_X = 4;
+    }
+    static {
+      this.POS_ROOT_Y = 5;
+    }
+    static {
+      this.CONTENT_WIDTH = 6;
+    }
+    static {
+      this.CONTENT_HEIGHT = 7;
+    }
     constructor(type, componentId, valueId) {
       super();
       this.mType = type;
@@ -9397,18 +10044,8 @@ var RC = (() => {
       operations.push(new _ComponentValue(type, componentId, valueId));
     }
   };
-  _ComponentValue.OP_CODE = 150;
-  _ComponentValue.WIDTH = 0;
-  _ComponentValue.HEIGHT = 1;
-  _ComponentValue.POS_X = 2;
-  _ComponentValue.POS_Y = 3;
-  _ComponentValue.POS_ROOT_X = 4;
-  _ComponentValue.POS_ROOT_Y = 5;
-  _ComponentValue.CONTENT_WIDTH = 6;
-  _ComponentValue.CONTENT_HEIGHT = 7;
-  var ComponentValue = _ComponentValue;
 
-  // third_party/remote-compose-player/src/core/operations/DataMapIds.ts
+  // src/core/operations/DataMapIds.ts
   var DataMap = class {
     constructor(names, types, ids) {
       this.mNames = names;
@@ -9419,7 +10056,10 @@ var RC = (() => {
       return this.mNames.indexOf(name);
     }
   };
-  var _DataMapIds = class _DataMapIds extends Operation {
+  var DataMapIds = class _DataMapIds extends Operation {
+    static {
+      this.OP_CODE = 145;
+    }
     constructor(id, dataMap) {
       super();
       this.mId = id;
@@ -9447,11 +10087,12 @@ var RC = (() => {
       operations.push(new _DataMapIds(id, new DataMap(names, types, ids)));
     }
   };
-  _DataMapIds.OP_CODE = 145;
-  var DataMapIds = _DataMapIds;
 
-  // third_party/remote-compose-player/src/core/operations/DataListIds.ts
-  var _DataListIds = class _DataListIds extends Operation {
+  // src/core/operations/DataListIds.ts
+  var DataListIds = class _DataListIds extends Operation {
+    static {
+      this.OP_CODE = 146;
+    }
     constructor(id, ids) {
       super();
       this.mId = id;
@@ -9484,11 +10125,12 @@ var RC = (() => {
       operations.push(new _DataListIds(id, ids));
     }
   };
-  _DataListIds.OP_CODE = 146;
-  var DataListIds = _DataListIds;
 
-  // third_party/remote-compose-player/src/core/operations/DataListFloat.ts
-  var _DataListFloat = class _DataListFloat extends Operation {
+  // src/core/operations/DataListFloat.ts
+  var DataListFloat = class _DataListFloat extends Operation {
+    static {
+      this.OP_CODE = 147;
+    }
     constructor(id, bits) {
       super();
       this.mId = id;
@@ -9538,11 +10180,12 @@ var RC = (() => {
       operations.push(new _DataListFloat(id, bits));
     }
   };
-  _DataListFloat.OP_CODE = 147;
-  var DataListFloat = _DataListFloat;
 
-  // third_party/remote-compose-player/src/core/operations/layout/LayoutComponentContent.ts
-  var _LayoutComponentContent = class _LayoutComponentContent extends Component {
+  // src/core/operations/layout/LayoutComponentContent.ts
+  var LayoutComponentContent = class _LayoutComponentContent extends Component {
+    static {
+      this.OP_CODE = 201;
+    }
     constructor(componentId) {
       super(componentId);
     }
@@ -9575,11 +10218,12 @@ var RC = (() => {
       operations.push(new _LayoutComponentContent(componentId));
     }
   };
-  _LayoutComponentContent.OP_CODE = 201;
-  var LayoutComponentContent = _LayoutComponentContent;
 
-  // third_party/remote-compose-player/src/core/operations/layout/CanvasContent.ts
-  var _CanvasContent = class _CanvasContent extends Component {
+  // src/core/operations/layout/CanvasContent.ts
+  var CanvasContent = class _CanvasContent extends Component {
+    static {
+      this.OP_CODE = 207;
+    }
     constructor(componentId) {
       super(componentId);
     }
@@ -9597,11 +10241,9 @@ var RC = (() => {
       operations.push(new _CanvasContent(componentId));
     }
   };
-  _CanvasContent.OP_CODE = 207;
-  var CanvasContent = _CanvasContent;
 
-  // third_party/remote-compose-player/src/core/operations/DataDynamicListFloat.ts
-  var _DataDynamicListFloat = class _DataDynamicListFloat extends Operation {
+  // src/core/operations/DataDynamicListFloat.ts
+  var DataDynamicListFloat = class _DataDynamicListFloat extends Operation {
     constructor(id, nbValuesBits) {
       super();
       this.isDynamic = true;
@@ -9613,6 +10255,12 @@ var RC = (() => {
       this.mValues = new Float32Array(Math.floor(nbValues) || 0);
       this.mArrayLengthBits = nbValuesBits;
       this.mArrayLengthOut = nbValues;
+    }
+    static {
+      this.OP_CODE = 197;
+    }
+    static {
+      this.MAX_FLOAT_ARRAY = 2e3;
     }
     updateVariables(context) {
       if (isNaNBits(this.mArrayLengthBits)) {
@@ -9664,12 +10312,9 @@ var RC = (() => {
       operations.push(new _DataDynamicListFloat(id, lenBits));
     }
   };
-  _DataDynamicListFloat.OP_CODE = 197;
-  _DataDynamicListFloat.MAX_FLOAT_ARRAY = 2e3;
-  var DataDynamicListFloat = _DataDynamicListFloat;
 
-  // third_party/remote-compose-player/src/core/operations/layout/modifiers/LayoutComputeOperation.ts
-  var _LayoutComputeOperation = class _LayoutComputeOperation extends Operation {
+  // src/core/operations/layout/modifiers/LayoutComputeOperation.ts
+  var LayoutComputeOperation = class _LayoutComputeOperation extends Operation {
     constructor(type, boundsId, animateChanges) {
       super();
       this.mList = [];
@@ -9678,6 +10323,15 @@ var RC = (() => {
       this.mType = type;
       this.mBoundsId = boundsId;
       this.mAnimateChanges = animateChanges;
+    }
+    static {
+      this.OP_CODE = 238;
+    }
+    static {
+      this.TYPE_MEASURE = 0;
+    }
+    static {
+      this.TYPE_POSITION = 1;
     }
     getList() {
       return this.mList;
@@ -9773,17 +10427,16 @@ var RC = (() => {
       operations.push(new _LayoutComputeOperation(type, boundsId, animateChanges));
     }
   };
-  _LayoutComputeOperation.OP_CODE = 238;
-  _LayoutComputeOperation.TYPE_MEASURE = 0;
-  _LayoutComputeOperation.TYPE_POSITION = 1;
-  var LayoutComputeOperation = _LayoutComputeOperation;
 
-  // third_party/remote-compose-player/src/core/operations/layout/CanvasOperations.ts
-  var _CanvasOperations = class _CanvasOperations extends PaintOperation {
+  // src/core/operations/layout/CanvasOperations.ts
+  var CanvasOperations = class _CanvasOperations extends PaintOperation {
     constructor() {
       super();
       // Child drawing commands, collected during inflation (see getList()).
       this.mList = [];
+    }
+    static {
+      this.OP_CODE = 173;
     }
     // Exposing getList() marks this as a Container: CoreDocument.inflateComponents
     // redirects the ops between this one and its ContainerEnd into mList, and the
@@ -9813,10 +10466,8 @@ ${inner}`;
       operations.push(new _CanvasOperations());
     }
   };
-  _CanvasOperations.OP_CODE = 173;
-  var CanvasOperations = _CanvasOperations;
 
-  // third_party/remote-compose-player/src/core/operations/layout/LayoutComponent.ts
+  // src/core/operations/layout/LayoutComponent.ts
   var LayoutComponent = class _LayoutComponent extends Component {
     constructor() {
       super(...arguments);
@@ -10432,7 +11083,7 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/layout/measure/Size.ts
+  // src/core/operations/layout/measure/Size.ts
   var Size = class {
     constructor(width = 0, height = 0) {
       this.mWidth = width;
@@ -10456,7 +11107,7 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/LayoutManager.ts
+  // src/core/operations/layout/managers/LayoutManager.ts
   function contentExtent(size, padding) {
     return Math.max(0, size - padding);
   }
@@ -10627,8 +11278,26 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/BoxLayout.ts
-  var _BoxLayout = class _BoxLayout extends LayoutManager {
+  // src/core/operations/layout/managers/BoxLayout.ts
+  var BoxLayout = class _BoxLayout extends LayoutManager {
+    static {
+      this.OP_CODE = 202;
+    }
+    static {
+      this.START = 1;
+    }
+    static {
+      this.CENTER = 2;
+    }
+    static {
+      this.END = 3;
+    }
+    static {
+      this.TOP = 4;
+    }
+    static {
+      this.BOTTOM = 5;
+    }
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning) {
       super(componentId, animationId);
       this.mAnimationId = animationId;
@@ -10727,16 +11396,36 @@ ${inner}`;
       ));
     }
   };
-  _BoxLayout.OP_CODE = 202;
-  _BoxLayout.START = 1;
-  _BoxLayout.CENTER = 2;
-  _BoxLayout.END = 3;
-  _BoxLayout.TOP = 4;
-  _BoxLayout.BOTTOM = 5;
-  var BoxLayout = _BoxLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/RowLayout.ts
-  var _RowLayout = class _RowLayout extends LayoutManager {
+  // src/core/operations/layout/managers/RowLayout.ts
+  var RowLayout = class _RowLayout extends LayoutManager {
+    static {
+      this.OP_CODE = 203;
+    }
+    static {
+      this.START = 1;
+    }
+    static {
+      this.CENTER = 2;
+    }
+    static {
+      this.END = 3;
+    }
+    static {
+      this.TOP = 4;
+    }
+    static {
+      this.BOTTOM = 5;
+    }
+    static {
+      this.SPACE_BETWEEN = 6;
+    }
+    static {
+      this.SPACE_EVENLY = 7;
+    }
+    static {
+      this.SPACE_AROUND = 8;
+    }
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy) {
       super(componentId, animationId);
       this.mAnimationId = animationId;
@@ -11016,19 +11705,36 @@ ${inner}`;
       ));
     }
   };
-  _RowLayout.OP_CODE = 203;
-  _RowLayout.START = 1;
-  _RowLayout.CENTER = 2;
-  _RowLayout.END = 3;
-  _RowLayout.TOP = 4;
-  _RowLayout.BOTTOM = 5;
-  _RowLayout.SPACE_BETWEEN = 6;
-  _RowLayout.SPACE_EVENLY = 7;
-  _RowLayout.SPACE_AROUND = 8;
-  var RowLayout = _RowLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/ColumnLayout.ts
-  var _ColumnLayout = class _ColumnLayout extends LayoutManager {
+  // src/core/operations/layout/managers/ColumnLayout.ts
+  var ColumnLayout = class _ColumnLayout extends LayoutManager {
+    static {
+      this.OP_CODE = 204;
+    }
+    static {
+      this.START = 1;
+    }
+    static {
+      this.CENTER = 2;
+    }
+    static {
+      this.END = 3;
+    }
+    static {
+      this.TOP = 4;
+    }
+    static {
+      this.BOTTOM = 5;
+    }
+    static {
+      this.SPACE_BETWEEN = 6;
+    }
+    static {
+      this.SPACE_EVENLY = 7;
+    }
+    static {
+      this.SPACE_AROUND = 8;
+    }
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy) {
       super(componentId, animationId);
       this.mAnimationId = animationId;
@@ -11278,19 +11984,12 @@ ${inner}`;
       ));
     }
   };
-  _ColumnLayout.OP_CODE = 204;
-  _ColumnLayout.START = 1;
-  _ColumnLayout.CENTER = 2;
-  _ColumnLayout.END = 3;
-  _ColumnLayout.TOP = 4;
-  _ColumnLayout.BOTTOM = 5;
-  _ColumnLayout.SPACE_BETWEEN = 6;
-  _ColumnLayout.SPACE_EVENLY = 7;
-  _ColumnLayout.SPACE_AROUND = 8;
-  var ColumnLayout = _ColumnLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/CanvasLayout.ts
-  var _CanvasLayout = class _CanvasLayout extends BoxLayout {
+  // src/core/operations/layout/managers/CanvasLayout.ts
+  var CanvasLayout = class _CanvasLayout extends BoxLayout {
+    static {
+      this.OP_CODE = 205;
+    }
     constructor(componentId, animationId) {
       super(componentId, animationId, 0, 0);
     }
@@ -11327,13 +12026,32 @@ ${inner}`;
       operations.push(new _CanvasLayout(componentId, animationId));
     }
   };
-  _CanvasLayout.OP_CODE = 205;
-  var CanvasLayout = _CanvasLayout;
 
-  // third_party/remote-compose-player/src/core/operations/Skip.ts
+  // src/core/operations/Skip.ts
   var sLibraryApiLevel = 7;
   var sProfile = 0;
-  var _Skip = class _Skip extends Operation {
+  var Skip = class _Skip extends Operation {
+    static {
+      this.OP_CODE = 241;
+    }
+    static {
+      this.SKIP_IF_API_LESS_THAN = 1;
+    }
+    static {
+      this.SKIP_IF_API_GREATER_THAN = 2;
+    }
+    static {
+      this.SKIP_IF_API_EQUAL_TO = 3;
+    }
+    static {
+      this.SKIP_IF_API_NOT_EQUAL_TO = 4;
+    }
+    static {
+      this.SKIP_IF_PROFILE_INCLUDES = 5;
+    }
+    static {
+      this.SKIP_IF_PROFILE_EXCLUDES = 6;
+    }
     constructor() {
       super();
     }
@@ -11371,16 +12089,8 @@ ${inner}`;
       }
     }
   };
-  _Skip.OP_CODE = 241;
-  _Skip.SKIP_IF_API_LESS_THAN = 1;
-  _Skip.SKIP_IF_API_GREATER_THAN = 2;
-  _Skip.SKIP_IF_API_EQUAL_TO = 3;
-  _Skip.SKIP_IF_API_NOT_EQUAL_TO = 4;
-  _Skip.SKIP_IF_PROFILE_INCLUDES = 5;
-  _Skip.SKIP_IF_PROFILE_EXCLUDES = 6;
-  var Skip = _Skip;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/TextStyle.ts
+  // src/core/operations/layout/managers/TextStyle.ts
   var P_ID = 1;
   var P_ANIMATION_ID = 2;
   var P_COLOR = 3;
@@ -11407,7 +12117,7 @@ ${inner}`;
   var P_PARENT_ID = 24;
   var P_MIN_FONT_SIZE = 25;
   var P_MAX_FONT_SIZE = 26;
-  var _TextStyle = class _TextStyle extends Operation {
+  var TextStyle = class _TextStyle extends Operation {
     constructor() {
       super();
       this.id = -1;
@@ -11434,6 +12144,9 @@ ${inner}`;
       this.fontAxisValues = null;
       this.autosize = null;
       this.parentId = null;
+    }
+    static {
+      this.OP_CODE = 242;
     }
     write(_buffer) {
     }
@@ -11545,11 +12258,9 @@ ${inner}`;
       operations.push(style);
     }
   };
-  _TextStyle.OP_CODE = 242;
-  var TextStyle = _TextStyle;
 
-  // third_party/remote-compose-player/src/core/operations/ConditionalOperations.ts
-  var _ConditionalOperations = class _ConditionalOperations extends PaintOperation {
+  // src/core/operations/ConditionalOperations.ts
+  var ConditionalOperations = class _ConditionalOperations extends PaintOperation {
     constructor(type, aBits, bBits) {
       super();
       this.mList = [];
@@ -11558,6 +12269,27 @@ ${inner}`;
       this.mVarBBits = bBits;
       this.mVarAOut = isNaNBits(aBits) ? 0 : intBitsToFloat(aBits);
       this.mVarBOut = isNaNBits(bBits) ? 0 : intBitsToFloat(bBits);
+    }
+    static {
+      this.OP_CODE = 178;
+    }
+    static {
+      this.TYPE_EQ = 0;
+    }
+    static {
+      this.TYPE_NEQ = 1;
+    }
+    static {
+      this.TYPE_LT = 2;
+    }
+    static {
+      this.TYPE_LTE = 3;
+    }
+    static {
+      this.TYPE_GT = 4;
+    }
+    static {
+      this.TYPE_GTE = 5;
     }
     getList() {
       return this.mList;
@@ -11628,22 +12360,20 @@ ${inner}`;
       operations.push(new _ConditionalOperations(type, a, b));
     }
   };
-  _ConditionalOperations.OP_CODE = 178;
-  _ConditionalOperations.TYPE_EQ = 0;
-  _ConditionalOperations.TYPE_NEQ = 1;
-  _ConditionalOperations.TYPE_LT = 2;
-  _ConditionalOperations.TYPE_LTE = 3;
-  _ConditionalOperations.TYPE_GT = 4;
-  _ConditionalOperations.TYPE_GTE = 5;
-  var ConditionalOperations = _ConditionalOperations;
 
-  // third_party/remote-compose-player/src/core/operations/PathCreate.ts
+  // src/core/operations/PathCreate.ts
   function isPathMarkerBits2(b) {
     if (!isNaNBits(b)) return false;
     const id = idFromBits(b);
     return id >= 10 && id <= 17;
   }
-  var _PathCreate = class _PathCreate extends Operation {
+  var PathCreate = class _PathCreate extends Operation {
+    static {
+      this.OP_CODE = 159;
+    }
+    static {
+      this.MOVE_NAN_BITS = 10 | -8388608 | 0;
+    }
     constructor(id, startXBits, startYBits) {
       super();
       this.mId = id;
@@ -11685,17 +12415,17 @@ ${inner}`;
       operations.push(new _PathCreate(id, startX, startY));
     }
   };
-  _PathCreate.OP_CODE = 159;
-  _PathCreate.MOVE_NAN_BITS = 10 | -8388608 | 0;
-  var PathCreate = _PathCreate;
 
-  // third_party/remote-compose-player/src/core/operations/PathAppend.ts
+  // src/core/operations/PathAppend.ts
   function isPathMarkerBits3(b) {
     if (!isNaNBits(b)) return false;
     const id = idFromBits(b);
     return id >= 10 && id <= 17;
   }
-  var _PathAppend = class _PathAppend extends Operation {
+  var PathAppend = class _PathAppend extends Operation {
+    static {
+      this.OP_CODE = 160;
+    }
     constructor(id, bits) {
       super();
       this.mId = id;
@@ -11755,12 +12485,40 @@ ${inner}`;
       operations.push(new _PathAppend(id, bits));
     }
   };
-  _PathAppend.OP_CODE = 160;
-  var PathAppend = _PathAppend;
 
-  // third_party/remote-compose-player/src/core/operations/PathExpression.ts
+  // src/core/operations/PathExpression.ts
   var ARR_SENTINEL3 = 2 ** 42;
-  var _PathExpression = class _PathExpression extends Operation {
+  var PathExpression = class _PathExpression extends Operation {
+    static {
+      this.OP_CODE = 193;
+    }
+    static {
+      this.LOOP = 1;
+    }
+    static {
+      this.POLAR = 8;
+    }
+    static {
+      this.WINDING_MASK = 50331648;
+    }
+    static {
+      this.OFFSET = 3211264;
+    }
+    static {
+      this.VAR1_ID = 3211264 + 70;
+    }
+    static {
+      // Path-command markers as raw float32 int bits (NaN-with-payload). Emitted
+      // directly into the Int32Array path data so they survive NaN-payload
+      // canonicalizing engines (Safari/Firefox).
+      this.MOVE_BITS = 10 | -8388608 | 0;
+    }
+    static {
+      this.CUBIC_BITS = 14 | -8388608 | 0;
+    }
+    static {
+      this.CLOSE_BITS = 15 | -8388608 | 0;
+    }
     constructor(id, flags, minBits, maxBits, countBits, exprX, exprY) {
       super();
       this.mId = id;
@@ -11829,6 +12587,12 @@ ${inner}`;
     }
     rv(bits, ctx) {
       return isNaNBits(bits) ? ctx.getFloat(idFromBits(bits)) : intBitsToFloat(bits);
+    }
+    static {
+      this.ID_REGION_MASK = 7340032;
+    }
+    static {
+      this.ID_REGION_ARRAY = 2097152;
     }
     // Resolve variable tokens to literal float bits; keep operator/VAR1/array
     // tokens as their NaN bits so evalRPN can decode them robustly.
@@ -12167,24 +12931,9 @@ ${inner}`;
       operations.push(new _PathExpression(id, flags, min, max, count, exprX, exprY));
     }
   };
-  _PathExpression.OP_CODE = 193;
-  _PathExpression.LOOP = 1;
-  _PathExpression.POLAR = 8;
-  _PathExpression.WINDING_MASK = 50331648;
-  _PathExpression.OFFSET = 3211264;
-  _PathExpression.VAR1_ID = 3211264 + 70;
-  // Path-command markers as raw float32 int bits (NaN-with-payload). Emitted
-  // directly into the Int32Array path data so they survive NaN-payload
-  // canonicalizing engines (Safari/Firefox).
-  _PathExpression.MOVE_BITS = 10 | -8388608 | 0;
-  _PathExpression.CUBIC_BITS = 14 | -8388608 | 0;
-  _PathExpression.CLOSE_BITS = 15 | -8388608 | 0;
-  _PathExpression.ID_REGION_MASK = 7340032;
-  _PathExpression.ID_REGION_ARRAY = 2097152;
-  var PathExpression = _PathExpression;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/Matrix.ts
-  var _Matrix = class _Matrix {
+  // src/core/operations/utilities/Matrix.ts
+  var Matrix = class _Matrix {
     constructor(dim0 = 4, dim1 = 4) {
       this.mDim0 = 4;
       this.mDim1 = 4;
@@ -12192,6 +12941,18 @@ ${inner}`;
       this.mDim1 = dim1;
       this.mMatrix = new Float32Array(dim0 * dim1);
       this.setIdentity();
+    }
+    static {
+      this.sTmpMatrix1 = new _Matrix();
+    }
+    static {
+      this.sTmpMatrix2 = new _Matrix();
+    }
+    static {
+      this.sTempOutVec = null;
+    }
+    static {
+      this.sTempInVec = null;
     }
     setDimensions(dim0, dim1) {
       this.mDim0 = dim0;
@@ -12458,13 +13219,8 @@ ${inner}`;
       for (let i = 0; i < out.length; i++) out[i] = outVec[i];
     }
   };
-  _Matrix.sTmpMatrix1 = new _Matrix();
-  _Matrix.sTmpMatrix2 = new _Matrix();
-  _Matrix.sTempOutVec = null;
-  _Matrix.sTempInVec = null;
-  var Matrix = _Matrix;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/MatrixOperations.ts
+  // src/core/operations/utilities/MatrixOperations.ts
   var OFFSET = 3276800;
   function asNan2(v) {
     return intBitsToFloat(v | -8388608);
@@ -12480,7 +13236,7 @@ ${inner}`;
   function isDataVariableBits(b) {
     return (idFromBits(b) & 7340032) === ID_REGION_ARRAY;
   }
-  var _MatrixOperations = class _MatrixOperations {
+  var MatrixOperations = class _MatrixOperations {
     constructor() {
       this.mMatrices = [];
       this.mTmpMatrix = new Matrix();
@@ -12489,6 +13245,122 @@ ${inner}`;
       for (let i = 0; i < 10; i++) {
         this.mMatrices.push(new Matrix(4, 4));
       }
+    }
+    static {
+      this.OFFSET = OFFSET;
+    }
+    static {
+      this.LAST_OP = OFFSET + 54;
+    }
+    static {
+      // Operator NaN constants
+      this.IDENTITY = asNan2(OFFSET + 1);
+    }
+    static {
+      this.ROT_X = asNan2(OFFSET + 2);
+    }
+    static {
+      this.ROT_Y = asNan2(OFFSET + 3);
+    }
+    static {
+      this.ROT_Z = asNan2(OFFSET + 4);
+    }
+    static {
+      this.TRANSLATE_X = asNan2(OFFSET + 5);
+    }
+    static {
+      this.TRANSLATE_Y = asNan2(OFFSET + 6);
+    }
+    static {
+      this.TRANSLATE_Z = asNan2(OFFSET + 7);
+    }
+    static {
+      this.TRANSLATE2 = asNan2(OFFSET + 8);
+    }
+    static {
+      this.TRANSLATE3 = asNan2(OFFSET + 9);
+    }
+    static {
+      this.SCALE_X = asNan2(OFFSET + 10);
+    }
+    static {
+      this.SCALE_Y = asNan2(OFFSET + 11);
+    }
+    static {
+      this.SCALE_Z = asNan2(OFFSET + 12);
+    }
+    static {
+      this.SCALE2 = asNan2(OFFSET + 13);
+    }
+    static {
+      this.SCALE3 = asNan2(OFFSET + 14);
+    }
+    static {
+      this.MUL = asNan2(OFFSET + 15);
+    }
+    static {
+      this.ROT_PZ = asNan2(OFFSET + 16);
+    }
+    static {
+      this.ROT_AXIS = asNan2(OFFSET + 17);
+    }
+    static {
+      this.PROJECTION = asNan2(OFFSET + 18);
+    }
+    static {
+      // Op codes
+      this.OP_IDENTITY = OFFSET + 1;
+    }
+    static {
+      this.OP_ROT_X = OFFSET + 2;
+    }
+    static {
+      this.OP_ROT_Y = OFFSET + 3;
+    }
+    static {
+      this.OP_ROT_Z = OFFSET + 4;
+    }
+    static {
+      this.OP_TRANSLATE_X = OFFSET + 5;
+    }
+    static {
+      this.OP_TRANSLATE_Y = OFFSET + 6;
+    }
+    static {
+      this.OP_TRANSLATE_Z = OFFSET + 7;
+    }
+    static {
+      this.OP_TRANSLATE2 = OFFSET + 8;
+    }
+    static {
+      this.OP_TRANSLATE3 = OFFSET + 9;
+    }
+    static {
+      this.OP_SCALE_X = OFFSET + 10;
+    }
+    static {
+      this.OP_SCALE_Y = OFFSET + 11;
+    }
+    static {
+      this.OP_SCALE_Z = OFFSET + 12;
+    }
+    static {
+      this.OP_SCALE2 = OFFSET + 13;
+    }
+    static {
+      this.OP_SCALE3 = OFFSET + 14;
+    }
+    static {
+      this.OP_MUL = OFFSET + 15;
+    }
+    static {
+      this.OP_ROT_PZ = OFFSET + 16;
+    }
+    static {
+      this.OP_ROT_AXIS = OFFSET + 17;
+    }
+    static {
+      this.OP_PROJECTION = OFFSET + 18;
     }
     static isOperator(v) {
       if (Number.isNaN(v)) {
@@ -12608,50 +13480,9 @@ ${inner}`;
       }
     }
   };
-  _MatrixOperations.OFFSET = OFFSET;
-  _MatrixOperations.LAST_OP = OFFSET + 54;
-  // Operator NaN constants
-  _MatrixOperations.IDENTITY = asNan2(OFFSET + 1);
-  _MatrixOperations.ROT_X = asNan2(OFFSET + 2);
-  _MatrixOperations.ROT_Y = asNan2(OFFSET + 3);
-  _MatrixOperations.ROT_Z = asNan2(OFFSET + 4);
-  _MatrixOperations.TRANSLATE_X = asNan2(OFFSET + 5);
-  _MatrixOperations.TRANSLATE_Y = asNan2(OFFSET + 6);
-  _MatrixOperations.TRANSLATE_Z = asNan2(OFFSET + 7);
-  _MatrixOperations.TRANSLATE2 = asNan2(OFFSET + 8);
-  _MatrixOperations.TRANSLATE3 = asNan2(OFFSET + 9);
-  _MatrixOperations.SCALE_X = asNan2(OFFSET + 10);
-  _MatrixOperations.SCALE_Y = asNan2(OFFSET + 11);
-  _MatrixOperations.SCALE_Z = asNan2(OFFSET + 12);
-  _MatrixOperations.SCALE2 = asNan2(OFFSET + 13);
-  _MatrixOperations.SCALE3 = asNan2(OFFSET + 14);
-  _MatrixOperations.MUL = asNan2(OFFSET + 15);
-  _MatrixOperations.ROT_PZ = asNan2(OFFSET + 16);
-  _MatrixOperations.ROT_AXIS = asNan2(OFFSET + 17);
-  _MatrixOperations.PROJECTION = asNan2(OFFSET + 18);
-  // Op codes
-  _MatrixOperations.OP_IDENTITY = OFFSET + 1;
-  _MatrixOperations.OP_ROT_X = OFFSET + 2;
-  _MatrixOperations.OP_ROT_Y = OFFSET + 3;
-  _MatrixOperations.OP_ROT_Z = OFFSET + 4;
-  _MatrixOperations.OP_TRANSLATE_X = OFFSET + 5;
-  _MatrixOperations.OP_TRANSLATE_Y = OFFSET + 6;
-  _MatrixOperations.OP_TRANSLATE_Z = OFFSET + 7;
-  _MatrixOperations.OP_TRANSLATE2 = OFFSET + 8;
-  _MatrixOperations.OP_TRANSLATE3 = OFFSET + 9;
-  _MatrixOperations.OP_SCALE_X = OFFSET + 10;
-  _MatrixOperations.OP_SCALE_Y = OFFSET + 11;
-  _MatrixOperations.OP_SCALE_Z = OFFSET + 12;
-  _MatrixOperations.OP_SCALE2 = OFFSET + 13;
-  _MatrixOperations.OP_SCALE3 = OFFSET + 14;
-  _MatrixOperations.OP_MUL = OFFSET + 15;
-  _MatrixOperations.OP_ROT_PZ = OFFSET + 16;
-  _MatrixOperations.OP_ROT_AXIS = OFFSET + 17;
-  _MatrixOperations.OP_PROJECTION = OFFSET + 18;
-  var MatrixOperations = _MatrixOperations;
 
-  // third_party/remote-compose-player/src/core/operations/MatrixExpression.ts
-  var _MatrixExpression = class _MatrixExpression extends Operation {
+  // src/core/operations/MatrixExpression.ts
+  var MatrixExpression = class _MatrixExpression extends Operation {
     constructor(matrixId, type, bits) {
       super();
       this.mValues = new Float32Array(16);
@@ -12660,6 +13491,9 @@ ${inner}`;
       this.mMatrixId = matrixId;
       this.mType = type;
       this.mBits = bits;
+    }
+    static {
+      this.OP_CODE = 187;
     }
     write(_buffer) {
     }
@@ -12705,11 +13539,12 @@ ${inner}`;
       operations.push(new _MatrixExpression(id, type, bits));
     }
   };
-  _MatrixExpression.OP_CODE = 187;
-  var MatrixExpression = _MatrixExpression;
 
-  // third_party/remote-compose-player/src/core/operations/MatrixConstant.ts
-  var _MatrixConstant = class _MatrixConstant extends Operation {
+  // src/core/operations/MatrixConstant.ts
+  var MatrixConstant = class _MatrixConstant extends Operation {
+    static {
+      this.OP_CODE = 186;
+    }
     constructor(matrixId, type, values) {
       super();
       this.mMatrixId = matrixId;
@@ -12737,11 +13572,9 @@ ${inner}`;
       operations.push(new _MatrixConstant(id, type, values));
     }
   };
-  _MatrixConstant.OP_CODE = 186;
-  var MatrixConstant = _MatrixConstant;
 
-  // third_party/remote-compose-player/src/core/operations/MatrixVectorMath.ts
-  var _MatrixVectorMath = class _MatrixVectorMath extends Operation {
+  // src/core/operations/MatrixVectorMath.ts
+  var MatrixVectorMath = class _MatrixVectorMath extends Operation {
     constructor(type, outputs, matrixId, inputBits) {
       super();
       this.mMatrix = new Matrix();
@@ -12751,6 +13584,9 @@ ${inner}`;
       this.mOutInputs = new Float32Array(inputBits.length);
       this.mInputBits = inputBits;
       this.mTempOut = new Float32Array(outputs.length);
+    }
+    static {
+      this.OP_CODE = 188;
     }
     write(_buffer) {
     }
@@ -12798,11 +13634,27 @@ ${inner}`;
       operations.push(new _MatrixVectorMath(type, out, matrixId, inputBits));
     }
   };
-  _MatrixVectorMath.OP_CODE = 188;
-  var MatrixVectorMath = _MatrixVectorMath;
 
-  // third_party/remote-compose-player/src/core/operations/TextTransform.ts
-  var _TextTransform = class _TextTransform extends Operation {
+  // src/core/operations/TextTransform.ts
+  var TextTransform = class _TextTransform extends Operation {
+    static {
+      this.OP_CODE = 199;
+    }
+    static {
+      this.TEXT_TO_LOWERCASE = 1;
+    }
+    static {
+      this.TEXT_TO_UPPERCASE = 2;
+    }
+    static {
+      this.TEXT_TRIM = 3;
+    }
+    static {
+      this.TEXT_CAPITALIZE = 4;
+    }
+    static {
+      this.TEXT_UPPERCASE_FIRST_CHAR = 5;
+    }
     constructor(textId, srcId, startBits, lenBits, operation) {
       super();
       this.mTextId = textId;
@@ -12851,16 +13703,12 @@ ${inner}`;
       operations.push(new _TextTransform(textId, srcId, start, len, operation));
     }
   };
-  _TextTransform.OP_CODE = 199;
-  _TextTransform.TEXT_TO_LOWERCASE = 1;
-  _TextTransform.TEXT_TO_UPPERCASE = 2;
-  _TextTransform.TEXT_TRIM = 3;
-  _TextTransform.TEXT_CAPITALIZE = 4;
-  _TextTransform.TEXT_UPPERCASE_FIRST_CHAR = 5;
-  var TextTransform = _TextTransform;
 
-  // third_party/remote-compose-player/src/core/operations/TextLookup.ts
-  var _TextLookup = class _TextLookup extends Operation {
+  // src/core/operations/TextLookup.ts
+  var TextLookup = class _TextLookup extends Operation {
+    static {
+      this.OP_CODE = 151;
+    }
     constructor(textId, dataSetId, indexBits) {
       super();
       this.mTextId = textId;
@@ -12900,17 +13748,18 @@ ${inner}`;
       operations.push(new _TextLookup(textId, dataSetId, index));
     }
   };
-  _TextLookup.OP_CODE = 151;
-  var TextLookup = _TextLookup;
 
-  // third_party/remote-compose-player/src/core/operations/TextLookupInt.ts
-  var _TextLookupInt = class _TextLookupInt extends Operation {
+  // src/core/operations/TextLookupInt.ts
+  var TextLookupInt = class _TextLookupInt extends Operation {
     constructor(textId, dataSetId, indexId) {
       super();
       this.mOutIndex = 0;
       this.mTextId = textId;
       this.mDataSetId = dataSetId;
       this.mIndexId = indexId;
+    }
+    static {
+      this.OP_CODE = 153;
     }
     write(_buffer) {
     }
@@ -12940,11 +13789,9 @@ ${inner}`;
       operations.push(new _TextLookupInt(textId, dataSetId, indexId));
     }
   };
-  _TextLookupInt.OP_CODE = 153;
-  var TextLookupInt = _TextLookupInt;
 
-  // third_party/remote-compose-player/src/core/operations/ColorTheme.ts
-  var _ColorTheme = class _ColorTheme extends Operation {
+  // src/core/operations/ColorTheme.ts
+  var ColorTheme = class _ColorTheme extends Operation {
     constructor(id, colorGroupId, lightModeIndex, darkModeIndex, lightModeFallback, darkModeFallback) {
       super();
       this.mCurrentTheme = -1;
@@ -12956,6 +13803,15 @@ ${inner}`;
       this.mDarkModeFallback = darkModeFallback;
       this.mDarkMode = darkModeFallback;
       this.mLightMode = lightModeFallback;
+    }
+    static {
+      this.OP_CODE = 196;
+    }
+    static {
+      this.THEME_LIGHT = -3;
+    }
+    static {
+      this.THEME_DARK = -2;
     }
     write(_buffer) {
     }
@@ -12990,13 +13846,33 @@ ${inner}`;
       ));
     }
   };
-  _ColorTheme.OP_CODE = 196;
-  _ColorTheme.THEME_LIGHT = -3;
-  _ColorTheme.THEME_DARK = -2;
-  var ColorTheme = _ColorTheme;
 
-  // third_party/remote-compose-player/src/core/operations/ColorAttribute.ts
-  var _ColorAttribute = class _ColorAttribute extends Operation {
+  // src/core/operations/ColorAttribute.ts
+  var ColorAttribute = class _ColorAttribute extends Operation {
+    static {
+      this.OP_CODE = 180;
+    }
+    static {
+      this.COLOR_HUE = 0;
+    }
+    static {
+      this.COLOR_SATURATION = 1;
+    }
+    static {
+      this.COLOR_BRIGHTNESS = 2;
+    }
+    static {
+      this.COLOR_RED = 3;
+    }
+    static {
+      this.COLOR_GREEN = 4;
+    }
+    static {
+      this.COLOR_BLUE = 5;
+    }
+    static {
+      this.COLOR_ALPHA = 6;
+    }
     constructor(outputId, colorId, type) {
       super();
       this.mOutputId = outputId;
@@ -13066,23 +13942,66 @@ ${inner}`;
       operations.push(new _ColorAttribute(outputId, colorId, type));
     }
   };
-  _ColorAttribute.OP_CODE = 180;
-  _ColorAttribute.COLOR_HUE = 0;
-  _ColorAttribute.COLOR_SATURATION = 1;
-  _ColorAttribute.COLOR_BRIGHTNESS = 2;
-  _ColorAttribute.COLOR_RED = 3;
-  _ColorAttribute.COLOR_GREEN = 4;
-  _ColorAttribute.COLOR_BLUE = 5;
-  _ColorAttribute.COLOR_ALPHA = 6;
-  var ColorAttribute = _ColorAttribute;
 
-  // third_party/remote-compose-player/src/core/operations/DataMapLookup.ts
+  // src/core/operations/ImageAttribute.ts
+  var ImageAttribute = class _ImageAttribute extends Operation {
+    constructor(mOutputId, mImageId, mType, mArgs) {
+      super();
+      this.mOutputId = mOutputId;
+      this.mImageId = mImageId;
+      this.mType = mType;
+      this.mArgs = mArgs;
+    }
+    static {
+      this.OP_CODE = 171;
+    }
+    static {
+      this.IMAGE_WIDTH = 0;
+    }
+    static {
+      this.IMAGE_HEIGHT = 1;
+    }
+    write(_buffer) {
+    }
+    apply(context) {
+      const bitmap = context.getObject(this.mImageId);
+      if (!(bitmap instanceof BitmapData)) return;
+      let value;
+      switch (this.mType) {
+        case _ImageAttribute.IMAGE_WIDTH:
+          value = bitmap.getWidth();
+          break;
+        case _ImageAttribute.IMAGE_HEIGHT:
+          value = bitmap.getHeight();
+          break;
+        default:
+          throw new Error(`Unknown image attribute ${this.mType}`);
+      }
+      context.loadFloat(this.mOutputId, value);
+    }
+    deepToString(indent) {
+      return `${indent}ImageAttribute(${this.mOutputId}, ${this.mImageId}, ${this.mType}, [${this.mArgs.join(", ")}])`;
+    }
+    static read(buffer, operations) {
+      const outputId = buffer.readInt();
+      const imageId = buffer.readInt();
+      const type = buffer.readShort();
+      const count = buffer.readShort() & 65535;
+      const args = Array.from({ length: count }, () => buffer.readInt());
+      operations.push(new _ImageAttribute(outputId, imageId, type, args));
+    }
+  };
+
+  // src/core/operations/DataMapLookup.ts
   var TYPE_STRING = 0;
   var TYPE_INT = 1;
   var TYPE_FLOAT = 2;
   var TYPE_LONG = 3;
   var TYPE_BOOLEAN = 4;
-  var _DataMapLookup = class _DataMapLookup extends Operation {
+  var DataMapLookup = class _DataMapLookup extends Operation {
+    static {
+      this.OP_CODE = 154;
+    }
     constructor(id, mapId, stringId) {
       super();
       this.mId = id;
@@ -13130,23 +14049,24 @@ ${inner}`;
       operations.push(new _DataMapLookup(id, mapId, stringId));
     }
   };
-  _DataMapLookup.OP_CODE = 154;
-  var DataMapLookup = _DataMapLookup;
 
-  // third_party/remote-compose-player/src/core/operations/TextMeasure.ts
+  // src/core/operations/TextMeasure.ts
   var MEASURE_WIDTH = 0;
   var MEASURE_HEIGHT = 1;
   var MEASURE_LEFT = 2;
   var MEASURE_RIGHT = 3;
   var MEASURE_TOP = 4;
   var MEASURE_BOTTOM = 5;
-  var _TextMeasure = class _TextMeasure extends PaintOperation {
+  var TextMeasure = class _TextMeasure extends PaintOperation {
     constructor(id, textId, type) {
       super();
       this.mBounds = new Float32Array(4);
       this.mId = id;
       this.mTextId = textId;
       this.mType = type;
+    }
+    static {
+      this.OP_CODE = 155;
     }
     write(_buffer) {
     }
@@ -13184,10 +14104,8 @@ ${inner}`;
       operations.push(new _TextMeasure(id, textId, type));
     }
   };
-  _TextMeasure.OP_CODE = 155;
-  var TextMeasure = _TextMeasure;
 
-  // third_party/remote-compose-player/src/core/operations/TextAttribute.ts
+  // src/core/operations/TextAttribute.ts
   var MEASURE_WIDTH2 = 0;
   var MEASURE_HEIGHT2 = 1;
   var MEASURE_LEFT2 = 2;
@@ -13195,13 +14113,16 @@ ${inner}`;
   var MEASURE_TOP2 = 4;
   var MEASURE_BOTTOM2 = 5;
   var TEXT_LENGTH = 6;
-  var _TextAttribute = class _TextAttribute extends PaintOperation {
+  var TextAttribute = class _TextAttribute extends PaintOperation {
     constructor(id, textId, type) {
       super();
       this.mBounds = new Float32Array(4);
       this.mId = id;
       this.mTextId = textId;
       this.mType = type;
+    }
+    static {
+      this.OP_CODE = 170;
     }
     write(_buffer) {
     }
@@ -13247,11 +14168,12 @@ ${inner}`;
       operations.push(new _TextAttribute(id, textId, type));
     }
   };
-  _TextAttribute.OP_CODE = 170;
-  var TextAttribute = _TextAttribute;
 
-  // third_party/remote-compose-player/src/core/operations/TextLength.ts
-  var _TextLength = class _TextLength extends Operation {
+  // src/core/operations/TextLength.ts
+  var TextLength = class _TextLength extends Operation {
+    static {
+      this.OP_CODE = 156;
+    }
     constructor(lengthId, textId) {
       super();
       this.mLengthId = lengthId;
@@ -13277,11 +14199,12 @@ ${inner}`;
       operations.push(new _TextLength(lengthId, textId));
     }
   };
-  _TextLength.OP_CODE = 156;
-  var TextLength = _TextLength;
 
-  // third_party/remote-compose-player/src/core/operations/TextSubtext.ts
-  var _TextSubtext = class _TextSubtext extends Operation {
+  // src/core/operations/TextSubtext.ts
+  var TextSubtext = class _TextSubtext extends Operation {
+    static {
+      this.OP_CODE = 182;
+    }
     constructor(textId, srcId, startBits, lenBits) {
       super();
       this.mTextId = textId;
@@ -13337,10 +14260,8 @@ ${inner}`;
       operations.push(new _TextSubtext(textId, srcId, start, len));
     }
   };
-  _TextSubtext.OP_CODE = 182;
-  var TextSubtext = _TextSubtext;
 
-  // third_party/remote-compose-player/src/core/operations/ParticleOperations.ts
+  // src/core/operations/ParticleOperations.ts
   var OFFSET2 = 3211264;
   var ID_REGION_MASK = 7340032;
   var ID_REGION_ARRAY2 = 2097152;
@@ -13399,7 +14320,7 @@ ${inner}`;
       }
     }
   }
-  var _ParticlesCreateOp = class _ParticlesCreateOp extends Operation {
+  var ParticlesCreateOp = class _ParticlesCreateOp extends Operation {
     constructor(id, particleCount, varId, equations) {
       super();
       this.mInitialized = false;
@@ -13413,6 +14334,9 @@ ${inner}`;
       for (let i = 0; i < particleCount; i++) {
         this.mParticles.push(new Array(varId.length).fill(0));
       }
+    }
+    static {
+      this.OP_CODE = 161;
     }
     write(_buffer) {
     }
@@ -13472,9 +14396,7 @@ ${inner}`;
       operations.push(new _ParticlesCreateOp(id, particleCount, varIds, equations));
     }
   };
-  _ParticlesCreateOp.OP_CODE = 161;
-  var ParticlesCreateOp = _ParticlesCreateOp;
-  var _ParticlesLoopOp = class _ParticlesLoopOp extends PaintOperation {
+  var ParticlesLoopOp = class _ParticlesLoopOp extends PaintOperation {
     constructor(id, restart, equations) {
       super();
       this.mList = [];
@@ -13484,6 +14406,9 @@ ${inner}`;
       this.mOutRestart = new Int32Array(restart);
       this.mEquations = equations;
       this.mOutEquations = equations.map((eq) => new Int32Array(eq));
+    }
+    static {
+      this.OP_CODE = 163;
     }
     getList() {
       return this.mList;
@@ -13568,9 +14493,7 @@ ${inner}`;
       operations.push(new _ParticlesLoopOp(id, restart, equations));
     }
   };
-  _ParticlesLoopOp.OP_CODE = 163;
-  var ParticlesLoopOp = _ParticlesLoopOp;
-  var _ParticlesCompareOp = class _ParticlesCompareOp extends PaintOperation {
+  var ParticlesCompareOp = class _ParticlesCompareOp extends PaintOperation {
     constructor(id, flags, min, max, condition, equations1, equations2) {
       super();
       this.mList = [];
@@ -13584,6 +14507,9 @@ ${inner}`;
       this.mEquations1 = equations1;
       this.mOutEquations1 = equations1.map((eq) => new Int32Array(eq));
       this.mEquations2 = equations2;
+    }
+    static {
+      this.OP_CODE = 194;
     }
     getList() {
       return this.mList;
@@ -13721,15 +14647,16 @@ ${inner}`;
       operations.push(new _ParticlesCompareOp(id, flags, min, max, condition, equations1, equations2));
     }
   };
-  _ParticlesCompareOp.OP_CODE = 194;
-  var ParticlesCompareOp = _ParticlesCompareOp;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/FlowLayout.ts
-  var _FlowLayout = class _FlowLayout extends RowLayout {
+  // src/core/operations/layout/managers/FlowLayout.ts
+  var FlowLayout = class _FlowLayout extends RowLayout {
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy) {
       super(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy);
       this.mMaxItemsInEachRow = 0;
       this.mMaxLines = 0;
+    }
+    static {
+      this.OP_CODE = 240;
     }
     hasWeight(c) {
       return c instanceof LayoutComponent && c.hasWidthWeight();
@@ -13880,11 +14807,9 @@ ${inner}`;
       operations.push(op);
     }
   };
-  _FlowLayout.OP_CODE = 240;
-  var FlowLayout = _FlowLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/LoopOperation.ts
-  var _LoopOperation = class _LoopOperation extends Operation {
+  // src/core/operations/layout/LoopOperation.ts
+  var LoopOperation = class _LoopOperation extends Operation {
     constructor(indexId, fromBits, stepBits, untilBits) {
       super();
       this.mList = [];
@@ -13892,6 +14817,9 @@ ${inner}`;
       this.mFromBits = fromBits;
       this.mStepBits = stepBits;
       this.mUntilBits = untilBits;
+    }
+    static {
+      this.OP_CODE = 215;
     }
     getList() {
       return this.mList;
@@ -13943,10 +14871,8 @@ ${inner}`;
       operations.push(new _LoopOperation(indexId, from, step, until));
     }
   };
-  _LoopOperation.OP_CODE = 215;
-  var LoopOperation = _LoopOperation;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/CoreText.ts
+  // src/core/operations/layout/managers/CoreText.ts
   var P_INT = 1;
   var P_FLOAT = 2;
   var P_SHORT = 3;
@@ -14061,7 +14987,7 @@ ${inner}`;
       }
     }
   }
-  var _CoreText = class _CoreText extends LayoutManager {
+  var CoreText = class _CoreText extends LayoutManager {
     constructor(componentId, animationId, textId, color, colorId, fontSize, minFontSize, maxFontSize, fontStyle, fontWeight, fontFamilyId, textAlign, overflow, maxLines, letterSpacing, lineHeightAdd, lineHeightMultiplier, lineBreakStrategy, hyphenationFrequency, justificationMode, underline, strikethrough, fontAxis, fontAxisValues, autosize, flags) {
       super(componentId, animationId);
       this.mType = -1;
@@ -14104,6 +15030,11 @@ ${inner}`;
       this.mFontAxisValues = fontAxisValues;
       this.mAutosize = autosize;
       this.mFlags = flags;
+    }
+    static {
+      // Typed as `number` rather than the literal 239 so TextLayout (208) can
+      // subclass this without a static-side type clash.
+      this.OP_CODE = 239;
     }
     registerListening(context) {
       if (this.mTextId !== -1) {
@@ -14501,14 +15432,13 @@ ${inner}`;
       ));
     }
   };
-  // Typed as `number` rather than the literal 239 so TextLayout (208) can
-  // subclass this without a static-side type clash.
-  _CoreText.OP_CODE = 239;
-  var CoreText = _CoreText;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/TextLayout.ts
+  // src/core/operations/layout/managers/TextLayout.ts
   var FLAG_IS_DYNAMIC_COLOR = 1;
-  var _TextLayout = class _TextLayout extends CoreText {
+  var TextLayout = class _TextLayout extends CoreText {
+    static {
+      this.OP_CODE = 208;
+    }
     deepToString(indent) {
       return `${indent}TEXT_LAYOUT [${this.getComponentId()}]`;
     }
@@ -14569,11 +15499,27 @@ ${inner}`;
       ));
     }
   };
-  _TextLayout.OP_CODE = 208;
-  var TextLayout = _TextLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/FitBoxLayout.ts
-  var _FitBoxLayout = class _FitBoxLayout extends LayoutManager {
+  // src/core/operations/layout/managers/FitBoxLayout.ts
+  var FitBoxLayout = class _FitBoxLayout extends LayoutManager {
+    static {
+      this.OP_CODE = 176;
+    }
+    static {
+      this.START = 1;
+    }
+    static {
+      this.CENTER = 2;
+    }
+    static {
+      this.END = 3;
+    }
+    static {
+      this.TOP = 4;
+    }
+    static {
+      this.BOTTOM = 5;
+    }
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning) {
       super(componentId, animationId);
       this.mAnimationId = animationId;
@@ -14690,16 +15636,15 @@ ${inner}`;
       ));
     }
   };
-  _FitBoxLayout.OP_CODE = 176;
-  _FitBoxLayout.START = 1;
-  _FitBoxLayout.CENTER = 2;
-  _FitBoxLayout.END = 3;
-  _FitBoxLayout.TOP = 4;
-  _FitBoxLayout.BOTTOM = 5;
-  var FitBoxLayout = _FitBoxLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/CollapsiblePriority.ts
-  var _CollapsiblePriority = class _CollapsiblePriority {
+  // src/core/operations/layout/managers/CollapsiblePriority.ts
+  var CollapsiblePriority = class _CollapsiblePriority {
+    static {
+      this.HORIZONTAL = 0;
+    }
+    static {
+      this.VERTICAL = 1;
+    }
     static getPriority(c, orientation) {
       if (c instanceof LayoutComponent) {
         const priority = c.selfOrModifier(CollapsiblePriorityModifier);
@@ -14719,12 +15664,12 @@ ${inner}`;
       return sorted;
     }
   };
-  _CollapsiblePriority.HORIZONTAL = 0;
-  _CollapsiblePriority.VERTICAL = 1;
-  var CollapsiblePriority = _CollapsiblePriority;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/CollapsibleRowLayout.ts
-  var _CollapsibleRowLayout = class _CollapsibleRowLayout extends RowLayout {
+  // src/core/operations/layout/managers/CollapsibleRowLayout.ts
+  var CollapsibleRowLayout = class _CollapsibleRowLayout extends RowLayout {
+    static {
+      this.OP_CODE = 230;
+    }
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy) {
       super(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy);
     }
@@ -14829,11 +15774,12 @@ ${inner}`;
       ));
     }
   };
-  _CollapsibleRowLayout.OP_CODE = 230;
-  var CollapsibleRowLayout = _CollapsibleRowLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/CollapsibleColumnLayout.ts
-  var _CollapsibleColumnLayout = class _CollapsibleColumnLayout extends ColumnLayout {
+  // src/core/operations/layout/managers/CollapsibleColumnLayout.ts
+  var CollapsibleColumnLayout = class _CollapsibleColumnLayout extends ColumnLayout {
+    static {
+      this.OP_CODE = 233;
+    }
     constructor(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy) {
       super(componentId, animationId, horizontalPositioning, verticalPositioning, spacedBy);
     }
@@ -14938,11 +15884,12 @@ ${inner}`;
       ));
     }
   };
-  _CollapsibleColumnLayout.OP_CODE = 233;
-  var CollapsibleColumnLayout = _CollapsibleColumnLayout;
 
-  // third_party/remote-compose-player/src/core/operations/IdLookup.ts
-  var _IdLookup = class _IdLookup extends Operation {
+  // src/core/operations/IdLookup.ts
+  var IdLookup = class _IdLookup extends Operation {
+    static {
+      this.OP_CODE = 192;
+    }
     constructor(textId, dataSetId, indexBits) {
       super();
       this.mTextId = textId;
@@ -14980,11 +15927,12 @@ ${inner}`;
       operations.push(new _IdLookup(textId, dataSetId, index));
     }
   };
-  _IdLookup.OP_CODE = 192;
-  var IdLookup = _IdLookup;
 
-  // third_party/remote-compose-player/src/core/operations/UpdateDynamicFloatList.ts
-  var _UpdateDynamicFloatList = class _UpdateDynamicFloatList extends Operation {
+  // src/core/operations/UpdateDynamicFloatList.ts
+  var UpdateDynamicFloatList = class _UpdateDynamicFloatList extends Operation {
+    static {
+      this.OP_CODE = 198;
+    }
     constructor(arrayId, indexBits, valueBits) {
       super();
       this.mArrayId = arrayId;
@@ -15032,11 +15980,9 @@ ${inner}`;
       operations.push(new _UpdateDynamicFloatList(id, index, value));
     }
   };
-  _UpdateDynamicFloatList.OP_CODE = 198;
-  var UpdateDynamicFloatList = _UpdateDynamicFloatList;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/ImageLayout.ts
-  var _ImageLayout = class _ImageLayout extends LayoutManager {
+  // src/core/operations/layout/managers/ImageLayout.ts
+  var ImageLayout = class _ImageLayout extends LayoutManager {
     constructor(componentId, animationId, bitmapId, scaleType, alphaBits) {
       super(componentId, animationId);
       this.mScaling = new ImageScaling();
@@ -15045,6 +15991,9 @@ ${inner}`;
       this.mScaleType = scaleType & 255;
       this.mAlphaBits = alphaBits;
       this.mOutAlpha = isNaNBits(alphaBits) ? 1 : intBitsToFloat(alphaBits);
+    }
+    static {
+      this.OP_CODE = 234;
     }
     registerListening(context) {
       if (this.mBitmapId !== -1) {
@@ -15141,15 +16090,16 @@ ${inner}`;
       operations.push(new _ImageLayout(componentId, animationId, bitmapId, scaleType, alpha));
     }
   };
-  _ImageLayout.OP_CODE = 234;
-  var ImageLayout = _ImageLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/StateLayout.ts
-  var _StateLayout = class _StateLayout extends LayoutManager {
+  // src/core/operations/layout/managers/StateLayout.ts
+  var StateLayout = class _StateLayout extends LayoutManager {
     constructor(componentId, animationId, indexId) {
       super(componentId, animationId);
       this.currentLayoutIndex = 0;
       this.mIndexId = indexId;
+    }
+    static {
+      this.OP_CODE = 217;
     }
     inflate() {
       super.inflate();
@@ -15311,11 +16261,12 @@ ${inner}`;
       operations.push(new _StateLayout(componentId, animationId, indexId));
     }
   };
-  _StateLayout.OP_CODE = 217;
-  var StateLayout = _StateLayout;
 
-  // third_party/remote-compose-player/src/core/operations/layout/modifiers/ActionOperations.ts
-  var _HostActionOperation = class _HostActionOperation extends Operation {
+  // src/core/operations/layout/modifiers/ActionOperations.ts
+  var HostActionOperation = class _HostActionOperation extends Operation {
+    static {
+      this.OP_CODE = 209;
+    }
     constructor(actionId) {
       super();
       this.mActionId = actionId;
@@ -15332,9 +16283,22 @@ ${inner}`;
       operations.push(new _HostActionOperation(buffer.readInt()));
     }
   };
-  _HostActionOperation.OP_CODE = 209;
-  var HostActionOperation = _HostActionOperation;
-  var _HostNamedActionOperation = class _HostNamedActionOperation extends Operation {
+  var HostNamedActionOperation = class _HostNamedActionOperation extends Operation {
+    static {
+      this.OP_CODE = 210;
+    }
+    static {
+      this.FLOAT_TYPE = 0;
+    }
+    static {
+      this.INT_TYPE = 1;
+    }
+    static {
+      this.STRING_TYPE = 2;
+    }
+    static {
+      this.NONE_TYPE = -1;
+    }
     constructor(textId, type, valueId) {
       super();
       this.mTextId = textId;
@@ -15372,13 +16336,10 @@ ${inner}`;
       operations.push(new _HostNamedActionOperation(textId, type, valueId));
     }
   };
-  _HostNamedActionOperation.OP_CODE = 210;
-  _HostNamedActionOperation.FLOAT_TYPE = 0;
-  _HostNamedActionOperation.INT_TYPE = 1;
-  _HostNamedActionOperation.STRING_TYPE = 2;
-  _HostNamedActionOperation.NONE_TYPE = -1;
-  var HostNamedActionOperation = _HostNamedActionOperation;
-  var _ValueIntegerChangeAction = class _ValueIntegerChangeAction extends Operation {
+  var ValueIntegerChangeAction = class _ValueIntegerChangeAction extends Operation {
+    static {
+      this.OP_CODE = 212;
+    }
     constructor(valueId, value) {
       super();
       this.mTargetValueId = valueId;
@@ -15398,9 +16359,10 @@ ${inner}`;
       operations.push(new _ValueIntegerChangeAction(valueId, value));
     }
   };
-  _ValueIntegerChangeAction.OP_CODE = 212;
-  var ValueIntegerChangeAction = _ValueIntegerChangeAction;
-  var _ValueStringChangeAction = class _ValueStringChangeAction extends Operation {
+  var ValueStringChangeAction = class _ValueStringChangeAction extends Operation {
+    static {
+      this.OP_CODE = 213;
+    }
     constructor(valueId, stringId) {
       super();
       this.mTargetValueId = valueId;
@@ -15420,9 +16382,10 @@ ${inner}`;
       operations.push(new _ValueStringChangeAction(valueId, stringId));
     }
   };
-  _ValueStringChangeAction.OP_CODE = 213;
-  var ValueStringChangeAction = _ValueStringChangeAction;
-  var _ValueIntegerExpressionChangeAction = class _ValueIntegerExpressionChangeAction extends Operation {
+  var ValueIntegerExpressionChangeAction = class _ValueIntegerExpressionChangeAction extends Operation {
+    static {
+      this.OP_CODE = 218;
+    }
     constructor(valueId, expressionId) {
       super();
       this.mTargetValueId = valueId;
@@ -15441,9 +16404,10 @@ ${inner}`;
       operations.push(new _ValueIntegerExpressionChangeAction(valueId, expressionId));
     }
   };
-  _ValueIntegerExpressionChangeAction.OP_CODE = 218;
-  var ValueIntegerExpressionChangeAction = _ValueIntegerExpressionChangeAction;
-  var _ValueFloatChangeAction = class _ValueFloatChangeAction extends Operation {
+  var ValueFloatChangeAction = class _ValueFloatChangeAction extends Operation {
+    static {
+      this.OP_CODE = 222;
+    }
     constructor(valueId, value) {
       super();
       this.mTargetValueId = valueId;
@@ -15463,11 +16427,12 @@ ${inner}`;
       operations.push(new _ValueFloatChangeAction(valueId, value));
     }
   };
-  _ValueFloatChangeAction.OP_CODE = 222;
-  var ValueFloatChangeAction = _ValueFloatChangeAction;
 
-  // third_party/remote-compose-player/src/core/operations/utilities/ToneSynthesizer.ts
-  var _ToneSynthesizer = class _ToneSynthesizer {
+  // src/core/operations/utilities/ToneSynthesizer.ts
+  var ToneSynthesizer = class _ToneSynthesizer {
+    static {
+      this.SAMPLE_RATE = 22050;
+    }
     /**
      * Synthesize raw 16-bit little-endian mono PCM bytes.
      * waveform: 1=square, 2=sawtooth, 3=triangle, else=sine.
@@ -15552,11 +16517,12 @@ ${inner}`;
       );
     }
   };
-  _ToneSynthesizer.SAMPLE_RATE = 22050;
-  var ToneSynthesizer = _ToneSynthesizer;
 
-  // third_party/remote-compose-player/src/core/operations/SoundOperations.ts
-  var _SoundData = class _SoundData extends Operation {
+  // src/core/operations/SoundOperations.ts
+  var SoundData = class _SoundData extends Operation {
+    static {
+      this.OP_CODE = 169;
+    }
     constructor(soundId, data) {
       super();
       this.mSoundId = soundId;
@@ -15576,9 +16542,13 @@ ${inner}`;
       operations.push(new _SoundData(soundId, data));
     }
   };
-  _SoundData.OP_CODE = 169;
-  var SoundData = _SoundData;
-  var _SoundExpression = class _SoundExpression extends Operation {
+  var SoundExpression = class _SoundExpression extends Operation {
+    static {
+      this.OP_CODE = 206;
+    }
+    static {
+      this.MAX_PARAMS = 64;
+    }
     constructor(id, leftVolume, rightVolume, rate, params) {
       super();
       this.mId = id;
@@ -15586,6 +16556,9 @@ ${inner}`;
       this.mRightVolume = rightVolume;
       this.mRate = rate;
       this.mParams = params;
+    }
+    static {
+      this.TYPE_TONE = 10;
     }
     write(_buffer) {
     }
@@ -15620,11 +16593,10 @@ ${inner}`;
       operations.push(new _SoundExpression(id, leftVolume, rightVolume, rate, params));
     }
   };
-  _SoundExpression.OP_CODE = 206;
-  _SoundExpression.MAX_PARAMS = 64;
-  _SoundExpression.TYPE_TONE = 10;
-  var SoundExpression = _SoundExpression;
-  var _PlaySound = class _PlaySound extends Operation {
+  var PlaySound = class _PlaySound extends Operation {
+    static {
+      this.OP_CODE = 141;
+    }
     constructor(soundExpressionId) {
       super();
       this.mSoundExpressionId = soundExpressionId;
@@ -15641,11 +16613,12 @@ ${inner}`;
       operations.push(new _PlaySound(buffer.readInt()));
     }
   };
-  _PlaySound.OP_CODE = 141;
-  var PlaySound = _PlaySound;
 
-  // third_party/remote-compose-player/src/core/operations/layout/managers/Custom.ts
-  var _Custom = class _Custom extends LayoutManager {
+  // src/core/operations/layout/managers/Custom.ts
+  var Custom = class _Custom extends LayoutManager {
+    static {
+      this.OP_CODE = 93;
+    }
     constructor(componentId, animationId, configId, properties) {
       super(componentId, animationId);
       this.mConfigId = configId;
@@ -15688,16 +16661,17 @@ ${inner}`;
       operations.push(new _Custom(componentId, animationId, configId, properties));
     }
   };
-  _Custom.OP_CODE = 93;
-  var Custom = _Custom;
 
-  // third_party/remote-compose-player/src/core/operations/FontData.ts
-  var _FontData = class _FontData extends Operation {
+  // src/core/operations/FontData.ts
+  var FontData = class _FontData extends Operation {
     constructor(mFontId, mType, mFontData) {
       super();
       this.mFontId = mFontId;
       this.mType = mType;
       this.mFontData = mFontData;
+    }
+    static {
+      this.OP_CODE = 189;
     }
     write(_buffer) {
     }
@@ -15714,11 +16688,15 @@ ${inner}`;
       operations.push(new _FontData(fontId, type, fontData));
     }
   };
-  _FontData.OP_CODE = 189;
-  var FontData = _FontData;
 
-  // third_party/remote-compose-player/src/core/Operations.ts
-  var _Operations = class _Operations {
+  // src/core/Operations.ts
+  var Operations = class _Operations {
+    static {
+      this.sMap = /* @__PURE__ */ new Map();
+    }
+    static {
+      this.initialized = false;
+    }
     static init() {
       if (_Operations.initialized) return;
       _Operations.initialized = true;
@@ -15823,6 +16801,7 @@ ${inner}`;
       m.set(TextLookupInt.OP_CODE, TextLookupInt.read);
       m.set(ColorTheme.OP_CODE, ColorTheme.read);
       m.set(ColorAttribute.OP_CODE, ColorAttribute.read);
+      m.set(ImageAttribute.OP_CODE, ImageAttribute.read);
       m.set(TextLayout.OP_CODE, TextLayout.read);
       m.set(PathAppend.OP_CODE, PathAppend.read);
       m.set(ImpulseOperation.OP_CODE, ImpulseOperation.read);
@@ -15887,11 +16866,8 @@ ${inner}`;
       return _Operations.sMap.has(opId);
     }
   };
-  _Operations.sMap = /* @__PURE__ */ new Map();
-  _Operations.initialized = false;
-  var Operations = _Operations;
 
-  // third_party/remote-compose-player/src/core/operations/loom/LoomWireBuffer.ts
+  // src/core/operations/loom/LoomWireBuffer.ts
   var LoomWireBuffer = class extends WireBuffer {
     constructor(wrapped, context) {
       super(1);
@@ -16038,7 +17014,7 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/RemoteComposeBuffer.ts
+  // src/core/RemoteComposeBuffer.ts
   var RemoteComposeBuffer = class _RemoteComposeBuffer {
     constructor(buffer) {
       this.mBuffer = buffer;
@@ -16080,7 +17056,7 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/loom/nestContainers.ts
+  // src/core/operations/loom/nestContainers.ts
   function isContainer2(op) {
     return typeof op.getList === "function" && !(op instanceof ContainerEnd);
   }
@@ -16137,7 +17113,7 @@ ${inner}`;
     return finalOps;
   }
 
-  // third_party/remote-compose-player/src/core/operations/loom/ExpansionContext.ts
+  // src/core/operations/loom/ExpansionContext.ts
   var MAX_EXPANSION_DEPTH = 64;
   var ExpansionContext = class _ExpansionContext {
     constructor(loomManager, document2, remapContext, blocks, safeMode = false, depth = 0) {
@@ -16237,7 +17213,7 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/loom/RemapContext.ts
+  // src/core/operations/loom/RemapContext.ts
   var RemapContext = class _RemapContext {
     constructor(a, document2, isInsideMacro) {
       if (a instanceof Map) {
@@ -16359,7 +17335,7 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/operations/loom/LoomManager.ts
+  // src/core/operations/loom/LoomManager.ts
   var LoomManager = class {
     constructor() {
       this.mMacros = /* @__PURE__ */ new Map();
@@ -16413,7 +17389,7 @@ ${inner}`;
     }
   };
 
-  // third_party/remote-compose-player/src/core/CoreDocument.ts
+  // src/core/CoreDocument.ts
   var Version = class {
     constructor(major, minor, patch) {
       this.mMajorVersion = major;
@@ -16427,7 +17403,7 @@ ${inner}`;
     }
   };
   var FONT_SCALE = 1;
-  var _CoreDocument = class _CoreDocument {
+  var CoreDocument = class _CoreDocument {
     constructor(clock = SYSTEM_CLOCK) {
       this.mOperations = [];
       this.mRootLayoutComponent = null;
@@ -16469,6 +17445,18 @@ ${inner}`;
       this.mFloatExpressions = /* @__PURE__ */ new Map();
       this.mClock = clock;
       this.mTimeVariables = new TimeVariables(clock);
+    }
+    static {
+      this.MAJOR_VERSION = 1;
+    }
+    static {
+      this.MINOR_VERSION = 1;
+    }
+    static {
+      this.PATCH_VERSION = 0;
+    }
+    static {
+      this.DOCUMENT_API_LEVEL = 8;
     }
     /** Lazily collect all ColorTheme operations from the operation tree. */
     getThemedColors() {
@@ -17223,13 +18211,8 @@ ${inner}`;
       return this.toString();
     }
   };
-  _CoreDocument.MAJOR_VERSION = 1;
-  _CoreDocument.MINOR_VERSION = 1;
-  _CoreDocument.PATCH_VERSION = 0;
-  _CoreDocument.DOCUMENT_API_LEVEL = 8;
-  var CoreDocument = _CoreDocument;
 
-  // third_party/remote-compose-player/src/core/shader/AgslTokenizer.ts
+  // src/core/shader/AgslTokenizer.ts
   var IDENT_START = /[a-zA-Z_]/;
   var IDENT_CONT = /[a-zA-Z0-9_]/;
   var DIGIT = /[0-9]/;
@@ -17335,7 +18318,7 @@ ${inner}`;
     return tokens;
   }
 
-  // third_party/remote-compose-player/src/core/shader/AgslTranspiler.ts
+  // src/core/shader/AgslTranspiler.ts
   var TYPE_MAP = {
     "half4": "vec4",
     "half3": "vec3",
@@ -17569,7 +18552,7 @@ ${inner}`;
     return tok.value;
   }
 
-  // third_party/remote-compose-player/src/web/shader/WebGLShaderRenderer.ts
+  // src/web/shader/WebGLShaderRenderer.ts
   var VERTEX_SHADER = `#version 300 es
 in vec2 a_position;
 void main() {
@@ -17788,7 +18771,7 @@ void main() {
     }
   };
 
-  // third_party/remote-compose-player/src/web/WebFonts.ts
+  // src/web/WebFonts.ts
   var DEFAULT_BASE_URL = "https://fonts.googleapis.com/css2";
   var config = { enabled: true, baseUrl: DEFAULT_BASE_URL };
   function configureWebFonts(patch) {
@@ -18066,7 +19049,7 @@ void main() {
     config = { enabled: true, baseUrl: DEFAULT_BASE_URL };
   }
 
-  // third_party/remote-compose-player/src/web/CanvasPaintContext.ts
+  // src/web/CanvasPaintContext.ts
   var FONT_STRETCH_STEPS = [
     [50, "ultra-condensed"],
     [62.5, "extra-condensed"],
@@ -18111,7 +19094,7 @@ void main() {
   var ASCENT_RATIO = 0.92;
   var DESCENT_RATIO = 0.24;
   var AVG_ADVANCE = 0.528;
-  var _CanvasPaintContext = class _CanvasPaintContext extends PaintContext {
+  var CanvasPaintContext = class _CanvasPaintContext extends PaintContext {
     constructor(context, canvas) {
       super(context);
       // Current paint state
@@ -18286,10 +19269,41 @@ void main() {
       });
       this.bitmapPromises.set(imageId, promise);
     }
+    /** Wait until every bitmap loaded by the document's data pass is paintable. */
+    async bitmapsReady() {
+      await Promise.all(this.bitmapPromises.values());
+    }
     // --- Path cache ---
     loadPathData(id, winding, data) {
       this.pathDataCache.set(id, data);
       this.pathWindingCache.set(id, winding);
+    }
+    static {
+      // Path command IDs (NaN-encoded in the float array)
+      // PathExpression uses short IDs (10-16), binary PathData uses NanMap IDs (0x300000+)
+      this.PATH_MOVE = 10;
+    }
+    static {
+      this.PATH_LINE = 11;
+    }
+    static {
+      this.PATH_QUADRATIC = 12;
+    }
+    static {
+      this.PATH_CONIC = 13;
+    }
+    static {
+      this.PATH_CUBIC = 14;
+    }
+    static {
+      this.PATH_CLOSE = 15;
+    }
+    static {
+      this.PATH_DONE = 16;
+    }
+    static {
+      // NanMap path command base (Java convention used in binary PathData)
+      this.NANMAP_PATH_BASE = 3145728;
     }
     // A path operand is either a literal float or a NaN-encoded variable id (a
     // dynamic coordinate, e.g. a button/card fill sized from its component's
@@ -19641,6 +20655,38 @@ void main() {
       );
       this.ctx.clip();
     }
+    static {
+      // --- Graphics layer (offscreen compositing) ---
+      // GraphicsLayer attribute IDs (from GraphicsLayerModifierOperation.java)
+      this.GL_SCALE_X = 0;
+    }
+    static {
+      this.GL_SCALE_Y = 1;
+    }
+    static {
+      this.GL_ROTATION_Z = 4;
+    }
+    static {
+      this.GL_TRANSFORM_ORIGIN_X = 5;
+    }
+    static {
+      this.GL_TRANSFORM_ORIGIN_Y = 6;
+    }
+    static {
+      this.GL_TRANSLATION_X = 7;
+    }
+    static {
+      this.GL_TRANSLATION_Y = 8;
+    }
+    static {
+      this.GL_ALPHA = 11;
+    }
+    static {
+      this.GL_SHAPE = 20;
+    }
+    static {
+      this.GL_SHAPE_RADIUS = 21;
+    }
     startGraphicsLayer(w, h) {
       this.ctx.save();
       try {
@@ -19743,32 +20789,8 @@ void main() {
       this.clearNeedsRepaint();
     }
   };
-  // Path command IDs (NaN-encoded in the float array)
-  // PathExpression uses short IDs (10-16), binary PathData uses NanMap IDs (0x300000+)
-  _CanvasPaintContext.PATH_MOVE = 10;
-  _CanvasPaintContext.PATH_LINE = 11;
-  _CanvasPaintContext.PATH_QUADRATIC = 12;
-  _CanvasPaintContext.PATH_CONIC = 13;
-  _CanvasPaintContext.PATH_CUBIC = 14;
-  _CanvasPaintContext.PATH_CLOSE = 15;
-  _CanvasPaintContext.PATH_DONE = 16;
-  // NanMap path command base (Java convention used in binary PathData)
-  _CanvasPaintContext.NANMAP_PATH_BASE = 3145728;
-  // --- Graphics layer (offscreen compositing) ---
-  // GraphicsLayer attribute IDs (from GraphicsLayerModifierOperation.java)
-  _CanvasPaintContext.GL_SCALE_X = 0;
-  _CanvasPaintContext.GL_SCALE_Y = 1;
-  _CanvasPaintContext.GL_ROTATION_Z = 4;
-  _CanvasPaintContext.GL_TRANSFORM_ORIGIN_X = 5;
-  _CanvasPaintContext.GL_TRANSFORM_ORIGIN_Y = 6;
-  _CanvasPaintContext.GL_TRANSLATION_X = 7;
-  _CanvasPaintContext.GL_TRANSLATION_Y = 8;
-  _CanvasPaintContext.GL_ALPHA = 11;
-  _CanvasPaintContext.GL_SHAPE = 20;
-  _CanvasPaintContext.GL_SHAPE_RADIUS = 21;
-  var CanvasPaintContext = _CanvasPaintContext;
 
-  // third_party/remote-compose-player/src/core/DefaultSystemColors.ts
+  // src/core/DefaultSystemColors.ts
   function C(c) {
     return c | 0;
   }
@@ -19983,7 +21005,7 @@ void main() {
     return DEFAULT_SYSTEM_COLORS[name];
   }
 
-  // third_party/remote-compose-player/src/web/WebRemoteContext.ts
+  // src/web/WebRemoteContext.ts
   var WebRemoteContext = class extends RemoteContext {
     constructor(paintContext, clock = SYSTEM_CLOCK) {
       super(clock);
@@ -20247,7 +21269,7 @@ void main() {
     }
   };
 
-  // third_party/remote-compose-player/src/web/RcPlayerElement.ts
+  // src/web/RcPlayerElement.ts
   function base64ToArrayBuffer(base64) {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
@@ -20328,6 +21350,9 @@ void main() {
         `;
       this._container = this._shadow.querySelector(".container");
     }
+    static {
+      this.observedAttributes = ["src", "data", "width", "height", "theme", "background"];
+    }
     connectedCallback() {
       this._init();
     }
@@ -20375,9 +21400,8 @@ void main() {
       this._handle = createPlayer(this._container, opts);
     }
   };
-  RcPlayerElement.observedAttributes = ["src", "data", "width", "height", "theme", "background"];
 
-  // third_party/remote-compose-player/src/web/main.ts
+  // src/web/main.ts
   var RcdPlayer = class {
     constructor(canvas) {
       this.document = null;
@@ -20541,7 +21565,7 @@ void main() {
       this.remoteContext.mHeight = docHeight;
       this.remoteContext.setDensity(density);
       doc.applyDataOperations(this.remoteContext);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await this.paintContext.bitmapsReady();
       if (this.onLoad) this.onLoad(doc);
       this.startTime = performance.now();
       this.renderFrame(this.startTime);

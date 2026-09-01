@@ -179,8 +179,9 @@ export class RcdPlayer {
         // Apply data operations first (load texts, bitmaps, paths, etc.)
         doc.applyDataOperations(this.remoteContext);
 
-        // Wait a tick for bitmap decoding
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Texture paint requires decoded image sources. A fixed delay races image decoding and
+        // leaves the first (and, for static documents, only) frame transparent on slower engines.
+        await this.paintContext.bitmapsReady();
 
         if (this.onLoad) this.onLoad(doc);
 

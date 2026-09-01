@@ -343,6 +343,11 @@ export class CanvasPaintContext extends PaintContext {
         this.bitmapPromises.set(imageId, promise);
     }
 
+    /** Wait until every bitmap loaded by the document's data pass is paintable. */
+    async bitmapsReady(): Promise<void> {
+        await Promise.all(this.bitmapPromises.values());
+    }
+
     // --- Path cache ---
 
     loadPathData(id: number, winding: number, data: Int32Array): void {
