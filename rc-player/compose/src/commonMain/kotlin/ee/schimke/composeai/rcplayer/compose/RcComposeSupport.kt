@@ -13,6 +13,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDebugMessage
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
@@ -101,6 +102,19 @@ public fun RcDocument.composeSupportReport(
   profile: RcOperationProfile? = null,
   availableFontFamilies: Set<String> = emptySet(),
   allowExternalImagePlaceholders: Boolean = false,
+): RcComposeSupportReport =
+  composeSupportReport(
+    profile,
+    availableFontFamilies,
+    allowExternalImagePlaceholders,
+    emptySet(),
+  )
+
+public fun RcDocument.composeSupportReport(
+  profile: RcOperationProfile? = null,
+  availableFontFamilies: Set<String> = emptySet(),
+  allowExternalImagePlaceholders: Boolean = false,
+  availableCustomComponents: Set<String>,
 ): RcComposeSupportReport {
   val issues = mutableListOf<RcComposeSupportIssue>()
   val bitmapIds = operations.filterIsInstance<RcBitmapData>().mapTo(mutableSetOf()) { it.imageId }
@@ -176,6 +190,25 @@ public fun RcDocument.composeSupportReport(
     }
   }
   operations.forEachIndexed { index, operation ->
+    if (operation is RcCustomLayout) {
+      val config = texts[operation.configId]
+      when {
+        config == null ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "Custom",
+              "config text id ${operation.configId} is not declared",
+            )
+        config !in availableCustomComponents ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "Custom",
+              "host custom component '$config' is not registered",
+            )
+      }
+    }
     if (operation is RcAnimationSpec) {
       when {
         !operation.motionDurationMillis.value.isFinite() ||

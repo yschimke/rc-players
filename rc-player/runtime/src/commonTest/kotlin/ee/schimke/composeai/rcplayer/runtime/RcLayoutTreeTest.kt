@@ -9,6 +9,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcCollapsiblePriorityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCustomProperty
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
@@ -45,6 +47,33 @@ import kotlin.test.assertIs
 
 class RcLayoutTreeTest {
   private val header = RcHeader(RcVersion(1, 0, 0), modern = false)
+
+  @Test
+  fun retainsCustomComponentsAndTheirLayoutModifiers() {
+    val custom =
+      RcCustomLayout(
+        componentId = 3,
+        animationId = 30,
+        configId = 40,
+        properties = listOf(RcCustomProperty.int(1, 7)),
+      )
+    val root =
+      requireNotNull(
+        treeOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          custom,
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+          ends = 3,
+        )
+      )
+
+    val content = assertIs<RcLayoutNode.Content>(root.children.single())
+    val node = assertIs<RcLayoutNode.Custom>(content.children.single())
+    assertEquals(custom, node.operation)
+    assertEquals(RcDimensionType.EXACT, node.modifiers.width?.type)
+    assertEquals(20f, node.modifiers.width?.value?.value)
+  }
 
   @Test
   fun validatesNestedComponentValueTargetsAndConflictingOutputs() {

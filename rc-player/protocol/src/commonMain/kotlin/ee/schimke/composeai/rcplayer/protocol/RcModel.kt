@@ -887,6 +887,59 @@ public data class RcCanvasContent(val componentId: Int) : RcOperation {
   override val opcode: Int = RcOpcodes.LAYOUT_CANVAS_CONTENT
 }
 
+/** A host-rendered component carried in the Remote Compose layout tree. */
+public data class RcCustomLayout(
+  val componentId: Int,
+  val animationId: Int,
+  /** Text id naming the host extension that renders this component. */
+  val configId: Int,
+  val properties: List<RcCustomProperty>,
+) : RcOperation {
+  override val opcode: Int = RcOpcodes.LAYOUT_CUSTOM
+}
+
+/** One typed property supplied to an [RcCustomLayout]. */
+public data class RcCustomProperty(
+  /** Author-defined property id, encoded as an AndroidX signed short. */
+  val type: Int,
+  /** AndroidX [INT_PROP] / [FLOAT_PROP] / … discriminator. */
+  val dataType: Int,
+  /** Raw int or IEEE-754 float bits, according to the low bit of [dataType]. */
+  val valueBits: Int,
+) {
+  public val isFloatEncoded: Boolean
+    get() = dataType and 1 == 1
+
+  public val intValue: Int
+    get() = valueBits
+
+  public val floatValue: RcFloatWord
+    get() = RcFloatWord(valueBits)
+
+  public companion object {
+    public const val INT_PROP: Int = 0
+    public const val FLOAT_PROP: Int = 1
+    public const val STRING_PROP: Int = 2
+    public const val FLOAT_RETURN: Int = 3
+    public const val TEXT_RETURN: Int = 4
+
+    public fun int(type: Int, value: Int): RcCustomProperty =
+      RcCustomProperty(type, INT_PROP, value)
+
+    public fun float(type: Int, value: RcFloatWord): RcCustomProperty =
+      RcCustomProperty(type, FLOAT_PROP, value.bits)
+
+    public fun string(type: Int, textId: Int): RcCustomProperty =
+      RcCustomProperty(type, STRING_PROP, textId)
+
+    public fun floatReturn(type: Int, target: RcFloatWord): RcCustomProperty =
+      RcCustomProperty(type, FLOAT_RETURN, target.bits)
+
+    public fun textReturn(type: Int, targetTextId: Int): RcCustomProperty =
+      RcCustomProperty(type, TEXT_RETURN, targetTextId)
+  }
+}
+
 public data class RcBoxLayout(
   val componentId: Int,
   val animationId: Int,
@@ -1517,6 +1570,7 @@ public data class RcDocument(val header: RcHeader, val operations: List<RcOperat
 /** Opcode values copied from AndroidX remote-core 1.0.0-alpha16 `Operations.java`. */
 public object RcOpcodes {
   public const val HEADER: Int = 0
+  public const val LAYOUT_CUSTOM: Int = 93
   public const val ANIMATION_SPEC: Int = 14
   public const val MODIFIER_WIDTH: Int = 16
   public const val THEME: Int = 63

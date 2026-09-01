@@ -122,6 +122,7 @@ public object RcDocumentCodec {
         RootLayoutCodec,
         LayoutContentCodec,
         CanvasLayoutCodec,
+        CustomLayoutCodec,
         BoxLayoutCodec,
         RowLayoutCodec,
         ColumnLayoutCodec,
@@ -312,6 +313,40 @@ private object CanvasContentCodec : RcOperationCodec<RcCanvasContent> {
 
   override fun encode(output: RcWireWriter, value: RcCanvasContent) =
     output.writeInt(value.componentId)
+}
+
+private object CustomLayoutCodec : RcOperationCodec<RcCustomLayout> {
+  override val spec = RcOperationSpec(RcOpcodes.LAYOUT_CUSTOM, "Custom")
+
+  override fun decode(input: RcWireReader): RcCustomLayout {
+    val componentId = input.readInt("componentId")
+    val animationId = input.readInt("animationId")
+    val configId = input.readInt("configId")
+    val count = input.readCount("properties.length", input.limits.maxCollectionEntries)
+    val properties =
+      List(count) { index ->
+        val type = input.readU16("properties[$index].type").toShort().toInt()
+        val dataType = input.readU16("properties[$index].dataType").toShort().toInt()
+        val valueBits =
+          if (dataType and 1 == 1) input.readFloatWord("properties[$index].value").bits
+          else input.readInt("properties[$index].value")
+        RcCustomProperty(type, dataType, valueBits)
+      }
+    return RcCustomLayout(componentId, animationId, configId, properties)
+  }
+
+  override fun encode(output: RcWireWriter, value: RcCustomLayout) {
+    output.writeInt(value.componentId)
+    output.writeInt(value.animationId)
+    output.writeInt(value.configId)
+    output.writeInt(value.properties.size)
+    value.properties.forEach { property ->
+      output.writeU16(property.type)
+      output.writeU16(property.dataType)
+      if (property.isFloatEncoded) output.writeFloatWord(property.floatValue)
+      else output.writeInt(property.intValue)
+    }
+  }
 }
 
 private object BoxLayoutCodec : RcOperationCodec<RcBoxLayout> {

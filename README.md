@@ -110,6 +110,32 @@ dependencies {
 `rc-player-compose` pulls the rest of the stack transitively. Take `rc-player-protocol` on its own
 when you only need to read or write the wire format.
 
+The common Compose API also supports host-rendered custom components. A document names a component
+through `LAYOUT_CUSTOM`; the host registers Compose content under that name. Because the content is
+inserted into the player's existing Compose tree, it can be a native control, a named slot, or
+another `RcComposePlayer`. This is the same API on Android, JVM, iOS and Wasm—the browser bundle is
+only one possible host.
+
+```kotlin
+lateinit var components: RcCustomComponentRegistry
+components =
+  RcCustomComponentRegistry(
+    "slot:hero" to { _, modifier -> Hero(modifier) },
+    "rc:document" to { component, modifier ->
+      childDocuments[component.text(DOCUMENT_KEY)]?.let { child ->
+        RcComposePlayer(child, modifier, theme = theme, customComponents = components)
+      }
+    },
+  )
+
+RcComposePlayer(compositeDocument, customComponents = components)
+```
+
+Custom properties can contain literals, live float references, text references and declared
+float/text return channels. See
+[`docs/design/RC_COMPOSITION.md`](docs/design/RC_COMPOSITION.md) for the composite-document, slot and
+state-ownership model.
+
 Swift Package Manager, by the bare version tag (SwiftPM only reads a tag as a semantic version when
 the whole ref is `X.Y.Z`):
 

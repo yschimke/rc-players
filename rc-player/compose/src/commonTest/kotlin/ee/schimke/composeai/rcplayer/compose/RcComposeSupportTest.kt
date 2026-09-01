@@ -16,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDataMapEntry
 import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
@@ -77,6 +78,27 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RcComposeSupportTest {
+  @Test
+  fun customComponentsRequireADeclaredAndRegisteredHostRenderer() {
+    val custom = RcCustomLayout(3, 30, 42, emptyList())
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val layout = listOf(RcRootLayout(1), RcLayoutContent(2), custom, end, end, end)
+    val missingConfig = RcDocument(header, layout).composeSupportReport()
+    assertEquals(
+      listOf("config text id 42 is not declared"),
+      missingConfig.issues.map { it.detail },
+    )
+
+    val document = RcDocument(header, listOf(RcTextData(42, "slot:hero")) + layout)
+    assertEquals(
+      "host custom component 'slot:hero' is not registered",
+      document.composeSupportReport().issues.single().detail,
+    )
+    assertTrue(
+      document.composeSupportReport(availableCustomComponents = setOf("slot:hero")).fullyRenderable
+    )
+  }
+
   @Test
   fun omittedMatrixPivotUsesTheOrigin() {
     assertEquals(Offset.Zero, rcMatrixPivot(Float.NaN, Float.NaN))

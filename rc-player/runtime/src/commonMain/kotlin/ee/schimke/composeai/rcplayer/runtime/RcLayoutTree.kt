@@ -16,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionConstraintsModifier
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
@@ -145,6 +146,14 @@ public sealed interface RcLayoutNode {
   ) : RcLayoutNode {
     override val animationId: Int? = null
     override val modifiers: RcLayoutModifiers = RcLayoutModifiers()
+  }
+
+  public data class Custom(
+    val operation: RcCustomLayout,
+    override val modifiers: RcLayoutModifiers,
+  ) : RcLayoutNode {
+    override val componentId: Int = operation.componentId
+    override val animationId: Int = operation.animationId
   }
 
   public data class Box(
@@ -351,6 +360,7 @@ public object RcLayoutTree {
           )
         }
         is RcCanvasContent -> RcLayoutNode.CanvasContent(operation.componentId, container.children)
+        is RcCustomLayout -> RcLayoutNode.Custom(operation, modifiers)
         is RcBoxLayout ->
           RcLayoutNode.Box(
             operation,
@@ -620,6 +630,7 @@ public object RcLayoutTree {
       this is RcLayoutContent ||
       this is RcCanvasLayout ||
       this is RcCanvasContent ||
+      this is RcCustomLayout ||
       this is RcBoxLayout ||
       this is RcRowLayout ||
       this is RcColumnLayout ||

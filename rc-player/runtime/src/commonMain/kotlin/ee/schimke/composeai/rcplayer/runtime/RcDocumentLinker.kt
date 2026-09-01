@@ -82,6 +82,7 @@ public object RcDocumentLinker {
       RcOpcodes.LOOP_START,
       RcOpcodes.LAYOUT_ROOT,
       RcOpcodes.LAYOUT_CONTENT,
+      RcOpcodes.LAYOUT_CUSTOM,
       RcOpcodes.LAYOUT_BOX,
       RcOpcodes.LAYOUT_ROW,
       RcOpcodes.LAYOUT_COLUMN,

@@ -405,6 +405,21 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcLayoutNode$CoreText :
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcLayoutNode$Custom : ee/schimke/composeai/rcplayer/runtime/RcLayoutNode {
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;)V
+	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;
+	public final fun component2 ()Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;
+	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;)Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$Custom;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$Custom;Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$Custom;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getAnimationId ()Ljava/lang/Integer;
+	public fun getComponentId ()I
+	public fun getModifiers ()Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;
+	public final fun getOperation ()Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcLayoutNode$FitBox : ee/schimke/composeai/rcplayer/runtime/RcLayoutNode {
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcFitBoxLayout;Lee/schimke/composeai/rcplayer/runtime/RcLayoutModifiers;Lee/schimke/composeai/rcplayer/runtime/RcLayoutNode$Content;Ljava/util/List;)V
 	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcFitBoxLayout;

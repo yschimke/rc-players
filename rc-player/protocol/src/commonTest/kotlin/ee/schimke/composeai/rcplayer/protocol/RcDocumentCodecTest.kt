@@ -9,6 +9,36 @@ import kotlin.test.assertTrue
 
 class RcDocumentCodecTest {
   @Test
+  fun customLayoutRoundTripsPropertiesWithoutLosingRawWireBits() {
+    val custom =
+      RcCustomLayout(
+        componentId = 7,
+        animationId = 8,
+        configId = 42,
+        properties =
+          listOf(
+            RcCustomProperty.int(-1, 123),
+            RcCustomProperty.float(2, RcFloatWord(0x7fc0002a)),
+            RcCustomProperty.string(3, 43),
+            RcCustomProperty.floatReturn(4, RcFloatWord(0x7fc0002b)),
+            RcCustomProperty.textReturn(5, 44),
+          ),
+      )
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), modern = false),
+        listOf(custom, RcNoArg(RcOpcodes.CONTAINER_END)),
+      )
+
+    val bytes = RcDocumentCodec.encode(document)
+    val decoded = RcDocumentCodec.decode(bytes)
+
+    assertEquals(document, decoded)
+    assertEquals(-1, assertIs<RcCustomLayout>(decoded.operations.first()).properties.first().type)
+    assertContentEquals(bytes, RcDocumentCodec.encode(decoded))
+  }
+
+  @Test
   fun stateLayoutRoundTripsAlpha16Fields() {
     val operation = RcStateLayout(7, 8, 1, 4, 51)
     val document =

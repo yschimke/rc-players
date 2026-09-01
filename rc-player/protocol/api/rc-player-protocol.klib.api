@@ -1035,6 +1035,74 @@ final class ee.schimke.composeai.rcplayer.protocol/RcCoreText : ee.schimke.compo
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcCoreText.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.protocol/RcCustomLayout : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int, kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcCustomProperty>) // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.collections.List<ee.schimke.composeai.rcplayer.protocol.RcCustomProperty>){}[0]
+
+    final val animationId // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.animationId|{}animationId[0]
+        final fun <get-animationId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.animationId.<get-animationId>|<get-animationId>(){}[0]
+    final val componentId // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.componentId|{}componentId[0]
+        final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.componentId.<get-componentId>|<get-componentId>(){}[0]
+    final val configId // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.configId|{}configId[0]
+        final fun <get-configId>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.configId.<get-configId>|<get-configId>(){}[0]
+    final val opcode // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.opcode|{}opcode[0]
+        final fun <get-opcode>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.opcode.<get-opcode>|<get-opcode>(){}[0]
+    final val properties // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.properties|{}properties[0]
+        final fun <get-properties>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcCustomProperty> // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.properties.<get-properties>|<get-properties>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.component2|component2(){}[0]
+    final fun component3(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.component3|component3(){}[0]
+    final fun component4(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcCustomProperty> // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.component4|component4(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcCustomProperty> = ...): ee.schimke.composeai.rcplayer.protocol/RcCustomLayout // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.collections.List<ee.schimke.composeai.rcplayer.protocol.RcCustomProperty>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcCustomLayout.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcplayer.protocol/RcCustomProperty { // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+    final val dataType // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.dataType|{}dataType[0]
+        final fun <get-dataType>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.dataType.<get-dataType>|<get-dataType>(){}[0]
+    final val floatValue // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.floatValue|{}floatValue[0]
+        final fun <get-floatValue>(): ee.schimke.composeai.rcplayer.protocol/RcFloatWord // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.floatValue.<get-floatValue>|<get-floatValue>(){}[0]
+    final val intValue // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.intValue|{}intValue[0]
+        final fun <get-intValue>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.intValue.<get-intValue>|<get-intValue>(){}[0]
+    final val isFloatEncoded // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.isFloatEncoded|{}isFloatEncoded[0]
+        final fun <get-isFloatEncoded>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.isFloatEncoded.<get-isFloatEncoded>|<get-isFloatEncoded>(){}[0]
+    final val type // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.type|{}type[0]
+        final fun <get-type>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.type.<get-type>|<get-type>(){}[0]
+    final val valueBits // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.valueBits|{}valueBits[0]
+        final fun <get-valueBits>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.valueBits.<get-valueBits>|<get-valueBits>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.component2|component2(){}[0]
+    final fun component3(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.component3|component3(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.protocol/RcCustomProperty // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion|null[0]
+        final const val FLOAT_PROP // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.FLOAT_PROP|{}FLOAT_PROP[0]
+            final fun <get-FLOAT_PROP>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.FLOAT_PROP.<get-FLOAT_PROP>|<get-FLOAT_PROP>(){}[0]
+        final const val FLOAT_RETURN // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.FLOAT_RETURN|{}FLOAT_RETURN[0]
+            final fun <get-FLOAT_RETURN>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.FLOAT_RETURN.<get-FLOAT_RETURN>|<get-FLOAT_RETURN>(){}[0]
+        final const val INT_PROP // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.INT_PROP|{}INT_PROP[0]
+            final fun <get-INT_PROP>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.INT_PROP.<get-INT_PROP>|<get-INT_PROP>(){}[0]
+        final const val STRING_PROP // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.STRING_PROP|{}STRING_PROP[0]
+            final fun <get-STRING_PROP>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.STRING_PROP.<get-STRING_PROP>|<get-STRING_PROP>(){}[0]
+        final const val TEXT_RETURN // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.TEXT_RETURN|{}TEXT_RETURN[0]
+            final fun <get-TEXT_RETURN>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.TEXT_RETURN.<get-TEXT_RETURN>|<get-TEXT_RETURN>(){}[0]
+
+        final fun float(kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcFloatWord): ee.schimke.composeai.rcplayer.protocol/RcCustomProperty // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.float|float(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord){}[0]
+        final fun floatReturn(kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcFloatWord): ee.schimke.composeai.rcplayer.protocol/RcCustomProperty // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.floatReturn|floatReturn(kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcFloatWord){}[0]
+        final fun int(kotlin/Int, kotlin/Int): ee.schimke.composeai.rcplayer.protocol/RcCustomProperty // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.int|int(kotlin.Int;kotlin.Int){}[0]
+        final fun string(kotlin/Int, kotlin/Int): ee.schimke.composeai.rcplayer.protocol/RcCustomProperty // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.string|string(kotlin.Int;kotlin.Int){}[0]
+        final fun textReturn(kotlin/Int, kotlin/Int): ee.schimke.composeai.rcplayer.protocol/RcCustomProperty // ee.schimke.composeai.rcplayer.protocol/RcCustomProperty.Companion.textReturn|textReturn(kotlin.Int;kotlin.Int){}[0]
+    }
+}
+
 final class ee.schimke.composeai.rcplayer.protocol/RcDataMapEntry { // ee.schimke.composeai.rcplayer.protocol/RcDataMapEntry|null[0]
     constructor <init>(kotlin/String, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcDataMapEntry.<init>|<init>(kotlin.String;kotlin.Int;kotlin.Int){}[0]
 
@@ -4042,6 +4110,8 @@ final object ee.schimke.composeai.rcplayer.protocol/RcOpcodes { // ee.schimke.co
         final fun <get-LAYOUT_COMPUTE>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_COMPUTE.<get-LAYOUT_COMPUTE>|<get-LAYOUT_COMPUTE>(){}[0]
     final const val LAYOUT_CONTENT // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_CONTENT|{}LAYOUT_CONTENT[0]
         final fun <get-LAYOUT_CONTENT>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_CONTENT.<get-LAYOUT_CONTENT>|<get-LAYOUT_CONTENT>(){}[0]
+    final const val LAYOUT_CUSTOM // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_CUSTOM|{}LAYOUT_CUSTOM[0]
+        final fun <get-LAYOUT_CUSTOM>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_CUSTOM.<get-LAYOUT_CUSTOM>|<get-LAYOUT_CUSTOM>(){}[0]
     final const val LAYOUT_FIT_BOX // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_FIT_BOX|{}LAYOUT_FIT_BOX[0]
         final fun <get-LAYOUT_FIT_BOX>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_FIT_BOX.<get-LAYOUT_FIT_BOX>|<get-LAYOUT_FIT_BOX>(){}[0]
     final const val LAYOUT_FLOW // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.LAYOUT_FLOW|{}LAYOUT_FLOW[0]
