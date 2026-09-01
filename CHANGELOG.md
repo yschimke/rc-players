@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.56.0](https://github.com/yschimke/rc-players/compare/v1.55.1...v1.56.0) (2026-09-01)
+
+
+### Features
+
+* **compose:** support host custom components ([#23](https://github.com/yschimke/rc-players/issues/23)) ([f76a078](https://github.com/yschimke/rc-players/commit/f76a0784c2f1932c91eb3be02c34ef0cb5523382))
+
 ## [1.55.1](https://github.com/yschimke/rc-players/compare/v1.55.0...v1.55.1) (2026-09-01)
 
 
