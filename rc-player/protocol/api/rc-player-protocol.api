@@ -538,6 +538,56 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcCoreText : ee/schimk
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcCustomLayout : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public fun <init> (IIILjava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()Ljava/util/List;
+	public final fun copy (IIILjava/util/List;)Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;IIILjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcCustomLayout;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAnimationId ()I
+	public final fun getComponentId ()I
+	public final fun getConfigId ()I
+	public fun getOpcode ()I
+	public final fun getProperties ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcCustomProperty {
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty$Companion;
+	public static final field FLOAT_PROP I
+	public static final field FLOAT_RETURN I
+	public static final field INT_PROP I
+	public static final field STRING_PROP I
+	public static final field TEXT_RETURN I
+	public fun <init> (III)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun copy (III)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;IIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDataType ()I
+	public final fun getFloatValue-tGZKRUM ()I
+	public final fun getIntValue ()I
+	public final fun getType ()I
+	public final fun getValueBits ()I
+	public fun hashCode ()I
+	public final fun isFloatEncoded ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcCustomProperty$Companion {
+	public final fun float-l8SDznk (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun floatReturn-l8SDznk (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun int (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun string (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun textReturn (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcDataMapEntry {
 	public fun <init> (Ljava/lang/String;II)V
 	public final fun component1 ()Ljava/lang/String;
@@ -1951,6 +2001,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field LAYOUT_COLUMN I
 	public static final field LAYOUT_COMPUTE I
 	public static final field LAYOUT_CONTENT I
+	public static final field LAYOUT_CUSTOM I
 	public static final field LAYOUT_FIT_BOX I
 	public static final field LAYOUT_FLOW I
 	public static final field LAYOUT_IMAGE I

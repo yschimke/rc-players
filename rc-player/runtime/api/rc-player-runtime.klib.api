@@ -321,6 +321,26 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schi
         final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.CoreText.toString|toString(){}[0]
     }
 
+    final class Custom : ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom|null[0]
+        constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcCustomLayout, ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers) // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcCustomLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers){}[0]
+
+        final val animationId // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.animationId|{}animationId[0]
+            final fun <get-animationId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.animationId.<get-animationId>|<get-animationId>(){}[0]
+        final val componentId // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.componentId|{}componentId[0]
+            final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.componentId.<get-componentId>|<get-componentId>(){}[0]
+        final val modifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.modifiers|{}modifiers[0]
+            final fun <get-modifiers>(): ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.modifiers.<get-modifiers>|<get-modifiers>(){}[0]
+        final val operation // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.operation|{}operation[0]
+            final fun <get-operation>(): ee.schimke.composeai.rcplayer.protocol/RcCustomLayout // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.operation.<get-operation>|<get-operation>(){}[0]
+
+        final fun component1(): ee.schimke.composeai.rcplayer.protocol/RcCustomLayout // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.component1|component1(){}[0]
+        final fun component2(): ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.component2|component2(){}[0]
+        final fun copy(ee.schimke.composeai.rcplayer.protocol/RcCustomLayout = ..., ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers = ...): ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcCustomLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.toString|toString(){}[0]
+    }
+
     final class FitBox : ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.FitBox|null[0]
         constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcFitBoxLayout, ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers, ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content, kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLinkedNode>?) // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.FitBox.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers;ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Content;kotlin.collections.List<ee.schimke.composeai.rcplayer.runtime.RcLinkedNode>?){}[0]
 

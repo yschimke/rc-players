@@ -287,8 +287,40 @@ public fun RcComposePlayer(
   typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
   systemColors: (name: String) -> Color? = { null },
 ) {
+  RcComposePlayer(
+    bytes = bytes,
+    modifier = modifier,
+    theme = theme,
+    namedValues = namedValues,
+    onEvent = onEvent,
+    typefaces = typefaces,
+    systemColors = systemColors,
+    customComponents = RcCustomComponentRegistry.Empty,
+  )
+}
+
+@Composable
+public fun RcComposePlayer(
+  bytes: ByteArray,
+  modifier: Modifier = Modifier,
+  theme: RcPlayerTheme = RcPlayerTheme.System,
+  namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
+  onEvent: (RcPlayerEvent) -> Unit = {},
+  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  systemColors: (name: String) -> Color? = { null },
+  customComponents: RcCustomComponentRegistry,
+) {
   val document = remember(bytes) { RcDocumentCodec.decode(bytes) }
-  RcComposePlayer(document, modifier, theme, namedValues, onEvent, typefaces, systemColors)
+  RcComposePlayer(
+    document,
+    modifier,
+    theme,
+    namedValues,
+    onEvent,
+    typefaces,
+    systemColors,
+    customComponents,
+  )
 }
 
 @Composable
@@ -300,6 +332,29 @@ public fun RcComposePlayer(
   onEvent: (RcPlayerEvent) -> Unit = {},
   typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
   systemColors: (name: String) -> Color? = { null },
+) {
+  RcComposePlayer(
+    document = document,
+    modifier = modifier,
+    theme = theme,
+    namedValues = namedValues,
+    onEvent = onEvent,
+    typefaces = typefaces,
+    systemColors = systemColors,
+    customComponents = RcCustomComponentRegistry.Empty,
+  )
+}
+
+@Composable
+public fun RcComposePlayer(
+  document: RcDocument,
+  modifier: Modifier = Modifier,
+  theme: RcPlayerTheme = RcPlayerTheme.System,
+  namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
+  onEvent: (RcPlayerEvent) -> Unit = {},
+  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  systemColors: (name: String) -> Color? = { null },
+  customComponents: RcCustomComponentRegistry,
 ) {
   // Resolve once, at the only place that can: `RcPlayerTheme.System` is a question for the host,
   // and everything below this point — section gating, and every `ColorTheme` selection — needs a
@@ -313,6 +368,7 @@ public fun RcComposePlayer(
     onEvent,
     typefaces,
     systemColors,
+    customComponents,
   )
 }
 
@@ -325,6 +381,7 @@ private fun RcComposePlayerResolved(
   onEvent: (RcPlayerEvent) -> Unit,
   typefaces: RcTypefaceLoader,
   systemColors: (name: String) -> Color?,
+  customComponents: RcCustomComponentRegistry,
 ) {
   val latestEventSink by rememberUpdatedState(onEvent)
   val latestSystemColors by rememberUpdatedState(systemColors)
@@ -521,6 +578,8 @@ private fun RcComposePlayerResolved(
         LocalRcLayoutVersion provides invalidationVersion,
         LocalRcFonts provides fonts,
         LocalRcTypefaces provides typefaces,
+        LocalRcCustomComponents provides customComponents,
+        LocalRcInvalidate provides { invalidationVersion += 1 },
       ) {
         RenderLayoutNode(
           node = layout,
@@ -580,6 +639,8 @@ private fun RenderLayoutNode(
   val lookaheadScope = LocalRcLookaheadScope.current
   val fontFamilies = LocalRcFonts.current
   val typefaces = LocalRcTypefaces.current
+  val customComponents = LocalRcCustomComponents.current
+  val invalidate = LocalRcInvalidate.current
   val visibility =
     if (forceGone) {
       0
@@ -709,6 +770,28 @@ private fun RenderLayoutNode(
           )
         }
       }
+    is RcLayoutNode.Custom -> {
+      val customModifier =
+        effectiveModifier.applyComponentModifiers(
+          node.modifiers,
+          state,
+          geometryIds,
+          fillMissingDimensions = false,
+          canvasOperations = null,
+          textMeasurer,
+          images,
+          theme,
+        )
+      Box(customModifier) {
+        val config = state.text(node.operation.configId).orEmpty()
+        customComponents
+          .content(config)
+          ?.invoke(
+            node.operation.component(config, state, invalidate),
+            Modifier.fillMaxSize(),
+          )
+      }
+    }
     is RcLayoutNode.Box ->
       Box(
         effectiveModifier.applyComponentModifiers(
@@ -1211,6 +1294,8 @@ private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
 private val LocalRcLayoutVersion = compositionLocalOf { 0 }
 private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap() }
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
+private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
+private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
 
 private val DefaultRcAnimationSpec =
   RcAnimationSpec(
@@ -2489,6 +2574,7 @@ private fun RcLayoutNode.geometryComponentIds(): List<Int> =
     is RcLayoutNode.Image -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.Text -> listOfNotNull(componentId, contentComponentId)
     is RcLayoutNode.CoreText -> listOfNotNull(componentId, contentComponentId)
+    is RcLayoutNode.Custom -> listOf(componentId)
   }
 
 private fun Modifier.trackComponentGeometry(
