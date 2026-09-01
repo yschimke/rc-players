@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.55.1](https://github.com/yschimke/rc-players/compare/v1.55.0...v1.55.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* render image-background documents in browser players ([#21](https://github.com/yschimke/rc-players/issues/21)) ([b02aa07](https://github.com/yschimke/rc-players/commit/b02aa075b431908146eaac8c1796fe3df65ce8c5))
+
 ## [1.55.0](https://github.com/yschimke/rc-players/compare/v1.54.0...v1.55.0) (2026-08-30)
 
 
