@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.56.1](https://github.com/yschimke/rc-players/compare/v1.56.0...v1.56.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **compose:** honor FILTER_BITMAP so an image container painter draws ([#26](https://github.com/yschimke/rc-players/issues/26)) ([e4190c7](https://github.com/yschimke/rc-players/commit/e4190c7140b4a055140b1428ff2aea97630a23aa))
+
 ## [1.56.0](https://github.com/yschimke/rc-players/compare/v1.55.1...v1.56.0) (2026-09-01)
 
 
