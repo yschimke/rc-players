@@ -1195,7 +1195,13 @@ private fun paintIssue(paint: RcPaintData): String? {
           PAINT_STYLE,
           PAINT_STROKE_JOIN,
           PAINT_BLEND_MODE,
-          PAINT_CLEAR_COLOR_FILTER -> 0
+          PAINT_CLEAR_COLOR_FILTER,
+          // Sampling hints, value packed in the command's high bits, no operand word. Compose's
+          // DrawScope owns anti-aliasing and bitmap filtering, so these are consumed and ignored --
+          // the same treatment the embedded player gives them.
+          PAINT_IMAGE_FILTER_QUALITY,
+          PAINT_ANTI_ALIAS,
+          PAINT_FILTER_BITMAP -> 0
           PAINT_SHADER_MATRIX -> 1
           PAINT_TEXTURE -> 3
           PAINT_FONT_AXIS -> (command ushr 16) * 2
@@ -1267,10 +1273,13 @@ private const val PAINT_STROKE_WIDTH = 5
 private const val PAINT_STROKE_CAP = 7
 private const val PAINT_STYLE = 8
 private const val PAINT_SHADER = 9
+private const val PAINT_IMAGE_FILTER_QUALITY = 10
 private const val PAINT_GRADIENT = 11
 private const val PAINT_ALPHA = 12
 private const val PAINT_COLOR_FILTER = 13
+private const val PAINT_ANTI_ALIAS = 14
 private const val PAINT_STROKE_JOIN = 15
+private const val PAINT_FILTER_BITMAP = 17
 private const val PAINT_BLEND_MODE = 18
 private const val PAINT_COLOR_ID = 19
 private const val PAINT_COLOR_FILTER_ID = 20

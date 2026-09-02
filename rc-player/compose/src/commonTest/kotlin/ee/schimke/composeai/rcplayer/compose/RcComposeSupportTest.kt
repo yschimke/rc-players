@@ -524,12 +524,27 @@ class RcComposeSupportTest {
 
   @Test
   fun reportsPaintSubcommandsThatTheRendererCannotHonor() {
-    val document = RcDocument(header, listOf(RcPaintData(listOf(10))))
+    // 25 is PATH_EFFECT: a real AndroidX subcommand the CMP renderer does not honor.
+    val document = RcDocument(header, listOf(RcPaintData(listOf(25))))
 
     val support = document.composeSupportReport()
 
     assertFalse(support.fullyRenderable)
-    assertEquals("paint command 10 is not implemented", support.issues.single().detail)
+    assertEquals("paint command 25 is not implemented", support.issues.single().detail)
+  }
+
+  @Test
+  fun acceptsTheSamplingHintsThatCarryNoOperandWord() {
+    // IMAGE_FILTER_QUALITY, ANTI_ALIAS and FILTER_BITMAP pack their value in the command's high
+    // bits. Compose owns anti-aliasing and bitmap filtering, so the renderer consumes and ignores
+    // them; rejecting one used to reject the paint bundle it sat in, texture and all.
+    val document =
+      RcDocument(
+        header,
+        listOf(RcPaintData(listOf(10 or (1 shl 16), 14 or (1 shl 16), 17 or (1 shl 16), 4, 0))),
+      )
+
+    assertTrue(document.composeSupportReport().fullyRenderable)
   }
 
   @Test
