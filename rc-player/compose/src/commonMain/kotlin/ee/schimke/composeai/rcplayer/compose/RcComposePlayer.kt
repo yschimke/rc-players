@@ -4353,6 +4353,14 @@ private fun applyPaint(
         state.blendModeValue = command ushr 16
         state.blendMode = blendMode(state.blendModeValue)
       }
+      // IMAGE_FILTER_QUALITY, ANTI_ALIAS, FILTER_BITMAP: sampling hints whose value is packed in
+      // the command's high bits, with no operand word. Compose's DrawScope owns anti-aliasing and
+      // bitmap filtering, so these are consumed and ignored -- the same treatment the embedded
+      // player gives them. A container painter emits FILTER_BITMAP ahead of its TEXTURE, so
+      // rejecting it here rejected the whole document.
+      10,
+      14,
+      17 -> Unit
       19 -> state.color = values.color(operation.words[index++])
       13 -> {
         state.colorFilter =

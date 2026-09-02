@@ -7,6 +7,8 @@ can exercise the bytes a player actually receives rather than a hand-built appro
 | --- | --- |
 | `IndeterminateCircularProgress-400x400.rc` | `ir/com.example.designcatalogremotem3.ComponentVariantPreviewsKt.IndeterminateCircularProgressRemote_width_200dp_height_200dp_dpi_320.rc` from `bundle/bundle.png` on `design-artifacts/remote-m3` |
 | `AppCardRemote-640x480.rc.b64` | copied from `third_party/rc-embedded-player/src/test/resources/rc-fixtures/`, where it backs the embedded player's SVG export test |
+| `ImageBackgroundRemoteButton-454x200.rc` | `ComponentVariantPreviewsKt.ImageBackgroundRemoteButton_width_227dp_height_100dp_dpi_320.rc` from the remote-m3 catalog |
+| `TitleCardBackgroundImage-454x400.rc` | `CatalogPreviewsKt.TitleCardRemote_width_227dp_height_200dp_dpi_320_VARIANT_background_image.rc` from the remote-m3 catalog, snapshot lane |
 
 The indeterminate indicator is here because it is the shape that broke: it animates by reading the
 player-supplied clock (`RcSystemVariables.CONTINUOUS_SEC`) rather than by carrying an animation, so
@@ -25,3 +27,10 @@ in the same way, by the same `RemoteDp.toPx()` at capture. `RcCapturedPixelsDens
 one, for the same reason and against the same doubling (#4749, and #4727 for the embedded player).
 
 Both copies are the same bytes; the embedded player's is the original.
+
+`TitleCardBackgroundImage-454x400.rc` is the card whose container painter is an image. Its paint
+bundle is the image-background button's plus `FILTER_BITMAP` (17) between `BLEND_MODE` and the
+`TEXTURE`, which is the one entry that separates the two documents and the reason `RcFilterBitmapRenderTest`
+exists. Both documents' bitmap is the catalog's solid `#ececec` 8x8 placeholder, so neither can be
+checked by looking for variation in the fill — the card is checked against the source colour under
+its own 50% black scrim instead.
