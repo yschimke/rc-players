@@ -98,6 +98,7 @@ import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LookaheadScope
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
@@ -650,8 +651,17 @@ private fun RenderLayoutNode(
       node.modifiers.visibility?.let { androidXVisibility(state.integer(it.visibilityId) ?: 0) }
         ?: 1
     }
+  // Inside a `StateLayout` switcher a component that carries an animation id is a shared element:
+  // its bounds are interpolated between the outgoing and incoming branch by the shared transition,
+  // so it must not also drive `animateRcBounds` — two approach-layout animations chasing the same
+  // node fight each other. Outside a switcher this is null and nothing changes.
+  val sharedElementModifier =
+    if (node is RcLayoutNode.Content) null
+    else rcSharedElementModifier(node.animationId, node.modifiers.animationSpec)
   val boundsModifier =
-    if (node is RcLayoutNode.Content || lookaheadScope == null) {
+    if (sharedElementModifier != null) {
+      modifier.then(sharedElementModifier)
+    } else if (node is RcLayoutNode.Content || lookaheadScope == null) {
       modifier
     } else {
       modifier.animateRcBounds(
@@ -954,9 +964,35 @@ private fun RenderLayoutNode(
           theme,
         )
       ) {
+        val children = node.content.children
+        val target = selected.coerceIn(0, (children.size - 1).coerceAtLeast(0))
         val renderChildren: @Composable () -> Unit = {
-          node.content.children.forEachIndexed { index, child ->
-            if (index == selected && contentVisibility != 0) {
+          // Every branch the switch is not showing still publishes its (zero) geometry: a
+          // component-value expression reads those ids whether or not its branch is on screen, and
+          // that was true before the switch animated too.
+          children.forEachIndexed { index, child ->
+            if (index != target || contentVisibility == 0) {
+              RenderLayoutNode(
+                child,
+                forceGone = true,
+                state = state,
+                textMeasurer = textMeasurer,
+                images = images,
+                theme = theme,
+              )
+            }
+          }
+          if (contentVisibility != 0 && children.isNotEmpty()) {
+            // Alignment stays TopStart, which is where this player has always placed a state
+            // branch — upstream centres it, and matching that is a layout change rather than the
+            // transition this ports.
+            RcAnimatedAlternatives(
+              target = target,
+              spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
+              alignment = Alignment.TopStart,
+              label = "RcStateLayout",
+            ) { index ->
+              val child = children[index]
               key(child.componentId) {
                 RenderLayoutNode(
                   child,
@@ -966,15 +1002,6 @@ private fun RenderLayoutNode(
                   theme = theme,
                 )
               }
-            } else {
-              RenderLayoutNode(
-                child,
-                forceGone = true,
-                state = state,
-                textMeasurer = textMeasurer,
-                images = images,
-                theme = theme,
-              )
             }
           }
         }
@@ -1226,9 +1253,43 @@ private fun RenderLayoutNode(
       )
     }
     is RcLayoutNode.FitBox -> {
+      // Two phases, ported from AndroidX's embedded player ("Add FitBox shared element transitions
+      // using Compose Intrinsics", androidx-main `6fb763d3fe4`). The probe pass asks each
+      // alternative for its intrinsic size — no placeables, and nothing is placed, so none of the
+      // probe subtree's `onGloballyPositioned` geometry ever reaches the document's component
+      // values. The content pass then composes the winner alone, inside the same switcher a
+      // `StateLayout` uses, so an alternative that gives way to another as the box resizes
+      // cross-fades into it and the components the two share morph between their two sizes rather
+      // than jumping.
       val alignment =
         boxAlignment(node.operation.horizontalPositioning, node.operation.verticalPositioning)
-      Layout(
+      val children = node.content.children
+      val contentVisibility =
+        node.content.modifiers.visibility?.let {
+          androidXVisibility(state.integer(it.visibilityId) ?: 0)
+        } ?: 1
+      // The switcher, hoisted out of the measure pass so it reads as ordinary composition: it is
+      // called from `subcompose` with the alternative the probe chose.
+      val alternatives: @Composable (Int) -> Unit = { chosenIndex ->
+        RcAnimatedAlternatives(
+          target = chosenIndex,
+          spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
+          alignment = alignment,
+          label = "RcFitBox",
+        ) { index ->
+          val child = children[index]
+          key(child.componentId) {
+            RenderLayoutNode(
+              child,
+              state = state,
+              textMeasurer = textMeasurer,
+              images = images,
+              theme = theme,
+            )
+          }
+        }
+      }
+      SubcomposeLayout(
         modifier =
           effectiveModifier.applyComponentModifiers(
             node.modifiers,
@@ -1239,41 +1300,52 @@ private fun RenderLayoutNode(
             textMeasurer,
             images,
             theme,
-          ),
-        content = {
-          RenderLayoutNode(
-            node.content,
-            state = state,
-            textMeasurer = textMeasurer,
-            images = images,
-            theme = theme,
           )
-        },
-      ) { measurables, constraints ->
-        val availableWidth = constraints.maxWidth
-        val availableHeight = constraints.maxHeight
-        val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val selected = measurables.firstNotNullOfOrNull { measurable ->
-          val intrinsicWidth = measurable.minIntrinsicWidth(availableHeight)
-          val intrinsicHeight = measurable.minIntrinsicHeight(availableWidth)
-          if (intrinsicWidth > availableWidth || intrinsicHeight > availableHeight)
-            return@firstNotNullOfOrNull null
-          measurable.measure(loose).takeIf {
-            it.width <= availableWidth && it.height <= availableHeight
+      ) { constraints ->
+        val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+        val maxHeight = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
+        val probes =
+          subcompose(RcFitBoxSlot.Probe) {
+            children.forEach { child ->
+              Box(Modifier.clearAndSetSemantics {}) {
+                RenderLayoutNode(
+                  child,
+                  state = state,
+                  textMeasurer = textMeasurer,
+                  images = images,
+                  theme = theme,
+                )
+              }
+            }
           }
-        }
-        val width =
-          (selected?.width ?: constraints.minWidth).coerceIn(
-            constraints.minWidth,
-            constraints.maxWidth,
-          )
-        val height =
-          (selected?.height ?: constraints.minHeight).coerceIn(
-            constraints.minHeight,
-            constraints.maxHeight,
-          )
+        val fits =
+          probes.indices.firstOrNull { index ->
+            probes[index].maxIntrinsicWidth(maxHeight) <= maxWidth &&
+              probes[index].maxIntrinsicHeight(maxWidth) <= maxHeight
+          }
+        // Nothing fits: remote-core hides the box entirely, and showing the smallest alternative is
+        // upstream's answer — a clipped component says more than a blank one.
+        val chosen = fits ?: probes.indices.minByOrNull { probes[it].maxIntrinsicWidth(maxHeight) }
+        // Loose, and the FitBox places the result itself: the switcher wraps the winner, and the
+        // box aligns that against its own size the way it always has. Letting the switcher fill and
+        // align internally would work too, but only for a FitBox that has a size of its own — a
+        // wrap-content one has to keep measuring at the winner's size.
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables =
+          if (chosen == null || contentVisibility == 0) emptyList()
+          else
+            subcompose(RcFitBoxSlot.Content) {
+                if (contentVisibility == 2) {
+                  Box(Modifier.alpha(0f)) { alternatives(chosen) }
+                } else {
+                  alternatives(chosen)
+                }
+              }
+              .map { it.measure(loose) }
+        val width = constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: 0)
+        val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0)
         layout(width, height) {
-          selected?.let { placeable ->
+          placeables.forEach { placeable ->
             val offset =
               alignment.align(
                 IntSize(placeable.width, placeable.height),
@@ -1288,6 +1360,12 @@ private fun RenderLayoutNode(
   }
 }
 
+/** The two subcompositions [RcLayoutNode.FitBox] measures in: intrinsics probe, then the winner. */
+private enum class RcFitBoxSlot {
+  Probe,
+  Content,
+}
+
 private data class RcAnimatedVisibility(val shouldRender: Boolean, val modifier: Modifier)
 
 private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
@@ -1297,7 +1375,7 @@ private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypeface
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
 private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
 
-private val DefaultRcAnimationSpec =
+internal val DefaultRcAnimationSpec =
   RcAnimationSpec(
     animationId = -1,
     motionDurationMillis = RcFloatWord.literal(300f),

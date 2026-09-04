@@ -81,6 +81,12 @@ kotlin {
       @Suppress("DEPRECATION") api(compose.runtime)
       @Suppress("DEPRECATION") api(compose.ui)
       @Suppress("DEPRECATION") implementation(compose.foundation)
+      // `compose.animation` for `SharedTransitionLayout` / `AnimatedContent`, which drive the
+      // `StateLayout` switch (see `RcSharedElements.kt`). Nothing from it reaches this module's
+      // public surface, so `implementation` like foundation — foundation already pulls the
+      // artifact in transitively, and declaring it is what keeps that an accident rather than a
+      // dependency this module relies on silently.
+      @Suppress("DEPRECATION") implementation(compose.animation)
     }
     commonTest.dependencies {
       implementation(kotlin("test"))
