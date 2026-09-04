@@ -100,17 +100,23 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
   }
 
   private fun sizeSpec(): FiniteAnimationSpec<IntSize> =
-    tween(motionDurationMillis(), easing = motionEasing())
+    tween(spec.rcMotionDurationMillis(), easing = spec.rcMotionEasing())
 
   private fun offsetSpec(): FiniteAnimationSpec<IntOffset> =
-    tween(motionDurationMillis(), easing = motionEasing())
+    tween(spec.rcMotionDurationMillis(), easing = spec.rcMotionEasing())
+}
 
-  private fun motionDurationMillis(): Int =
-    spec.motionDurationMillis.value.takeIf { it.isFinite() && it > 0f }?.roundToInt() ?: 0
+/** The spec's motion duration in whole milliseconds, or 0 when it is unset or not a finite time. */
+internal fun RcAnimationSpec.rcMotionDurationMillis(): Int =
+  motionDurationMillis.value.takeIf { it.isFinite() && it > 0f }?.roundToInt() ?: 0
 
-  private fun motionEasing(): Easing {
-    val duration = motionDurationMillis().toFloat()
-    val timeline = RcAnimationTimeline(spec)
-    return Easing { fraction -> timeline.progress(fraction * duration).motion }
-  }
+/**
+ * The spec's motion curve as a Compose [Easing], by sampling the same [RcAnimationTimeline] the
+ * player evaluates every other animated value with — so a bounds animation, a shared-element morph
+ * and a document-driven float all follow one curve.
+ */
+internal fun RcAnimationSpec.rcMotionEasing(): Easing {
+  val duration = rcMotionDurationMillis().toFloat()
+  val timeline = RcAnimationTimeline(this)
+  return Easing { fraction -> timeline.progress(fraction * duration).motion }
 }

@@ -61,9 +61,19 @@ tasks.register<Sync>("wasmPlayerDist") {
   // unrenderable
   // here while the other four lanes resolve it. Slack is kept at roughly the ~257 KB the previous
   // value had, so an unintended jump still fails.
+  //
+  // Raised again from 23_500_000 -> 24_600_000 for the `StateLayout` / `FitBox` transitions, which
+  // put `compose.animation` on the player's compile classpath for `SharedTransitionLayout` and
+  // `AnimatedContent`. Measured on the same runner, `origin/main` against the branch: the
+  // distribution goes 23_639_257 -> 24_361_708 bytes, and every one of those 722_451 bytes is
+  // `rcPlayer.wasm` (10_091_434 -> 10_813_885) — nothing else in the payload moved, so this is the
+  // linked animation code and not drift somewhere else. It is what the feature costs: dead-code
+  // elimination means only the shared-transition and animated-content machinery the player actually
+  // calls is in there. Slack is kept at ~238 KB, roughly what the previous value carried, so an
+  // unintended jump still fails.
   inputs.property(
     "maximumDistributionBytes",
-    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("23780000"),
+    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("24600000"),
   )
   doLast {
     val maximumBytes = inputs.properties.getValue("maximumDistributionBytes").toString().toLong()
