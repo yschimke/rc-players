@@ -557,10 +557,15 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcCustomLayout : ee/sc
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcCustomProperty {
+	public static final field COLOR_ID_PROP I
+	public static final field COLOR_PROP I
+	public static final field COLOR_RETURN I
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty$Companion;
 	public static final field FLOAT_PROP I
 	public static final field FLOAT_RETURN I
+	public static final field INT_ID_PROP I
 	public static final field INT_PROP I
+	public static final field INT_RETURN I
 	public static final field STRING_PROP I
 	public static final field TEXT_RETURN I
 	public fun <init> (III)V
@@ -581,9 +586,15 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcCustomProperty {
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcCustomProperty$Companion {
+	public final fun color (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun colorId (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun colorReturn (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
 	public final fun float-l8SDznk (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
 	public final fun floatReturn-l8SDznk (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
 	public final fun int (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun intId (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun intReturn (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
+	public final fun isFloatEncoded (I)Z
 	public final fun string (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
 	public final fun textReturn (II)Lee/schimke/composeai/rcplayer/protocol/RcCustomProperty;
 }

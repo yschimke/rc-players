@@ -39,6 +39,41 @@ class RcDocumentCodecTest {
   }
 
   @Test
+  fun customLayoutRoundTripsTheIdBackedAndColourPropertyTypes() {
+    // The four types AndroidX added after `TEXT_RETURN`. Three of them are odd-numbered and
+    // int-valued, which is what the old `dataType and 1` float test got wrong; the values here are
+    // ids and packed ARGB, so a float round trip would be the wrong reading even where the bits
+    // survive it.
+    val custom =
+      RcCustomLayout(
+        componentId = 7,
+        animationId = 8,
+        configId = 42,
+        properties =
+          listOf(
+            RcCustomProperty.intReturn(1, 51),
+            RcCustomProperty.colorReturn(2, 52),
+            RcCustomProperty.colorId(3, 53),
+            RcCustomProperty.color(4, 0xff1a73e8.toInt()),
+            RcCustomProperty.intId(5, 54),
+          ),
+      )
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), modern = false),
+        listOf(custom, RcNoArg(RcOpcodes.CONTAINER_END)),
+      )
+
+    val bytes = RcDocumentCodec.encode(document)
+    val decoded = RcDocumentCodec.decode(bytes)
+
+    assertEquals(document, decoded)
+    assertContentEquals(bytes, RcDocumentCodec.encode(decoded))
+    custom.properties.forEach { assertTrue(!it.isFloatEncoded, "${it.dataType} is int-encoded") }
+    assertEquals(0xff1a73e8.toInt(), custom.properties[3].intValue)
+  }
+
+  @Test
   fun stateLayoutRoundTripsAlpha16Fields() {
     val operation = RcStateLayout(7, 8, 1, 4, 51)
     val document =
