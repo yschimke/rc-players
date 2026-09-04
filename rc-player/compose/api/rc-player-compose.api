@@ -1,3 +1,9 @@
+public final class ee/schimke/composeai/rcplayer/compose/ComposableSingletons$RcSpannableStringKt {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/ComposableSingletons$RcSpannableStringKt;
+	public fun <init> ()V
+	public final fun getLambda$1404208809$ee_schimke_composeai_rc_player_compose ()Lkotlin/jvm/functions/Function4;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcBundledTypefaceLoader : ee/schimke/composeai/rcplayer/compose/RcTypefaceLoader {
 	public static final field $stable I
 	public fun <init> (Ljava/util/Map;)V
@@ -51,6 +57,8 @@ public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportReport 
 
 public final class ee/schimke/composeai/rcplayer/compose/RcCustomComponent {
 	public static final field $stable I
+	public final fun color (II)I
+	public static synthetic fun color$default (Lee/schimke/composeai/rcplayer/compose/RcCustomComponent;IIILjava/lang/Object;)I
 	public final fun float (IF)F
 	public static synthetic fun float$default (Lee/schimke/composeai/rcplayer/compose/RcCustomComponent;IFILjava/lang/Object;)F
 	public final fun getComponentId ()I
@@ -115,6 +123,22 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPlayerTheme : java/la
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;
 	public static fun values ()[Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcSpannableString {
+	public static final field $stable I
+	public static final field CONFIG Ljava/lang/String;
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/RcSpannableString;
+	public static final field PROP_LINK_COUNT I
+	public static final field PROP_LINK_END_BASE I
+	public static final field PROP_LINK_START_BASE I
+	public static final field PROP_LINK_URL_BASE I
+	public static final field PROP_TEXT I
+	public static final field PROP_TEXT_COLOR I
+	public static final field PROP_TEXT_SIZE I
+	public final fun annotate (Lee/schimke/composeai/rcplayer/compose/RcCustomComponent;)Landroidx/compose/ui/text/AnnotatedString;
+	public final fun getLinkStyle ()Landroidx/compose/ui/text/SpanStyle;
+	public final fun getRenderer ()Lkotlin/jvm/functions/Function4;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcTypefaceLoader {

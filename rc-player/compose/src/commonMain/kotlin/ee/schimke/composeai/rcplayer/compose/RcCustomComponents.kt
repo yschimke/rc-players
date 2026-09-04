@@ -55,9 +55,40 @@ internal constructor(
     return state.resolve(property.floatValue)
   }
 
-  /** Reads an integer property. */
-  public fun integer(type: Int, default: Int = 0): Int =
-    property(type)?.takeIf { it.dataType == RcCustomProperty.INT_PROP }?.intValue ?: default
+  /**
+   * Reads an integer property, resolving a reference against the document.
+   *
+   * Two data types answer this: [RcCustomProperty.INT_PROP] carries the number itself, while
+   * [RcCustomProperty.INT_ID_PROP] carries the id of a document integer, so the value follows
+   * whatever the document (or a host override) puts there rather than being fixed at authoring
+   * time.
+   */
+  public fun integer(type: Int, default: Int = 0): Int {
+    val property = property(type) ?: return default
+    return when (property.dataType) {
+      RcCustomProperty.INT_PROP -> property.intValue
+      RcCustomProperty.INT_ID_PROP -> state.integer(property.intValue) ?: default
+      else -> default
+    }
+  }
+
+  /**
+   * Reads a colour property as packed ARGB, resolving a reference against the document.
+   *
+   * [RcCustomProperty.COLOR_PROP] is a literal colour; [RcCustomProperty.COLOR_ID_PROP] names a
+   * document colour id, which is how a themed or host-overridden colour reaches a custom component.
+   * An [RcCustomProperty.INT_PROP] is accepted as a literal too — a colour is an int on the wire,
+   * and a document that types one that way is not wrong enough to draw nothing for.
+   */
+  public fun color(type: Int, default: Int = 0): Int {
+    val property = property(type) ?: return default
+    return when (property.dataType) {
+      RcCustomProperty.COLOR_PROP,
+      RcCustomProperty.INT_PROP -> property.intValue
+      RcCustomProperty.COLOR_ID_PROP -> state.color(property.intValue)
+      else -> default
+    }
+  }
 
   /** Resolves a string property through the document text table. */
   public fun text(type: Int, default: String = ""): String {

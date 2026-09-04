@@ -126,6 +126,11 @@ include(":rc-player-metrics")
 
 project(":rc-player-metrics").projectDir = file("rc-player/metrics")
 
+// Runnable examples of the host half of a custom component — see `rc-player/demos/build.gradle.kts`.
+include(":rc-player-demos")
+
+project(":rc-player-demos").projectDir = file("rc-player/demos")
+
 // The vendored, locally patched AndroidX embedded player — the Android comparison lane the CMP
 // player above is measured against. Provenance and the patch log are in
 // `third_party/rc-embedded-player/PROVENANCE.md`.

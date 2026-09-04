@@ -85,6 +85,7 @@ final class ee.schimke.composeai.rcplayer.compose/RcCustomComponent { // ee.schi
     final val properties // ee.schimke.composeai.rcplayer.compose/RcCustomComponent.properties|{}properties[0]
         final fun <get-properties>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcCustomProperty> // ee.schimke.composeai.rcplayer.compose/RcCustomComponent.properties.<get-properties>|<get-properties>(){}[0]
 
+    final fun color(kotlin/Int, kotlin/Int = ...): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcCustomComponent.color|color(kotlin.Int;kotlin.Int){}[0]
     final fun float(kotlin/Int, kotlin/Float = ...): kotlin/Float // ee.schimke.composeai.rcplayer.compose/RcCustomComponent.float|float(kotlin.Int;kotlin.Float){}[0]
     final fun hasProperty(kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcCustomComponent.hasProperty|hasProperty(kotlin.Int){}[0]
     final fun integer(kotlin/Int, kotlin/Int = ...): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcCustomComponent.integer|integer(kotlin.Int;kotlin.Int){}[0]
@@ -133,6 +134,32 @@ final class ee.schimke.composeai.rcplayer.compose/RcManifestTypefaceLoader { // 
     final suspend fun load(kotlin/String): ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader // ee.schimke.composeai.rcplayer.compose/RcManifestTypefaceLoader.load|load(kotlin.String){}[0]
 }
 
+final object ee.schimke.composeai.rcplayer.compose/RcSpannableString { // ee.schimke.composeai.rcplayer.compose/RcSpannableString|null[0]
+    final const val CONFIG // ee.schimke.composeai.rcplayer.compose/RcSpannableString.CONFIG|{}CONFIG[0]
+        final fun <get-CONFIG>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcSpannableString.CONFIG.<get-CONFIG>|<get-CONFIG>(){}[0]
+    final const val PROP_LINK_COUNT // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_COUNT|{}PROP_LINK_COUNT[0]
+        final fun <get-PROP_LINK_COUNT>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_COUNT.<get-PROP_LINK_COUNT>|<get-PROP_LINK_COUNT>(){}[0]
+    final const val PROP_LINK_END_BASE // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_END_BASE|{}PROP_LINK_END_BASE[0]
+        final fun <get-PROP_LINK_END_BASE>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_END_BASE.<get-PROP_LINK_END_BASE>|<get-PROP_LINK_END_BASE>(){}[0]
+    final const val PROP_LINK_START_BASE // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_START_BASE|{}PROP_LINK_START_BASE[0]
+        final fun <get-PROP_LINK_START_BASE>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_START_BASE.<get-PROP_LINK_START_BASE>|<get-PROP_LINK_START_BASE>(){}[0]
+    final const val PROP_LINK_URL_BASE // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_URL_BASE|{}PROP_LINK_URL_BASE[0]
+        final fun <get-PROP_LINK_URL_BASE>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_LINK_URL_BASE.<get-PROP_LINK_URL_BASE>|<get-PROP_LINK_URL_BASE>(){}[0]
+    final const val PROP_TEXT // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_TEXT|{}PROP_TEXT[0]
+        final fun <get-PROP_TEXT>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_TEXT.<get-PROP_TEXT>|<get-PROP_TEXT>(){}[0]
+    final const val PROP_TEXT_COLOR // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_TEXT_COLOR|{}PROP_TEXT_COLOR[0]
+        final fun <get-PROP_TEXT_COLOR>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_TEXT_COLOR.<get-PROP_TEXT_COLOR>|<get-PROP_TEXT_COLOR>(){}[0]
+    final const val PROP_TEXT_SIZE // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_TEXT_SIZE|{}PROP_TEXT_SIZE[0]
+        final fun <get-PROP_TEXT_SIZE>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcSpannableString.PROP_TEXT_SIZE.<get-PROP_TEXT_SIZE>|<get-PROP_TEXT_SIZE>(){}[0]
+
+    final val LinkStyle // ee.schimke.composeai.rcplayer.compose/RcSpannableString.LinkStyle|{}LinkStyle[0]
+        final fun <get-LinkStyle>(): androidx.compose.ui.text/SpanStyle // ee.schimke.composeai.rcplayer.compose/RcSpannableString.LinkStyle.<get-LinkStyle>|<get-LinkStyle>(){}[0]
+    final val renderer // ee.schimke.composeai.rcplayer.compose/RcSpannableString.renderer|{}renderer[0]
+        final fun <get-renderer>(): kotlin/Function4<ee.schimke.composeai.rcplayer.compose/RcCustomComponent, androidx.compose.ui/Modifier, androidx.compose.runtime/Composer, kotlin/Int, kotlin/Unit> // ee.schimke.composeai.rcplayer.compose/RcSpannableString.renderer.<get-renderer>|<get-renderer>(){}[0]
+
+    final fun annotate(ee.schimke.composeai.rcplayer.compose/RcCustomComponent): androidx.compose.ui.text/AnnotatedString // ee.schimke.composeai.rcplayer.compose/RcSpannableString.annotate|annotate(ee.schimke.composeai.rcplayer.compose.RcCustomComponent){}[0]
+}
+
 final val ee.schimke.composeai.rcplayer.compose/color // ee.schimke.composeai.rcplayer.compose/color|@ee.schimke.composeai.rcplayer.runtime.RcNamedValue.Color{}color[0]
     final fun (ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color).<get-color>(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcplayer.compose/color.<get-color>|<get-color>@ee.schimke.composeai.rcplayer.runtime.RcNamedValue.Color(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcBundledTypefaceLoader$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcBundledTypefaceLoader$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcBundledTypefaceLoader$stableprop[0]
@@ -149,6 +176,7 @@ final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Obj$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Obj$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcJsonValue_Obj$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Str$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Str$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcJsonValue_Str$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcManifestTypefaceLoader$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcManifestTypefaceLoader$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcManifestTypefaceLoader$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop[0]
 
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.compose/composeSupportReport(ee.schimke.composeai.rcplayer.protocol/RcOperationProfile? = ..., kotlin.collections/Set<kotlin/String> = ..., kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport // ee.schimke.composeai.rcplayer.compose/composeSupportReport|composeSupportReport@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.protocol.RcOperationProfile?;kotlin.collections.Set<kotlin.String>;kotlin.Boolean){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.compose/composeSupportReport(ee.schimke.composeai.rcplayer.protocol/RcOperationProfile? = ..., kotlin.collections/Set<kotlin/String> = ..., kotlin/Boolean = ..., kotlin.collections/Set<kotlin/String>): ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport // ee.schimke.composeai.rcplayer.compose/composeSupportReport|composeSupportReport@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.protocol.RcOperationProfile?;kotlin.collections.Set<kotlin.String>;kotlin.Boolean;kotlin.collections.Set<kotlin.String>){}[0]
@@ -170,6 +198,7 @@ final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Obj$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Obj$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcJsonValue_Obj$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Str$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcJsonValue_Str$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcJsonValue_Str$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcManifestTypefaceLoader$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcManifestTypefaceLoader$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcManifestTypefaceLoader$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/rcNamedColor(androidx.compose.ui.graphics/Color): ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color // ee.schimke.composeai.rcplayer.compose/rcNamedColor|rcNamedColor(androidx.compose.ui.graphics.Color){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues(kotlin/Array<out kotlin/Pair<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue>>..., androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.runtime.snapshots/SnapshotStateMap<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue> // ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues|rememberRcNamedValues(kotlin.Array<out|kotlin.Pair<kotlin.String,ee.schimke.composeai.rcplayer.runtime.RcNamedValue>>...;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 

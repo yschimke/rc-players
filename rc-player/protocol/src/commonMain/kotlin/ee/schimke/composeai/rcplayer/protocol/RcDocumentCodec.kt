@@ -328,7 +328,8 @@ private object CustomLayoutCodec : RcOperationCodec<RcCustomLayout> {
         val type = input.readU16("properties[$index].type").toShort().toInt()
         val dataType = input.readU16("properties[$index].dataType").toShort().toInt()
         val valueBits =
-          if (dataType and 1 == 1) input.readFloatWord("properties[$index].value").bits
+          if (RcCustomProperty.isFloatEncoded(dataType))
+            input.readFloatWord("properties[$index].value").bits
           else input.readInt("properties[$index].value")
         RcCustomProperty(type, dataType, valueBits)
       }

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCustomProperty
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
@@ -17,6 +18,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
@@ -47,6 +49,55 @@ class RcCustomComponentRenderTest {
       onNodeWithText("Count:1.0").assertExists().performClick()
       waitForIdle()
       onNodeWithText("Count:7.0").assertExists()
+    }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun hostComponentResolvesIdBackedIntegerAndColourProperties() =
+    runSkikoComposeUiTest(size = Size(200f, 20f), density = Density(1f)) {
+      // Both properties carry an *id* rather than a value, so what the component reads is whatever
+      // the document holds under it — the case a theme or a host override goes through.
+      val registry =
+        RcCustomComponentRegistry(
+          "slot:ids" to
+            { component, modifier ->
+              BasicText(
+                "${component.integer(VALUE)}/${component.color(LABEL).toUInt().toString(16)}",
+                modifier,
+              )
+            }
+        )
+      val end = RcNoArg(RcOpcodes.CONTAINER_END)
+      val document =
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0), legacyWidth = 200, legacyHeight = 20, modern = false),
+          listOf(
+            RcTextData(CONFIG_ID, "slot:ids"),
+            RcIntegerConstant(VALUE_ID, 42),
+            RcColorConstant(COLOR_ID, 0xff1a73e8.toInt()),
+            RcRootLayout(1),
+            RcLayoutContent(2),
+            RcCustomLayout(
+              componentId = 3,
+              animationId = 0,
+              configId = CONFIG_ID,
+              properties =
+                listOf(
+                  RcCustomProperty.intId(VALUE, VALUE_ID),
+                  RcCustomProperty.colorId(LABEL, COLOR_ID),
+                ),
+            ),
+            RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(200f)),
+            RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+            end,
+            end,
+            end,
+          ),
+        )
+
+      setContent { RcComposePlayer(document, customComponents = registry) }
+      waitForIdle()
+      onNodeWithText("42/ff1a73e8").assertExists()
     }
 
   private fun document(): RcDocument {
@@ -81,6 +132,7 @@ class RcCustomComponentRenderTest {
   }
 
   private companion object {
+    const val COLOR_ID = 45
     const val VALUE = 1
     const val RESULT = 2
     const val LABEL = 3

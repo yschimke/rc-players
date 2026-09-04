@@ -907,8 +907,16 @@ public data class RcCustomProperty(
   /** Raw int or IEEE-754 float bits, according to the low bit of [dataType]. */
   val valueBits: Int,
 ) {
+  /**
+   * Whether [valueBits] are IEEE-754 float bits rather than an int.
+   *
+   * Exactly two data types are float-encoded, and the set is not a pattern to be inferred: this
+   * used to read `dataType and 1 == 1`, which is right for [INT_PROP]..[TEXT_RETURN] and wrong for
+   * every type AndroidX added after them — [INT_RETURN], [COLOR_ID_PROP] and [INT_ID_PROP] are all
+   * odd and all int-valued. It survived only because both branches move the same four bytes.
+   */
   public val isFloatEncoded: Boolean
-    get() = dataType and 1 == 1
+    get() = isFloatEncoded(dataType)
 
   public val intValue: Int
     get() = valueBits
@@ -922,6 +930,25 @@ public data class RcCustomProperty(
     public const val STRING_PROP: Int = 2
     public const val FLOAT_RETURN: Int = 3
     public const val TEXT_RETURN: Int = 4
+
+    /** An integer return channel; [intValue] is the id written back to. */
+    public const val INT_RETURN: Int = 5
+
+    /** A colour return channel; [intValue] is the id written back to. */
+    public const val COLOR_RETURN: Int = 6
+
+    /** A colour *reference*; [intValue] is a colour id resolved against the document. */
+    public const val COLOR_ID_PROP: Int = 7
+
+    /** A literal colour; [intValue] is packed ARGB. */
+    public const val COLOR_PROP: Int = 8
+
+    /** An integer *reference*; [intValue] is an integer id resolved against the document. */
+    public const val INT_ID_PROP: Int = 9
+
+    /** Whether a property of [dataType] carries float bits. See [isFloatEncoded]. */
+    public fun isFloatEncoded(dataType: Int): Boolean =
+      dataType == FLOAT_PROP || dataType == FLOAT_RETURN
 
     public fun int(type: Int, value: Int): RcCustomProperty =
       RcCustomProperty(type, INT_PROP, value)
@@ -937,6 +964,21 @@ public data class RcCustomProperty(
 
     public fun textReturn(type: Int, targetTextId: Int): RcCustomProperty =
       RcCustomProperty(type, TEXT_RETURN, targetTextId)
+
+    public fun intReturn(type: Int, targetId: Int): RcCustomProperty =
+      RcCustomProperty(type, INT_RETURN, targetId)
+
+    public fun colorReturn(type: Int, targetId: Int): RcCustomProperty =
+      RcCustomProperty(type, COLOR_RETURN, targetId)
+
+    public fun colorId(type: Int, colorId: Int): RcCustomProperty =
+      RcCustomProperty(type, COLOR_ID_PROP, colorId)
+
+    public fun color(type: Int, argb: Int): RcCustomProperty =
+      RcCustomProperty(type, COLOR_PROP, argb)
+
+    public fun intId(type: Int, integerId: Int): RcCustomProperty =
+      RcCustomProperty(type, INT_ID_PROP, integerId)
   }
 }
 

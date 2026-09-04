@@ -99,6 +99,15 @@ of the original five were dropped when alpha17 restored them upstream.
 tested against documents it did not produce. `rc-player/profile` and `rc-player/metrics` are the
 profiling and text-metric harnesses. None of the three publishes anything.
 
+`rc-player/demos` is the host half of a custom component, which is the one part of the stack the
+published API cannot show on its own: the player draws a `Custom` component only if the host
+registers a renderer for its config name. Two are demonstrated — `SupportSpannableString`, which the
+player ships (`RcSpannableString`) because it is AndroidX's contract, and an editable text field,
+whose keystrokes go back into the document through a `TEXT_RETURN` channel. `./gradlew
+:rc-player-demos:run` opens both in a window, the `@Preview` functions render in the IDE, and
+`RcDemoRenderTest` rasterizes them headless (`renders/rc-custom-components/`). It publishes nothing
+either.
+
 ## Consuming it
 
 ```kotlin
