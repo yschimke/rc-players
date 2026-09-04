@@ -24,6 +24,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.remote.player.compose.ExperimentalRemotePlayerApi
+import androidx.compose.remote.player.compose.RemoteComposePlayerFlags
 import androidx.compose.remote.player.compose.embedded.ExperimentalRemoteDocumentPlayer
 import androidx.compose.remote.player.compose.embedded.RemoteImageSupport
 import androidx.compose.remote.player.core.RemoteDocument
@@ -80,7 +82,20 @@ class RcAndroidxEmbeddedRenderHarness(private val entry: RcEmbeddedRenderHarness
       .onFailure { t -> err.writeText("${t::class.java.simpleName}: ${t.message?.take(500)}") }
   }
 
+  @OptIn(ExperimentalRemotePlayerApi::class)
   private fun renderToBitmap(bytes: ByteArray): Bitmap {
+    // AndroidX ships the embedded player behind a flag that is OFF by default, so
+    // `ExperimentalRemoteDocumentPlayer` throws `IllegalStateException: Embedded player is
+    // disabled` for every document until it is set. That is a difference from the vendored player
+    // next door, which has no such gate — and it is why this lane published nothing at all while
+    // its twin published a full column: every document failed identically, the harness wrote 476
+    // `.error` files and no PNGs, and `design-artifacts-reusable.yml` saw an empty output
+    // directory and dropped the column with "upstream embedded-player lane produced no renders".
+    //
+    // Set per render rather than once in a `@Before`: it is a plain mutable static on the
+    // artifact, the runner gives each parameterised case its own Robolectric environment, and a
+    // flag that has to be true for this call is clearest beside the call that needs it.
+    RemoteComposePlayerFlags.isEmbeddedPlayerEnabled = true
     composeRule.setContent {
       val hostDensity = LocalDensity.current
       val documentDensity = Density(entry.density, hostDensity.fontScale)
