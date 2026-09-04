@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.57.0](https://github.com/yschimke/rc-players/compare/v1.56.1...v1.57.0) (2026-09-04)
+
+
+### Features
+
+* **compose:** animate StateLayout and FitBox alternatives, with shared elements ([#28](https://github.com/yschimke/rc-players/issues/28)) ([fb9efdb](https://github.com/yschimke/rc-players/commit/fb9efdb6522ec56bac9067696293fd78b691d5df))
+* **compose:** draw SupportSpannableString, and demo the host half of a custom component ([#31](https://github.com/yschimke/rc-players/issues/31)) ([13f75dd](https://github.com/yschimke/rc-players/commit/13f75dd7b699b753e588c690cd76ad4dfd4f01ad))
+
+
+### Bug Fixes
+
+* **rc-embedded:** enable the AndroidX embedded player in its render harness ([#30](https://github.com/yschimke/rc-players/issues/30)) ([9d565fe](https://github.com/yschimke/rc-players/commit/9d565fe49a5782e7515b62691a45f349d96846a2))
+
 ## [1.56.1](https://github.com/yschimke/rc-players/compare/v1.56.0...v1.56.1) (2026-09-02)
 
 
