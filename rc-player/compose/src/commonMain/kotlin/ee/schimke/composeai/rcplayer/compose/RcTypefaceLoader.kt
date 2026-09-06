@@ -1,7 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 
 /**
  * How the player asks a host for a typeface.
@@ -32,16 +31,20 @@ public interface RcTypefaceLoader {
   public val families: Set<String>
 
   /**
-   * The family registered under [family] instanced at [settings], or null if there is none.
+   * The family registered under [family] instanced at [variations], or null if there is none.
    *
    * [family] arrives already normalised by [rcResolveTypeface] — lowercased, `google:` stripped —
    * so an implementation matches it against [families] directly rather than re-deriving the rules.
+   *
+   * [variations] is the player's own [RcFontVariations] rather than Compose's
+   * `FontVariation.Settings`, so that a Compose-internal nested type stays out of the framework
+   * Swift consumes — see [RcFontVariations].
    *
    * Called during composition and draw: it must not block, and it should cache. [RcFontFaces] does
    * the caching for the bundled implementation; a document draws the same family at the same axes
    * every frame, and re-parsing the file per frame is visible on a text-heavy watch face.
    */
-  public fun typeface(family: String, settings: FontVariation.Settings? = null): FontFamily?
+  public fun typeface(family: String, variations: RcFontVariations? = null): FontFamily?
 
   public companion object {
     /** Resolves nothing; documents render in Compose's built-in faces. */
@@ -72,8 +75,8 @@ public class RcBundledTypefaceLoader(faces: Map<String, RcFontFaces>) : RcTypefa
 
   override val families: Set<String> = this.faces.keys
 
-  override fun typeface(family: String, settings: FontVariation.Settings?): FontFamily? =
-    faces[family]?.family(settings)
+  override fun typeface(family: String, variations: RcFontVariations?): FontFamily? =
+    faces[family]?.family(variations)
 
   /** Test-only; see [RcFontFaces.identities] for why the identities need to be observable. */
   internal fun facesFor(family: String): RcFontFaces? = faces[family.lowercase()]
@@ -107,9 +110,9 @@ internal fun rcResolveTypeface(
   fontFamilyId: Int,
   embedded: Map<Int, FontFamily>,
   loader: RcTypefaceLoader,
-  settings: FontVariation.Settings? = null,
+  variations: RcFontVariations? = null,
 ): FontFamily {
-  fun host(name: String): FontFamily? = loader.typeface(name, settings)
+  fun host(name: String): FontFamily? = loader.typeface(name, variations)
   return when (val family = recordedName?.lowercase()) {
     null,
     RC_DEFAULT_FAMILY -> host(RC_DEFAULT_FAMILY) ?: FontFamily.Default

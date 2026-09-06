@@ -3,7 +3,6 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 
@@ -26,7 +25,7 @@ public class RcFontFace(
 /**
  * The faces a host offers for one family, instanceable at a set of variation axes.
  *
- * [family] with no settings is the plain family — the faces as registered, Compose selecting
+ * [family] with no variations is the plain family — the faces as registered, Compose selecting
  * between them by weight/slant. With settings it is the same file(s) re-instanced at those axis
  * values, which for a variable font is a genuinely different shape (`wdth 25` is a narrower face,
  * not a scaled one) and for a static font is a no-op the font engine ignores.
@@ -54,20 +53,23 @@ public class RcFontFaces(private val faces: List<RcFontFace>) {
 
   private val instances = mutableMapOf<List<Pair<String, Float>>, FontFamily>()
 
-  /** The [FontFamily] for these faces at [settings], or null when there are no faces at all. */
-  public fun family(settings: FontVariation.Settings? = null): FontFamily? {
+  /** The [FontFamily] for these faces at [variations], or null when there are no faces at all. */
+  public fun family(variations: RcFontVariations? = null): FontFamily? {
     if (faces.isEmpty()) return null
-    val key = settings?.settings.orEmpty().map { it.axisName to it.toVariationValue(null) }
+    val key = variations?.axes.orEmpty().map { it.tag to it.value }
     instances[key]?.let {
       return it
     }
+    // Converted once here rather than per face: this is the only place the player needs Compose's
+    // own type, and `RcFontVariations` is what the published API speaks (see that class).
+    val composeSettings = variations?.takeIf { !it.isEmpty }?.toComposeSettings()
     val built =
       runCatching {
         FontFamily(
           faces.map { face ->
             val weight = FontWeight(face.weight)
             val style = if (face.italic) FontStyle.Italic else FontStyle.Normal
-            if (settings == null || settings.settings.isEmpty()) {
+            if (composeSettings == null) {
               Font(identity = face.identity, data = face.data, weight = weight, style = style)
             } else {
               Font(
@@ -79,7 +81,7 @@ public class RcFontFaces(private val faces: List<RcFontFace>) {
                 data = face.data,
                 weight = weight,
                 style = style,
-                variationSettings = settings,
+                variationSettings = composeSettings,
               )
             }
           }

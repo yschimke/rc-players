@@ -1180,7 +1180,7 @@ private fun textStyleIssue(
   val axisValues =
     properties.filterIsInstance<RcTextStyleProperty.FloatArrayValue>().lastOrNull { it.id == 21 }
   // Font-variation axes ARE implemented for layout text — the player resolves properties 20/21 into
-  // a `FontVariation.Settings` and instances the host's face at them (see `fontVariationSettings`).
+  // an `RcFontVariations` and instances the host's face at them (see `fontVariationSettings`).
   // What is still a hard error is a *malformed* pair of arrays: tags and values are positional, so
   // unequal lengths mean the document cannot say which value belongs to which axis, and rendering
   // it would apply a silently wrong instance rather than a missing one.

@@ -1,7 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -21,7 +20,7 @@ class RcTypefaceLoaderTest {
     val asked = mutableListOf<String>()
     private val answers = families.associateWith { FontFamily.Cursive }
 
-    override fun typeface(family: String, settings: FontVariation.Settings?): FontFamily? {
+    override fun typeface(family: String, variations: RcFontVariations?): FontFamily? {
       asked += family
       return answers[family]
     }
