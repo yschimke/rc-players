@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.58.0](https://github.com/yschimke/rc-players/compare/v1.57.0...v1.58.0) (2026-09-06)
+
+
+### Features
+
+* **compose:** add a lenient playback mode to the CMP player ([#32](https://github.com/yschimke/rc-players/issues/32)) ([4335c7c](https://github.com/yschimke/rc-players/commit/4335c7c0a661458d6841468b60515f4a1add175e))
+* **compose:** draw text on a circle (op 57) ([#34](https://github.com/yschimke/rc-players/issues/34)) ([c42804e](https://github.com/yschimke/rc-players/commit/c42804e932846baa2cdf097b3c94350f21db83ba))
+* vendor Horologist's Lottie → Remote Compose compiler ([#35](https://github.com/yschimke/rc-players/issues/35)) ([36e4f32](https://github.com/yschimke/rc-players/commit/36e4f32ad55afdd1d7d2c67eca9d679d08c8fc82))
+
 ## [1.57.0](https://github.com/yschimke/rc-players/compare/v1.56.1...v1.57.0) (2026-09-04)
 
 
