@@ -9,24 +9,25 @@ Implements #4068.
 ## Consuming it
 
 > [!IMPORTANT]
-> **The Swift distribution ships from the first release cut after the XCFramework job was
-> re-enabled — not from any release before it.**
-> The job was disabled while the Kotlin/Native release link ran out of heap
-> ([#4222](https://github.com/yschimke/compose-ai-tools/issues/4222)); the heap is now sized on the
-> JVM that actually does the linking, and `ci.yml` links the release framework on every pull
-> request so the failure cannot come back unnoticed.
+> **Resolve a bare `X.Y.Z` tag, not `main` and not `vX.Y.Z`.** Only the bare tag carries a
+> `Package.swift` describing a real asset. `main`'s copy is a permanent placeholder and the
+> `v`-prefixed release tag is cut before the XCFramework exists, so both fail the checksum check —
+> deliberately, rather than resolving to something unverified.
 >
-> Until that first release completes, `Package.swift` on `main` still holds its `v0.0.0` placeholder
-> and no bare `X.Y.Z` tag exists to resolve, so a resolve fails on the placeholder checksum. Check
-> the [releases page](https://github.com/yschimke/rc-players/releases) for a
-> `RcComposePlayer.xcframework.zip` asset and a bare `X.Y.Z` tag before adding the `.package(...)`
-> line below. Everything after it (the call shape, the export quirks) is accurate and checked
-> against the Kotlin source on every PR. The iOS klibs publish to Maven Central independently of all
-> this and can be consumed from a Kotlin Multiplatform project today.
+> A version has a usable bare tag when the release job's `Publish the iOS XCFramework` step
+> succeeded for it. Check with:
+>
+> ```
+> git ls-remote --tags https://github.com/yschimke/rc-players.git '1.*'
+> ```
+>
+> Releases before this scheme worked (v1.58.1, v1.59.0) uploaded their XCFramework but never got a
+> bare tag — their asset is on the release page and can be pinned by URL and checksum by hand, but
+> `from:` will not find them.
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/yschimke/rc-players.git", from: "0.2.0")
+.package(url: "https://github.com/yschimke/rc-players.git", from: "1.60.0")
 ```
 
 ```swift

@@ -2,20 +2,27 @@
 //
 // Swift Package Manager distribution for the Remote Compose player's iOS framework (#4068).
 //
-// This file is REWRITTEN BY `release.yml` on every release: the job assembles
-// `RcComposePlayer.xcframework.zip`, attaches it to the GitHub Release, and commits the new `url`
-// and `checksum` back to `main` before tagging that commit `<version>`. Editing the two values by
-// hand is never right — they have to describe an asset that already exists, and SPM verifies the
-// checksum at resolve time.
+// TO USE THIS PACKAGE, resolve it by a BARE version tag:
 //
-// Consume a released version by its Swift tag — a BARE `<version>` (e.g. `1.16.0`). SwiftPM only
-// reads a tag as a semantic version when the whole ref is `X.Y.Z` or `vX.Y.Z`, so a prefixed ref
-// such as `swift/1.16.0` is invisible to the syntax below. The `v<version>` release tag IS visible,
-// and its copy of this file still describes the PREVIOUS release — SwiftPM prefers the bare tag
-// once it exists, which is why the release job writes one. See docs/design/RC_PLAYER_SWIFT.md for
-// the window before it does:
+//     .package(url: "https://github.com/yschimke/rc-players.git", from: "1.60.0")
 //
-//     .package(url: "https://github.com/yschimke/rc-players.git", from: "0.2.0")
+// THE COPY ON `main` IS A PLACEHOLDER AND ALWAYS WILL BE. The two values below are deliberately
+// unusable on `main`, and that is not a bug to fix: a manifest cannot state the SHA-256 of an asset
+// that has not been built yet, and the asset's URL contains the very tag being released. The real
+// values can only exist *after* the release, so they live on the bare `X.Y.Z` tag that
+// `release.yml` creates once the XCFramework is uploaded. Resolving `main` fails the checksum
+// check, loudly and on purpose, rather than fetching something unverified.
+//
+// Bare, not `v`-prefixed, and not both: SwiftPM only reads a tag as a semantic version when the
+// whole ref is `X.Y.Z` or `vX.Y.Z`, so `swift/1.16.0` is invisible to the syntax above. The
+// `v<version>` release tag IS visible to SwiftPM — and its copy of this file is the placeholder,
+// because it was cut before the asset existed. That is exactly why the bare tag is published: it
+// is the one ref whose manifest describes a real asset. Prefer it, and see
+// docs/design/RC_PLAYER_SWIFT.md for how to check a version has one.
+//
+// `scripts/update-package-swift.sh`, run by `release.yml`, is the only thing that should write the
+// two values — by hand is never right, because they have to describe an asset that already exists
+// and SPM verifies the checksum at resolve time.
 //
 // Coverage: `iosArm64` (device) and `iosSimulatorArm64` (Apple-silicon simulator) only. There is no
 // Intel-simulator slice anywhere in this stack — Compose Multiplatform 1.11 stopped publishing the
@@ -34,8 +41,9 @@ let package = Package(
       name: "RcComposePlayer",
       url:
         "https://github.com/yschimke/rc-players/releases/download/v0.0.0/RcComposePlayer.xcframework.zip",
-      // Placeholder until the first release job runs. A resolve against this fails loudly with a
-      // checksum mismatch rather than silently fetching something else.
+      // On `main` these two are the placeholder and a resolve fails loudly on the checksum rather
+      // than fetching something unverified. On a bare `X.Y.Z` tag they are the real released
+      // values, written by scripts/update-package-swift.sh. Check which you are looking at.
       checksum: "0000000000000000000000000000000000000000000000000000000000000000"
     )
   ]
