@@ -133,7 +133,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -1173,7 +1172,7 @@ private fun RenderLayoutNode(
       // Font-variation axes (properties 20/21) — a variable font's `wght` / `wdth` / … instance.
       // The tags arrive as text ids and the values may be document floats, so both are resolved
       // through the player state before they are paired up.
-      val variationSettings =
+      val variations =
         fontVariationSettings(
           axisTags = properties.intArrayProperty(CORE_TEXT_FONT_AXIS_TAGS).map { state.text(it) },
           axisValues =
@@ -1215,7 +1214,7 @@ private fun RenderLayoutNode(
                 state,
                 fontFamilies,
                 typefaces,
-                withWeightAxis(variationSettings, boldWeight),
+                withWeightAxis(variations, boldWeight),
               ),
             textAlign =
               if (properties.intProperty(17, 0) == 1) TextAlign.Justify
@@ -3472,7 +3471,7 @@ private fun decodeInlineFontsUncounted(document: RcDocument): Map<Int, FontFamil
  * The [FontFamily] a text op's `fontFamilyId` names, instanced at [settings] when the host holds
  * the face's bytes.
  *
- * [settings] are the document's font-variation axes. They can only be applied to a host face
+ * [variations] are the document's font-variation axes. They can only be applied to a host face
  * ([RcFontFaces] keeps the bytes for exactly this reason) — a generic family or an inline
  * `FontData` resolves to a `FontFamily` whose faces are already built, so for those the axes are
  * dropped rather than approximated. That is a substitution the render shows honestly; approximating
@@ -3486,9 +3485,9 @@ private fun resolveFontFamily(
   state: RcPlayerState,
   embeddedFonts: Map<Int, FontFamily>,
   typefaces: RcTypefaceLoader,
-  settings: FontVariation.Settings? = null,
+  variations: RcFontVariations? = null,
 ): FontFamily =
-  rcResolveTypeface(state.text(fontFamilyId), fontFamilyId, embeddedFonts, typefaces, settings)
+  rcResolveTypeface(state.text(fontFamilyId), fontFamilyId, embeddedFonts, typefaces, variations)
 
 /**
  * The font-variation axes a `CoreText` style declares: property 20 is a list of *text ids* naming
@@ -3505,12 +3504,12 @@ private const val CORE_TEXT_FONT_AXIS_VALUES = 21
 internal fun fontVariationSettings(
   axisTags: List<String?>,
   axisValues: List<Float?>,
-): FontVariation.Settings? {
+): RcFontVariations? {
   val axes = axisTags.mapIndexedNotNull { index, tag ->
     val value = axisValues.getOrNull(index) ?: return@mapIndexedNotNull null
-    tag?.takeIf { it.isNotBlank() }?.let { FontVariation.Setting(it, value) }
+    tag?.takeIf { it.isNotBlank() }?.let { RcFontAxis(it, value) }
   }
-  return if (axes.isEmpty()) null else FontVariation.Settings(*axes.toTypedArray())
+  return if (axes.isEmpty()) null else RcFontVariations(axes)
 }
 
 /**
@@ -3527,14 +3526,10 @@ internal fun fontVariationSettings(
  * An explicit `wght` from the document wins: a specimen sweeping the axis is naming the value it
  * wants, and the style weight beside it is only there so a non-variable fallback picks a face.
  */
-internal fun withWeightAxis(
-  settings: FontVariation.Settings?,
-  weight: Int,
-): FontVariation.Settings? {
-  val existing = settings?.settings.orEmpty()
-  if (existing.any { it.axisName == "wght" }) return settings
-  val axes = existing + FontVariation.weight(weight.coerceIn(1, 1000))
-  return FontVariation.Settings(*axes.toTypedArray())
+internal fun withWeightAxis(variations: RcFontVariations?, weight: Int): RcFontVariations? {
+  val existing = variations?.axes.orEmpty()
+  if (existing.any { it.tag == "wght" }) return variations
+  return RcFontVariations(existing + RcFontAxis("wght", weight.coerceIn(1, 1000).toFloat()))
 }
 
 private fun decodeInlineImage(bitmap: RcBitmapData): ImageBitmap =

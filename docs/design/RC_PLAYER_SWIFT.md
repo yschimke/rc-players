@@ -83,6 +83,18 @@ extension KotlinByteArray {
 }
 ```
 
+**Font-variation axes use the player's own type, on purpose.** A Swift host that supplies typefaces
+implements `RcTypefaceLoader`, whose `typeface(family:variations:)` takes
+[`RcFontVariations`](../../rc-player/compose/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/compose/RcFontVariations.kt)
+— a list of `RcFontAxis` tag/value pairs — rather than Compose's `FontVariation.Settings`. That is
+the one place the exported API deliberately does *not* mirror Compose. `FontVariation.Settings` is
+nested inside an `object` from a module this framework does not export, so Kotlin/Native wrote it
+into the header as an Objective-C class carrying `swift_name("Ui_textFontVariation.Settings")` whose
+outer half was never emitted; Swift could not complete the mapping and warned on every consumer
+build, ending with "please report this issue to the owners of 'RcComposePlayer'". Owning the type
+removes the warning, and it costs nothing in expressiveness — a `.rc` document only ever carries a
+tag and a float.
+
 These are ergonomics gaps rather than defects — the call works exactly as written — and closing
 them means adding a Swift wrapper target beside the binary target, which
 [#4068](https://github.com/yschimke/compose-ai-tools/issues/4068) leaves for after the first

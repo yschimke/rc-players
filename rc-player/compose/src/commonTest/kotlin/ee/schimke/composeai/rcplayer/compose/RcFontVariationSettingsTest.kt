@@ -70,7 +70,6 @@ class RcFontVariationSettingsTest {
     assertEquals(listOf("wght" to 1000f), withWeightAxis(null, 5000).pairs())
   }
 
-  private fun androidx.compose.ui.text.font.FontVariation.Settings?.pairs():
-    List<Pair<String, Float>> =
-    this?.settings.orEmpty().map { it.axisName to it.toVariationValue(null) }
+  private fun RcFontVariations?.pairs(): List<Pair<String, Float>> =
+    this?.axes.orEmpty().map { it.tag to it.value }
 }
