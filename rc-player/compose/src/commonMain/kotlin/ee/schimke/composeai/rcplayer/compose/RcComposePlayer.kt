@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -181,6 +182,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapInt
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapScaled
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
+import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
@@ -3416,6 +3418,7 @@ private fun DrawScope.drawOperations(
       is RcDrawText -> drawTextOperation(operation, state, paint, textMeasurer)
       is RcDrawTextAnchored -> drawTextAnchored(operation, state, paint, textMeasurer)
       is RcDrawTextOnPath -> drawTextOnPath(operation, state, paint, computedPaths, textMeasurer)
+      is RcDrawTextOnCircle -> drawTextOnCircle(operation, state, paint, textMeasurer)
       is RcDrawBitmap -> drawBitmap(operation, state, paint, images)
       is RcDrawBitmapInt -> drawBitmapInt(operation, paint, images)
       is RcDrawBitmapScaled -> drawBitmapScaled(operation, state, paint, images)
@@ -3845,6 +3848,98 @@ private fun DrawScope.drawTextAnchored(
   )
 }
 
+/**
+ * Curved text, laid along an arc cut to the measured width of the string.
+ *
+ * This mirrors `DrawTextOnCircle.paint` rather than reimplementing it: measure the text, turn that
+ * width into a sweep at the effective radius, resolve [RcDrawTextOnCircle.alignment] into the angle
+ * the arc actually starts at, then hand the arc to the same glyph-walker `DrawTextOnPath` uses. The
+ * measure and the draw share one [TextMeasurer] and one style for a reason — an arc cut to a width
+ * measured under a different typeface would lay the string along the wrong curve.
+ *
+ * [RcDrawTextOnCircle.PLACEMENT_INSIDE] is a negative sweep, which reverses the tangent the
+ * glyph-walker rotates each glyph by, and so flips them upright for a reader at the bottom of the
+ * dial. That falls out of the shared walker; there is no second code path for it.
+ */
+private fun DrawScope.drawTextOnCircle(
+  operation: RcDrawTextOnCircle,
+  state: RcPlayerState,
+  paint: RcPaintState,
+  textMeasurer: TextMeasurer,
+) {
+  val text = state.text(operation.textId).orEmpty()
+  if (text.isEmpty()) return
+  val centerX = state.resolve(operation.centerX)
+  val centerY = state.resolve(operation.centerY)
+  val radius = state.resolve(operation.radius) + state.resolve(operation.warpRadiusOffset)
+  val startAngle = state.resolve(operation.startAngle)
+  // A variable can resolve to anything, and a zero or negative radius divides the sweep by zero.
+  // Drawing nothing is what the AndroidX player does with an unusable circle, and it keeps a live
+  // document that animates the radius through zero from throwing mid-frame.
+  if (!centerX.isFinite() || !centerY.isFinite() || !startAngle.isFinite() || !(radius > 0f)) {
+    return
+  }
+  val style = textStyle(paint)
+  // Measured once, summed for the arc, then walked — all from the same list. The arc has to be as
+  // long as what the walker will actually consume, and the walker consumes per-glyph advances,
+  // whose sum is not the width of the string measured whole: shaping and kerning apply across a
+  // whole string and not across one-glyph measurements, and every measurement rounds. Cutting the
+  // arc to the whole-string width leaves it a few points short, the walker runs off the end, and
+  // the trailing glyphs are dropped — "REMOTE COMPOSE" drawn as "REMOTE COMPOS". Sharing one list
+  // between the two is what makes that unrepresentable rather than merely fixed.
+  val segments = measureTextSegments(text, style, textMeasurer)
+  val textWidth = segments.sumOf { it.advance.toDouble() }.toFloat()
+  if (textWidth <= 0f) return
+  val arc = arcForCircleText(centerX, centerY, radius, startAngle, textWidth, operation)
+  val measure = org.jetbrains.skia.PathMeasure(arc.asSkiaPath(), false)
+  if (measure.length <= 0f) return
+  drawTextSegmentsOnPath(
+    segments = segments,
+    measure = measure,
+    horizontalOffset = 0f,
+    verticalOffset = 0f,
+    paint = paint,
+    style = style,
+    textMeasurer = textMeasurer,
+  )
+}
+
+/**
+ * The arc [drawTextOnCircle] lays its glyphs along, split out so the angle arithmetic is testable
+ * without a draw scope. [radius] is already the effective radius (the operation's radius plus its
+ * warp offset), and [textWidth] the measured width of the whole string.
+ */
+internal fun arcForCircleText(
+  centerX: Float,
+  centerY: Float,
+  radius: Float,
+  startAngle: Float,
+  textWidth: Float,
+  operation: RcDrawTextOnCircle,
+): Path {
+  val clockwise = operation.placement != RcDrawTextOnCircle.PLACEMENT_INSIDE
+  // Arc length over radius is the angle it subtends, in radians.
+  val magnitude = textWidth / radius * 180f / PI.toFloat()
+  val sweep = if (clockwise) magnitude else -magnitude
+  // `startAngle` pins whichever end of the string `alignment` names, so CENTER and END walk the
+  // start of the arc backwards along the direction of travel. Signs differ between the two
+  // placements because the direction of travel does.
+  val offset =
+    when (operation.alignment) {
+      RcDrawTextOnCircle.ALIGN_CENTER -> magnitude / 2f
+      RcDrawTextOnCircle.ALIGN_END -> magnitude
+      else -> 0f
+    }
+  val arcStart = if (clockwise) startAngle - offset else startAngle + offset
+  return Path().apply {
+    addArc(
+      Rect(centerX - radius, centerY - radius, centerX + radius, centerY + radius),
+      arcStart,
+      sweep,
+    )
+  }
+}
+
 /** AndroidX-compatible glyph-centre placement implemented with Compose's cross-platform fonts. */
 private fun DrawScope.drawTextOnPath(
   operation: RcDrawTextOnPath,
@@ -3881,12 +3976,54 @@ private fun DrawScope.drawTextOnPathWithCompose(
   textMeasurer: TextMeasurer,
 ) {
   val style = textStyle(paint)
+  drawTextSegmentsOnPath(
+    segments = measureTextSegments(text, style, textMeasurer),
+    measure = measure,
+    horizontalOffset = horizontalOffset,
+    verticalOffset = verticalOffset,
+    paint = paint,
+    style = style,
+    textMeasurer = textMeasurer,
+  )
+}
+
+/** One scalar of a string with the advance the path walker will consume for it. */
+private class RcTextSegment(
+  val text: String,
+  val advance: Float,
+  val firstBaseline: Float,
+)
+
+/**
+ * Measure a string one unicode scalar at a time — the unit the path walker places — so a caller
+ * that needs the total width gets the number the walker will really consume rather than one
+ * measured a different way. [drawTextOnCircle] cuts its arc from exactly this sum.
+ */
+private fun measureTextSegments(
+  text: String,
+  style: androidx.compose.ui.text.TextStyle,
+  textMeasurer: TextMeasurer,
+): List<RcTextSegment> =
+  rcTrace(RcTraceCategory.FRAME, "rc:measureText") {
+    unicodeScalars(text).map { scalar ->
+      val layout = textMeasurer.measure(scalar, style)
+      RcTextSegment(scalar, layout.size.width.toFloat(), layout.firstBaseline)
+    }
+  }
+
+private fun DrawScope.drawTextSegmentsOnPath(
+  segments: List<RcTextSegment>,
+  measure: org.jetbrains.skia.PathMeasure,
+  horizontalOffset: Float,
+  verticalOffset: Float,
+  paint: RcPaintState,
+  style: androidx.compose.ui.text.TextStyle,
+  textMeasurer: TextMeasurer,
+) {
   var contourLength = measure.length
   var distance = horizontalOffset
-  for (segment in unicodeScalars(text)) {
-    val layout =
-      rcTrace(RcTraceCategory.FRAME, "rc:measureText") { textMeasurer.measure(segment, style) }
-    val advance = layout.size.width.toFloat()
+  for (segment in segments) {
+    val advance = segment.advance
     val center = distance + advance / 2f
     if (center > contourLength) {
       if (!measure.nextContour()) return
@@ -3903,12 +4040,12 @@ private fun DrawScope.drawTextOnPathWithCompose(
           Offset(tangent.x, tangent.y),
           advance,
           verticalOffset,
-          layout.firstBaseline,
+          segment.firstBaseline,
         )
       withTransform({ rotate(placement.angleDegrees, composePosition) }) {
         drawText(
           textMeasurer = textMeasurer,
-          text = segment,
+          text = segment.text,
           topLeft = placement.topLeft,
           style = style,
           blendMode = paint.blendMode,

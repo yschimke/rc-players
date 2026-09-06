@@ -603,6 +603,51 @@ public data class RcDrawTextOnPath(
   override val opcode: Int = RcOpcodes.DRAW_TEXT_ON_PATH
 }
 
+/**
+ * Curved text: one string laid along an arc of a circle.
+ *
+ * The five geometry fields are NaN-encoded words, so each is either a literal or a reference to a
+ * float the document computes — `AndroidX`'s `DrawTextOnCircle` reads them with `readNanId`, and a
+ * watch face animating [startAngle] is the reason they are words rather than floats.
+ *
+ * [alignment] says which end of the string [startAngle] pins, and [placement] which way it runs;
+ * both are single ordinal bytes on the wire. [warpRadiusOffset] is added to [radius] to get the
+ * radius the glyphs actually sit on, which is how a caller nudges the baseline off the circle it
+ * named without moving the circle.
+ */
+public data class RcDrawTextOnCircle(
+  val textId: Int,
+  val centerX: RcFloatWord,
+  val centerY: RcFloatWord,
+  val radius: RcFloatWord,
+  val startAngle: RcFloatWord,
+  val warpRadiusOffset: RcFloatWord,
+  val alignment: Int,
+  val placement: Int,
+) : RcOperation {
+  override val opcode: Int = RcOpcodes.DRAW_TEXT_ON_CIRCLE
+
+  public companion object {
+    /** [startAngle] pins the start of the string. `DrawTextOnCircle.Alignment.START`. */
+    public const val ALIGN_START: Int = 0
+
+    /** [startAngle] pins the string's midpoint. `DrawTextOnCircle.Alignment.CENTER`. */
+    public const val ALIGN_CENTER: Int = 1
+
+    /** [startAngle] pins the end of the string. `DrawTextOnCircle.Alignment.END`. */
+    public const val ALIGN_END: Int = 2
+
+    /** Glyphs sit outside the circle, running clockwise. `DrawTextOnCircle.Placement.OUTSIDE`. */
+    public const val PLACEMENT_OUTSIDE: Int = 0
+
+    /**
+     * Glyphs sit inside the circle, running counter-clockwise — which is what turns them upright
+     * for a reader looking at the bottom of a dial. `DrawTextOnCircle.Placement.INSIDE`.
+     */
+    public const val PLACEMENT_INSIDE: Int = 1
+  }
+}
+
 public data class RcBitmapData(
   val imageId: Int,
   val width: Int,
@@ -1635,6 +1680,7 @@ public object RcOpcodes {
   public const val MODIFIER_ROUNDED_CLIP_RECT: Int = 54
   public const val MODIFIER_BACKGROUND: Int = 55
   public const val DRAW_OVAL: Int = 56
+  public const val DRAW_TEXT_ON_CIRCLE: Int = 57
   public const val MODIFIER_PADDING: Int = 58
   public const val MODIFIER_HEIGHT: Int = 67
   public const val DATA_FLOAT: Int = 80

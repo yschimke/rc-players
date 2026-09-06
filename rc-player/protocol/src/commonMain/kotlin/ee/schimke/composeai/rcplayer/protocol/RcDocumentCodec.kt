@@ -111,6 +111,7 @@ public object RcDocumentCodec {
         DrawBitmapScaledCodec,
         DrawTextAnchoredCodec,
         DrawTextOnPathCodec,
+        DrawTextOnCircleCodec,
         TextMeasureCodec,
         TextAttributeCodec,
         TimeAttributeCodec,
@@ -2334,6 +2335,37 @@ private object DrawTextOnPathCodec : RcOperationCodec<RcDrawTextOnPath> {
     output.writeInt(value.pathId)
     output.writeFloatWord(value.verticalOffset)
     output.writeFloatWord(value.horizontalOffset)
+  }
+}
+
+private object DrawTextOnCircleCodec : RcOperationCodec<RcDrawTextOnCircle> {
+  override val spec = RcOperationSpec(RcOpcodes.DRAW_TEXT_ON_CIRCLE, "DrawTextOnCircle")
+
+  // Field order is AndroidX's `DrawTextOnCircle.read`: an id, five NaN-encoded words, then the two
+  // enums as single ordinal bytes — not ints. Reading them as ints would consume six bytes too
+  // many and desynchronise every operation after this one, so the width matters as much as the
+  // order.
+  override fun decode(input: RcWireReader): RcDrawTextOnCircle =
+    RcDrawTextOnCircle(
+      textId = input.readInt("textId"),
+      centerX = input.readFloatWord("centerX"),
+      centerY = input.readFloatWord("centerY"),
+      radius = input.readFloatWord("radius"),
+      startAngle = input.readFloatWord("startAngle"),
+      warpRadiusOffset = input.readFloatWord("warpRadiusOffset"),
+      alignment = input.readU8("alignment"),
+      placement = input.readU8("placement"),
+    )
+
+  override fun encode(output: RcWireWriter, value: RcDrawTextOnCircle) {
+    output.writeInt(value.textId)
+    output.writeFloatWord(value.centerX)
+    output.writeFloatWord(value.centerY)
+    output.writeFloatWord(value.radius)
+    output.writeFloatWord(value.startAngle)
+    output.writeFloatWord(value.warpRadiusOffset)
+    output.writeU8(value.alignment)
+    output.writeU8(value.placement)
   }
 }
 

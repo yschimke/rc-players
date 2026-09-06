@@ -11,7 +11,9 @@ class RcOperationInventoryTest {
     val decodable =
       RcOperationInventory.entries
         .filter {
-          it.status == RcOperationStatus.IMPLEMENTED || it.status == RcOperationStatus.PARSE_ONLY
+          it.status == RcOperationStatus.IMPLEMENTED ||
+            it.status == RcOperationStatus.PARSE_ONLY ||
+            it.status == RcOperationStatus.IMPLEMENTED_UPSTREAM_UNAVAILABLE
         }
         .map { it.opcode }
         .toSet()
@@ -38,7 +40,7 @@ class RcOperationInventoryTest {
 
   @Test
   fun profilesExcludeUnavailableReservedAndParseOnlyOperations() {
-    val unavailable = setOf(4, 57, 132, 162, 195)
+    val unavailable = setOf(4, 132, 162, 195)
     val reserved = (251..255).toSet()
 
     assertTrue(unavailable.none(RcOperationProfiles.ANDROIDX_JAVA_ALPHA16::supports))
@@ -52,8 +54,25 @@ class RcOperationInventoryTest {
         .none { RcOperationProfiles.CMP_WASM_ALPHA16.supports(it.opcode) }
     )
     assertEquals(
-      RcOperationInventory.entries.count { it.status == RcOperationStatus.IMPLEMENTED } - 1,
+      RcOperationInventory.entries.count {
+        it.status == RcOperationStatus.IMPLEMENTED ||
+          it.status == RcOperationStatus.IMPLEMENTED_UPSTREAM_UNAVAILABLE
+      } - 1,
       RcOperationProfiles.CMP_WASM_ALPHA16.opcodes.size,
     )
+  }
+
+  @Test
+  fun drawTextOnCircleIsInTheCmpProfilesButNotTheAndroidXOne() {
+    // The two halves of yschimke/wear-m3-catalog#321, as an assertion. This player implements the
+    // operation, so it belongs in the CMP profiles; the authoritative Java registry still has no
+    // reader for it, so advertising it to a producer targeting that player would hand back a
+    // document the producer cannot read.
+    val entry = RcOperationInventory.byOpcode.getValue(RcOpcodes.DRAW_TEXT_ON_CIRCLE)
+
+    assertEquals(RcOperationStatus.IMPLEMENTED_UPSTREAM_UNAVAILABLE, entry.status)
+    assertTrue(RcOperationProfiles.CMP_IOS_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
+    assertTrue(RcOperationProfiles.CMP_WASM_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
+    assertFalse(RcOperationProfiles.ANDROIDX_JAVA_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
   }
 }

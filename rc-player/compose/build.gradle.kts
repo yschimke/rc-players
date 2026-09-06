@@ -126,6 +126,19 @@ composeAiMavenPublishing {
 // `Package.swift` has to match the bytes a consumer downloads. A zip that differs run-to-run would
 // make every re-run of the release job produce a `Package.swift` that no longer matches the asset
 // already uploaded.
+// Hand the evidence generator its output directory, on the same convention
+// `third_party/rc-embedded-player` uses for `rc.embedded.output`: a Gradle property rather than
+// ambient env, so the run is reproducible from the command line, and absent it the generator skips
+// so `check` neither writes files nor goes red.
+//
+//   ./gradlew :rc-player-compose:jvmTest --rerun --tests '*RcTextOnCircleRenderTest*' \
+//     -Prc.textOnCircle.out=<abs dir>
+tasks.withType<Test>().configureEach {
+  (project.findProperty("rc.textOnCircle.out") as String?)?.let {
+    systemProperty("rc.textOnCircle.out", it)
+  }
+}
+
 val rcPlayerXcframeworkZip =
   tasks.register<Zip>("rcPlayerXcframeworkZip") {
     description = "Package the iOS XCFramework as a Swift Package Manager binary target."

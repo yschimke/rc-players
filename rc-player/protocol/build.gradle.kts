@@ -30,7 +30,15 @@ abstract class GenerateRcOperationManifest : org.gradle.api.DefaultTask() {
     require(rows.map { it[1] }.distinct().size == rows.size) {
       "Duplicate constant in rc-operations.manifest"
     }
-    val validStatuses = setOf("implemented", "parse_only", "unsupported", "unavailable", "reserved")
+    val validStatuses =
+      setOf(
+        "implemented",
+        "parse_only",
+        "unsupported",
+        "unavailable",
+        "reserved",
+        "implemented_upstream_unavailable",
+      )
     require(rows.all { it[3] in validStatuses }) { "Unknown RC operation status" }
 
     fun stableName(constant: String): String =
