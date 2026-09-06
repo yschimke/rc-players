@@ -66,10 +66,12 @@ outright.
 ### The iOS framework (`Package.swift`)
 
 `rc-player/compose`'s iOS targets, assembled into `RcComposePlayer.xcframework` and distributed
-through Swift Package Manager. `Package.swift` is **rewritten by the release job** on every release —
-it has to describe an asset that already exists, and SPM verifies the checksum at resolve time, so
-editing the URL or checksum by hand is never right. Usage is documented, and type-checked in CI, in
-[`docs/design/RC_PLAYER_SWIFT.md`](docs/design/RC_PLAYER_SWIFT.md).
+through Swift Package Manager. **Consume it by a bare `X.Y.Z` tag** — the release job writes the
+real `url` and `checksum` into `Package.swift` and publishes that commit as the bare tag once the
+XCFramework is uploaded. The copy on `main` is a permanent placeholder: a manifest cannot state the
+checksum of an asset that does not exist yet, so `main` and the `v`-prefixed tag both fail the
+checksum check by design. Editing the two values by hand is never right. Usage is documented, and
+type-checked in CI, in [`docs/design/RC_PLAYER_SWIFT.md`](docs/design/RC_PLAYER_SWIFT.md).
 
 ### The reference players (`third_party/`)
 
@@ -145,8 +147,8 @@ float/text return channels. See
 [`docs/design/RC_COMPOSITION.md`](docs/design/RC_COMPOSITION.md) for the composite-document, slot and
 state-ownership model.
 
-Swift Package Manager, by the bare version tag (SwiftPM only reads a tag as a semantic version when
-the whole ref is `X.Y.Z`):
+Swift Package Manager, by the **bare** version tag — not `main`, and not the `v`-prefixed release
+tag, neither of which carries a resolvable checksum:
 
 ```swift
 .package(url: "https://github.com/yschimke/rc-players.git", from: "<version>")

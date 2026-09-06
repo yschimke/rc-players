@@ -230,8 +230,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The released source, so the binary matches the tag it is attached to. `main` is fetched
-          # separately below, once the asset exists and `Package.swift` can describe it.
+          # The released source, so the binary matches the tag it is attached to — and so the bare
+          # Swift tag below is parented on exactly this commit. `persist-credentials` is what lets
+          # that tag be pushed; nothing here pushes a branch.
           ref: ${{ env.TAG_NAME }}
           persist-credentials: true
       - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
@@ -264,12 +265,35 @@ jobs:
           gh release upload "$TAG_NAME" \
             rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip --clobber
 
-      # Every step here is idempotent, because `workflow_dispatch` re-releasing an existing tag is a
-      # documented recovery path and the second run finds the work already done: `Package.swift`
-      # already describes this asset (the zip is built reproducibly, so the checksum is the same
-      # bytes), and the Swift tag already exists. A re-run must be a no-op, not a failure. A tag
-      # that exists but points somewhere ELSE is still a hard error: that means the asset and the
-      # tag disagree, which is the one thing this scheme exists to prevent.
+      # The bare `X.Y.Z` tag is the whole deliverable — it is the only thing a Swift consumer
+      # resolves, and it is a TAG, so it is written under `refs/tags/*` and never touches
+      # `refs/heads/main`.
+      #
+      # This used to also push the rewritten `Package.swift` to `main`, and that push is what broke
+      # every release: the `Protect Main` ruleset refuses a direct push ("Changes must be made
+      # through a pull request"), `set -e` aborted the step, and the tag below — the part consumers
+      # actually need — was never created. v1.58.1 and v1.59.0 both uploaded their XCFramework and
+      # then stopped one line short of being resolvable.
+      #
+      # So the commit is no longer pushed to a branch at all. It is parented on the release tag and
+      # published solely as the bare version tag; pushing a tag pushes the objects it references, so
+      # the commit is reachable without ever being on `main`. `main`'s `Package.swift` therefore
+      # stays on its placeholder by design — see the comment in that file. That is not a
+      # regression: `main` never carried usable values, because a manifest cannot state the checksum
+      # of an asset that does not exist yet.
+      #
+      # Parenting on the release tag rather than on `main` is also more honest than what this did
+      # before. The bare `1.59.0` tag now contains exactly `v1.59.0`'s source plus the pointer to
+      # `v1.59.0`'s asset, instead of whatever `main` had drifted to since. It removes the
+      # re-release hazard the old code had to reason about: a `workflow_dispatch` re-release of an
+      # older version can no longer write that older release's url over a newer `main`.
+      #
+      # Every step is idempotent, because `workflow_dispatch` re-releasing an existing tag is a
+      # documented recovery path and the second run finds the work already done: the Swift tag
+      # already exists and already describes this asset (the zip is built reproducibly, so the
+      # checksum is the same bytes). A re-run must be a no-op, not a failure. A tag that exists but
+      # points somewhere ELSE is still a hard error: that means the asset and the tag disagree,
+      # which is the one thing this scheme exists to prevent.
       - name: Point Package.swift at the uploaded asset and tag it
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -305,17 +329,20 @@ jobs:
             exit 1
           fi
 
-          # The build above ran against $TAG_NAME; the commit has to land on main.
-          git fetch --no-tags origin main
-          git checkout -B release-package-swift FETCH_HEAD
-
+          # HEAD is already $TAG_NAME — the `checkout` above pinned it — so the Swift tag is built
+          # straight on the released source. No branch is involved and nothing is pushed to `main`.
           scripts/update-package-swift.sh "$url" "$checksum"
           if git diff --quiet -- Package.swift; then
-            echo "Package.swift already points at ${TAG_NAME}'s asset; no commit needed"
+            # Only reachable if the released source already carried these exact values, which the
+            # placeholder never does. Tag HEAD as-is rather than failing on an empty commit.
+            echo "Package.swift at ${TAG_NAME} already points at this asset; tagging it unchanged"
           else
             git add Package.swift
             git commit -m "chore(release): point Package.swift at ${TAG_NAME}"
-            git push origin HEAD:main
           fi
           git tag "$swift_tag"
-          git push origin "$swift_tag"
+          # Explicit refspec: this writes refs/tags/* only, never refs/heads/*.
+          git push origin "refs/tags/${swift_tag}"
+
+          echo "Swift consumers can now resolve:"
+          echo "  .package(url: \"https://github.com/${GITHUB_REPOSITORY}.git\", from: \"${swift_tag}\")"
