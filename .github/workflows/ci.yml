@@ -141,17 +141,20 @@ jobs:
       - name: Run the Package.swift rewriter self-test
         run: scripts/update-package-swift.sh --self-test
 
-      # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
-      # Exits 0 and says so when no framework is present, so it is honest about what it checked.
+      # The release link, run on every PR. This is the same task `release.yml` drives, so a linker
+      # failure surfaces here rather than mid-release — and it is what makes the Swift step below
+      # check something real instead of self-skipping.
       #
-      # NOTE: `./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum` belongs above — it is the
-      # only place CI would *link* a release framework, and the same task `release.yml` runs, so a
-      # linker failure would surface on the PR rather than mid-release. It is left out because the
-      # release links run out of heap on this runner and `release.yml`'s `publish-xcframework` is
-      # skipped for the same reason; CI should not pre-flight a step the release does not take.
-      # Restore both together — a green link here is the evidence that re-enabling the release job
-      # is safe. Without the link this step checks nothing, which is why it is a no-op today rather
-      # than a false green.
+      # `--max-workers=1` is load-bearing, not caution. Kotlin/Native compiles inside the Gradle
+      # daemon's own JVM, so with `org.gradle.parallel=true` the `IosArm64` and `IosSimulatorArm64`
+      # release links would run `ModuleDFGBuilder` concurrently *in one heap* and peak together.
+      # Serializing them halves the peak; `gradle.properties` carries the rest of the reasoning.
+      - name: Assemble the release XCFramework
+        run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum --max-workers=1
+
+      # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
+      # Exits 0 and says so when no framework is present, so it is honest about what it checked —
+      # with the step above restored, a framework *is* present and this genuinely type-checks.
       - name: Type-check the Swift usage sample
         run: scripts/check-swift-sample.sh
 

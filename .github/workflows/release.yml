@@ -212,22 +212,17 @@ jobs:
   # macOS-only: `xcodebuild -create-xcframework` and the Kotlin/Native Apple linker both need it.
   publish-xcframework:
     name: Publish the iOS XCFramework
-    # DISABLED. The Kotlin/Native release link this job drives
-    # (`linkReleaseFramework{IosArm64,IosSimulatorArm64}`, via `rcPlayerXcframeworkChecksum`) runs
-    # out of heap on `macos-15`, and a failure here would take the whole release down with it —
-    # after `publish-maven` has already published to Central, leaving it half-published. Skipping
-    # keeps `release.yml` green; a skipped job does not fail the workflow.
+    # Enabled again. This job was gated off while the Kotlin/Native release link
+    # (`linkReleaseFramework{IosArm64,IosSimulatorArm64}`, via `rcPlayerXcframeworkChecksum`) ran
+    # out of heap on `macos-15`; the cause was that Kotlin/Native compiles inside the Gradle
+    # daemon's JVM, which was capped at 2 GB, while the 4 GB nominally granted by
+    # `kotlin.native.jvmArgs` went to an out-of-process compiler this build never starts. See
+    # `gradle.properties` for the full account.
     #
-    # Nothing regresses by skipping it: this job has never completed a release, `Package.swift`
-    # still carries its placeholder `v0.0.0` / all-zero checksum, and no bare `X.Y.Z` tag exists on
-    # the remote — the Swift distribution has never shipped. The iOS klibs are untouched;
-    # `publish-maven` still puts them on Central.
-    #
-    # Re-enable by deleting this one `if:`, once the link is proven to complete in CI (restore the
-    # `rcPlayerXcframeworkChecksum` step in `ci.yml` at the same time — a green link there is the
-    # evidence). A literal rather than a flag because a job-level `if:` cannot read the `env`
-    # context.
-    if: ${{ false }}
+    # The re-enable conditions from that gate are both met: `org.gradle.jvmargs` now sizes the JVM
+    # that actually links, and `ci.yml` runs this same task on every PR — so the link is proven on
+    # the pull request before a release ever depends on it, which is the evidence the old comment
+    # asked for.
     needs: [publish-maven]
     runs-on: macos-15
     permissions:
@@ -257,8 +252,10 @@ jobs:
             exit 1
           fi
           sudo xcode-select --switch "$xcode/Contents/Developer"
+      # `--max-workers=1`: the two release links share the Gradle daemon's heap, so they must not
+      # run `ModuleDFGBuilder` concurrently. Same invocation as `ci.yml`'s, deliberately.
       - name: Assemble and package the XCFramework
-        run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum
+        run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum --max-workers=1
       - name: Upload the XCFramework to the Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
