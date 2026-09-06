@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.58.1](https://github.com/yschimke/rc-players/compare/v1.58.0...v1.58.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **ci:** re-enable the iOS XCFramework build by sizing the linking JVM ([#37](https://github.com/yschimke/rc-players/issues/37)) ([8854ba6](https://github.com/yschimke/rc-players/commit/8854ba6efa480b0014bfa815821909a89c9a15e6))
+
 ## [1.58.0](https://github.com/yschimke/rc-players/compare/v1.57.0...v1.58.0) (2026-09-06)
 
 
