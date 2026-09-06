@@ -51,6 +51,16 @@ Read out of the generated header, the selector is
 `onError`; Objective-C has no default arguments, so the exported selector takes all five. Passing
 `.system` and `RcTypefaceLoaderCompanion.shared.Default` reproduces the Kotlin defaults.
 
+**A sixth argument selects the playback gate.** A second overload,
+`RcComposeViewController(bytes:theme:onEvent:typefaces:onError:lenient:)`, exports beside the
+five-argument one. `lenient: true` plays a document carrying any operation the player *knows*, drawing
+nothing for the ones the iOS backend has no branch for, instead of refusing the whole document —
+which is what a document written against a wider write profile than any reader profile lists needs
+(`DrawTextOnCircle` is the standing case). Malformed data, an undeclared id and a missing typeface
+still route to `onError`: those throw from inside the draw pass, and no mode plays them. It is an
+overload and not a defaulted parameter precisely because of the paragraph above — a default
+argument would have rewritten the five-argument selector out from under every existing caller.
+
 **`Data` does not bridge to `ByteArray`.** `KotlinByteArray` exports only `init(size:)`,
 `get(index:)`, and `set(index:value:)` — there is no `Data` initializer, and none is generated.
 The copy has to be written on the Swift side; this extension is what the sample above calls, and the

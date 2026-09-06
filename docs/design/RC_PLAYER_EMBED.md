@@ -68,6 +68,7 @@ Current version: **1**.
 | `namedValues` | Host overrides for the document's named variables, as a URL-encoded **JSON array** of `{"kind", "name", "value"}` objects — see below. Kinds: `string`, `float`, `dp`, `int`, `bool`, `color`, `long`. Names are prefixed `USER:` internally. |
 | `rcTrace` | `1` emits User Timing marks, so the player's spans land in a DevTools performance profile under the same names the desktop player writes to Perfetto. Off by default: `performance`'s entry buffer is finite and shared with the embedding page. |
 | `allowExternalImagePlaceholders` | `1` renders a placeholder instead of refusing a document that names an external image. |
+| `lenient` | `1` plays a document carrying any operation the player *knows*, drawing nothing for the ones the browser backend has no branch for, instead of refusing it whole. Malformed data, an undeclared id and a missing typeface still fail — those throw from inside the draw pass. Note this also drops the `cmp-wasm-alpha16` profile's exclusions, so a document using `GraphicsLayerModifier` will play here with the surface loss that exclusion exists to avoid. |
 | `handoffDelayMs` | Cold-start tail before `ready`, clamped to 0–10 000, default 1 500. **Only lower it if you composite the result yourself** — the default guards a human seeing a blank frame, and the failure it guards against cannot be reproduced under CDP capture. |
 
 ### `namedValues` in detail

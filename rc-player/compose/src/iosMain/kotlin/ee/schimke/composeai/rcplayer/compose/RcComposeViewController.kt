@@ -31,6 +31,28 @@ public fun RcComposeViewController(
   onEvent: (RcPlayerEvent) -> Unit = {},
   typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
   onError: (String) -> Unit = {},
+): UIViewController = RcComposeViewController(bytes, theme, onEvent, typefaces, onError, false)
+
+/**
+ * [RcComposeViewController] with the playback gate selectable.
+ *
+ * `lenient = true` plays a document carrying any operation the player *knows*, drawing nothing for
+ * the ones this backend has no branch for instead of refusing the whole document — see
+ * [RcComposeSupportReport.requirePlayable]. Malformed data, an undeclared id or a missing typeface
+ * still fail: those would throw from inside the draw pass, and no mode can play them.
+ *
+ * It is a separate overload rather than a defaulted parameter because Kotlin/Native does not export
+ * default arguments — adding one would rewrite the five-argument Objective-C selector every Swift
+ * consumer is calling today. Swift sees two selectors instead, the existing one unchanged and
+ * `RcComposeViewController(bytes:theme:onEvent:typefaces:onError:lenient:)` beside it.
+ */
+public fun RcComposeViewController(
+  bytes: ByteArray,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
 ): UIViewController {
   val document = runCatching {
     RcDocumentCodec.decode(bytes).also {
@@ -39,7 +61,7 @@ public fun RcComposeViewController(
           RcOperationProfiles.CMP_IOS_ALPHA16,
           availableFontFamilies = typefaces.families,
         )
-        .requireFullyRenderable()
+        .requireRenderable(lenient)
     }
   }
     .getOrElse {

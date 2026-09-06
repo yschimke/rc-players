@@ -7,6 +7,17 @@
 // - Show declarations: true
 
 // Library unique name: <ee.schimke.composeai:rc-player-compose>
+final enum class ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity : kotlin/Enum<ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity> { // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity|null[0]
+    enum entry BLOCKING // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.BLOCKING|null[0]
+    enum entry SKIPPABLE // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.SKIPPABLE|null[0]
+
+    final val entries // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity> // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity> // ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity.values|values#static(){}[0]
+}
+
 final enum class ee.schimke.composeai.rcplayer.compose/RcPlayerTheme : kotlin/Enum<ee.schimke.composeai.rcplayer.compose/RcPlayerTheme> { // ee.schimke.composeai.rcplayer.compose/RcPlayerTheme|null[0]
     enum entry Dark // ee.schimke.composeai.rcplayer.compose/RcPlayerTheme.Dark|null[0]
     enum entry Light // ee.schimke.composeai.rcplayer.compose/RcPlayerTheme.Light|null[0]
@@ -43,7 +54,7 @@ final class ee.schimke.composeai.rcplayer.compose/RcBundledTypefaceLoader : ee.s
 }
 
 final class ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue { // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue|null[0]
-    constructor <init>(kotlin/Int, kotlin/String, kotlin/String) // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.<init>|<init>(kotlin.Int;kotlin.String;kotlin.String){}[0]
+    constructor <init>(kotlin/Int, kotlin/String, kotlin/String, ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity = ...) // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.<init>|<init>(kotlin.Int;kotlin.String;kotlin.String;ee.schimke.composeai.rcplayer.compose.RcComposeSupportSeverity){}[0]
 
     final val detail // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.detail|{}detail[0]
         final fun <get-detail>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.detail.<get-detail>|<get-detail>(){}[0]
@@ -51,11 +62,14 @@ final class ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue { // ee.
         final fun <get-operation>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.operation.<get-operation>|<get-operation>(){}[0]
     final val operationIndex // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.operationIndex|{}operationIndex[0]
         final fun <get-operationIndex>(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.operationIndex.<get-operationIndex>|<get-operationIndex>(){}[0]
+    final val severity // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.severity|{}severity[0]
+        final fun <get-severity>(): ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.severity.<get-severity>|<get-severity>(){}[0]
 
     final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.component1|component1(){}[0]
     final fun component2(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.component2|component2(){}[0]
     final fun component3(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.component3|component3(){}[0]
-    final fun copy(kotlin/Int = ..., kotlin/String = ..., kotlin/String = ...): ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.copy|copy(kotlin.Int;kotlin.String;kotlin.String){}[0]
+    final fun component4(): ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.component4|component4(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/String = ..., kotlin/String = ..., ee.schimke.composeai.rcplayer.compose/RcComposeSupportSeverity = ...): ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.copy|copy(kotlin.Int;kotlin.String;kotlin.String;ee.schimke.composeai.rcplayer.compose.RcComposeSupportSeverity){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue.toString|toString(){}[0]
@@ -64,16 +78,22 @@ final class ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue { // ee.
 final class ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport { // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport|null[0]
     constructor <init>(kotlin.collections/List<ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue>) // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.<init>|<init>(kotlin.collections.List<ee.schimke.composeai.rcplayer.compose.RcComposeSupportIssue>){}[0]
 
+    final val blockingIssues // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.blockingIssues|{}blockingIssues[0]
+        final fun <get-blockingIssues>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue> // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.blockingIssues.<get-blockingIssues>|<get-blockingIssues>(){}[0]
     final val fullyRenderable // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.fullyRenderable|{}fullyRenderable[0]
         final fun <get-fullyRenderable>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.fullyRenderable.<get-fullyRenderable>|<get-fullyRenderable>(){}[0]
     final val issues // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.issues|{}issues[0]
         final fun <get-issues>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue> // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.issues.<get-issues>|<get-issues>(){}[0]
+    final val playable // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.playable|{}playable[0]
+        final fun <get-playable>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.playable.<get-playable>|<get-playable>(){}[0]
 
     final fun component1(): kotlin.collections/List<ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue> // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.component1|component1(){}[0]
     final fun copy(kotlin.collections/List<ee.schimke.composeai.rcplayer.compose/RcComposeSupportIssue> = ...): ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.copy|copy(kotlin.collections.List<ee.schimke.composeai.rcplayer.compose.RcComposeSupportIssue>){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.hashCode|hashCode(){}[0]
     final fun requireFullyRenderable() // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.requireFullyRenderable|requireFullyRenderable(){}[0]
+    final fun requirePlayable() // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.requirePlayable|requirePlayable(){}[0]
+    final fun requireRenderable(kotlin/Boolean) // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.requireRenderable|requireRenderable(kotlin.Boolean){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcComposeSupportReport.toString|toString(){}[0]
 }
 
@@ -204,3 +224,6 @@ final fun ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues(kotlin/Arr
 
 // Targets: [ios]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader = ..., kotlin/Function1<kotlin/String, kotlin/Unit> = ...): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>){}[0]
+
+// Targets: [ios]
+final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean){}[0]
