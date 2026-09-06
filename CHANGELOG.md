@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.59.1](https://github.com/yschimke/rc-players/compare/v1.59.0...v1.59.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **release:** publish the Swift package as a tag, and rewrite the right url ([#43](https://github.com/yschimke/rc-players/issues/43)) ([c05450f](https://github.com/yschimke/rc-players/commit/c05450feb49118ce2729e7e7aee0a9de2da15074))
+
 ## [1.59.0](https://github.com/yschimke/rc-players/compare/v1.58.1...v1.59.0) (2026-09-06)
 
 
