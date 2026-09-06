@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.59.0](https://github.com/yschimke/rc-players/compare/v1.58.1...v1.59.0) (2026-09-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* `RcTypefaceLoader.typeface` and `RcFontFaces.family` take `RcFontVariations?` instead of `FontVariation.Settings?`. A host implementing `RcTypefaceLoader` updates its override; from Swift the selectors become `typeface(family:variations:)` and `family(variations:)`. Callers that passed no variations are unaffected.
+
+### Features
+
+* give font variations the player's own type ([#39](https://github.com/yschimke/rc-players/issues/39)) ([7805a58](https://github.com/yschimke/rc-players/commit/7805a58c007578c2ed0c6ddacecdf770cf2a484b))
+
 ## [1.58.1](https://github.com/yschimke/rc-players/compare/v1.58.0...v1.58.1) (2026-09-06)
 
 
