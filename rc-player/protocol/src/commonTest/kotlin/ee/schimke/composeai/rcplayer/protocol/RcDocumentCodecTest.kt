@@ -586,6 +586,37 @@ class RcDocumentCodecTest {
   }
 
   @Test
+  fun drawTextOnCircleRoundTripsIncludingItsNanEncodedGeometry() {
+    val operation =
+      RcDrawTextOnCircle(
+        textId = 7,
+        centerX = RcFloatWord.literal(120f),
+        centerY = RcFloatWord.literal(120f),
+        radius = RcFloatWord.literal(96f),
+        // A variable reference rather than a literal: all five geometry fields are NaN-encoded
+        // words, and a watch face animating the start angle is the reason they are.
+        startAngle = RcFloatWord(0x7fc0002a),
+        warpRadiusOffset = RcFloatWord.literal(-4f),
+        alignment = RcDrawTextOnCircle.ALIGN_CENTER,
+        placement = RcDrawTextOnCircle.PLACEMENT_INSIDE,
+      )
+    val document = RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), listOf(operation))
+
+    val bytes = RcDocumentCodec.encode(document)
+    val decoded = RcDocumentCodec.decode(bytes)
+
+    assertEquals(document, decoded)
+    assertContentEquals(bytes, RcDocumentCodec.encode(decoded))
+    // The two enums are single ordinal bytes, not ints: 1 opcode + 4 id + 5 * 4 words + 2 = 27.
+    // Reading them any wider would desynchronise every operation after this one, so the size is
+    // asserted rather than inferred from the round trip passing.
+    assertEquals(
+      27,
+      bytes.size - RcDocumentCodec.encode(RcDocument(document.header, emptyList())).size,
+    )
+  }
+
+  @Test
   fun unsupportedOpcodeReportsItsExactOffset() {
     val header =
       RcDocumentCodec.encode(RcDocument(RcHeader(RcVersion(1, 0, 0), modern = false), emptyList()))

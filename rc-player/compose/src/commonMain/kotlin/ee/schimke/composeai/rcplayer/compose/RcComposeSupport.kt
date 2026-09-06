@@ -18,6 +18,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDebugMessage
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
@@ -334,6 +335,32 @@ public fun RcDocument.composeSupportReport(
     if (operation is RcDebugMessage && operation.textId !in textIds) {
       issues +=
         RcComposeSupportIssue(index, "DebugMessage", "text id ${operation.textId} is not declared")
+    }
+    if (operation is RcDrawTextOnCircle) {
+      when {
+        operation.textId !in textIds ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "DrawTextOnCircle",
+              "text id ${operation.textId} is not declared",
+            )
+        operation.alignment !in RcDrawTextOnCircle.ALIGN_START..RcDrawTextOnCircle.ALIGN_END ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "DrawTextOnCircle",
+              "alignment ${operation.alignment} is not implemented",
+            )
+        operation.placement !in
+          RcDrawTextOnCircle.PLACEMENT_OUTSIDE..RcDrawTextOnCircle.PLACEMENT_INSIDE ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "DrawTextOnCircle",
+              "placement ${operation.placement} is not implemented",
+            )
+      }
     }
     val supportedMeasurementTypes =
       when (operation) {

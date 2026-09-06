@@ -22,7 +22,7 @@
 54|MODIFIER_ROUNDED_CLIP_RECT|6|implemented
 55|MODIFIER_BACKGROUND|6|implemented
 56|DRAW_OVAL|1|implemented
-57|DRAW_TEXT_ON_CIRCLE|3|unavailable
+57|DRAW_TEXT_ON_CIRCLE|3|implemented_upstream_unavailable
 58|MODIFIER_PADDING|6|implemented
 59|MODIFIER_CLICK|6|implemented
 63|THEME|1|implemented

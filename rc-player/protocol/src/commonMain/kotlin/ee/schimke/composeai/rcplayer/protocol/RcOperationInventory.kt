@@ -7,6 +7,17 @@ public enum class RcOperationStatus {
   /** Public AndroidX constant with no usable reader in the authoritative Java player profile. */
   UNAVAILABLE,
   RESERVED,
+  /**
+   * Implemented here — codec and renderer both — while remaining [UNAVAILABLE] upstream.
+   *
+   * The two facts this column usually reports together come apart for these: what the CMP player
+   * can execute, and what the authoritative Java registry can read. `DrawTextOnCircle` is the
+   * standing case — writable under `WEAR_WIDGETS`, registered in no reader profile
+   * (yschimke/wear-m3-catalog#321) — so it belongs in the CMP profiles and must stay out of
+   * [RcOperationProfiles.ANDROIDX_JAVA_ALPHA16]. Marking it plain `implemented` would advertise it
+   * to a producer targeting the Java player, which would then fail to read its own document.
+   */
+  IMPLEMENTED_UPSTREAM_UNAVAILABLE,
 }
 
 /** One checked-in AndroidX opcode inventory entry, generated from rc-operations.manifest. */
@@ -44,9 +55,20 @@ public data class RcOperationProfile(val name: String, val opcodes: Set<Int>) {
  * `ALPHA16` on a set that no longer describes alpha16 is the failure mode worth avoiding.
  */
 public object RcOperationProfiles {
+  /**
+   * Both statuses that mean "this player executes the operation". They are two statuses and not one
+   * because they differ on whether *AndroidX* can read it, which [ANDROIDX_JAVA_ALPHA16] cares
+   * about and the CMP profiles do not.
+   */
+  private val cmpImplementedStatuses =
+    setOf(
+      RcOperationStatus.IMPLEMENTED,
+      RcOperationStatus.IMPLEMENTED_UPSTREAM_UNAVAILABLE,
+    )
+
   private val cmpImplementedOpcodes: Set<Int> =
     RcOperationInventory.entries
-      .filter { it.status == RcOperationStatus.IMPLEMENTED }
+      .filter { it.status in cmpImplementedStatuses }
       .mapTo(linkedSetOf()) { it.opcode }
 
   /** Operations readable by the authoritative AndroidX alpha16 Java operation registry. */
@@ -55,7 +77,12 @@ public object RcOperationProfiles {
       "androidx-java-alpha16",
       RcOperationInventory.entries
         .filter {
-          it.status != RcOperationStatus.UNAVAILABLE && it.status != RcOperationStatus.RESERVED
+          // `IMPLEMENTED_UPSTREAM_UNAVAILABLE` is excluded for the same reason `UNAVAILABLE` is:
+          // this profile answers "can the Java registry read it", and implementing it here does
+          // not put a reader in that registry.
+          it.status != RcOperationStatus.UNAVAILABLE &&
+            it.status != RcOperationStatus.RESERVED &&
+            it.status != RcOperationStatus.IMPLEMENTED_UPSTREAM_UNAVAILABLE
         }
         .mapTo(linkedSetOf()) { it.opcode },
     )

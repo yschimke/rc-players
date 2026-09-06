@@ -924,6 +924,41 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDrawTextAnchored : e
 public final class ee/schimke/composeai/rcplayer/protocol/RcDrawTextAnchored$Companion {
 }
 
+public final class ee/schimke/composeai/rcplayer/protocol/RcDrawTextOnCircle : ee/schimke/composeai/rcplayer/protocol/RcOperation {
+	public static final field ALIGN_CENTER I
+	public static final field ALIGN_END I
+	public static final field ALIGN_START I
+	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcDrawTextOnCircle$Companion;
+	public static final field PLACEMENT_INSIDE I
+	public static final field PLACEMENT_OUTSIDE I
+	public synthetic fun <init> (IIIIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2-tGZKRUM ()I
+	public final fun component3-tGZKRUM ()I
+	public final fun component4-tGZKRUM ()I
+	public final fun component5-tGZKRUM ()I
+	public final fun component6-tGZKRUM ()I
+	public final fun component7 ()I
+	public final fun component8 ()I
+	public final fun copy-Q1ggJjQ (IIIIIIII)Lee/schimke/composeai/rcplayer/protocol/RcDrawTextOnCircle;
+	public static synthetic fun copy-Q1ggJjQ$default (Lee/schimke/composeai/rcplayer/protocol/RcDrawTextOnCircle;IIIIIIIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDrawTextOnCircle;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAlignment ()I
+	public final fun getCenterX-tGZKRUM ()I
+	public final fun getCenterY-tGZKRUM ()I
+	public fun getOpcode ()I
+	public final fun getPlacement ()I
+	public final fun getRadius-tGZKRUM ()I
+	public final fun getStartAngle-tGZKRUM ()I
+	public final fun getTextId ()I
+	public final fun getWarpRadiusOffset-tGZKRUM ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/protocol/RcDrawTextOnCircle$Companion {
+}
+
 public final class ee/schimke/composeai/rcplayer/protocol/RcDrawTextOnPath : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public synthetic fun <init> (IIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
@@ -1985,6 +2020,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field DRAW_ROUND_RECT I
 	public static final field DRAW_SECTOR I
 	public static final field DRAW_TEXT_ANCHOR I
+	public static final field DRAW_TEXT_ON_CIRCLE I
 	public static final field DRAW_TEXT_ON_PATH I
 	public static final field DRAW_TEXT_RUN I
 	public static final field DRAW_TWEEN_PATH I
@@ -2162,6 +2198,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOperationSpec {
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcOperationStatus : java/lang/Enum {
 	public static final field IMPLEMENTED Lee/schimke/composeai/rcplayer/protocol/RcOperationStatus;
+	public static final field IMPLEMENTED_UPSTREAM_UNAVAILABLE Lee/schimke/composeai/rcplayer/protocol/RcOperationStatus;
 	public static final field PARSE_ONLY Lee/schimke/composeai/rcplayer/protocol/RcOperationStatus;
 	public static final field RESERVED Lee/schimke/composeai/rcplayer/protocol/RcOperationStatus;
 	public static final field UNAVAILABLE Lee/schimke/composeai/rcplayer/protocol/RcOperationStatus;

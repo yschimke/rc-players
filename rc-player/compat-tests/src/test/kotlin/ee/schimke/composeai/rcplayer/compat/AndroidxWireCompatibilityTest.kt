@@ -34,6 +34,7 @@ import androidx.compose.remote.core.operations.DrawRoundRect
 import androidx.compose.remote.core.operations.DrawSector
 import androidx.compose.remote.core.operations.DrawText
 import androidx.compose.remote.core.operations.DrawTextAnchored as AndroidxDrawTextAnchored
+import androidx.compose.remote.core.operations.DrawTextOnCircle as AndroidxDrawTextOnCircle
 import androidx.compose.remote.core.operations.DrawTextOnPath as AndroidxDrawTextOnPath
 import androidx.compose.remote.core.operations.DrawTweenPath
 import androidx.compose.remote.core.operations.FloatConstant
@@ -187,6 +188,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapInt
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapScaled
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
+import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
@@ -1604,6 +1606,59 @@ class AndroidxWireCompatibilityTest {
     assertEquals(9, operation.horizontalOffset.referencedId)
     assertEquals(-4f, operation.verticalOffset.value)
     assertContentEquals(bytes, RcDocumentCodec.encode(document))
+  }
+
+  @Test
+  fun androidXTextOnCircleWireRoundTripsExactly() {
+    // The authoritative writer is the only thing that settles this operation's field widths: the
+    // five geometry fields are `readNanId` words while alignment and placement are single ordinal
+    // bytes, so decoding either enum as an int would consume six bytes too many and desynchronise
+    // everything after it. Re-encoding to the same bytes is what proves we read it as written.
+    val buffer = WireBuffer()
+    Header.apply(buffer, 100, 100, 1f, 0L)
+    AndroidxDrawTextOnCircle.apply(
+      buffer,
+      7,
+      50f,
+      60f,
+      Utils.asNan(9),
+      -30f,
+      2f,
+      AndroidxDrawTextOnCircle.Alignment.CENTER,
+      AndroidxDrawTextOnCircle.Placement.INSIDE,
+    )
+    val bytes = buffer.buffer.copyOf(buffer.size())
+
+    val document = RcDocumentCodec.decode(bytes)
+    val operation = assertIs<RcDrawTextOnCircle>(document.operations.single())
+
+    assertEquals(7, operation.textId)
+    assertEquals(50f, operation.centerX.value)
+    assertEquals(60f, operation.centerY.value)
+    assertEquals(9, operation.radius.referencedId)
+    assertEquals(-30f, operation.startAngle.value)
+    assertEquals(2f, operation.warpRadiusOffset.value)
+    // Our constants must equal AndroidX's ordinals, since the ordinal is what is on the wire.
+    assertEquals(AndroidxDrawTextOnCircle.Alignment.CENTER.ordinal, operation.alignment)
+    assertEquals(AndroidxDrawTextOnCircle.Placement.INSIDE.ordinal, operation.placement)
+    assertEquals(RcDrawTextOnCircle.ALIGN_CENTER, operation.alignment)
+    assertEquals(RcDrawTextOnCircle.PLACEMENT_INSIDE, operation.placement)
+    assertContentEquals(bytes, RcDocumentCodec.encode(document))
+  }
+
+  @Test
+  fun androidXTextOnCircleEnumOrdinalsMatchOurConstants() {
+    assertEquals(RcDrawTextOnCircle.ALIGN_START, AndroidxDrawTextOnCircle.Alignment.START.ordinal)
+    assertEquals(RcDrawTextOnCircle.ALIGN_CENTER, AndroidxDrawTextOnCircle.Alignment.CENTER.ordinal)
+    assertEquals(RcDrawTextOnCircle.ALIGN_END, AndroidxDrawTextOnCircle.Alignment.END.ordinal)
+    assertEquals(
+      RcDrawTextOnCircle.PLACEMENT_OUTSIDE,
+      AndroidxDrawTextOnCircle.Placement.OUTSIDE.ordinal,
+    )
+    assertEquals(
+      RcDrawTextOnCircle.PLACEMENT_INSIDE,
+      AndroidxDrawTextOnCircle.Placement.INSIDE.ordinal,
+    )
   }
 
   @Test
