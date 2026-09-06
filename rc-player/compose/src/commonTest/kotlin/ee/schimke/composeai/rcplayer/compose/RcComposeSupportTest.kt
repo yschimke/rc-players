@@ -74,6 +74,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -1201,6 +1202,71 @@ class RcComposeSupportTest {
         .issues
         .single()
     assertEquals("2 arguments exceed 1 parameters", overApplied.detail)
+  }
+
+  @Test
+  fun lenientModePlaysAnOperationOnlyTheProfileExcludes() {
+    // The wear-m3-catalog#321 shape, reduced: an operation the player decodes and the shared
+    // renderer draws, sitting outside the profile the backend advertises. Strict mode refuses the
+    // whole document over it; lenient mode plays it.
+    val document =
+      RcDocument(
+        header,
+        listOf(
+          RcGraphicsLayerModifier(
+            listOf(
+              RcGraphicsLayerAttribute.FloatValue(
+                RcGraphicsLayerModifier.ROTATION_Z,
+                RcFloatWord.literal(-8f),
+              )
+            )
+          )
+        ),
+      )
+
+    val report = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16)
+
+    assertFalse(report.fullyRenderable)
+    assertTrue(report.playable)
+    assertEquals(emptyList(), report.blockingIssues)
+    assertEquals(
+      RcComposeSupportSeverity.SKIPPABLE,
+      report.issues.single().severity,
+      "A profile is an advertised subset, not a capability boundary",
+    )
+    report.requirePlayable()
+    report.requireRenderable(lenient = true)
+    assertFailsWith<IllegalArgumentException> { report.requireRenderable(lenient = false) }
+  }
+
+  @Test
+  fun lenientModeStillRefusesWhatWouldThrowMidDraw() {
+    // 25 is PATH_EFFECT: `applyPaint` has a branch for the paint bundle and errors inside it, so
+    // this one takes the composition down rather than leaving a hole. No mode can play it.
+    val document = RcDocument(header, listOf(RcPaintData(listOf(25))))
+
+    val report = document.composeSupportReport()
+
+    assertFalse(report.playable)
+    assertEquals(RcComposeSupportSeverity.BLOCKING, report.issues.single().severity)
+    val failure = assertFailsWith<IllegalArgumentException> { report.requirePlayable() }
+    assertTrue(
+      failure.message!!.contains("paint command 25 is not implemented"),
+      "Lenient mode names the issue it could not skip: ${failure.message}",
+    )
+    assertFailsWith<IllegalArgumentException> { report.requireRenderable(lenient = true) }
+  }
+
+  @Test
+  fun lenientModeChangesNothingForADocumentThatWasAlreadyRenderable() {
+    val document = RcDocument(header, listOf(animationSpec()))
+
+    val report = document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16)
+
+    assertTrue(report.fullyRenderable)
+    assertTrue(report.playable)
+    report.requireRenderable(lenient = true)
+    report.requireRenderable(lenient = false)
   }
 
   private fun animationSpec() =

@@ -126,7 +126,10 @@ public fun main() {
                   allowExternalImagePlaceholders =
                     queryParameter("allowExternalImagePlaceholders") == "1",
                 )
-                .requireFullyRenderable()
+                // `?lenient=1` plays a document carrying any operation the player knows,
+                // drawing nothing for the ones this backend has no branch for, rather than
+                // refusing the whole document. Everything that would throw mid-draw still fails.
+                .requireRenderable(queryParameter("lenient") == "1")
               LoadState.Ready(document, typefaces, namedValuesFromLocation())
             }
             .fold(onSuccess = { it }, onFailure = { LoadState.Failed(it.message ?: "load failed") })

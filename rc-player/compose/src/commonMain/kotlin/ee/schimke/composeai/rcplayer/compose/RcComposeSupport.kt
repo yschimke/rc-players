@@ -71,15 +71,52 @@ import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.hasPortableVisibilityAnimation
 import ee.schimke.composeai.rcplayer.runtime.isLayoutComputeExecutable
 
+/**
+ * How much of a document an issue costs, and therefore whether a lenient host can play it anyway.
+ *
+ * The line is drawn by what the *renderer* does when it meets the operation, not by how serious the
+ * gap looks. `drawOperations` ends in `else -> Unit`, so an operation it has no branch for is
+ * silently skipped and the rest of the document draws normally — that is [SKIPPABLE]. An operation
+ * it does have a branch for, handed data that branch cannot execute, throws from inside the draw
+ * pass and takes the whole composition with it — that is [BLOCKING], and no mode can play it.
+ */
+public enum class RcComposeSupportSeverity {
+  /**
+   * The document cannot be drawn at all: the renderer would throw partway through the draw pass, or
+   * would need data the host has not supplied.
+   */
+  BLOCKING,
+
+  /**
+   * The operation decodes and is known, but this backend draws nothing for it. A strict host
+   * refuses the document; a lenient one plays it with that operation skipped.
+   */
+  SKIPPABLE,
+}
+
 public data class RcComposeSupportIssue(
   val operationIndex: Int,
   val operation: String,
   val detail: String,
+  val severity: RcComposeSupportSeverity = RcComposeSupportSeverity.BLOCKING,
 )
 
 public data class RcComposeSupportReport(val issues: List<RcComposeSupportIssue>) {
   public val fullyRenderable: Boolean
     get() = issues.isEmpty()
+
+  /**
+   * The issues that survive lenient mode — the ones no host can skip its way past.
+   *
+   * Everything else is an operation the player knows but this backend does not draw, which a
+   * lenient host renders as a hole rather than as a refused document.
+   */
+  public val blockingIssues: List<RcComposeSupportIssue>
+    get() = issues.filter { it.severity == RcComposeSupportSeverity.BLOCKING }
+
+  /** True when the document can be played with any known operation, skipping what is undrawn. */
+  public val playable: Boolean
+    get() = blockingIssues.isEmpty()
 
   public fun requireFullyRenderable() {
     if (issues.isNotEmpty()) {
@@ -88,6 +125,34 @@ public data class RcComposeSupportReport(val issues: List<RcComposeSupportIssue>
           issues.joinToString { "${it.operation}[${it.operationIndex}]: ${it.detail}" }
       )
     }
+  }
+
+  /**
+   * The lenient counterpart of [requireFullyRenderable]: accept the document as long as every
+   * operation it carries is one the player *knows*, even where this backend draws nothing for it.
+   *
+   * This is what a host wants when a document is worth seeing incomplete — a catalog page, a
+   * preview, a diff lane — rather than not at all. It is the gate for documents written against a
+   * profile wider than the one this backend advertises: `DrawTextOnCircle` is writable under
+   * `WEAR_WIDGETS` while no reader profile lists it, so a document carrying one is refused whole by
+   * every strict player even though the rest of it draws (wear-m3-catalog#321).
+   */
+  public fun requirePlayable() {
+    val blocking = blockingIssues
+    if (blocking.isNotEmpty()) {
+      throw IllegalArgumentException(
+        "Document is not playable by the CMP player: " +
+          blocking.joinToString { "${it.operation}[${it.operationIndex}]: ${it.detail}" }
+      )
+    }
+  }
+
+  /**
+   * Apply whichever of the two gates above [lenient] selects, so a host that carries the mode as a
+   * flag does not have to branch at every call site.
+   */
+  public fun requireRenderable(lenient: Boolean) {
+    if (lenient) requirePlayable() else requireFullyRenderable()
   }
 }
 
@@ -173,8 +238,15 @@ public fun RcDocument.composeSupportReport(
       .map { it.id }
       .toSet()
   supportReport().parseOnly.forEach { entry ->
+    // Decoded, inert, and skipped by `drawOperations`' `else -> Unit`. Refusing the document over
+    // it is a strict-mode choice, not a rendering constraint.
     issues +=
-      RcComposeSupportIssue(-1, entry.stableName, "operation is decoded but has no semantics")
+      RcComposeSupportIssue(
+        -1,
+        entry.stableName,
+        "operation is decoded but has no semantics",
+        RcComposeSupportSeverity.SKIPPABLE,
+      )
   }
   if (profile != null) {
     operations.forEachIndexed { index, operation ->
@@ -185,6 +257,10 @@ public fun RcDocument.composeSupportReport(
             RcOperationInventory.byOpcode[operation.opcode]?.stableName
               ?: "Opcode${operation.opcode}",
             "operation is excluded from the ${profile.name} profile",
+            // A profile is an advertised subset, not a capability boundary: the operation decoded,
+            // so it is known, and the renderer either draws it or skips it. Excluding it is the
+            // reason lenient mode exists.
+            RcComposeSupportSeverity.SKIPPABLE,
           )
       }
     }

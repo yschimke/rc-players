@@ -20,16 +20,19 @@ public final class ee/schimke/composeai/rcplayer/compose/RcComposePlayerKt {
 
 public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue {
 	public static final field $stable I
-	public fun <init> (ILjava/lang/String;Ljava/lang/String;)V
+	public fun <init> (ILjava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;)V
+	public synthetic fun <init> (ILjava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
-	public final fun copy (ILjava/lang/String;Ljava/lang/String;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue;ILjava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue;
+	public final fun component4 ()Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;
+	public final fun copy (ILjava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue;ILjava/lang/String;Ljava/lang/String;Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDetail ()Ljava/lang/String;
 	public final fun getOperation ()Ljava/lang/String;
 	public final fun getOperationIndex ()I
+	public final fun getSeverity ()Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -48,11 +51,23 @@ public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportReport 
 	public final fun copy (Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
 	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBlockingIssues ()Ljava/util/List;
 	public final fun getFullyRenderable ()Z
 	public final fun getIssues ()Ljava/util/List;
+	public final fun getPlayable ()Z
 	public fun hashCode ()I
 	public final fun requireFullyRenderable ()V
+	public final fun requirePlayable ()V
+	public final fun requireRenderable (Z)V
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity : java/lang/Enum {
+	public static final field BLOCKING Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;
+	public static final field SKIPPABLE Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcCustomComponent {
