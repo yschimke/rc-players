@@ -81,6 +81,18 @@ checksum at resolve time. `scripts/update-package-swift.sh` is the only thing th
   viewable images. `scripts/rc-lane-ab/render-ab.sh` and `scripts/rc-text-metrics/render-strips.sh`
   produce exactly that; their committed outputs under `renders/` are the reference. Describing an
   image is not evidence. Text-only is correct for non-visual changes.
+- **Embed those images from a GitHub-hosted origin — commit the PNG and cite a commit-pinned
+  `raw.githubusercontent.com` URL.** Claude Code on the web silently rewrites `![alt](url)` to
+  `[alt](url)` on the way to the API whenever the destination is not a GitHub host, so an image
+  served from anywhere else arrives as a bare link while the call still reports success. Kept:
+  `raw.githubusercontent.com`, `github.com/<owner>/<repo>/raw/<ref>/…`,
+  `github.com/user-attachments/assets/…`, and the `user-images` / `private-user-images` / `avatars`
+  / `objects` / `media` / `gist` `.githubusercontent.com` hosts; everything else, including
+  `camo.githubusercontent.com` and badge services, is stripped. Applies to issue bodies and comments
+  as well as PR descriptions. It is an upstream anti-exfiltration control
+  ([anthropics/claude-code#89540](https://github.com/anthropics/claude-code/issues/89540), open) —
+  write the allowed form rather than routing around it. Committing under `renders/` already puts the
+  evidence on an allowed host, so this changes nothing about the workflow above.
 - **Re-check PR state immediately before every push.** A PR can merge between turns. Right before
   pushing, `git fetch origin main` and confirm the branch head is not already in `origin/main`. If it
   has landed, **stop**: branch fresh from `origin/main` for the follow-up and say so.
