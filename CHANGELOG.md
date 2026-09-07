@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.59.3](https://github.com/yschimke/rc-players/compare/v1.59.2...v1.59.3) (2026-09-07)
+
+
+### Bug Fixes
+
+* register bitmaps declared in a component's canvas stream ([#56](https://github.com/yschimke/rc-players/issues/56)) ([03ad1c3](https://github.com/yschimke/rc-players/commit/03ad1c3b145f07667b54180b825fbd334fb39f51))
+* resolve a NaN-boxed paint float instead of reading it as a literal ([#53](https://github.com/yschimke/rc-players/issues/53)) ([c9da24c](https://github.com/yschimke/rc-players/commit/c9da24cb611cb1ef92332c7d5814ed8bb2b64e0b))
+* vendor Inter, the one branded family the manifest was missing ([#58](https://github.com/yschimke/rc-players/issues/58)) ([daa6562](https://github.com/yschimke/rc-players/commit/daa6562114e90d7aa1bc3decf334ebf0223c8c6f))
+
 ## [1.59.2](https://github.com/yschimke/rc-players/compare/v1.59.1...v1.59.2) (2026-09-07)
 
 
