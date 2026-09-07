@@ -71,9 +71,24 @@ tasks.register<Sync>("wasmPlayerDist") {
   // elimination means only the shared-transition and animated-content machinery the player actually
   // calls is in there. Slack is kept at ~238 KB, roughly what the previous value carried, so an
   // unintended jump still fails.
+  //
+  // Raised again from 24_600_000 -> 25_280_000 for the Inter faces vendored into the fonts
+  // manifest (#58), for the same reason Google Sans Flex was: this lane is manifest-only and never
+  // fetches, so a named family it does not carry cannot be drawn — four of the `remote-m3`
+  // catalog's typeface themes name `google:Inter`, and the CMP player's own
+  // `composeSupportReport` reported it as the single capability gap across all 478 documents.
+  // Measured on the runner, the two weights are 651_288 bytes and took the distribution to
+  // 25_035_432. A deliberate payload, not drift: nothing but the fonts directory moved.
+  //
+  // Inter is the heaviest named family here at ~326 KB a weight, because Google Fonts serves the
+  // full charset (Latin, Latin-ext, Cyrillic, Greek, Vietnamese) and these specimens only set
+  // Latin. Subsetting would cut most of it, and is worth doing if this payload ever needs to come
+  // back down — but every other face here is vendored exactly as the CSS2 endpoint serves it, and
+  // silently shipping a processed one would break that and the reproducibility the README
+  // documents. Slack is kept at ~245 KB, in line with the previous values.
   inputs.property(
     "maximumDistributionBytes",
-    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("24600000"),
+    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("25280000"),
   )
   doLast {
     val maximumBytes = inputs.properties.getValue("maximumDistributionBytes").toString().toLong()
