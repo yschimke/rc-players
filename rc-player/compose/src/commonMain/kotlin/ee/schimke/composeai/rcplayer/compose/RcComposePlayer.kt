@@ -1199,8 +1199,14 @@ private fun RenderLayoutNode(
                 else state.color(colorId)
               ),
             fontSize = with(density) { fontSize.toSp() },
-            letterSpacing =
-              with(density) { state.resolve(properties.floatProperty(12, 0f)).toSp() },
+            // **Ems, not pixels.** Property 12 carries what
+            // `android.graphics.Paint.setLetterSpacing`
+            // takes, which is a multiple of the font size — the vendored AndroidX player spells the
+            // same value `data.letterSpacing.em`. Converting it as a pixel length made every
+            // document's spacing effectively zero: the `remote-m3` body style asks for 0.02857 em,
+            // and `0.02857.toSp()` at density 2 is 0.014 sp. Text then measured about 5% narrow,
+            // which is invisible on one line and re-breaks every paragraph that wraps.
+            letterSpacing = state.resolve(properties.floatProperty(12, 0f)).em,
             lineHeight =
               if (lineHeightAdd == 0f && lineHeightMultiplier == 1f) TextUnit.Unspecified
               else if (autosize)
