@@ -126,3 +126,75 @@ CMP-vs-view differences after the font manifest is loaded are a few pixels of gl
 `circularprogressindicator__ideal__indeterminate__*` differs between the local CMP render and the
 published Wasm one because it is animated and the two captures are at different phases. It is
 listed here so the next reader does not chase it.
+
+## Closing the sweep: what the CMP player looks like once the embedded one is fixed
+
+Re-measured over all 475 staged documents after the four embedded-player defects this sweep found
+were fixed ([#48](https://github.com/yschimke/rc-players/pull/48),
+[#51](https://github.com/yschimke/rc-players/pull/51),
+[#53](https://github.com/yschimke/rc-players/pull/53),
+[#56](https://github.com/yschimke/rc-players/pull/56)). This is the section to read first if you
+are asking "does the CMP player still get anything wrong" — the answer is measured rather than
+asserted, and the method matters as much as the number.
+
+### The View lane is not a usable reference here, and the raw score says so
+
+Scored against the View lane, the CMP player differs on **61 documents by more than 5%**, which
+reads alarming until you look at three lanes instead of two. On every one of the worst cases the
+**View** lane is the odd one out, 2-to-1:
+
+![CMP and embedded agree where the view lane differs](view-lane-is-the-outlier.png)
+
+* `checkboxbutton` — CMP and embedded draw the same inset pill at the same corner radius; the View
+  lane draws it wider, running past the frame.
+* `appcard__ideal__outlined-content-image` — CMP and embedded both draw the app icon and the
+  content image; the View lane draws **neither**, because its harness has no encoded-image support.
+
+So a CMP-vs-View score is measuring the View harness's limits, not the CMP player's correctness.
+That is worth stating plainly because this whole sweep exists to stop exactly that mistake being
+made one layer down — a lane disagreeing is never, by itself, evidence about *which* lane is wrong.
+
+### Against the fixed embedded lane
+
+| | documents |
+| --- | ---: |
+| byte-identical | **258** |
+| under 1% | 98 |
+| 1–5% (Skia-vs-Android glyph rasterisation) | 114 |
+| over 5% | **5** |
+| **reproducible difference over 5%** | **0** |
+
+The seven `titlecard`/`button-imagebackground` documents that scored 32–65% before #56 land at
+~2% after it — they were the embedded lane's bug, not this one's.
+
+### The five that remain are nondeterministic, and that is proven rather than assumed
+
+Rendering the CMP lane **against itself** at one commit, no code change between the two runs:
+
+```
+documents: 475   identical: 470   <1%: 0   1-5%: 0   >5%: 5
+```
+
+The five that differ are exactly the five `circularprogressindicator__ideal__indeterminate__*`
+documents, at the same magnitudes (11.16% self-vs-self against 11.36% cross-lane). A lane that does
+not agree with *itself* on a document cannot be said to disagree with another lane on it.
+
+![The indeterminate spinner differs between two runs of the same lane](indeterminate-is-nondeterministic.png)
+
+These are animated documents and the two runs sample the animation at different phases. Comparing
+them across lanes is meaningless until the harness pins a frame time; until then they belong on the
+unscorable list rather than in a diff. `../../.claude/skills/flake-triage/SKILL.md` is the general
+form of this oracle.
+
+### The conclusion
+
+**No document in this catalog shows a reproducible CMP rendering defect.** The two the sweep did
+find were fixed with tests: letter spacing read as pixels where the wire format specifies ems
+([#51](https://github.com/yschimke/rc-players/pull/51)), and the `google:Inter` faces the
+manifest-only Wasm/CMP lane could not draw at all
+([#58](https://github.com/yschimke/rc-players/pull/58)).
+
+That is a real result rather than an absence of one: the sweep started from fourteen reports filed
+against `remote-material3`, and it ends with the CMP player exonerated by measurement, five
+documents correctly reclassified as unscorable, and the defects relocated to where they actually
+were.
