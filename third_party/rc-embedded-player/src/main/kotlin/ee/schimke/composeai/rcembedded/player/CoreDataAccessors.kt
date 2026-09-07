@@ -1473,6 +1473,8 @@ internal fun androidx.compose.remote.core.operations.layout.managers.CoreText.re
   CoreTextData {
   return CoreTextData(
     colorValue = coreTextColorField.getInt(this),
+    colorId = coreTextColorIdField.getInt(this),
+    dynamicColor = coreTextDynamicColorField.getBoolean(this),
     fontSizeValue = coreTextFontSizeField.getFloat(this),
     type = coreTextTypeField.getInt(this),
     fontWeightValue = coreTextFontWeightField.getFloat(this),
@@ -1500,6 +1502,36 @@ private val coreTextColorField =
   androidx.compose.remote.core.operations.layout.managers.CoreText::class
     .java
     .getDeclaredField("mColorValue")
+    .apply { isAccessible = true }
+
+/**
+ * The *id* the text's colour is named by, where `mColorValue` is the value resolved for it once.
+ *
+ * Both are needed: a literal colour has no id and lives only in the value, while a colour the
+ * document computes has both — and the value is a snapshot of whatever the store held when the op
+ * last resolved it, which for a derived colour can be long before the value it derives from is
+ * published. Reading the id keeps the text reactive to the store instead of pinned to that
+ * snapshot.
+ */
+private val coreTextColorIdField =
+  androidx.compose.remote.core.operations.layout.managers.CoreText::class
+    .java
+    .getDeclaredField("mColorId")
+    .apply { isAccessible = true }
+
+/**
+ * Whether the text's colour is one the document **computes**, which is the only case where reading
+ * it by id is right.
+ *
+ * `mColorId` alone is not that predicate: it is set for a literal too, and reading a literal
+ * through the store hands back 0 for every text whose colour was never published there — which
+ * renders the text invisible rather than merely mis-tinted. This flag is the op's own answer to the
+ * question, so it is the one to ask.
+ */
+private val coreTextDynamicColorField =
+  androidx.compose.remote.core.operations.layout.managers.CoreText::class
+    .java
+    .getDeclaredField("mIsDynamicColorEnabled")
     .apply { isAccessible = true }
 private val coreTextFontSizeField =
   androidx.compose.remote.core.operations.layout.managers.CoreText::class

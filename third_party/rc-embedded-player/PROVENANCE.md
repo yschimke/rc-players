@@ -176,6 +176,7 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 | [#5](https://github.com/yschimke/rc-players/issues/5) | Published `ui-text-google-fonts` AAR ships no GMS font-provider certificates |
 | [#6](https://github.com/yschimke/rc-players/issues/6) | `GraphContext` extends `AndroidRemoteContext` for behaviour it never uses (upstream issue #12) |
 | [#7](https://github.com/yschimke/rc-players/issues/7) | Frame loop uses `withFrameMillis`, so an animated document never reaches idle |
+| [#47](https://github.com/yschimke/rc-players/issues/47) | A derived colour never reaches the layout tree — `updateColor` is not written through the snapshot mirror, and `CoreText` draws a value it resolved once |
 
 Two more used to be here and are gone: the action-dispatch pair, restored verbatim when alpha17
 published `LambdaAction`, `PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` /
@@ -190,6 +191,21 @@ published `LambdaAction`, `PendingIntentAction.Companion.parseId` and `CapturedD
   from an explicit `COLOR` operation. `RcPlayerPaintTest` pins the player default and
   `ComposePathColorFilterRobolectricReproTest` independently demonstrates the SrcIn behaviour using
   only standard Compose drawing.
+
+- **A colour the document derives now reaches the text that names it**
+  (`SnapshotRemoteComposeState.kt`, `RcPlayerTextLayout.kt`, `CoreDataAccessors.kt`,
+  `CoreDataModel.kt`). Two halves of one bug. `SnapshotRemoteComposeState` mirrors the base store
+  into `SnapshotStateMap`s, and overrode every write except `updateColor` — which is exactly where
+  `RemoteContext.loadColor` lands, so a computed colour was written to the base store while the
+  mirror went on serving what it had cached on the first read. And `RcPlayerText` took its colour
+  from the op's reflected `mColorValue`, the value resolved the last time `updateVariables` ran: for
+  a `ColorExpression` over `ColorAttribute` channels that happens at document load, when the
+  channels are still 0, so the op carried `rgb(alpha, 0, 0, 0)` for life. The store now writes
+  through, and the text reads by id when the op's own `mIsDynamicColorEnabled` says the colour is
+  computed — gated on that flag rather than on `mColorId`, which is set for literals too and whose
+  store lookup returns 0, blanking every specimen document's text. `RcDerivedColorRenderTest` pins
+  both on pixels against the published `remote-m3` documents; over the whole 475-document catalog
+  the change leaves 437 untouched and moves 24 closer to the View player.
 
 - **Indexed Android `ColorTheme` values resolved at cold start**
   (`AndroidColorThemeResolver.kt`, `RcPlayer.kt`). Upstream's embedded player applies each
