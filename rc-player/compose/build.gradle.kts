@@ -133,9 +133,20 @@ composeAiMavenPublishing {
 //
 //   ./gradlew :rc-player-compose:jvmTest --rerun --tests '*RcTextOnCircleRenderTest*' \
 //     -Prc.textOnCircle.out=<abs dir>
+//
+// `rc.cmp.input` / `rc.cmp.output` ride the same convention for `RcCmpRenderHarness`, and are
+// spelled to match `third_party/rc-embedded-player`'s `rc.embedded.input` / `rc.embedded.output`
+// deliberately: the three lanes are staged from one directory and diffed against each other, so
+// the only thing that should differ between the two invocations is which player runs.
+//
+//   ./gradlew :rc-player-compose:jvmTest --rerun --tests '*RcCmpRenderHarness*' \
+//     -Prc.cmp.input=<abs dir> -Prc.cmp.output=<abs dir>
 tasks.withType<Test>().configureEach {
   (project.findProperty("rc.textOnCircle.out") as String?)?.let {
     systemProperty("rc.textOnCircle.out", it)
+  }
+  for (name in listOf("rc.cmp.input", "rc.cmp.output", "rc.cmp.fonts")) {
+    (project.findProperty(name) as String?)?.let { systemProperty(name, it) }
   }
 }
 
