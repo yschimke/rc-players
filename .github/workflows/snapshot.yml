@@ -69,4 +69,21 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-        run: ./gradlew publishPlayers
+        # RETRIED ONCE, and with a longer socket timeout than Gradle's 30s default. The upload is a
+        # long series of POMs, jars and klibs over one connection to Sonatype, and a single "Read
+        # timed out" partway through fails the whole task and reds main for a reason that has
+        # nothing to do with the tree (run 34107401096). Re-publishing a -SNAPSHOT coordinate is
+        # idempotent — snapshots are overwritable by definition — so a retry costs time and nothing
+        # else. Two attempts, then the failure is real.
+        run: |
+          set -euo pipefail
+          publish() {
+            ./gradlew publishPlayers \
+              -Dorg.gradle.internal.http.socketTimeout=120000 \
+              -Dorg.gradle.internal.http.connectionTimeout=60000
+          }
+          publish || {
+            echo "::warning title=Snapshot publish retry::The first publish attempt failed; retrying once before failing the job."
+            sleep 30
+            publish
+          }
