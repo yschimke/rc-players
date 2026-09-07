@@ -25,7 +25,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
-import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -65,7 +65,7 @@ class RcJvmFontAxisTest {
   @Test
   fun `each axis instance is its own family, and the file is fetched once`() {
     val face = File(VARIABLE_FACE_PATH)
-    assumeTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
+    assertTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
     val fonts = FakeFonts(face)
     val resolver = GoogleFontTypefaceResolver(fonts)
 
@@ -86,7 +86,7 @@ class RcJvmFontAxisTest {
   @Test
   fun `no axes resolves to the plain family`() {
     val face = File(VARIABLE_FACE_PATH)
-    assumeTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
+    assertTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
     val resolver = GoogleFontTypefaceResolver(FakeFonts(face))
 
     val plain = resolver.composeFontFamily("google:Roboto Flex", 400, false)
@@ -105,7 +105,7 @@ class RcJvmFontAxisTest {
     // to it varies nothing, because that file has no axes. The document's own `fontWeight` stays at
     // its default while the axis carries the intent, which is why the axis has to win here.
     val face = File(VARIABLE_FACE_PATH)
-    assumeTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
+    assertTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
     val fonts = FakeFonts(face)
     val resolver = GoogleFontTypefaceResolver(fonts)
 
@@ -124,7 +124,7 @@ class RcJvmFontAxisTest {
     // The point of the whole exercise: the static path resolves a *baked instance*, which has no
     // axes left to apply, so an axis request has to reach for the family's variable file instead.
     val face = File(VARIABLE_FACE_PATH)
-    assumeTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
+    assertTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
     val fonts = FakeFonts(file = face, variable = face)
     val resolver = GoogleFontTypefaceResolver(fonts)
 
@@ -142,7 +142,7 @@ class RcJvmFontAxisTest {
   @Test
   fun `an unvaried request never asks for the variable file`() {
     val face = File(VARIABLE_FACE_PATH)
-    assumeTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
+    assertTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
     val fonts = FakeFonts(file = face, variable = face)
     val resolver = GoogleFontTypefaceResolver(fonts)
 
@@ -159,7 +159,7 @@ class RcJvmFontAxisTest {
     // The axes then can't be applied — but the text still draws in the right family at the nearest
     // weight, which is the behaviour this lane had before variable files existed.
     val face = File(VARIABLE_FACE_PATH)
-    assumeTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
+    assertTrue("vendored Roboto Flex not found at $VARIABLE_FACE_PATH", face.isFile)
     val fonts = FakeFonts(file = face, variable = null)
     val resolver = GoogleFontTypefaceResolver(fonts)
 
@@ -195,7 +195,6 @@ class RcJvmFontAxisTest {
      * file the browser lane serves, so every lane's axis behaviour is measured against one font.
      * Relative to this module's directory, which is a Gradle `Test` task's working directory.
      */
-    const val VARIABLE_FACE_PATH =
-      "../../samples/cmp-wasm-catalog/src/wasmJsMain/resources/fonts/RobotoFlex.ttf"
+    const val VARIABLE_FACE_PATH = "../../rc-player/wasm/dist-assets/fonts/RobotoFlex.ttf"
   }
 }

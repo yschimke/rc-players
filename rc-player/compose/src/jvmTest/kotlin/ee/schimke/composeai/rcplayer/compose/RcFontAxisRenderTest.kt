@@ -16,9 +16,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.jetbrains.skia.Bitmap
-import org.junit.Assume.assumeTrue
 
 /**
  * Font-variation axes, end to end: a document naming a host family *and* a `wdth` value must render
@@ -38,8 +38,10 @@ class RcFontAxisRenderTest {
   @Test
   fun `a wdth axis changes the drawn face rather than being dropped`() {
     val face = robotoFlex()
-    assumeTrue("vendored Roboto Flex not found at ${VARIABLE_FACE_PATH}", face != null)
-    val fonts = mapOf("roboto flex" to RcFontFaces(RcFontFace("RobotoFlex.ttf", face!!)))
+    // Vendored in this repository, so its absence is a broken checkout rather than an
+    // environment this test may skip in — see the note on VARIABLE_FACE_PATH.
+    assertNotNull(face, "vendored Roboto Flex not found at $VARIABLE_FACE_PATH")
+    val fonts = mapOf("roboto flex" to RcFontFaces(RcFontFace("RobotoFlex.ttf", face)))
 
     val narrow = inkWidth(document(wdth = 25f), fonts)
     val wide = inkWidth(document(wdth = 151f), fonts)
@@ -110,7 +112,6 @@ class RcFontAxisRenderTest {
      * lane serves this exact file, so the test exercises the same bytes the lane does. Relative to
      * this module's directory, which is a Gradle `Test` task's working directory.
      */
-    const val VARIABLE_FACE_PATH =
-      "../../samples/cmp-wasm-catalog/src/wasmJsMain/resources/fonts/RobotoFlex.ttf"
+    const val VARIABLE_FACE_PATH = "../../rc-player/wasm/dist-assets/fonts/RobotoFlex.ttf"
   }
 }
