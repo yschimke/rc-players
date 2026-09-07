@@ -50,6 +50,7 @@ import androidx.compose.remote.core.operations.DrawToBitmap
 import androidx.compose.remote.core.operations.DrawTweenPath
 import androidx.compose.remote.core.operations.FloatFunctionCall
 import androidx.compose.remote.core.operations.FloatFunctionDefine
+import androidx.compose.remote.core.operations.ImageAttribute
 import androidx.compose.remote.core.operations.MatrixRestore
 import androidx.compose.remote.core.operations.MatrixRotate
 import androidx.compose.remote.core.operations.MatrixSave
@@ -186,7 +187,16 @@ internal fun DrawScope.executeOperations(
       // `GraphPaintContext` at all. Reuse that here, over the real store: the op reads the colour
       // it decomposes and writes the channel back, both of which belong in the store the rest of
       // this stream reads.
-      is ColorAttribute -> {
+      // `ImageAttribute` is the same shape and needs the same treatment: a `PaintOperation`
+      // publishing the image's width or height from `paint`. It is not reachable the other way
+      // either — `ColorAttribute` implements `VariableSupport` and `VariableProvider`, so
+      // `buildComputedOpIndex` picks it up, and `ImageAttribute` implements NEITHER and can never
+      // be indexed however hard that walk looks. Without this case its ids resolve against a store
+      // nothing wrote, and a gradient whose geometry is derived from the image's dimensions
+      // degenerates to its first stop — an image-background button painting a flat scrim over the
+      // texture it should be fading across (#54).
+      is ColorAttribute,
+      is ImageAttribute -> {
         val context =
           evalPaintContext ?: GraphPaintContext(remoteContext).also { evalPaintContext = it }
         op.paint(context)
