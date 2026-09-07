@@ -118,6 +118,36 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
     return colors[id] ?: 0
   }
 
+  /**
+   * The write side of [getColor], and for a long time the one member of this class that was
+   * missing.
+   *
+   * `RemoteContext.loadColor` — how every colour an operation *computes* is published — routes here
+   * through `StoreBackedRemoteContext`. Without this override it reached `RemoteComposeState`
+   * directly, so the value landed in the base store while the snapshot map above went on serving
+   * whatever it had cached on the first read. `getColor` populates `colors[id]` on that first read,
+   * so from then on the stale entry wins and the computed colour is never seen: not stale by one
+   * frame, but permanently.
+   *
+   * That is what made a `ColorExpression` over `ColorAttribute` channels resolve to `rgb(alpha, 0,
+   * 0, 0)` in the layout tree — black at the expression's alpha, whatever colour the document
+   * actually named. It is also why no amount of re-evaluating the expression helped: the evaluation
+   * was right every time and the write was dropped every time.
+   *
+   * Written to match [overrideColor] exactly, including refreshing the float and integer mirrors:
+   * the three stores are views of one value, and a reader is free to ask for any of them.
+   */
+  override fun updateColor(id: Int, color: Int) {
+    val old = colors[id]
+    super.updateColor(id, color)
+    val new = super.getColor(id)
+    if (new != old) {
+      colors[id] = new
+      floats[id] = super.getFloat(id)
+      integers[id] = super.getInteger(id)
+    }
+  }
+
   override fun overrideColor(id: Int, color: Int) {
     val old = colors[id]
     super.overrideColor(id, color)

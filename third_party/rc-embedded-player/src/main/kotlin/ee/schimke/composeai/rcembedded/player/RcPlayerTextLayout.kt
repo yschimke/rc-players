@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
+import ee.schimke.composeai.rcembedded.player.state.rememberRemoteColorAsState
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteStringAsState
 
 @Composable
@@ -59,7 +60,25 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
 
   val data = layout.readDataReflection()
 
-  val color = if (paintState.isColorSet) Color(paintState.color) else Color(data.colorValue)
+  // Read the colour by **id** wherever the document names one, rather than trusting the op's
+  // `mColorValue`. That field is the value the op resolved the last time `updateVariables` ran over
+  // it, and for a *derived* colour that can be long before the value it derives from is published —
+  // a `ColorExpression` over `ColorAttribute` channels resolves during document load, when the
+  // channels are still 0, and the op then carries `rgb(alpha, 0, 0, 0)` for the rest of its life
+  // however many times the store is corrected afterwards. Reading the id goes through the
+  // snapshot-backed store, so the text is reactive to the colour instead of pinned to that first
+  // snapshot. Gated on the op's own `mIsDynamicColorEnabled`, because `mColorId` is set for a
+  // literal too and reading one of those through the store hands back 0 — text that does not draw
+  // at all, which is a worse failure than the one being fixed.
+  val dynamicColor =
+    if (data.dynamicColor && data.colorId != 0) rememberRemoteColorAsState(data.colorId).value
+    else null
+  val color =
+    when {
+      paintState.isColorSet -> Color(paintState.color)
+      dynamicColor != null -> dynamicColor
+      else -> Color(data.colorValue)
+    }
   val fontSize = if (paintState.isTextSizeSet) paintState.textSize else data.fontSizeValue
   val density = LocalDensity.current
   val fontSizeSp = with(density) { fontSize.toSp() }

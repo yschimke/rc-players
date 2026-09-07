@@ -241,6 +241,8 @@ internal data class BackgroundModifierOperationData(
 
 internal data class CoreTextData(
   val colorValue: Int,
+  val colorId: Int,
+  val dynamicColor: Boolean,
   val fontSizeValue: Float,
   val type: Int,
   val fontWeightValue: Float,
