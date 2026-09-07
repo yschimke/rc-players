@@ -19,7 +19,6 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.skia.Bitmap
-import org.junit.Assume.assumeTrue
 
 /**
  * The manifest loader against the repo's **real** `fonts.json`, on a non-Wasm target.
@@ -38,7 +37,7 @@ class RcManifestTypefaceRenderTest {
   @Test
   fun aDocumentNamingNoFamilyDrawsTheManifestsDefaultFaceRatherThanComposesOwn() = runTest {
     val fonts = File(FONTS_DIR)
-    assumeTrue("vendored catalog fonts not found at $FONTS_DIR", fonts.isDirectory)
+    assertTrue(fonts.isDirectory, "vendored catalog fonts not found at $FONTS_DIR")
     val loader = RcManifestTypefaceLoader { url -> File(url).readBytes() }.load(fonts.path)
 
     assertTrue("default" in loader.families, "the default-role alias was not registered")
@@ -58,7 +57,7 @@ class RcManifestTypefaceRenderTest {
   @Test
   fun aGooglePrefixedNameResolvesToTheSameFacesAsTheDefaultAlias() = runTest {
     val fonts = File(FONTS_DIR)
-    assumeTrue("vendored catalog fonts not found at $FONTS_DIR", fonts.isDirectory)
+    assertTrue(fonts.isDirectory, "vendored catalog fonts not found at $FONTS_DIR")
     val loader = RcManifestTypefaceLoader { url -> File(url).readBytes() }.load(fonts.path)
 
     // Same face reached by both names the wire uses for it, so a document is free to be explicit.
@@ -110,6 +109,6 @@ class RcManifestTypefaceRenderTest {
     const val HEIGHT = 80
 
     /** The catalog's own manifest and faces, the ones the browser lane fetches at runtime. */
-    const val FONTS_DIR = "../../samples/cmp-wasm-catalog/src/wasmJsMain/resources/fonts"
+    const val FONTS_DIR = "../../rc-player/wasm/dist-assets/fonts"
   }
 }

@@ -26,7 +26,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
-import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -162,7 +162,7 @@ class GoogleFontFamiliesTest {
 
   private fun robotoFlex(): File {
     val file = File(VENDORED_ROBOTO_FLEX)
-    assumeTrue("vendored Roboto Flex not found at $VENDORED_ROBOTO_FLEX", file.isFile)
+    assertTrue("vendored Roboto Flex not found at $VENDORED_ROBOTO_FLEX", file.isFile)
     return file
   }
 
@@ -178,7 +178,6 @@ class GoogleFontFamiliesTest {
      * rather than downloaded so the test is hermetic — and it is the same file
      * `loadVariable("Roboto Flex")` fetches, byte for byte.
      */
-    const val VENDORED_ROBOTO_FLEX =
-      "../../samples/cmp-wasm-catalog/src/wasmJsMain/resources/fonts/RobotoFlex.ttf"
+    const val VENDORED_ROBOTO_FLEX = "../../rc-player/wasm/dist-assets/fonts/RobotoFlex.ttf"
   }
 }
