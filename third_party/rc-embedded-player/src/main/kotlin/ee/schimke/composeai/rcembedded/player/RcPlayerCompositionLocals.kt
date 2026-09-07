@@ -26,6 +26,7 @@ import androidx.compose.remote.core.VariableSupport
 import androidx.compose.remote.core.operations.ComponentValue
 import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.layout.Container
+import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.State
@@ -62,6 +63,14 @@ internal fun buildComputedOpIndex(operations: Collection<Operation>): Map<Int, O
         if (!animated && id > 0 && !map.containsKey(id)) map[id] = op
       }
       if (op is Container) walk(op.getList())
+      // A component's draw-content operations hang off it as a *field* rather than as a child, so
+      // a walk that only follows `Container.getList()` never reaches them — and the values they
+      // produce are not private to the draw pass. `remote-m3` builds a disabled label's colour in
+      // the layout tree from `ColorAttribute`s declared in the component's canvas stream, so
+      // leaving them out of the index made the expression resolve its channels against a store
+      // nothing had written: `rgb(alpha, 0, 0, 0)`, a fully transparent label, and a control that
+      // drew its container and its box and no text at all.
+      if (op is LayoutComponent) op.getCanvasOperations()?.let { walk(listOf(it)) }
     }
   }
   walk(operations)
