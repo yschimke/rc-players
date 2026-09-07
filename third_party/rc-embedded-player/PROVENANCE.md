@@ -177,6 +177,7 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 | [#6](https://github.com/yschimke/rc-players/issues/6) | `GraphContext` extends `AndroidRemoteContext` for behaviour it never uses (upstream issue #12) |
 | [#7](https://github.com/yschimke/rc-players/issues/7) | Frame loop uses `withFrameMillis`, so an animated document never reaches idle |
 | [#47](https://github.com/yschimke/rc-players/issues/47) | A derived colour never reaches the layout tree — `updateColor` is not written through the snapshot mirror, and `CoreText` draws a value it resolved once |
+| [#50](https://github.com/yschimke/rc-players/issues/50) | The computed-op index never walks a component's canvas stream, so a layout colour built on one resolves to nothing |
 
 Two more used to be here and are gone: the action-dispatch pair, restored verbatim when alpha17
 published `LambdaAction`, `PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` /
@@ -206,6 +207,19 @@ published `LambdaAction`, `PendingIntentAction.Companion.parseId` and `CapturedD
   store lookup returns 0, blanking every specimen document's text. `RcDerivedColorRenderTest` pins
   both on pixels against the published `remote-m3` documents; over the whole 475-document catalog
   the change leaves 437 untouched and moves 24 closer to the View player.
+
+- **The computed-op index follows a component's canvas stream too**
+  (`RcPlayerCompositionLocals.kt`). `buildComputedOpIndex` recursed through `Container.getList()`
+  only, and a component's draw-content operations are not children — they hang off it as a field,
+  reachable through `LayoutComponent.getCanvasOperations()`. That would not matter if their values
+  stayed inside the draw pass, but `remote-m3` builds a disabled label's colour in the *layout* tree
+  from `ColorAttribute`s declared in the *canvas* stream, so the expression resolved its channels
+  against a store nothing had written and published `rgb(alpha, 0, 0, 0)`. The labels were drawn the
+  whole time, fully transparent: a disabled `RemoteButton` peaked at the container's own alpha 31
+  where the View player draws 116, and a disabled `RemoteCheckboxButton` drew its container and its
+  box and no text. The walk now follows both edges, which is what `RcPlayer.kt` already does in two
+  other places. It is not a creation bug — the View, JS and CMP players all draw these documents
+  correctly from the same bytes.
 
 - **Indexed Android `ColorTheme` values resolved at cold start**
   (`AndroidColorThemeResolver.kt`, `RcPlayer.kt`). Upstream's embedded player applies each

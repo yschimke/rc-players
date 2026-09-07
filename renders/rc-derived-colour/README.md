@@ -1,7 +1,9 @@
 # A derived colour reaching the text that names it
 
-Before/after for the two deltas in [#47](https://github.com/yschimke/rc-players/issues/47), which
-close two of the three symptoms reported in [#46](https://github.com/yschimke/rc-players/issues/46).
+Before/after for the deltas in [#47](https://github.com/yschimke/rc-players/issues/47) and
+[#50](https://github.com/yschimke/rc-players/issues/50), which close two of the three symptoms
+reported in [#46](https://github.com/yschimke/rc-players/issues/46) — every one of them a colour the
+document *derives* failing to reach the text that names it, by three different routes.
 
 Both lanes are rendered locally by `RcEmbeddedRenderHarness` from the same staged documents with the
 same font cache, so the only variable is the player. The reference column is
@@ -13,13 +15,26 @@ same font cache, so the only variable is the player. The reference column is
 | --- | --- | --- | --- |
 | `button-filledvariant__ideal__icon` secondary label | `(15, 12, 23)` — **2.07:1** | `(212, 202, 227)` — **5.95:1** | `(212, 202, 227)` — 5.95:1 |
 | `textbutton__ideal__disabled` | 0 ink px | 876 ink px, max alpha 97 | 915 ink px, max alpha 97 |
-| `checkboxbutton__ideal__unselected-disabled` | 0 ink px | 33585 ink px, max alpha 59 | 44980 ink px, max alpha 116 |
+| `button-filled__ideal__disabled` | container only, max alpha **31** | label drawn, max alpha **116** | max alpha 116 |
+| `checkboxbutton__ideal__unselected-disabled` | 0 ink px | labels drawn, max alpha 116 | max alpha 116 |
 
-The checkbox is **partly** fixed and shown that way on purpose: the container and the box now draw
-where nothing did before, but its labels are still missing and its content alpha is 59 against the
-View player's 116. That residue is the same disabled-content shortfall
-[wear-m3-catalog#91](https://github.com/yschimke/wear-m3-catalog/issues/91) reports on
-`RemoteButton`, and it is not fixed here.
+The three routes, in the order they were found:
+
+1. **`updateColor` was never overridden** on `SnapshotRemoteComposeState`, so a computed colour was
+   written to the base store while the snapshot mirror kept serving its first cached read.
+2. **`CoreText` drew the value it resolved once** — `mColorValue`, a snapshot taken before the
+   channels the colour derives from existed.
+3. **The computed-op index never walked a component's canvas stream.** Draw-content operations hang
+   off a component as a *field*, not as a child, so a walk following `Container.getList()` alone
+   misses them — and `remote-m3` builds a disabled label's colour in the *layout* tree from
+   `ColorAttribute`s declared in that canvas stream. Its channels resolved against a store nothing
+   had written, giving `rgb(alpha, 0, 0, 0)`: a fully transparent label on a control that drew its
+   container and its box and no text at all.
+
+The third is the one that closes
+[wear-m3-catalog#91](https://github.com/yschimke/wear-m3-catalog/issues/91) — the disabled
+`RemoteButton` whose label alpha was 31 where the View player draws 116 — and the checkbox labels
+with it.
 
 ![EdgeButton label before and after](edgebutton-label-before-after.png)
 
@@ -35,6 +50,11 @@ All 475 published `remote-m3` documents, before and after, same harness and same
 
 | | documents |
 | --- | ---: |
-| unchanged | 437 |
-| changed, closer to the View player | 24 |
-| changed, further from it | 1 (the EdgeButton above) |
+| unchanged | 394 |
+| changed, closer to the View player | 61 |
+| changed, further from it | 6 |
+
+All six are the EdgeButton/CheckboxButton pattern above: a label that was absent is now drawn, and a
+label that is absent contributes no differing pixels at all, so drawing it *raises* the score
+against a lane whose glyphs sit a pixel or two elsewhere. Worth remembering wherever a pixelmatch
+score is used as a gate.

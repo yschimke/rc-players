@@ -110,6 +110,38 @@ class RcDerivedColorRenderTest {
     assertTrue("the disabled text button drew a fully transparent capture", ink > 100)
   }
 
+  @Test
+  fun aDisabledLabelBuiltFromTheCanvasStreamDrawsAtItsFullContentAlpha() {
+    val bitmap = render("DisabledRemoteButton-454x200.rc")
+    val maxAlpha =
+      (0 until bitmap.width).maxOf { x ->
+        (0 until bitmap.height).maxOf { y -> bitmap.getPixel(x, y) ushr 24 }
+      }
+    // 31 is the container's own 12% alpha and was all this drew: the label's colour is built in the
+    // layout tree from `ColorAttribute`s declared in the component's *canvas* stream, which the
+    // computed-op index never walked, so its channels resolved against a store nothing had written.
+    // The View player draws 116 here.
+    assertTrue(
+      "the disabled button peaked at alpha $maxAlpha — the container only, with its label built " +
+        "from canvas-stream channels that resolved to nothing",
+      maxAlpha > 100,
+    )
+  }
+
+  @Test
+  fun aDisabledCheckboxButtonDrawsItsLabels() {
+    val bitmap = render("DisabledRemoteCheckboxButton-454x200.rc")
+    // The label band, clear of the container edges and of the checkbox on the trailing edge.
+    val labelInk =
+      (60 until 300).sumOf { x ->
+        (60 until 140).count { y -> (bitmap.getPixel(x, y) ushr 24) > 70 }
+      }
+    assertTrue(
+      "the disabled checkbox button drew its container and its box but no labels (ink=$labelInk)",
+      labelInk > 200,
+    )
+  }
+
   private fun render(fixture: String): Bitmap {
     val bytes =
       checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
