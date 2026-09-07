@@ -178,6 +178,7 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 | [#7](https://github.com/yschimke/rc-players/issues/7) | Frame loop uses `withFrameMillis`, so an animated document never reaches idle |
 | [#47](https://github.com/yschimke/rc-players/issues/47) | A derived colour never reaches the layout tree — `updateColor` is not written through the snapshot mirror, and `CoreText` draws a value it resolved once |
 | [#50](https://github.com/yschimke/rc-players/issues/50) | The computed-op index never walks a component's canvas stream, so a layout colour built on one resolves to nothing |
+| [#52](https://github.com/yschimke/rc-players/issues/52) | Three paint-bundle floats (`TEXT_SIZE`, `STROKE_WIDTH`, `ALPHA`) are read with `Float.fromBits` alone, so a NaN-boxed variable reference becomes NaN rather than its value |
 
 Two more used to be here and are gone: the action-dispatch pair, restored verbatim when alpha17
 published `LambdaAction`, `PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` /

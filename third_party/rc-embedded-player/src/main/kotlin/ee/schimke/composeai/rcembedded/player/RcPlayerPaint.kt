@@ -227,6 +227,26 @@ internal fun mapBlendMode(mode: Int): androidx.compose.ui.graphics.BlendMode =
     else -> androidx.compose.ui.graphics.BlendMode.SrcOver
   }
 
+/**
+ * The float one paint-bundle word carries, which is a **literal or a variable reference** and never
+ * only the first.
+ *
+ * Four commands encode their float this way, and the reference player names them together in both
+ * `PaintBundle.registerListening` and `PaintBundle.resolveIds` — `TEXT_SIZE`, `STROKE_WIDTH`,
+ * `ALPHA` and `STROKE_MITER` (`third_party/remote-compose-player/src/core/operations/paint/`). A
+ * NaN-boxed word is an id into the float store, so reading it with `Float.fromBits` alone does not
+ * produce a wrong number — it produces **NaN**, and every arithmetic and comparison downstream then
+ * silently does nothing.
+ *
+ * That is what a hairline arc was: `RemoteCurvedProgressIndicator` encodes its `strokeWidth` as a
+ * computed expression rather than a constant, so `Stroke(width = NaN)` reached the canvas and the
+ * platform drew its minimum. Three of the four applied commands read the word raw
+ * (yschimke/wear-m3-catalog#289); `STROKE_MITER` is consumed without being applied at all, so it
+ * has nothing to resolve yet.
+ *
+ * [read] is the draw read context — the `GraphContext` where there is one — so resolving here also
+ * registers the draw as an observer of the id, and an animated stroke width re-runs it.
+ */
 private fun resolvePaintFloat(bits: Int, read: RemoteContext): Float {
   val value = Float.fromBits(bits)
   return resolveFloat(value, value, read)
@@ -245,7 +265,7 @@ internal fun updatePaintFromBundle(
     val cmd = array[i++]
     when (cmd and 0xFFFF) {
       PaintBundle.TEXT_SIZE -> {
-        paintState.textSize = Float.fromBits(array[i++])
+        paintState.textSize = resolvePaintFloat(array[i++], read)
         paintState.isTextSizeSet = true
       }
       PaintBundle.TYPEFACE -> {
@@ -268,7 +288,7 @@ internal fun updatePaintFromBundle(
         paintState.isColorSet = true
       }
       PaintBundle.STROKE_WIDTH -> {
-        paintState.strokeWidth = Float.fromBits(array[i++])
+        paintState.strokeWidth = resolvePaintFloat(array[i++], read)
         paintState.isStrokeWidthSet = true
       }
       PaintBundle.STYLE -> {
@@ -342,7 +362,7 @@ internal fun updatePaintFromBundle(
       PaintBundle.ALPHA -> {
         // 1 float word (see PaintBundle.resolveIds). Folded into the draw color via
         // ComposeLocalPaint.effectiveColor().
-        paintState.alpha = Float.fromBits(array[i++]).coerceIn(0f, 1f)
+        paintState.alpha = resolvePaintFloat(array[i++], read).coerceIn(0f, 1f)
       }
       PaintBundle.ANTI_ALIAS,
       PaintBundle.IMAGE_FILTER_QUALITY,
