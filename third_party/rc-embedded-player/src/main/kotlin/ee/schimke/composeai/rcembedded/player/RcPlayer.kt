@@ -549,6 +549,19 @@ private fun findBitmaps(operations: Collection<Operation>, list: MutableList<Bit
     if (op is Container) {
       findBitmaps(op.getList(), list)
     }
+    // A component's draw-content operations hang off it as a *field* rather than as a child, so a
+    // walk that only follows `Container.getList()` never reaches them — the same gap that left a
+    // disabled label's colour resolving against nothing (#50), here one function above
+    // `findComponentValues`, which has always had this branch.
+    //
+    // `remote-m3` declares an image-background button's `BitmapData` in the component's canvas
+    // stream, so it was never registered: `getObject(imageId)` returned null, which cost BOTH the
+    // texture (`resolveBitmap` gives up on a missing `BitmapData`) and the image's width/height
+    // (`ImageAttribute.paint` reads the same object). The gradient derived from those dimensions
+    // then degenerated to its first stop and painted the container flat (#54).
+    if (op is LayoutComponent) {
+      op.getCanvasOperations()?.let { findBitmaps(listOf(it), list) }
+    }
   }
 }
 
