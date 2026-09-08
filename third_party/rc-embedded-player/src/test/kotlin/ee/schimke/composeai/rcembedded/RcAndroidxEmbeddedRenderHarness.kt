@@ -79,7 +79,7 @@ class RcAndroidxEmbeddedRenderHarness(private val entry: RcEmbeddedRenderHarness
       .onSuccess { bitmap ->
         png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
       }
-      .onFailure { t -> err.writeText("${t::class.java.simpleName}: ${t.message?.take(500)}") }
+      .onFailure { t -> err.writeText(entry.classify(t)) }
   }
 
   @OptIn(ExperimentalRemotePlayerApi::class)
@@ -121,9 +121,10 @@ class RcAndroidxEmbeddedRenderHarness(private val entry: RcEmbeddedRenderHarness
     )
     root.layout(0, 0, entry.width, entry.height)
 
-    return Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888).also {
-      root.draw(Canvas(it))
-    }
+    val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
+    root.draw(Canvas(bitmap))
+    composeRule.waitForIdle()
+    return bitmap
   }
 
   companion object {
@@ -132,6 +133,19 @@ class RcAndroidxEmbeddedRenderHarness(private val entry: RcEmbeddedRenderHarness
 
     private fun inputDir(): File? =
       System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
+
+    private fun RcEmbeddedRenderHarness.Entry.classify(failure: Throwable): String {
+      val details =
+        generateSequence(failure) { it.cause }.joinToString(": ") { it.message.orEmpty() }
+      return if (
+        embeddedSoftwareCanvasLimitation != null &&
+          details.contains("Software rendering doesn't support RuntimeShader")
+      ) {
+        "Harness limitation: $embeddedSoftwareCanvasLimitation"
+      } else {
+        "${failure::class.java.simpleName}: ${failure.message?.take(500)}"
+      }
+    }
 
     @JvmStatic
     @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")

@@ -132,6 +132,38 @@ public data class RcLoopOperation(
   override val opcode: Int = RcOpcodes.LOOP_START
 }
 
+/** Defines the variables and initialization equations for a bounded particle system. */
+public data class RcParticleDefine(
+  val id: Int,
+  val particleCount: Int,
+  val variableIds: List<Int>,
+  val initializationEquations: List<List<RcFloatWord>>,
+) : RcOperation {
+  override val opcode: Int = RcOpcodes.PARTICLE_DEFINE
+}
+
+/** Evolves every particle, optionally reinitializing it when [restartEquation] is positive. */
+public data class RcParticleLoop(
+  val id: Int,
+  val restartEquation: List<RcFloatWord>,
+  val updateEquations: List<List<RcFloatWord>>,
+) : RcOperation {
+  override val opcode: Int = RcOpcodes.PARTICLE_LOOP
+}
+
+/** Applies one- or two-particle conditional equations over a selected index range. */
+public data class RcParticleCompare(
+  val id: Int,
+  val flags: Int,
+  val minimumIndex: RcFloatWord,
+  val maximumIndex: RcFloatWord,
+  val condition: List<RcFloatWord>,
+  val firstEquations: List<List<RcFloatWord>>,
+  val secondEquations: List<List<RcFloatWord>>,
+) : RcOperation {
+  override val opcode: Int = RcOpcodes.PARTICLE_COMPARE
+}
+
 public data class RcFloatConstant(val id: Int, val value: RcFloatWord) : RcOperation {
   override val opcode: Int = RcOpcodes.DATA_FLOAT
 }
@@ -272,7 +304,7 @@ public data class RcFloatFunctionCall(val functionId: Int, val arguments: List<R
   override val opcode: Int = RcOpcodes.FUNCTION_CALL
 }
 
-/** Publishes one alpha16 component geometry property into a runtime float id. */
+/** Publishes one alpha18 component geometry property into a runtime float id. */
 public data class RcComponentValue(val type: Int, val componentId: Int, val valueId: Int) :
   RcOperation {
   override val opcode: Int = RcOpcodes.COMPONENT_VALUE
@@ -679,7 +711,7 @@ public data class RcBitmapData(
   }
 }
 
-/** Embedded font bytes loaded by AndroidX's alpha16 `FontData` operation. */
+/** Embedded font bytes loaded by AndroidX's alpha18 `FontData` operation. */
 public class RcFontData(public val fontId: Int, public val type: Int, public val data: ByteArray) :
   RcOperation {
   override val opcode: Int = RcOpcodes.DATA_FONT
@@ -1122,7 +1154,7 @@ public data class RcImageLayout(
   override val opcode: Int = RcOpcodes.LAYOUT_IMAGE
 }
 
-/** AndroidX alpha16's original self-contained text layout component. */
+/** AndroidX alpha18's original self-contained text layout component. */
 public data class RcTextLayout(
   val componentId: Int,
   val animationId: Int,
@@ -1191,7 +1223,7 @@ public data class RcTextStyle(val properties: List<RcTextStyleProperty>) : RcOpe
       properties.filterIsInstance<RcTextStyleProperty.IntValue>().lastOrNull { it.id == 24 }?.value
 }
 
-/** New alpha16 text layout using the same sparse property vocabulary as [RcTextStyle]. */
+/** New alpha18 text layout using the same sparse property vocabulary as [RcTextStyle]. */
 public data class RcCoreText(val textId: Int, val properties: List<RcTextStyleProperty>) :
   RcOperation {
   override val opcode: Int = RcOpcodes.CORE_TEXT
@@ -1562,12 +1594,12 @@ public data object RcRunAction : RcOperation {
   override val opcode: Int = RcOpcodes.RUN_ACTION
 }
 
-/** Payload-free touch-down ripple decorator defined by AndroidX alpha16. */
+/** Payload-free touch-down ripple decorator defined by AndroidX alpha18. */
 public data object RcRippleModifier : RcOperation {
   override val opcode: Int = RcOpcodes.MODIFIER_RIPPLE
 }
 
-/** Six-field AndroidX marquee decorator; alpha16's runtime uses its sinusoidal timeline. */
+/** Six-field AndroidX marquee decorator; alpha18's runtime uses its sinusoidal timeline. */
 public data class RcMarqueeModifier(
   val iterations: Int,
   val animationMode: Int,
@@ -1654,9 +1686,10 @@ public object RcDimensionType {
 
 public data class RcDocument(val header: RcHeader, val operations: List<RcOperation>)
 
-/** Opcode values copied from AndroidX remote-core 1.0.0-alpha16 `Operations.java`. */
+/** Opcode values copied from AndroidX remote-core 1.0.0-alpha18 `Operations.java`. */
 public object RcOpcodes {
   public const val HEADER: Int = 0
+  public const val COMPONENT_START: Int = 2
   public const val LAYOUT_CUSTOM: Int = 93
   public const val ANIMATION_SPEC: Int = 14
   public const val MODIFIER_WIDTH: Int = 16
@@ -1668,6 +1701,9 @@ public object RcOpcodes {
   public const val DRAW_RECT: Int = 42
   public const val DRAW_TEXT_RUN: Int = 43
   public const val DRAW_BITMAP: Int = 44
+  public const val DATA_SHADER: Int = 45
+  public const val DRAW_BITMAP_FONT_TEXT_RUN: Int = 48
+  public const val DRAW_BITMAP_FONT_TEXT_RUN_ON_PATH: Int = 49
   public const val DRAW_CIRCLE: Int = 46
   public const val DRAW_BITMAP_INT: Int = 66
   public const val DRAW_LINE: Int = 47
@@ -1703,10 +1739,14 @@ public object RcOpcodes {
   public const val COLOR_EXPRESSIONS: Int = 134
   public const val COLOR_CONSTANT: Int = 138
   public const val DATA_INT: Int = 140
+  public const val PLAY_SOUND: Int = 141
+  public const val REFERENCED_OPERATIONS: Int = 142
   public const val DATA_BOOLEAN: Int = 143
   public const val INTEGER_EXPRESSION: Int = 144
   public const val FUNCTION_CALL: Int = 166
+  public const val DATA_BITMAP_FONT: Int = 167
   public const val FUNCTION_DEFINE: Int = 168
+  public const val DATA_SOUND: Int = 169
   public const val ID_MAP: Int = 145
   public const val ID_LIST: Int = 146
   public const val FLOAT_LIST: Int = 147
@@ -1723,12 +1763,17 @@ public object RcOpcodes {
   public const val ATTRIBUTE_TIME: Int = 172
   public const val DEBUG_MESSAGE: Int = 179
   public const val ATTRIBUTE_COLOR: Int = 180
+  public const val BITMAP_TEXT_MEASURE: Int = 183
+  public const val DRAW_BITMAP_TEXT_ANCHORED: Int = 184
   public const val DRAW_CONTENT: Int = 139
   public const val NAMED_VARIABLE: Int = 137
   public const val DRAW_ARC: Int = 152
   public const val PATH_TWEEN: Int = 158
   public const val PATH_CREATE: Int = 159
   public const val PATH_ADD: Int = 160
+  public const val PARTICLE_DEFINE: Int = 161
+  public const val PARTICLE_PROCESS: Int = 162
+  public const val PARTICLE_LOOP: Int = 163
   public const val IMPULSE_START: Int = 164
   public const val IMPULSE_PROCESS: Int = 165
   public const val PATH_COMBINE: Int = 175
@@ -1743,6 +1788,7 @@ public object RcOpcodes {
   public const val WAKE_IN: Int = 191
   public const val ID_LOOKUP: Int = 192
   public const val PATH_EXPRESSION: Int = 193
+  public const val PARTICLE_COMPARE: Int = 194
   public const val COLOR_THEME: Int = 196
   public const val DYNAMIC_FLOAT_LIST: Int = 197
   public const val UPDATE_DYNAMIC_FLOAT_LIST: Int = 198
@@ -1757,7 +1803,9 @@ public object RcOpcodes {
   public const val LAYOUT_ROW: Int = 203
   public const val LAYOUT_COLUMN: Int = 204
   public const val DATA_FONT: Int = 189
+  public const val DRAW_TO_BITMAP: Int = 190
   public const val LAYOUT_CANVAS: Int = 205
+  public const val SOUND_EXPRESSION: Int = 206
   public const val CANVAS_OPERATIONS: Int = 173
   /** Alpha16's zero-payload DrawContentOperation modifier; the Java player treats it as a no-op. */
   public const val MODIFIER_DRAW_CONTENT: Int = 174
@@ -1795,8 +1843,15 @@ public object RcOpcodes {
   public const val LAYOUT_COMPUTE: Int = 238
   public const val CORE_TEXT: Int = 239
   public const val LAYOUT_FLOW: Int = 240
+  public const val SKIP: Int = 241
   public const val TEXT_STYLE: Int = 242
   public const val MODIFIER_DIMENSION_CONSTRAINTS: Int = 243
+  public const val MACRO_FOR_EACH: Int = 244
+  public const val INCLUDE_REFERENCED_OPERATIONS: Int = 245
+  public const val MACRO_DEFINE: Int = 246
+  public const val MACRO_CALL: Int = 247
+  public const val MACRO_ARGUMENT: Int = 248
+  public const val MACRO_BLOCK: Int = 249
   public const val ACCESSIBILITY_SEMANTICS: Int = 250
 }
 

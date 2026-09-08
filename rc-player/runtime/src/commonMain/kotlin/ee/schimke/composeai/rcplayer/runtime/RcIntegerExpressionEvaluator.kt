@@ -5,7 +5,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-/** Platform-neutral implementation of AndroidX alpha16's integer RPN evaluator. */
+/** Platform-neutral implementation of AndroidX alpha18's integer RPN evaluator. */
 public object RcIntegerExpressionEvaluator {
   public fun evaluate(expression: RcIntegerExpression, resolveId: (Int) -> Int): Int {
     val stack = IntArray(expression.values.size)

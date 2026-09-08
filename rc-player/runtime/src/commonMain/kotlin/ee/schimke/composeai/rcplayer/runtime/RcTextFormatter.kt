@@ -3,7 +3,7 @@ package ee.schimke.composeai.rcplayer.runtime
 import kotlin.math.floor
 import kotlin.math.min
 
-/** Pure KMP implementation of AndroidX alpha16 StringUtils formatting flags. */
+/** Pure KMP implementation of AndroidX alpha18 StringUtils formatting flags. */
 public object RcTextFormatter {
   public fun format(input: Float, digitsBefore: Int, digitsAfter: Int, flags: Int): String {
     if (flags and FULL_FORMAT != 0) return input.toString()

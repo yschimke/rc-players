@@ -711,6 +711,33 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent { // ee.sch
     }
 }
 
+sealed interface ee.schimke.composeai.rcplayer.runtime/RcSoundEffect { // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect|null[0]
+    final class Load : ee.schimke.composeai.rcplayer.runtime/RcSoundEffect { // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load|null[0]
+        constructor <init>(kotlin/Int, kotlin/ByteArray) // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load.<init>|<init>(kotlin.Int;kotlin.ByteArray){}[0]
+
+        final val data // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load.data|{}data[0]
+            final fun <get-data>(): kotlin/ByteArray // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load.data.<get-data>|<get-data>(){}[0]
+        final val soundId // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load.soundId|{}soundId[0]
+            final fun <get-soundId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load.soundId.<get-soundId>|<get-soundId>(){}[0]
+
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Load.hashCode|hashCode(){}[0]
+    }
+
+    final class Play : ee.schimke.composeai.rcplayer.runtime/RcSoundEffect { // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play|null[0]
+        constructor <init>(kotlin/Int) // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.<init>|<init>(kotlin.Int){}[0]
+
+        final val soundId // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.soundId|{}soundId[0]
+            final fun <get-soundId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.soundId.<get-soundId>|<get-soundId>(){}[0]
+
+        final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.component1|component1(){}[0]
+        final fun copy(kotlin/Int = ...): ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.copy|copy(kotlin.Int){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcSoundEffect.Play.toString|toString(){}[0]
+    }
+}
+
 final class ee.schimke.composeai.rcplayer.runtime/RcAnimationProgress { // ee.schimke.composeai.rcplayer.runtime/RcAnimationProgress|null[0]
     constructor <init>(kotlin/Float, kotlin/Float) // ee.schimke.composeai.rcplayer.runtime/RcAnimationProgress.<init>|<init>(kotlin.Float;kotlin.Float){}[0]
 
@@ -812,6 +839,8 @@ final class ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator { /
     final fun evaluate(kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcFloatWord>, kotlin/FloatArray = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.protocol/RcFloatWord, kotlin/Float> = ...): kotlin/Float // ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator.evaluate|evaluate(kotlin.collections.List<ee.schimke.composeai.rcplayer.protocol.RcFloatWord>;kotlin.FloatArray;kotlin.Function1<ee.schimke.composeai.rcplayer.protocol.RcFloatWord,kotlin.Float>){}[0]
 
     final object Companion { // ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator.Companion|null[0]
+        final const val DEFAULT_RANDOM_SEED // ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator.Companion.DEFAULT_RANDOM_SEED|{}DEFAULT_RANDOM_SEED[0]
+            final fun <get-DEFAULT_RANDOM_SEED>(): kotlin/Long // ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator.Companion.DEFAULT_RANDOM_SEED.<get-DEFAULT_RANDOM_SEED>|<get-DEFAULT_RANDOM_SEED>(){}[0]
         final const val LAST_OP // ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator.Companion.LAST_OP|{}LAST_OP[0]
             final fun <get-LAST_OP>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator.Companion.LAST_OP.<get-LAST_OP>|<get-LAST_OP>(){}[0]
         final const val OFFSET // ee.schimke.composeai.rcplayer.runtime/RcFloatExpressionEvaluator.Companion.OFFSET|{}OFFSET[0]
@@ -936,8 +965,34 @@ final class ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument { // ee.schim
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits { // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits|null[0]
+    constructor <init>(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...) // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+    final val maxLifetimeFrames // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxLifetimeFrames|{}maxLifetimeFrames[0]
+        final fun <get-maxLifetimeFrames>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxLifetimeFrames.<get-maxLifetimeFrames>|<get-maxLifetimeFrames>(){}[0]
+    final val maxNestingDepth // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxNestingDepth|{}maxNestingDepth[0]
+        final fun <get-maxNestingDepth>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxNestingDepth.<get-maxNestingDepth>|<get-maxNestingDepth>(){}[0]
+    final val maxParticles // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxParticles|{}maxParticles[0]
+        final fun <get-maxParticles>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxParticles.<get-maxParticles>|<get-maxParticles>(){}[0]
+    final val maxVariablesPerParticle // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxVariablesPerParticle|{}maxVariablesPerParticle[0]
+        final fun <get-maxVariablesPerParticle>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxVariablesPerParticle.<get-maxVariablesPerParticle>|<get-maxVariablesPerParticle>(){}[0]
+    final val maxWorkPerFrame // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxWorkPerFrame|{}maxWorkPerFrame[0]
+        final fun <get-maxWorkPerFrame>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.maxWorkPerFrame.<get-maxWorkPerFrame>|<get-maxWorkPerFrame>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.component2|component2(){}[0]
+    final fun component3(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.component3|component3(){}[0]
+    final fun component4(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.component4|component4(){}[0]
+    final fun component5(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.component5|component5(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits.toString|toString(){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.composeai.rcplayer.runtime/RcPlayerState|null[0]
     constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue> = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., kotlin/Function0<kotlin/Unit> = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEffect, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.runtime/RcTimeSource = ..., kotlin/Function1<kotlin/String, kotlin/Int?> = ...) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.runtime.RcNamedValue>;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;kotlin.Function0<kotlin.Unit>;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEffect,kotlin.Unit>;ee.schimke.composeai.rcplayer.runtime.RcTimeSource;kotlin.Function1<kotlin.String,kotlin.Int?>){}[0]
+    constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue> = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., kotlin/Function0<kotlin/Unit> = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEffect, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.runtime/RcTimeSource = ..., kotlin/Function1<kotlin/String, kotlin/Int?> = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcSoundEffect, kotlin/Unit> = ..., kotlin/Long = ..., ee.schimke.composeai.rcplayer.runtime/RcParticleExecutionLimits = ...) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.runtime.RcNamedValue>;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;kotlin.Function0<kotlin.Unit>;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEffect,kotlin.Unit>;ee.schimke.composeai.rcplayer.runtime.RcTimeSource;kotlin.Function1<kotlin.String,kotlin.Int?>;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcSoundEffect,kotlin.Unit>;kotlin.Long;ee.schimke.composeai.rcplayer.runtime.RcParticleExecutionLimits){}[0]
 
     final val animationTimeSeconds // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.animationTimeSeconds|{}animationTimeSeconds[0]
         final fun <get-animationTimeSeconds>(): kotlin/Float // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.animationTimeSeconds.<get-animationTimeSeconds>|<get-animationTimeSeconds>(){}[0]
@@ -968,6 +1023,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final fun boolean(kotlin/Int): kotlin/Boolean? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.boolean|boolean(kotlin.Int){}[0]
     final fun clearNamedValue(kotlin/String) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.clearNamedValue|clearNamedValue(kotlin.String){}[0]
     final fun color(kotlin/Int): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.color|color(kotlin.Int){}[0]
+    final fun compareParticles(ee.schimke.composeai.rcplayer.protocol/RcParticleCompare, kotlin/Function0<kotlin/Unit>) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.compareParticles|compareParticles(ee.schimke.composeai.rcplayer.protocol.RcParticleCompare;kotlin.Function0<kotlin.Unit>){}[0]
     final fun emitDebugMessage(ee.schimke.composeai.rcplayer.protocol/RcDebugMessage) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.emitDebugMessage|emitDebugMessage(ee.schimke.composeai.rcplayer.protocol.RcDebugMessage){}[0]
     final fun evaluateConditional(ee.schimke.composeai.rcplayer.protocol/RcConditionalOperations): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.evaluateConditional|evaluateConditional(ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations){}[0]
     final fun evaluateImpulse(ee.schimke.composeai.rcplayer.protocol/RcImpulseStart): ee.schimke.composeai.rcplayer.runtime/RcImpulsePhase // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.evaluateImpulse|evaluateImpulse(ee.schimke.composeai.rcplayer.protocol.RcImpulseStart){}[0]
@@ -981,14 +1037,17 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final fun floatList(kotlin/Int): ee.schimke.composeai.rcplayer.protocol/RcFloatList? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.floatList|floatList(kotlin.Int){}[0]
     final fun floatValues(kotlin/Int): kotlin/FloatArray? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.floatValues|floatValues(kotlin.Int){}[0]
     final fun forEachLoopValue(ee.schimke.composeai.rcplayer.protocol/RcLoopOperation, kotlin/Function1<kotlin/Float, kotlin/Unit>) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.forEachLoopValue|forEachLoopValue(ee.schimke.composeai.rcplayer.protocol.RcLoopOperation;kotlin.Function1<kotlin.Float,kotlin.Unit>){}[0]
+    final fun forEachParticle(ee.schimke.composeai.rcplayer.protocol/RcParticleLoop, kotlin/Function0<kotlin/Unit>) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.forEachParticle|forEachParticle(ee.schimke.composeai.rcplayer.protocol.RcParticleLoop;kotlin.Function0<kotlin.Unit>){}[0]
     final fun hasComponentValues(kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.hasComponentValues|hasComponentValues(kotlin.Int){}[0]
     final fun integer(kotlin/Int): kotlin/Int? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.integer|integer(kotlin.Int){}[0]
     final fun long(kotlin/Int): kotlin/Long? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.long|long(kotlin.Int){}[0]
     final fun matrixValues(kotlin/Int): kotlin/FloatArray // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.matrixValues|matrixValues(kotlin.Int){}[0]
     final fun namedValue(kotlin/String): ee.schimke.composeai.rcplayer.runtime/RcNamedValue // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.namedValue|namedValue(kotlin.String){}[0]
     final fun namedVariable(kotlin/String): ee.schimke.composeai.rcplayer.protocol/RcNamedVariable? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.namedVariable|namedVariable(kotlin.String){}[0]
+    final fun particleSnapshot(kotlin/Int): kotlin.collections/List<kotlin.collections/List<kotlin/Float>> // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.particleSnapshot|particleSnapshot(kotlin.Int){}[0]
     final fun path(kotlin/Int): ee.schimke.composeai.rcplayer.protocol/RcPathData? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.path|path(kotlin.Int){}[0]
     final fun performHapticFeedback(ee.schimke.composeai.rcplayer.protocol/RcHapticFeedback) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.performHapticFeedback|performHapticFeedback(ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback){}[0]
+    final fun playSound(ee.schimke.composeai.rcplayer.protocol/RcPlaySound) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.playSound|playSound(ee.schimke.composeai.rcplayer.protocol.RcPlaySound){}[0]
     final fun publishComponentContentSize(kotlin/Int, kotlin/Float? = ..., kotlin/Float? = ...): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.publishComponentContentSize|publishComponentContentSize(kotlin.Int;kotlin.Float?;kotlin.Float?){}[0]
     final fun publishComponentGeometry(kotlin/Int, ee.schimke.composeai.rcplayer.runtime/RcComponentGeometry): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.publishComponentGeometry|publishComponentGeometry(kotlin.Int;ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry){}[0]
     final fun requestWakeIn(ee.schimke.composeai.rcplayer.protocol/RcWakeIn) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.requestWakeIn|requestWakeIn(ee.schimke.composeai.rcplayer.protocol.RcWakeIn){}[0]
@@ -1149,6 +1208,13 @@ final object ee.schimke.composeai.rcplayer.runtime/RcMatrixEvaluator { // ee.sch
 
 final object ee.schimke.composeai.rcplayer.runtime/RcTextFormatter { // ee.schimke.composeai.rcplayer.runtime/RcTextFormatter|null[0]
     final fun format(kotlin/Float, kotlin/Int, kotlin/Int, kotlin/Int): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcTextFormatter.format|format(kotlin.Float;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+}
+
+final object ee.schimke.composeai.rcplayer.runtime/RcToneSynthesizer { // ee.schimke.composeai.rcplayer.runtime/RcToneSynthesizer|null[0]
+    final const val SAMPLE_RATE // ee.schimke.composeai.rcplayer.runtime/RcToneSynthesizer.SAMPLE_RATE|{}SAMPLE_RATE[0]
+        final fun <get-SAMPLE_RATE>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcToneSynthesizer.SAMPLE_RATE.<get-SAMPLE_RATE>|<get-SAMPLE_RATE>(){}[0]
+
+    final fun synthesizeWav(kotlin/Float, kotlin/Float, kotlin/Float): kotlin/ByteArray? // ee.schimke.composeai.rcplayer.runtime/RcToneSynthesizer.synthesizeWav|synthesizeWav(kotlin.Float;kotlin.Float;kotlin.Float){}[0]
 }
 
 final val ee.schimke.composeai.rcplayer.runtime/hasPortableVisibilityAnimation // ee.schimke.composeai.rcplayer.runtime/hasPortableVisibilityAnimation|@ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec{}hasPortableVisibilityAnimation[0]

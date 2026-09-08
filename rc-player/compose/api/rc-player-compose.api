@@ -165,6 +165,25 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPlayerTheme : java/la
 	public static fun values ()[Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;
 }
 
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcSoundHost {
+	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcSoundHost$Companion;
+	public fun dispose ()V
+	public abstract fun loadSound (I[B)V
+	public abstract fun playSound (I)V
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcSoundHost$Companion {
+	public final fun getNone ()Lee/schimke/composeai/rcplayer/compose/RcSoundHost;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcSoundHost$DefaultImpls {
+	public static fun dispose (Lee/schimke/composeai/rcplayer/compose/RcSoundHost;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcSoundHostKt {
+	public static final fun getLocalRcSoundHost ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcSpannableString {
 	public static final field $stable I
 	public static final field CONFIG Ljava/lang/String;

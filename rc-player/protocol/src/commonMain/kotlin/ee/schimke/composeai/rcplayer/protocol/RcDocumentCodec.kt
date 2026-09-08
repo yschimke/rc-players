@@ -8,7 +8,7 @@ private const val HEADER_MAGIC: Int = 0x048c0000
 
 public data class RcOperationSpec(val opcode: Int, val name: String)
 
-/** Symmetric operation codec. Wire layout comes from AndroidX alpha16 Java sources. */
+/** Symmetric operation codec. Wire layout comes from AndroidX alpha18 Java sources. */
 public interface RcOperationCodec<T : RcOperation> {
   public val spec: RcOperationSpec
 
@@ -19,7 +19,7 @@ public interface RcOperationCodec<T : RcOperation> {
 
 public object RcDocumentCodec {
   private val codecs: Map<Int, RcOperationCodec<out RcOperation>> =
-    listOf(
+    (listOf(
         HeaderCodec,
         TextDataCodec,
         RemarkCodec,
@@ -161,7 +161,13 @@ public object RcDocumentCodec {
         three(RcOpcodes.MATRIX_ROTATE, "MatrixRotate"),
         noArg(RcOpcodes.MATRIX_SAVE, "MatrixSave"),
         noArg(RcOpcodes.MATRIX_RESTORE, "MatrixRestore"),
-      )
+      ) +
+        rcStructuralOperationCodecs +
+        rcMacroOperationCodecs +
+        rcGraphicsResourceOperationCodecs +
+        rcBitmapFontOperationCodecs +
+        rcParticleOperationCodecs +
+        rcSoundOperationCodecs)
       .associateBy { it.spec.opcode }
 
   public val supportedOperations: List<RcOperationSpec> =
@@ -172,7 +178,14 @@ public object RcDocumentCodec {
       if (bytes.size > limits.maxDocumentBytes) {
         throw RcWireException(0, message = "Document exceeds ${limits.maxDocumentBytes} bytes")
       }
-      val input = RcWireReader(bytes, limits)
+      val input =
+        RcWireReader(
+          bytes,
+          limits,
+          idRemapper = null,
+          libraryApiLevel = 8,
+          profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL,
+        )
       val operations = mutableListOf<RcOperation>()
       while (input.remaining > 0) {
         val opcodeOffset = input.offset
@@ -186,7 +199,7 @@ public object RcDocumentCodec {
               message = "Unsupported operation",
             )
         val operation = input.inOperation(opcode, codec.spec.name) { decodeUnchecked(codec, this) }
-        operations += operation
+        if (operation !is RcSkip) operations += operation
       }
       val header =
         operations.firstOrNull() as? RcHeader
@@ -204,6 +217,49 @@ public object RcDocumentCodec {
       RcTrace.counter(RcTraceCategory.DOCUMENT, "rc:operations", operations.size.toLong() - 1)
       RcDocument(header, operations.drop(1))
     }
+
+  /** Decodes an unframed operation body used by macro definitions. */
+  public fun decodeOperations(
+    bytes: ByteArray,
+    limits: RcWireLimits = RcWireLimits(),
+    idRemapper: RcIdRemapper? = null,
+  ): List<RcOperation> =
+    decodeOperationsForReader(
+      bytes,
+      limits,
+      idRemapper,
+      libraryApiLevel = 8,
+      profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL,
+    )
+
+  internal fun decodeOperationsForReader(
+    bytes: ByteArray,
+    limits: RcWireLimits = RcWireLimits(),
+    idRemapper: RcIdRemapper? = null,
+    libraryApiLevel: Int,
+    profile: Int,
+  ): List<RcOperation> {
+    if (bytes.size > limits.maxBlobBytes) {
+      throw RcWireException(0, message = "Operation body exceeds ${limits.maxBlobBytes} bytes")
+    }
+    val input = RcWireReader(bytes, limits, idRemapper, libraryApiLevel, profile)
+    return buildList {
+      while (input.remaining > 0) {
+        val opcodeOffset = input.offset
+        val opcode = input.readU8("opcode")
+        val codec =
+          codecs[opcode]
+            ?: throw RcWireException(
+              opcodeOffset,
+              opcode,
+              "opcode",
+              message = "Unsupported operation",
+            )
+        val operation = input.inOperation(opcode, codec.spec.name) { decodeUnchecked(codec, this) }
+        if (operation !is RcSkip) add(operation)
+      }
+    }
+  }
 
   public fun encode(document: RcDocument): ByteArray =
     rcTrace(RcTraceCategory.DOCUMENT, "rc:encode") {
@@ -241,8 +297,8 @@ private object ComponentValueCodec : RcOperationCodec<RcComponentValue> {
   override fun decode(input: RcWireReader): RcComponentValue =
     RcComponentValue(
       type = input.readInt("type"),
-      componentId = input.readInt("componentId"),
-      valueId = input.readInt("valueId"),
+      componentId = input.readId("componentId"),
+      valueId = input.readId("valueId"),
     )
 
   override fun encode(output: RcWireWriter, value: RcComponentValue) {
@@ -257,7 +313,7 @@ private object AnimationSpecCodec : RcOperationCodec<RcAnimationSpec> {
 
   override fun decode(input: RcWireReader): RcAnimationSpec =
     RcAnimationSpec(
-      animationId = input.readInt("animationId"),
+      animationId = input.readId("animationId"),
       motionDurationMillis = input.readFloatWord("motionDurationMillis"),
       motionEasingType = input.readInt("motionEasingType"),
       visibilityDurationMillis = input.readFloatWord("visibilityDurationMillis"),
@@ -280,7 +336,7 @@ private object AnimationSpecCodec : RcOperationCodec<RcAnimationSpec> {
 private object RootLayoutCodec : RcOperationCodec<RcRootLayout> {
   override val spec = RcOperationSpec(RcOpcodes.LAYOUT_ROOT, "RootLayoutComponent")
 
-  override fun decode(input: RcWireReader) = RcRootLayout(input.readInt("componentId"))
+  override fun decode(input: RcWireReader) = RcRootLayout(input.readDeclaredId("componentId"))
 
   override fun encode(output: RcWireWriter, value: RcRootLayout) =
     output.writeInt(value.componentId)
@@ -289,7 +345,7 @@ private object RootLayoutCodec : RcOperationCodec<RcRootLayout> {
 private object LayoutContentCodec : RcOperationCodec<RcLayoutContent> {
   override val spec = RcOperationSpec(RcOpcodes.LAYOUT_CONTENT, "LayoutComponentContent")
 
-  override fun decode(input: RcWireReader) = RcLayoutContent(input.readInt("componentId"))
+  override fun decode(input: RcWireReader) = RcLayoutContent(input.readDeclaredId("componentId"))
 
   override fun encode(output: RcWireWriter, value: RcLayoutContent) =
     output.writeInt(value.componentId)
@@ -299,7 +355,7 @@ private object CanvasLayoutCodec : RcOperationCodec<RcCanvasLayout> {
   override val spec = RcOperationSpec(RcOpcodes.LAYOUT_CANVAS, "CanvasLayout")
 
   override fun decode(input: RcWireReader) =
-    RcCanvasLayout(input.readInt("componentId"), input.readInt("animationId"))
+    RcCanvasLayout(input.readDeclaredId("componentId"), input.readId("animationId"))
 
   override fun encode(output: RcWireWriter, value: RcCanvasLayout) {
     output.writeInt(value.componentId)
@@ -310,7 +366,7 @@ private object CanvasLayoutCodec : RcOperationCodec<RcCanvasLayout> {
 private object CanvasContentCodec : RcOperationCodec<RcCanvasContent> {
   override val spec = RcOperationSpec(RcOpcodes.LAYOUT_CANVAS_CONTENT, "CanvasContent")
 
-  override fun decode(input: RcWireReader) = RcCanvasContent(input.readInt("componentId"))
+  override fun decode(input: RcWireReader) = RcCanvasContent(input.readId("componentId"))
 
   override fun encode(output: RcWireWriter, value: RcCanvasContent) =
     output.writeInt(value.componentId)
@@ -320,9 +376,9 @@ private object CustomLayoutCodec : RcOperationCodec<RcCustomLayout> {
   override val spec = RcOperationSpec(RcOpcodes.LAYOUT_CUSTOM, "Custom")
 
   override fun decode(input: RcWireReader): RcCustomLayout {
-    val componentId = input.readInt("componentId")
-    val animationId = input.readInt("animationId")
-    val configId = input.readInt("configId")
+    val componentId = input.readId("componentId")
+    val animationId = input.readId("animationId")
+    val configId = input.readId("configId")
     val count = input.readCount("properties.length", input.limits.maxCollectionEntries)
     val properties =
       List(count) { index ->
@@ -356,8 +412,8 @@ private object BoxLayoutCodec : RcOperationCodec<RcBoxLayout> {
 
   override fun decode(input: RcWireReader) =
     RcBoxLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
     )
@@ -375,8 +431,8 @@ private object RowLayoutCodec : RcOperationCodec<RcRowLayout> {
 
   override fun decode(input: RcWireReader) =
     RcRowLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
       input.readFloatWord("spacedBy"),
@@ -396,8 +452,8 @@ private object ColumnLayoutCodec : RcOperationCodec<RcColumnLayout> {
 
   override fun decode(input: RcWireReader) =
     RcColumnLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
       input.readFloatWord("spacedBy"),
@@ -417,8 +473,8 @@ private object FlowLayoutCodec : RcOperationCodec<RcFlowLayout> {
 
   override fun decode(input: RcWireReader) =
     RcFlowLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
       input.readFloatWord("spacedBy"),
@@ -442,11 +498,11 @@ private object StateLayoutCodec : RcOperationCodec<RcStateLayout> {
 
   override fun decode(input: RcWireReader) =
     RcStateLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
-      input.readInt("indexId"),
+      input.readId("indexId"),
     )
 
   override fun encode(output: RcWireWriter, value: RcStateLayout) {
@@ -463,8 +519,8 @@ private object CollapsibleRowLayoutCodec : RcOperationCodec<RcCollapsibleRowLayo
 
   override fun decode(input: RcWireReader) =
     RcCollapsibleRowLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
       input.readFloatWord("spacedBy"),
@@ -485,8 +541,8 @@ private object CollapsibleColumnLayoutCodec : RcOperationCodec<RcCollapsibleColu
 
   override fun decode(input: RcWireReader) =
     RcCollapsibleColumnLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
       input.readFloatWord("spacedBy"),
@@ -506,8 +562,8 @@ private object FitBoxLayoutCodec : RcOperationCodec<RcFitBoxLayout> {
 
   override fun decode(input: RcWireReader) =
     RcFitBoxLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
       input.readInt("horizontalPositioning"),
       input.readInt("verticalPositioning"),
     )
@@ -525,9 +581,9 @@ private object ImageLayoutCodec : RcOperationCodec<RcImageLayout> {
 
   override fun decode(input: RcWireReader) =
     RcImageLayout(
-      input.readInt("componentId"),
-      input.readInt("animationId"),
-      input.readInt("bitmapId"),
+      input.readDeclaredId("componentId"),
+      input.readId("animationId"),
+      input.readId("bitmapId"),
       input.readInt("scaleType"),
       input.readFloatWord("alpha"),
     )
@@ -546,14 +602,14 @@ private object TextLayoutCodec : RcOperationCodec<RcTextLayout> {
 
   override fun decode(input: RcWireReader) =
     RcTextLayout(
-      componentId = input.readInt("componentId"),
-      animationId = input.readInt("animationId"),
-      textId = input.readInt("textId"),
+      componentId = input.readDeclaredId("componentId"),
+      animationId = input.readId("animationId"),
+      textId = input.readId("textId"),
       color = input.readInt("color"),
       fontSize = input.readFloatWord("fontSize"),
       fontStyle = input.readInt("fontStyle"),
       fontWeight = input.readFloatWord("fontWeight"),
-      fontFamilyId = input.readInt("fontFamilyId"),
+      fontFamilyId = input.readId("fontFamilyId"),
       textAlignAndFlags = input.readInt("textAlignAndFlags"),
       overflow = input.readInt("overflow"),
       maxLines = input.readInt("maxLines"),
@@ -578,7 +634,7 @@ private object CoreTextCodec : RcOperationCodec<RcCoreText> {
   override val spec = RcOperationSpec(RcOpcodes.CORE_TEXT, "CoreText")
 
   override fun decode(input: RcWireReader) =
-    RcCoreText(input.readInt("textId"), input.readTextStyleProperties("properties"))
+    RcCoreText(input.readId("textId"), input.readTextStyleProperties("properties"))
 
   override fun encode(output: RcWireWriter, value: RcCoreText) {
     output.writeInt(value.textId)
@@ -762,7 +818,7 @@ private object BackgroundModifierCodec : RcOperationCodec<RcBackgroundModifier> 
   override fun decode(input: RcWireReader) =
     RcBackgroundModifier(
       input.readInt("flags"),
-      input.readInt("colorId"),
+      input.readId("colorId"),
       input.readInt("reserved1"),
       input.readInt("reserved2"),
       input.readFloatWord("red"),
@@ -791,7 +847,7 @@ private object BorderModifierCodec : RcOperationCodec<RcBorderModifier> {
   override fun decode(input: RcWireReader) =
     RcBorderModifier(
       input.readInt("flags"),
-      input.readInt("colorId"),
+      input.readId("colorId"),
       input.readInt("wireVersion"),
       input.readInt("reserved"),
       input.readFloatWord("borderWidth"),
@@ -920,7 +976,7 @@ private object LayoutComputeCodec : RcOperationCodec<RcLayoutCompute> {
   override fun decode(input: RcWireReader) =
     RcLayoutCompute(
       input.readInt("type"),
-      input.readInt("boundsId"),
+      input.readId("boundsId"),
       input.readBoolean("animateChanges"),
     )
 
@@ -936,10 +992,10 @@ private object AccessibilitySemanticsCodec : RcOperationCodec<RcAccessibilitySem
 
   override fun decode(input: RcWireReader) =
     RcAccessibilitySemantics(
-      contentDescriptionId = input.readInt("contentDescriptionId"),
+      contentDescriptionId = input.readId("contentDescriptionId"),
       role = input.readU8("role").toByte().toInt(),
-      textId = input.readInt("textId"),
-      stateDescriptionId = input.readInt("stateDescriptionId"),
+      textId = input.readId("textId"),
+      stateDescriptionId = input.readId("stateDescriptionId"),
       mode = input.readU8("mode").toByte().toInt(),
       enabled = input.readBoolean("enabled"),
       clickable = input.readBoolean("clickable"),
@@ -969,13 +1025,13 @@ private object ClickAreaCodec : RcOperationCodec<RcClickArea> {
 
   override fun decode(input: RcWireReader): RcClickArea =
     RcClickArea(
-      id = input.readInt("id"),
-      contentDescriptionId = input.readInt("contentDescriptionId"),
+      id = input.readDeclaredId("id"),
+      contentDescriptionId = input.readId("contentDescriptionId"),
       left = input.readFloatWord("left"),
       top = input.readFloatWord("top"),
       right = input.readFloatWord("right"),
       bottom = input.readFloatWord("bottom"),
-      metadataId = input.readInt("metadataId"),
+      metadataId = input.readId("metadataId"),
     )
 
   override fun encode(output: RcWireWriter, value: RcClickArea) {
@@ -1038,7 +1094,7 @@ private object TouchCancelModifierCodec : RcOperationCodec<RcTouchCancelModifier
 private object HostActionCodec : RcOperationCodec<RcHostAction> {
   override val spec = RcOperationSpec(RcOpcodes.HOST_ACTION, "HostActionOperation")
 
-  override fun decode(input: RcWireReader) = RcHostAction(input.readInt("actionId"))
+  override fun decode(input: RcWireReader) = RcHostAction(input.readId("actionId"))
 
   override fun encode(output: RcWireWriter, value: RcHostAction) = output.writeInt(value.actionId)
 }
@@ -1047,9 +1103,9 @@ private object HostNamedActionCodec : RcOperationCodec<RcHostNamedAction> {
   override val spec = RcOperationSpec(RcOpcodes.HOST_NAMED_ACTION, "HostNamedActionOperation")
 
   override fun decode(input: RcWireReader): RcHostNamedAction {
-    val textId = input.readInt("textId")
+    val textId = input.readId("textId")
     val type = input.readInt("type")
-    val valueId = input.readInt("valueId")
+    val valueId = input.readId("valueId")
     val value =
       try {
         RcHostNamedActionValue.fromWire(type, valueId)
@@ -1070,7 +1126,7 @@ private object HostMetadataActionCodec : RcOperationCodec<RcHostMetadataAction> 
   override val spec = RcOperationSpec(RcOpcodes.HOST_METADATA_ACTION, "HostActionMetadataOperation")
 
   override fun decode(input: RcWireReader) =
-    RcHostMetadataAction(input.readInt("actionId"), input.readInt("metadataTextId"))
+    RcHostMetadataAction(input.readId("actionId"), input.readId("metadataTextId"))
 
   override fun encode(output: RcWireWriter, value: RcHostMetadataAction) {
     output.writeInt(value.actionId)
@@ -1083,7 +1139,7 @@ private object ValueIntegerChangeActionCodec : RcOperationCodec<RcValueIntegerCh
     RcOperationSpec(RcOpcodes.VALUE_INTEGER_CHANGE_ACTION, "ValueIntegerChangeActionOperation")
 
   override fun decode(input: RcWireReader) =
-    RcValueIntegerChangeAction(input.readInt("targetValueId"), input.readInt("value"))
+    RcValueIntegerChangeAction(input.readId("targetValueId"), input.readInt("value"))
 
   override fun encode(output: RcWireWriter, value: RcValueIntegerChangeAction) {
     output.writeInt(value.targetValueId)
@@ -1116,7 +1172,7 @@ private object ValueStringChangeActionCodec : RcOperationCodec<RcValueStringChan
     RcOperationSpec(RcOpcodes.VALUE_STRING_CHANGE_ACTION, "ValueStringChangeActionOperation")
 
   override fun decode(input: RcWireReader) =
-    RcValueStringChangeAction(input.readInt("targetValueId"), input.readInt("valueId"))
+    RcValueStringChangeAction(input.readId("targetValueId"), input.readId("valueId"))
 
   override fun encode(output: RcWireWriter, value: RcValueStringChangeAction) {
     output.writeInt(value.targetValueId)
@@ -1129,7 +1185,7 @@ private object ValueFloatChangeActionCodec : RcOperationCodec<RcValueFloatChange
     RcOperationSpec(RcOpcodes.VALUE_FLOAT_CHANGE_ACTION, "ValueFloatChangeActionOperation")
 
   override fun decode(input: RcWireReader) =
-    RcValueFloatChangeAction(input.readInt("targetValueId"), input.readFloatWord("value"))
+    RcValueFloatChangeAction(input.readId("targetValueId"), input.readFloatWord("value"))
 
   override fun encode(output: RcWireWriter, value: RcValueFloatChangeAction) {
     output.writeInt(value.targetValueId)
@@ -1147,8 +1203,8 @@ private object ValueFloatExpressionChangeActionCodec :
 
   override fun decode(input: RcWireReader) =
     RcValueFloatExpressionChangeAction(
-      input.readInt("targetValueId"),
-      input.readInt("expressionId"),
+      input.readId("targetValueId"),
+      input.readId("expressionId"),
     )
 
   override fun encode(output: RcWireWriter, value: RcValueFloatExpressionChangeAction) {
@@ -1218,7 +1274,7 @@ private object ScrollModifierCodec : RcOperationCodec<RcScrollModifier> {
 private object VisibilityModifierCodec : RcOperationCodec<RcVisibilityModifier> {
   override val spec = RcOperationSpec(RcOpcodes.MODIFIER_VISIBILITY, "ComponentVisibilityOperation")
 
-  override fun decode(input: RcWireReader) = RcVisibilityModifier(input.readInt("visibilityId"))
+  override fun decode(input: RcWireReader) = RcVisibilityModifier(input.readId("visibilityId"))
 
   override fun encode(output: RcWireWriter, value: RcVisibilityModifier) =
     output.writeInt(value.visibilityId)
@@ -1378,7 +1434,8 @@ private object HeaderCodec : RcOperationCodec<RcHeader> {
 private object TextDataCodec : RcOperationCodec<RcTextData> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_TEXT, "TextData")
 
-  override fun decode(input: RcWireReader) = RcTextData(input.readInt("id"), input.readUtf8("text"))
+  override fun decode(input: RcWireReader) =
+    RcTextData(input.readDeclaredId("id"), input.readUtf8("text"))
 
   override fun encode(output: RcWireWriter, value: RcTextData) {
     output.writeInt(value.id)
@@ -1402,7 +1459,7 @@ private object DebugMessageCodec : RcOperationCodec<RcDebugMessage> {
 
   override fun decode(input: RcWireReader): RcDebugMessage =
     RcDebugMessage(
-      textId = input.readInt("textId"),
+      textId = input.readId("textId"),
       value = input.readFloatWord("value"),
       flags = input.readInt("flags"),
     )
@@ -1437,7 +1494,7 @@ private object LoopOperationCodec : RcOperationCodec<RcLoopOperation> {
   override fun decode(input: RcWireReader): RcLoopOperation {
     val operation =
       RcLoopOperation(
-        indexVariableId = input.readInt("indexVariableId"),
+        indexVariableId = input.readId("indexVariableId"),
         from = input.readFloatWord("from"),
         step = input.readFloatWord("step"),
         until = input.readFloatWord("until"),
@@ -1467,7 +1524,7 @@ private object FloatConstantCodec : RcOperationCodec<RcFloatConstant> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_FLOAT, "FloatConstant")
 
   override fun decode(input: RcWireReader) =
-    RcFloatConstant(input.readInt("id"), input.readFloatWord("value"))
+    RcFloatConstant(input.readDeclaredId("id"), input.readFloatWord("value"))
 
   override fun encode(output: RcWireWriter, value: RcFloatConstant) {
     output.writeInt(value.id)
@@ -1479,7 +1536,7 @@ private object FloatExpressionCodec : RcOperationCodec<RcFloatExpression> {
   override val spec = RcOperationSpec(RcOpcodes.ANIMATED_FLOAT, "FloatExpression")
 
   override fun decode(input: RcWireReader): RcFloatExpression {
-    val id = input.readInt("id")
+    val id = input.readDeclaredId("id")
     val lengths = input.readInt("lengths")
     val expressionCount = lengths and 0xffff
     val animationCount = lengths ushr 16
@@ -1506,7 +1563,7 @@ private object TouchExpressionCodec : RcOperationCodec<RcTouchExpression> {
   override val spec = RcOperationSpec(RcOpcodes.TOUCH_EXPRESSION, "TouchExpression")
 
   override fun decode(input: RcWireReader): RcTouchExpression {
-    val id = input.readInt("id")
+    val id = input.readId("id")
     val defaultValue = input.readFloatWord("defaultValue")
     val min = input.readFloatWord("min")
     val max = input.readFloatWord("max")
@@ -1567,7 +1624,7 @@ private object ColorConstantCodec : RcOperationCodec<RcColorConstant> {
   override val spec = RcOperationSpec(RcOpcodes.COLOR_CONSTANT, "ColorConstant")
 
   override fun decode(input: RcWireReader) =
-    RcColorConstant(input.readInt("id"), input.readInt("argb"))
+    RcColorConstant(input.readDeclaredId("id"), input.readInt("argb"))
 
   override fun encode(output: RcWireWriter, value: RcColorConstant) {
     output.writeInt(value.id)
@@ -1580,7 +1637,7 @@ private object ColorExpressionCodec : RcOperationCodec<RcColorExpression> {
 
   override fun decode(input: RcWireReader): RcColorExpression =
     RcColorExpression(
-      input.readInt("outId"),
+      input.readDeclaredId("outId"),
       input.readInt("modeAndAlpha"),
       input.readInt("first"),
       input.readInt("second"),
@@ -1601,8 +1658,8 @@ private object ColorThemeCodec : RcOperationCodec<RcColorTheme> {
 
   override fun decode(input: RcWireReader): RcColorTheme =
     RcColorTheme(
-      input.readInt("outId"),
-      input.readInt("colorGroupId"),
+      input.readDeclaredId("outId"),
+      input.readId("colorGroupId"),
       input.readU16("lightModeIndex").toShort().toInt(),
       input.readU16("darkModeIndex").toShort().toInt(),
       input.readInt("lightModeFallback"),
@@ -1625,7 +1682,7 @@ private object IntegerConstantCodec : RcOperationCodec<RcIntegerConstant> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_INT, "IntegerConstant")
 
   override fun decode(input: RcWireReader) =
-    RcIntegerConstant(input.readInt("id"), input.readInt("value"))
+    RcIntegerConstant(input.readDeclaredId("id"), input.readInt("value"))
 
   override fun encode(output: RcWireWriter, value: RcIntegerConstant) {
     output.writeInt(value.id)
@@ -1637,7 +1694,7 @@ private object IntegerExpressionCodec : RcOperationCodec<RcIntegerExpression> {
   override val spec = RcOperationSpec(RcOpcodes.INTEGER_EXPRESSION, "IntegerExpression")
 
   override fun decode(input: RcWireReader): RcIntegerExpression {
-    val outId = input.readInt("outId")
+    val outId = input.readDeclaredId("outId")
     val mask = input.readInt("mask")
     val count = input.readInt("values.count")
     if (count < 0) input.fail("values.count", "Negative integer-expression size $count")
@@ -1662,9 +1719,9 @@ private object FloatFunctionDefineCodec : RcOperationCodec<RcFloatFunctionDefine
   override val spec = RcOperationSpec(RcOpcodes.FUNCTION_DEFINE, "FunctionDefine")
 
   override fun decode(input: RcWireReader): RcFloatFunctionDefine {
-    val id = input.readInt("id")
+    val id = input.readId("id")
     val count = input.readCount("parameterIds.count", 32)
-    return RcFloatFunctionDefine(id, List(count) { input.readInt("parameterIds[$it]") })
+    return RcFloatFunctionDefine(id, List(count) { input.readId("parameterIds[$it]") })
   }
 
   override fun encode(output: RcWireWriter, value: RcFloatFunctionDefine) {
@@ -1679,7 +1736,7 @@ private object FloatFunctionCallCodec : RcOperationCodec<RcFloatFunctionCall> {
   override val spec = RcOperationSpec(RcOpcodes.FUNCTION_CALL, "FunctionCall")
 
   override fun decode(input: RcWireReader): RcFloatFunctionCall {
-    val id = input.readInt("functionId")
+    val id = input.readId("functionId")
     val count = input.readCount("arguments.count", 80)
     return RcFloatFunctionCall(id, List(count) { input.readFloatWord("arguments[$it]") })
   }
@@ -1696,7 +1753,7 @@ private object BooleanConstantCodec : RcOperationCodec<RcBooleanConstant> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_BOOLEAN, "BooleanConstant")
 
   override fun decode(input: RcWireReader) =
-    RcBooleanConstant(input.readInt("id"), input.readBoolean("value"))
+    RcBooleanConstant(input.readDeclaredId("id"), input.readBoolean("value"))
 
   override fun encode(output: RcWireWriter, value: RcBooleanConstant) {
     output.writeInt(value.id)
@@ -1708,7 +1765,7 @@ private object LongConstantCodec : RcOperationCodec<RcLongConstant> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_LONG, "LongConstant")
 
   override fun decode(input: RcWireReader) =
-    RcLongConstant(input.readInt("id"), input.readLong("value"))
+    RcLongConstant(input.readDeclaredId("id"), input.readRemappedLong("value"))
 
   override fun encode(output: RcWireWriter, value: RcLongConstant) {
     output.writeInt(value.id)
@@ -1720,7 +1777,7 @@ private object IdMapCodec : RcOperationCodec<RcIdMap> {
   override val spec = RcOperationSpec(RcOpcodes.ID_MAP, "DataMapIds")
 
   override fun decode(input: RcWireReader): RcIdMap {
-    val id = input.readInt("id")
+    val id = input.readId("id")
     val count = input.readCount("entries.count", input.limits.maxCollectionEntries)
     return RcIdMap(
       id,
@@ -1732,7 +1789,7 @@ private object IdMapCodec : RcOperationCodec<RcIdMap> {
               input.fail("entries[$index].type", "Unknown AndroidX data-map type $it")
             }
           },
-          input.readInt("entries[$index].id"),
+          input.readId("entries[$index].id"),
         )
       },
     )
@@ -1755,9 +1812,9 @@ private object IdListCodec : RcOperationCodec<RcIdList> {
   override val spec = RcOperationSpec(RcOpcodes.ID_LIST, "DataListIds")
 
   override fun decode(input: RcWireReader): RcIdList {
-    val id = input.readInt("id")
+    val id = input.readDeclaredId("id")
     val count = input.readCount("ids.count", input.limits.maxCollectionEntries)
-    return RcIdList(id, List(count) { input.readInt("ids[$it]") })
+    return RcIdList(id, List(count) { input.readId("ids[$it]") })
   }
 
   override fun encode(output: RcWireWriter, value: RcIdList) {
@@ -1772,7 +1829,7 @@ private object FloatListCodec : RcOperationCodec<RcFloatList> {
   override val spec = RcOperationSpec(RcOpcodes.FLOAT_LIST, "DataListFloat")
 
   override fun decode(input: RcWireReader): RcFloatList {
-    val id = input.readInt("id")
+    val id = input.readDeclaredId("id")
     val count = input.readCount("values.count", input.limits.maxCollectionEntries)
     return RcFloatList(id, List(count) { input.readFloatWord("values[$it]") })
   }
@@ -1789,7 +1846,7 @@ private object DynamicFloatListCodec : RcOperationCodec<RcDynamicFloatList> {
   override val spec = RcOperationSpec(RcOpcodes.DYNAMIC_FLOAT_LIST, "DataDynamicListFloat")
 
   override fun decode(input: RcWireReader): RcDynamicFloatList {
-    val id = input.readInt("id")
+    val id = input.readDeclaredId("id")
     val length = input.readFloatWord("length")
     if (length.referencedId == null && length.value.toInt() !in 0..2_000) {
       input.fail("length", "Dynamic float-list length ${length.value.toInt()} is outside 0..2000")
@@ -1813,7 +1870,7 @@ private object UpdateDynamicFloatListCodec : RcOperationCodec<RcUpdateDynamicFlo
 
   override fun decode(input: RcWireReader): RcUpdateDynamicFloatList =
     RcUpdateDynamicFloatList(
-      input.readInt("listId"),
+      input.readId("listId"),
       input.readFloatWord("index"),
       input.readFloatWord("value"),
     )
@@ -1829,7 +1886,7 @@ private object DataMapLookupCodec : RcOperationCodec<RcDataMapLookup> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_MAP_LOOKUP, "DataMapLookup")
 
   override fun decode(input: RcWireReader) =
-    RcDataMapLookup(input.readInt("outId"), input.readInt("mapId"), input.readInt("keyTextId"))
+    RcDataMapLookup(input.readDeclaredId("outId"), input.readId("mapId"), input.readId("keyTextId"))
 
   override fun encode(output: RcWireWriter, value: RcDataMapLookup) {
     output.writeInt(value.outId)
@@ -1842,7 +1899,7 @@ private object IdLookupCodec : RcOperationCodec<RcIdLookup> {
   override val spec = RcOperationSpec(RcOpcodes.ID_LOOKUP, "IdLookup")
 
   override fun decode(input: RcWireReader) =
-    RcIdLookup(input.readInt("outId"), input.readInt("listId"), input.readFloatWord("index"))
+    RcIdLookup(input.readDeclaredId("outId"), input.readId("listId"), input.readFloatWord("index"))
 
   override fun encode(output: RcWireWriter, value: RcIdLookup) {
     output.writeInt(value.outId)
@@ -1897,7 +1954,7 @@ private object RootContentBehaviorCodec : RcOperationCodec<RcRootContentBehavior
 private object RootContentDescriptionCodec : RcOperationCodec<RcRootContentDescription> {
   override val spec = RcOperationSpec(RcOpcodes.ROOT_CONTENT_DESCRIPTION, "RootContentDescription")
 
-  override fun decode(input: RcWireReader) = RcRootContentDescription(input.readInt("textId"))
+  override fun decode(input: RcWireReader) = RcRootContentDescription(input.readId("textId"))
 
   override fun encode(output: RcWireWriter, value: RcRootContentDescription) =
     output.writeInt(value.textId)
@@ -1907,7 +1964,7 @@ private object NamedVariableCodec : RcOperationCodec<RcNamedVariable> {
   override val spec = RcOperationSpec(RcOpcodes.NAMED_VARIABLE, "NamedVariable")
 
   override fun decode(input: RcWireReader) =
-    RcNamedVariable(input.readInt("id"), input.readInt("type"), input.readUtf8("name"))
+    RcNamedVariable(input.readDeclaredId("id"), input.readInt("type"), input.readUtf8("name"))
 
   override fun encode(output: RcWireWriter, value: RcNamedVariable) {
     output.writeInt(value.id)
@@ -1938,8 +1995,8 @@ private object DrawTweenPathCodec : RcOperationCodec<RcDrawTweenPath> {
 
   override fun decode(input: RcWireReader) =
     RcDrawTweenPath(
-      input.readInt("path1Id"),
-      input.readInt("path2Id"),
+      input.readId("path1Id"),
+      input.readId("path2Id"),
       input.readFloatWord("tween"),
       input.readFloatWord("start"),
       input.readFloatWord("stop"),
@@ -1959,9 +2016,9 @@ private object PathTweenCodec : RcOperationCodec<RcPathTween> {
 
   override fun decode(input: RcWireReader) =
     RcPathTween(
-      input.readInt("outId"),
-      input.readInt("path1Id"),
-      input.readInt("path2Id"),
+      input.readDeclaredId("outId"),
+      input.readId("path1Id"),
+      input.readId("path2Id"),
       input.readFloatWord("tween"),
     )
 
@@ -1977,7 +2034,11 @@ private object PathCreateCodec : RcOperationCodec<RcPathCreate> {
   override val spec = RcOperationSpec(RcOpcodes.PATH_CREATE, "PathCreate")
 
   override fun decode(input: RcWireReader) =
-    RcPathCreate(input.readInt("id"), input.readFloatWord("startX"), input.readFloatWord("startY"))
+    RcPathCreate(
+      input.readDeclaredId("id"),
+      input.readFloatWord("startX"),
+      input.readFloatWord("startY"),
+    )
 
   override fun encode(output: RcWireWriter, value: RcPathCreate) {
     output.writeInt(value.id)
@@ -1990,7 +2051,7 @@ private object PathAppendCodec : RcOperationCodec<RcPathAppend> {
   override val spec = RcOperationSpec(RcOpcodes.PATH_ADD, "PathAppend")
 
   override fun decode(input: RcWireReader): RcPathAppend {
-    val id = input.readInt("id")
+    val id = input.readId("id")
     val count = input.readCount("words.count", 2_000)
     return RcPathAppend(id, List(count) { input.readFloatWord("words[$it]") })
   }
@@ -2008,9 +2069,9 @@ private object PathCombineCodec : RcOperationCodec<RcPathCombine> {
 
   override fun decode(input: RcWireReader) =
     RcPathCombine(
-      input.readInt("outId"),
-      input.readInt("path1Id"),
-      input.readInt("path2Id"),
+      input.readDeclaredId("outId"),
+      input.readId("path1Id"),
+      input.readId("path2Id"),
       input.readU8("operation"),
     )
 
@@ -2028,7 +2089,7 @@ private object MatrixFromPathCodec : RcOperationCodec<RcMatrixFromPath> {
 
   override fun decode(input: RcWireReader) =
     RcMatrixFromPath(
-      input.readInt("pathId"),
+      input.readId("pathId"),
       input.readFloatWord("percent"),
       input.readFloatWord("verticalOffset"),
       input.readInt("flags"),
@@ -2046,7 +2107,7 @@ private object PathExpressionCodec : RcOperationCodec<RcPathExpression> {
   override val spec = RcOperationSpec(RcOpcodes.PATH_EXPRESSION, "PathExpression")
 
   override fun decode(input: RcWireReader): RcPathExpression {
-    val id = input.readInt("id")
+    val id = input.readId("id")
     val flags = input.readInt("flags")
     val min = input.readFloatWord("min")
     val max = input.readFloatWord("max")
@@ -2084,7 +2145,7 @@ private object MatrixConstantCodec : RcOperationCodec<RcMatrixConstant> {
   override val spec = RcOperationSpec(RcOpcodes.MATRIX_CONSTANT, "MatrixConstant")
 
   override fun decode(input: RcWireReader): RcMatrixConstant {
-    val id = input.readInt("id")
+    val id = input.readId("id")
     val type = input.readInt("type")
     val count = input.readCount("values.count", 16)
     return RcMatrixConstant(id, type, List(count) { input.readFloatWord("values[$it]") })
@@ -2103,7 +2164,7 @@ private object MatrixExpressionCodec : RcOperationCodec<RcMatrixExpression> {
   override val spec = RcOperationSpec(RcOpcodes.MATRIX_EXPRESSION, "MatrixExpression")
 
   override fun decode(input: RcWireReader): RcMatrixExpression {
-    val id = input.readInt("id")
+    val id = input.readId("id")
     val type = input.readInt("type")
     val count = input.readCount("expression.count", 32)
     return RcMatrixExpression(id, type, List(count) { input.readFloatWord("expression[$it]") })
@@ -2123,7 +2184,7 @@ private object MatrixVectorMathCodec : RcOperationCodec<RcMatrixVectorMath> {
 
   override fun decode(input: RcWireReader): RcMatrixVectorMath {
     val type = input.readU16("type")
-    val matrixId = input.readInt("matrixId")
+    val matrixId = input.readId("matrixId")
     val outputCount =
       input.readCount("outputs.count", 4).also {
         if (it < 1) input.fail("outputs.count", "AndroidX requires at least one output")
@@ -2157,7 +2218,7 @@ private object TextMergeCodec : RcOperationCodec<RcTextMerge> {
   override val spec = RcOperationSpec(RcOpcodes.TEXT_MERGE, "TextMerge")
 
   override fun decode(input: RcWireReader) =
-    RcTextMerge(input.readInt("outId"), input.readInt("leftId"), input.readInt("rightId"))
+    RcTextMerge(input.readDeclaredId("outId"), input.readId("leftId"), input.readId("rightId"))
 
   override fun encode(output: RcWireWriter, value: RcTextMerge) {
     output.writeInt(value.outId)
@@ -2170,7 +2231,7 @@ private object TextFromFloatCodec : RcOperationCodec<RcTextFromFloat> {
   override val spec = RcOperationSpec(RcOpcodes.TEXT_FROM_FLOAT, "TextFromFloat")
 
   override fun decode(input: RcWireReader): RcTextFromFloat {
-    val outId = input.readInt("outId")
+    val outId = input.readDeclaredId("outId")
     val value = input.readFloatWord("value")
     val digits = input.readInt("digits")
     return RcTextFromFloat(
@@ -2194,7 +2255,7 @@ private object TextLengthCodec : RcOperationCodec<RcTextLength> {
   override val spec = RcOperationSpec(RcOpcodes.TEXT_LENGTH, "TextLength")
 
   override fun decode(input: RcWireReader) =
-    RcTextLength(input.readInt("outId"), input.readInt("textId"))
+    RcTextLength(input.readDeclaredId("outId"), input.readId("textId"))
 
   override fun encode(output: RcWireWriter, value: RcTextLength) {
     output.writeInt(value.outId)
@@ -2207,8 +2268,8 @@ private object TextSubtextCodec : RcOperationCodec<RcTextSubtext> {
 
   override fun decode(input: RcWireReader) =
     RcTextSubtext(
-      input.readInt("outId"),
-      input.readInt("textId"),
+      input.readDeclaredId("outId"),
+      input.readId("textId"),
       input.readFloatWord("start"),
       input.readFloatWord("length"),
     )
@@ -2226,8 +2287,8 @@ private object TextTransformCodec : RcOperationCodec<RcTextTransform> {
 
   override fun decode(input: RcWireReader) =
     RcTextTransform(
-      input.readInt("outId"),
-      input.readInt("textId"),
+      input.readDeclaredId("outId"),
+      input.readId("textId"),
       input.readFloatWord("start"),
       input.readFloatWord("length"),
       input.readInt("operation"),
@@ -2247,7 +2308,11 @@ private object TextLookupCodec : RcOperationCodec<RcTextLookup> {
   override val spec = RcOperationSpec(RcOpcodes.TEXT_LOOKUP, "TextLookup")
 
   override fun decode(input: RcWireReader) =
-    RcTextLookup(input.readInt("outId"), input.readInt("listId"), input.readFloatWord("index"))
+    RcTextLookup(
+      input.readDeclaredId("outId"),
+      input.readId("listId"),
+      input.readFloatWord("index"),
+    )
 
   override fun encode(output: RcWireWriter, value: RcTextLookup) {
     output.writeInt(value.outId)
@@ -2260,7 +2325,7 @@ private object TextLookupIntCodec : RcOperationCodec<RcTextLookupInt> {
   override val spec = RcOperationSpec(RcOpcodes.TEXT_LOOKUP_INT, "TextLookupInt")
 
   override fun decode(input: RcWireReader) =
-    RcTextLookupInt(input.readInt("outId"), input.readInt("listId"), input.readInt("indexId"))
+    RcTextLookupInt(input.readDeclaredId("outId"), input.readId("listId"), input.readId("indexId"))
 
   override fun encode(output: RcWireWriter, value: RcTextLookupInt) {
     output.writeInt(value.outId)
@@ -2274,7 +2339,7 @@ private object DrawTextCodec : RcOperationCodec<RcDrawText> {
 
   override fun decode(input: RcWireReader) =
     RcDrawText(
-      input.readInt("textId"),
+      input.readId("textId"),
       input.readInt("start"),
       input.readInt("end"),
       input.readInt("contextStart"),
@@ -2301,7 +2366,7 @@ private object DrawTextAnchoredCodec : RcOperationCodec<RcDrawTextAnchored> {
 
   override fun decode(input: RcWireReader) =
     RcDrawTextAnchored(
-      input.readInt("textId"),
+      input.readId("textId"),
       input.readFloatWord("x"),
       input.readFloatWord("y"),
       input.readFloatWord("panX"),
@@ -2323,8 +2388,8 @@ private object DrawTextOnPathCodec : RcOperationCodec<RcDrawTextOnPath> {
   override val spec = RcOperationSpec(RcOpcodes.DRAW_TEXT_ON_PATH, "DrawTextOnPath")
 
   override fun decode(input: RcWireReader): RcDrawTextOnPath {
-    val textId = input.readInt("textId")
-    val pathId = input.readInt("pathId")
+    val textId = input.readId("textId")
+    val pathId = input.readId("pathId")
     val verticalOffset = input.readFloatWord("verticalOffset")
     val horizontalOffset = input.readFloatWord("horizontalOffset")
     return RcDrawTextOnPath(textId, pathId, horizontalOffset, verticalOffset)
@@ -2347,7 +2412,7 @@ private object DrawTextOnCircleCodec : RcOperationCodec<RcDrawTextOnCircle> {
   // order.
   override fun decode(input: RcWireReader): RcDrawTextOnCircle =
     RcDrawTextOnCircle(
-      textId = input.readInt("textId"),
+      textId = input.readId("textId"),
       centerX = input.readFloatWord("centerX"),
       centerY = input.readFloatWord("centerY"),
       radius = input.readFloatWord("radius"),
@@ -2373,7 +2438,7 @@ private object TextMeasureCodec : RcOperationCodec<RcTextMeasure> {
   override val spec = RcOperationSpec(RcOpcodes.TEXT_MEASURE, "TextMeasure")
 
   override fun decode(input: RcWireReader) =
-    RcTextMeasure(input.readInt("outId"), input.readInt("textId"), input.readInt("type"))
+    RcTextMeasure(input.readDeclaredId("outId"), input.readId("textId"), input.readInt("type"))
 
   override fun encode(output: RcWireWriter, value: RcTextMeasure) {
     require(value.type and 0xff in 0..5) {
@@ -2389,7 +2454,7 @@ private object BitmapDataCodec : RcOperationCodec<RcBitmapData> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_BITMAP, "BitmapData")
 
   override fun decode(input: RcWireReader): RcBitmapData {
-    val imageId = input.readInt("imageId")
+    val imageId = input.readId("imageId")
     val widthAndType = input.readInt("widthAndType")
     val heightAndEncoding = input.readInt("heightAndEncoding")
     val width = widthAndType and 0xffff
@@ -2419,7 +2484,7 @@ private object FontDataCodec : RcOperationCodec<RcFontData> {
 
   override fun decode(input: RcWireReader): RcFontData =
     RcFontData(
-      fontId = input.readInt("fontId"),
+      fontId = input.readId("fontId"),
       type = input.readInt("type"),
       data = input.readByteArray("data"),
     )
@@ -2436,12 +2501,12 @@ private object DrawBitmapCodec : RcOperationCodec<RcDrawBitmap> {
 
   override fun decode(input: RcWireReader) =
     RcDrawBitmap(
-      input.readInt("imageId"),
+      input.readId("imageId"),
       input.readFloatWord("left"),
       input.readFloatWord("top"),
       input.readFloatWord("right"),
       input.readFloatWord("bottom"),
-      input.readInt("contentDescriptionId"),
+      input.readId("contentDescriptionId"),
     )
 
   override fun encode(output: RcWireWriter, value: RcDrawBitmap) {
@@ -2459,7 +2524,7 @@ private object DrawBitmapIntCodec : RcOperationCodec<RcDrawBitmapInt> {
 
   override fun decode(input: RcWireReader) =
     RcDrawBitmapInt(
-      input.readInt("imageId"),
+      input.readId("imageId"),
       input.readInt("srcLeft"),
       input.readInt("srcTop"),
       input.readInt("srcRight"),
@@ -2468,7 +2533,7 @@ private object DrawBitmapIntCodec : RcOperationCodec<RcDrawBitmapInt> {
       input.readInt("dstTop"),
       input.readInt("dstRight"),
       input.readInt("dstBottom"),
-      input.readInt("contentDescriptionId"),
+      input.readId("contentDescriptionId"),
     )
 
   override fun encode(output: RcWireWriter, value: RcDrawBitmapInt) {
@@ -2493,7 +2558,7 @@ private object DrawBitmapScaledCodec : RcOperationCodec<RcDrawBitmapScaled> {
 
   override fun decode(input: RcWireReader) =
     RcDrawBitmapScaled(
-      input.readInt("imageId"),
+      input.readId("imageId"),
       input.readFloatWord("srcLeft"),
       input.readFloatWord("srcTop"),
       input.readFloatWord("srcRight"),
@@ -2504,7 +2569,7 @@ private object DrawBitmapScaledCodec : RcOperationCodec<RcDrawBitmapScaled> {
       input.readFloatWord("dstBottom"),
       input.readInt("scaleType"),
       input.readFloatWord("scaleFactor"),
-      input.readInt("contentDescriptionId"),
+      input.readId("contentDescriptionId"),
     )
 
   override fun encode(output: RcWireWriter, value: RcDrawBitmapScaled) {
@@ -2532,8 +2597,8 @@ private object TextAttributeCodec : RcOperationCodec<RcTextAttribute> {
 
   override fun decode(input: RcWireReader) =
     RcTextAttribute(
-      input.readInt("outId"),
-      input.readInt("textId"),
+      input.readDeclaredId("outId"),
+      input.readId("textId"),
       input.readU16("type").toShort().toInt(),
       input.readU16("reserved"),
     )
@@ -2556,8 +2621,8 @@ private object TimeAttributeCodec : RcOperationCodec<RcTimeAttribute> {
   override val spec = RcOperationSpec(RcOpcodes.ATTRIBUTE_TIME, "TimeAttribute")
 
   override fun decode(input: RcWireReader): RcTimeAttribute {
-    val outId = input.readInt("outId")
-    val timeId = input.readInt("timeId")
+    val outId = input.readDeclaredId("outId")
+    val timeId = input.readId("timeId")
     val type = RcTimeAttributeType(input.readU16("type").toShort().toInt())
     val count = input.readU16("arguments.count").toShort().toInt()
     if (count !in 0..32) input.fail("arguments.count", "Invalid time argument count $count")
@@ -2581,8 +2646,8 @@ private object ImageAttributeCodec : RcOperationCodec<RcImageAttribute> {
   override val spec = RcOperationSpec(RcOpcodes.ATTRIBUTE_IMAGE, "ImageAttribute")
 
   override fun decode(input: RcWireReader): RcImageAttribute {
-    val outId = input.readInt("outId")
-    val imageId = input.readInt("imageId")
+    val outId = input.readDeclaredId("outId")
+    val imageId = input.readId("imageId")
     val type = input.readU16("type").toShort().toInt()
     val count = input.readU16("args.count")
     if (count > input.limits.maxCollectionEntries)
@@ -2606,8 +2671,8 @@ private object ColorAttributeCodec : RcOperationCodec<RcColorAttribute> {
 
   override fun decode(input: RcWireReader): RcColorAttribute =
     RcColorAttribute(
-      input.readInt("outId"),
-      input.readInt("colorId"),
+      input.readDeclaredId("outId"),
+      input.readId("colorId"),
       input.readU16("type").toShort().toInt(),
     )
 
@@ -2742,7 +2807,7 @@ private fun id(opcode: Int, name: String): RcOperationCodec<RcIdOperation> =
   object : RcOperationCodec<RcIdOperation> {
     override val spec = RcOperationSpec(opcode, name)
 
-    override fun decode(input: RcWireReader) = RcIdOperation(opcode, input.readInt("id"))
+    override fun decode(input: RcWireReader) = RcIdOperation(opcode, input.readId("id"))
 
     override fun encode(output: RcWireWriter, value: RcIdOperation) = output.writeInt(value.id)
   }

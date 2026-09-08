@@ -40,8 +40,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
+import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
+import ee.schimke.composeai.rcplayer.protocol.RcPlaySound
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentDescription
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
@@ -94,7 +98,32 @@ public class RcPlayerState(
    * it did before this parameter existed.
    */
   private val systemColorLookup: (name: String) -> Int? = { null },
+  private val soundSink: (RcSoundEffect) -> Unit = {},
+  particleRandomSeed: Long = RcFloatExpressionEvaluator.DEFAULT_RANDOM_SEED,
+  particleLimits: RcParticleExecutionLimits = RcParticleExecutionLimits(),
 ) {
+  /** Binary-compatible JVM constructor for clients compiled before sound and particle support. */
+  public constructor(
+    document: RcDocument,
+    namedValues: Map<String, RcNamedValue> = emptyMap(),
+    eventSink: (RcPlayerEvent) -> Unit = {},
+    onInvalidated: () -> Unit = {},
+    effectSink: (RcPlayerEffect) -> Unit = {},
+    timeSource: RcTimeSource = RcTimeSource.System,
+    systemColorLookup: (name: String) -> Int? = { null },
+  ) : this(
+    document,
+    namedValues,
+    eventSink,
+    onInvalidated,
+    effectSink,
+    timeSource,
+    systemColorLookup,
+    soundSink = {},
+    particleRandomSeed = RcFloatExpressionEvaluator.DEFAULT_RANDOM_SEED,
+    particleLimits = RcParticleExecutionLimits(),
+  )
+
   private val floats = mutableMapOf<Int, Float>()
   private val componentValues =
     document.operations.filterIsInstance<RcComponentValue>().distinct().groupBy { it.componentId }
@@ -119,8 +148,10 @@ public class RcPlayerState(
   private val dynamicFloatLists = mutableMapOf<Int, FloatArray>()
   private val idMaps = mutableMapOf<Int, RcIdMap>()
   private val bitmaps = mutableMapOf<Int, RcBitmapData>()
-  private val floatExpressionEvaluator = RcFloatExpressionEvaluator(::floatArray)
+  private val floatExpressionEvaluator = RcFloatExpressionEvaluator(arrays = ::floatArray)
   private val pathExpressionGenerator = RcPathExpressionGenerator(floatExpressionEvaluator)
+  private val soundRuntime = RcSoundRuntime(::resolve, soundSink)
+  private val particleRuntime: RcParticleRuntime
   private val floatExpressionRuntimes = mutableMapOf<Int, RcFloatExpressionRuntime>()
   private val floatExpressions =
     document.operations.filterIsInstance<RcFloatExpression>().associateBy { it.id }
@@ -233,6 +264,17 @@ public class RcPlayerState(
       }
     }
     namedValues.forEach { (name, value) -> setNamedValue(name, value) }
+    soundRuntime.prepare(document.operations)
+    particleRuntime =
+      RcParticleRuntime(
+        document.operations.filterIsInstance<RcParticleDefine>(),
+        particleRandomSeed,
+        particleLimits,
+        ::resolve,
+        ::setFloat,
+      ) {
+        effectSink(RcPlayerEffect.NextFrame)
+      }
     beginFrame()
   }
 
@@ -262,7 +304,23 @@ public class RcPlayerState(
       texts.putAll(textOverrides)
       computedMatrices.clear()
       loadSystemVariables()
+      particleRuntime.beginFrame()
     }
+
+  /** Immutable particle values for deterministic conformance traces. */
+  public fun particleSnapshot(id: Int): List<List<Float>> = particleRuntime.snapshot(id)
+
+  /**
+   * Evolves a particle system once and invokes [block] with each particle published as variables.
+   */
+  public fun forEachParticle(operation: RcParticleLoop, block: () -> Unit) {
+    particleRuntime.forEach(operation, block)
+  }
+
+  /** Applies a particle comparison and invokes [block] for each affected particle. */
+  public fun compareParticles(operation: RcParticleCompare, block: () -> Unit) {
+    particleRuntime.compare(operation, block)
+  }
 
   /**
    * Publishes the values AndroidX's `TimeVariables` loads into `RemoteContext` at the top of every
@@ -1017,6 +1075,7 @@ public class RcPlayerState(
             )
           )
         is RcHapticFeedback -> performHapticFeedback(operation)
+        is RcPlaySound -> playSound(operation)
         // AndroidX applies nested TextData while inflating ClickModifier, then ignores it during
         // onClick. RcPlayerState already loaded the flat document's text before layout.
         is RcTextData -> Unit
@@ -1073,6 +1132,11 @@ public class RcPlayerState(
     effectSink(RcPlayerEffect.HapticFeedback(operation.type))
   }
 
+  /** Resolves a dynamic synthesis definition, if present, then dispatches playback to the host. */
+  public fun playSound(operation: RcPlaySound) {
+    soundRuntime.play(operation)
+  }
+
   private fun resolveHostActionValue(value: RcHostNamedActionValue): RcHostActionValue =
     when (value) {
       RcHostNamedActionValue.None -> RcHostActionValue.None
@@ -1122,7 +1186,7 @@ public class RcPlayerState(
     return publishComponentValues(componentId, geometry)
   }
 
-  /** Supplies the scrollable content extent used by alpha16 CONTENT_WIDTH/CONTENT_HEIGHT. */
+  /** Supplies the scrollable content extent used by alpha18 CONTENT_WIDTH/CONTENT_HEIGHT. */
   public fun publishComponentContentSize(
     componentId: Int,
     width: Float? = null,

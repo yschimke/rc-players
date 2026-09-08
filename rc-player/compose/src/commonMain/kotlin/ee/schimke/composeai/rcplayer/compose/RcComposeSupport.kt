@@ -19,10 +19,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcDebugMessage
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
+import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
@@ -44,8 +46,13 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcOperationProfile
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
+import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
+import ee.schimke.composeai.rcplayer.protocol.RcPlaySound
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
+import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
@@ -71,6 +78,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcLayoutTree
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.hasPortableVisibilityAnimation
 import ee.schimke.composeai.rcplayer.runtime.isLayoutComputeExecutable
+import org.jetbrains.skia.RuntimeEffect
 
 /**
  * How much of a document an issue costs, and therefore whether a lenient host can play it anyway.
@@ -184,7 +192,10 @@ public fun RcDocument.composeSupportReport(
 ): RcComposeSupportReport {
   val issues = mutableListOf<RcComposeSupportIssue>()
   val bitmapIds = operations.filterIsInstance<RcBitmapData>().mapTo(mutableSetOf()) { it.imageId }
+  val shaderIds = operations.filterIsInstance<RcShaderData>().mapTo(mutableSetOf()) { it.shaderId }
   val fontIds = operations.filterIsInstance<RcFontData>().mapTo(mutableSetOf()) { it.fontId }
+  val particleDefinitionGroups = operations.filterIsInstance<RcParticleDefine>().groupBy { it.id }
+  val particleDefinitions = particleDefinitionGroups.mapValues { it.value.last() }
   val texts =
     operations.filterIsInstance<ee.schimke.composeai.rcplayer.protocol.RcTextData>().associate {
       it.id to it.text
@@ -328,9 +339,60 @@ public fun RcDocument.composeSupportReport(
       }
     }
     if (operation is RcPaintData) {
-      paintIssue(operation)?.let { detail ->
+      paintIssue(operation, shaderIds)?.let { detail ->
         issues += RcComposeSupportIssue(index, "PaintData", detail)
       }
+    }
+    if (operation is RcShaderData) {
+      when {
+        operation.shaderTextId !in textIds ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ShaderData",
+              "shader text id ${operation.shaderTextId} is not declared",
+            )
+        texts[operation.shaderTextId].isNullOrBlank() ->
+          issues += RcComposeSupportIssue(index, "ShaderData", "shader source is empty")
+        !runtimeShaderSourceIsSupported(texts.getValue(operation.shaderTextId)) ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ShaderData",
+              "shader source is not accepted by the Skia runtime",
+              RcComposeSupportSeverity.SKIPPABLE,
+            )
+        operation.floatUniforms.any { it.value.isEmpty() } ->
+          issues += RcComposeSupportIssue(index, "ShaderData", "float uniform has no values")
+        operation.intUniforms.any { it.value.size !in 1..4 } ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ShaderData",
+              "integer uniform must contain 1..4 values on the Skia backend",
+            )
+        else ->
+          operation.bitmapUniforms.entries
+            .firstOrNull { it.value !in bitmapIds }
+            ?.let {
+              issues +=
+                RcComposeSupportIssue(
+                  index,
+                  "ShaderData",
+                  "bitmap uniform '${it.key}' references undeclared bitmap ${it.value}",
+                )
+            }
+      }
+    }
+    if (
+      operation is RcDrawToBitmap && operation.bitmapId != 0 && operation.bitmapId !in bitmapIds
+    ) {
+      issues +=
+        RcComposeSupportIssue(
+          index,
+          "DrawToBitmap",
+          "bitmap id ${operation.bitmapId} is not declared",
+        )
     }
     if (operation is RcDebugMessage && operation.textId !in textIds) {
       issues +=
@@ -555,6 +617,100 @@ public fun RcDocument.composeSupportReport(
           (until - from) / step > 10_000f ->
           issues +=
             RcComposeSupportIssue(index, "LoopOperation", "literal loop exceeds 10000 iterations")
+      }
+    }
+    if (operation is RcParticleDefine) {
+      when {
+        particleDefinitionGroups[operation.id].orEmpty().size > 1 ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCreate",
+              "particle system ${operation.id} is defined more than once",
+            )
+        operation.particleCount !in 0..8_000 ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCreate",
+              "${operation.particleCount} particles are outside the executable 0..8000 range",
+            )
+        operation.variableIds.size != operation.initializationEquations.size ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCreate",
+              "variable and initialization equation counts differ",
+            )
+        operation.variableIds.size > 64 ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCreate",
+              "${operation.variableIds.size} variables exceed the executable limit of 64",
+            )
+      }
+    }
+    if (operation is RcParticleLoop) {
+      val definition = particleDefinitions[operation.id]
+      when {
+        definition == null ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesLoop",
+              "particle system ${operation.id} is missing",
+            )
+        operation.updateEquations.size != definition.variableIds.size ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesLoop",
+              "${operation.updateEquations.size} equations do not match " +
+                "${definition.variableIds.size} variables",
+            )
+        definition.particleCount.toLong() * (1L + operation.updateEquations.sumOf { it.size }) >
+          20_000L ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesLoop",
+              "literal particle work exceeds 20000 units per frame",
+            )
+      }
+    }
+    if (operation is RcParticleCompare) {
+      val definition = particleDefinitions[operation.id]
+      when {
+        definition == null ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCompare",
+              "particle system ${operation.id} is missing",
+            )
+        operation.firstEquations.size != definition.variableIds.size ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCompare",
+              "first result equation count does not match ${definition.variableIds.size} variables",
+            )
+        operation.secondEquations.isNotEmpty() &&
+          operation.secondEquations.size != definition.variableIds.size ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCompare",
+              "second result equation count does not match ${definition.variableIds.size} variables",
+            )
+        particleCompareWork(operation, definition.particleCount) > 20_000L ->
+          issues +=
+            RcComposeSupportIssue(
+              index,
+              "ParticlesCompare",
+              "literal particle work exceeds 20000 units per frame",
+            )
       }
     }
     if (operation is RcGraphicsLayerModifier) {
@@ -1063,6 +1219,7 @@ private fun invalidActionChild(
         if (
           operation !is RcHostAction &&
             operation !is RcHapticFeedback &&
+            operation !is RcPlaySound &&
             operation !is RcHostMetadataAction &&
             operation !is RcHostNamedAction &&
             operation !is ee.schimke.composeai.rcplayer.protocol.RcTextData &&
@@ -1250,7 +1407,12 @@ private fun hasInvalidDrawContent(
   }
 }
 
-private fun paintIssue(paint: RcPaintData): String? {
+private fun runtimeShaderSourceIsSupported(source: String): Boolean = runCatching {
+  RuntimeEffect.makeForShader(source).close()
+}
+  .isSuccess
+
+private fun paintIssue(paint: RcPaintData, shaderIds: Set<Int> = emptySet()): String? {
   var index = 0
   while (index < paint.words.size) {
     val command = paint.words[index++]
@@ -1323,8 +1485,8 @@ private fun paintIssue(paint: RcPaintData): String? {
     if (type == PAINT_TYPEFACE && paint.words[index] !in 0..3) {
       return "font id ${paint.words[index]} is not implemented"
     }
-    if (type == PAINT_SHADER && paint.words[index] != 0) {
-      return "shader id ${paint.words[index]} is not implemented"
+    if (type == PAINT_SHADER && paint.words[index] != 0 && paint.words[index] !in shaderIds) {
+      return "shader id ${paint.words[index]} is not declared"
     }
     if (type == PAINT_FONT_AXIS) {
       for (axisIndex in 0 until (command ushr 16)) {
@@ -1396,6 +1558,26 @@ private const val FONT_AXIS_WEIGHT = 0x77676874 // wght
 private const val FONT_AXIS_ITALIC = 0x6974616c // ital
 private const val FONT_AXIS_SLANT = 0x736c6e74 // slnt
 private val SUPPORTED_FONT_AXES = setOf(FONT_AXIS_WEIGHT, FONT_AXIS_ITALIC, FONT_AXIS_SLANT)
+
+private fun particleCompareWork(operation: RcParticleCompare, particleCount: Int): Long {
+  fun literalIndex(word: RcFloatWord, fallback: Int): Int =
+    word
+      .takeIf { it.referencedId == null }
+      ?.value
+      ?.let { value -> if (value < 0f) fallback else value.toInt().coerceIn(0, particleCount) }
+      ?: fallback
+  val start = literalIndex(operation.minimumIndex, 0)
+  val end = literalIndex(operation.maximumIndex, particleCount).coerceAtLeast(start)
+  val selected = (end - start).toLong()
+  val evaluations =
+    1L +
+      operation.condition.size +
+      operation.firstEquations.sumOf { it.size } +
+      operation.secondEquations.sumOf { it.size }
+  val visits =
+    if (operation.secondEquations.isEmpty()) selected else selected * (selected - 1L) / 2L
+  return visits * evaluations
+}
 
 private fun fontAxisName(tag: Int): String =
   buildString(4) {

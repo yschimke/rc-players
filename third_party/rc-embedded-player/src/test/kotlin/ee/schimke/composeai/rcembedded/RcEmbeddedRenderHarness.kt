@@ -89,7 +89,13 @@ class RcEmbeddedRenderHarness(private val entry: Entry) {
 
   /** One document to rasterize: `<id>.rc` in the input dir, rendered at the baked PNG's size. */
   @Serializable
-  data class Entry(val id: String, val width: Int, val height: Int, val density: Float = 2f) {
+  data class Entry(
+    val id: String,
+    val width: Int,
+    val height: Int,
+    val density: Float = 2f,
+    val embeddedSoftwareCanvasLimitation: String? = null,
+  ) {
     /** Drives the JUnit case name. */
     override fun toString(): String = id
   }
@@ -123,7 +129,7 @@ class RcEmbeddedRenderHarness(private val entry: Entry) {
       .onSuccess { bitmap ->
         png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
       }
-      .onFailure { t -> err.writeText("${t::class.java.simpleName}: ${t.message?.take(500)}") }
+      .onFailure { t -> err.writeText(entry.classify(t)) }
   }
 
   private fun renderToBitmap(bytes: ByteArray): Bitmap {
@@ -170,6 +176,10 @@ class RcEmbeddedRenderHarness(private val entry: Entry) {
 
     val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
     root.draw(Canvas(bitmap))
+    // Compose reports some draw failures through the test dispatcher after View.draw returns.
+    // Drain it while still inside runCatching so a failed capture becomes a lane result rather
+    // than a delayed JUnit failure paired with an invalid blank PNG.
+    composeRule.waitForIdle()
     return bitmap
   }
 
@@ -179,6 +189,19 @@ class RcEmbeddedRenderHarness(private val entry: Entry) {
 
     private fun inputDir(): File? =
       System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
+
+    private fun Entry.classify(failure: Throwable): String {
+      val details =
+        generateSequence(failure) { it.cause }.joinToString(": ") { it.message.orEmpty() }
+      return if (
+        embeddedSoftwareCanvasLimitation != null &&
+          details.contains("Software rendering doesn't support RuntimeShader")
+      ) {
+        "Harness limitation: $embeddedSoftwareCanvasLimitation"
+      } else {
+        "${failure::class.java.simpleName}: ${failure.message?.take(500)}"
+      }
+    }
 
     /**
      * One case per staged document. With nothing staged this yields a single placeholder so the

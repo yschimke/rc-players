@@ -44,7 +44,7 @@ Apple-silicon macOS remain required.
 
 The source of truth is
 [`rc-operations.manifest`](../../rc-player/protocol/src/main/rc-operations.manifest), generated into
-`RcOperationInventory`. At the time this plan was written it contains all 172 public alpha16
+`RcOperationInventory`. At the time this plan was written it contained all 172 public alpha18
 entries:
 
 | Status | Rows | Meaning |
@@ -66,7 +66,7 @@ There are no `parse_only` rows. That is useful, but it is not yet proof of Apple
 - the broad catalog A/B establishes useful real-document parity, but does not guarantee that every
   operation and boundary value appeared in the corpus.
 
-The remaining 22 unsupported rows fall into six deliverable groups:
+The initial 22 unsupported rows fell into six deliverable groups:
 
 | Group | Operations |
 | --- | --- |
@@ -76,6 +76,24 @@ The remaining 22 unsupported rows fall into six deliverable groups:
 | Bitmap fonts | `BitmapFontData`, `BitmapTextMeasure`, `DrawBitmapFontTextRun`, `DrawBitmapFontTextRunOnPath`, `DrawBitmapTextAnchored` |
 | Particles | `ParticleDefine`, `ParticleLoop`, `ParticleCompare` |
 | Sound | `SoundData`, `SoundExpression`, `PlaySound` |
+
+### Implementation checkpoint
+
+The first implementation pass now supplies codecs and shared CMP execution for all 22 rows above.
+The manifest consequently contains 162 `implemented` rows, one
+`implemented_upstream_unavailable` row, four sourced `unavailable` rows, five reserved markers, and
+zero `unsupported` or `parse_only` rows. This is operation-family completeness, not the final
+project definition of done: exhaustive variants, real iOS-simulator pixels/events, and the full
+scheduled snapshot canary remain follow-on conformance work.
+
+The checked-in AndroidX-writer corpus currently covers the new structural/reference, Loom macro,
+bitmap-font, sound, shader/offscreen, and particle families. The multi-player driver sends the
+same bytes through View, released embedded, snapshot embedded, vendored Android embedded, vendored
+JVM embedded, and CMP JVM. Its first classified findings are committed under
+[`renders/rc-operation-conformance`](../../renders/rc-operation-conformance): exact offscreen
+parity; bitmap-font parity apart from View edge filtering; a missing particle body in the vendored
+JVM cut; a software-canvas limitation for Android embedded runtime shaders; and different Loom
+top-level macro behavior between AndroidX-backed players and CMP.
 
 `LoadBitmap`, `MatrixSet`, `ParticleProcess`, and `Update` remain unavailable until an upstream
 reader and executable contract exist. `DrawTextOnCircle` stays in the CMP Apple profile but out of
@@ -250,6 +268,13 @@ Render every conformance fixture through as many applicable lanes as possible:
 | CMP iOS simulator | Product result on iOS |
 | CMP desktop on Linux and CMP Wasm | Triangulation for shared-code versus backend failures |
 
+The initial shared driver is `scripts/rc-operation-conformance/render-lanes.sh`. It sends one
+manifest and byte-identical `.rc` inputs through View, vendored Android embedded, vendored embedded
+JVM, CMP JVM, and either the released AndroidX embedded artifact, the pinned snapshot, or both. It
+rejects missing/stale primary results, retains explicit error and unsupported reports, and emits a
+JSON bundle containing every pairwise pixel comparison. The macOS and iOS lanes will join this same
+contract as their harnesses land; they must not fork the fixture format or scoring vocabulary.
+
 The same bytes, dimensions, density, theme, assets, clock, and input trace must reach every lane. A
 lane that cannot express a host capability reports `not-applicable(reason)`; it must not emit a
 blank image that participates in scoring.
@@ -336,6 +361,14 @@ readable executable contract, move it from unavailable into this phase; otherwis
 exclude it and link the source audit from the matrix. Bound particle count, lifetime, nested loops,
 and per-frame work.
 
+The 2026-09-08 audit at AndroidX revision
+[`cd3cd705`](https://github.com/androidx/androidx/blob/cd3cd705ab489dbe7b87126d268bf164a867a46a/compose/remote/remote-core/src/main/java/androidx/compose/remote/core/Operations.java)
+found `PARTICLE_PROCESS = 162` reserved in the opcode constants but absent from every registered
+reader map and with no operation implementation in `remote-core`. It therefore remains
+`unavailable`; unlike
+[`ParticlesCreate`](https://github.com/androidx/androidx/blob/cd3cd705ab489dbe7b87126d268bf164a867a46a/compose/remote/remote-core/src/main/java/androidx/compose/remote/core/operations/ParticlesCreate.java),
+`ParticlesLoop`, and profile-gated `ParticlesCompare`, there is no executable contract to reproduce.
+
 Exit: identical seeds and frame times produce repeatable state traces; Apple renders are compared at
 named frames rather than after wall-clock sleeps.
 
@@ -346,6 +379,13 @@ interface so document decode or composition can never play sound implicitly. Imp
 backend for iOS and a documented desktop backend for macOS; define interruption, mute, unavailable
 device, preload, disposal, and repeated-trigger behavior. Reference comparison asserts schedules and
 events rather than audio waveforms unless the reference player exposes deterministic PCM output.
+
+The implemented Apple backend is `RcAppleSoundHost`, shared by native iOS and native macOS and
+backed by `AVAudioPlayer`. It does not change the application's audio-session category, mixing,
+route, or interruption policy. The embedding host opts in through `LocalRcSoundHost` (or the Apple
+window/controller overloads), owns disposal, and may keep the silent default when audio is muted or
+unavailable. Compose Desktop/JVM likewise remains silent by default and accepts a host-provided
+backend; it does not open a JVM audio device during rendering or CI.
 
 Exit: all three sound rows have deterministic common tests, host integration tests, and graceful
 no-audio behavior; CI never needs a physical audio device.

@@ -97,6 +97,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcDocumentLinker {
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcFloatExpressionEvaluator {
 	public static final field Companion Lee/schimke/composeai/rcplayer/runtime/RcFloatExpressionEvaluator$Companion;
+	public static final field DEFAULT_RANDOM_SEED J
 	public static final field LAST_OP I
 	public static final field OFFSET I
 	public static final field VAR1 I
@@ -666,6 +667,27 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcNamedValue$Text : ee/
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits {
+	public fun <init> ()V
+	public fun <init> (IIIII)V
+	public synthetic fun <init> (IIIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4 ()I
+	public final fun component5 ()I
+	public final fun copy (IIIII)Lee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;IIIIIILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMaxLifetimeFrames ()I
+	public final fun getMaxNestingDepth ()I
+	public final fun getMaxParticles ()I
+	public final fun getMaxVariablesPerParticle ()I
+	public final fun getMaxWorkPerFrame ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class ee/schimke/composeai/rcplayer/runtime/RcPlayerEffect {
 }
 
@@ -756,6 +778,8 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerEvent$HostNamed
 public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;)V
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;JLee/schimke/composeai/rcplayer/runtime/RcParticleExecutionLimits;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun applyColorAttribute (Lee/schimke/composeai/rcplayer/protocol/RcColorAttribute;)V
 	public final fun applyColorExpression (Lee/schimke/composeai/rcplayer/protocol/RcColorExpression;)V
 	public final fun applyColorTheme (Lee/schimke/composeai/rcplayer/protocol/RcColorTheme;I)V
@@ -777,6 +801,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun boolean (I)Ljava/lang/Boolean;
 	public final fun clearNamedValue (Ljava/lang/String;)V
 	public final fun color (I)I
+	public final fun compareParticles (Lee/schimke/composeai/rcplayer/protocol/RcParticleCompare;Lkotlin/jvm/functions/Function0;)V
 	public final fun emitDebugMessage (Lee/schimke/composeai/rcplayer/protocol/RcDebugMessage;)V
 	public final fun evaluateConditional (Lee/schimke/composeai/rcplayer/protocol/RcConditionalOperations;)Z
 	public final fun evaluateImpulse (Lee/schimke/composeai/rcplayer/protocol/RcImpulseStart;)Lee/schimke/composeai/rcplayer/runtime/RcImpulsePhase;
@@ -790,6 +815,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun floatList (I)Lee/schimke/composeai/rcplayer/protocol/RcFloatList;
 	public final fun floatValues (I)[F
 	public final fun forEachLoopValue (Lee/schimke/composeai/rcplayer/protocol/RcLoopOperation;Lkotlin/jvm/functions/Function1;)V
+	public final fun forEachParticle (Lee/schimke/composeai/rcplayer/protocol/RcParticleLoop;Lkotlin/jvm/functions/Function0;)V
 	public final fun getAnimationTimeSeconds ()F
 	public final fun getClickAreas ()Ljava/util/List;
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
@@ -801,8 +827,10 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun matrixValues (I)[F
 	public final fun namedValue (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/runtime/RcNamedValue;
 	public final fun namedVariable (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/protocol/RcNamedVariable;
+	public final fun particleSnapshot (I)Ljava/util/List;
 	public final fun path (I)Lee/schimke/composeai/rcplayer/protocol/RcPathData;
 	public final fun performHapticFeedback (Lee/schimke/composeai/rcplayer/protocol/RcHapticFeedback;)V
+	public final fun playSound (Lee/schimke/composeai/rcplayer/protocol/RcPlaySound;)V
 	public final fun publishComponentContentSize (ILjava/lang/Float;Ljava/lang/Float;)Z
 	public static synthetic fun publishComponentContentSize$default (Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;ILjava/lang/Float;Ljava/lang/Float;ILjava/lang/Object;)Z
 	public final fun publishComponentGeometry (ILee/schimke/composeai/rcplayer/runtime/RcComponentGeometry;)Z
@@ -832,6 +860,28 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcScrollBlock {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getChildren ()Ljava/util/List;
 	public final fun getOperation ()Lee/schimke/composeai/rcplayer/protocol/RcScrollModifier;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/runtime/RcSoundEffect {
+}
+
+public final class ee/schimke/composeai/rcplayer/runtime/RcSoundEffect$Load : ee/schimke/composeai/rcplayer/runtime/RcSoundEffect {
+	public fun <init> (I[B)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()[B
+	public final fun getSoundId ()I
+	public fun hashCode ()I
+}
+
+public final class ee/schimke/composeai/rcplayer/runtime/RcSoundEffect$Play : ee/schimke/composeai/rcplayer/runtime/RcSoundEffect {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lee/schimke/composeai/rcplayer/runtime/RcSoundEffect$Play;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcSoundEffect$Play;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcSoundEffect$Play;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getSoundId ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -879,6 +929,12 @@ public abstract interface class ee/schimke/composeai/rcplayer/runtime/RcTimeSour
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcTimeSource$Companion {
 	public final fun getSystem ()Lee/schimke/composeai/rcplayer/runtime/RcTimeSource;
+}
+
+public final class ee/schimke/composeai/rcplayer/runtime/RcToneSynthesizer {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/runtime/RcToneSynthesizer;
+	public static final field SAMPLE_RATE I
+	public final fun synthesizeWav (FFF)[B
 }
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcTouchActionBlock {

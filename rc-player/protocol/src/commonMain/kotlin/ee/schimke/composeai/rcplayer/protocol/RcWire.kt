@@ -20,10 +20,26 @@ public class RcWireException(
   )
 
 /** Bounds-checked, big-endian reader matching AndroidX `WireBuffer`. */
-public class RcWireReader(
+public class RcWireReader
+internal constructor(
   private val bytes: ByteArray,
-  public val limits: RcWireLimits = RcWireLimits(),
+  public val limits: RcWireLimits,
+  private val idRemapper: RcIdRemapper?,
+  internal val libraryApiLevel: Int,
+  internal val profile: Int,
 ) {
+  /** Retains the original public constructor and its baseline AndroidX reader semantics. */
+  public constructor(
+    bytes: ByteArray,
+    limits: RcWireLimits = RcWireLimits(),
+  ) : this(
+    bytes,
+    limits,
+    idRemapper = null,
+    libraryApiLevel = 8,
+    profile = RcWireProfiles.ANDROIDX_BASELINE,
+  )
+
   public var offset: Int = 0
     private set
 
@@ -69,6 +85,16 @@ public class RcWireReader(
       readU8Unchecked()
   }
 
+  /** Reads an integer resource id and applies the active macro-expansion mapping. */
+  public fun readId(field: String): Int = readInt(field).let { idRemapper?.resolve(it) ?: it }
+
+  /** Applies the active mapping to an id already unpacked from an operation-specific flag word. */
+  internal fun resolveId(id: Int): Int = idRemapper?.resolve(id) ?: id
+
+  /** Reads an id declaration, allocating a collision-free macro-local id when expanding. */
+  public fun readDeclaredId(field: String): Int =
+    readInt(field).let { idRemapper?.declare(it) ?: it }
+
   public fun readLong(field: String): Long {
     requireAvailable(8, field)
     var result = 0L
@@ -76,13 +102,44 @@ public class RcWireReader(
     return result
   }
 
+  /** Reads a long, translating AndroidX's long-encoded resource-id form when present. */
+  public fun readRemappedLong(field: String): Long {
+    val value = readLong(field)
+    if (value !in 0x100000000L..0x1003fffffL) return value
+    val id = (value - 0x100000000L).toInt()
+    val mapped = idRemapper?.resolve(id) ?: return value
+    return 0x100000000L + mapped
+  }
+
   /** Read a float as raw bits so NaN-boxed ids are never canonicalised. */
-  public fun readFloatWord(field: String): RcFloatWord = RcFloatWord(readInt(field))
+  public fun readFloatWord(field: String): RcFloatWord {
+    val word = RcFloatWord(readInt(field))
+    val id = word.referencedId ?: return word
+    val mapped = idRemapper?.resolve(id) ?: return word
+    return RcFloatWord((word.bits and 0xffc00000.toInt()) or (mapped and 0x003fffff))
+  }
 
   public fun readByteArray(field: String, maximum: Int = limits.maxBlobBytes): ByteArray {
     val count = readCount("$field.length", maximum)
     requireAvailable(count, field)
     return bytes.copyOfRange(offset, offset + count).also { offset += count }
+  }
+
+  /** Reads an already-sized byte region, such as a macro definition body. */
+  public fun readRawBytes(
+    count: Int,
+    field: String,
+    maximum: Int = limits.maxBlobBytes,
+  ): ByteArray {
+    if (count < 0 || count > maximum) fail(field, "Invalid byte count $count; expected 0..$maximum")
+    requireAvailable(count, field)
+    return bytes.copyOfRange(offset, offset + count).also { offset += count }
+  }
+
+  /** Advances over an already-sized region after validating its bounds. */
+  public fun skipRawBytes(count: Int, field: String) {
+    requireAvailable(count, field)
+    offset += count
   }
 
   public fun readUtf8(field: String, maximum: Int = limits.maxStringBytes): String {
@@ -130,6 +187,40 @@ public class RcWireReader(
   private fun readU8Unchecked(): Int = bytes[offset++].toInt() and 0xff
 }
 
+/** Mutable, forkable ID translation context used while materializing macro bodies. */
+public class RcIdRemapper
+private constructor(
+  initialMappings: Map<Int, Int>,
+  private val allocator: RcIdAllocator,
+) {
+  private val mappings: MutableMap<Int, Int> = initialMappings.toMutableMap()
+
+  public fun resolve(id: Int): Int = mappings[id] ?: id
+
+  public fun declare(id: Int): Int {
+    if (id == -1 || id in 0..41) return resolve(id)
+    return mappings.getOrPut(id, allocator::allocate)
+  }
+
+  public fun fork(additionalMappings: Map<Int, Int> = emptyMap()): RcIdRemapper =
+    RcIdRemapper(mappings + additionalMappings, allocator)
+
+  public companion object {
+    public fun expanding(
+      mappings: Map<Int, Int> = emptyMap(),
+      reservedIds: Set<Int> = emptySet(),
+    ): RcIdRemapper = RcIdRemapper(mappings, RcIdAllocator(reservedIds))
+  }
+}
+
+private class RcIdAllocator(private val reservedIds: Set<Int>, private var next: Int = 42) {
+  fun allocate(): Int {
+    while (next in reservedIds) next++
+    if (next > 0x3fffff) error("Macro expansion exhausted the RC id space")
+    return next++
+  }
+}
+
 public data class RcWireLimits(
   val maxDocumentBytes: Int = 16 * 1024 * 1024,
   val maxBlobBytes: Int = 8 * 1024 * 1024,
@@ -140,6 +231,12 @@ public data class RcWireLimits(
   val maxCollectionEntries: Int = 2_000,
   val maxImageDimension: Int = 8_192,
 )
+
+/** AndroidX document profile bits consumed by conditional [RcSkip] operations. */
+public object RcWireProfiles {
+  public const val ANDROIDX_BASELINE: Int = 0x200
+  public const val ANDROIDX_EXPERIMENTAL: Int = 0x201
+}
 
 /** Growable, big-endian writer used by symmetric operation codecs and conformance tests. */
 public class RcWireWriter(initialCapacity: Int = 256) {
@@ -181,6 +278,13 @@ public class RcWireWriter(initialCapacity: Int = 256) {
 
   public fun writeByteArray(value: ByteArray) {
     writeInt(value.size)
+    ensureCapacity(value.size)
+    value.copyInto(bytes, size)
+    size += value.size
+  }
+
+  /** Writes bytes without a length prefix. */
+  public fun writeRawBytes(value: ByteArray) {
     ensureCapacity(value.size)
     value.copyInto(bytes, size)
     size += value.size

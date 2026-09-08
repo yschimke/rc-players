@@ -1,11 +1,11 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcOperationProfiles
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 
@@ -26,11 +26,38 @@ public fun RcComposeWindow(
   onError: (String) -> Unit = {},
   lenient: Boolean = false,
 ): Unit {
+  RcComposeWindow(
+    bytes,
+    title,
+    width,
+    height,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    RcSoundHost.None,
+  )
+}
+
+/** [RcComposeWindow] with an opt-in, host-owned Apple audio implementation. */
+public fun RcComposeWindow(
+  bytes: ByteArray,
+  title: String,
+  width: Float,
+  height: Float,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  soundHost: RcSoundHost,
+): Unit {
   val document = runCatching {
-    RcDocumentCodec.decode(bytes).also {
+    decodeCmpDocument(bytes).also {
       it
         .composeSupportReport(
-          RcOperationProfiles.CMP_IOS_ALPHA16,
+          RcOperationProfiles.CMP_MACOS_ALPHA18,
           availableFontFamilies = typefaces.families,
         )
         .requireRenderable(lenient)
@@ -42,12 +69,14 @@ public fun RcComposeWindow(
     }
 
   Window(title = title, size = DpSize(width.dp, height.dp)) {
-    RcComposePlayer(
-      document,
-      Modifier.fillMaxSize(),
-      theme,
-      onEvent = onEvent,
-      typefaces = typefaces,
-    )
+    CompositionLocalProvider(LocalRcSoundHost provides soundHost) {
+      RcComposePlayer(
+        document,
+        Modifier.fillMaxSize(),
+        theme,
+        onEvent = onEvent,
+        typefaces = typefaces,
+      )
+    }
   }
 }

@@ -1,5 +1,6 @@
 // Klib ABI Dump
 // Targets: [iosArm64, iosSimulatorArm64, macosArm64, wasmJs]
+// Alias: apple => [iosArm64, iosSimulatorArm64, macosArm64]
 // Alias: ios => [iosArm64, iosSimulatorArm64]
 // Rendering settings:
 // - Signature version: 2
@@ -28,6 +29,17 @@ final enum class ee.schimke.composeai.rcplayer.compose/RcPlayerTheme : kotlin/En
 
     final fun valueOf(kotlin/String): ee.schimke.composeai.rcplayer.compose/RcPlayerTheme // ee.schimke.composeai.rcplayer.compose/RcPlayerTheme.valueOf|valueOf#static(kotlin.String){}[0]
     final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.compose/RcPlayerTheme> // ee.schimke.composeai.rcplayer.compose/RcPlayerTheme.values|values#static(){}[0]
+}
+
+abstract interface ee.schimke.composeai.rcplayer.compose/RcSoundHost { // ee.schimke.composeai.rcplayer.compose/RcSoundHost|null[0]
+    abstract fun loadSound(kotlin/Int, kotlin/ByteArray) // ee.schimke.composeai.rcplayer.compose/RcSoundHost.loadSound|loadSound(kotlin.Int;kotlin.ByteArray){}[0]
+    abstract fun playSound(kotlin/Int) // ee.schimke.composeai.rcplayer.compose/RcSoundHost.playSound|playSound(kotlin.Int){}[0]
+    open fun dispose() // ee.schimke.composeai.rcplayer.compose/RcSoundHost.dispose|dispose(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.compose/RcSoundHost.Companion|null[0]
+        final val None // ee.schimke.composeai.rcplayer.compose/RcSoundHost.Companion.None|{}None[0]
+            final fun <get-None>(): ee.schimke.composeai.rcplayer.compose/RcSoundHost // ee.schimke.composeai.rcplayer.compose/RcSoundHost.Companion.None.<get-None>|<get-None>(){}[0]
+    }
 }
 
 abstract interface ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader { // ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader|null[0]
@@ -211,6 +223,8 @@ final object ee.schimke.composeai.rcplayer.compose/RcSpannableString { // ee.sch
     final fun annotate(ee.schimke.composeai.rcplayer.compose/RcCustomComponent): androidx.compose.ui.text/AnnotatedString // ee.schimke.composeai.rcplayer.compose/RcSpannableString.annotate|annotate(ee.schimke.composeai.rcplayer.compose.RcCustomComponent){}[0]
 }
 
+final val ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost|{}LocalRcSoundHost[0]
+    final fun <get-LocalRcSoundHost>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcSoundHost> // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost.<get-LocalRcSoundHost>|<get-LocalRcSoundHost>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/color // ee.schimke.composeai.rcplayer.compose/color|@ee.schimke.composeai.rcplayer.runtime.RcNamedValue.Color{}color[0]
     final fun (ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color).<get-color>(): androidx.compose.ui.graphics/Color // ee.schimke.composeai.rcplayer.compose/color.<get-color>|<get-color>@ee.schimke.composeai.rcplayer.runtime.RcNamedValue.Color(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcBundledTypefaceLoader$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcBundledTypefaceLoader$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcBundledTypefaceLoader$stableprop[0]
@@ -257,6 +271,21 @@ final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/rcNamedColor(androidx.compose.ui.graphics/Color): ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color // ee.schimke.composeai.rcplayer.compose/rcNamedColor|rcNamedColor(androidx.compose.ui.graphics.Color){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues(kotlin/Array<out kotlin/Pair<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue>>..., androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.runtime.snapshots/SnapshotStateMap<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue> // ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues|rememberRcNamedValues(kotlin.Array<out|kotlin.Pair<kotlin.String,ee.schimke.composeai.rcplayer.runtime.RcNamedValue>>...;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 
+// Targets: [apple]
+final class ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost : ee.schimke.composeai.rcplayer.compose/RcSoundHost { // ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost|null[0]
+    constructor <init>() // ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost.<init>|<init>(){}[0]
+
+    final fun dispose() // ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost.dispose|dispose(){}[0]
+    final fun loadSound(kotlin/Int, kotlin/ByteArray) // ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost.loadSound|loadSound(kotlin.Int;kotlin.ByteArray){}[0]
+    final fun playSound(kotlin/Int) // ee.schimke.composeai.rcplayer.compose/RcAppleSoundHost.playSound|playSound(kotlin.Int){}[0]
+}
+
+// Targets: [apple]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop[0]
+
+// Targets: [apple]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter(){}[0]
+
 // Targets: [ios]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader = ..., kotlin/Function1<kotlin/String, kotlin/Unit> = ...): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>){}[0]
 
@@ -264,7 +293,16 @@ final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/B
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean){}[0]
 
 // Targets: [ios]
+final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean, ee.schimke.composeai.rcplayer.compose/RcSoundHost): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean;ee.schimke.composeai.rcplayer.compose.RcSoundHost){}[0]
+
+// Targets: [ios]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean, kotlin/Boolean): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean;kotlin.Boolean){}[0]
+
+// Targets: [ios]
+final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean, kotlin/Boolean, ee.schimke.composeai.rcplayer.compose/RcSoundHost): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean;kotlin.Boolean;ee.schimke.composeai.rcplayer.compose.RcSoundHost){}[0]
 
 // Targets: [macosArm64]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeWindow(kotlin/ByteArray, kotlin/String = ..., kotlin/Float = ..., kotlin/Float = ..., ee.schimke.composeai.rcplayer.compose/RcPlayerTheme = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader = ..., kotlin/Function1<kotlin/String, kotlin/Unit> = ..., kotlin/Boolean = ...) // ee.schimke.composeai.rcplayer.compose/RcComposeWindow|RcComposeWindow(kotlin.ByteArray;kotlin.String;kotlin.Float;kotlin.Float;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean){}[0]
+
+// Targets: [macosArm64]
+final fun ee.schimke.composeai.rcplayer.compose/RcComposeWindow(kotlin/ByteArray, kotlin/String, kotlin/Float, kotlin/Float, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean, ee.schimke.composeai.rcplayer.compose/RcSoundHost) // ee.schimke.composeai.rcplayer.compose/RcComposeWindow|RcComposeWindow(kotlin.ByteArray;kotlin.String;kotlin.Float;kotlin.Float;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean;ee.schimke.composeai.rcplayer.compose.RcSoundHost){}[0]

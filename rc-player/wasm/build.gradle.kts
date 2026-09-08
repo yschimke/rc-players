@@ -86,9 +86,15 @@ tasks.register<Sync>("wasmPlayerDist") {
   // back down — but every other face here is vendored exactly as the CSS2 endpoint serves it, and
   // silently shipping a processed one would break that and the reproducibility the README
   // documents. Slack is kept at ~245 KB, in line with the previous values.
+  //
+  // Raised again from 25_280_000 -> 25_650_000 for the remaining executable operation families:
+  // macros/references, bitmap fonts, offscreen drawing and shaders, particles, and sound. The
+  // production distribution measured 25_393_417 bytes after those runtime paths were linked, an
+  // increase of 358 KB over the preceding measured payload. Keep roughly 256 KB of slack so the
+  // ratchet continues to catch unrelated growth.
   inputs.property(
     "maximumDistributionBytes",
-    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("25280000"),
+    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("25650000"),
   )
   doLast {
     val maximumBytes = inputs.properties.getValue("maximumDistributionBytes").toString().toLong()

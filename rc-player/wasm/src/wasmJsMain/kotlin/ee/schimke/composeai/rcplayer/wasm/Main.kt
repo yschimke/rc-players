@@ -121,7 +121,7 @@ public fun main() {
               val typefaces = withTimeout(8_000) { loadHostTypefaces() }
               document
                 .composeSupportReport(
-                  RcOperationProfiles.CMP_WASM_ALPHA16,
+                  RcOperationProfiles.CMP_WASM_ALPHA18,
                   availableFontFamilies = typefaces.families,
                   allowExternalImagePlaceholders =
                     queryParameter("allowExternalImagePlaceholders") == "1",

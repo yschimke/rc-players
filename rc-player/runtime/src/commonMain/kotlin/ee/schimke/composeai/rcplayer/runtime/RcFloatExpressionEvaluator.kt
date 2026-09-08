@@ -23,7 +23,16 @@ import kotlin.math.tan
 
 /** Platform-neutral VM for AndroidX's NaN-boxed, reverse-Polish float expression language. */
 public class RcFloatExpressionEvaluator(private val arrays: (Int) -> FloatArray? = { null }) {
+  /**
+   * Seeded construction is runtime-internal so the original public default-constructor ABI stays
+   * exact.
+   */
+  internal constructor(randomSeed: Long, arrays: (Int) -> FloatArray? = { null }) : this(arrays) {
+    random = JavaRandom(randomSeed)
+  }
+
   private val registers = FloatArray(4)
+  private var random: JavaRandom = JavaRandom(DEFAULT_RANDOM_SEED)
 
   public fun evaluate(
     expression: List<RcFloatWord>,
@@ -139,10 +148,10 @@ public class RcFloatExpressionEvaluator(private val arrays: (Int) -> FloatArray?
         stack[sp - 1] = monotonicSpline(arrayAt(sp - 1), stack[sp])
         sp--
       }
-      39 -> stack[++sp] = sharedRandom.nextFloat()
+      39 -> stack[++sp] = random.nextFloat()
       40 -> {
         val seed = stack[sp]
-        sharedRandom =
+        random =
           if (seed == 0f) JavaRandom(UNSEEDED_FALLBACK) else JavaRandom(seed.toRawBits().toLong())
         sp--
       }
@@ -152,7 +161,7 @@ public class RcFloatExpressionEvaluator(private val arrays: (Int) -> FloatArray?
         val scrambled = (x * (x * x * 15731 + 789221) + 1376312589) and 0x7fffffff
         stack[sp] = 1f - scrambled / 1.0737418E9f
       }
-      42 -> stack[sp] = sharedRandom.nextFloat() * (stack[sp] - stack[sp - 1]) + stack[sp - 1]
+      42 -> stack[sp] = random.nextFloat() * (stack[sp] - stack[sp - 1]) + stack[sp - 1]
       43 -> {
         stack[sp - 1] = stack[sp - 1] * stack[sp - 1] + stack[sp] * stack[sp]
         sp--
@@ -356,8 +365,8 @@ public class RcFloatExpressionEvaluator(private val arrays: (Int) -> FloatArray?
     private const val MULTIPLIER: Long = 0x5DEECE66DL
     private const val ADDEND: Long = 0xBL
     private const val MASK: Long = (1L shl 48) - 1
-    private const val UNSEEDED_FALLBACK: Long = 0x5243504c41594552L
-    private var sharedRandom: JavaRandom = JavaRandom(UNSEEDED_FALLBACK)
+    public const val DEFAULT_RANDOM_SEED: Long = 0x5243504c41594552L
+    private const val UNSEEDED_FALLBACK: Long = DEFAULT_RANDOM_SEED
 
     public fun operatorWord(operator: Int): RcFloatWord =
       RcFloatWord(0xff800000.toInt() or operator)
