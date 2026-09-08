@@ -250,6 +250,13 @@ Render every conformance fixture through as many applicable lanes as possible:
 | CMP iOS simulator | Product result on iOS |
 | CMP desktop on Linux and CMP Wasm | Triangulation for shared-code versus backend failures |
 
+The initial shared driver is `scripts/rc-operation-conformance/render-lanes.sh`. It sends one
+manifest and byte-identical `.rc` inputs through View, vendored Android embedded, vendored embedded
+JVM, CMP JVM, and either the released AndroidX embedded artifact, the pinned snapshot, or both. It
+rejects missing/stale primary results, retains explicit error and unsupported reports, and emits a
+JSON bundle containing every pairwise pixel comparison. The macOS and iOS lanes will join this same
+contract as their harnesses land; they must not fork the fixture format or scoring vocabulary.
+
 The same bytes, dimensions, density, theme, assets, clock, and input trace must reach every lane. A
 lane that cannot express a host capability reports `not-applicable(reason)`; it must not emit a
 blank image that participates in scoring.

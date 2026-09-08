@@ -102,9 +102,12 @@ attributable by construction rather than by luck.
 The local deltas over upstream are tracked as issues on this repository and are meant to shrink: two
 of the original five were dropped when alpha17 restored them upstream.
 
-`scripts/rc-lane-ab/` renders a catalog on both the Android lanes and scores them;
-`scripts/rc-text-metrics/` does the same for text metrics. Their committed outputs are under
-`renders/`.
+`scripts/rc-lane-ab/` renders the focused Android View/vendored-embedded A/B, while
+`scripts/rc-operation-conformance/render-lanes.sh` sends one manifest and the same `.rc` bytes
+through AndroidX View, released and/or snapshot AndroidX embedded, vendored Android embedded,
+vendored embedded JVM, and CMP JVM, then validates every result and writes all pairwise pixel
+scores to `comparison.json`. `scripts/rc-text-metrics/` does the same for the focused text-metrics
+set. Committed visual evidence is under `renders/`.
 
 ### Build-only tools
 
