@@ -15,9 +15,9 @@ the others are measured against.
 
 | Player | Target | Language / runtime | Supported? | Why it exists |
 | --- | --- | --- | --- | --- |
-| **CMP player** (`rc-player/compose`) | JVM · Android · iOS (`iosArm64`, `iosSimulatorArm64`) · `wasmJs` | Kotlin Multiplatform + Compose Multiplatform | **Yes** — the one supported API here | The player written here. One implementation that draws a document natively on every surface this stack targets, with a platform-neutral wire model underneath it. This is what a consumer should depend on. |
+| **CMP player** (`rc-player/compose`) | JVM · Android · iOS (`iosArm64`, `iosSimulatorArm64`) · macOS (`macosArm64`) · `wasmJs` | Kotlin Multiplatform + Compose Multiplatform | **Yes** — the one supported API here | The player written here. One implementation that draws a document natively on every surface this stack targets, with a platform-neutral wire model underneath it. This is what a consumer should depend on. |
 | **Wasm host** (`rc-player/wasm`) | Browser | The CMP player compiled to WebAssembly | Yes, as an embed contract | Makes the CMP player renderable in a page with no server: an iframe driven by query parameters and `window.rcPlayerLoad`. It is the CMP player, not a second implementation — same pixels, different host. |
-| **iOS XCFramework** (`Package.swift`) | iOS, from Swift | The CMP player's iOS targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
+| **Apple XCFramework** (`Package.swift`) | iOS + Apple-silicon macOS, from Swift | The CMP player's native Apple targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
 | **Vendored AndroidX player, JVM cut** (`third_party/rc-embedded-player-jvm`) | Desktop JVM (Skia) | The platform-neutral subset of the above, against Compose Desktop | **No** — testing/tooling only | Runs the same comparison headlessly, without Robolectric — and, by compiling the shared files against a non-Android target, makes "platform-neutral" a compiled fact rather than a claim. AndroidX publishes no desktop cut, so this one has no upstream to switch to. |
 | **Vendored TypeScript player** (`third_party/remote-compose-player`) | Browser · Node · VS Code webview | TypeScript → Canvas2D, WebGL for shader ops | **No** — vendored, upstream elsewhere | A client-side lane that needs no Kotlin at all, so a viewer can render a captured `.rc` without a server-side daemon. Upstream is [yschimke/remotecompose-experiments](https://github.com/yschimke/remotecompose-experiments); changes are filed there. |
@@ -40,8 +40,8 @@ next, and the dependency arrow is also the dependency-weight arrow:
 | `rc-player/runtime` | `rc-player-runtime` | Document semantics with no drawing: expression evaluation, animation timelines, layout tree, theming, named values. Still no Compose. |
 | `rc-player/compose` | `rc-player-compose` | The Compose Multiplatform renderer. `RcComposePlayer` draws a document; this is the module most consumers want. |
 
-There is no `iosX64` slice anywhere in the stack — Compose Multiplatform 1.11 stopped publishing the
-Intel simulator variant — so Intel Macs cannot build against it.
+There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
+publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 
 All four run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the real public surface
 against the committed dumps in each module's `api/`, so a change to the published API shows up as a
@@ -63,10 +63,11 @@ The distribution carries its own font faces (`rc-player/wasm/dist-assets/`) beca
 manifest-only and never fetches: a family the bundle does not carry fails the availability check
 outright.
 
-### The iOS framework (`Package.swift`)
+### The Apple framework (`Package.swift`)
 
-`rc-player/compose`'s iOS targets, assembled into `RcComposePlayer.xcframework` and distributed
-through Swift Package Manager. **Consume it by a bare `X.Y.Z` tag** — the release job writes the
+`rc-player/compose`'s iOS and Apple-silicon macOS targets, assembled into
+`RcComposePlayer.xcframework` and distributed through Swift Package Manager. **Consume it by a
+bare `X.Y.Z` tag** — the release job writes the
 real `url` and `checksum` into `Package.swift` and publishes that commit as the bare tag once the
 XCFramework is uploaded. The copy on `main` is a permanent placeholder: a manifest cannot state the
 checksum of an asset that does not exist yet, so `main` and the `v`-prefixed tag both fail the
@@ -163,7 +164,7 @@ tag, neither of which carries a resolvable checksum:
 ```
 
 An Android SDK is needed for `third_party/rc-embedded-player` (`ANDROID_HOME`, or `sdk.dir` in
-`local.properties`). The iOS targets only build on macOS; on Linux the Kotlin Gradle plugin disables
+`local.properties`). The Apple targets only build on macOS; on Linux the Kotlin Gradle plugin disables
 them with a warning rather than failing.
 
 `-Pcomposeai.remoteCompose=snapshot` swaps the pinned AndroidX Remote Compose alphas for the

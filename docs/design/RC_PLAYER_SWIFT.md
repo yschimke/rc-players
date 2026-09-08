@@ -1,8 +1,9 @@
 # The Remote Compose player from Swift
 
-How `ee.schimke.composeai:rc-player-compose`'s iOS entry point is packaged, what it looks like from
-Swift, and the two places where the Kotlin API reads worse across the boundary than it does in
-Kotlin. Companion to [RC_CMP_WASM_PLAYER.md](RC_CMP_WASM_PLAYER.md), which covers the player itself.
+How `ee.schimke.composeai:rc-player-compose`'s iOS and macOS entry points are packaged, what they
+look like from Swift, and the places where the Kotlin API reads worse across the boundary than it
+does in Kotlin. Companion to [RC_CMP_WASM_PLAYER.md](RC_CMP_WASM_PLAYER.md), which covers the
+player itself.
 
 Implements #4068.
 
@@ -14,7 +15,7 @@ Implements #4068.
 > `v`-prefixed release tag is cut before the XCFramework exists, so both fail the checksum check —
 > deliberately, rather than resolving to something unverified.
 >
-> A version has a usable bare tag when the release job's `Publish the iOS XCFramework` step
+> A version has a usable bare tag when the release job's `Publish the Apple XCFramework` step
 > succeeded for it. Check with:
 >
 > ```
@@ -31,6 +32,7 @@ Implements #4068.
 ```
 
 ```swift
+// iOS
 import RcComposePlayer
 import UIKit
 
@@ -40,6 +42,26 @@ let controller = RcComposeViewControllerKt.RcComposeViewController(
   onEvent: { event in handle(event) },
   typefaces: RcTypefaceLoaderCompanion.shared.Default,
   onError: { message in show(message) }
+)
+```
+
+The same package exposes an AppKit-backed window on Apple-silicon macOS 12 and newer:
+
+```swift
+// macOS
+import RcComposePlayer
+import AppKit
+
+RcComposeWindowKt.RcComposeWindow(
+  bytes: KotlinByteArray(bytes: documentData),
+  title: "Remote Compose",
+  width: 800,
+  height: 600,
+  theme: .system,
+  onEvent: { event in handle(event) },
+  typefaces: RcTypefaceLoaderCompanion.shared.Default,
+  onError: { message in show(message) },
+  lenient: false
 )
 ```
 
@@ -115,17 +137,33 @@ exists to catch: an earlier draft of this page called a bare `RcComposeViewContr
 `KotlinByteArray.from(_:)` that does not exist, and nothing caught either until a reviewer read the
 generated header by hand.
 
-**Device and Apple-silicon simulator only.** There is no Intel-simulator slice anywhere in this
-stack: Compose Multiplatform 1.11 stopped publishing the variant, so `:rc-player-compose` cannot
-declare `iosX64` and its three siblings dropped theirs rather than publish a stack that resolves
-three of its four artifacts on one target ([#4066](https://github.com/yschimke/compose-ai-tools/issues/4066)).
-Intel Macs cannot build against this. Stated here rather than discovered at link time.
+**Apple silicon only.** The XCFramework contains iOS device, Apple-silicon iOS simulator, and
+Apple-silicon macOS slices. Compose Multiplatform 1.11.1 publishes the experimental
+`macosArm64` renderer used by the AppKit window, but no Apple x86_64 variants; Intel simulators and
+Intel Macs therefore cannot build against this. The build opts into the experimental macOS target
+explicitly and CI links it before a release.
+
+### Relationship to the Apple sample app
+
+[#63](https://github.com/yschimke/rc-players/pull/63) is a useful starting point for a desktop app:
+its document library, SwiftUI split view, file import/drop, themes, zoom, and keyboard commands are
+largely platform-neutral. Its current renderer adapter is not—it wraps the UIKit entry point with
+`UIViewControllerRepresentable`, so the Mac destination is Apple's “Designed for iPad” runtime.
+
+The native macOS slice added here lets an AppKit or macOS SwiftUI application call
+`RcComposeWindow`, but that opens a player-owned top-level window. Compose Multiplatform 1.11.1's
+experimental native macOS API exposes `Window`; it does not expose the underlying Compose `NSView`
+needed for an `NSViewRepresentable` equivalent of #63's in-place canvas. A native desktop version
+can therefore reuse #63's shell immediately if a separate player window is acceptable. Reusing its
+full split-view layout with the player embedded in the detail pane still needs an upstream
+embeddable AppKit view API (or a substantial locally maintained copy of Compose's private host,
+which this library deliberately does not take on).
 
 ## How it is built and shipped
 
 | step | where |
 |---|---|
-| `iosArm64` + `iosSimulatorArm64` static frameworks | `rc-player/compose/build.gradle.kts` |
+| `iosArm64` + `iosSimulatorArm64` + `macosArm64` static frameworks | `rc-player/compose/build.gradle.kts` |
 | combined into `RcComposePlayer.xcframework` | `assembleRcComposePlayerReleaseXCFramework` (registered by `XCFrameworkConfig`) |
 | zipped reproducibly + SHA-256 | `:rc-player-compose:rcPlayerXcframeworkChecksum` |
 | attached to the GitHub Release | `release.yml` → `publish-xcframework` |

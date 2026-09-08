@@ -1,7 +1,7 @@
 name: Release
 
 # Publishes the players for a given tag: the five Maven artifacts to Maven Central, the Wasm bundle
-# to npm, and (when re-enabled) the iOS XCFramework onto the GitHub Release with `Package.swift`
+# to npm, and the Apple XCFramework onto the GitHub Release with `Package.swift`
 # rewritten to describe it.
 #
 # Entry points:
@@ -56,8 +56,8 @@ env:
 jobs:
   # The Maven artifacts: rc-player-{trace,protocol,runtime,compose} and the vendored Android player.
   #
-  # macOS, not Linux: `rc-player-compose` and its three siblings publish iOS klibs, and those only
-  # build on a Mac. A Linux publish would silently ship a KMP module whose iOS variants are missing
+  # macOS, not Linux: `rc-player-compose` and its three siblings publish Apple klibs, and those only
+  # build on a Mac. A Linux publish would silently ship a KMP module whose Apple variants are missing
   # from the Gradle module metadata — resolvable on JVM, broken on iOS, and only discovered by a
   # consumer.
   publish-maven:
@@ -211,7 +211,7 @@ jobs:
 
   # macOS-only: `xcodebuild -create-xcframework` and the Kotlin/Native Apple linker both need it.
   publish-xcframework:
-    name: Publish the iOS XCFramework
+    name: Publish the Apple XCFramework
     # Enabled again. This job was gated off while the Kotlin/Native release link
     # (`linkReleaseFramework{IosArm64,IosSimulatorArm64}`, via `rcPlayerXcframeworkChecksum`) ran
     # out of heap on `macos-15`; the cause was that Kotlin/Native compiles inside the Gradle
@@ -253,7 +253,7 @@ jobs:
             exit 1
           fi
           sudo xcode-select --switch "$xcode/Contents/Developer"
-      # `--max-workers=1`: the two release links share the Gradle daemon's heap, so they must not
+      # `--max-workers=1`: the three release links share the Gradle daemon's heap, so they must not
       # run `ModuleDFGBuilder` concurrently. Same invocation as `ci.yml`'s, deliberately.
       - name: Assemble and package the XCFramework
         run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum --max-workers=1

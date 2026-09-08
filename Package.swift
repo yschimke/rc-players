@@ -1,6 +1,6 @@
 // swift-tools-version:5.9
 //
-// Swift Package Manager distribution for the Remote Compose player's iOS framework (#4068).
+// Swift Package Manager distribution for the Remote Compose player's Apple framework (#4068).
 //
 // TO USE THIS PACKAGE, resolve it by a BARE version tag:
 //
@@ -24,15 +24,15 @@
 // two values — by hand is never right, because they have to describe an asset that already exists
 // and SPM verifies the checksum at resolve time.
 //
-// Coverage: `iosArm64` (device) and `iosSimulatorArm64` (Apple-silicon simulator) only. There is no
-// Intel-simulator slice anywhere in this stack — Compose Multiplatform 1.11 stopped publishing the
-// variant — so Intel Macs cannot build against this. Stated here rather than discovered at link
-// time. See docs/design/RC_PLAYER_SWIFT.md.
+// Coverage: `iosArm64` (device), `iosSimulatorArm64` (Apple-silicon simulator), and `macosArm64`.
+// Compose Multiplatform 1.11 publishes no Apple x86_64 variants, so Intel simulators and Intel Macs
+// cannot build against this. Stated here rather than discovered at link time. See
+// docs/design/RC_PLAYER_SWIFT.md.
 import PackageDescription
 
 let package = Package(
   name: "RcComposePlayer",
-  platforms: [.iOS(.v13)],
+  platforms: [.iOS(.v13), .macOS(.v12)],
   products: [
     .library(name: "RcComposePlayer", targets: ["RcComposePlayer"])
   ],

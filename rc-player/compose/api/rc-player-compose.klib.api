@@ -1,5 +1,5 @@
 // Klib ABI Dump
-// Targets: [iosArm64, iosSimulatorArm64, wasmJs]
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64, wasmJs]
 // Alias: ios => [iosArm64, iosSimulatorArm64]
 // Rendering settings:
 // - Signature version: 2
@@ -262,3 +262,6 @@ final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/B
 
 // Targets: [ios]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean){}[0]
+
+// Targets: [macosArm64]
+final fun ee.schimke.composeai.rcplayer.compose/RcComposeWindow(kotlin/ByteArray, kotlin/String = ..., kotlin/Float = ..., kotlin/Float = ..., ee.schimke.composeai.rcplayer.compose/RcPlayerTheme = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader = ..., kotlin/Function1<kotlin/String, kotlin/Unit> = ..., kotlin/Boolean = ...) // ee.schimke.composeai.rcplayer.compose/RcComposeWindow|RcComposeWindow(kotlin.ByteArray;kotlin.String;kotlin.Float;kotlin.Float;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean){}[0]
