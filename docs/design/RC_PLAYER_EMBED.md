@@ -134,6 +134,11 @@ ran": Compose schedules Skiko's raster work after composition, so the player wai
 frames plus `handoffDelayMs` before setting it. Chromium can acknowledge frames before the Skiko
 surface reaches the compositor.
 
+Both markers, the contract version and `window.rcPlayerLoad` are asserted on every pull request by
+[`scripts/wasm-smoke`](../../scripts/wasm-smoke/smoke.mjs), which drives the shipped bundle in
+headless Chromium. That lane exists because none of this is reachable from a Kotlin test: it lives
+in the `js(...)` blocks of the bundle a host actually loads.
+
 ## `postMessage`
 
 All same-origin, to `window.parent`:

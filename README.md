@@ -189,6 +189,62 @@ androidx-main post-submit build pinned in `settings.gradle.kts`. Use it to exerc
 landed upstream but has not been released; the default `release` line is what CI and published
 consumers see.
 
+### What CI runs, and where
+
+Two lanes in [`.github/workflows/ci.yml`](.github/workflows/ci.yml), split by what the host can do
+rather than by what the change touched:
+
+| | Linux (`ubuntu-latest`) | macOS (`macos-15`) |
+| --- | --- | --- |
+| JVM suites for the four published modules, `compat-tests`, `metrics`, `profile` | ✅ | ✅ (via `allTests`) |
+| Vendored Android player, Robolectric (`testDebugUnitTest`) | ✅ | |
+| Vendored JVM and TypeScript players | ✅ | |
+| `macosArm64Test`, `iosSimulatorArm64Test`, `wasmJsBrowserTest` | | ✅ |
+| `iosArm64` — device | | compiled only; a hosted runner has no device to run it on |
+| The shipped Wasm bundle, in a real browser | ✅ `scripts/wasm-smoke` | |
+| ABI gate (`checkKotlinAbi`) | | ✅ — the dumps cover the Apple klibs, which only build here |
+| XCFramework link, Swift type check, Xcode packaging | | ✅, and **only** when the change can affect them |
+
+Both lanes run on every pull request. Only the last row is path-gated (the `apple-changes` job): the
+release link is what makes the macOS lane expensive, and a change that cannot reach the Apple
+artifacts should not pay for it. Test execution is never gated — a lane that can only run here is
+worth its minutes on every change, and the previous arrangement, where the path filter skipped the
+whole job, meant a change confined to `rc-player/wasm` or `third_party/` merged without a single
+Kotlin/Native or wasm test running.
+
+Each lane then runs [`scripts/assert-test-execution.sh`](scripts/assert-test-execution.sh) over the
+JUnit XML. `allTests` resolves its members per target on the runner, so a target that cannot run
+there drops out of the graph and leaves the job green; the script fails it instead.
+
+**No Android emulator lane, deliberately.** `third_party/rc-embedded-player` has no `androidTest`
+source set, so one would boot an emulator to run nothing. Its drawing behaviour is not unverified
+for want of a device: the suite is Robolectric-backed and rasterizes through
+`RcEmbeddedRenderHarness` / `RcAndroidxEmbeddedRenderHarness`, the same lane
+`scripts/rc-operation-conformance/render-lanes.sh` compares pixel-for-pixel against the AndroidX
+View player and the JVM cut. Revisit this only alongside instrumented tests that assert something
+Robolectric cannot — real Skia text shaping, or hardware-accelerated `RenderNode` behaviour.
+
+### The Wasm browser smoke run
+
+```bash
+./gradlew :rc-player-wasm:wasmPlayerTestDist
+npm --prefix scripts/wasm-smoke ci
+npm --prefix scripts/wasm-smoke exec -- playwright install chromium
+npm --prefix scripts/wasm-smoke test
+```
+
+`wasmPlayerTestDist` stages the optimized bundle next to four `.rc` documents written by the real
+AndroidX writer; [`scripts/wasm-smoke/smoke.mjs`](scripts/wasm-smoke/smoke.mjs) serves that
+directory and opens each of them in headless Chromium. A case passes only if the page reaches
+`data-rc-player-state="ready"`, writes nothing to `console.error`, and produces a canvas that is not
+blank. It also covers the two halves of the embed contract no Kotlin test can reach — the error
+marker for a `?src=` that 404s, and `window.rcPlayerLoad`'s warm document swap. `CHROMIUM_EXECUTABLE`
+points it at a browser Playwright did not install itself.
+
+This is a different lane from `wasmJsBrowserTest`, which runs the Kotlin `commonTest` sources: this
+one runs the *artifact* — the production-compiled `rcPlayer.wasm`, `index.html`, the `js-joda`
+import map and the bundled font manifest, exactly as they ship to npm.
+
 ## Publishing
 
 `./gradlew publishPlayers` publishes the Maven artifacts; `publishPlayersToMavenLocal` is the local
