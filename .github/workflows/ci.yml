@@ -17,7 +17,7 @@ jobs:
   # both vendored players, and the build-only fixture generators.
   #
   # `checkKotlinAbi` is deliberately NOT here. The committed dumps include a `.klib.api` covering the
-  # iOS and wasmJs targets, and those klibs only build on macOS — running the gate on Linux would
+  # Apple and wasmJs targets, and the Apple klibs only build on macOS — running the gate on Linux would
   # diff a partial surface against a complete dump. It runs in `players-macos` below, which is the
   # one job that can see all of it.
   jvm:
@@ -74,9 +74,9 @@ jobs:
             **/build/test-results/**
           retention-days: 7
 
-  # The macOS lane: the iOS targets, and the ABI gate that depends on them.
+  # The macOS lane: the native Apple targets, and the ABI gate that depends on them.
   players-macos:
-    name: iOS players + ABI gate
+    name: Apple players + ABI gate
     runs-on: macos-15
     timeout-minutes: 90
     steps:
@@ -113,12 +113,13 @@ jobs:
       # Intel-iOS-simulator variant — and its three siblings dropped theirs when the stack became
       # publishable, because publishing a stack that resolves three of four artifacts on one target
       # is worse than not offering it. Naming a task that no longer exists fails the whole
-      # invocation ("Cannot locate tasks that match ..."), not just that one target.
+      # invocation ("Cannot locate tasks that match ..."), not just that one target. The native
+      # macOS target is arm64-only for the same reason.
       #
       # `allTests` does not imply `check`, so the ABI gate has to be named explicitly. Regenerate
       # the dumps with `./gradlew :rc-player-<module>:updateKotlinAbi` when a surface change is
       # intended.
-      - name: Run the iOS player tests and the ABI gate
+      - name: Run the Apple player tests and the ABI gate
         run: |
           ./gradlew \
             :rc-player-trace:checkKotlinAbi \
@@ -134,7 +135,10 @@ jobs:
             :rc-player-runtime:compileTestKotlinIosArm64 \
             :rc-player-runtime:compileTestKotlinIosSimulatorArm64 \
             :rc-player-compose:compileTestKotlinIosArm64 \
-            :rc-player-compose:compileTestKotlinIosSimulatorArm64
+            :rc-player-compose:compileTestKotlinIosSimulatorArm64 \
+            :rc-player-protocol:compileTestKotlinMacosArm64 \
+            :rc-player-runtime:compileTestKotlinMacosArm64 \
+            :rc-player-compose:compileTestKotlinMacosArm64
 
       # `Package.swift`'s two SPM-verified values are written by the release job, never by hand.
       # This proves the writer still works before a release depends on it.
@@ -162,7 +166,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ios-test-reports
+          name: apple-test-reports
           path: |
             rc-player/**/build/reports/tests/**
             rc-player/**/build/test-results/**

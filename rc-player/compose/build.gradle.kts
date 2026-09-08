@@ -23,7 +23,7 @@ kotlin {
   // extra plugin on the classpath — which is why the player stack gets the gate first rather than
   // waiting for a repo-wide rollout (docs/API_STABILITY.md notes no module had one until now).
   // Both dumps are written: `<module>.api` for the JVM target and `<module>.klib.api` covering the
-  // klib-based targets (iOS + wasmJs) together. Regenerate with `./gradlew updateKotlinAbi`.
+  // klib-based targets (Apple + wasmJs) together. Regenerate with `./gradlew updateKotlinAbi`.
   @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
 
   // Unnamed `jvm()`, not `jvm("desktop")`. This module is published, and the JVM artifact should
@@ -42,15 +42,16 @@ kotlin {
   // resolution outright ("Couldn't resolve dependency 'org.jetbrains.compose.runtime:runtime' in
   // 'iosMain' for all target platforms") rather than degrading. Device (`iosArm64`) and the
   // Apple-silicon simulator (`iosSimulatorArm64`) are the targets that still exist; the non-Compose
-  // siblings dropped theirs so the published stack has one target set (#4066).
+  // siblings dropped theirs so the published stack has one target set (#4066). Native macOS is
+  // available for Apple silicon through the experimental `macosArm64` artifacts in 1.11.1.
   //
-  // The two frameworks are collected into an XCFramework so Swift can consume them — see
+  // The three frameworks are collected into an XCFramework so Swift can consume them — see
   // `rcPlayerXcframeworkZip` below and #4068. `XCFramework(...)` registers
   // `assemble{Debug,Release}RcComposePlayerXCFramework`; nothing else changes about how the
   // frameworks themselves are built.
   val xcframework =
     org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig(project, "RcComposePlayer")
-  listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+  listOf(iosArm64(), iosSimulatorArm64(), macosArm64()).forEach { target ->
     target.binaries.framework {
       baseName = "RcComposePlayer"
       isStatic = true
@@ -111,7 +112,7 @@ composeAiMavenPublishing {
     artifactId = "rc-player-compose",
     displayName = "Remote Compose Player — Compose Multiplatform",
     description =
-      "RcComposePlayer, a Compose Multiplatform renderer for Remote Compose (.rc) documents on JVM, wasmJs and iOS.",
+      "RcComposePlayer, a Compose Multiplatform renderer for Remote Compose (.rc) documents on JVM, wasmJs, iOS and macOS.",
   )
 }
 
@@ -152,7 +153,7 @@ tasks.withType<Test>().configureEach {
 
 val rcPlayerXcframeworkZip =
   tasks.register<Zip>("rcPlayerXcframeworkZip") {
-    description = "Package the iOS XCFramework as a Swift Package Manager binary target."
+    description = "Package the Apple XCFramework as a Swift Package Manager binary target."
     group = "distribution"
     dependsOn("assembleRcComposePlayerReleaseXCFramework")
     from(layout.buildDirectory.dir("XCFrameworks/release"))

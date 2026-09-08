@@ -19,7 +19,7 @@ kotlin {
   // extra plugin on the classpath — which is why the player stack gets the gate first rather than
   // waiting for a repo-wide rollout (docs/API_STABILITY.md notes no module had one until now).
   // Both dumps are written: `<module>.api` for the JVM target and `<module>.klib.api` covering the
-  // klib-based targets (iOS + wasmJs) together. Regenerate with `./gradlew updateKotlinAbi`.
+  // klib-based targets (Apple + wasmJs) together. Regenerate with `./gradlew updateKotlinAbi`.
   @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
 
   // Unnamed `jvm()`, not `jvm("desktop")`. This module is published, and the JVM artifact should
@@ -33,9 +33,10 @@ kotlin {
   // simulator variant (see that module's build comment) — and these three are published as one
   // stack with it. Keeping `iosX64` here would publish a stack that resolves three of its four
   // artifacts on that target and fails on the fourth, which is the worst of the options #4066
-  // lists. Intel Macs are out; device and the Apple-silicon simulator are what remain.
+  // lists. Native Apple targets are arm64-only; macOS joins the device and simulator below.
   iosArm64()
   iosSimulatorArm64()
+  macosArm64()
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 
