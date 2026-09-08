@@ -346,3 +346,18 @@ jobs:
 
           echo "Swift consumers can now resolve:"
           echo "  .package(url: \"https://github.com/${GITHUB_REPOSITORY}.git\", from: \"${swift_tag}\")"
+
+      - name: Build the downloadable Simulator player
+        run: |
+          set -euo pipefail
+          scripts/set-apple-player-package-version.sh "$PLUGIN_VERSION"
+          scripts/package-apple-player.sh
+
+      - name: Upload the Simulator player to the Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$TAG_NAME" \
+            build/distributions/RemoteComposePlayer-Simulator-arm64.zip \
+            build/distributions/RemoteComposePlayer-Simulator-arm64.zip.sha256 \
+            --clobber
