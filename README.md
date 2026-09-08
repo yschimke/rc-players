@@ -236,10 +236,13 @@ npm --prefix scripts/wasm-smoke test
 `wasmPlayerTestDist` stages the optimized bundle next to four `.rc` documents written by the real
 AndroidX writer; [`scripts/wasm-smoke/smoke.mjs`](scripts/wasm-smoke/smoke.mjs) serves that
 directory and opens each of them in headless Chromium. A case passes only if the page reaches
-`data-rc-player-state="ready"`, writes nothing to `console.error`, and produces a canvas that is not
-blank. It also covers the two halves of the embed contract no Kotlin test can reach — the error
-marker for a `?src=` that 404s, and `window.rcPlayerLoad`'s warm document swap. `CHROMIUM_EXECUTABLE`
-points it at a browser Playwright did not install itself.
+`data-rc-player-state="ready"`, publishes the expected embed-contract version on both exports
+(`window.rcPlayerContractVersion` and `data-rc-player-contract`, which must agree), writes nothing to
+`console.error`, and produces a canvas that is not blank. It also covers the two halves of the embed
+contract no Kotlin test can reach — the error marker for a `?src=` that 404s, and
+`window.rcPlayerLoad`'s warm document swap, which has to repaint the viewport rather than leave the
+outgoing document on screen. `CHROMIUM_EXECUTABLE` points it at a browser Playwright did not install
+itself.
 
 This is a different lane from `wasmJsBrowserTest`, which runs the Kotlin `commonTest` sources: this
 one runs the *artifact* — the production-compiled `rcPlayer.wasm`, `index.html`, the `js-joda`

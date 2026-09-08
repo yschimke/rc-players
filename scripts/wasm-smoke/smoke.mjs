@@ -58,6 +58,18 @@ const VIEWPORT = { width: 800, height: 600 };
  */
 const COMMON_QUERY = 'handoffDelayMs=0';
 
+/**
+ * The embed contract version the bundle must publish, on both of the exports a host can read.
+ *
+ * Pinned rather than merely required to be present: a host that resolved this bundle from npm
+ * branches on this number, and the npm package's *major* tracks it
+ * (docs/design/RC_PLAYER_EMBED.md). A bump is a deliberate act — a query parameter's meaning, a
+ * `data-rc-player-state` value, a `postMessage` payload or `window.rcPlayerLoad`'s behaviour
+ * changed — so it should be a deliberate edit here too, in the same commit, rather than something
+ * a presence check waves through.
+ */
+const EXPECTED_CONTRACT_VERSION = 1;
+
 const CASES = [
   {
     name: 'androidx-baseline',
@@ -196,7 +208,44 @@ function assertNotBlank(screenshot, prefix = '') {
         'are expected',
     );
   }
-  return { colours: histogram.size, ink };
+  return { png, colours: histogram.size, ink };
+}
+
+/**
+ * The share of pixels a swap has to repaint before it counts as having loaded another document.
+ *
+ * `rcPlayerLoad` cycles the readiness marker synchronously, from JavaScript, before any of the
+ * Kotlin side runs — so a player that dropped the new source on the floor and left the outgoing
+ * document on screen would still reach `ready` again with a canvas that is not blank, and the
+ * swap case would pass having proved nothing. The two documents it uses differ over roughly half
+ * the viewport; 1% is far below that and far above the antialiasing noise two renders of the
+ * *same* document would produce.
+ */
+const MINIMUM_SWAP_CHANGE = 0.01;
+
+/** Fail a swap that repainted (almost) nothing, which is how "the source was ignored" looks. */
+function assertRenderChanged(before, after) {
+  if (before.width !== after.width || before.height !== after.height) {
+    // The viewport is fixed for the whole case, so this cannot happen by design — and if it ever
+    // does, silently skipping the comparison is the wrong answer.
+    throw new Error(
+      `the swap changed the surface size, ${before.width}x${before.height} -> ` +
+        `${after.width}x${after.height}`,
+    );
+  }
+  let changed = 0;
+  for (let index = 0; index < before.data.length; index += 4) {
+    if (before.data.readUInt32BE(index) !== after.data.readUInt32BE(index)) changed += 1;
+  }
+  const pixels = before.width * before.height;
+  if (changed / pixels < MINIMUM_SWAP_CHANGE) {
+    throw new Error(
+      `the swap repainted ${changed} of ${pixels} pixels ` +
+        `(${((changed / pixels) * 100).toFixed(3)}%) — the player kept showing the outgoing ` +
+        'document rather than loading the new source',
+    );
+  }
+  return changed / pixels;
 }
 
 /**
@@ -216,7 +265,10 @@ async function waitForSettled(page, watched) {
     const settled = await page.evaluate(() => ({
       state: document.documentElement.dataset.rcPlayerState ?? null,
       error: document.documentElement.dataset.rcPlayerError ?? null,
-      contract: document.documentElement.dataset.rcPlayerContract ?? null,
+      // Both halves of the published version, so they can be checked against each other as well as
+      // against the expected number.
+      contractAttribute: document.documentElement.dataset.rcPlayerContract ?? null,
+      contractGlobal: window.rcPlayerContractVersion ?? null,
     }));
     if (settled.state === 'ready' || settled.state === 'error') return settled;
     const faults = watched();
@@ -259,10 +311,22 @@ async function runCase(browser, origin, testCase) {
     let settled = await waitForSettled(page, watched);
 
     // The contract version is published before anything is loaded, so it is readable even on the
-    // failure case. A host that resolved this bundle from npm reads it to decide what it is talking
-    // to; a bundle that stopped publishing it would break that silently.
-    if (settled.contract === null) {
-      throw new Error('the bundle published no data-rc-player-contract');
+    // failure case. Hosts read `window.rcPlayerContractVersion`; a page driving an iframe reads the
+    // `data-rc-player-contract` attribute. Both must exist, agree, and carry the version this
+    // revision of the repository documents — a bundle that published a different one, or only one
+    // of the two, would break a host silently.
+    if (settled.contractGlobal !== EXPECTED_CONTRACT_VERSION) {
+      throw new Error(
+        `window.rcPlayerContractVersion is ${JSON.stringify(settled.contractGlobal)}, expected ` +
+          `${EXPECTED_CONTRACT_VERSION} (bump EXPECTED_CONTRACT_VERSION here in the same commit ` +
+          'that bumps the contract)',
+      );
+    }
+    if (settled.contractAttribute !== String(EXPECTED_CONTRACT_VERSION)) {
+      throw new Error(
+        `data-rc-player-contract is ${JSON.stringify(settled.contractAttribute)}, expected ` +
+          `"${EXPECTED_CONTRACT_VERSION}"`,
+      );
     }
 
     if (expectsError) {
@@ -288,8 +352,10 @@ async function runCase(browser, origin, testCase) {
       throw new Error(settled.error ?? 'the player reported an error');
     }
     let pixels = assertNotBlank(await page.screenshot());
+    let swapNote = '';
 
     if (testCase.swapTo) {
+      const before = pixels.png;
       await page.evaluate((source) => window.rcPlayerLoad(source), testCase.swapTo);
       // The marker goes back to `loading` synchronously inside `rcPlayerLoad`, so this cannot
       // observe the outgoing render's `ready` and screenshot the document it just replaced.
@@ -300,13 +366,17 @@ async function runCase(browser, origin, testCase) {
         );
       }
       pixels = assertNotBlank(await page.screenshot(), 'after the swap, ');
+      const changed = assertRenderChanged(before, pixels.png);
+      swapNote = `, ${(changed * 100).toFixed(0)}% of the viewport repainted by the swap`;
     }
 
     const faults = [...pageErrors, ...consoleErrors];
     if (faults.length > 0) {
       throw new Error(`the page reported errors:\n  ${faults.join('\n  ')}`);
     }
-    return { note: `${pixels.ink} px drawn in ${pixels.colours} distinct colours` };
+    return {
+      note: `${pixels.ink} px drawn in ${pixels.colours} distinct colours${swapNote}`,
+    };
   } finally {
     await context.close();
   }
