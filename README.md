@@ -77,8 +77,9 @@ Application targets normally select the `RcComposePlayerSwiftUI` product for dir
 events/errors, and SwiftUI/UIKit entry points; the `RcComposePlayer` product remains the raw binary
 interop surface.
 
-[`samples/apple-player`](samples/apple-player/) is the full downstream check: a SwiftUI document
-player resolved through the released Swift package, built for the arm64 iOS Simulator in CI, and
+[`samples/apple-player`](samples/apple-player/) is the full application check: a SwiftUI document
+player linked against the current release XCFramework build, built in CI for the arm64 iOS
+Simulator, and
 also runnable as a **Designed for iPad** desktop app on Apple-silicon Macs. It exercises application
 integration that the generated-header sample cannot, including bundled and imported `.rc` files,
 the UIKit controller lifecycle, required plist settings, and the framework's architecture matrix.

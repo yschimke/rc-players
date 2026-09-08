@@ -36,6 +36,7 @@ final class PlayerLibrary {
   var documents: [PlayerDocument] = []
   var selection: PlayerDocument.ID?
   var theme: PlayerAppearance = .system
+  var background: RemoteComposePlayerBackground = .opaque
   var zoom = 1.0
   var isImporting = false
   var errorMessage: String?

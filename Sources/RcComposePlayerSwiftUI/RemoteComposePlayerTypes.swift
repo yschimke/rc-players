@@ -1,7 +1,7 @@
 import Foundation
 import RcComposePlayer
 
-public enum RemoteComposePlayerTheme: Sendable {
+public enum RemoteComposePlayerTheme: Equatable, Sendable {
   case system
   case light
   case dark
@@ -15,23 +15,33 @@ public enum RemoteComposePlayerTheme: Sendable {
   }
 }
 
-public enum RemoteComposePlayerCompatibility: Sendable {
+public enum RemoteComposePlayerCompatibility: Equatable, Sendable {
   case strict
   case compatible
 
   var isLenient: Bool { self == .compatible }
 }
 
+public enum RemoteComposePlayerBackground: Equatable, Sendable {
+  case opaque
+  case transparent
+
+  var isOpaque: Bool { self == .opaque }
+}
+
 public struct RemoteComposePlayerConfiguration: Equatable, Sendable {
   public var theme: RemoteComposePlayerTheme
   public var compatibility: RemoteComposePlayerCompatibility
+  public var background: RemoteComposePlayerBackground
 
   public init(
     theme: RemoteComposePlayerTheme = .system,
-    compatibility: RemoteComposePlayerCompatibility = .strict
+    compatibility: RemoteComposePlayerCompatibility = .strict,
+    background: RemoteComposePlayerBackground = .opaque
   ) {
     self.theme = theme
     self.compatibility = compatibility
+    self.background = background
   }
 }
 

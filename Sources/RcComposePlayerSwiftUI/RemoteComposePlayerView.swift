@@ -53,6 +53,7 @@
     private func rebuildContent() {
       generation += 1
       let activeGeneration = generation
+      applyBackground()
       guard
         Bundle.main.object(forInfoDictionaryKey: "CADisableMinimumFrameDurationOnPhone") as? Bool
           == true
@@ -92,7 +93,8 @@
           }
           self.errorHandler(error)
         },
-        lenient: configuration.compatibility.isLenient
+        lenient: configuration.compatibility.isLenient,
+        opaque: configuration.background.isOpaque
       )
       isBuilding = false
 
@@ -124,6 +126,13 @@
       ])
       controller.didMove(toParent: self)
       contentController = controller
+    }
+
+    private func applyBackground() {
+      let isOpaque = configuration.background.isOpaque
+      view.isOpaque = isOpaque
+      view.backgroundColor = isOpaque ? .systemBackground : .clear
+      view.layer.isOpaque = isOpaque
     }
   }
 
