@@ -56,8 +56,8 @@ import kotlin.system.exitProcess
  * pool -> worker, per request:
  *   int32 MAGIC_REQUEST, int32 requestId, int32 width, int32 height,
  *   int32 densityBits (Float.floatToIntBits), int32 format (0=png, 1=svg),
- *   int32 theme (0=light, 1=dark), int32 fontScaleBits (Float.floatToIntBits),
- *   int32 seedsLen, <seedsLen bytes UTF-8>, int32 docLen, <docLen bytes>
+ *   int32 theme (0=light, 1=dark), int32 seedsLen, <seedsLen bytes UTF-8>,
+ *   int32 docLen, <docLen bytes>
  * worker -> pool, per response:
  *   int32 MAGIC_RESPONSE, int32 requestId, int32 status (0=ok, 1=failed),
  *   int32 payloadLen, <payloadLen bytes>   // artifact bytes on ok, UTF-8 reason on failure
@@ -106,10 +106,6 @@ fun rcJvmRenderWorkerMain() {
     // than negotiated — but the field is last so a frame read by an older worker would simply stop
     // before it, which is the failure this ordering is chosen for.
     val theme = if (input.readInt() == WIRE_THEME_DARK) Theme.DARK else Theme.LIGHT
-    // Added in protocol 3, immediately after `theme`. A pool speaking 2 never reaches this worker:
-    // the handshake rejects the version outright and the caller falls back to the one-shot path, so
-    // there is no half-read frame to guard against here.
-    val fontScale = Float.fromBits(input.readInt()).takeIf { it > 0f } ?: 1f
     val seedsText = String(input.readPayload(), Charsets.UTF_8)
     val doc = input.readPayload()
 
@@ -120,16 +116,7 @@ fun rcJvmRenderWorkerMain() {
         val artifact =
           when (format) {
             WIRE_FORMAT_SVG -> renderRemoteDocumentToSvg(doc, width, height, density, seeds, theme)
-            else ->
-              renderRemoteDocumentToPng(
-                doc,
-                width,
-                height,
-                density,
-                seeds,
-                theme,
-                fontScale = fontScale,
-              )
+            else -> renderRemoteDocumentToPng(doc, width, height, density, seeds, theme)
           }
         Response(STATUS_OK, artifact)
       } catch (e: Exception) {
@@ -189,10 +176,16 @@ internal const val MAGIC_RESPONSE = 0x52435231
 // has
 // to move whenever the frame does — a worker still speaking 1 would read `theme` as `seedsLen` and
 // desynchronise for good.
-// 3 adds `fontScaleBits` to the request frame, after `theme`. The pool refuses to speak to a
-// worker announcing a version it does not know and falls back to the one-shot path, so bumping this
-// costs an old caller its warm path rather than correctness.
-internal const val PROTOCOL_VERSION = 3
+// Deliberately still 2, even though the one-shot lane now accepts `--fontScale`. The frame is
+// positional, so carrying a font scale means a version bump — and the pool refuses a worker whose
+// version it does not know, falling back to process-per-document (~2.3 s vs ~85 ms). That cost
+// would land on every cmp-jvm render, scaled or not, for the whole window between this release and
+// a caller that speaks 3.
+//
+// Nothing needs it yet: `RcJvmServerRenderer` skips the pool for a request that scales text and
+// takes the one-shot path precisely because this frame cannot express one. Bump to 3 in the same
+// release as the pool that sends it, not before.
+internal const val PROTOCOL_VERSION = 2
 internal const val STATUS_OK = 0
 internal const val STATUS_FAILED = 1
 internal const val WIRE_THEME_LIGHT = 0
