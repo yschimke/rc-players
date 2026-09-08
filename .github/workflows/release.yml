@@ -350,7 +350,6 @@ jobs:
       - name: Build the downloadable Simulator player
         run: |
           set -euo pipefail
-          scripts/set-apple-player-package-version.sh "$PLUGIN_VERSION"
           scripts/package-apple-player.sh
 
       - name: Upload the Simulator player to the Release

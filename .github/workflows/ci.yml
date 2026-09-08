@@ -215,9 +215,9 @@ jobs:
 
       # A header-only type check cannot catch application-host contracts. In particular,
       # ComposeUIViewController enforces its high-refresh plist entry at runtime, and Xcode's
-      # generic Simulator build asks for x86_64 unless the arm64-only package constraint is stated
-      # by the consumer. This project is deliberately resolved through the released Swift package:
-      # it tests the same checksummed artifact and integration path a downstream Xcode app uses.
+      # generic Simulator build asks for x86_64 unless the arm64-only framework constraint is
+      # stated by the consumer. The project links the XCFramework assembled above, so its binary
+      # and source overlay always describe the same current API.
       - name: Build and package the Apple player app
         run: scripts/package-apple-player.sh
 

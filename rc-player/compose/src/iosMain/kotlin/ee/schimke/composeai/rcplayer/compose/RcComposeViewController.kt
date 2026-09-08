@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -53,6 +54,28 @@ public fun RcComposeViewController(
   typefaces: RcTypefaceLoader,
   onError: (String) -> Unit,
   lenient: Boolean,
+): UIViewController =
+  RcComposeViewController(bytes, theme, onEvent, typefaces, onError, lenient, true)
+
+/**
+ * [RcComposeViewController] with the renderer background selectable.
+ *
+ * `opaque = false` preserves alpha in the Compose Metal surface so content behind the controller
+ * can remain visible wherever the Remote Compose document does not draw. The containing UIKit views
+ * must also be transparent; the SwiftUI source overlay handles that for Swift consumers.
+ *
+ * This is another overload so the existing five- and six-argument Objective-C selectors remain
+ * source and binary compatible.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+public fun RcComposeViewController(
+  bytes: ByteArray,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  opaque: Boolean,
 ): UIViewController {
   val document = runCatching {
     RcDocumentCodec.decode(bytes).also {
@@ -66,9 +89,9 @@ public fun RcComposeViewController(
   }
     .getOrElse {
       onError(it.message ?: "Remote Compose document failed to load")
-      return ComposeUIViewController {}
+      return ComposeUIViewController(configure = { this.opaque = opaque }) {}
     }
-  return ComposeUIViewController {
+  return ComposeUIViewController(configure = { this.opaque = opaque }) {
     RcComposePlayer(
       document,
       Modifier.fillMaxSize(),

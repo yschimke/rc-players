@@ -44,7 +44,11 @@ import SwiftUI
 func makePlayer() -> RemoteComposePlayerView {
   RemoteComposePlayerView(
     data: documentData,
-    configuration: .init(theme: .system, compatibility: .compatible),
+    configuration: .init(
+      theme: .system,
+      compatibility: .compatible,
+      background: .transparent
+    ),
     onEvent: { event in print(event) },
     onError: { error in print(error.localizedDescription) }
   )
@@ -78,6 +82,12 @@ and translate the exported protocol hierarchy into Swift enums. The UIKit contro
 as `RemoteComposePlayerViewController`. Its `update(data:configuration:onEvent:onError:)` method
 rebuilds the embedded Compose controller only when playback input changes; merely re-rendering a
 SwiftUI parent updates the closures without resetting playback.
+
+The iOS configuration defaults to `.opaque`, matching Compose's existing behavior. Set
+`background: .transparent` to preserve the Metal surface's alpha and reveal the SwiftUI or UIKit
+content behind portions of the document that do not draw. Changing the value rebuilds the embedded
+Compose controller because opacity is a renderer creation setting; it does not require replacing
+the surrounding `RemoteComposePlayerViewController`.
 
 An iOS host must set `CADisableMinimumFrameDurationOnPhone` to `YES` in its application
 `Info.plist`, as required by `ComposeUIViewController`. The overlay checks this before entering
@@ -146,6 +156,12 @@ which is what a document written against a wider write profile than any reader p
 still route to `onError`: those throw from inside the draw pass, and no mode plays them. It is an
 overload and not a defaulted parameter precisely because of the paragraph above — a default
 argument would have rewritten the five-argument selector out from under every existing caller.
+
+**A seventh argument selects renderer opacity.** The additive
+`RcComposeViewController(bytes:theme:onEvent:typefaces:onError:lenient:opaque:)` overload preserves
+alpha in Compose's Metal surface when `opaque: false`. The containing UIKit views must also be
+clear, which is why ordinary Swift and SwiftUI consumers should prefer the source overlay's
+`background: .transparent` configuration instead of calling this overload directly.
 
 **`Data` does not bridge to `ByteArray`.** `KotlinByteArray` exports only `init(size:)`,
 `get(index:)`, and `set(index:value:)` — there is no `Data` initializer, and none is generated.

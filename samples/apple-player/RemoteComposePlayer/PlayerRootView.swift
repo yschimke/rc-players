@@ -38,7 +38,7 @@ struct PlayerRootView: View {
 
         if let document = library.selectedDocument {
           PlayerCanvas(document: document, library: library)
-            .id("\(document.id)-\(library.theme.rawValue)-\(library.revision)")
+            .id("\(document.id)-\(library.revision)")
         } else {
           ContentUnavailableView(
             "No Document Selected",
@@ -121,7 +121,9 @@ private struct PlayerCanvas: View {
           RemoteComposePlayerView(
             data: document.data,
             configuration: .init(
-              theme: library.theme.playerTheme, compatibility: .compatible),
+              theme: library.theme.playerTheme,
+              compatibility: .compatible,
+              background: library.background),
             onError: { error in
               Task { @MainActor in library.errorMessage = error.localizedDescription }
             }
@@ -154,6 +156,23 @@ private struct PlaybackChrome: View {
         }
         .pickerStyle(.segmented)
         .frame(width: 152)
+
+        Divider()
+          .frame(height: 22)
+
+        Button(
+          library.background == .transparent
+            ? "Use Opaque Background" : "Use Transparent Background",
+          systemImage: library.background == .transparent
+            ? "square.dashed.inset.filled" : "square.dashed"
+        ) {
+          withAnimation(.snappy) {
+            library.background = library.background == .transparent ? .opaque : .transparent
+          }
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.glass)
+        .accessibilityValue(library.background == .transparent ? "Transparent" : "Opaque")
 
         Divider()
           .frame(height: 22)

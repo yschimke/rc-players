@@ -10,7 +10,7 @@
 		100000000000000000000002 /* PlayerLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* PlayerLibrary.swift */; };
 		100000000000000000000003 /* PlayerRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* PlayerRootView.swift */; };
 		100000000000000000000004 /* RemoteComposePlayerTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* RemoteComposePlayerTypes.swift */; };
-		100000000000000000000005 /* RcComposePlayer in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000001 /* RcComposePlayer */; };
+		100000000000000000000005 /* RcComposePlayer.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* RcComposePlayer.xcframework */; };
 		100000000000000000000006 /* TitleCardRemote-640x480.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* TitleCardRemote-640x480.rc */; };
 		100000000000000000000007 /* IndeterminateCircularProgress-400x400.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* IndeterminateCircularProgress-400x400.rc */; };
 		100000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc */; };
@@ -34,13 +34,14 @@
 		20000000000000000000000B /* Remote Compose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Remote Compose.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		20000000000000000000000C /* RemoteComposePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposePlayerView.swift; path = "../../Sources/RcComposePlayerSwiftUI/RemoteComposePlayerView.swift"; sourceTree = "<group>"; };
 		20000000000000000000000D /* RemoteComposePlayerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposePlayerWindow.swift; path = "../../Sources/RcComposePlayerSwiftUI/RemoteComposePlayerWindow.swift"; sourceTree = "<group>"; };
+		20000000000000000000000E /* RcComposePlayer.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = RcComposePlayer.xcframework; path = "../../rc-player/compose/build/XCFrameworks/release/RcComposePlayer.xcframework"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		300000000000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
-			files = (100000000000000000000005 /* RcComposePlayer in Frameworks */);
+			files = (100000000000000000000005 /* RcComposePlayer.xcframework in Frameworks */);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -51,6 +52,7 @@
 			children = (
 				400000000000000000000002 /* RemoteComposePlayer */,
 				400000000000000000000005 /* RcComposePlayerSwiftUI */,
+				20000000000000000000000E /* RcComposePlayer.xcframework */,
 				400000000000000000000003 /* Fixtures */,
 				400000000000000000000004 /* Products */,
 			);
@@ -109,7 +111,7 @@
 			buildRules = ();
 			dependencies = ();
 			name = RemoteComposePlayer;
-			packageProductDependencies = (A00000000000000000000001 /* RcComposePlayer */);
+			packageProductDependencies = ();
 			productName = RemoteComposePlayer;
 			productReference = 20000000000000000000000B /* Remote Compose.app */;
 			productType = "com.apple.product-type.application";
@@ -131,7 +133,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (en, Base);
 			mainGroup = 400000000000000000000001;
-			packageReferences = (A00000000000000000000002 /* XCRemoteSwiftPackageReference "rc-players" */);
+			packageReferences = ();
 			productRefGroup = 400000000000000000000004 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -232,17 +234,6 @@
 		900000000000000000000002 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (800000000000000000000003 /* Debug */, 800000000000000000000004 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		A00000000000000000000002 /* XCRemoteSwiftPackageReference "rc-players" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/yschimke/rc-players.git";
-			requirement = {kind = exactVersion; version = 1.59.3;};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		A00000000000000000000001 /* RcComposePlayer */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000002 /* XCRemoteSwiftPackageReference "rc-players" */; productName = RcComposePlayer;};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 600000000000000000000001 /* Project object */;
 }

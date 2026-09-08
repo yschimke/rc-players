@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -51,5 +52,21 @@ class RcComposeViewControllerTest {
     forwardIosPlayerEvent(events::add, event)
 
     assertEquals(event, events.single())
+  }
+
+  @Test
+  fun transparentFallbackControllerPreservesAlpha() {
+    val controller =
+      RcComposeViewController(
+        byteArrayOf(1, 2, 3),
+        RcPlayerTheme.System,
+        {},
+        RcTypefaceLoader.Default,
+        {},
+        lenient = false,
+        opaque = false,
+      )
+
+    assertFalse(controller.view.opaque)
   }
 }
