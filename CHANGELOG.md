@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.59.4](https://github.com/yschimke/rc-players/compare/v1.59.3...v1.59.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* seed the density built-ins after initializeContext ([#61](https://github.com/yschimke/rc-players/issues/61)) ([097f36a](https://github.com/yschimke/rc-players/commit/097f36a5497f00c968f0d6ee67d48c81a8b7a157))
+
 ## [1.59.3](https://github.com/yschimke/rc-players/compare/v1.59.2...v1.59.3) (2026-09-07)
 
 
