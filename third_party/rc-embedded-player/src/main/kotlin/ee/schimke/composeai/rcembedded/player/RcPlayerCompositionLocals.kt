@@ -18,6 +18,9 @@
 
 package ee.schimke.composeai.rcembedded.player
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.RemoteContext
@@ -108,4 +111,16 @@ internal val LocalRemoteActionHandler: ProvidableCompositionLocal<(Int, String?)
 internal val LocalRemoteNamedActionHandler: ProvidableCompositionLocal<(String, Any?) -> Unit> =
   compositionLocalOf {
     { _, _ -> }
+  }
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+internal val LocalSharedTransitionScope: ProvidableCompositionLocal<SharedTransitionScope?> =
+  compositionLocalOf {
+    null
+  }
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+internal val LocalAnimatedVisibilityScope: ProvidableCompositionLocal<AnimatedVisibilityScope?> =
+  compositionLocalOf {
+    null
   }

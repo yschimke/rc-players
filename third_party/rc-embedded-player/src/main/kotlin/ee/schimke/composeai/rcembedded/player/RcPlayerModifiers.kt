@@ -18,9 +18,18 @@
 
 package ee.schimke.composeai.rcembedded.player
 
+import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope.ResizeMode
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.operations.layout.ClickModifierOperation
 import androidx.compose.remote.core.operations.layout.Component
+import androidx.compose.remote.core.operations.layout.LayoutComponent
+import androidx.compose.remote.core.operations.layout.animation.AnimationSpec
 import androidx.compose.remote.core.operations.layout.modifiers.AlignByModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.BackgroundModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.BorderModifierOperation
@@ -47,6 +56,7 @@ import androidx.compose.remote.core.semantics.AccessibleComponent
 import androidx.compose.remote.core.semantics.CoreSemantics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
@@ -59,6 +69,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
 import ee.schimke.composeai.rcembedded.player.modifier.background
 import ee.schimke.composeai.rcembedded.player.modifier.border
@@ -136,6 +147,7 @@ internal fun ComponentModifiers.toModifier(drawOpsList: List<Operation>? = null)
         // player doesn't support — consume both rather than warn.
         is CollapsiblePriorityModifierOperation -> modifier
         is LayoutComputeOperation -> modifier
+        is AnimationSpec -> modifier
         else -> {
           println("Warning: Unsupported modifier $op")
           modifier
@@ -213,5 +225,45 @@ private fun AccessibleComponent.Role.toComposeRole(): androidx.compose.ui.semant
     AccessibleComponent.Role.PICKER -> androidx.compose.ui.semantics.Role.Button
     AccessibleComponent.Role.CAROUSEL -> androidx.compose.ui.semantics.Role.Button
     else -> androidx.compose.ui.semantics.Role.Button
+  }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+internal fun Modifier.sharedElementTransition(component: Component): Modifier {
+  val sharedTransitionScope = LocalSharedTransitionScope.current ?: return this
+  val animatedVisibilityScope = LocalAnimatedVisibilityScope.current ?: return this
+  val animationId = component.animationId
+  if (animationId == -1 || animationId == 0) return this
+
+  val layout = component as? LayoutComponent
+  val spec =
+    layout?.componentModifiers?.list?.fastFirstOrNull { it is AnimationSpec } as? AnimationSpec
+      ?: component.animationSpecReflection
+      ?: AnimationSpec.DEFAULT
+  val motionDuration = spec.motionDuration.toInt()
+  val motionEasing = mapEasing(spec.motionEasingType)
+  val boundsTransform =
+    remember(motionDuration, motionEasing) {
+      BoundsTransform { _, _ ->
+        if (motionDuration <= 0) snap()
+        else tween(durationMillis = motionDuration, easing = motionEasing)
+      }
+    }
+  val fadeSpec =
+    remember(motionDuration, motionEasing) {
+      if (motionDuration <= 0) snap()
+      else tween<Float>(durationMillis = motionDuration, easing = motionEasing)
+    }
+
+  with(sharedTransitionScope) {
+    return this@sharedElementTransition.sharedBounds(
+      sharedContentState = rememberSharedContentState(key = animationId),
+      animatedVisibilityScope = animatedVisibilityScope,
+      enter = fadeIn(animationSpec = fadeSpec),
+      exit = fadeOut(animationSpec = fadeSpec),
+      boundsTransform = boundsTransform,
+      resizeMode = ResizeMode.RemeasureToBounds,
+    )
   }
 }

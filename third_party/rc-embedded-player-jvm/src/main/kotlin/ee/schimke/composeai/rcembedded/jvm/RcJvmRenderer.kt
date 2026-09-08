@@ -28,14 +28,7 @@ import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.SystemClock
-import androidx.compose.remote.core.operations.BitmapData
-import androidx.compose.remote.core.operations.ColorConstant
-import androidx.compose.remote.core.operations.ColorTheme
-import androidx.compose.remote.core.operations.FloatConstant
-import androidx.compose.remote.core.operations.NamedVariable
 import androidx.compose.remote.core.operations.Theme
-import androidx.compose.remote.core.operations.layout.Container
-import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -47,6 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.tracing.Tracer
+import ee.schimke.composeai.rcembedded.player.DocumentPreprocessResult
 import ee.schimke.composeai.rcembedded.player.GraphContext
 import ee.schimke.composeai.rcembedded.player.JvmRemoteContext
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
@@ -59,8 +53,8 @@ import ee.schimke.composeai.rcembedded.player.SnapshotRemoteComposeState
 import ee.schimke.composeai.rcembedded.player.applyDataOperationsWithoutBitmaps
 import ee.schimke.composeai.rcembedded.player.applyOperationsReflection
 import ee.schimke.composeai.rcembedded.player.applyOperationsWithoutBitmaps
-import ee.schimke.composeai.rcembedded.player.buildComputedOpIndex
 import ee.schimke.composeai.rcembedded.player.getOperationsReflection
+import ee.schimke.composeai.rcembedded.player.preprocessDocument
 import ee.schimke.composeai.rcembedded.player.recollectCollectionsReflection
 import ee.schimke.composeai.rcembedded.player.registerVariablesReflection
 import ee.schimke.composeai.rcembedded.player.resolveThemeMode
@@ -230,6 +224,7 @@ internal fun RcPlayerJvm(
   // `ImageComposeScene` sets `LocalDensity` to the requested render density, so this forwards that
   // density (and the platform font scale) into context init below.
   val density = LocalDensity.current
+  val preprocessed = remember(document) { preprocessDocument(document) }
   val remoteContext =
     remember(document) {
       initDrawContext(
@@ -240,6 +235,7 @@ internal fun RcPlayerJvm(
         seeds,
         theme,
         systemColorLookup,
+        preprocessed,
       )
     }
 
@@ -252,7 +248,7 @@ internal fun RcPlayerJvm(
       (remoteContext.mRemoteComposeState as? SnapshotRemoteComposeState)?.let { snapshotState ->
         GraphContext(
           snapshotState,
-          buildComputedOpIndex(document.getOperationsReflection()),
+          preprocessed.computedOpIndex,
           currentTimeMillisState,
           clock,
         )
@@ -289,6 +285,7 @@ internal fun initDrawContext(
   seeds: Map<String, RcSeed>,
   theme: Int,
   systemColorLookup: (name: String) -> Int?,
+  preprocessed: DocumentPreprocessResult = preprocessDocument(document),
 ): JvmRemoteContext =
   Tracer.global.trace(category = RC_EMBEDDED_TRACE_DOCUMENT, name = "rcEmbedded:initContext") {
     JvmRemoteContext(clock = clock).also { context ->
@@ -326,9 +323,7 @@ internal fun initDrawContext(
 
       // Register each bitmap's metadata (id + declared size) WITHOUT decoding pixels; the decode
       // is deferred to first draw (resolveImage drives BitmapData.apply -> loadBitmap).
-      val bitmaps = ArrayList<BitmapData>()
-      findBitmaps(document.getOperationsReflection(), bitmaps)
-      bitmaps.forEach { bitmap -> context.putObject(bitmap.mImageId, bitmap) }
+      preprocessed.bitmaps.forEach { bitmap -> context.putObject(bitmap.mImageId, bitmap) }
       document.applyDataOperationsWithoutBitmaps(context)
 
       document.setLayoutCallback {}
@@ -338,14 +333,7 @@ internal fun initDrawContext(
       // Global setup ops (everything up to the root layout component): color/float constants,
       // named variables, top-level data collections. The layout tree's internal ops are applied
       // in data order below and re-evaluated reactively at draw.
-      val rootComponent = document.rootLayoutComponent
-      val globalOps =
-        if (rootComponent != null) {
-          ArrayList(document.getOperationsReflection().takeWhile { it !== rootComponent })
-        } else {
-          document.getOperationsReflection()
-        }
-      document.applyOperationsWithoutBitmaps(context, globalOps)
+      document.applyOperationsWithoutBitmaps(context, preprocessed.globalOps)
 
       // Themed colours, before the `ColorTheme` ops in `constantOps` are applied — `ColorTheme`
       // reads the fields resolution overwrites, so resolving afterwards is resolving too late.
@@ -365,9 +353,7 @@ internal fun initDrawContext(
 
       // Then every constant anywhere in the tree, so authored color/float defaults are in the
       // store before the data pass.
-      val constantOps = ArrayList<Operation>()
-      collectConstants(document.getOperationsReflection(), constantOps)
-      document.applyOperationsReflection(context, constantOps)
+      document.applyOperationsReflection(context, preprocessed.constantOps)
 
       // Host knob edits (the serve `rc.<name>=…` seeds), applied on top of the authored defaults
       // just
@@ -416,32 +402,6 @@ private fun applySeeds(context: JvmRemoteContext, seeds: Map<String, RcSeed>) {
       is RcSeed.FloatValue -> context.setNamedFloatOverride(qualified, seed.value)
       is RcSeed.IntValue -> context.setNamedIntegerOverride(qualified, seed.value)
       is RcSeed.ColorValue -> context.setNamedColorOverride(qualified, seed.argb)
-    }
-  }
-}
-
-/** Collect every [BitmapData] in the op tree. Mirrors `RcPlayer.kt`'s private `findBitmaps`. */
-private fun findBitmaps(operations: Collection<Operation>, list: MutableList<BitmapData>) {
-  operations.forEach { op ->
-    if (op is BitmapData) list.add(op)
-    if (op is Container) findBitmaps(op.getList(), list)
-  }
-}
-
-/** Collect every constant-like op in the tree. Mirrors `RcPlayer.kt`'s inline constant walk. */
-private fun collectConstants(operations: Collection<Operation>, out: MutableList<Operation>) {
-  for (op in operations) {
-    val match =
-      op is ColorConstant ||
-        op is FloatConstant ||
-        op is ColorTheme ||
-        op is NamedVariable ||
-        op.javaClass.simpleName.endsWith("Constant")
-    if (match) out.add(op)
-    if (op is Container) collectConstants(op.getList(), out)
-    if (op is LayoutComponent) {
-      val canvasOps = op.getCanvasOperations()
-      if (canvasOps != null) collectConstants(listOf(canvasOps), out)
     }
   }
 }

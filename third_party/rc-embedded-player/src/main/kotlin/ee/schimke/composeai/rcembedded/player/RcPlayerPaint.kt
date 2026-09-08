@@ -401,7 +401,7 @@ internal fun updatePaintFromBundle(
         len = array[i++] // stops count
         val stops = FloatArray(len)
         for (j in 0 until len) {
-          stops[j] = Float.fromBits(array[i++])
+          stops[j] = resolvePaintFloat(array[i++], read)
         }
 
         val colorsList = colors.map { Color(it) }

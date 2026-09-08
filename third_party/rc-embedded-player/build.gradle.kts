@@ -182,6 +182,7 @@ dependencies {
   implementation(libs.compose.runtime)
   implementation(libs.compose.ui)
   implementation(libs.compose.foundation)
+  implementation(libs.compose.animation)
   // `Text` in the text-layout path and `ripple` in `RippleModifier` — the player leans on Material3
   // for those two rather than reimplementing them.
   implementation(libs.compose.material3)

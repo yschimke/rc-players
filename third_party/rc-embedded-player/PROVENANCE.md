@@ -14,14 +14,32 @@ both lets `rc-compare` diff them against the same baked PNG.
 ## Upstream
 
 - Repository: <https://github.com/androidx/androidx>
-- Path: `compose/remote/integration-tests/player-compose-embedded/src/main/java/androidx/compose/remote/player/compose/embedded`
-- Commit: `c8e7d738d7c76df3a87281ba8c3b880622df6282` (`androidx-main`, 2026-07-29)
+- Path: `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
+- Commit: `ff1e2437ab0985eb3d490e56ae4d5ac2c5306356` (`androidx-main`, 2026-09-07)
 - License: Apache-2.0
 
-At the pinned commit the player lived only in a `SoftwareType.TEST_APPLICATION` integration-test
-module. Newer androidx.dev snapshots publish the upstream implementation inside
-`androidx.compose.remote:remote-player-compose`; the vendored copy remains useful as a pinned,
-locally patched baseline that can be loaded alongside it.
+The original 2026-07-29 snapshot came from the integration-test application. AndroidX moved the
+implementation into `androidx.compose.remote:remote-player-compose` on 2026-08-07; the pin above is
+the current library source after importing the subsequent correctness, transition, frame-limiting,
+and preprocessing changes. The vendored copy remains useful as a pinned, locally patched baseline
+that can be loaded alongside the published implementation.
+
+### 2026-09-08 refresh
+
+This refresh imports the player changes through the pin above, adapted across the Android/JVM seam:
+
+- DP-aware offsets, reactive custom integer/color properties, draw-stream `loadFloat`, dynamic
+  circle/oval/gradient values, and indirect `DrawPath`/`ClipPath` ids;
+- StateLayout and FitBox animated/shared-element transitions, including synchronized fades,
+  unclipped size transforms, nested-spec duration selection, and intrinsic FitBox selection;
+- the core `Limiter` frame throttle on Android; and
+- AndroidX's single-pass document preprocessing, shared with the JVM renderer and extended here to
+  retain this fork's lazy bitmap inventory.
+
+The rounded-clip implementation is deliberately not overwritten by the current AndroidX body.
+Released `remote-core:1.0.0-alpha18` supplies the resolved corners in the same already-scaled form
+measured by this repository's density tests; multiplying them again reproduces the doubled-radius
+regression documented below.
 
 ### That premise has expired — so the vendored player left upstream's package
 
@@ -110,10 +128,8 @@ The Android rendering path is unchanged — it is the same upstream function it 
 
 ## What is vendored
 
-The player proper: the package root plus `layout/`, `modifier/`, and `state/` (42 upstream files,
-46 here — two local splits, `state/RcPlayerBitmapState.kt` and `RcPlayerShaders.kt`, plus the local
-`AndroidColorThemeResolver.kt` and `ColorThemeResolution.kt`, each noted under "Local
-modifications" below). Upstream's
+The player proper: the package root plus `layout/`, `modifier/`, and `state/`, with local file splits
+for the Android/JVM platform seams and the shared preprocessing pass. Upstream's
 `demos/`, `integration/previews/`, and the `androidx.wear.compose.remote.material3.previews` sample
 previews that live in the same source set are **not** vendored — they are demo/test scaffolding for
 the integration-test app, and they drag in Wear Material3 and `remote-creation-compose` capture.
@@ -149,7 +165,7 @@ done
 ## Version skew
 
 Upstream builds this player against the **in-tree** `remote-core` / `remote-player-core`. We build
-it against the published alphas the version catalog pins (`compose-remote = 1.0.0-alpha17`). The
+it against the published alphas the version catalog pins (`compose-remote = 1.0.0-alpha18`). The
 player reaches a number of `@RestrictTo(LIBRARY_GROUP)` members, and `CoreDataAccessors.kt` reaches
 private `CoreDocument` state **reflectively** (upstream guards those names with its own
 `CoreReflectionGuardTest`). Both are sensitive to the gap between `androidx-main` and the pinned
@@ -169,21 +185,14 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 
 | Issue | Delta |
 | --- | --- |
-| [#1](https://github.com/yschimke/rc-players/issues/1) | Default Compose paint colour is transparent, not black — an icon with a `SRC_IN` filter and no base `COLOR` draws nothing |
-| [#2](https://github.com/yschimke/rc-players/issues/2) | Indexed `ColorTheme` values are never resolved at cold start (no `ThemeSupport.mapColors` pass) |
 | [#3](https://github.com/yschimke/rc-players/issues/3) | `Rc.AndroidColors` is wrong for 21 of 196 indices — upstream's data, not its rendering |
-| [#4](https://github.com/yschimke/rc-players/issues/4) | `Theme.UNSPECIFIED` default renders every themed document dark |
 | [#5](https://github.com/yschimke/rc-players/issues/5) | Published `ui-text-google-fonts` AAR ships no GMS font-provider certificates |
-| [#6](https://github.com/yschimke/rc-players/issues/6) | `GraphContext` extends `AndroidRemoteContext` for behaviour it never uses (upstream issue #12) |
-| [#7](https://github.com/yschimke/rc-players/issues/7) | Frame loop uses `withFrameMillis`, so an animated document never reaches idle |
-| [#47](https://github.com/yschimke/rc-players/issues/47) | A derived colour never reaches the layout tree — `updateColor` is not written through the snapshot mirror, and `CoreText` draws a value it resolved once |
-| [#50](https://github.com/yschimke/rc-players/issues/50) | The computed-op index never walks a component's canvas stream, so a layout colour built on one resolves to nothing |
-| [#52](https://github.com/yschimke/rc-players/issues/52) | Three paint-bundle floats (`TEXT_SIZE`, `STROKE_WIDTH`, `ALPHA`) are read with `Float.fromBits` alone, so a NaN-boxed variable reference becomes NaN rather than its value |
 | [#54](https://github.com/yschimke/rc-players/issues/54) | `findBitmaps` never walks a component's canvas stream, so a `BitmapData` declared there is unregistered — costing both the texture and the `ImageAttribute` dimensions; `ImageAttribute` also needs an explicit draw case, being neither `VariableSupport` nor `VariableProvider` |
 
-Two more used to be here and are gone: the action-dispatch pair, restored verbatim when alpha17
-published `LambdaAction`, `PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` /
-`.pendingIntents`. That is the pattern working — the list is meant to shrink.
+The action-dispatch pair was restored verbatim when alpha17 published `LambdaAction`,
+`PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` / `.pendingIntents`. The
+2026-09-08 refresh also retires issues #1, #2, #4, #6, #7, #47, #50, and #52 from the delta table:
+AndroidX now carries their behavior. That is the pattern working — the list is meant to shrink.
 
 - **Default Compose paint colour aligned with the framework player** (`RcPlayerPaint.kt`).
   `ComposeLocalPaint.color` initialized to transparent ARGB `0`, while `android.graphics.Paint`

@@ -76,6 +76,7 @@ val sharedPlayerSources =
     // is a no-op, so there is no canvas of any kind to name.
     "ee/schimke/composeai/rcembedded/player/GraphPaintContext.kt",
     "ee/schimke/composeai/rcembedded/player/RcPlayerCompositionLocals.kt",
+    "ee/schimke/composeai/rcembedded/player/RcPlayerPreprocess.kt",
     // Core easing constant -> Compose easing; split out of `RcPlayer.kt` so the expression
     // evaluator below doesn't inherit that file's Android coupling for a six-line `when`.
     "ee/schimke/composeai/rcembedded/player/RcPlayerEasing.kt",
@@ -224,6 +225,7 @@ dependencies {
   // Compose Desktop, not the Android artifacts — the point of this module.
   @Suppress("DEPRECATION") implementation(compose.runtime)
   @Suppress("DEPRECATION") implementation(compose.foundation)
+  @Suppress("DEPRECATION") implementation(compose.animation)
   // Material3 (desktop) for the ripple modifier; androidx.collection for the layout maps — both
   // multiplatform, matching what the Android module pulls in.
   @Suppress("DEPRECATION") implementation(compose.material3)
@@ -253,6 +255,7 @@ dependencies {
   implementation(libs.androidx.tracing.kmp)
 
   testImplementation(libs.junit)
+  testImplementation(project(":rc-player-protocol"))
   // Manifest parsing for the rc-compare jvm render harness (RcJvmRenderHarness) — parsed via the
   // runtime `Json` API, so no serialization compiler plugin is needed.
   testImplementation(libs.kotlinx.serialization.json)
