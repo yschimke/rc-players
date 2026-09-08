@@ -61,12 +61,25 @@ public fun renderRemoteDocumentToSvg(
   seeds: Map<String, RcSeed> = emptyMap(),
   theme: Int = Theme.LIGHT,
   systemColorLookup: (name: String) -> Int? = { null },
+  /**
+   * The multiplier applied to text, as on [renderRemoteDocumentToPng]. `1f` is unscaled.
+   *
+   * A structural export is not exempt from this: an `RemoteDensity.Host` capture writes its text
+   * size as an expression over `ID_FONT_SIZE`, so an SVG rendered at the wrong font scale carries
+   * the wrong glyph metrics and the wrong laid-out geometry around them — silently, since the
+   * export still succeeds.
+   */
+  fontScale: Float = 1f,
 ): ByteArray {
   val rootDir = Files.createTempDirectory("rcjvm-svg-").toFile()
   val previewId = "rc-jvm"
   val slotTables = mutableSetOf<CompositionData>()
   val scene =
-    ImageComposeScene(width = widthPx, height = heightPx, density = Density(density)) {
+    ImageComposeScene(
+      width = widthPx,
+      height = heightPx,
+      density = Density(density, fontScale),
+    ) {
       InspectableRcJvmContent(slotTables) {
         // Keep the document's authored pixel viewport as an explicit layout node. This is the same
         // frame used by the Android embedded export test and prevents a sparse document from making

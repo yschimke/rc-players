@@ -176,6 +176,15 @@ internal const val MAGIC_RESPONSE = 0x52435231
 // has
 // to move whenever the frame does — a worker still speaking 1 would read `theme` as `seedsLen` and
 // desynchronise for good.
+// Deliberately still 2, even though the one-shot lane now accepts `--fontScale`. The frame is
+// positional, so carrying a font scale means a version bump — and the pool refuses a worker whose
+// version it does not know, falling back to process-per-document (~2.3 s vs ~85 ms). That cost
+// would land on every cmp-jvm render, scaled or not, for the whole window between this release and
+// a caller that speaks 3.
+//
+// Nothing needs it yet: `RcJvmServerRenderer` skips the pool for a request that scales text and
+// takes the one-shot path precisely because this frame cannot express one. Bump to 3 in the same
+// release as the pool that sends it, not before.
 internal const val PROTOCOL_VERSION = 2
 internal const val STATUS_OK = 0
 internal const val STATUS_FAILED = 1

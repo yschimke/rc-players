@@ -114,10 +114,26 @@ public fun renderRemoteDocumentToPng(
   seeds: Map<String, RcSeed> = emptyMap(),
   theme: Int = Theme.LIGHT,
   systemColorLookup: (name: String) -> Int? = { null },
+  /**
+   * The multiplier applied to text, Compose's `Density.fontScale`. `1f` — unscaled — is what every
+   * caller got implicitly before this parameter existed.
+   *
+   * It has to be a parameter rather than a property of [density]: `Density(density)` defaults the
+   * font scale to `1f`, so a headless render had no way to ask for one at all, and a document whose
+   * text size reads `ID_FONT_SIZE` (what an `RemoteDensity.Host` capture writes) drew the same
+   * pixels however the request was configured.
+   *
+   * Last in the list, and defaulted, so existing positional callers keep compiling.
+   */
+  fontScale: Float = 1f,
 ): ByteArray =
   Tracer.global.trace(category = RC_EMBEDDED_TRACE_DOCUMENT, name = "rcEmbedded:renderToPng") {
     val scene =
-      ImageComposeScene(width = widthPx, height = heightPx, density = Density(density)) {
+      ImageComposeScene(
+        width = widthPx,
+        height = heightPx,
+        density = Density(density, fontScale),
+      ) {
         val document = remember(bytes) { parseDocument(bytes) }
         RcPlayerJvm(document, Modifier.fillMaxSize(), seeds, theme, systemColorLookup)
       }
@@ -265,7 +281,7 @@ internal fun RcPlayerJvm(
  * `RcPlayer`'s `remember(document)` init block, over a [JvmRemoteContext] instead of an
  * `AndroidRemoteContext` and without the framework typeface resolver / choreographer.
  */
-private fun initDrawContext(
+internal fun initDrawContext(
   document: CoreDocument,
   clock: RemoteClock,
   density: Float,
@@ -283,17 +299,30 @@ private fun initDrawContext(
         document.setRemoteComposeState(SnapshotRemoteComposeState())
         document.recollectCollectionsReflection()
       }
-      // Seed the density built-ins before initializeContext, exactly as the Android player does: a
-      // document reading `ID_DENSITY` / `ID_FONT_SIZE` (e.g. a dp→px expression or default text
-      // sizing)
-      // must resolve at the render density, not the store default, or a density-driven layout would
-      // diff on geometry against the requested (xhdpi) size.
-      context.loadFloat(RemoteContext.ID_FONT_SIZE, 14f * fontScale * density)
-      context.loadFloat(RemoteContext.ID_DENSITY, density)
-      context.density = density
       // Bind/reset the context without CoreDocument's eager applyDataOperations pass. Images are
       // registered below and decoded only when a draw actually requests them.
       document.initializeContext(context, emptyMap())
+
+      // Seed the density built-ins AFTER initializeContext, not before. A document reading
+      // `ID_DENSITY` / `ID_FONT_SIZE` — a dp→px expression, or the sp→px an
+      // `RemoteDensity.Host` capture writes as `([33] 14.0 / [27] / <sp> *)` — must resolve at
+      // the render density and font scale rather than at the store default.
+      //
+      // Seeding first cannot achieve that, which is what this used to do (and what the Android
+      // player did, citing the same intent). `loadFloat` writes into `mRemoteComposeState`
+      // (`StoreBackedRemoteContext.loadFloat`), and `initializeContext` ends by repointing that
+      // field at the document's own freshly `reset()` store — so both values were written into
+      // the context's original store and orphaned a few lines later. Documents captured against
+      // `RemoteDensity.from(displayInfo)` never noticed, because constant folding means `[27]` and
+      // `[33]` appear nowhere in their ops; a `Host` capture reads them on every text op and
+      // rendered every font scale identically.
+      //
+      // `context.density` is a plain field rather than a store entry, but it is set here too so the
+      // two cannot drift: `RemoteContext.setDensity` also writes `ID_DENSITY`, and doing that
+      // before the swap would leave the field and the variable disagreeing.
+      context.loadFloat(RemoteContext.ID_FONT_SIZE, 14f * fontScale * density)
+      context.loadFloat(RemoteContext.ID_DENSITY, density)
+      context.density = density
 
       // Register each bitmap's metadata (id + declared size) WITHOUT decoding pixels; the decode
       // is deferred to first draw (resolveImage drives BitmapData.apply -> loadBitmap).

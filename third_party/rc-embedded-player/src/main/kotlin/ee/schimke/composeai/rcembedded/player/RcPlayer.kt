@@ -159,13 +159,21 @@ public fun RcPlayer(
         document.recollectCollectionsReflection()
       }
       it.useChoreographer = true
-      it.loadFloat(RemoteContext.ID_FONT_SIZE, 14f * density.fontScale * density.density)
-      it.loadFloat(RemoteContext.ID_DENSITY, density.density)
-      it.density = density.density
       // Use the overload that only binds/reset the context. The one-argument overload immediately
       // calls applyDataOperations(), which walks every top-level operation and eagerly applies
       // BitmapData (decoding every image before the document can compose).
       document.initializeContext(it, emptyMap())
+
+      // Seed the density built-ins AFTER initializeContext, not before — see the matching note in
+      // the JVM player's initDrawContext. `loadFloat` writes into `mRemoteComposeState`, and
+      // `initializeContext` ends by repointing that field at the document's freshly `reset()`
+      // store, so seeding first wrote both values into a store that was discarded moments later.
+      // A `RemoteDensity.from(displayInfo)` capture folds density and font scale into constants and
+      // never reads `[27]` / `[33]`, which is why this went unnoticed; a `RemoteDensity.Host`
+      // capture reads them on every text op and rendered every font scale identically.
+      it.loadFloat(RemoteContext.ID_FONT_SIZE, 14f * density.fontScale * density.density)
+      it.loadFloat(RemoteContext.ID_DENSITY, density.density)
+      it.density = density.density
 
       // Register each bitmap's metadata (declared width/height for ImageAttribute, and
       // discoverability for the lazy decode) WITHOUT decoding the pixels. The costly decode
