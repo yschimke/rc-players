@@ -23,16 +23,19 @@ import androidx.compose.remote.core.operations.layout.modifiers.OffsetModifierOp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
+import ee.schimke.composeai.rcembedded.player.rawDimensionDp
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.offset(op: OffsetModifierOperation): Modifier {
+  val density = LocalDensity.current.density
+  val behavior = LocalCoreDocument.current.densityBehavior
   val x = rememberRemoteFloatAsState(op.x).value
   val y = rememberRemoteFloatAsState(op.y).value
 
   return this.offset(
-    x = (x / LocalDensity.current.density).dp,
-    y = (y / LocalDensity.current.density).dp,
+    x = rawDimensionDp(x, behavior, density),
+    y = rawDimensionDp(y, behavior, density),
   )
 }

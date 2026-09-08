@@ -28,7 +28,10 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import ee.schimke.composeai.rcembedded.player.state.rememberRemoteColorAsState
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
+import ee.schimke.composeai.rcembedded.player.state.rememberRemoteIntAsState
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteStringAsState
 
 /** Base interface for custom component property schemas. */
@@ -62,6 +65,14 @@ public data class StringProperty(override val id: Int, public val default: Strin
   public constructor(id: Short, default: String = "") : this(id.toInt(), default)
 }
 
+/** Defines a color property schema encoding its author-assigned property type ID and default. */
+public data class ColorProperty(
+  override val id: Int,
+  public val default: Color = Color.Unspecified,
+) : CustomPropertyKey {
+  public constructor(id: Short, default: Color = Color.Unspecified) : this(id.toInt(), default)
+}
+
 /** Defines a float return-channel property schema encoding its author-assigned property type ID. */
 public data class FloatReturnProperty(override val id: Int) : CustomPropertyKey {
   public constructor(id: Short) : this(id.toInt())
@@ -89,6 +100,9 @@ public interface RcCustomPropertyReader {
   /** Reads [property] reactively as a Compose [State]. */
   @Composable public fun textState(property: StringProperty): State<String>
 
+  /** Reads [property] reactively as a Compose [State]. */
+  @Composable public fun colorState(property: ColorProperty): State<Color>
+
   /** Returns a handler lambda that writes text back to return channel [property]. */
   public fun returnTextHandler(property: TextReturnProperty): (String) -> Unit
 
@@ -101,7 +115,8 @@ public interface RcCustomPropertyReader {
  * `Custom` components have no built-in rendering — the host app supplies it, dispatched by
  * [config].
  *
- * Properties are resolved on-demand reactively via [floatState], [intState], and [textState].
+ * Properties are resolved on-demand reactively via [floatState], [intState], [textState], and
+ * [colorState].
  */
 public class RcCustomComponent
 internal constructor(
@@ -132,13 +147,27 @@ internal constructor(
   @Composable
   override fun intState(property: IntProperty): State<Int> {
     val prop = findProperty(property) ?: return rememberUpdatedState(property.default)
-    return rememberUpdatedState(prop.mIntValue)
+    return if (prop.mDataType == Custom.CustomProperty.INT_ID_PROP) {
+      rememberRemoteIntAsState(prop.mIntValue)
+    } else {
+      rememberUpdatedState(prop.mIntValue)
+    }
   }
 
   @Composable
   override fun textState(property: StringProperty): State<String> {
     val prop = findProperty(property) ?: return rememberUpdatedState(property.default)
     return rememberRemoteStringAsState(prop.mIntValue)
+  }
+
+  @Composable
+  override fun colorState(property: ColorProperty): State<Color> {
+    val prop = findProperty(property) ?: return rememberUpdatedState(property.default)
+    return if (prop.mDataType == Custom.CustomProperty.COLOR_ID_PROP) {
+      rememberRemoteColorAsState(prop.mIntValue)
+    } else {
+      rememberUpdatedState(Color(prop.mIntValue))
+    }
   }
 
   override fun returnFloatHandler(property: FloatReturnProperty): (Float) -> Unit = { value ->

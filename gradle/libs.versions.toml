@@ -444,6 +444,7 @@ compose-foundation = { module = "androidx.compose.foundation:foundation" }
 # `CubicBezierEasing`, which the vendored Horologist Lottie renderer evaluates keyframe easing
 # with. Versioned by `compose-bom-compat`, like every other unversioned Compose entry here.
 compose-animation-core = { module = "androidx.compose.animation:animation-core" }
+compose-animation = { module = "androidx.compose.animation:animation" }
 compose-runtime = { module = "androidx.compose.runtime:runtime" }
 compose-runtime-tracing = { module = "androidx.compose.runtime:runtime-tracing" }
 androidx-tracing = { module = "androidx.tracing:tracing", version.ref = "androidx-tracing" }

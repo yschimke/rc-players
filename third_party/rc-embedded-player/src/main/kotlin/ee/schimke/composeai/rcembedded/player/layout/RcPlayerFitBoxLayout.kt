@@ -18,46 +18,124 @@
 
 package ee.schimke.composeai.rcembedded.player.layout
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.layout.managers.FitBoxLayout
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
-import ee.schimke.composeai.rcembedded.player.RcPlayerChildren
+import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.util.fastMap
+import androidx.compose.ui.util.fastMaxOfOrNull
+import ee.schimke.composeai.rcembedded.player.LocalAnimatedVisibilityScope
+import ee.schimke.composeai.rcembedded.player.LocalSharedTransitionScope
+import ee.schimke.composeai.rcembedded.player.RcPlayerComponent
+import ee.schimke.composeai.rcembedded.player.animationSpecReflection
+import ee.schimke.composeai.rcembedded.player.horizontalPositioningReflection
+import ee.schimke.composeai.rcembedded.player.mapEasing
+import ee.schimke.composeai.rcembedded.player.verticalPositioningReflection
 
-/**
- * Renders a [FitBoxLayout]: its children are *alternatives* and only the first one whose natural
- * size fits the available space is displayed (the rest are measured but not placed) — matching
- * remote-core's FitBoxLayout ("only display the child that fits in the available space"). The
- * chosen child is centered, like a Box.
- *
- * Children are measured unbounded to get their natural size, then the first with `width <= maxWidth
- * && height <= maxHeight` wins. (Core hides the FitBox entirely when nothing fits; here we fall
- * back to the first child so the player isn't blank.) FitBox children are normally wrap/fixed-size
- * alternatives; a child that wants to fill its parent has no natural size and isn't a meaningful
- * FitBox candidate.
- */
+/** Renders a [FitBoxLayout], transitioning between alternatives as available space changes. */
+@Suppress("ComposableLambdaInMeasurePolicy")
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun RcPlayerFitBoxLayout(layout: FitBoxLayout, modifier: Modifier) {
-  Layout(content = { RcPlayerChildren(layout) }, modifier = modifier) { measurables, constraints ->
-    val placeables = measurables.map { it.measure(Constraints()) }
+  val children = remember(layout) { ArrayList<Component>().apply { layout.getComponents(this) } }
+  if (children.isEmpty()) {
+    Box(modifier = modifier)
+    return
+  }
+
+  val duration = layout.animationSpecReflection?.motionDuration?.toInt() ?: 300
+  val easing = mapEasing(layout.animationSpecReflection?.motionEasingType ?: 0)
+  val alignment =
+    mapFitBoxAlignment(
+      layout.horizontalPositioningReflection,
+      layout.verticalPositioningReflection,
+    )
+
+  SubcomposeLayout(modifier = modifier) { constraints ->
     val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
     val maxHeight = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
+    val probeMeasurables =
+      subcompose(FitBoxSlot.Probe) {
+        children.fastForEach { component ->
+          Box(modifier = Modifier.clearAndSetSemantics {}) { RcPlayerComponent(component) }
+        }
+      }
 
-    var chosen = placeables.indexOfFirst { it.width <= maxWidth && it.height <= maxHeight }
-    if (chosen < 0) chosen = if (placeables.isEmpty()) -1 else 0
-
-    val picked = placeables.getOrNull(chosen)
-    val width = constraints.constrainWidth(picked?.width ?: 0)
-    val height = constraints.constrainHeight(picked?.height ?: 0)
-    layout(width, height) {
-      if (picked != null) {
-        val x = ((width - picked.width) / 2).coerceAtLeast(0)
-        val y = ((height - picked.height) / 2).coerceAtLeast(0)
-        picked.placeRelative(x, y)
+    var chosen = -1
+    for (i in 0 until probeMeasurables.size) {
+      val measurable = probeMeasurables[i]
+      val width = measurable.maxIntrinsicWidth(maxHeight)
+      val height = measurable.maxIntrinsicHeight(maxWidth)
+      if (width <= maxWidth && height <= maxHeight) {
+        chosen = i
+        break
       }
     }
+    if (chosen < 0) {
+      chosen =
+        probeMeasurables.indices.minByOrNull { probeMeasurables[it].maxIntrinsicWidth(maxHeight) }
+          ?: 0
+    }
+
+    val contentMeasurables =
+      subcompose(FitBoxSlot.Content) {
+        SharedTransitionLayout {
+          AnimatedContent(
+            targetState = chosen,
+            contentAlignment = alignment,
+            label = "RcPlayerFitBoxLayout",
+            transitionSpec = {
+              fadeIn(animationSpec = tween(durationMillis = duration, easing = easing)) togetherWith
+                fadeOut(animationSpec = tween(durationMillis = duration, easing = easing))
+            },
+          ) { currentIndex ->
+            CompositionLocalProvider(
+              LocalSharedTransitionScope provides this@SharedTransitionLayout,
+              LocalAnimatedVisibilityScope provides this@AnimatedContent,
+            ) {
+              Box(contentAlignment = alignment) { RcPlayerComponent(children[currentIndex]) }
+            }
+          }
+        }
+      }
+
+    val contentPlaceables = contentMeasurables.fastMap { it.measure(constraints) }
+    val width = constraints.constrainWidth(contentPlaceables.fastMaxOfOrNull { it.width } ?: 0)
+    val height = constraints.constrainHeight(contentPlaceables.fastMaxOfOrNull { it.height } ?: 0)
+    layout(width, height) { contentPlaceables.fastForEach { it.placeRelative(0, 0) } }
   }
 }
+
+private enum class FitBoxSlot {
+  Probe,
+  Content,
+}
+
+private fun mapFitBoxAlignment(horizontal: Int, vertical: Int): Alignment =
+  when {
+    horizontal == FitBoxLayout.START && vertical == FitBoxLayout.TOP -> Alignment.TopStart
+    horizontal == FitBoxLayout.START && vertical == FitBoxLayout.BOTTOM -> Alignment.BottomStart
+    horizontal == FitBoxLayout.START -> Alignment.CenterStart
+    horizontal == FitBoxLayout.END && vertical == FitBoxLayout.TOP -> Alignment.TopEnd
+    horizontal == FitBoxLayout.END && vertical == FitBoxLayout.BOTTOM -> Alignment.BottomEnd
+    horizontal == FitBoxLayout.END -> Alignment.CenterEnd
+    vertical == FitBoxLayout.TOP -> Alignment.TopCenter
+    vertical == FitBoxLayout.BOTTOM -> Alignment.BottomCenter
+    else -> Alignment.Center
+  }
