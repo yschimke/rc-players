@@ -12,11 +12,16 @@ AppKit hosts.
 
 ## Run it
 
-Open `RemoteComposePlayer.xcodeproj`, select an iPad simulator, and run. Or build it without opening
-Xcode:
+First assemble the local release XCFramework used by the sample:
 
 ```bash
 ./gradlew :rc-player-compose:assembleRcComposePlayerReleaseXCFramework --max-workers=1
+```
+
+Then open `RemoteComposePlayer.xcodeproj`, select an iPad simulator, and run. Or build it without
+opening Xcode:
+
+```bash
 ./scripts/build-apple-player.sh
 ```
 
