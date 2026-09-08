@@ -162,6 +162,14 @@ jobs:
       - name: Type-check the Swift usage sample
         run: scripts/check-swift-sample.sh
 
+      # A header-only type check cannot catch application-host contracts. In particular,
+      # ComposeUIViewController enforces its high-refresh plist entry at runtime, and Xcode's
+      # generic Simulator build asks for x86_64 unless the arm64-only package constraint is stated
+      # by the consumer. This project is deliberately resolved through the released Swift package:
+      # it tests the same checksummed artifact and integration path a downstream Xcode app uses.
+      - name: Build the Apple player app
+        run: scripts/build-apple-player.sh
+
       - name: Upload player test reports on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -1,0 +1,232 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000001 /* RemoteComposePlayerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* RemoteComposePlayerApp.swift */; };
+		100000000000000000000002 /* PlayerLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* PlayerLibrary.swift */; };
+		100000000000000000000003 /* PlayerRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* PlayerRootView.swift */; };
+		100000000000000000000004 /* RemoteComposePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* RemoteComposePlayerView.swift */; };
+		100000000000000000000005 /* RcComposePlayer in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000001 /* RcComposePlayer */; };
+		100000000000000000000006 /* TitleCardRemote-640x480.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* TitleCardRemote-640x480.rc */; };
+		100000000000000000000007 /* IndeterminateCircularProgress-400x400.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* IndeterminateCircularProgress-400x400.rc */; };
+		100000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc */; };
+		100000000000000000000009 /* CircularProgressRemote-384x384.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* CircularProgressRemote-384x384.rc */; };
+		10000000000000000000000A /* ArcProgressRemote-454x400.rc in Resources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* ArcProgressRemote-454x400.rc */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		200000000000000000000001 /* RemoteComposePlayerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteComposePlayerApp.swift; sourceTree = "<group>"; };
+		200000000000000000000002 /* PlayerLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLibrary.swift; sourceTree = "<group>"; };
+		200000000000000000000003 /* PlayerRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerRootView.swift; sourceTree = "<group>"; };
+		200000000000000000000004 /* RemoteComposePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteComposePlayerView.swift; sourceTree = "<group>"; };
+		200000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		200000000000000000000006 /* TitleCardRemote-640x480.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "TitleCardRemote-640x480.rc"; path = "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc"; sourceTree = "<group>"; };
+		200000000000000000000007 /* IndeterminateCircularProgress-400x400.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "IndeterminateCircularProgress-400x400.rc"; path = "../../rc-player/compose/src/jvmTest/resources/rc-fixtures/IndeterminateCircularProgress-400x400.rc"; sourceTree = "<group>"; };
+		200000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "ImageBackgroundRemoteButton-454x200.rc"; path = "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc"; sourceTree = "<group>"; };
+		200000000000000000000009 /* CircularProgressRemote-384x384.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "CircularProgressRemote-384x384.rc"; path = "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/CircularProgressRemote-384x384.rc"; sourceTree = "<group>"; };
+		20000000000000000000000A /* ArcProgressRemote-454x400.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "ArcProgressRemote-454x400.rc"; path = "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/ArcProgressRemote-454x400.rc"; sourceTree = "<group>"; };
+		20000000000000000000000B /* Remote Compose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Remote Compose.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		300000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (100000000000000000000005 /* RcComposePlayer in Frameworks */);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		400000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				400000000000000000000002 /* RemoteComposePlayer */,
+				400000000000000000000003 /* Fixtures */,
+				400000000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		400000000000000000000002 /* RemoteComposePlayer */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000001 /* RemoteComposePlayerApp.swift */,
+				200000000000000000000002 /* PlayerLibrary.swift */,
+				200000000000000000000003 /* PlayerRootView.swift */,
+				200000000000000000000004 /* RemoteComposePlayerView.swift */,
+				200000000000000000000005 /* Info.plist */,
+			);
+			path = RemoteComposePlayer;
+			sourceTree = "<group>";
+		};
+		400000000000000000000003 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000006 /* TitleCardRemote-640x480.rc */,
+				200000000000000000000007 /* IndeterminateCircularProgress-400x400.rc */,
+				200000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc */,
+				200000000000000000000009 /* CircularProgressRemote-384x384.rc */,
+				20000000000000000000000A /* ArcProgressRemote-454x400.rc */,
+			);
+			name = Fixtures;
+			sourceTree = "<group>";
+		};
+		400000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (20000000000000000000000B /* Remote Compose.app */);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		500000000000000000000001 /* RemoteComposePlayer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 900000000000000000000002 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				700000000000000000000001 /* Sources */,
+				300000000000000000000001 /* Frameworks */,
+				700000000000000000000002 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = RemoteComposePlayer;
+			packageProductDependencies = (A00000000000000000000001 /* RcComposePlayer */);
+			productName = RemoteComposePlayer;
+			productReference = 20000000000000000000000B /* Remote Compose.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		600000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {500000000000000000000001 = {CreatedOnToolsVersion = 26.6;};};
+			};
+			buildConfigurationList = 900000000000000000000001 /* Build configuration list for PBXProject */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 400000000000000000000001;
+			packageReferences = (A00000000000000000000002 /* XCRemoteSwiftPackageReference "rc-players" */);
+			productRefGroup = 400000000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (500000000000000000000001 /* RemoteComposePlayer */);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		700000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000006 /* TitleCardRemote-640x480.rc in Resources */,
+				100000000000000000000007 /* IndeterminateCircularProgress-400x400.rc in Resources */,
+				100000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc in Resources */,
+				100000000000000000000009 /* CircularProgressRemote-384x384.rc in Resources */,
+				10000000000000000000000A /* ArcProgressRemote-454x400.rc in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		700000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000001 /* RemoteComposePlayerApp.swift in Sources */,
+				100000000000000000000002 /* PlayerLibrary.swift in Sources */,
+				100000000000000000000003 /* PlayerRootView.swift in Sources */,
+				100000000000000000000004 /* RemoteComposePlayerView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		800000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; SDKROOT = iphoneos; SWIFT_VERSION = 6.0;}; name = Debug;};
+		800000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 6.0;}; name = Release;};
+		800000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RemoteComposePlayer/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Remote Compose";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ee.schimke.rcplayers.appleplayer;
+				PRODUCT_NAME = "Remote Compose";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Debug;
+		};
+		800000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RemoteComposePlayer/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Remote Compose";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ee.schimke.rcplayers.appleplayer;
+				PRODUCT_NAME = "Remote Compose";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		900000000000000000000001 /* Build configuration list for PBXProject */ = {isa = XCConfigurationList; buildConfigurations = (800000000000000000000001 /* Debug */, 800000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		900000000000000000000002 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (800000000000000000000003 /* Debug */, 800000000000000000000004 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A00000000000000000000002 /* XCRemoteSwiftPackageReference "rc-players" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/yschimke/rc-players.git";
+			requirement = {kind = exactVersion; version = 1.59.3;};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A00000000000000000000001 /* RcComposePlayer */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000002 /* XCRemoteSwiftPackageReference "rc-players" */; productName = RcComposePlayer;};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 600000000000000000000001 /* Project object */;
+}

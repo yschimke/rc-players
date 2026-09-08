@@ -74,6 +74,12 @@ checksum of an asset that does not exist yet, so `main` and the `v`-prefixed tag
 checksum check by design. Editing the two values by hand is never right. Usage is documented, and
 type-checked in CI, in [`docs/design/RC_PLAYER_SWIFT.md`](docs/design/RC_PLAYER_SWIFT.md).
 
+[`samples/apple-player`](samples/apple-player/) is the full downstream check: a SwiftUI document
+player resolved through the released Swift package, built for the arm64 iOS Simulator in CI, and
+also runnable as a **Designed for iPad** desktop app on Apple-silicon Macs. It exercises application
+integration that the generated-header sample cannot, including bundled and imported `.rc` files,
+the UIKit controller lifecycle, required plist settings, and the framework's architecture matrix.
+
 ### The reference players (`third_party/`)
 
 None of these is a supported API. Provenance, the pinned upstream commit and the full patch log for
