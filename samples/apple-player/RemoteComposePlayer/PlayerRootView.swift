@@ -119,10 +119,11 @@ private struct PlayerCanvas: View {
       ZStack(alignment: .bottom) {
         ScrollView([.horizontal, .vertical]) {
           RemoteComposePlayerView(
-            document: document,
-            theme: library.theme,
-            onError: { message in
-              Task { @MainActor in library.errorMessage = message }
+            data: document.data,
+            configuration: .init(
+              theme: library.theme.playerTheme, compatibility: .compatible),
+            onError: { error in
+              Task { @MainActor in library.errorMessage = error.localizedDescription }
             }
           )
           .frame(width: playerWidth, height: playerHeight)
@@ -179,6 +180,14 @@ private struct PlaybackChrome: View {
 }
 
 extension PlayerAppearance {
+  fileprivate var playerTheme: RemoteComposePlayerTheme {
+    switch self {
+    case .system: .system
+    case .light: .light
+    case .dark: .dark
+    }
+  }
+
   fileprivate var symbol: String {
     switch self {
     case .system: "circle.lefthalf.filled"
@@ -238,9 +247,13 @@ private struct AuroraCanvas: View {
     _ blob: AuroraBlob, index: Int, in context: inout GraphicsContext, size: CGSize
   ) {
     let angle = phase * .pi * 2 + Double(index) * 2.1
+    let horizontalDrift = CGFloat(cos(angle)) * size.width * 0.09
+    let verticalDrift = CGFloat(sin(angle)) * size.height * 0.10
+    let baseX = size.width * blob.x
+    let baseY = size.height * blob.y
     let center = CGPoint(
-      x: size.width * blob.x + cos(angle) * size.width * 0.09,
-      y: size.height * blob.y + sin(angle) * size.height * 0.10
+      x: baseX + horizontalDrift,
+      y: baseY + verticalDrift
     )
     let radius = min(size.width, size.height) * 0.34
     let rect = CGRect(

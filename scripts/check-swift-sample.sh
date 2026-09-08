@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 # Type-check the Swift usage sample in docs/design/RC_PLAYER_SWIFT.md against the real XCFramework.
 #
-# The sample is the *only* documentation of how to call the player from Swift, and everything
-# awkward about it — the file-facade calls, required arguments, and `Data` not bridging to
-# `ByteArray` — is a property of Kotlin/Native's Objective-C export
-# rather than a choice made here. Which means the doc drifts silently whenever the export changes,
-# and the first person to notice is a consumer whose project will not build.
+# The document covers both the ordinary Swift source overlay and the raw Kotlin/Native interop API.
+# Either can drift when the exported framework changes, with a downstream consumer otherwise being
+# the first place that drift is discovered.
 #
 # So the doc is the tested artifact: the fenced `swift` blocks are extracted and compiled for both
-# iOS and macOS, with no
-# second copy of the code to keep in sync. Two kinds of block are skipped, both self-describing:
+# iOS and macOS, with no second copy of the code to keep in sync. Two kinds of block are skipped,
+# both self-describing:
 #   * the `Package.swift` manifest fragment — a manifest, not app code;
 #   * any block containing `…`, which marks it as illustrative rather than complete.
 #
-# Type-check only (`-typecheck`): this proves every name, selector and type in the sample exists as
-# written, which is the failure mode. Linking a static Kotlin/Native framework would add minutes and
-# catch nothing extra at the API level.
+# The source overlay is first compiled as a module for each platform, then the documentation sample
+# is type-checked against that module and the binary framework. Linking a static Kotlin/Native
+# framework would add minutes and catch nothing extra at the API level.
 #
 # Skips loudly, and exits 0, when the toolchain or the framework is absent — the framework only
 # builds on macOS, so this is a no-op on a Linux runner rather than a failure.
@@ -44,6 +42,8 @@ fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
+mkdir -p "$work/ios" "$work/macos"
+overlay_sources=(Sources/RcComposePlayerSwiftUI/*.swift)
 extract_sample() {
   local platform="$1"
   local sample="$2"
@@ -94,6 +94,15 @@ echo "type-checking iOS sample against $ios_slice ($target)"
 xcrun -sdk "$sdk" swiftc \
   -target "$target" \
   -F "$(dirname "$ios_slice")" \
+  -parse-as-library \
+  -emit-module \
+  -module-name RcComposePlayerSwiftUI \
+  -emit-module-path "$work/ios/RcComposePlayerSwiftUI.swiftmodule" \
+  "${overlay_sources[@]}"
+xcrun -sdk "$sdk" swiftc \
+  -target "$target" \
+  -F "$(dirname "$ios_slice")" \
+  -I "$work/ios" \
   -typecheck "$ios_sample"
 
 macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
@@ -102,6 +111,15 @@ echo "type-checking macOS sample against $macos_slice ($macos_target)"
 xcrun -sdk "$macos_sdk" swiftc \
   -target "$macos_target" \
   -F "$(dirname "$macos_slice")" \
+  -parse-as-library \
+  -emit-module \
+  -module-name RcComposePlayerSwiftUI \
+  -emit-module-path "$work/macos/RcComposePlayerSwiftUI.swiftmodule" \
+  "${overlay_sources[@]}"
+xcrun -sdk "$macos_sdk" swiftc \
+  -target "$macos_target" \
+  -F "$(dirname "$macos_slice")" \
+  -I "$work/macos" \
   -typecheck "$macos_sample"
 
 echo "swift sample: ok"

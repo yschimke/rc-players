@@ -31,6 +31,63 @@ Implements #4068.
 .package(url: "https://github.com/yschimke/rc-players.git", from: "1.60.0")
 ```
 
+For an application target, depend on the `RcComposePlayerSwiftUI` product. It wraps the binary
+product without hiding it, so an advanced consumer can still select `RcComposePlayer` and use the
+generated Kotlin API directly.
+
+```swift
+// iOS
+import RcComposePlayerSwiftUI
+import SwiftUI
+
+@MainActor
+func makePlayer() -> RemoteComposePlayerView {
+  RemoteComposePlayerView(
+    data: documentData,
+    configuration: .init(theme: .system, compatibility: .compatible),
+    onEvent: { event in print(event) },
+    onError: { error in print(error.localizedDescription) }
+  )
+}
+```
+
+The same source overlay exposes the AppKit-backed window added in #64 on Apple-silicon macOS 12 and
+newer:
+
+```swift
+// macOS
+import RcComposePlayerSwiftUI
+import AppKit
+
+@MainActor
+func openPlayerWindow() {
+  RemoteComposePlayerWindow.open(
+    data: documentData,
+    title: "Remote Compose",
+    width: 800,
+    height: 600,
+    configuration: .init(theme: .system, compatibility: .strict),
+    onEvent: { event in print(event) },
+    onError: { error in print(error.localizedDescription) }
+  )
+}
+```
+
+Both entry points accept `Foundation.Data`, are isolated to the main actor, default all callbacks,
+and translate the exported protocol hierarchy into Swift enums. The UIKit controller is also public
+as `RemoteComposePlayerViewController`. Its `update(data:configuration:onEvent:onError:)` method
+rebuilds the embedded Compose controller only when playback input changes; merely re-rendering a
+SwiftUI parent updates the closures without resetting playback.
+
+An iOS host must set `CADisableMinimumFrameDurationOnPhone` to `YES` in its application
+`Info.plist`, as required by `ComposeUIViewController`. The overlay checks this before entering
+Compose and reports `.missingHighRefreshRatePlistEntry` through `onError`, with a visible fallback,
+instead of allowing the integration mistake to become a runtime assertion.
+
+### Raw interop
+
+The underlying binary product remains public and source-compatible. Its direct iOS call is:
+
 ```swift
 // iOS
 import RcComposePlayer
@@ -45,7 +102,7 @@ let controller = RcComposeViewControllerKt.RcComposeViewController(
 )
 ```
 
-The same package exposes an AppKit-backed window on Apple-silicon macOS 12 and newer:
+The raw macOS equivalent is:
 
 ```swift
 // macOS
@@ -118,24 +175,20 @@ build, ending with "please report this issue to the owners of 'RcComposePlayer'"
 removes the warning, and it costs nothing in expressiveness — a `.rc` document only ever carries a
 tag and a float.
 
-These are ergonomics gaps rather than defects — the call works exactly as written — and closing
-them means adding a Swift wrapper target beside the binary target, which
-[#4068](https://github.com/yschimke/compose-ai-tools/issues/4068) leaves for after the first
-published framework.
+These are properties of the raw interop layer rather than defects — the call works exactly as
+written. The `RcComposePlayerSwiftUI` source target closes them for ordinary adoption while leaving
+this API available for custom typeface loaders and other advanced integration.
 
 **"Works exactly as written" is checked, not asserted.**
-`scripts/check-swift-sample.sh` extracts the `swift` blocks above and type-checks them against the
-assembled XCFramework, and the macOS CI job runs it right after building one. That pairing lapsed
+`scripts/check-swift-sample.sh` compiles the source overlay for iOS and macOS, then extracts the
+`swift` blocks above and type-checks them against the overlay and assembled XCFramework. The macOS
+CI job runs it right after building the framework. That pairing lapsed
 while [#4222](https://github.com/yschimke/compose-ai-tools/issues/4222) had the framework build
 disabled — the script exits 0 when no framework is present, so it reported green while checking
 nothing, and was unwired rather than left to do that. Both steps are back, in that order, so the
-sample is type-checked on every pull request again. The intent: this document is the tested
-artifact — there is no second copy of the sample to keep in sync — and every property described
-here is a property of Kotlin/Native's Objective-C export rather than a choice made in this repo, so
-it can change under us without any Kotlin source changing. That is exactly the drift the check
-exists to catch: an earlier draft of this page called a bare `RcComposeViewController(...)` and a
-`KotlinByteArray.from(_:)` that does not exist, and nothing caught either until a reviewer read the
-generated header by hand.
+sample is type-checked on every pull request again. The document remains the tested artifact, with
+no second copy of its calls to keep in sync. That catches changes in both the maintained Swift API
+and Kotlin/Native's generated Objective-C export.
 
 **Apple silicon only.** The XCFramework contains iOS device, Apple-silicon iOS simulator, and
 Apple-silicon macOS slices. Compose Multiplatform 1.11.1 publishes the experimental

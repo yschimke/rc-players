@@ -73,6 +73,9 @@ XCFramework is uploaded. The copy on `main` is a permanent placeholder: a manife
 checksum of an asset that does not exist yet, so `main` and the `v`-prefixed tag both fail the
 checksum check by design. Editing the two values by hand is never right. Usage is documented, and
 type-checked in CI, in [`docs/design/RC_PLAYER_SWIFT.md`](docs/design/RC_PLAYER_SWIFT.md).
+Application targets normally select the `RcComposePlayerSwiftUI` product for direct `Data`, typed
+events/errors, and SwiftUI/UIKit entry points; the `RcComposePlayer` product remains the raw binary
+interop surface.
 
 [`samples/apple-player`](samples/apple-player/) is the full downstream check: a SwiftUI document
 player resolved through the released Swift package, built for the arm64 iOS Simulator in CI, and
