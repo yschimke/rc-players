@@ -144,8 +144,8 @@ class RcComposeSupportTest {
         ),
       )
 
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).fullyRenderable)
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -168,7 +168,7 @@ class RcComposeSupportTest {
 
     assertEquals(
       listOf("condition type 99 is not implemented", "literal step cannot be zero"),
-      document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).issues.map { it.detail },
+      document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).issues.map { it.detail },
     )
   }
 
@@ -184,8 +184,8 @@ class RcComposeSupportTest {
         ),
       )
 
-    assertTrue(valid.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).fullyRenderable)
-    assertTrue(valid.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(valid.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(valid.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
 
     val invalid =
       RcDocument(
@@ -196,7 +196,7 @@ class RcComposeSupportTest {
       )
     assertEquals(
       "text id 99 is not declared",
-      invalid.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).issues.single().detail,
+      invalid.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).issues.single().detail,
     )
   }
 
@@ -227,9 +227,9 @@ class RcComposeSupportTest {
 
     assertEquals(
       emptyList(),
-      document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).issues.map { it.detail },
+      document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).issues.map { it.detail },
     )
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -252,14 +252,14 @@ class RcComposeSupportTest {
 
     assertTrue(
       document(RcIdMap.TYPE_STRING)
-        .composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16)
+        .composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18)
         .fullyRenderable
     )
     // A float entry writes the float store, so the CoreText would render empty rather than fail.
     assertEquals(
       "text id 43 is not declared",
       document(RcIdMap.TYPE_FLOAT)
-        .composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16)
+        .composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18)
         .issues
         .single()
         .detail,
@@ -270,8 +270,8 @@ class RcComposeSupportTest {
   fun portableAnimationSpecsAreSharedByWasmAndIosProfiles() {
     val document = RcDocument(header, listOf(animationSpec()))
 
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).fullyRenderable)
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -279,8 +279,8 @@ class RcComposeSupportTest {
     val document =
       RcDocument(header, listOf(animationSpec().copy(exitAnimation = RcLayoutAnimation.Particle)))
 
-    val wasm = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16)
-    val ios = document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16)
+    val wasm = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18)
+    val ios = document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18)
     assertEquals("exit animation 7 requires ParticleAnimation", wasm.issues.single().detail)
     assertEquals(wasm.issues, ios.issues)
   }
@@ -299,8 +299,8 @@ class RcComposeSupportTest {
         ),
       )
 
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).fullyRenderable)
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -314,8 +314,8 @@ class RcComposeSupportTest {
         ),
       )
 
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).fullyRenderable)
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -330,8 +330,8 @@ class RcComposeSupportTest {
         ),
       )
 
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).fullyRenderable)
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -351,8 +351,8 @@ class RcComposeSupportTest {
         ),
       )
 
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).fullyRenderable)
-    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -555,7 +555,7 @@ class RcComposeSupportTest {
     )
     val issue =
       RcDocument(header, listOf(RcPaintData(listOf(9, 42)))).composeSupportReport().issues.single()
-    assertEquals("shader id 42 is not implemented", issue.detail)
+    assertEquals("shader id 42 is not declared", issue.detail)
   }
 
   @Test
@@ -699,12 +699,12 @@ class RcComposeSupportTest {
         ),
       )
 
-    val issue = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16).issues.single()
+    val issue = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).issues.single()
 
     assertEquals("ModifierGraphicsLayer", issue.operation)
-    assertEquals("operation is excluded from the cmp-wasm-alpha16 profile", issue.detail)
+    assertEquals("operation is excluded from the cmp-wasm-alpha18 profile", issue.detail)
     assertTrue(
-      document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16).fullyRenderable,
+      document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable,
       "The shared iOS renderer supports graphics layers even though the Wasm backend does not",
     )
   }
@@ -1099,8 +1099,9 @@ class RcComposeSupportTest {
     assertTrue(
       RcDocument(header, listOf(RcTextAttribute(3, 4, 6))).composeSupportReport().fullyRenderable
     )
-    val issue =
-      RcDocument(header, listOf(RcTextMeasure(3, 4, 6))).composeSupportReport().issues.single()
+    val issues = RcDocument(header, listOf(RcTextMeasure(3, 4, 6))).composeSupportReport().issues
+    assertEquals(1, issues.size, issues.toString())
+    val issue = issues.single()
 
     assertEquals("TextMeasurement", issue.operation)
     assertEquals("type 6 is not implemented", issue.detail)
@@ -1224,7 +1225,7 @@ class RcComposeSupportTest {
         ),
       )
 
-    val report = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA16)
+    val report = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18)
 
     assertFalse(report.fullyRenderable)
     assertTrue(report.playable)
@@ -1261,7 +1262,7 @@ class RcComposeSupportTest {
   fun lenientModeChangesNothingForADocumentThatWasAlreadyRenderable() {
     val document = RcDocument(header, listOf(animationSpec()))
 
-    val report = document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA16)
+    val report = document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18)
 
     assertTrue(report.fullyRenderable)
     assertTrue(report.playable)

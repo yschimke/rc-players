@@ -33,7 +33,9 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -66,6 +68,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.PathMeasure
@@ -76,6 +80,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.asComposeShader
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.asSkiaPath
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -159,6 +165,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcAlignByModifier
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcClickArea
 import ee.schimke.composeai.rcplayer.protocol.RcClipRectModifier
@@ -177,12 +184,16 @@ import ee.schimke.composeai.rcplayer.protocol.RcDraw3
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDraw6
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRun
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapFontTextRunOnPath
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapInt
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapScaled
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnPath
+import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
@@ -215,6 +226,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
 import ee.schimke.composeai.rcplayer.protocol.RcPathCombine
 import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
@@ -226,6 +239,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRippleModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
+import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
@@ -278,6 +292,8 @@ import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.RuntimeEffect
+import org.jetbrains.skia.RuntimeShaderBuilder
 
 @Composable
 public fun RcComposePlayer(
@@ -312,7 +328,7 @@ public fun RcComposePlayer(
   systemColors: (name: String) -> Color? = { null },
   customComponents: RcCustomComponentRegistry,
 ) {
-  val document = remember(bytes) { RcDocumentCodec.decode(bytes) }
+  val document = remember(bytes) { decodeCmpDocument(bytes) }
   RcComposePlayer(
     document,
     modifier,
@@ -324,6 +340,9 @@ public fun RcComposePlayer(
     customComponents,
   )
 }
+
+/** CMP implements the opt-in operation family, so `Skip` must observe the experimental bit. */
+internal fun decodeCmpDocument(bytes: ByteArray): RcDocument = RcDocumentCodec.decode(bytes)
 
 @Composable
 public fun RcComposePlayer(
@@ -388,6 +407,9 @@ private fun RcComposePlayerResolved(
   val latestEventSink by rememberUpdatedState(onEvent)
   val latestSystemColors by rememberUpdatedState(systemColors)
   val latestHapticFeedback by rememberUpdatedState(LocalHapticFeedback.current)
+  val soundHost = LocalRcSoundHost.current
+  val soundDispatcher = remember(document) { RcSoundHostDispatcher(soundHost) }
+  SideEffect { soundDispatcher.updateHost(soundHost) }
   var invalidationVersion by remember { mutableIntStateOf(0) }
   var wakeIntervalSeconds by remember(document) { mutableStateOf<Float?>(null) }
   var nextFrameRequestVersion by remember(document) { mutableIntStateOf(0) }
@@ -422,6 +444,7 @@ private fun RcComposePlayerResolved(
             RcPlayerEffect.NextFrame -> nextFrameRequestVersion += 1
           }
         },
+        soundSink = soundDispatcher::dispatch,
         // Read through `latestSystemColors`, never captured directly: a host's lookup is usually a
         // capturing lambda, so a parent recomposition hands us a fresh instance. Keying the state
         // on it would rebuild `RcPlayerState` — discarding variables an action changed,
@@ -528,6 +551,8 @@ private fun RcComposePlayerResolved(
     }
   }
   val images = remember(document) { decodeInlineImages(document) }
+  val offscreenTargets = remember(document) { RcOffscreenTargetPool() }
+  DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }
   val fonts = remember(document) { decodeInlineFonts(document) }
   val textMeasurer = rememberTextMeasurer()
   // Subscribe *composition* to invalidations, not just the draw layer below.
@@ -582,6 +607,7 @@ private fun RcComposePlayerResolved(
         LocalRcTypefaces provides typefaces,
         LocalRcCustomComponents provides customComponents,
         LocalRcInvalidate provides { invalidationVersion += 1 },
+        LocalRcOffscreenTargets provides offscreenTargets,
       ) {
         RenderLayoutNode(
           node = layout,
@@ -621,6 +647,7 @@ private fun RcComposePlayerResolved(
             RcFloatFunctionRuntime(),
             theme,
             filterTheme = true,
+            offscreenTargets = offscreenTargets,
           )
         }
       }
@@ -634,7 +661,7 @@ private fun RenderLayoutNode(
   forceGone: Boolean = false,
   state: RcPlayerState,
   textMeasurer: TextMeasurer,
-  images: Map<Int, ImageBitmap>,
+  images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ) {
   val layoutVersion = LocalRcLayoutVersion.current
@@ -643,6 +670,7 @@ private fun RenderLayoutNode(
   val typefaces = LocalRcTypefaces.current
   val customComponents = LocalRcCustomComponents.current
   val invalidate = LocalRcInvalidate.current
+  val offscreenTargets = LocalRcOffscreenTargets.current
   val visibility =
     if (forceGone) {
       0
@@ -751,6 +779,7 @@ private fun RenderLayoutNode(
                   RcFloatFunctionRuntime(),
                   theme,
                   filterTheme = true,
+                  offscreenTargets = offscreenTargets,
                 )
               }
             }
@@ -778,6 +807,7 @@ private fun RenderLayoutNode(
             RcFloatFunctionRuntime(),
             theme,
             filterTheme = true,
+            offscreenTargets = offscreenTargets,
           )
         }
       }
@@ -1381,6 +1411,8 @@ private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap()
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
 private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
+private val LocalRcOffscreenTargets =
+  compositionLocalOf<RcOffscreenTargetPool> { error("No document-scoped offscreen target pool") }
 
 internal val DefaultRcAnimationSpec =
   RcAnimationSpec(
@@ -1488,7 +1520,7 @@ private fun RcAlignedRow(
   modifier: Modifier,
   state: RcPlayerState,
   textMeasurer: TextMeasurer,
-  images: Map<Int, ImageBitmap>,
+  images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ) {
   Layout(
@@ -1529,7 +1561,7 @@ private fun RcLayoutChild(
   child: RcLayoutNode,
   state: RcPlayerState,
   textMeasurer: TextMeasurer,
-  images: Map<Int, ImageBitmap>,
+  images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ) {
   Layout(
@@ -1609,7 +1641,7 @@ private fun RcCollapsibleLayout(
   modifier: Modifier,
   state: RcPlayerState,
   textMeasurer: TextMeasurer,
-  images: Map<Int, ImageBitmap>,
+  images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ) {
   Layout(
@@ -1707,7 +1739,7 @@ private fun RcCollapsibleLayout(
   }
 }
 
-/** AndroidX alpha16 priority sort and first-overflow cutoff; spacing is deliberately excluded. */
+/** AndroidX alpha18 priority sort and first-overflow cutoff; spacing is deliberately excluded. */
 internal fun selectCollapsibleChildren(
   mainSizes: List<Int>,
   priorities: List<Float>,
@@ -1947,10 +1979,11 @@ private fun Modifier.applyComponentModifiers(
   fillMissingDimensions: Boolean,
   canvasOperations: List<RcLinkedNode>?,
   textMeasurer: TextMeasurer,
-  images: Map<Int, ImageBitmap>,
+  images: MutableMap<Int, ImageBitmap>,
   theme: Int,
 ): Modifier {
   val density = androidx.compose.ui.platform.LocalDensity.current
+  val offscreenTargets = LocalRcOffscreenTargets.current
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
     else {
@@ -1985,6 +2018,7 @@ private fun Modifier.applyComponentModifiers(
           RcFloatFunctionRuntime(),
           theme,
           filterTheme = true,
+          offscreenTargets = offscreenTargets,
           drawContent = { drawContent() },
         )
       }
@@ -3149,6 +3183,8 @@ private class RcPaintState {
   var blendModeValue: Int = 3
   var brush: Brush? = null
   var baseShader: Shader? = null
+  var runtimeShaderOwner: RuntimeShaderBuilder? = null
+  var runtimeShader: Shader? = null
   var colorFilter: ColorFilter? = null
   var textSize: Float = 16f
   var fontFamily: FontFamily = FontFamily.Default
@@ -3163,11 +3199,75 @@ private class RcPaintState {
 
   fun style() =
     if (stroke) Stroke(width = strokeWidth, cap = strokeCap, join = strokeJoin) else Fill
+
+  fun runtimeShaderPaint(shader: Shader): Paint =
+    Paint().also { target ->
+      target.shader = shader
+      target.alpha = alpha
+      target.blendMode = blendMode
+      target.colorFilter = colorFilter
+      target.style = if (stroke) PaintingStyle.Stroke else PaintingStyle.Fill
+      target.strokeWidth = strokeWidth
+      target.strokeCap = strokeCap
+      target.strokeJoin = strokeJoin
+    }
 }
 
 private class RcFloatFunctionRuntime {
   val definitions = mutableMapOf<Int, RcLinkedNode.Container>()
   val executing = mutableSetOf<Int>()
+  val shaders = mutableMapOf<Int, RcShaderData>()
+}
+
+/** Per-draw-pass canvas routing for AndroidX's mutable bitmap targets. */
+private class RcDrawTargetState(
+  private val mainCanvas: androidx.compose.ui.graphics.Canvas,
+  private val mainSize: Size,
+  private val images: MutableMap<Int, ImageBitmap>,
+  private val offscreenTargets: RcOffscreenTargetPool,
+) {
+  private var depth = 0
+
+  fun enter() {
+    depth++
+  }
+
+  fun leave(scope: DrawScope) {
+    depth--
+    check(depth >= 0) { "Unbalanced bitmap draw-target scope" }
+    if (depth == 0) restoreMain(scope)
+  }
+
+  fun redirect(scope: DrawScope, operation: RcDrawToBitmap) {
+    if (operation.bitmapId == 0) {
+      restoreMain(scope)
+      return
+    }
+    val source =
+      requireNotNull(images[operation.bitmapId]) {
+        "DrawToBitmap references missing bitmap ${operation.bitmapId}"
+      }
+    val canvas = offscreenTargets.canvasFor(operation.bitmapId, source, images)
+    scope.drawContext.canvas = canvas
+    scope.drawContext.size = Size(source.width.toFloat(), source.height.toFloat())
+    if (operation.mode and RcDrawToBitmap.MODE_NO_INITIALIZE == 0) {
+      canvas.drawRect(
+        0f,
+        0f,
+        source.width.toFloat(),
+        source.height.toFloat(),
+        Paint().apply {
+          color = Color(operation.color)
+          blendMode = BlendMode.Src
+        },
+      )
+    }
+  }
+
+  private fun restoreMain(scope: DrawScope) {
+    scope.drawContext.canvas = mainCanvas
+    scope.drawContext.size = mainSize
+  }
 }
 
 private fun DrawScope.drawOperations(
@@ -3176,11 +3276,54 @@ private fun DrawScope.drawOperations(
   paint: RcPaintState,
   computedPaths: MutableMap<Int, Path>,
   textMeasurer: TextMeasurer,
-  images: Map<Int, ImageBitmap>,
+  images: MutableMap<Int, ImageBitmap>,
   functions: RcFloatFunctionRuntime,
   requestedTheme: Int,
   filterTheme: Boolean,
   drawContent: (() -> Unit)? = null,
+  offscreenTargets: RcOffscreenTargetPool? = null,
+  targets: RcDrawTargetState? = null,
+) {
+  val activeTargets =
+    targets
+      ?: RcDrawTargetState(
+        drawContext.canvas,
+        drawContext.size,
+        images,
+        requireNotNull(offscreenTargets) { "Top-level drawing requires an offscreen target pool" },
+      )
+  activeTargets.enter()
+  try {
+    drawOperationsRouted(
+      operations,
+      state,
+      paint,
+      computedPaths,
+      textMeasurer,
+      images,
+      functions,
+      requestedTheme,
+      filterTheme,
+      drawContent,
+      activeTargets,
+    )
+  } finally {
+    activeTargets.leave(this)
+  }
+}
+
+private fun DrawScope.drawOperationsRouted(
+  operations: List<RcLinkedNode>,
+  state: RcPlayerState,
+  paint: RcPaintState,
+  computedPaths: MutableMap<Int, Path>,
+  textMeasurer: TextMeasurer,
+  images: MutableMap<Int, ImageBitmap>,
+  functions: RcFloatFunctionRuntime,
+  requestedTheme: Int,
+  filterTheme: Boolean,
+  drawContent: (() -> Unit)?,
+  targets: RcDrawTargetState,
 ) {
   var currentTheme = RcTheme.UNSPECIFIED
   for (node in operations) {
@@ -3204,6 +3347,7 @@ private fun DrawScope.drawOperations(
               requestedTheme,
               filterTheme = false,
               drawContent = drawContent,
+              targets = targets,
             )
           RcOpcodes.RUN_ACTION -> state.executeRunAction(node.children)
           RcOpcodes.CONDITIONAL_OPERATIONS -> {
@@ -3220,6 +3364,7 @@ private fun DrawScope.drawOperations(
                 requestedTheme,
                 filterTheme = false,
                 drawContent = drawContent,
+                targets = targets,
               )
             }
           }
@@ -3237,6 +3382,43 @@ private fun DrawScope.drawOperations(
                 requestedTheme,
                 filterTheme = false,
                 drawContent = drawContent,
+                targets = targets,
+              )
+            }
+          }
+          RcOpcodes.PARTICLE_LOOP -> {
+            val loop = node.operation as RcParticleLoop
+            state.forEachParticle(loop) {
+              drawOperations(
+                node.children,
+                state,
+                paint,
+                computedPaths,
+                textMeasurer,
+                images,
+                functions,
+                requestedTheme,
+                filterTheme = false,
+                drawContent = drawContent,
+                targets = targets,
+              )
+            }
+          }
+          RcOpcodes.PARTICLE_COMPARE -> {
+            val comparison = node.operation as RcParticleCompare
+            state.compareParticles(comparison) {
+              drawOperations(
+                node.children,
+                state,
+                paint,
+                computedPaths,
+                textMeasurer,
+                images,
+                functions,
+                requestedTheme,
+                filterTheme = false,
+                drawContent = drawContent,
+                targets = targets,
               )
             }
           }
@@ -3259,6 +3441,7 @@ private fun DrawScope.drawOperations(
                   requestedTheme,
                   filterTheme = false,
                   drawContent = drawContent,
+                  targets = targets,
                 )
               RcImpulsePhase.PROCESS ->
                 process?.let {
@@ -3273,6 +3456,7 @@ private fun DrawScope.drawOperations(
                     requestedTheme,
                     filterTheme = false,
                     drawContent = drawContent,
+                    targets = targets,
                   )
                 }
               RcImpulsePhase.WAITING,
@@ -3291,6 +3475,7 @@ private fun DrawScope.drawOperations(
               requestedTheme,
               filterTheme = false,
               drawContent = drawContent,
+              targets = targets,
             )
           else -> error("Container opcode ${node.operation.opcode} is not renderable")
         }
@@ -3304,7 +3489,7 @@ private fun DrawScope.drawOperations(
     }
     if (filterTheme && !isThemeVisible(requestedTheme, currentTheme)) continue
     when (operation) {
-      is RcPaintData -> applyPaint(operation, paint, state, images)
+      is RcPaintData -> applyPaint(operation, paint, state, images, functions.shaders)
       is RcDraw4 -> draw4(operation, paint, state)
       is RcDraw3 -> draw3(operation, paint, state)
       is RcDraw6 -> draw6(operation, paint, state)
@@ -3406,6 +3591,7 @@ private fun DrawScope.drawOperations(
             requestedTheme,
             filterTheme = false,
             drawContent = drawContent,
+            targets = targets,
           )
         } finally {
           functions.executing.remove(operation.functionId)
@@ -3427,6 +3613,20 @@ private fun DrawScope.drawOperations(
       is RcDrawBitmap -> drawBitmap(operation, state, paint, images)
       is RcDrawBitmapInt -> drawBitmapInt(operation, paint, images)
       is RcDrawBitmapScaled -> drawBitmapScaled(operation, state, paint, images)
+      is RcDrawBitmapFontTextRun ->
+        drawBitmapFontTextRun(operation, state, images, paint.alpha, paint.blendMode)
+      is RcDrawBitmapFontTextRunOnPath ->
+        drawBitmapFontTextOnPath(
+          operation,
+          pathForId(resolveBitmapFontPathId(operation.pathId, state), state, computedPaths),
+          state,
+          images,
+          paint.alpha,
+          paint.blendMode,
+        )
+      is RcDrawBitmapTextAnchored ->
+        drawAnchoredBitmapText(operation, state, images, paint.alpha, paint.blendMode)
+      is RcBitmapTextMeasure -> applyBitmapTextMeasure(operation, state)
       is RcTextMeasure -> measureTextOperation(operation, state, paint, textMeasurer)
       is RcTextAttribute ->
         measureTextOperation(
@@ -3438,6 +3638,8 @@ private fun DrawScope.drawOperations(
           textMeasurer,
         )
       is RcDrawTweenPath -> drawTweenPath(operation, paint, state)
+      is RcDrawToBitmap -> targets.redirect(this, operation)
+      is RcShaderData -> functions.shaders[operation.shaderId] = operation
       is RcNoArg ->
         when (operation.opcode) {
           RcOpcodes.MATRIX_SAVE -> drawContext.canvas.save()
@@ -3449,10 +3651,10 @@ private fun DrawScope.drawOperations(
   }
 }
 
-private fun decodeInlineImages(document: RcDocument): Map<Int, ImageBitmap> =
+private fun decodeInlineImages(document: RcDocument): MutableMap<Int, ImageBitmap> =
   rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeImages") { decodeInlineImagesUncounted(document) }
 
-private fun decodeInlineImagesUncounted(document: RcDocument): Map<Int, ImageBitmap> =
+private fun decodeInlineImagesUncounted(document: RcDocument): MutableMap<Int, ImageBitmap> =
   document.operations
     .filterIsInstance<RcBitmapData>()
     .mapNotNull { bitmap ->
@@ -3460,6 +3662,7 @@ private fun decodeInlineImagesUncounted(document: RcDocument): Map<Int, ImageBit
       else runCatching { bitmap.imageId to decodeInlineImage(bitmap) }.getOrNull()
     }
     .toMap()
+    .toMutableMap()
 
 private fun decodeInlineFonts(document: RcDocument): Map<Int, FontFamily> =
   rcTrace(RcTraceCategory.DOCUMENT, "rc:decodeFonts") { decodeInlineFontsUncounted(document) }
@@ -4304,6 +4507,11 @@ private fun DrawScope.drawIdOperation(
 }
 
 private fun DrawScope.drawRcPath(path: Path, paint: RcPaintState) {
+  val runtimeShader = paint.runtimeShader
+  if (runtimeShader != null) {
+    drawContext.canvas.drawPath(path, paint.runtimeShaderPaint(runtimeShader))
+    return
+  }
   val brush = paint.brush
   if (brush == null) {
     drawPath(
@@ -4385,6 +4593,11 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
     RcOpcodes.DRAW_RECT -> {
       val topLeft = Offset(a, b)
       val size = Size(c - a, d - b)
+      val runtimeShader = paint.runtimeShader
+      if (runtimeShader != null) {
+        drawContext.canvas.drawRect(a, b, c, d, paint.runtimeShaderPaint(runtimeShader))
+        return
+      }
       val brush = paint.brush
       if (brush == null) {
         drawRect(
@@ -4407,23 +4620,35 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
         )
       }
     }
-    RcOpcodes.DRAW_OVAL ->
-      drawOval(
-        paint.composeColor(),
-        Offset(a, b),
-        Size(c - a, d - b),
-        style = paint.style(),
-        blendMode = paint.blendMode,
-      )
-    RcOpcodes.DRAW_LINE ->
-      drawLine(
-        paint.composeColor(),
-        Offset(a, b),
-        Offset(c, d),
-        strokeWidth = paint.strokeWidth,
-        cap = paint.strokeCap,
-        blendMode = paint.blendMode,
-      )
+    RcOpcodes.DRAW_OVAL -> {
+      val shader = paint.runtimeShader
+      if (shader != null) {
+        drawContext.canvas.drawOval(a, b, c, d, paint.runtimeShaderPaint(shader))
+      } else {
+        drawOval(
+          paint.composeColor(),
+          Offset(a, b),
+          Size(c - a, d - b),
+          style = paint.style(),
+          blendMode = paint.blendMode,
+        )
+      }
+    }
+    RcOpcodes.DRAW_LINE -> {
+      val shader = paint.runtimeShader
+      if (shader != null) {
+        drawContext.canvas.drawLine(Offset(a, b), Offset(c, d), paint.runtimeShaderPaint(shader))
+      } else {
+        drawLine(
+          paint.composeColor(),
+          Offset(a, b),
+          Offset(c, d),
+          strokeWidth = paint.strokeWidth,
+          cap = paint.strokeCap,
+          blendMode = paint.blendMode,
+        )
+      }
+    }
     RcOpcodes.CLIP_RECT -> drawContext.canvas.clipRect(a, b, c, d)
     RcOpcodes.MATRIX_SCALE -> drawContext.transform.scale(a, b, rcMatrixPivot(c, d))
   }
@@ -4434,14 +4659,20 @@ private fun DrawScope.draw3(operation: RcDraw3, paint: RcPaintState, state: RcPl
   val b = state.resolve(operation.second)
   val c = state.resolve(operation.third)
   when (operation.opcode) {
-    RcOpcodes.DRAW_CIRCLE ->
-      drawCircle(
-        paint.composeColor(),
-        c,
-        Offset(a, b),
-        style = paint.style(),
-        blendMode = paint.blendMode,
-      )
+    RcOpcodes.DRAW_CIRCLE -> {
+      val shader = paint.runtimeShader
+      if (shader != null) {
+        drawContext.canvas.drawCircle(Offset(a, b), c, paint.runtimeShaderPaint(shader))
+      } else {
+        drawCircle(
+          paint.composeColor(),
+          c,
+          Offset(a, b),
+          style = paint.style(),
+          blendMode = paint.blendMode,
+        )
+      }
+    }
     RcOpcodes.MATRIX_ROTATE -> drawContext.transform.rotate(a, rcMatrixPivot(b, c))
   }
 }
@@ -4462,6 +4693,11 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
       val topLeft = Offset(a, b)
       val size = Size(c - a, d - b)
       val cornerRadius = CornerRadius(e, f)
+      val runtimeShader = paint.runtimeShader
+      if (runtimeShader != null) {
+        drawContext.canvas.drawRoundRect(a, b, c, d, e, f, paint.runtimeShaderPaint(runtimeShader))
+        return
+      }
       val brush = paint.brush
       if (brush == null) {
         drawRoundRect(
@@ -4487,17 +4723,24 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
       }
     }
     RcOpcodes.DRAW_ARC,
-    RcOpcodes.DRAW_SECTOR ->
-      drawArc(
-        paint.composeColor(),
-        e,
-        f,
-        useCenter = operation.opcode == RcOpcodes.DRAW_SECTOR,
-        topLeft = Offset(a, b),
-        size = Size(c - a, d - b),
-        style = paint.style(),
-        blendMode = paint.blendMode,
-      )
+    RcOpcodes.DRAW_SECTOR -> {
+      val useCenter = operation.opcode == RcOpcodes.DRAW_SECTOR
+      val shader = paint.runtimeShader
+      if (shader != null) {
+        drawContext.canvas.drawArc(a, b, c, d, e, f, useCenter, paint.runtimeShaderPaint(shader))
+      } else {
+        drawArc(
+          paint.composeColor(),
+          e,
+          f,
+          useCenter = useCenter,
+          topLeft = Offset(a, b),
+          size = Size(c - a, d - b),
+          style = paint.style(),
+          blendMode = paint.blendMode,
+        )
+      }
+    }
   }
 }
 
@@ -4522,6 +4765,7 @@ private fun applyPaint(
   state: RcPaintState,
   values: RcPlayerState,
   images: Map<Int, ImageBitmap>,
+  shaders: Map<Int, RcShaderData>,
 ) {
   var index = 0
   while (index < operation.words.size) {
@@ -4548,9 +4792,18 @@ private fun applyPaint(
       8 -> state.stroke = command ushr 16 == 1
       9 -> {
         val shaderId = operation.words[index++]
-        check(shaderId == 0) { "Shader id $shaderId is not implemented by the CMP backend" }
-        state.baseShader = null
-        state.brush = null
+        if (shaderId == 0) {
+          state.baseShader = null
+          state.runtimeShaderOwner = null
+          state.runtimeShader = null
+          state.brush = null
+        } else {
+          val runtimeShader = buildRuntimeShader(shaderId, values, images, shaders)
+          state.runtimeShaderOwner = runtimeShader.owner
+          state.baseShader = runtimeShader.shader
+          state.runtimeShader = runtimeShader.shader
+          state.brush = constantShaderBrush(runtimeShader.shader)
+        }
       }
       11 -> index = applyGradient(operation.words, index, command, state, values)
       12 ->
@@ -4629,6 +4882,7 @@ private fun applyPaint(
             )
           }
         state.brush = state.baseShader?.let(::constantShaderBrush)
+        state.runtimeShader = null
       }
       16 -> {
         val style = command ushr 16
@@ -4647,6 +4901,68 @@ private fun applyPaint(
       }
       else -> error("Paint command ${command and 0xffff} is not implemented by the baseline player")
     }
+  }
+}
+
+private data class RcRuntimeShader(val shader: Shader, val owner: RuntimeShaderBuilder)
+
+private fun buildRuntimeShader(
+  shaderId: Int,
+  state: RcPlayerState,
+  images: Map<Int, ImageBitmap>,
+  shaders: Map<Int, RcShaderData>,
+): RcRuntimeShader {
+  val data =
+    requireNotNull(
+      shaders[shaderId]
+        ?: state.document.operations.filterIsInstance<RcShaderData>().lastOrNull {
+          it.shaderId == shaderId
+        }
+    ) {
+      "Missing ShaderData for shader $shaderId"
+    }
+  val source =
+    requireNotNull(state.text(data.shaderTextId)) {
+      "Shader $shaderId references missing text ${data.shaderTextId}"
+    }
+  return try {
+    val builder = RuntimeShaderBuilder(RuntimeEffect.makeForShader(source))
+    data.floatUniforms.forEach { (name, words) ->
+      val dynamic = words.singleOrNull()?.referencedId?.let(state::floatValues)
+      val values = dynamic ?: words.map(state::resolve).toFloatArray()
+      when (values.size) {
+        1 -> builder.uniform(name, values[0])
+        2 -> builder.uniform(name, values[0], values[1])
+        3 -> builder.uniform(name, values[0], values[1], values[2])
+        4 -> builder.uniform(name, values[0], values[1], values[2], values[3])
+        else -> builder.uniform(name, values)
+      }
+    }
+    data.intUniforms.forEach { (name, values) ->
+      when (values.size) {
+        1 -> builder.uniform(name, values[0])
+        2 -> builder.uniform(name, values[0], values[1])
+        3 -> builder.uniform(name, values[0], values[1], values[2])
+        4 -> builder.uniform(name, values[0], values[1], values[2], values[3])
+        else ->
+          throw IllegalArgumentException(
+            "Shader $shaderId integer uniform '$name' has ${values.size} values; expected 1..4"
+          )
+      }
+    }
+    data.bitmapUniforms.forEach { (name, bitmapId) ->
+      val image =
+        requireNotNull(images[bitmapId]) {
+          "Shader $shaderId bitmap uniform '$name' references missing bitmap $bitmapId"
+        }
+      builder.child(name, image.asSkiaBitmap().makeShader())
+    }
+    RcRuntimeShader(builder.makeShader().asComposeShader(), builder)
+  } catch (failure: Throwable) {
+    throw IllegalArgumentException(
+      "Shader $shaderId is unsupported by the Skia runtime: ${failure.message}",
+      failure,
+    )
   }
 }
 
@@ -4672,6 +4988,7 @@ private fun applyGradient(
   // A gradient replaces the preceding shader, so a following SHADER_MATRIX clear must not
   // resurrect an image texture from an earlier PaintData operation.
   state.baseShader = null
+  state.runtimeShader = null
   state.brush =
     when (command ushr 16) {
       0 -> {

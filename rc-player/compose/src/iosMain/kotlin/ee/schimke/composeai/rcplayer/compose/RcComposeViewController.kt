@@ -1,10 +1,10 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcOperationProfiles
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import platform.UIKit.UIViewController
@@ -55,7 +55,16 @@ public fun RcComposeViewController(
   onError: (String) -> Unit,
   lenient: Boolean,
 ): UIViewController =
-  RcComposeViewController(bytes, theme, onEvent, typefaces, onError, lenient, true)
+  RcComposeViewController(
+    bytes,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    opaque = true,
+    soundHost = RcSoundHost.None,
+  )
 
 /**
  * [RcComposeViewController] with the renderer background selectable.
@@ -77,11 +86,56 @@ public fun RcComposeViewController(
   lenient: Boolean,
   opaque: Boolean,
 ): UIViewController {
+  return RcComposeViewController(
+    bytes,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    opaque,
+    RcSoundHost.None,
+  )
+}
+
+/** [RcComposeViewController] with an opt-in, host-owned Apple audio implementation. */
+public fun RcComposeViewController(
+  bytes: ByteArray,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  soundHost: RcSoundHost,
+): UIViewController =
+  RcComposeViewController(
+    bytes,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    opaque = true,
+    soundHost,
+  )
+
+/** [RcComposeViewController] with both background and opt-in audio behavior selectable. */
+@OptIn(ExperimentalComposeUiApi::class)
+public fun RcComposeViewController(
+  bytes: ByteArray,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  opaque: Boolean,
+  soundHost: RcSoundHost,
+): UIViewController {
   val document = runCatching {
-    RcDocumentCodec.decode(bytes).also {
+    decodeCmpDocument(bytes).also {
       it
         .composeSupportReport(
-          RcOperationProfiles.CMP_IOS_ALPHA16,
+          RcOperationProfiles.CMP_IOS_ALPHA18,
           availableFontFamilies = typefaces.families,
         )
         .requireRenderable(lenient)
@@ -92,13 +146,15 @@ public fun RcComposeViewController(
       return ComposeUIViewController(configure = { this.opaque = opaque }) {}
     }
   return ComposeUIViewController(configure = { this.opaque = opaque }) {
-    RcComposePlayer(
-      document,
-      Modifier.fillMaxSize(),
-      theme,
-      onEvent = { event -> forwardIosPlayerEvent(onEvent, event) },
-      typefaces = typefaces,
-    )
+    CompositionLocalProvider(LocalRcSoundHost provides soundHost) {
+      RcComposePlayer(
+        document,
+        Modifier.fillMaxSize(),
+        theme,
+        onEvent = { event -> forwardIosPlayerEvent(onEvent, event) },
+        typefaces = typefaces,
+      )
+    }
   }
 }
 

@@ -2,7 +2,7 @@ package ee.schimke.composeai.rcplayer.runtime
 
 import kotlin.math.pow
 
-/** Pure AndroidX alpha16 color math, kept out of the Compose/Skiko renderer. */
+/** Pure AndroidX alpha18 color math, kept out of the Compose/Skiko renderer. */
 internal object RcColorEvaluator {
   fun interpolate(first: Int, second: Int, tween: Float): Int {
     if (tween.isNaN() || tween == 0f) return first

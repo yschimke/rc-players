@@ -52,7 +52,7 @@ abstract class GenerateRcOperationManifest : org.gradle.api.DefaultTask() {
       buildString {
         appendLine("package ee.schimke.composeai.rcplayer.protocol")
         appendLine()
-        appendLine("/** Generated from the AndroidX alpha16 operation manifest. */")
+        appendLine("/** Generated from the AndroidX alpha18 operation manifest. */")
         appendLine("public object RcOperationInventory {")
         appendLine("  public val entries: List<RcOperationInventoryEntry> = listOf(")
         rows

@@ -47,3 +47,13 @@ tasks.register<JavaExec>("generateComponentValueFixture") {
   args(layout.buildDirectory.file("fixtures/androidx-component-value.rc").get().asFile.absolutePath)
   outputs.file(layout.buildDirectory.file("fixtures/androidx-component-value.rc"))
 }
+
+tasks.register<JavaExec>("generateOperationConformanceFixtures") {
+  description = "Generate the experimental-operation multi-player corpus with AndroidX writers."
+  group = "verification"
+  classpath = sourceSets.main.get().runtimeClasspath
+  mainClass.set("ee.schimke.composeai.rcplayer.compat.GenerateOperationConformanceFixturesKt")
+  val output = layout.buildDirectory.dir("fixtures/operation-conformance")
+  args(output.get().asFile.absolutePath)
+  outputs.dir(output)
+}

@@ -1117,7 +1117,7 @@ class AndroidxWireCompatibilityTest {
         Header.DOC_DENSITY_AT_GENERATION,
         Header.DOC_SOURCE,
       ),
-      arrayOf<Any>(640, 480, 2f, "androidx-alpha16"),
+      arrayOf<Any>(640, 480, 2f, "androidx-alpha18"),
     )
     val bytes = buffer.buffer.copyOf(buffer.size())
 
