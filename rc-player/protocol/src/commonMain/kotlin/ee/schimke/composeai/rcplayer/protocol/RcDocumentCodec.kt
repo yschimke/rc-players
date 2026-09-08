@@ -19,7 +19,7 @@ public interface RcOperationCodec<T : RcOperation> {
 
 public object RcDocumentCodec {
   private val codecs: Map<Int, RcOperationCodec<out RcOperation>> =
-    listOf(
+    (listOf(
         HeaderCodec,
         TextDataCodec,
         RemarkCodec,
@@ -161,7 +161,13 @@ public object RcDocumentCodec {
         three(RcOpcodes.MATRIX_ROTATE, "MatrixRotate"),
         noArg(RcOpcodes.MATRIX_SAVE, "MatrixSave"),
         noArg(RcOpcodes.MATRIX_RESTORE, "MatrixRestore"),
-      )
+      ) +
+        rcStructuralOperationCodecs +
+        rcMacroOperationCodecs +
+        rcGraphicsResourceOperationCodecs +
+        rcBitmapFontOperationCodecs +
+        rcParticleOperationCodecs +
+        rcSoundOperationCodecs)
       .associateBy { it.spec.opcode }
 
   public val supportedOperations: List<RcOperationSpec> =

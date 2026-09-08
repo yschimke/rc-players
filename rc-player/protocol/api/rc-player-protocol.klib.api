@@ -4336,8 +4336,12 @@ final object ee.schimke.composeai.rcplayer.protocol/RcOperationInventory { // ee
 final object ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles { // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles|null[0]
     final val ANDROIDX_JAVA_ALPHA16 // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.ANDROIDX_JAVA_ALPHA16|{}ANDROIDX_JAVA_ALPHA16[0]
         final fun <get-ANDROIDX_JAVA_ALPHA16>(): ee.schimke.composeai.rcplayer.protocol/RcOperationProfile // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.ANDROIDX_JAVA_ALPHA16.<get-ANDROIDX_JAVA_ALPHA16>|<get-ANDROIDX_JAVA_ALPHA16>(){}[0]
+    final val CMP_DESKTOP_ALPHA16 // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_DESKTOP_ALPHA16|{}CMP_DESKTOP_ALPHA16[0]
+        final fun <get-CMP_DESKTOP_ALPHA16>(): ee.schimke.composeai.rcplayer.protocol/RcOperationProfile // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_DESKTOP_ALPHA16.<get-CMP_DESKTOP_ALPHA16>|<get-CMP_DESKTOP_ALPHA16>(){}[0]
     final val CMP_IOS_ALPHA16 // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_IOS_ALPHA16|{}CMP_IOS_ALPHA16[0]
         final fun <get-CMP_IOS_ALPHA16>(): ee.schimke.composeai.rcplayer.protocol/RcOperationProfile // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_IOS_ALPHA16.<get-CMP_IOS_ALPHA16>|<get-CMP_IOS_ALPHA16>(){}[0]
+    final val CMP_MACOS_ALPHA16 // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_MACOS_ALPHA16|{}CMP_MACOS_ALPHA16[0]
+        final fun <get-CMP_MACOS_ALPHA16>(): ee.schimke.composeai.rcplayer.protocol/RcOperationProfile // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_MACOS_ALPHA16.<get-CMP_MACOS_ALPHA16>|<get-CMP_MACOS_ALPHA16>(){}[0]
     final val CMP_WASM_ALPHA16 // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_WASM_ALPHA16|{}CMP_WASM_ALPHA16[0]
         final fun <get-CMP_WASM_ALPHA16>(): ee.schimke.composeai.rcplayer.protocol/RcOperationProfile // ee.schimke.composeai.rcplayer.protocol/RcOperationProfiles.CMP_WASM_ALPHA16.<get-CMP_WASM_ALPHA16>|<get-CMP_WASM_ALPHA16>(){}[0]
 }

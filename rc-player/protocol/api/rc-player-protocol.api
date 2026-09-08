@@ -2179,7 +2179,9 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOperationProfile {
 public final class ee/schimke/composeai/rcplayer/protocol/RcOperationProfiles {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/protocol/RcOperationProfiles;
 	public final fun getANDROIDX_JAVA_ALPHA16 ()Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;
+	public final fun getCMP_DESKTOP_ALPHA16 ()Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;
 	public final fun getCMP_IOS_ALPHA16 ()Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;
+	public final fun getCMP_MACOS_ALPHA16 ()Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;
 	public final fun getCMP_WASM_ALPHA16 ()Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;
 }
 

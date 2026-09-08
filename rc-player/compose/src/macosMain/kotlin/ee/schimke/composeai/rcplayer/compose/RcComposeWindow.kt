@@ -30,7 +30,7 @@ public fun RcComposeWindow(
     RcDocumentCodec.decode(bytes).also {
       it
         .composeSupportReport(
-          RcOperationProfiles.CMP_IOS_ALPHA16,
+          RcOperationProfiles.CMP_MACOS_ALPHA16,
           availableFontFamilies = typefaces.families,
         )
         .requireRenderable(lenient)

@@ -47,6 +47,10 @@ class RcOperationInventoryTest {
     assertTrue(reserved.none(RcOperationProfiles.ANDROIDX_JAVA_ALPHA16::supports))
     assertTrue(unavailable.none(RcOperationProfiles.CMP_WASM_ALPHA16::supports))
     assertTrue(reserved.none(RcOperationProfiles.CMP_WASM_ALPHA16::supports))
+    assertTrue(unavailable.none(RcOperationProfiles.CMP_MACOS_ALPHA16::supports))
+    assertTrue(reserved.none(RcOperationProfiles.CMP_MACOS_ALPHA16::supports))
+    assertTrue(unavailable.none(RcOperationProfiles.CMP_DESKTOP_ALPHA16::supports))
+    assertTrue(reserved.none(RcOperationProfiles.CMP_DESKTOP_ALPHA16::supports))
     assertFalse(RcOperationProfiles.CMP_WASM_ALPHA16.supports(RcOpcodes.MODIFIER_GRAPHICS_LAYER))
     assertTrue(
       RcOperationInventory.entries
@@ -72,7 +76,24 @@ class RcOperationInventoryTest {
 
     assertEquals(RcOperationStatus.IMPLEMENTED_UPSTREAM_UNAVAILABLE, entry.status)
     assertTrue(RcOperationProfiles.CMP_IOS_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
+    assertTrue(RcOperationProfiles.CMP_MACOS_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
+    assertTrue(RcOperationProfiles.CMP_DESKTOP_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
     assertTrue(RcOperationProfiles.CMP_WASM_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
     assertFalse(RcOperationProfiles.ANDROIDX_JAVA_ALPHA16.supports(RcOpcodes.DRAW_TEXT_ON_CIRCLE))
+  }
+
+  @Test
+  fun appleAndDesktopProfilesAreDistinctContractsWithSharedCoverageToday() {
+    assertEquals(
+      RcOperationProfiles.CMP_IOS_ALPHA16.opcodes,
+      RcOperationProfiles.CMP_MACOS_ALPHA16.opcodes,
+    )
+    assertEquals(
+      RcOperationProfiles.CMP_IOS_ALPHA16.opcodes,
+      RcOperationProfiles.CMP_DESKTOP_ALPHA16.opcodes,
+    )
+    assertEquals("cmp-ios-alpha16", RcOperationProfiles.CMP_IOS_ALPHA16.name)
+    assertEquals("cmp-macos-alpha16", RcOperationProfiles.CMP_MACOS_ALPHA16.name)
+    assertEquals("cmp-desktop-alpha16", RcOperationProfiles.CMP_DESKTOP_ALPHA16.name)
   }
 }

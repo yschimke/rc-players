@@ -91,6 +91,14 @@ public object RcOperationProfiles {
   public val CMP_IOS_ALPHA16: RcOperationProfile =
     RcOperationProfile("cmp-ios-alpha16", cmpImplementedOpcodes)
 
+  /** Operations with executable semantics in the native Apple-silicon macOS renderer. */
+  public val CMP_MACOS_ALPHA16: RcOperationProfile =
+    RcOperationProfile("cmp-macos-alpha16", cmpImplementedOpcodes)
+
+  /** Operations with executable semantics in the Compose Desktop/JVM renderer. */
+  public val CMP_DESKTOP_ALPHA16: RcOperationProfile =
+    RcOperationProfile("cmp-desktop-alpha16", cmpImplementedOpcodes)
+
   /** Operations with executable semantics in the browser, excluding backend-specific gaps. */
   public val CMP_WASM_ALPHA16: RcOperationProfile =
     RcOperationProfile(
