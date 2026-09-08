@@ -34,7 +34,8 @@ let package = Package(
   name: "RcComposePlayer",
   platforms: [.iOS(.v13), .macOS(.v12)],
   products: [
-    .library(name: "RcComposePlayer", targets: ["RcComposePlayer"])
+    .library(name: "RcComposePlayer", targets: ["RcComposePlayer"]),
+    .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"])
   ],
   targets: [
     .binaryTarget(
@@ -45,6 +46,7 @@ let package = Package(
       // than fetching something unverified. On a bare `X.Y.Z` tag they are the real released
       // values, written by scripts/update-package-swift.sh. Check which you are looking at.
       checksum: "0000000000000000000000000000000000000000000000000000000000000000"
-    )
+    ),
+    .target(name: "RcComposePlayerSwiftUI", dependencies: ["RcComposePlayer"])
   ]
 )

@@ -9,20 +9,22 @@
 		100000000000000000000001 /* RemoteComposePlayerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* RemoteComposePlayerApp.swift */; };
 		100000000000000000000002 /* PlayerLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* PlayerLibrary.swift */; };
 		100000000000000000000003 /* PlayerRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* PlayerRootView.swift */; };
-		100000000000000000000004 /* RemoteComposePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* RemoteComposePlayerView.swift */; };
+		100000000000000000000004 /* RemoteComposePlayerTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000004 /* RemoteComposePlayerTypes.swift */; };
 		100000000000000000000005 /* RcComposePlayer in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000001 /* RcComposePlayer */; };
 		100000000000000000000006 /* TitleCardRemote-640x480.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* TitleCardRemote-640x480.rc */; };
 		100000000000000000000007 /* IndeterminateCircularProgress-400x400.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* IndeterminateCircularProgress-400x400.rc */; };
 		100000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc */; };
 		100000000000000000000009 /* CircularProgressRemote-384x384.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000009 /* CircularProgressRemote-384x384.rc */; };
 		10000000000000000000000A /* ArcProgressRemote-454x400.rc in Resources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* ArcProgressRemote-454x400.rc */; };
+		10000000000000000000000B /* RemoteComposePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* RemoteComposePlayerView.swift */; };
+		10000000000000000000000C /* RemoteComposePlayerWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* RemoteComposePlayerWindow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		200000000000000000000001 /* RemoteComposePlayerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteComposePlayerApp.swift; sourceTree = "<group>"; };
 		200000000000000000000002 /* PlayerLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLibrary.swift; sourceTree = "<group>"; };
 		200000000000000000000003 /* PlayerRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerRootView.swift; sourceTree = "<group>"; };
-		200000000000000000000004 /* RemoteComposePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteComposePlayerView.swift; sourceTree = "<group>"; };
+		200000000000000000000004 /* RemoteComposePlayerTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposePlayerTypes.swift; path = "../../Sources/RcComposePlayerSwiftUI/RemoteComposePlayerTypes.swift"; sourceTree = "<group>"; };
 		200000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		200000000000000000000006 /* TitleCardRemote-640x480.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "TitleCardRemote-640x480.rc"; path = "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc"; sourceTree = "<group>"; };
 		200000000000000000000007 /* IndeterminateCircularProgress-400x400.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "IndeterminateCircularProgress-400x400.rc"; path = "../../rc-player/compose/src/jvmTest/resources/rc-fixtures/IndeterminateCircularProgress-400x400.rc"; sourceTree = "<group>"; };
@@ -30,6 +32,8 @@
 		200000000000000000000009 /* CircularProgressRemote-384x384.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "CircularProgressRemote-384x384.rc"; path = "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/CircularProgressRemote-384x384.rc"; sourceTree = "<group>"; };
 		20000000000000000000000A /* ArcProgressRemote-454x400.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = "ArcProgressRemote-454x400.rc"; path = "../../third_party/rc-embedded-player/src/test/resources/rc-fixtures/ArcProgressRemote-454x400.rc"; sourceTree = "<group>"; };
 		20000000000000000000000B /* Remote Compose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Remote Compose.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		20000000000000000000000C /* RemoteComposePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposePlayerView.swift; path = "../../Sources/RcComposePlayerSwiftUI/RemoteComposePlayerView.swift"; sourceTree = "<group>"; };
+		20000000000000000000000D /* RemoteComposePlayerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposePlayerWindow.swift; path = "../../Sources/RcComposePlayerSwiftUI/RemoteComposePlayerWindow.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +50,7 @@
 			isa = PBXGroup;
 			children = (
 				400000000000000000000002 /* RemoteComposePlayer */,
+				400000000000000000000005 /* RcComposePlayerSwiftUI */,
 				400000000000000000000003 /* Fixtures */,
 				400000000000000000000004 /* Products */,
 			);
@@ -57,7 +62,6 @@
 				200000000000000000000001 /* RemoteComposePlayerApp.swift */,
 				200000000000000000000002 /* PlayerLibrary.swift */,
 				200000000000000000000003 /* PlayerRootView.swift */,
-				200000000000000000000004 /* RemoteComposePlayerView.swift */,
 				200000000000000000000005 /* Info.plist */,
 			);
 			path = RemoteComposePlayer;
@@ -79,6 +83,16 @@
 			isa = PBXGroup;
 			children = (20000000000000000000000B /* Remote Compose.app */);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		400000000000000000000005 /* RcComposePlayerSwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000004 /* RemoteComposePlayerTypes.swift */,
+				20000000000000000000000C /* RemoteComposePlayerView.swift */,
+				20000000000000000000000D /* RemoteComposePlayerWindow.swift */,
+			);
+			name = RcComposePlayerSwiftUI;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -148,7 +162,9 @@
 				100000000000000000000001 /* RemoteComposePlayerApp.swift in Sources */,
 				100000000000000000000002 /* PlayerLibrary.swift in Sources */,
 				100000000000000000000003 /* PlayerRootView.swift in Sources */,
-				100000000000000000000004 /* RemoteComposePlayerView.swift in Sources */,
+				100000000000000000000004 /* RemoteComposePlayerTypes.swift in Sources */,
+				10000000000000000000000B /* RemoteComposePlayerView.swift in Sources */,
+				10000000000000000000000C /* RemoteComposePlayerWindow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

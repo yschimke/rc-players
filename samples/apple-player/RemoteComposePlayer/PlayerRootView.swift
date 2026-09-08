@@ -119,10 +119,11 @@ private struct PlayerCanvas: View {
       ZStack(alignment: .bottom) {
         ScrollView([.horizontal, .vertical]) {
           RemoteComposePlayerView(
-            document: document,
-            theme: library.theme,
-            onError: { message in
-              Task { @MainActor in library.errorMessage = message }
+            data: document.data,
+            configuration: .init(
+              theme: library.theme.playerTheme, compatibility: .compatible),
+            onError: { error in
+              Task { @MainActor in library.errorMessage = error.localizedDescription }
             }
           )
           .frame(width: playerWidth, height: playerHeight)
@@ -179,6 +180,14 @@ private struct PlaybackChrome: View {
 }
 
 extension PlayerAppearance {
+  fileprivate var playerTheme: RemoteComposePlayerTheme {
+    switch self {
+    case .system: .system
+    case .light: .light
+    case .dark: .dark
+    }
+  }
+
   fileprivate var symbol: String {
     switch self {
     case .system: "circle.lefthalf.filled"

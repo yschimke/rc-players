@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import RcComposePlayer
 
 enum PlayerAppearance: String, CaseIterable, Identifiable {
   case system
@@ -11,13 +10,6 @@ enum PlayerAppearance: String, CaseIterable, Identifiable {
 
   var title: String { rawValue.capitalized }
 
-  var rcTheme: RcPlayerTheme {
-    switch self {
-    case .system: .system
-    case .light: .light
-    case .dark: .dark
-    }
-  }
 }
 
 struct PlayerDocument: Identifiable, Hashable {
@@ -93,6 +85,7 @@ final class PlayerLibrary {
       )
       if let documentID, let index = documents.firstIndex(where: { $0.id == documentID }) {
         documents[index] = document
+        revision += 1
       } else {
         documents.insert(document, at: 0)
       }
@@ -109,14 +102,5 @@ final class PlayerLibrary {
       return
     }
     open(url, replacing: selectedDocument.id)
-  }
-}
-
-extension KotlinByteArray {
-  convenience init(bytes: Data) {
-    self.init(size: Int32(bytes.count))
-    for (offset, byte) in bytes.enumerated() {
-      set(index: Int32(offset), value: Int8(bitPattern: byte))
-    }
   }
 }
