@@ -97,7 +97,16 @@ fun main(args: Array<String>) {
   val artifact =
     try {
       when (format) {
-        FORMAT_SVG -> renderRemoteDocumentToSvg(bytes, width, height, density, seeds, theme)
+        FORMAT_SVG ->
+          renderRemoteDocumentToSvg(
+            bytes,
+            width,
+            height,
+            density,
+            seeds,
+            theme,
+            fontScale = fontScale,
+          )
         else ->
           renderRemoteDocumentToPng(
             bytes,
