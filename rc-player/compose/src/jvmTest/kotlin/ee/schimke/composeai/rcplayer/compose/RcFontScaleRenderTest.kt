@@ -16,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.jetbrains.skia.Bitmap
 
 /**
@@ -97,6 +98,9 @@ class RcFontScaleRenderTest {
   @Test
   fun theTwoTextOperationsDisagreeByExactlyTheFontScale() {
     val baseline = inkWidth(coreTextDocument(), fontScale = 1f)
+    // Every expectation below is derived from this one measurement, so a regression that stopped
+    // BOTH paths drawing would leave the whole test comparing zero against zero and still pass.
+    assertTrue(baseline > 0, "the baseline drew no ink at all")
     for (fontScale in listOf(1f, 1.1f, 1.3f, 1.5f, 2f)) {
       assertEquals(
         baseline.toFloat(),
