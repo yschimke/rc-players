@@ -29,16 +29,16 @@ The Apple targets in this plan are:
 | --- | --- | --- |
 | iPhone/iPad device | `iosArm64` | `RcComposeViewController` in the XCFramework |
 | Apple-silicon iOS Simulator | `iosSimulatorArm64` | A small XCTest/simulator render host |
-| macOS desktop | the published `jvm()` artifact | Compose Desktop and `ImageComposeScene` on a macOS runner |
+| Native Apple-silicon macOS | `macosArm64` | `RcComposeWindow` in the XCFramework |
+| macOS desktop/JVM | the published `jvm()` artifact | Compose Desktop and `ImageComposeScene` on a macOS runner |
 
-“macOS” therefore means the existing Compose Desktop/JVM player running on macOS. This repository
-does not currently publish a Kotlin/Native `macosArm64` player, and adding one is not required for
-operation completeness. If a native AppKit framework becomes a product requirement, it needs a
-separate distribution and host plan; the protocol, runtime, fixtures, and most renderer work here
-would still be reusable.
+The native AppKit and desktop/JVM hosts execute the same shared renderer but both are conformance
+targets: the JVM lane gives fast headless pixels, while the XCFramework lane proves the actual
+Kotlin/Native artifact and Swift-facing host.
 
-Intel iOS simulators are also out of scope because Compose Multiplatform 1.11 does not publish the
-required `iosX64` artifacts. Device arm64 and Apple-silicon simulator arm64 remain required.
+Intel iOS simulators and Intel Macs are out of scope because Compose Multiplatform 1.11 does not
+publish the required Apple x86_64 artifacts. Device arm64, Apple-silicon simulator arm64, and native
+Apple-silicon macOS remain required.
 
 ## Starting point
 
@@ -227,9 +227,10 @@ injectable clock or explicit frame advancement.
 
 Keep fast codec, runtime, and support-report tests in `commonTest`; keep JVM Compose tests for quick
 renderer feedback. The simulator lane is the platform proof, not a replacement for those tests.
-Run a small smoke slice on every PR and shard the complete operation corpus across the macOS job or
-a scheduled workflow if runtime is too high. Device execution can remain periodic, but both klibs
-and the release XCFramework continue to build on every PR.
+Run a small smoke slice on every PR that changes the Apple player or its build/host inputs, and
+shard the complete operation corpus across the macOS job or a scheduled workflow if runtime is too
+high. Device execution can remain periodic; Apple klibs and the release XCFramework build on every
+relevant PR and unconditionally in the release workflow.
 
 Exit criterion: a pull request changing renderer behavior produces macOS and iOS results for the
 same bytes, and a missing iOS screenshot is a test failure rather than an implicit pass.
@@ -406,10 +407,13 @@ Each operation-cluster pull request must include:
   workflow;
 - local and upstream issue links for known differences.
 
-The normal fast checks remain `commonTest` and `jvmTest`. The macOS CI job additionally runs the
-macOS corpus shard, iOS simulator smoke/corpus shards, iOS compilation, ABI validation, release
-XCFramework assembly, and Swift sample type-check. A scheduled full sweep runs every operation
-fixture and the real-document catalog against released and snapshot reference players.
+The normal fast checks remain `commonTest` and `jvmTest`. When Apple-player source, shared build
+configuration, packaging, or host samples change, the macOS CI job additionally runs the macOS
+corpus shard, iOS simulator smoke/corpus shards, Apple compilation, ABI validation, release
+XCFramework assembly, and Swift sample type-check. Documentation-only and unrelated-player changes
+skip that expensive job; the release workflow always assembles the native artifact regardless of
+changed paths. A scheduled full sweep runs every operation fixture and the real-document catalog
+against released and snapshot reference players.
 
 A parity job should block on missing outputs, crashes, support regressions, state/event mismatches,
 and exact-pixel regressions. Perceptual raster changes initially report a merge-base delta with

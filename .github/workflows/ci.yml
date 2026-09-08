@@ -13,6 +13,55 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # macOS runners are the expensive part of this workflow. Decide on Linux whether this change can
+  # affect the native Apple artifacts, their packaging, or the checks that exercise them. Keep the
+  # list here (rather than a third-party path-filter action) so the exact trust boundary is visible
+  # and changes to this workflow always exercise the lane once before changing its own gate.
+  apple-changes:
+    name: Apple source changes
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.filter.outputs.required }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check whether the Apple lane is required
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          required=true
+          if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null && \
+            git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+              .github/workflows/ci.yml \
+              Package.swift \
+              build.gradle.kts \
+              settings.gradle.kts \
+              gradle.properties \
+              gradle \
+              gradlew \
+              gradlew.bat \
+              build-logic \
+              rc-player/trace \
+              rc-player/protocol \
+              rc-player/runtime \
+              rc-player/compose \
+              samples/apple-player \
+              scripts/build-apple-player.sh \
+              scripts/check-swift-sample.sh \
+              scripts/package-apple-player.sh \
+              scripts/set-apple-player-package-version.sh \
+              scripts/update-package-swift.sh \
+              docs/design/RC_PLAYER_SWIFT.md
+          then
+            required=false
+          fi
+          echo "required=$required" | tee -a "$GITHUB_OUTPUT"
+
   # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,
   # both vendored players, and the build-only fixture generators.
   #
@@ -77,6 +126,8 @@ jobs:
   # The macOS lane: the native Apple targets, and the ABI gate that depends on them.
   players-macos:
     name: Apple players + ABI gate
+    needs: apple-changes
+    if: needs.apple-changes.outputs.required == 'true'
     runs-on: macos-15
     timeout-minutes: 90
     steps:
@@ -145,9 +196,9 @@ jobs:
       - name: Run the Package.swift rewriter self-test
         run: scripts/update-package-swift.sh --self-test
 
-      # The release link, run on every PR. This is the same task `release.yml` drives, so a linker
-      # failure surfaces here rather than mid-release — and it is what makes the Swift step below
-      # check something real instead of self-skipping.
+      # The release link, run on every PR that can affect the Apple artifact. This is the same task
+      # `release.yml` drives, so a linker failure surfaces here rather than mid-release — and it is
+      # what makes the Swift step below check something real instead of self-skipping.
       #
       # `--max-workers=1` is load-bearing, not caution. Kotlin/Native compiles inside the Gradle
       # daemon's own JVM, so with `org.gradle.parallel=true` the `IosArm64` and `IosSimulatorArm64`
