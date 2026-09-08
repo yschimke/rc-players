@@ -134,6 +134,10 @@ inserted into the player's existing Compose tree, it can be a native control, a 
 another `RcComposePlayer`. This is the same API on Android, JVM, iOS and Wasm—the browser bundle is
 only one possible host.
 
+The implementation and cross-player conformance roadmap for completing the operation set on iOS
+and macOS is in
+[`docs/design/RC_CMP_APPLE_OPERATION_PLAN.md`](docs/design/RC_CMP_APPLE_OPERATION_PLAN.md).
+
 ```kotlin
 lateinit var components: RcCustomComponentRegistry
 components =
