@@ -152,7 +152,6 @@ import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.offset
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcAlignByModifier
@@ -1142,7 +1141,14 @@ private fun RenderLayoutNode(
                   state.color(operation.color)
                 else operation.color
               ),
-            fontSize = (state.resolve(operation.fontSize) / density.density).sp,
+            // `toSp()`, not `/ density.density`: Compose rasterizes `x.sp` at
+            // `x * density * fontScale`, so returning the wire's pixels needs BOTH divided out.
+            // Dividing by density alone left the host's font scale applied a second time, which was
+            // invisible at `fontScale = 1` and doubled this operation's text at 2.0 while
+            // `CoreText` below held still. Worse than a doubling on a `RemoteDensity.Host`
+            // document, whose sizes already carry Android's damped sp curve: a 44sp headline is
+            // 50.4px at fontScale 2.0, and scaling that again gives 100.8.
+            fontSize = with(density) { state.resolve(operation.fontSize).toSp() },
             fontWeight = FontWeight(boldWeight),
             fontStyle = if (operation.fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
             fontFamily = resolveFontFamily(operation.fontFamilyId, state, fontFamilies, typefaces),
@@ -3749,7 +3755,9 @@ internal fun computeImageScaling(
 private fun DrawScope.textStyle(paint: RcPaintState): TextStyle =
   TextStyle(
     color = paint.composeColor(),
-    fontSize = (paint.textSize / density).sp,
+    // Same conversion as `RcTextLayout` and `CoreText`, for the same reason: `DrawScope` is a
+    // `Density`, so `/ density` divided out the density and left the font scale in.
+    fontSize = paint.textSize.toSp(),
     fontFamily = paint.fontFamily,
     fontWeight = paint.fontWeight,
     fontStyle = paint.fontStyle,
