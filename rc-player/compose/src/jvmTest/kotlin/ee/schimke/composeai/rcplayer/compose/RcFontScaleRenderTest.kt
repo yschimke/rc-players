@@ -83,37 +83,53 @@ import org.jetbrains.skia.Bitmap
 class RcFontScaleRenderTest {
 
   /**
-   * The divergence, pinned as measured rather than as it ought to be.
+   * The invariant the two operations must share: the same wire pixels through either one draw the
+   * same glyphs, at any host font scale.
    *
-   * This **characterizes current behaviour**; it does not bless it. Asserting the invariant the two
-   * paths ought to share — same wire pixels, same glyphs, any host font scale — would go red today,
-   * and fixing [RcTextLayout] to match [RcCoreText] is not yet justified: the section above records
-   * why the capture's own scaling may be non-linear, in which case both paths are wrong and the
-   * right fix is neither. So the ratio is pinned here, and this test is expected to be *deleted or
-   * inverted* by the change that settles it against a real Android render.
+   * Both runs are the same string at the same wire `fontSize`, so at a shared font scale the two
+   * ink widths measure the same thing. Compared to each other rather than to a baked constant, so
+   * this keeps meaning what it says if the vendored face is ever re-cut.
    *
-   * The ratio is the whole finding: at any scale, [RcTextLayout] draws `fontScale` times the ink
-   * [RcCoreText] does, so the two are identical at 1.0 and nowhere else.
+   * Before the fix this failed from 1.1 upward — [RcTextLayout] tracked `fontScale` linearly (349,
+   * 383, 452, 523, 697) while [RcCoreText] held at 349.
    */
   @Test
-  fun theTwoTextOperationsDisagreeByExactlyTheFontScale() {
-    val baseline = inkWidth(coreTextDocument(), fontScale = 1f)
-    // Every expectation below is derived from this one measurement, so a regression that stopped
-    // BOTH paths drawing would leave the whole test comparing zero against zero and still pass.
-    assertTrue(baseline > 0, "the baseline drew no ink at all")
+  fun theTwoTextOperationsAgreeAtEveryFontScale() {
     for (fontScale in listOf(1f, 1.1f, 1.3f, 1.5f, 2f)) {
+      val coreText = inkWidth(coreTextDocument(), fontScale)
+      val textLayout = inkWidth(textLayoutDocument(), fontScale)
+      assertTrue(coreText > 0, "CoreText drew no ink at fontScale $fontScale")
       assertEquals(
-        baseline.toFloat(),
-        inkWidth(coreTextDocument(), fontScale).toFloat(),
+        coreText.toFloat(),
+        textLayout.toFloat(),
         TOLERANCE_PX,
-        "CoreText should hold the wire's pixels at fontScale $fontScale",
+        "CoreText drew ${coreText}px and TextLayout ${textLayout}px at fontScale $fontScale",
       )
-      assertEquals(
-        baseline * fontScale,
-        inkWidth(textLayoutDocument(), fontScale).toFloat(),
-        baseline * fontScale * 0.02f,
-        "TextLayout should scale linearly with fontScale $fontScale",
-      )
+    }
+  }
+
+  /**
+   * Which of the two is right, pinned separately so a "fix" that made [RcCoreText] scale instead
+   * would not satisfy the agreement test above.
+   *
+   * The wire carries pixels. A player asked to draw the same document at a larger host font scale
+   * draws it identically unless the *document* asked for the scale — which is what deferring
+   * density to `FONT_SIZE` does, and is a property of those documents rather than of either
+   * operation. So a literal `fontSize` is invariant in `fontScale`, on both paths.
+   */
+  @Test
+  fun aLiteralFontSizeIsInvariantInTheHostFontScale() {
+    for (document in listOf(coreTextDocument(), textLayoutDocument())) {
+      val baseline = inkWidth(document, fontScale = 1f)
+      assertTrue(baseline > 0, "the baseline drew no ink at all")
+      for (fontScale in listOf(1.1f, 1.3f, 1.5f, 2f)) {
+        assertEquals(
+          baseline.toFloat(),
+          inkWidth(document, fontScale).toFloat(),
+          TOLERANCE_PX,
+          "a literal ${FONT_SIZE}px font moved from ${baseline}px at fontScale $fontScale",
+        )
+      }
     }
   }
 
