@@ -27,8 +27,10 @@ struct PlayerDocument: Identifiable, Hashable {
   let data: Data
   let sourceURL: URL?
 
-  init(title: String, subtitle: String, data: Data, sourceURL: URL? = nil) {
-    id = UUID()
+  init(
+    id: UUID = UUID(), title: String, subtitle: String, data: Data, sourceURL: URL? = nil
+  ) {
+    self.id = id
     self.title = title
     self.subtitle = subtitle
     self.data = data
@@ -69,7 +71,12 @@ final class PlayerLibrary {
     documents.first { $0.id == selection }
   }
 
-  func open(_ url: URL) {
+  func open(_ url: URL, replacing documentID: PlayerDocument.ID? = nil) {
+    guard url.pathExtension.lowercased() == "rc" else {
+      errorMessage = "\(url.lastPathComponent) isn’t a Remote Compose (.rc) document."
+      return
+    }
+
     let hasAccess = url.startAccessingSecurityScopedResource()
     defer {
       if hasAccess { url.stopAccessingSecurityScopedResource() }
@@ -78,12 +85,17 @@ final class PlayerLibrary {
     do {
       let data = try Data(contentsOf: url)
       let document = PlayerDocument(
+        id: documentID ?? UUID(),
         title: url.deletingPathExtension().lastPathComponent,
         subtitle: ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file),
         data: data,
         sourceURL: url
       )
-      documents.insert(document, at: 0)
+      if let documentID, let index = documents.firstIndex(where: { $0.id == documentID }) {
+        documents[index] = document
+      } else {
+        documents.insert(document, at: 0)
+      }
       selection = document.id
       errorMessage = nil
     } catch {
@@ -96,7 +108,7 @@ final class PlayerLibrary {
       revision += 1
       return
     }
-    open(url)
+    open(url, replacing: selectedDocument.id)
   }
 }
 

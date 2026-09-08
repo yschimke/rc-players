@@ -167,8 +167,8 @@ jobs:
       # generic Simulator build asks for x86_64 unless the arm64-only package constraint is stated
       # by the consumer. This project is deliberately resolved through the released Swift package:
       # it tests the same checksummed artifact and integration path a downstream Xcode app uses.
-      - name: Build the Apple player app
-        run: scripts/build-apple-player.sh
+      - name: Build and package the Apple player app
+        run: scripts/package-apple-player.sh
 
       - name: Upload player test reports on failure
         if: failure()

@@ -4,10 +4,10 @@ A SwiftUI host for the released `RcComposePlayer` XCFramework. It deliberately c
 published Swift package instead of linking the current checkout, so opening and building the sample
 tests the same signed, checksummed bytes a downstream Swift application resolves.
 
-The framework currently ships `iosArm64` and `iosSimulatorArm64` slices. Consequently this is an
-iPad app that runs in the iOS Simulator and opts into **Designed for iPad on Mac** on Apple-silicon
-Macs; it is not a native AppKit target or Mac Catalyst app. Those targets require `macosArm64` or
-`maccatalyst` framework slices respectively.
+The framework ships native iOS, iOS Simulator, and macOS arm64 slices. This sample intentionally
+hosts the UIKit API, so it is an iPad app that runs in the iOS Simulator and opts into **Designed
+for iPad on Mac** on Apple-silicon Macs. The repository also exposes `RcComposeWindow` for native
+AppKit hosts.
 
 ## Run it
 
@@ -17,6 +17,10 @@ Xcode:
 ```bash
 ./scripts/build-apple-player.sh
 ```
+
+Each GitHub Release also includes `RemoteComposePlayer-Simulator-arm64.zip`. Boot an iPad in
+Simulator, unzip the download, and run its `install-and-run.sh` helper. CI builds that exact archive
+on every pull request before the release workflow publishes it.
 
 On an Apple-silicon Mac, Xcode also offers **My Mac (Designed for iPad)** as a destination. The
 command-line helper accepts the same destination through `RC_APPLE_PLAYER_DESTINATION`; the default

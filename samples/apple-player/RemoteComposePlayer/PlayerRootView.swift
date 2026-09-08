@@ -66,7 +66,7 @@ struct PlayerRootView: View {
     .navigationSplitViewStyle(.balanced)
     .fileImporter(
       isPresented: $library.isImporting,
-      allowedContentTypes: [.remoteCompose, .data],
+      allowedContentTypes: [.remoteCompose],
       allowsMultipleSelection: false
     ) { result in
       if case .success(let urls) = result, let url = urls.first {
@@ -101,6 +101,9 @@ struct PlayerRootView: View {
       }
       return true
     }
+    .onOpenURL { url in
+      library.open(url)
+    }
   }
 }
 
@@ -110,6 +113,9 @@ private struct PlayerCanvas: View {
 
   var body: some View {
     GeometryReader { proxy in
+      let playerWidth = max(320, min(720, proxy.size.width - 96))
+      let playerHeight = max(320, min(720, proxy.size.height - 120))
+
       ZStack(alignment: .bottom) {
         ScrollView([.horizontal, .vertical]) {
           RemoteComposePlayerView(
@@ -119,11 +125,9 @@ private struct PlayerCanvas: View {
               Task { @MainActor in library.errorMessage = message }
             }
           )
-          .frame(
-            width: max(320, min(720, proxy.size.width - 96)),
-            height: max(320, min(720, proxy.size.height - 120))
-          )
+          .frame(width: playerWidth, height: playerHeight)
           .scaleEffect(library.zoom)
+          .frame(width: playerWidth * library.zoom, height: playerHeight * library.zoom)
           .padding(80)
         }
         .scrollIndicators(.hidden)
@@ -188,39 +192,59 @@ private struct AuroraBackdrop: View {
   var body: some View {
     TimelineView(.animation(minimumInterval: 1 / 24)) { timeline in
       let phase = timeline.date.timeIntervalSinceReferenceDate.remainder(dividingBy: 18) / 18
-      Canvas { context, size in
-        context.fill(
-          Path(CGRect(origin: .zero, size: size)),
-          with: .linearGradient(
-            Gradient(colors: [
-              Color(red: 0.04, green: 0.06, blue: 0.12), Color(red: 0.10, green: 0.08, blue: 0.20),
-            ]),
-            startPoint: .zero,
-            endPoint: CGPoint(x: size.width, y: size.height)
-          ))
-
-        context.addFilter(.blur(radius: 70))
-        let blobs: [(Color, CGFloat, CGFloat)] = [
-          (.indigo.opacity(0.72), 0.23, 0.28),
-          (.cyan.opacity(0.48), 0.76, 0.32),
-          (.purple.opacity(0.55), 0.58, 0.78),
-        ]
-        for (index, blob) in blobs.enumerated() {
-          let angle = phase * .pi * 2 + Double(index) * 2.1
-          let center = CGPoint(
-            x: size.width * blob.1 + cos(angle) * size.width * 0.09,
-            y: size.height * blob.2 + sin(angle) * size.height * 0.10
-          )
-          let radius = min(size.width, size.height) * 0.34
-          context.fill(
-            Path(
-              ellipseIn: CGRect(
-                x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
-            with: .color(blob.0)
-          )
-        }
-      }
+      AuroraCanvas(phase: phase)
     }
     .ignoresSafeArea()
+  }
+}
+
+private struct AuroraBlob {
+  let color: Color
+  let x: CGFloat
+  let y: CGFloat
+}
+
+private struct AuroraCanvas: View {
+  let phase: Double
+
+  private let blobs = [
+    AuroraBlob(color: .indigo.opacity(0.72), x: 0.23, y: 0.28),
+    AuroraBlob(color: .cyan.opacity(0.48), x: 0.76, y: 0.32),
+    AuroraBlob(color: .purple.opacity(0.55), x: 0.58, y: 0.78),
+  ]
+
+  var body: some View {
+    Canvas { context, size in
+      drawBackground(in: &context, size: size)
+      context.addFilter(.blur(radius: 70))
+      for (index, blob) in blobs.enumerated() {
+        draw(blob, index: index, in: &context, size: size)
+      }
+    }
+  }
+
+  private func drawBackground(in context: inout GraphicsContext, size: CGSize) {
+    let gradient = Gradient(colors: [
+      Color(red: 0.04, green: 0.06, blue: 0.12),
+      Color(red: 0.10, green: 0.08, blue: 0.20),
+    ])
+    context.fill(
+      Path(CGRect(origin: .zero, size: size)),
+      with: .linearGradient(
+        gradient, startPoint: .zero, endPoint: CGPoint(x: size.width, y: size.height)))
+  }
+
+  private func draw(
+    _ blob: AuroraBlob, index: Int, in context: inout GraphicsContext, size: CGSize
+  ) {
+    let angle = phase * .pi * 2 + Double(index) * 2.1
+    let center = CGPoint(
+      x: size.width * blob.x + cos(angle) * size.width * 0.09,
+      y: size.height * blob.y + sin(angle) * size.height * 0.10
+    )
+    let radius = min(size.width, size.height) * 0.34
+    let rect = CGRect(
+      x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+    context.fill(Path(ellipseIn: rect), with: .color(blob.color))
   }
 }
