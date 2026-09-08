@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.60.0](https://github.com/yschimke/rc-players/compare/v1.59.4...v1.60.0) (2026-09-08)
+
+
+### Features
+
+* add Apple Remote Compose player app ([#63](https://github.com/yschimke/rc-players/issues/63)) ([4224c80](https://github.com/yschimke/rc-players/commit/4224c80dc92ec74868a270a70e65a965fcf0cc6e))
+* add Swift-native Apple player API ([#68](https://github.com/yschimke/rc-players/issues/68)) ([92e9bce](https://github.com/yschimke/rc-players/commit/92e9bce41a1ae9a15e5941e8a535c1d32f3a610b))
+* add transparent Apple player background ([#70](https://github.com/yschimke/rc-players/issues/70)) ([69b75fb](https://github.com/yschimke/rc-players/commit/69b75fb44773359ad7b95d4fca178e0cdc2e83c6))
+* implement remaining CMP player operations ([#73](https://github.com/yschimke/rc-players/issues/73)) ([39b075f](https://github.com/yschimke/rc-players/commit/39b075f6a45fa09c56386a58209fb0c3291f4fcf))
+* publish native macOS player ([#64](https://github.com/yschimke/rc-players/issues/64)) ([3f1eff1](https://github.com/yschimke/rc-players/commit/3f1eff1233675493dc3600aa9c1c503eaf5fcf49))
+
+
+### Bug Fixes
+
+* **compose:** stop double-applying the host font scale to text ([#76](https://github.com/yschimke/rc-players/issues/76)) ([bd23b32](https://github.com/yschimke/rc-players/commit/bd23b328fc224f44dffcedd9bc8c71cd227bc84f)), closes [#75](https://github.com/yschimke/rc-players/issues/75)
+* sync vendored embedded player with AndroidX ([#74](https://github.com/yschimke/rc-players/issues/74)) ([75d80e5](https://github.com/yschimke/rc-players/commit/75d80e54e56dfcc674570196a3e4dcd911417252))
+
 ## [1.59.4](https://github.com/yschimke/rc-players/compare/v1.59.3...v1.59.4) (2026-09-08)
 
 
