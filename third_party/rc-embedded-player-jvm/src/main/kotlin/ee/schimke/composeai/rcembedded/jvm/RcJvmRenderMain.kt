@@ -39,7 +39,8 @@ import kotlin.system.exitProcess
  *
  * ```
  * java -cp <lib-rcjvm-jars> ee.schimke.composeai.rcembedded.jvm.RcJvmRenderMainKt \
- *   --input <doc.rc> --output <out.png> --width 640 --height 480 [--density 2.0] [--format png|svg]
+ *   --input <doc.rc> --output <out.png> --width 640 --height 480 [--density 2.0]
+ *   [--fontScale 1.0] [--format png|svg]
  * ```
  */
 fun main(args: Array<String>) {
@@ -49,6 +50,10 @@ fun main(args: Array<String>) {
   val width = opts[ARG_WIDTH]?.toIntOrNull()
   val height = opts[ARG_HEIGHT]?.toIntOrNull()
   val density = opts[ARG_DENSITY]?.toFloatOrNull() ?: DEFAULT_DENSITY
+  // A non-positive or unparseable value is the unscaled default rather than an error: this flag
+  // reaches us from a `?fontScale=` query string that the serve layer has already validated, and a
+  // render should not die over a display axis.
+  val fontScale = opts[ARG_FONT_SCALE]?.toFloatOrNull()?.takeIf { it > 0f } ?: DEFAULT_FONT_SCALE
   val format = opts[ARG_FORMAT]?.lowercase() ?: FORMAT_PNG
   // `light` unless asked otherwise: a headless render has no desktop session whose theme it should
   // follow, and one that changed colour with the build machine's OS setting would not be
@@ -58,7 +63,7 @@ fun main(args: Array<String>) {
   if (input == null || output == null || width == null || height == null) {
     System.err.println(
       "usage: RcJvmRenderMain --input <doc.rc> --output <out.png> --width <px> --height <px> " +
-        "[--density <f>] [--seeds <file>] [--format png|svg]"
+        "[--density <f>] [--fontScale <f>] [--seeds <file>] [--format png|svg]"
     )
     exitProcess(2)
   }
@@ -93,7 +98,16 @@ fun main(args: Array<String>) {
     try {
       when (format) {
         FORMAT_SVG -> renderRemoteDocumentToSvg(bytes, width, height, density, seeds, theme)
-        else -> renderRemoteDocumentToPng(bytes, width, height, density, seeds, theme)
+        else ->
+          renderRemoteDocumentToPng(
+            bytes,
+            width,
+            height,
+            density,
+            seeds,
+            theme,
+            fontScale = fontScale,
+          )
       }
     } catch (t: Throwable) {
       // Any render failure — a malformed document, a missing native, an unsupported op — is
@@ -117,6 +131,7 @@ private const val ARG_OUTPUT = "--output"
 private const val ARG_WIDTH = "--width"
 private const val ARG_HEIGHT = "--height"
 private const val ARG_DENSITY = "--density"
+private const val ARG_FONT_SCALE = "--fontScale"
 private const val ARG_SEEDS = "--seeds"
 private const val ARG_FORMAT = "--format"
 private const val ARG_THEME = "--theme"
@@ -124,6 +139,7 @@ private const val THEME_DARK = "dark"
 private const val FORMAT_PNG = "png"
 private const val FORMAT_SVG = "svg"
 private const val DEFAULT_DENSITY = 2f
+private const val DEFAULT_FONT_SCALE = 1f
 
 /**
  * Read the knob-seed file the serve side wrote. The format — and the skip-don't-fail posture for
