@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.toArgb
 import ee.schimke.composeai.rcembedded.player.LocalComponentValueStateMap
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
 import ee.schimke.composeai.rcembedded.player.LocalCurrentTimeMillis
+import ee.schimke.composeai.rcembedded.player.LocalEpochBaseMillis
 import ee.schimke.composeai.rcembedded.player.LocalGraphContext
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.getFloatExpressionsReflection
@@ -123,10 +124,16 @@ internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
     id == RemoteContext.ID_CONTINUOUS_SEC ||
       id == RemoteContext.ID_TIME_IN_SEC ||
       id == RemoteContext.ID_TIME_IN_MIN ||
-      id == RemoteContext.ID_TIME_IN_HR
+      id == RemoteContext.ID_TIME_IN_HR ||
+      id == RemoteContext.ID_EPOCH_SECOND
   ) {
     val timeMillisState = LocalCurrentTimeMillis.current
-    return remember(timeMillisState) {
+    // Only `ID_EPOCH_SECOND` needs it, and it is the reason that id was frozen: the other four are
+    // relative to the document's start, which is exactly what the frame loop publishes, while this
+    // one is wall clock and had no path here at all. `RcPlayerPreprocess` still counted it as
+    // making the document time-dependent, so the loop ran forever for a value that never moved.
+    val epochBaseMillis = LocalEpochBaseMillis.current
+    return remember(timeMillisState, epochBaseMillis) {
       derivedStateOf {
         val timeMillis = timeMillisState.value
         when (id) {
@@ -134,6 +141,8 @@ internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
           RemoteContext.ID_TIME_IN_SEC -> timeMillis / 1000f
           RemoteContext.ID_TIME_IN_MIN -> timeMillis / 60000f
           RemoteContext.ID_TIME_IN_HR -> timeMillis / 3600000f
+          RemoteContext.ID_EPOCH_SECOND ->
+            (epochBaseMillis + timeMillis.toLong()).floorDiv(1000L).toFloat()
           else -> 0f
         }
       }

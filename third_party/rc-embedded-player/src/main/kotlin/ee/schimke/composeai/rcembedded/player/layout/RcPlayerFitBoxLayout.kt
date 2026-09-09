@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.util.fastForEach
@@ -77,20 +78,27 @@ internal fun RcPlayerFitBoxLayout(layout: FitBoxLayout, modifier: Modifier) {
         }
       }
 
+    // Measured, not asked. Compose refuses intrinsic queries against anything built on
+    // `SubcomposeLayout` — "Asking for intrinsic measurements of SubcomposeLayout layouts is not
+    // supported" — and that is not an exotic child here: a `FitBox` alternative may itself be a
+    // `FitBox`, and any plugin backed by a lazy layout is in the same class. Such a document threw
+    // during measurement instead of drawing at all. Measuring each alternative under unconstrained
+    // constraints asks the same question — how big does this one want to be? — of every child
+    // whatever it is built from, which is what this layout did before the intrinsics rewrite.
+    //
+    // The probe slot is never placed, so these placeables are measurements and nothing else.
+    val probePlaceables = probeMeasurables.fastMap { it.measure(Constraints()) }
+
     var chosen = -1
-    for (i in 0 until probeMeasurables.size) {
-      val measurable = probeMeasurables[i]
-      val width = measurable.maxIntrinsicWidth(maxHeight)
-      val height = measurable.maxIntrinsicHeight(maxWidth)
-      if (width <= maxWidth && height <= maxHeight) {
+    for (i in probePlaceables.indices) {
+      val placeable = probePlaceables[i]
+      if (placeable.width <= maxWidth && placeable.height <= maxHeight) {
         chosen = i
         break
       }
     }
     if (chosen < 0) {
-      chosen =
-        probeMeasurables.indices.minByOrNull { probeMeasurables[it].maxIntrinsicWidth(maxHeight) }
-          ?: 0
+      chosen = probePlaceables.indices.minByOrNull { probePlaceables[it].width } ?: 0
     }
 
     val contentMeasurables =

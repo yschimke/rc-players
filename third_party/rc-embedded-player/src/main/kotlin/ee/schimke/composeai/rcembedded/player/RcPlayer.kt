@@ -228,6 +228,10 @@ public fun RcPlayer(
   // always-on rememberInfiniteTransition + unconditional per-frame full-document re-evaluation,
   // which never let the runtime go idle even for a wholly static document.
   val currentTimeMillisState = remember { mutableFloatStateOf(0f) }
+  // Wall clock at the moment this document started, so `ID_EPOCH_SECOND` can be answered from
+  // the frame clock below rather than by reading the clock inside a resolver. Remembered per
+  // document, which is also what makes it stable across recomposition.
+  val epochBaseMillis = remember(document) { System.currentTimeMillis() }
   val hasAnimations = preprocessed.hasAnimations
   val isTimeDependent = preprocessed.isTimeDependent
   val hasParticles = preprocessed.hasParticles
@@ -259,6 +263,15 @@ public fun RcPlayer(
       // (currentTime is still set for any core code that consults it directly.)
       currentTimeMillisState.floatValue = frameMillis.toFloat()
       remoteContext.currentTime = frameMillis
+      // The wall-clock second, seeded the way the CMP player seeds its own
+      // (`RcPlayerState.setInteger(EPOCH_SECOND, frameEpochMillis / 1000)`): an integer, because
+      // epoch seconds do not survive a float mantissa. Written here so a document reading it
+      // through the integer channel moves; the float channel is answered reactively by
+      // `GraphContext.getFloat` and `rememberRemoteFloatAsState` from the same two numbers.
+      remoteContext.loadInteger(
+        RemoteContext.ID_EPOCH_SECOND,
+        (epochBaseMillis + frameMillis).floorDiv(1000L).toInt(),
+      )
 
       // Settle to idle once the document is static: no declared float animation and no
       // continuously-changing time variable. Animated / time-driven documents keep looping.
@@ -362,12 +375,14 @@ public fun RcPlayer(
     // than the shared store, so an expression over one (a clip radius of min(w, h) / 2, say)
     // evaluates against 0 unless the graph can see them. See GraphContext.componentValues.
     graphContext?.componentValues = componentValueStateMap
+    graphContext?.epochBaseMillis = epochBaseMillis
     CompositionLocalProvider(
       LocalCoreDocument provides document,
       LocalRemoteContext provides remoteContext,
       LocalComponentValueMap provides componentValueMap,
       LocalComponentValueStateMap provides componentValueStateMap,
       LocalCurrentTimeMillis provides currentTimeMillisState,
+      LocalEpochBaseMillis provides epochBaseMillis,
       LocalGraphContext provides graphContext,
       LocalRcImageLoader provides resolvedImageLoader,
       LocalRemoteActionHandler provides onAction,

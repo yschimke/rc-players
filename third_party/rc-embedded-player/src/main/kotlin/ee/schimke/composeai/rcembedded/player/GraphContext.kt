@@ -111,6 +111,18 @@ internal class GraphContext(
    */
   internal var componentValues: Map<Int, State<Float>>? = null
 
+  /**
+   * Wall-clock milliseconds at the moment this document started playing, so `ID_EPOCH_SECOND` can
+   * be answered from the frame clock rather than by reading the clock inside an evaluation.
+   *
+   * [timeMillis] is milliseconds *since the document started* — that is what the frame loop writes
+   * — so it can drive the four relative time ids and cannot drive this one. Adding the base back on
+   * makes the epoch reactive against the same state every other time id observes, which is what
+   * makes an expression over it re-evaluate. Set by [RcPlayer] after construction, like
+   * [componentValues].
+   */
+  internal var epochBaseMillis: Long = 0L
+
   // Capture bookkeeping is per-thread: `derivedStateOf` may be evaluated on whichever thread
   // reads
   // it (UI phases are main-thread today, but snapshot reads aren't contractually single-thread).
@@ -188,6 +200,14 @@ internal class GraphContext(
         timeMillis.value / 1000f
       id == RemoteContext.ID_TIME_IN_MIN -> timeMillis.value / 60000f
       id == RemoteContext.ID_TIME_IN_HR -> timeMillis.value / 3600000f
+      // Wall clock, not elapsed time — and it belongs here for the same reason the four above do.
+      // `RcPlayerPreprocess` counts a reference to this id as making a document time-dependent, so
+      // the frame loop runs forever for it; without a reactive path it read the store, which
+      // nothing writes, so the expression stayed frozen while still consuming every frame. The CMP
+      // player answers the same variable from its own frame epoch
+      // (`RcPlayerState.setInteger(EPOCH_SECOND, …)`), and this is that value.
+      id == RemoteContext.ID_EPOCH_SECOND ->
+        (epochBaseMillis + timeMillis.value.toLong()).floorDiv(1000L).toFloat()
       componentValue != null -> componentValue.value
       realState.isFloatOverridden(id) -> super.getFloat(id)
       isComputed(id) -> (computedValue(id) as? Number)?.toFloat() ?: 0f
