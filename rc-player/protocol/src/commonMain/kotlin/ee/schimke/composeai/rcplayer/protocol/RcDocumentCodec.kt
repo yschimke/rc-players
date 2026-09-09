@@ -2454,7 +2454,17 @@ private object BitmapDataCodec : RcOperationCodec<RcBitmapData> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_BITMAP, "BitmapData")
 
   override fun decode(input: RcWireReader): RcBitmapData {
-    val imageId = input.readId("imageId")
+    // A DECLARATION, so `readDeclaredId` — the same call the other data declarations make
+    // (`RcTextData`, `RcFloatConstant`, `RcColorConstant`). `readId` only ever resolves an existing
+    // mapping, so inside a macro body it handed back the authored id unchanged: every expansion of
+    // the macro declared the same bitmap id, so the second overwrote the first, and an id that
+    // happened to match a top-level image replaced that instead.
+    //
+    // `declare` still resolves rather than allocates when the id is already mapped, which is what
+    // keeps a bitmap id passed in as a macro PARAMETER bound to the caller's image; only an id the
+    // body owns gets a fresh macro-local one. Outside expansion there is no remapper at all and
+    // both spellings are the identity, so an ordinary document decodes byte for byte as before.
+    val imageId = input.readDeclaredId("imageId")
     val widthAndType = input.readInt("widthAndType")
     val heightAndEncoding = input.readInt("heightAndEncoding")
     val width = widthAndType and 0xffff

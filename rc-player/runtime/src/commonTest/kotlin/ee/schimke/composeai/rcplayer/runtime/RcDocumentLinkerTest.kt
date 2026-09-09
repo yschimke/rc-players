@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.runtime
 
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
@@ -93,6 +94,31 @@ class RcDocumentLinkerTest {
     val ids =
       RcDocumentLinker.link(RcDocument(header, operations)).operations.map {
         assertIs<RcTextData>(assertIs<RcLinkedNode.Operation>(it).operation).id
+      }
+
+    assertEquals(2, ids.distinct().size)
+  }
+
+  @Test
+  fun repeatedMacroCallsAllocateDistinctIdsForLocalBitmapDeclarations() {
+    // The same rule as the text declaration above, for the one data declaration that was reading
+    // its id rather than declaring it. Two expansions of a macro that defines a bitmap must own two
+    // bitmaps: sharing one id means the second expansion overwrites the first's image, and an id
+    // that collides with a top-level resource replaces that instead.
+    val definition =
+      RcMacroDefine(9, emptyList(), body(RcBitmapData(100, 2, 2, 0, 0, ByteArray(4))))
+    val operations =
+      listOf(
+        definition,
+        RcMacroCall(9, emptyList()),
+        RcNoArg(RcOpcodes.CONTAINER_END),
+        RcMacroCall(9, emptyList()),
+        RcNoArg(RcOpcodes.CONTAINER_END),
+      )
+
+    val ids =
+      RcDocumentLinker.link(RcDocument(header, operations)).operations.map {
+        assertIs<RcBitmapData>(assertIs<RcLinkedNode.Operation>(it).operation).imageId
       }
 
     assertEquals(2, ids.distinct().size)
