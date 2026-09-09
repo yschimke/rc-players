@@ -99,7 +99,20 @@ import org.jetbrains.skia.EncodedImageFormat
  *
  * Requires skiko's native library at runtime (the caller supplies it — e.g. `compose.desktop
  * .currentOs`); it is not needed to compile.
+ *
+ * `@JvmOverloads` because this is published, and a Kotlin default argument is source compatibility
+ * only: adding [fontScale] changed the JVM descriptor, so the arity a consumer had already compiled
+ * against was simply gone and the call failed with `NoSuchMethodError` at run time rather than at
+ * their build. The annotation emits every prefix arity as a real method, which puts the previous
+ * one back — and keeps the next parameter added here from doing the same thing again.
+ *
+ * It does not restore the *synthetic* `…$default` bridge, whose descriptor also carries the new
+ * parameter, so a Kotlin consumer that omitted arguments and has not recompiled still breaks. That
+ * is not fixable by an overload — the two would be ambiguous at every partial call site — and it is
+ * the reason a defaulted parameter on a published function is a release-note change however it is
+ * spelled.
  */
+@JvmOverloads
 public fun renderRemoteDocumentToPng(
   bytes: ByteArray,
   widthPx: Int,

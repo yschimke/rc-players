@@ -48,7 +48,12 @@ import org.jetbrains.skia.EncodedImageFormat
  * semantics payloads, then run [ComposeFigmaSvgDataProducer]. Draw operations that the structural
  * model cannot represent remain small PNG layers beneath editable text; those files are inlined
  * before returning because the one-shot serve subprocess removes its temporary export directory.
+ *
+ * `@JvmOverloads` for the reason given on [renderRemoteDocumentToPng]: [fontScale] arrived as a
+ * defaulted parameter on a published function, which is a binary break however source-compatible it
+ * reads.
  */
+@JvmOverloads
 @OptIn(
   androidx.compose.ui.InternalComposeUiApi::class,
   androidx.compose.ui.ExperimentalComposeUiApi::class,
