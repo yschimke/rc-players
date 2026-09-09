@@ -4,7 +4,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcReferencedOperations
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
@@ -130,13 +133,90 @@ class RcGraphicsResourceSupportTest {
     // The pool allocates on a target's FIRST use and reuses it afterwards, so a document that draws
     // to one target a hundred times allocates one target. A preflight that counted operations
     // instead would refuse a document the renderer draws perfectly well.
+    // The bitmap has to be one `decodeInlineImage` can actually build: `DrawToBitmap` resolves its
+    // target through `requireNotNull(images[bitmapId])`, so a payload that fails to decode makes
+    // the renderer throw on the first draw and this assertion would endorse a document it cannot
+    // play — the very thing this file is about.
     val operations =
       listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
-        RcBitmapData(1, 4096, 2048, RcBitmapData.TYPE_PNG_8888, 0, byteArrayOf(0, 0, 0, 0))
+        RcBitmapData(1, 2, 2, RcBitmapData.TYPE_RAW8888, 0, ByteArray(2 * 2 * 4))
       ) + List(100) { RcDrawToBitmap(1, 0, 0) }
 
     assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
   }
+
+  @Test
+  fun sizesAnEncodedTargetByThePixelsItsPayloadDeclares() {
+    // The pool charges `source.width * source.height` of the DECODED image, so a PNG whose IHDR is
+    // larger than its `RcBitmapData` fields blows the ceiling the declared fields fit inside. One
+    // target claiming 1x1 and carrying a 4096x4097 header is over the aggregate budget on its own.
+    val operations =
+      listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
+        RcBitmapData(1, 1, 1, RcBitmapData.TYPE_PNG_8888, 0, pngHeaderFor(4096, 4097)),
+        RcDrawToBitmap(1, 0, 0),
+      )
+
+    assertEquals(
+      listOf("mutable targets total 16781312 pixels; the renderer allocates at most 16777216"),
+      RcDocument(header, operations).composeSupportReport().issues.map { it.detail },
+    )
+  }
+
+  @Test
+  fun ignoresTargetsInAReferencedBlockNothingIncludes() {
+    // `RcDocumentLinker` drops a `ReferencedOperations` definition no `IncludeReferencedOperations`
+    // names, so its draws never happen and never allocate. Counting the wire stream would refuse a
+    // document the renderer plays without touching the pool at all.
+    val operations =
+      listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(RcReferencedOperations(7)) +
+        (1..65).flatMap { id ->
+          listOf(
+            RcBitmapData(id, 1, 1, RcBitmapData.TYPE_RAW8888, 0, ByteArray(4)),
+            RcDrawToBitmap(id, 0, 0),
+          )
+        } +
+        listOf(RcNoArg(RcOpcodes.CONTAINER_END))
+
+    assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
+  }
+
+  @Test
+  fun keepsAShaderSkippableWhenALaterDeclarationSupersedesItBeforeThePaint() {
+    // The renderer overwrites `functions.shaders[id]` as it walks, so the paint installs the SECOND
+    // declaration of id 3. Condemning the superseded one by its id alone would refuse a document
+    // that draws.
+    val report =
+      RcDocument(
+          header,
+          listOf(
+            RcTextData(1, "this is not SkSL"),
+            RcTextData(2, "half4 main(float2 p) { return half4(1); }"),
+            RcShaderData(3, 1),
+            RcShaderData(3, 2),
+            RcPaintData(listOf(9, 3)),
+          ),
+        )
+        .composeSupportReport()
+
+    assertEquals(listOf(RcComposeSupportSeverity.SKIPPABLE), report.issues.map { it.severity })
+    assertTrue(report.playable)
+  }
+
+  /** A PNG header just long enough for the preflight to read its IHDR dimensions. */
+  private fun pngHeaderFor(width: Int, height: Int): ByteArray =
+    byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10) +
+      byteArrayOf(0, 0, 0, 13) +
+      byteArrayOf(73, 72, 68, 82) +
+      bigEndianBytes(width) +
+      bigEndianBytes(height)
+
+  private fun bigEndianBytes(value: Int): ByteArray =
+    byteArrayOf(
+      (value ushr 24).toByte(),
+      (value ushr 16).toByte(),
+      (value ushr 8).toByte(),
+      value.toByte(),
+    )
 
   @Test
   fun reportsBackendIntegerUniformVectorLimit() {
