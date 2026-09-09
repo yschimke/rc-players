@@ -40,22 +40,15 @@ first run of this sweep read as 86 documents where all four players disagreed; l
 vendored `fonts.json` collapsed that to text-metric noise. The harness therefore loads
 `rc-player/wasm/dist-assets/fonts` by default and fails rather than falling back.
 
-That is the same failure [`RcManifestTypefaceRenderTest`](../../rc-player/compose/src/jvmTest/kotlin/ee/schimke/composeai/rcplayer/compose/RcManifestTypefaceRenderTest.kt)
-was written to catch, and it could not. It guarded on a font directory
-(`../../samples/cmp-wasm-catalog/…`) that stopped existing when the player was extracted into this
-repository, and an `assumeTrue` on a path that no longer resolves is a test that reports green
-without running. Thirteen tests were in that state, across four files and three players:
+[`RcManifestTypefaceRenderTest`](../../rc-player/compose/src/jvmTest/kotlin/ee/schimke/composeai/rcplayer/compose/RcManifestTypefaceRenderTest.kt)
+was written to catch exactly that and could not: **an `assumeTrue` on a path that no longer resolves
+is a test that reports green without running.** Thirteen tests across four files and three players
+were in that state, all guarding on a font directory that stopped existing when the player was
+extracted into this repository.
 
-| Test | skipped before | runs now |
-| --- | ---: | ---: |
-| `RcManifestTypefaceRenderTest` | 2 of 2 | 2 |
-| `RcFontAxisRenderTest` | 1 of 1 | 1 |
-| `GoogleFontFamiliesTest` | 4 of 7 | 7 |
-| `RcJvmFontAxisTest` | 6 of 7 | 7 |
-
-They now point at the vendored faces and **assert** rather than assume. The faces are in this
-repository, so their absence is a broken checkout rather than an environment to skip in — which is
-the property that stops this from rotting a second time.
+So the font tests point at the vendored faces and **assert** rather than assume. The faces are in
+this repository, so their absence is a broken checkout rather than an environment to skip in — which
+is the property that stops this rotting a second time.
 
 ## Result
 

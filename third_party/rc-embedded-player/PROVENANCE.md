@@ -271,21 +271,14 @@ AndroidX now carries their behavior. That is the pattern working — the list is
 
 ### Resolved: the two action-dispatch deltas (restored at alpha17)
 
-Two deltas used to live here — the `LocalRemoteNamedActionHandler` block and the `CapturedDocument`
-overload's `lambdas` / `pendingIntents` forwarding, both in `RcPlayer.kt`. They were
-**build-against-published-alpha** gaps rather than rendering fixes: `LambdaAction` did not exist in
-`remote-creation-compose:1.0.0-alpha15`, `PendingIntentAction` was `internal` there so `parseId` was
-not callable from outside the module, and `CapturedDocument` carried neither property.
+The `LocalRemoteNamedActionHandler` block and the `CapturedDocument` overload's `lambdas` /
+`pendingIntents` forwarding (both `RcPlayer.kt`) were **build-against-published-alpha** gaps rather
+than rendering fixes. `compose-remote` 1.0.0-alpha17 publishes all three symbols, so both blocks are
+**restored to upstream verbatim** and this module carries no action-dispatch delta.
 
-`compose-remote` 1.0.0-alpha17 publishes all three: `LambdaAction` and `PendingIntentAction` are
-public with public `Companion.parseId`, and `CapturedDocument` carries `lambdas` + `pendingIntents`.
-Both blocks are now **restored to upstream verbatim** and this module carries no action-dispatch
-delta. The `lambdas` / `pendingIntents` parameters on `RcPlayer` were never dropped — only their
-uses were — so the restore was confined to the two bodies plus the two imports.
-
-Kept as a record because the shape recurs: when this module cannot reach a symbol upstream compiles
-against in-tree, dropping the call and noting it here is the house pattern, and the note is what
-makes the delta findable once a later alpha closes the gap.
+Recorded because the shape recurs: when this module cannot reach a symbol upstream compiles against
+in-tree, drop the call and note it here — the note is what makes the delta findable once a later
+alpha closes the gap.
 
 - **GMS font-provider certificates inlined as source** (`GmsFontProviderCertificates.kt`; the
   `GoogleFontR` import is gone from `EmbeddedPlayerTypefaceResolver.kt` and `RcPlayerTextLayout.kt`).
@@ -584,93 +577,72 @@ test retires once a `jvm` target enforces both halves by compiling.
 
 #### Done: `state/` decoupled
 
-`state/RcPlayerState.kt` held all fourteen `rememberRemote*AsState` helpers *and* one Android-typed
-one, `rememberRemoteBitmapAsState` (`State<Bitmap?>`, decoding via `resolveBitmap`) — which coupled
-the entire file, and through it the 19 files above. That one function now lives in
-`state/RcPlayerBitmapState.kt`; `RcPlayerState.kt` no longer imports anything Android. The function
-body is verbatim and it had **no call sites** in the vendored subset (upstream API surface only), so
-this is a file move, not a behaviour change. `RcPlayerState.kt` is now held import-clean by
-`PlatformNeutralSourcesTest`, and `CoreDataAccessors.kt` / `CoreDataModel.kt` /
-`SnapshotRemoteComposeState.kt` — already platform-neutral as vendored — are pinned as genuinely
-movable.
+`rememberRemoteBitmapAsState` (`State<Bitmap?>`) coupled the whole of `state/RcPlayerState.kt`, and
+through it 19 dependent files, to `android.graphics.Bitmap`. It now lives in
+`state/RcPlayerBitmapState.kt`; the body is verbatim and had no call sites in the vendored subset, so
+this is a file move. `PlatformNeutralSourcesTest` now holds `RcPlayerState.kt` import-clean and pins
+`CoreDataAccessors.kt` / `CoreDataModel.kt` / `SnapshotRemoteComposeState.kt` as genuinely movable.
 
 This clears the *import* half of the largest chain, not the whole chain: the fourteen helpers still
-read `LocalGraphContext`, so `state/` moves when `GraphContext` is split, not before. What the split
-buys now is that the 19 dependent files are no longer blocked on an `android.graphics.Bitmap` import
-that had nothing to do with them.
-
-Verified by compile and by the module's `check`. **Not** verified by a render: the rc-compare lane
-needs a staged catalog (see the sequencing note below), so the claim here is "no behaviour change by
-construction", not "the 24-document render is unchanged".
+read `LocalGraphContext`, so `state/` moves when `GraphContext` is split. Verified by compile, not by
+a render — see the sequencing note on the staged catalog.
 
 #### Done: the canvas text seam has both halves
 
-`:third-party-rc-embedded-player-jvm` now carries **`RcPlayerTextPlatformJvm.kt`** — the same four
-functions over skiko, so the seam is implemented on both sides rather than declared on one.
+`:third-party-rc-embedded-player-jvm` carries **`RcPlayerTextPlatformJvm.kt`** — the same four
+functions over skiko.
 
-**Everything goes through the shaper, not through `SkFont` directly**, and that is the single most
-important decision in the file. `Font.measureText` / `Canvas.drawString` are the obvious one-line
-counterparts to `Paint.getTextBounds` / `Canvas.drawText`, and they are wrong for anything but plain
-Latin: they map code points to glyphs in one typeface with no shaping, so kerning and ligatures are
-skipped, Arabic and Indic come out unjoined, RTL is not reordered, and anything the face lacks becomes
-missing-glyph boxes instead of falling back. Android's `Canvas.drawText` does all of it (Minikin
-shapes and falls back), so the direct calls would not be a *metrics* difference of the kind recorded
-below — they would be visibly wrong text, and **invisibly** wrong here, since measurement and drawing
-would agree with each other while both disagreed with Android. So the seam's own cross-checks would
-have stayed green. `Shaper.make(FontMgr)` (HarfBuzz + ICU bidi, fallback through the font manager)
-supplies `TextBlob.tightBounds` for ink bounds, `TextLine.width` for the advance, and the blob itself
-for the origin draw. One wrinkle worth knowing: a shaped blob's origin is *not* its baseline — `shape`
-puts the first baseline an ascent below the offset it is given — so both sides correct by
-`TextBlob.firstBaseline`, which is what keeps measure and draw on the same origin.
+**Everything goes through the shaper, not through `SkFont` directly.** `Font.measureText` /
+`Canvas.drawString` are the obvious one-line counterparts to `Paint.getTextBounds` /
+`Canvas.drawText` and are wrong for anything but plain Latin: no shaping, so kerning and ligatures
+are skipped, Arabic and Indic come out unjoined, RTL is not reordered, and a missing glyph becomes a
+box instead of falling back. Android's `Canvas.drawText` does all of it via Minikin, so the direct
+calls would be visibly wrong text — and **invisibly** wrong here, since measure and draw would agree
+with each other while both disagreed with Android, leaving the seam's own cross-checks green.
+`Shaper.make(FontMgr)` (HarfBuzz + ICU bidi, fallback through the font manager) supplies
+`TextBlob.tightBounds` for ink bounds, `TextLine.width` for the advance, and the blob for the origin
+draw. A shaped blob's origin is *not* its baseline — `shape` puts the first baseline an ascent below
+the offset it is given — so both sides correct by `TextBlob.firstBaseline`.
 
-`drawTextOnPath` is the one with no counterpart call, and it is built on Skia's own primitive for the
-job rather than hand-rolled: a `TextBlob` of per-glyph `RSXform`s (rotate + translate), which is what
-the framework assembles internally too, so the placement is computed here but the drawing is still one
-Skia call per face. It reproduces the framework's behaviour — each glyph centred half an advance along
-the path and rotated to the tangent there, `hOffset` along and `vOffset` perpendicular, glyphs past the
-end dropped and the run continuing onto the next contour of a multi-contour path.
+`drawTextOnPath` is built on Skia's own primitive: a `TextBlob` of per-glyph `RSXform`s, which is
+what the framework assembles internally. It reproduces the framework's behaviour — each glyph centred
+half an advance along the path and rotated to the tangent there, `hOffset` along and `vOffset`
+perpendicular, glyphs past the end dropped and the run continuing onto the next contour.
 
-It is also the **one place the seam is not fully shaped**, and the reason is mechanical rather than
-principled. Placing glyphs individually needs each glyph's *font*, which the flattened
-`TextLine`/`TextBlob` views do not expose; the API that does is skiko's `RunHandler` callback, and
-that path **segfaults** — a use-after-free inside skiko's own ICU run iterator, reproducible with a
-minimal handler and unrelated to this code. (`RunInfo.font` is also only borrowed for the callback,
-so it needs `makeWithSize` to copy — worth knowing if anyone retries this.) So glyphs on a path are
-resolved per character *with* fallback (glyph id 0 means the face cannot draw it, which is the signal
-to ask the font manager for one that can) but without cross-character shaping. Drawing from a
-flattened shaped line instead would silently draw fallback ids against the primary face, which
-renders unrelated glyphs — worse than the missing kerning. Curved text is where this matters least,
-since per-glyph rotation dominates sub-pixel kerning, but it is a real gap and wants a follow-up once
-skiko's handler is usable.
+It is the **one place the seam is not fully shaped**, for a mechanical reason. Placing glyphs
+individually needs each glyph's *font*, which the flattened `TextLine`/`TextBlob` views do not
+expose; the API that does is skiko's `RunHandler` callback, and that path **segfaults** — a
+use-after-free inside skiko's own ICU run iterator, reproducible with a minimal handler and unrelated
+to this code. (`RunInfo.font` is also only borrowed for the callback, so it needs `makeWithSize` to
+copy — worth knowing if anyone retries this.) So glyphs on a path are resolved per character *with*
+fallback (glyph id 0 means the face cannot draw it) but without cross-character shaping. Drawing from
+a flattened shaped line instead would silently draw fallback ids against the primary face, which is
+worse. Curved text is where this matters least, but it is a real gap pending a usable handler.
 
-Font resolution mirrors `EmbeddedPlayerTypefaceResolver` branch for branch, with two documented
-divergences. `google:` is a `FontsContractCompat` download on Android and has no JVM equivalent, so
-the name is tried locally and substituted if absent — the "downloadable fonts" limit below, and a
-substitution rather than an error. And Skia has no generic families, so the core ids map through a
-candidate list (CSS-style names first, which is what fontconfig resolves on Linux, then concrete
-faces for hosts where those mean nothing). One trap worth recording: `matchFamilyStyle(null, …)` —
-the obvious way to ask for the default face — returns **null** on Linux, and `Font(null, size)`
-measures zero rather than falling back, so the resolver never yields null while the host has any font
-at all.
+Font resolution mirrors `EmbeddedPlayerTypefaceResolver` branch for branch, with two divergences.
+`google:` is a `FontsContractCompat` download on Android with no JVM equivalent, so the name is tried
+locally and substituted if absent (the "downloadable fonts" limit below — a substitution, not an
+error). And Skia has no generic families, so the core ids map through a candidate list: CSS-style
+names first, which is what fontconfig resolves on Linux, then concrete faces. One trap:
+`matchFamilyStyle(null, …)` returns **null** on Linux and `Font(null, size)` measures zero rather
+than falling back, so the resolver never yields null while the host has any font at all.
 
-`DesktopTextPlatformTest` verifies it by rasterizing for real. It asserts relationships, not numbers:
-the font stacks differ across the seam so any pinned width would pin the host's fonts, and the
-strongest test is that measured ink bounds predict where the drawn glyphs actually land — which is
-exactly the invariant `DrawTextAnchored` rests on, and the one a face mismatch would break while
-every other test still passed. Two of the eighteen exist specifically to catch the unshaped
-implementation described above, and they discriminate rather than tolerate: a kerned pair (`AV`)
-must measure *narrower* than its glyphs do apart — exactly equal is the signature of no shaping —
-and a CJK string must measure about an em per ideograph rather than the much narrower
-missing-glyph box. **It needs skiko's natives**, which means the per-OS
-`skiko-awt-runtime-*` artifact (pulled in as `testRuntimeOnly(compose.desktop.currentOs)`) *and* a
-loadable GL library — `libskiko` links it even for raster-only drawing. Where that is missing the
-class skips loudly rather than failing sixteen times; if you see that message the environment needs
-`libgl1` on `LD_LIBRARY_PATH`, and note Gradle test workers inherit the *daemon's* environment, so
+`DesktopTextPlatformTest` rasterizes for real and asserts relationships, not numbers — the font
+stacks differ across the seam, so any pinned width would pin the host's fonts. The strongest check is
+that measured ink bounds predict where the drawn glyphs land, which is the invariant
+`DrawTextAnchored` rests on and the one a face mismatch would break while every other test passed.
+Two of the eighteen discriminate against the unshaped implementation above: a kerned pair (`AV`) must
+measure *narrower* than its glyphs apart — exactly equal is the signature of no shaping — and a CJK
+string must measure about an em per ideograph rather than a missing-glyph box.
+
+**It needs skiko's natives**: the per-OS `skiko-awt-runtime-*` artifact (via
+`testRuntimeOnly(compose.desktop.currentOs)`) *and* a loadable GL library, since `libskiko` links it
+even for raster-only drawing. Where that is missing the class skips loudly; the environment needs
+`libgl1` on `LD_LIBRARY_PATH`, and Gradle test workers inherit the *daemon's* environment, so
 `./gradlew --stop` after exporting it.
 
-What this does **not** finish: the ops that call these four still live in `RcPlayerDrawing.kt`, which
-needs `Bitmap`/`BitmapDrawable`, so no draw op runs on the JVM yet. The seam is ready ahead of its
-callers — deliberately, since it was the piece with an unknown in it.
+Not finished: the ops that call these four still live in `RcPlayerDrawing.kt`, which needs
+`Bitmap`/`BitmapDrawable`, so no draw op runs on the JVM yet.
 
 #### Done: the jvm draw context decodes bitmaps
 
@@ -701,29 +673,24 @@ remaining androidMain callees of the dispatch.
 #### Done: it runs on the desktop JVM
 
 `:third-party-rc-embedded-player-jvm` compiles the neutral subset of this module's sources against
-**Compose Desktop** and runs them on a plain JVM — no Android, no Robolectric. `DesktopRemoteContextTest`
-exercises the value layer there: float/int/colour/text round-trips through the shared store, and —
-the one that actually matters — that a store read registers with Compose's snapshot system, without
-which `GraphContext`'s whole `derivedStateOf` design would silently degrade to "never invalidates".
+**Compose Desktop** and runs them on a plain JVM — no Android, no Robolectric.
+`DesktopRemoteContextTest` exercises the value layer: float/int/colour/text round-trips through the
+shared store, and — the one that matters — that a store read registers with Compose's snapshot
+system, without which `GraphContext`'s whole `derivedStateOf` design silently degrades to "never
+invalidates".
 
 The sources are **shared by path, not copied**: the jvm module adds the Android module's
-`src/main/kotlin` as a source directory and names an explicit file list. So there is one copy of each
-file, and no possibility of the two drifting.
+`src/main/kotlin` as a source directory and names an explicit file list, so there is one copy of each
+file and no way for the two to drift.
 
-This inverts what `PlatformNeutralSourcesTest` is for. The scan was standing in for a missing
-compiler; now the compiler is here, and a file that isn't really neutral fails to build rather than
-passing a source scan. The test remains as the fast check with the precise message, and
-`readyFilesAreActuallyCompiledForTheJvm` ties its `READY_FOR_JVM_COMMON` list to the build file's, so
-a file cannot be claimed ready without something having actually compiled it off Android.
+That inverts what `PlatformNeutralSourcesTest` is for — the scan stood in for a missing compiler, and
+the compiler is now here, so a file that is not really neutral fails to build. The test remains as
+the fast check with the precise message, and `readyFilesAreActuallyCompiledForTheJvm` ties its
+`READY_FOR_JVM_COMMON` list to the build file's, so a file cannot be claimed ready without something
+having actually compiled it off Android.
 
-**What runs, and what doesn't.** The value/expression layer runs: the store, the neutral
-`RemoteContext`, `GraphContext`, the `rememberRemote*AsState` family, and the expression/animation
-evaluator. The draw path does not exist here — that is `RcPlayerPaint`/`RcPlayerDrawing` and the rest
-of the sequencing below. Ten of the module's files still import Android; nine did before this, so the
-remaining work is the draw path, not the value layer.
-
-**This also makes 1b optional rather than blocking.** A separate jvm module was chosen precisely
-because converting the Android module to KMP still has an unsettled risk (Robolectric under the
+**This makes 1b optional rather than blocking.** A separate jvm module was chosen precisely because
+converting the Android module to KMP still carries an unsettled risk (Robolectric under the
 KMP-Android plugin), and nothing here needs that resolved. If the conversion happens, this module's
 file list is the migration order; if it never does, the desktop lane still works.
 
