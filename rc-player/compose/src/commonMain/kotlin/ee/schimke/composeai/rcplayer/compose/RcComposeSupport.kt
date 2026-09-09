@@ -43,6 +43,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcOperationProfile
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
@@ -193,6 +194,7 @@ public fun RcDocument.composeSupportReport(
   val issues = mutableListOf<RcComposeSupportIssue>()
   val bitmapIds = operations.filterIsInstance<RcBitmapData>().mapTo(mutableSetOf()) { it.imageId }
   val shaderIds = operations.filterIsInstance<RcShaderData>().mapTo(mutableSetOf()) { it.shaderId }
+  val paintedShaderIds = referencedShaderIds(operations, shaderIds)
   val fontIds = operations.filterIsInstance<RcFontData>().mapTo(mutableSetOf()) { it.fontId }
   val particleDefinitionGroups = operations.filterIsInstance<RcParticleDefine>().groupBy { it.id }
   val particleDefinitions = particleDefinitionGroups.mapValues { it.value.last() }
@@ -355,12 +357,27 @@ public fun RcDocument.composeSupportReport(
         texts[operation.shaderTextId].isNullOrBlank() ->
           issues += RcComposeSupportIssue(index, "ShaderData", "shader source is empty")
         !runtimeShaderSourceIsSupported(texts.getValue(operation.shaderTextId)) ->
+          // The severity turns on whether a paint INSTALLS this shader, because that is what
+          // decides
+          // which half of the enum's contract applies.
+          //
+          // Declared and unused, it is SKIPPABLE exactly as documented: the operation decodes, the
+          // backend draws nothing for it, and a lenient host plays the rest. Nothing ever asks Skia
+          // to compile it.
+          //
+          // Installed by a paint, it is BLOCKING — "the renderer would throw partway through the
+          // draw pass", verbatim. `applyPaint` reaches `buildRuntimeShader`, whose catch RETHROWS
+          // as
+          // IllegalArgumentException, and no one skips it. Calling that SKIPPABLE promised a
+          // lenient
+          // host it could play the document with the operation skipped, and then the frame died.
           issues +=
             RcComposeSupportIssue(
               index,
               "ShaderData",
               "shader source is not accepted by the Skia runtime",
-              RcComposeSupportSeverity.SKIPPABLE,
+              if (operation.shaderId in paintedShaderIds) RcComposeSupportSeverity.BLOCKING
+              else RcComposeSupportSeverity.SKIPPABLE,
             )
         operation.floatUniforms.any { it.value.isEmpty() } ->
           issues += RcComposeSupportIssue(index, "ShaderData", "float uniform has no values")
@@ -1182,7 +1199,81 @@ public fun RcDocument.composeSupportReport(
         issues += RcComposeSupportIssue(-1, "ContainerStructure", it.message ?: "invalid")
       },
     )
+  issues += offscreenAllocationIssues(operations)
   return RcComposeSupportReport(issues)
+}
+
+/**
+ * The two ceilings `RcOffscreenTargetPool` enforces while drawing, asked before the draw instead.
+ *
+ * The pool `require`s both, so exceeding either throws partway through the draw pass — the enum's
+ * own definition of [RcComposeSupportSeverity.BLOCKING]. Nothing here reported them, so a document
+ * with a sixty-fifth target passed `requireRenderable` and then died on the frame; per-operation
+ * checking cannot see it either, because both limits are properties of the whole document.
+ *
+ * Counted the way the pool allocates, which is what makes the preflight agree with the draw rather
+ * than merely resemble it:
+ *
+ * - one target per DISTINCT `bitmapId`, allocated on that id's first `DrawToBitmap` and reused
+ *   afterwards, so repeated draws to one target cost one allocation;
+ * - sized from the declared bitmap, since the pool takes its dimensions from the source image;
+ * - `bitmapId == 0` means the stage rather than a target, and an undeclared id is already reported
+ *   next to the operation — neither reaches an allocation, so neither is counted here.
+ */
+/**
+ * Which declared shaders a paint actually installs, walked with the same decoder that validates
+ * one.
+ *
+ * Reusing `paintIssue` rather than writing a second walk is the point: the argument-length table it
+ * carries is the only thing that knows where a shader id sits in the word stream, and two copies of
+ * it would drift. A malformed paint stops its own walk early, so what it references beyond the
+ * fault is unknown — that paint is already reported as an issue of its own, and a document with one
+ * is refused before any of this matters.
+ */
+private fun referencedShaderIds(
+  operations: List<RcOperation>,
+  shaderIds: Set<Int>,
+): Set<Int> {
+  val referenced = mutableSetOf<Int>()
+  operations.filterIsInstance<RcPaintData>().forEach { paintIssue(it, shaderIds, referenced) }
+  return referenced
+}
+
+private fun offscreenAllocationIssues(operations: List<RcOperation>): List<RcComposeSupportIssue> {
+  val limits = RcOffscreenTargetLimits()
+  val declared =
+    operations.filterIsInstance<RcBitmapData>().associate { it.imageId to (it.width to it.height) }
+  val targets =
+    operations
+      .filterIsInstance<RcDrawToBitmap>()
+      .map { it.bitmapId }
+      .filter { it != 0 && it in declared }
+      .distinct()
+  if (targets.isEmpty()) return emptyList()
+
+  val issues = mutableListOf<RcComposeSupportIssue>()
+  if (targets.size > limits.maxTargets) {
+    issues +=
+      RcComposeSupportIssue(
+        -1,
+        "DrawToBitmap",
+        "document declares ${targets.size} mutable targets; " +
+          "the renderer allocates at most ${limits.maxTargets}",
+      )
+  }
+  val pixels = targets.sumOf { id ->
+    val (width, height) = declared.getValue(id)
+    width.toLong() * height.toLong()
+  }
+  if (pixels > limits.maxPixels) {
+    issues +=
+      RcComposeSupportIssue(
+        -1,
+        "DrawToBitmap",
+        "mutable targets total $pixels pixels; the renderer allocates at most ${limits.maxPixels}",
+      )
+  }
+  return issues
 }
 
 private fun invalidScrollChild(nodes: List<RcLinkedNode>, insideScroll: Boolean = false): String? {
@@ -1412,7 +1503,12 @@ private fun runtimeShaderSourceIsSupported(source: String): Boolean = runCatchin
 }
   .isSuccess
 
-private fun paintIssue(paint: RcPaintData, shaderIds: Set<Int> = emptySet()): String? {
+private fun paintIssue(
+  paint: RcPaintData,
+  shaderIds: Set<Int> = emptySet(),
+  /** Filled with each DECLARED shader id this paint installs — see [referencedShaderIds]. */
+  referenced: MutableSet<Int>? = null,
+): String? {
   var index = 0
   while (index < paint.words.size) {
     val command = paint.words[index++]
@@ -1485,8 +1581,9 @@ private fun paintIssue(paint: RcPaintData, shaderIds: Set<Int> = emptySet()): St
     if (type == PAINT_TYPEFACE && paint.words[index] !in 0..3) {
       return "font id ${paint.words[index]} is not implemented"
     }
-    if (type == PAINT_SHADER && paint.words[index] != 0 && paint.words[index] !in shaderIds) {
-      return "shader id ${paint.words[index]} is not declared"
+    if (type == PAINT_SHADER && paint.words[index] != 0) {
+      if (paint.words[index] !in shaderIds) return "shader id ${paint.words[index]} is not declared"
+      referenced?.add(paint.words[index])
     }
     if (type == PAINT_FONT_AXIS) {
       for (axisIndex in 0 until (command ushr 16)) {
