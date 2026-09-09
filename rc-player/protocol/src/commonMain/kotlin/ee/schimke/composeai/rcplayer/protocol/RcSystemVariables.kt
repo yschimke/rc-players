@@ -97,16 +97,28 @@ public object RcSystemVariables {
  * Float expressions and path expressions are the two places a document can name one of these ids
  * and turn it into geometry, and they are what the `remote-m3` progress indicators use.
  *
- * The particle operations carry expressions of their own, and they are here for a sharper reason
- * than completeness: a particle system that reads the clock and is not given frames cannot reach
- * the state that would ask for them. `RcParticleRuntime.forEach` requests the next frame while any
- * particle is unfrozen, so a loop keeps itself alive — but `compare` requests one only when a
- * comparison actually matched, matching the reference (`ParticlesCompare` guards its own
- * `needsRepaint()` on having run a child). A standalone comparison whose condition reads
- * `CONTINUOUS_SEC` therefore starts false, asks for nothing, and the clock never advances to make
- * it true: a document that is animated in the AndroidX player holds its first pose here, forever.
- * Scheduling it unconditionally instead would repaint every static comparison for the life of the
- * document, which is the cost the reference's own guard exists to avoid.
+ * The particle operations carry expressions of their own, and one of them is here for a sharper
+ * reason than completeness: a particle system that reads the clock and is not given frames cannot
+ * always reach the state that would ask for them. Which of them need it is decided by what the
+ * runtime already requests for itself, and that rules out all but three fields:
+ *
+ * `RcParticleRuntime.forEach` ends with `if (hasActiveParticles) requestNextFrame()`, so a loop
+ * with any unfrozen particle keeps itself alive and needs nothing from here. Claiming otherwise
+ * would be worse than redundant: once every particle hits `maxLifetimeFrames` and freezes — or in a
+ * system with no particles at all — `forEach` stops asking, and a flag set here would repaint that
+ * document for the rest of its life.
+ *
+ * `compare` requests a frame only when a comparison actually MATCHED, deliberately, matching the
+ * reference's `ParticlesCompare` guarding its own `needsRepaint()` on having run a child. That is
+ * the one shape that can deadlock: a standalone comparison whose condition reads `CONTINUOUS_SEC`
+ * starts false, asks for nothing, and the clock never advances to make it true, so a document the
+ * AndroidX player animates holds its first pose here forever. The index bounds are resolved per
+ * paint by `resolvedIndex` and gate the same way — `maximumIndex = ANIMATION_TIME` selects an empty
+ * range, matches nothing, and never reaches the frame that would widen it.
+ *
+ * The comparison's RESULT equations are not scheduled, for the same reason the loop is not: they
+ * are evaluated only on a match, and a match already asks for the next frame. A clock read by
+ * results the condition never selects animates nothing.
  *
  * An operation that references a moving id *directly* in one of its own float words (rather than
  * through an expression list) is still not detected; no writer emits that shape today, and a scan
@@ -119,37 +131,33 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean = operations.any
         operation.animation?.movesWithSystemTime() == true
     is RcPathExpression ->
       operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
-    is RcParticleLoop ->
-      operation.restartEquation.movesWithSystemTime() ||
-        operation.updateEquations.anyMovesWithSystemTime()
     is RcParticleCompare ->
       operation.condition.movesWithSystemTime() ||
-        operation.firstEquations.anyMovesWithSystemTime() ||
-        operation.secondEquations.anyMovesWithSystemTime() ||
-        // The index range is resolved per paint too (`resolvedIndex` calls `resolve` on each), so a
-        // bound over the clock deadlocks exactly as a condition does: `maximumIndex =
-        // ANIMATION_TIME`
-        // selects an empty range on the first frame, changes no particle, asks for no frame, and
-        // never reaches the frame where the range would cover one.
         operation.minimumIndex.movesWithSystemTime() ||
         operation.maximumIndex.movesWithSystemTime()
-    // `RcParticleDefine` is deliberately NOT here, though its initialization equations can read the
-    // clock. They are evaluated when the system is DEFINED — once, in the first `beginFrame` — and
-    // on restart, which only `forEach` performs and which already keeps its own frames coming while
-    // any particle is unfrozen. A define alone therefore has nothing a later frame could change,
-    // and
-    // claiming otherwise would run the frame loop forever for a document that seeds from the clock
-    // and then stands still: the same needless repaint this function refuses to buy elsewhere.
     else -> false
   }
 }
 
-private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in RcSystemVariables.MOVING
+/**
+ * The moving ids a FLOAT word can actually read back.
+ *
+ * `EPOCH_SECOND` is in [RcSystemVariables.MOVING] because it moves, and is excluded here because a
+ * float word cannot see it: `RcPlayerState` publishes it with `setInteger`, and `resolve` reads the
+ * float map alone, so the word stays at its own NaN-encoded reference value. That is deliberate on
+ * the runtime's part rather than an oversight to repair — epoch seconds are past 2^24, where a
+ * 32-bit float can no longer count by ones — so a document naming it in a float expression is
+ * already reading NaN, and scheduling frames for it would repaint forever on a value no frame can
+ * change.
+ */
+private val MOVING_FLOAT_IDS: Set<Int> = RcSystemVariables.MOVING - RcSystemVariables.EPOCH_SECOND
+
+private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in MOVING_FLOAT_IDS
 
 private fun List<List<RcFloatWord>>.anyMovesWithSystemTime(): Boolean = any {
   it.movesWithSystemTime()
 }
 
 private fun List<RcFloatWord>.movesWithSystemTime(): Boolean = any {
-  it.referencedId in RcSystemVariables.MOVING
+  it.referencedId in MOVING_FLOAT_IDS
 }

@@ -201,19 +201,27 @@ class RcSystemVariableTest {
         .referencesMovingSystemVariable(),
       "a comparison CONDITION over the clock",
     )
-    assertTrue(
+    // A RESULT equation is not scheduled: `compare` evaluates one only on a match, and a match
+    // already ends in `requestNextFrame()`. A clock the condition never selects animates nothing,
+    // and answering true would repaint for the life of the document.
+    assertFalse(
       document(
           RcParticleCompare(1, 0, still, still, listOf(still), listOf(listOf(clock)), emptyList())
         )
         .referencesMovingSystemVariable(),
       "a comparison RESULT over the clock",
     )
-    assertTrue(
+    // Neither is a LOOP, whichever of its equations reads the clock: `forEach` ends with
+    // `if (hasActiveParticles) requestNextFrame()`, so it keeps its own frames coming while any
+    // particle is unfrozen. Scheduling it here would be redundant while that holds and wrong once
+    // it stops — a system whose particles have all frozen at `maxLifetimeFrames`, or one with no
+    // particles at all, would repaint forever.
+    assertFalse(
       document(RcParticleLoop(1, listOf(clock), listOf(listOf(still))))
         .referencesMovingSystemVariable(),
       "a restart equation over the clock",
     )
-    assertTrue(
+    assertFalse(
       document(RcParticleLoop(1, listOf(still), listOf(listOf(clock))))
         .referencesMovingSystemVariable(),
       "an update equation over the clock",
@@ -243,6 +251,22 @@ class RcSystemVariableTest {
       document(RcParticleDefine(1, 4, listOf(7), listOf(listOf(clock))))
         .referencesMovingSystemVariable(),
       "an initialization equation over the clock, with no loop to restart it",
+    )
+
+    // `EPOCH_SECOND` moves, but a float word cannot read it: `RcPlayerState` publishes it with
+    // `setInteger` and `resolve` reads the float map alone, so the condition stays NaN and never
+    // matches however many frames it is given.
+    val epoch = RcFloatWord(NAN_REFERENCE or RcSystemVariables.EPOCH_SECOND)
+    assertFalse(
+      document(
+          RcParticleCompare(1, 0, still, still, listOf(epoch), listOf(listOf(still)), emptyList())
+        )
+        .referencesMovingSystemVariable(),
+      "a condition over the epoch clock, which no float word resolves",
+    )
+    assertFalse(
+      document(RcFloatExpression(100, listOf(epoch), null)).referencesMovingSystemVariable(),
+      "a float expression over the epoch clock",
     )
 
     // …and a particle system that reads no clock still asks for nothing, so an ordinary static
