@@ -283,6 +283,38 @@ class RcSystemVariableTest {
       "a maximumIndex over the clock is not shadowed by a particle variable of that id",
     )
 
+    // A document that declares its OWN value at a clock's id claims it: `loadSystem` writes a
+    // system
+    // value only `if (id !in claimedSystemIds)`, so the clock stops refreshing and the word is
+    // static however much it reads like a clock.
+    assertFalse(
+      document(
+          RcFloatConstant(RcSystemVariables.CONTINUOUS_SEC, RcFloatWord.literal(3f)),
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a condition over a clock id the document has claimed",
+    )
+    assertFalse(
+      document(
+          RcFloatConstant(RcSystemVariables.CONTINUOUS_SEC, RcFloatWord.literal(3f)),
+          RcFloatExpression(100, listOf(clock), null),
+        )
+        .referencesMovingSystemVariable(),
+      "a float expression over a clock id the document has claimed",
+    )
+
+    // Both bounds being the same moving word selects `i until i` on every frame — empty forever.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, clock, clock, listOf(still), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a comparison whose minimum and maximum are the same moving word",
+    )
+
     // `EPOCH_SECOND` is scheduled like the rest, and the reason is worth pinning down because it
     // is not obvious from `resolve` alone: `RcPlayerState.setInteger` writes `floats[id]` beside
     // `integers[id]`, so a float word does read it back. It is coarse — past 2^24 a 32-bit float

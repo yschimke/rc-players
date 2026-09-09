@@ -128,13 +128,29 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
   // The last definition wins, as it does in the runtime's own `define`.
   val definitions = operations.filterIsInstance<RcParticleDefine>().associateBy { it.id }
   val particleCounts = definitions.mapValues { it.value.particleCount }
+  // The ids this document has taken for itself. `RcPlayerState.loadSystem` writes a system value
+  // only `if (id !in claimedSystemIds)`, so a document that declares its own value at a clock's id
+  // stops that clock refreshing — the word is static however much it looks like a clock read.
+  // Mirrored operation for operation from `claimedSystemIds` so the two cannot drift.
+  val claimed =
+    operations.mapNotNullTo(mutableSetOf()) { operation ->
+      when (operation) {
+        is RcFloatConstant -> operation.id
+        is RcIntegerConstant -> operation.id
+        is RcTouchExpression -> operation.id
+        is RcNamedVariable -> operation.id
+        is RcComponentValue -> operation.valueId
+        else -> null
+      }
+    }
   return operations.any { operation ->
     when (operation) {
       is RcFloatExpression ->
-        operation.expression.movesWithSystemTime() ||
-          operation.animation?.movesWithSystemTime() == true
+        operation.expression.movesWithSystemTime(claimed) ||
+          operation.animation?.movesWithSystemTime(claimed) == true
       is RcPathExpression ->
-        operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
+        operation.expressionX.movesWithSystemTime(claimed) ||
+          operation.expressionY.movesWithSystemTime(claimed)
       // A range too small for the comparison's own shape is the third case that cannot deadlock.
       // `compare` reaches its condition only inside a loop over `system.particles`: one particle is
       // enough in single mode, but pair mode nests `firstIndex in secondIndex + 1 until end` and so
@@ -150,10 +166,10 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
           // The bounds are not shadowed — `resolvedIndex` calls `resolve` directly — so they stay
           // global.
           (operation.condition.movesWithSystemTime(
-            definitions[operation.id]?.variableIds.orEmpty()
+            claimed + definitions[operation.id]?.variableIds.orEmpty().toSet()
           ) ||
-            operation.minimumIndex.movesWithSystemTime() ||
-            operation.maximumIndex.movesWithSystemTime())
+            operation.minimumIndex.movesWithSystemTime(claimed) ||
+            operation.maximumIndex.movesWithSystemTime(claimed))
       else -> false
     }
   }
@@ -180,6 +196,12 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
  * replace one failure with another.
  */
 private fun RcParticleCompare.canEverEvaluate(particleCounts: Map<Int, Int>): Boolean {
+  // Both bounds being the SAME word is a relationship the two independent estimates below cannot
+  // see: `resolvedIndex` resolves each through `resolve`, so one word yields one index and the
+  // range `i until i` is empty on every frame. Restricted to moving ids because that is where the
+  // non-negativity holds — every clock is at or above zero, and a negative bound would instead mean
+  // "the whole system" for the maximum and 0 for the minimum, which is not empty at all.
+  if (minimumIndex == maximumIndex && minimumIndex.movesWithSystemTime()) return false
   val size = particleCounts[id] ?: return true
   val start = minimumIndex.staticIndex(negativeDefault = 0, size = size) ?: 0
   val end = maximumIndex.staticIndex(negativeDefault = size, size = size) ?: size
@@ -192,13 +214,9 @@ private fun RcFloatWord.staticIndex(negativeDefault: Int, size: Int): Int? {
   return if (value < 0f) negativeDefault else value.toInt().coerceIn(0, size)
 }
 
-private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in RcSystemVariables.MOVING
+private fun RcFloatWord.movesWithSystemTime(shadowed: Set<Int> = emptySet()): Boolean =
+  referencedId in RcSystemVariables.MOVING && referencedId !in shadowed
 
-private fun List<List<RcFloatWord>>.anyMovesWithSystemTime(): Boolean = any {
-  it.movesWithSystemTime()
+private fun List<RcFloatWord>.movesWithSystemTime(shadowed: Set<Int> = emptySet()): Boolean = any {
+  it.referencedId in RcSystemVariables.MOVING && it.referencedId !in shadowed
 }
-
-private fun List<RcFloatWord>.movesWithSystemTime(shadowed: List<Int> = emptyList()): Boolean =
-  any {
-    it.referencedId in RcSystemVariables.MOVING && it.referencedId !in shadowed
-  }
