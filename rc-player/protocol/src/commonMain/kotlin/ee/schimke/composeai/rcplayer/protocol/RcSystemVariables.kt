@@ -135,18 +135,33 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
           operation.animation?.movesWithSystemTime() == true
       is RcPathExpression ->
         operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
-      // A system with no particles is the third shape that cannot deadlock: `compare` iterates
-      // `start until end` over `system.particles`, so an empty system matches nothing, leaves
-      // `changed` false and asks for no frame — and there is no later state that could change
-      // that. Scheduling it would repaint at the display rate for the life of the document.
+      // A system too small for the comparison's own shape is the third case that cannot deadlock.
+      // `compare` reaches its condition only inside a loop over `system.particles`: one particle is
+      // enough in single mode, but pair mode nests `firstIndex in secondIndex + 1 until end` and so
+      // needs two. Below that the condition is never evaluated, `changed` stays false, no frame is
+      // requested — and unlike an empty index range, no later clock value can conjure a particle
+      // that would change it. Scheduling anyway repaints at the display rate for the life of the
+      // document.
       is RcParticleCompare ->
-        particleCounts[operation.id] != 0 &&
+        operation.hasEnoughParticles(particleCounts) &&
           (operation.condition.movesWithSystemTime() ||
             operation.minimumIndex.movesWithSystemTime() ||
             operation.maximumIndex.movesWithSystemTime())
       else -> false
     }
   }
+}
+
+/**
+ * Whether [particleCounts] gives this comparison a system big enough for it to evaluate anything.
+ *
+ * A system this document never defines is left scheduled: `requireSystem` throws on the first
+ * paint, so the document is refused before the frame loop matters, and guessing here would only
+ * replace one failure with another.
+ */
+private fun RcParticleCompare.hasEnoughParticles(particleCounts: Map<Int, Int>): Boolean {
+  val count = particleCounts[id] ?: return true
+  return count >= if (secondEquations.isEmpty()) 1 else 2
 }
 
 private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in RcSystemVariables.MOVING

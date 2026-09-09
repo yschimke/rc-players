@@ -272,8 +272,8 @@ class RcSystemVariableTest {
       "a float expression over the epoch clock",
     )
 
-    // A comparison over a system with NO particles cannot match: `compare` iterates an empty range,
-    // never sets `changed`, and asks for no frame — and no later state can change that.
+    // A comparison over a system too small for its own shape cannot match: `compare` reaches the
+    // condition only inside a loop over `system.particles`, and no later state can add one.
     assertFalse(
       document(
           RcParticleDefine(1, 0, listOf(7), listOf(listOf(still))),
@@ -281,6 +281,32 @@ class RcSystemVariableTest {
         )
         .referencesMovingSystemVariable(),
       "a clock-reading comparison over a zero-particle system",
+    )
+    // Pair mode nests `firstIndex in secondIndex + 1 until end`, so one particle is one too few.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 1, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(
+            1,
+            0,
+            still,
+            still,
+            listOf(clock),
+            listOf(listOf(still)),
+            listOf(listOf(still)),
+          ),
+        )
+        .referencesMovingSystemVariable(),
+      "a clock-reading PAIR comparison over a one-particle system",
+    )
+    // …while one particle is enough for single mode, which is the deadlock this scan exists for.
+    assertTrue(
+      document(
+          RcParticleDefine(1, 1, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, still, still, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a clock-reading single comparison over a one-particle system",
     )
 
     // …and a particle system that reads no clock still asks for nothing, so an ordinary static
