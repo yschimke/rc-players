@@ -119,8 +119,8 @@ to the host. The first paint happens in the fallback face and the player repaint
 `onFontLoaded`, so the interactive viewer needs no font-awareness; single-shot renderers await
 `player.fontsReady()` (the serve format-compare page does).
 
-**Font-variation axes are applied, and the request shape is what makes them possible.** The paint
-bundle's axes used to be parsed and skipped; they now reach the canvas. Two halves:
+**Font-variation axes are applied, and the request shape is what makes them possible.** The paint bundle's axes reach the canvas. Two
+halves:
 
 - *What is fetched.* The default request enumerates weights (`ital,wght@0,100;…;1,900`) and css2
   answers it with a **pinned static instance per weight** — `font-weight: 100; font-stretch: 100%`,
@@ -211,9 +211,9 @@ halo — glyph edges, no displacement, no substituted face. It is the `WatchScre
 residual, reading high only because four lines of 22sp display text on an empty 640×480 are almost
 all edge. Three failures on one lane looked like one cause and were two.
 
-Closing the axis pair turned out to be one line of file selection in the connector's resolver, not
-upstream plumbing: `applyVariationSettings` was already wired end to end, it was simply rebuilding
-the face from a file with no axes left in it. #3478.
+Closing the axis pair was one line of file selection in the connector's resolver rather than upstream
+plumbing: `applyVariationSettings` was wired end to end and was rebuilding the face from a file with
+no axes left in it (#3478). Worth knowing before reaching for the plumbing.
 
 There is no network fetch for a `google:` name — the prefix is stripped and looked up in the same
 manifest. And unlike every other lane, an unsatisfiable family is **fatal rather than substituted**:
@@ -314,8 +314,8 @@ Built-in ids map to the multiplatform `FontFamily.SansSerif`/`Serif`/`Monospace`
 a list of host family candidates skiko can match (canvas ops — skia has no notion of a generic
 family, so `sans-serif`/`Helvetica`/`DejaVu Sans`/… are tried in order).
 
-A `google:` family is **downloaded**. There is no font *provider* off Android, which is why this
-lane used to substitute a local face, but there is a downloader: `GoogleFontTypefaceResolver` (in
+A `google:` family is **downloaded**. There is no font *provider* off Android — which is why
+substituting a local face is the obvious wrong answer here — but there is a downloader: `GoogleFontTypefaceResolver` (in
 `:third-party-rc-embedded-player-jvm`) resolves the family through `:data-fonts-google` — the same
 `(family, weight, italic) -> File` machine-local cache the Robolectric downloadable-font shadow and
 the figma-svg embed path use — and serves both jvm text seams from that one file: a Compose
