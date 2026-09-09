@@ -159,7 +159,7 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
       // that would change it. Scheduling anyway repaints at the display rate for the life of the
       // document.
       is RcParticleCompare ->
-        operation.canEverEvaluate(particleCounts) &&
+        operation.canEverEvaluate(particleCounts, claimed) &&
           // The condition is evaluated THROUGH the system: `evaluate` looks each word up in
           // `system.variableIds` first and only falls back to the global store, so a particle
           // variable whose id happens to equal a clock's shadows it and is not a clock read at all.
@@ -195,13 +195,22 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
  * paint, so the document is refused before the frame loop matters, and guessing here would only
  * replace one failure with another.
  */
-private fun RcParticleCompare.canEverEvaluate(particleCounts: Map<Int, Int>): Boolean {
+private fun RcParticleCompare.canEverEvaluate(
+  particleCounts: Map<Int, Int>,
+  claimed: Set<Int>,
+): Boolean {
   // Both bounds being the SAME word is a relationship the two independent estimates below cannot
   // see: `resolvedIndex` resolves each through `resolve`, so one word yields one index and the
-  // range `i until i` is empty on every frame. Restricted to moving ids because that is where the
-  // non-negativity holds — every clock is at or above zero, and a negative bound would instead mean
-  // "the whole system" for the maximum and 0 for the minimum, which is not empty at all.
-  if (minimumIndex == maximumIndex && minimumIndex.movesWithSystemTime()) return false
+  // range `i until i` is empty on every frame.
+  //
+  // Restricted to a LIVE clock, and both halves of that matter. Moving, because that is where the
+  // non-negativity holds — a negative bound is read as 0 for the minimum and the whole system for
+  // the maximum, which is the widest range rather than an empty one. And live, because a claimed id
+  // is whatever the document set it to, which may well be negative:
+  // `RcFloatConstant(CONTINUOUS_SEC,
+  // -1f)` on both bounds selects every particle, so treating it as empty would withhold frames from
+  // a condition that really can deadlock.
+  if (minimumIndex == maximumIndex && minimumIndex.movesWithSystemTime(claimed)) return false
   val size = particleCounts[id] ?: return true
   val start = minimumIndex.staticIndex(negativeDefault = 0, size = size) ?: 0
   val end = maximumIndex.staticIndex(negativeDefault = size, size = size) ?: size

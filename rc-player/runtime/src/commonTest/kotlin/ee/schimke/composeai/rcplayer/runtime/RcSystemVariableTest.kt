@@ -305,6 +305,28 @@ class RcSystemVariableTest {
       "a float expression over a clock id the document has claimed",
     )
 
+    // …but only while that word is a LIVE clock. A claimed id holds whatever the document set,
+    // which can be negative — and `resolvedIndex` reads a negative bound as 0 for the minimum and
+    // the whole system for the maximum, so identical bounds then select EVERY particle. Withholding
+    // frames here would strand a condition that really can deadlock.
+    assertTrue(
+      document(
+          RcFloatConstant(RcSystemVariables.CONTINUOUS_SEC, RcFloatWord.literal(-1f)),
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(
+            1,
+            0,
+            clock,
+            clock,
+            listOf(RcFloatWord(NAN_REFERENCE or RcSystemVariables.ANIMATION_TIME)),
+            listOf(listOf(still)),
+            emptyList(),
+          ),
+        )
+        .referencesMovingSystemVariable(),
+      "identical bounds over a CLAIMED clock select everything, not nothing",
+    )
+
     // Both bounds being the same moving word selects `i until i` on every frame — empty forever.
     assertFalse(
       document(
