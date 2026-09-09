@@ -23,6 +23,16 @@ jobs:
   #
   # Keep the list here (rather than a third-party path-filter action) so the exact trust boundary is
   # visible and changes to this workflow always exercise the lane once before changing its own gate.
+  #
+  # `Sources` is the Swift overlay, and the whole directory rather than the one target in it: the
+  # `RcComposePlayerSwiftUI` target declares no `path`, so SwiftPM takes `Sources/<target name>` and
+  # any target added later lands here too. `Package.swift` above does not stand in for it — adding a
+  # file to an existing target changes what ships without changing the manifest. It has to be gated
+  # because the two steps that ever compile it are gated: `check-swift-sample.sh` builds
+  # `Sources/RcComposePlayerSwiftUI/*.swift` directly, and the sample Xcode project
+  # `package-apple-player.sh` builds references the same files. Left out, a change confined to the
+  # overlay met neither, and an overlay that does not compile — or no longer matches the
+  # framework — could reach SwiftPM consumers with both Apple checks skipped (#69).
   apple-changes:
     name: Apple packaging changes
     runs-on: ubuntu-latest
@@ -45,6 +55,7 @@ jobs:
             git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
               .github/workflows/ci.yml \
               Package.swift \
+              Sources \
               build.gradle.kts \
               settings.gradle.kts \
               gradle.properties \
