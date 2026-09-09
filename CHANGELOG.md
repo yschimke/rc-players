@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.60.1](https://github.com/yschimke/rc-players/compare/v1.60.0...v1.60.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* **embedded:** lay out a nested FitBox, and let the epoch second move ([#79](https://github.com/yschimke/rc-players/issues/79)) ([4986464](https://github.com/yschimke/rc-players/commit/4986464a74ca24d3e44a04e2749e5aec290c6f48))
+
 ## [1.60.0](https://github.com/yschimke/rc-players/compare/v1.59.4...v1.60.0) (2026-09-08)
 
 
