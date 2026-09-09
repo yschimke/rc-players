@@ -344,13 +344,14 @@ coil3 = "3.5.0"
 # A point pin, deliberately: a range would let a contract change arrive without a pull request.
 composeai-contracts = "2.1.0"
 
-# compose-ai-tools itself, for the two modules this build consumes from it: `data-fonts-google`
+# compose-preview-daemon, for the two modules this build consumes from it: `data-fonts-google`
 # (the `(family, weight, italic) -> File` downloadable-font cache both vendored players share) and
 # `data-layoutinspector-connector` (the production `compose/figma-svg` export the players' captured
 # trees are run through). Both were `project(...)` deps until the player stack was extracted into
-# this repository; they ride compose-ai-tools' own release train, which is a different number from
-# `composeai-contracts` above.
-composeai-tools = "1.53.1"
+# this repository, and rode compose-ai-tools' release train (`composeai-tools`) until the data
+# extractors moved to yschimke/compose-preview-daemon in compose-ai-tools#5336; they ride that
+# repository's line now, from its 3.0.0, which is a different number from `composeai-contracts` above.
+composeai-preview-daemon = "3.0.0"
 
 # The preview server, published from yschimke/compose-preview-server since its 2.0.0 — the
 # extraction #4732 planned. This repository no longer owns `cli/serve`: `compose-preview serve`,
@@ -377,9 +378,9 @@ composeai-data-theme-core = { module = "ee.schimke.composeai:data-theme-core", v
 composeai-data-preview-overrides-core = { module = "ee.schimke.composeai:data-preview-overrides-core", version.ref = "composeai-contracts" }
 composeai-common-io = { module = "ee.schimke.composeai:common-io", version.ref = "composeai-contracts" }
 
-# compose-ai-tools modules (see `composeai-tools`).
-composeai-data-fonts-google = { module = "ee.schimke.composeai:data-fonts-google", version.ref = "composeai-tools" }
-composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data-layoutinspector-connector", version.ref = "composeai-tools" }
+# compose-preview-daemon modules (see `composeai-preview-daemon`).
+composeai-data-fonts-google = { module = "ee.schimke.composeai:data-fonts-google", version.ref = "composeai-preview-daemon" }
+composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data-layoutinspector-connector", version.ref = "composeai-preview-daemon" }
 
 # The preview server (see `composeai-preview-serve`). `-test-fixtures` rides the same coordinates
 # as a Gradle feature variant, so `testFixtures(libs.composeai.preview.serve)` picks it up without

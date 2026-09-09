@@ -264,13 +264,18 @@ first appear at that release. The version comes from `PLUGIN_VERSION` in the env
 and the XCFramework are assembled by the release workflow, which is the only thing that should write
 `Package.swift`.
 
-## Relationship to compose-ai-tools
+## Relationship to compose-ai-tools and compose-preview-daemon
 
 These players were extracted from [yschimke/compose-ai-tools](https://github.com/yschimke/compose-ai-tools),
-which now consumes them as published artifacts. The dependency runs both ways and that is deliberate:
-this repository consumes `data-fonts-google` (one downloadable-font cache, shared by every lane) and
-`data-layoutinspector-connector` (the production `compose/figma-svg` export) back from it. Neither
-direction is a build-time cycle — both sides resolve released coordinates.
+which now consumes them as published artifacts. This repository consumes two data extractors in
+turn — `data-fonts-google` (one downloadable-font cache, shared by every lane) and
+`data-layoutinspector-connector` (the production `compose/figma-svg` export) — which came back
+from compose-ai-tools until they moved to
+[yschimke/compose-preview-daemon](https://github.com/yschimke/compose-preview-daemon) with the
+rest of the extractors (compose-ai-tools#5336). So the edges are: compose-ai-tools → rc-players,
+and rc-players → compose-preview-daemon, which depends on neither. Both are released coordinates
+(`composeai-preview-daemon` in `gradle/libs.versions.toml` pins the second), so nothing is a
+build-time cycle.
 
 ## Licence
 
