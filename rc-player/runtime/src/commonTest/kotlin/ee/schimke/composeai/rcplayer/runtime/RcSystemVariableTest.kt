@@ -253,20 +253,34 @@ class RcSystemVariableTest {
       "an initialization equation over the clock, with no loop to restart it",
     )
 
-    // `EPOCH_SECOND` moves, but a float word cannot read it: `RcPlayerState` publishes it with
-    // `setInteger` and `resolve` reads the float map alone, so the condition stays NaN and never
-    // matches however many frames it is given.
+    // `EPOCH_SECOND` is scheduled like the rest, and the reason is worth pinning down because it
+    // is not obvious from `resolve` alone: `RcPlayerState.setInteger` writes `floats[id]` beside
+    // `integers[id]`, so a float word does read it back. It is coarse — past 2^24 a 32-bit float
+    // counts in steps of 128, so the value moves about twice a minute rather than every second —
+    // but it moves, and a document whose only clock is this one freezes without frames.
     val epoch = RcFloatWord(NAN_REFERENCE or RcSystemVariables.EPOCH_SECOND)
-    assertFalse(
+    assertTrue(
       document(
-          RcParticleCompare(1, 0, still, still, listOf(epoch), listOf(listOf(still)), emptyList())
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, still, still, listOf(epoch), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
-      "a condition over the epoch clock, which no float word resolves",
+      "a condition over the epoch clock",
     )
-    assertFalse(
+    assertTrue(
       document(RcFloatExpression(100, listOf(epoch), null)).referencesMovingSystemVariable(),
       "a float expression over the epoch clock",
+    )
+
+    // A comparison over a system with NO particles cannot match: `compare` iterates an empty range,
+    // never sets `changed`, and asks for no frame — and no later state can change that.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 0, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, still, still, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a clock-reading comparison over a zero-particle system",
     )
 
     // …and a particle system that reads no clock still asks for nothing, so an ordinary static

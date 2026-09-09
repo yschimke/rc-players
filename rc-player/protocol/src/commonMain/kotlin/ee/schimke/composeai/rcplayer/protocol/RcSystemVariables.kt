@@ -124,40 +124,37 @@ public object RcSystemVariables {
  * through an expression list) is still not detected; no writer emits that shape today, and a scan
  * of every word of every operation would need the model to expose them generically.
  */
-public fun RcDocument.referencesMovingSystemVariable(): Boolean = operations.any { operation ->
-  when (operation) {
-    is RcFloatExpression ->
-      operation.expression.movesWithSystemTime() ||
-        operation.animation?.movesWithSystemTime() == true
-    is RcPathExpression ->
-      operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
-    is RcParticleCompare ->
-      operation.condition.movesWithSystemTime() ||
-        operation.minimumIndex.movesWithSystemTime() ||
-        operation.maximumIndex.movesWithSystemTime()
-    else -> false
+public fun RcDocument.referencesMovingSystemVariable(): Boolean {
+  // The last definition wins, as it does in the runtime's own `define`.
+  val particleCounts =
+    operations.filterIsInstance<RcParticleDefine>().associate { it.id to it.particleCount }
+  return operations.any { operation ->
+    when (operation) {
+      is RcFloatExpression ->
+        operation.expression.movesWithSystemTime() ||
+          operation.animation?.movesWithSystemTime() == true
+      is RcPathExpression ->
+        operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
+      // A system with no particles is the third shape that cannot deadlock: `compare` iterates
+      // `start until end` over `system.particles`, so an empty system matches nothing, leaves
+      // `changed` false and asks for no frame — and there is no later state that could change
+      // that. Scheduling it would repaint at the display rate for the life of the document.
+      is RcParticleCompare ->
+        particleCounts[operation.id] != 0 &&
+          (operation.condition.movesWithSystemTime() ||
+            operation.minimumIndex.movesWithSystemTime() ||
+            operation.maximumIndex.movesWithSystemTime())
+      else -> false
+    }
   }
 }
 
-/**
- * The moving ids a FLOAT word can actually read back.
- *
- * `EPOCH_SECOND` is in [RcSystemVariables.MOVING] because it moves, and is excluded here because a
- * float word cannot see it: `RcPlayerState` publishes it with `setInteger`, and `resolve` reads the
- * float map alone, so the word stays at its own NaN-encoded reference value. That is deliberate on
- * the runtime's part rather than an oversight to repair — epoch seconds are past 2^24, where a
- * 32-bit float can no longer count by ones — so a document naming it in a float expression is
- * already reading NaN, and scheduling frames for it would repaint forever on a value no frame can
- * change.
- */
-private val MOVING_FLOAT_IDS: Set<Int> = RcSystemVariables.MOVING - RcSystemVariables.EPOCH_SECOND
-
-private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in MOVING_FLOAT_IDS
+private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in RcSystemVariables.MOVING
 
 private fun List<List<RcFloatWord>>.anyMovesWithSystemTime(): Boolean = any {
   it.movesWithSystemTime()
 }
 
 private fun List<RcFloatWord>.movesWithSystemTime(): Boolean = any {
-  it.referencedId in MOVING_FLOAT_IDS
+  it.referencedId in RcSystemVariables.MOVING
 }
