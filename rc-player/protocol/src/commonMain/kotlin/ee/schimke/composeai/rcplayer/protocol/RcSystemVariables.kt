@@ -95,10 +95,22 @@ public object RcSystemVariables {
  * would freeze an animation.
  *
  * Float expressions and path expressions are the two places a document can name one of these ids
- * and turn it into geometry, and they are what the `remote-m3` progress indicators use. An
- * operation that references a moving id *directly* in one of its own float words (rather than
- * through an expression) is not detected; no writer emits that shape today, and a scan of every
- * word of every operation would need the model to expose them generically.
+ * and turn it into geometry, and they are what the `remote-m3` progress indicators use.
+ *
+ * The particle operations carry expressions of their own, and they are here for a sharper reason
+ * than completeness: a particle system that reads the clock and is not given frames cannot reach
+ * the state that would ask for them. `RcParticleRuntime.forEach` requests the next frame while any
+ * particle is unfrozen, so a loop keeps itself alive — but `compare` requests one only when a
+ * comparison actually matched, matching the reference (`ParticlesCompare` guards its own
+ * `needsRepaint()` on having run a child). A standalone comparison whose condition reads
+ * `CONTINUOUS_SEC` therefore starts false, asks for nothing, and the clock never advances to make
+ * it true: a document that is animated in the AndroidX player holds its first pose here, forever.
+ * Scheduling it unconditionally instead would repaint every static comparison for the life of the
+ * document, which is the cost the reference's own guard exists to avoid.
+ *
+ * An operation that references a moving id *directly* in one of its own float words (rather than
+ * through an expression list) is still not detected; no writer emits that shape today, and a scan
+ * of every word of every operation would need the model to expose them generically.
  */
 public fun RcDocument.referencesMovingSystemVariable(): Boolean = operations.any { operation ->
   when (operation) {
@@ -107,8 +119,22 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean = operations.any
         operation.animation?.movesWithSystemTime() == true
     is RcPathExpression ->
       operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
+    // Reinitialization runs on every restart, not only at seeding, so an initial equation over the
+    // clock moves for as long as the system does.
+    is RcParticleDefine -> operation.initializationEquations.anyMovesWithSystemTime()
+    is RcParticleLoop ->
+      operation.restartEquation.movesWithSystemTime() ||
+        operation.updateEquations.anyMovesWithSystemTime()
+    is RcParticleCompare ->
+      operation.condition.movesWithSystemTime() ||
+        operation.firstEquations.anyMovesWithSystemTime() ||
+        operation.secondEquations.anyMovesWithSystemTime()
     else -> false
   }
+}
+
+private fun List<List<RcFloatWord>>.anyMovesWithSystemTime(): Boolean = any {
+  it.movesWithSystemTime()
 }
 
 private fun List<RcFloatWord>.movesWithSystemTime(): Boolean = any {

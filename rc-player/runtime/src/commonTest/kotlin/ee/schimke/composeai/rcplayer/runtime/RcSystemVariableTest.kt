@@ -5,6 +5,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
+import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
@@ -174,6 +178,62 @@ class RcSystemVariableTest {
       )
     assertTrue(
       RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(path)).referencesMovingSystemVariable()
+    )
+  }
+
+  @Test
+  fun aParticleSystemThatReadsTheClockAsksForFramesItCannotRequestItself() {
+    // The deadlock this covers is specific to `ParticlesCompare`. `RcParticleRuntime.forEach` asks
+    // for the next frame while any particle is unfrozen, so a loop keeps itself alive whatever the
+    // scan says. `compare` asks only when a comparison MATCHED — deliberately, because the
+    // reference guards its own `needsRepaint()` the same way — so a standalone comparison whose
+    // condition reads the clock starts false, requests nothing, and can never become true. Without
+    // this the document is animated in the AndroidX player and frozen on its first pose here.
+    val clock = RcFloatWord(NAN_REFERENCE or RcSystemVariables.CONTINUOUS_SEC)
+    val still = RcFloatWord.literal(0f)
+    fun document(vararg operations: RcOperation) =
+      RcDocument(RcHeader(RcVersion(1, 0, 0)), operations.toList())
+
+    assertTrue(
+      document(
+          RcParticleCompare(1, 0, still, still, listOf(clock), listOf(listOf(still)), emptyList())
+        )
+        .referencesMovingSystemVariable(),
+      "a comparison CONDITION over the clock",
+    )
+    assertTrue(
+      document(
+          RcParticleCompare(1, 0, still, still, listOf(still), listOf(listOf(clock)), emptyList())
+        )
+        .referencesMovingSystemVariable(),
+      "a comparison RESULT over the clock",
+    )
+    assertTrue(
+      document(RcParticleLoop(1, listOf(clock), listOf(listOf(still))))
+        .referencesMovingSystemVariable(),
+      "a restart equation over the clock",
+    )
+    assertTrue(
+      document(RcParticleLoop(1, listOf(still), listOf(listOf(clock))))
+        .referencesMovingSystemVariable(),
+      "an update equation over the clock",
+    )
+    // Reinitialization runs on every restart, not only at seeding.
+    assertTrue(
+      document(RcParticleDefine(1, 4, listOf(7), listOf(listOf(clock))))
+        .referencesMovingSystemVariable(),
+      "an initialization equation over the clock",
+    )
+
+    // …and a particle system that reads no clock still asks for nothing, so an ordinary static
+    // comparison is not repainted for the life of the document.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleLoop(1, listOf(still), listOf(listOf(still))),
+          RcParticleCompare(1, 0, still, still, listOf(still), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable()
     )
   }
 
