@@ -135,7 +135,7 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
           operation.animation?.movesWithSystemTime() == true
       is RcPathExpression ->
         operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
-      // A system too small for the comparison's own shape is the third case that cannot deadlock.
+      // A range too small for the comparison's own shape is the third case that cannot deadlock.
       // `compare` reaches its condition only inside a loop over `system.particles`: one particle is
       // enough in single mode, but pair mode nests `firstIndex in secondIndex + 1 until end` and so
       // needs two. Below that the condition is never evaluated, `changed` stays false, no frame is
@@ -143,7 +143,7 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
       // that would change it. Scheduling anyway repaints at the display rate for the life of the
       // document.
       is RcParticleCompare ->
-        operation.hasEnoughParticles(particleCounts) &&
+        operation.canEverEvaluate(particleCounts) &&
           (operation.condition.movesWithSystemTime() ||
             operation.minimumIndex.movesWithSystemTime() ||
             operation.maximumIndex.movesWithSystemTime())
@@ -153,15 +153,36 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
 }
 
 /**
- * Whether [particleCounts] gives this comparison a system big enough for it to evaluate anything.
+ * Whether this comparison's SELECTED RANGE can ever hold enough particles for it to evaluate
+ * anything.
+ *
+ * `compare` reaches its condition only inside a loop over `start until end`, and how much of that
+ * range it needs depends on the comparison's own shape: single mode evaluates from the first
+ * particle, while pair mode nests `firstIndex in secondIndex + 1 until end` and evaluates nothing
+ * until the range holds two. Below that the condition never runs, `changed` stays false, and no
+ * frame is requested — with nothing a later frame could change, which is what separates this from
+ * the deadlock the scan exists for.
+ *
+ * The bounds are read the way `resolvedIndex` reads them: a negative minimum means 0, a negative
+ * maximum means the whole system, and anything else is clamped into the system. A bound that is a
+ * REFERENCE is taken at its widest — 0 for the minimum, the system size for the maximum — because
+ * its value can move, and assuming the widest range can only keep frames coming.
  *
  * A system this document never defines is left scheduled: `requireSystem` throws on the first
  * paint, so the document is refused before the frame loop matters, and guessing here would only
  * replace one failure with another.
  */
-private fun RcParticleCompare.hasEnoughParticles(particleCounts: Map<Int, Int>): Boolean {
-  val count = particleCounts[id] ?: return true
-  return count >= if (secondEquations.isEmpty()) 1 else 2
+private fun RcParticleCompare.canEverEvaluate(particleCounts: Map<Int, Int>): Boolean {
+  val size = particleCounts[id] ?: return true
+  val start = minimumIndex.staticIndex(negativeDefault = 0, size = size) ?: 0
+  val end = maximumIndex.staticIndex(negativeDefault = size, size = size) ?: size
+  return end - start >= if (secondEquations.isEmpty()) 1 else 2
+}
+
+/** The index this word resolves to before any frame runs, or null if it can move. */
+private fun RcFloatWord.staticIndex(negativeDefault: Int, size: Int): Int? {
+  if (referencedId != null || value.isNaN()) return null
+  return if (value < 0f) negativeDefault else value.toInt().coerceIn(0, size)
 }
 
 private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in RcSystemVariables.MOVING

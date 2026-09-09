@@ -191,13 +191,15 @@ class RcSystemVariableTest {
     // this the document is animated in the AndroidX player and frozen on its first pose here.
     val clock = RcFloatWord(NAN_REFERENCE or RcSystemVariables.CONTINUOUS_SEC)
     val still = RcFloatWord.literal(0f)
+    // `resolvedIndex` reads a negative bound as "the whole system": 0 for the minimum, the particle
+    // count for the maximum. Every case below that is not ABOUT the index range says so with this,
+    // because `still` as a maximum would select nothing and decide the answer on its own.
+    val all = RcFloatWord.literal(-1f)
     fun document(vararg operations: RcOperation) =
       RcDocument(RcHeader(RcVersion(1, 0, 0)), operations.toList())
 
     assertTrue(
-      document(
-          RcParticleCompare(1, 0, still, still, listOf(clock), listOf(listOf(still)), emptyList())
-        )
+      document(RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()))
         .referencesMovingSystemVariable(),
       "a comparison CONDITION over the clock",
     )
@@ -205,9 +207,7 @@ class RcSystemVariableTest {
     // already ends in `requestNextFrame()`. A clock the condition never selects animates nothing,
     // and answering true would repaint for the life of the document.
     assertFalse(
-      document(
-          RcParticleCompare(1, 0, still, still, listOf(still), listOf(listOf(clock)), emptyList())
-        )
+      document(RcParticleCompare(1, 0, all, all, listOf(still), listOf(listOf(clock)), emptyList()))
         .referencesMovingSystemVariable(),
       "a comparison RESULT over the clock",
     )
@@ -230,7 +230,7 @@ class RcSystemVariableTest {
     // way a condition does.
     assertTrue(
       document(
-          RcParticleCompare(1, 0, clock, still, listOf(still), listOf(listOf(still)), emptyList())
+          RcParticleCompare(1, 0, clock, all, listOf(still), listOf(listOf(still)), emptyList())
         )
         .referencesMovingSystemVariable(),
       "a minimumIndex over the clock",
@@ -262,7 +262,7 @@ class RcSystemVariableTest {
     assertTrue(
       document(
           RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(1, 0, still, still, listOf(epoch), listOf(listOf(still)), emptyList()),
+          RcParticleCompare(1, 0, all, all, listOf(epoch), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
       "a condition over the epoch clock",
@@ -277,10 +277,55 @@ class RcSystemVariableTest {
     assertFalse(
       document(
           RcParticleDefine(1, 0, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(1, 0, still, still, listOf(clock), listOf(listOf(still)), emptyList()),
+          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
       "a clock-reading comparison over a zero-particle system",
+    )
+    // …and a range too narrow for the comparison's shape is the same case as too few particles:
+    // two particles, but literal bounds selecting only index 0, with pair mode needing two.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 2, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(
+            1,
+            0,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(1f),
+            listOf(clock),
+            listOf(listOf(still)),
+            listOf(listOf(still)),
+          ),
+        )
+        .referencesMovingSystemVariable(),
+      "a clock-reading PAIR comparison over a statically one-wide range",
+    )
+    // The single-mode counterpart: a statically EMPTY range evaluates nothing either.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(
+            1,
+            0,
+            RcFloatWord.literal(2f),
+            RcFloatWord.literal(2f),
+            listOf(clock),
+            listOf(listOf(still)),
+            emptyList(),
+          ),
+        )
+        .referencesMovingSystemVariable(),
+      "a clock-reading comparison over a statically empty range",
+    )
+    // But a MOVING bound is exactly the deadlock this scan exists for — the range widens later, so
+    // it must not be read as statically empty.
+    assertTrue(
+      document(
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a maximumIndex over the clock, with a system to widen into",
     )
     // Pair mode nests `firstIndex in secondIndex + 1 until end`, so one particle is one too few.
     assertFalse(
@@ -289,8 +334,8 @@ class RcSystemVariableTest {
           RcParticleCompare(
             1,
             0,
-            still,
-            still,
+            all,
+            all,
             listOf(clock),
             listOf(listOf(still)),
             listOf(listOf(still)),
@@ -303,7 +348,7 @@ class RcSystemVariableTest {
     assertTrue(
       document(
           RcParticleDefine(1, 1, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(1, 0, still, still, listOf(clock), listOf(listOf(still)), emptyList()),
+          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
       "a clock-reading single comparison over a one-particle system",
@@ -315,7 +360,7 @@ class RcSystemVariableTest {
       document(
           RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
           RcParticleLoop(1, listOf(still), listOf(listOf(still))),
-          RcParticleCompare(1, 0, still, still, listOf(still), listOf(listOf(still)), emptyList()),
+          RcParticleCompare(1, 0, all, all, listOf(still), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable()
     )
