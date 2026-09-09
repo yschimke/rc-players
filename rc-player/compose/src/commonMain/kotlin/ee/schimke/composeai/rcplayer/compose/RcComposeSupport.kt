@@ -76,6 +76,7 @@ import ee.schimke.composeai.rcplayer.protocol.supportReport
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcIntegerExpressionEvaluator
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutTree
+import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.hasPortableVisibilityAnimation
 import ee.schimke.composeai.rcplayer.runtime.isLayoutComputeExecutable
@@ -205,10 +206,8 @@ public fun RcDocument.composeSupportReport(
   // failure itself (`ContainerStructure`, below). The raw stream is the fallback there, which is no
   // worse than what these checks would otherwise see.
   val linkResult = runCatching { RcDocumentLinker.link(this) }
-  val executed =
-    linkResult.getOrNull()?.let { executedOperations(it.operations) }
-      ?: operations.map { RcExecutedOperation(it, certain = true) }
-  val installedShaders = installedShaderDeclarations(executed, operations, shaderIds)
+  val reachable = reachableOperations(this, linkResult.getOrNull())
+  val paintedShaderIds = referencedShaderIds(reachable, shaderIds)
   val fontIds = operations.filterIsInstance<RcFontData>().mapTo(mutableSetOf()) { it.fontId }
   val particleDefinitionGroups = operations.filterIsInstance<RcParticleDefine>().groupBy { it.id }
   val particleDefinitions = particleDefinitionGroups.mapValues { it.value.last() }
@@ -390,7 +389,7 @@ public fun RcDocument.composeSupportReport(
               index,
               "ShaderData",
               "shader source is not accepted by the Skia runtime",
-              if (operation in installedShaders) RcComposeSupportSeverity.BLOCKING
+              if (operation.shaderId in paintedShaderIds) RcComposeSupportSeverity.BLOCKING
               else RcComposeSupportSeverity.SKIPPABLE,
             )
         operation.floatUniforms.any { it.value.isEmpty() } ->
@@ -1212,7 +1211,7 @@ public fun RcDocument.composeSupportReport(
       issues += RcComposeSupportIssue(-1, "ContainerStructure", it.message ?: "invalid")
     },
   )
-  issues += offscreenAllocationIssues(executed, operations)
+  issues += offscreenAllocationIssues(reachable, operations)
   return RcComposeSupportReport(issues)
 }
 
@@ -1224,132 +1223,62 @@ public fun RcDocument.composeSupportReport(
  * position, not about the document as a set.
  */
 /**
- * One operation the renderer can reach, and whether reaching it is CERTAIN.
+ * Every operation the renderer COULD reach, over-approximated on purpose.
  *
- * The flag is what keeps the shader walk honest across control flow. A declaration inside a
- * conditional may or may not run, so it cannot be treated as having replaced the one before it —
- * see [installedShaderDeclarations].
+ * The union of the wire stream and the fully flattened linked tree, which is a superset of what any
+ * frame executes and needs no reasoning about control flow to compute. Each half covers the other's
+ * blind spot: the wire stream holds a `ReferencedOperations` block the linker drops, and the linked
+ * tree holds a `MacroDefine` body the wire stream never had. Function bodies are walked wherever
+ * they appear, so a body is counted whether or not a call reaches it.
+ *
+ * ## Why an over-approximation rather than the real answer
+ *
+ * Earlier revisions of this PR tried to compute what the renderer actually reaches: which
+ * declaration is live at a paint, which bodies a call expands, which branch of a conditional runs.
+ * Every refinement was correct about the case that prompted it and wrong about the next one, and
+ * the last round produced findings in both directions at once — the walk was unsound across theme
+ * markers and per-canvas runtime boundaries while being too strict inside a single conditional
+ * branch. Getting that right means a path-sensitive, theme-aware, per-invocation dataflow analysis
+ * with dominance, which is a static analyser and not a preflight helper.
+ *
+ * So this errs, deliberately and in one direction: it can refuse a document the renderer would have
+ * played (65 targets parked in a block nothing includes; an invalid shader some paint names but no
+ * frame installs), and it cannot report renderable a document that throws. That is the direction
+ * this file exists to protect — `requireRenderable` promising a lenient host a document it then
+ * dies on is the failure being fixed, and refusing an exotic document is the cheaper mistake. The
+ * precise analysis is worth having and belongs in its own change.
  */
-private class RcExecutedOperation(val operation: RcOperation, val certain: Boolean)
-
-/**
- * The operations the renderer can reach, in execution order, from the linked tree.
- *
- * Two things this is not: it is not `document.operations`, which holds definitions the renderer
- * never runs; and it is not a plain walk of the linked tree either, because two node kinds move
- * their bodies:
- * - a `FloatFunctionDefine` is registered and stepped over where it is defined, and its children
- *   are drawn from each `FloatFunctionCall` instead — so the body is expanded at the calls, once
- *   per call, and not at the definition;
- * - a call already on the stack is skipped, matching the renderer's own `functions.executing`
- *   guard, which rejects recursion rather than following it.
- *
- * Certainty is granted conservatively: only the top level and the handful of container kinds that
- * always draw their children carry it forward. Anything else — a conditional, a loop, an impulse,
- * an action, a particle body, a called function — is marked uncertain, which can only widen what
- * the shader walk considers live. Missing a container from [CERTAIN_CHILD_OPCODES] costs precision;
- * wrongly adding one would cost soundness, so the set is short on purpose.
- */
-private fun executedOperations(nodes: List<RcLinkedNode>): List<RcExecutedOperation> {
-  val definitions = mutableMapOf<Int, RcLinkedNode.Container>()
-  fun collectDefinitions(list: List<RcLinkedNode>) {
-    list.forEach { node ->
-      if (node is RcLinkedNode.Container) {
-        (node.operation as? RcFloatFunctionDefine)?.let { definitions[it.id] = node }
-        collectDefinitions(node.children)
-      }
-    }
+private fun reachableOperations(
+  document: RcDocument,
+  linked: RcLinkedDocument?,
+): List<RcOperation> {
+  if (linked == null) return document.operations
+  val flat = mutableListOf<RcOperation>()
+  fun visit(node: RcLinkedNode) {
+    flat += node.operation()
+    if (node is RcLinkedNode.Container) node.children.forEach(::visit)
   }
-  collectDefinitions(nodes)
-
-  val flat = mutableListOf<RcExecutedOperation>()
-  val calling = mutableSetOf<Int>()
-  fun visit(node: RcLinkedNode, certain: Boolean) {
-    val operation = node.operation()
-    flat += RcExecutedOperation(operation, certain)
-    if (operation is RcFloatFunctionCall) {
-      val definition = definitions[operation.functionId] ?: return
-      if (!calling.add(operation.functionId)) return
-      definition.children.forEach { visit(it, certain = false) }
-      calling.remove(operation.functionId)
-      return
-    }
-    if (node is RcLinkedNode.Container && operation !is RcFloatFunctionDefine) {
-      val childrenCertain = certain && operation.opcode in CERTAIN_CHILD_OPCODES
-      node.children.forEach { visit(it, childrenCertain) }
-    }
-  }
-  nodes.forEach { visit(it, certain = true) }
-  return flat
+  linked.operations.forEach(::visit)
+  return document.operations + flat
 }
 
-/** Containers whose children draw whenever the container itself does. Deliberately short. */
-private val CERTAIN_CHILD_OPCODES =
-  setOf(
-    RcOpcodes.CANVAS_OPERATIONS,
-    RcOpcodes.COMPONENT_START,
-    RcOpcodes.LAYOUT_ROOT,
-    RcOpcodes.LAYOUT_CONTENT,
-    RcOpcodes.LAYOUT_BOX,
-    RcOpcodes.LAYOUT_ROW,
-    RcOpcodes.LAYOUT_COLUMN,
-  )
-
 /**
- * Which shader DECLARATIONS a paint can install, walked in execution order.
+ * Which declared shaders any reachable paint names.
  *
- * Not a set of ids: the renderer keeps one live shader per id and overwrites it as it walks
- * (`functions.shaders[operation.shaderId] = operation`), so a document may declare id 7 invalid,
- * declare it again valid, and paint with 7 — and draw perfectly well. Recording the id would
- * condemn the superseded declaration and refuse that document.
- *
- * But a redeclaration only *supersedes* if it is certain to run. One inside a conditional may be
- * skipped, leaving the earlier declaration live at the paint, so an uncertain declaration is added
- * to what might be installed rather than replacing it. This keeps the answer sound where the
- * previous, position-only version was not: a valid shader declared inside a conditional does not
- * excuse an invalid one declared before it.
- *
- * Where a paint reaches an id with nothing recorded, `buildRuntimeShader` falls back to the LAST
- * declaration of that id anywhere in the wire document, whatever the order — so a paint preceding
- * its own shader still installs one, and that fallback is mirrored here.
+ * An id here is one the renderer might be asked to build, so an unbuildable source declared under
+ * it is BLOCKING rather than SKIPPABLE — see [reachableOperations] for why this is a "might" and
+ * not a "will".
  *
  * Reusing `paintIssue` rather than writing a second walk is the point: the argument-length table it
  * carries is the only thing that knows where a shader id sits in the word stream, and two copies of
  * it would drift. A malformed paint stops its own walk early, so what it references beyond the
  * fault is unknown — that paint is already reported as an issue of its own, and a document with one
  * is refused before any of this matters.
- *
- * Declarations compare by value, so a document that declares the same shader twice and paints one
- * of them marks both. That over-reports the index and not the verdict: the copy the renderer does
- * install is unbuildable, so refusing the document is right either way.
  */
-private fun installedShaderDeclarations(
-  executed: List<RcExecutedOperation>,
-  declared: List<RcOperation>,
-  shaderIds: Set<Int>,
-): Set<RcShaderData> {
-  val fallback = declared.filterIsInstance<RcShaderData>().associateBy { it.shaderId }
-  val live = mutableMapOf<Int, MutableSet<RcShaderData>>()
-  val installed = mutableSetOf<RcShaderData>()
-  executed.forEach { step ->
-    when (val operation = step.operation) {
-      is RcShaderData -> {
-        val forId = live.getOrPut(operation.shaderId) { mutableSetOf() }
-        if (step.certain) forId.clear()
-        forId += operation
-      }
-      is RcPaintData -> {
-        val referenced = mutableSetOf<Int>()
-        paintIssue(operation, shaderIds, referenced)
-        referenced.forEach { id ->
-          val candidates = live[id]?.takeIf { it.isNotEmpty() }
-          if (candidates != null) installed += candidates else fallback[id]?.let(installed::add)
-        }
-      }
-      else -> Unit
-    }
-  }
-  return installed
+private fun referencedShaderIds(reachable: List<RcOperation>, shaderIds: Set<Int>): Set<Int> {
+  val referenced = mutableSetOf<Int>()
+  reachable.filterIsInstance<RcPaintData>().forEach { paintIssue(it, shaderIds, referenced) }
+  return referenced
 }
 
 /**
@@ -1370,7 +1299,7 @@ private fun installedShaderDeclarations(
  *   next to the operation — neither reaches an allocation, so neither is counted here.
  */
 private fun offscreenAllocationIssues(
-  executed: List<RcExecutedOperation>,
+  reachable: List<RcOperation>,
   declarations: List<RcOperation>,
 ): List<RcComposeSupportIssue> {
   val limits = RcOffscreenTargetLimits()
@@ -1379,18 +1308,23 @@ private fun offscreenAllocationIssues(
   // declared inside a `ReferencedOperations` block nothing includes is still decoded and still
   // available to an active `DrawToBitmap` elsewhere. Taking declarations from the linked stream
   // dropped those ids and, with them, the targets that use them.
-  // The decoder keeps the last declaration of an id that DECODES, not the last one written:
-  // `decodeInlineImagesUncounted` drops a failed decode before `toMap()` chooses, so a corrupt
-  // redeclaration leaves the earlier good image in place. `associateBy` would have sized the
-  // target from the corrupt one.
+  // Resources come from the WIRE stream, because that is where the decoder reads them:
+  // `decodeInlineImagesUncounted` walks `document.operations`, so a bitmap parked in a
+  // `ReferencedOperations` block nothing includes is still decoded and still available to a
+  // `DrawToBitmap` elsewhere.
+  //
+  // A duplicated id is sized by its LARGEST declaration. Which one the renderer keeps depends on
+  // which payload decodes, and a decoder is exactly what this check does not have — so it takes the
+  // one that could refuse the document rather than the one that could let a crash through.
   val declared =
     declarations
       .filterIsInstance<RcBitmapData>()
       .groupBy { it.imageId }
-      .mapValues { (_, all) -> all.lastOrNull { it.isDecodable() } ?: all.last() }
+      .mapValues { (_, all) ->
+        all.maxBy { offscreenTargetSize(it).let { (w, h) -> w.toLong() * h.toLong() } }
+      }
   val targets =
-    executed
-      .map { it.operation }
+    reachable
       .filterIsInstance<RcDrawToBitmap>()
       .map { it.bitmapId }
       .filter { it != 0 && it in declared }
@@ -1452,24 +1386,6 @@ private fun offscreenTargetSize(bitmap: RcBitmapData): Pair<Int, Int> {
       bitmap.type == RcBitmapData.TYPE_PNG_ALPHA_8
   return (if (encodedAsPng) pngHeaderSize(bitmap.data) else null) ?: (bitmap.width to bitmap.height)
 }
-
-/**
- * Whether `decodeInlineImage` could plausibly build this bitmap, judged without a decoder.
- *
- * Only as sharp as the metadata allows: a readable PNG header, or a raw payload long enough for the
- * dimensions it declares — the same `require` the decoder makes. It exists to choose between
- * DUPLICATE declarations of one id the way the decoder does, not to rule on decodability in
- * general.
- */
-private fun RcBitmapData.isDecodable(): Boolean =
-  when (type) {
-    RcBitmapData.TYPE_PNG_8888,
-    RcBitmapData.TYPE_PNG,
-    RcBitmapData.TYPE_PNG_ALPHA_8 -> pngHeaderSize(data) != null
-    RcBitmapData.TYPE_RAW8888 -> data.size >= width.toLong() * height.toLong() * 4L
-    RcBitmapData.TYPE_RAW8 -> data.size >= width.toLong() * height.toLong()
-    else -> false
-  }
 
 /** Width and height from a PNG's IHDR, or null if [data] is not a PNG header this can read. */
 private fun pngHeaderSize(data: ByteArray): Pair<Int, Int>? {

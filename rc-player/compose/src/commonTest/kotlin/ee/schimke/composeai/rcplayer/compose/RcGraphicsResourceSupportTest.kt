@@ -165,10 +165,11 @@ class RcGraphicsResourceSupportTest {
   }
 
   @Test
-  fun ignoresTargetsInAReferencedBlockNothingIncludes() {
-    // `RcDocumentLinker` drops a `ReferencedOperations` definition no `IncludeReferencedOperations`
-    // names, so its draws never happen and never allocate. Counting the wire stream would refuse a
-    // document the renderer plays without touching the pool at all.
+  fun countsTargetsInAReferencedBlockNothingIncludes() {
+    // Another deliberate over-refusal. `RcDocumentLinker` drops a definition no
+    // `IncludeReferencedOperations` names, so these 65 targets never allocate — but the wire stream
+    // is half of what is scanned, and it is the half that catches a macro body the linked tree
+    // would have shown instead. Counting both means counting some draws that never happen.
     val operations =
       listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(RcReferencedOperations(7)) +
         (1..65).flatMap { id ->
@@ -179,14 +180,22 @@ class RcGraphicsResourceSupportTest {
         } +
         listOf(RcNoArg(RcOpcodes.CONTAINER_END))
 
-    assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
+    assertEquals(
+      listOf("document declares 65 mutable targets; the renderer allocates at most 64"),
+      RcDocument(header, operations).composeSupportReport().issues.map { it.detail },
+    )
   }
 
   @Test
-  fun keepsAShaderSkippableWhenALaterDeclarationSupersedesItBeforeThePaint() {
-    // The renderer overwrites `functions.shaders[id]` as it walks, so the paint installs the SECOND
-    // declaration of id 3. Condemning the superseded one by its id alone would refuse a document
-    // that draws.
+  fun refusesASupersededShaderToo() {
+    // A KNOWN over-refusal, asserted so it stays deliberate. The paint installs the second, valid
+    // declaration of id 3, so the renderer draws this; the walk records only that some reachable
+    // paint names id 3, and condemns the invalid declaration under it.
+    //
+    // Tracking which declaration is live at the paint is what earlier revisions attempted, and it
+    // cannot be done from position alone — a conditional, a theme marker or a canvas boundary each
+    // change the answer. Refusing a document the renderer would play is the direction this check
+    // errs in; the reverse would be a crashed frame.
     val report =
       RcDocument(
           header,
@@ -200,8 +209,7 @@ class RcGraphicsResourceSupportTest {
         )
         .composeSupportReport()
 
-    assertEquals(listOf(RcComposeSupportSeverity.SKIPPABLE), report.issues.map { it.severity })
-    assertTrue(report.playable)
+    assertEquals(listOf(RcComposeSupportSeverity.BLOCKING), report.issues.map { it.severity })
   }
 
   @Test
@@ -243,10 +251,10 @@ class RcGraphicsResourceSupportTest {
   }
 
   @Test
-  fun ignoresTargetsInAFunctionBodyNothingCalls() {
-    // `drawOperations` registers a `FloatFunctionDefine` and `continue`s past its children, so its
-    // body draws only where a call reaches it. Counting the body as executed refused a document
-    // whose pool allocates nothing.
+  fun countsTargetsInAFunctionBodyNothingCalls() {
+    // The same trade once more: `drawOperations` steps over a `FloatFunctionDefine` and draws its
+    // children only where a call reaches them, so an uncalled body allocates nothing. Deciding
+    // which bodies are called is reachability, and the walk does not do reachability.
     val operations =
       listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
         RcFloatFunctionDefine(9, listOf(1))
@@ -259,7 +267,10 @@ class RcGraphicsResourceSupportTest {
         } +
         listOf(RcNoArg(RcOpcodes.CONTAINER_END))
 
-    assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
+    assertEquals(
+      listOf("document declares 65 mutable targets; the renderer allocates at most 64"),
+      RcDocument(header, operations).composeSupportReport().issues.map { it.detail },
+    )
   }
 
   @Test
@@ -312,21 +323,23 @@ class RcGraphicsResourceSupportTest {
   }
 
   @Test
-  fun sizesADuplicateIdByTheDeclarationThatDecodes() {
-    // `decodeInlineImagesUncounted` drops a failed decode before `toMap()` picks a winner, so a
-    // corrupt redeclaration leaves the earlier good image in place and the renderer draws that.
-    // Sizing from the last declaration written would refuse a document that draws a 1x1 target.
+  fun sizesADuplicateIdByItsLargestDeclaration() {
+    // Which declaration of a repeated id the renderer keeps depends on which payload DECODES, and a
+    // decoder is what this check does not have: a readable IHDR says nothing about the body behind
+    // it. So the largest is taken — the one that can refuse the document rather than the one that
+    // can let a crash through.
     val operations =
       listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
         RcBitmapData(1, 1, 1, RcBitmapData.TYPE_RAW8888, 0, ByteArray(4)),
-        // Declares 8192x8192 — over the aggregate budget on its own — with four bytes that are not
-        // a PNG, so `Image.makeFromEncoded` fails, the decoder drops it, and the 1x1 above
-        // survives.
         RcBitmapData(1, 8192, 8192, RcBitmapData.TYPE_PNG_8888, 0, ByteArray(4)),
         RcDrawToBitmap(1, 0, 0),
       )
 
-    assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
+    assertTrue(
+      RcDocument(header, operations).composeSupportReport().issues.any {
+        "mutable targets total" in it.detail
+      }
+    )
   }
 
   @Test
