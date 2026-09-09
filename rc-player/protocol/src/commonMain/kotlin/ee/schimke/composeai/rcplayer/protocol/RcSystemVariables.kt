@@ -95,22 +95,126 @@ public object RcSystemVariables {
  * would freeze an animation.
  *
  * Float expressions and path expressions are the two places a document can name one of these ids
- * and turn it into geometry, and they are what the `remote-m3` progress indicators use. An
- * operation that references a moving id *directly* in one of its own float words (rather than
- * through an expression) is not detected; no writer emits that shape today, and a scan of every
- * word of every operation would need the model to expose them generically.
+ * and turn it into geometry, and they are what the `remote-m3` progress indicators use.
+ *
+ * The particle operations carry expressions of their own, and one of them is here for a sharper
+ * reason than completeness: a particle system that reads the clock and is not given frames cannot
+ * always reach the state that would ask for them. Which of them need it is decided by what the
+ * runtime already requests for itself, and that rules out all but three fields:
+ *
+ * `RcParticleRuntime.forEach` ends with `if (hasActiveParticles) requestNextFrame()`, so a loop
+ * with any unfrozen particle keeps itself alive and needs nothing from here. Claiming otherwise
+ * would be worse than redundant: once every particle hits `maxLifetimeFrames` and freezes — or in a
+ * system with no particles at all — `forEach` stops asking, and a flag set here would repaint that
+ * document for the rest of its life.
+ *
+ * `compare` requests a frame only when a comparison actually MATCHED, deliberately, matching the
+ * reference's `ParticlesCompare` guarding its own `needsRepaint()` on having run a child. That is
+ * the one shape that can deadlock: a standalone comparison whose condition reads `CONTINUOUS_SEC`
+ * starts false, asks for nothing, and the clock never advances to make it true, so a document the
+ * AndroidX player animates holds its first pose here forever. The index bounds are resolved per
+ * paint by `resolvedIndex` and gate the same way — `maximumIndex = ANIMATION_TIME` selects an empty
+ * range, matches nothing, and never reaches the frame that would widen it.
+ *
+ * The comparison's RESULT equations are not scheduled, for the same reason the loop is not: they
+ * are evaluated only on a match, and a match already asks for the next frame. A clock read by
+ * results the condition never selects animates nothing.
+ *
+ * An operation that references a moving id *directly* in one of its own float words (rather than
+ * through an expression list) is still not detected; no writer emits that shape today, and a scan
+ * of every word of every operation would need the model to expose them generically.
  */
-public fun RcDocument.referencesMovingSystemVariable(): Boolean = operations.any { operation ->
-  when (operation) {
-    is RcFloatExpression ->
-      operation.expression.movesWithSystemTime() ||
-        operation.animation?.movesWithSystemTime() == true
-    is RcPathExpression ->
-      operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
-    else -> false
+public fun RcDocument.referencesMovingSystemVariable(): Boolean {
+  // The last definition wins, as it does in the runtime's own `define`.
+  val definitions = operations.filterIsInstance<RcParticleDefine>().associateBy { it.id }
+  val particleCounts = definitions.mapValues { it.value.particleCount }
+  // The ids this document has taken for itself. `RcPlayerState.loadSystem` writes a system value
+  // only `if (id !in claimedSystemIds)`, so a document that declares its own value at a clock's id
+  // stops that clock refreshing — the word is static however much it looks like a clock read.
+  // Mirrored operation for operation from `claimedSystemIds` so the two cannot drift.
+  val claimed =
+    operations.mapNotNullTo(mutableSetOf()) { operation ->
+      when (operation) {
+        is RcFloatConstant -> operation.id
+        is RcIntegerConstant -> operation.id
+        is RcTouchExpression -> operation.id
+        is RcNamedVariable -> operation.id
+        is RcComponentValue -> operation.valueId
+        else -> null
+      }
+    }
+  return operations.any { operation ->
+    when (operation) {
+      is RcFloatExpression ->
+        operation.expression.movesWithSystemTime(claimed) ||
+          operation.animation?.movesWithSystemTime(claimed) == true
+      is RcPathExpression ->
+        operation.expressionX.movesWithSystemTime(claimed) ||
+          operation.expressionY.movesWithSystemTime(claimed)
+      // A range too small for the comparison's own shape is the third case that cannot deadlock.
+      // `compare` reaches its condition only inside a loop over `system.particles`: one particle is
+      // enough in single mode, but pair mode nests `firstIndex in secondIndex + 1 until end` and so
+      // needs two. Below that the condition is never evaluated, `changed` stays false, no frame is
+      // requested — and unlike an empty index range, no later clock value can conjure a particle
+      // that would change it. Scheduling anyway repaints at the display rate for the life of the
+      // document.
+      is RcParticleCompare ->
+        operation.canEverEvaluate(particleCounts) &&
+          // The condition is evaluated THROUGH the system: `evaluate` looks each word up in
+          // `system.variableIds` first and only falls back to the global store, so a particle
+          // variable whose id happens to equal a clock's shadows it and is not a clock read at all.
+          // The bounds are not shadowed — `resolvedIndex` calls `resolve` directly — so they stay
+          // global.
+          (operation.condition.movesWithSystemTime(
+            claimed + definitions[operation.id]?.variableIds.orEmpty().toSet()
+          ) ||
+            operation.minimumIndex.movesWithSystemTime(claimed) ||
+            operation.maximumIndex.movesWithSystemTime(claimed))
+      else -> false
+    }
   }
 }
 
-private fun List<RcFloatWord>.movesWithSystemTime(): Boolean = any {
-  it.referencedId in RcSystemVariables.MOVING
+/**
+ * Whether this comparison's SELECTED RANGE can ever hold enough particles for it to evaluate
+ * anything.
+ *
+ * `compare` reaches its condition only inside a loop over `start until end`, and how much of that
+ * range it needs depends on the comparison's own shape: single mode evaluates from the first
+ * particle, while pair mode nests `firstIndex in secondIndex + 1 until end` and evaluates nothing
+ * until the range holds two. Below that the condition never runs, `changed` stays false, and no
+ * frame is requested — with nothing a later frame could change, which is what separates this from
+ * the deadlock the scan exists for.
+ *
+ * The bounds are read the way `resolvedIndex` reads them: a negative minimum means 0, a negative
+ * maximum means the whole system, and anything else is clamped into the system. A bound that is a
+ * REFERENCE is taken at its widest — 0 for the minimum, the system size for the maximum — because
+ * its value can move, and assuming the widest range can only keep frames coming.
+ *
+ * A system this document never defines is left scheduled: `requireSystem` throws on the first
+ * paint, so the document is refused before the frame loop matters, and guessing here would only
+ * replace one failure with another.
+ */
+private fun RcParticleCompare.canEverEvaluate(particleCounts: Map<Int, Int>): Boolean {
+  // An empty condition never matches: `evaluate` returns `0f` for an empty expression and `compare`
+  // takes the branch only on `> 0f`. Nothing the clock does can change that, so the comparison
+  // cannot animate however wide its range or however fast its bounds move.
+  if (condition.isEmpty()) return false
+  val size = particleCounts[id] ?: return true
+  val start = minimumIndex.staticIndex(negativeDefault = 0, size = size) ?: 0
+  val end = maximumIndex.staticIndex(negativeDefault = size, size = size) ?: size
+  return end - start >= if (secondEquations.isEmpty()) 1 else 2
+}
+
+/** The index this word resolves to before any frame runs, or null if it can move. */
+private fun RcFloatWord.staticIndex(negativeDefault: Int, size: Int): Int? {
+  if (referencedId != null || value.isNaN()) return null
+  return if (value < 0f) negativeDefault else value.toInt().coerceIn(0, size)
+}
+
+private fun RcFloatWord.movesWithSystemTime(shadowed: Set<Int> = emptySet()): Boolean =
+  referencedId in RcSystemVariables.MOVING && referencedId !in shadowed
+
+private fun List<RcFloatWord>.movesWithSystemTime(shadowed: Set<Int> = emptySet()): Boolean = any {
+  it.referencedId in RcSystemVariables.MOVING && it.referencedId !in shadowed
 }

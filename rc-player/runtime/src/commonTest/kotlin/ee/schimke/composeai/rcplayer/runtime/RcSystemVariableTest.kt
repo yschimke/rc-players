@@ -5,6 +5,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
+import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
@@ -174,6 +178,217 @@ class RcSystemVariableTest {
       )
     assertTrue(
       RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(path)).referencesMovingSystemVariable()
+    )
+  }
+
+  @Test
+  fun aParticleSystemThatReadsTheClockAsksForFramesItCannotRequestItself() {
+    // The deadlock this covers is specific to `ParticlesCompare`. `RcParticleRuntime.forEach` asks
+    // for the next frame while any particle is unfrozen, so a loop keeps itself alive whatever the
+    // scan says. `compare` asks only when a comparison MATCHED — deliberately, because the
+    // reference guards its own `needsRepaint()` the same way — so a standalone comparison whose
+    // condition reads the clock starts false, requests nothing, and can never become true. Without
+    // this the document is animated in the AndroidX player and frozen on its first pose here.
+    val clock = RcFloatWord(NAN_REFERENCE or RcSystemVariables.CONTINUOUS_SEC)
+    val still = RcFloatWord.literal(0f)
+    // `resolvedIndex` reads a negative bound as "the whole system": 0 for the minimum, the particle
+    // count for the maximum. Every case below that is not ABOUT the index range says so with this,
+    // because `still` as a maximum would select nothing and decide the answer on its own.
+    val all = RcFloatWord.literal(-1f)
+    fun document(vararg operations: RcOperation) =
+      RcDocument(RcHeader(RcVersion(1, 0, 0)), operations.toList())
+
+    assertTrue(
+      document(RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()))
+        .referencesMovingSystemVariable(),
+      "a comparison CONDITION over the clock",
+    )
+    // A RESULT equation is not scheduled: `compare` evaluates one only on a match, and a match
+    // already ends in `requestNextFrame()`. A clock the condition never selects animates nothing,
+    // and answering true would repaint for the life of the document.
+    assertFalse(
+      document(RcParticleCompare(1, 0, all, all, listOf(still), listOf(listOf(clock)), emptyList()))
+        .referencesMovingSystemVariable(),
+      "a comparison RESULT over the clock",
+    )
+    // Neither is a LOOP, whichever of its equations reads the clock: `forEach` ends with
+    // `if (hasActiveParticles) requestNextFrame()`, so it keeps its own frames coming while any
+    // particle is unfrozen. Scheduling it here would be redundant while that holds and wrong once
+    // it stops — a system whose particles have all frozen at `maxLifetimeFrames`, or one with no
+    // particles at all, would repaint forever.
+    assertFalse(
+      document(RcParticleLoop(1, listOf(clock), listOf(listOf(still))))
+        .referencesMovingSystemVariable(),
+      "a restart equation over the clock",
+    )
+    assertFalse(
+      document(RcParticleLoop(1, listOf(still), listOf(listOf(clock))))
+        .referencesMovingSystemVariable(),
+      "an update equation over the clock",
+    )
+    // The index range is resolved per paint as well, so a bound over the clock deadlocks the same
+    // way a condition does.
+    assertTrue(
+      document(
+          RcParticleCompare(1, 0, clock, all, listOf(still), listOf(listOf(still)), emptyList())
+        )
+        .referencesMovingSystemVariable(),
+      "a minimumIndex over the clock",
+    )
+    assertTrue(
+      document(
+          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList())
+        )
+        .referencesMovingSystemVariable(),
+      "a maximumIndex over the clock",
+    )
+
+    // A DEFINE that seeds from the clock does NOT ask for frames. Its equations run when the system
+    // is defined and on restart, and restart happens only inside `forEach`, which keeps its own
+    // frames coming. Answering true here would spin the frame loop forever for a document that
+    // seeds once and then stands still.
+    assertFalse(
+      document(RcParticleDefine(1, 4, listOf(7), listOf(listOf(clock))))
+        .referencesMovingSystemVariable(),
+      "an initialization equation over the clock, with no loop to restart it",
+    )
+
+    // A particle VARIABLE whose id collides with a clock's shadows it inside the condition:
+    // `evaluate` resolves `system.variableIds` before the global store, so this reads the particle,
+    // not the clock. The bounds are not shadowed, because `resolvedIndex` resolves them directly.
+    assertFalse(
+      document(
+          RcParticleDefine(
+            1,
+            4,
+            listOf(RcSystemVariables.CONTINUOUS_SEC),
+            listOf(listOf(still)),
+          ),
+          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a condition over a particle variable that shadows the clock's id",
+    )
+    assertTrue(
+      document(
+          RcParticleDefine(
+            1,
+            4,
+            listOf(RcSystemVariables.CONTINUOUS_SEC),
+            listOf(listOf(still)),
+          ),
+          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a maximumIndex over the clock is not shadowed by a particle variable of that id",
+    )
+
+    // A document that declares its OWN value at a clock's id claims it: `loadSystem` writes a
+    // system
+    // value only `if (id !in claimedSystemIds)`, so the clock stops refreshing and the word is
+    // static however much it reads like a clock.
+    assertFalse(
+      document(
+          RcFloatConstant(RcSystemVariables.CONTINUOUS_SEC, RcFloatWord.literal(3f)),
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a condition over a clock id the document has claimed",
+    )
+    assertFalse(
+      document(
+          RcFloatConstant(RcSystemVariables.CONTINUOUS_SEC, RcFloatWord.literal(3f)),
+          RcFloatExpression(100, listOf(clock), null),
+        )
+        .referencesMovingSystemVariable(),
+      "a float expression over a clock id the document has claimed",
+    )
+
+    // …but only while that word is a LIVE clock. A claimed id holds whatever the document set,
+    // which can be negative — and `resolvedIndex` reads a negative bound as 0 for the minimum and
+    // the whole system for the maximum, so identical bounds then select EVERY particle. Withholding
+    // frames here would strand a condition that really can deadlock.
+    assertTrue(
+      document(
+          RcFloatConstant(RcSystemVariables.CONTINUOUS_SEC, RcFloatWord.literal(-1f)),
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(
+            1,
+            0,
+            clock,
+            clock,
+            listOf(RcFloatWord(NAN_REFERENCE or RcSystemVariables.ANIMATION_TIME)),
+            listOf(listOf(still)),
+            emptyList(),
+          ),
+        )
+        .referencesMovingSystemVariable(),
+      "identical bounds over a claimed clock stay scheduled",
+    )
+
+    // Identical moving bounds are NOT excluded, though `resolvedIndex` does resolve one word to one
+    // index. The exclusion needs the value to be non-negative, and no clock guarantees that:
+    // `EPOCH_SECOND` is `frameEpochMillis.floorDiv(1000L).toInt()`, which is negative before 1970
+    // and after the 2038 Int overflow — and a negative bound means 0 for the minimum and the whole
+    // system for the maximum, so the range is everything rather than nothing. Withholding frames on
+    // a premise that fails freezes the document, which is the costlier of the two mistakes.
+    assertTrue(
+      document(
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, clock, clock, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "identical moving bounds stay scheduled — no clock is provably non-negative",
+    )
+
+    // An EMPTY condition never matches: `evaluate` returns `0f` for an empty expression and the
+    // branch is taken only on `> 0f`. No clock can change that, so there is nothing to animate.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, still, clock, emptyList(), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a comparison with an empty condition, whatever its bounds do",
+    )
+
+    // Pair mode nests `firstIndex in secondIndex + 1 until end`, so one particle is one too few.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 1, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(
+            1,
+            0,
+            all,
+            all,
+            listOf(clock),
+            listOf(listOf(still)),
+            listOf(listOf(still)),
+          ),
+        )
+        .referencesMovingSystemVariable(),
+      "a clock-reading PAIR comparison over a one-particle system",
+    )
+    // …while one particle is enough for single mode, which is the deadlock this scan exists for.
+    assertTrue(
+      document(
+          RcParticleDefine(1, 1, listOf(7), listOf(listOf(still))),
+          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a clock-reading single comparison over a one-particle system",
+    )
+
+    // …and a particle system that reads no clock still asks for nothing, so an ordinary static
+    // comparison is not repainted for the life of the document.
+    assertFalse(
+      document(
+          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
+          RcParticleLoop(1, listOf(still), listOf(listOf(still))),
+          RcParticleCompare(1, 0, all, all, listOf(still), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable()
     )
   }
 
