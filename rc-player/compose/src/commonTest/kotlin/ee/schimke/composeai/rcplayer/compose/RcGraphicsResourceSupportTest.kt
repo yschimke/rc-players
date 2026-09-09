@@ -3,6 +3,7 @@ package ee.schimke.composeai.rcplayer.compose
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
@@ -259,6 +260,97 @@ class RcGraphicsResourceSupportTest {
         listOf(RcNoArg(RcOpcodes.CONTAINER_END))
 
     assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
+  }
+
+  @Test
+  fun refusesAShaderAConditionalOnlyMightSupersede() {
+    // The valid redeclaration sits inside a `ConditionalOperations`, so the renderer may skip it
+    // and
+    // still be holding the invalid one at the paint. A redeclaration only supersedes when it is
+    // certain to run; this one is not, so it widens what might be installed rather than replacing.
+    val report =
+      RcDocument(
+          header,
+          listOf(
+            RcTextData(1, "this is not SkSL"),
+            RcTextData(2, "half4 main(float2 p) { return half4(1); }"),
+            RcShaderData(3, 1),
+            RcNoArg(RcOpcodes.CONDITIONAL_OPERATIONS),
+            RcShaderData(3, 2),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcPaintData(listOf(9, 3)),
+          ),
+        )
+        .composeSupportReport()
+
+    assertTrue(
+      RcComposeSupportSeverity.BLOCKING in report.issues.map { it.severity },
+      report.issues.toString(),
+    )
+  }
+
+  @Test
+  fun countsTargetsInAFunctionBodyThatIsCalled() {
+    // The mirror of the uncalled case: `RcFloatFunctionCall` draws `definition.children`, so a
+    // called body's targets do reach the pool and must be counted where the call is.
+    val operations =
+      listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
+        RcFloatFunctionDefine(9, emptyList())
+      ) +
+        (1..65).flatMap { id ->
+          listOf(
+            RcBitmapData(id, 1, 1, RcBitmapData.TYPE_RAW8888, 0, ByteArray(4)),
+            RcDrawToBitmap(id, 0, 0),
+          )
+        } +
+        listOf(RcNoArg(RcOpcodes.CONTAINER_END), RcFloatFunctionCall(9, emptyList()))
+
+    assertEquals(
+      listOf("document declares 65 mutable targets; the renderer allocates at most 64"),
+      RcDocument(header, operations).composeSupportReport().issues.map { it.detail },
+    )
+  }
+
+  @Test
+  fun sizesADuplicateIdByTheDeclarationThatDecodes() {
+    // `decodeInlineImagesUncounted` drops a failed decode before `toMap()` picks a winner, so a
+    // corrupt redeclaration leaves the earlier good image in place and the renderer draws that.
+    // Sizing from the last declaration written would refuse a document that draws a 1x1 target.
+    val operations =
+      listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
+        RcBitmapData(1, 1, 1, RcBitmapData.TYPE_RAW8888, 0, ByteArray(4)),
+        // Declares 8192x8192 — over the aggregate budget on its own — with four bytes that are not
+        // a PNG, so `Image.makeFromEncoded` fails, the decoder drops it, and the 1x1 above
+        // survives.
+        RcBitmapData(1, 8192, 8192, RcBitmapData.TYPE_PNG_8888, 0, ByteArray(4)),
+        RcDrawToBitmap(1, 0, 0),
+      )
+
+    assertTrue(RcDocument(header, operations).composeSupportReport().fullyRenderable)
+  }
+
+  @Test
+  fun refusesTargetsWhoseTotalPixelsOverflowALong() {
+    // Three targets of Int.MAX_VALUE square: each product fits in a Long and their sum does not.
+    // A wrapped total compares below the ceiling, so an unsaturated sum called this renderable.
+    val operations =
+      (1..3).flatMap { id ->
+        listOf<ee.schimke.composeai.rcplayer.protocol.RcOperation>(
+          RcBitmapData(
+            id,
+            1,
+            1,
+            RcBitmapData.TYPE_PNG_8888,
+            0,
+            pngHeaderFor(Int.MAX_VALUE, Int.MAX_VALUE),
+          ),
+          RcDrawToBitmap(id, 0, 0),
+        )
+      }
+
+    val report = RcDocument(header, operations).composeSupportReport()
+    assertTrue(report.issues.any { "mutable targets total" in it.detail }, report.issues.toString())
+    assertFalse(report.playable)
   }
 
   /** A PNG header just long enough for the preflight to read its IHDR dimensions. */
