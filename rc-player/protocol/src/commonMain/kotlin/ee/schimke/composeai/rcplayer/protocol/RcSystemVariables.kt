@@ -119,19 +119,32 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean = operations.any
         operation.animation?.movesWithSystemTime() == true
     is RcPathExpression ->
       operation.expressionX.movesWithSystemTime() || operation.expressionY.movesWithSystemTime()
-    // Reinitialization runs on every restart, not only at seeding, so an initial equation over the
-    // clock moves for as long as the system does.
-    is RcParticleDefine -> operation.initializationEquations.anyMovesWithSystemTime()
     is RcParticleLoop ->
       operation.restartEquation.movesWithSystemTime() ||
         operation.updateEquations.anyMovesWithSystemTime()
     is RcParticleCompare ->
       operation.condition.movesWithSystemTime() ||
         operation.firstEquations.anyMovesWithSystemTime() ||
-        operation.secondEquations.anyMovesWithSystemTime()
+        operation.secondEquations.anyMovesWithSystemTime() ||
+        // The index range is resolved per paint too (`resolvedIndex` calls `resolve` on each), so a
+        // bound over the clock deadlocks exactly as a condition does: `maximumIndex =
+        // ANIMATION_TIME`
+        // selects an empty range on the first frame, changes no particle, asks for no frame, and
+        // never reaches the frame where the range would cover one.
+        operation.minimumIndex.movesWithSystemTime() ||
+        operation.maximumIndex.movesWithSystemTime()
+    // `RcParticleDefine` is deliberately NOT here, though its initialization equations can read the
+    // clock. They are evaluated when the system is DEFINED — once, in the first `beginFrame` — and
+    // on restart, which only `forEach` performs and which already keeps its own frames coming while
+    // any particle is unfrozen. A define alone therefore has nothing a later frame could change,
+    // and
+    // claiming otherwise would run the frame loop forever for a document that seeds from the clock
+    // and then stands still: the same needless repaint this function refuses to buy elsewhere.
     else -> false
   }
 }
+
+private fun RcFloatWord.movesWithSystemTime(): Boolean = referencedId in RcSystemVariables.MOVING
 
 private fun List<List<RcFloatWord>>.anyMovesWithSystemTime(): Boolean = any {
   it.movesWithSystemTime()

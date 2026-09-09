@@ -218,11 +218,31 @@ class RcSystemVariableTest {
         .referencesMovingSystemVariable(),
       "an update equation over the clock",
     )
-    // Reinitialization runs on every restart, not only at seeding.
+    // The index range is resolved per paint as well, so a bound over the clock deadlocks the same
+    // way a condition does.
     assertTrue(
+      document(
+          RcParticleCompare(1, 0, clock, still, listOf(still), listOf(listOf(still)), emptyList())
+        )
+        .referencesMovingSystemVariable(),
+      "a minimumIndex over the clock",
+    )
+    assertTrue(
+      document(
+          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList())
+        )
+        .referencesMovingSystemVariable(),
+      "a maximumIndex over the clock",
+    )
+
+    // A DEFINE that seeds from the clock does NOT ask for frames. Its equations run when the system
+    // is defined and on restart, and restart happens only inside `forEach`, which keeps its own
+    // frames coming. Answering true here would spin the frame loop forever for a document that
+    // seeds once and then stands still.
+    assertFalse(
       document(RcParticleDefine(1, 4, listOf(7), listOf(listOf(clock))))
         .referencesMovingSystemVariable(),
-      "an initialization equation over the clock",
+      "an initialization equation over the clock, with no loop to restart it",
     )
 
     // …and a particle system that reads no clock still asks for nothing, so an ordinary static
