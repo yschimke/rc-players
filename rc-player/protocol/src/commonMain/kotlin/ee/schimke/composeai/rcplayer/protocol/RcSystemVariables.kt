@@ -126,8 +126,8 @@ public object RcSystemVariables {
  */
 public fun RcDocument.referencesMovingSystemVariable(): Boolean {
   // The last definition wins, as it does in the runtime's own `define`.
-  val particleCounts =
-    operations.filterIsInstance<RcParticleDefine>().associate { it.id to it.particleCount }
+  val definitions = operations.filterIsInstance<RcParticleDefine>().associateBy { it.id }
+  val particleCounts = definitions.mapValues { it.value.particleCount }
   return operations.any { operation ->
     when (operation) {
       is RcFloatExpression ->
@@ -144,7 +144,14 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
       // document.
       is RcParticleCompare ->
         operation.canEverEvaluate(particleCounts) &&
-          (operation.condition.movesWithSystemTime() ||
+          // The condition is evaluated THROUGH the system: `evaluate` looks each word up in
+          // `system.variableIds` first and only falls back to the global store, so a particle
+          // variable whose id happens to equal a clock's shadows it and is not a clock read at all.
+          // The bounds are not shadowed — `resolvedIndex` calls `resolve` directly — so they stay
+          // global.
+          (operation.condition.movesWithSystemTime(
+            definitions[operation.id]?.variableIds.orEmpty()
+          ) ||
             operation.minimumIndex.movesWithSystemTime() ||
             operation.maximumIndex.movesWithSystemTime())
       else -> false
@@ -191,6 +198,7 @@ private fun List<List<RcFloatWord>>.anyMovesWithSystemTime(): Boolean = any {
   it.movesWithSystemTime()
 }
 
-private fun List<RcFloatWord>.movesWithSystemTime(): Boolean = any {
-  it.referencedId in RcSystemVariables.MOVING
-}
+private fun List<RcFloatWord>.movesWithSystemTime(shadowed: List<Int> = emptyList()): Boolean =
+  any {
+    it.referencedId in RcSystemVariables.MOVING && it.referencedId !in shadowed
+  }

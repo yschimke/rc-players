@@ -253,6 +253,36 @@ class RcSystemVariableTest {
       "an initialization equation over the clock, with no loop to restart it",
     )
 
+    // A particle VARIABLE whose id collides with a clock's shadows it inside the condition:
+    // `evaluate` resolves `system.variableIds` before the global store, so this reads the particle,
+    // not the clock. The bounds are not shadowed, because `resolvedIndex` resolves them directly.
+    assertFalse(
+      document(
+          RcParticleDefine(
+            1,
+            4,
+            listOf(RcSystemVariables.CONTINUOUS_SEC),
+            listOf(listOf(still)),
+          ),
+          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a condition over a particle variable that shadows the clock's id",
+    )
+    assertTrue(
+      document(
+          RcParticleDefine(
+            1,
+            4,
+            listOf(RcSystemVariables.CONTINUOUS_SEC),
+            listOf(listOf(still)),
+          ),
+          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList()),
+        )
+        .referencesMovingSystemVariable(),
+      "a maximumIndex over the clock is not shadowed by a particle variable of that id",
+    )
+
     // `EPOCH_SECOND` is scheduled like the rest, and the reason is worth pinning down because it
     // is not obvious from `resolve` alone: `RcPlayerState.setInteger` writes `floats[id]` beside
     // `integers[id]`, so a float word does read it back. It is coarse — past 2^24 a 32-bit float
