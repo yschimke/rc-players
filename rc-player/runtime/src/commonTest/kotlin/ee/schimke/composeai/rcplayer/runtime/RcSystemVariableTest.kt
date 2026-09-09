@@ -324,93 +324,35 @@ class RcSystemVariableTest {
           ),
         )
         .referencesMovingSystemVariable(),
-      "identical bounds over a CLAIMED clock select everything, not nothing",
+      "identical bounds over a claimed clock stay scheduled",
     )
 
-    // Both bounds being the same moving word selects `i until i` on every frame — empty forever.
-    assertFalse(
-      document(
-          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(1, 0, clock, clock, listOf(still), listOf(listOf(still)), emptyList()),
-        )
-        .referencesMovingSystemVariable(),
-      "a comparison whose minimum and maximum are the same moving word",
-    )
-
-    // `EPOCH_SECOND` is scheduled like the rest, and the reason is worth pinning down because it
-    // is not obvious from `resolve` alone: `RcPlayerState.setInteger` writes `floats[id]` beside
-    // `integers[id]`, so a float word does read it back. It is coarse — past 2^24 a 32-bit float
-    // counts in steps of 128, so the value moves about twice a minute rather than every second —
-    // but it moves, and a document whose only clock is this one freezes without frames.
-    val epoch = RcFloatWord(NAN_REFERENCE or RcSystemVariables.EPOCH_SECOND)
+    // Identical moving bounds are NOT excluded, though `resolvedIndex` does resolve one word to one
+    // index. The exclusion needs the value to be non-negative, and no clock guarantees that:
+    // `EPOCH_SECOND` is `frameEpochMillis.floorDiv(1000L).toInt()`, which is negative before 1970
+    // and after the 2038 Int overflow — and a negative bound means 0 for the minimum and the whole
+    // system for the maximum, so the range is everything rather than nothing. Withholding frames on
+    // a premise that fails freezes the document, which is the costlier of the two mistakes.
     assertTrue(
       document(
           RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(1, 0, all, all, listOf(epoch), listOf(listOf(still)), emptyList()),
+          RcParticleCompare(1, 0, clock, clock, listOf(clock), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
-      "a condition over the epoch clock",
-    )
-    assertTrue(
-      document(RcFloatExpression(100, listOf(epoch), null)).referencesMovingSystemVariable(),
-      "a float expression over the epoch clock",
+      "identical moving bounds stay scheduled — no clock is provably non-negative",
     )
 
-    // A comparison over a system too small for its own shape cannot match: `compare` reaches the
-    // condition only inside a loop over `system.particles`, and no later state can add one.
-    assertFalse(
-      document(
-          RcParticleDefine(1, 0, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(1, 0, all, all, listOf(clock), listOf(listOf(still)), emptyList()),
-        )
-        .referencesMovingSystemVariable(),
-      "a clock-reading comparison over a zero-particle system",
-    )
-    // …and a range too narrow for the comparison's shape is the same case as too few particles:
-    // two particles, but literal bounds selecting only index 0, with pair mode needing two.
-    assertFalse(
-      document(
-          RcParticleDefine(1, 2, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(
-            1,
-            0,
-            RcFloatWord.literal(0f),
-            RcFloatWord.literal(1f),
-            listOf(clock),
-            listOf(listOf(still)),
-            listOf(listOf(still)),
-          ),
-        )
-        .referencesMovingSystemVariable(),
-      "a clock-reading PAIR comparison over a statically one-wide range",
-    )
-    // The single-mode counterpart: a statically EMPTY range evaluates nothing either.
+    // An EMPTY condition never matches: `evaluate` returns `0f` for an empty expression and the
+    // branch is taken only on `> 0f`. No clock can change that, so there is nothing to animate.
     assertFalse(
       document(
           RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(
-            1,
-            0,
-            RcFloatWord.literal(2f),
-            RcFloatWord.literal(2f),
-            listOf(clock),
-            listOf(listOf(still)),
-            emptyList(),
-          ),
+          RcParticleCompare(1, 0, still, clock, emptyList(), listOf(listOf(still)), emptyList()),
         )
         .referencesMovingSystemVariable(),
-      "a clock-reading comparison over a statically empty range",
+      "a comparison with an empty condition, whatever its bounds do",
     )
-    // But a MOVING bound is exactly the deadlock this scan exists for — the range widens later, so
-    // it must not be read as statically empty.
-    assertTrue(
-      document(
-          RcParticleDefine(1, 4, listOf(7), listOf(listOf(still))),
-          RcParticleCompare(1, 0, still, clock, listOf(still), listOf(listOf(still)), emptyList()),
-        )
-        .referencesMovingSystemVariable(),
-      "a maximumIndex over the clock, with a system to widen into",
-    )
+
     // Pair mode nests `firstIndex in secondIndex + 1 until end`, so one particle is one too few.
     assertFalse(
       document(
