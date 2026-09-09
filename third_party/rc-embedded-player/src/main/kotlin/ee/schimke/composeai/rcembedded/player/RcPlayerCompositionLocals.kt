@@ -99,6 +99,15 @@ internal val LocalCurrentTimeMillis: ProvidableCompositionLocal<State<Float>> = 
   androidx.compose.runtime.mutableFloatStateOf(0f)
 }
 
+/**
+ * Wall-clock milliseconds when the current document started playing.
+ *
+ * [LocalCurrentTimeMillis] is milliseconds *since* that moment, which is what drives the four
+ * relative time ids. `ID_EPOCH_SECOND` is the one time variable that is not relative, so it is this
+ * plus that — reactive against the same frame state, rather than a clock read inside a resolver.
+ */
+internal val LocalEpochBaseMillis: ProvidableCompositionLocal<Long> = compositionLocalOf { 0L }
+
 /** Host-action callback (id, value) for `HostAction`/`RunAction` clicks. Default no-op. */
 internal val LocalRemoteActionHandler: ProvidableCompositionLocal<(Int, String?) -> Unit> =
   compositionLocalOf {
