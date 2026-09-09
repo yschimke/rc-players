@@ -207,7 +207,7 @@ public fun RcDocument.composeSupportReport(
   val linkResult = runCatching { RcDocumentLinker.link(this) }
   val executedOperations =
     linkResult.getOrNull()?.let { flattenLinked(it.operations) } ?: operations
-  val installedShaders = installedShaderDeclarations(executedOperations, shaderIds)
+  val installedShaders = installedShaderDeclarations(executedOperations, operations, shaderIds)
   val fontIds = operations.filterIsInstance<RcFontData>().mapTo(mutableSetOf()) { it.fontId }
   val particleDefinitionGroups = operations.filterIsInstance<RcParticleDefine>().groupBy { it.id }
   val particleDefinitions = particleDefinitionGroups.mapValues { it.value.last() }
@@ -1211,7 +1211,7 @@ public fun RcDocument.composeSupportReport(
       issues += RcComposeSupportIssue(-1, "ContainerStructure", it.message ?: "invalid")
     },
   )
-  issues += offscreenAllocationIssues(executedOperations)
+  issues += offscreenAllocationIssues(executedOperations, operations)
   return RcComposeSupportReport(issues)
 }
 
@@ -1226,7 +1226,13 @@ private fun flattenLinked(nodes: List<RcLinkedNode>): List<RcOperation> {
   val flat = mutableListOf<RcOperation>()
   fun visit(node: RcLinkedNode) {
     flat += node.operation()
-    if (node is RcLinkedNode.Container) node.children.forEach(::visit)
+    // A function body is not walked where it is defined: `drawOperations` registers the definition
+    // (`functions.definitions[id] = node`) and `continue`s past its children, which run only where
+    // a `FloatFunctionCall` reaches them. Descending into it here would count draws the renderer
+    // never performs — 65 targets in an uncalled function would refuse a document that draws none.
+    if (node is RcLinkedNode.Container && node.operation !is RcFloatFunctionDefine) {
+      node.children.forEach(::visit)
+    }
   }
   nodes.forEach(::visit)
   return flat
@@ -1252,18 +1258,23 @@ private fun flattenLinked(nodes: List<RcLinkedNode>): List<RcOperation> {
  * install is unbuildable, so refusing the document is right either way.
  */
 private fun installedShaderDeclarations(
-  operations: List<RcOperation>,
+  executed: List<RcOperation>,
+  declared: List<RcOperation>,
   shaderIds: Set<Int>,
 ): Set<RcShaderData> {
+  // What `buildRuntimeShader` falls back to when nothing is live yet: the LAST declaration of that
+  // id anywhere in the wire document, whatever the order. A paint that precedes its own shader
+  // therefore still installs one, and forward-only bookkeeping would call it skippable.
+  val fallback = declared.filterIsInstance<RcShaderData>().associateBy { it.shaderId }
   val live = mutableMapOf<Int, RcShaderData>()
   val installed = mutableSetOf<RcShaderData>()
-  operations.forEach { operation ->
+  executed.forEach { operation ->
     when (operation) {
       is RcShaderData -> live[operation.shaderId] = operation
       is RcPaintData -> {
         val referenced = mutableSetOf<Int>()
         paintIssue(operation, shaderIds, referenced)
-        referenced.forEach { id -> live[id]?.let(installed::add) }
+        referenced.forEach { id -> (live[id] ?: fallback[id])?.let(installed::add) }
       }
       else -> Unit
     }
@@ -1288,11 +1299,19 @@ private fun installedShaderDeclarations(
  * - `bitmapId == 0` means the stage rather than a target, and an undeclared id is already reported
  *   next to the operation — neither reaches an allocation, so neither is counted here.
  */
-private fun offscreenAllocationIssues(operations: List<RcOperation>): List<RcComposeSupportIssue> {
+private fun offscreenAllocationIssues(
+  executed: List<RcOperation>,
+  declarations: List<RcOperation>,
+): List<RcComposeSupportIssue> {
   val limits = RcOffscreenTargetLimits()
-  val declared = operations.filterIsInstance<RcBitmapData>().associateBy { it.imageId }
+  // Resources come from the WIRE stream, uses from the linked one, because that is the split the
+  // renderer itself makes: `decodeInlineImagesUncounted` walks `document.operations`, so a bitmap
+  // declared inside a `ReferencedOperations` block nothing includes is still decoded and still
+  // available to an active `DrawToBitmap` elsewhere. Taking declarations from the linked stream
+  // dropped those ids and, with them, the targets that use them.
+  val declared = declarations.filterIsInstance<RcBitmapData>().associateBy { it.imageId }
   val targets =
-    operations
+    executed
       .filterIsInstance<RcDrawToBitmap>()
       .map { it.bitmapId }
       .filter { it != 0 && it in declared }
