@@ -13,12 +13,18 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # macOS runners are the expensive part of this workflow. Decide on Linux whether this change can
-  # affect the native Apple artifacts, their packaging, or the checks that exercise them. Keep the
-  # list here (rather than a third-party path-filter action) so the exact trust boundary is visible
-  # and changes to this workflow always exercise the lane once before changing its own gate.
+  # What in the macOS lane is worth its minutes on this change. It used to gate the *whole* lane,
+  # which quietly made it the gate on all Kotlin/Native and wasm test execution: a change confined
+  # to `rc-player/wasm`, `rc-player/metrics`, `rc-player/profile`, `rc-player/compat-tests` or
+  # `third_party/` matched nothing here and shipped without a single non-JVM test running (#77).
+  # The expensive half was never the tests — it is the XCFramework link, the Swift type check and
+  # the Xcode packaging — so those are what this gates now, step by step below, and the tests and
+  # the ABI gate run on every pull request.
+  #
+  # Keep the list here (rather than a third-party path-filter action) so the exact trust boundary is
+  # visible and changes to this workflow always exercise the lane once before changing its own gate.
   apple-changes:
-    name: Apple source changes
+    name: Apple packaging changes
     runs-on: ubuntu-latest
     outputs:
       required: ${{ steps.filter.outputs.required }}
@@ -107,11 +113,41 @@ jobs:
             :third-party-rc-embedded-player:testDebugUnitTest \
             :third-party-rc-embedded-player-jvm:check
 
+      # A test task that resolves to nothing still goes green. See the script's header.
+      - name: Assert the JVM and Android suites executed
+        run: |
+          scripts/assert-test-execution.sh \
+            rc-player/trace:jvmTest \
+            rc-player/protocol:jvmTest \
+            rc-player/runtime:jvmTest \
+            rc-player/compose:jvmTest \
+            rc-player/compat-tests:test \
+            rc-player/metrics:test \
+            rc-player/profile:test \
+            third_party/rc-embedded-player:testDebugUnitTest \
+            third_party/rc-embedded-player-jvm:test
+
       # The Wasm distribution and its size ratchet. `wasmPlayerTestDist` also stages the AndroidX
       # generated fixtures next to the bundle, so the browser smoke input is built from the real
       # writer rather than from the player's own output.
       - name: Build the Wasm player distribution
         run: ./gradlew :rc-player-wasm:wasmPlayerTestDist
+
+      # ...and then open it. Until #77 nothing did: the staged bundle was built on this runner,
+      # size-checked, and thrown away, so a wasm regression that still compiled shipped. This is the
+      # cheap lane and the bundle is already here, which is why the browser run belongs on Linux
+      # rather than behind the macOS lane's gate.
+      #
+      # It is not the same coverage as `wasmJsBrowserTest` over on `players-macos`: that runs the
+      # Kotlin `commonTest` sources, this runs the *artifact* — the production-compiled
+      # `rcPlayer.wasm`, `index.html`, the import map, the bundled font manifest and the embed
+      # contract every host codes against.
+      - name: Smoke-test the Wasm player bundle in a headless browser
+        working-directory: scripts/wasm-smoke
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm test
 
       - name: Upload test reports on failure
         if: failure()
@@ -123,11 +159,14 @@ jobs:
             **/build/test-results/**
           retention-days: 7
 
-  # The macOS lane: the native Apple targets, and the ABI gate that depends on them.
+  # The macOS lane: the native Apple targets, the wasm browser tests, and the ABI gate that depends
+  # on them. This is the only host that can run any of the three, so it runs on every pull request —
+  # the `apple-changes` gate below applies to the packaging steps at the bottom of this job, not to
+  # the job (#77). A test-only run of this lane is a fraction of a full one: the release XCFramework
+  # link is the step that costs the minutes.
   players-macos:
-    name: Apple players + ABI gate
+    name: Apple + wasm tests, ABI gate, Apple packaging
     needs: apple-changes
-    if: needs.apple-changes.outputs.required == 'true'
     runs-on: macos-15
     timeout-minutes: 90
     steps:
@@ -191,9 +230,28 @@ jobs:
             :rc-player-runtime:compileTestKotlinMacosArm64 \
             :rc-player-compose:compileTestKotlinMacosArm64
 
+      # `allTests` is an aggregate resolved per target on the runner, so until #77 the coverage it
+      # gave was an assumption: a target whose test task drops out — no browser for
+      # `wasmJsBrowserTest`, no bootable simulator for `iosSimulatorArm64Test` — leaves the job
+      # green and the lane empty. Naming the four targets here turns that into a fact, and any
+      # future `allTests` member that stops running fails the job that claims to run it.
+      - name: Assert the Apple and wasm targets executed
+        run: |
+          scripts/assert-test-execution.sh \
+            rc-player/trace:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
+            rc-player/protocol:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
+            rc-player/runtime:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
+            rc-player/compose:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest
+
+      # Everything from here down is the Apple *packaging* half, and the only half the path filter
+      # gates: the release link, the Swift type check and the Xcode build are what make this lane
+      # expensive, and they cannot be affected by a change that touches none of the paths listed in
+      # `apple-changes`. The tests and the ABI gate above have already run.
+
       # `Package.swift`'s two SPM-verified values are written by the release job, never by hand.
       # This proves the writer still works before a release depends on it.
       - name: Run the Package.swift rewriter self-test
+        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/update-package-swift.sh --self-test
 
       # The release link, run on every PR that can affect the Apple artifact. This is the same task
@@ -205,12 +263,14 @@ jobs:
       # release links would run `ModuleDFGBuilder` concurrently *in one heap* and peak together.
       # Serializing them halves the peak; `gradle.properties` carries the rest of the reasoning.
       - name: Assemble the release XCFramework
+        if: needs.apple-changes.outputs.required == 'true'
         run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum --max-workers=1
 
       # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
       # Exits 0 and says so when no framework is present, so it is honest about what it checked —
       # with the step above restored, a framework *is* present and this genuinely type-checks.
       - name: Type-check the Swift usage sample
+        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-swift-sample.sh
 
       # A header-only type check cannot catch application-host contracts. In particular,
@@ -219,6 +279,7 @@ jobs:
       # stated by the consumer. The project links the XCFramework assembled above, so its binary
       # and source overlay always describe the same current API.
       - name: Build and package the Apple player app
+        if: needs.apple-changes.outputs.required == 'true'
         run: scripts/package-apple-player.sh
 
       - name: Upload player test reports on failure
