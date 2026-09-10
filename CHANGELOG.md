@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.60.2](https://github.com/yschimke/rc-players/compare/v1.60.1...v1.60.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **compose:** stop reporting as renderable two documents that crash the draw ([#86](https://github.com/yschimke/rc-players/issues/86)) ([da3ba8e](https://github.com/yschimke/rc-players/commit/da3ba8ed406b377eacb9e7d87ea7773d05f9feca))
+* **protocol:** give a particle system that reads the clock the frames it needs ([#85](https://github.com/yschimke/rc-players/issues/85)) ([349b5ed](https://github.com/yschimke/rc-players/commit/349b5ed3a7d71e7fee7bbec3607ba27c9943f09a))
+* **rc-embedded-jvm:** keep the renderers' previously published JVM arities ([#83](https://github.com/yschimke/rc-players/issues/83)) ([193b378](https://github.com/yschimke/rc-players/commit/193b37886c371dd5056dfb0220db5ca9bb851731))
+
 ## [1.60.1](https://github.com/yschimke/rc-players/compare/v1.60.0...v1.60.1) (2026-09-09)
 
 
