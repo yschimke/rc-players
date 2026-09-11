@@ -188,6 +188,7 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 | [#3](https://github.com/yschimke/rc-players/issues/3) | `Rc.AndroidColors` is wrong for 21 of 196 indices — upstream's data, not its rendering |
 | [#5](https://github.com/yschimke/rc-players/issues/5) | Published `ui-text-google-fonts` AAR ships no GMS font-provider certificates |
 | [#54](https://github.com/yschimke/rc-players/issues/54) | `findBitmaps` never walks a component's canvas stream, so a `BitmapData` declared there is unregistered — costing both the texture and the `ImageAttribute` dimensions; `ImageAttribute` also needs an explicit draw case, being neither `VariableSupport` nor `VariableProvider` |
+| [#98](https://github.com/yschimke/rc-players/issues/98) | `DimensionInModifierOperation` constraints are read from their flattened output fields, so an expression-backed `widthIn` / `heightIn` loses its variable id and can collapse content to zero |
 
 The action-dispatch pair was restored verbatim when alpha17 published `LambdaAction`,
 `PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` / `.pendingIntents`. The
@@ -203,6 +204,19 @@ AndroidX now carries their behavior. That is the pattern working — the list is
   from an explicit `COLOR` operation. `RcPlayerPaintTest` pins the player default and
   `ComposePathColorFilterRobolectricReproTest` independently demonstrates the SrcIn behaviour using
   only standard Compose drawing.
+
+- **Expression-backed dimension constraints remain reactive** (`CoreDataAccessors.kt`,
+  `WidthModifier.kt`, `HeightModifier.kt`). `DimensionInModifierOperation.getMin()` / `getMax()`
+  expose `mV1` / `mV2`, which `updateVariables` flattens from a NaN-encoded variable id into its
+  current value and scales from dp to px. Reading those getters while constructing a Compose
+  `widthIn` / `heightIn` modifier loses the source id; for `RemoteEdgeButton`'s
+  `componentWidth()`-derived maximum, the output slot is still zero and the label row collapses.
+  The player now reads `mValue1` / `mValue2`, resolves those raw sources through its reactive state
+  graph, and treats the results as dp. The same correction covers generic horizontal and vertical
+  `DimensionConstraintsModifierOperation`s. The captured EdgeButton fixture and
+  `DynamicDimensionConstraintRenderTest` pin the pixels;
+  [#98](https://github.com/yschimke/rc-players/issues/98) tracks retirement when AndroidX carries
+  the fix.
 
 - **A colour the document derives now reaches the text that names it**
   (`SnapshotRemoteComposeState.kt`, `RcPlayerTextLayout.kt`, `CoreDataAccessors.kt`,

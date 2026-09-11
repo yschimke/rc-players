@@ -51,6 +51,7 @@ import androidx.compose.remote.core.operations.layout.managers.Custom
 import androidx.compose.remote.core.operations.layout.managers.FitBoxLayout
 import androidx.compose.remote.core.operations.layout.managers.RowLayout
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionConstraintsModifierOperation
+import androidx.compose.remote.core.operations.layout.modifiers.DimensionInModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.HostNamedActionOperation
 import androidx.compose.remote.core.operations.layout.modifiers.PaddingModifierOperation
@@ -1730,6 +1731,21 @@ private val dimensionMValueField =
 
 internal fun dimensionRawValue(op: DimensionModifierOperation): Float =
   dimensionMValueField.getFloat(op)
+
+// `getMin()` / `getMax()` expose mV1 / mV2, which `updateVariables` flattens from a NaN-encoded
+// variable id into its current value and scales from dp to px. The embedded Compose player needs
+// the source fields instead: they keep the id for reactive resolution and are already dp.
+private val dimensionInMinSourceField =
+  DimensionInModifierOperation::class.java.getDeclaredField("mValue1").apply { isAccessible = true }
+private val dimensionInMaxSourceField =
+  DimensionInModifierOperation::class.java.getDeclaredField("mValue2").apply { isAccessible = true }
+
+/** The raw min/max constraint sources, in dp or as NaN-encoded variable ids. */
+internal fun dimensionInRawValues(op: DimensionInModifierOperation): FloatArray =
+  floatArrayOf(
+    dimensionInMinSourceField.getFloat(op),
+    dimensionInMaxSourceField.getFloat(op),
+  )
 
 // 9b. PaddingModifier Reflection
 //

@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rcembedded.player.dimensionConstraintsType
+import ee.schimke.composeai.rcembedded.player.dimensionInRawValues
 import ee.schimke.composeai.rcembedded.player.dimensionRawValue
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
@@ -67,14 +68,13 @@ internal fun Modifier.width(op: WidthModifierOperation): Modifier {
 
 @Composable
 internal fun Modifier.widthIn(op: WidthInModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val widthMinDp = rememberRemoteFloatAsState(op.min).value.constraintPxToDp(density)
-  val widthMaxDp = rememberRemoteFloatAsState(op.max).value.constraintPxToDp(density)
+  val (minSource, maxSource) = dimensionInRawValues(op)
+  val widthMinDp = rememberRemoteFloatAsState(minSource).value.constraintSourceToDp()
+  val widthMaxDp = rememberRemoteFloatAsState(maxSource).value.constraintSourceToDp()
   return this.widthIn(widthMinDp, widthMaxDp)
 }
 
-internal fun Float.constraintPxToDp(density: Float): Dp =
-  if (this == -1f) Dp.Unspecified else (this / density).dp
+internal fun Float.constraintSourceToDp(): Dp = if (this == -1f) Dp.Unspecified else this.dp
 
 /**
  * Maps a [DimensionConstraintsModifierOperation] (emitted by `widthIn`/`heightIn`) to a Compose
@@ -84,9 +84,9 @@ internal fun Float.constraintPxToDp(density: Float): Dp =
  */
 @Composable
 internal fun Modifier.dimensionConstraints(op: DimensionConstraintsModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val minDp = rememberRemoteFloatAsState(op.min).value.constraintPxToDp(density)
-  val maxDp = rememberRemoteFloatAsState(op.max).value.constraintPxToDp(density)
+  val (minSource, maxSource) = dimensionInRawValues(op)
+  val minDp = rememberRemoteFloatAsState(minSource).value.constraintSourceToDp()
+  val maxDp = rememberRemoteFloatAsState(maxSource).value.constraintSourceToDp()
   return when (dimensionConstraintsType(op)) {
     DimensionConstraintsModifierOperation.HORIZONTAL_CONSTRAINTS,
     DimensionConstraintsModifierOperation.REQUIRED_HORIZONTAL_CONSTRAINTS ->
