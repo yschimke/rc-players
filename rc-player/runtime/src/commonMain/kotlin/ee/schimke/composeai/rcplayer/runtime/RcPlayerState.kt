@@ -228,7 +228,7 @@ public class RcPlayerState(
   init {
     for (operation in document.operations) {
       when (operation) {
-        is RcFloatConstant -> floats[operation.id] = operation.value.value
+        is RcFloatConstant -> storeFloat(operation.id, operation.value.value)
         is RcColorConstant -> colors[operation.id] = operation.argb
         is RcTextData -> baseTexts[operation.id] = operation.text
         is RcIntegerConstant -> setInteger(operation.id, operation.value)
@@ -244,10 +244,12 @@ public class RcPlayerState(
         else -> Unit
       }
     }
-    componentValues.values.flatten().forEach { if (it.valueId !in floats) floats[it.valueId] = 0f }
+    componentValues.values.flatten().forEach {
+      if (it.valueId !in floats) storeFloat(it.valueId, 0f)
+    }
     document.operations.filterIsInstance<RcDynamicFloatList>().forEach(::applyDataOperation)
     document.operations.filterIsInstance<RcTouchExpression>().forEach { operation ->
-      if (operation.id !in floats) floats[operation.id] = resolve(operation.defaultValue)
+      if (operation.id !in floats) storeFloat(operation.id, resolve(operation.defaultValue))
     }
     // Snapshot what the *document* recorded for each named variable, before any host override is
     // applied. `setNamedValue` has no inverse, so without this a host that stops supplying a value
@@ -373,7 +375,7 @@ public class RcPlayerState(
   }
 
   private fun loadSystem(id: Int, value: Float) {
-    if (id !in claimedSystemIds) floats[id] = value
+    if (id !in claimedSystemIds) storeFloat(id, value)
   }
 
   /** Evaluates AndroidX `TimeAttribute.paint` against one wall-clock snapshot for this frame. */
@@ -578,7 +580,7 @@ public class RcPlayerState(
         when (entry.type) {
           RcIdMap.TYPE_STRING -> texts[operation.outId] = requireNotNull(texts[entry.id])
           RcIdMap.TYPE_INT -> setInteger(operation.outId, requireNotNull(integers[entry.id]))
-          RcIdMap.TYPE_FLOAT -> floats[operation.outId] = requireNotNull(floats[entry.id])
+          RcIdMap.TYPE_FLOAT -> storeFloat(operation.outId, requireNotNull(floats[entry.id]))
           RcIdMap.TYPE_LONG -> setInteger(operation.outId, requireNotNull(longs[entry.id]).toInt())
           RcIdMap.TYPE_BOOLEAN ->
             setInteger(operation.outId, if (requireNotNull(booleans[entry.id])) 1 else 0)
@@ -1172,7 +1174,14 @@ public class RcPlayerState(
     // (the reserved range is not addressable as a named value), so this only ever fires for a
     // hand-built document or a test.
     if (id in RcSystemVariables.ALL) claimedSystemIds.add(id)
+    storeFloat(id, value)
+  }
+
+  // AndroidX RemoteComposeState.updateFloat publishes both numeric views. Integer expressions
+  // consume float results (including comparisons) through the same ID, truncating toward zero.
+  private fun storeFloat(id: Int, value: Float) {
     floats[id] = value
+    integers[id] = value.toInt()
   }
 
   public fun hasComponentValues(componentId: Int): Boolean = componentId in componentValues
@@ -1214,7 +1223,7 @@ public class RcPlayerState(
           else -> error("Unknown ComponentValue type ${binding.type}")
         }
       if (floats[binding.valueId]?.toRawBits() != value.toRawBits()) {
-        floats[binding.valueId] = value
+        storeFloat(binding.valueId, value)
         changed = true
       }
     }
@@ -1319,7 +1328,7 @@ public class RcPlayerState(
       variable.type == RcNamedVariable.STRING_TYPE && value is RcNamedValue.Text ->
         setText(variable.id, value.value)
       variable.type == RcNamedVariable.FLOAT_TYPE && value is RcNamedValue.FloatValue ->
-        floats[variable.id] = value.value
+        storeFloat(variable.id, value.value)
       variable.type == RcNamedVariable.COLOR_TYPE && value is RcNamedValue.Color ->
         colors[variable.id] = value.argb
       variable.type == RcNamedVariable.INT_TYPE && value is RcNamedValue.Integer ->

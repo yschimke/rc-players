@@ -71,6 +71,72 @@ import kotlin.test.assertTrue
 
 class RcPlayerStateTest {
   @Test
+  fun floatResultsFeedIntegerExpressionsWithoutLosingTheirFloatValue() {
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(RcFloatConstant(51, RcFloatWord.literal(1.75f))),
+        )
+      )
+    val expression = RcIntegerExpression(52, 1, listOf(51))
+    for ((value, expected) in
+      listOf(
+        1.75f to 1,
+        -2.75f to -2,
+        Float.MIN_VALUE to 0,
+        Float.MAX_VALUE to Int.MAX_VALUE,
+        -Float.MAX_VALUE to Int.MIN_VALUE,
+        Float.NaN to 0,
+      )) {
+      state.setFloat(51, value)
+      state.applyIntegerExpression(expression)
+      assertEquals(expected, state.integer(52))
+      assertEquals(value.toRawBits(), state.resolve(RcFloatWord(0x7fc00000 or 51)).toRawBits())
+    }
+    state.setInteger(51, Int.MAX_VALUE)
+    state.applyIntegerExpression(expression)
+    assertEquals(Int.MAX_VALUE, state.integer(52), "Integer state must retain all 32 bits")
+  }
+
+  @Test
+  fun namedFloatActionsAndRestorationRefreshTheIntegerView() {
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(
+            RcFloatConstant(51, RcFloatWord.literal(1.75f)),
+            RcNamedVariable(51, RcNamedVariable.FLOAT_TYPE, "page"),
+          ),
+        )
+      )
+    assertEquals(1, state.integer(51))
+    state.setNamedValue("page", RcNamedValue.FloatValue(-2.75f))
+    assertEquals(-2, state.integer(51))
+    state.executeClick(
+      RcClickActionBlock(
+        listOf(RcLinkedNode.Operation(RcValueFloatChangeAction(51, RcFloatWord.literal(3.5f))))
+      )
+    )
+    assertEquals(3, state.integer(51))
+    state.clearNamedValue("page")
+    assertEquals(1, state.integer(51))
+    state.applyFloatExpression(
+      RcFloatExpression(
+        53,
+        listOf(
+          RcFloatWord(0x7fc00000 or 51),
+          RcFloatWord.literal(2f),
+          RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 3),
+        ),
+        null,
+      )
+    )
+    assertEquals(3, state.integer(53))
+  }
+
+  @Test
   fun integerValuesAlsoPopulateTheSharedFloatNamespace() {
     val reference = RcFloatWord(0x7fc00000 or 51)
     val state =
