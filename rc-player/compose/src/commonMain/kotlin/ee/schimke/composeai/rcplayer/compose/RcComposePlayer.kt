@@ -847,13 +847,15 @@ private fun RenderLayoutNode(
         contentAlignment =
           boxAlignment(node.operation.horizontalPositioning, node.operation.verticalPositioning),
       ) {
-        RenderLayoutNode(
-          node.content,
-          state = state,
-          textMeasurer = textMeasurer,
-          images = images,
-          theme = theme,
-        )
+        node.content?.let { content ->
+          RenderLayoutNode(
+            content,
+            state = state,
+            textMeasurer = textMeasurer,
+            images = images,
+            theme = theme,
+          )
+        }
       }
     is RcLayoutNode.Row -> {
       val density = androidx.compose.ui.platform.LocalDensity.current
@@ -2687,7 +2689,7 @@ private fun RcLayoutNode.geometryComponentIds(): List<Int> =
       listOf(componentId) + children.filterIsInstance<RcLayoutNode.Content>().map { it.componentId }
     is RcLayoutNode.Canvas -> listOfNotNull(componentId, content?.componentId)
     is RcLayoutNode.CanvasContent -> listOf(componentId)
-    is RcLayoutNode.Box -> listOf(componentId, content.componentId)
+    is RcLayoutNode.Box -> listOfNotNull(componentId, content?.componentId)
     is RcLayoutNode.Row -> listOf(componentId, content.componentId)
     is RcLayoutNode.Column -> listOf(componentId, content.componentId)
     is RcLayoutNode.Flow -> listOf(componentId, content.componentId)

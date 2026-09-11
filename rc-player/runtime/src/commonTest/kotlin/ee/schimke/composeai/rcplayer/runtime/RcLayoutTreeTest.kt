@@ -44,9 +44,36 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class RcLayoutTreeTest {
   private val header = RcHeader(RcVersion(1, 0, 0), modern = false)
+
+  @Test
+  fun emptyBoxRetainsItsIdentityAndModifiersWithoutInventingContent() {
+    val root =
+      requireNotNull(
+        treeOf(
+          RcRootLayout(1),
+          RcBoxLayout(2, 20, 1, 4),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(40f)),
+          ends = 2,
+        )
+      )
+    val box = assertIs<RcLayoutNode.Box>(root.children.single())
+    assertEquals(2, box.componentId)
+    assertEquals(20, box.animationId)
+    assertEquals(40f, box.modifiers.width?.value?.value)
+    assertNull(box.content)
+  }
+
+  @Test
+  fun aBoxCannotSilentlyDiscardChildrenOutsideItsContent() {
+    assertFailsWith<RcLayoutException> {
+      treeOf(RcRootLayout(1), RcBoxLayout(2, 20, 1, 4), RcBoxLayout(3, 30, 1, 4), ends = 3)
+    }
+  }
 
   @Test
   fun retainsCustomComponentsAndTheirLayoutModifiers() {
@@ -451,7 +478,7 @@ class RcLayoutTreeTest {
 
     val root = requireNotNull(RcLayoutTree.build(linked))
     val box = assertIs<RcLayoutNode.Box>(root.children.single())
-    val canvas = assertIs<RcLayoutNode.Canvas>(box.content.children.single())
+    val canvas = assertIs<RcLayoutNode.Canvas>(assertNotNull(box.content).children.single())
 
     assertEquals(100f, box.modifiers.width?.value?.value)
     assertEquals(listOf(1f, 5f), box.modifiers.padding.map { it.left.value })
@@ -490,7 +517,7 @@ class RcLayoutTreeTest {
   @Test
   fun rejectsMissingContentAndDuplicateIdsButKeepsFirstRequiredDimension() {
     assertFailsWith<RcLayoutException> {
-      treeOf(RcRootLayout(1), RcBoxLayout(2, 20, 1, 4), ends = 2)
+      treeOf(RcRootLayout(1), RcStateLayout(2, 20, 1, 4, 40), ends = 2)
     }
     val repeatedDimensions =
       requireNotNull(

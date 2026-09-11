@@ -1476,7 +1476,7 @@ private fun hasUndispatchedAccessibilityClick(
       is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Root -> node.children
       is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Content -> node.children
       is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Canvas -> listOfNotNull(node.content)
-      is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Box -> listOf(node.content)
+      is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Box -> listOfNotNull(node.content)
       is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Row -> listOf(node.content)
       is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Column -> listOf(node.content)
       is ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Flow -> listOf(node.content)

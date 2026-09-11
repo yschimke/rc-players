@@ -159,7 +159,7 @@ public sealed interface RcLayoutNode {
   public data class Box(
     val operation: RcBoxLayout,
     override val modifiers: RcLayoutModifiers,
-    val content: Content,
+    val content: Content?,
     val canvasOperations: List<RcLinkedNode>?,
   ) : RcLayoutNode {
     override val componentId: Int = operation.componentId
@@ -365,7 +365,7 @@ public object RcLayoutTree {
           RcLayoutNode.Box(
             operation,
             modifiers,
-            requiredContent(container, seenIds, styles),
+            boxContent(container, seenIds, styles),
             canvasOperations(container),
           )
         is RcRowLayout ->
@@ -454,6 +454,22 @@ public object RcLayoutTree {
       throw RcLayoutException("Component has ${contents.size} LayoutComponentContent children")
     }
     return contents.singleOrNull()?.let { parse(it, seenIds, styles) as RcLayoutNode.Content }
+  }
+
+  /** AndroidX writer.box emits a leaf with modifiers but no LayoutComponentContent. */
+  private fun boxContent(
+    container: RcLinkedNode.Container,
+    seenIds: MutableSet<Int>,
+    styles: Map<Int, RcTextStyle>,
+  ): RcLayoutNode.Content? {
+    val content = optionalContent(container, seenIds, styles)
+    if (
+      content == null &&
+        container.children.any { it is RcLinkedNode.Container && it.operation.isLayoutComponent() }
+    ) {
+      throw RcLayoutException("RcBoxLayout has child layouts without LayoutComponentContent")
+    }
+    return content
   }
 
   private fun requiredContent(
