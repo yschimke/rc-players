@@ -2,12 +2,80 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperationProfiles
+import ee.schimke.composeai.rcplayer.runtime.RcDocumentCapabilities
+import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
+import platform.Foundation.NSBundle
+import platform.Foundation.NSLog
+import platform.Foundation.NSNumber
 import platform.UIKit.UIViewController
+
+/** Live named-variable state owned by an Apple host. */
+public class RcComposePlayerController {
+  internal val values = mutableStateMapOf<String, RcNamedValue>()
+  private var types: Map<String, Int> = emptyMap()
+
+  /** Names declared by the document currently attached to the player. */
+  public val names: List<String>
+    get() = types.keys.sorted()
+
+  /** Sets a float variable, returning false when [name] is absent or has a different type. */
+  public fun setFloat(name: String, value: Float): Boolean =
+    set(name, RcNamedVariable.FLOAT_TYPE, RcNamedValue.FloatValue(value))
+
+  /** Sets a string variable, returning false when [name] is absent or has a different type. */
+  public fun setString(name: String, value: String): Boolean =
+    set(name, RcNamedVariable.STRING_TYPE, RcNamedValue.Text(value))
+
+  /**
+   * Sets an ARGB colour variable, returning false when [name] is absent or has a different type.
+   */
+  public fun setColor(name: String, argb: Int): Boolean =
+    set(name, RcNamedVariable.COLOR_TYPE, RcNamedValue.Color(argb))
+
+  internal fun attach(capabilities: RcDocumentCapabilities) {
+    types = capabilities.namedValues
+    values.keys.removeAll { name -> !values.getValue(name).matchesType(types[name]) }
+  }
+
+  private fun set(name: String, expectedType: Int, value: RcNamedValue): Boolean {
+    val qualifiedName = if (name.contains(':')) name else "USER:$name"
+    if (types[qualifiedName] != expectedType) return false
+    values[qualifiedName] = value
+    return true
+  }
+}
+
+private fun RcNamedValue.matchesType(type: Int?): Boolean =
+  when (this) {
+    is RcNamedValue.Text -> type == RcNamedVariable.STRING_TYPE
+    is RcNamedValue.FloatValue -> type == RcNamedVariable.FLOAT_TYPE
+    is RcNamedValue.Color -> type == RcNamedVariable.COLOR_TYPE
+    is RcNamedValue.Integer -> type == RcNamedVariable.INT_TYPE
+    is RcNamedValue.LongValue -> type == RcNamedVariable.LONG_TYPE
+  }
+
+private var didWarnAboutHighRefreshRatePlist = false
+
+private fun warnIfHighRefreshRatePlistEntryIsMissing() {
+  val isEnabled =
+    (NSBundle.mainBundle.objectForInfoDictionaryKey("CADisableMinimumFrameDurationOnPhone")
+        as? NSNumber)
+      ?.boolValue == true
+  if (!didWarnAboutHighRefreshRatePlist && !isEnabled) {
+    didWarnAboutHighRefreshRatePlist = true
+    NSLog(
+      "Remote Compose: CADisableMinimumFrameDurationOnPhone is not YES; " +
+        "continuing with the host application's refresh-rate configuration."
+    )
+  }
+}
 
 /**
  * Thin UIKit host for the common CMP player. The `.rc` bytes remain owned by the caller.
@@ -131,6 +199,57 @@ public fun RcComposeViewController(
   opaque: Boolean,
   soundHost: RcSoundHost,
 ): UIViewController {
+  return createRcComposeViewController(
+    bytes,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    opaque,
+    soundHost,
+    controller = null,
+  )
+}
+
+/** [RcComposeViewController] with live named-variable state owned by [controller]. */
+@OptIn(ExperimentalComposeUiApi::class)
+public fun RcComposeViewController(
+  bytes: ByteArray,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  opaque: Boolean,
+  soundHost: RcSoundHost,
+  controller: RcComposePlayerController,
+): UIViewController =
+  createRcComposeViewController(
+    bytes,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    opaque,
+    soundHost,
+    controller,
+  )
+
+@OptIn(ExperimentalComposeUiApi::class)
+private fun createRcComposeViewController(
+  bytes: ByteArray,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  opaque: Boolean,
+  soundHost: RcSoundHost,
+  controller: RcComposePlayerController?,
+): UIViewController {
+  warnIfHighRefreshRatePlistEntryIsMissing()
   val document = runCatching {
     decodeCmpDocument(bytes).also {
       it
@@ -142,15 +261,28 @@ public fun RcComposeViewController(
     }
   }
     .getOrElse {
+      controller?.attach(RcDocumentCapabilities(emptyMap(), emptySet()))
       onError(it.message ?: "Remote Compose document failed to load")
-      return ComposeUIViewController(configure = { this.opaque = opaque }) {}
+      return ComposeUIViewController(
+        configure = {
+          this.opaque = opaque
+          enforceStrictPlistSanityCheck = false
+        }
+      ) {}
     }
-  return ComposeUIViewController(configure = { this.opaque = opaque }) {
+  controller?.attach(RcDocumentCapabilities.of(document))
+  return ComposeUIViewController(
+    configure = {
+      this.opaque = opaque
+      enforceStrictPlistSanityCheck = false
+    }
+  ) {
     CompositionLocalProvider(LocalRcSoundHost provides soundHost) {
       RcComposePlayer(
         document,
         Modifier.fillMaxSize(),
         theme,
+        namedValues = controller?.values ?: rememberRcNamedValues(),
         onEvent = { event -> forwardIosPlayerEvent(onEvent, event) },
         typefaces = typefaces,
       )

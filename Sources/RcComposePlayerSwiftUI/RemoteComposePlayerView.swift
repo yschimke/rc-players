@@ -9,16 +9,19 @@
     private var configuration: RemoteComposePlayerConfiguration
     private var eventHandler: (RemoteComposePlayerEvent) -> Void
     private var errorHandler: (RemoteComposePlayerError) -> Void
+    private var playerController: RemoteComposePlayerController
     private var contentController: UIViewController?
     private var generation = 0
 
     public init(
       data: Data,
+      controller: RemoteComposePlayerController? = nil,
       configuration: RemoteComposePlayerConfiguration = .init(),
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
     ) {
       documentData = data
+      playerController = controller ?? RemoteComposePlayerController()
       self.configuration = configuration
       eventHandler = onEvent
       errorHandler = onError
@@ -41,11 +44,27 @@
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
+      update(
+        data: data, controller: playerController, configuration: configuration, onEvent: onEvent,
+        onError: onError)
+    }
+
+    public func update(
+      data: Data,
+      controller: RemoteComposePlayerController,
+      configuration: RemoteComposePlayerConfiguration,
+      onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
+      onError: @escaping (RemoteComposePlayerError) -> Void
+    ) {
       eventHandler = onEvent
       errorHandler = onError
 
-      guard data != documentData || configuration != self.configuration else { return }
+      guard
+        data != documentData || configuration != self.configuration ||
+          controller !== playerController
+      else { return }
       documentData = data
+      playerController = controller
       self.configuration = configuration
       if isViewLoaded { rebuildContent() }
     }
@@ -54,14 +73,6 @@
       generation += 1
       let activeGeneration = generation
       applyBackground()
-      guard
-        Bundle.main.object(forInfoDictionaryKey: "CADisableMinimumFrameDurationOnPhone") as? Bool
-          == true
-      else {
-        show(.missingHighRefreshRatePlistEntry)
-        return
-      }
-
       let bytes: KotlinByteArray
       do {
         bytes = try kotlinBytes(from: documentData)
@@ -94,7 +105,9 @@
           self.errorHandler(error)
         },
         lenient: configuration.compatibility.isLenient,
-        opaque: configuration.background.isOpaque
+        opaque: configuration.background.isOpaque,
+        soundHost: RcSoundHostCompanion.shared.None,
+        controller: playerController.kotlinController
       )
       isBuilding = false
 
@@ -138,18 +151,26 @@
 
   @MainActor
   public struct RemoteComposePlayerView: UIViewControllerRepresentable {
+    @MainActor
+    public final class Coordinator {
+      fileprivate let defaultController = RemoteComposePlayerController()
+    }
+
     public let data: Data
+    public let controller: RemoteComposePlayerController?
     public var configuration: RemoteComposePlayerConfiguration
     public var onEvent: (RemoteComposePlayerEvent) -> Void
     public var onError: (RemoteComposePlayerError) -> Void
 
     public init(
       data: Data,
+      controller: RemoteComposePlayerController? = nil,
       configuration: RemoteComposePlayerConfiguration = .init(),
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
     ) {
       self.data = data
+      self.controller = controller
       self.configuration = configuration
       self.onEvent = onEvent
       self.onError = onError
@@ -157,14 +178,20 @@
 
     public func makeUIViewController(context: Context) -> RemoteComposePlayerViewController {
       RemoteComposePlayerViewController(
-        data: data, configuration: configuration, onEvent: onEvent, onError: onError)
+        data: data, controller: controller ?? context.coordinator.defaultController,
+        configuration: configuration, onEvent: onEvent, onError: onError)
+    }
+
+    public func makeCoordinator() -> Coordinator {
+      Coordinator()
     }
 
     public func updateUIViewController(
       _ controller: RemoteComposePlayerViewController, context: Context
     ) {
       controller.update(
-        data: data, configuration: configuration, onEvent: onEvent, onError: onError)
+        data: data, controller: self.controller ?? context.coordinator.defaultController,
+        configuration: configuration, onEvent: onEvent, onError: onError)
     }
   }
 

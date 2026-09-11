@@ -60,7 +60,47 @@ public enum RemoteComposePlayerEvent: Equatable, Sendable {
   case namedAction(name: String, value: RemoteComposePlayerActionValue)
   case debug(message: String, value: Float, flags: Int)
   case unsupported(String)
+
+  /// A URL carried by a metadata action or a text-valued named action.
+  public var url: URL? {
+    switch self {
+    case .actionWithMetadata(_, let metadata): remoteComposeActionURL(metadata)
+    case .namedAction(_, .text(let value)): remoteComposeActionURL(value)
+    default: nil
+    }
+  }
 }
+
+private func remoteComposeActionURL(_ value: String) -> URL? {
+  guard let url = URL(string: value), url.scheme != nil else { return nil }
+  return url
+}
+
+#if canImport(UIKit)
+  @MainActor
+  public final class RemoteComposePlayerController {
+    let kotlinController = RcComposePlayerController()
+
+    public init() {}
+
+    public var names: [String] { kotlinController.names }
+
+    @discardableResult
+    public func setFloat(_ value: Float, for name: String) -> Bool {
+      kotlinController.setFloat(name: name, value: value)
+    }
+
+    @discardableResult
+    public func setString(_ value: String, for name: String) -> Bool {
+      kotlinController.setString(name: name, value: value)
+    }
+
+    @discardableResult
+    public func setColor(_ argb: UInt32, for name: String) -> Bool {
+      kotlinController.setColor(name: name, argb: Int32(bitPattern: argb))
+    }
+  }
+#endif
 
 public enum RemoteComposePlayerError: Error, Equatable, Sendable {
   case missingHighRefreshRatePlistEntry
@@ -86,11 +126,7 @@ func kotlinBytes(from data: Data) throws -> KotlinByteArray {
     throw RemoteComposePlayerError.documentTooLarge(byteCount: data.count)
   }
 
-  let bytes = KotlinByteArray(size: Int32(data.count))
-  for (offset, byte) in data.enumerated() {
-    bytes.set(index: Int32(offset), value: Int8(bitPattern: byte))
-  }
-  return bytes
+  return RcDataBridgeKt.rcByteArray(data: data)
 }
 
 func swiftEvent(from event: RcPlayerEvent) -> RemoteComposePlayerEvent {

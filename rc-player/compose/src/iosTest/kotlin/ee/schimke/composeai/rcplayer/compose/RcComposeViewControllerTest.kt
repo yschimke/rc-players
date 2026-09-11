@@ -3,10 +3,13 @@ package ee.schimke.composeai.rcplayer.compose
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.runtime.RcDocumentCapabilities
+import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -68,5 +71,46 @@ class RcComposeViewControllerTest {
       )
 
     assertFalse(controller.view.opaque)
+  }
+
+  @Test
+  fun appleControllerPublishesNamesAndTypeChecksLiveValues() {
+    val controller = RcComposePlayerController()
+    controller.attach(
+      RcDocumentCapabilities(
+        namedValues =
+          mapOf(
+            "USER:progress" to RcNamedVariable.FLOAT_TYPE,
+            "USER:title" to RcNamedVariable.STRING_TYPE,
+            "theme:accent" to RcNamedVariable.COLOR_TYPE,
+          ),
+        colorThemeGroups = emptySet(),
+      )
+    )
+
+    assertEquals(listOf("USER:progress", "USER:title", "theme:accent"), controller.names)
+    assertTrue(controller.setFloat("progress", 0.5f))
+    assertTrue(controller.setString("title", "Ready"))
+    assertTrue(controller.setColor("theme:accent", 0xff336699.toInt()))
+    assertFalse(controller.setString("progress", "wrong type"))
+    assertFalse(controller.setFloat("missing", 1f))
+    assertEquals(RcNamedValue.FloatValue(0.5f), controller.values["USER:progress"])
+    assertEquals(RcNamedValue.Text("Ready"), controller.values["USER:title"])
+    assertEquals(RcNamedValue.Color(0xff336699.toInt()), controller.values["theme:accent"])
+
+    controller.attach(
+      RcDocumentCapabilities(
+        namedValues =
+          mapOf(
+            "USER:progress" to RcNamedVariable.STRING_TYPE,
+            "USER:title" to RcNamedVariable.STRING_TYPE,
+          ),
+        colorThemeGroups = emptySet(),
+      )
+    )
+
+    assertEquals(listOf("USER:progress", "USER:title"), controller.names)
+    assertFalse("USER:progress" in controller.values)
+    assertEquals(RcNamedValue.Text("Ready"), controller.values["USER:title"])
   }
 }
