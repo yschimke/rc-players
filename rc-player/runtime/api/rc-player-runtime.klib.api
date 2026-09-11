@@ -123,7 +123,7 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schi
         abstract fun <get-modifiers>(): ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.modifiers.<get-modifiers>|<get-modifiers>(){}[0]
 
     final class Box : ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box|null[0]
-        constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcBoxLayout, ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers, ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content, kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLinkedNode>?) // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcBoxLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers;ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Content;kotlin.collections.List<ee.schimke.composeai.rcplayer.runtime.RcLinkedNode>?){}[0]
+        constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcBoxLayout, ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers, ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content?, kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLinkedNode>?) // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcBoxLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers;ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Content?;kotlin.collections.List<ee.schimke.composeai.rcplayer.runtime.RcLinkedNode>?){}[0]
 
         final val animationId // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.animationId|{}animationId[0]
             final fun <get-animationId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.animationId.<get-animationId>|<get-animationId>(){}[0]
@@ -132,7 +132,7 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schi
         final val componentId // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.componentId|{}componentId[0]
             final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.componentId.<get-componentId>|<get-componentId>(){}[0]
         final val content // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.content|{}content[0]
-            final fun <get-content>(): ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.content.<get-content>|<get-content>(){}[0]
+            final fun <get-content>(): ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content? // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.content.<get-content>|<get-content>(){}[0]
         final val modifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.modifiers|{}modifiers[0]
             final fun <get-modifiers>(): ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.modifiers.<get-modifiers>|<get-modifiers>(){}[0]
         final val operation // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.operation|{}operation[0]
@@ -140,9 +140,9 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schi
 
         final fun component1(): ee.schimke.composeai.rcplayer.protocol/RcBoxLayout // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.component1|component1(){}[0]
         final fun component2(): ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.component2|component2(){}[0]
-        final fun component3(): ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.component3|component3(){}[0]
+        final fun component3(): ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content? // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.component3|component3(){}[0]
         final fun component4(): kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLinkedNode>? // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.component4|component4(){}[0]
-        final fun copy(ee.schimke.composeai.rcplayer.protocol/RcBoxLayout = ..., ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers = ..., ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLinkedNode>? = ...): ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcBoxLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers;ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Content;kotlin.collections.List<ee.schimke.composeai.rcplayer.runtime.RcLinkedNode>?){}[0]
+        final fun copy(ee.schimke.composeai.rcplayer.protocol/RcBoxLayout = ..., ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers = ..., ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Content? = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLinkedNode>? = ...): ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcBoxLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers;ee.schimke.composeai.rcplayer.runtime.RcLayoutNode.Content?;kotlin.collections.List<ee.schimke.composeai.rcplayer.runtime.RcLinkedNode>?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Box.toString|toString(){}[0]
