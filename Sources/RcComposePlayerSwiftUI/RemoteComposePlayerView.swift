@@ -151,6 +151,11 @@
 
   @MainActor
   public struct RemoteComposePlayerView: UIViewControllerRepresentable {
+    @MainActor
+    public final class Coordinator {
+      fileprivate let defaultController = RemoteComposePlayerController()
+    }
+
     public let data: Data
     public let controller: RemoteComposePlayerController?
     public var configuration: RemoteComposePlayerConfiguration
@@ -173,21 +178,20 @@
 
     public func makeUIViewController(context: Context) -> RemoteComposePlayerViewController {
       RemoteComposePlayerViewController(
-        data: data, controller: controller, configuration: configuration, onEvent: onEvent,
-        onError: onError)
+        data: data, controller: controller ?? context.coordinator.defaultController,
+        configuration: configuration, onEvent: onEvent, onError: onError)
+    }
+
+    public func makeCoordinator() -> Coordinator {
+      Coordinator()
     }
 
     public func updateUIViewController(
       _ controller: RemoteComposePlayerViewController, context: Context
     ) {
-      if let playerController = self.controller {
-        controller.update(
-          data: data, controller: playerController, configuration: configuration, onEvent: onEvent,
-          onError: onError)
-      } else {
-        controller.update(
-          data: data, configuration: configuration, onEvent: onEvent, onError: onError)
-      }
+      controller.update(
+        data: data, controller: self.controller ?? context.coordinator.defaultController,
+        configuration: configuration, onEvent: onEvent, onError: onError)
     }
   }
 

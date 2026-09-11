@@ -41,7 +41,7 @@ public class RcComposePlayerController {
 
   internal fun attach(capabilities: RcDocumentCapabilities) {
     types = capabilities.namedValues
-    values.keys.retainAll(types.keys)
+    values.keys.removeAll { name -> !values.getValue(name).matchesType(types[name]) }
   }
 
   private fun set(name: String, expectedType: Int, value: RcNamedValue): Boolean {
@@ -51,6 +51,15 @@ public class RcComposePlayerController {
     return true
   }
 }
+
+private fun RcNamedValue.matchesType(type: Int?): Boolean =
+  when (this) {
+    is RcNamedValue.Text -> type == RcNamedVariable.STRING_TYPE
+    is RcNamedValue.FloatValue -> type == RcNamedVariable.FLOAT_TYPE
+    is RcNamedValue.Color -> type == RcNamedVariable.COLOR_TYPE
+    is RcNamedValue.Integer -> type == RcNamedVariable.INT_TYPE
+    is RcNamedValue.LongValue -> type == RcNamedVariable.LONG_TYPE
+  }
 
 private var didWarnAboutHighRefreshRatePlist = false
 

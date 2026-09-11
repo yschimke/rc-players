@@ -14,17 +14,25 @@ if [ ! -d "$app" ]; then
   exit 1
 fi
 
+minimum_os="$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$app/Info.plist")"
 device="$({ xcrun simctl list devices available --json; } | python3 -c '
-import json, sys
-devices = [d for values in json.load(sys.stdin)["devices"].values() for d in values
-           if d.get("isAvailable") and d["name"].startswith("iPad")]
+import json, re, sys
+
+minimum = tuple(map(int, sys.argv[1].split(".")))
+devices = []
+for runtime, values in json.load(sys.stdin)["devices"].items():
+    match = re.search(r"\.iOS-(\d+)-(\d+)$", runtime)
+    if not match or tuple(map(int, match.groups())) < minimum:
+        continue
+    devices.extend(d for d in values
+                   if d.get("isAvailable") and d["name"].startswith("iPad"))
 preferred = [d for d in devices if "13-inch" in d["name"]]
 ordered = [d for d in devices if d["state"] == "Booted"] + preferred + devices
 if not ordered:
-    raise SystemExit("no available iPad simulator")
+    raise SystemExit(f"no available iPad simulator supports iOS {sys.argv[1]} or newer")
 d = ordered[0]
 print(d["udid"], d["state"], sep="\t")
-')"
+' "$minimum_os")"
 udid="${device%%$'\t'*}"
 state="${device#*$'\t'}"
 

@@ -97,5 +97,20 @@ class RcComposeViewControllerTest {
     assertEquals(RcNamedValue.FloatValue(0.5f), controller.values["USER:progress"])
     assertEquals(RcNamedValue.Text("Ready"), controller.values["USER:title"])
     assertEquals(RcNamedValue.Color(0xff336699.toInt()), controller.values["theme:accent"])
+
+    controller.attach(
+      RcDocumentCapabilities(
+        namedValues =
+          mapOf(
+            "USER:progress" to RcNamedVariable.STRING_TYPE,
+            "USER:title" to RcNamedVariable.STRING_TYPE,
+          ),
+        colorThemeGroups = emptySet(),
+      )
+    )
+
+    assertEquals(listOf("USER:progress", "USER:title"), controller.names)
+    assertFalse("USER:progress" in controller.values)
+    assertEquals(RcNamedValue.Text("Ready"), controller.values["USER:title"])
   }
 }
