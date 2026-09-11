@@ -154,10 +154,6 @@ project(":third-party-rc-embedded-player-jvm").projectDir =
 
 // Horologist's Lottie → Remote Compose compiler, vendored because Horologist publishes no artifact
 // for it. It is what the UI builder's Wear `LottiePlayer` export compiles against. See
-// `third_party/horologist-lottie/PROVENANCE.md`.
-include(":third-party-horologist-lottie")
-
-project(":third-party-horologist-lottie").projectDir = file("third_party/horologist-lottie")
 
 // Snapshot the project paths that carry ktfmt (every project except the root, which applies no
 // convention plugin) for the root build's `ktfmtCheckAll` / `ktfmtFormatAll` aggregate tasks. We
