@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.61.0](https://github.com/yschimke/rc-players/compare/v1.60.2...v1.61.0) (2026-09-11)
+
+
+### Features
+
+* **apple:** improve Swift player integration ([#96](https://github.com/yschimke/rc-players/issues/96)) ([928eca9](https://github.com/yschimke/rc-players/commit/928eca9f8b0d286d7d0c5ad983e87989f16cdfbb))
+
+
+### Bug Fixes
+
+* **player:** expose float results to integer expressions ([#94](https://github.com/yschimke/rc-players/issues/94)) ([e99d94b](https://github.com/yschimke/rc-players/commit/e99d94bb8ed4f82786d43ce7a8b9d5ae5b871507))
+* **player:** render empty Boxes emitted by AndroidX JSON ([#92](https://github.com/yschimke/rc-players/issues/92)) ([7b25f43](https://github.com/yschimke/rc-players/commit/7b25f4382f2d673f0703c386df0193fc6c3eaa4b))
+
 ## [1.60.2](https://github.com/yschimke/rc-players/compare/v1.60.1...v1.60.2) (2026-09-10)
 
 
