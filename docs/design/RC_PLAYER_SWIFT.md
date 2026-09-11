@@ -89,10 +89,38 @@ content behind portions of the document that do not draw. Changing the value reb
 Compose controller because opacity is a renderer creation setting; it does not require replacing
 the surrounding `RemoteComposePlayerViewController`.
 
-An iOS host must set `CADisableMinimumFrameDurationOnPhone` to `YES` in its application
-`Info.plist`, as required by `ComposeUIViewController`. The overlay checks this before entering
-Compose and reports `.missingHighRefreshRatePlistEntry` through `onError`, with a visible fallback,
-instead of allowing the integration mistake to become a runtime assertion.
+An iOS host should set `CADisableMinimumFrameDurationOnPhone` to `YES` in its application
+`Info.plist` to let Compose use the display's full refresh rate. The player disables Compose's
+strict plist assertion and emits one console notice when the entry is absent, so prototypes and
+embedded hosts continue rendering at the host application's configured rate.
+
+### Live named variables
+
+Keep a `RemoteComposePlayerController` alongside the view to discover and update the document's
+host-driven state without rebuilding the Compose controller:
+
+```swift
+// iOS
+@MainActor
+struct LivePlayer: View {
+  @State private var playerController = RemoteComposePlayerController()
+
+  var body: some View {
+    RemoteComposePlayerView(data: documentData, controller: playerController)
+  }
+
+  func updateHostValues() {
+    print(playerController.names)
+    playerController.setFloat(0.75, for: "progress")
+    playerController.setString("Ready", for: "status")
+    playerController.setColor(0xff336699, for: "accent")
+  }
+}
+```
+
+Bare names resolve in the `USER:` namespace; explicitly namespaced declarations are accepted as
+written. Each setter returns `false` for an absent name or a type mismatch. Metadata actions and
+text-valued named actions also expose a pre-parsed `event.url` convenience property.
 
 ### Raw interop
 
@@ -104,7 +132,7 @@ import RcComposePlayer
 import UIKit
 
 let controller = RcComposeViewControllerKt.RcComposeViewController(
-  bytes: KotlinByteArray(bytes: documentData),
+  bytes: RcDataBridgeKt.rcByteArray(data: documentData),
   theme: .system,
   onEvent: { event in handle(event) },
   typefaces: RcTypefaceLoaderCompanion.shared.Default,
@@ -120,7 +148,7 @@ import RcComposePlayer
 import AppKit
 
 RcComposeWindowKt.RcComposeWindow(
-  bytes: KotlinByteArray(bytes: documentData),
+  bytes: RcDataBridgeKt.rcByteArray(data: documentData),
   title: "Remote Compose",
   width: 800,
   height: 600,
@@ -163,20 +191,13 @@ alpha in Compose's Metal surface when `opaque: false`. The containing UIKit view
 clear, which is why ordinary Swift and SwiftUI consumers should prefer the source overlay's
 `background: .transparent` configuration instead of calling this overload directly.
 
-**`Data` does not bridge to `ByteArray`.** `KotlinByteArray` exports only `init(size:)`,
-`get(index:)`, and `set(index:value:)` — there is no `Data` initializer, and none is generated.
-The copy has to be written on the Swift side; this extension is what the sample above calls, and the
-sign reinterpretation matters because Kotlin's `Byte` is signed while Swift's `UInt8` is not:
+**`Data` bridges through one native copy.** `KotlinByteArray` itself exports only `init(size:)`,
+`get(index:)`, and `set(index:value:)`, so the binary framework provides an `NSData` bridge that
+copies directly into pinned Kotlin memory. The source overlay uses it after rejecting sizes that do
+not fit Kotlin's array index:
 
 ```swift
-extension KotlinByteArray {
-  convenience init(bytes: Data) {
-    self.init(size: Int32(bytes.count))
-    for (offset, byte) in bytes.enumerated() {
-      set(index: Int32(offset), value: Int8(bitPattern: byte))
-    }
-  }
-}
+let bytes = RcDataBridgeKt.rcByteArray(data: documentData)
 ```
 
 **Font-variation axes use the player's own type, on purpose.** A Swift host that supplies typefaces

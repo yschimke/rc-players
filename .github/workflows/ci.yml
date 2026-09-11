@@ -69,10 +69,12 @@ jobs:
               rc-player/compose \
               samples/apple-player \
               scripts/build-apple-player.sh \
+              scripts/check-apple-player-screenshot.sh \
               scripts/check-swift-sample.sh \
               scripts/package-apple-player.sh \
               scripts/set-apple-player-package-version.sh \
               scripts/update-package-swift.sh \
+              scripts/validate-apple-player-screenshot.swift \
               docs/design/RC_PLAYER_SWIFT.md
           then
             required=false
@@ -292,6 +294,22 @@ jobs:
       - name: Build and package the Apple player app
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/package-apple-player.sh
+
+      # Launches the packaged app on a real simulator and checks captured pixels for the white
+      # title-card canvas, its dark content band, and the coloured host background. This covers the
+      # Metal/Skiko presentation path that Kotlin/Native tests and a Swift type check cannot enter.
+      - name: Validate the Apple player screenshot
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-apple-player-screenshot.sh
+
+      - name: Upload the Apple player screenshot
+        if: always() && needs.apple-changes.outputs.required == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: apple-player-screenshot
+          path: build/apple-player-screenshot.png
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload player test reports on failure
         if: failure()

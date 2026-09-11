@@ -27,7 +27,9 @@ opening Xcode:
 
 Each GitHub Release also includes `RemoteComposePlayer-Simulator-arm64.zip`. Boot an iPad in
 Simulator, unzip the download, and run its `install-and-run.sh` helper. CI builds that exact archive
-on every pull request before the release workflow publishes it.
+on every pull request before the release workflow publishes it. CI then installs that app on an
+iPad simulator, captures it with `simctl io`, and checks the pixels for the title-card canvas and
+content band, covering the Metal/Skiko presentation path in addition to JVM headless rendering.
 
 On an Apple-silicon Mac, Xcode also offers **My Mac (Designed for iPad)** as a destination. The
 command-line helper accepts the same destination through `RC_APPLE_PLAYER_DESTINATION`; the default
@@ -39,13 +41,11 @@ playback controls share a `GlassEffectContainer` so their lensing and morphing a
 material region. The dashed-square control toggles the player surface between opaque and
 transparent, allowing the aurora backdrop to show through document areas that do not draw.
 
-The sample itself compiles the source overlay, so its normal render and its preflight error are
-capturable adopter-facing states. The second state was built with the required plist key removed;
-before the overlay preflight, the same integration error terminated inside `ComposeUIViewController`.
+The sample itself compiles the source overlay, so its normal render is an adopter-facing state.
+Missing the recommended high-refresh-rate plist key now logs one notice and continues rendering
+instead of terminating inside `ComposeUIViewController`.
 
-| Overlay render | Typed integration error |
-| --- | --- |
-| ![Remote Compose player rendered through the Swift overlay](../../renders/apple-player/swift-api-player.png) | ![Missing Compose plist requirement reported in the player](../../renders/apple-player/swift-api-error.png) |
+![Remote Compose player rendered through the Swift overlay](../../renders/apple-player/swift-api-player.png)
 
 With the background toggle enabled, the Compose Metal surface preserves alpha and the app's aurora
 shows through pixels the document does not draw:

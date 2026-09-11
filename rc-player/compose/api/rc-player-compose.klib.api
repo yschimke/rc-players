@@ -286,6 +286,24 @@ final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 // Targets: [apple]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter(){}[0]
 
+// Targets: [apple]
+final fun ee.schimke.composeai.rcplayer.compose/rcByteArray(platform.Foundation/NSData): kotlin/ByteArray // ee.schimke.composeai.rcplayer.compose/rcByteArray|rcByteArray(platform.Foundation.NSData){}[0]
+
+// Targets: [ios]
+final class ee.schimke.composeai.rcplayer.compose/RcComposePlayerController { // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController|null[0]
+    constructor <init>() // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.<init>|<init>(){}[0]
+
+    final val names // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.names|{}names[0]
+        final fun <get-names>(): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.names.<get-names>|<get-names>(){}[0]
+
+    final fun setColor(kotlin/String, kotlin/Int): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setColor|setColor(kotlin.String;kotlin.Int){}[0]
+    final fun setFloat(kotlin/String, kotlin/Float): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setFloat|setFloat(kotlin.String;kotlin.Float){}[0]
+    final fun setString(kotlin/String, kotlin/String): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcComposePlayerController.setString|setString(kotlin.String;kotlin.String){}[0]
+}
+
+// Targets: [ios]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposePlayerController$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposePlayerController$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcComposePlayerController$stableprop[0]
+
 // Targets: [ios]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader = ..., kotlin/Function1<kotlin/String, kotlin/Unit> = ...): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>){}[0]
 
@@ -300,6 +318,12 @@ final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/B
 
 // Targets: [ios]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean, kotlin/Boolean, ee.schimke.composeai.rcplayer.compose/RcSoundHost): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean;kotlin.Boolean;ee.schimke.composeai.rcplayer.compose.RcSoundHost){}[0]
+
+// Targets: [ios]
+final fun ee.schimke.composeai.rcplayer.compose/RcComposeViewController(kotlin/ByteArray, ee.schimke.composeai.rcplayer.compose/RcPlayerTheme, kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit>, ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader, kotlin/Function1<kotlin/String, kotlin/Unit>, kotlin/Boolean, kotlin/Boolean, ee.schimke.composeai.rcplayer.compose/RcSoundHost, ee.schimke.composeai.rcplayer.compose/RcComposePlayerController): platform.UIKit/UIViewController // ee.schimke.composeai.rcplayer.compose/RcComposeViewController|RcComposeViewController(kotlin.ByteArray;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean;kotlin.Boolean;ee.schimke.composeai.rcplayer.compose.RcSoundHost;ee.schimke.composeai.rcplayer.compose.RcComposePlayerController){}[0]
+
+// Targets: [ios]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposePlayerController$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposePlayerController$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcComposePlayerController$stableprop_getter(){}[0]
 
 // Targets: [macosArm64]
 final fun ee.schimke.composeai.rcplayer.compose/RcComposeWindow(kotlin/ByteArray, kotlin/String = ..., kotlin/Float = ..., kotlin/Float = ..., ee.schimke.composeai.rcplayer.compose/RcPlayerTheme = ..., kotlin/Function1<ee.schimke.composeai.rcplayer.runtime/RcPlayerEvent, kotlin/Unit> = ..., ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader = ..., kotlin/Function1<kotlin/String, kotlin/Unit> = ..., kotlin/Boolean = ...) // ee.schimke.composeai.rcplayer.compose/RcComposeWindow|RcComposeWindow(kotlin.ByteArray;kotlin.String;kotlin.Float;kotlin.Float;ee.schimke.composeai.rcplayer.compose.RcPlayerTheme;kotlin.Function1<ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent,kotlin.Unit>;ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader;kotlin.Function1<kotlin.String,kotlin.Unit>;kotlin.Boolean){}[0]
