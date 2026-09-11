@@ -3091,7 +3091,7 @@ private fun Modifier.applyWidth(
     RcDimensionType.EXACT -> width(with(density) { state.resolve(width.value).toDp() })
     RcDimensionType.EXACT_DP -> width(state.resolve(width.value).dp)
     RcDimensionType.FILL,
-    RcDimensionType.FILL_PARENT_MAX_WIDTH -> fillMaxWidth()
+    RcDimensionType.FILL_PARENT_MAX_WIDTH -> fillMaxWidth(state.fillFraction(width.value))
     // WRAP is the *absence* of a size modifier — Compose already sizes a component to its content,
     // which is how AndroidX's own embedded player implements it too. INTRINSIC_MIN/MAX fall here
     // as well, and those genuinely are unimplemented; `composeSupportReport` draws that line, so
@@ -3126,11 +3126,14 @@ private fun Modifier.applyHeight(
     RcDimensionType.EXACT -> height(with(density) { state.resolve(height.value).toDp() })
     RcDimensionType.EXACT_DP -> height(state.resolve(height.value).dp)
     RcDimensionType.FILL,
-    RcDimensionType.FILL_PARENT_MAX_HEIGHT -> fillMaxHeight()
+    RcDimensionType.FILL_PARENT_MAX_HEIGHT -> fillMaxHeight(state.fillFraction(height.value))
     // See `applyWidth`: WRAP is Compose's default sizing, INTRINSIC_MIN/MAX are the unimplemented
     // pair the support report names.
     else -> this
   }
+
+private fun RcPlayerState.fillFraction(value: RcFloatWord): Float =
+  if (value.referencedId == null && value.value.isNaN()) 1f else resolve(value)
 
 internal data class RcRootTransform(
   val scaleX: Float,
