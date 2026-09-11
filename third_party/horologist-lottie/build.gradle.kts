@@ -34,9 +34,43 @@
 
 plugins {
   id("composeai.base-conventions")
+  // Published for the same reason `:third-party-rc-embedded-player` is, and under the same terms:
+  // a vendored snapshot, not a supported API. See `composeAiMavenPublishing` below.
+  id("composeai.maven-publishing")
   alias(libs.plugins.android.library)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
+}
+
+// Published so a consumer in ANOTHER repository can compile against the compiler, which vendoring
+// alone does not allow.
+//
+// The need is concrete. yschimke/wear-m3-catalog's `:remote-catalog` has no Lottie sticker, so the
+// published `remote-m3` catalog cannot offer `remote-m3/lottie` at all while the synthesised shelf
+// does — the last component the cutover loses (compose-preview-server#674). Drawing that sticker
+// means calling `LottieAnimation(json = …)`, and there is nothing to call: Horologist ships no
+// artifact, and this copy was reachable only from inside this build.
+//
+// The alternative was a second vendored copy in that repository, which is worse in the way two
+// pinned snapshots of the same upstream are always worse — they drift, and the PROVENANCE.md that
+// says which commit is authoritative stops being able to answer. One copy, one pin, published.
+//
+// Deliberately under the compose-ai-tools group rather than `com.google.android.horologist.*`:
+// this is our snapshot at our pinned commit, and must never be mistaken for an artifact Horologist
+// released. If upstream ever publishes the module, a consumer moves to it and this coordinate goes
+// away — PROVENANCE.md is where that is tracked.
+composeAiMavenPublishing {
+  coordinates(
+    artifactId = "third-party-horologist-lottie",
+    displayName = "Compose Preview — Horologist Lottie → Remote Compose compiler (vendored)",
+    description =
+      "Vendored snapshot of Horologist's `remotecompose/lottie`: a Lottie COMPILER that re-emits " +
+        "an animation as Remote Compose creation operations, so the animation ships inside the " +
+        "`.rc` document and needs no Lottie runtime on the device. Published so catalogs in " +
+        "other repositories can draw and export one; not a supported API, and not an artifact " +
+        "Horologist released.",
+  )
+  inceptionYear.set("2026")
 }
 
 android {

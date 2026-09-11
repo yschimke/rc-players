@@ -20,6 +20,22 @@ Horologist publishes no artifact for this module — it carries no `maven-publis
 nothing under `com.google.android.horologist:horologist-remotecompose-*` exists on Maven Central.
 So a consumer either vendors it or does without.
 
+## We publish this snapshot
+
+`ee.schimke.composeai:third-party-horologist-lottie`, on this repository's release line, under the
+same terms as `:third-party-rc-embedded-player`: **our snapshot at the commit pinned above, not an
+artifact Horologist released, and not a supported API.**
+
+Vendoring makes the compiler checkable inside *this* build. It does nothing for a consumer in
+another repository, and there is one: yschimke/wear-m3-catalog's `:remote-catalog` needs to draw a
+Lottie sticker so the published `remote-m3` catalog can offer `remote-m3/lottie` — the last
+component the cutover loses to the synthesised shelf (compose-preview-server#674). That sticker
+calls `LottieAnimation(json = …)`, and before this coordinate there was nothing for it to call.
+
+The alternative was a second vendored copy over there, which is worse in the way two pinned
+snapshots of one upstream always are: they drift, and this file stops being able to say which
+commit is authoritative. One copy, one pin, published.
+
 ## Why this repository vendors it
 
 `yschimke/compose-preview-server`'s UI builder gained a Wear `LottiePlayer` element, whose Kotlin
