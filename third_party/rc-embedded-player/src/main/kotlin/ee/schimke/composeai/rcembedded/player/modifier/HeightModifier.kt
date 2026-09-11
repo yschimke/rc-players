@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcembedded.player.dimensionInRawValues
 import ee.schimke.composeai.rcembedded.player.dimensionRawValue
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
@@ -53,8 +54,8 @@ internal fun Modifier.height(op: HeightModifierOperation): Modifier {
 
 @Composable
 internal fun Modifier.heightIn(op: HeightInModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val heightMinDp = rememberRemoteFloatAsState(op.min).value.constraintPxToDp(density)
-  val heightMaxDp = rememberRemoteFloatAsState(op.max).value.constraintPxToDp(density)
+  val (minSource, maxSource) = dimensionInRawValues(op)
+  val heightMinDp = rememberRemoteFloatAsState(minSource).value.constraintSourceToDp()
+  val heightMaxDp = rememberRemoteFloatAsState(maxSource).value.constraintSourceToDp()
   return this.heightIn(heightMinDp, heightMaxDp)
 }
