@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.61.1](https://github.com/yschimke/rc-players/compare/v1.61.0...v1.61.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **player:** preserve layout modifier values ([#102](https://github.com/yschimke/rc-players/issues/102)) ([06b5b35](https://github.com/yschimke/rc-players/commit/06b5b353a6501cebdde0bc6c5b89c94c921efc6d))
+* **rc-embedded:** preserve dynamic dimension constraints ([#99](https://github.com/yschimke/rc-players/issues/99)) ([559ae4a](https://github.com/yschimke/rc-players/commit/559ae4a30e1fb7111dd77ff92338a779762fb61d))
+
 ## [1.61.0](https://github.com/yschimke/rc-players/compare/v1.60.2...v1.61.0) (2026-09-11)
 
 
