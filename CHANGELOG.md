@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.61.2](https://github.com/yschimke/rc-players/compare/v1.61.1...v1.61.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **deps:** bring the composeai pins up to the lines they consume ([#103](https://github.com/yschimke/rc-players/issues/103)) ([900c4d9](https://github.com/yschimke/rc-players/commit/900c4d92d78558683b498877a04ec9036a9b0715))
+
 ## [1.61.1](https://github.com/yschimke/rc-players/compare/v1.61.0...v1.61.1) (2026-09-12)
 
 
