@@ -54,6 +54,7 @@ import androidx.compose.remote.core.operations.layout.modifiers.DimensionConstra
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionInModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.HostNamedActionOperation
+import androidx.compose.remote.core.operations.layout.modifiers.OffsetModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.PaddingModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.ScrollModifierOperation
 
@@ -639,10 +640,18 @@ internal fun androidx.compose.remote.core.operations.layout.modifiers.GraphicsLa
     val nameField = clazz.getDeclaredField("mName").apply { isAccessible = true }
     val idField = clazz.getDeclaredField("mId").apply { isAccessible = true }
     val getValueMethod = clazz.getDeclaredMethod("getValue").apply { isAccessible = true }
+    val animatable =
+      clazz.getDeclaredField("mAnimatableValue").apply { isAccessible = true }.get(item)
+    val source =
+      if (animatable != null && animatableIsVariableField.getBoolean(animatable)) {
+        androidx.compose.remote.core.operations.Utils.asNan(animatableIdField.getInt(animatable))
+      } else {
+        getValueMethod.invoke(item) as Float
+      }
     GraphicsLayerAttributeValueData(
       name = nameField.get(item) as String,
       id = idField.getInt(item),
-      value = getValueMethod.invoke(item) as Float,
+      source = source,
     )
   }
 }
@@ -652,6 +661,13 @@ private val graphicsLayerValuesField =
     .java
     .getDeclaredField("mValues")
     .apply { isAccessible = true }
+
+private val animatableValueClass =
+  Class.forName("androidx.compose.remote.core.operations.layout.AnimatableValue")
+private val animatableIsVariableField =
+  animatableValueClass.getDeclaredField("mIsVariable").apply { isAccessible = true }
+private val animatableIdField =
+  animatableValueClass.getDeclaredField("mId").apply { isAccessible = true }
 
 // HostNamedActionOperation
 
@@ -1731,6 +1747,16 @@ private val dimensionMValueField =
 
 internal fun dimensionRawValue(op: DimensionModifierOperation): Float =
   dimensionMValueField.getFloat(op)
+
+// `getX()` / `getY()` expose the flattened `mXValue` / `mYValue` outputs. Preserve the source
+// fields so expression- and animation-backed offsets remain reactive in Compose.
+private val offsetXSourceField =
+  OffsetModifierOperation::class.java.getDeclaredField("mX").apply { isAccessible = true }
+private val offsetYSourceField =
+  OffsetModifierOperation::class.java.getDeclaredField("mY").apply { isAccessible = true }
+
+internal fun offsetRawValues(op: OffsetModifierOperation): FloatArray =
+  floatArrayOf(offsetXSourceField.getFloat(op), offsetYSourceField.getFloat(op))
 
 // `getMin()` / `getMax()` expose mV1 / mV2, which `updateVariables` flattens from a NaN-encoded
 // variable id into its current value and scales from dp to px. The embedded Compose player needs

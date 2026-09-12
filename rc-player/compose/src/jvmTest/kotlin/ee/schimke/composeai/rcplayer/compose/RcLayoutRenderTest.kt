@@ -70,6 +70,39 @@ import org.jetbrains.skia.Bitmap
 
 class RcLayoutRenderTest {
   @Test
+  fun fillMaxWidthPreservesItsFraction() {
+    val red = 0xffff0000.toInt()
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcCanvasLayout(3, 30),
+          RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(0.5f)),
+          height(20f),
+          solidBackground(1f, 0f, 0f),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 100, height = 40, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(100, 40) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(red, bitmap.getColor(49, 10))
+      assertEquals(0, bitmap.getColor(51, 10))
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun rootStateOperationsFeedComponentModifiers() {
     val grey = 0xffb0b0b0.toInt()
     val blue = 0xff2196f3.toInt()

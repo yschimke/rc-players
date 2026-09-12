@@ -20,6 +20,8 @@ package ee.schimke.composeai.rcembedded.player.modifier
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.requiredHeightIn
+import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionConstraintsModifierOperation
@@ -60,7 +62,8 @@ internal fun Modifier.width(op: WidthModifierOperation): Modifier {
         if (op.type == DimensionModifierOperation.Type.EXACT) resolved / density else resolved
       this.width(widthDp.dp)
     }
-    DimensionModifierOperation.Type.FILL -> this.fillMaxWidth()
+    DimensionModifierOperation.Type.FILL,
+    DimensionModifierOperation.Type.FILL_PARENT_MAX_WIDTH -> this.fillMaxWidth(op.fillFraction())
     DimensionModifierOperation.Type.WRAP -> this // Default
     else -> this
   }
@@ -88,12 +91,22 @@ internal fun Modifier.dimensionConstraints(op: DimensionConstraintsModifierOpera
   val minDp = rememberRemoteFloatAsState(minSource).value.constraintSourceToDp()
   val maxDp = rememberRemoteFloatAsState(maxSource).value.constraintSourceToDp()
   return when (dimensionConstraintsType(op)) {
-    DimensionConstraintsModifierOperation.HORIZONTAL_CONSTRAINTS,
+    DimensionConstraintsModifierOperation.HORIZONTAL_CONSTRAINTS -> this.widthIn(minDp, maxDp)
     DimensionConstraintsModifierOperation.REQUIRED_HORIZONTAL_CONSTRAINTS ->
-      this.widthIn(minDp, maxDp)
-    DimensionConstraintsModifierOperation.VERTICAL_CONSTRAINTS,
+      this.requiredWidthIn(minDp, maxDp)
+    DimensionConstraintsModifierOperation.VERTICAL_CONSTRAINTS -> this.heightIn(minDp, maxDp)
     DimensionConstraintsModifierOperation.REQUIRED_VERTICAL_CONSTRAINTS ->
-      this.heightIn(minDp, maxDp)
+      this.requiredHeightIn(minDp, maxDp)
     else -> this
+  }
+}
+
+@Composable
+internal fun DimensionModifierOperation.fillFraction(): Float {
+  val source = dimensionRawValue(this)
+  return if (source.isNaN() && !androidx.compose.remote.core.operations.Utils.isVariable(source)) {
+    1f
+  } else {
+    rememberRemoteFloatAsState(source).value
   }
 }

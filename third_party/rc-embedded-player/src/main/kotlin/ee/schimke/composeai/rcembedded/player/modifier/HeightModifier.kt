@@ -46,7 +46,8 @@ internal fun Modifier.height(op: HeightModifierOperation): Modifier {
         if (op.type == DimensionModifierOperation.Type.EXACT) resolved / density else resolved
       this.height(heightDp.dp)
     }
-    DimensionModifierOperation.Type.FILL -> this.fillMaxHeight()
+    DimensionModifierOperation.Type.FILL,
+    DimensionModifierOperation.Type.FILL_PARENT_MAX_HEIGHT -> this.fillMaxHeight(op.fillFraction())
     DimensionModifierOperation.Type.WRAP -> this // Default
     else -> this
   }

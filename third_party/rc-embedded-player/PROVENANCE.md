@@ -205,16 +205,20 @@ AndroidX now carries their behavior. That is the pattern working — the list is
   `ComposePathColorFilterRobolectricReproTest` independently demonstrates the SrcIn behaviour using
   only standard Compose drawing.
 
-- **Expression-backed dimension constraints remain reactive** (`CoreDataAccessors.kt`,
-  `WidthModifier.kt`, `HeightModifier.kt`). `DimensionInModifierOperation.getMin()` / `getMax()`
+- **Layout modifiers preserve their authored values and reactivity** (`CoreDataAccessors.kt`,
+  `WidthModifier.kt`, `HeightModifier.kt`, `OffsetModifier.kt`, `GraphicsLayerModifier.kt`).
+  `DimensionInModifierOperation.getMin()` / `getMax()`
   expose `mV1` / `mV2`, which `updateVariables` flattens from a NaN-encoded variable id into its
   current value and scales from dp to px. Reading those getters while constructing a Compose
   `widthIn` / `heightIn` modifier loses the source id; for `RemoteEdgeButton`'s
   `componentWidth()`-derived maximum, the output slot is still zero and the label row collapses.
   The player now reads `mValue1` / `mValue2`, resolves those raw sources through its reactive state
   graph, and treats the results as dp. The same correction covers generic horizontal and vertical
-  `DimensionConstraintsModifierOperation`s. The captured EdgeButton fixture and
-  `DynamicDimensionConstraintRenderTest` pin the pixels;
+  `DimensionConstraintsModifierOperation`s. Required constraints retain their stronger Compose
+  semantics; fill-parent modes and explicit fill fractions are no longer discarded. Offset and
+  graphics-layer adapters likewise retain raw variable ids instead of observing one flattened
+  value. `LayoutValueSourceTest`, `LayoutDimensionBehaviorTest`, and the captured EdgeButton
+  fixture pin these paths;
   [#98](https://github.com/yschimke/rc-players/issues/98) tracks retirement when AndroidX carries
   the fix.
 
