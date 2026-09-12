@@ -342,7 +342,7 @@ coil3 = "3.5.0"
 # here. This repository consumes them; it no longer owns these coordinates. A change to a contract
 # reaches this build only through a release there — see that repository's docs/VERSIONING.md.
 # A point pin, deliberately: a range would let a contract change arrive without a pull request.
-composeai-contracts = "2.1.0"
+composeai-contracts = "2.18.0"
 
 # compose-preview-daemon, for the two modules this build consumes from it: `data-fonts-google`
 # (the `(family, weight, italic) -> File` downloadable-font cache both vendored players share) and
@@ -350,20 +350,8 @@ composeai-contracts = "2.1.0"
 # trees are run through). Both were `project(...)` deps until the player stack was extracted into
 # this repository, and rode compose-ai-tools' release train (`composeai-tools`) until the data
 # extractors moved to yschimke/compose-preview-daemon in compose-ai-tools#5336; they ride that
-# repository's line now, from its 3.0.0, which is a different number from `composeai-contracts` above.
-composeai-preview-daemon = "3.0.0"
-
-# The preview server, published from yschimke/compose-preview-server since its 2.0.0 — the
-# extraction #4732 planned. This repository no longer owns `cli/serve`: `compose-preview serve`,
-# `bundle render` and `history manifest` consume the published library, so a server change reaches
-# this build only through a release there. A point pin for the same reason as the contracts above:
-# a range would let the server move under the CLI without a pull request.
-#
-# Note the version lines are independent. `compose-preview-serve` went to 2.0.0 when it left; this
-# repository is still on 1.x. The server's own POM depends back on this repository's 1.53.0
-# contracts, which Gradle resolves to the workspace projects (same coordinates, project wins), so
-# the loop is closed at build time rather than by a version bump on either side.
-composeai-preview-serve = "2.0.0"
+# repository's line now — 3.x, a different number from `composeai-contracts` above, which is on 2.x.
+composeai-preview-daemon = "3.4.3"
 
 [libraries]
 
@@ -382,10 +370,6 @@ composeai-common-io = { module = "ee.schimke.composeai:common-io", version.ref =
 composeai-data-fonts-google = { module = "ee.schimke.composeai:data-fonts-google", version.ref = "composeai-preview-daemon" }
 composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data-layoutinspector-connector", version.ref = "composeai-preview-daemon" }
 
-# The preview server (see `composeai-preview-serve`). `-test-fixtures` rides the same coordinates
-# as a Gradle feature variant, so `testFixtures(libs.composeai.preview.serve)` picks it up without
-# a second catalog entry.
-composeai-preview-serve = { module = "ee.schimke.composeai:compose-preview-serve", version.ref = "composeai-preview-serve" }
 # `@com.android.tools.screenshot.PreviewTest` — the marker Google's screenshot plugin requires on a
 # `@Preview` before it will render it (alpha15+ discovers nothing without it). Only the Studio-parity
 # fixtures in `:samples:android-screenshot-test` need it, on the `screenshotTest` classpath; version
