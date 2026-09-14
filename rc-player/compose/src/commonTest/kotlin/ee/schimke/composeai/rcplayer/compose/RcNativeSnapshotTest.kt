@@ -212,6 +212,7 @@ class RcNativeSnapshotTest {
           RcWidthInModifier(RcFloatWord.literal(40f), RcFloatWord.literal(70f)),
           RcHeightInModifier(RcFloatWord.literal(10f), RcFloatWord.literal(30f)),
           RcLayoutContent(4),
+          RcPaintData(listOf(4, 0xff123456.toInt())),
           RcBoxLayout(5, 0, horizontalPositioning = 1, verticalPositioning = 4),
           RcDraw4(
             RcOpcodes.DRAW_RECT,
@@ -240,6 +241,7 @@ class RcNativeSnapshotTest {
     assertEquals(10f, state.minimumHeight)
     assertEquals(30f, state.maximumHeight)
     assertEquals(listOf(5), state.children.map { it.componentId })
+    assertEquals(0xff123456.toInt(), state.children.single().commands.single().color)
     assertTrue(snapshot.unsupportedOpcodes.isEmpty(), snapshot.diagnostics.toString())
   }
 }

@@ -19,10 +19,9 @@ enum NativeLayoutTests {
 
     let weighted = NativeLinearLayout.allocateWeighted(
       available: 200,
-      spacing: 10,
       naturalSizes: [30, 0, 0],
       weights: [nil, 1, 2])
-    assertEqual(weighted, [30, 50, 100])
+    assertEqual(weighted, [30, 56.666_667, 113.333_333])
 
     let centered = NativeLinearLayout.positions(
       total: 100, sizes: [10, 20], positioning: 2, spacing: 10)

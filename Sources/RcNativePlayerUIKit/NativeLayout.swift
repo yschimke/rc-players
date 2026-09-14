@@ -83,18 +83,18 @@ enum NativeLinearLayout {
 
   static func allocateWeighted(
     available: CGFloat,
-    spacing: CGFloat,
     naturalSizes: [CGFloat],
     weights: [CGFloat?]
   ) -> [CGFloat] {
     precondition(naturalSizes.count == weights.count)
-    let gaps = spacing * CGFloat(max(naturalSizes.count - 1, 0))
     let fixed = zip(naturalSizes, weights).reduce(CGFloat.zero) { partial, item in
       partial + (item.1 == nil ? item.0 : 0)
     }
     let totalWeight = weights.compactMap { $0 }.reduce(0, +)
     guard totalWeight > 0 else { return naturalSizes }
-    let remaining = max(available - fixed - gaps, 0)
+    // AndroidX allocates weights from the remaining child space. `spacedBy` is additive and is
+    // applied during placement, so it deliberately does not reduce weighted measurements.
+    let remaining = max(available - fixed, 0)
     return zip(naturalSizes, weights).map { natural, weight in
       weight.map { remaining * $0 / totalWeight } ?? natural
     }

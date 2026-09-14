@@ -350,7 +350,6 @@
       let sizes = items.map { $0.preferredSize(in: content.size) }
       let weightedHeights = NativeLinearLayout.allocateWeighted(
         available: content.height,
-        spacing: scaledSpacing,
         naturalSizes: sizes.map(\.height),
         weights: items.map { child in
           guard child.node.heightType == 3 else { return nil }
@@ -381,7 +380,6 @@
       let natural = items.map { $0.preferredSize(in: content.size) }
       let allocatedWidths = NativeLinearLayout.allocateWeighted(
         available: content.width,
-        spacing: scaledSpacing,
         naturalSizes: natural.map(\.width),
         weights: items.map { child in
           guard child.node.widthType == 3 else { return nil }
@@ -399,7 +397,11 @@
         spacing: scaledSpacing,
         direction: layoutDirection)
       for (index, child) in items.enumerated() {
-        let size = CGSize(width: widths[index], height: natural[index].height)
+        // Weighted children must see their final main-axis constraint before cross-axis placement;
+        // wrapping text can be taller at its allocated width than at the row's full width.
+        let remeasured =
+          child.preferredSize(in: CGSize(width: widths[index], height: content.height))
+        let size = CGSize(width: widths[index], height: remeasured.height)
         let y: CGFloat
         switch node.verticalPositioning {
         case 2: y = content.midY - size.height / 2

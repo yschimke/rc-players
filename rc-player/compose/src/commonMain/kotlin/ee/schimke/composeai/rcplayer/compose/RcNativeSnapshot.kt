@@ -347,40 +347,59 @@ public object RcNativeSnapshotBridge {
           "Click action dispatch is not implemented by the native player",
         )
       }
-      val childNodes =
-        if (operation is RcStateLayout) {
-          val content =
-            container.children.filterIsInstance<RcLinkedNode.Container>().singleOrNull {
-              it.operation is RcLayoutContent
+      for (child in container.children) {
+        when (child) {
+          is RcLinkedNode.Operation ->
+            consume(child.operation, componentId, state, paint, commands, diagnostics)
+          is RcLinkedNode.Container -> {
+            if (operation is RcStateLayout && child.operation is RcLayoutContent) {
+              val contentComponentId = (child.operation as RcLayoutContent).componentId
+              val contentVisibilityModifier =
+                child.children
+                  .filterIsInstance<RcLinkedNode.Operation>()
+                  .map { it.operation }
+                  .filterIsInstance<RcVisibilityModifier>()
+                  .lastOrNull()
+              val alternatives = child.children.filterIsInstance<RcLinkedNode.Container>()
+              var alternativeIndex = 0
+              for (contentChild in child.children) {
+                when (contentChild) {
+                  is RcLinkedNode.Operation ->
+                    consume(
+                      contentChild.operation,
+                      contentComponentId,
+                      state,
+                      paint,
+                      commands,
+                      diagnostics,
+                    )
+                  is RcLinkedNode.Container -> {
+                    val contentVisibility =
+                      contentVisibilityModifier?.let {
+                        nativeVisibility(state.integer(it.visibilityId) ?: 0)
+                      } ?: 1
+                    val selected =
+                      (state.integer(operation.indexId) ?: 0).coerceIn(
+                        0,
+                        (alternatives.size - 1).coerceAtLeast(0),
+                      )
+                    if (
+                      contentVisibility != 0 &&
+                        alternativeIndex == selected &&
+                        alternatives.isNotEmpty()
+                    ) {
+                      children += nodeFor(contentChild)
+                    }
+                    alternativeIndex++
+                  }
+                }
+              }
+            } else {
+              children += nodeFor(child)
             }
-          val contentVisibility =
-            content
-              ?.children
-              ?.filterIsInstance<RcLinkedNode.Operation>()
-              ?.map { it.operation }
-              ?.filterIsInstance<RcVisibilityModifier>()
-              ?.lastOrNull()
-              ?.let { nativeVisibility(state.integer(it.visibilityId) ?: 0) } ?: 1
-          val alternatives = content?.children?.filterIsInstance<RcLinkedNode.Container>().orEmpty()
-          val selected =
-            (state.integer(operation.indexId) ?: 0).coerceIn(
-              0,
-              (alternatives.size - 1).coerceAtLeast(0),
-            )
-          if (contentVisibility == 0 || alternatives.isEmpty()) emptyList()
-          else listOf(alternatives[selected])
-        } else {
-          container.children.filterIsInstance<RcLinkedNode.Container>()
-        }
-      childNodes.forEach { children += nodeFor(it) }
-      if (operation !is RcStateLayout)
-        for (child in container.children) {
-          when (child) {
-            is RcLinkedNode.Container -> Unit
-            is RcLinkedNode.Operation ->
-              consume(child.operation, componentId, state, paint, commands, diagnostics)
           }
         }
+      }
       val clickable = semantics?.clickable == true || hasClickModifier
       val label =
         semantics
