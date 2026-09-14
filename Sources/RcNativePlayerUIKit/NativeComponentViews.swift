@@ -98,6 +98,7 @@
     let isClickable: Bool
     let isEnabled: Bool
     let accessibilityLabel: String?
+    let clickActionTypes: [Int]
     let widthType: Int
     let widthValue: CGFloat
     let heightType: Int
@@ -125,6 +126,7 @@
       isClickable = snapshot.clickable
       isEnabled = snapshot.enabled
       accessibilityLabel = snapshot.semanticLabel
+      clickActionTypes = snapshot.clickActionTypes.map { Int(truncating: $0) }
       widthType = Int(snapshot.widthType)
       widthValue = CGFloat(snapshot.widthValue)
       heightType = Int(snapshot.heightType)
@@ -286,11 +288,18 @@
     private var resources: NativeResourceStore
     private let componentView: NativeComponentView
 
-    init(document: NativeDocument, resources: NativeResourceStore) {
+    init(
+      document: NativeDocument,
+      resources: NativeResourceStore,
+      onClick: @escaping (Int) -> Void
+    ) {
       self.document = document
       self.resources = resources
       componentView = NativeComponentView(
-        node: document.root, images: resources.images, fontNames: resources.fontNames)
+        node: document.root,
+        images: resources.images,
+        fontNames: resources.fontNames,
+        onClick: onClick)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
@@ -350,6 +359,7 @@
     private var imageViews: [NativeImageView]
     private var componentChildren: [NativeComponentView]
     private var semanticView: UIView?
+    private let onClick: (Int) -> Void
     var documentScale: CGFloat = 1 {
       didSet {
         canvasView?.documentScale = documentScale
@@ -364,8 +374,14 @@
       }
     }
 
-    init(node: NativeNode, images: [Int: UIImage], fontNames: [Int: String]) {
+    init(
+      node: NativeNode,
+      images: [Int: UIImage],
+      fontNames: [Int: String],
+      onClick: @escaping (Int) -> Void
+    ) {
       self.node = node
+      self.onClick = onClick
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
       let drawingCommands = node.commands.filter {
@@ -389,9 +405,10 @@
           return NativeImageView(image: image, draw: draw, alpha: command.alpha)
         } : []
       componentChildren = node.children.map {
-        NativeComponentView(node: $0, images: images, fontNames: fontNames)
+        NativeComponentView(
+          node: $0, images: images, fontNames: fontNames, onClick: onClick)
       }
-      semanticView = Self.makeSemanticView(for: node)
+      semanticView = Self.makeSemanticView(for: node, onClick: onClick)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = node.backgroundColor ?? .clear
@@ -399,12 +416,12 @@
       alpha = node.visibility == 2 ? 0 : 1
       clipsToBounds = node.cornerRadius > 0
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
+      if let semanticView { addSubview(semanticView) }
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
       imageViews.forEach(addSubview)
       componentChildren.forEach(addSubview)
       componentChildren.forEach { $0.layer.zPosition = $0.node.zIndex }
-      if let semanticView { addSubview(semanticView) }
     }
 
     @available(*, unavailable)
@@ -446,7 +463,7 @@
         child.update(node: childNode, images: images, fontNames: fontNames)
         child.layer.zPosition = childNode.zIndex
       }
-      Self.updateSemanticView(semanticView, from: next)
+      updateSemanticView(semanticView, from: next)
       backgroundColor = next.backgroundColor ?? .clear
       isHidden = next.visibility == 0
       alpha = next.visibility == 2 ? 0 : 1
@@ -476,6 +493,33 @@
 
     private static func hasSemanticView(_ node: NativeNode) -> Bool {
       node.semanticRole == 0 || node.isClickable
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+      guard
+        isUserInteractionEnabled, !isHidden, alpha > 0.01,
+        self.point(inside: point, with: event)
+      else { return nil }
+      if clipsToBounds, layer.cornerRadius > 0,
+        !UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).contains(point)
+      {
+        return nil
+      }
+
+      // Core Animation zPosition controls painting, while UIView.hitTest normally only observes
+      // subview insertion order. Follow the rendered ordering explicitly so overlapping Remote
+      // Compose components activate the same top-most component that the user sees.
+      let frontToBack = componentChildren.enumerated().sorted { left, right in
+        if left.element.layer.zPosition == right.element.layer.zPosition {
+          return left.offset > right.offset
+        }
+        return left.element.layer.zPosition > right.element.layer.zPosition
+      }
+      for (_, child) in frontToBack {
+        if let hit = child.hitTest(convert(point, to: child), with: event) { return hit }
+      }
+      guard let semanticView else { return nil }
+      return semanticView.hitTest(convert(point, to: semanticView), with: event)
     }
 
     override func layoutSubviews() {
@@ -702,25 +746,56 @@
         dy: node.offset.y * documentScale)
     }
 
-    private static func makeSemanticView(for node: NativeNode) -> UIView? {
+    private static func makeSemanticView(
+      for node: NativeNode,
+      onClick: @escaping (Int) -> Void
+    ) -> UIView? {
       // AndroidX role 0 is Button. A click modifier without explicit semantics is promoted too.
       guard node.semanticRole == 0 || node.isClickable else { return nil }
-      let button = UIButton(type: .custom)
+      let button = NativeSemanticButton(
+        componentID: node.componentID,
+        action: node.clickActionTypes.isEmpty ? nil : onClick)
       button.backgroundColor = .clear
       button.isEnabled = node.isEnabled
+      button.isUserInteractionEnabled = node.isEnabled
       button.isAccessibilityElement = true
       button.accessibilityLabel = node.accessibilityLabel ?? node.firstText
       button.accessibilityIdentifier = "rc-native-button-\(node.componentID)"
-      // Action dispatch is intentionally not wired in the static POC. Keeping this as a real
-      // UIButton proves native hit testing, focus, traits, and hierarchy without redrawing it.
       return button
     }
 
-    private static func updateSemanticView(_ view: UIView?, from node: NativeNode) {
+    private func updateSemanticView(_ view: UIView?, from node: NativeNode) {
       guard let button = view as? UIButton else { return }
       button.isEnabled = node.isEnabled
+      button.isUserInteractionEnabled = node.isEnabled
       button.accessibilityLabel = node.accessibilityLabel ?? node.firstText
       button.accessibilityIdentifier = "rc-native-button-\(node.componentID)"
+      if let button = button as? NativeSemanticButton {
+        button.componentID = node.componentID
+        button.action = node.clickActionTypes.isEmpty ? nil : onClick
+      }
+    }
+  }
+
+  private final class NativeSemanticButton: UIButton {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+
+    init(componentID: Int, action: ((Int) -> Void)?) {
+      self.componentID = componentID
+      self.action = action
+      super.init(frame: .zero)
+      addTarget(self, action: #selector(activate), for: .touchUpInside)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      guard isEnabled else { return }
+      action?(componentID)
     }
   }
 
@@ -950,6 +1025,7 @@
       isOpaque = false
       backgroundColor = .clear
       contentMode = .redraw
+      isUserInteractionEnabled = false
       accessibilityIdentifier = "rc-native-canvas"
     }
 

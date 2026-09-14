@@ -31,6 +31,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcMultiClickType
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
@@ -60,9 +62,14 @@ import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
+import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
+import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
+import ee.schimke.composeai.rcplayer.runtime.RcHostActionValue
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
+import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 
 /**
@@ -130,6 +137,8 @@ public data class RcNativeNodeSnapshot(
   public val clickable: Boolean = false,
   public val enabled: Boolean = true,
   public val semanticLabel: String? = null,
+  /** Supported click gestures owned by this component. See [CLICK] and [SINGLE_CLICK]. */
+  public val clickActionTypes: List<Int> = emptyList(),
   public val widthType: Int = RcDimensionType.WRAP,
   public val widthValue: Float = 0f,
   public val heightType: Int = RcDimensionType.WRAP,
@@ -165,6 +174,9 @@ public data class RcNativeNodeSnapshot(
     public const val COLUMN: Int = 6
     public const val TEXT: Int = 7
     public const val IMAGE: Int = 8
+
+    public const val CLICK: Int = 0
+    public const val SINGLE_CLICK: Int = 1
   }
 }
 
@@ -281,13 +293,44 @@ public data class RcNativePathCommand(
   public val sixth: Float = 0f,
 )
 
+/** One host-facing event emitted synchronously while the native session executes an action. */
+public data class RcNativeEvent(
+  public val kind: Int,
+  public val actionId: Int = 0,
+  public val name: String? = null,
+  public val textValue: String? = null,
+  public val floatValue: Float = 0f,
+  public val integerValue: Int = 0,
+  public val floatListValue: List<Float> = emptyList(),
+) {
+  public companion object {
+    public const val ACTION: Int = 0
+    public const val ACTION_WITH_METADATA: Int = 1
+    public const val NAMED_NONE: Int = 2
+    public const val NAMED_FLOAT: Int = 3
+    public const val NAMED_INTEGER: Int = 4
+    public const val NAMED_TEXT: Int = 5
+    public const val NAMED_FLOAT_LIST: Int = 6
+    public const val DEBUG: Int = 7
+  }
+}
+
+/** Atomic result of applying input to a retained session and resolving its next frame. */
+public data class RcNativeSessionUpdate(
+  public val accepted: Boolean,
+  public val snapshot: RcNativeDocumentSnapshot,
+  public val events: List<RcNativeEvent> = emptyList(),
+)
+
 /** Retained native render session. Decode/link state survives immutable frame snapshots. */
 public class RcNativeSnapshotSession
 @Throws(IllegalArgumentException::class)
 public constructor(bytes: ByteArray) {
   private val document: RcDocument = RcDocumentCodec.decode(bytes)
   private val linked: RcLinkedDocument = RcDocumentLinker.link(document)
-  private val state: RcPlayerState = RcPlayerState(document)
+  private val pendingEvents = mutableListOf<RcPlayerEvent>()
+  private val state: RcPlayerState = RcPlayerState(document, eventSink = pendingEvents::add)
+  private val clickActions: Map<Int, List<RcClickActionBlock>> = nativeClickActions(linked)
 
   /**
    * Resolve one immutable frame without rebuilding the document codec, linker, or runtime state.
@@ -295,7 +338,166 @@ public constructor(bytes: ByteArray) {
   @Throws(IllegalArgumentException::class)
   public fun snapshot(timeSeconds: Float = 0f): RcNativeDocumentSnapshot =
     RcNativeSnapshotBridge.snapshot(document, linked, state, timeSeconds)
+
+  /** Apply every ordinary/single-click action attached to [componentId], preserving wire order. */
+  @Throws(IllegalArgumentException::class)
+  public fun click(
+    componentId: Int,
+    timeSeconds: Float = state.animationTimeSeconds,
+  ): RcNativeSessionUpdate {
+    pendingEvents.clear()
+    val actions =
+      clickActions[componentId].orEmpty().filter {
+        it.type == RcClickActionType.CLICK || it.type == RcClickActionType.SINGLE
+      }
+    actions.forEach(state::executeClick)
+    return updateResult(actions.isNotEmpty(), timeSeconds)
+  }
+
+  /** Set a declared float named value. Unqualified names use the `USER:` namespace. */
+  @Throws(IllegalArgumentException::class)
+  public fun setFloat(
+    name: String,
+    value: Float,
+    timeSeconds: Float = state.animationTimeSeconds,
+  ): RcNativeSessionUpdate {
+    require(value.isFinite()) { "Native named float must be finite" }
+    return setNamedValue(
+      name,
+      RcNamedVariable.FLOAT_TYPE,
+      RcNamedValue.FloatValue(value),
+      timeSeconds,
+    )
+  }
+
+  /** Set a declared string named value. Unqualified names use the `USER:` namespace. */
+  @Throws(IllegalArgumentException::class)
+  public fun setString(
+    name: String,
+    value: String,
+    timeSeconds: Float = state.animationTimeSeconds,
+  ): RcNativeSessionUpdate =
+    setNamedValue(name, RcNamedVariable.STRING_TYPE, RcNamedValue.Text(value), timeSeconds)
+
+  /** Set a declared packed ARGB named value. Unqualified names use the `USER:` namespace. */
+  @Throws(IllegalArgumentException::class)
+  public fun setColor(
+    name: String,
+    argb: Int,
+    timeSeconds: Float = state.animationTimeSeconds,
+  ): RcNativeSessionUpdate =
+    setNamedValue(name, RcNamedVariable.COLOR_TYPE, RcNamedValue.Color(argb), timeSeconds)
+
+  private fun setNamedValue(
+    name: String,
+    expectedType: Int,
+    value: RcNamedValue,
+    timeSeconds: Float,
+  ): RcNativeSessionUpdate {
+    pendingEvents.clear()
+    val qualifiedName = if (':' in name) name else "USER:$name"
+    val accepted = state.namedVariable(qualifiedName)?.type == expectedType
+    if (accepted) state.setNamedValue(qualifiedName, value)
+    return updateResult(accepted, timeSeconds)
+  }
+
+  private fun updateResult(accepted: Boolean, timeSeconds: Float): RcNativeSessionUpdate {
+    val snapshot = snapshot(timeSeconds)
+    val events = pendingEvents.map(::nativeEvent)
+    pendingEvents.clear()
+    return RcNativeSessionUpdate(accepted, snapshot, events)
+  }
 }
+
+private fun nativeClickActions(document: RcLinkedDocument): Map<Int, List<RcClickActionBlock>> {
+  val result = mutableMapOf<Int, List<RcClickActionBlock>>()
+  fun visit(container: RcLinkedNode.Container) {
+    nativeComponentId(container.operation)?.let { componentId ->
+      result[componentId] =
+        container.children.filterIsInstance<RcLinkedNode.Container>().mapNotNull { child ->
+          when (val operation = child.operation) {
+            RcClickModifier -> RcClickActionBlock(child.children, RcClickActionType.CLICK)
+            is RcMultiClickModifier ->
+              RcClickActionBlock(
+                child.children,
+                when (operation.type) {
+                  RcMultiClickType.SINGLE -> RcClickActionType.SINGLE
+                  RcMultiClickType.LONG -> RcClickActionType.LONG
+                  RcMultiClickType.DOUBLE -> RcClickActionType.DOUBLE
+                },
+              )
+            else -> null
+          }
+        }
+    }
+    container.children.filterIsInstance<RcLinkedNode.Container>().forEach(::visit)
+  }
+  document.operations.filterIsInstance<RcLinkedNode.Container>().forEach(::visit)
+  return result
+}
+
+private fun nativeComponentId(operation: RcOperation): Int? =
+  when (operation) {
+    is RcRootLayout -> operation.componentId
+    is RcLayoutContent -> operation.componentId
+    is RcCanvasLayout -> operation.componentId
+    is RcCanvasContent -> operation.componentId
+    is RcBoxLayout -> operation.componentId
+    is RcRowLayout -> operation.componentId
+    is RcColumnLayout -> operation.componentId
+    is RcStateLayout -> operation.componentId
+    is RcTextLayout -> operation.componentId
+    is RcCoreText -> operation.componentId
+    is RcImageLayout -> operation.componentId
+    else -> null
+  }
+
+private fun nativeEvent(event: RcPlayerEvent): RcNativeEvent =
+  when (event) {
+    is RcPlayerEvent.HostAction ->
+      RcNativeEvent(kind = RcNativeEvent.ACTION, actionId = event.actionId)
+    is RcPlayerEvent.HostActionMetadata ->
+      RcNativeEvent(
+        kind = RcNativeEvent.ACTION_WITH_METADATA,
+        actionId = event.actionId,
+        textValue = event.metadata,
+      )
+    is RcPlayerEvent.HostNamedAction ->
+      when (val value = event.value) {
+        RcHostActionValue.None -> RcNativeEvent(kind = RcNativeEvent.NAMED_NONE, name = event.name)
+        is RcHostActionValue.FloatValue ->
+          RcNativeEvent(
+            kind = RcNativeEvent.NAMED_FLOAT,
+            name = event.name,
+            floatValue = value.value,
+          )
+        is RcHostActionValue.IntegerValue ->
+          RcNativeEvent(
+            kind = RcNativeEvent.NAMED_INTEGER,
+            name = event.name,
+            integerValue = value.value,
+          )
+        is RcHostActionValue.TextValue ->
+          RcNativeEvent(
+            kind = RcNativeEvent.NAMED_TEXT,
+            name = event.name,
+            textValue = value.value,
+          )
+        is RcHostActionValue.FloatListValue ->
+          RcNativeEvent(
+            kind = RcNativeEvent.NAMED_FLOAT_LIST,
+            name = event.name,
+            floatListValue = value.value,
+          )
+      }
+    is RcPlayerEvent.DebugMessage ->
+      RcNativeEvent(
+        kind = RcNativeEvent.DEBUG,
+        actionId = event.flags,
+        textValue = event.message,
+        floatValue = event.value,
+      )
+  }
 
 /** Decode `.rc` bytes into the deliberately small immutable POC render model. */
 public object RcNativeSnapshotBridge {
@@ -372,10 +574,9 @@ public object RcNativeSnapshotBridge {
           .filterIsInstance<RcAccessibilitySemantics>()
           .lastOrNull()
       val clickModifiers =
-        container.children
-          .filterIsInstance<RcLinkedNode.Container>()
-          .map { it.operation }
-          .filter { it is RcClickModifier || it is RcMultiClickModifier }
+        container.children.filterIsInstance<RcLinkedNode.Container>().filter {
+          it.operation is RcClickModifier || it.operation is RcMultiClickModifier
+        }
       val hasClickModifier = clickModifiers.isNotEmpty()
       val kind =
         when (operation) {
@@ -392,21 +593,7 @@ public object RcNativeSnapshotBridge {
           is RcImageLayout -> RcNativeNodeSnapshot.IMAGE
           else -> RcNativeNodeSnapshot.GROUP
         }
-      val componentId =
-        when (operation) {
-          is RcRootLayout -> operation.componentId
-          is RcLayoutContent -> operation.componentId
-          is RcCanvasLayout -> operation.componentId
-          is RcCanvasContent -> operation.componentId
-          is RcBoxLayout -> operation.componentId
-          is RcRowLayout -> operation.componentId
-          is RcColumnLayout -> operation.componentId
-          is RcStateLayout -> operation.componentId
-          is RcTextLayout -> operation.componentId
-          is RcCoreText -> operation.componentId
-          is RcImageLayout -> operation.componentId
-          else -> 0
-        }
+      val componentId = nativeComponentId(operation) ?: 0
       val commands = mutableListOf<RcNativeDrawCommand>()
       if (operation is RcImageLayout) {
         val bitmap =
@@ -627,11 +814,14 @@ public object RcNativeSnapshotBridge {
       }
       val children = mutableListOf<RcNativeNodeSnapshot>()
       clickModifiers.forEach { modifier ->
-        diagnostics.unsupported(
-          modifier,
-          componentId,
-          "Click action dispatch is not implemented by the native player",
-        )
+        val multi = modifier.operation as? RcMultiClickModifier
+        if (multi != null && multi.type != RcMultiClickType.SINGLE) {
+          diagnostics.unsupported(
+            multi,
+            componentId,
+            "${multi.type.name.lowercase()} click dispatch is not implemented by the native player",
+          )
+        }
       }
       for (child in container.children) {
         when (child) {
@@ -828,6 +1018,16 @@ public object RcNativeSnapshotBridge {
         clickable = clickable,
         enabled = semantics?.enabled ?: true,
         semanticLabel = label,
+        clickActionTypes =
+          clickModifiers.mapNotNull { modifier ->
+            when (val click = modifier.operation) {
+              RcClickModifier -> RcNativeNodeSnapshot.CLICK
+              is RcMultiClickModifier ->
+                if (click.type == RcMultiClickType.SINGLE) RcNativeNodeSnapshot.SINGLE_CLICK
+                else null
+              else -> null
+            }
+          },
         widthType = width?.type ?: RcDimensionType.WRAP,
         widthValue =
           width?.let {

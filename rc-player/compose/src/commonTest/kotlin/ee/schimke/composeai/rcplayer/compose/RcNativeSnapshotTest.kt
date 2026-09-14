@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -12,13 +13,18 @@ import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
+import ee.schimke.composeai.rcplayer.protocol.RcHostAction
+import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
+import ee.schimke.composeai.rcplayer.protocol.RcHostNamedActionValue
 import ee.schimke.composeai.rcplayer.protocol.RcIdOperation
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
@@ -31,6 +37,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
@@ -41,6 +48,64 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class RcNativeSnapshotTest {
+  @Test
+  fun retainedSessionAppliesNamedValuesAndDispatchesSingleClicksInOrder() {
+    val width = RcFloatWord(0x7fc00000 or 20)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcFloatConstant(20, RcFloatWord.literal(2f)),
+          RcNamedVariable(20, RcNamedVariable.FLOAT_TYPE, "USER:width"),
+          RcTextData(30, "open"),
+          RcTextData(40, "before"),
+          RcNamedVariable(40, RcNamedVariable.STRING_TYPE, "USER:title"),
+          RcColorConstant(41, 0xff102030.toInt()),
+          RcNamedVariable(41, RcNamedVariable.COLOR_TYPE, "theme:accent"),
+          RcRootLayout(7),
+          RcClickModifier,
+          RcHostAction(77),
+          RcHostNamedAction(30, RcHostNamedActionValue.FloatValue(20)),
+          RcValueFloatChangeAction(20, RcFloatWord.literal(9f)),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            width,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(10f),
+            RcFloatWord.literal(10f),
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val session = RcNativeSnapshotSession(RcDocumentCodec.encode(document))
+
+    val named = session.setFloat("width", 5f)
+    assertTrue(named.accepted)
+    assertEquals(5f, named.snapshot.root.children.single().commands.single().first)
+    assertTrue(session.setString("title", "after").accepted)
+    assertTrue(session.setColor("theme:accent", 0xffaabbcc.toInt()).accepted)
+    assertTrue(!session.setString("width", "wrong type").accepted)
+    assertTrue(!session.setFloat("missing", 1f).accepted)
+
+    val click = session.click(componentId = 7)
+
+    assertTrue(click.accepted)
+    assertEquals(
+      listOf(RcNativeEvent.ACTION, RcNativeEvent.NAMED_FLOAT),
+      click.events.map { it.kind },
+    )
+    assertEquals(77, click.events[0].actionId)
+    assertEquals("open", click.events[1].name)
+    assertEquals(5f, click.events[1].floatValue)
+    assertEquals(9f, click.snapshot.root.children.single().commands.single().first)
+    assertEquals(
+      listOf(RcNativeNodeSnapshot.CLICK),
+      click.snapshot.root.children.single().clickActionTypes,
+    )
+    assertTrue(click.snapshot.diagnostics.none { it.opcode == RcOpcodes.MODIFIER_CLICK })
+  }
+
   @Test
   fun retainedSessionAdvancesFramesWithoutRedecoding() {
     val animationTime = RcFloatWord(0xff800000.toInt() or RcSystemVariables.ANIMATION_TIME)
@@ -190,7 +255,7 @@ class RcNativeSnapshotTest {
   }
 
   @Test
-  fun reportsUnwiredClickModifiersAgainstTheirOwningComponent() {
+  fun exportsClickModifiersWithoutACompatibilityFailure() {
     val document =
       RcDocument(
         RcHeader(RcVersion(0, 1, 0)),
@@ -204,14 +269,10 @@ class RcNativeSnapshotTest {
 
     val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
 
-    val diagnostic = snapshot.diagnostics.single()
-    assertEquals(RcOpcodes.MODIFIER_CLICK, diagnostic.opcode)
-    assertEquals("ModifierClick", diagnostic.operationName)
-    assertEquals(9, diagnostic.componentId)
-    assertEquals(
-      "Click action dispatch is not implemented by the native player",
-      diagnostic.reason,
-    )
+    val node = snapshot.root.children.single()
+    assertEquals(listOf(RcNativeNodeSnapshot.CLICK), node.clickActionTypes)
+    assertTrue(node.clickable)
+    assertTrue(snapshot.diagnostics.isEmpty())
   }
 
   @Test

@@ -29,7 +29,8 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 4 — Static text | Core implemented | Native labels, Core Text canvas glyphs, inherited paragraph styles, bidi alignment, overflow, decoration, and deterministic fallback |
 | 5 — Bounded resources | Implemented | Inline/referenced images, `UIImageView` promotion, ordered canvas images, embedded fonts, limits, cache, resolver cancellation, and typed failures |
 | 6 — Retained session | Core implemented | Off-main decode, retained codec/link/state, immutable frames, stable component reconciliation, generation cancellation, and atomic replacement |
-| 7–11 | Planned | Ordered below |
+| 7 — Named values, actions, and input | Core implemented | Typed float/string/color updates, ordered host events, single-click dispatch, semantic controls, and UIKit visual-order hit testing |
+| 8–11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -157,12 +158,21 @@ Acceptance:
 - document replacement is atomic and cancels prior work;
 - lifecycle tests cover repeated load, failure, backgrounding, and deallocation.
 
-### 7. Named values, actions, and input
+### 7. Named values, actions, and input — core implemented
 
 Expose typed named-value updates and event callbacks that mirror the supported CMP host contract.
 Route UIKit touch coordinates into the session, implement click/action dispatch, and preserve event
 ordering. Start with tap/click; add drag, scroll, and touch expressions only after coordinate-space
 tests are exact.
+
+The first interactive slice accepts declared float, string, and packed ARGB named values. Bare
+names resolve in the `USER:` namespace; a missing name or type mismatch returns `false` without
+changing runtime state. Ordinary click and multi-click `SINGLE` containers become enabled native
+buttons and execute their action blocks in wire order. UIKit resolves root/component transforms,
+rounded clipping, visibility, enabled state, and visual z-order before sending the winning component
+id to the retained session. Host action, metadata, named-action, and debug events cross as typed
+Swift values and are delivered on the main actor. Long press, double click, drag, scroll, raw touch
+expressions, and compact component-local deltas remain later slices and stay diagnosed.
 
 Acceptance:
 
