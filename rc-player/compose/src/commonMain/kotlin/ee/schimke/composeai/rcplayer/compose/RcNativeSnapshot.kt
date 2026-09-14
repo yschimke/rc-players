@@ -161,6 +161,7 @@ public data class RcNativeDrawCommand(
   public val path: List<RcNativePathCommand> = emptyList(),
   public val pathWinding: Int = 0,
   public val gradient: RcNativeGradient? = null,
+  public val textStyle: RcNativeTextStyle? = null,
 ) {
   public companion object {
     public const val SAVE: Int = 0
@@ -182,6 +183,24 @@ public data class RcNativeDrawCommand(
     public const val PATH: Int = 18
   }
 }
+
+/** Resolved paragraph and font properties for native layout text or ordered Core Text drawing. */
+public data class RcNativeTextStyle(
+  public val fontStyle: Int = 0,
+  public val fontFamilyId: Int = -1,
+  public val fontFamilyName: String? = null,
+  public val alignment: Int = RcTextLayout.ALIGN_LEFT,
+  public val overflow: Int = RcTextLayout.OVERFLOW_CLIP,
+  public val maxLines: Int = Int.MAX_VALUE,
+  public val letterSpacing: Float = 0f,
+  public val lineHeightAdd: Float = 0f,
+  public val lineHeightMultiplier: Float = 1f,
+  public val breakStrategy: Int = 0,
+  public val hyphenation: Int = 0,
+  public val justified: Boolean = false,
+  public val underline: Boolean = false,
+  public val strikeThrough: Boolean = false,
+)
 
 /** A validated inline gradient whose coordinates are resolved for Core Graphics. */
 public data class RcNativeGradient(
@@ -309,6 +328,19 @@ public object RcNativeSnapshotBridge {
       val commands = mutableListOf<RcNativeDrawCommand>()
       if (operation is RcTextLayout) {
         val size = state.resolve(operation.fontSize) / document.header.density
+        val weight = state.resolve(operation.fontWeight).coerceIn(1f, 1000f)
+        require(size.isFinite() && size > 0f) { "TextLayout font size must be finite and positive" }
+        require(operation.textAlign in 1..6) {
+          "TextLayout alignment ${operation.textAlign} is invalid"
+        }
+        require(operation.overflow in 1..5) {
+          "TextLayout overflow ${operation.overflow} is invalid"
+        }
+        require(operation.maxLines >= 1) { "TextLayout maxLines must be positive" }
+        require(operation.fontStyle and 3 == operation.fontStyle) {
+          "TextLayout font style ${operation.fontStyle} is invalid"
+        }
+        val familyName = state.text(operation.fontFamilyId)
         val color =
           if (operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) state.color(operation.color)
           else operation.color
@@ -318,7 +350,26 @@ public object RcNativeSnapshotBridge {
               RcNativeDrawCommand.TEXT,
               values = listOf(0f, size, -1f, -1f),
               text = state.text(operation.textId).orEmpty(),
+              textWeight = weight,
+              textStyle =
+                RcNativeTextStyle(
+                  fontStyle = operation.fontStyle,
+                  fontFamilyId = operation.fontFamilyId,
+                  fontFamilyName = familyName,
+                  alignment = operation.textAlign,
+                  overflow = operation.overflow,
+                  maxLines = operation.maxLines,
+                ),
             )
+        if (
+          familyName?.lowercase() !in setOf(null, "default", "sans-serif", "serif", "monospace")
+        ) {
+          diagnostics.warning(
+            operation,
+            componentId,
+            "Font family $familyName uses deterministic system fallback until resource loading",
+          )
+        }
         diagnostics.warning(
           operation,
           componentId,
@@ -338,7 +389,24 @@ public object RcNativeSnapshotBridge {
             .filterIsInstance<RcTextStyleProperty.FloatValue>()
             .lastOrNull { it.id == 7 }
             ?.value
-            ?.let(state::resolve) ?: 400f
+            ?.let(state::resolve)
+            ?.coerceIn(1f, 1000f) ?: 400f
+        fun intProperty(id: Int, default: Int): Int =
+          properties
+            .filterIsInstance<RcTextStyleProperty.IntValue>()
+            .lastOrNull { it.id == id }
+            ?.value ?: default
+        fun floatProperty(id: Int, default: Float): Float =
+          properties
+            .filterIsInstance<RcTextStyleProperty.FloatValue>()
+            .lastOrNull { it.id == id }
+            ?.value
+            ?.let(state::resolve) ?: default
+        fun booleanProperty(id: Int): Boolean =
+          properties
+            .filterIsInstance<RcTextStyleProperty.BooleanValue>()
+            .lastOrNull { it.id == id }
+            ?.value ?: false
         val literalColor =
           properties
             .filterIsInstance<RcTextStyleProperty.IntValue>()
@@ -349,6 +417,25 @@ public object RcNativeSnapshotBridge {
             .filterIsInstance<RcTextStyleProperty.IntValue>()
             .lastOrNull { it.id == 4 }
             ?.value ?: -1
+        val fontStyle = intProperty(6, 0)
+        val fontFamilyId = intProperty(8, -1)
+        val familyName = state.text(fontFamilyId)
+        val alignment = intProperty(9, RcTextLayout.ALIGN_LEFT)
+        val overflow = intProperty(10, RcTextLayout.OVERFLOW_CLIP)
+        val maxLines = intProperty(11, Int.MAX_VALUE)
+        val letterSpacing = floatProperty(12, 0f)
+        val lineHeightAdd = floatProperty(13, 0f)
+        val lineHeightMultiplier = floatProperty(14, 1f)
+        require(size.isFinite() && size > 0f) { "CoreText font size must be finite and positive" }
+        require(alignment in 1..6) { "CoreText alignment $alignment is invalid" }
+        require(overflow in 1..5) { "CoreText overflow $overflow is invalid" }
+        require(maxLines >= 1) { "CoreText maxLines must be positive" }
+        require(fontStyle and 3 == fontStyle) { "CoreText font style $fontStyle is invalid" }
+        require(letterSpacing.isFinite()) { "CoreText letter spacing must be finite" }
+        require(lineHeightAdd.isFinite()) { "CoreText line-height addition must be finite" }
+        require(lineHeightMultiplier.isFinite() && lineHeightMultiplier > 0f) {
+          "CoreText line-height multiplier must be finite and positive"
+        }
         commands +=
           NativePaint(
               color = if (colorId == -1) literalColor else state.color(colorId),
@@ -359,7 +446,57 @@ public object RcNativeSnapshotBridge {
               values = listOf(0f, size, -1f, -1f),
               text = state.text(operation.textId).orEmpty(),
               textWeight = weight,
+              textStyle =
+                RcNativeTextStyle(
+                  fontStyle = fontStyle,
+                  fontFamilyId = fontFamilyId,
+                  fontFamilyName = familyName,
+                  alignment = alignment,
+                  overflow = overflow,
+                  maxLines = maxLines,
+                  letterSpacing = letterSpacing,
+                  lineHeightAdd = lineHeightAdd,
+                  lineHeightMultiplier = lineHeightMultiplier,
+                  breakStrategy = intProperty(15, 0),
+                  hyphenation = intProperty(16, 0),
+                  justified = intProperty(17, 0) == 1,
+                  underline = booleanProperty(18),
+                  strikeThrough = booleanProperty(19),
+                ),
             )
+        if (booleanProperty(22)) {
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "CoreText autosizing is not represented by the native player",
+          )
+        }
+        if (
+          properties.filterIsInstance<RcTextStyleProperty.IntArrayValue>().any { it.id == 20 } ||
+            properties.filterIsInstance<RcTextStyleProperty.FloatArrayValue>().any { it.id == 21 }
+        ) {
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "CoreText font variation axes are not represented by the native player",
+          )
+        }
+        if (intProperty(15, 0) != 0) {
+          diagnostics.warning(
+            operation,
+            componentId,
+            "CoreText break strategy uses the nearest UIKit paragraph behavior",
+          )
+        }
+        if (
+          familyName?.lowercase() !in setOf(null, "default", "sans-serif", "serif", "monospace")
+        ) {
+          diagnostics.warning(
+            operation,
+            componentId,
+            "Font family $familyName uses deterministic system fallback until resource loading",
+          )
+        }
         diagnostics.warning(
           operation,
           componentId,
@@ -769,17 +906,31 @@ public object RcNativeSnapshotBridge {
           RcOpcodes.MATRIX_RESTORE -> commands += paint.command(RcNativeDrawCommand.RESTORE)
         }
       is RcDrawText -> {
+        if (paint.gradient != null) {
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "Gradient canvas text falls back to the current solid color",
+          )
+        }
         val fullText = state.text(operation.textId).orEmpty()
         val start = operation.start.coerceIn(0, fullText.length)
         val end = operation.end.coerceIn(start, fullText.length)
         commands +=
           paint.command(
             RcNativeDrawCommand.TEXT,
-            listOf(state.resolve(operation.x), state.resolve(operation.y)),
+            listOf(state.resolve(operation.x), state.resolve(operation.y), -1f, -1f),
             fullText.substring(start, end),
           )
       }
       is RcDrawTextAnchored -> {
+        if (paint.gradient != null) {
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "Gradient canvas text falls back to the current solid color",
+          )
+        }
         val text = state.text(operation.textId).orEmpty()
         commands +=
           paint.command(
@@ -1033,7 +1184,9 @@ public object RcNativeSnapshotBridge {
             )
         }
         16 -> {
-          paint.fontStyle = command ushr 16
+          val style = command ushr 16
+          paint.textWeight = (style and 0x3ff).takeIf { it > 0 }?.toFloat() ?: 400f
+          paint.fontStyle = if (style shr 10 > 0) 2 else 0
           paint.fontType = operation.words[index++]
         }
         23 -> {
@@ -1072,15 +1225,17 @@ public object RcNativeSnapshotBridge {
     var textSize: Float = 16f,
     var fontType: Int = 0,
     var fontStyle: Int = 0,
+    var textWeight: Float = 400f,
     var gradient: RcNativeGradient? = null,
   ) {
     fun command(
       kind: Int,
       values: List<Float> = emptyList(),
       text: String? = null,
-      textWeight: Float = 400f,
+      textWeight: Float = this.textWeight,
       path: List<RcNativePathCommand> = emptyList(),
       pathWinding: Int = 0,
+      textStyle: RcNativeTextStyle? = null,
     ) =
       RcNativeDrawCommand(
         kind = kind,
@@ -1103,6 +1258,21 @@ public object RcNativeSnapshotBridge {
         path = path,
         pathWinding = pathWinding,
         gradient = gradient,
+        textStyle =
+          textStyle
+            ?: if (kind == RcNativeDrawCommand.TEXT) {
+              RcNativeTextStyle(
+                fontStyle = fontStyle,
+                fontFamilyId = fontType,
+                fontFamilyName =
+                  when (fontType) {
+                    1 -> "sans-serif"
+                    2 -> "serif"
+                    3 -> "monospace"
+                    else -> "default"
+                  },
+              )
+            } else null,
       )
   }
 

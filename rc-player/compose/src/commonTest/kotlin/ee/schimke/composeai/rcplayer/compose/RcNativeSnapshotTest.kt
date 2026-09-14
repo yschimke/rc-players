@@ -3,10 +3,12 @@ package ee.schimke.composeai.rcplayer.compose
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
@@ -21,6 +23,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
@@ -406,6 +412,115 @@ class RcNativeSnapshotTest {
       "Gradient tile mode 2 is approximated with clamp",
       snapshot.diagnostics.single().reason,
     )
+  }
+
+  @Test
+  fun exportsResolvedCoreTextParagraphAndDecorationProperties() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0), legacyWidth = 200, legacyHeight = 100),
+        listOf(
+          RcTextData(40, "serif"),
+          RcTextData(41, "مرحبا UIKit 👟"),
+          RcTextStyle(
+            listOf(
+              RcTextStyleProperty.IntValue(1, 50),
+              RcTextStyleProperty.FloatValue(5, RcFloatWord.literal(24f)),
+              RcTextStyleProperty.IntValue(6, 3),
+              RcTextStyleProperty.FloatValue(7, RcFloatWord.literal(650f)),
+              RcTextStyleProperty.IntValue(8, 40),
+              RcTextStyleProperty.IntValue(9, RcTextLayout.ALIGN_END),
+              RcTextStyleProperty.FloatValue(12, RcFloatWord.literal(0.05f)),
+              RcTextStyleProperty.FloatValue(13, RcFloatWord.literal(2f)),
+              RcTextStyleProperty.FloatValue(14, RcFloatWord.literal(1.2f)),
+              RcTextStyleProperty.IntValue(16, 1),
+              RcTextStyleProperty.IntValue(17, 1),
+              RcTextStyleProperty.BooleanValue(18, true),
+              RcTextStyleProperty.BooleanValue(19, true),
+            )
+          ),
+          RcRootLayout(1),
+          RcCoreText(
+            textId = 41,
+            properties =
+              listOf(
+                RcTextStyleProperty.IntValue(1, 2),
+                RcTextStyleProperty.IntValue(24, 50),
+                RcTextStyleProperty.IntValue(10, RcTextLayout.OVERFLOW_MIDDLE_ELLIPSIS),
+                RcTextStyleProperty.IntValue(11, 2),
+              ),
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+    val command = snapshot.root.children.single().children.single().commands.single()
+    val style = checkNotNull(command.textStyle)
+
+    assertEquals("مرحبا UIKit 👟", command.text)
+    assertEquals(24f, command.textSize)
+    assertEquals(650f, command.textWeight)
+    assertEquals(3, style.fontStyle)
+    assertEquals("serif", style.fontFamilyName)
+    assertEquals(RcTextLayout.ALIGN_END, style.alignment)
+    assertEquals(RcTextLayout.OVERFLOW_MIDDLE_ELLIPSIS, style.overflow)
+    assertEquals(2, style.maxLines)
+    assertEquals(0.05f, style.letterSpacing)
+    assertEquals(2f, style.lineHeightAdd)
+    assertEquals(1.2f, style.lineHeightMultiplier)
+    assertTrue(style.justified)
+    assertTrue(style.underline)
+    assertTrue(style.strikeThrough)
+  }
+
+  @Test
+  fun exportsCanvasTextTypefaceAndBaselineAnchoring() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcTextData(40, "Canvas text"),
+          RcRootLayout(1),
+          RcPaintData(
+            listOf(
+              1,
+              RcFloatWord.literal(18f).bits,
+              16 or (((1 shl 10) or 650) shl 16),
+              2,
+            )
+          ),
+          RcDrawText(
+            textId = 40,
+            start = 0,
+            end = 11,
+            contextStart = 0,
+            contextEnd = 11,
+            x = RcFloatWord.literal(12f),
+            y = RcFloatWord.literal(24f),
+            rtl = false,
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val command =
+      RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+        .root
+        .children
+        .single()
+        .commands
+        .single()
+    val style = checkNotNull(command.textStyle)
+
+    assertEquals("Canvas text", command.text)
+    assertEquals(18f, command.textSize)
+    assertEquals(650f, command.textWeight)
+    assertEquals(2, style.fontStyle)
+    assertEquals("serif", style.fontFamilyName)
+    assertEquals(-1f, command.third)
+    assertEquals(-1f, command.fourth)
   }
 
   @Test

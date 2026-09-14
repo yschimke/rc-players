@@ -23,9 +23,10 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | Package | Status | Result |
 |---|---|---|
 | 1 — Static compatibility profile | Implemented | Structured issues, strict/compatible policy, malformed failures, and StateLayout reachability tests |
-| 2 — Static layout geometry | Core implemented | Pure Swift geometry, constraints, proportional weights, visibility, offsets, z-order, RTL, and root scaling |
-| 3 — Core Graphics static drawing | Core implemented | Validated paths/clipping, gradients, graphics-state order, stroke caps/joins, and representable blend modes |
-| 4–11 | Planned | Ordered below |
+| 2 — Static layout geometry | Implemented | Pure Swift geometry, constraints, proportional weights, visibility, offsets, z-order, RTL, and root scaling |
+| 3 — Core Graphics static drawing | Implemented | Validated paths/clipping, gradients, graphics-state order, stroke caps/joins, and representable blend modes |
+| 4 — Static text | Core implemented | Native labels, Core Text canvas glyphs, inherited paragraph styles, bidi alignment, overflow, decoration, and deterministic fallback |
+| 5–11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -95,7 +96,7 @@ Acceptance:
 - unsupported shader or blend behavior produces structured diagnostics;
 - no command indexes unvalidated operand data.
 
-### 4. Make text production-capable for the static profile
+### 4. Make text production-capable for the static profile — core implemented
 
 Add paragraph width, wrapping, line limits, baseline and alignment behavior, attributed spans,
 bidirectional text, locale, font weight/style, and deterministic fallback. Use native text views for
@@ -108,6 +109,15 @@ Acceptance:
 - label intrinsic size feeds layout measurement correctly;
 - canvas text respects transforms, clipping, and interleaving;
 - font fallback and unavailable-font diagnostics are deterministic offline.
+
+The standard `TextLayout` and `CoreText` protocol operations carry one resolved style per text
+component, so UIKit applies that style with an attributed string but cannot invent multiple inline
+runs. Link spans currently belong to the separate `SupportSpannableString` custom component and are
+deferred to package 8's explicit semantic-component registry. The protocol also carries no locale
+property in this text vocabulary; UIKit/Core Text performs Unicode script shaping and fallback
+using the host locale. Named non-generic families deliberately use the system fallback, with a
+diagnostic, until package 5 can resolve font bytes with bounded ownership. Layout labels participate
+in Dynamic Type; ordered canvas glyphs remain fixed document graphics.
 
 ### 5. Add images and bounded resource loading
 
@@ -223,8 +233,6 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-The next three changes should be packages 1, 2, and 3 in that order. Structured compatibility makes
-new coverage measurable; complete geometry prevents drawing work from being judged in the wrong
-frames; only then does broadening the primitive set reliably unlock real documents. Text and images
-follow as distinct reviewable tracks, while retained state begins after the static profile is
-stable enough to serve as its correctness oracle.
+Complete package 4's static text evidence, then add package 5's bounded image/font resolver before
+any bitmap bytes cross into UIKit. The retained session in package 6 follows once the static profile
+can serve as a stable correctness oracle for incremental updates.

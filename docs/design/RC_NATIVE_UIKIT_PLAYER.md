@@ -216,12 +216,25 @@ effects, font axes, and textures produce diagnostics or unsupported opcodes.
 
 ### Text
 
-Layout text uses real `UILabel`s with `UIFont.systemFont`; frames approximate the recorded metrics.
-This gives UIKit ownership of traits, Dynamic Type integration points, accessibility, and text
-lifecycle without reimplementing a platform text view. Canvas text remains in its ordered Core
-Graphics command stream so transforms, clipping, and primitive interleaving are preserved. Core
-Text shaping, context ranges, RTL, font ids, spans, overflow, and measurement still must be
-implemented together. Exact text pixels are not a POC claim.
+Layout text uses real `UILabel`s and attributed strings. UIKit owns Unicode shaping, bidirectional
+text, native fallback, Dynamic Type, accessibility, wrapping, line limits, ellipsis placement,
+logical start/end alignment, line height, letter spacing, and decoration. Its intrinsic measurement
+feeds the same frame-based layout pass as other components. The bridge resolves inherited
+`CoreText` properties before Swift sees them.
+
+Canvas text uses Core Text inside the ordered Core Graphics command stream, preserving the active
+transform, clip, blend state, baseline anchor, and primitive interleaving. Canvas glyphs intentionally
+remain fixed-size document graphics rather than Dynamic Type content. Generic sans-serif, serif,
+and monospace families map to deterministic system designs. Other named families use the system
+fallback and emit a diagnostic until the bounded font resolver is implemented; installed fonts are
+not consulted opportunistically.
+
+The standard protocol text operations carry a single style rather than inline attributed runs, and
+they do not carry a locale property. Link spans are a separate `SupportSpannableString` custom
+component, to be handled by the semantic component registry. UIKit uses its Unicode script and host
+locale behavior for the standard operations. Font variation axes, autosizing properties, exact CMP
+metrics, and exact text pixels remain outside the current static profile and are reported rather
+than silently claimed.
 
 ### Errors
 
