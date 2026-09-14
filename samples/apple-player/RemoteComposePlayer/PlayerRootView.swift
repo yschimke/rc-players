@@ -110,6 +110,7 @@ struct PlayerRootView: View {
 private struct PlayerCanvas: View {
   let document: PlayerDocument
   @Bindable var library: PlayerLibrary
+  @State private var nativeDiagnostics: RemoteComposeNativePlayerDiagnostics?
 
   var body: some View {
     GeometryReader { proxy in
@@ -118,16 +119,25 @@ private struct PlayerCanvas: View {
 
       ZStack(alignment: .bottom) {
         ScrollView([.horizontal, .vertical]) {
-          RemoteComposePlayerView(
-            data: document.data,
-            configuration: .init(
-              theme: library.theme.playerTheme,
-              compatibility: .compatible,
-              background: library.background),
-            onError: { error in
-              Task { @MainActor in library.errorMessage = error.localizedDescription }
+          Group {
+            if library.renderer == .compose {
+              RemoteComposePlayerView(
+                data: document.data,
+                configuration: .init(
+                  theme: library.theme.playerTheme,
+                  compatibility: .compatible,
+                  background: library.background),
+                onError: { error in
+                  Task { @MainActor in library.errorMessage = error.localizedDescription }
+                }
+              )
+            } else {
+              RemoteComposeNativePlayerRepresentable(
+                data: document.data,
+                background: library.background.nativeBackground,
+                onDiagnostics: { nativeDiagnostics = $0 })
             }
-          )
+          }
           .frame(width: playerWidth, height: playerHeight)
           .scaleEffect(library.zoom)
           .frame(width: playerWidth * library.zoom, height: playerHeight * library.zoom)
@@ -137,6 +147,19 @@ private struct PlayerCanvas: View {
 
         PlaybackChrome(library: library)
           .padding(.bottom, 22)
+
+        if library.renderer == .native, let nativeDiagnostics, nativeDiagnostics.isPartial {
+          Text(
+            "Native POC · \(nativeDiagnostics.unsupportedOpcodes.count) unsupported opcodes"
+          )
+          .font(.caption.weight(.medium))
+          .foregroundStyle(.secondary)
+          .padding(.horizontal, 12)
+          .padding(.vertical, 7)
+          .background(.regularMaterial, in: Capsule())
+          .frame(maxHeight: .infinity, alignment: .top)
+          .padding(.top, 18)
+        }
       }
     }
   }
@@ -148,6 +171,17 @@ private struct PlaybackChrome: View {
   var body: some View {
     GlassEffectContainer(spacing: 14) {
       HStack(spacing: 12) {
+        Picker("Renderer", selection: $library.renderer) {
+          ForEach(PlayerRenderer.allCases) { renderer in
+            Text(renderer.rawValue).tag(renderer)
+          }
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 190)
+
+        Divider()
+          .frame(height: 22)
+
         Picker("Appearance", selection: $library.theme) {
           ForEach(PlayerAppearance.allCases) { appearance in
             Image(systemName: appearance.symbol)
@@ -195,6 +229,12 @@ private struct PlaybackChrome: View {
       .padding(.vertical, 8)
       .glassEffect(.regular.interactive(), in: Capsule())
     }
+  }
+}
+
+extension RemoteComposePlayerBackground {
+  fileprivate var nativeBackground: RemoteComposeNativePlayerBackground {
+    self == .opaque ? .opaque : .transparent
   }
 }
 

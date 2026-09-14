@@ -18,6 +18,9 @@
 		10000000000000000000000A /* ArcProgressRemote-454x400.rc in Resources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000A /* ArcProgressRemote-454x400.rc */; };
 		10000000000000000000000B /* RemoteComposePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* RemoteComposePlayerView.swift */; };
 		10000000000000000000000C /* RemoteComposePlayerWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* RemoteComposePlayerWindow.swift */; };
+		10000000000000000000000D /* RemoteComposeNativePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000F /* RemoteComposeNativePlayer.swift */; };
+		10000000000000000000000E /* NativeComponentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* NativeComponentViews.swift */; };
+		10000000000000000000000F /* RemoteComposeNativePlayerRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +38,9 @@
 		20000000000000000000000C /* RemoteComposePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposePlayerView.swift; path = "../../Sources/RcComposePlayerSwiftUI/RemoteComposePlayerView.swift"; sourceTree = "<group>"; };
 		20000000000000000000000D /* RemoteComposePlayerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposePlayerWindow.swift; path = "../../Sources/RcComposePlayerSwiftUI/RemoteComposePlayerWindow.swift"; sourceTree = "<group>"; };
 		20000000000000000000000E /* RcComposePlayer.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = RcComposePlayer.xcframework; path = "../../rc-player/compose/build/XCFrameworks/release/RcComposePlayer.xcframework"; sourceTree = "<group>"; };
+		20000000000000000000000F /* RemoteComposeNativePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeNativePlayer.swift; path = "../../Sources/RcNativePlayerUIKit/RemoteComposeNativePlayer.swift"; sourceTree = "<group>"; };
+		200000000000000000000010 /* NativeComponentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeComponentViews.swift; path = "../../Sources/RcNativePlayerUIKit/NativeComponentViews.swift"; sourceTree = "<group>"; };
+		200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeNativePlayerRepresentable.swift; path = "../../Sources/RcNativePlayerUIKit/RemoteComposeNativePlayerRepresentable.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +58,7 @@
 			children = (
 				400000000000000000000002 /* RemoteComposePlayer */,
 				400000000000000000000005 /* RcComposePlayerSwiftUI */,
+				400000000000000000000006 /* RcNativePlayerUIKit */,
 				20000000000000000000000E /* RcComposePlayer.xcframework */,
 				400000000000000000000003 /* Fixtures */,
 				400000000000000000000004 /* Products */,
@@ -95,6 +102,16 @@
 				20000000000000000000000D /* RemoteComposePlayerWindow.swift */,
 			);
 			name = RcComposePlayerSwiftUI;
+			sourceTree = "<group>";
+		};
+		400000000000000000000006 /* RcNativePlayerUIKit */ = {
+			isa = PBXGroup;
+			children = (
+				20000000000000000000000F /* RemoteComposeNativePlayer.swift */,
+				200000000000000000000010 /* NativeComponentViews.swift */,
+				200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */,
+			);
+			name = RcNativePlayerUIKit;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -167,6 +184,9 @@
 				100000000000000000000004 /* RemoteComposePlayerTypes.swift in Sources */,
 				10000000000000000000000B /* RemoteComposePlayerView.swift in Sources */,
 				10000000000000000000000C /* RemoteComposePlayerWindow.swift in Sources */,
+				10000000000000000000000D /* RemoteComposeNativePlayer.swift in Sources */,
+				10000000000000000000000E /* NativeComponentViews.swift in Sources */,
+				10000000000000000000000F /* RemoteComposeNativePlayerRepresentable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,7 +1,9 @@
 # Remote Compose for Apple
 
-A SwiftUI host for `RcComposePlayer`. It links the release XCFramework assembled from the current
-checkout and compiles the checked-in `RcComposePlayerSwiftUI` source overlay. The app and its
+A SwiftUI host for `RcComposePlayer` and the experimental native UIKit player. It links the release
+XCFramework assembled from the current checkout and compiles both checked-in Swift source overlays.
+The renderer picker switches between the supported CMP renderer and a UIKit/Core Graphics POC using
+the same bytes. The app and its
 downloadable zip therefore test the exact binary and adopter API that will ship together. SwiftPM
 consumers still receive the same framework through the checksummed binary target in `Package.swift`.
 
@@ -44,6 +46,10 @@ transparent, allowing the aurora backdrop to show through document areas that do
 The sample itself compiles the source overlay, so its normal render is an adopter-facing state.
 Missing the recommended high-refresh-rate plist key now logs one notice and continues rendering
 instead of terminating inside `ComposeUIViewController`.
+
+The **Native POC** selection builds a recursive `UIView` component hierarchy and never installs the
+Compose controller. It is incomplete by design and shows a diagnostic badge for unsupported
+operations. See [`RC_NATIVE_UIKIT_PLAYER.md`](../../docs/design/RC_NATIVE_UIKIT_PLAYER.md).
 
 ![Remote Compose player rendered through the Swift overlay](../../renders/apple-player/swift-api-player.png)
 

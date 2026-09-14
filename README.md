@@ -9,22 +9,23 @@ the vendored AndroidX player they are all measured against.
 
 ## The players
 
-Five of them, and the reason there are five is that each answers a question the others cannot. Four
-render the same document on different surfaces; the fifth is upstream's, kept here as the reference
-the others are measured against.
+Seven lanes are listed because implementation, packaging, hosting, and comparison answer different
+questions. The supported renderer remains CMP; UIKit is an explicitly experimental second renderer.
 
 | Player | Target | Language / runtime | Supported? | Why it exists |
 | --- | --- | --- | --- | --- |
 | **CMP player** (`rc-player/compose`) | JVM · Android · iOS (`iosArm64`, `iosSimulatorArm64`) · macOS (`macosArm64`) · `wasmJs` | Kotlin Multiplatform + Compose Multiplatform | **Yes** — the one supported API here | The player written here. One implementation that draws a document natively on every surface this stack targets, with a platform-neutral wire model underneath it. This is what a consumer should depend on. |
 | **Wasm host** (`rc-player/wasm`) | Browser | The CMP player compiled to WebAssembly | Yes, as an embed contract | Makes the CMP player renderable in a page with no server: an iframe driven by query parameters and `window.rcPlayerLoad`. It is the CMP player, not a second implementation — same pixels, different host. |
 | **Apple XCFramework** (`Package.swift`) | iOS + Apple-silicon macOS, from Swift | The CMP player's native Apple targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
+| **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Swift + UIKit/Core Graphics, temporarily reusing the Kotlin decoder/runtime | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
 | **Vendored AndroidX player, JVM cut** (`third_party/rc-embedded-player-jvm`) | Desktop JVM (Skia) | The platform-neutral subset of the above, against Compose Desktop | **No** — testing/tooling only | Runs the same comparison headlessly, without Robolectric — and, by compiling the shared files against a non-Android target, makes "platform-neutral" a compiled fact rather than a claim. AndroidX publishes no desktop cut, so this one has no upstream to switch to. |
 | **Vendored TypeScript player** (`third_party/remote-compose-player`) | Browser · Node · VS Code webview | TypeScript → Canvas2D, WebGL for shader ops | **No** — vendored, upstream elsewhere | A client-side lane that needs no Kotlin at all, so a viewer can render a captured `.rc` without a server-side daemon. Upstream is [yschimke/remotecompose-experiments](https://github.com/yschimke/remotecompose-experiments); changes are filed there. |
 
-The shape of the whole thing: **one implementation, several hosts, two references.** The CMP player
-is the product; the Wasm bundle and the XCFramework are it in different wrappers; the two vendored
-AndroidX cuts and the TypeScript player are what it is checked against.
+The shape of the whole thing: **one supported implementation, one experimental renderer, two CMP
+hosts, and three references.** The CMP player is the product; the Wasm bundle and XCFramework are it
+in different wrappers. The native UIKit POC sits beside it, while the two AndroidX cuts and the
+TypeScript player remain comparison lanes.
 
 ## What is here
 
