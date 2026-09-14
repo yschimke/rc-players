@@ -9,6 +9,7 @@
     public var compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy
     public var resourceLimits: RemoteComposeNativeResourceLimits
     public var resourceResolver: (any RemoteComposeNativeResourceResolving)?
+    public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
 
     public init(
@@ -17,6 +18,7 @@
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
       self.data = data
@@ -24,6 +26,7 @@
       self.compatibilityPolicy = compatibilityPolicy
       self.resourceLimits = resourceLimits
       self.resourceResolver = resourceResolver
+      self.onEvent = onEvent
       self.onDiagnostics = onDiagnostics
     }
 
@@ -31,11 +34,13 @@
       RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
         resourceLimits: resourceLimits, resourceResolver: resourceResolver,
+        onEvent: onEvent,
         onDiagnostics: onDiagnostics)
     }
 
     public func updateUIView(_ view: RemoteComposeNativePlayerView, context: Context) {
       view.playerBackground = background
+      view.onEvent = onEvent
       view.onDiagnostics = onDiagnostics
       view.compatibilityPolicy = compatibilityPolicy
       view.configureResources(limits: resourceLimits, resolver: resourceResolver)

@@ -15,7 +15,7 @@ coverage or exact pixels. Its primary API is `RemoteComposeNativePlayerView`; a 
 controller and a thin `UIViewRepresentable` adapter are also supplied. No Compose view or Skia
 surface exists below those entry points.
 
-It currently handles a static frame containing Box, Row, and Column layout; common size, padding,
+It currently handles retained frames containing Box, Row, and Column layout; common size, padding,
 alignment, rounded-clip, and background modifiers; rectangles, ovals, circles, lines, rounded
 rectangles, arcs, sectors, basic text, color/alpha/stroke paint state, clipping, save/restore, and
 basic transforms. It also replays validated paths, path clipping, inline linear/radial/sweep
@@ -26,6 +26,8 @@ behavior opcodes are returned as diagnostics rather than being presented as full
 Inline and host-referenced images cross a bounded resource boundary and render through `UIImageView`
 for conceptual image components or through the ordered Core Graphics stream for canvas images.
 Embedded fonts are validated and registered for the owning player lifetime.
+Hosts can update declared float, string, and color values without re-decoding the document. Native
+buttons dispatch ordinary and single-click action blocks through typed main-actor callbacks.
 
 ## Goals
 
@@ -41,7 +43,8 @@ Embedded fonts are validated and registered for the owning player lifetime.
 
 - Pixel parity with AndroidX or CMP.
 - Complete operation coverage.
-- Animation, live named values, touch expressions, click actions, sound, or haptics.
+- Automatic animation scheduling, drag/scroll/raw touch expressions, long/double click, sound, or
+  haptics.
 - Production text shaping, bidirectional text, downloadable fonts, or text on paths.
 - The final layout algorithm or final Kotlin/Swift boundary.
 - Replacing, deprecating, or internally modifying `RcComposePlayer`.
@@ -135,11 +138,12 @@ does not depend on `RcComposePlayerSwiftUI`, and neither existing product depend
 2. A serial Swift actor opens `RcNativeSnapshotSession` on a detached task.
 3. The session decodes once, links once, and retains `RcPlayerState`.
 4. A requested time resolves an immutable frame without scheduling platform work.
-5. Swift maps the interop frame to private Swift values on the main actor.
-6. `NativeDocumentView` builds recursive `NativeComponentView`s for the first frame.
-7. Compatible later frames reconcile those views in place; structural changes atomically replace
+5. Named values and clicks mutate that retained state and return an atomic frame-plus-events result.
+6. Swift maps the interop frame to private Swift values on the main actor.
+7. `NativeDocumentView` builds recursive `NativeComponentView`s for the first frame.
+8. Compatible later frames reconcile those views in place; structural changes atomically replace
    the tree.
-8. Each `NativeCanvasView` replays immutable commands in `draw(_:)` using Core Graphics.
+9. Each `NativeCanvasView` replays immutable commands in `draw(_:)` using Core Graphics.
 
 Kotlin objects do not remain in the UIKit view tree. The retained Kotlin object is isolated inside
 one Swift actor; UIKit receives only immutable frames. That keeps ownership clear and prevents the
@@ -179,9 +183,25 @@ container.addSubview(player)
 ```
 
 `RemoteComposeNativePlayerViewController` is a convenience for controller-based hosts and exposes
-`load(_:)`, resource configuration, and explicit `renderFrame(at:)`. The view offers the same
+`load(_:)`, resource configuration, explicit `renderFrame(at:)`, and asynchronous typed
+`setFloat(_:for:)`, `setString(_:for:)`, and `setColor(_:for:)` updates. The view offers the same
 operations. `RemoteComposeNativePlayerRepresentable` is only an adapter: its renderer is the same
-UIKit tree. A named-value controller remains deferred to the next package.
+UIKit tree. All three entry points accept an `onEvent` callback.
+
+```swift
+let player = RemoteComposeNativePlayerView(
+  data: documentData,
+  onEvent: { event in
+    // Called on the main actor after the resulting frame is installed.
+    print(event)
+  }
+)
+
+Task { @MainActor in
+  let accepted = await player.setFloat(0.75, for: "progress")
+  assert(accepted)
+}
+```
 
 The default `.compatible` policy renders the supported subset and reports all known differences.
 `.strict` refuses to install a document view when any diagnostic is present, including a known
@@ -291,9 +311,13 @@ the resolved semantics. That is not full accessibility support: merge/clear mode
 descriptions, custom actions, dynamic updates, and non-button roles remain incomplete. A canvas must
 not become one monolithic accessibility element.
 
-Click areas map naturally to transparent `UIControl` subclasses or gesture-owning components.
-Static POC buttons do not dispatch Remote Compose actions yet; exposing an inert control as a
-supported interactive feature would be misleading, so action opcodes remain diagnostics.
+Click modifiers map to transparent `UIControl` subclasses owned by the semantic component. UIKit
+hit testing follows the rendered component transform and explicitly orders overlapping children by
+Remote Compose z-index, then insertion order. Hidden, clipped, or disabled controls do not dispatch.
+The winning component id enters the retained session; its ordinary and single-click action blocks
+execute in wire order and emit typed Swift action values exactly once. Generation and session
+identity checks prevent a replaced document from delivering an old callback. Long press,
+double-click, drag, scroll, and raw touch expressions remain explicit compatibility gaps.
 Haptics should use UIKit feedback generators. Sound remains host-owned. External URLs remain host
 events and must never trigger automatic network loads.
 

@@ -111,6 +111,7 @@ private struct PlayerCanvas: View {
   let document: PlayerDocument
   @Bindable var library: PlayerLibrary
   @State private var nativeDiagnostics: RemoteComposeNativePlayerDiagnostics?
+  @State private var nativeEvent: RemoteComposeNativePlayerEvent?
 
   var body: some View {
     GeometryReader { proxy in
@@ -135,6 +136,7 @@ private struct PlayerCanvas: View {
               RemoteComposeNativePlayerRepresentable(
                 data: document.data,
                 background: library.background.nativeBackground,
+                onEvent: { nativeEvent = $0 },
                 onDiagnostics: { nativeDiagnostics = $0 })
             }
           }
@@ -159,6 +161,17 @@ private struct PlayerCanvas: View {
           .background(.regularMaterial, in: Capsule())
           .frame(maxHeight: .infinity, alignment: .top)
           .padding(.top, 18)
+        }
+
+        if library.renderer == .native, let nativeEvent {
+          Text("Native event · \(String(describing: nativeEvent))")
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.regularMaterial, in: Capsule())
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(18)
         }
       }
     }

@@ -17,11 +17,13 @@
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
       playerView = RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
         resourceLimits: resourceLimits, resourceResolver: resourceResolver,
+        onEvent: onEvent,
         onDiagnostics: onDiagnostics)
       super.init(nibName: nil, bundle: nil)
     }
@@ -48,6 +50,21 @@
 
     public func renderFrame(at timeSeconds: TimeInterval) {
       playerView.renderFrame(at: timeSeconds)
+    }
+
+    @discardableResult
+    public func setFloat(_ value: Float, for name: String) async -> Bool {
+      await playerView.setFloat(value, for: name)
+    }
+
+    @discardableResult
+    public func setString(_ value: String, for name: String) async -> Bool {
+      await playerView.setString(value, for: name)
+    }
+
+    @discardableResult
+    public func setColor(_ argb: UInt32, for name: String) async -> Bool {
+      await playerView.setColor(argb, for: name)
     }
   }
 
@@ -76,19 +93,25 @@
     }
 
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
+    public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
     public private(set) var resourceLimits: RemoteComposeNativeResourceLimits
     public private(set) var resourceResolver: (any RemoteComposeNativeResourceResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
     private var loadTask: Task<Void, Never>?
     private var pendingWork: PendingWork?
+    private var inputTail: Task<Void, Never>?
     private var loadGeneration: UInt64 = 0
+    private var inputGeneration: UInt64 = 0
+    private var sessionEpoch: UInt64 = 0
+    private var retainedSessionEpoch: UInt64 = 0
     private var isApplicationActive = true
     private var needsForegroundRender = false
     private var needsRetry = false
     private var retainedSession: NativeSnapshotSessionHandle?
     private var retainedSessionData: Data?
     private var retainedResources: NativeResourceStore?
+    private var currentFrameTime: TimeInterval = 0
     private var resourceCache: NativeImageCache
     private let errorLabel = UILabel()
 
@@ -98,6 +121,7 @@
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
       playerBackground = background
@@ -107,6 +131,7 @@
       resourceCache = NativeImageCache(
         countLimit: resourceLimits.maximumResourceCount,
         totalCostLimit: resourceLimits.maximumDecodedImageBytes)
+      self.onEvent = onEvent
       self.onDiagnostics = onDiagnostics
       super.init(frame: .zero)
       isApplicationActive = UIApplication.shared.applicationState != .background
@@ -175,13 +200,17 @@
       needsRetry = false
       needsForegroundRender = false
       loadTask?.cancel()
+      inputTail = nil
       loadGeneration &+= 1
+      inputGeneration &+= 1
+      sessionEpoch &+= 1
       let generation = loadGeneration
       let compatibilityPolicy = compatibilityPolicy
       let resourceLimits = resourceLimits
       let resourceResolver = resourceResolver
       let resourceCache = resourceCache
       pendingWork = .documentLoad
+      let epoch = sessionEpoch
       loadTask = Task { [weak self] in
         do {
           let (session, frame) = try await NativeSnapshotSessionHandle.open(data: data)
@@ -201,6 +230,8 @@
           guard let self, generation == self.loadGeneration else { return }
           self.retainedSession = session
           self.retainedSessionData = data
+          self.retainedSessionEpoch = epoch
+          self.currentFrameTime = 0
           try self.install(model, resources: resources)
         } catch let error as CancellationError {
           guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
@@ -231,6 +262,7 @@
           try self.validate(model)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
+          self.currentFrameTime = timeSeconds
           try self.install(model, resources: retainedResources)
         } catch let error as CancellationError {
           guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
@@ -240,6 +272,88 @@
           self.show(error: error)
         }
       }
+    }
+
+    @discardableResult
+    public func setFloat(_ value: Float, for name: String) async -> Bool {
+      await updateSession { session, time in
+        try await session.setFloat(value, for: name, at: time)
+      }
+    }
+
+    @discardableResult
+    public func setString(_ value: String, for name: String) async -> Bool {
+      await updateSession { session, time in
+        try await session.setString(value, for: name, at: time)
+      }
+    }
+
+    @discardableResult
+    public func setColor(_ argb: UInt32, for name: String) async -> Bool {
+      await updateSession { session, time in
+        try await session.setColor(argb, for: name, at: time)
+      }
+    }
+
+    private func updateSession(
+      _ operation: @escaping @Sendable (NativeSnapshotSessionHandle, TimeInterval) async throws ->
+        NativeSnapshotSessionHandle.Update
+    ) async -> Bool {
+      guard
+        isApplicationActive, retainedSessionEpoch == sessionEpoch,
+        let retainedSession, let retainedResources
+      else { return false }
+      loadTask?.cancel()
+      loadGeneration &+= 1
+      let epoch = sessionEpoch
+      let time = currentFrameTime
+      let (input, task) = enqueueInput {
+        try await operation(retainedSession, time)
+      }
+      switch await task.value {
+      case .success(let update):
+        guard
+          epoch == sessionEpoch, retainedSessionEpoch == epoch,
+          self.retainedSession === retainedSession
+        else { return update.accepted }
+        guard input == inputGeneration else {
+          update.events.forEach(onEvent)
+          return update.accepted
+        }
+        do {
+          let model = NativeDocument(snapshot: update.frame.snapshot)
+          try validate(model)
+          try install(model, resources: retainedResources)
+          update.events.forEach(onEvent)
+          return update.accepted
+        } catch {
+          show(error: error)
+          return false
+        }
+      case .failure(let error):
+        guard epoch == sessionEpoch else { return false }
+        if !(error is CancellationError) { show(error: error) }
+        return false
+      }
+    }
+
+    private func enqueueInput(
+      _ operation: @escaping @Sendable () async throws -> NativeSnapshotSessionHandle.Update
+    ) -> (UInt64, Task<Result<NativeSnapshotSessionHandle.Update, any Error>, Never>) {
+      inputGeneration &+= 1
+      let input = inputGeneration
+      let previous = inputTail
+      let task = Task<Result<NativeSnapshotSessionHandle.Update, any Error>, Never> {
+        await previous?.value
+        do {
+          try Task.checkCancellation()
+          return .success(try await operation())
+        } catch {
+          return .failure(error)
+        }
+      }
+      inputTail = Task { _ = await task.value }
+      return (input, task)
     }
 
     private func validate(_ model: NativeDocument) throws {
@@ -279,7 +393,10 @@
     private func install(_ model: NativeDocument, resources: NativeResourceStore) throws {
       try resources.activateFonts(replacing: retainedResources)
       if documentView?.update(document: model, resources: resources) != true {
-        let nextView = NativeDocumentView(document: model, resources: resources)
+        let nextView = NativeDocumentView(
+          document: model,
+          resources: resources,
+          onClick: { [weak self] componentID in self?.performClick(componentID: componentID) })
         replaceDocumentView(with: nextView)
       }
       retainedResources = resources
@@ -295,6 +412,41 @@
       errorLabel.isHidden = false
       loadTask = nil
       pendingWork = nil
+    }
+
+    private func performClick(componentID: Int) {
+      guard
+        isApplicationActive, retainedSessionEpoch == sessionEpoch,
+        let retainedSession, let retainedResources
+      else { return }
+      let epoch = sessionEpoch
+      let time = currentFrameTime
+      let (input, inputTask) = enqueueInput {
+        try await retainedSession.click(componentID: componentID, at: time)
+      }
+      Task { [weak self] in
+        switch await inputTask.value {
+        case .success(let update):
+          guard
+            let self, epoch == self.sessionEpoch, self.retainedSessionEpoch == epoch,
+            self.retainedSession === retainedSession
+          else { return }
+          if input == self.inputGeneration {
+            do {
+              let model = NativeDocument(snapshot: update.frame.snapshot)
+              try self.validate(model)
+              self.install(model, resources: retainedResources)
+            } catch {
+              self.show(error: error)
+              return
+            }
+          }
+          update.events.forEach(self.onEvent)
+        case .failure(let error):
+          guard let self, epoch == self.sessionEpoch else { return }
+          if !(error is CancellationError) { self.show(error: error) }
+        }
+      }
     }
 
     public override func layoutSubviews() {
@@ -329,9 +481,12 @@
       isApplicationActive = false
       if pendingWork == .documentLoad { needsForegroundRender = true }
       loadTask?.cancel()
+      inputTail = nil
       loadTask = nil
       pendingWork = nil
       loadGeneration &+= 1
+      inputGeneration &+= 1
+      sessionEpoch &+= 1
     }
 
     @objc private func applicationDidBecomeActive() {
