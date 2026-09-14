@@ -15,10 +15,13 @@
       data: Data,
       background: RemoteComposeNativePlayerBackground = .opaque,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      resourceLimits: RemoteComposeNativeResourceLimits = .default,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
       playerView = RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
+        resourceLimits: resourceLimits, resourceResolver: resourceResolver,
         onDiagnostics: onDiagnostics)
       super.init(nibName: nil, bundle: nil)
     }
@@ -57,18 +60,29 @@
     }
 
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
+    public let resourceLimits: RemoteComposeNativeResourceLimits
+    public let resourceResolver: (any RemoteComposeNativeResourceResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
+    private var resourceTask: Task<Void, Never>?
+    private let resourceCache: NativeImageCache
+    private let fontRegistry: NativeFontRegistry
     private let errorLabel = UILabel()
 
     public init(
       data: Data,
       background: RemoteComposeNativePlayerBackground = .opaque,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      resourceLimits: RemoteComposeNativeResourceLimits = .default,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
       playerBackground = background
       self.compatibilityPolicy = compatibilityPolicy
+      self.resourceLimits = resourceLimits
+      self.resourceResolver = resourceResolver
+      resourceCache = NativeImageCache(countLimit: resourceLimits.maximumResourceCount)
+      fontRegistry = NativeFontRegistry(countLimit: resourceLimits.maximumResourceCount)
       self.onDiagnostics = onDiagnostics
       super.init(frame: .zero)
       isAccessibilityElement = false
@@ -83,13 +97,20 @@
       fatalError("init(coder:) is not supported")
     }
 
+    deinit {
+      resourceTask?.cancel()
+    }
+
     public func load(_ data: Data) {
       guard data != documentData else { return }
+      resourceTask?.cancel()
       documentData = data
       render(data)
     }
 
     private func render(_ data: Data) {
+      resourceTask?.cancel()
+      resourceTask = nil
       do {
         let snapshot = try Self.decode(data)
         let model = NativeDocument(snapshot: snapshot)
@@ -99,15 +120,54 @@
         {
           throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
         }
-        let nextView = NativeDocumentView(document: model)
-        replaceDocumentView(with: nextView)
-        errorLabel.isHidden = true
+        let resources = try NativeResourceStore(
+          resources: model.images,
+          fonts: model.fonts,
+          limits: resourceLimits,
+          cache: resourceCache,
+          fontRegistry: fontRegistry)
+        if resources.unresolvedImages.isEmpty {
+          install(model, resources: resources)
+        } else {
+          guard let resourceResolver else {
+            throw RemoteComposeNativeResourceError.unresolvedReference(
+              id: resources.unresolvedImages[0].id)
+          }
+          resourceTask = Task { [weak self] in
+            do {
+              for request in resources.unresolvedImages {
+                let data = try await resourceResolver.resolve(request)
+                try Task.checkCancellation()
+                try resources.insertResolved(data: data, for: request)
+              }
+              try Task.checkCancellation()
+              self?.install(model, resources: resources)
+            } catch is CancellationError {
+              return
+            } catch {
+              guard !Task.isCancelled else { return }
+              self?.show(error: error)
+            }
+          }
+        }
       } catch {
-        documentView?.removeFromSuperview()
-        documentView = nil
-        errorLabel.text = error.localizedDescription
-        errorLabel.isHidden = false
+        show(error: error)
       }
+    }
+
+    private func install(_ model: NativeDocument, resources: NativeResourceStore) {
+      let nextView = NativeDocumentView(document: model, resources: resources)
+      replaceDocumentView(with: nextView)
+      errorLabel.isHidden = true
+      resourceTask = nil
+    }
+
+    private func show(error: Error) {
+      documentView?.removeFromSuperview()
+      documentView = nil
+      errorLabel.text = error.localizedDescription
+      errorLabel.isHidden = false
+      resourceTask = nil
     }
 
     public override func layoutSubviews() {

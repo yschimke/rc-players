@@ -6,6 +6,8 @@
   struct NativeDocument {
     let size: CGSize
     let root: NativeNode
+    let images: [NativeImageResource]
+    let fonts: [NativeFontResource]
     let diagnostics: RemoteComposeNativePlayerDiagnostics
     let rootSizing: Int
     let rootMode: Int
@@ -14,6 +16,8 @@
     init(snapshot: RcNativeDocumentSnapshot) {
       size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
       root = NativeNode(snapshot: snapshot.root)
+      images = snapshot.images.map(NativeImageResource.init)
+      fonts = snapshot.fonts.map(NativeFontResource.init)
       diagnostics = RemoteComposeNativePlayerDiagnostics(
         issues: snapshot.diagnostics.map { diagnostic in
           RemoteComposeNativePlayerDiagnostic(
@@ -29,6 +33,36 @@
     }
   }
 
+  struct NativeImageResource {
+    let id: Int
+    let width: Int
+    let height: Int
+    let type: Int
+    let encoding: Int
+    let data: Data
+
+    init(snapshot: RcNativeImageResource) {
+      id = Int(snapshot.id)
+      width = Int(snapshot.width)
+      height = Int(snapshot.height)
+      type = Int(snapshot.type)
+      encoding = Int(snapshot.encoding)
+      data = RcDataBridgeKt.rcData(bytes: snapshot.data) as Data
+    }
+  }
+
+  struct NativeFontResource {
+    let id: Int
+    let type: Int
+    let data: Data
+
+    init(snapshot: RcNativeFontResource) {
+      id = Int(snapshot.id)
+      type = Int(snapshot.type)
+      data = RcDataBridgeKt.rcData(bytes: snapshot.data) as Data
+    }
+  }
+
   struct NativeNode {
     enum Kind: Equatable {
       case root
@@ -39,6 +73,7 @@
       case row
       case column
       case text
+      case image
 
       init(rawValue: Int32) {
         switch rawValue {
@@ -49,6 +84,7 @@
         case 5: self = .row
         case 6: self = .column
         case 7: self = .text
+        case 8: self = .image
         default: self = .group
         }
       }
@@ -134,6 +170,10 @@
     let pathWinding: Int
     let gradient: NativeGradient?
     let textStyle: NativeTextStyle
+    let image: NativeImageDraw?
+    let textureImageID: Int?
+    let textureTileModeX: Int
+    let textureTileModeY: Int
 
     init(snapshot: RcNativeDrawCommand) {
       kind = Int(snapshot.kind)
@@ -173,6 +213,37 @@
         gradient = nil
       }
       textStyle = NativeTextStyle(snapshot: snapshot.textStyle)
+      image = snapshot.image.map(NativeImageDraw.init)
+      let rawTextureImageID = Int(snapshot.textureImageId)
+      textureImageID = rawTextureImageID == -1 ? nil : rawTextureImageID
+      textureTileModeX = Int(snapshot.textureTileModeX)
+      textureTileModeY = Int(snapshot.textureTileModeY)
+    }
+  }
+
+  struct NativeImageDraw {
+    let imageID: Int
+    let source: CGRect
+    let destination: CGRect
+    let scaleType: Int
+    let scaleFactor: CGFloat
+    let contentDescription: String?
+
+    init(snapshot: RcNativeImageDraw) {
+      imageID = Int(snapshot.imageId)
+      source = CGRect(
+        x: CGFloat(snapshot.sourceLeft),
+        y: CGFloat(snapshot.sourceTop),
+        width: CGFloat(snapshot.sourceRight - snapshot.sourceLeft),
+        height: CGFloat(snapshot.sourceBottom - snapshot.sourceTop))
+      destination = CGRect(
+        x: CGFloat(snapshot.destinationLeft),
+        y: CGFloat(snapshot.destinationTop),
+        width: CGFloat(snapshot.destinationRight - snapshot.destinationLeft),
+        height: CGFloat(snapshot.destinationBottom - snapshot.destinationTop))
+      scaleType = Int(snapshot.scaleType)
+      scaleFactor = CGFloat(snapshot.scaleFactor)
+      contentDescription = snapshot.contentDescription
     }
   }
 
@@ -212,11 +283,14 @@
 
   final class NativeDocumentView: UIView {
     private let document: NativeDocument
+    private let resources: NativeResourceStore
     private let componentView: NativeComponentView
 
-    init(document: NativeDocument) {
+    init(document: NativeDocument, resources: NativeResourceStore) {
       self.document = document
-      componentView = NativeComponentView(node: document.root)
+      self.resources = resources
+      componentView = NativeComponentView(
+        node: document.root, images: resources.images, fontNames: resources.fontNames)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
@@ -261,6 +335,7 @@
     private let node: NativeNode
     private let canvasView: NativeCanvasView?
     private let textLabels: [NativeTextLabel]
+    private let imageViews: [NativeImageView]
     private let componentChildren: [NativeComponentView]
     private let semanticView: UIView?
     var documentScale: CGFloat = 1 {
@@ -277,15 +352,33 @@
       }
     }
 
-    init(node: NativeNode) {
+    init(node: NativeNode, images: [Int: UIImage], fontNames: [Int: String]) {
       self.node = node
       let promotesText = node.kind == .text
-      let drawingCommands = promotesText ? node.commands.filter { $0.kind != 17 } : node.commands
-      canvasView = drawingCommands.isEmpty ? nil : NativeCanvasView(commands: drawingCommands)
+      let promotesImage = node.kind == .image
+      let drawingCommands = node.commands.filter {
+        !(promotesText && $0.kind == 17) && !(promotesImage && $0.kind == 19)
+      }
+      canvasView =
+        drawingCommands.isEmpty
+        ? nil : NativeCanvasView(commands: drawingCommands, images: images, fontNames: fontNames)
       textLabels =
         promotesText
-        ? node.commands.filter { $0.kind == 17 }.map(NativeTextLabel.init) : []
-      componentChildren = node.children.map(NativeComponentView.init)
+        ? node.commands.filter { $0.kind == 17 }.map {
+          NativeTextLabel(command: $0, fontNames: fontNames)
+        } : []
+      imageViews =
+        promotesImage
+        ? node.commands.compactMap { command in
+          guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+          else {
+            return nil
+          }
+          return NativeImageView(image: image, draw: draw, alpha: command.alpha)
+        } : []
+      componentChildren = node.children.map {
+        NativeComponentView(node: $0, images: images, fontNames: fontNames)
+      }
       semanticView = Self.makeSemanticView(for: node)
       super.init(frame: .zero)
       isOpaque = false
@@ -296,6 +389,7 @@
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
+      imageViews.forEach(addSubview)
       componentChildren.forEach(addSubview)
       componentChildren.forEach { $0.layer.zPosition = $0.node.zIndex }
       if let semanticView { addSubview(semanticView) }
@@ -325,6 +419,7 @@
           $0.layoutInComponent(
             bounds: bounds, documentScale: documentScale, layoutDirection: layoutDirection)
         }
+      case .image: imageViews.forEach { $0.frame = bounds }
       default: layoutOverlay(aligned: false)
       }
       semanticView?.frame = bounds
@@ -342,6 +437,8 @@
         intrinsic =
           textLabels.first?.preferredSize(
             maximumWidth: contentAvailable.width, documentScale: documentScale) ?? .zero
+      case .image:
+        intrinsic = imageViews.first?.image?.size ?? .zero
       case .column:
         let sizes = items.map { $0.preferredSize(in: contentAvailable) }
         intrinsic = CGSize(
@@ -369,7 +466,7 @@
 
     private var isStructural: Bool {
       (node.kind == .content || node.kind == .group || node.kind == .canvas)
-        && canvasView == nil && textLabels.isEmpty && semanticView == nil
+        && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty && semanticView == nil
         && node.backgroundColor == nil
         && node.visibility == 1 && node.widthType == 2 && node.heightType == 2
         && node.minimumWidth == 0 && node.minimumHeight == 0
@@ -542,13 +639,46 @@
     }
   }
 
+  final class NativeImageView: UIImageView {
+    private let drawCommand: NativeImageDraw
+
+    init(image: UIImage, draw: NativeImageDraw, alpha: CGFloat) {
+      drawCommand = draw
+      super.init(image: image)
+      self.alpha = alpha
+      clipsToBounds = true
+      contentMode = .redraw
+      isAccessibilityElement = draw.contentDescription != nil
+      accessibilityLabel = draw.contentDescription
+      accessibilityIdentifier = "rc-native-image-\(draw.imageID)"
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    override func draw(_ rect: CGRect) {
+      guard let image else { return }
+      let source = CGRect(origin: .zero, size: image.size)
+      let destination = NativeImageGeometry.destination(
+        source: source,
+        destination: bounds,
+        scaleType: drawCommand.scaleType,
+        scaleFactor: drawCommand.scaleFactor)
+      image.draw(in: destination)
+    }
+  }
+
   /// A Remote Compose text primitive promoted to a real UIKit text element. Geometry and font
   /// selection remain approximate until the native lane has a resolved layout/text profile.
   final class NativeTextLabel: UILabel {
     private let command: NativeDrawCommand
+    private let fontNames: [Int: String]
 
-    init(command: NativeDrawCommand) {
+    init(command: NativeDrawCommand, fontNames: [Int: String]) {
       self.command = command
+      self.fontNames = fontNames
       super.init(frame: .zero)
       text = command.text
       textColor = command.color.withAlphaComponent(command.alpha)
@@ -581,7 +711,7 @@
 
     private func configureFont(documentScale: CGFloat) {
       font = NativeTextAttributes.font(
-        for: command, scale: documentScale, scalesForDynamicType: true)
+        for: command, scale: documentScale, fontNames: fontNames, scalesForDynamicType: true)
       attributedText = NativeTextAttributes.string(
         for: command, font: font, scale: documentScale,
         layoutDirection: effectiveUserInterfaceLayoutDirection)
@@ -606,7 +736,10 @@
 
   enum NativeTextAttributes {
     static func font(
-      for command: NativeDrawCommand, scale: CGFloat, scalesForDynamicType: Bool = false
+      for command: NativeDrawCommand,
+      scale: CGFloat,
+      fontNames: [Int: String] = [:],
+      scalesForDynamicType: Bool = false
     ) -> UIFont {
       let weightValue =
         command.textStyle.fontStyle & 1 != 0 ? max(command.textWeight, 700) : command.textWeight
@@ -620,6 +753,11 @@
       case "monospace": descriptor = descriptor.withDesign(.monospaced) ?? descriptor
       case "sans-serif", "default", nil: break
       default: break
+      }
+      if let postScriptName = fontNames[command.textStyle.fontFamilyID],
+        let embedded = UIFont(name: postScriptName, size: size)
+      {
+        descriptor = embedded.fontDescriptor
       }
       if command.textStyle.fontStyle & 2 != 0 {
         descriptor =
@@ -689,12 +827,16 @@
 
   final class NativeCanvasView: UIView {
     private let commands: [NativeDrawCommand]
+    private let images: [Int: UIImage]
+    private let fontNames: [Int: String]
     var documentScale: CGFloat = 1 {
       didSet { setNeedsDisplay() }
     }
 
-    init(commands: [NativeDrawCommand]) {
+    init(commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]) {
       self.commands = commands
+      self.images = images
+      self.fontNames = fontNames
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
@@ -769,6 +911,7 @@
         paint(
           NativePathBuilder.make(command.path), command, context,
           fillRule: command.pathWinding == 1 ? .evenOdd : .winding)
+      case 19: drawImage(command, context)
       default: break
       }
     }
@@ -791,6 +934,15 @@
       // transforms, clipping, or save/restore commands around the draw.
       guard command.blendMode != 2 else { return }
       context.addPath(path)
+      if let textureImageID = command.textureImageID, let image = images[textureImageID] {
+        context.saveGState()
+        if command.isStroke { context.replacePathWithStrokedPath() }
+        context.clip(using: command.isStroke ? .winding : fillRule)
+        UIColor(patternImage: image).setFill()
+        context.fill(context.boundingBoxOfClipPath)
+        context.restoreGState()
+        return
+      }
       guard let gradient = command.gradient else {
         context.drawPath(
           using: command.isStroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
@@ -821,7 +973,7 @@
     private func drawText(_ command: NativeDrawCommand) {
       guard command.blendMode != 2 else { return }
       guard command.text != nil, let context = UIGraphicsGetCurrentContext() else { return }
-      let font = NativeTextAttributes.font(for: command, scale: 1)
+      let font = NativeTextAttributes.font(for: command, scale: 1, fontNames: fontNames)
       let attributed = NativeTextAttributes.string(
         for: command, font: font, scale: 1,
         layoutDirection: effectiveUserInterfaceLayoutDirection)
@@ -843,6 +995,25 @@
       context.textPosition = CGPoint(x: x, y: baseline)
       CTLineDraw(line, context)
       context.restoreGState()
+    }
+
+    private func drawImage(_ command: NativeDrawCommand, _ context: CGContext) {
+      guard
+        command.blendMode != 2,
+        let draw = command.image,
+        let source = images[draw.imageID]?.cgImage,
+        let cropped = source.cropping(to: draw.source)
+      else { return }
+      let destination = NativeImageGeometry.destination(
+        source: draw.source,
+        destination: draw.destination,
+        scaleType: draw.scaleType,
+        scaleFactor: draw.scaleFactor)
+      guard !destination.isEmpty else { return }
+      UIImage(cgImage: cropped, scale: 1, orientation: .up).draw(
+        in: destination,
+        blendMode: NativeGraphicsState.blendMode(command.blendMode),
+        alpha: command.alpha)
     }
 
   }

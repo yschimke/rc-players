@@ -23,6 +23,9 @@ gradients, stroke caps/joins, and Core Graphics-compatible blend modes in stream
 is promoted to `UILabel`, while clickable or button-role components
 are promoted to real transparent `UIButton`s over the document visuals. Unsupported drawing and
 behavior opcodes are returned as diagnostics rather than being presented as full compatibility.
+Inline and host-referenced images cross a bounded resource boundary and render through `UIImageView`
+for conceptual image components or through the ordered Core Graphics stream for canvas images.
+Embedded fonts are validated and registered for the owning player lifetime.
 
 ## Goals
 
@@ -89,7 +92,7 @@ their captured visuals. The button supplies UIKit hit testing, focus, enabled st
 traits, and inspectable type identity; the command surface preserves the document's appearance.
 This promotion is evidence-based: a click modifier can imply a button, while arbitrary painted
 content does not. Text commands similarly become `UILabel`s rather than Core Graphics glyph calls.
-Future mappings include `UIImageView` for image-role content, `UISwitch` for switch roles, and
+Image-layout components use `UIImageView`; future mappings include `UISwitch` for switch roles and
 purpose-built `UIControl` subclasses where UIKit has no matching standard control.
 
 The POC resolves fill fractions, proportional weights, wrap and exact sizing, min/max constraints,
@@ -225,9 +228,30 @@ feeds the same frame-based layout pass as other components. The bridge resolves 
 Canvas text uses Core Text inside the ordered Core Graphics command stream, preserving the active
 transform, clip, blend state, baseline anchor, and primitive interleaving. Canvas glyphs intentionally
 remain fixed-size document graphics rather than Dynamic Type content. Generic sans-serif, serif,
-and monospace families map to deterministic system designs. Other named families use the system
-fallback and emit a diagnostic until the bounded font resolver is implemented; installed fonts are
-not consulted opportunistically.
+and monospace families map to deterministic system designs. Other named families resolve only from
+font bytes declared by the document and validated by the bounded resource store. Unavailable
+families use deterministic system fallback with a diagnostic; fonts installed elsewhere in the
+process are not consulted opportunistically.
+
+### Images and resources
+
+The snapshot exports image metadata and opaque bytes without asking Kotlin or UIKit to perform
+network I/O. Inline PNG and raw alpha/RGBA resources are decoded only after enforcing per-resource,
+aggregate-byte, dimension, decoded-pixel, and resource-count limits. Declared and decoded image
+dimensions must agree. Duplicate ids, malformed bytes, invalid references, and limit violations are
+typed `RemoteComposeNativeResourceError` failures.
+
+Referenced images are inert unless the host injects a `RemoteComposeNativeResourceResolving`
+implementation. The resolver receives the original opaque reference and declared metadata; URL
+policy, authentication, transport, and persistence remain host responsibilities. Replacement and
+deallocation cancel the owning task, and cancellation is checked before resolved bytes are installed.
+The in-memory cache key includes the opaque reference, encoding, type, and declared dimensions.
+
+Conceptual `ImageLayout` nodes own a `UIImageView`. Bitmap commands inside a canvas remain in the
+ordered command stream so transforms, clipping, blend state, and primitive interleaving are
+preserved. AndroidX scale modes use a shared deterministic integer-centering geometry policy.
+Embedded fonts are registered process-wide from private temporary files and unregistered when the
+owning player releases its font registry.
 
 The standard protocol text operations carry a single style rather than inline attributed runs, and
 they do not carry a locale property. Link spans are a separate `SupportSpannableString` custom
@@ -319,8 +343,9 @@ runtime best preserves one semantic implementation if incremental interop proves
 ## Security and robustness
 
 The native lane accepts untrusted bytes wherever CMP does. It inherits codec/linker size, nesting,
-and expansion checks but adds native resource risks. Production must bound command count, path
-complexity, bitmap/font bytes, text length, offscreen area, and per-frame work. Numeric values must
+and expansion checks but adds native resource risks. Bitmap/font byte totals, resource counts,
+decoded dimensions, and decoded pixel counts are bounded today. Production must additionally bound
+command count, path complexity, text length, offscreen area, and per-frame work. Numeric values must
 be finite and sized before Core Graphics use. Custom components require an explicit host registry;
 documents must never instantiate arbitrary Objective-C classes by name.
 
