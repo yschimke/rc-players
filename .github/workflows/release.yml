@@ -1,8 +1,8 @@
 name: Release
 
 # Publishes the players for a given tag: the five Maven artifacts to Maven Central, the Wasm bundle
-# to npm, and the Apple XCFramework onto the GitHub Release with `Package.swift`
-# rewritten to describe it.
+# to npm, and the Apple XCFramework plus native UIKit package onto the GitHub Release, with
+# `Package.swift` rewritten to describe the shared binary framework.
 #
 # Entry points:
 #   - workflow_call: called from release-please.yml after release-please merges the release PR and
@@ -209,7 +209,8 @@ jobs:
           (cd rc-player/wasm/build/wasmDist && zip -qr "$RUNNER_TEMP/rc-player-wasm.zip" .)
           gh release upload "$TAG_NAME" "$RUNNER_TEMP/rc-player-wasm.zip" --clobber
 
-  # macOS-only: `xcodebuild -create-xcframework` and the Kotlin/Native Apple linker both need it.
+  # macOS-only: the Kotlin/Native linker, XCFramework tooling, and native UIKit package validation
+  # all need it.
   publish-xcframework:
     name: Publish the Apple XCFramework
     # Enabled again. This job was gated off while the Kotlin/Native release link
@@ -255,15 +256,24 @@ jobs:
           sudo xcode-select --switch "$xcode/Contents/Developer"
       # `--max-workers=1`: the three release links share the Gradle daemon's heap, so they must not
       # run `ModuleDFGBuilder` concurrently. Same invocation as `ci.yml`'s, deliberately.
-      - name: Assemble and package the XCFramework
-        run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum --max-workers=1
-      - name: Upload the XCFramework to the Release
+      - name: Assemble the Apple release artifacts
+        run: |
+          ./gradlew \
+            :rc-player-compose:rcPlayerXcframeworkChecksum \
+            :rc-player-compose:rcNativePlayerUIKitPackageChecksum \
+            --max-workers=1
+      - name: Validate the native UIKit release package
+        run: scripts/check-native-uikit-package.sh
+      - name: Upload the Apple libraries to the Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           gh release upload "$TAG_NAME" \
-            rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip --clobber
+            rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip \
+            rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip \
+            rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip.sha256 \
+            --clobber
 
       # The bare `X.Y.Z` tag is the whole deliverable — it is the only thing a Swift consumer
       # resolves, and it is a TAG, so it is written under `refs/tags/*` and never touches

@@ -181,3 +181,48 @@ tasks.register("rcPlayerXcframeworkChecksum") {
     logger.lifecycle("RcComposePlayer.xcframework.zip sha256: $hex")
   }
 }
+
+// A second, explicitly downloadable artifact for the experimental native UIKit player. The normal
+// SwiftPM product remains source-based on the bare release tag; this archive is deliberately
+// self-contained so an evaluator can extract it, add it as a local package, and resolve the Swift
+// target without a second network fetch. It carries the same XCFramework built above because the
+// POC still uses that framework for its Kotlin decoder/runtime bridge.
+val rcNativePlayerUIKitPackageZip =
+  tasks.register<Zip>("rcNativePlayerUIKitPackageZip") {
+    description = "Package the native UIKit player and its bridge as a local Swift package."
+    group = "distribution"
+    dependsOn("assembleRcComposePlayerReleaseXCFramework")
+    archiveFileName.set("RcNativePlayerUIKit.swiftpackage.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+
+    into("RcNativePlayerUIKit") {
+      from(rootProject.file("distribution/native-uikit/Package.swift"))
+      from(rootProject.file("distribution/native-uikit/README.md"))
+      from(rootProject.file("LICENSE"))
+      into("Sources/RcNativePlayerUIKit") { from(rootProject.file("Sources/RcNativePlayerUIKit")) }
+      into("Artifacts") {
+        from(layout.buildDirectory.dir("XCFrameworks/release/RcComposePlayer.xcframework")) {
+          into("RcComposePlayer.xcframework")
+        }
+      }
+    }
+  }
+
+tasks.register("rcNativePlayerUIKitPackageChecksum") {
+  description = "Write the checksum for the downloadable native UIKit Swift package."
+  group = "distribution"
+  val zip = rcNativePlayerUIKitPackageZip.flatMap { it.archiveFile }
+  val checksumFile =
+    layout.buildDirectory.file("distributions/RcNativePlayerUIKit.swiftpackage.zip.sha256")
+  inputs.file(zip)
+  outputs.file(checksumFile)
+  doLast {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val hex =
+      digest.digest(zip.get().asFile.readBytes()).joinToString("") { byte -> "%02x".format(byte) }
+    checksumFile.get().asFile.writeText("$hex  ${zip.get().asFile.name}\n")
+    logger.lifecycle("RcNativePlayerUIKit.swiftpackage.zip sha256: $hex")
+  }
+}

@@ -56,6 +56,7 @@ jobs:
               .github/workflows/ci.yml \
               Package.swift \
               Sources \
+              distribution/native-uikit \
               build.gradle.kts \
               settings.gradle.kts \
               gradle.properties \
@@ -70,6 +71,7 @@ jobs:
               samples/apple-player \
               scripts/build-apple-player.sh \
               scripts/check-apple-player-screenshot.sh \
+              scripts/check-native-uikit-package.sh \
               scripts/check-swift-sample.sh \
               scripts/package-apple-player.sh \
               scripts/set-apple-player-package-version.sh \
@@ -279,7 +281,15 @@ jobs:
       # Serializing them halves the peak; `gradle.properties` carries the rest of the reasoning.
       - name: Assemble the release XCFramework
         if: needs.apple-changes.outputs.required == 'true'
-        run: ./gradlew :rc-player-compose:rcPlayerXcframeworkChecksum --max-workers=1
+        run: |
+          ./gradlew \
+            :rc-player-compose:rcPlayerXcframeworkChecksum \
+            :rc-player-compose:rcNativePlayerUIKitPackageChecksum \
+            --max-workers=1
+
+      - name: Validate the native UIKit release package
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-package.sh
 
       # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
       # Exits 0 and says so when no framework is present, so it is honest about what it checked —

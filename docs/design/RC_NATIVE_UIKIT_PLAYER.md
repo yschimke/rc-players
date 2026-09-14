@@ -264,6 +264,13 @@ exact from the beginning.
 `Package.swift` exposes `RcNativePlayerUIKit` separately. Existing consumers selecting
 `RcComposePlayer` or `RcComposePlayerSwiftUI` see no source change.
 
+The bare semantic-version tag is the normal SwiftPM distribution. Releases also publish
+`RcNativePlayerUIKit.swiftpackage.zip` plus a SHA-256 sidecar. The archive is a self-contained local
+Swift package with the UIKit sources and the exact `RcComposePlayer.xcframework` used by the
+temporary bridge. CI extracts and builds that archive before release, so it tests the downloadable
+unit rather than only the repository source tree. This is intentionally an experimental artifact;
+it does not imply parity with or replacement of the CMP product.
+
 The bridge adds recorded public Kotlin/Native ABI to the XCFramework. Before stable release, choose
 whether to promote a renderer-neutral retained runtime, use a narrow C/Objective-C bridge, port the
 codec/runtime to Swift, or retain an explicitly versioned experimental SPI. A retained shared
@@ -278,6 +285,10 @@ be finite and sized before Core Graphics use. Custom components require an expli
 documents must never instantiate arbitrary Objective-C classes by name.
 
 ## Evolution plan
+
+The detailed, PR-sized implementation sequence and acceptance gates live in
+[`RC_NATIVE_UIKIT_PLAYER_PLAN.md`](RC_NATIVE_UIKIT_PLAYER_PLAN.md). The phases below describe the
+product maturity boundaries; the plan describes how to reach them.
 
 ### Phase 0: architecture POC (this change)
 
