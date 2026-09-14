@@ -1,6 +1,6 @@
 # Native UIKit player feature plan
 
-Status: proposed implementation sequence for the experimental `RcNativePlayerUIKit` product.
+Status: active implementation sequence for the experimental `RcNativePlayerUIKit` product.
 
 This plan turns the architecture POC into a useful native player without weakening the existing
 CMP player's compatibility contract. Work is ordered by dependency and by how much real document
@@ -17,6 +17,14 @@ Run Title Card regression, and a downloadable experimental package.
 It does not yet retain a running document, dispatch actions, update named values, animate, load
 images or fonts, or claim a complete Remote Compose profile. Those are feature gaps, not implicit
 fallbacks: unsupported behavior must remain visible throughout this plan.
+
+## Progress
+
+| Package | Status | Result |
+|---|---|---|
+| 1 — Static compatibility profile | Core implemented | Structured issues and policies are public; conditional reachability and dedicated Swift policy tests remain |
+| 2 — Static layout geometry | Next | Measurement/placement model and constraint coverage |
+| 3–11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -44,7 +52,7 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 
 ## Ordered work packages
 
-### 1. Define the static compatibility profile
+### 1. Define the static compatibility profile — core implemented
 
 Replace the current loose opcode notes with structured diagnostics containing operation id/name,
 component id, severity, and reason. Add `strict` and `compatible` policies: strict refuses a frame

@@ -11,6 +11,12 @@
       size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
       root = NativeNode(snapshot: snapshot.root)
       diagnostics = RemoteComposeNativePlayerDiagnostics(
+        issues: snapshot.diagnostics.map { diagnostic in
+          RemoteComposeNativePlayerDiagnostic(
+            severity: diagnostic.severity == 0 ? .warning : .unsupported,
+            opcode: Int(diagnostic.opcode), operationName: diagnostic.operationName,
+            componentID: Int(diagnostic.componentId), reason: diagnostic.reason)
+        },
         unsupportedOpcodes: snapshot.unsupportedOpcodes.map { Int(truncating: $0) },
         notes: snapshot.notes)
     }
