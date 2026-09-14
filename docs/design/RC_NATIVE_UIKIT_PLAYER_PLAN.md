@@ -22,9 +22,10 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 
 | Package | Status | Result |
 |---|---|---|
-| 1 — Static compatibility profile | Core implemented | Structured issues, policies, and Swift policy tests are in place; conditional reachability remains |
-| 2 — Static layout geometry | Next | Measurement/placement model and constraint coverage |
-| 3–11 | Planned | Ordered below |
+| 1 — Static compatibility profile | Implemented | Structured issues, strict/compatible policy, malformed failures, and StateLayout reachability tests |
+| 2 — Static layout geometry | Core implemented | Pure Swift geometry, constraints, proportional weights, visibility, offsets, z-order, RTL, and root scaling |
+| 3 — Core Graphics static drawing | Next | Ordered paths, gradients, bitmaps, stroke detail, and blend diagnostics |
+| 4–11 | Planned | Ordered below |
 
 ## Delivery rules
 

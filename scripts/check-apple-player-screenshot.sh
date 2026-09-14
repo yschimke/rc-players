@@ -42,7 +42,11 @@ if [ "$state" != "Booted" ]; then
 fi
 xcrun simctl bootstatus "$udid" -b
 xcrun simctl install "$udid" "$app"
-xcrun simctl launch --terminate-running-process "$udid" "$bundle_id"
+launch_arguments=()
+if [ "${RC_APPLE_PLAYER_RENDERER:-compose}" = "native" ]; then
+  launch_arguments+=(--native-player)
+fi
+xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" "${launch_arguments[@]}"
 mkdir -p "$(dirname "$screenshot")"
 
 # Metal can need several frames after process launch. Validate each capture and retain the last one

@@ -1,18 +1,26 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIdOperation
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
+import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -63,7 +71,7 @@ class RcNativeSnapshotTest {
     assertEquals(10f, command.first)
     assertEquals(70f, command.fourth)
     assertEquals(0xff336699.toInt(), command.color)
-    assertTrue(snapshot.unsupportedOpcodes.isEmpty())
+    assertTrue(snapshot.unsupportedOpcodes.isEmpty(), snapshot.diagnostics.toString())
     assertTrue(snapshot.diagnostics.isEmpty())
   }
 
@@ -187,5 +195,51 @@ class RcNativeSnapshotTest {
       snapshot.diagnostics.map { it.reason },
     )
     assertTrue(snapshot.diagnostics.all { it.severity == RcNativeDiagnostic.UNSUPPORTED })
+  }
+
+  @Test
+  fun exportsStaticConstraintsAndSkipsUnreachableStateBranches() {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 50, modern = false),
+        listOf(
+          RcIntegerConstant(20, 0),
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcStateLayout(3, 0, horizontalPositioning = 1, verticalPositioning = 4, indexId = 20),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(80f)),
+          RcWidthInModifier(RcFloatWord.literal(40f), RcFloatWord.literal(70f)),
+          RcHeightInModifier(RcFloatWord.literal(10f), RcFloatWord.literal(30f)),
+          RcLayoutContent(4),
+          RcBoxLayout(5, 0, horizontalPositioning = 1, verticalPositioning = 4),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(10f),
+            RcFloatWord.literal(10f),
+          ),
+          end,
+          RcBoxLayout(6, 0, horizontalPositioning = 1, verticalPositioning = 4),
+          RcIdOperation(RcOpcodes.DRAW_PATH, 99),
+          end,
+          end,
+          end,
+          end,
+          end,
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+    val state = snapshot.root.children.single().children.single().children.single()
+
+    assertEquals(RcNativeNodeSnapshot.BOX, state.kind)
+    assertEquals(40f, state.minimumWidth)
+    assertEquals(70f, state.maximumWidth)
+    assertEquals(10f, state.minimumHeight)
+    assertEquals(30f, state.maximumHeight)
+    assertEquals(listOf(5), state.children.map { it.componentId })
+    assertTrue(snapshot.unsupportedOpcodes.isEmpty(), snapshot.diagnostics.toString())
   }
 }
