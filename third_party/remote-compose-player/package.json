@@ -12,10 +12,10 @@
     "serve": "npx esbuild src/web/main.ts --bundle --outfile=web-player/bundle.js --format=iife --target=es2020 --global-name=RC --servedir=web-player"
   },
   "devDependencies": {
-    "esbuild": "^0.28.0",
-    "typescript": "^7.0.0"
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
   },
   "dependencies": {
-    "canvas": "^3.2.1"
+    "canvas": "3.2.3"
   }
 }
