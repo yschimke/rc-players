@@ -6,6 +6,9 @@
     let size: CGSize
     let root: NativeNode
     let diagnostics: RemoteComposeNativePlayerDiagnostics
+    let rootSizing: Int
+    let rootMode: Int
+    let rootAlignment: Int
 
     init(snapshot: RcNativeDocumentSnapshot) {
       size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
@@ -19,6 +22,9 @@
         },
         unsupportedOpcodes: snapshot.unsupportedOpcodes.map { Int(truncating: $0) },
         notes: snapshot.notes)
+      rootSizing = Int(snapshot.rootSizing)
+      rootMode = Int(snapshot.rootMode)
+      rootAlignment = Int(snapshot.rootAlignment)
     }
   }
 
@@ -60,12 +66,18 @@
     let heightType: Int
     let heightValue: CGFloat
     let minimumHeight: CGFloat
+    let minimumWidth: CGFloat
+    let maximumWidth: CGFloat?
+    let maximumHeight: CGFloat?
     let padding: UIEdgeInsets
     let cornerRadius: CGFloat
     let backgroundColor: UIColor?
     let horizontalPositioning: Int
     let verticalPositioning: Int
     let spacing: CGFloat
+    let offset: CGPoint
+    let zIndex: CGFloat
+    let visibility: Int
 
     init(snapshot: RcNativeNodeSnapshot) {
       kind = Kind(rawValue: snapshot.kind)
@@ -81,6 +93,9 @@
       heightType = Int(snapshot.heightType)
       heightValue = CGFloat(snapshot.heightValue)
       minimumHeight = CGFloat(snapshot.minimumHeight)
+      minimumWidth = CGFloat(snapshot.minimumWidth)
+      maximumWidth = snapshot.maximumWidth < 0 ? nil : CGFloat(snapshot.maximumWidth)
+      maximumHeight = snapshot.maximumHeight < 0 ? nil : CGFloat(snapshot.maximumHeight)
       padding = UIEdgeInsets(
         top: CGFloat(snapshot.paddingTop), left: CGFloat(snapshot.paddingLeft),
         bottom: CGFloat(snapshot.paddingBottom), right: CGFloat(snapshot.paddingRight))
@@ -91,6 +106,9 @@
       horizontalPositioning = Int(snapshot.horizontalPositioning)
       verticalPositioning = Int(snapshot.verticalPositioning)
       spacing = CGFloat(snapshot.spacing)
+      offset = CGPoint(x: CGFloat(snapshot.offsetX), y: CGFloat(snapshot.offsetY))
+      zIndex = CGFloat(snapshot.zIndex)
+      visibility = Int(snapshot.visibility)
     }
 
     var firstText: String? {
@@ -147,17 +165,25 @@
     override func layoutSubviews() {
       super.layoutSubviews()
       guard document.size.width > 0, document.size.height > 0 else {
+        componentView.transform = .identity
         componentView.frame = bounds
         return
       }
-      let scale = min(bounds.width / document.size.width, bounds.height / document.size.height)
-      let size = CGSize(width: document.size.width * scale, height: document.size.height * scale)
-      componentView.frame = CGRect(
-        x: bounds.midX - size.width / 2,
-        y: bounds.midY - size.height / 2,
-        width: size.width,
-        height: size.height)
-      componentView.documentScale = scale
+      let root = NativeRootTransform.resolve(
+        document: document.size,
+        viewport: bounds.size,
+        sizing: document.rootSizing,
+        mode: document.rootMode,
+        alignment: document.rootAlignment)
+      componentView.transform = .identity
+      componentView.bounds = CGRect(origin: .zero, size: document.size)
+      componentView.center = CGPoint(
+        x: root.translateX + document.size.width * root.scaleX / 2,
+        y: root.translateY + document.size.height * root.scaleY / 2)
+      componentView.transform = CGAffineTransform(scaleX: root.scaleX, y: root.scaleY)
+      componentView.documentScale = 1
+      componentView.layoutDirection =
+        effectiveUserInterfaceLayoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
     }
   }
 
@@ -177,6 +203,12 @@
         setNeedsLayout()
       }
     }
+    var layoutDirection: NativeLayoutDirection = .leftToRight {
+      didSet {
+        componentChildren.forEach { $0.layoutDirection = layoutDirection }
+        setNeedsLayout()
+      }
+    }
 
     init(node: NativeNode) {
       self.node = node
@@ -191,11 +223,14 @@
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = node.backgroundColor ?? .clear
+      isHidden = node.visibility == 0
+      alpha = node.visibility == 2 ? 0 : 1
       clipsToBounds = node.cornerRadius > 0
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
       componentChildren.forEach(addSubview)
+      componentChildren.forEach { $0.layer.zPosition = $0.node.zIndex }
       if let semanticView { addSubview(semanticView) }
     }
 
@@ -266,10 +301,14 @@
       (node.kind == .content || node.kind == .group || node.kind == .canvas)
         && canvasView == nil && textLabels.isEmpty && semanticView == nil
         && node.backgroundColor == nil
+        && node.visibility == 1 && node.widthType == 2 && node.heightType == 2
+        && node.minimumWidth == 0 && node.minimumHeight == 0
+        && node.maximumWidth == nil && node.maximumHeight == nil
+        && node.padding == .zero && node.offset == .zero && node.zIndex == 0
     }
 
     private var flattenedLayoutItems: [NativeComponentView] {
-      componentChildren.flatMap { child in
+      componentChildren.filter { $0.node.visibility != 0 }.flatMap { child in
         child.isStructural ? child.flattenedLayoutItems : [child]
       }
     }
@@ -298,10 +337,10 @@
       let content = bounds.inset(by: insets)
       flattenedLayoutItems.forEach { child in
         let size = child.preferredSize(in: content.size)
-        child.frame =
+        child.frame = child.offsetFrame(
           aligned
           ? alignedFrame(size: size, in: content)
-          : CGRect(origin: content.origin, size: content.size)
+          : CGRect(origin: content.origin, size: content.size))
       }
     }
 
@@ -309,70 +348,74 @@
       let content = bounds.inset(by: scaledPadding)
       let items = flattenedLayoutItems
       let sizes = items.map { $0.preferredSize(in: content.size) }
-      let totalHeight =
-        sizes.reduce(0) { $0 + $1.height }
-        + scaledSpacing * CGFloat(max(items.count - 1, 0))
-      var y: CGFloat
-      switch node.verticalPositioning {
-      case 2: y = content.midY - totalHeight / 2
-      case 5: y = content.maxY - totalHeight
-      default: y = content.minY
+      let weightedHeights = NativeLinearLayout.allocateWeighted(
+        available: content.height,
+        naturalSizes: sizes.map(\.height),
+        weights: items.map { child in
+          guard child.node.heightType == 3 else { return nil }
+          return max(child.node.heightValue, .leastNonzeroMagnitude)
+        })
+      let heights = zip(items, zip(sizes, weightedHeights)).map { child, values in
+        child.applyDimensions(
+          to: values.0,
+          available: CGSize(width: content.width, height: values.1)).height
       }
+      let positions = NativeLinearLayout.positions(
+        total: content.height,
+        sizes: heights,
+        positioning: node.verticalPositioning,
+        spacing: scaledSpacing)
       for (index, child) in items.enumerated() {
-        let size = sizes[index]
-        let x: CGFloat
-        switch node.horizontalPositioning {
-        case 2: x = content.midX - size.width / 2
-        case 3: x = content.maxX - size.width
-        default: x = content.minX
-        }
-        child.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
-        y += size.height + scaledSpacing
+        let size = CGSize(width: sizes[index].width, height: heights[index])
+        let x = horizontalOrigin(for: size.width, in: content)
+        child.frame = child.offsetFrame(
+          CGRect(
+            x: x, y: content.minY + positions[index], width: size.width, height: size.height))
       }
     }
 
     private func layoutRow() {
       let content = bounds.inset(by: scaledPadding)
       let items = flattenedLayoutItems
-      let spacing = scaledSpacing * CGFloat(max(items.count - 1, 0))
       let natural = items.map { $0.preferredSize(in: content.size) }
-      let fixedWidth = zip(items, natural).reduce(CGFloat.zero) { result, pair in
-        result + (pair.0.node.widthType == 3 ? 0 : pair.1.width)
+      let allocatedWidths = NativeLinearLayout.allocateWeighted(
+        available: content.width,
+        naturalSizes: natural.map(\.width),
+        weights: items.map { child in
+          guard child.node.widthType == 3 else { return nil }
+          return max(child.node.widthValue, .leastNonzeroMagnitude)
+        })
+      let widths = zip(items, zip(natural, allocatedWidths)).map { child, values in
+        child.applyDimensions(
+          to: values.0,
+          available: CGSize(width: values.1, height: content.height)).width
       }
-      let weightCount = items.filter { $0.node.widthType == 3 }.count
-      let weightWidth =
-        weightCount == 0
-        ? 0 : max(content.width - fixedWidth - spacing, 0) / CGFloat(weightCount)
-      let sizes = zip(items, natural).map { child, size in
-        child.node.widthType == 3 ? CGSize(width: weightWidth, height: size.height) : size
-      }
-      let totalWidth = sizes.reduce(0) { $0 + $1.width } + spacing
-      var x: CGFloat
-      switch node.horizontalPositioning {
-      case 2: x = content.midX - totalWidth / 2
-      case 3: x = content.maxX - totalWidth
-      default: x = content.minX
-      }
+      let positions = NativeLinearLayout.positions(
+        total: content.width,
+        sizes: widths,
+        positioning: node.horizontalPositioning,
+        spacing: scaledSpacing,
+        direction: layoutDirection)
       for (index, child) in items.enumerated() {
-        let size = sizes[index]
+        // Weighted children must see their final main-axis constraint before cross-axis placement;
+        // wrapping text can be taller at its allocated width than at the row's full width.
+        let remeasured =
+          child.preferredSize(in: CGSize(width: widths[index], height: content.height))
+        let size = CGSize(width: widths[index], height: remeasured.height)
         let y: CGFloat
         switch node.verticalPositioning {
         case 2: y = content.midY - size.height / 2
         case 5: y = content.maxY - size.height
         default: y = content.minY
         }
-        child.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
-        x += size.width + scaledSpacing
+        child.frame = child.offsetFrame(
+          CGRect(
+            x: content.minX + positions[index], y: y, width: size.width, height: size.height))
       }
     }
 
     private func alignedFrame(size: CGSize, in rect: CGRect) -> CGRect {
-      let x: CGFloat
-      switch node.horizontalPositioning {
-      case 2: x = rect.midX - size.width / 2
-      case 3: x = rect.maxX - size.width
-      default: x = rect.minX
-      }
+      let x = horizontalOrigin(for: size.width, in: rect)
       let y: CGFloat
       switch node.verticalPositioning {
       case 2: y = rect.midY - size.height / 2
@@ -382,26 +425,34 @@
       return CGRect(origin: CGPoint(x: x, y: y), size: size)
     }
 
-    private func applyDimensions(to intrinsic: CGSize, available: CGSize) -> CGSize {
-      func resolved(type: Int, value: CGFloat, intrinsic: CGFloat, available: CGFloat) -> CGFloat {
-        switch type {
-        case 0, 6: return max(value * documentScale, 0)
-        case 1, 7, 8: return available
-        case 3: return available
-        default: return intrinsic
-        }
+    private func horizontalOrigin(for width: CGFloat, in rect: CGRect) -> CGFloat {
+      switch node.horizontalPositioning {
+      case 2: return rect.midX - width / 2
+      case 3: return layoutDirection == .rightToLeft ? rect.minX : rect.maxX - width
+      default: return layoutDirection == .rightToLeft ? rect.maxX - width : rect.minX
       }
+    }
+
+    private func applyDimensions(to intrinsic: CGSize, available: CGSize) -> CGSize {
       return CGSize(
-        width: min(
-          resolved(
-            type: node.widthType, value: node.widthValue, intrinsic: intrinsic.width,
-            available: available.width), available.width),
-        height: min(
-          max(
-            resolved(
-              type: node.heightType, value: node.heightValue, intrinsic: intrinsic.height,
-              available: available.height),
-            node.minimumHeight * documentScale), available.height))
+        width: NativeLayoutDimension(
+          type: node.widthType,
+          value: node.widthValue * documentScale,
+          minimum: node.minimumWidth * documentScale,
+          maximum: node.maximumWidth.map { $0 * documentScale }
+        ).resolve(intrinsic: intrinsic.width, available: available.width),
+        height: NativeLayoutDimension(
+          type: node.heightType,
+          value: node.heightValue * documentScale,
+          minimum: node.minimumHeight * documentScale,
+          maximum: node.maximumHeight.map { $0 * documentScale }
+        ).resolve(intrinsic: intrinsic.height, available: available.height))
+    }
+
+    private func offsetFrame(_ frame: CGRect) -> CGRect {
+      frame.offsetBy(
+        dx: node.offset.x * documentScale,
+        dy: node.offset.y * documentScale)
     }
 
     private static func makeSemanticView(for node: NativeNode) -> UIView? {

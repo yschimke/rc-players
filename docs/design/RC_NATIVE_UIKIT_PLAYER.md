@@ -90,9 +90,10 @@ content does not. Text commands similarly become `UILabel`s rather than Core Gra
 Future mappings include `UIImageView` for image-role content, `UISwitch` for switch roles, and
 purpose-built `UIControl` subclasses where UIKit has no matching standard control.
 
-The POC resolves fill, weight, wrap, exact sizing, padding, minimum height, basic alignment, spacing,
-and rounded clipping. A later complete layout engine can replace that policy in `layoutSubviews()`
-without changing decoding, primitive rendering, or the public host API.
+The POC resolves fill fractions, proportional weights, wrap and exact sizing, min/max constraints,
+padding, offsets, z-order, visibility, AndroidX linear arrangements, RTL placement, spacing, root
+scaling/alignment, and rounded clipping. Pure functions in `NativeLayout.swift` keep measurement and
+placement policy testable without constructing a UIKit hierarchy.
 
 ### Resolve before rendering
 
@@ -185,14 +186,19 @@ a stricter gate without recreating the view.
 
 ### Root sizing and component layout
 
-The header aspect ratio is aspect-fit in host bounds. UIKit frames are display points; commands stay
-in document coordinates and are scaled once at the canvas drawing boundary. This is simpler than
-the full `RootContentBehavior` contract; scroll, crop, fill, and alignment modes remain unsupported.
+UIKit lays out components in document coordinates and applies `RootContentBehavior` once at the
+root view transform. Inside, fit, fill-width, fill-height, crop, fill-bounds, and alignment modes are
+explicit and respond to host resizing. Scroll remains unsupported.
 
-The static profile implements the Box, Row, and Column behavior needed by the Morning Run Title Card,
-including structural content flattening and weighted rows. Flow, state, intrinsic sizing, layout
-compute, scroll, and the full constraint contract remain unsupported. Layout stays deterministic and
-frame-based; Auto Layout would introduce solver behavior not in the Remote Compose contract.
+The static profile implements Box, Row, Column, and time-zero StateLayout selection, including
+structural content flattening, proportional row/column weights, range constraints, visibility,
+offset, z-order, and RTL row order. Hidden StateLayout alternatives are not rendered or reported as
+reachable compatibility failures. Flow, intrinsic sizing, layout compute, and scroll remain
+unsupported; required constraints are clamped to the native parent and remain diagnosed because
+UIKit does not yet reproduce their overflow behavior. Layout stays deterministic and frame-based;
+Auto Layout would introduce solver behavior not in the Remote Compose contract. Remote Compose has
+no general component margin modifier; external spacing is expressed by parent arrangement and
+`spacedBy`.
 
 ### Paint and graphics state
 
@@ -252,10 +258,10 @@ There are two distinct claims:
 1. Decode compatibility: the shared codec/linker accept the document.
 2. Native render compatibility: every executable operation in the selected frame has a UIKit path.
 
-The POC reports the second as opcode numbers but does not yet model conditional reachability. A
-production gate should reuse the operation inventory/profile and report structured opcode, name,
-component, and reason entries. Strict mode should refuse partial trees; compatible mode may render
-the subset while returning diagnostics. The sample intentionally uses compatible behavior.
+The POC reports structured opcode, name, component, severity, and reason entries. Time-zero
+StateLayout selection is reachability-aware, so hidden alternatives do not make a compatible frame
+partial. Strict mode refuses partial trees; compatible mode may render the supported subset while
+returning diagnostics. The sample intentionally uses compatible behavior.
 
 ## Testing strategy
 
@@ -264,6 +270,8 @@ Current checks are:
 - `RcNativeSnapshotTest` round-trips a protocol document and verifies nesting, paint, and geometry;
 - `scripts/check-native-uikit-compatibility.sh` executes strict/compatible policy decisions as a
   host-platform Swift test;
+- `scripts/check-native-uikit-layout.sh` executes pure Swift dimension, weight, arrangement, RTL,
+  and dynamic root-resize assertions;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 

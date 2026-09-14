@@ -1,0 +1,87 @@
+import CoreGraphics
+import Foundation
+
+@main
+enum NativeLayoutTests {
+  static func main() {
+    assertClose(
+      NativeLayoutDimension(type: 0, value: 80, minimum: 20, maximum: 60)
+        .resolve(intrinsic: 10, available: 100),
+      60)
+    assertClose(
+      NativeLayoutDimension(type: 2, value: 0, minimum: 24, maximum: 90)
+        .resolve(intrinsic: 12, available: 100),
+      24)
+    assertClose(
+      NativeLayoutDimension(type: 1, value: 0.5, minimum: 0, maximum: nil)
+        .resolve(intrinsic: 12, available: 200),
+      100)
+
+    let weighted = NativeLinearLayout.allocateWeighted(
+      available: 200,
+      naturalSizes: [30, 0, 0],
+      weights: [nil, 1, 2])
+    assertEqual(weighted, [30, 56.666_667, 113.333_333])
+
+    let centered = NativeLinearLayout.positions(
+      total: 100, sizes: [10, 20], positioning: 2, spacing: 10)
+    assertEqual(centered, [30, 50])
+    let spaceBetween = NativeLinearLayout.positions(
+      total: 100, sizes: [10, 20], positioning: 6, spacing: 7)
+    assertEqual(spaceBetween, [0, 87])
+    let rtl = NativeLinearLayout.positions(
+      total: 100,
+      sizes: [10, 20],
+      positioning: 1,
+      spacing: 5,
+      direction: .rightToLeft)
+    assertEqual(rtl, [90, 65])
+
+    let fit = NativeRootTransform.resolve(
+      document: CGSize(width: 100, height: 50),
+      viewport: CGSize(width: 300, height: 300),
+      sizing: 2,
+      mode: 4,
+      alignment: 34)
+    assertClose(fit.scaleX, 3)
+    assertClose(fit.scaleY, 3)
+    assertClose(fit.translateX, 0)
+    assertClose(fit.translateY, 75)
+
+    let resized = NativeRootTransform.resolve(
+      document: CGSize(width: 100, height: 50),
+      viewport: CGSize(width: 200, height: 100),
+      sizing: 2,
+      mode: 6,
+      alignment: 68)
+    assertClose(resized.scaleX, 2)
+    assertClose(resized.scaleY, 2)
+    assertClose(resized.translateX, 0)
+    assertClose(resized.translateY, 0)
+
+    print("native UIKit layout tests: ok")
+  }
+
+  private static func assertClose(
+    _ actual: CGFloat,
+    _ expected: CGFloat,
+    file: StaticString = #file,
+    line: UInt = #line
+  ) {
+    precondition(
+      abs(actual - expected) < 0.001,
+      "expected \(expected), got \(actual)",
+      file: file,
+      line: line)
+  }
+
+  private static func assertEqual(
+    _ actual: [CGFloat],
+    _ expected: [CGFloat],
+    file: StaticString = #file,
+    line: UInt = #line
+  ) {
+    precondition(actual.count == expected.count, file: file, line: line)
+    zip(actual, expected).forEach { assertClose($0, $1, file: file, line: line) }
+  }
+}

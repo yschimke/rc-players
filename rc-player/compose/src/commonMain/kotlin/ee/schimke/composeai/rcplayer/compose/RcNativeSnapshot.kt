@@ -8,6 +8,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcDimensionConstraintsModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw3
@@ -23,14 +24,17 @@ import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextLength
@@ -42,7 +46,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
 import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
 import ee.schimke.composeai.rcplayer.protocol.RcTransform2
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
+import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
@@ -61,6 +68,9 @@ public data class RcNativeDocumentSnapshot(
   public val unsupportedOpcodes: List<Int>,
   public val notes: List<String>,
   public val diagnostics: List<RcNativeDiagnostic> = emptyList(),
+  public val rootSizing: Int = RcRootContentBehavior.SIZING_SCALE,
+  public val rootMode: Int = RcRootContentBehavior.SCALE_FIT,
+  public val rootAlignment: Int = RcRootContentBehavior.ALIGNMENT_CENTER,
 )
 
 /** One structured compatibility issue found while producing a native render snapshot. */
@@ -95,6 +105,9 @@ public data class RcNativeNodeSnapshot(
   public val heightType: Int = RcDimensionType.WRAP,
   public val heightValue: Float = 0f,
   public val minimumHeight: Float = 0f,
+  public val minimumWidth: Float = 0f,
+  public val maximumWidth: Float = -1f,
+  public val maximumHeight: Float = -1f,
   public val paddingLeft: Float = 0f,
   public val paddingTop: Float = 0f,
   public val paddingRight: Float = 0f,
@@ -105,6 +118,11 @@ public data class RcNativeNodeSnapshot(
   public val horizontalPositioning: Int = 1,
   public val verticalPositioning: Int = 4,
   public val spacing: Float = 0f,
+  public val offsetX: Float = 0f,
+  public val offsetY: Float = 0f,
+  public val zIndex: Float = 0f,
+  /** AndroidX visibility: 0 gone, 1 visible, 2 invisible but measured. */
+  public val visibility: Int = 1,
 ) {
   public companion object {
     public const val NONE: Int = -1
@@ -226,7 +244,8 @@ public object RcNativeSnapshotBridge {
           is RcLayoutContent -> RcNativeNodeSnapshot.CONTENT
           is RcCanvasLayout,
           is RcCanvasContent -> RcNativeNodeSnapshot.CANVAS
-          is RcBoxLayout -> RcNativeNodeSnapshot.BOX
+          is RcBoxLayout,
+          is RcStateLayout -> RcNativeNodeSnapshot.BOX
           is RcRowLayout -> RcNativeNodeSnapshot.ROW
           is RcColumnLayout -> RcNativeNodeSnapshot.COLUMN
           is RcTextLayout,
@@ -242,6 +261,7 @@ public object RcNativeSnapshotBridge {
           is RcBoxLayout -> operation.componentId
           is RcRowLayout -> operation.componentId
           is RcColumnLayout -> operation.componentId
+          is RcStateLayout -> operation.componentId
           is RcTextLayout -> operation.componentId
           is RcCoreText -> operation.componentId
           else -> 0
@@ -310,6 +330,10 @@ public object RcNativeSnapshotBridge {
           operation !is RcLayoutContent &&
           operation !is RcCanvasLayout &&
           operation !is RcCanvasContent &&
+          operation !is RcBoxLayout &&
+          operation !is RcRowLayout &&
+          operation !is RcColumnLayout &&
+          operation !is RcStateLayout &&
           operation !is RcClickModifier &&
           operation !is RcMultiClickModifier
       ) {
@@ -325,9 +349,55 @@ public object RcNativeSnapshotBridge {
       }
       for (child in container.children) {
         when (child) {
-          is RcLinkedNode.Container -> children += nodeFor(child)
           is RcLinkedNode.Operation ->
             consume(child.operation, componentId, state, paint, commands, diagnostics)
+          is RcLinkedNode.Container -> {
+            if (operation is RcStateLayout && child.operation is RcLayoutContent) {
+              val contentComponentId = (child.operation as RcLayoutContent).componentId
+              val contentVisibilityModifier =
+                child.children
+                  .filterIsInstance<RcLinkedNode.Operation>()
+                  .map { it.operation }
+                  .filterIsInstance<RcVisibilityModifier>()
+                  .lastOrNull()
+              val alternatives = child.children.filterIsInstance<RcLinkedNode.Container>()
+              var alternativeIndex = 0
+              for (contentChild in child.children) {
+                when (contentChild) {
+                  is RcLinkedNode.Operation ->
+                    consume(
+                      contentChild.operation,
+                      contentComponentId,
+                      state,
+                      paint,
+                      commands,
+                      diagnostics,
+                    )
+                  is RcLinkedNode.Container -> {
+                    val contentVisibility =
+                      contentVisibilityModifier?.let {
+                        nativeVisibility(state.integer(it.visibilityId) ?: 0)
+                      } ?: 1
+                    val selected =
+                      (state.integer(operation.indexId) ?: 0).coerceIn(
+                        0,
+                        (alternatives.size - 1).coerceAtLeast(0),
+                      )
+                    if (
+                      contentVisibility != 0 &&
+                        alternativeIndex == selected &&
+                        alternatives.isNotEmpty()
+                    ) {
+                      children += nodeFor(contentChild)
+                    }
+                    alternativeIndex++
+                  }
+                }
+              }
+            } else {
+              children += nodeFor(child)
+            }
+          }
         }
       }
       val clickable = semantics?.clickable == true || hasClickModifier
@@ -335,15 +405,73 @@ public object RcNativeSnapshotBridge {
         semantics
           ?.let { state.text(it.contentDescriptionId) ?: state.text(it.textId) }
           ?.takeUnless(String::isBlank)
-      val width = directOperations.filterIsInstance<RcWidthModifier>().lastOrNull()
-      val height = directOperations.filterIsInstance<RcHeightModifier>().lastOrNull()
-      val minimumHeight =
-        directOperations
-          .filterIsInstance<RcHeightInModifier>()
-          .lastOrNull()
-          ?.minimum
-          ?.let(state::resolve)
-          ?.div(document.header.density) ?: 0f
+      // AndroidX fixes each axis at the first size modifier in wire order.
+      val width = directOperations.filterIsInstance<RcWidthModifier>().firstOrNull()
+      val height = directOperations.filterIsInstance<RcHeightModifier>().firstOrNull()
+      var minimumWidth = 0f
+      var maximumWidth = -1f
+      var minimumHeight = 0f
+      var maximumHeight = -1f
+      fun mergeRange(horizontal: Boolean, minimum: Float, maximum: Float) {
+        val scaledMinimum = if (minimum == -1f) -1f else minimum / document.header.density
+        val scaledMaximum = if (maximum == -1f) -1f else maximum / document.header.density
+        if (horizontal) {
+          if (scaledMinimum != -1f) minimumWidth = maxOf(minimumWidth, scaledMinimum)
+          if (scaledMaximum != -1f) {
+            maximumWidth =
+              if (maximumWidth == -1f) scaledMaximum else minOf(maximumWidth, scaledMaximum)
+          }
+        } else {
+          if (scaledMinimum != -1f) minimumHeight = maxOf(minimumHeight, scaledMinimum)
+          if (scaledMaximum != -1f) {
+            maximumHeight =
+              if (maximumHeight == -1f) scaledMaximum else minOf(maximumHeight, scaledMaximum)
+          }
+        }
+      }
+      directOperations.forEach { modifier ->
+        when (modifier) {
+          is RcWidthInModifier ->
+            mergeRange(true, state.resolve(modifier.minimum), state.resolve(modifier.maximum))
+          is RcHeightInModifier ->
+            mergeRange(false, state.resolve(modifier.minimum), state.resolve(modifier.maximum))
+          is RcDimensionConstraintsModifier -> {
+            when (modifier.type) {
+              RcDimensionConstraintsModifier.HORIZONTAL,
+              RcDimensionConstraintsModifier.REQUIRED_HORIZONTAL ->
+                mergeRange(
+                  true,
+                  state.resolve(modifier.minimum),
+                  state.resolve(modifier.maximum),
+                )
+              RcDimensionConstraintsModifier.VERTICAL,
+              RcDimensionConstraintsModifier.REQUIRED_VERTICAL ->
+                mergeRange(
+                  false,
+                  state.resolve(modifier.minimum),
+                  state.resolve(modifier.maximum),
+                )
+              else ->
+                diagnostics.unsupportedLimitation(
+                  modifier,
+                  componentId,
+                  "Dimension constraint type ${modifier.type} is invalid",
+                )
+            }
+            if (
+              modifier.type == RcDimensionConstraintsModifier.REQUIRED_HORIZONTAL ||
+                modifier.type == RcDimensionConstraintsModifier.REQUIRED_VERTICAL
+            ) {
+              diagnostics.unsupportedLimitation(
+                modifier,
+                componentId,
+                "Required constraints cannot overflow the native parent bounds",
+              )
+            }
+          }
+          else -> Unit
+        }
+      }
       val padding =
         directOperations.filterIsInstance<RcPaddingModifier>().fold(FloatArray(4)) {
           result,
@@ -354,6 +482,22 @@ public object RcNativeSnapshotBridge {
           result[3] += state.resolve(modifier.bottom) / document.header.density
           result
         }
+      val offset =
+        directOperations.filterIsInstance<RcOffsetModifier>().fold(FloatArray(2)) { result, modifier
+          ->
+          result[0] += state.resolve(modifier.x) / document.header.density
+          result[1] += state.resolve(modifier.y) / document.header.density
+          result
+        }
+      val zIndex =
+        directOperations
+          .filterIsInstance<RcZIndexModifier>()
+          .sumOf { state.resolve(it.value).toDouble() }
+          .toFloat()
+      val visibility =
+        directOperations.filterIsInstance<RcVisibilityModifier>().lastOrNull()?.let {
+          nativeVisibility(state.integer(it.visibilityId) ?: 0)
+        } ?: 1
       val cornerRadius =
         directOperations.filterIsInstance<RcRoundedClipRectModifier>().lastOrNull()?.let { modifier
           ->
@@ -398,6 +542,9 @@ public object RcNativeSnapshotBridge {
               if (it.type == RcDimensionType.EXACT_DP) document.header.density else 1f
           } ?: 0f,
         minimumHeight = minimumHeight,
+        minimumWidth = minimumWidth,
+        maximumWidth = maximumWidth,
+        maximumHeight = maximumHeight,
         paddingLeft = padding[0],
         paddingTop = padding[1],
         paddingRight = padding[2],
@@ -410,6 +557,7 @@ public object RcNativeSnapshotBridge {
             is RcBoxLayout -> operation.horizontalPositioning
             is RcRowLayout -> operation.horizontalPositioning
             is RcColumnLayout -> operation.horizontalPositioning
+            is RcStateLayout -> operation.horizontalPositioning
             else -> 1
           },
         verticalPositioning =
@@ -417,6 +565,7 @@ public object RcNativeSnapshotBridge {
             is RcBoxLayout -> operation.verticalPositioning
             is RcRowLayout -> operation.verticalPositioning
             is RcColumnLayout -> operation.verticalPositioning
+            is RcStateLayout -> operation.verticalPositioning
             else -> 4
           },
         spacing =
@@ -425,6 +574,10 @@ public object RcNativeSnapshotBridge {
             is RcColumnLayout -> state.resolve(operation.spacedBy) / document.header.density
             else -> 0f
           },
+        offsetX = offset[0],
+        offsetY = offset[1],
+        zIndex = zIndex,
+        visibility = visibility,
       )
     }
 
@@ -437,6 +590,7 @@ public object RcNativeSnapshotBridge {
           consume(node.operation, 0, state, paint, rootCommands, diagnostics)
       }
     }
+    val rootBehavior = state.rootContentBehavior
     return RcNativeDocumentSnapshot(
       width = document.header.width,
       height = document.header.height,
@@ -450,8 +604,21 @@ public object RcNativeSnapshotBridge {
       unsupportedOpcodes = diagnostics.unsupportedOpcodes.toList(),
       notes = diagnostics.notes.toList(),
       diagnostics = diagnostics.issues.toList(),
+      rootSizing = rootBehavior?.sizing ?: RcRootContentBehavior.SIZING_SCALE,
+      rootMode = rootBehavior?.mode ?: RcRootContentBehavior.SCALE_FIT,
+      rootAlignment = rootBehavior?.alignment ?: RcRootContentBehavior.ALIGNMENT_CENTER,
     )
   }
+
+  private fun nativeVisibility(value: Int): Int =
+    when {
+      value and 32 == 32 -> 1
+      value and 16 == 16 -> 0
+      value and 64 == 64 -> 2
+      value == 1 -> 1
+      value == 2 -> 2
+      else -> 0
+    }
 
   private fun consume(
     operation: RcOperation,
@@ -462,7 +629,24 @@ public object RcNativeSnapshotBridge {
     diagnostics: NativeDiagnosticCollector,
   ) {
     when (operation) {
-      is RcAccessibilitySemantics -> Unit
+      is RcAccessibilitySemantics,
+      is RcDimensionConstraintsModifier,
+      is RcHeightInModifier,
+      is RcHeightModifier,
+      is RcOffsetModifier,
+      is RcPaddingModifier,
+      is RcVisibilityModifier,
+      is RcWidthInModifier,
+      is RcWidthModifier,
+      is RcZIndexModifier -> Unit
+      is RcRootContentBehavior ->
+        if (operation.scroll != RcRootContentBehavior.NONE) {
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "Root scrolling is not implemented by the native player",
+          )
+        }
       is RcPaintData -> applyPaint(operation, componentId, state, paint, diagnostics)
       is RcFloatExpression -> state.applyFloatExpression(operation)
       is RcIntegerExpression -> state.applyIntegerExpression(operation)
