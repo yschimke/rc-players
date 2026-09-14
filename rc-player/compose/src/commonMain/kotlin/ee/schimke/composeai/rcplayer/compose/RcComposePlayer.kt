@@ -670,6 +670,7 @@ private fun RenderLayoutNode(
   val customComponents = LocalRcCustomComponents.current
   val invalidate = LocalRcInvalidate.current
   val offscreenTargets = LocalRcOffscreenTargets.current
+  val density = androidx.compose.ui.platform.LocalDensity.current
   val visibility =
     if (forceGone) {
       0
@@ -859,7 +860,7 @@ private fun RenderLayoutNode(
       }
     is RcLayoutNode.Row -> {
       val density = androidx.compose.ui.platform.LocalDensity.current
-      val spacingDp = rcCapturedPixelsDp(state.resolve(node.operation.spacedBy), density)
+      val spacingDp = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
       val spacing = with(density) { spacingDp.roundToPx() }
       val rowModifier =
         effectiveModifier.applyComponentModifiers(
@@ -920,7 +921,7 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.Column -> {
       val density = androidx.compose.ui.platform.LocalDensity.current
-      val spacing = rcCapturedPixelsDp(state.resolve(node.operation.spacedBy), density)
+      val spacing = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
       Column(
         effectiveModifier.applyComponentModifiers(
           node.modifiers,
@@ -949,7 +950,7 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.Flow -> {
       val density = androidx.compose.ui.platform.LocalDensity.current
-      val spacing = rcCapturedPixelsDp(state.resolve(node.operation.spacedBy), density)
+      val spacing = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
       @OptIn(ExperimentalLayoutApi::class)
       FlowRow(
         effectiveModifier.applyComponentModifiers(
@@ -1055,8 +1056,7 @@ private fun RenderLayoutNode(
         orientation = RcCollapseOrientation.Horizontal,
         mainPositioning = node.operation.horizontalPositioning,
         crossPositioning = node.operation.verticalPositioning,
-        // Already pixels, as everywhere else this gap is read — see `rcCapturedPixelsDp`.
-        spacing = state.resolve(node.operation.spacedBy).roundToInt(),
+        spacing = state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
         modifier =
           effectiveModifier.applyComponentModifiers(
             node.modifiers,
@@ -1080,8 +1080,7 @@ private fun RenderLayoutNode(
         orientation = RcCollapseOrientation.Vertical,
         mainPositioning = node.operation.verticalPositioning,
         crossPositioning = node.operation.horizontalPositioning,
-        // Already pixels, as everywhere else this gap is read — see `rcCapturedPixelsDp`.
-        spacing = state.resolve(node.operation.spacedBy).roundToInt(),
+        spacing = state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
         modifier =
           effectiveModifier.applyComponentModifiers(
             node.modifiers,
@@ -1906,30 +1905,8 @@ internal fun rcDpTypedPixels(value: Float, density: Float, densityBehavior: Int)
 private fun RcPlayerState.dpTypedPixels(value: Float, density: Density): Float =
   rcDpTypedPixels(value, density.density, document.header.densityBehavior)
 
-/**
- * A field `remote-creation-compose` writes in **pixels** whatever the document's density behavior
- * says, converted to the [Dp] Compose wants. Never routed through [dpTypedPixels]: the wire value
- * already carries the generation density, so scaling it again doubles it.
- *
- * The header is a single global flag but the document it describes is mixed, and the creation
- * library's choice does not follow the flag — #4731 recorded the split it actually writes: padding,
- * `spacedBy` gaps, border widths and clip radii go through `RemoteDp.toPx()` at capture (pixels),
- * while `heightIn` / `widthIn` stay dp and `height` / `width` are self-describing EXACT_DP. That is
- * why [rcDimensionConstraintDp] is the exception and still scales.
- *
- * Measured on the published `design-artifacts/remote-m3` corpus at a generation density of 2.0:
- * `WatchScreenRemote`'s `RemoteArrangement.spacedBy(8.rdp)` is on the wire as `16`, and
- * `RemoteCompactButton`'s 8dp inset as `16` — the same edge #4727 read off the live op at both
- * densities (`8` at 1.0, `16` at 2.0). See `RcCapturedPixelsDensityTest`.
- *
- * Padding and `spacedBy` are the only callers moved here, because they are the only ones there is
- * evidence for. `RcOffsetModifier`, `RcBorderModifier`'s width and corner, and `RcMarqueeModifier`
- * spacing still go through [dpTypedPixels]: #4731's split predicts they are pixels too, but not one
- * of them occurs anywhere in the 63-document `remote-m3` corpus, so there is nothing to measure and
- * nothing to regress. Move one when a document that carries it turns up — on its own measurement,
- * not on this one.
- */
-private fun rcCapturedPixelsDp(value: Float, density: Density): Dp = with(density) { value.toDp() }
+private fun RcPlayerState.dpTypedDp(value: Float, density: Density): Dp =
+  with(density) { dpTypedPixels(value, density).toDp() }
 
 /** DimensionIn is the exception: AndroidX treats LEGACY and DP as dp, PIXELS as pixels. */
 internal fun rcDimensionConstraintDp(value: Float, density: Float, densityBehavior: Int): Float =
@@ -2071,14 +2048,10 @@ private fun Modifier.applyComponentModifiers(
           while (next < modifiers.ordered.size) {
             if (next > operationIndex && modifiers.scrollPosition == next) break
             val padding = modifiers.ordered[next] as? RcPaddingModifier ?: break
-            // Pixels on the wire, so they accumulate as they are — see `rcCapturedPixelsDp`.
-            // Scaling them again gave a card its whole vertical padding a second time: 47px of the
-            // CMP player's 205px `CardRemote` box against the reference's 158px (#4749), and the
-            // twin of the doubling #4727 fixed in the embedded player.
-            left += state.resolve(padding.left)
-            top += state.resolve(padding.top)
-            right += state.resolve(padding.right)
-            bottom += state.resolve(padding.bottom)
+            left += state.dpTypedPixels(state.resolve(padding.left), density)
+            top += state.dpTypedPixels(state.resolve(padding.top), density)
+            right += state.dpTypedPixels(state.resolve(padding.right), density)
+            bottom += state.dpTypedPixels(state.resolve(padding.bottom), density)
             next++
           }
           operationIndex = next - 1
@@ -2822,8 +2795,8 @@ private fun Modifier.applyGraphicsLayer(
     rotationZ = float(RcGraphicsLayerModifier.ROTATION_Z, 0f)
     transformOrigin =
       TransformOrigin(
-        float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X, 0f),
-        float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y, 0f),
+        float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X, 0.5f),
+        float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y, 0.5f),
       )
     translationX = float(RcGraphicsLayerModifier.TRANSLATION_X, 0f)
     translationY = float(RcGraphicsLayerModifier.TRANSLATION_Y, 0f)
@@ -3000,24 +2973,12 @@ private fun Modifier.applyPaintDecorator(
         val contentScope = this
         clipRect { contentScope.drawContent() }
       }
-    // The four corners are pixels whatever the document's density behavior says, so there is no
-    // `dpTypedPixels` here. `remote-creation-compose` writes a rounded clip radius through
-    // `RemoteDp.toPx()` at capture time and remote-core's `RoundedClipRectModifierOperation` never
-    // rescales it, so a 26dp corner is on the wire as `26` at density 1.0 and `52` at density 2.0.
-    // Measured on the `AppCardRemote-640x480` fixture: header density 2.0, DENSITY_BEHAVIOR_DP, and
-    // four literal `52f` corners for a 26dp card — see `RcRoundedClipDensityTest`.
-    //
-    // Scaling them again doubled every rounded clip at density 2.0, the same bug #4710 fixed in the
-    // embedded player. It hides on stadium and circle shapes, where `RoundRect` normalizes an
-    // oversized corner straight back to the shape it should have been; only a corner genuinely
-    // smaller than half its box keeps the doubling, which is why cards showed it and buttons did
-    // not. And at density 1.0 the multiply is a no-op, which is the density every unit test used.
     is RcRoundedClipRectModifier ->
       drawWithContent {
-        val topStart = state.resolve(operation.topStart)
-        val topEnd = state.resolve(operation.topEnd)
-        val bottomStart = state.resolve(operation.bottomStart)
-        val bottomEnd = state.resolve(operation.bottomEnd)
+        val topStart = state.dpTypedPixels(state.resolve(operation.topStart), localDensity)
+        val topEnd = state.dpTypedPixels(state.resolve(operation.topEnd), localDensity)
+        val bottomStart = state.dpTypedPixels(state.resolve(operation.bottomStart), localDensity)
+        val bottomEnd = state.dpTypedPixels(state.resolve(operation.bottomEnd), localDensity)
         val path =
           Path().apply {
             addRoundRect(

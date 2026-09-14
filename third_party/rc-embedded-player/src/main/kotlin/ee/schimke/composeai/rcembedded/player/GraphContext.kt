@@ -196,6 +196,7 @@ internal class GraphContext(
     return when {
       // Time variables come from the Compose frame-clock state (matching the resolver's time
       // special-case), not the raw store — so a time-driven op reads seconds/minutes/hours.
+      id == RemoteContext.ID_ANIMATION_TIME -> timeMillis.value / 1000f
       id == RemoteContext.ID_CONTINUOUS_SEC || id == RemoteContext.ID_TIME_IN_SEC ->
         timeMillis.value / 1000f
       id == RemoteContext.ID_TIME_IN_MIN -> timeMillis.value / 60000f

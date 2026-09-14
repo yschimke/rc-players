@@ -125,7 +125,8 @@ internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
       id == RemoteContext.ID_TIME_IN_SEC ||
       id == RemoteContext.ID_TIME_IN_MIN ||
       id == RemoteContext.ID_TIME_IN_HR ||
-      id == RemoteContext.ID_EPOCH_SECOND
+      id == RemoteContext.ID_EPOCH_SECOND ||
+      id == RemoteContext.ID_ANIMATION_TIME
   ) {
     val timeMillisState = LocalCurrentTimeMillis.current
     // Only `ID_EPOCH_SECOND` needs it, and it is the reason that id was frozen: the other four are
@@ -137,6 +138,7 @@ internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
       derivedStateOf {
         val timeMillis = timeMillisState.value
         when (id) {
+          RemoteContext.ID_ANIMATION_TIME -> timeMillis / 1000f
           RemoteContext.ID_CONTINUOUS_SEC,
           RemoteContext.ID_TIME_IN_SEC -> timeMillis / 1000f
           RemoteContext.ID_TIME_IN_MIN -> timeMillis / 60000f

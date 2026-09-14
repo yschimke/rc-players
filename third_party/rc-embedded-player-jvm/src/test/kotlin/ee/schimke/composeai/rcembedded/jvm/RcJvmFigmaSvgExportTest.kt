@@ -195,21 +195,17 @@ class RcJvmFigmaSvgExportTest {
     assert(!svg.contains("href=\"figma-raster/")) {
       "AppCard production SVG contains a dangling raster layer"
     }
-    // The three numbers here have each moved once, for a reason worth keeping written down.
+    // This alpha18 fixture predates the alpha19 density fix and therefore carries values that its
+    // writer had already scaled by the generation density. There is no wire-version discriminator,
+    // so a current player must interpret the fields according to the alpha19 contract: DP-behavior
+    // padding and rounded corners are DP values and are scaled at playback density. The old fixture
+    // consequently renders with the historical values doubled (rx=104, y=132, h=216).
     //
-    // rx=52, not 104: the fixture's corner arrives from remote-core as `52` at DENSITY=2f (a 26dp
-    // card corner with the density already folded in), and the player passes it through. This
-    // asserted 104 while `RemoteRoundedClipShape` multiplied by density a second time — the
-    // doubling that clipped the corners off `RemoteOutlinedCard`'s border
-    // (yschimke/wear-m3-catalog#89).
-    //
-    // y=156 h=168, not y=132 h=216: the card's own padding was applied twice, so it was 48px
-    // taller and sat 24px higher. `PaddingModifier` now reads the source edges rather than the
-    // ones `updateVariables` re-scales (yschimke/wear-m3-catalog#90), and the card is the size its
-    // content asks for.
+    // Keep the fixture because it documents that unavoidable compatibility boundary. Newly
+    // captured alpha19 documents encode unscaled DP values and render at the intended dimensions.
     assert(
       Regex(
-          "<clipPath[^>]*>\\s*<rect[^>]*x=\"0\"[^>]*y=\"156\"[^>]*width=\"640\"[^>]*height=\"168\"[^>]*rx=\"52\""
+          "<clipPath[^>]*>\\s*<rect[^>]*x=\"0\"[^>]*y=\"132\"[^>]*width=\"640\"[^>]*height=\"216\"[^>]*rx=\"104\""
         )
         .containsMatchIn(svg)
     ) {

@@ -19,7 +19,7 @@
 package ee.schimke.composeai.rcembedded.player.modifier
 
 import androidx.compose.remote.core.operations.layout.modifiers.PaddingModifierOperation
-import ee.schimke.composeai.rcembedded.player.paddingRawEdges
+import ee.schimke.composeai.rcembedded.player.paddingRawValues
 import org.junit.Assert.assertArrayEquals
 import org.junit.Test
 
@@ -39,7 +39,7 @@ class PaddingRawEdgesTest {
     // What `updateVariables` does at density 2: source × density, written to the resolved fields.
     setResolved(op, 2f, 16f, 6f, 8f)
 
-    assertArrayEquals(floatArrayOf(1f, 8f, 3f, 4f), paddingRawEdges(op), 0f)
+    assertArrayEquals(floatArrayOf(1f, 8f, 3f, 4f), paddingRawValues(op), 0f)
   }
 
   @Test

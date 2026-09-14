@@ -15,7 +15,7 @@ both lets `rc-compare` diff them against the same baked PNG.
 
 - Repository: <https://github.com/androidx/androidx>
 - Path: `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
-- Commit: `ff1e2437ab0985eb3d490e56ae4d5ac2c5306356` (`androidx-main`, 2026-09-07)
+- Commit: `770a32e294816a8e5dcc47dccd61ba9084424386` (`androidx-main`, 2026-09-14)
 - License: Apache-2.0
 
 The original 2026-07-29 snapshot came from the integration-test application. AndroidX moved the
@@ -36,10 +36,13 @@ This refresh imports the player changes through the pin above, adapted across th
 - AndroidX's single-pass document preprocessing, shared with the JVM renderer and extended here to
   retain this fork's lazy bitmap inventory.
 
-The rounded-clip implementation is deliberately not overwritten by the current AndroidX body.
-Released `remote-core:1.0.0-alpha18` supplies the resolved corners in the same already-scaled form
-measured by this repository's density tests; multiplying them again reproduces the doubled-radius
-regression documented below.
+### 2026-09-14 refresh
+
+This refresh imports AndroidX's bounded FitBox candidate measurement, animation-time system-variable
+support, and the upstream resolution of #98: raw dynamic sources for dimension constraints, offsets,
+padding, and graphics-layer floats; density-aware constraints and padding; required constraint
+semantics; fill-parent modes; and explicit fill fractions. The local graphics-layer adapter then
+adds the still-missing transform-origin mapping, which #98 continues to track upstream.
 
 ### That premise has expired — so the vendored player left upstream's package
 
@@ -165,7 +168,7 @@ done
 ## Version skew
 
 Upstream builds this player against the **in-tree** `remote-core` / `remote-player-core`. We build
-it against the published alphas the version catalog pins (`compose-remote = 1.0.0-alpha18`). The
+it against the published alphas the version catalog pins (`compose-remote = 1.0.0-alpha19`). The
 player reaches a number of `@RestrictTo(LIBRARY_GROUP)` members, and `CoreDataAccessors.kt` reaches
 private `CoreDocument` state **reflectively** (upstream guards those names with its own
 `CoreReflectionGuardTest`). Both are sensitive to the gap between `androidx-main` and the pinned
@@ -188,7 +191,7 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 | [#3](https://github.com/yschimke/rc-players/issues/3) | `Rc.AndroidColors` is wrong for 21 of 196 indices — upstream's data, not its rendering |
 | [#5](https://github.com/yschimke/rc-players/issues/5) | Published `ui-text-google-fonts` AAR ships no GMS font-provider certificates |
 | [#54](https://github.com/yschimke/rc-players/issues/54) | `findBitmaps` never walks a component's canvas stream, so a `BitmapData` declared there is unregistered — costing both the texture and the `ImageAttribute` dimensions; `ImageAttribute` also needs an explicit draw case, being neither `VariableSupport` nor `VariableProvider` |
-| [#98](https://github.com/yschimke/rc-players/issues/98) | `DimensionInModifierOperation` constraints are read from their flattened output fields, so an expression-backed `widthIn` / `heightIn` loses its variable id and can collapse content to zero |
+| [#98](https://github.com/yschimke/rc-players/issues/98) | The embedded graphics-layer adapter still ignores authored transform origins and bypasses core's implicit value-change animation |
 
 The action-dispatch pair was restored verbatim when alpha17 published `LambdaAction`,
 `PendingIntentAction.Companion.parseId` and `CapturedDocument.lambdas` / `.pendingIntents`. The
@@ -205,22 +208,11 @@ AndroidX now carries their behavior. That is the pattern working — the list is
   `ComposePathColorFilterRobolectricReproTest` independently demonstrates the SrcIn behaviour using
   only standard Compose drawing.
 
-- **Layout modifiers preserve their authored values and reactivity** (`CoreDataAccessors.kt`,
-  `WidthModifier.kt`, `HeightModifier.kt`, `OffsetModifier.kt`, `GraphicsLayerModifier.kt`).
-  `DimensionInModifierOperation.getMin()` / `getMax()`
-  expose `mV1` / `mV2`, which `updateVariables` flattens from a NaN-encoded variable id into its
-  current value and scales from dp to px. Reading those getters while constructing a Compose
-  `widthIn` / `heightIn` modifier loses the source id; for `RemoteEdgeButton`'s
-  `componentWidth()`-derived maximum, the output slot is still zero and the label row collapses.
-  The player now reads `mValue1` / `mValue2`, resolves those raw sources through its reactive state
-  graph, and treats the results as dp. The same correction covers generic horizontal and vertical
-  `DimensionConstraintsModifierOperation`s. Required constraints retain their stronger Compose
-  semantics; fill-parent modes and explicit fill fractions are no longer discarded. Offset and
-  graphics-layer adapters likewise retain raw variable ids instead of observing one flattened
-  value. `LayoutValueSourceTest`, `LayoutDimensionBehaviorTest`, and the captured EdgeButton
-  fixture pin these paths;
-  [#98](https://github.com/yschimke/rc-players/issues/98) tracks retirement when AndroidX carries
-  the fix.
+- **Graphics layers apply authored transform origins** (`GraphicsLayerModifier.kt`). AndroidX now
+  preserves raw variable sources for the float attributes it consumes, but it still omits
+  `TRANSFORM_ORIGIN_X` / `TRANSFORM_ORIGIN_Y` when constructing Compose's graphics layer. This copy
+  resolves both reactively and assigns `TransformOrigin`; [#98](https://github.com/yschimke/rc-players/issues/98)
+  also tracks the remaining implicit 300 ms `AnimatableValue` parity decision.
 
 - **A colour the document derives now reaches the text that names it**
   (`SnapshotRemoteComposeState.kt`, `RcPlayerTextLayout.kt`, `CoreDataAccessors.kt`,

@@ -16,6 +16,7 @@
 
 package ee.schimke.composeai.rcembedded.player.modifier
 
+import androidx.compose.remote.core.CoreDocument
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
@@ -26,15 +27,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ClipModifierTest {
-  /**
-   * The corner arrives from remote-core with the display density already folded in, so the player
-   * passes it through whatever the document's density behavior says. This test used to assert the
-   * opposite for DP documents — that a 26 corner became 52 at density 2 — which is the bug it now
-   * pins down: see [resolveRadius].
-   */
   @Test
-  fun resolvedCornerIsPassedThroughUnscaled() {
-    assertEquals(26f, 26f.resolveRadius(fallback = 42f, minDimension = 84f))
+  fun dpCornerScalesWithPlaybackDensity() {
+    assertEquals(
+      52f,
+      26f.resolveRadius(
+        fallback = 42f,
+        minDimension = 84f,
+        density = 2f,
+        densityBehavior = CoreDocument.DENSITY_BEHAVIOR_DP,
+      ),
+    )
   }
 
   @Test
@@ -56,14 +59,15 @@ class ClipModifierTest {
    * card to a 104px radius cut the corners off the border its content drew (wear-m3-catalog#89).
    */
   @Test
-  fun cardSizedCornerIsNotDoubledAtDensityTwo() {
-    val corner = mutableStateOf(52f)
+  fun cardSizedDpCornerScalesOnceAtDensityTwo() {
+    val corner = mutableStateOf(26f)
     val shape =
       RemoteRoundedClipShape(
         topStart = corner,
         topEnd = corner,
         bottomEnd = corner,
         bottomStart = corner,
+        densityBehavior = CoreDocument.DENSITY_BEHAVIOR_DP,
       )
 
     val outline =
@@ -90,6 +94,7 @@ class ClipModifierTest {
         topEnd = corner,
         bottomEnd = corner,
         bottomStart = corner,
+        densityBehavior = CoreDocument.DENSITY_BEHAVIOR_PIXELS,
       )
 
     val outline =

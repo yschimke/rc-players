@@ -1788,8 +1788,8 @@ private val paddingRightField =
 private val paddingBottomField =
   PaddingModifierOperation::class.java.getDeclaredField("mBottom").apply { isAccessible = true }
 
-/** The four raw (source) padding edges, in pixels, before `updateVariables` re-scales them. */
-internal fun paddingRawEdges(op: PaddingModifierOperation): FloatArray =
+/** The four raw padding sources, in dp or pixels according to the document's density behavior. */
+internal fun paddingRawValues(op: PaddingModifierOperation): FloatArray =
   floatArrayOf(
     paddingLeftField.getFloat(op),
     paddingTopField.getFloat(op),
