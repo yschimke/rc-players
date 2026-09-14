@@ -78,6 +78,12 @@ Application targets normally select the `RcComposePlayerSwiftUI` product for dir
 events/errors, and SwiftUI/UIKit entry points; the `RcComposePlayer` product remains the raw binary
 interop surface.
 
+The experimental `RcNativePlayerUIKit` product is published by the same bare version tag. Each
+GitHub Release also carries `RcNativePlayerUIKit.swiftpackage.zip` and its SHA-256 file: a
+self-contained local Swift package containing the native Swift sources and the matching bridge
+XCFramework. This duplicate packaging is intentional while the POC still depends on Kotlin; it
+gives evaluators a pinned, offline-resolvable artifact without changing the supported CMP product.
+
 [`samples/apple-player`](samples/apple-player/) is the full application check: a SwiftUI document
 player linked against the current release XCFramework build, built in CI for the arm64 iOS
 Simulator, and
