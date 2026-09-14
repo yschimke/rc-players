@@ -11,6 +11,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionConstraintsModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
+import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw3
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
@@ -60,6 +61,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
+import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 
@@ -279,15 +281,41 @@ public data class RcNativePathCommand(
   public val sixth: Float = 0f,
 )
 
+/** Retained native render session. Decode/link state survives immutable frame snapshots. */
+public class RcNativeSnapshotSession(bytes: ByteArray) {
+  private val document: RcDocument = RcDocumentCodec.decode(bytes)
+  private val linked: RcLinkedDocument = RcDocumentLinker.link(document)
+  private val state: RcPlayerState = RcPlayerState(document)
+
+  /**
+   * Resolve one immutable frame without rebuilding the document codec, linker, or runtime state.
+   */
+  @Throws(IllegalArgumentException::class)
+  public fun snapshot(timeSeconds: Float = 0f): RcNativeDocumentSnapshot =
+    RcNativeSnapshotBridge.snapshot(document, linked, state, timeSeconds)
+}
+
 /** Decode `.rc` bytes into the deliberately small immutable POC render model. */
 public object RcNativeSnapshotBridge {
+  /** Create a retained session for hosts that render more than one immutable frame. */
   @Throws(IllegalArgumentException::class)
-  public fun decode(bytes: ByteArray): RcNativeDocumentSnapshot {
-    val document = RcDocumentCodec.decode(bytes)
-    val state = RcPlayerState(document)
-    state.beginFrame(timeSeconds = 0f)
+  public fun createSession(bytes: ByteArray): RcNativeSnapshotSession =
+    RcNativeSnapshotSession(bytes)
+
+  @Throws(IllegalArgumentException::class)
+  public fun decode(bytes: ByteArray): RcNativeDocumentSnapshot = createSession(bytes).snapshot()
+
+  internal fun snapshot(
+    document: RcDocument,
+    linked: RcLinkedDocument,
+    state: RcPlayerState,
+    timeSeconds: Float,
+  ): RcNativeDocumentSnapshot {
+    require(timeSeconds.isFinite() && timeSeconds >= 0f) {
+      "Native snapshot time must be finite and non-negative"
+    }
+    state.beginFrame(timeSeconds = timeSeconds)
     val diagnostics = NativeDiagnosticCollector()
-    val linked = RcDocumentLinker.link(document)
     val paint = NativePaint()
     val bitmaps =
       document.operations.filterIsInstance<RcBitmapData>().associateBy(RcBitmapData::imageId)

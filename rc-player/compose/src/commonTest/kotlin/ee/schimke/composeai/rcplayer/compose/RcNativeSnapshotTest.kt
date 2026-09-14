@@ -26,6 +26,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
@@ -40,6 +41,34 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class RcNativeSnapshotTest {
+  @Test
+  fun retainedSessionAdvancesFramesWithoutRedecoding() {
+    val animationTime = RcFloatWord(0xff800000.toInt() or RcSystemVariables.ANIMATION_TIME)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(1),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            animationTime,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(10f),
+            RcFloatWord.literal(10f),
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val session = RcNativeSnapshotSession(RcDocumentCodec.encode(document))
+
+    val first = session.snapshot(timeSeconds = 1f)
+    val second = session.snapshot(timeSeconds = 2f)
+
+    assertEquals(1f, first.root.children.single().commands.single().first)
+    assertEquals(2f, second.root.children.single().commands.single().first)
+    assertFailsWith<IllegalArgumentException> { session.snapshot(timeSeconds = Float.NaN) }
+  }
+
   @Test
   fun decodesStaticCanvasCommandsIntoAComponentTree() {
     val document =

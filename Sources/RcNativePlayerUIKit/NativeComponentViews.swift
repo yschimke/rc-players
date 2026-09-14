@@ -282,8 +282,8 @@
   }
 
   final class NativeDocumentView: UIView {
-    private let document: NativeDocument
-    private let resources: NativeResourceStore
+    private var document: NativeDocument
+    private var resources: NativeResourceStore
     private let componentView: NativeComponentView
 
     init(document: NativeDocument, resources: NativeResourceStore) {
@@ -301,6 +301,18 @@
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    func update(document: NativeDocument, resources: NativeResourceStore) -> Bool {
+      guard componentView.canUpdate(
+        with: document.root, images: resources.images, fontNames: resources.fontNames)
+      else { return false }
+      self.document = document
+      self.resources = resources
+      componentView.update(
+        node: document.root, images: resources.images, fontNames: resources.fontNames)
+      setNeedsLayout()
+      return true
     }
 
     override func layoutSubviews() {
@@ -332,12 +344,12 @@
   /// of Box, Row, and Column. Structural content wrappers remain visible in the UIKit hierarchy but
   /// are transparent to layout.
   final class NativeComponentView: UIView {
-    private let node: NativeNode
-    private let canvasView: NativeCanvasView?
-    private let textLabels: [NativeTextLabel]
-    private let imageViews: [NativeImageView]
-    private let componentChildren: [NativeComponentView]
-    private let semanticView: UIView?
+    private var node: NativeNode
+    private var canvasView: NativeCanvasView?
+    private var textLabels: [NativeTextLabel]
+    private var imageViews: [NativeImageView]
+    private var componentChildren: [NativeComponentView]
+    private var semanticView: UIView?
     var documentScale: CGFloat = 1 {
       didSet {
         canvasView?.documentScale = documentScale
@@ -398,6 +410,72 @@
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    func canUpdate(
+      with next: NativeNode,
+      images: [Int: UIImage],
+      fontNames: [Int: String]
+    ) -> Bool {
+      guard node.componentID == next.componentID, node.kind == next.kind else { return false }
+      let local = Self.localContent(for: next, images: images)
+      guard
+        (canvasView != nil) == !local.drawing.isEmpty,
+        textLabels.count == local.text.count,
+        imageViews.count == local.images.count,
+        (semanticView != nil) == Self.hasSemanticView(next),
+        componentChildren.count == next.children.count
+      else { return false }
+      return zip(componentChildren, next.children).allSatisfy { child, childNode in
+        child.canUpdate(with: childNode, images: images, fontNames: fontNames)
+      }
+    }
+
+    func update(node next: NativeNode, images: [Int: UIImage], fontNames: [Int: String]) {
+      precondition(canUpdate(with: next, images: images, fontNames: fontNames))
+      let local = Self.localContent(for: next, images: images)
+      node = next
+      canvasView?.update(commands: local.drawing, images: images, fontNames: fontNames)
+      zip(textLabels, local.text).forEach { label, command in
+        label.update(command: command, fontNames: fontNames)
+      }
+      zip(imageViews, local.images).forEach { imageView, item in
+        imageView.update(image: item.image, draw: item.draw, alpha: item.alpha)
+      }
+      zip(componentChildren, next.children).forEach { child, childNode in
+        child.update(node: childNode, images: images, fontNames: fontNames)
+        child.layer.zPosition = childNode.zIndex
+      }
+      Self.updateSemanticView(semanticView, from: next)
+      backgroundColor = next.backgroundColor ?? .clear
+      isHidden = next.visibility == 0
+      alpha = next.visibility == 2 ? 0 : 1
+      clipsToBounds = next.cornerRadius > 0
+      setNeedsLayout()
+    }
+
+    private static func localContent(
+      for node: NativeNode,
+      images: [Int: UIImage]
+    ) -> (drawing: [NativeDrawCommand], text: [NativeDrawCommand], images: [(image: UIImage, draw: NativeImageDraw, alpha: CGFloat)]) {
+      let promotesText = node.kind == .text
+      let promotesImage = node.kind == .image
+      let drawing = node.commands.filter {
+        !(promotesText && $0.kind == 17) && !(promotesImage && $0.kind == 19)
+      }
+      let text = promotesText ? node.commands.filter { $0.kind == 17 } : []
+      let imageItems =
+        promotesImage
+        ? node.commands.compactMap { command -> (UIImage, NativeImageDraw, CGFloat)? in
+          guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+          else { return nil }
+          return (image, draw, command.alpha)
+        } : []
+      return (drawing, text, imageItems)
+    }
+
+    private static func hasSemanticView(_ node: NativeNode) -> Bool {
+      node.semanticRole == 0 || node.isClickable
     }
 
     override func layoutSubviews() {
@@ -637,10 +715,17 @@
       // UIButton proves native hit testing, focus, traits, and hierarchy without redrawing it.
       return button
     }
+
+    private static func updateSemanticView(_ view: UIView?, from node: NativeNode) {
+      guard let button = view as? UIButton else { return }
+      button.isEnabled = node.isEnabled
+      button.accessibilityLabel = node.accessibilityLabel ?? node.firstText
+      button.accessibilityIdentifier = "rc-native-button-\(node.componentID)"
+    }
   }
 
   final class NativeImageView: UIImageView {
-    private let drawCommand: NativeImageDraw
+    private var drawCommand: NativeImageDraw
 
     init(image: UIImage, draw: NativeImageDraw, alpha: CGFloat) {
       drawCommand = draw
@@ -658,6 +743,16 @@
       fatalError("init(coder:) is not supported")
     }
 
+    func update(image: UIImage, draw: NativeImageDraw, alpha: CGFloat) {
+      self.image = image
+      drawCommand = draw
+      self.alpha = alpha
+      isAccessibilityElement = draw.contentDescription != nil
+      accessibilityLabel = draw.contentDescription
+      accessibilityIdentifier = "rc-native-image-\(draw.imageID)"
+      setNeedsDisplay()
+    }
+
     override func draw(_ rect: CGRect) {
       guard let image else { return }
       let source = CGRect(origin: .zero, size: image.size)
@@ -673,8 +768,9 @@
   /// A Remote Compose text primitive promoted to a real UIKit text element. Geometry and font
   /// selection remain approximate until the native lane has a resolved layout/text profile.
   final class NativeTextLabel: UILabel {
-    private let command: NativeDrawCommand
-    private let fontNames: [Int: String]
+    private var command: NativeDrawCommand
+    private var fontNames: [Int: String]
+    private var documentScale: CGFloat = 1
 
     init(command: NativeDrawCommand, fontNames: [Int: String]) {
       self.command = command
@@ -694,7 +790,17 @@
       fatalError("init(coder:) is not supported")
     }
 
+    func update(command: NativeDrawCommand, fontNames: [Int: String]) {
+      self.command = command
+      self.fontNames = fontNames
+      text = command.text
+      textColor = command.color.withAlphaComponent(command.alpha)
+      configureFont(documentScale: documentScale)
+      setNeedsLayout()
+    }
+
     func preferredSize(maximumWidth: CGFloat, documentScale: CGFloat) -> CGSize {
+      self.documentScale = documentScale
       configureFont(documentScale: documentScale)
       return sizeThatFits(CGSize(width: maximumWidth, height: .greatestFiniteMagnitude))
     }
@@ -826,9 +932,9 @@
   }
 
   final class NativeCanvasView: UIView {
-    private let commands: [NativeDrawCommand]
-    private let images: [Int: UIImage]
-    private let fontNames: [Int: String]
+    private var commands: [NativeDrawCommand]
+    private var images: [Int: UIImage]
+    private var fontNames: [Int: String]
     var documentScale: CGFloat = 1 {
       didSet { setNeedsDisplay() }
     }
@@ -847,6 +953,15 @@
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    func update(
+      commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]
+    ) {
+      self.commands = commands
+      self.images = images
+      self.fontNames = fontNames
+      setNeedsDisplay()
     }
 
     override func draw(_ rect: CGRect) {

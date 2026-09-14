@@ -518,7 +518,15 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNativePathCommand {
 public final class ee/schimke/composeai/rcplayer/compose/RcNativeSnapshotBridge {
 	public static final field $stable I
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotBridge;
+	public final fun createSession ([B)Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession;
 	public final fun decode ([B)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession {
+	public static final field $stable I
+	public fun <init> ([B)V
+	public final fun snapshot (F)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
+	public static synthetic fun snapshot$default (Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession;FILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcNativeTextStyle {
