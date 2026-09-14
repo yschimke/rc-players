@@ -27,31 +27,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.jetbrains.skia.Bitmap
 
-/**
- * A rounded clip radius is in **pixels** whatever the document's density behavior says, so the
- * player renders it at the value on the wire and never multiplies it by the display density
- * (#4712; #4710 established the same for the embedded player, off a different document model).
- *
- * Both tests here exist because the bug was invisible at density 1.0 — the density every other unit
- * test in this module renders at, which is why nothing caught it for as long as it was there.
- */
+/** Density-behavior coverage for rounded clip radii. */
 class RcRoundedClipDensityTest {
 
-  /**
-   * The measurement, off a real document rather than by inspection.
-   *
-   * `AppCardRemote-640x480` declares `DENSITY_BEHAVIOR_DP` at a generation density of 2.0, and its
-   * four clip corners are literal `52f` — a 26dp card corner with the density already folded in.
-   * `remote-creation-compose` writes the radius through `RemoteDp.toPx()` at capture and
-   * remote-core's `RoundedClipRectModifierOperation` never rescales it, so the wire value already
-   * scales with density and scaling it again is pure doubling.
-   *
-   * If a future capture changes what a DP document carries here, this fails first and the
-   * pass-through in `RcComposePlayer` has to be re-established rather than assumed.
-   */
+  /** The alpha18 fixture records the old writer's already-scaled DP corner value. */
   @OptIn(ExperimentalEncodingApi::class)
   @Test
-  fun theCornerOnTheWireAlreadyCarriesTheGenerationDensity() {
+  fun alpha18FixtureCornerCarriesTheGenerationDensity() {
     val bytes =
       checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$APP_CARD_FIXTURE")) {
           "missing fixture /rc-fixtures/$APP_CARD_FIXTURE"
@@ -70,18 +52,13 @@ class RcRoundedClipDensityTest {
   }
 
   /**
-   * The regression, in the shape that renders it.
-   *
-   * A 20px corner on an 80×80 box is genuinely smaller than half the box, so `RoundRect` does not
-   * normalize it back — which is exactly why cards showed the doubling and every stadium-shaped
-   * button beside them did not. Pixel (12, 3) sits inside a 20px corner arc and outside a 40px one,
-   * so it reads green at both densities only if the radius is passed through: with the old `*
-   * density` it went red at density 2.0, the doubled clip having eaten the corner off the content.
+   * A 20dp corner on an 80px box remains below the radius normalization threshold at density 1,
+   * while at density 2 it scales to 40px. Pixel (12, 3) distinguishes those two arcs.
    */
   @Test
-  fun aDpDocumentClipsToTheSameRadiusAtEveryDensity() {
+  fun aDpDocumentScalesItsClipRadiusWithPlaybackDensity() {
     assertEquals(GREEN, cornerPixel(Density(1f)))
-    assertEquals(GREEN, cornerPixel(Density(2f)))
+    assertEquals(0xffff0000.toInt(), cornerPixel(Density(2f)))
   }
 
   private fun cornerPixel(density: Density): Int {

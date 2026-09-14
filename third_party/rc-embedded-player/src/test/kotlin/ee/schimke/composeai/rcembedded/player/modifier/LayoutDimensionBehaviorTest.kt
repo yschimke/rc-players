@@ -21,15 +21,18 @@ package ee.schimke.composeai.rcembedded.player.modifier
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionConstraintsModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.HeightModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.WidthModifierOperation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -100,8 +103,10 @@ class LayoutDimensionBehaviorTest {
   private fun assertMeasuredWidth(expected: Int, childModifier: @Composable () -> Modifier) {
     val measuredWidth = AtomicInteger()
     composeRule.setContent {
-      Box(Modifier.size(100.dp, 50.dp)) {
-        Box(childModifier().onSizeChanged { measuredWidth.set(it.width) })
+      CompositionLocalProvider(LocalCoreDocument provides CoreDocument()) {
+        Box(Modifier.size(100.dp, 50.dp)) {
+          Box(childModifier().onSizeChanged { measuredWidth.set(it.width) })
+        }
       }
     }
     composeRule.waitForIdle()
@@ -111,8 +116,10 @@ class LayoutDimensionBehaviorTest {
   private fun assertMeasuredHeight(expected: Int, childModifier: @Composable () -> Modifier) {
     val measuredHeight = AtomicInteger()
     composeRule.setContent {
-      Box(Modifier.size(50.dp, 100.dp)) {
-        Box(childModifier().onSizeChanged { measuredHeight.set(it.height) })
+      CompositionLocalProvider(LocalCoreDocument provides CoreDocument()) {
+        Box(Modifier.size(50.dp, 100.dp)) {
+          Box(childModifier().onSizeChanged { measuredHeight.set(it.height) })
+        }
       }
     }
     composeRule.waitForIdle()

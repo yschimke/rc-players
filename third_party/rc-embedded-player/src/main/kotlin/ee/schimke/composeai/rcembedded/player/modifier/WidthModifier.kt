@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionConstraintsModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.WidthInModifierOperation
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
 import ee.schimke.composeai.rcembedded.player.dimensionConstraintsType
 import ee.schimke.composeai.rcembedded.player.dimensionInRawValues
 import ee.schimke.composeai.rcembedded.player.dimensionRawValue
@@ -71,13 +73,22 @@ internal fun Modifier.width(op: WidthModifierOperation): Modifier {
 
 @Composable
 internal fun Modifier.widthIn(op: WidthInModifierOperation): Modifier {
+  val density = LocalDensity.current.density
+  val behavior = LocalCoreDocument.current.densityBehavior
   val (minSource, maxSource) = dimensionInRawValues(op)
-  val widthMinDp = rememberRemoteFloatAsState(minSource).value.constraintSourceToDp()
-  val widthMaxDp = rememberRemoteFloatAsState(maxSource).value.constraintSourceToDp()
+  val widthMinDp =
+    rememberRemoteFloatAsState(minSource).value.constraintDimensionToDp(behavior, density)
+  val widthMaxDp =
+    rememberRemoteFloatAsState(maxSource).value.constraintDimensionToDp(behavior, density)
   return this.widthIn(widthMinDp, widthMaxDp)
 }
 
-internal fun Float.constraintSourceToDp(): Dp = if (this == -1f) Dp.Unspecified else this.dp
+internal fun Float.constraintDimensionToDp(behavior: Int, density: Float): Dp =
+  when {
+    this == -1f -> Dp.Unspecified
+    behavior == CoreDocument.DENSITY_BEHAVIOR_PIXELS -> (this / density).dp
+    else -> this.dp
+  }
 
 /**
  * Maps a [DimensionConstraintsModifierOperation] (emitted by `widthIn`/`heightIn`) to a Compose
@@ -87,9 +98,11 @@ internal fun Float.constraintSourceToDp(): Dp = if (this == -1f) Dp.Unspecified 
  */
 @Composable
 internal fun Modifier.dimensionConstraints(op: DimensionConstraintsModifierOperation): Modifier {
+  val density = LocalDensity.current.density
+  val behavior = LocalCoreDocument.current.densityBehavior
   val (minSource, maxSource) = dimensionInRawValues(op)
-  val minDp = rememberRemoteFloatAsState(minSource).value.constraintSourceToDp()
-  val maxDp = rememberRemoteFloatAsState(maxSource).value.constraintSourceToDp()
+  val minDp = rememberRemoteFloatAsState(minSource).value.constraintDimensionToDp(behavior, density)
+  val maxDp = rememberRemoteFloatAsState(maxSource).value.constraintDimensionToDp(behavior, density)
   return when (dimensionConstraintsType(op)) {
     DimensionConstraintsModifierOperation.HORIZONTAL_CONSTRAINTS -> this.widthIn(minDp, maxDp)
     DimensionConstraintsModifierOperation.REQUIRED_HORIZONTAL_CONSTRAINTS ->

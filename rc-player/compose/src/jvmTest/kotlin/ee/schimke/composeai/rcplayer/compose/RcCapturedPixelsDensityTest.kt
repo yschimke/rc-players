@@ -21,40 +21,24 @@ import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import java.io.File
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.jetbrains.skia.Bitmap
 
-/**
- * Padding is in **pixels** whatever the document's density behavior says, so the player insets by
- * the value on the wire and never multiplies it by the display density (#4749). The CMP twin
- * of #4727, and the same shape as the rounded-clip doubling `RcRoundedClipDensityTest` pins.
- *
- * As there, both tests exist because the bug was invisible at density 1.0 — the density every other
- * unit test in this module renders at, which is why nothing caught it for as long as it was there.
- */
+/** Density-behavior coverage for padding and arrangement spacing. */
 class RcCapturedPixelsDensityTest {
 
   /**
-   * The measurement, off a real document rather than by inspection.
-   *
-   * `AppCardRemote-640x480` declares `DENSITY_BEHAVIOR_DP` at a generation density of 2.0, and its
-   * padding edges are literal `24f` — a 12dp card inset with the density already folded in, beside
-   * the `52f` clip corners of the same 26dp card. `remote-creation-compose` writes both through
-   * `RemoteDp.toPx()` at capture, so both already scale with density and scaling either again is
-   * pure doubling.
-   *
-   * #4727 read the same edge off the live op at both densities, on `RemoteCompactButton`'s 8dp
-   * inset: `8` at density 1.0 and `16` at density 2.0.
-   *
-   * If a future capture changes what a DP document carries here, this fails first and the
-   * pass-through in `RcComposePlayer` has to be re-established rather than assumed.
+   * Historical alpha18 documents encoded DP-behavior padding as already-scaled pixels. Alpha19
+   * corrected that writer behavior without a wire-version discriminator, so retain this fixture as
+   * evidence of the old bytes rather than as the current playback contract.
    */
   @OptIn(ExperimentalEncodingApi::class)
   @Test
-  fun theEdgesOnTheWireAlreadyCarryTheGenerationDensity() {
+  fun alpha18FixtureEdgesCarryTheGenerationDensity() {
     val bytes =
       checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$APP_CARD_FIXTURE")) {
           "missing fixture /rc-fixtures/$APP_CARD_FIXTURE"
@@ -72,42 +56,27 @@ class RcCapturedPixelsDensityTest {
     assertEquals(listOf(listOf(24f, 24f, 24f, 24f)), edges)
   }
 
-  /**
-   * The regression, in the shape that renders it.
-   *
-   * Both boxes FILL, so the only thing setting the white box's edge is the 20px inset — no dp-typed
-   * size modifier is in play to move it, which is what makes the correct answer the same physical
-   * pixel at every density. With the old `* density` the inset became 40px at density 2.0 and the
-   * white box's edge walked inward, taking (21, 50) with it.
-   */
+  /** Current DP-behavior documents scale their raw padding values at playback density. */
   @Test
-  fun aDpDocumentInsetsByTheSamePaddingAtEveryDensity() {
+  fun aDpDocumentScalesPaddingWithPlaybackDensity() {
     for (density in listOf(1f, 2f)) {
-      assertEquals(0, colorAt(19, 50, Density(density)), "outside the inset at density $density")
-      assertEquals(WHITE, colorAt(21, 50, Density(density)), "inside the inset at density $density")
-      assertEquals(WHITE, colorAt(50, 21, Density(density)), "top edge at density $density")
-      assertEquals(0, colorAt(50, 19, Density(density)), "above the top edge at density $density")
+      val edge = (INSET * density).toInt()
+      assertEquals(0, colorAt(edge - 1, 50, Density(density)), "outside at density $density")
+      assertEquals(WHITE, colorAt(edge + 1, 50, Density(density)), "inside at density $density")
+      assertEquals(WHITE, colorAt(50, edge + 1, Density(density)), "top at density $density")
+      assertEquals(0, colorAt(50, edge - 1, Density(density)), "above at density $density")
     }
   }
 
-  /**
-   * The `spacedBy` gap is the same field written the same way, and moves for the same reason.
-   *
-   * `WatchScreenRemote`'s `RemoteArrangement.spacedBy(8.rdp)` is on the wire as `16` at a
-   * generation density of 2.0, and `ButtonGroupRemote`'s 4dp gap as `8` — the doubling #4731
-   * recorded as "RemoteButtonGroup's 4dp gap rendering at 8dp".
-   *
-   * Both children are weighted and the column FILLs, so the gap is the only thing setting their
-   * edges — no dp-typed size modifier is in play to move them. Measured, the 100px column lays out
-   * as white [0, 40), the 20px gap [40, 60), white [60, 100) at both densities. Doubling the gap to
-   * 40 shrinks each child to 30 and empties the rows at y = 39 and y = 60.
-   */
+  /** Arrangement spacing follows the same DP-behavior rule as padding. */
   @Test
-  fun aDpDocumentGapsByTheSameSpacedByAtEveryDensity() {
+  fun aDpDocumentScalesSpacedByWithPlaybackDensity() {
     for (density in listOf(1f, 2f)) {
+      val gap = (INSET * density).toInt()
+      val child = (SIZE - gap) / 2
       assertEquals(
         WHITE,
-        colorAt(50, 39, Density(density), spacedColumn()),
+        colorAt(50, child - 1, Density(density), spacedColumn()),
         "the first weight ends at the gap at density $density",
       )
       assertEquals(
@@ -117,9 +86,25 @@ class RcCapturedPixelsDensityTest {
       )
       assertEquals(
         WHITE,
-        colorAt(50, 60, Density(density), spacedColumn()),
+        colorAt(50, child + gap, Density(density), spacedColumn()),
         "the second weight begins after a 20px gap at density $density",
       )
+    }
+  }
+
+  /** Writes PR evidence when explicitly requested; ordinary test runs remain side-effect free. */
+  @Test
+  fun writeDpPaddingEvidence() {
+    val directory = System.getenv("RC_LAYOUT_EVIDENCE_DIR")?.let(::File) ?: return
+    directory.mkdirs()
+    val scene =
+      ImageComposeScene(width = SIZE, height = SIZE, density = Density(2f)) {
+        RcComposePlayer(paddedBoxes())
+      }
+    try {
+      directory.resolve("dp-padding.png").writeBytes(scene.render().encodeToData()!!.bytes)
+    } finally {
+      scene.close()
     }
   }
 

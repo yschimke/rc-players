@@ -62,6 +62,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -1348,6 +1349,65 @@ class RcLayoutRenderTest {
       scene.close()
     }
   }
+
+  @Test
+  fun graphicsLayerUsesTheComposeCenterPivotWhenOriginIsAbsent() {
+    val red = 0xffff0000.toInt()
+    val document = centerPivotDocument()
+    val scene =
+      ImageComposeScene(width = 40, height = 30, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 30) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(red, bitmap.getColor(5, 5))
+      assertEquals(0, bitmap.getColor(25, 5))
+    } finally {
+      scene.close()
+    }
+  }
+
+  /** Writes PR evidence when explicitly requested; ordinary test runs remain side-effect free. */
+  @Test
+  fun writeGraphicsPivotEvidence() {
+    val directory = System.getenv("RC_LAYOUT_EVIDENCE_DIR")?.let(::File) ?: return
+    directory.mkdirs()
+    val scene =
+      ImageComposeScene(width = 40, height = 30, density = Density(1f)) {
+        RcComposePlayer(centerPivotDocument())
+      }
+    try {
+      directory.resolve("graphics-pivot.png").writeBytes(scene.render().encodeToData()!!.bytes)
+    } finally {
+      scene.close()
+    }
+  }
+
+  private fun centerPivotDocument() =
+    RcDocument(
+      RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 30, modern = false),
+      listOf(
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcCanvasLayout(3, 30),
+        width(20f),
+        height(10f),
+        RcGraphicsLayerModifier(
+          listOf(
+            RcGraphicsLayerAttribute.FloatValue(
+              RcGraphicsLayerModifier.ROTATION_Z,
+              RcFloatWord.literal(180f),
+            )
+          )
+        ),
+        solidBackground(1f, 0f, 0f),
+        RcNoArg(RcOpcodes.CONTAINER_END),
+        RcNoArg(RcOpcodes.CONTAINER_END),
+        RcNoArg(RcOpcodes.CONTAINER_END),
+      ),
+    )
 
   @Test
   fun imageLayoutScalesInlineBitmapIntoMeasuredBounds() {

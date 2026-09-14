@@ -26,7 +26,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.operations.layout.Component
+import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.compose.remote.core.operations.layout.managers.FitBoxLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,13 +37,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastMap
 import androidx.compose.ui.util.fastMaxOfOrNull
 import ee.schimke.composeai.rcembedded.player.LocalAnimatedVisibilityScope
+import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.LocalSharedTransitionScope
 import ee.schimke.composeai.rcembedded.player.RcPlayerComponent
 import ee.schimke.composeai.rcembedded.player.animationSpecReflection
@@ -54,6 +56,7 @@ import ee.schimke.composeai.rcembedded.player.verticalPositioningReflection
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun RcPlayerFitBoxLayout(layout: FitBoxLayout, modifier: Modifier) {
+  val remoteContext = LocalRemoteContext.current
   val children = remember(layout) { ArrayList<Component>().apply { layout.getComponents(this) } }
   if (children.isEmpty()) {
     Box(modifier = modifier)
@@ -78,21 +81,27 @@ internal fun RcPlayerFitBoxLayout(layout: FitBoxLayout, modifier: Modifier) {
         }
       }
 
-    // Measured, not asked. Compose refuses intrinsic queries against anything built on
-    // `SubcomposeLayout` — "Asking for intrinsic measurements of SubcomposeLayout layouts is not
-    // supported" — and that is not an exotic child here: a `FitBox` alternative may itself be a
-    // `FitBox`, and any plugin backed by a lazy layout is in the same class. Such a document threw
-    // during measurement instead of drawing at all. Measuring each alternative under unconstrained
-    // constraints asks the same question — how big does this one want to be? — of every child
-    // whatever it is built from, which is what this layout did before the intrinsics rewrite.
+    // Measured, not asked through Compose intrinsics. Compose refuses intrinsic queries against
+    // anything built on SubcomposeLayout, including a nested FitBox. Bound the probes by the
+    // parent's maximums, then use remote-core's component intrinsics to reject an exact-size
+    // candidate that Compose had to clamp to fit.
     //
     // The probe slot is never placed, so these placeables are measurements and nothing else.
-    val probePlaceables = probeMeasurables.fastMap { it.measure(Constraints()) }
+    val childConstraints = constraints.copy(minWidth = 0, minHeight = 0)
+    val probePlaceables = probeMeasurables.fastMap { it.measure(childConstraints) }
 
     var chosen = -1
     for (i in probePlaceables.indices) {
       val placeable = probePlaceables[i]
-      if (placeable.width <= maxWidth && placeable.height <= maxHeight) {
+      val component = children[i]
+      val childMinWidth = candidateMinIntrinsicWidth(component, remoteContext)
+      val childMinHeight = candidateMinIntrinsicHeight(component, remoteContext)
+      if (
+        childMinWidth <= maxWidth &&
+          childMinHeight <= maxHeight &&
+          placeable.width <= maxWidth &&
+          placeable.height <= maxHeight
+      ) {
         chosen = i
         break
       }
@@ -147,3 +156,29 @@ private fun mapFitBoxAlignment(horizontal: Int, vertical: Int): Alignment =
     vertical == FitBoxLayout.BOTTOM -> Alignment.BottomCenter
     else -> Alignment.Center
   }
+
+private fun candidateMinIntrinsicWidth(
+  component: Component,
+  remoteContext: RemoteContext,
+): Float {
+  if (component is LayoutComponent) {
+    val widthModifier = component.widthModifier
+    if (widthModifier != null && widthModifier.isExact) {
+      return component.computeModifierDefinedWidth(remoteContext, true)
+    }
+  }
+  return component.minIntrinsicWidth(remoteContext)
+}
+
+private fun candidateMinIntrinsicHeight(
+  component: Component,
+  remoteContext: RemoteContext,
+): Float {
+  if (component is LayoutComponent) {
+    val heightModifier = component.heightModifier
+    if (heightModifier != null && heightModifier.isExact) {
+      return component.computeModifierDefinedHeight(remoteContext, true)
+    }
+  }
+  return component.minIntrinsicHeight(remoteContext)
+}

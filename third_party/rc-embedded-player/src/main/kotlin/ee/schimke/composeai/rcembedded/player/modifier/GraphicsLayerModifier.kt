@@ -21,6 +21,7 @@ package ee.schimke.composeai.rcembedded.player.modifier
 import androidx.compose.remote.core.operations.layout.modifiers.GraphicsLayerModifierOperation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import ee.schimke.composeai.rcembedded.player.getValuesReflection
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
@@ -45,6 +46,12 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
     rememberRemoteFloatAsState(values[GraphicsLayerModifierOperation.ROTATION_Y].source).value
   val rotationZ =
     rememberRemoteFloatAsState(values[GraphicsLayerModifierOperation.ROTATION_Z].source).value
+  val transformOriginX =
+    rememberRemoteFloatAsState(values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_X].source)
+      .value
+  val transformOriginY =
+    rememberRemoteFloatAsState(values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_Y].source)
+      .value
   val cameraDistance =
     rememberRemoteFloatAsState(values[GraphicsLayerModifierOperation.CAMERA_DISTANCE].source).value
 
@@ -58,6 +65,7 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
     this.rotationX = rotationX
     this.rotationY = rotationY
     this.rotationZ = rotationZ
+    this.transformOrigin = TransformOrigin(transformOriginX, transformOriginY)
     this.cameraDistance = cameraDistance
   }
 }

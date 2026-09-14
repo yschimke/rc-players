@@ -151,7 +151,8 @@ internal fun isExpressionTimeDependent(expression: FloatExpression): Boolean =
         RemoteContext.ID_TIME_IN_SEC,
         RemoteContext.ID_TIME_IN_MIN,
         RemoteContext.ID_TIME_IN_HR,
-        RemoteContext.ID_EPOCH_SECOND -> true
+        RemoteContext.ID_EPOCH_SECOND,
+        RemoteContext.ID_ANIMATION_TIME -> true
         else -> false
       }
     }
