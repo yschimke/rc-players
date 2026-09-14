@@ -57,7 +57,7 @@ androidx-tracing-kmp = "2.0.2"
 # release line. See https://developer.android.com/develop/ui/compose/bom/bom-mapping
 # Renovate is constrained to the 2025.11.x line in `.github/renovate.json` —
 # raising the supported-Compose-minimum is a manual decision.
-compose-bom-compat = "2025.11.01"
+compose-bom-compat = "2025.12.01"
 # The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP
 # player. This version is also a CEILING CONSTRAINT ON EVERY CATALOG THE SERVE HOST RENDERS LIVE:
 # it must be >= the newest `compose-multiplatform` of any catalog served from this host. A catalog
@@ -126,7 +126,7 @@ wear = "1.4.0"
 #    `RemotePreview` became `RemoteContentPreview`; `RemoteDensity.from` dropped
 #    its trailing `Context` arg. Expect the same class of fix when these pins
 #    move — verify a render, not just a compile.
-compose-remote = "1.0.0-alpha18"
+compose-remote = "1.0.0-alpha19"
 # Matches what the `compose-bom-compat` Compose artifacts already resolve collection to; pinned
 # explicitly because `:third-party-rc-embedded-player` names `ObjectIntMap`/`IntObjectMap` directly.
 androidx-collection = "1.6.0"
