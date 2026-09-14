@@ -156,6 +156,160 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNamedValuesKt {
 	public static final fun rememberRcNamedValues ([Lkotlin/Pair;Landroidx/compose/runtime/Composer;I)Landroidx/compose/runtime/snapshots/SnapshotStateMap;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot {
+	public static final field $stable I
+	public fun <init> (IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()Ljava/util/List;
+	public final fun copy (IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getHeight ()I
+	public final fun getNotes ()Ljava/util/List;
+	public final fun getRoot ()Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;
+	public final fun getUnsupportedOpcodes ()Ljava/util/List;
+	public final fun getWidth ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeDrawCommand {
+	public static final field $stable I
+	public static final field ARC I
+	public static final field CIRCLE I
+	public static final field CLIP_RECT I
+	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcNativeDrawCommand$Companion;
+	public static final field LINE I
+	public static final field OVAL I
+	public static final field RECT I
+	public static final field RESTORE I
+	public static final field ROTATE I
+	public static final field ROUND_RECT I
+	public static final field SAVE I
+	public static final field SCALE I
+	public static final field SECTOR I
+	public static final field SKEW I
+	public static final field TEXT I
+	public static final field TRANSLATE I
+	public fun <init> (IFFFFFFIFFZFFLjava/lang/String;)V
+	public synthetic fun <init> (IFFFFFFIFFZFFLjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component10 ()F
+	public final fun component11 ()Z
+	public final fun component12 ()F
+	public final fun component13 ()F
+	public final fun component14 ()Ljava/lang/String;
+	public final fun component2 ()F
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun component5 ()F
+	public final fun component6 ()F
+	public final fun component7 ()F
+	public final fun component8 ()I
+	public final fun component9 ()F
+	public final fun copy (IFFFFFFIFFZFFLjava/lang/String;)Lee/schimke/composeai/rcplayer/compose/RcNativeDrawCommand;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcNativeDrawCommand;IFFFFFFIFFZFFLjava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeDrawCommand;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAlpha ()F
+	public final fun getColor ()I
+	public final fun getFifth ()F
+	public final fun getFirst ()F
+	public final fun getFourth ()F
+	public final fun getKind ()I
+	public final fun getSecond ()F
+	public final fun getSixth ()F
+	public final fun getStroke ()Z
+	public final fun getStrokeWidth ()F
+	public final fun getText ()Ljava/lang/String;
+	public final fun getTextSize ()F
+	public final fun getTextWeight ()F
+	public final fun getThird ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeDrawCommand$Companion {
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot {
+	public static final field $stable I
+	public static final field BOX I
+	public static final field CANVAS I
+	public static final field COLUMN I
+	public static final field CONTENT I
+	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot$Companion;
+	public static final field GROUP I
+	public static final field NONE I
+	public static final field ROOT I
+	public static final field ROW I
+	public static final field TEXT I
+	public fun <init> (IILjava/util/List;Ljava/util/List;IZZLjava/lang/String;IFIFFFFFFFZIIIF)V
+	public synthetic fun <init> (IILjava/util/List;Ljava/util/List;IZZLjava/lang/String;IFIFFFFFFFZIIIFILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component10 ()F
+	public final fun component11 ()I
+	public final fun component12 ()F
+	public final fun component13 ()F
+	public final fun component14 ()F
+	public final fun component15 ()F
+	public final fun component16 ()F
+	public final fun component17 ()F
+	public final fun component18 ()F
+	public final fun component19 ()Z
+	public final fun component2 ()I
+	public final fun component20 ()I
+	public final fun component21 ()I
+	public final fun component22 ()I
+	public final fun component23 ()F
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()I
+	public final fun component6 ()Z
+	public final fun component7 ()Z
+	public final fun component8 ()Ljava/lang/String;
+	public final fun component9 ()I
+	public final fun copy (IILjava/util/List;Ljava/util/List;IZZLjava/lang/String;IFIFFFFFFFZIIIF)Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;IILjava/util/List;Ljava/util/List;IZZLjava/lang/String;IFIFFFFFFFZIIIFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBackgroundColor ()I
+	public final fun getChildren ()Ljava/util/List;
+	public final fun getClickable ()Z
+	public final fun getCommands ()Ljava/util/List;
+	public final fun getComponentId ()I
+	public final fun getCornerRadius ()F
+	public final fun getEnabled ()Z
+	public final fun getHasBackground ()Z
+	public final fun getHeightType ()I
+	public final fun getHeightValue ()F
+	public final fun getHorizontalPositioning ()I
+	public final fun getKind ()I
+	public final fun getMinimumHeight ()F
+	public final fun getPaddingBottom ()F
+	public final fun getPaddingLeft ()F
+	public final fun getPaddingRight ()F
+	public final fun getPaddingTop ()F
+	public final fun getSemanticLabel ()Ljava/lang/String;
+	public final fun getSemanticRole ()I
+	public final fun getSpacing ()F
+	public final fun getVerticalPositioning ()I
+	public final fun getWidthType ()I
+	public final fun getWidthValue ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot$Companion {
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeSnapshotBridge {
+	public static final field $stable I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotBridge;
+	public final fun decode ([B)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcPlayerTheme : java/lang/Enum {
 	public static final field Dark Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;
 	public static final field Light Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;

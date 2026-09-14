@@ -12,6 +12,13 @@ enum PlayerAppearance: String, CaseIterable, Identifiable {
 
 }
 
+enum PlayerRenderer: String, CaseIterable, Identifiable {
+  case compose = "CMP"
+  case native = "Native POC"
+
+  var id: Self { self }
+}
+
 struct PlayerDocument: Identifiable, Hashable {
   let id: UUID
   let title: String
@@ -36,6 +43,7 @@ final class PlayerLibrary {
   var documents: [PlayerDocument] = []
   var selection: PlayerDocument.ID?
   var theme: PlayerAppearance = .system
+  var renderer: PlayerRenderer = .compose
   var background: RemoteComposePlayerBackground = .opaque
   var zoom = 1.0
   var isImporting = false
@@ -43,6 +51,9 @@ final class PlayerLibrary {
   private(set) var revision = 0
 
   init() {
+    if ProcessInfo.processInfo.arguments.contains("--native-player") {
+      renderer = .native
+    }
     let fixtures = [
       ("Title card", "Typography and card layout", "TitleCardRemote-640x480"),
       ("Progress", "Animated circular progress", "IndeterminateCircularProgress-400x400"),

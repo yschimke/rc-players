@@ -1,0 +1,657 @@
+package ee.schimke.composeai.rcplayer.compose
+
+import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
+import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
+import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
+import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcDraw3
+import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcDraw6
+import ee.schimke.composeai.rcplayer.protocol.RcDrawText
+import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
+import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
+import ee.schimke.composeai.rcplayer.protocol.RcIdOperation
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
+import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
+import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextLength
+import ee.schimke.composeai.rcplayer.protocol.RcTextLookup
+import ee.schimke.composeai.rcplayer.protocol.RcTextLookupInt
+import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
+import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
+import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
+import ee.schimke.composeai.rcplayer.protocol.RcTransform2
+import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
+import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
+
+/**
+ * Static, renderer-neutral snapshot used by the experimental native Apple player.
+ *
+ * This is intentionally a narrow bridge rather than a second wire decoder. Kotlin owns the mature
+ * codec and expression runtime for the POC; Swift receives immutable values and owns every view and
+ * drawing call. The bridge can disappear once a stable cross-language render IR is designed.
+ */
+public data class RcNativeDocumentSnapshot(
+  public val width: Int,
+  public val height: Int,
+  public val root: RcNativeNodeSnapshot,
+  public val unsupportedOpcodes: List<Int>,
+  public val notes: List<String>,
+)
+
+/** A component in the native player's platform-neutral view tree. */
+public data class RcNativeNodeSnapshot(
+  public val kind: Int,
+  public val componentId: Int,
+  public val commands: List<RcNativeDrawCommand>,
+  public val children: List<RcNativeNodeSnapshot>,
+  public val semanticRole: Int = NONE,
+  public val clickable: Boolean = false,
+  public val enabled: Boolean = true,
+  public val semanticLabel: String? = null,
+  public val widthType: Int = RcDimensionType.WRAP,
+  public val widthValue: Float = 0f,
+  public val heightType: Int = RcDimensionType.WRAP,
+  public val heightValue: Float = 0f,
+  public val minimumHeight: Float = 0f,
+  public val paddingLeft: Float = 0f,
+  public val paddingTop: Float = 0f,
+  public val paddingRight: Float = 0f,
+  public val paddingBottom: Float = 0f,
+  public val cornerRadius: Float = 0f,
+  public val hasBackground: Boolean = false,
+  public val backgroundColor: Int = 0,
+  public val horizontalPositioning: Int = 1,
+  public val verticalPositioning: Int = 4,
+  public val spacing: Float = 0f,
+) {
+  public companion object {
+    public const val NONE: Int = -1
+    public const val ROOT: Int = 0
+    public const val CONTENT: Int = 1
+    public const val CANVAS: Int = 2
+    public const val GROUP: Int = 3
+    public const val BOX: Int = 4
+    public const val ROW: Int = 5
+    public const val COLUMN: Int = 6
+    public const val TEXT: Int = 7
+  }
+}
+
+/** One Core Graphics-friendly command with resolved geometry and paint. */
+public data class RcNativeDrawCommand(
+  public val kind: Int,
+  public val first: Float = 0f,
+  public val second: Float = 0f,
+  public val third: Float = 0f,
+  public val fourth: Float = 0f,
+  public val fifth: Float = 0f,
+  public val sixth: Float = 0f,
+  public val color: Int = 0xff000000.toInt(),
+  public val alpha: Float = 1f,
+  public val strokeWidth: Float = 1f,
+  public val stroke: Boolean = false,
+  public val textSize: Float = 16f,
+  public val textWeight: Float = 400f,
+  public val text: String? = null,
+) {
+  public companion object {
+    public const val SAVE: Int = 0
+    public const val RESTORE: Int = 1
+    public const val TRANSLATE: Int = 2
+    public const val SCALE: Int = 3
+    public const val ROTATE: Int = 4
+    public const val SKEW: Int = 5
+    public const val CLIP_RECT: Int = 6
+    public const val RECT: Int = 10
+    public const val OVAL: Int = 11
+    public const val CIRCLE: Int = 12
+    public const val LINE: Int = 13
+    public const val ROUND_RECT: Int = 14
+    public const val ARC: Int = 15
+    public const val SECTOR: Int = 16
+    public const val TEXT: Int = 17
+  }
+}
+
+/** Decode `.rc` bytes into the deliberately small immutable POC render model. */
+public object RcNativeSnapshotBridge {
+  @Throws(IllegalArgumentException::class)
+  public fun decode(bytes: ByteArray): RcNativeDocumentSnapshot {
+    val document = RcDocumentCodec.decode(bytes)
+    val state = RcPlayerState(document)
+    state.beginFrame(timeSeconds = 0f)
+    val unsupported = linkedSetOf<Int>()
+    val notes = linkedSetOf<String>()
+    val linked = RcDocumentLinker.link(document)
+    val paint = NativePaint()
+    val styles =
+      document.operations
+        .filterIsInstance<RcTextStyle>()
+        .mapNotNull { style -> style.styleId?.let { it to style } }
+        .toMap()
+
+    fun resolveStyle(styleId: Int, visiting: MutableSet<Int>): List<RcTextStyleProperty> {
+      require(visiting.add(styleId)) { "Cyclic TextStyle parent at id $styleId" }
+      val style = requireNotNull(styles[styleId]) { "Missing TextStyle id $styleId" }
+      val merged = linkedMapOf<Int, RcTextStyleProperty>()
+      style.parentStyleId
+        ?.takeUnless { it == -1 }
+        ?.let { resolveStyle(it, visiting).forEach { property -> merged[property.id] = property } }
+      style.properties
+        .filterNot { it.id == 1 || it.id == 2 || it.id == 23 || it.id == 24 }
+        .forEach { merged[it.id] = it }
+      visiting.remove(styleId)
+      return merged.values.toList()
+    }
+
+    fun resolvedStyle(operation: RcCoreText): List<RcTextStyleProperty> {
+      val merged = linkedMapOf<Int, RcTextStyleProperty>()
+      operation.textStyleId?.let { styleId ->
+        resolveStyle(styleId, linkedSetOf()).forEach { merged[it.id] = it }
+      }
+      operation.properties
+        .filterNot { it.id == 1 || it.id == 2 || it.id == 24 }
+        .forEach { merged[it.id] = it }
+      return merged.values.toList()
+    }
+
+    fun descendantOperations(container: RcLinkedNode.Container): Sequence<RcOperation> =
+      container.children.asSequence().flatMap { child ->
+        when (child) {
+          is RcLinkedNode.Container -> sequenceOf(child.operation) + descendantOperations(child)
+          is RcLinkedNode.Operation -> sequenceOf(child.operation)
+        }
+      }
+
+    fun nodeFor(container: RcLinkedNode.Container): RcNativeNodeSnapshot {
+      val operation = container.operation
+      val directOperations =
+        container.children.filterIsInstance<RcLinkedNode.Operation>().map { it.operation }
+      val semantics =
+        container.children
+          .filterIsInstance<RcLinkedNode.Operation>()
+          .map { it.operation }
+          .filterIsInstance<RcAccessibilitySemantics>()
+          .lastOrNull()
+      val hasClickModifier =
+        container.children.filterIsInstance<RcLinkedNode.Container>().any {
+          it.operation is RcClickModifier || it.operation is RcMultiClickModifier
+        }
+      val kind =
+        when (operation) {
+          is RcRootLayout -> RcNativeNodeSnapshot.ROOT
+          is RcLayoutContent -> RcNativeNodeSnapshot.CONTENT
+          is RcCanvasLayout,
+          is RcCanvasContent -> RcNativeNodeSnapshot.CANVAS
+          is RcBoxLayout -> RcNativeNodeSnapshot.BOX
+          is RcRowLayout -> RcNativeNodeSnapshot.ROW
+          is RcColumnLayout -> RcNativeNodeSnapshot.COLUMN
+          is RcTextLayout,
+          is RcCoreText -> RcNativeNodeSnapshot.TEXT
+          else -> RcNativeNodeSnapshot.GROUP
+        }
+      val componentId =
+        when (operation) {
+          is RcRootLayout -> operation.componentId
+          is RcLayoutContent -> operation.componentId
+          is RcCanvasLayout -> operation.componentId
+          is RcCanvasContent -> operation.componentId
+          is RcBoxLayout -> operation.componentId
+          is RcRowLayout -> operation.componentId
+          is RcColumnLayout -> operation.componentId
+          is RcTextLayout -> operation.componentId
+          is RcCoreText -> operation.componentId
+          else -> 0
+        }
+      val commands = mutableListOf<RcNativeDrawCommand>()
+      if (operation is RcTextLayout) {
+        val size = state.resolve(operation.fontSize) / document.header.density
+        val color =
+          if (operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) state.color(operation.color)
+          else operation.color
+        commands +=
+          NativePaint(color = color, textSize = size)
+            .command(
+              RcNativeDrawCommand.TEXT,
+              values = listOf(0f, size, -1f, -1f),
+              text = state.text(operation.textId).orEmpty(),
+            )
+        notes += "Text layout geometry and shaping are approximate in the native POC"
+      } else if (operation is RcCoreText) {
+        val properties = resolvedStyle(operation)
+        val size =
+          properties
+            .filterIsInstance<RcTextStyleProperty.FloatValue>()
+            .lastOrNull { it.id == 5 }
+            ?.value
+            ?.let(state::resolve)
+            ?.div(document.header.density) ?: 36f
+        val weight =
+          properties
+            .filterIsInstance<RcTextStyleProperty.FloatValue>()
+            .lastOrNull { it.id == 7 }
+            ?.value
+            ?.let(state::resolve) ?: 400f
+        val literalColor =
+          properties
+            .filterIsInstance<RcTextStyleProperty.IntValue>()
+            .lastOrNull { it.id == 3 }
+            ?.value ?: 0xff000000.toInt()
+        val colorId =
+          properties
+            .filterIsInstance<RcTextStyleProperty.IntValue>()
+            .lastOrNull { it.id == 4 }
+            ?.value ?: -1
+        commands +=
+          NativePaint(
+              color = if (colorId == -1) literalColor else state.color(colorId),
+              textSize = size,
+            )
+            .command(
+              RcNativeDrawCommand.TEXT,
+              values = listOf(0f, size, -1f, -1f),
+              text = state.text(operation.textId).orEmpty(),
+              textWeight = weight,
+            )
+        notes += "CoreText layout geometry and shaping are approximate in the native POC"
+      } else if (
+        operation !is RcRootLayout &&
+          operation !is RcLayoutContent &&
+          operation !is RcCanvasLayout &&
+          operation !is RcCanvasContent &&
+          operation !is RcClickModifier &&
+          operation !is RcMultiClickModifier
+      ) {
+        unsupported += operation.opcode
+      }
+      val children = mutableListOf<RcNativeNodeSnapshot>()
+      for (child in container.children) {
+        when (child) {
+          is RcLinkedNode.Container -> children += nodeFor(child)
+          is RcLinkedNode.Operation ->
+            consume(child.operation, state, paint, commands, unsupported, notes)
+        }
+      }
+      val clickable = semantics?.clickable == true || hasClickModifier
+      val label =
+        semantics
+          ?.let { state.text(it.contentDescriptionId) ?: state.text(it.textId) }
+          ?.takeUnless(String::isBlank)
+      val width = directOperations.filterIsInstance<RcWidthModifier>().lastOrNull()
+      val height = directOperations.filterIsInstance<RcHeightModifier>().lastOrNull()
+      val minimumHeight =
+        directOperations
+          .filterIsInstance<RcHeightInModifier>()
+          .lastOrNull()
+          ?.minimum
+          ?.let(state::resolve)
+          ?.div(document.header.density) ?: 0f
+      val padding =
+        directOperations.filterIsInstance<RcPaddingModifier>().fold(FloatArray(4)) {
+          result,
+          modifier ->
+          result[0] += state.resolve(modifier.left) / document.header.density
+          result[1] += state.resolve(modifier.top) / document.header.density
+          result[2] += state.resolve(modifier.right) / document.header.density
+          result[3] += state.resolve(modifier.bottom) / document.header.density
+          result
+        }
+      val cornerRadius =
+        directOperations.filterIsInstance<RcRoundedClipRectModifier>().lastOrNull()?.let { modifier
+          ->
+          maxOf(
+            state.resolve(modifier.topStart) / document.header.density,
+            state.resolve(modifier.topEnd) / document.header.density,
+            state.resolve(modifier.bottomStart) / document.header.density,
+            state.resolve(modifier.bottomEnd) / document.header.density,
+          )
+        } ?: 0f
+      val hasDrawContent =
+        directOperations.filterIsInstance<RcNoArg>().any {
+          it.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT
+        }
+      val backgroundPaint =
+        if (hasDrawContent) {
+          descendantOperations(container).filterIsInstance<RcPaintData>().firstOrNull()?.let {
+            NativePaint().also { paint -> applyPaint(it, state, paint, notes) }
+          }
+        } else null
+      return RcNativeNodeSnapshot(
+        kind = kind,
+        componentId = componentId,
+        commands = commands,
+        children = children,
+        semanticRole =
+          semantics?.role
+            ?: if (clickable) RcAccessibilitySemantics.ROLE_BUTTON else RcNativeNodeSnapshot.NONE,
+        clickable = clickable,
+        enabled = semantics?.enabled ?: true,
+        semanticLabel = label,
+        widthType = width?.type ?: RcDimensionType.WRAP,
+        widthValue =
+          width?.let {
+            state.resolve(it.value) /
+              if (it.type == RcDimensionType.EXACT_DP) document.header.density else 1f
+          } ?: 0f,
+        heightType = height?.type ?: RcDimensionType.WRAP,
+        heightValue =
+          height?.let {
+            state.resolve(it.value) /
+              if (it.type == RcDimensionType.EXACT_DP) document.header.density else 1f
+          } ?: 0f,
+        minimumHeight = minimumHeight,
+        paddingLeft = padding[0],
+        paddingTop = padding[1],
+        paddingRight = padding[2],
+        paddingBottom = padding[3],
+        cornerRadius = cornerRadius,
+        hasBackground = backgroundPaint != null,
+        backgroundColor = backgroundPaint?.color ?: 0,
+        horizontalPositioning =
+          when (operation) {
+            is RcBoxLayout -> operation.horizontalPositioning
+            is RcRowLayout -> operation.horizontalPositioning
+            is RcColumnLayout -> operation.horizontalPositioning
+            else -> 1
+          },
+        verticalPositioning =
+          when (operation) {
+            is RcBoxLayout -> operation.verticalPositioning
+            is RcRowLayout -> operation.verticalPositioning
+            is RcColumnLayout -> operation.verticalPositioning
+            else -> 4
+          },
+        spacing =
+          when (operation) {
+            is RcRowLayout -> state.resolve(operation.spacedBy) / document.header.density
+            is RcColumnLayout -> state.resolve(operation.spacedBy) / document.header.density
+            else -> 0f
+          },
+      )
+    }
+
+    val rootCommands = mutableListOf<RcNativeDrawCommand>()
+    val rootChildren = mutableListOf<RcNativeNodeSnapshot>()
+    for (node in linked.operations) {
+      when (node) {
+        is RcLinkedNode.Container -> rootChildren += nodeFor(node)
+        is RcLinkedNode.Operation ->
+          consume(node.operation, state, paint, rootCommands, unsupported, notes)
+      }
+    }
+    return RcNativeDocumentSnapshot(
+      width = document.header.width,
+      height = document.header.height,
+      root =
+        RcNativeNodeSnapshot(
+          RcNativeNodeSnapshot.ROOT,
+          componentId = 0,
+          commands = rootCommands,
+          children = rootChildren,
+        ),
+      unsupportedOpcodes = unsupported.toList(),
+      notes = notes.toList(),
+    )
+  }
+
+  private fun consume(
+    operation: RcOperation,
+    state: RcPlayerState,
+    paint: NativePaint,
+    commands: MutableList<RcNativeDrawCommand>,
+    unsupported: MutableSet<Int>,
+    notes: MutableSet<String>,
+  ) {
+    when (operation) {
+      is RcAccessibilitySemantics -> Unit
+      is RcPaintData -> applyPaint(operation, state, paint, notes)
+      is RcFloatExpression -> state.applyFloatExpression(operation)
+      is RcIntegerExpression -> state.applyIntegerExpression(operation)
+      is RcColorExpression -> state.applyColorExpression(operation)
+      is RcTextMerge,
+      is RcTextLength,
+      is RcTextSubtext,
+      is RcTextTransform,
+      is RcTextFromFloat,
+      is RcTextLookup,
+      is RcTextLookupInt -> state.applyTextOperation(operation)
+      is RcDraw4 -> {
+        val values =
+          listOf(operation.first, operation.second, operation.third, operation.fourth)
+            .map(state::resolve)
+        val kind =
+          when (operation.opcode) {
+            RcOpcodes.DRAW_RECT -> RcNativeDrawCommand.RECT
+            RcOpcodes.DRAW_OVAL -> RcNativeDrawCommand.OVAL
+            RcOpcodes.DRAW_LINE -> RcNativeDrawCommand.LINE
+            RcOpcodes.CLIP_RECT -> RcNativeDrawCommand.CLIP_RECT
+            RcOpcodes.MATRIX_SCALE -> RcNativeDrawCommand.SCALE
+            else -> null
+          }
+        if (kind == null) unsupported += operation.opcode
+        else commands += paint.command(kind, values)
+      }
+      is RcDraw3 -> {
+        val values = listOf(operation.first, operation.second, operation.third).map(state::resolve)
+        val kind =
+          when (operation.opcode) {
+            RcOpcodes.DRAW_CIRCLE -> RcNativeDrawCommand.CIRCLE
+            RcOpcodes.MATRIX_ROTATE -> RcNativeDrawCommand.ROTATE
+            else -> null
+          }
+        if (kind == null) unsupported += operation.opcode
+        else commands += paint.command(kind, values)
+      }
+      is RcDraw6 -> {
+        val values =
+          listOf(
+              operation.first,
+              operation.second,
+              operation.third,
+              operation.fourth,
+              operation.fifth,
+              operation.sixth,
+            )
+            .map(state::resolve)
+        val kind =
+          when (operation.opcode) {
+            RcOpcodes.DRAW_ROUND_RECT -> RcNativeDrawCommand.ROUND_RECT
+            RcOpcodes.DRAW_ARC -> RcNativeDrawCommand.ARC
+            RcOpcodes.DRAW_SECTOR -> RcNativeDrawCommand.SECTOR
+            else -> null
+          }
+        if (kind == null) unsupported += operation.opcode
+        else commands += paint.command(kind, values)
+      }
+      is RcTransform2 -> {
+        val kind =
+          when (operation.opcode) {
+            RcOpcodes.MATRIX_TRANSLATE -> RcNativeDrawCommand.TRANSLATE
+            RcOpcodes.MATRIX_SKEW -> RcNativeDrawCommand.SKEW
+            else -> null
+          }
+        if (kind == null) unsupported += operation.opcode
+        else
+          commands +=
+            paint.command(
+              kind,
+              listOf(state.resolve(operation.first), state.resolve(operation.second)),
+            )
+      }
+      is RcNoArg ->
+        when (operation.opcode) {
+          RcOpcodes.MATRIX_SAVE -> commands += paint.command(RcNativeDrawCommand.SAVE)
+          RcOpcodes.MATRIX_RESTORE -> commands += paint.command(RcNativeDrawCommand.RESTORE)
+        }
+      is RcDrawText -> {
+        val fullText = state.text(operation.textId).orEmpty()
+        val start = operation.start.coerceIn(0, fullText.length)
+        val end = operation.end.coerceIn(start, fullText.length)
+        commands +=
+          paint.command(
+            RcNativeDrawCommand.TEXT,
+            listOf(state.resolve(operation.x), state.resolve(operation.y)),
+            fullText.substring(start, end),
+          )
+      }
+      is RcDrawTextAnchored -> {
+        val text = state.text(operation.textId).orEmpty()
+        commands +=
+          paint.command(
+            RcNativeDrawCommand.TEXT,
+            listOf(
+              state.resolve(operation.x),
+              state.resolve(operation.y),
+              state.resolve(operation.panX),
+              state.resolve(operation.panY),
+            ),
+            text,
+          )
+      }
+      is RcIdOperation -> unsupported += operation.opcode
+      else -> {
+        // Data declarations and layout metadata are already represented in state or the node tree.
+        if (operation.opcode in DRAWING_OR_BEHAVIOR_OPCODES) unsupported += operation.opcode
+      }
+    }
+  }
+
+  private fun applyPaint(
+    operation: RcPaintData,
+    state: RcPlayerState,
+    paint: NativePaint,
+    notes: MutableSet<String>,
+  ) {
+    var index = 0
+    while (index < operation.words.size) {
+      val command = operation.words[index++]
+      val type = command and 0xffff
+      val argumentCount =
+        when (type) {
+          1,
+          4,
+          5,
+          9,
+          12,
+          13,
+          16,
+          19,
+          20 -> 1
+          7,
+          8,
+          10,
+          14,
+          15,
+          17,
+          18,
+          21 -> 0
+          23 -> (command ushr 16) * 2
+          else -> {
+            notes += "Paint command $type is not represented by the native POC"
+            return
+          }
+        }
+      require(index + argumentCount <= operation.words.size) { "Paint command $type is truncated" }
+      when (type) {
+        1 -> paint.textSize = state.resolveWord(operation.words[index++])
+        4 -> paint.color = operation.words[index++]
+        5 -> paint.strokeWidth = state.resolveWord(operation.words[index++])
+        8 -> paint.stroke = command ushr 16 == 1
+        12 -> paint.alpha = state.resolveWord(operation.words[index++]).coerceIn(0f, 1f)
+        19 -> paint.color = state.color(operation.words[index++])
+        7,
+        10,
+        14,
+        15,
+        17,
+        21 -> Unit
+        18 -> notes += "Blend mode ${command ushr 16} is not represented by the native POC"
+        16 -> {
+          paint.fontStyle = command ushr 16
+          paint.fontType = operation.words[index++]
+        }
+        23 -> {
+          if (argumentCount > 0) notes += "Font axes are not represented by the native POC"
+          index += argumentCount
+        }
+        else -> {
+          notes += "Paint command $type is not represented by the native POC"
+          index += argumentCount
+        }
+      }
+    }
+  }
+
+  private fun RcPlayerState.resolveWord(bits: Int): Float =
+    resolve(ee.schimke.composeai.rcplayer.protocol.RcFloatWord(bits))
+
+  private data class NativePaint(
+    var color: Int = 0xff000000.toInt(),
+    var alpha: Float = 1f,
+    var strokeWidth: Float = 1f,
+    var stroke: Boolean = false,
+    var textSize: Float = 16f,
+    var fontType: Int = 0,
+    var fontStyle: Int = 0,
+  ) {
+    fun command(
+      kind: Int,
+      values: List<Float> = emptyList(),
+      text: String? = null,
+      textWeight: Float = 400f,
+    ) =
+      RcNativeDrawCommand(
+        kind = kind,
+        first = values.getOrElse(0) { 0f },
+        second = values.getOrElse(1) { 0f },
+        third = values.getOrElse(2) { 0f },
+        fourth = values.getOrElse(3) { 0f },
+        fifth = values.getOrElse(4) { 0f },
+        sixth = values.getOrElse(5) { 0f },
+        color = color,
+        alpha = alpha,
+        strokeWidth = strokeWidth,
+        stroke = stroke,
+        textSize = textSize,
+        textWeight = textWeight,
+        text = text,
+      )
+  }
+
+  private val DRAWING_OR_BEHAVIOR_OPCODES: Set<Int> =
+    setOf(
+      RcOpcodes.DRAW_BITMAP,
+      RcOpcodes.DRAW_BITMAP_INT,
+      RcOpcodes.DRAW_BITMAP_SCALED,
+      RcOpcodes.DRAW_PATH,
+      RcOpcodes.DRAW_TWEEN_PATH,
+      RcOpcodes.DRAW_TEXT_ON_PATH,
+      RcOpcodes.DRAW_TEXT_ON_CIRCLE,
+      RcOpcodes.CLICK_AREA,
+      RcOpcodes.MODIFIER_CLICK,
+      RcOpcodes.MODIFIER_MULTI_CLICK,
+    )
+}
