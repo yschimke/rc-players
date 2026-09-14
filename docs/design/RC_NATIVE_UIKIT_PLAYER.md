@@ -262,6 +262,8 @@ the subset while returning diagnostics. The sample intentionally uses compatible
 Current checks are:
 
 - `RcNativeSnapshotTest` round-trips a protocol document and verifies nesting, paint, and geometry;
+- `scripts/check-native-uikit-compatibility.sh` executes strict/compatible policy decisions as a
+  host-platform Swift test;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 

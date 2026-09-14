@@ -22,7 +22,7 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 
 | Package | Status | Result |
 |---|---|---|
-| 1 — Static compatibility profile | Core implemented | Structured issues and policies are public; conditional reachability and dedicated Swift policy tests remain |
+| 1 — Static compatibility profile | Core implemented | Structured issues, policies, and Swift policy tests are in place; conditional reachability remains |
 | 2 — Static layout geometry | Next | Measurement/placement model and constraint coverage |
 | 3–11 | Planned | Ordered below |
 

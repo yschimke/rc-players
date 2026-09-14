@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
@@ -130,5 +131,61 @@ class RcNativeSnapshotTest {
     assertEquals("DrawPath", diagnostic.operationName)
     assertEquals(42, diagnostic.componentId)
     assertEquals("Operation is not represented by the native player", diagnostic.reason)
+  }
+
+  @Test
+  fun reportsUnwiredClickModifiersAgainstTheirOwningComponent() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(9),
+          RcClickModifier,
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+
+    val diagnostic = snapshot.diagnostics.single()
+    assertEquals(RcOpcodes.MODIFIER_CLICK, diagnostic.opcode)
+    assertEquals("ModifierClick", diagnostic.operationName)
+    assertEquals(9, diagnostic.componentId)
+    assertEquals(
+      "Click action dispatch is not implemented by the native player",
+      diagnostic.reason,
+    )
+  }
+
+  @Test
+  fun reportsNonDefaultStrokeCapAndJoinAsPartial() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(1),
+          RcPaintData(listOf(7 or (1 shl 16), 15 or (2 shl 16))),
+          RcDraw4(
+            RcOpcodes.DRAW_LINE,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(10f),
+            RcFloatWord.literal(10f),
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+
+    assertEquals(
+      listOf(
+        "Stroke cap 1 is not represented by the native POC",
+        "Stroke join 2 is not represented by the native POC",
+      ),
+      snapshot.diagnostics.map { it.reason },
+    )
+    assertTrue(snapshot.diagnostics.all { it.severity == RcNativeDiagnostic.UNSUPPORTED })
   }
 }
