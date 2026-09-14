@@ -1,11 +1,14 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
+import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw3
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
@@ -13,6 +16,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcDraw6
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
+import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIdOperation
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
@@ -20,8 +25,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
+import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextLength
@@ -33,6 +41,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
 import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
 import ee.schimke.composeai.rcplayer.protocol.RcTransform2
+import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
@@ -62,6 +71,21 @@ public data class RcNativeNodeSnapshot(
   public val clickable: Boolean = false,
   public val enabled: Boolean = true,
   public val semanticLabel: String? = null,
+  public val widthType: Int = RcDimensionType.WRAP,
+  public val widthValue: Float = 0f,
+  public val heightType: Int = RcDimensionType.WRAP,
+  public val heightValue: Float = 0f,
+  public val minimumHeight: Float = 0f,
+  public val paddingLeft: Float = 0f,
+  public val paddingTop: Float = 0f,
+  public val paddingRight: Float = 0f,
+  public val paddingBottom: Float = 0f,
+  public val cornerRadius: Float = 0f,
+  public val hasBackground: Boolean = false,
+  public val backgroundColor: Int = 0,
+  public val horizontalPositioning: Int = 1,
+  public val verticalPositioning: Int = 4,
+  public val spacing: Float = 0f,
 ) {
   public companion object {
     public const val NONE: Int = -1
@@ -69,6 +93,10 @@ public data class RcNativeNodeSnapshot(
     public const val CONTENT: Int = 1
     public const val CANVAS: Int = 2
     public const val GROUP: Int = 3
+    public const val BOX: Int = 4
+    public const val ROW: Int = 5
+    public const val COLUMN: Int = 6
+    public const val TEXT: Int = 7
   }
 }
 
@@ -86,6 +114,7 @@ public data class RcNativeDrawCommand(
   public val strokeWidth: Float = 1f,
   public val stroke: Boolean = false,
   public val textSize: Float = 16f,
+  public val textWeight: Float = 400f,
   public val text: String? = null,
 ) {
   public companion object {
@@ -149,8 +178,18 @@ public object RcNativeSnapshotBridge {
       return merged.values.toList()
     }
 
+    fun descendantOperations(container: RcLinkedNode.Container): Sequence<RcOperation> =
+      container.children.asSequence().flatMap { child ->
+        when (child) {
+          is RcLinkedNode.Container -> sequenceOf(child.operation) + descendantOperations(child)
+          is RcLinkedNode.Operation -> sequenceOf(child.operation)
+        }
+      }
+
     fun nodeFor(container: RcLinkedNode.Container): RcNativeNodeSnapshot {
       val operation = container.operation
+      val directOperations =
+        container.children.filterIsInstance<RcLinkedNode.Operation>().map { it.operation }
       val semantics =
         container.children
           .filterIsInstance<RcLinkedNode.Operation>()
@@ -164,11 +203,14 @@ public object RcNativeSnapshotBridge {
       val kind =
         when (operation) {
           is RcRootLayout -> RcNativeNodeSnapshot.ROOT
-          is RcLayoutContent,
-          is RcTextLayout,
-          is RcCoreText -> RcNativeNodeSnapshot.CONTENT
+          is RcLayoutContent -> RcNativeNodeSnapshot.CONTENT
           is RcCanvasLayout,
           is RcCanvasContent -> RcNativeNodeSnapshot.CANVAS
+          is RcBoxLayout -> RcNativeNodeSnapshot.BOX
+          is RcRowLayout -> RcNativeNodeSnapshot.ROW
+          is RcColumnLayout -> RcNativeNodeSnapshot.COLUMN
+          is RcTextLayout,
+          is RcCoreText -> RcNativeNodeSnapshot.TEXT
           else -> RcNativeNodeSnapshot.GROUP
         }
       val componentId =
@@ -177,13 +219,16 @@ public object RcNativeSnapshotBridge {
           is RcLayoutContent -> operation.componentId
           is RcCanvasLayout -> operation.componentId
           is RcCanvasContent -> operation.componentId
+          is RcBoxLayout -> operation.componentId
+          is RcRowLayout -> operation.componentId
+          is RcColumnLayout -> operation.componentId
           is RcTextLayout -> operation.componentId
           is RcCoreText -> operation.componentId
           else -> 0
         }
       val commands = mutableListOf<RcNativeDrawCommand>()
       if (operation is RcTextLayout) {
-        val size = state.resolve(operation.fontSize)
+        val size = state.resolve(operation.fontSize) / document.header.density
         val color =
           if (operation.flags and RcTextLayout.FLAG_DYNAMIC_COLOR != 0) state.color(operation.color)
           else operation.color
@@ -202,7 +247,14 @@ public object RcNativeSnapshotBridge {
             .filterIsInstance<RcTextStyleProperty.FloatValue>()
             .lastOrNull { it.id == 5 }
             ?.value
-            ?.let(state::resolve) ?: 36f
+            ?.let(state::resolve)
+            ?.div(document.header.density) ?: 36f
+        val weight =
+          properties
+            .filterIsInstance<RcTextStyleProperty.FloatValue>()
+            .lastOrNull { it.id == 7 }
+            ?.value
+            ?.let(state::resolve) ?: 400f
         val literalColor =
           properties
             .filterIsInstance<RcTextStyleProperty.IntValue>()
@@ -222,6 +274,7 @@ public object RcNativeSnapshotBridge {
               RcNativeDrawCommand.TEXT,
               values = listOf(0f, size, -1f, -1f),
               text = state.text(operation.textId).orEmpty(),
+              textWeight = weight,
             )
         notes += "CoreText layout geometry and shaping are approximate in the native POC"
       } else if (
@@ -247,6 +300,45 @@ public object RcNativeSnapshotBridge {
         semantics
           ?.let { state.text(it.contentDescriptionId) ?: state.text(it.textId) }
           ?.takeUnless(String::isBlank)
+      val width = directOperations.filterIsInstance<RcWidthModifier>().lastOrNull()
+      val height = directOperations.filterIsInstance<RcHeightModifier>().lastOrNull()
+      val minimumHeight =
+        directOperations
+          .filterIsInstance<RcHeightInModifier>()
+          .lastOrNull()
+          ?.minimum
+          ?.let(state::resolve)
+          ?.div(document.header.density) ?: 0f
+      val padding =
+        directOperations.filterIsInstance<RcPaddingModifier>().fold(FloatArray(4)) {
+          result,
+          modifier ->
+          result[0] += state.resolve(modifier.left) / document.header.density
+          result[1] += state.resolve(modifier.top) / document.header.density
+          result[2] += state.resolve(modifier.right) / document.header.density
+          result[3] += state.resolve(modifier.bottom) / document.header.density
+          result
+        }
+      val cornerRadius =
+        directOperations.filterIsInstance<RcRoundedClipRectModifier>().lastOrNull()?.let { modifier
+          ->
+          maxOf(
+            state.resolve(modifier.topStart) / document.header.density,
+            state.resolve(modifier.topEnd) / document.header.density,
+            state.resolve(modifier.bottomStart) / document.header.density,
+            state.resolve(modifier.bottomEnd) / document.header.density,
+          )
+        } ?: 0f
+      val hasDrawContent =
+        directOperations.filterIsInstance<RcNoArg>().any {
+          it.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT
+        }
+      val backgroundPaint =
+        if (hasDrawContent) {
+          descendantOperations(container).filterIsInstance<RcPaintData>().firstOrNull()?.let {
+            NativePaint().also { paint -> applyPaint(it, state, paint, notes) }
+          }
+        } else null
       return RcNativeNodeSnapshot(
         kind = kind,
         componentId = componentId,
@@ -258,6 +350,46 @@ public object RcNativeSnapshotBridge {
         clickable = clickable,
         enabled = semantics?.enabled ?: true,
         semanticLabel = label,
+        widthType = width?.type ?: RcDimensionType.WRAP,
+        widthValue =
+          width?.let {
+            state.resolve(it.value) /
+              if (it.type == RcDimensionType.EXACT_DP) document.header.density else 1f
+          } ?: 0f,
+        heightType = height?.type ?: RcDimensionType.WRAP,
+        heightValue =
+          height?.let {
+            state.resolve(it.value) /
+              if (it.type == RcDimensionType.EXACT_DP) document.header.density else 1f
+          } ?: 0f,
+        minimumHeight = minimumHeight,
+        paddingLeft = padding[0],
+        paddingTop = padding[1],
+        paddingRight = padding[2],
+        paddingBottom = padding[3],
+        cornerRadius = cornerRadius,
+        hasBackground = backgroundPaint != null,
+        backgroundColor = backgroundPaint?.color ?: 0,
+        horizontalPositioning =
+          when (operation) {
+            is RcBoxLayout -> operation.horizontalPositioning
+            is RcRowLayout -> operation.horizontalPositioning
+            is RcColumnLayout -> operation.horizontalPositioning
+            else -> 1
+          },
+        verticalPositioning =
+          when (operation) {
+            is RcBoxLayout -> operation.verticalPositioning
+            is RcRowLayout -> operation.verticalPositioning
+            is RcColumnLayout -> operation.verticalPositioning
+            else -> 4
+          },
+        spacing =
+          when (operation) {
+            is RcRowLayout -> state.resolve(operation.spacedBy) / document.header.density
+            is RcColumnLayout -> state.resolve(operation.spacedBy) / document.header.density
+            else -> 0f
+          },
       )
     }
 
@@ -416,7 +548,34 @@ public object RcNativeSnapshotBridge {
     var index = 0
     while (index < operation.words.size) {
       val command = operation.words[index++]
-      when (command and 0xffff) {
+      val type = command and 0xffff
+      val argumentCount =
+        when (type) {
+          1,
+          4,
+          5,
+          9,
+          12,
+          13,
+          16,
+          19,
+          20 -> 1
+          7,
+          8,
+          10,
+          14,
+          15,
+          17,
+          18,
+          21 -> 0
+          23 -> (command ushr 16) * 2
+          else -> {
+            notes += "Paint command $type is not represented by the native POC"
+            return
+          }
+        }
+      require(index + argumentCount <= operation.words.size) { "Paint command $type is truncated" }
+      when (type) {
         1 -> paint.textSize = state.resolveWord(operation.words[index++])
         4 -> paint.color = operation.words[index++]
         5 -> paint.strokeWidth = state.resolveWord(operation.words[index++])
@@ -428,14 +587,19 @@ public object RcNativeSnapshotBridge {
         14,
         15,
         17,
-        18 -> Unit
+        21 -> Unit
+        18 -> notes += "Blend mode ${command ushr 16} is not represented by the native POC"
         16 -> {
           paint.fontStyle = command ushr 16
           paint.fontType = operation.words[index++]
         }
+        23 -> {
+          if (argumentCount > 0) notes += "Font axes are not represented by the native POC"
+          index += argumentCount
+        }
         else -> {
-          notes += "Paint command ${command and 0xffff} is not represented by the native POC"
-          return
+          notes += "Paint command $type is not represented by the native POC"
+          index += argumentCount
         }
       }
     }
@@ -453,7 +617,12 @@ public object RcNativeSnapshotBridge {
     var fontType: Int = 0,
     var fontStyle: Int = 0,
   ) {
-    fun command(kind: Int, values: List<Float> = emptyList(), text: String? = null) =
+    fun command(
+      kind: Int,
+      values: List<Float> = emptyList(),
+      text: String? = null,
+      textWeight: Float = 400f,
+    ) =
       RcNativeDrawCommand(
         kind = kind,
         first = values.getOrElse(0) { 0f },
@@ -467,6 +636,7 @@ public object RcNativeSnapshotBridge {
         strokeWidth = strokeWidth,
         stroke = stroke,
         textSize = textSize,
+        textWeight = textWeight,
         text = text,
       )
   }

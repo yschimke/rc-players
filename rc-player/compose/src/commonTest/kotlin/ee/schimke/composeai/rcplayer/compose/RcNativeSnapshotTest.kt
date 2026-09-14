@@ -13,6 +13,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class RcNativeSnapshotTest {
@@ -61,5 +62,42 @@ class RcNativeSnapshotTest {
     assertEquals(70f, command.fourth)
     assertEquals(0xff336699.toInt(), command.color)
     assertTrue(snapshot.unsupportedOpcodes.isEmpty())
+  }
+
+  @Test
+  fun rejectsTruncatedPaintDataWithAnExportedExceptionType() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(1),
+          RcPaintData(listOf(4)),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val error =
+      assertFailsWith<IllegalArgumentException> {
+        RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+      }
+
+    assertEquals("Paint command 4 is truncated", error.message)
+  }
+
+  @Test
+  fun reportsIgnoredBlendModesAsPartial() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(1),
+          RcPaintData(listOf(18 or (3 shl 16))),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+
+    assertEquals(listOf("Blend mode 3 is not represented by the native POC"), snapshot.notes)
   }
 }

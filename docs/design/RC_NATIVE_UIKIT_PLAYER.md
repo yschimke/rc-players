@@ -15,10 +15,11 @@ coverage or exact pixels. Its primary API is `RemoteComposeNativePlayerView`; a 
 controller and a thin `UIViewRepresentable` adapter are also supplied. No Compose view or Skia
 surface exists below those entry points.
 
-It currently handles a static frame containing rectangles, ovals, circles, lines, rounded
+It currently handles a static frame containing Box, Row, and Column layout; common size, padding,
+alignment, rounded-clip, and background modifiers; rectangles, ovals, circles, lines, rounded
 rectangles, arcs, sectors, basic text, color/alpha/stroke paint state, clipping, save/restore, and
-basic transforms. Text is promoted to `UILabel`, while clickable or button-role components are
-promoted to real transparent `UIButton`s over the document visuals. Unsupported drawing and
+basic transforms. Layout text is promoted to `UILabel`, while clickable or button-role components
+are promoted to real transparent `UIButton`s over the document visuals. Unsupported drawing and
 behavior opcodes are returned as diagnostics rather than being presented as full compatibility.
 
 ## Goals
@@ -75,8 +76,10 @@ immutable data. UIKit owns lifecycle and layout; Core Graphics owns drawing.
 ### Components retain native identity
 
 Each linked Remote Compose container becomes a `NativeComponentView`. Local commands are drawn by a
-child `NativeCanvasView`; linked component children become child `NativeComponentView`s. This
-preserves component identity and mirrors the CMP player's layout/canvas split in ordinary UIKit.
+child `NativeCanvasView`; linked component children become child `NativeComponentView`s. Structural
+content wrappers remain inspectable but are transparent to the small frame-based Box/Row/Column
+layout pass. This preserves component identity and mirrors the CMP player's layout/canvas split in
+ordinary UIKit.
 
 Where protocol semantics identify a platform concept, the component also owns the corresponding
 native view. The POC turns `clickable` or button-role components into transparent `UIButton`s above
@@ -87,8 +90,9 @@ content does not. Text commands similarly become `UILabel`s rather than Core Gra
 Future mappings include `UIImageView` for image-role content, `UISwitch` for switch roles, and
 purpose-built `UIControl` subclasses where UIKit has no matching standard control.
 
-The POC overlays children in document space. A later layout engine can replace that policy in
-`layoutSubviews()` without changing decoding, primitive rendering, or the public host API.
+The POC resolves fill, weight, wrap, exact sizing, padding, minimum height, basic alignment, spacing,
+and rounded clipping. A later complete layout engine can replace that policy in `layoutSubviews()`
+without changing decoding, primitive rendering, or the public host API.
 
 ### Resolve before rendering
 
@@ -173,11 +177,10 @@ The header aspect ratio is aspect-fit in host bounds. UIKit frames are display p
 in document coordinates and are scaled once at the canvas drawing boundary. This is simpler than
 the full `RootContentBehavior` contract; scroll, crop, fill, and alignment modes remain unsupported.
 
-All component children currently receive their parent's bounds. That proves identity, nesting,
-ownership, and independent surfaces, but not row, column, flow, state, or constraint semantics. The
-next version should translate `RcLayoutTree` to a Swift layout model with resolved geometry. Layout
-should remain deterministic and frame-based; Auto Layout would introduce solver behavior not in the
-Remote Compose contract.
+The static profile implements the Box, Row, and Column behavior needed by the Morning Run Title Card,
+including structural content flattening and weighted rows. Flow, state, intrinsic sizing, layout
+compute, scroll, and the full constraint contract remain unsupported. Layout stays deterministic and
+frame-based; Auto Layout would introduce solver behavior not in the Remote Compose contract.
 
 ### Paint and graphics state
 
@@ -190,11 +193,12 @@ unsupported opcodes.
 
 ### Text
 
-Basic text uses real `UILabel`s with `UIFont.systemFont`; frames approximate the recorded baseline or
-anchor. This gives UIKit ownership of traits, Dynamic Type integration points, accessibility, and
-text lifecycle without reimplementing a platform text view. Core Text shaping, context ranges, RTL,
-font ids, spans, overflow, and measurement still must be implemented together. Exact text pixels
-are not a POC claim.
+Layout text uses real `UILabel`s with `UIFont.systemFont`; frames approximate the recorded metrics.
+This gives UIKit ownership of traits, Dynamic Type integration points, accessibility, and text
+lifecycle without reimplementing a platform text view. Canvas text remains in its ordered Core
+Graphics command stream so transforms, clipping, and primitive interleaving are preserved. Core
+Text shaping, context ranges, RTL, font ids, spans, overflow, and measurement still must be
+implemented together. Exact text pixels are not a POC claim.
 
 ### Errors
 
@@ -277,10 +281,10 @@ documents must never instantiate arbitrary Objective-C classes by name.
 
 ### Phase 0: architecture POC (this change)
 
-Separate product and sample toggle; shared static bridge; recursive `UIView` hierarchy; `UILabel`
-and semantic `UIButton` promotion; primitive drawing; visible diagnostics. Exit when a bundled real
-document opens in Native POC mode without a Compose view beneath it and incomplete behavior is
-reported.
+Separate product and sample toggle; shared static bridge; recursive `UIView` hierarchy; a small
+Box/Row/Column layout profile; `UILabel` and semantic `UIButton` promotion; primitive drawing;
+visible diagnostics. Exit when the bundled Morning Run card is clearly recognizable in Native POC
+mode without a Compose view beneath it and incomplete behavior is reported.
 
 ### Phase 1: stable static profile
 

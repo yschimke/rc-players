@@ -17,17 +17,25 @@
   }
 
   struct NativeNode {
-    enum Kind {
+    enum Kind: Equatable {
       case root
       case content
       case canvas
       case group
+      case box
+      case row
+      case column
+      case text
 
       init(rawValue: Int32) {
         switch rawValue {
         case 0: self = .root
         case 1: self = .content
         case 2: self = .canvas
+        case 4: self = .box
+        case 5: self = .row
+        case 6: self = .column
+        case 7: self = .text
         default: self = .group
         }
       }
@@ -41,6 +49,17 @@
     let isClickable: Bool
     let isEnabled: Bool
     let accessibilityLabel: String?
+    let widthType: Int
+    let widthValue: CGFloat
+    let heightType: Int
+    let heightValue: CGFloat
+    let minimumHeight: CGFloat
+    let padding: UIEdgeInsets
+    let cornerRadius: CGFloat
+    let backgroundColor: UIColor?
+    let horizontalPositioning: Int
+    let verticalPositioning: Int
+    let spacing: CGFloat
 
     init(snapshot: RcNativeNodeSnapshot) {
       kind = Kind(rawValue: snapshot.kind)
@@ -51,6 +70,21 @@
       isClickable = snapshot.clickable
       isEnabled = snapshot.enabled
       accessibilityLabel = snapshot.semanticLabel
+      widthType = Int(snapshot.widthType)
+      widthValue = CGFloat(snapshot.widthValue)
+      heightType = Int(snapshot.heightType)
+      heightValue = CGFloat(snapshot.heightValue)
+      minimumHeight = CGFloat(snapshot.minimumHeight)
+      padding = UIEdgeInsets(
+        top: CGFloat(snapshot.paddingTop), left: CGFloat(snapshot.paddingLeft),
+        bottom: CGFloat(snapshot.paddingBottom), right: CGFloat(snapshot.paddingRight))
+      cornerRadius = CGFloat(snapshot.cornerRadius)
+      backgroundColor =
+        snapshot.hasBackground
+        ? UIColor(remoteComposeARGB: UInt32(bitPattern: snapshot.backgroundColor)) : nil
+      horizontalPositioning = Int(snapshot.horizontalPositioning)
+      verticalPositioning = Int(snapshot.verticalPositioning)
+      spacing = CGFloat(snapshot.spacing)
     }
 
     var firstText: String? {
@@ -66,6 +100,7 @@
     let strokeWidth: CGFloat
     let isStroke: Bool
     let textSize: CGFloat
+    let textWeight: CGFloat
     let text: String?
 
     init(snapshot: RcNativeDrawCommand) {
@@ -79,6 +114,7 @@
       strokeWidth = CGFloat(snapshot.strokeWidth)
       isStroke = snapshot.stroke
       textSize = CGFloat(snapshot.textSize)
+      textWeight = CGFloat(snapshot.textWeight)
       text = snapshot.text
     }
   }
@@ -119,8 +155,9 @@
     }
   }
 
-  /// One UIView per Remote Compose component. POC layout overlays children in document space;
-  /// layout managers can replace this policy without changing the renderer or public controller.
+  /// One UIView per Remote Compose component, with a deliberately small frame-based implementation
+  /// of Box, Row, and Column. Structural content wrappers remain visible in the UIKit hierarchy but
+  /// are transparent to layout.
   final class NativeComponentView: UIView {
     private let node: NativeNode
     private let canvasView: NativeCanvasView?
@@ -137,14 +174,18 @@
 
     init(node: NativeNode) {
       self.node = node
-      let drawingCommands = node.commands.filter { $0.kind != 17 }
+      let promotesText = node.kind == .text
+      let drawingCommands = promotesText ? node.commands.filter { $0.kind != 17 } : node.commands
       canvasView = drawingCommands.isEmpty ? nil : NativeCanvasView(commands: drawingCommands)
-      textLabels = node.commands.filter { $0.kind == 17 }.map(NativeTextLabel.init)
+      textLabels =
+        promotesText
+        ? node.commands.filter { $0.kind == 17 }.map(NativeTextLabel.init) : []
       componentChildren = node.children.map(NativeComponentView.init)
       semanticView = Self.makeSemanticView(for: node)
       super.init(frame: .zero)
       isOpaque = false
-      backgroundColor = .clear
+      backgroundColor = node.backgroundColor ?? .clear
+      clipsToBounds = node.cornerRadius > 0
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
@@ -159,10 +200,202 @@
 
     override func layoutSubviews() {
       super.layoutSubviews()
+      layer.cornerRadius = node.cornerRadius * documentScale
       canvasView?.frame = bounds
-      textLabels.forEach { $0.layout(in: bounds, documentScale: documentScale) }
-      componentChildren.forEach { $0.frame = bounds }
+      prepareStructuralChildren()
+      if isStructural {
+        semanticView?.frame = bounds
+        return
+      }
+
+      switch node.kind {
+      case .column: layoutColumn()
+      case .row: layoutRow()
+      case .box: layoutOverlay(aligned: true)
+      case .text:
+        textLabels.forEach { $0.layoutInComponent(bounds: bounds, documentScale: documentScale) }
+      default: layoutOverlay(aligned: false)
+      }
       semanticView?.frame = bounds
+    }
+
+    func preferredSize(in available: CGSize) -> CGSize {
+      let insets = scaledPadding
+      let contentAvailable = CGSize(
+        width: max(available.width - insets.left - insets.right, 0),
+        height: max(available.height - insets.top - insets.bottom, 0))
+      let items = flattenedLayoutItems
+      let intrinsic: CGSize
+      switch node.kind {
+      case .text:
+        intrinsic =
+          textLabels.first?.preferredSize(
+            maximumWidth: contentAvailable.width, documentScale: documentScale) ?? .zero
+      case .column:
+        let sizes = items.map { $0.preferredSize(in: contentAvailable) }
+        intrinsic = CGSize(
+          width: sizes.map(\.width).max() ?? 0,
+          height: sizes.reduce(0) { $0 + $1.height }
+            + scaledSpacing * CGFloat(max(sizes.count - 1, 0)))
+      case .row:
+        let sizes = items.map { $0.preferredSize(in: contentAvailable) }
+        intrinsic = CGSize(
+          width: sizes.reduce(0) { $0 + $1.width }
+            + scaledSpacing * CGFloat(max(sizes.count - 1, 0)),
+          height: sizes.map(\.height).max() ?? 0)
+      default:
+        let sizes = items.map { $0.preferredSize(in: contentAvailable) }
+        intrinsic = CGSize(
+          width: sizes.map(\.width).max() ?? 0,
+          height: sizes.map(\.height).max() ?? 0)
+      }
+      return applyDimensions(
+        to: CGSize(
+          width: intrinsic.width + insets.left + insets.right,
+          height: intrinsic.height + insets.top + insets.bottom),
+        available: available)
+    }
+
+    private var isStructural: Bool {
+      (node.kind == .content || node.kind == .group || node.kind == .canvas)
+        && canvasView == nil && textLabels.isEmpty && semanticView == nil
+        && node.backgroundColor == nil
+    }
+
+    private var flattenedLayoutItems: [NativeComponentView] {
+      componentChildren.flatMap { child in
+        child.isStructural ? child.flattenedLayoutItems : [child]
+      }
+    }
+
+    private var scaledPadding: UIEdgeInsets {
+      UIEdgeInsets(
+        top: node.padding.top * documentScale,
+        left: node.padding.left * documentScale,
+        bottom: node.padding.bottom * documentScale,
+        right: node.padding.right * documentScale)
+    }
+
+    private var scaledSpacing: CGFloat { node.spacing * documentScale }
+
+    private func prepareStructuralChildren() {
+      componentChildren.forEach { child in
+        if child.isStructural {
+          child.frame = bounds
+          child.prepareStructuralChildren()
+        }
+      }
+    }
+
+    private func layoutOverlay(aligned: Bool) {
+      let insets = scaledPadding
+      let content = bounds.inset(by: insets)
+      flattenedLayoutItems.forEach { child in
+        let size = child.preferredSize(in: content.size)
+        child.frame =
+          aligned
+          ? alignedFrame(size: size, in: content)
+          : CGRect(origin: content.origin, size: content.size)
+      }
+    }
+
+    private func layoutColumn() {
+      let content = bounds.inset(by: scaledPadding)
+      let items = flattenedLayoutItems
+      let sizes = items.map { $0.preferredSize(in: content.size) }
+      let totalHeight =
+        sizes.reduce(0) { $0 + $1.height }
+        + scaledSpacing * CGFloat(max(items.count - 1, 0))
+      var y: CGFloat
+      switch node.verticalPositioning {
+      case 2: y = content.midY - totalHeight / 2
+      case 5: y = content.maxY - totalHeight
+      default: y = content.minY
+      }
+      for (index, child) in items.enumerated() {
+        let size = sizes[index]
+        let x: CGFloat
+        switch node.horizontalPositioning {
+        case 2: x = content.midX - size.width / 2
+        case 3: x = content.maxX - size.width
+        default: x = content.minX
+        }
+        child.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
+        y += size.height + scaledSpacing
+      }
+    }
+
+    private func layoutRow() {
+      let content = bounds.inset(by: scaledPadding)
+      let items = flattenedLayoutItems
+      let spacing = scaledSpacing * CGFloat(max(items.count - 1, 0))
+      let natural = items.map { $0.preferredSize(in: content.size) }
+      let fixedWidth = zip(items, natural).reduce(CGFloat.zero) { result, pair in
+        result + (pair.0.node.widthType == 3 ? 0 : pair.1.width)
+      }
+      let weightCount = items.filter { $0.node.widthType == 3 }.count
+      let weightWidth =
+        weightCount == 0
+        ? 0 : max(content.width - fixedWidth - spacing, 0) / CGFloat(weightCount)
+      let sizes = zip(items, natural).map { child, size in
+        child.node.widthType == 3 ? CGSize(width: weightWidth, height: size.height) : size
+      }
+      let totalWidth = sizes.reduce(0) { $0 + $1.width } + spacing
+      var x: CGFloat
+      switch node.horizontalPositioning {
+      case 2: x = content.midX - totalWidth / 2
+      case 3: x = content.maxX - totalWidth
+      default: x = content.minX
+      }
+      for (index, child) in items.enumerated() {
+        let size = sizes[index]
+        let y: CGFloat
+        switch node.verticalPositioning {
+        case 2: y = content.midY - size.height / 2
+        case 5: y = content.maxY - size.height
+        default: y = content.minY
+        }
+        child.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
+        x += size.width + scaledSpacing
+      }
+    }
+
+    private func alignedFrame(size: CGSize, in rect: CGRect) -> CGRect {
+      let x: CGFloat
+      switch node.horizontalPositioning {
+      case 2: x = rect.midX - size.width / 2
+      case 3: x = rect.maxX - size.width
+      default: x = rect.minX
+      }
+      let y: CGFloat
+      switch node.verticalPositioning {
+      case 2: y = rect.midY - size.height / 2
+      case 5: y = rect.maxY - size.height
+      default: y = rect.minY
+      }
+      return CGRect(origin: CGPoint(x: x, y: y), size: size)
+    }
+
+    private func applyDimensions(to intrinsic: CGSize, available: CGSize) -> CGSize {
+      func resolved(type: Int, value: CGFloat, intrinsic: CGFloat, available: CGFloat) -> CGFloat {
+        switch type {
+        case 0, 6: return max(value * documentScale, 0)
+        case 1, 7, 8: return available
+        case 3: return available
+        default: return intrinsic
+        }
+      }
+      return CGSize(
+        width: min(
+          resolved(
+            type: node.widthType, value: node.widthValue, intrinsic: intrinsic.width,
+            available: available.width), available.width),
+        height: min(
+          max(
+            resolved(
+              type: node.heightType, value: node.heightValue, intrinsic: intrinsic.height,
+              available: available.height),
+            node.minimumHeight * documentScale), available.height))
     }
 
     private static func makeSemanticView(for node: NativeNode) -> UIView? {
@@ -202,17 +435,22 @@
       fatalError("init(coder:) is not supported")
     }
 
-    func layout(in bounds: CGRect, documentScale: CGFloat) {
-      font = .systemFont(ofSize: max(command.textSize * documentScale, 1))
-      let fittingSize = sizeThatFits(bounds.size)
-      let panX = command.values[2]
-      let panY = command.values[3]
-      let baseline = command.values[1] * documentScale
+    func preferredSize(maximumWidth: CGFloat, documentScale: CGFloat) -> CGSize {
+      configureFont(documentScale: documentScale)
+      return sizeThatFits(CGSize(width: maximumWidth, height: .greatestFiniteMagnitude))
+    }
+
+    func layoutInComponent(bounds: CGRect, documentScale: CGFloat) {
       frame = CGRect(
-        x: command.values[0] * documentScale - fittingSize.width * ((panX + 1) / 2),
-        y: baseline - font.ascender - fittingSize.height * ((panY + 1) / 2),
-        width: min(fittingSize.width, bounds.width),
-        height: min(fittingSize.height, bounds.height))
+        origin: .zero,
+        size: preferredSize(maximumWidth: bounds.width, documentScale: documentScale))
+    }
+
+    private func configureFont(documentScale: CGFloat) {
+      let normalizedWeight = min(max((command.textWeight - 400) / 500, -1), 1)
+      font = .systemFont(
+        ofSize: max(command.textSize * documentScale, 1),
+        weight: UIFont.Weight(rawValue: normalizedWeight))
     }
   }
 
@@ -284,6 +522,7 @@
           cornerRadius: max(v[4], v[5]))
         paint(path.cgPath, command, context)
       case 15, 16: drawArc(command, context)
+      case 17: drawText(command)
       default: break
       }
     }
@@ -312,6 +551,25 @@
         center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
       if command.kind == 16 { context.closePath() }
       command.isStroke ? context.strokePath() : context.fillPath()
+    }
+
+    private func drawText(_ command: NativeDrawCommand) {
+      guard let text = command.text else { return }
+      let normalizedWeight = min(max((command.textWeight - 400) / 500, -1), 1)
+      let font = UIFont.systemFont(
+        ofSize: command.textSize,
+        weight: UIFont.Weight(rawValue: normalizedWeight))
+      let attributes: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: command.color.withAlphaComponent(command.alpha),
+      ]
+      let size = (text as NSString).size(withAttributes: attributes)
+      let panX = command.values[2]
+      let panY = command.values[3]
+      let origin = CGPoint(
+        x: command.values[0] - size.width * ((panX + 1) / 2),
+        y: command.values[1] - font.ascender - size.height * ((panY + 1) / 2))
+      (text as NSString).draw(at: origin, withAttributes: attributes)
     }
 
   }
