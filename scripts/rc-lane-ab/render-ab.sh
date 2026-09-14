@@ -47,6 +47,18 @@ if [ ! -f "$input_dir/manifest.json" ]; then
   exit 1
 fi
 
+# Both Android lanes resolve `google:` families and font-variation axes from the same machine-local
+# cache as the catalog renderer. Without this property they still produce plausible PNGs, but both
+# silently fall back in the same way and make the correctly rendered CMP lane look like an outlier.
+# Match compose-ai-tools' cache convention instead of inventing a lane-specific source.
+cache_root="${XDG_CACHE_HOME:-${HOME:?HOME must be set when XDG_CACHE_HOME is unset}/.cache}"
+font_cache_dir="$cache_root/composeai/fonts"
+if [ ! -d "$font_cache_dir" ]; then
+  echo "error: no Google Fonts cache directory at $font_cache_dir" >&2
+  echo "       Warm the compose-ai font cache before scoring typography lanes." >&2
+  exit 1
+fi
+
 node "$repo_root/scripts/rc-lane-ab/validate-stage.mjs" inputs "$input_dir"
 
 # Fail before the renders rather than after them. Composition is the last step and takes seconds;
@@ -72,7 +84,8 @@ echo "==> rendering both lanes"
   --tests '*RcViewPlayerRenderHarness*' --tests '*RcEmbeddedRenderHarness*' \
   "-Prc.embedded.input=$input_dir" \
   "-Prc.view.output=$lanes_dir/view" \
-  "-Prc.embedded.output=$lanes_dir/embedded"
+  "-Prc.embedded.output=$lanes_dir/embedded" \
+  "-Pcomposeai.fonts.cacheDir=$font_cache_dir"
 
 # The manifest is the source of truth, not whatever `.rc` files happen to remain in a reused
 # directory. Every manifest id must have exactly one input and one result in each lane. Embedded
