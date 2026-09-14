@@ -123,9 +123,15 @@
     let alpha: CGFloat
     let strokeWidth: CGFloat
     let isStroke: Bool
+    let strokeCap: Int
+    let strokeJoin: Int
+    let blendMode: Int
     let textSize: CGFloat
     let textWeight: CGFloat
     let text: String?
+    let path: [NativePathElement]
+    let pathWinding: Int
+    let gradient: NativeGradient?
 
     init(snapshot: RcNativeDrawCommand) {
       kind = Int(snapshot.kind)
@@ -137,9 +143,33 @@
       alpha = CGFloat(snapshot.alpha)
       strokeWidth = CGFloat(snapshot.strokeWidth)
       isStroke = snapshot.stroke
+      strokeCap = Int(snapshot.strokeCap)
+      strokeJoin = Int(snapshot.strokeJoin)
+      blendMode = Int(snapshot.blendMode)
       textSize = CGFloat(snapshot.textSize)
       textWeight = CGFloat(snapshot.textWeight)
       text = snapshot.text
+      path = snapshot.path.map { segment in
+        NativePathElement(
+          kind: Int(segment.kind),
+          values: [
+            segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
+            segment.sixth,
+          ].map(CGFloat.init))
+      }
+      pathWinding = Int(snapshot.pathWinding)
+      if let value = snapshot.gradient {
+        gradient = NativeGradient(
+          kind: Int(value.kind),
+          colors: value.colors.map {
+            UIColor(remoteComposeARGB: UInt32(bitPattern: $0.int32Value)).cgColor
+          },
+          stops: value.stops.map { CGFloat(truncating: $0) },
+          values: [value.first, value.second, value.third, value.fourth].map(CGFloat.init),
+          tileMode: Int(value.tileMode))
+      } else {
+        gradient = nil
+      }
     }
   }
 
@@ -542,7 +572,12 @@
       context.setAlpha(command.alpha)
       context.setStrokeColor(command.color.cgColor)
       context.setFillColor(command.color.cgColor)
-      context.setLineWidth(max(command.strokeWidth, 0.5))
+      NativeGraphicsState.apply(
+        to: context,
+        strokeWidth: command.strokeWidth,
+        strokeCap: command.strokeCap,
+        strokeJoin: command.strokeJoin,
+        blendMode: command.blendMode)
 
       switch command.kind {
       case 0: context.saveGState()
@@ -560,6 +595,9 @@
         context.translateBy(x: -pivot.x, y: -pivot.y)
       case 5: context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
       case 6: context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
+      case 7:
+        context.addPath(NativePathBuilder.make(command.path))
+        context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
       case 10:
         paint(CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]), command, context)
       case 11:
@@ -570,9 +608,10 @@
           CGRect(x: v[0] - v[2], y: v[1] - v[2], width: v[2] * 2, height: v[2] * 2), command,
           context)
       case 13:
-        context.move(to: CGPoint(x: v[0], y: v[1]))
-        context.addLine(to: CGPoint(x: v[2], y: v[3]))
-        context.strokePath()
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: v[0], y: v[1]))
+        path.addLine(to: CGPoint(x: v[2], y: v[3]))
+        paint(path, command, context)
       case 14:
         let path = UIBezierPath(
           roundedRect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
@@ -580,21 +619,41 @@
         paint(path.cgPath, command, context)
       case 15, 16: drawArc(command, context)
       case 17: drawText(command)
+      case 18:
+        paint(
+          NativePathBuilder.make(command.path), command, context,
+          fillRule: command.pathWinding == 1 ? .evenOdd : .winding)
       default: break
       }
     }
 
     private func paint(_ rect: CGRect, _ command: NativeDrawCommand, _ context: CGContext) {
-      command.isStroke ? context.stroke(rect) : context.fill(rect)
+      paint(CGPath(rect: rect, transform: nil), command, context)
     }
 
     private func paintEllipse(_ rect: CGRect, _ command: NativeDrawCommand, _ context: CGContext) {
-      command.isStroke ? context.strokeEllipse(in: rect) : context.fillEllipse(in: rect)
+      paint(CGPath(ellipseIn: rect, transform: nil), command, context)
     }
 
-    private func paint(_ path: CGPath, _ command: NativeDrawCommand, _ context: CGContext) {
+    private func paint(
+      _ path: CGPath,
+      _ command: NativeDrawCommand,
+      _ context: CGContext,
+      fillRule: CGPathFillRule = .winding
+    ) {
+      // Destination leaves the existing buffer unchanged, but must not suppress ordered
+      // transforms, clipping, or save/restore commands around the draw.
+      guard command.blendMode != 2 else { return }
       context.addPath(path)
-      command.isStroke ? context.strokePath() : context.fillPath()
+      guard let gradient = command.gradient else {
+        context.drawPath(using: command.isStroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
+        return
+      }
+      context.saveGState()
+      if command.isStroke { context.replacePathWithStrokedPath() }
+      context.clip(using: command.isStroke ? .winding : fillRule)
+      NativeGradientRenderer.draw(gradient, in: context)
+      context.restoreGState()
     }
 
     private func drawArc(_ command: NativeDrawCommand, _ context: CGContext) {
@@ -607,10 +666,13 @@
       context.addArc(
         center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
       if command.kind == 16 { context.closePath() }
-      command.isStroke ? context.strokePath() : context.fillPath()
+      let path = context.path
+      context.beginPath()
+      if let path { paint(path, command, context) }
     }
 
     private func drawText(_ command: NativeDrawCommand) {
+      guard command.blendMode != 2 else { return }
       guard let text = command.text else { return }
       let normalizedWeight = min(max((command.textWeight - 400) / 500, -1), 1)
       let font = UIFont.systemFont(

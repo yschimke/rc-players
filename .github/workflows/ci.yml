@@ -73,6 +73,7 @@ jobs:
               scripts/build-apple-player.sh \
               scripts/check-apple-player-screenshot.sh \
               scripts/check-native-uikit-compatibility.sh \
+              scripts/check-native-uikit-graphics.sh \
               scripts/check-native-uikit-layout.sh \
               scripts/check-native-uikit-package.sh \
               scripts/check-swift-sample.sh \
@@ -308,6 +309,10 @@ jobs:
       - name: Test native UIKit layout geometry
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-layout.sh
+
+      - name: Test native UIKit graphics state
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-graphics.sh
 
       # A header-only type check cannot catch application-host contracts. In particular,
       # ComposeUIViewController enforces its high-refresh plist entry at runtime, and Xcode's
