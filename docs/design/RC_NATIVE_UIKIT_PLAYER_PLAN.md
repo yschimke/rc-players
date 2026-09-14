@@ -9,13 +9,14 @@ the player in a releasable state.
 
 ## Baseline
 
-The current POC decodes a time-zero snapshot through Kotlin and renders it through a Swift-owned
-UIKit hierarchy. It has approximate Box, Row, and Column layout, native `UILabel` text, semantic
-`UIButton` overlays, a useful Core Graphics subset, explicit compatibility diagnostics, the Morning
-Run Title Card regression, and a downloadable experimental package.
+The current POC opens a retained Kotlin runtime session off the main actor and renders immutable
+frames through a Swift-owned UIKit hierarchy. It has approximate Box, Row, and Column layout,
+native `UILabel` text, semantic `UIButton` overlays, a useful Core Graphics subset, explicit
+compatibility diagnostics, the Morning Run Title Card regression, and a downloadable experimental
+package.
 
-It does not yet retain a running document, dispatch actions, update named values, animate, or claim
-a complete Remote Compose profile. Those are feature gaps, not implicit
+It does not yet dispatch actions, update named values, schedule animation frames, or claim a
+complete Remote Compose profile. Those are feature gaps, not implicit
 fallbacks: unsupported behavior must remain visible throughout this plan.
 
 ## Progress
@@ -27,7 +28,8 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 3 — Core Graphics static drawing | Implemented | Validated paths/clipping, gradients, graphics-state order, stroke caps/joins, and representable blend modes |
 | 4 — Static text | Core implemented | Native labels, Core Text canvas glyphs, inherited paragraph styles, bidi alignment, overflow, decoration, and deterministic fallback |
 | 5 — Bounded resources | Implemented | Inline/referenced images, `UIImageView` promotion, ordered canvas images, embedded fonts, limits, cache, resolver cancellation, and typed failures |
-| 6–11 | Planned | Ordered below |
+| 6 — Retained session | Core implemented | Off-main decode, retained codec/link/state, immutable frames, stable component reconciliation, generation cancellation, and atomic replacement |
+| 7–11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -134,12 +136,19 @@ Acceptance:
 - oversized, corrupt, missing, and slow resources have typed errors/diagnostics;
 - cache keys include content identity and rendering-relevant parameters.
 
-### 6. Replace snapshots with a retained session
+### 6. Replace snapshots with a retained session — core implemented
 
 Create a narrow renderer-neutral session in Kotlin that owns `RcPlayerState`, exposes immutable
 frame deltas, and schedules no UIKit work itself. Swift applies those deltas on the main actor while
 retaining stable component views by id. Full snapshot rebuild remains available as a correctness
 fallback during development.
+
+The first retained slice exports complete immutable frames rather than a compact wire delta. Swift
+reconciles compatible component shapes recursively and mutates the existing canvas, label, image,
+semantic, and component views in place; a structural mismatch atomically installs a newly built
+tree. Generation-numbered tasks discard stale decode/resource/frame results. Entering the
+background cancels outstanding work and records whether a full render must resume on activation.
+Compact component-local deltas remain an optimization to measure before making them bridge ABI.
 
 Acceptance:
 
@@ -234,6 +243,6 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-Begin package 6's retained renderer-neutral session, using the completed static snapshot profile as
-the correctness oracle for incremental updates. Preserve stable UIKit component identity across
-value-only frames before exposing package 7's named-value and action APIs.
+Begin package 7's named-value and action contract on the retained session. Keep host mutation and
+event delivery serialized, and prove that a replacement generation cannot emit an action from the
+old document before expanding gesture families.
