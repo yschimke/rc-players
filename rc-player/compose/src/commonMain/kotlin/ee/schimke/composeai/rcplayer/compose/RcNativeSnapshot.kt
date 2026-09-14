@@ -214,10 +214,12 @@ public object RcNativeSnapshotBridge {
           .map { it.operation }
           .filterIsInstance<RcAccessibilitySemantics>()
           .lastOrNull()
-      val hasClickModifier =
-        container.children.filterIsInstance<RcLinkedNode.Container>().any {
-          it.operation is RcClickModifier || it.operation is RcMultiClickModifier
-        }
+      val clickModifiers =
+        container.children
+          .filterIsInstance<RcLinkedNode.Container>()
+          .map { it.operation }
+          .filter { it is RcClickModifier || it is RcMultiClickModifier }
+      val hasClickModifier = clickModifiers.isNotEmpty()
       val kind =
         when (operation) {
           is RcRootLayout -> RcNativeNodeSnapshot.ROOT
@@ -314,6 +316,13 @@ public object RcNativeSnapshotBridge {
         diagnostics.unsupported(operation, componentId)
       }
       val children = mutableListOf<RcNativeNodeSnapshot>()
+      clickModifiers.forEach { modifier ->
+        diagnostics.unsupported(
+          modifier,
+          componentId,
+          "Click action dispatch is not implemented by the native player",
+        )
+      }
       for (child in container.children) {
         when (child) {
           is RcLinkedNode.Container -> children += nodeFor(child)
@@ -616,12 +625,30 @@ public object RcNativeSnapshotBridge {
         8 -> paint.stroke = command ushr 16 == 1
         12 -> paint.alpha = state.resolveWord(operation.words[index++]).coerceIn(0f, 1f)
         19 -> paint.color = state.color(operation.words[index++])
-        7,
         10,
         14,
-        15,
         17,
         21 -> Unit
+        7 -> {
+          val cap = command ushr 16
+          if (cap != 0) {
+            diagnostics.unsupportedLimitation(
+              operation,
+              componentId,
+              "Stroke cap $cap is not represented by the native POC",
+            )
+          }
+        }
+        15 -> {
+          val join = command ushr 16
+          if (join != 0) {
+            diagnostics.unsupportedLimitation(
+              operation,
+              componentId,
+              "Stroke join $join is not represented by the native POC",
+            )
+          }
+        }
         18 ->
           diagnostics.unsupportedLimitation(
             operation,
@@ -700,14 +727,13 @@ public object RcNativeSnapshotBridge {
       add(RcNativeDiagnostic.WARNING, operation, componentId, reason)
     }
 
-    fun unsupported(operation: RcOperation, componentId: Int) {
+    fun unsupported(
+      operation: RcOperation,
+      componentId: Int,
+      reason: String = "Operation is not represented by the native player",
+    ) {
       unsupportedOpcodes += operation.opcode
-      add(
-        RcNativeDiagnostic.UNSUPPORTED,
-        operation,
-        componentId,
-        "Operation is not represented by the native player",
-      )
+      add(RcNativeDiagnostic.UNSUPPORTED, operation, componentId, reason)
     }
 
     fun unsupportedLimitation(operation: RcOperation, componentId: Int, reason: String) {
