@@ -198,6 +198,12 @@ Then wrap the commands above, for example `build-brief ./gradlew build` or `buil
 allTests`. The managed block at the end of [`AGENTS.md`](AGENTS.md) carries the per-command rules and
 can be regenerated with `build-brief --install`.
 
+On a shared developer host, agents use `scripts/agent-gradle.sh` instead of invoking that wrapper
+directly. Use its normal profile for focused work and `scripts/agent-gradle.sh --exclusive allTests`
+for broad multiplatform, Wasm, or Apple task graphs. The exclusive profile uses the same machine lock
+as the other Compose Preview repositories; interactive commands and hosted CI bypass it. Pass the
+Apple link's required `--max-workers=1` normally—the launcher preserves narrower explicit limits.
+
 Worth knowing here specifically:
 
 - Multi-platform builds and the render/fixture tasks benefit most; the brief retains failures and
