@@ -156,17 +156,46 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNamedValuesKt {
 	public static final fun rememberRcNamedValues ([Lkotlin/Pair;Landroidx/compose/runtime/Composer;I)Landroidx/compose/runtime/snapshots/SnapshotStateMap;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeDiagnostic {
+	public static final field $stable I
+	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcNativeDiagnostic$Companion;
+	public static final field UNSUPPORTED I
+	public static final field WARNING I
+	public fun <init> (IILjava/lang/String;ILjava/lang/String;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()I
+	public final fun component5 ()Ljava/lang/String;
+	public final fun copy (IILjava/lang/String;ILjava/lang/String;)Lee/schimke/composeai/rcplayer/compose/RcNativeDiagnostic;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcNativeDiagnostic;IILjava/lang/String;ILjava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeDiagnostic;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getComponentId ()I
+	public final fun getOpcode ()I
+	public final fun getOperationName ()Ljava/lang/String;
+	public final fun getReason ()Ljava/lang/String;
+	public final fun getSeverity ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcNativeDiagnostic$Companion {
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot {
 	public static final field $stable I
-	public fun <init> (IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;)V
+	public fun <init> (IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()I
 	public final fun component3 ()Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;
 	public final fun component4 ()Ljava/util/List;
 	public final fun component5 ()Ljava/util/List;
-	public final fun copy (IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
+	public final fun component6 ()Ljava/util/List;
+	public final fun copy (IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;IILee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDiagnostics ()Ljava/util/List;
 	public final fun getHeight ()I
 	public final fun getNotes ()Ljava/util/List;
 	public final fun getRoot ()Lee/schimke/composeai/rcplayer/compose/RcNativeNodeSnapshot;

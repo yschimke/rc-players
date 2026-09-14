@@ -25,6 +25,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
@@ -59,7 +60,25 @@ public data class RcNativeDocumentSnapshot(
   public val root: RcNativeNodeSnapshot,
   public val unsupportedOpcodes: List<Int>,
   public val notes: List<String>,
+  public val diagnostics: List<RcNativeDiagnostic> = emptyList(),
 )
+
+/** One structured compatibility issue found while producing a native render snapshot. */
+public data class RcNativeDiagnostic(
+  public val severity: Int,
+  public val opcode: Int,
+  public val operationName: String,
+  public val componentId: Int,
+  public val reason: String,
+) {
+  public companion object {
+    /** The operation renders, but the native result is known to be approximate. */
+    public const val WARNING: Int = 0
+
+    /** The operation or one of its requested behaviors is not rendered. */
+    public const val UNSUPPORTED: Int = 1
+  }
+}
 
 /** A component in the native player's platform-neutral view tree. */
 public data class RcNativeNodeSnapshot(
@@ -143,8 +162,7 @@ public object RcNativeSnapshotBridge {
     val document = RcDocumentCodec.decode(bytes)
     val state = RcPlayerState(document)
     state.beginFrame(timeSeconds = 0f)
-    val unsupported = linkedSetOf<Int>()
-    val notes = linkedSetOf<String>()
+    val diagnostics = NativeDiagnosticCollector()
     val linked = RcDocumentLinker.link(document)
     val paint = NativePaint()
     val styles =
@@ -239,7 +257,11 @@ public object RcNativeSnapshotBridge {
               values = listOf(0f, size, -1f, -1f),
               text = state.text(operation.textId).orEmpty(),
             )
-        notes += "Text layout geometry and shaping are approximate in the native POC"
+        diagnostics.warning(
+          operation,
+          componentId,
+          "Text layout geometry and shaping are approximate in the native POC",
+        )
       } else if (operation is RcCoreText) {
         val properties = resolvedStyle(operation)
         val size =
@@ -276,7 +298,11 @@ public object RcNativeSnapshotBridge {
               text = state.text(operation.textId).orEmpty(),
               textWeight = weight,
             )
-        notes += "CoreText layout geometry and shaping are approximate in the native POC"
+        diagnostics.warning(
+          operation,
+          componentId,
+          "CoreText layout geometry and shaping are approximate in the native POC",
+        )
       } else if (
         operation !is RcRootLayout &&
           operation !is RcLayoutContent &&
@@ -285,14 +311,14 @@ public object RcNativeSnapshotBridge {
           operation !is RcClickModifier &&
           operation !is RcMultiClickModifier
       ) {
-        unsupported += operation.opcode
+        diagnostics.unsupported(operation, componentId)
       }
       val children = mutableListOf<RcNativeNodeSnapshot>()
       for (child in container.children) {
         when (child) {
           is RcLinkedNode.Container -> children += nodeFor(child)
           is RcLinkedNode.Operation ->
-            consume(child.operation, state, paint, commands, unsupported, notes)
+            consume(child.operation, componentId, state, paint, commands, diagnostics)
         }
       }
       val clickable = semantics?.clickable == true || hasClickModifier
@@ -336,7 +362,7 @@ public object RcNativeSnapshotBridge {
       val backgroundPaint =
         if (hasDrawContent) {
           descendantOperations(container).filterIsInstance<RcPaintData>().firstOrNull()?.let {
-            NativePaint().also { paint -> applyPaint(it, state, paint, notes) }
+            NativePaint().also { paint -> applyPaint(it, componentId, state, paint, diagnostics) }
           }
         } else null
       return RcNativeNodeSnapshot(
@@ -399,7 +425,7 @@ public object RcNativeSnapshotBridge {
       when (node) {
         is RcLinkedNode.Container -> rootChildren += nodeFor(node)
         is RcLinkedNode.Operation ->
-          consume(node.operation, state, paint, rootCommands, unsupported, notes)
+          consume(node.operation, 0, state, paint, rootCommands, diagnostics)
       }
     }
     return RcNativeDocumentSnapshot(
@@ -412,22 +438,23 @@ public object RcNativeSnapshotBridge {
           commands = rootCommands,
           children = rootChildren,
         ),
-      unsupportedOpcodes = unsupported.toList(),
-      notes = notes.toList(),
+      unsupportedOpcodes = diagnostics.unsupportedOpcodes.toList(),
+      notes = diagnostics.notes.toList(),
+      diagnostics = diagnostics.issues.toList(),
     )
   }
 
   private fun consume(
     operation: RcOperation,
+    componentId: Int,
     state: RcPlayerState,
     paint: NativePaint,
     commands: MutableList<RcNativeDrawCommand>,
-    unsupported: MutableSet<Int>,
-    notes: MutableSet<String>,
+    diagnostics: NativeDiagnosticCollector,
   ) {
     when (operation) {
       is RcAccessibilitySemantics -> Unit
-      is RcPaintData -> applyPaint(operation, state, paint, notes)
+      is RcPaintData -> applyPaint(operation, componentId, state, paint, diagnostics)
       is RcFloatExpression -> state.applyFloatExpression(operation)
       is RcIntegerExpression -> state.applyIntegerExpression(operation)
       is RcColorExpression -> state.applyColorExpression(operation)
@@ -451,7 +478,7 @@ public object RcNativeSnapshotBridge {
             RcOpcodes.MATRIX_SCALE -> RcNativeDrawCommand.SCALE
             else -> null
           }
-        if (kind == null) unsupported += operation.opcode
+        if (kind == null) diagnostics.unsupported(operation, componentId)
         else commands += paint.command(kind, values)
       }
       is RcDraw3 -> {
@@ -462,7 +489,7 @@ public object RcNativeSnapshotBridge {
             RcOpcodes.MATRIX_ROTATE -> RcNativeDrawCommand.ROTATE
             else -> null
           }
-        if (kind == null) unsupported += operation.opcode
+        if (kind == null) diagnostics.unsupported(operation, componentId)
         else commands += paint.command(kind, values)
       }
       is RcDraw6 -> {
@@ -483,7 +510,7 @@ public object RcNativeSnapshotBridge {
             RcOpcodes.DRAW_SECTOR -> RcNativeDrawCommand.SECTOR
             else -> null
           }
-        if (kind == null) unsupported += operation.opcode
+        if (kind == null) diagnostics.unsupported(operation, componentId)
         else commands += paint.command(kind, values)
       }
       is RcTransform2 -> {
@@ -493,7 +520,7 @@ public object RcNativeSnapshotBridge {
             RcOpcodes.MATRIX_SKEW -> RcNativeDrawCommand.SKEW
             else -> null
           }
-        if (kind == null) unsupported += operation.opcode
+        if (kind == null) diagnostics.unsupported(operation, componentId)
         else
           commands +=
             paint.command(
@@ -531,19 +558,22 @@ public object RcNativeSnapshotBridge {
             text,
           )
       }
-      is RcIdOperation -> unsupported += operation.opcode
+      is RcIdOperation -> diagnostics.unsupported(operation, componentId)
       else -> {
         // Data declarations and layout metadata are already represented in state or the node tree.
-        if (operation.opcode in DRAWING_OR_BEHAVIOR_OPCODES) unsupported += operation.opcode
+        if (operation.opcode in DRAWING_OR_BEHAVIOR_OPCODES) {
+          diagnostics.unsupported(operation, componentId)
+        }
       }
     }
   }
 
   private fun applyPaint(
     operation: RcPaintData,
+    componentId: Int,
     state: RcPlayerState,
     paint: NativePaint,
-    notes: MutableSet<String>,
+    diagnostics: NativeDiagnosticCollector,
   ) {
     var index = 0
     while (index < operation.words.size) {
@@ -570,7 +600,11 @@ public object RcNativeSnapshotBridge {
           21 -> 0
           23 -> (command ushr 16) * 2
           else -> {
-            notes += "Paint command $type is not represented by the native POC"
+            diagnostics.unsupportedLimitation(
+              operation,
+              componentId,
+              "Paint command $type is not represented by the native POC",
+            )
             return
           }
         }
@@ -588,17 +622,32 @@ public object RcNativeSnapshotBridge {
         15,
         17,
         21 -> Unit
-        18 -> notes += "Blend mode ${command ushr 16} is not represented by the native POC"
+        18 ->
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "Blend mode ${command ushr 16} is not represented by the native POC",
+          )
         16 -> {
           paint.fontStyle = command ushr 16
           paint.fontType = operation.words[index++]
         }
         23 -> {
-          if (argumentCount > 0) notes += "Font axes are not represented by the native POC"
+          if (argumentCount > 0) {
+            diagnostics.unsupportedLimitation(
+              operation,
+              componentId,
+              "Font axes are not represented by the native POC",
+            )
+          }
           index += argumentCount
         }
         else -> {
-          notes += "Paint command $type is not represented by the native POC"
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "Paint command $type is not represented by the native POC",
+          )
           index += argumentCount
         }
       }
@@ -639,6 +688,45 @@ public object RcNativeSnapshotBridge {
         textWeight = textWeight,
         text = text,
       )
+  }
+
+  private class NativeDiagnosticCollector {
+    val unsupportedOpcodes = linkedSetOf<Int>()
+    val notes = linkedSetOf<String>()
+    val issues = linkedSetOf<RcNativeDiagnostic>()
+
+    fun warning(operation: RcOperation, componentId: Int, reason: String) {
+      notes += reason
+      add(RcNativeDiagnostic.WARNING, operation, componentId, reason)
+    }
+
+    fun unsupported(operation: RcOperation, componentId: Int) {
+      unsupportedOpcodes += operation.opcode
+      add(
+        RcNativeDiagnostic.UNSUPPORTED,
+        operation,
+        componentId,
+        "Operation is not represented by the native player",
+      )
+    }
+
+    fun unsupportedLimitation(operation: RcOperation, componentId: Int, reason: String) {
+      notes += reason
+      add(RcNativeDiagnostic.UNSUPPORTED, operation, componentId, reason)
+    }
+
+    private fun add(severity: Int, operation: RcOperation, componentId: Int, reason: String) {
+      issues +=
+        RcNativeDiagnostic(
+          severity = severity,
+          opcode = operation.opcode,
+          operationName =
+            RcOperationInventory.byOpcode[operation.opcode]?.stableName
+              ?: "Opcode ${operation.opcode}",
+          componentId = componentId,
+          reason = reason,
+        )
+    }
   }
 
   private val DRAWING_OR_BEHAVIOR_OPCODES: Set<Int> =

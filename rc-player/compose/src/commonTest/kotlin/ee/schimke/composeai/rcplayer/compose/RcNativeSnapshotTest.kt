@@ -6,6 +6,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcIdOperation
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
@@ -62,6 +63,7 @@ class RcNativeSnapshotTest {
     assertEquals(70f, command.fourth)
     assertEquals(0xff336699.toInt(), command.color)
     assertTrue(snapshot.unsupportedOpcodes.isEmpty())
+    assertTrue(snapshot.diagnostics.isEmpty())
   }
 
   @Test
@@ -99,5 +101,34 @@ class RcNativeSnapshotTest {
     val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
 
     assertEquals(listOf("Blend mode 3 is not represented by the native POC"), snapshot.notes)
+    val diagnostic = snapshot.diagnostics.single()
+    assertEquals(RcNativeDiagnostic.UNSUPPORTED, diagnostic.severity)
+    assertEquals(RcOpcodes.PAINT_VALUES, diagnostic.opcode)
+    assertEquals("PaintValues", diagnostic.operationName)
+    assertEquals(1, diagnostic.componentId)
+    assertEquals("Blend mode 3 is not represented by the native POC", diagnostic.reason)
+  }
+
+  @Test
+  fun reportsUnsupportedOperationsWithTheirComponentAndInventoryName() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(42),
+          RcIdOperation(RcOpcodes.DRAW_PATH, 7),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+
+    assertEquals(listOf(RcOpcodes.DRAW_PATH), snapshot.unsupportedOpcodes)
+    val diagnostic = snapshot.diagnostics.single()
+    assertEquals(RcNativeDiagnostic.UNSUPPORTED, diagnostic.severity)
+    assertEquals(RcOpcodes.DRAW_PATH, diagnostic.opcode)
+    assertEquals("DrawPath", diagnostic.operationName)
+    assertEquals(42, diagnostic.componentId)
+    assertEquals("Operation is not represented by the native player", diagnostic.reason)
   }
 }

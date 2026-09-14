@@ -105,9 +105,9 @@ production bridge needs incremental state updates and must not rebuild a snapsho
 
 ### Partial means explicit
 
-Every snapshot includes distinct `unsupportedOpcodes` and human-readable `notes`. The sample shows
-a diagnostic badge when either is nonempty. A host can choose whether partial output is useful; the
-player does not silently claim compatibility.
+Every snapshot includes structured issues, plus legacy `unsupportedOpcodes` and human-readable
+`notes` projections. The sample shows a diagnostic badge when any issue exists. A host can choose
+compatible or strict policy; the player does not silently claim compatibility.
 
 ## Architecture
 
@@ -140,7 +140,10 @@ simple, and permits decode work to move off the main actor later.
 
 ### Snapshot model
 
-`RcNativeDocumentSnapshot` contains document size, a root node, unsupported opcodes, and notes.
+`RcNativeDocumentSnapshot` contains document size, a root node, and structured compatibility
+diagnostics. Each diagnostic records severity, opcode, inventory-derived operation name, component
+id, and reason. The legacy unsupported-opcode and note projections remain on the experimental
+bridge for source compatibility, but Swift treats the structured list as authoritative.
 `RcNativeNodeSnapshot` carries a semantic kind (`root`, `content`, `canvas`, or `group`), component
 id, local commands, children, and resolved role/clickability/enabled/label semantics. Swift converts
 integer kinds and roles to private enums at the boundary.
@@ -158,9 +161,12 @@ import RcNativePlayerUIKit
 
 let player = RemoteComposeNativePlayerView(
   data: documentData,
-  background: .transparent
+  background: .transparent,
+  compatibilityPolicy: .compatible
 ) { diagnostics in
-  if diagnostics.isPartial { print(diagnostics.unsupportedOpcodes) }
+  for issue in diagnostics.issues {
+    print("\(issue.operationName) in component \(issue.componentID): \(issue.reason)")
+  }
 }
 container.addSubview(player)
 ```
@@ -168,6 +174,12 @@ container.addSubview(player)
 `RemoteComposeNativePlayerViewController` is a convenience for controller-based hosts and exposes
 `load(_:)`. `RemoteComposeNativePlayerRepresentable` is only an adapter: its renderer is the same
 UIKit tree. A named-value controller is omitted until retained state is designed.
+
+The default `.compatible` policy renders the supported subset and reports all known differences.
+`.strict` refuses to install a document view when any diagnostic is present, including a known
+approximation; the error is displayed through the existing native error surface. Changing the
+policy reloads the retained document bytes, so a host may inspect compatible output and then apply
+a stricter gate without recreating the view.
 
 ## Rendering behavior
 
