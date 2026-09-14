@@ -30,6 +30,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
+import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
@@ -150,9 +152,15 @@ public data class RcNativeDrawCommand(
   public val alpha: Float = 1f,
   public val strokeWidth: Float = 1f,
   public val stroke: Boolean = false,
+  public val strokeCap: Int = 0,
+  public val strokeJoin: Int = 0,
+  public val blendMode: Int = 3,
   public val textSize: Float = 16f,
   public val textWeight: Float = 400f,
   public val text: String? = null,
+  public val path: List<RcNativePathCommand> = emptyList(),
+  public val pathWinding: Int = 0,
+  public val gradient: RcNativeGradient? = null,
 ) {
   public companion object {
     public const val SAVE: Int = 0
@@ -162,6 +170,7 @@ public data class RcNativeDrawCommand(
     public const val ROTATE: Int = 4
     public const val SKEW: Int = 5
     public const val CLIP_RECT: Int = 6
+    public const val CLIP_PATH: Int = 7
     public const val RECT: Int = 10
     public const val OVAL: Int = 11
     public const val CIRCLE: Int = 12
@@ -170,8 +179,38 @@ public data class RcNativeDrawCommand(
     public const val ARC: Int = 15
     public const val SECTOR: Int = 16
     public const val TEXT: Int = 17
+    public const val PATH: Int = 18
   }
 }
+
+/** A validated inline gradient whose coordinates are resolved for Core Graphics. */
+public data class RcNativeGradient(
+  public val kind: Int,
+  public val colors: List<Int>,
+  public val stops: List<Float>,
+  public val first: Float,
+  public val second: Float,
+  public val third: Float = 0f,
+  public val fourth: Float = 0f,
+  public val tileMode: Int = 0,
+) {
+  public companion object {
+    public const val LINEAR: Int = 0
+    public const val RADIAL: Int = 1
+    public const val SWEEP: Int = 2
+  }
+}
+
+/** One validated segment in an exported native path. */
+public data class RcNativePathCommand(
+  public val kind: Int,
+  public val first: Float = 0f,
+  public val second: Float = 0f,
+  public val third: Float = 0f,
+  public val fourth: Float = 0f,
+  public val fifth: Float = 0f,
+  public val sixth: Float = 0f,
+)
 
 /** Decode `.rc` bytes into the deliberately small immutable POC render model. */
 public object RcNativeSnapshotBridge {
@@ -183,6 +222,7 @@ public object RcNativeSnapshotBridge {
     val diagnostics = NativeDiagnosticCollector()
     val linked = RcDocumentLinker.link(document)
     val paint = NativePaint()
+    val paths = document.operations.filterIsInstance<RcPathData>().associateBy(RcPathData::id)
     val styles =
       document.operations
         .filterIsInstance<RcTextStyle>()
@@ -350,7 +390,7 @@ public object RcNativeSnapshotBridge {
       for (child in container.children) {
         when (child) {
           is RcLinkedNode.Operation ->
-            consume(child.operation, componentId, state, paint, commands, diagnostics)
+            consume(child.operation, componentId, state, paint, commands, diagnostics, paths)
           is RcLinkedNode.Container -> {
             if (operation is RcStateLayout && child.operation is RcLayoutContent) {
               val contentComponentId = (child.operation as RcLayoutContent).componentId
@@ -372,6 +412,7 @@ public object RcNativeSnapshotBridge {
                       paint,
                       commands,
                       diagnostics,
+                      paths,
                     )
                   is RcLinkedNode.Container -> {
                     val contentVisibility =
@@ -587,7 +628,7 @@ public object RcNativeSnapshotBridge {
       when (node) {
         is RcLinkedNode.Container -> rootChildren += nodeFor(node)
         is RcLinkedNode.Operation ->
-          consume(node.operation, 0, state, paint, rootCommands, diagnostics)
+          consume(node.operation, 0, state, paint, rootCommands, diagnostics, paths)
       }
     }
     val rootBehavior = state.rootContentBehavior
@@ -627,6 +668,7 @@ public object RcNativeSnapshotBridge {
     paint: NativePaint,
     commands: MutableList<RcNativeDrawCommand>,
     diagnostics: NativeDiagnosticCollector,
+    paths: Map<Int, RcPathData>,
   ) {
     when (operation) {
       is RcAccessibilitySemantics,
@@ -751,7 +793,19 @@ public object RcNativeSnapshotBridge {
             text,
           )
       }
-      is RcIdOperation -> diagnostics.unsupported(operation, componentId)
+      is RcIdOperation ->
+        if (operation.opcode == RcOpcodes.DRAW_PATH || operation.opcode == RcOpcodes.CLIP_PATH) {
+          val data = requireNotNull(paths[operation.id]) { "Missing path ${operation.id}" }
+          commands +=
+            paint.command(
+              if (operation.opcode == RcOpcodes.DRAW_PATH) RcNativeDrawCommand.PATH
+              else RcNativeDrawCommand.CLIP_PATH,
+              path = nativePath(data, componentId, state, diagnostics),
+              pathWinding = data.winding,
+            )
+        } else {
+          diagnostics.unsupported(operation, componentId)
+        }
       else -> {
         // Data declarations and layout metadata are already represented in state or the node tree.
         if (operation.opcode in DRAWING_OR_BEHAVIOR_OPCODES) {
@@ -759,6 +813,70 @@ public object RcNativeSnapshotBridge {
         }
       }
     }
+  }
+
+  private fun nativePath(
+    data: RcPathData,
+    componentId: Int,
+    state: RcPlayerState,
+    diagnostics: NativeDiagnosticCollector,
+  ): List<RcNativePathCommand> {
+    val result = mutableListOf<RcNativePathCommand>()
+    var index = 0
+    fun argument(): Float {
+      require(index < data.words.size) { "Truncated PathData ${data.id} at word $index" }
+      return state.resolve(data.words[index++])
+    }
+    fun skipLegacyPadding() {
+      require(index + 2 <= data.words.size) { "Truncated PathData ${data.id} legacy padding" }
+      index += 2
+    }
+    while (index < data.words.size) {
+      val commandIndex = index
+      val command =
+        requireNotNull(data.words[index++].referencedId) {
+          "PathData ${data.id} command at word $commandIndex is not NaN-encoded"
+        }
+      val values =
+        when (command) {
+          RcPathCommands.MOVE -> listOf(argument(), argument())
+          RcPathCommands.LINE -> {
+            skipLegacyPadding()
+            listOf(argument(), argument())
+          }
+          RcPathCommands.QUADRATIC -> {
+            skipLegacyPadding()
+            List(4) { argument() }
+          }
+          RcPathCommands.CONIC -> {
+            skipLegacyPadding()
+            diagnostics.unsupportedLimitation(
+              data,
+              componentId,
+              "Rational conic path segments are approximated as quadratic curves",
+            )
+            List(5) { argument() }
+          }
+          RcPathCommands.CUBIC -> {
+            skipLegacyPadding()
+            List(6) { argument() }
+          }
+          RcPathCommands.CLOSE -> emptyList()
+          RcPathCommands.DONE -> return result
+          else -> throw IllegalArgumentException("PathData ${data.id} has unknown command $command")
+        }
+      result +=
+        RcNativePathCommand(
+          kind = command,
+          first = values.getOrElse(0) { 0f },
+          second = values.getOrElse(1) { 0f },
+          third = values.getOrElse(2) { 0f },
+          fourth = values.getOrElse(3) { 0f },
+          fifth = values.getOrElse(4) { 0f },
+          sixth = values.getOrElse(5) { 0f },
+        )
+    }
+    return result
   }
 
   private fun applyPaint(
@@ -772,6 +890,67 @@ public object RcNativeSnapshotBridge {
     while (index < operation.words.size) {
       val command = operation.words[index++]
       val type = command and 0xffff
+      if (type == 11) {
+        val gradientType = command ushr 16
+        require(gradientType in 0..2) { "Gradient type $gradientType is invalid" }
+        require(index < operation.words.size) { "Paint command 11 is truncated" }
+        val meta = operation.words[index++]
+        val colorCount = meta and 0xff
+        require(colorCount in 1..16) { "Gradient color count $colorCount is invalid" }
+        require(index + colorCount < operation.words.size) { "Paint command 11 is truncated" }
+        val register = (meta ushr 16) and 0xffff
+        val colors =
+          List(colorCount) { colorIndex ->
+            val word = operation.words[index++]
+            if (register and (1 shl colorIndex) != 0) state.color(word) else word
+          }
+        val stopCount = operation.words[index++]
+        require(stopCount == 0 || stopCount == colorCount) {
+          "Gradient stop count $stopCount does not match $colorCount colors"
+        }
+        require(index + stopCount <= operation.words.size) { "Paint command 11 is truncated" }
+        val stops = List(stopCount) { state.resolveWord(operation.words[index++]) }
+        require(stops.all { it.isFinite() && it in 0f..1f }) {
+          "Gradient stops must be finite and between 0 and 1"
+        }
+        require(stops.zipWithNext().all { (low, high) -> low <= high }) {
+          "Gradient stops must be ordered"
+        }
+        val coordinateCount = if (gradientType == RcNativeGradient.LINEAR) 4 else 3
+        // Sweep gradients encode only their center; radial gradients add radius.
+        val actualCoordinateCount =
+          if (gradientType == RcNativeGradient.SWEEP) 2 else coordinateCount
+        val trailingWords =
+          actualCoordinateCount + if (gradientType == RcNativeGradient.SWEEP) 0 else 1
+        require(index + trailingWords <= operation.words.size) { "Paint command 11 is truncated" }
+        val coordinates =
+          List(actualCoordinateCount) { state.resolveWord(operation.words[index++]) }
+        require(coordinates.all(Float::isFinite)) { "Gradient coordinates must be finite" }
+        if (gradientType == RcNativeGradient.RADIAL) {
+          require(coordinates[2] > 0f) { "Radial gradient radius must be positive" }
+        }
+        val tileMode = if (gradientType == RcNativeGradient.SWEEP) 0 else operation.words[index++]
+        require(tileMode in 0..3) { "Gradient tile mode $tileMode is invalid" }
+        if (tileMode != 0) {
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "Gradient tile mode $tileMode is approximated with clamp",
+          )
+        }
+        paint.gradient =
+          RcNativeGradient(
+            kind = gradientType,
+            colors = colors,
+            stops = stops,
+            first = coordinates[0],
+            second = coordinates[1],
+            third = coordinates.getOrElse(2) { 0f },
+            fourth = coordinates.getOrElse(3) { 0f },
+            tileMode = tileMode,
+          )
+        continue
+      }
       val argumentCount =
         when (type) {
           1,
@@ -809,36 +988,50 @@ public object RcNativeSnapshotBridge {
         8 -> paint.stroke = command ushr 16 == 1
         12 -> paint.alpha = state.resolveWord(operation.words[index++]).coerceIn(0f, 1f)
         19 -> paint.color = state.color(operation.words[index++])
+        9 -> {
+          val shaderId = operation.words[index++]
+          if (shaderId == 0) paint.gradient = null
+          else
+            diagnostics.unsupportedLimitation(
+              operation,
+              componentId,
+              "Shader id $shaderId is not represented by the native player",
+            )
+        }
         10,
         14,
         17,
         21 -> Unit
         7 -> {
           val cap = command ushr 16
-          if (cap != 0) {
+          if (cap in 0..2) paint.strokeCap = cap
+          else
             diagnostics.unsupportedLimitation(
               operation,
               componentId,
-              "Stroke cap $cap is not represented by the native POC",
+              "Stroke cap $cap is invalid",
             )
-          }
         }
         15 -> {
           val join = command ushr 16
-          if (join != 0) {
+          if (join in 0..2) paint.strokeJoin = join
+          else
             diagnostics.unsupportedLimitation(
               operation,
               componentId,
-              "Stroke join $join is not represented by the native POC",
+              "Stroke join $join is invalid",
             )
-          }
         }
-        18 ->
-          diagnostics.unsupportedLimitation(
-            operation,
-            componentId,
-            "Blend mode ${command ushr 16} is not represented by the native POC",
-          )
+        18 -> {
+          val blendMode = command ushr 16
+          if (blendMode in 0..28) paint.blendMode = blendMode
+          else
+            diagnostics.unsupportedLimitation(
+              operation,
+              componentId,
+              "Blend mode $blendMode is invalid",
+            )
+        }
         16 -> {
           paint.fontStyle = command ushr 16
           paint.fontType = operation.words[index++]
@@ -873,15 +1066,21 @@ public object RcNativeSnapshotBridge {
     var alpha: Float = 1f,
     var strokeWidth: Float = 1f,
     var stroke: Boolean = false,
+    var strokeCap: Int = 0,
+    var strokeJoin: Int = 0,
+    var blendMode: Int = 3,
     var textSize: Float = 16f,
     var fontType: Int = 0,
     var fontStyle: Int = 0,
+    var gradient: RcNativeGradient? = null,
   ) {
     fun command(
       kind: Int,
       values: List<Float> = emptyList(),
       text: String? = null,
       textWeight: Float = 400f,
+      path: List<RcNativePathCommand> = emptyList(),
+      pathWinding: Int = 0,
     ) =
       RcNativeDrawCommand(
         kind = kind,
@@ -895,9 +1094,15 @@ public object RcNativeSnapshotBridge {
         alpha = alpha,
         strokeWidth = strokeWidth,
         stroke = stroke,
+        strokeCap = strokeCap,
+        strokeJoin = strokeJoin,
+        blendMode = blendMode,
         textSize = textSize,
         textWeight = textWeight,
         text = text,
+        path = path,
+        pathWinding = pathWinding,
+        gradient = gradient,
       )
   }
 

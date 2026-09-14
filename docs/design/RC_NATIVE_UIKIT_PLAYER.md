@@ -18,7 +18,9 @@ surface exists below those entry points.
 It currently handles a static frame containing Box, Row, and Column layout; common size, padding,
 alignment, rounded-clip, and background modifiers; rectangles, ovals, circles, lines, rounded
 rectangles, arcs, sectors, basic text, color/alpha/stroke paint state, clipping, save/restore, and
-basic transforms. Layout text is promoted to `UILabel`, while clickable or button-role components
+basic transforms. It also replays validated paths, path clipping, inline linear/radial/sweep
+gradients, stroke caps/joins, and Core Graphics-compatible blend modes in stream order. Layout text
+is promoted to `UILabel`, while clickable or button-role components
 are promoted to real transparent `UIButton`s over the document visuals. Unsupported drawing and
 behavior opcodes are returned as diagnostics rather than being presented as full compatibility.
 
@@ -205,9 +207,12 @@ no general component margin modifier; external spacing is expressed by parent ar
 The bridge snapshots paint onto each drawing command, so Swift does not depend on Kotlin's internal
 paint model. Core Graphics state remains ordered for save/restore, clipping, and transforms.
 
-Current paint support is color, alpha, fill/stroke, stroke width, and system-font size. Gradients,
-shaders, blend modes, color filters, path effects, font axes, and textures produce diagnostics or
-unsupported opcodes.
+Current paint support is color, alpha, fill/stroke, stroke width/cap/join, Core
+Graphics-representable blend modes, ordered line/quadratic/cubic paths, path clipping, inline
+linear/radial/sweep gradients, and system-font size. Sweep gradients use bounded Core Graphics
+tessellation because `CGContext` has no conic-gradient primitive. Non-clamp gradient tile modes and
+rational conics are approximated with explicit diagnostics. Referenced shaders, color filters, path
+effects, font axes, and textures produce diagnostics or unsupported opcodes.
 
 ### Text
 

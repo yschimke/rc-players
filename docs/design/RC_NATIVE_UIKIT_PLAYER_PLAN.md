@@ -24,7 +24,7 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 |---|---|---|
 | 1 — Static compatibility profile | Implemented | Structured issues, strict/compatible policy, malformed failures, and StateLayout reachability tests |
 | 2 — Static layout geometry | Core implemented | Pure Swift geometry, constraints, proportional weights, visibility, offsets, z-order, RTL, and root scaling |
-| 3 — Core Graphics static drawing | Next | Ordered paths, gradients, bitmaps, stroke detail, and blend diagnostics |
+| 3 — Core Graphics static drawing | Core implemented | Validated paths/clipping, gradients, graphics-state order, stroke caps/joins, and representable blend modes |
 | 4–11 | Planned | Ordered below |
 
 ## Delivery rules
@@ -82,9 +82,11 @@ Acceptance:
 
 ### 3. Fill the Core Graphics static drawing set
 
-Implement paths, quadratic/cubic segments, gradients, bitmap draw modes, complete stroke caps/joins,
-blend modes that Core Graphics can represent, and layer/save/restore behavior. Keep canvas text in the
-same ordered command stream when promotion to a native text element would alter compositing.
+Implement paths, quadratic/cubic segments, gradients, complete stroke caps/joins, blend modes that
+Core Graphics can represent, and clip/save/restore behavior. Keep canvas text in the same ordered
+command stream when promotion to a native text element would alter compositing. Bitmap draw geometry
+and actual drawing land together with package 5 so every byte enters through the same bounded,
+cancellable resource resolver; the static drawing package must not add an unbounded interim decoder.
 
 Acceptance:
 
