@@ -132,17 +132,18 @@ does not depend on `RcComposePlayerSwiftUI`, and neither existing product depend
 ### Data flow
 
 1. The host creates `RemoteComposeNativePlayerView(data:)` or its controller.
-2. Swift bridges `Data` to `KotlinByteArray` through the existing data bridge.
-3. `RcNativeSnapshotBridge` decodes the header and operations.
-4. `RcDocumentLinker` validates containers and expands references/macros.
-5. `RcPlayerState` loads constants and resolves supported expressions at time zero.
-6. The bridge walks the linked tree and emits nodes plus resolved drawing commands.
-7. Swift immediately maps interop objects to Swift value types.
-8. `NativeDocumentView` builds recursive `NativeComponentView`s.
-9. Each `NativeCanvasView` replays immutable commands in `draw(_:)` using Core Graphics.
+2. A serial Swift actor opens `RcNativeSnapshotSession` on a detached task.
+3. The session decodes once, links once, and retains `RcPlayerState`.
+4. A requested time resolves an immutable frame without scheduling platform work.
+5. Swift maps the interop frame to private Swift values on the main actor.
+6. `NativeDocumentView` builds recursive `NativeComponentView`s for the first frame.
+7. Compatible later frames reconcile those views in place; structural changes atomically replace
+   the tree.
+8. Each `NativeCanvasView` replays immutable commands in `draw(_:)` using Core Graphics.
 
-Kotlin objects do not remain in the UIKit view tree. That keeps ownership clear, makes view tests
-simple, and permits decode work to move off the main actor later.
+Kotlin objects do not remain in the UIKit view tree. The retained Kotlin object is isolated inside
+one Swift actor; UIKit receives only immutable frames. That keeps ownership clear and prevents the
+non-`Sendable` generated Kotlin surface from crossing concurrent tasks unsafely.
 
 ### Snapshot model
 
@@ -178,8 +179,9 @@ container.addSubview(player)
 ```
 
 `RemoteComposeNativePlayerViewController` is a convenience for controller-based hosts and exposes
-`load(_:)`. `RemoteComposeNativePlayerRepresentable` is only an adapter: its renderer is the same
-UIKit tree. A named-value controller is omitted until retained state is designed.
+`load(_:)`, resource configuration, and explicit `renderFrame(at:)`. The view offers the same
+operations. `RemoteComposeNativePlayerRepresentable` is only an adapter: its renderer is the same
+UIKit tree. A named-value controller remains deferred to the next package.
 
 The default `.compatible` policy renders the supported subset and reports all known differences.
 `.strict` refuses to install a document view when any diagnostic is present, including a known
@@ -270,16 +272,16 @@ production API should add a first-class `onError` closure.
 
 ## Lifecycle and concurrency
 
-Public view/controller APIs are `@MainActor`, as UIKit requires. Decode is synchronous for a simple,
-deterministic POC, which is not suitable for arbitrary production documents.
+Public view/controller APIs are `@MainActor`, as UIKit requires. Decode/link and frame evaluation run
+through a serial actor away from the main actor. Generation-numbered tasks retain input bytes,
+discard stale decode/resource/frame results, and install a complete candidate only after validation
+and resource preparation succeed. A failed candidate therefore leaves the last valid hierarchy
+and session intact while displaying the native error surface.
 
-A production implementation should use generation-numbered tasks: retain input bytes, decode to
-immutable data off-main, discard stale generations, then build or diff views on the main actor. The
-result must be Swift `Sendable` data before it returns to UIKit.
-
-Animation cannot re-decode every display frame. A retained runtime session should own state;
-`CADisplayLink` should request a resolved delta or refreshed command buffer only for invalidated
-component surfaces.
+The session retains codec/link/runtime state, so animation never has to decode each display frame.
+Entering the background cancels outstanding work; activation retries an interrupted full render.
+There is deliberately no `CADisplayLink` yet: package 9 will request frames only while the runtime
+reports work due and will add deterministic pause/resume clock tests.
 
 ## Accessibility and input
 
@@ -372,8 +374,8 @@ static profile has no unsupported diagnostics and reviewed A/B evidence.
 
 ### Phase 2: state and interaction
 
-Introduce a retained session, named-value controller, action dispatch, remaining semantic control
-mappings, haptics, sound, and component-local invalidation. Exit when selected-profile
+Build on the retained session with a named-value controller, action dispatch, remaining semantic
+control mappings, haptics, sound, and component-local invalidation. Exit when selected-profile
 state/interaction tests pass against CMP.
 
 ### Phase 3: animation and advanced graphics

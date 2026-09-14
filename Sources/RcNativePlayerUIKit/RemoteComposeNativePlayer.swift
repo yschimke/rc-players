@@ -38,6 +38,17 @@
     public func load(_ data: Data) {
       playerView.load(data)
     }
+
+    public func configureResources(
+      limits: RemoteComposeNativeResourceLimits,
+      resolver: (any RemoteComposeNativeResourceResolving)?
+    ) {
+      playerView.configureResources(limits: limits, resolver: resolver)
+    }
+
+    public func renderFrame(at timeSeconds: TimeInterval) {
+      playerView.renderFrame(at: timeSeconds)
+    }
   }
 
   public enum RemoteComposeNativePlayerBackground: Equatable, Sendable {
@@ -64,7 +75,13 @@
     public private(set) var resourceResolver: (any RemoteComposeNativeResourceResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
-    private var resourceTask: Task<Void, Never>?
+    private var loadTask: Task<Void, Never>?
+    private var loadGeneration: UInt64 = 0
+    private var isApplicationActive = true
+    private var needsForegroundRender = false
+    private var needsRetry = false
+    private var retainedSession: NativeSnapshotSessionHandle?
+    private var retainedResources: NativeResourceStore?
     private var resourceCache: NativeImageCache
     private var fontRegistry: NativeFontRegistry
     private let errorLabel = UILabel()
@@ -87,10 +104,21 @@
       fontRegistry = NativeFontRegistry(countLimit: resourceLimits.maximumResourceCount)
       self.onDiagnostics = onDiagnostics
       super.init(frame: .zero)
+      isApplicationActive = UIApplication.shared.applicationState != .background
       isAccessibilityElement = false
       clipsToBounds = true
       configureErrorLabel()
       applyBackground()
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(applicationDidEnterBackground),
+        name: UIApplication.didEnterBackgroundNotification,
+        object: nil)
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(applicationDidBecomeActive),
+        name: UIApplication.didBecomeActiveNotification,
+        object: nil)
       load(data)
     }
 
@@ -100,16 +128,18 @@
     }
 
     deinit {
-      resourceTask?.cancel()
+      loadTask?.cancel()
+      NotificationCenter.default.removeObserver(self)
     }
 
     public func load(_ data: Data) {
-      guard data != documentData else { return }
-      resourceTask?.cancel()
+      guard data != documentData || retainedSession == nil || needsRetry else { return }
+      loadTask?.cancel()
       documentData = data
       render(data)
     }
 
+    /// Apply host-owned resource policy and retry the current document when it changes.
     public func configureResources(
       limits: RemoteComposeNativeResourceLimits,
       resolver: (any RemoteComposeNativeResourceResolving)?
@@ -120,8 +150,10 @@
       case let (current?, next?): resolverChanged = current !== next
       default: resolverChanged = true
       }
-      guard limits != resourceLimits || resolverChanged else { return }
-      resourceTask?.cancel()
+      let limitsChanged = limits != resourceLimits
+      guard limitsChanged || resolverChanged else { return }
+      loadTask?.cancel()
+      loadGeneration &+= 1
       resourceLimits = limits
       resourceResolver = resolver
       resourceCache = NativeImageCache(
@@ -133,85 +165,116 @@
     }
 
     private func render(_ data: Data) {
-      resourceTask?.cancel()
-      resourceTask = nil
+      guard isApplicationActive else {
+        needsForegroundRender = true
+        return
+      }
+      needsForegroundRender = false
+      loadTask?.cancel()
+      loadGeneration &+= 1
+      let generation = loadGeneration
       fontRegistry.reset()
-      do {
-        let snapshot = try Self.decode(data)
-        let model = NativeDocument(snapshot: snapshot)
-        onDiagnostics(model.diagnostics)
-        if !RemoteComposeNativeCompatibilityDecision.shouldRender(
-          policy: compatibilityPolicy, diagnostics: model.diagnostics)
-        {
-          throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
+      loadTask = Task { [weak self] in
+        do {
+          let (session, frame) = try await NativeSnapshotSessionHandle.open(data: data)
+          try Task.checkCancellation()
+          guard let self, generation == self.loadGeneration else { return }
+          let model = NativeDocument(snapshot: frame.snapshot)
+          try self.validate(model)
+          let resources = try await self.prepareResources(for: model, generation: generation)
+          try Task.checkCancellation()
+          guard generation == self.loadGeneration else { return }
+          self.retainedSession = session
+          self.install(model, resources: resources)
+        } catch is CancellationError {
+          return
+        } catch {
+          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
+          self.show(error: error)
         }
-        let resources = try NativeResourceStore(
-          resources: model.images,
-          fonts: model.fonts,
-          limits: resourceLimits,
-          cache: resourceCache,
-          fontRegistry: fontRegistry)
-        if resources.unresolvedImages.isEmpty {
-          install(model, resources: resources)
-        } else {
-          guard let resourceResolver else {
-            throw RemoteComposeNativeResourceError.unresolvedReference(
-              id: resources.unresolvedImages[0].id)
-          }
-          resourceTask = Task { [weak self] in
-            do {
-              for request in resources.unresolvedImages {
-                let data = try await resourceResolver.resolve(request)
-                try Task.checkCancellation()
-                try resources.insertResolved(data: data, for: request)
-              }
-              try Task.checkCancellation()
-              self?.install(model, resources: resources)
-            } catch is CancellationError {
-              return
-            } catch {
-              guard !Task.isCancelled else { return }
-              self?.show(error: error)
-            }
-          }
-        }
-      } catch {
-        show(error: error)
       }
     }
 
+    /// Resolve another immutable frame from the retained runtime without decoding the document.
+    public func renderFrame(at timeSeconds: TimeInterval) {
+      guard isApplicationActive else { return }
+      guard let retainedSession, let retainedResources else { return }
+      loadTask?.cancel()
+      loadGeneration &+= 1
+      let generation = loadGeneration
+      loadTask = Task { [weak self] in
+        do {
+          let frame = try await retainedSession.frame(at: timeSeconds)
+          try Task.checkCancellation()
+          guard let self, generation == self.loadGeneration else { return }
+          let model = NativeDocument(snapshot: frame.snapshot)
+          try self.validate(model)
+          self.install(model, resources: retainedResources)
+        } catch is CancellationError {
+          return
+        } catch {
+          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
+          self.show(error: error)
+        }
+      }
+    }
+
+    private func validate(_ model: NativeDocument) throws {
+      onDiagnostics(model.diagnostics)
+      if !RemoteComposeNativeCompatibilityDecision.shouldRender(
+        policy: compatibilityPolicy, diagnostics: model.diagnostics)
+      {
+        throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
+      }
+    }
+
+    private func prepareResources(
+      for model: NativeDocument,
+      generation: UInt64
+    ) async throws -> NativeResourceStore {
+      let resources = try NativeResourceStore(
+        resources: model.images,
+        fonts: model.fonts,
+        limits: resourceLimits,
+        cache: resourceCache,
+        fontRegistry: fontRegistry)
+      if !resources.unresolvedImages.isEmpty {
+        guard let resourceResolver else {
+          throw RemoteComposeNativeResourceError.unresolvedReference(
+            id: resources.unresolvedImages[0].id)
+        }
+        for request in resources.unresolvedImages {
+          let resolved = try await resourceResolver.resolve(request)
+          try Task.checkCancellation()
+          guard generation == loadGeneration else { throw CancellationError() }
+          try resources.insertResolved(data: resolved, for: request)
+        }
+      }
+      return resources
+    }
+
     private func install(_ model: NativeDocument, resources: NativeResourceStore) {
-      let nextView = NativeDocumentView(document: model, resources: resources)
-      replaceDocumentView(with: nextView)
+      if documentView?.update(document: model, resources: resources) != true {
+        let nextView = NativeDocumentView(document: model, resources: resources)
+        replaceDocumentView(with: nextView)
+      }
+      retainedResources = resources
+      needsRetry = false
       errorLabel.isHidden = true
-      resourceTask = nil
+      loadTask = nil
     }
 
     private func show(error: Error) {
-      documentView?.removeFromSuperview()
-      documentView = nil
+      needsRetry = true
       errorLabel.text = error.localizedDescription
       errorLabel.isHidden = false
-      resourceTask = nil
+      loadTask = nil
     }
 
     public override func layoutSubviews() {
       super.layoutSubviews()
       documentView?.frame = bounds
       errorLabel.frame = bounds.insetBy(dx: 24, dy: 24)
-    }
-
-    private static func decode(_ data: Data) throws -> RcNativeDocumentSnapshot {
-      guard data.count <= Int(Int32.max) else {
-        throw RemoteComposeNativePlayerError.documentTooLarge(data.count)
-      }
-      let bytes = RcDataBridgeKt.rcByteArray(data: data)
-      do {
-        return try RcNativeSnapshotBridge.shared.decode(bytes: bytes)
-      } catch {
-        if let error = error as? RemoteComposeNativePlayerError { throw error }
-        throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
-      }
     }
 
     private func replaceDocumentView(with nextView: NativeDocumentView) {
@@ -234,6 +297,20 @@
       isOpaque = opaque
       layer.isOpaque = opaque
       backgroundColor = opaque ? .systemBackground : .clear
+    }
+
+    @objc private func applicationDidEnterBackground() {
+      isApplicationActive = false
+      if loadTask != nil { needsForegroundRender = true }
+      loadTask?.cancel()
+      loadTask = nil
+      loadGeneration &+= 1
+    }
+
+    @objc private func applicationDidBecomeActive() {
+      isApplicationActive = true
+      guard needsForegroundRender, let documentData else { return }
+      render(documentData)
     }
   }
 #endif
