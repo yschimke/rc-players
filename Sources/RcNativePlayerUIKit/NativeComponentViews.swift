@@ -1,4 +1,5 @@
 #if canImport(UIKit)
+  import CoreText
   import RcComposePlayer
   import UIKit
 
@@ -132,6 +133,7 @@
     let path: [NativePathElement]
     let pathWinding: Int
     let gradient: NativeGradient?
+    let textStyle: NativeTextStyle
 
     init(snapshot: RcNativeDrawCommand) {
       kind = Int(snapshot.kind)
@@ -170,6 +172,41 @@
       } else {
         gradient = nil
       }
+      textStyle = NativeTextStyle(snapshot: snapshot.textStyle)
+    }
+  }
+
+  struct NativeTextStyle {
+    let fontStyle: Int
+    let fontFamilyID: Int
+    let fontFamilyName: String?
+    let alignment: Int
+    let overflow: Int
+    let maxLines: Int
+    let letterSpacing: CGFloat
+    let lineHeightAdd: CGFloat
+    let lineHeightMultiplier: CGFloat
+    let breakStrategy: Int
+    let hyphenation: Int
+    let isJustified: Bool
+    let isUnderlined: Bool
+    let isStruckThrough: Bool
+
+    init(snapshot: RcNativeTextStyle?) {
+      fontStyle = Int(snapshot?.fontStyle ?? 0)
+      fontFamilyID = Int(snapshot?.fontFamilyId ?? -1)
+      fontFamilyName = snapshot?.fontFamilyName
+      alignment = Int(snapshot?.alignment ?? 1)
+      overflow = Int(snapshot?.overflow ?? 1)
+      maxLines = Int(snapshot?.maxLines ?? Int32.max)
+      letterSpacing = CGFloat(snapshot?.letterSpacing ?? 0)
+      lineHeightAdd = CGFloat(snapshot?.lineHeightAdd ?? 0)
+      lineHeightMultiplier = CGFloat(snapshot?.lineHeightMultiplier ?? 1)
+      breakStrategy = Int(snapshot?.breakStrategy ?? 0)
+      hyphenation = Int(snapshot?.hyphenation ?? 0)
+      isJustified = snapshot?.justified ?? false
+      isUnderlined = snapshot?.underline ?? false
+      isStruckThrough = snapshot?.strikeThrough ?? false
     }
   }
 
@@ -284,7 +321,10 @@
       case .row: layoutRow()
       case .box: layoutOverlay(aligned: true)
       case .text:
-        textLabels.forEach { $0.layoutInComponent(bounds: bounds, documentScale: documentScale) }
+        textLabels.forEach {
+          $0.layoutInComponent(
+            bounds: bounds, documentScale: documentScale, layoutDirection: layoutDirection)
+        }
       default: layoutOverlay(aligned: false)
       }
       semanticView?.frame = bounds
@@ -369,8 +409,8 @@
         let size = child.preferredSize(in: content.size)
         child.frame = child.offsetFrame(
           aligned
-          ? alignedFrame(size: size, in: content)
-          : CGRect(origin: content.origin, size: content.size))
+            ? alignedFrame(size: size, in: content)
+            : CGRect(origin: content.origin, size: content.size))
       }
     }
 
@@ -388,7 +428,8 @@
       let heights = zip(items, zip(sizes, weightedHeights)).map { child, values in
         child.applyDimensions(
           to: values.0,
-          available: CGSize(width: content.width, height: values.1)).height
+          available: CGSize(width: content.width, height: values.1)
+        ).height
       }
       let positions = NativeLinearLayout.positions(
         total: content.height,
@@ -418,7 +459,8 @@
       let widths = zip(items, zip(natural, allocatedWidths)).map { child, values in
         child.applyDimensions(
           to: values.0,
-          available: CGSize(width: values.1, height: content.height)).width
+          available: CGSize(width: values.1, height: content.height)
+        ).width
       }
       let positions = NativeLinearLayout.positions(
         total: content.width,
@@ -511,8 +553,8 @@
       text = command.text
       textColor = command.color.withAlphaComponent(command.alpha)
       backgroundColor = .clear
-      numberOfLines = 0
-      lineBreakMode = .byWordWrapping
+      configureParagraph(layoutDirection: .leftToRight)
+      adjustsFontForContentSizeCategory = true
       isAccessibilityElement = true
       accessibilityIdentifier = "rc-native-text"
     }
@@ -527,17 +569,121 @@
       return sizeThatFits(CGSize(width: maximumWidth, height: .greatestFiniteMagnitude))
     }
 
-    func layoutInComponent(bounds: CGRect, documentScale: CGFloat) {
+    func layoutInComponent(
+      bounds: CGRect, documentScale: CGFloat, layoutDirection: NativeLayoutDirection
+    ) {
+      configureParagraph(layoutDirection: layoutDirection)
+      let preferred = preferredSize(maximumWidth: bounds.width, documentScale: documentScale)
       frame = CGRect(
         origin: .zero,
-        size: preferredSize(maximumWidth: bounds.width, documentScale: documentScale))
+        size: CGSize(width: bounds.width, height: min(preferred.height, bounds.height)))
     }
 
     private func configureFont(documentScale: CGFloat) {
-      let normalizedWeight = min(max((command.textWeight - 400) / 500, -1), 1)
-      font = .systemFont(
-        ofSize: max(command.textSize * documentScale, 1),
-        weight: UIFont.Weight(rawValue: normalizedWeight))
+      font = NativeTextAttributes.font(
+        for: command, scale: documentScale, scalesForDynamicType: true)
+      attributedText = NativeTextAttributes.string(
+        for: command, font: font, scale: documentScale,
+        layoutDirection: effectiveUserInterfaceLayoutDirection)
+    }
+
+    private func configureParagraph(layoutDirection: NativeLayoutDirection) {
+      let style = command.textStyle
+      numberOfLines = NativeTextPolicy.numberOfLines(
+        overflow: style.overflow, maximum: style.maxLines)
+      switch NativeTextPolicy.lineBreak(overflow: style.overflow) {
+      case .clip: lineBreakMode = .byClipping
+      case .wordWrap: lineBreakMode = .byWordWrapping
+      case .tail: lineBreakMode = .byTruncatingTail
+      case .head: lineBreakMode = .byTruncatingHead
+      case .middle: lineBreakMode = .byTruncatingMiddle
+      }
+      clipsToBounds = style.overflow != 2
+      semanticContentAttribute =
+        layoutDirection == .rightToLeft ? .forceRightToLeft : .forceLeftToRight
+    }
+  }
+
+  enum NativeTextAttributes {
+    static func font(
+      for command: NativeDrawCommand, scale: CGFloat, scalesForDynamicType: Bool = false
+    ) -> UIFont {
+      let weightValue =
+        command.textStyle.fontStyle & 1 != 0 ? max(command.textWeight, 700) : command.textWeight
+      let normalizedWeight = min(max((weightValue - 400) / 500, -1), 1)
+      let size = max(command.textSize * scale, 1)
+      let base = UIFont.systemFont(ofSize: size, weight: UIFont.Weight(rawValue: normalizedWeight))
+      var descriptor = base.fontDescriptor
+      let familyName = command.textStyle.fontFamilyName
+      switch familyName?.lowercased() {
+      case "serif": descriptor = descriptor.withDesign(.serif) ?? descriptor
+      case "monospace": descriptor = descriptor.withDesign(.monospaced) ?? descriptor
+      case "sans-serif", "default", nil: break
+      default: break
+      }
+      if command.textStyle.fontStyle & 2 != 0 {
+        descriptor =
+          descriptor.withSymbolicTraits(descriptor.symbolicTraits.union(.traitItalic)) ?? descriptor
+      }
+      let resolved = UIFont(descriptor: descriptor, size: size)
+      return scalesForDynamicType ? UIFontMetrics.default.scaledFont(for: resolved) : resolved
+    }
+
+    static func string(
+      for command: NativeDrawCommand,
+      font: UIFont,
+      scale: CGFloat,
+      layoutDirection: UIUserInterfaceLayoutDirection
+    ) -> NSAttributedString {
+      let paragraph = NSMutableParagraphStyle()
+      paragraph.alignment = alignment(
+        command.textStyle, layoutDirection: layoutDirection)
+      paragraph.lineHeightMultiple = max(command.textStyle.lineHeightMultiplier, 0)
+      paragraph.lineSpacing = command.textStyle.lineHeightAdd * scale
+      paragraph.hyphenationFactor = command.textStyle.hyphenation > 0 ? 1 : 0
+      paragraph.lineBreakMode = lineBreakMode(command.textStyle.overflow)
+      var attributes: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: command.color.withAlphaComponent(command.alpha),
+        .paragraphStyle: paragraph,
+        .kern: command.textStyle.letterSpacing * font.pointSize,
+      ]
+      if command.textStyle.isUnderlined {
+        attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+      }
+      if command.textStyle.isStruckThrough {
+        attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+      }
+      if command.isStroke {
+        attributes[.strokeColor] = command.color.withAlphaComponent(command.alpha)
+        attributes[.strokeWidth] = max(command.strokeWidth / font.pointSize * 100, 0.1)
+      }
+      return NSAttributedString(string: command.text ?? "", attributes: attributes)
+    }
+
+    private static func alignment(
+      _ style: NativeTextStyle, layoutDirection: UIUserInterfaceLayoutDirection
+    ) -> NSTextAlignment {
+      switch NativeTextPolicy.alignment(
+        value: style.alignment,
+        justified: style.isJustified,
+        direction: layoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
+      ) {
+      case .left: return .left
+      case .right: return .right
+      case .center: return .center
+      case .justified: return .justified
+      }
+    }
+
+    private static func lineBreakMode(_ overflow: Int) -> NSLineBreakMode {
+      switch NativeTextPolicy.lineBreak(overflow: overflow) {
+      case .clip: return .byClipping
+      case .wordWrap: return .byWordWrapping
+      case .tail: return .byTruncatingTail
+      case .head: return .byTruncatingHead
+      case .middle: return .byTruncatingMiddle
+      }
     }
   }
 
@@ -646,7 +792,8 @@
       guard command.blendMode != 2 else { return }
       context.addPath(path)
       guard let gradient = command.gradient else {
-        context.drawPath(using: command.isStroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
+        context.drawPath(
+          using: command.isStroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
         return
       }
       context.saveGState()
@@ -673,22 +820,29 @@
 
     private func drawText(_ command: NativeDrawCommand) {
       guard command.blendMode != 2 else { return }
-      guard let text = command.text else { return }
-      let normalizedWeight = min(max((command.textWeight - 400) / 500, -1), 1)
-      let font = UIFont.systemFont(
-        ofSize: command.textSize,
-        weight: UIFont.Weight(rawValue: normalizedWeight))
-      let attributes: [NSAttributedString.Key: Any] = [
-        .font: font,
-        .foregroundColor: command.color.withAlphaComponent(command.alpha),
-      ]
-      let size = (text as NSString).size(withAttributes: attributes)
+      guard command.text != nil, let context = UIGraphicsGetCurrentContext() else { return }
+      let font = NativeTextAttributes.font(for: command, scale: 1)
+      let attributed = NativeTextAttributes.string(
+        for: command, font: font, scale: 1,
+        layoutDirection: effectiveUserInterfaceLayoutDirection)
+      let line = CTLineCreateWithAttributedString(attributed)
+      var ascent: CGFloat = 0
+      var descent: CGFloat = 0
+      var leading: CGFloat = 0
+      let width = CGFloat(
+        CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
+      let height = ascent + descent + leading
       let panX = command.values[2]
       let panY = command.values[3]
-      let origin = CGPoint(
-        x: command.values[0] - size.width * ((panX + 1) / 2),
-        y: command.values[1] - font.ascender - size.height * ((panY + 1) / 2))
-      (text as NSString).draw(at: origin, withAttributes: attributes)
+      let x = command.values[0] - width * ((panX + 1) / 2)
+      let baseline = command.values[1] - height * ((panY + 1) / 2)
+      context.saveGState()
+      context.textMatrix = .identity
+      context.translateBy(x: 0, y: baseline * 2)
+      context.scaleBy(x: 1, y: -1)
+      context.textPosition = CGPoint(x: x, y: baseline)
+      CTLineDraw(line, context)
+      context.restoreGState()
     }
 
   }
