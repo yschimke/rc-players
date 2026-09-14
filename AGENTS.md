@@ -82,6 +82,23 @@ inside thousands of lines.
 Install it once (`brew install static-var/tap/build-brief`, or the script installer); setup and the
 cases where the raw log is useful are documented in [`README.md` → Building](README.md#building).
 
+On a shared developer host, automated builds use [`scripts/agent-gradle.sh`](scripts/agent-gradle.sh)
+instead of invoking `build-brief` directly:
+
+```
+scripts/agent-gradle.sh :rc-player-runtime:jvmTest
+scripts/agent-gradle.sh --exclusive allTests
+```
+
+The launcher keeps `build-brief` while limiting automation to four low-priority workers,
+non-interactive input and a ten-minute Gradle-daemon idle timeout. Use the normal profile for focused
+compilation, formatting and tests. Use `--exclusive` for `build`, `allTests`, Wasm distributions,
+Apple links and other heavyweight task graphs: it takes the same per-user machine lock as the other
+Compose Preview repositories, so automated builds cannot peak together. Direct Gradle and
+`build-brief` invocations remain unrestricted for interactive development, and hosted CI keeps its
+runner's full capacity. A narrower task-specific limit such as the Apple link's `--max-workers=1`
+is preserved. Do not copy these limits into `gradle.properties`.
+
 The per-command rules live in the managed `build-brief` block at the end of this file;
 `build-brief --install` regenerates it, so edit it there rather than by hand.
 
