@@ -165,7 +165,7 @@ composeai-contracts = "2.18.0"
 # this repository, and rode compose-ai-tools' release train (`composeai-tools`) until the data
 # extractors moved to yschimke/compose-preview-daemon in compose-ai-tools#5336; they ride that
 # repository's line now — 3.x, a different number from `composeai-contracts` above, which is on 2.x.
-composeai-preview-daemon = "3.4.3"
+composeai-preview-daemon = "3.4.5"
 
 [libraries]
 
