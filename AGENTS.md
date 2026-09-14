@@ -1,8 +1,8 @@
 # AGENTS.md
 
 The instruction file every coding agent working on this repository reads. It carries the rules that
-are **enforced by CI**, and nothing else — detail belongs in `README.md` and the design docs under
-[`docs/design/`](docs/design/).
+are **enforced by CI** and the shared build-execution guidance; project detail belongs in `README.md`
+and the design docs under [`docs/design/`](docs/design/).
 
 ## What this project is
 
@@ -71,6 +71,23 @@ committed — so the diff is reviewed rather than discovered after release.
 The release job writes both, and they must describe an asset that already exists — SPM verifies the
 checksum at resolve time. `scripts/update-package-swift.sh` is the only thing that should touch them.
 
+## Running Gradle
+
+Wrap Gradle in [`build-brief`](https://bb.staticvar.dev). It keeps the full log on disk and prints
+only the parts that decide what you do next — failed tasks, failed tests, warnings, build scan URLs,
+and artifact paths — while preserving Gradle's exit code exactly. That matters for this repository's
+multi-platform `build`, `allTests`, and rendering tasks, whose useful result can otherwise disappear
+inside thousands of lines.
+
+Install it once (`brew install static-var/tap/build-brief`, or the script installer); setup and the
+cases where the raw log is useful are documented in [`README.md` → Building](README.md#building).
+
+The per-command rules live in the managed `build-brief` block at the end of this file;
+`build-brief --install` regenerates it, so edit it there rather than by hand.
+
+Wrapping changes none of the invariants above — `./gradlew ktfmtFormatAll` is still what the
+formatter rule means, just run through `build-brief`.
+
 ## PR workflow
 
 - **Open a PR automatically when a coding task is finished, committed and pushed.**
@@ -98,3 +115,16 @@ checksum at resolve time. `scripts/update-package-swift.sh` is the only thing th
   has landed, **stop**: branch fresh from `origin/main` for the follow-up and say so.
 - **Don't auto-merge.** Opening, tracking and fix-up commits are automatic; merging is the user's
   call.
+
+<!-- build-brief:instructions:start -->
+## build-brief
+
+- Prefer `build-brief gradle ...` for PATH Gradle and `build-brief ./gradlew ...` for the project wrapper.
+- For chained shell commands, rewrite each Gradle segment individually, for example `build-brief gradle test && build-brief gradle check`.
+- Use default `build-brief` output for routine Gradle work; it stays intentionally short on clean success cases.
+- Use default `build-brief` output for report-style commands like `tasks`, `help`, `projects`, `dependencies`, and `dependencyInsight`; their report bodies are preserved.
+- Use `build-brief gradle --stacktrace ...` or `build-brief ./gradlew --stacktrace ...` when you need Gradle stack traces.
+- `build-brief` normalizes output-shaping flags like `--quiet`, `--warn`, `--warning-mode ...`, and `--console ...` so its reducer keeps working reliably.
+- Let Gradle daemon reuse happen by default; `build-brief` strips explicit `--daemon` and `--no-daemon` overrides rather than forcing daemon-off behavior.
+- Preserve the raw log path from `build-brief` output when handing build failures to another tool or agent.
+<!-- build-brief:instructions:end -->
