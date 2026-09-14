@@ -180,6 +180,34 @@ tag, neither of which carries a resolvable checksum:
 ./gradlew ktfmtFormatAll   # format before committing — CI gates on ktfmtCheckAll
 ```
 
+### Run Gradle through `build-brief`
+
+[`build-brief`](https://bb.staticvar.dev) ([`static-var/build-brief`](https://github.com/static-var/build-brief),
+MIT, a single Go binary with no runtime dependencies) sits in front of Gradle, writes every line
+Gradle emits to a log file, and prints only what changes the next step: status, failed tasks, failed
+tests, warnings, build scan URLs, and generated artifact paths. Gradle's exit code passes through
+unchanged, so it is safe anywhere a bare `./gradlew` was used.
+
+```bash
+brew install static-var/tap/build-brief      # or: curl -fsSL https://bb.staticvar.dev/install.sh | bash
+build-brief doctor                            # read-only; never runs Gradle
+```
+
+Then wrap the commands above, for example `build-brief ./gradlew build` or `build-brief ./gradlew
+allTests`. The managed block at the end of [`AGENTS.md`](AGENTS.md) carries the per-command rules and
+can be regenerated with `build-brief --install`.
+
+Worth knowing here specifically:
+
+- Multi-platform builds and the render/fixture tasks benefit most; the brief retains failures and
+  artifact paths while the full output remains available at the printed raw-log path.
+- Report-style commands such as `tasks`, `projects`, `dependencies`, and `dependencyInsight` keep
+  their report bodies.
+- Do not add `--ci` to local commands. It is opt-in and is not implied by the environment; this
+  repository's workflows continue to invoke Gradle directly.
+- `.build-brief.json` is available for project-specific regex matches but is intentionally absent
+  until this repository has a result line worth surfacing.
+
 An Android SDK is needed for `third_party/rc-embedded-player` (`ANDROID_HOME`, or `sdk.dir` in
 `local.properties`). The Apple targets only build on macOS; on Linux the Kotlin Gradle plugin disables
 them with a warning rather than failing.
