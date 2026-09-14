@@ -1010,10 +1010,13 @@
         scaleType: draw.scaleType,
         scaleFactor: draw.scaleFactor)
       guard !destination.isEmpty else { return }
+      context.saveGState()
+      context.clip(to: draw.destination)
       UIImage(cgImage: cropped, scale: 1, orientation: .up).draw(
         in: destination,
         blendMode: NativeGraphicsState.blendMode(command.blendMode),
         alpha: command.alpha)
+      context.restoreGState()
     }
 
   }

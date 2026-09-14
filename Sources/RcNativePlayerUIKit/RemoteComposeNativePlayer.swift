@@ -81,7 +81,9 @@
       self.compatibilityPolicy = compatibilityPolicy
       self.resourceLimits = resourceLimits
       self.resourceResolver = resourceResolver
-      resourceCache = NativeImageCache(countLimit: resourceLimits.maximumResourceCount)
+      resourceCache = NativeImageCache(
+        countLimit: resourceLimits.maximumResourceCount,
+        totalCostLimit: resourceLimits.maximumDecodedImageBytes)
       fontRegistry = NativeFontRegistry(countLimit: resourceLimits.maximumResourceCount)
       self.onDiagnostics = onDiagnostics
       super.init(frame: .zero)

@@ -238,8 +238,10 @@ process are not consulted opportunistically.
 The snapshot exports image metadata and opaque bytes without asking Kotlin or UIKit to perform
 network I/O. Inline PNG and raw alpha/RGBA resources are decoded only after enforcing per-resource,
 aggregate-byte, dimension, decoded-pixel, and resource-count limits. Declared and decoded image
-dimensions must agree. Duplicate ids, malformed bytes, invalid references, and limit violations are
-typed `RemoteComposeNativeResourceError` failures.
+dimensions must agree. The shared decoded-image cache also has an independent byte-cost ceiling, so
+repeated document replacement cannot retain one maximum-sized image per count slot. Duplicate ids,
+malformed bytes, invalid references, and limit violations are typed
+`RemoteComposeNativeResourceError` failures.
 
 Referenced images are inert unless the host injects a `RemoteComposeNativeResourceResolving`
 implementation. The resolver receives the original opaque reference and declared metadata; URL

@@ -9,6 +9,7 @@ enum NativeResourcePolicyTests {
       maximumTotalBytes: 24,
       maximumImageDimension: 8,
       maximumDecodedPixels: 32,
+      maximumDecodedImageBytes: 64,
       maximumResourceCount: 2)
     try NativeResourcePolicy.validate(
       id: 1, byteCount: 12, width: 4, height: 4, runningTotal: &total, limits: limits)
@@ -43,6 +44,10 @@ enum NativeResourcePolicyTests {
     }
     expectError(.duplicateResource(id: 7)) {
       try NativeResourcePolicy.validateUniqueIDs([7, 8, 7])
+    }
+    expectError(.invalidLimits) {
+      try NativeResourcePolicy.validate(
+        limits: RemoteComposeNativeResourceLimits(maximumDecodedImageBytes: 0))
     }
 
     let fit = NativeImageGeometry.destination(

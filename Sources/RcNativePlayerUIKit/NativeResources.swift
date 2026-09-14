@@ -7,6 +7,7 @@ public struct RemoteComposeNativeResourceLimits: Equatable, Sendable {
   public var maximumTotalBytes: Int
   public var maximumImageDimension: Int
   public var maximumDecodedPixels: Int
+  public var maximumDecodedImageBytes: Int
   public var maximumResourceCount: Int
 
   public init(
@@ -14,12 +15,14 @@ public struct RemoteComposeNativeResourceLimits: Equatable, Sendable {
     maximumTotalBytes: Int = 24 * 1024 * 1024,
     maximumImageDimension: Int = 4_096,
     maximumDecodedPixels: Int = 16_777_216,
+    maximumDecodedImageBytes: Int = 128 * 1024 * 1024,
     maximumResourceCount: Int = 32
   ) {
     self.maximumResourceBytes = maximumResourceBytes
     self.maximumTotalBytes = maximumTotalBytes
     self.maximumImageDimension = maximumImageDimension
     self.maximumDecodedPixels = maximumDecodedPixels
+    self.maximumDecodedImageBytes = maximumDecodedImageBytes
     self.maximumResourceCount = maximumResourceCount
   }
 
@@ -103,6 +106,7 @@ enum NativeResourcePolicy {
       limits.maximumTotalBytes > 0,
       limits.maximumImageDimension > 0,
       limits.maximumDecodedPixels > 0,
+      limits.maximumDecodedImageBytes > 0,
       limits.maximumResourceCount > 0
     else { throw RemoteComposeNativeResourceError.invalidLimits }
   }
@@ -237,8 +241,9 @@ enum NativeImageGeometry {
   final class NativeImageCache {
     private let cache = NSCache<NSString, UIImage>()
 
-    init(countLimit: Int) {
+    init(countLimit: Int, totalCostLimit: Int) {
       cache.countLimit = countLimit
+      cache.totalCostLimit = totalCostLimit
     }
 
     func image(for request: RemoteComposeNativeResourceRequest) -> UIImage? {
@@ -256,7 +261,8 @@ enum NativeImageGeometry {
 
     private func imageCost(_ image: UIImage) -> Int {
       guard let cgImage = image.cgImage else { return 0 }
-      return cgImage.bytesPerRow.multipliedReportingOverflow(by: cgImage.height).partialValue
+      let (cost, overflowed) = cgImage.bytesPerRow.multipliedReportingOverflow(by: cgImage.height)
+      return overflowed ? Int.max : cost
     }
   }
 
