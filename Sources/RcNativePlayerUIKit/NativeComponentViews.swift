@@ -5,6 +5,7 @@
 
   struct NativeDocument {
     let size: CGSize
+    let density: CGFloat
     let root: NativeNode
     let images: [NativeImageResource]
     let fonts: [NativeFontResource]
@@ -17,7 +18,13 @@
 
     init(snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits) throws {
       executionBudget = try Self.validate(snapshot: snapshot, limits: limits)
-      size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
+      density = CGFloat(snapshot.density)
+      guard density.isFinite, density > 0 else {
+        throw RemoteComposeNativePlayerError.decode("Document density must be finite and positive")
+      }
+      size = CGSize(
+        width: CGFloat(snapshot.width) / density,
+        height: CGFloat(snapshot.height) / density)
       root = NativeNode(snapshot: snapshot.root)
       images = snapshot.images.map(NativeImageResource.init)
       fonts = snapshot.fonts.map(NativeFontResource.init)
@@ -1689,7 +1696,17 @@
       // Destination leaves the existing buffer unchanged, but must not suppress ordered
       // transforms, clipping, or save/restore commands around the draw.
       guard command.blendMode != 2 else { return }
-      context.addPath(path)
+      // Component-value expressions are resolved before UIKit performs its intrinsic-size pass.
+      // A shader-backed background on a wrap-content component can therefore retain its known
+      // width but have a zero-height path. The owning component has the final bounds now; use them
+      // for this background case and let the component's rounded clip preserve its shape.
+      let pathBounds = path.boundingBoxOfPath
+      let isDeferredShaderBackground =
+        !command.isStroke && (command.textureImageID != nil || command.gradient != nil)
+        && (pathBounds.width <= 0 || pathBounds.height <= 0) && !bounds.isEmpty
+      let effectivePath =
+        isDeferredShaderBackground ? CGPath(rect: bounds, transform: nil) : path
+      context.addPath(effectivePath)
       if let textureImageID = command.textureImageID, let image = images[textureImageID] {
         context.saveGState()
         if command.isStroke { context.replacePathWithStrokedPath() }

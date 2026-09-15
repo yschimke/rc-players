@@ -14,7 +14,9 @@ The current POC opens a retained Kotlin runtime session off the main actor and r
 frames through a Swift-owned UIKit hierarchy. It has approximate Box, Row, and Column layout,
 native `UILabel` text, semantic `UIButton` overlays, a useful Core Graphics subset, explicit
 compatibility diagnostics, the Morning Run Title Card regression, and a downloadable experimental
-package.
+package. A manifest-driven simulator lane now renders the same bytes as CMP, with a focused
+five-document baseline covering layout/text, determinate and indeterminate progress, arcs, and a
+texture-backed semantic button.
 
 It dispatches the core click/action contract, updates typed named values, schedules only requested
 animation frames, and publishes a positive machine-readable profile. It does not claim complete

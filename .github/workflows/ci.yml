@@ -78,17 +78,20 @@ jobs:
               scripts/check-native-uikit-accessibility-simulator.sh \
               scripts/check-native-uikit-animation-simulator.sh \
               scripts/check-native-uikit-compatibility.sh \
+              scripts/check-native-uikit-comparison.sh \
               scripts/check-native-uikit-execution-limits.sh \
               scripts/check-native-uikit-frame-timing.sh \
               scripts/check-native-uikit-graphics.sh \
               scripts/check-native-uikit-layout.sh \
               scripts/measure-native-uikit-simulator.sh \
+              scripts/native-uikit-comparison \
               scripts/check-native-uikit-package.sh \
               scripts/check-native-uikit-profile.sh \
               scripts/check-native-uikit-resources.sh \
               scripts/check-native-uikit-text.sh \
               scripts/check-swift-sample.sh \
               scripts/package-apple-player.sh \
+              scripts/render-native-uikit-lane.sh \
               scripts/set-apple-player-package-version.sh \
               scripts/update-package-swift.sh \
               scripts/validate-apple-player-screenshot.swift \
@@ -363,6 +366,12 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-uikit-simulator.sh
 
+      - name: Compare native UIKit against CMP on representative content
+        if: needs.apple-changes.outputs.required == 'true'
+        env:
+          RC_NATIVE_UIKIT_SKIP_BUILD: 1
+        run: scripts/check-native-uikit-comparison.sh
+
       # Launches the packaged app on a real simulator and checks captured pixels for the white
       # title-card canvas, its dark content band, and the coloured host background. This covers the
       # Metal/Skiko presentation path that Kotlin/Native tests and a Swift type check cannot enter.
@@ -394,6 +403,7 @@ jobs:
             build/native-uikit-animation-a.png
             build/native-uikit-animation-b.png
             build/native-uikit-evidence.json
+            build/native-uikit-comparison
           if-no-files-found: ignore
           retention-days: 7
 

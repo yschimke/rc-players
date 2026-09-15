@@ -34,6 +34,7 @@
 		10000000000000000000001A /* NativePlayerEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* NativePlayerEvidence.swift */; };
 		10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* NativeAccessibilityTestHost.swift */; };
 		10000000000000000000001C /* NativeAccessibilityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* NativeAccessibilityUITests.swift */; };
+		10000000000000000000001D /* NativeComparisonHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* NativeComparisonHarness.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +79,7 @@
 		20000000000000000000001D /* NativeAccessibilityTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAccessibilityTestHost.swift; sourceTree = "<group>"; };
 		20000000000000000000001E /* NativeAccessibilityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAccessibilityUITests.swift; sourceTree = "<group>"; };
 		20000000000000000000001F /* RemoteComposePlayerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RemoteComposePlayerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		200000000000000000000020 /* NativeComparisonHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeComparisonHarness.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +119,7 @@
 				200000000000000000000003 /* PlayerRootView.swift */,
 				20000000000000000000001C /* NativePlayerEvidence.swift */,
 				20000000000000000000001D /* NativeAccessibilityTestHost.swift */,
+				200000000000000000000020 /* NativeComparisonHarness.swift */,
 				200000000000000000000005 /* Info.plist */,
 			);
 			path = RemoteComposePlayer;
@@ -285,6 +288,7 @@
 				100000000000000000000019 /* NativeExecutionLimits.swift in Sources */,
 				10000000000000000000001A /* NativePlayerEvidence.swift in Sources */,
 				10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */,
+				10000000000000000000001D /* NativeComparisonHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

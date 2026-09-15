@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -24,6 +25,13 @@ class RcNativeImageResourceTest {
         .flatMap { it.commands }
         .any { it.image != null || it.textureImageId == snapshot.images.single().id }
     )
+    assertTrue(
+      snapshot.root.descendants().any { node ->
+        node.clickable &&
+          node.commands.any { command -> command.textureImageId == snapshot.images.single().id }
+      }
+    )
+    assertTrue(RcOpcodes.CANVAS_OPERATIONS !in snapshot.unsupportedOpcodes)
   }
 
   private fun RcNativeNodeSnapshot.descendants(): Sequence<RcNativeNodeSnapshot> =

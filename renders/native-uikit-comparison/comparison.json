@@ -1,0 +1,115 @@
+{
+  "lanes": [
+    "cmp-jvm",
+    "native-uikit"
+  ],
+  "documents": 5,
+  "results": {
+    "cmp-jvm": {
+      "arc-progress": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "circular-progress": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "image-button": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "indeterminate-progress": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "title-card": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      }
+    },
+    "native-uikit": {
+      "arc-progress": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "circular-progress": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "image-button": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": [
+          "AccessibilitySemantics[250] component=-5: Multiple accessibility modifiers collapse to the last modifier in the native player",
+          "CoreText[239] component=-9: CoreText font variation axes are not represented by the native player",
+          "CoreText[239] component=-9: Font family google:Roboto Flex uses deterministic system fallback until resource loading",
+          "CoreText[239] component=-9: CoreText layout geometry and shaping are approximate in the native POC",
+          "PaintValues[40] component=-5: Texture tile modes 0/0 use Core Graphics pattern repetition",
+          "PaintValues[40] component=-5: Texture shader matrices are not represented by the native POC"
+        ]
+      },
+      "indeterminate-progress": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "title-card": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": [
+          "CoreText[239] component=-11: CoreText layout geometry and shaping are approximate in the native POC",
+          "CoreText[239] component=-15: CoreText layout geometry and shaping are approximate in the native POC",
+          "DataPath[123] component=-5: Rational conic path segments are approximated as quadratic curves"
+        ]
+      }
+    }
+  },
+  "comparisons": [
+    {
+      "left": "cmp-jvm",
+      "right": "native-uikit",
+      "documents": 5,
+      "exact": 0,
+      "unavailable": [],
+      "rows": [
+        {
+          "id": "image-button",
+          "fraction": 0.13480176211453745,
+          "differing": 12240,
+          "total": 90800
+        },
+        {
+          "id": "circular-progress",
+          "fraction": 0.10420735677083333,
+          "differing": 15366,
+          "total": 147456
+        },
+        {
+          "id": "title-card",
+          "fraction": 0.07257161458333333,
+          "differing": 22294,
+          "total": 307200
+        },
+        {
+          "id": "indeterminate-progress",
+          "fraction": 0.01863125,
+          "differing": 2981,
+          "total": 160000
+        },
+        {
+          "id": "arc-progress",
+          "fraction": 0.016883259911894273,
+          "differing": 3066,
+          "total": 181600
+        }
+      ]
+    }
+  ]
+}

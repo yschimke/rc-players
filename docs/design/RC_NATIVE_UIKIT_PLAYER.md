@@ -378,6 +378,11 @@ Current checks are:
   static, continuous, one-shot, delayed, paused, resumed, and Reduce Motion scheduling policy;
 - `scripts/check-native-uikit-animation-simulator.sh` captures two native Progress frames and
   requires both visible ink and changing pixels within the document surface;
+- `scripts/check-native-uikit-comparison.sh` renders Title Card, indeterminate and determinate
+  progress, arc progress, and a texture-backed button through CMP and the packaged UIKit player,
+  validates the shared manifest contract, and records pairwise pixel scores;
+- `scripts/rc-operation-conformance/render-lanes.sh --native-uikit` includes UIKit in an arbitrary
+  macOS comparison corpus rather than maintaining a separate fixture format;
 - `scripts/measure-native-uikit-simulator.sh` records packaged Release timing, hierarchy,
   accessibility, allocation, memory, binary-size, lifecycle-recovery, and deallocation evidence;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;

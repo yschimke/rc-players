@@ -105,6 +105,8 @@ public data class RcNativeDocumentSnapshot(
   public val requestsNextFrame: Boolean = false,
   /** Earliest runtime wake request, or a negative value when no delayed wake is pending. */
   public val wakeAfterSeconds: Float = -1f,
+  /** Document pixels per density-independent UIKit point. */
+  public val density: Float = 1f,
 )
 
 /** Encoded image bytes or an opaque host reference, copied from the document without decoding. */
@@ -607,6 +609,7 @@ public object RcNativeSnapshotBridge {
   ): RcNativeDocumentSnapshot {
     requireValidNativeTime(timeSeconds)
     if (advanceFrame) state.beginFrame(timeSeconds = timeSeconds)
+    state.applyLayoutContentStateOperations(linked.operations)
     val diagnostics = NativeDiagnosticCollector()
     var paint = NativePaint()
     val bitmaps =
@@ -654,6 +657,40 @@ public object RcNativeSnapshotBridge {
     val settledFloatExpressionIds = mutableSetOf<Int>()
     var settlingGeometryChanged = false
 
+    fun consumeCanvasOperations(
+      nodes: List<RcLinkedNode>,
+      componentId: Int,
+      commands: MutableList<RcNativeDrawCommand>,
+    ) {
+      nodes.forEach { node ->
+        when (node) {
+          is RcLinkedNode.Operation ->
+            consume(
+              node.operation,
+              componentId,
+              state,
+              paint,
+              commands,
+              diagnostics,
+              paths,
+              bitmaps,
+              settledFloatExpressionIds,
+            )
+          is RcLinkedNode.Container -> consumeCanvasOperations(node.children, componentId, commands)
+        }
+      }
+    }
+
+    fun ownedCanvasOperations(container: RcLinkedNode.Container): RcLinkedNode.Container? {
+      if (container.operation is RcLayoutContent) return null
+      return (container.children.filterIsInstance<RcLinkedNode.Container>() +
+          container.children
+            .filterIsInstance<RcLinkedNode.Container>()
+            .filter { it.operation is RcLayoutContent }
+            .flatMap { it.children.filterIsInstance<RcLinkedNode.Container>() })
+        .lastOrNull { it.operation.opcode == RcOpcodes.CANVAS_OPERATIONS }
+    }
+
     fun nodeFor(
       container: RcLinkedNode.Container,
       inheritedWidth: Float? = null,
@@ -674,8 +711,8 @@ public object RcNativeSnapshotBridge {
         when (modifier) {
           is RcWidthModifier ->
             when (modifier.type) {
-              RcDimensionType.EXACT -> state.resolve(modifier.value)
-              RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
+              RcDimensionType.EXACT -> state.resolve(modifier.value) / document.header.density
+              RcDimensionType.EXACT_DP -> state.resolve(modifier.value)
               RcDimensionType.FILL -> inherited?.times(fillFraction(modifier.value))
               RcDimensionType.WEIGHT -> inherited
               RcDimensionType.FILL_PARENT_MAX_WIDTH ->
@@ -684,8 +721,8 @@ public object RcNativeSnapshotBridge {
             }
           is RcHeightModifier ->
             when (modifier.type) {
-              RcDimensionType.EXACT -> state.resolve(modifier.value)
-              RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
+              RcDimensionType.EXACT -> state.resolve(modifier.value) / document.header.density
+              RcDimensionType.EXACT_DP -> state.resolve(modifier.value)
               RcDimensionType.FILL -> inherited?.times(fillFraction(modifier.value))
               RcDimensionType.WEIGHT -> inherited
               RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
@@ -695,7 +732,15 @@ public object RcNativeSnapshotBridge {
           // Canvas content is represented by a structural LayoutContent child. Both inherit the
           // canvas bounds; other wrap-content nodes need a real measurement pass first.
           else ->
-            if (operation is RcCanvasLayout || operation is RcLayoutContent) inherited else null
+            if (
+              operation is RcRootLayout ||
+                operation is RcCanvasLayout ||
+                operation is RcLayoutContent
+            ) {
+              inherited
+            } else {
+              null
+            }
         }
       val resolvedWidth = resolvedAxis(width, inheritedWidth)
       val resolvedHeight = resolvedAxis(height, inheritedHeight)
@@ -793,7 +838,10 @@ public object RcNativeSnapshotBridge {
         }
       val childWidth = measuredWidth?.let { maxOf(it - padding[0] - padding[2], 0f) }
       val childHeight = measuredHeight?.let { maxOf(it - padding[1] - padding[3], 0f) }
-      val childContainers = container.children.filterIsInstance<RcLinkedNode.Container>()
+      val childContainers =
+        container.children.filterIsInstance<RcLinkedNode.Container>().filterNot {
+          it.operation.opcode == RcOpcodes.CANVAS_OPERATIONS
+        }
       val visibleChildren = childContainers.map { child ->
         child.children
           .filterIsInstance<RcLinkedNode.Operation>()
@@ -912,7 +960,7 @@ public object RcNativeSnapshotBridge {
                       is RcHeightModifier -> dimension.value
                       else -> RcFloatWord.literal(0f)
                     }
-                  )
+                  ) / document.header.density
                 RcDimensionType.EXACT_DP ->
                   state.resolve(
                     when (dimension) {
@@ -920,7 +968,7 @@ public object RcNativeSnapshotBridge {
                       is RcHeightModifier -> dimension.value
                       else -> RcFloatWord.literal(0f)
                     }
-                  ) / document.header.density
+                  )
                 RcDimensionType.FILL ->
                   available *
                     fillFraction(
@@ -1003,6 +1051,11 @@ public object RcNativeSnapshotBridge {
           ) || settlingGeometryChanged
       }
       val commands = mutableListOf<RcNativeDrawCommand>()
+      if (!settlingGeometry) {
+        ownedCanvasOperations(container)?.let {
+          consumeCanvasOperations(it.children, componentId, commands)
+        }
+      }
       semantics?.let {
         require(it.role in -1..RcAccessibilitySemantics.ROLE_UNKNOWN) {
           "Accessibility role ${it.role} is invalid"
@@ -1272,6 +1325,9 @@ public object RcNativeSnapshotBridge {
                 settledFloatExpressionIds,
               )
           is RcLinkedNode.Container -> {
+            if (child.operation.opcode == RcOpcodes.CANVAS_OPERATIONS) {
+              continue
+            }
             val linearAllocation = linearAllocations?.get(childContainerIndex)
             childContainerIndex++
             val allocatedChildWidth =
@@ -1430,13 +1486,13 @@ public object RcNativeSnapshotBridge {
         widthValue =
           width?.let {
             state.resolve(it.value) /
-              if (it.type == RcDimensionType.EXACT_DP) document.header.density else 1f
+              if (it.type == RcDimensionType.EXACT) document.header.density else 1f
           } ?: 0f,
         heightType = height?.type ?: RcDimensionType.WRAP,
         heightValue =
           height?.let {
             state.resolve(it.value) /
-              if (it.type == RcDimensionType.EXACT_DP) document.header.density else 1f
+              if (it.type == RcDimensionType.EXACT) document.header.density else 1f
           } ?: 0f,
         minimumHeight = minimumHeight,
         minimumWidth = minimumWidth,
@@ -1532,8 +1588,8 @@ public object RcNativeSnapshotBridge {
       linked.operations.filterIsInstance<RcLinkedNode.Container>().forEach {
         nodeFor(
           it,
-          document.header.width.toFloat(),
-          document.header.height.toFloat(),
+          document.header.width / document.header.density,
+          document.header.height / document.header.density,
           settlingGeometry = true,
         )
       }
@@ -1548,7 +1604,11 @@ public object RcNativeSnapshotBridge {
       when (node) {
         is RcLinkedNode.Container ->
           rootChildren +=
-            nodeFor(node, document.header.width.toFloat(), document.header.height.toFloat())
+            nodeFor(
+              node,
+              document.header.width / document.header.density,
+              document.header.height / document.header.density,
+            )
         is RcLinkedNode.Operation ->
           consume(
             node.operation,
@@ -1567,6 +1627,7 @@ public object RcNativeSnapshotBridge {
     return RcNativeDocumentSnapshot(
       width = document.header.width,
       height = document.header.height,
+      density = document.header.density,
       root =
         RcNativeNodeSnapshot(
           RcNativeNodeSnapshot.ROOT,
