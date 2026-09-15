@@ -303,9 +303,18 @@ and resource preparation succeed. A failed candidate therefore leaves the last v
 and session intact while displaying the native error surface.
 
 The session retains codec/link/runtime state, so animation never has to decode each display frame.
-Entering the background cancels outstanding work; activation retries an interrupted full render.
-There is deliberately no `CADisplayLink` yet: package 9 will request frames only while the runtime
-reports work due and will add deterministic pause/resume clock tests.
+Frames carry a runtime scheduling contract: continuous work, one next frame, or an earliest delayed
+`WakeIn`. Static documents schedule nothing. Continuous and one-shot work use `CADisplayLink`;
+delayed work uses a generation-checked cancellable task. The player pauses its injectable monotonic
+timeline while offscreen, backgrounded, or under Reduce Motion, then resumes without counting the
+suspended interval. Reduce Motion suppresses continuous decorative motion but preserves one-shot
+and delayed functional state updates. Entering the background cancels outstanding render work;
+activation retries an interrupted full render without advancing the paused timeline.
+
+Canvas expressions that read component width/height receive a native geometry settling pass before
+commands are exported. This makes the real indeterminate-progress fixture resolve finite arc bounds
+and change across deterministic timestamps. Stable canvas views compare complete render signatures,
+so an unchanged frame does not call `setNeedsDisplay`.
 
 ## Accessibility and input
 
@@ -357,6 +366,10 @@ Current checks are:
 - `scripts/check-native-uikit-accessibility-simulator.sh` renders the packaged native player with
   Increased Contrast and an accessibility Dynamic Type size, then applies the normal title-card
   pixel sanity checks;
+- `scripts/check-native-uikit-frame-timing.sh` advances monotonic timestamps directly and verifies
+  static, continuous, one-shot, delayed, paused, resumed, and Reduce Motion scheduling policy;
+- `scripts/check-native-uikit-animation-simulator.sh` captures two native Progress frames and
+  requires both visible ink and changing pixels within the document surface;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 

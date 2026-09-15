@@ -22,6 +22,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapScaled
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
@@ -30,6 +31,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcImageAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickType
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -57,18 +59,23 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
 import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
+import ee.schimke.composeai.rcplayer.protocol.RcTimeAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTransform2
 import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
+import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
+import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
+import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcHostActionValue
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerEffect
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 
@@ -91,6 +98,12 @@ public data class RcNativeDocumentSnapshot(
   public val rootAlignment: Int = RcRootContentBehavior.ALIGNMENT_CENTER,
   public val images: List<RcNativeImageResource> = emptyList(),
   public val fonts: List<RcNativeFontResource> = emptyList(),
+  /** True when the document reads time continuously and needs display-paced snapshots. */
+  public val needsContinuousFrames: Boolean = false,
+  /** True when runtime work requested exactly one next display-paced snapshot. */
+  public val requestsNextFrame: Boolean = false,
+  /** Earliest runtime wake request, or a negative value when no delayed wake is pending. */
+  public val wakeAfterSeconds: Float = -1f,
 )
 
 /** Encoded image bytes or an opaque host reference, copied from the document without decoding. */
@@ -333,15 +346,30 @@ public constructor(bytes: ByteArray) {
   private val document: RcDocument = RcDocumentCodec.decode(bytes)
   private val linked: RcLinkedDocument = RcDocumentLinker.link(document)
   private val pendingEvents = mutableListOf<RcPlayerEvent>()
-  private val state: RcPlayerState = RcPlayerState(document, eventSink = pendingEvents::add)
+  private var requestsNextFrame: Boolean = false
+  private var wakeAfterSeconds: Float? = null
+  private val needsContinuousFrames: Boolean =
+    document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null } ||
+      document.operations.any {
+        it is RcMarqueeModifier || (it is RcTimeAttribute && it.type.requiresContinuousFrames)
+      } ||
+      document.referencesMovingSystemVariable()
+  private val state: RcPlayerState =
+    RcPlayerState(
+      document,
+      eventSink = pendingEvents::add,
+      effectSink = ::recordEffect,
+    )
   private val clickActions: Map<Int, List<RcClickActionBlock>> = nativeClickActions(linked)
 
   /**
    * Resolve one immutable frame without rebuilding the document codec, linker, or runtime state.
    */
   @Throws(IllegalArgumentException::class)
-  public fun snapshot(timeSeconds: Float = 0f): RcNativeDocumentSnapshot =
-    RcNativeSnapshotBridge.snapshot(document, linked, state, timeSeconds)
+  public fun snapshot(timeSeconds: Float = 0f): RcNativeDocumentSnapshot {
+    beginScheduledWork()
+    return scheduledSnapshot(timeSeconds)
+  }
 
   /** Apply every ordinary/single-click action attached to [componentId], preserving wire order. */
   @Throws(IllegalArgumentException::class)
@@ -352,6 +380,7 @@ public constructor(bytes: ByteArray) {
     requireValidNativeTime(timeSeconds)
     state.beginFrame(timeSeconds = timeSeconds)
     pendingEvents.clear()
+    beginScheduledWork()
     val actions =
       clickActions[componentId].orEmpty().filter {
         it.type == RcClickActionType.CLICK || it.type == RcClickActionType.SINGLE
@@ -402,6 +431,7 @@ public constructor(bytes: ByteArray) {
   ): RcNativeSessionUpdate {
     requireValidNativeTime(timeSeconds)
     pendingEvents.clear()
+    beginScheduledWork()
     val qualifiedName = if (':' in name) name else "USER:$name"
     val accepted = state.namedVariable(qualifiedName)?.type == expectedType
     if (!accepted) return updateResult(false, timeSeconds)
@@ -421,17 +451,45 @@ public constructor(bytes: ByteArray) {
     timeSeconds: Float,
     frameAlreadyBegun: Boolean = false,
   ): RcNativeSessionUpdate {
-    val snapshot =
-      RcNativeSnapshotBridge.snapshot(
+    val snapshot = scheduledSnapshot(timeSeconds, advanceFrame = !frameAlreadyBegun)
+    val events = pendingEvents.map(::nativeEvent)
+    pendingEvents.clear()
+    return RcNativeSessionUpdate(accepted, snapshot, events)
+  }
+
+  private fun beginScheduledWork() {
+    requestsNextFrame = false
+    wakeAfterSeconds = null
+  }
+
+  private fun scheduledSnapshot(
+    timeSeconds: Float,
+    advanceFrame: Boolean = true,
+  ): RcNativeDocumentSnapshot =
+    RcNativeSnapshotBridge.snapshot(
         document,
         linked,
         state,
         timeSeconds,
-        advanceFrame = !frameAlreadyBegun,
+        advanceFrame = advanceFrame,
       )
-    val events = pendingEvents.map(::nativeEvent)
-    pendingEvents.clear()
-    return RcNativeSessionUpdate(accepted, snapshot, events)
+      .copy(
+        needsContinuousFrames = needsContinuousFrames,
+        requestsNextFrame = requestsNextFrame,
+        wakeAfterSeconds = wakeAfterSeconds ?: -1f,
+      )
+
+  private fun recordEffect(effect: RcPlayerEffect) {
+    when (effect) {
+      RcPlayerEffect.NextFrame -> requestsNextFrame = true
+      is RcPlayerEffect.WakeIn -> {
+        val seconds = effect.seconds
+        if (seconds.isFinite() && seconds >= 0f) {
+          wakeAfterSeconds = wakeAfterSeconds?.let { minOf(it, seconds) } ?: seconds
+        }
+      }
+      else -> Unit
+    }
   }
 }
 
@@ -594,10 +652,47 @@ public object RcNativeSnapshotBridge {
         }
       }
 
-    fun nodeFor(container: RcLinkedNode.Container): RcNativeNodeSnapshot {
+    fun nodeFor(
+      container: RcLinkedNode.Container,
+      inheritedWidth: Float? = null,
+      inheritedHeight: Float? = null,
+    ): RcNativeNodeSnapshot {
       val operation = container.operation
       val directOperations =
         container.children.filterIsInstance<RcLinkedNode.Operation>().map { it.operation }
+      // This is the native bridge's settling pass for ComponentValue WIDTH/HEIGHT. Exact/fill
+      // modifiers refine the parent's available content size before canvas expressions execute.
+      val width = directOperations.filterIsInstance<RcWidthModifier>().firstOrNull()
+      val height = directOperations.filterIsInstance<RcHeightModifier>().firstOrNull()
+      fun fillFraction(value: RcFloatWord): Float =
+        if (value.referencedId == null && value.value.isNaN()) 1f else state.resolve(value)
+      fun resolvedAxis(modifier: RcOperation?, inherited: Float?): Float? =
+        when (modifier) {
+          is RcWidthModifier ->
+            when (modifier.type) {
+              RcDimensionType.EXACT -> state.resolve(modifier.value)
+              RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
+              RcDimensionType.FILL -> inherited
+              RcDimensionType.FILL_PARENT_MAX_WIDTH ->
+                inherited?.times(fillFraction(modifier.value))
+              else -> null
+            }
+          is RcHeightModifier ->
+            when (modifier.type) {
+              RcDimensionType.EXACT -> state.resolve(modifier.value)
+              RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
+              RcDimensionType.FILL -> inherited
+              RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
+                inherited?.times(fillFraction(modifier.value))
+              else -> null
+            }
+          // Canvas content is represented by a structural LayoutContent child. Both inherit the
+          // canvas bounds; other wrap-content nodes need a real measurement pass first.
+          else ->
+            if (operation is RcCanvasLayout || operation is RcLayoutContent) inherited else null
+        }
+      val resolvedWidth = resolvedAxis(width, inheritedWidth)
+      val resolvedHeight = resolvedAxis(height, inheritedHeight)
       val accessibilityModifiers =
         container.children
           .filterIsInstance<RcLinkedNode.Operation>()
@@ -625,6 +720,14 @@ public object RcNativeSnapshotBridge {
           else -> RcNativeNodeSnapshot.GROUP
         }
       val componentId = nativeComponentId(operation) ?: 0
+      if (
+        state.hasComponentValues(componentId) && resolvedWidth != null && resolvedHeight != null
+      ) {
+        state.publishComponentGeometry(
+          componentId,
+          RcComponentGeometry(resolvedWidth, resolvedHeight, 0f, 0f, 0f, 0f),
+        )
+      }
       val commands = mutableListOf<RcNativeDrawCommand>()
       semantics?.let {
         require(it.role in -1..RcAccessibilitySemantics.ROLE_UNKNOWN) {
@@ -930,14 +1033,14 @@ public object RcNativeSnapshotBridge {
                         alternativeIndex == selected &&
                         alternatives.isNotEmpty()
                     ) {
-                      children += nodeFor(contentChild)
+                      children += nodeFor(contentChild, resolvedWidth, resolvedHeight)
                     }
                     alternativeIndex++
                   }
                 }
               }
             } else {
-              children += nodeFor(child)
+              children += nodeFor(child, resolvedWidth, resolvedHeight)
             }
           }
         }
@@ -958,8 +1061,6 @@ public object RcNativeSnapshotBridge {
           ?.let(state::text)
           ?.takeUnless(String::isBlank)
       // AndroidX fixes each axis at the first size modifier in wire order.
-      val width = directOperations.filterIsInstance<RcWidthModifier>().firstOrNull()
-      val height = directOperations.filterIsInstance<RcHeightModifier>().firstOrNull()
       var minimumWidth = 0f
       var maximumWidth = -1f
       var minimumHeight = 0f
@@ -1153,7 +1254,9 @@ public object RcNativeSnapshotBridge {
     val rootChildren = mutableListOf<RcNativeNodeSnapshot>()
     for (node in linked.operations) {
       when (node) {
-        is RcLinkedNode.Container -> rootChildren += nodeFor(node)
+        is RcLinkedNode.Container ->
+          rootChildren +=
+            nodeFor(node, document.header.width.toFloat(), document.header.height.toFloat())
         is RcLinkedNode.Operation ->
           consume(node.operation, 0, state, paint, rootCommands, diagnostics, paths, bitmaps)
       }
@@ -1227,6 +1330,7 @@ public object RcNativeSnapshotBridge {
             "Root scrolling is not implemented by the native player",
           )
         }
+      is RcWakeIn -> state.requestWakeIn(operation)
       is RcPaintData -> applyPaint(operation, componentId, state, paint, diagnostics, bitmaps)
       is RcFloatExpression -> state.applyFloatExpression(operation)
       is RcIntegerExpression -> state.applyIntegerExpression(operation)

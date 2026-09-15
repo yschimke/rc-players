@@ -31,7 +31,8 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 6 — Retained session | Core implemented | Off-main decode, retained codec/link/state, immutable frames, stable component reconciliation, generation cancellation, and atomic replacement |
 | 7 — Named values, actions, and input | Core implemented | Typed float/string/color updates, ordered host events, single-click dispatch, semantic controls, and UIKit visual-order hit testing |
 | 8 — Semantic UIKit components and accessibility | Core implemented | Native role identity, label/text/value mapping, merge/clear behavior, deterministic VoiceOver order, enabled state, and policy tests |
-| 9–11 | Planned | Ordered below |
+| 9 — Deterministic time and animation | Core implemented | Runtime frame/wake contract, injectable monotonic timeline, demand-driven display link, lifecycle/Reduce Motion policy, and animated progress fixture |
+| 10–11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -212,7 +213,7 @@ but only exposes the authored state description as its value. Stateful controls,
 VoiceOver UI automation, high-contrast policy, and Switch Control verification remain required
 before the package can drop its `core implemented` qualifier.
 
-### 9. Add deterministic time and animation
+### 9. Add deterministic time and animation — core implemented
 
 Give the retained session an injectable monotonic clock and wake-up contract. Use `CADisplayLink`
 only while a frame is due; pause when offscreen/backgrounded and resume without accumulating time
@@ -224,6 +225,22 @@ Acceptance:
 - static documents schedule no display-link work;
 - frame pacing, pause/resume, and reduced-motion policy are measured on device;
 - updates invalidate only affected views/canvases.
+
+Each immutable bridge frame now reports whether it needs continuous display-paced work, exactly one
+next frame, or an earliest delayed `WakeIn`. Moving system-variable reads use the same static
+analysis as the CMP player. A real `CADisplayLink` is installed only for due display-paced work;
+delayed wakes use a cancellable task and static documents retain neither. The public clock protocol
+defaults to system uptime and can be replaced in tests. Its accumulator excludes background,
+offscreen, and Reduce Motion intervals, so resuming does not jump the animation clock. One-shot and
+delayed functional updates remain enabled under Reduce Motion while continuous decorative motion
+is suppressed.
+
+The first graphics family is component-size-driven canvas animation. Before exporting commands, a
+native settling pass publishes inherited/exact geometry to the retained runtime, allowing the real
+indeterminate progress fixture to resolve finite bounds and changing arc angles. Retained canvas
+views hash their render inputs and request display only when those inputs change. Pure timing tests
+advance synthetic timestamps without sleeping; the simulator gate captures two real Progress
+frames and requires visible, changing pixels inside the document surface.
 
 ### 10. Harden performance and untrusted-input behavior
 
