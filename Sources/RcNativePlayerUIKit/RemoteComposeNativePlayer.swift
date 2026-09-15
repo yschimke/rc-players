@@ -416,6 +416,17 @@
         }
         do {
           let model = try NativeDocument(snapshot: update.frame.snapshot, limits: executionLimits)
+          try validateExecution(model, events: update.events)
+          guard
+            isApplicationActive, lifecycle == lifecycleGeneration,
+            epoch == sessionEpoch, retainedSessionEpoch == epoch,
+            self.retainedSession === retainedSession
+          else { return update.accepted }
+          guard input == inputGeneration else {
+            dispatch(
+              update.events, from: retainedSession, epoch: epoch, lifecycle: lifecycle)
+            return update.accepted
+          }
           try validate(model)
           guard
             input == inputGeneration, epoch == sessionEpoch, retainedSessionEpoch == epoch,
@@ -500,6 +511,32 @@
         policy: compatibilityPolicy, diagnostics: model.diagnostics)
       {
         throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
+      }
+    }
+
+    private func validateExecution(
+      _ model: NativeDocument, events: [RemoteComposeNativePlayerEvent]
+    ) throws {
+      var budget = model.executionBudget
+      for event in events {
+        switch event {
+        case .action:
+          try budget.recordEvent(limits: executionLimits)
+        case .actionWithMetadata(_, let metadata):
+          try budget.recordEvent(strings: [metadata], limits: executionLimits)
+        case .namedAction(let name, let value):
+          switch value {
+          case .none, .float, .integer:
+            try budget.recordEvent(strings: [name], limits: executionLimits)
+          case .text(let text):
+            try budget.recordEvent(strings: [name, text], limits: executionLimits)
+          case .floatList(let values):
+            try budget.recordEvent(
+              additionalWork: values.count, strings: [name], limits: executionLimits)
+          }
+        case .debug(let message, _, _):
+          try budget.recordEvent(strings: [message], limits: executionLimits)
+        }
       }
     }
 

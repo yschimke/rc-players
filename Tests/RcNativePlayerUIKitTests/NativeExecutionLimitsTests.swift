@@ -79,6 +79,9 @@ enum NativeExecutionLimitsTests {
     expect(.invalidCanvasDimension(actual: 0)) {
       try numbers.validateDocumentDimensions([0, 100], limits: .default)
     }
+    expect(.invalidGradientStop(componentID: 9, actual: -0.1)) {
+      try numbers.validateGradientStops([-0.1, 1], componentID: 9)
+    }
 
     var work = NativeFrameBudget()
     expect(.frameWorkExceeded(actual: 3, maximum: 2)) {
@@ -91,6 +94,17 @@ enum NativeExecutionLimitsTests {
       try gradients.recordCommand(
         pathElementCount: 0, additionalWork: 5,
         limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 5))
+    }
+    var events = NativeFrameBudget()
+    try events.recordEvent(strings: ["name"], limits: .default)
+    expect(.textTooLong(actual: 8, maximum: 7)) {
+      try events.recordEvent(strings: ["text"], limits: RemoteComposeNativeExecutionLimits(
+        maximumTextBytes: 7))
+    }
+    var eventWork = NativeFrameBudget()
+    expect(.frameWorkExceeded(actual: 4, maximum: 3)) {
+      try eventWork.recordEvent(
+        additionalWork: 3, limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 3))
     }
 
     print("native UIKit execution limit tests: ok")

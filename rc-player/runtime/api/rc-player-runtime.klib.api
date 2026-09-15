@@ -1187,6 +1187,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcVisibilityTransform { // ee.
 
 final object ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker { // ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker|null[0]
     final fun link(ee.schimke.composeai.rcplayer.protocol/RcDocument): ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument // ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker.link|link(ee.schimke.composeai.rcplayer.protocol.RcDocument){}[0]
+    final fun link(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcplayer.protocol/RcWireLimits): ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument // ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker.link|link(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcplayer.protocol.RcWireLimits){}[0]
 }
 
 final object ee.schimke.composeai.rcplayer.runtime/RcIntegerExpressionEvaluator { // ee.schimke.composeai.rcplayer.runtime/RcIntegerExpressionEvaluator|null[0]

@@ -16,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationBudget
 import ee.schimke.composeai.rcplayer.protocol.RcReferencedOperations
+import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
@@ -39,10 +40,12 @@ public object RcDocumentLinker {
   private const val MAX_EXPANSION_DEPTH = 64
   private const val MAX_EXPANDED_NODES = 100_000
 
-  public fun link(document: RcDocument): RcLinkedDocument =
-    rcTrace(RcTraceCategory.DOCUMENT, "rc:link") { linkUnchecked(document) }
+  public fun link(document: RcDocument): RcLinkedDocument = link(document, RcWireLimits())
 
-  private fun linkUnchecked(document: RcDocument): RcLinkedDocument {
+  public fun link(document: RcDocument, limits: RcWireLimits): RcLinkedDocument =
+    rcTrace(RcTraceCategory.DOCUMENT, "rc:link") { linkUnchecked(document, limits) }
+
+  private fun linkUnchecked(document: RcDocument, limits: RcWireLimits): RcLinkedDocument {
     val linked = linkNodes(document.operations)
     val references = mutableMapOf<Int, RcLinkedNode.Container>()
     val macros = mutableMapOf<Int, RcMacroDefine>()
@@ -54,6 +57,8 @@ public object RcDocumentLinker {
         macros,
         arrays,
         idRemapper = RcIdRemapper.expanding(reservedIds = reservedIds(document.operations)),
+        limits = limits,
+        operationBudget = RcOperationBudget(limits.maxOperations),
       )
     return RcLinkedDocument(
       document,
@@ -169,6 +174,7 @@ public object RcDocumentLinker {
           val body =
             RcDocumentCodec.decodeOperations(
               definition.body,
+              limits = state.limits,
               idRemapper = state.idRemapper.fork(mappings),
               operationBudget = state.operationBudget,
             )
@@ -193,6 +199,7 @@ public object RcDocumentLinker {
               remap(
                 node.children,
                 state.idRemapper.fork(mapOf(loop.localItemId to id)),
+                state.limits,
                 state.operationBudget,
               )
             collectDefinitions(remapped, state.references, state.macros, state.arrays)
@@ -223,7 +230,8 @@ public object RcDocumentLinker {
     val macros: MutableMap<Int, RcMacroDefine>,
     val arrays: MutableMap<Int, List<Int>>,
     val idRemapper: RcIdRemapper,
-    val operationBudget: RcOperationBudget = RcOperationBudget(),
+    val limits: RcWireLimits,
+    val operationBudget: RcOperationBudget,
     var expandedNodes: Int = 0,
   )
 
@@ -236,6 +244,7 @@ public object RcDocumentLinker {
   private fun remap(
     nodes: List<RcLinkedNode>,
     remapper: RcIdRemapper,
+    limits: RcWireLimits,
     operationBudget: RcOperationBudget,
   ): List<RcLinkedNode> {
     val output = RcWireWriter()
@@ -250,6 +259,7 @@ public object RcDocumentLinker {
     return linkNodes(
       RcDocumentCodec.decodeOperations(
         output.toByteArray(),
+        limits = limits,
         idRemapper = remapper,
         operationBudget = operationBudget,
       )

@@ -49,6 +49,7 @@ public enum RemoteComposeNativeLimitError: Error, Equatable, LocalizedError, Sen
   case canvasTooLarge(actual: Double, maximum: Double)
   case nonFiniteValue(componentID: Int, field: String)
   case coordinateTooLarge(componentID: Int, field: String, actual: Double, maximum: Double)
+  case invalidGradientStop(componentID: Int, actual: Double)
   case frameWorkExceeded(actual: Int, maximum: Int)
 
   public var errorDescription: String? {
@@ -74,6 +75,8 @@ public enum RemoteComposeNativeLimitError: Error, Equatable, LocalizedError, Sen
       return "Component \(componentID) has a non-finite \(field) value"
     case .coordinateTooLarge(let componentID, let field, let actual, let maximum):
       return "Component \(componentID) has \(field)=\(actual); the magnitude limit is \(maximum)"
+    case .invalidGradientStop(let componentID, let actual):
+      return "Component \(componentID) has gradient stop \(actual); stops must be between 0 and 1"
     case .frameWorkExceeded(let actual, let maximum):
       return "Native frame requires \(actual) work units; the limit is \(maximum)"
     }
@@ -151,6 +154,15 @@ struct NativeFrameBudget: Equatable, Sendable {
     try validateWork(limits)
   }
 
+  mutating func recordEvent(
+    additionalWork: Int = 0, strings: [String?] = [],
+    limits: RemoteComposeNativeExecutionLimits
+  ) throws {
+    work += 1 + additionalWork
+    try recordStrings(strings, limits: limits)
+    try validateWork(limits)
+  }
+
   func validateNumbers(
     _ values: [Double], componentID: Int, field: String,
     limits: RemoteComposeNativeExecutionLimits
@@ -172,6 +184,14 @@ struct NativeFrameBudget: Equatable, Sendable {
     for value in values where !value.isFinite {
       throw RemoteComposeNativeLimitError.nonFiniteValue(
         componentID: componentID, field: field)
+    }
+  }
+
+  func validateGradientStops(_ values: [Double], componentID: Int) throws {
+    try validateFinite(values, componentID: componentID, field: "gradient stop")
+    for value in values where !(0...1).contains(value) {
+      throw RemoteComposeNativeLimitError.invalidGradientStop(
+        componentID: componentID, actual: value)
     }
   }
 

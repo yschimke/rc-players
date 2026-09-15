@@ -31,6 +31,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcRunAction
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcWireException
+import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -96,6 +98,29 @@ class RcDocumentLinkerTest {
       }
 
     assertEquals(2, ids.distinct().size)
+  }
+
+  @Test
+  fun configuredOperationLimitAppliesToMacroBodies() {
+    val definition =
+      RcMacroDefine(
+        9,
+        emptyList(),
+        body(RcTheme(RcTheme.LIGHT), RcTheme(RcTheme.DARK)),
+      )
+    val document =
+      RcDocument(
+        header,
+        listOf(
+          definition,
+          RcMacroCall(9, emptyList()),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    assertFailsWith<RcWireException> {
+      RcDocumentLinker.link(document, RcWireLimits(maxOperations = 1))
+    }
   }
 
   @Test
