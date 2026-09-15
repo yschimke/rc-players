@@ -693,6 +693,18 @@ public object RcNativeSnapshotBridge {
         }
       val resolvedWidth = resolvedAxis(width, inheritedWidth)
       val resolvedHeight = resolvedAxis(height, inheritedHeight)
+      val padding =
+        directOperations.filterIsInstance<RcPaddingModifier>().fold(FloatArray(4)) {
+          result,
+          modifier ->
+          result[0] += state.resolve(modifier.left) / document.header.density
+          result[1] += state.resolve(modifier.top) / document.header.density
+          result[2] += state.resolve(modifier.right) / document.header.density
+          result[3] += state.resolve(modifier.bottom) / document.header.density
+          result
+        }
+      val childWidth = resolvedWidth?.let { maxOf(it - padding[0] - padding[2], 0f) }
+      val childHeight = resolvedHeight?.let { maxOf(it - padding[1] - padding[3], 0f) }
       val accessibilityModifiers =
         container.children
           .filterIsInstance<RcLinkedNode.Operation>()
@@ -1033,14 +1045,14 @@ public object RcNativeSnapshotBridge {
                         alternativeIndex == selected &&
                         alternatives.isNotEmpty()
                     ) {
-                      children += nodeFor(contentChild, resolvedWidth, resolvedHeight)
+                      children += nodeFor(contentChild, childWidth, childHeight)
                     }
                     alternativeIndex++
                   }
                 }
               }
             } else {
-              children += nodeFor(child, resolvedWidth, resolvedHeight)
+              children += nodeFor(child, childWidth, childHeight)
             }
           }
         }
@@ -1125,16 +1137,6 @@ public object RcNativeSnapshotBridge {
           else -> Unit
         }
       }
-      val padding =
-        directOperations.filterIsInstance<RcPaddingModifier>().fold(FloatArray(4)) {
-          result,
-          modifier ->
-          result[0] += state.resolve(modifier.left) / document.header.density
-          result[1] += state.resolve(modifier.top) / document.header.density
-          result[2] += state.resolve(modifier.right) / document.header.density
-          result[3] += state.resolve(modifier.bottom) / document.header.density
-          result
-        }
       val offset =
         directOperations.filterIsInstance<RcOffsetModifier>().fold(FloatArray(2)) { result, modifier
           ->

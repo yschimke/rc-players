@@ -142,6 +142,8 @@
     private var displayLink: CADisplayLink?
     private lazy var displayLinkTarget = NativeDisplayLinkTarget(owner: self)
     private var delayedWakeTask: Task<Void, Never>?
+    private var wakeCountdown = NativeWakeCountdown()
+    private var hasPendingScheduledFrame = false
     private var frameDriverGeneration: UInt64 = 0
     private var resourceCache: NativeImageCache
     private let errorLabel = UILabel()
@@ -247,6 +249,7 @@
       needsRetry = false
       needsForegroundRender = false
       isRenderingDocument = true
+      hasPendingScheduledFrame = false
       stopFrameDriver()
       loadTask?.cancel()
       inputTail = nil
@@ -505,11 +508,13 @@
       }
       retainedResources = resources
       frameSchedule = model.frameSchedule
+      wakeCountdown.reset(after: frameSchedule.wakeAfter)
       needsRetry = false
       errorLabel.isHidden = true
       loadTask = nil
       pendingWork = nil
       updateFrameDriver()
+      if hasPendingScheduledFrame { requestScheduledFrame() }
     }
 
     private func show(error: Error) {
@@ -520,6 +525,7 @@
       errorLabel.isHidden = false
       loadTask = nil
       pendingWork = nil
+      hasPendingScheduledFrame = false
     }
 
     private func performClick(componentID: Int) {
@@ -570,6 +576,8 @@
     }
 
     private func updateFrameDriver() {
+      let now = clock.now()
+      wakeCountdown.pause(at: now)
       frameDriverGeneration &+= 1
       delayedWakeTask?.cancel()
       delayedWakeTask = nil
@@ -591,13 +599,15 @@
         displayLink?.invalidate()
         displayLink = nil
         let generation = frameDriverGeneration
+        let remainingDelay = wakeCountdown.start(after: delay, at: now)
         delayedWakeTask = Task { [weak self] in
           let maximumDelay = TimeInterval(UInt64.max / 1_000_000_000)
-          let nanoseconds = UInt64(min(max(delay, 0), maximumDelay) * 1_000_000_000)
+          let nanoseconds = UInt64(min(remainingDelay, maximumDelay) * 1_000_000_000)
           try? await Task.sleep(nanoseconds: nanoseconds)
           guard !Task.isCancelled, let self, generation == self.frameDriverGeneration else {
             return
           }
+          self.wakeCountdown.complete()
           self.frameSchedule.wakeAfter = nil
           self.delayedWakeTask = nil
           self.requestScheduledFrame()
@@ -606,6 +616,7 @@
     }
 
     private func stopFrameDriver() {
+      wakeCountdown.pause(at: clock.now())
       frameDriverGeneration &+= 1
       delayedWakeTask?.cancel()
       delayedWakeTask = nil
@@ -622,7 +633,12 @@
     }
 
     private func requestScheduledFrame() {
-      guard loadTask == nil, isApplicationActive, window != nil else { return }
+      guard isApplicationActive, window != nil else { return }
+      guard loadTask == nil else {
+        hasPendingScheduledFrame = true
+        return
+      }
+      hasPendingScheduledFrame = false
       let now = clock.now()
       let time: TimeInterval
       if UIAccessibility.isReduceMotionEnabled {
@@ -656,6 +672,7 @@
       loadGeneration &+= 1
       inputGeneration &+= 1
       lifecycleGeneration &+= 1
+      hasPendingScheduledFrame = false
     }
 
     @objc private func applicationDidBecomeActive() {
