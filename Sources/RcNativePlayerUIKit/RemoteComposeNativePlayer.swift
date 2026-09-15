@@ -114,6 +114,8 @@
     private var retainedSessionData: Data?
     private var retainedResources: NativeResourceStore?
     private var currentFrameTime: TimeInterval = 0
+    private var serializedInputCount = 0
+    private var deferredFrameTime: TimeInterval?
     private var resourceCache: NativeImageCache
     private let errorLabel = UILabel()
 
@@ -251,6 +253,10 @@
       guard isApplicationActive else { return }
       guard loadTask == nil else { return }
       guard !needsRetry, retainedSessionData == documentData else { return }
+      guard serializedInputCount == 0 else {
+        deferredFrameTime = timeSeconds
+        return
+      }
       guard let retainedSession, let retainedResources else { return }
       loadTask?.cancel()
       loadGeneration &+= 1
@@ -304,10 +310,15 @@
     ) async -> Bool {
       guard
         isApplicationActive, retainedSessionEpoch == sessionEpoch,
-        let retainedSession, let retainedResources
+        let retainedSession
       else { return false }
-      loadTask?.cancel()
-      loadGeneration &+= 1
+      if let pendingFrame = loadTask { await pendingFrame.value }
+      guard
+        isApplicationActive, retainedSessionEpoch == sessionEpoch,
+        self.retainedSession === retainedSession, let retainedResources
+      else { return false }
+      serializedInputCount += 1
+      defer { finishSerializedInput() }
       let epoch = sessionEpoch
       let lifecycle = lifecycleGeneration
       let time = currentFrameTime
@@ -353,6 +364,15 @@
         else { return false }
         if !(error is CancellationError) { show(error: error) }
         return false
+      }
+    }
+
+    private func finishSerializedInput() {
+      serializedInputCount -= 1
+      guard serializedInputCount == 0 else { return }
+      if let deferredFrameTime {
+        self.deferredFrameTime = nil
+        renderFrame(at: deferredFrameTime)
       }
     }
 
@@ -494,7 +514,8 @@
 
     @objc private func applicationDidEnterBackground() {
       isApplicationActive = false
-      needsForegroundRender = isRenderingDocument && documentData != nil
+      needsForegroundRender =
+        (isRenderingDocument || serializedInputCount > 0) && documentData != nil
       isRenderingDocument = false
       loadTask?.cancel()
       loadTask = nil
