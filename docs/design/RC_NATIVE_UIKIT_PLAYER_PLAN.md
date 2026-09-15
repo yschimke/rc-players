@@ -279,10 +279,13 @@ the load and delayed-wake tasks, while the display-link proxy already keeps only
 
 Pure adversarial tests exercise every typed Swift refusal and prove the codec operation ceiling is
 applied while decoding. Repository linker tests retain the nesting, recursive macro/reference, and
-expanded-node corpus. Release builds exercise the validation in the real UIKit host. Fixed-device
-time, allocation, and memory baselines remain required before this package drops its `core
-implemented` qualifier; those measurements are intentionally observational rather than flaky CI
-wall-clock gates.
+expanded-node corpus. Release builds exercise the validation in the real UIKit host. The packaged
+Release sample now emits a source-identified JSON baseline from seven Title Card iterations on a
+named iPad simulator. CI checks broad time, hierarchy, allocation, physical-footprint, executable,
+and app-bundle budgets and requires native labels, a native button/control, and accessibility
+elements. Fixed-device time, allocation, memory, frame pacing, and deallocation baselines remain
+required before this package drops its `core implemented` qualifier; simulator measurements are a
+regression tripwire, not a device performance claim.
 
 ### 11. Stabilize distribution and API only after evidence — core implemented
 
@@ -329,6 +332,8 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-Land the stacked packages in order, then collect fixed-device performance and accessibility data
-without widening `rc-native-uikit-core-v1`. Any new operation family starts a new reviewed profile
-diff with a fixture and owned diagnostics before it becomes a release claim.
+Land the stacked packages and the packaged-simulator evidence slice in order. Then run the same
+versioned report on a fixed physical device, add VoiceOver/Switch Control UI automation and explicit
+deallocation evidence, and verify one published standalone archive from an external consumer. Keep
+`rc-native-uikit-core-v1` unchanged while collecting that evidence. Any new operation family starts
+a new reviewed profile diff with a fixture and owned diagnostics before it becomes a release claim.

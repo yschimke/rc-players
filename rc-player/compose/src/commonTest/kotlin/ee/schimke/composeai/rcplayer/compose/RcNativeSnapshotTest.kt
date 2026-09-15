@@ -1472,4 +1472,28 @@ class RcNativeSnapshotTest {
     assertEquals(0xff123456.toInt(), state.children.single().commands.single().color)
     assertTrue(snapshot.unsupportedOpcodes.isEmpty(), snapshot.diagnostics.toString())
   }
+
+  @Test
+  fun preservesCanonicalMaximumConstraintAsUnbounded() {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 50, modern = false),
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcBoxLayout(3, 0, horizontalPositioning = 1, verticalPositioning = 4),
+          RcWidthInModifier(RcFloatWord.literal(-1f), RcFloatWord.literal(Float.MAX_VALUE)),
+          RcHeightInModifier(RcFloatWord.literal(-1f), RcFloatWord.literal(Float.MAX_VALUE)),
+          end,
+          end,
+          end,
+        ),
+      )
+
+    val box = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document)).root.children.single()
+
+    assertEquals(-1f, box.maximumWidth)
+    assertEquals(-1f, box.maximumHeight)
+  }
 }

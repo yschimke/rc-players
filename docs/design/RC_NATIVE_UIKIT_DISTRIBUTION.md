@@ -76,6 +76,25 @@ updated only by `scripts/update-package-swift.sh`.
 
 ## Stability gate and migration story
 
+### Automated simulator baseline
+
+`scripts/measure-native-uikit-simulator.sh` installs the packaged Release sample on a named iPad
+simulator and asks the app to measure seven direct bridge/render iterations of
+`TitleCardRemote-640x480`. The JSON artifact records its source revision, simulator model and OS,
+median decode/first-frame/update time, UIKit hierarchy composition, accessibility elements,
+allocation and physical-footprint growth, executable size, and installed app-bundle size. CI
+retains `native-uikit-evidence.json` beside the rendered evidence.
+
+The initial regression ceilings are deliberately broad: 250 ms decode, 250 ms first frame, 100 ms
+update, 500 views, 32 MiB allocation growth, 64 MiB physical-footprint growth, a 200 MiB
+executable, and a 300 MiB app bundle. The Title Card must also expose at least two `UILabel`s, one
+`UIControl`, one `UIButton`, and three accessibility elements. This makes accidental removal of
+native conceptual elements a failure rather than a smaller-view-count "improvement."
+
+This is reproducible packaged-artifact evidence, but simulator wall-clock and memory values are not
+a physical-device performance claim. The report is a CI regression tripwire and establishes the
+measurement format; the stability gate below still requires a reviewed fixed-device series.
+
 The profile can leave experimental status only after all of these are true:
 
 - its fixture corpus covers each claimed layout, drawing, resource, input, semantic, and animation
