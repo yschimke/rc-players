@@ -26,7 +26,7 @@ enum NativeSwiftFuzzTests {
         FileHandle.standardError.write(Data("fuzz seed not readable: \(path)\n".utf8))
         exit(1)
       }
-      seeds.append((URL(fileURLWithPath: path).lastPathComponent, data))
+      seeds.append((name: URL(fileURLWithPath: path).lastPathComponent, data: data))
     }
     guard arguments.count >= 1 else {
       FileHandle.standardError.write(
@@ -203,12 +203,12 @@ enum NativeSwiftFuzzTests {
 
   private static func syntheticSeeds() -> [(name: String, data: Data)] {
     [
-      ("empty", Data()),
-      ("single-byte", Data([0])),
-      ("header-only", Data([0, 0, 0, 0, 1])),
-      ("noise", Data((0..<512).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })),
-      ("zeros", Data(repeating: 0, count: 1024)),
-      ("ones", Data(repeating: 0xFF, count: 1024)),
+      (name: "empty", data: Data()),
+      (name: "single-byte", data: Data([0])),
+      (name: "header-only", data: Data([0, 0, 0, 0, 1])),
+      (name: "noise", data: Data((0..<512).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })),
+      (name: "zeros", data: Data(repeating: 0, count: 1024)),
+      (name: "ones", data: Data(repeating: 0xFF, count: 1024)),
     ]
   }
 
