@@ -305,21 +305,21 @@
         return
       }
       guard let retainedSession, let retainedResources else { return }
-      animationTimeline.advance(to: timeSeconds, at: clock.now())
+      let frameTime = animationTimeline.advance(to: timeSeconds, at: clock.now())
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
       pendingWork = .frame
       loadTask = Task { [weak self] in
         do {
-          let frame = try await retainedSession.frame(at: timeSeconds)
+          let frame = try await retainedSession.frame(at: frameTime)
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
           let model = NativeDocument(snapshot: frame.snapshot)
           try self.validate(model)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
-          self.currentFrameTime = timeSeconds
+          self.currentFrameTime = frameTime
           try self.install(model, resources: retainedResources)
         } catch let error as CancellationError {
           guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
