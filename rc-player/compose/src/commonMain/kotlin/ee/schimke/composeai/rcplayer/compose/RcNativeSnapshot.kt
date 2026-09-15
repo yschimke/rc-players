@@ -650,6 +650,8 @@ public object RcNativeSnapshotBridge {
         }
       }
 
+    val settledFloatExpressionIds = mutableSetOf<Int>()
+
     fun nodeFor(
       container: RcLinkedNode.Container,
       inheritedWidth: Float? = null,
@@ -665,14 +667,14 @@ public object RcNativeSnapshotBridge {
       val width = directOperations.filterIsInstance<RcWidthModifier>().firstOrNull()
       val height = directOperations.filterIsInstance<RcHeightModifier>().firstOrNull()
       fun fillFraction(value: RcFloatWord): Float =
-        if (value.referencedId == null && value.value.isNaN()) 1f else state.resolve(value)
+        if (value.bits == Float.NaN.toRawBits()) 1f else state.resolve(value)
       fun resolvedAxis(modifier: RcOperation?, inherited: Float?): Float? =
         when (modifier) {
           is RcWidthModifier ->
             when (modifier.type) {
               RcDimensionType.EXACT -> state.resolve(modifier.value)
               RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
-              RcDimensionType.FILL -> inherited
+              RcDimensionType.FILL -> inherited?.times(fillFraction(modifier.value))
               RcDimensionType.WEIGHT -> inherited
               RcDimensionType.FILL_PARENT_MAX_WIDTH ->
                 inherited?.times(fillFraction(modifier.value))
@@ -682,7 +684,7 @@ public object RcNativeSnapshotBridge {
             when (modifier.type) {
               RcDimensionType.EXACT -> state.resolve(modifier.value)
               RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
-              RcDimensionType.FILL -> inherited
+              RcDimensionType.FILL -> inherited?.times(fillFraction(modifier.value))
               RcDimensionType.WEIGHT -> inherited
               RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
                 inherited?.times(fillFraction(modifier.value))
@@ -915,7 +917,15 @@ public object RcNativeSnapshotBridge {
                       else -> RcFloatWord.literal(0f)
                     }
                   ) / document.header.density
-                RcDimensionType.FILL -> available
+                RcDimensionType.FILL ->
+                  available *
+                    fillFraction(
+                      when (dimension) {
+                        is RcWidthModifier -> dimension.value
+                        is RcHeightModifier -> dimension.value
+                        else -> RcFloatWord.literal(Float.NaN)
+                      }
+                    )
                 RcDimensionType.FILL_PARENT_MAX_WIDTH,
                 RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
                   available *
@@ -1253,6 +1263,7 @@ public object RcNativeSnapshotBridge {
                 diagnostics,
                 paths,
                 bitmaps,
+                settledFloatExpressionIds,
               )
           is RcLinkedNode.Container -> {
             val linearAllocation = linearAllocations?.get(childContainerIndex)
@@ -1284,6 +1295,7 @@ public object RcNativeSnapshotBridge {
                         diagnostics,
                         paths,
                         bitmaps,
+                        settledFloatExpressionIds,
                       )
                   is RcLinkedNode.Container -> {
                     val contentVisibility =
@@ -1470,6 +1482,7 @@ public object RcNativeSnapshotBridge {
             val operation = node.operation
             if (operation is RcFloatExpression) {
               state.applyFloatExpression(operation)
+              settledFloatExpressionIds += operation.id
             }
           }
           is RcLinkedNode.Container -> settleGeometryExpressions(node.children)
@@ -1499,7 +1512,17 @@ public object RcNativeSnapshotBridge {
           rootChildren +=
             nodeFor(node, document.header.width.toFloat(), document.header.height.toFloat())
         is RcLinkedNode.Operation ->
-          consume(node.operation, 0, state, paint, rootCommands, diagnostics, paths, bitmaps)
+          consume(
+            node.operation,
+            0,
+            state,
+            paint,
+            rootCommands,
+            diagnostics,
+            paths,
+            bitmaps,
+            settledFloatExpressionIds,
+          )
       }
     }
     val rootBehavior = state.rootContentBehavior
@@ -1549,6 +1572,7 @@ public object RcNativeSnapshotBridge {
     diagnostics: NativeDiagnosticCollector,
     paths: Map<Int, RcPathData>,
     bitmaps: Map<Int, RcBitmapData>,
+    settledFloatExpressionIds: Set<Int>,
   ) {
     when (operation) {
       is RcAccessibilitySemantics,
@@ -1573,7 +1597,8 @@ public object RcNativeSnapshotBridge {
         }
       is RcWakeIn -> state.requestWakeIn(operation)
       is RcPaintData -> applyPaint(operation, componentId, state, paint, diagnostics, bitmaps)
-      is RcFloatExpression -> state.applyFloatExpression(operation)
+      is RcFloatExpression ->
+        if (operation.id !in settledFloatExpressionIds) state.applyFloatExpression(operation)
       is RcIntegerExpression -> state.applyIntegerExpression(operation)
       is RcColorExpression -> state.applyColorExpression(operation)
       is RcImageAttribute -> state.applyImageAttribute(operation)
