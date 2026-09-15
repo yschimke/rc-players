@@ -43,6 +43,12 @@ enum NativeExecutionLimitsTests {
         pathElementCount: 0, text: "éé",
         limits: RemoteComposeNativeExecutionLimits(maximumTextBytes: 3))
     }
+    var aggregateText = NativeFrameBudget()
+    expect(.frameWorkExceeded(actual: 5, maximum: 4)) {
+      try aggregateText.recordCommand(
+        pathElementCount: 0, text: "text",
+        limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 4))
+    }
 
     let numbers = NativeFrameBudget()
     expect(.nonFiniteValue(componentID: 42, field: "path")) {
@@ -57,6 +63,8 @@ enum NativeExecutionLimitsTests {
         [11], componentID: 7, field: "draw",
         limits: RemoteComposeNativeExecutionLimits(maximumCoordinateMagnitude: 10))
     }
+    try numbers.validateFinite(
+      [400], componentID: 7, field: "paint")
     expect(.canvasTooLarge(actual: 101, maximum: 100)) {
       try numbers.validateCanvasDimensions(
         [101], limits: RemoteComposeNativeExecutionLimits(maximumCanvasDimension: 100))
