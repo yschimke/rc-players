@@ -71,8 +71,10 @@
             Double(maximumHeight),
             Double(node.paddingTop), Double(node.paddingLeft), Double(node.paddingBottom),
             Double(node.paddingRight), Double(node.cornerRadius), Double(node.spacing),
-            Double(node.offsetX), Double(node.offsetY), Double(node.zIndex),
+            Double(node.offsetX), Double(node.offsetY),
           ], componentID: Int(node.componentId), field: "layout", limits: limits)
+        try budget.validateFinite(
+          [Double(node.zIndex)], componentID: Int(node.componentId), field: "z-index")
         try budget.validateCanvasDimensions(
           [
             abs(Double(node.minimumWidth)), abs(Double(node.minimumHeight)),
