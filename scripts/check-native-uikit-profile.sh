@@ -2,10 +2,17 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-profile="${1:-$repo_root/rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json}"
-
-if [ ! -f "$profile" ]; then
-  profile="$repo_root/distribution/native-uikit/profile.json"
+if [ "$#" -gt 0 ]; then
+  profile="$1"
+  if [ ! -f "$profile" ]; then
+    echo "native UIKit profile not found: $profile" >&2
+    exit 1
+  fi
+else
+  profile="$repo_root/rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json"
+  if [ ! -f "$profile" ]; then
+    profile="$repo_root/distribution/native-uikit/profile.json"
+  fi
 fi
 
 python3 - "$profile" "$repo_root" <<'PY'
