@@ -17,8 +17,9 @@
     case debug(message: String, value: Float, flags: Int)
   }
 
-  /// Kotlin/Native objects are confined to this serial handle. Immutable snapshots cross back to
-  /// UIKit inside a wrapper whose fields are never mutated after construction.
+  /// Runtime objects are confined to this serial handle. New operation families execute in the
+  /// Swift session; the Kotlin session remains a migration fallback for documents containing an
+  /// operation family the Swift decoder does not understand yet.
   actor NativeSnapshotSessionHandle {
     private final class SessionBox: @unchecked Sendable {
       let value: RcNativeSnapshotSession
@@ -29,7 +30,12 @@
     }
 
     struct Frame: @unchecked Sendable {
-      let snapshot: RcNativeDocumentSnapshot
+      enum Payload {
+        case swift(NativeSwiftDocumentSnapshot)
+        case kotlin(RcNativeDocumentSnapshot)
+      }
+
+      let payload: Payload
     }
 
     private actor Decoder {
@@ -41,7 +47,7 @@
             try RcNativeSnapshotBridge.shared.createSession(bytes: bytes))
           let frame = try session.value.snapshot(timeSeconds: 0)
           try Task.checkCancellation()
-          return (session, Frame(snapshot: frame))
+          return (session, Frame(payload: .kotlin(frame)))
         } catch is CancellationError {
           throw CancellationError()
         } catch {
@@ -57,10 +63,15 @@
       let frame: Frame
       let events: [RemoteComposeNativePlayerEvent]
     }
-    private let session: SessionBox
+    private enum Backend {
+      case swift(NativeSwiftDocumentSession)
+      case kotlin(SessionBox)
+    }
 
-    private init(session: SessionBox) {
-      self.session = session
+    private let backend: Backend
+
+    private init(backend: Backend) {
+      self.backend = backend
     }
 
     static func open(
@@ -70,63 +81,112 @@
         throw RemoteComposeNativeLimitError.documentTooLarge(
           actual: data.count, maximum: min(maximumDocumentBytes, Int(Int32.max)))
       }
-      let opened = try await decoder.open(data: data)
-      try Task.checkCancellation()
-      return (NativeSnapshotSessionHandle(session: opened.0), opened.1)
+      do {
+        let session = try NativeSwiftDocumentSession.open(data: data)
+        let frame = Frame(payload: .swift(try session.snapshot()))
+        try Task.checkCancellation()
+        return (
+          NativeSnapshotSessionHandle(backend: .swift(session)),
+          frame
+        )
+      } catch let error as NativeSwiftCoreError where error.isUnsupported {
+        let opened = try await decoder.open(data: data)
+        try Task.checkCancellation()
+        return (NativeSnapshotSessionHandle(backend: .kotlin(opened.0)), opened.1)
+      } catch let error as NativeSwiftCoreError {
+        throw RemoteComposeNativePlayerError.decode(error.description)
+      }
     }
 
     func frame(at timeSeconds: TimeInterval) async throws -> Frame {
       do {
-        return Frame(snapshot: try session.value.snapshot(timeSeconds: Float(timeSeconds)))
+        switch backend {
+        case .swift(let session): return Frame(payload: .swift(try session.snapshot()))
+        case .kotlin(let session):
+          return Frame(
+            payload: .kotlin(try session.value.snapshot(timeSeconds: Float(timeSeconds))))
+        }
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
     }
 
     func click(componentID: Int, at timeSeconds: TimeInterval) throws -> Update {
-      try update {
-        try session.value.click(
-          componentId: Int32(componentID), timeSeconds: Float(timeSeconds))
+      switch backend {
+      case .swift(let session): return try unchangedSwiftUpdate(session: session)
+      case .kotlin(let session):
+        return try update {
+          try session.value.click(
+            componentId: Int32(componentID), timeSeconds: Float(timeSeconds))
+        }
       }
     }
 
     func setFloat(_ value: Float, for name: String, at timeSeconds: TimeInterval) throws -> Update {
-      try update {
-        try session.value.setFloat(name: name, value: value, timeSeconds: Float(timeSeconds))
+      switch backend {
+      case .swift(let session): return try unchangedSwiftUpdate(session: session)
+      case .kotlin(let session):
+        return try update {
+          try session.value.setFloat(name: name, value: value, timeSeconds: Float(timeSeconds))
+        }
       }
     }
 
     func setString(_ value: String, for name: String, at timeSeconds: TimeInterval) throws -> Update
     {
-      try update {
-        try session.value.setString(name: name, value: value, timeSeconds: Float(timeSeconds))
+      switch backend {
+      case .swift(let session): return try unchangedSwiftUpdate(session: session)
+      case .kotlin(let session):
+        return try update {
+          try session.value.setString(name: name, value: value, timeSeconds: Float(timeSeconds))
+        }
       }
     }
 
     func setColor(_ argb: UInt32, for name: String, at timeSeconds: TimeInterval) throws -> Update {
-      try update {
-        try session.value.setColor(
-          name: name, argb: Int32(bitPattern: argb), timeSeconds: Float(timeSeconds))
+      switch backend {
+      case .swift(let session): return try unchangedSwiftUpdate(session: session)
+      case .kotlin(let session):
+        return try update {
+          try session.value.setColor(
+            name: name, argb: Int32(bitPattern: argb), timeSeconds: Float(timeSeconds))
+        }
       }
     }
 
     func returnCustomFloat(
       _ value: Float, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      try update {
-        try session.value.returnCustomFloat(
-          componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
-          timeSeconds: Float(timeSeconds))
+      switch backend {
+      case .swift(let session):
+        let accepted = try session.returnCustomFloat(
+          value, componentID: componentID, propertyID: propertyID)
+        return Update(
+          accepted: accepted, frame: Frame(payload: .swift(try session.snapshot())), events: [])
+      case .kotlin(let session):
+        return try update {
+          try session.value.returnCustomFloat(
+            componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
+            timeSeconds: Float(timeSeconds))
+        }
       }
     }
 
     func returnCustomText(
       _ value: String, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      try update {
-        try session.value.returnCustomText(
-          componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
-          timeSeconds: Float(timeSeconds))
+      switch backend {
+      case .swift(let session):
+        let accepted = try session.returnCustomText(
+          value, componentID: componentID, propertyID: propertyID)
+        return Update(
+          accepted: accepted, frame: Frame(payload: .swift(try session.snapshot())), events: [])
+      case .kotlin(let session):
+        return try update {
+          try session.value.returnCustomText(
+            componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
+            timeSeconds: Float(timeSeconds))
+        }
       }
     }
 
@@ -135,11 +195,16 @@
         let result = try operation()
         return Update(
           accepted: result.accepted,
-          frame: Frame(snapshot: result.snapshot),
+          frame: Frame(payload: .kotlin(result.snapshot)),
           events: result.events.compactMap(Self.event))
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
+    }
+
+    private func unchangedSwiftUpdate(session: NativeSwiftDocumentSession) throws -> Update {
+      Update(
+        accepted: false, frame: Frame(payload: .swift(try session.snapshot())), events: [])
     }
 
     private static func event(_ event: RcNativeEvent) -> RemoteComposeNativePlayerEvent? {

@@ -85,6 +85,7 @@ jobs:
               scripts/check-native-uikit-frame-timing.sh \
               scripts/check-native-uikit-graphics.sh \
               scripts/check-native-uikit-layout.sh \
+              scripts/check-native-swift-core.sh \
               scripts/measure-native-uikit-simulator.sh \
               scripts/native-uikit-comparison \
               scripts/check-native-uikit-package.sh \
@@ -327,6 +328,10 @@ jobs:
       - name: Test native UIKit compatibility policies
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-compatibility.sh
+
+      - name: Test the pure Swift document core
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-swift-core.sh
 
       - name: Test native UIKit layout geometry
         if: needs.apple-changes.outputs.required == 'true'
