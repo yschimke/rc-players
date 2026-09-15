@@ -989,11 +989,11 @@ public object RcNativeSnapshotBridge {
           else -> RcNativeNodeSnapshot.GROUP
         }
       if (
-        state.hasComponentValues(componentId) && measuredWidth != null && measuredHeight != null
+        state.hasComponentValues(componentId) && (measuredWidth != null || measuredHeight != null)
       ) {
         state.publishComponentGeometry(
           componentId,
-          RcComponentGeometry(measuredWidth, measuredHeight, 0f, 0f, 0f, 0f),
+          RcComponentGeometry(measuredWidth ?: 0f, measuredHeight ?: 0f, 0f, 0f, 0f, 0f),
         )
       }
       val commands = mutableListOf<RcNativeDrawCommand>()
