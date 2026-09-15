@@ -409,11 +409,6 @@
           epoch == sessionEpoch, retainedSessionEpoch == epoch,
           self.retainedSession === retainedSession
         else { return update.accepted }
-        guard input == inputGeneration else {
-          dispatch(
-            update.events, from: retainedSession, epoch: epoch, lifecycle: lifecycle)
-          return update.accepted
-        }
         do {
           let model = try NativeDocument(snapshot: update.frame.snapshot, limits: executionLimits)
           try validateExecution(model, events: update.events)
