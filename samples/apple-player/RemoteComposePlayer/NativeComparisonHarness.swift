@@ -7,6 +7,8 @@ private struct NativeComparisonEntry: Decodable {
   let height: Int
   let density: Double
   let downloadableFonts: Bool?
+  /// Opt this entry into the Android density contract; absent means native density 1.0.
+  let androidCompatibility: Bool?
 }
 
 private enum NativeComparisonError: LocalizedError {
@@ -123,6 +125,7 @@ private enum NativeComparisonHarness {
       data: data,
       background: .transparent,
       compatibilityPolicy: .compatible,
+      androidCompatibility: entry.androidCompatibility == true ? .enabled : .disabled,
       customComponents: NativeCustomComponentSamples.registry,
       downloadableFontResolver: entry.downloadableFonts == false ? nil : googleFonts,
       onDiagnostics: { diagnostics = $0 })

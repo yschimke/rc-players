@@ -38,6 +38,7 @@
       data: Data,
       background: RemoteComposeNativePlayerBackground = .opaque,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
@@ -50,6 +51,7 @@
       let customComponents = customComponents ?? RemoteComposeNativeCustomComponentRegistry()
       playerView = RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
+        androidCompatibility: androidCompatibility,
         resourceLimits: resourceLimits, executionLimits: executionLimits,
         customComponents: customComponents,
         resourceResolver: resourceResolver,
@@ -82,6 +84,13 @@
 
     public func configureExecutionLimits(_ limits: RemoteComposeNativeExecutionLimits) {
       playerView.configureExecutionLimits(limits)
+    }
+
+    /// Select the density contract and retry the retained document when it changes.
+    public func configureAndroidCompatibility(
+      _ compatibility: RemoteComposeNativePlayerAndroidCompatibility
+    ) {
+      playerView.androidCompatibility = compatibility
     }
 
     public func configureDownloadableFonts(
@@ -140,6 +149,18 @@
       }
     }
 
+    /// Whether dp-typed geometry follows the document's Android density contract.
+    ///
+    /// Native rendering resolves dp geometry at density 1.0 by default and reports a document that
+    /// expected otherwise. Changing this reloads the retained bytes, so a host can inspect the
+    /// diagnostic first and then opt in.
+    public var androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility {
+      didSet {
+        guard androidCompatibility != oldValue, let documentData else { return }
+        render(documentData)
+      }
+    }
+
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
     public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
     public private(set) var resourceLimits: RemoteComposeNativeResourceLimits
@@ -185,6 +206,7 @@
       data: Data,
       background: RemoteComposeNativePlayerBackground = .opaque,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
@@ -196,6 +218,7 @@
     ) {
       playerBackground = background
       self.compatibilityPolicy = compatibilityPolicy
+      self.androidCompatibility = androidCompatibility
       self.resourceLimits = resourceLimits
       self.executionLimits = executionLimits
       let customComponents = customComponents ?? RemoteComposeNativeCustomComponentRegistry()
@@ -346,6 +369,7 @@
       let epoch = sessionEpoch
       let executionLimits = executionLimits
       let compatibilityPolicy = compatibilityPolicy
+      let androidCompatibility = androidCompatibility
       let availableCustomComponents = customComponents.names
       let resourceLimits = resourceLimits
       let resourceResolver = resourceResolver
@@ -356,7 +380,8 @@
           let (session, frame) = try await NativeSnapshotSessionHandle.open(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes)
           try Task.checkCancellation()
-          let model = try NativeDocument(frame: frame, limits: executionLimits)
+          let model = try NativeDocument(
+            frame: frame, limits: executionLimits, androidCompatibility: androidCompatibility)
           guard generation == self?.loadGeneration else { return }
           let diagnostics = model.diagnostics(
             availableCustomComponents: availableCustomComponents)
@@ -408,7 +433,9 @@
           let frame = try await retainedSession.frame(at: frameTime)
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
-          let model = try NativeDocument(frame: frame, limits: self.executionLimits)
+          let model = try NativeDocument(
+            frame: frame, limits: self.executionLimits,
+            androidCompatibility: self.androidCompatibility)
           try self.validate(model)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
@@ -475,7 +502,9 @@
           self.retainedSession === retainedSession
         else { return update.accepted }
         do {
-          let model = try NativeDocument(frame: update.frame, limits: executionLimits)
+          let model = try NativeDocument(
+            frame: update.frame, limits: executionLimits,
+            androidCompatibility: androidCompatibility)
           try validateExecution(model, events: update.events)
           guard
             isApplicationActive, lifecycle == lifecycleGeneration,

@@ -157,7 +157,7 @@ private struct PlayerCanvas: View {
 
         if library.renderer == .native, let nativeDiagnostics, nativeDiagnostics.isPartial {
           Text(
-            "Native POC · \(nativeDiagnostics.unsupportedOpcodes.count) unsupported opcodes"
+            "Native POC · \(nativeDiagnostics.issues.count) compatibility issue(s)"
           )
           .font(.caption.weight(.medium))
           .foregroundStyle(.secondary)

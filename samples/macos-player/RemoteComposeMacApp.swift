@@ -577,6 +577,31 @@ struct RemoteComposeMacApplication {
       }
       return
     }
+    if CommandLine.arguments.count == 4,
+      CommandLine.arguments[1] == "--measure-native-evidence"
+    {
+      do {
+        _ = NSApplication.shared
+        let input = URL(fileURLWithPath: CommandLine.arguments[2])
+        let output = URL(fileURLWithPath: CommandLine.arguments[3])
+        let report = try NativeAppKitWindowController.measureEvidence(
+          data: try Data(contentsOf: input),
+          fixture: input.deletingPathExtension().lastPathComponent)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(report).write(to: output, options: .atomic)
+        guard report.passed else {
+          FileHandle.standardError.write(
+            Data("native AppKit evidence over budget: \(report.overBudget)\n".utf8))
+          exit(1)
+        }
+        print(output.path)
+      } catch {
+        FileHandle.standardError.write(Data("native AppKit evidence failed: \(error)\n".utf8))
+        exit(1)
+      }
+      return
+    }
     if CommandLine.arguments.count == 2,
       CommandLine.arguments[1] == "--validate-native-scheduling-policy"
     {

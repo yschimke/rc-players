@@ -335,6 +335,39 @@ Auto Layout would introduce solver behavior not in the Remote Compose contract. 
 no general component margin modifier; external spacing is expressed by parent arrangement and
 `spacedBy`.
 
+### Density and Android compatibility
+
+A `.rc` header records the density the document was generated at (`DOC_DENSITY_AT_GENERATION`) and
+how dp-typed values are meant to be converted at playback (`DOC_DENSITY_BEHAVIOR`). Apple UI is
+authored in points and has no equivalent conversion, so the native player does not adopt the Android
+contract implicitly. `RemoteComposeNativePlayerAndroidCompatibility` makes the choice explicit and
+is independent of renderer selection:
+
+* `.disabled` — the default. dp-typed sizes, padding, spacing, and constraints resolve at a density
+  of 1.0, so they are captured document units and scale with the document like every other
+  coordinate. A document whose authored layout needs a different density is reported rather than
+  silently reinterpreted: `NativeDensityPolicy` emits a `Header` warning naming the declared
+  density, `.compatible` renders it with that difference stated, and `.strict` refuses it.
+* `.enabled` — dp-typed geometry converts with the playback density that the root transform
+  resolved (document units per host point), reproducing the authored Android layout. This is what
+  makes the density-2 `TitleCardRemote-640x480` fixture match the CMP player, which always applies
+  the Android contract because it is the compatibility oracle.
+
+`DENSITY_BEHAVIOR_PIXELS` is not implemented in either mode; a document that declares it at a
+non-unit density is diagnosed whichever mode is selected.
+
+```swift
+let player = RemoteComposeNativePlayerView(
+  data: androidAuthoredDocument,
+  androidCompatibility: .enabled)
+```
+
+The mode is settable after construction (`view.androidCompatibility`,
+`controller.configureAndroidCompatibility(_:)`, or the representable's initializer) and changing it
+reloads the retained bytes, so a host can inspect the diagnostic first and then opt in.
+`scripts/check-native-uikit-comparison.sh` renders the title card through both modes against the
+same CMP lane, so the default and the opt-in are both measured.
+
 ### Paint and graphics state
 
 The runtime resolves paint into each drawing command before UIKit rendering. Core Graphics state
@@ -502,12 +535,57 @@ Current checks are:
   macOS comparison corpus rather than maintaining a separate fixture format;
 - `scripts/measure-native-uikit-simulator.sh` records packaged Release timing, hierarchy,
   accessibility, allocation, memory, binary-size, lifecycle-recovery, and deallocation evidence;
+- `scripts/check-native-swift-fuzz.sh` mutation-fuzzes the pure-Swift core against the derived
+  corpus described below;
+- `scripts/measure-native-swift-core.sh` and `scripts/measure-native-appkit.sh` publish the
+  host-independent and AppKit halves of the native performance evidence;
+- `scripts/check-native-uikit-density.sh` executes the density contract as a pure Swift test;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 
 Physical-device release evidence still requires VoiceOver speech, Switch Control navigation,
 frame-pacing and memory measurements, plus an external released-artifact consumer check. Pixel
 thresholds can start tolerant; structure and state should be exact from the beginning.
+
+### Fuzzing and performance budgets
+
+The core is the only thing between host bytes and a retained render session, so its property is
+narrow and absolute: any input either decodes into a bounded snapshot or fails with a typed
+`NativeSwiftCoreError`. It may never trap, never throw an untyped error, and never run unbounded
+work.
+
+`scripts/check-native-swift-fuzz.sh` asserts exactly that. The corpus is **derived, not committed**:
+every fixture the support profile lists as verified is a seed, alongside empty, single-byte,
+header-only, all-zero, all-ones and noise seeds, and a deterministic PRNG expands each into
+truncated, bit-flipped, spliced, deleted, inserted, zeroed, duplicated and extreme-word variants —
+`-1`, `Int32.max`/`min`, `±infinity` and NaN written over the big-endian words where counts, lengths
+and floats live. Deriving it rather than checking bytes in means the corpus follows the fixture set
+instead of drifting from it. Each case is run through the whole retained surface: decode, frames at
+several times including negative and far-future ones, host float/string/color updates under hostile
+names, every gesture kind against real and impossible component ids, custom return channels, and a
+determinism check that the same time resolves the same tree twice.
+
+Failures are reproducible and self-reporting. `RC_NATIVE_FUZZ_SEED` and `RC_NATIVE_FUZZ_ITERATIONS`
+replay the same case sequence on any host, a failing case writes its bytes to
+`RC_NATIVE_FUZZ_CORPUS_OUT` (uploaded by CI), and a watchdog thread turns a hang into a named
+failure rather than a job timeout. `RC_NATIVE_FUZZ_SANITIZE=address|thread|undefined` rebuilds the
+same harness under a sanitizer; CI runs the plain pass at full width and a shorter sanitized pass,
+because the sanitizer — not the mutation count — is the expensive part.
+
+Performance evidence is published from three lanes that answer different questions, each emitting a
+machine-readable report that carries the budgets it was judged against, so a CI artifact is
+reviewable without rerunning it:
+
+| Lane | Script | Covers |
+| --- | --- | --- |
+| Core | `scripts/measure-native-swift-core.sh` | Decode, first frame, steady-state frame cost over a second of animation, document replacement, and retained-session memory growth, per fixture, on any macOS host |
+| UIKit | `scripts/measure-native-uikit-simulator.sh` | The packaged Release app on a fixed iPad simulator: view hierarchy, accessibility exposure, allocation, footprint, binary size, background/foreground recovery, deallocation |
+| AppKit | `scripts/measure-native-appkit.sh` | The packaged macOS player: native view-tree build, a real Core Graphics capture, steady-state frames, retained memory |
+
+The timing budgets are order-of-magnitude ceilings rather than tuning gates — a hosted runner's
+clock is too noisy to gate a device-quality number, so the numbers are published and the gate only
+catches a real regression. The structural numbers are the exact ones: node and command counts, view
+counts, accessibility exposure, and whether a replaced document is released.
 
 ## Distribution and compatibility
 

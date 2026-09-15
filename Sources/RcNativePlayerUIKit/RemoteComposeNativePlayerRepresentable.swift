@@ -10,6 +10,7 @@
     public let data: Data
     public var background: RemoteComposeNativePlayerBackground
     public var compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy
+    public var androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility
     public var resourceLimits: RemoteComposeNativeResourceLimits
     public var executionLimits: RemoteComposeNativeExecutionLimits
     public var customComponents: RemoteComposeNativeCustomComponentRegistry?
@@ -22,6 +23,7 @@
       data: Data,
       background: RemoteComposeNativePlayerBackground = .opaque,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
@@ -33,6 +35,7 @@
       self.data = data
       self.background = background
       self.compatibilityPolicy = compatibilityPolicy
+      self.androidCompatibility = androidCompatibility
       self.resourceLimits = resourceLimits
       self.executionLimits = executionLimits
       self.customComponents = customComponents
@@ -45,6 +48,7 @@
     public func makeUIView(context: Context) -> RemoteComposeNativePlayerView {
       RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
+        androidCompatibility: androidCompatibility,
         resourceLimits: resourceLimits, executionLimits: executionLimits,
         customComponents: customComponents ?? .init(),
         resourceResolver: resourceResolver,
@@ -58,6 +62,7 @@
       view.onEvent = onEvent
       view.onDiagnostics = onDiagnostics
       view.compatibilityPolicy = compatibilityPolicy
+      view.androidCompatibility = androidCompatibility
       view.configureResources(limits: resourceLimits, resolver: resourceResolver)
       view.configureDownloadableFonts(resolver: downloadableFontResolver)
       view.configureExecutionLimits(executionLimits)

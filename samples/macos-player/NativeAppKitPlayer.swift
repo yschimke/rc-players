@@ -1,5 +1,6 @@
 import AppKit
 import CoreText
+import Darwin
 import QuartzCore
 #if canImport(RcNativePlayerCore)
   import RcNativePlayerCore
@@ -79,6 +80,85 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
     }
     return png
+  }
+
+  /// Machine-readable AppKit performance evidence for one document.
+  ///
+  /// The iOS lane measures the UIKit tree and `scripts/measure-native-swift-core.sh` measures the
+  /// shared core; this covers what only AppKit can answer — building and drawing the native macOS
+  /// view tree, and whether repeatedly replacing the document releases what it retained.
+  static func measureEvidence(
+    data: Data, fixture: String, iterations: Int = 5, frames: Int = 60
+  ) throws -> NativeAppKitEvidenceReport {
+    var decodeSamples: [Double] = []
+    var buildSamples: [Double] = []
+    var captureSamples: [Double] = []
+    var viewCount = 0
+    var labelCount = 0
+    var controlCount = 0
+    let residentBefore = nativeAppKitResidentBytes()
+
+    for _ in 0..<iterations {
+      var started = ProcessInfo.processInfo.systemUptime
+      try NativeMacPolicy.validateDocument(data)
+      let session = try NativeSwiftDocumentSession.open(data: data)
+      let snapshot = try session.snapshot(timeSeconds: 0)
+      decodeSamples.append(nativeAppKitMilliseconds(since: started))
+
+      started = ProcessInfo.processInfo.systemUptime
+      let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
+      let fonts = try NativeMacFontRegistry.register(snapshot: snapshot, downloadedFonts: [:])
+      let player = try NativeMacDocumentView(
+        snapshot: snapshot, session: session, compatibility: .compatible, report: report,
+        fonts: fonts, onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
+      let bounds = NSRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height)
+      let window = NSWindow(
+        contentRect: bounds, styleMask: .borderless, backing: .buffered, defer: false)
+      window.contentView = player
+      player.frame = bounds
+      player.layoutSubtreeIfNeeded()
+      buildSamples.append(nativeAppKitMilliseconds(since: started))
+
+      started = ProcessInfo.processInfo.systemUptime
+      guard let bitmap = player.bitmapImageRepForCachingDisplay(in: player.bounds) else {
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not allocate AppKit capture")
+      }
+      player.cacheDisplay(in: player.bounds, to: bitmap)
+      captureSamples.append(nativeAppKitMilliseconds(since: started))
+
+      var views = 0
+      var labels = 0
+      var controls = 0
+      nativeAppKitCount(player, views: &views, labels: &labels, controls: &controls)
+      viewCount = max(viewCount, views)
+      labelCount = max(labelCount, labels)
+      controlCount = max(controlCount, controls)
+      window.contentView = nil
+    }
+
+    // Steady state on one retained session: the animation path a display link drives.
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    var steadySamples: [Double] = []
+    for frame in 0..<frames {
+      let started = ProcessInfo.processInfo.systemUptime
+      _ = try session.snapshot(timeSeconds: TimeInterval(frame) / 60)
+      steadySamples.append(nativeAppKitMilliseconds(since: started))
+    }
+    let residentAfter = nativeAppKitResidentBytes()
+
+    return NativeAppKitEvidenceReport(
+      fixture: fixture,
+      iterations: iterations,
+      frames: frames,
+      metrics: NativeAppKitEvidenceReport.Metrics(
+        medianDecodeMilliseconds: nativeAppKitMedian(decodeSamples),
+        medianBuildMilliseconds: nativeAppKitMedian(buildSamples),
+        medianCaptureMilliseconds: nativeAppKitMedian(captureSamples),
+        medianSteadyFrameMilliseconds: nativeAppKitMedian(steadySamples),
+        viewCount: viewCount,
+        labelCount: labelCount,
+        controlCount: controlCount,
+        residentByteGrowth: Int64(residentAfter) - Int64(residentBefore)))
   }
 
   static func downloadableFontFamilies(data: Data) throws -> [String] {
@@ -1259,4 +1339,98 @@ private final class NativeMacCanvasView: NSView {
     CTLineDraw(line, context)
     context.restoreGState()
   }
+}
+
+/// The reviewed AppKit performance contract. Budgets travel with the report so a CI artifact can be
+/// judged without rerunning it; the timings are order-of-magnitude ceilings rather than a tuning
+/// gate, because a hosted runner's clock is noisy.
+struct NativeAppKitEvidenceReport: Codable {
+  struct Metrics: Codable {
+    let medianDecodeMilliseconds: Double
+    let medianBuildMilliseconds: Double
+    let medianCaptureMilliseconds: Double
+    let medianSteadyFrameMilliseconds: Double
+    let viewCount: Int
+    let labelCount: Int
+    let controlCount: Int
+    let residentByteGrowth: Int64
+  }
+
+  struct Budgets: Codable {
+    var decodeMilliseconds: Double = 100
+    var buildMilliseconds: Double = 250
+    var captureMilliseconds: Double = 250
+    var steadyFrameMilliseconds: Double = 8
+    var maximumViewCount: Int = 500
+    var minimumLabelCount: Int = 1
+    var residentByteGrowth: Int64 = 64 * 1024 * 1024
+  }
+
+  let schemaVersion: Int
+  let sourceRevision: String
+  let fixture: String
+  let iterations: Int
+  let frames: Int
+  let metrics: Metrics
+  let budgets: Budgets
+  let overBudget: [String]
+  let passed: Bool
+
+  init(fixture: String, iterations: Int, frames: Int, metrics: Metrics) {
+    let budgets = Budgets()
+    var failures: [String] = []
+    if metrics.medianDecodeMilliseconds > budgets.decodeMilliseconds { failures.append("decode") }
+    if metrics.medianBuildMilliseconds > budgets.buildMilliseconds { failures.append("build") }
+    if metrics.medianCaptureMilliseconds > budgets.captureMilliseconds {
+      failures.append("capture")
+    }
+    if metrics.medianSteadyFrameMilliseconds > budgets.steadyFrameMilliseconds {
+      failures.append("steadyFrame")
+    }
+    if metrics.viewCount > budgets.maximumViewCount { failures.append("viewCount") }
+    if metrics.labelCount < budgets.minimumLabelCount { failures.append("labelCount") }
+    if metrics.residentByteGrowth > budgets.residentByteGrowth { failures.append("resident") }
+    schemaVersion = 1
+    sourceRevision = ProcessInfo.processInfo.environment["RC_SOURCE_REVISION"] ?? "unknown"
+    self.fixture = fixture
+    self.iterations = iterations
+    self.frames = frames
+    self.metrics = metrics
+    self.budgets = budgets
+    overBudget = failures
+    passed = failures.isEmpty
+  }
+}
+
+private func nativeAppKitMilliseconds(since start: TimeInterval) -> Double {
+  (ProcessInfo.processInfo.systemUptime - start) * 1000
+}
+
+private func nativeAppKitMedian(_ samples: [Double]) -> Double {
+  guard !samples.isEmpty else { return 0 }
+  let sorted = samples.sorted()
+  return sorted[sorted.count / 2]
+}
+
+private func nativeAppKitCount(
+  _ view: NSView, views: inout Int, labels: inout Int, controls: inout Int
+) {
+  views += 1
+  if view is NSTextField { labels += 1 }
+  if view is NSControl, !(view is NSTextField) { controls += 1 }
+  for subview in view.subviews {
+    nativeAppKitCount(subview, views: &views, labels: &labels, controls: &controls)
+  }
+}
+
+private func nativeAppKitResidentBytes() -> UInt64 {
+  var information = task_vm_info_data_t()
+  var count = mach_msg_type_number_t(
+    MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+  let result = withUnsafeMutablePointer(to: &information) { pointer in
+    pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+      task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+    }
+  }
+  return result == KERN_SUCCESS ? UInt64(information.phys_footprint) : 0
 }

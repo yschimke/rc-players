@@ -48,7 +48,9 @@ The profile is a positive claim: listed native node/draw kinds and verified fixt
 unlisted behavior is not implied. Compatibility mode may render a supported subset while reporting
 diagnostics. Strict mode refuses any known unsupported or approximate behavior. The profile also
 records the default decode and per-frame limits so a release cannot quietly widen its resource
-contract without a reviewable data diff.
+contract without a reviewable data diff, states the density contract the renderer applies
+(`densityContract`), and points at the fuzz corpus and the three benchmark lanes the release was
+gated on (`evidence`).
 
 `scripts/check-native-uikit-profile.sh` validates the schema and invariants. The package consumer
 check verifies the profile checksum and requires the standalone copy to match the release-side copy
