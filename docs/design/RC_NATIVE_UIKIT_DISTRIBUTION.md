@@ -89,9 +89,12 @@ native document hierarchy, releases the last strong reference, and requires ARC 
 
 The initial regression ceilings are deliberately broad: 250 ms decode, 250 ms first frame, 100 ms
 update, 500 views, 32 MiB allocation growth, 64 MiB physical-footprint growth, a 200 MiB
-executable, and a 300 MiB app bundle. The Title Card must also expose at least two `UILabel`s, one
-`UIControl`, one `UIButton`, and three accessibility elements. This makes accidental removal of
-native conceptual elements a failure rather than a smaller-view-count "improvement."
+executable, and a 300 MiB app bundle. The Title Card must also construct at least two `UILabel`s,
+one `UIControl`, one `UIButton`, and three accessibility-capable native views. Its explicit UIKit
+accessibility container exposes exactly one combined button target so assistive technology does not
+visit the two descendant labels again. This makes accidental removal of native conceptual elements
+or reintroduction of duplicate focus stops a failure rather than a smaller-view-count
+"improvement."
 
 This is reproducible packaged-artifact evidence, but simulator wall-clock and memory values are not
 a physical-device performance claim. The report is a CI regression tripwire and establishes the

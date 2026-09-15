@@ -74,6 +74,7 @@ jobs:
               scripts/build-apple-player.sh \
               scripts/check-apple-player-screenshot.sh \
               scripts/check-native-uikit-accessibility.sh \
+              scripts/check-native-uikit-accessibility-ui.sh \
               scripts/check-native-uikit-accessibility-simulator.sh \
               scripts/check-native-uikit-animation-simulator.sh \
               scripts/check-native-uikit-compatibility.sh \
@@ -373,6 +374,10 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-accessibility-simulator.sh
 
+      - name: Validate native UIKit accessibility UI
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-accessibility-ui.sh
+
       - name: Validate native UIKit animation pacing
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-animation-simulator.sh
@@ -385,6 +390,7 @@ jobs:
           path: |
             build/apple-player-screenshot.png
             build/native-uikit-accessibility.png
+            build/native-uikit-accessibility-ui.xcresult
             build/native-uikit-animation-a.png
             build/native-uikit-animation-b.png
             build/native-uikit-evidence.json

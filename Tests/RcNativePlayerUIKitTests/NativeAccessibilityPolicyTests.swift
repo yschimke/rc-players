@@ -75,8 +75,10 @@ enum NativeAccessibilityPolicyTests {
       isEnabled: true,
       isClickable: true)
     precondition(inferredButton.elementKind == .button)
-    precondition(!inferredButton.hidesDescendants)
-    precondition(inferredButton.resolvedLabel(descendantLabels: []) == nil)
+    precondition(inferredButton.hidesDescendants)
+    precondition(
+      inferredButton.resolvedLabel(descendantLabels: ["Morning run", "5.2 km · 28 min"])
+        == "Morning run, 5.2 km · 28 min")
 
     print("native UIKit accessibility policy tests: ok")
   }

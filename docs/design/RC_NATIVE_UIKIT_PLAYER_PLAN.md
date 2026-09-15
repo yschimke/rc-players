@@ -210,12 +210,20 @@ with one element; merge de-duplicates descendant labels. Role/mode bounds fail a
 multiple modifiers remain diagnosed because the current bridge intentionally exports one effective
 semantic node.
 
+When a conceptual control has no authored label of its own, it derives one from visible descendant
+text and owns those descendants as a single accessibility target. The `UILabel`s remain real UIKit
+views for rendering and Dynamic Type, but VoiceOver/Switch-style traversal does not repeat their
+text after announcing the control. Stable component/command identifiers make this contract visible
+to XCUITest.
+
 The protocol semantics operation does not carry checked/selected state, a progress range, custom
 accessibility actions, or adjustable increment/decrement actions. The player does not infer those
 from localized state-description text. `UISwitch` therefore supplies native identity and activation
-but only exposes the authored state description as its value. Stateful controls, custom actions,
-VoiceOver UI automation, high-contrast policy, and Switch Control verification remain required
-before the package can drop its `core implemented` qualifier.
+but only exposes the authored state description as its value. XCUITest now queries the simulator's
+accessibility server, verifies the combined Title Card button target, and runs Apple's description,
+trait, hit-region, and element-detection audits. Stateful controls, custom actions, physical-device
+VoiceOver speech, high-contrast policy, and Switch Control navigation remain required before the
+package can drop its `core implemented` qualifier.
 
 ### 9. Add deterministic time and animation — core implemented
 
@@ -283,7 +291,10 @@ expanded-node corpus. Release builds exercise the validation in the real UIKit h
 Release sample now emits a source-identified JSON baseline from seven Title Card iterations on a
 named iPad simulator. CI checks broad time, hierarchy, allocation, physical-footprint, executable,
 and app-bundle budgets and requires native labels, a native button/control, and accessibility
-elements. It also interrupts a real public player view's initial load with background/foreground
+elements. XCUITest verifies that the accessibility server sees one combined, enabled, hittable
+button rather than duplicate descendant label stops, and runs Apple's element-detection,
+hit-region, description, and trait audits. The evidence run also interrupts a real public player
+view's initial load with background/foreground
 notifications, requires the native hierarchy to recover, and verifies ARC deallocation after the
 last strong reference is released. Fixed-device time, allocation, memory, and frame-pacing
 baselines remain required before this package drops its `core implemented` qualifier; simulator
@@ -334,8 +345,9 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-Land the stacked packages and the packaged-simulator evidence slice in order. Then run the same
-versioned report on a fixed physical device, add VoiceOver/Switch Control UI automation, and verify
-one published standalone archive from an external consumer. Keep
+Land the stacked packages and simulator evidence slices in order. Then run the same versioned
+report and accessibility automation on a fixed physical device, manually validate VoiceOver speech
+and Switch Control navigation, and verify one published standalone archive from an external
+consumer. Keep
 `rc-native-uikit-core-v1` unchanged while collecting that evidence. Any new operation family starts
 a new reviewed profile diff with a fixture and owned diagnostics before it becomes a release claim.

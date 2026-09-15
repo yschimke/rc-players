@@ -323,12 +323,17 @@ Semantic roles map to real or focused native views; content description and auth
 de-duplicated label, state description becomes the value, and disabled state becomes both control
 state and the `notEnabled` trait. Set mode exposes the semantic node followed by descendants in
 layout order. Merge and clear-and-set modes hide descendants; merge folds their labels into the
-owning node. A canvas never becomes one monolithic accessibility element merely because it draws.
+owning node. A conceptual control with no authored label derives one from visible descendant text
+and owns those descendants as a single assistive-technology target, while its `UILabel`s remain
+native rendering views. A canvas never becomes one monolithic accessibility element merely because
+it draws.
 
 The wire operation has no checked/selected bit, progress range, or adjustable action callbacks, so
 the player does not guess them from localized state text. Custom accessibility actions, complete
-stateful-control behavior, VoiceOver/Switch Control automation, and explicit high-contrast behavior
-remain outside the current core profile.
+stateful-control behavior, physical-device VoiceOver speech and Switch Control navigation, and
+explicit high-contrast behavior remain outside the current core profile. Simulator XCUITest covers
+accessibility-server discovery, stable identity, label ownership, enabled/hittable state, and
+Apple's standard element/trait/description/hit-region audit.
 
 Click modifiers map to transparent `UIControl` subclasses owned by the semantic component. UIKit
 hit testing follows the rendered component transform and explicitly orders overlapping children by
@@ -366,18 +371,21 @@ Current checks are:
 - `scripts/check-native-uikit-accessibility-simulator.sh` renders the packaged native player with
   Increased Contrast and an accessibility Dynamic Type size, then applies the normal title-card
   pixel sanity checks;
+- `scripts/check-native-uikit-accessibility-ui.sh` queries the simulator accessibility server
+  through XCUITest, verifies the native Title Card button owns its descendant labels, and runs
+  Apple's element, trait, description, and hit-region audits;
 - `scripts/check-native-uikit-frame-timing.sh` advances monotonic timestamps directly and verifies
   static, continuous, one-shot, delayed, paused, resumed, and Reduce Motion scheduling policy;
 - `scripts/check-native-uikit-animation-simulator.sh` captures two native Progress frames and
   requires both visible ink and changing pixels within the document surface;
+- `scripts/measure-native-uikit-simulator.sh` records packaged Release timing, hierarchy,
+  accessibility, allocation, memory, binary-size, lifecycle-recovery, and deallocation evidence;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 
-Production requires pure Swift mapping tests, UIKit hierarchy tests, Core Graphics image tests per
-operation, CMP/native simulator A/B evidence, interaction/accessibility tests, lifecycle and
-cancellation tests, malformed-input corpus tests, and performance budgets for decode, first frame,
-steady-state work, and memory. Pixel thresholds can start tolerant; structure and state should be
-exact from the beginning.
+Physical-device release evidence still requires VoiceOver speech, Switch Control navigation,
+frame-pacing and memory measurements, plus an external released-artifact consumer check. Pixel
+thresholds can start tolerant; structure and state should be exact from the beginning.
 
 ## Distribution and compatibility
 

@@ -102,6 +102,7 @@ assert report["iterations"] >= 5
 assert report["metrics"]["nativeViewCount"] > 1
 assert report["metrics"]["labelCount"] > 0
 assert report["metrics"]["buttonCount"] > 0
+assert report["metrics"]["exposedAccessibilityElementCount"] == 1
 assert report["metrics"]["executableBytes"] > 0
 assert report["metrics"]["appBundleBytes"] > 0
 assert report["lifecycle"]["resumedAfterBackground"]

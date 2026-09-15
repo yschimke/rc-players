@@ -13,6 +13,7 @@ private struct NativePlayerEvidenceReport: Codable {
     let controlCount: Int
     let buttonCount: Int
     let accessibilityElementCount: Int
+    let exposedAccessibilityElementCount: Int
     let allocatedByteDelta: UInt64
     let residentByteDelta: UInt64
     let executableBytes: UInt64
@@ -28,6 +29,7 @@ private struct NativePlayerEvidenceReport: Codable {
     let minimumControlCount: Int
     let minimumButtonCount: Int
     let minimumAccessibilityElementCount: Int
+    let expectedExposedAccessibilityElementCount: Int
     let allocatedByteDelta: UInt64
     let residentByteDelta: UInt64
     let executableBytes: UInt64
@@ -97,6 +99,7 @@ private enum NativePlayerEvidence {
     minimumControlCount: 1,
     minimumButtonCount: 1,
     minimumAccessibilityElementCount: 3,
+    expectedExposedAccessibilityElementCount: 1,
     allocatedByteDelta: 32 * 1024 * 1024,
     residentByteDelta: 64 * 1024 * 1024,
     executableBytes: 200 * 1024 * 1024,
@@ -161,6 +164,7 @@ private enum NativePlayerEvidence {
       controlCount: hierarchy.controls,
       buttonCount: hierarchy.buttons,
       accessibilityElementCount: hierarchy.accessibilityElements,
+      exposedAccessibilityElementCount: measuredView.accessibilityElements?.count ?? 0,
       allocatedByteDelta: allocatedAfter >= allocatedBefore ? allocatedAfter - allocatedBefore : 0,
       residentByteDelta: residentAfter >= residentBefore ? residentAfter - residentBefore : 0,
       executableBytes: executableBytes,
@@ -174,6 +178,8 @@ private enum NativePlayerEvidence {
       metrics.controlCount >= budgets.minimumControlCount &&
       metrics.buttonCount >= budgets.minimumButtonCount &&
       metrics.accessibilityElementCount >= budgets.minimumAccessibilityElementCount &&
+      metrics.exposedAccessibilityElementCount
+        == budgets.expectedExposedAccessibilityElementCount &&
       metrics.allocatedByteDelta <= budgets.allocatedByteDelta &&
       metrics.residentByteDelta <= budgets.residentByteDelta &&
       metrics.executableBytes <= budgets.executableBytes &&

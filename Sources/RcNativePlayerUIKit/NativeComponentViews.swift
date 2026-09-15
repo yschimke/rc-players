@@ -702,8 +702,11 @@
         ? nil : NativeCanvasView(commands: drawingCommands, images: images, fontNames: fontNames)
       textLabels =
         promotesText
-        ? node.commands.filter { $0.kind == 17 }.map {
-          NativeTextLabel(command: $0, fontNames: fontNames)
+        ? node.commands.enumerated().compactMap { index, command in
+          guard command.kind == 17 else { return nil }
+          return NativeTextLabel(
+            componentID: node.componentID, commandIndex: index, command: command,
+            fontNames: fontNames)
         } : []
       imageViews =
         promotesImage
@@ -1133,10 +1136,7 @@
       view.isUserInteractionEnabled =
         descriptor.isEnabled && action != nil && behavior.acceptsPointerAction
       let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
-      let label =
-        descriptor.resolvedLabel(
-          descendantLabels: descriptor.mode == .merge ? mergedLabels : [])
-        ?? (node.hasAccessibilitySemantics ? nil : node.firstText)
+      let label = descriptor.resolvedLabel(descendantLabels: mergedLabels)
       let traits = accessibilityTraits(for: descriptor)
       view.isAccessibilityElement =
         label != nil || descriptor.stateDescription != nil || !traits.isEmpty || action != nil
@@ -1333,7 +1333,10 @@
     private var documentScale: CGFloat = 1
     private var layoutDirection: NativeLayoutDirection = .leftToRight
 
-    init(command: NativeDrawCommand, fontNames: [Int: String]) {
+    init(
+      componentID: Int, commandIndex: Int, command: NativeDrawCommand,
+      fontNames: [Int: String]
+    ) {
       self.command = command
       self.fontNames = fontNames
       super.init(frame: .zero)
@@ -1343,7 +1346,7 @@
       configureParagraph(layoutDirection: .leftToRight)
       adjustsFontForContentSizeCategory = true
       isAccessibilityElement = true
-      accessibilityIdentifier = "rc-native-text"
+      accessibilityIdentifier = "rc-native-text-\(componentID)-\(commandIndex)"
     }
 
     @available(*, unavailable)
