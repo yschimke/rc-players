@@ -68,7 +68,13 @@ final class PlayerLibrary {
       else { return nil }
       return PlayerDocument(title: title, subtitle: subtitle, data: data)
     }
-    selection = documents.first?.id
+    let fixtureTitle = ProcessInfo.processInfo.arguments
+      .first { $0.hasPrefix("--fixture=") }?
+      .dropFirst("--fixture=".count)
+    selection =
+      fixtureTitle.flatMap { requested in
+        documents.first { $0.title.caseInsensitiveCompare(String(requested)) == .orderedSame }?.id
+      } ?? documents.first?.id
   }
 
   var selectedDocument: PlayerDocument? {

@@ -46,6 +46,9 @@ launch_arguments=()
 if [ "${RC_APPLE_PLAYER_RENDERER:-compose}" = "native" ]; then
   launch_arguments+=(--native-player)
 fi
+if [ -n "${RC_APPLE_PLAYER_FIXTURE:-}" ]; then
+  launch_arguments+=("--fixture=${RC_APPLE_PLAYER_FIXTURE}")
+fi
 xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" "${launch_arguments[@]}"
 mkdir -p "$(dirname "$screenshot")"
 

@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
@@ -14,12 +15,18 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw3
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcDraw6
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapInt
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmapScaled
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextAnchored
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIdOperation
+import ee.schimke.composeai.rcplayer.protocol.RcImageAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
@@ -73,6 +80,25 @@ public data class RcNativeDocumentSnapshot(
   public val rootSizing: Int = RcRootContentBehavior.SIZING_SCALE,
   public val rootMode: Int = RcRootContentBehavior.SCALE_FIT,
   public val rootAlignment: Int = RcRootContentBehavior.ALIGNMENT_CENTER,
+  public val images: List<RcNativeImageResource> = emptyList(),
+  public val fonts: List<RcNativeFontResource> = emptyList(),
+)
+
+/** Encoded image bytes or an opaque host reference, copied from the document without decoding. */
+public data class RcNativeImageResource(
+  public val id: Int,
+  public val width: Int,
+  public val height: Int,
+  public val type: Int,
+  public val encoding: Int,
+  public val data: ByteArray,
+)
+
+/** Embedded font bytes copied from the document for bounded registration by the Swift host. */
+public data class RcNativeFontResource(
+  public val id: Int,
+  public val type: Int,
+  public val data: ByteArray,
 )
 
 /** One structured compatibility issue found while producing a native render snapshot. */
@@ -136,6 +162,7 @@ public data class RcNativeNodeSnapshot(
     public const val ROW: Int = 5
     public const val COLUMN: Int = 6
     public const val TEXT: Int = 7
+    public const val IMAGE: Int = 8
   }
 }
 
@@ -162,6 +189,10 @@ public data class RcNativeDrawCommand(
   public val pathWinding: Int = 0,
   public val gradient: RcNativeGradient? = null,
   public val textStyle: RcNativeTextStyle? = null,
+  public val image: RcNativeImageDraw? = null,
+  public val textureImageId: Int = -1,
+  public val textureTileModeX: Int = 0,
+  public val textureTileModeY: Int = 0,
 ) {
   public companion object {
     public const val SAVE: Int = 0
@@ -181,8 +212,25 @@ public data class RcNativeDrawCommand(
     public const val SECTOR: Int = 16
     public const val TEXT: Int = 17
     public const val PATH: Int = 18
+    public const val IMAGE: Int = 19
   }
 }
+
+/** Resolved source/destination geometry for one ordered image draw. */
+public data class RcNativeImageDraw(
+  public val imageId: Int,
+  public val sourceLeft: Float,
+  public val sourceTop: Float,
+  public val sourceRight: Float,
+  public val sourceBottom: Float,
+  public val destinationLeft: Float,
+  public val destinationTop: Float,
+  public val destinationRight: Float,
+  public val destinationBottom: Float,
+  public val scaleType: Int = 6,
+  public val scaleFactor: Float = 1f,
+  public val contentDescription: String? = null,
+)
 
 /** Resolved paragraph and font properties for native layout text or ordered Core Text drawing. */
 public data class RcNativeTextStyle(
@@ -241,6 +289,8 @@ public object RcNativeSnapshotBridge {
     val diagnostics = NativeDiagnosticCollector()
     val linked = RcDocumentLinker.link(document)
     val paint = NativePaint()
+    val bitmaps =
+      document.operations.filterIsInstance<RcBitmapData>().associateBy(RcBitmapData::imageId)
     val paths = document.operations.filterIsInstance<RcPathData>().associateBy(RcPathData::id)
     val styles =
       document.operations
@@ -309,6 +359,7 @@ public object RcNativeSnapshotBridge {
           is RcColumnLayout -> RcNativeNodeSnapshot.COLUMN
           is RcTextLayout,
           is RcCoreText -> RcNativeNodeSnapshot.TEXT
+          is RcImageLayout -> RcNativeNodeSnapshot.IMAGE
           else -> RcNativeNodeSnapshot.GROUP
         }
       val componentId =
@@ -323,10 +374,37 @@ public object RcNativeSnapshotBridge {
           is RcStateLayout -> operation.componentId
           is RcTextLayout -> operation.componentId
           is RcCoreText -> operation.componentId
+          is RcImageLayout -> operation.componentId
           else -> 0
         }
       val commands = mutableListOf<RcNativeDrawCommand>()
-      if (operation is RcTextLayout) {
+      if (operation is RcImageLayout) {
+        val bitmap =
+          requireNotNull(bitmaps[operation.bitmapId]) { "Missing bitmap ${operation.bitmapId}" }
+        val alpha = state.resolve(operation.alpha)
+        require(alpha.isFinite()) { "ImageLayout alpha must be finite" }
+        commands +=
+          NativePaint(alpha = alpha.coerceIn(0f, 1f))
+            .command(
+              RcNativeDrawCommand.IMAGE,
+              image =
+                validatedImageDraw(
+                  RcNativeImageDraw(
+                    imageId = operation.bitmapId,
+                    sourceLeft = 0f,
+                    sourceTop = 0f,
+                    sourceRight = bitmap.width.toFloat(),
+                    sourceBottom = bitmap.height.toFloat(),
+                    destinationLeft = 0f,
+                    destinationTop = 0f,
+                    destinationRight = bitmap.width.toFloat(),
+                    destinationBottom = bitmap.height.toFloat(),
+                    scaleType = operation.scaleType,
+                  ),
+                  bitmaps,
+                ),
+            )
+      } else if (operation is RcTextLayout) {
         val size = state.resolve(operation.fontSize) / document.header.density
         val weight = state.resolve(operation.fontWeight).coerceIn(1f, 1000f)
         require(size.isFinite() && size > 0f) { "TextLayout font size must be finite and positive" }
@@ -511,6 +589,7 @@ public object RcNativeSnapshotBridge {
           operation !is RcRowLayout &&
           operation !is RcColumnLayout &&
           operation !is RcStateLayout &&
+          operation !is RcImageLayout &&
           operation !is RcClickModifier &&
           operation !is RcMultiClickModifier
       ) {
@@ -527,7 +606,16 @@ public object RcNativeSnapshotBridge {
       for (child in container.children) {
         when (child) {
           is RcLinkedNode.Operation ->
-            consume(child.operation, componentId, state, paint, commands, diagnostics, paths)
+            consume(
+              child.operation,
+              componentId,
+              state,
+              paint,
+              commands,
+              diagnostics,
+              paths,
+              bitmaps,
+            )
           is RcLinkedNode.Container -> {
             if (operation is RcStateLayout && child.operation is RcLayoutContent) {
               val contentComponentId = (child.operation as RcLayoutContent).componentId
@@ -550,6 +638,7 @@ public object RcNativeSnapshotBridge {
                       commands,
                       diagnostics,
                       paths,
+                      bitmaps,
                     )
                   is RcLinkedNode.Container -> {
                     val contentVisibility =
@@ -693,7 +782,9 @@ public object RcNativeSnapshotBridge {
       val backgroundPaint =
         if (hasDrawContent) {
           descendantOperations(container).filterIsInstance<RcPaintData>().firstOrNull()?.let {
-            NativePaint().also { paint -> applyPaint(it, componentId, state, paint, diagnostics) }
+            NativePaint().also { paint ->
+              applyPaint(it, componentId, state, paint, diagnostics, bitmaps)
+            }
           }
         } else null
       return RcNativeNodeSnapshot(
@@ -765,7 +856,7 @@ public object RcNativeSnapshotBridge {
       when (node) {
         is RcLinkedNode.Container -> rootChildren += nodeFor(node)
         is RcLinkedNode.Operation ->
-          consume(node.operation, 0, state, paint, rootCommands, diagnostics, paths)
+          consume(node.operation, 0, state, paint, rootCommands, diagnostics, paths, bitmaps)
       }
     }
     val rootBehavior = state.rootContentBehavior
@@ -785,6 +876,14 @@ public object RcNativeSnapshotBridge {
       rootSizing = rootBehavior?.sizing ?: RcRootContentBehavior.SIZING_SCALE,
       rootMode = rootBehavior?.mode ?: RcRootContentBehavior.SCALE_FIT,
       rootAlignment = rootBehavior?.alignment ?: RcRootContentBehavior.ALIGNMENT_CENTER,
+      images =
+        document.operations.filterIsInstance<RcBitmapData>().map {
+          RcNativeImageResource(it.imageId, it.width, it.height, it.type, it.encoding, it.data)
+        },
+      fonts =
+        document.operations.filterIsInstance<RcFontData>().map {
+          RcNativeFontResource(it.fontId, it.type, it.data)
+        },
     )
   }
 
@@ -806,10 +905,13 @@ public object RcNativeSnapshotBridge {
     commands: MutableList<RcNativeDrawCommand>,
     diagnostics: NativeDiagnosticCollector,
     paths: Map<Int, RcPathData>,
+    bitmaps: Map<Int, RcBitmapData>,
   ) {
     when (operation) {
       is RcAccessibilitySemantics,
+      is RcBitmapData,
       is RcDimensionConstraintsModifier,
+      is RcFontData,
       is RcHeightInModifier,
       is RcHeightModifier,
       is RcOffsetModifier,
@@ -826,10 +928,11 @@ public object RcNativeSnapshotBridge {
             "Root scrolling is not implemented by the native player",
           )
         }
-      is RcPaintData -> applyPaint(operation, componentId, state, paint, diagnostics)
+      is RcPaintData -> applyPaint(operation, componentId, state, paint, diagnostics, bitmaps)
       is RcFloatExpression -> state.applyFloatExpression(operation)
       is RcIntegerExpression -> state.applyIntegerExpression(operation)
       is RcColorExpression -> state.applyColorExpression(operation)
+      is RcImageAttribute -> state.applyImageAttribute(operation)
       is RcTextMerge,
       is RcTextLength,
       is RcTextSubtext,
@@ -944,6 +1047,74 @@ public object RcNativeSnapshotBridge {
             text,
           )
       }
+      is RcDrawBitmap -> {
+        val bitmap =
+          requireNotNull(bitmaps[operation.imageId]) { "Missing bitmap ${operation.imageId}" }
+        commands +=
+          paint.command(
+            RcNativeDrawCommand.IMAGE,
+            image =
+              validatedImageDraw(
+                RcNativeImageDraw(
+                  imageId = operation.imageId,
+                  sourceLeft = 0f,
+                  sourceTop = 0f,
+                  sourceRight = bitmap.width.toFloat(),
+                  sourceBottom = bitmap.height.toFloat(),
+                  destinationLeft = state.resolve(operation.left),
+                  destinationTop = state.resolve(operation.top),
+                  destinationRight = state.resolve(operation.right),
+                  destinationBottom = state.resolve(operation.bottom),
+                  contentDescription = state.text(operation.contentDescriptionId),
+                ),
+                bitmaps,
+              ),
+          )
+      }
+      is RcDrawBitmapInt ->
+        commands +=
+          paint.command(
+            RcNativeDrawCommand.IMAGE,
+            image =
+              validatedImageDraw(
+                RcNativeImageDraw(
+                  imageId = operation.imageId,
+                  sourceLeft = operation.srcLeft.toFloat(),
+                  sourceTop = operation.srcTop.toFloat(),
+                  sourceRight = operation.srcRight.toFloat(),
+                  sourceBottom = operation.srcBottom.toFloat(),
+                  destinationLeft = operation.dstLeft.toFloat(),
+                  destinationTop = operation.dstTop.toFloat(),
+                  destinationRight = operation.dstRight.toFloat(),
+                  destinationBottom = operation.dstBottom.toFloat(),
+                  contentDescription = state.text(operation.contentDescriptionId),
+                ),
+                bitmaps,
+              ),
+          )
+      is RcDrawBitmapScaled ->
+        commands +=
+          paint.command(
+            RcNativeDrawCommand.IMAGE,
+            image =
+              validatedImageDraw(
+                RcNativeImageDraw(
+                  imageId = operation.imageId,
+                  sourceLeft = state.resolve(operation.srcLeft),
+                  sourceTop = state.resolve(operation.srcTop),
+                  sourceRight = state.resolve(operation.srcRight),
+                  sourceBottom = state.resolve(operation.srcBottom),
+                  destinationLeft = state.resolve(operation.dstLeft),
+                  destinationTop = state.resolve(operation.dstTop),
+                  destinationRight = state.resolve(operation.dstRight),
+                  destinationBottom = state.resolve(operation.dstBottom),
+                  scaleType = operation.scaleType,
+                  scaleFactor = state.resolve(operation.scaleFactor),
+                  contentDescription = state.text(operation.contentDescriptionId),
+                ),
+                bitmaps,
+              ),
+          )
       is RcIdOperation ->
         if (operation.opcode == RcOpcodes.DRAW_PATH || operation.opcode == RcOpcodes.CLIP_PATH) {
           val data = requireNotNull(paths[operation.id]) { "Missing path ${operation.id}" }
@@ -964,6 +1135,46 @@ public object RcNativeSnapshotBridge {
         }
       }
     }
+  }
+
+  private fun validatedImageDraw(
+    draw: RcNativeImageDraw,
+    bitmaps: Map<Int, RcBitmapData>,
+  ): RcNativeImageDraw {
+    val bitmap = requireNotNull(bitmaps[draw.imageId]) { "Missing bitmap ${draw.imageId}" }
+    val coordinates =
+      listOf(
+        draw.sourceLeft,
+        draw.sourceTop,
+        draw.sourceRight,
+        draw.sourceBottom,
+        draw.destinationLeft,
+        draw.destinationTop,
+        draw.destinationRight,
+        draw.destinationBottom,
+        draw.scaleFactor,
+      )
+    require(coordinates.all(Float::isFinite)) { "Bitmap ${draw.imageId} geometry must be finite" }
+    require(
+      draw.sourceLeft >= 0f &&
+        draw.sourceTop >= 0f &&
+        draw.sourceRight > draw.sourceLeft &&
+        draw.sourceBottom > draw.sourceTop &&
+        draw.sourceRight <= bitmap.width.toFloat() &&
+        draw.sourceBottom <= bitmap.height.toFloat()
+    ) {
+      "Bitmap ${draw.imageId} source rectangle is outside ${bitmap.width}x${bitmap.height}"
+    }
+    require(
+      draw.destinationRight > draw.destinationLeft && draw.destinationBottom > draw.destinationTop
+    ) {
+      "Bitmap ${draw.imageId} destination rectangle must have positive area"
+    }
+    require(draw.scaleType in 0..7) { "Bitmap ${draw.imageId} scale type is invalid" }
+    if (draw.scaleType == 7) {
+      require(draw.scaleFactor > 0f) { "Bitmap ${draw.imageId} scale factor must be positive" }
+    }
+    return draw
   }
 
   private fun nativePath(
@@ -1036,6 +1247,7 @@ public object RcNativeSnapshotBridge {
     state: RcPlayerState,
     paint: NativePaint,
     diagnostics: NativeDiagnosticCollector,
+    bitmaps: Map<Int, RcBitmapData>,
   ) {
     var index = 0
     while (index < operation.words.size) {
@@ -1074,9 +1286,11 @@ public object RcNativeSnapshotBridge {
         val trailingWords =
           actualCoordinateCount + if (gradientType == RcNativeGradient.SWEEP) 0 else 1
         require(index + trailingWords <= operation.words.size) { "Paint command 11 is truncated" }
-        val coordinates =
-          List(actualCoordinateCount) { state.resolveWord(operation.words[index++]) }
-        require(coordinates.all(Float::isFinite)) { "Gradient coordinates must be finite" }
+        val coordinateWords = List(actualCoordinateCount) { operation.words[index++] }
+        val coordinates = coordinateWords.map { state.resolveWord(it) }
+        require(coordinates.all(Float::isFinite)) {
+          "Gradient coordinates must be finite: words=$coordinateWords resolved=$coordinates"
+        }
         if (gradientType == RcNativeGradient.RADIAL) {
           require(coordinates[2] > 0f) { "Radial gradient radius must be positive" }
         }
@@ -1100,6 +1314,7 @@ public object RcNativeSnapshotBridge {
             fourth = coordinates.getOrElse(3) { 0f },
             tileMode = tileMode,
           )
+        paint.textureImageId = -1
         continue
       }
       val argumentCount =
@@ -1112,7 +1327,9 @@ public object RcNativeSnapshotBridge {
           13,
           16,
           19,
-          20 -> 1
+          20,
+          22 -> 1
+          24 -> 3
           7,
           8,
           10,
@@ -1139,10 +1356,32 @@ public object RcNativeSnapshotBridge {
         8 -> paint.stroke = command ushr 16 == 1
         12 -> paint.alpha = state.resolveWord(operation.words[index++]).coerceIn(0f, 1f)
         19 -> paint.color = state.color(operation.words[index++])
+        24 -> {
+          val bitmapId = operation.words[index++]
+          require(bitmapId in bitmaps) { "Missing bitmap $bitmapId" }
+          val tileModes = operation.words[index++]
+          val tileX = tileModes and 0xf
+          val tileY = (tileModes ushr 16) and 0xf
+          require(tileX in 0..3 && tileY in 0..3) { "Texture tile modes are invalid" }
+          index++ // Filtering/max-anisotropy is delegated to UIKit for the POC.
+          if (tileX != 1 || tileY != 1) {
+            diagnostics.unsupportedLimitation(
+              operation,
+              componentId,
+              "Texture tile modes $tileX/$tileY use Core Graphics pattern repetition",
+            )
+          }
+          paint.gradient = null
+          paint.textureImageId = bitmapId
+          paint.textureTileModeX = tileX
+          paint.textureTileModeY = tileY
+        }
         9 -> {
           val shaderId = operation.words[index++]
-          if (shaderId == 0) paint.gradient = null
-          else
+          if (shaderId == 0) {
+            paint.gradient = null
+            paint.textureImageId = -1
+          } else
             diagnostics.unsupportedLimitation(
               operation,
               componentId,
@@ -1153,6 +1392,14 @@ public object RcNativeSnapshotBridge {
         14,
         17,
         21 -> Unit
+        22 -> {
+          index++
+          diagnostics.unsupportedLimitation(
+            operation,
+            componentId,
+            "Texture shader matrices are not represented by the native POC",
+          )
+        }
         7 -> {
           val cap = command ushr 16
           if (cap in 0..2) paint.strokeCap = cap
@@ -1227,6 +1474,9 @@ public object RcNativeSnapshotBridge {
     var fontStyle: Int = 0,
     var textWeight: Float = 400f,
     var gradient: RcNativeGradient? = null,
+    var textureImageId: Int = -1,
+    var textureTileModeX: Int = 0,
+    var textureTileModeY: Int = 0,
   ) {
     fun command(
       kind: Int,
@@ -1236,6 +1486,7 @@ public object RcNativeSnapshotBridge {
       path: List<RcNativePathCommand> = emptyList(),
       pathWinding: Int = 0,
       textStyle: RcNativeTextStyle? = null,
+      image: RcNativeImageDraw? = null,
     ) =
       RcNativeDrawCommand(
         kind = kind,
@@ -1273,6 +1524,10 @@ public object RcNativeSnapshotBridge {
                   },
               )
             } else null,
+        image = image,
+        textureImageId = textureImageId,
+        textureTileModeX = textureTileModeX,
+        textureTileModeY = textureTileModeY,
       )
   }
 

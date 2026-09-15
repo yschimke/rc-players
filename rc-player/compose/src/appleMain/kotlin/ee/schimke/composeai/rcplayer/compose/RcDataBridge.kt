@@ -1,9 +1,11 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSData
+import platform.Foundation.create
 import platform.posix.memcpy
 
 /** Copies Foundation data into Kotlin memory with one native bulk copy. */
@@ -15,3 +17,14 @@ public fun rcByteArray(data: NSData): ByteArray {
   }
   return result
 }
+
+/** Copies Kotlin bytes into Foundation data with one native bulk copy. */
+@OptIn(BetaInteropApi::class, ExperimentalForeignApi::class)
+public fun rcData(bytes: ByteArray): NSData =
+  if (bytes.isEmpty()) {
+    NSData()
+  } else {
+    bytes.usePinned { pinned ->
+      NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
+    }
+  }

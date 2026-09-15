@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
@@ -8,9 +9,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcIdOperation
@@ -31,6 +34,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -521,6 +525,49 @@ class RcNativeSnapshotTest {
     assertEquals("serif", style.fontFamilyName)
     assertEquals(-1f, command.third)
     assertEquals(-1f, command.fourth)
+  }
+
+  @Test
+  fun exportsImageAndFontResourcesWithOrderedBitmapGeometry() {
+    val imageBytes = byteArrayOf(-1, 0, 0, -1, 0, -1, 0, -1)
+    val fontBytes = byteArrayOf(1, 2, 3, 4)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0), legacyWidth = 100, legacyHeight = 50),
+        listOf(
+          RcBitmapData(
+            imageId = 40,
+            width = 2,
+            height = 1,
+            type = RcBitmapData.TYPE_RAW8888,
+            encoding = RcBitmapData.ENCODING_INLINE,
+            data = imageBytes,
+          ),
+          RcFontData(fontId = 50, type = 0, data = fontBytes),
+          RcTextData(60, "two pixels"),
+          RcRootLayout(1),
+          RcDrawBitmap(
+            imageId = 40,
+            left = RcFloatWord.literal(10f),
+            top = RcFloatWord.literal(12f),
+            right = RcFloatWord.literal(30f),
+            bottom = RcFloatWord.literal(22f),
+            contentDescriptionId = 60,
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+    assertContentEquals(imageBytes, snapshot.images.single().data)
+    assertContentEquals(fontBytes, snapshot.fonts.single().data)
+    val image = checkNotNull(snapshot.root.children.single().commands.single().image)
+    assertEquals(40, image.imageId)
+    assertEquals(0f, image.sourceLeft)
+    assertEquals(2f, image.sourceRight)
+    assertEquals(10f, image.destinationLeft)
+    assertEquals(22f, image.destinationBottom)
+    assertEquals("two pixels", image.contentDescription)
   }
 
   @Test

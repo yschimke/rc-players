@@ -14,8 +14,8 @@ UIKit hierarchy. It has approximate Box, Row, and Column layout, native `UILabel
 `UIButton` overlays, a useful Core Graphics subset, explicit compatibility diagnostics, the Morning
 Run Title Card regression, and a downloadable experimental package.
 
-It does not yet retain a running document, dispatch actions, update named values, animate, load
-images or fonts, or claim a complete Remote Compose profile. Those are feature gaps, not implicit
+It does not yet retain a running document, dispatch actions, update named values, animate, or claim
+a complete Remote Compose profile. Those are feature gaps, not implicit
 fallbacks: unsupported behavior must remain visible throughout this plan.
 
 ## Progress
@@ -26,7 +26,8 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 2 — Static layout geometry | Implemented | Pure Swift geometry, constraints, proportional weights, visibility, offsets, z-order, RTL, and root scaling |
 | 3 — Core Graphics static drawing | Implemented | Validated paths/clipping, gradients, graphics-state order, stroke caps/joins, and representable blend modes |
 | 4 — Static text | Core implemented | Native labels, Core Text canvas glyphs, inherited paragraph styles, bidi alignment, overflow, decoration, and deterministic fallback |
-| 5–11 | Planned | Ordered below |
+| 5 — Bounded resources | Implemented | Inline/referenced images, `UIImageView` promotion, ordered canvas images, embedded fonts, limits, cache, resolver cancellation, and typed failures |
+| 6–11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -119,7 +120,7 @@ using the host locale. Named non-generic families deliberately use the system fa
 diagnostic, until package 5 can resolve font bytes with bounded ownership. Layout labels participate
 in Dynamic Type; ordered canvas glyphs remain fixed document graphics.
 
-### 5. Add images and bounded resource loading
+### 5. Add images and bounded resource loading — implemented
 
 Introduce a host-supplied resource resolver with cancellation, byte limits, decode-size limits, and
 cache policy. Support inline and referenced bitmaps first, then downloadable fonts if the security
@@ -233,6 +234,6 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-Complete package 4's static text evidence, then add package 5's bounded image/font resolver before
-any bitmap bytes cross into UIKit. The retained session in package 6 follows once the static profile
-can serve as a stable correctness oracle for incremental updates.
+Begin package 6's retained renderer-neutral session, using the completed static snapshot profile as
+the correctness oracle for incremental updates. Preserve stable UIKit component identity across
+value-only frames before exposing package 7's named-value and action APIs.
