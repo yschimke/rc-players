@@ -67,6 +67,7 @@
     let descriptor: NativeAccessibilityDescriptor
     let componentID: Int
     let clickActionTypes: [Int]
+    let acceptsPointerAction: Bool
   }
 
   struct NativeNode {
@@ -215,7 +216,8 @@
       guard let own = accessibilityDescriptor else { return nil }
       guard own.mode == .merge else {
         return NativeSemanticBehavior(
-          descriptor: own, componentID: componentID, clickActionTypes: clickActionTypes)
+          descriptor: own, componentID: componentID, clickActionTypes: clickActionTypes,
+          acceptsPointerAction: !clickActionTypes.isEmpty)
       }
       let descendants = children.flatMap(\.effectiveSemanticBehaviors)
       let mergedDescriptor = descendants.reduce(own) { descriptor, descendant in
@@ -226,7 +228,8 @@
       return NativeSemanticBehavior(
         descriptor: mergedDescriptor,
         componentID: ownsAction ? componentID : descendantAction?.componentID ?? componentID,
-        clickActionTypes: ownsAction ? clickActionTypes : descendantAction?.clickActionTypes ?? [])
+        clickActionTypes: ownsAction ? clickActionTypes : descendantAction?.clickActionTypes ?? [],
+        acceptsPointerAction: ownsAction)
     }
 
     private var effectiveSemanticBehaviors: [NativeSemanticBehavior] {
@@ -893,7 +896,8 @@
       if let control = view as? UIControl { control.isEnabled = descriptor.isEnabled }
       view.backgroundColor = .clear
       // Semantic-only elements remain in the accessibility tree without swallowing pointer input.
-      view.isUserInteractionEnabled = descriptor.isEnabled && action != nil
+      view.isUserInteractionEnabled =
+        descriptor.isEnabled && action != nil && behavior.acceptsPointerAction
       view.isAccessibilityElement = true
       let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
       view.accessibilityLabel =
@@ -948,6 +952,12 @@
       guard isEnabled else { return }
       action?(componentID)
     }
+
+    override func accessibilityActivate() -> Bool {
+      guard isEnabled, let action else { return false }
+      action(componentID)
+      return true
+    }
   }
 
   private final class NativeSemanticSwitch: UISwitch, NativeSemanticActivating {
@@ -973,6 +983,12 @@
       guard isEnabled else { return }
       action?(componentID)
     }
+
+    override func accessibilityActivate() -> Bool {
+      guard isEnabled, let action else { return false }
+      action(componentID)
+      return true
+    }
   }
 
   private final class NativeSemanticImageView: UIImageView, NativeSemanticActivating {
@@ -996,7 +1012,7 @@
     }
 
     override func accessibilityActivate() -> Bool {
-      guard isUserInteractionEnabled, let action else { return false }
+      guard let action else { return false }
       action(componentID)
       return true
     }
@@ -1023,6 +1039,12 @@
     @objc private func activate() {
       guard isEnabled else { return }
       action?(componentID)
+    }
+
+    override func accessibilityActivate() -> Bool {
+      guard isEnabled, let action else { return false }
+      action(componentID)
+      return true
     }
   }
 
