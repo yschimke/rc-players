@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -16,6 +17,10 @@ class RcNativeAnimationSnapshotTest {
     val second = session.snapshot(0.75f)
     val firstCommands = first.root.flatten().flatMap { it.commands }
     val secondCommands = second.root.flatten().flatMap { it.commands }
+    val canvas = first.root.flatten().single { it.kind == RcNativeNodeSnapshot.CANVAS }
+    assertEquals(72f, canvas.widthValue)
+    assertEquals(72f, canvas.heightValue)
+    assertTrue(canvas.commands.filter { it.kind == RcNativeDrawCommand.ARC }.all { it.third > 60f })
     assertTrue(first.needsContinuousFrames)
     assertTrue(
       firstCommands.isNotEmpty(),

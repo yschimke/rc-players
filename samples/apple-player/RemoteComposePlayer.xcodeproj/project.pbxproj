@@ -32,7 +32,20 @@
 		100000000000000000000018 /* NativeFrameTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* NativeFrameTiming.swift */; };
 		100000000000000000000019 /* NativeExecutionLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* NativeExecutionLimits.swift */; };
 		10000000000000000000001A /* NativePlayerEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* NativePlayerEvidence.swift */; };
+		10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* NativeAccessibilityTestHost.swift */; };
+		10000000000000000000001C /* NativeAccessibilityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* NativeAccessibilityUITests.swift */; };
+		10000000000000000000001D /* NativeComparisonHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* NativeComparisonHarness.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A00000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 600000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 500000000000000000000001;
+			remoteInfo = RemoteComposePlayer;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		200000000000000000000001 /* RemoteComposePlayerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteComposePlayerApp.swift; sourceTree = "<group>"; };
@@ -63,6 +76,10 @@
 		20000000000000000000001A /* NativeFrameTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeFrameTiming.swift; path = "../../Sources/RcNativePlayerUIKit/NativeFrameTiming.swift"; sourceTree = "<group>"; };
 		20000000000000000000001B /* NativeExecutionLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeExecutionLimits.swift; path = "../../Sources/RcNativePlayerUIKit/NativeExecutionLimits.swift"; sourceTree = "<group>"; };
 		20000000000000000000001C /* NativePlayerEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePlayerEvidence.swift; sourceTree = "<group>"; };
+		20000000000000000000001D /* NativeAccessibilityTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAccessibilityTestHost.swift; sourceTree = "<group>"; };
+		20000000000000000000001E /* NativeAccessibilityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAccessibilityUITests.swift; sourceTree = "<group>"; };
+		20000000000000000000001F /* RemoteComposePlayerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RemoteComposePlayerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		200000000000000000000020 /* NativeComparisonHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeComparisonHarness.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +89,12 @@
 			files = (100000000000000000000005 /* RcComposePlayer.xcframework in Frameworks */);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		300000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -79,6 +102,7 @@
 			isa = PBXGroup;
 			children = (
 				400000000000000000000002 /* RemoteComposePlayer */,
+				400000000000000000000007 /* RemoteComposePlayerUITests */,
 				400000000000000000000005 /* RcComposePlayerSwiftUI */,
 				400000000000000000000006 /* RcNativePlayerUIKit */,
 				20000000000000000000000E /* RcComposePlayer.xcframework */,
@@ -94,6 +118,8 @@
 				200000000000000000000002 /* PlayerLibrary.swift */,
 				200000000000000000000003 /* PlayerRootView.swift */,
 				20000000000000000000001C /* NativePlayerEvidence.swift */,
+				20000000000000000000001D /* NativeAccessibilityTestHost.swift */,
+				200000000000000000000020 /* NativeComparisonHarness.swift */,
 				200000000000000000000005 /* Info.plist */,
 			);
 			path = RemoteComposePlayer;
@@ -113,7 +139,10 @@
 		};
 		400000000000000000000004 /* Products */ = {
 			isa = PBXGroup;
-			children = (20000000000000000000000B /* Remote Compose.app */);
+			children = (
+				20000000000000000000000B /* Remote Compose.app */,
+				20000000000000000000001F /* RemoteComposePlayerUITests.xctest */,
+			);
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -147,6 +176,12 @@
 			name = RcNativePlayerUIKit;
 			sourceTree = "<group>";
 		};
+		400000000000000000000007 /* RemoteComposePlayerUITests */ = {
+			isa = PBXGroup;
+			children = (20000000000000000000001E /* NativeAccessibilityUITests.swift */);
+			path = RemoteComposePlayerUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -166,6 +201,21 @@
 			productReference = 20000000000000000000000B /* Remote Compose.app */;
 			productType = "com.apple.product-type.application";
 		};
+		500000000000000000000002 /* RemoteComposePlayerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 900000000000000000000003 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				700000000000000000000003 /* Sources */,
+				300000000000000000000002 /* Frameworks */,
+			);
+			buildRules = ();
+			dependencies = (A10000000000000000000001 /* PBXTargetDependency */);
+			name = RemoteComposePlayerUITests;
+			packageProductDependencies = ();
+			productName = RemoteComposePlayerUITests;
+			productReference = 20000000000000000000001F /* RemoteComposePlayerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -175,7 +225,10 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2660;
-				TargetAttributes = {500000000000000000000001 = {CreatedOnToolsVersion = 26.6;};};
+				TargetAttributes = {
+					500000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
+					500000000000000000000002 = {CreatedOnToolsVersion = 26.6; TestTargetID = 500000000000000000000001;};
+				};
 			};
 			buildConfigurationList = 900000000000000000000001 /* Build configuration list for PBXProject */;
 			compatibilityVersion = "Xcode 14.0";
@@ -187,7 +240,10 @@
 			productRefGroup = 400000000000000000000004 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (500000000000000000000001 /* RemoteComposePlayer */);
+			targets = (
+				500000000000000000000001 /* RemoteComposePlayer */,
+				500000000000000000000002 /* RemoteComposePlayerUITests */,
+			);
 		};
 /* End PBXProject section */
 
@@ -231,10 +287,26 @@
 				100000000000000000000018 /* NativeFrameTiming.swift in Sources */,
 				100000000000000000000019 /* NativeExecutionLimits.swift in Sources */,
 				10000000000000000000001A /* NativePlayerEvidence.swift in Sources */,
+				10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */,
+				10000000000000000000001D /* NativeComparisonHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		700000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (10000000000000000000001C /* NativeAccessibilityUITests.swift in Sources */);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 500000000000000000000001 /* RemoteComposePlayer */;
+			targetProxy = A00000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		800000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; SDKROOT = iphoneos; SWIFT_VERSION = 6.0;}; name = Debug;};
@@ -291,11 +363,48 @@
 			};
 			name = Release;
 		};
+		800000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ee.schimke.rcplayers.appleplayerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_TARGET_NAME = RemoteComposePlayer;
+			};
+			name = Debug;
+		};
+		800000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ee.schimke.rcplayers.appleplayerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				TEST_TARGET_NAME = RemoteComposePlayer;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		900000000000000000000001 /* Build configuration list for PBXProject */ = {isa = XCConfigurationList; buildConfigurations = (800000000000000000000001 /* Debug */, 800000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
 		900000000000000000000002 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (800000000000000000000003 /* Debug */, 800000000000000000000004 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		900000000000000000000003 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (800000000000000000000005 /* Debug */, 800000000000000000000006 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
 /* End XCConfigurationList section */
 
 	};

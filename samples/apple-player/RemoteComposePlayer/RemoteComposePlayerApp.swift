@@ -6,7 +6,11 @@ struct RemoteComposePlayerApp: App {
 
   var body: some Scene {
     WindowGroup {
-      if ProcessInfo.processInfo.arguments.contains("--native-evidence") {
+      if ProcessInfo.processInfo.arguments.contains("--native-comparison") {
+        NativeComparisonHarnessView()
+      } else if ProcessInfo.processInfo.arguments.contains("--native-accessibility-ui-test") {
+        NativeAccessibilityTestHost()
+      } else if ProcessInfo.processInfo.arguments.contains("--native-evidence") {
         NativePlayerEvidenceView()
       } else {
         PlayerRootView(library: library)

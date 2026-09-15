@@ -5,6 +5,7 @@
 
   struct NativeDocument {
     let size: CGSize
+    let density: CGFloat
     let root: NativeNode
     let images: [NativeImageResource]
     let fonts: [NativeFontResource]
@@ -17,7 +18,13 @@
 
     init(snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits) throws {
       executionBudget = try Self.validate(snapshot: snapshot, limits: limits)
-      size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
+      density = CGFloat(snapshot.density)
+      guard density.isFinite, density > 0 else {
+        throw RemoteComposeNativePlayerError.decode("Document density must be finite and positive")
+      }
+      size = CGSize(
+        width: CGFloat(snapshot.width) / density,
+        height: CGFloat(snapshot.height) / density)
       root = NativeNode(snapshot: snapshot.root)
       images = snapshot.images.map(NativeImageResource.init)
       fonts = snapshot.fonts.map(NativeFontResource.init)
@@ -702,8 +709,11 @@
         ? nil : NativeCanvasView(commands: drawingCommands, images: images, fontNames: fontNames)
       textLabels =
         promotesText
-        ? node.commands.filter { $0.kind == 17 }.map {
-          NativeTextLabel(command: $0, fontNames: fontNames)
+        ? node.commands.enumerated().compactMap { index, command in
+          guard command.kind == 17 else { return nil }
+          return NativeTextLabel(
+            componentID: node.componentID, commandIndex: index, command: command,
+            fontNames: fontNames)
         } : []
       imageViews =
         promotesImage
@@ -1133,10 +1143,7 @@
       view.isUserInteractionEnabled =
         descriptor.isEnabled && action != nil && behavior.acceptsPointerAction
       let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
-      let label =
-        descriptor.resolvedLabel(
-          descendantLabels: descriptor.mode == .merge ? mergedLabels : [])
-        ?? (node.hasAccessibilitySemantics ? nil : node.firstText)
+      let label = descriptor.resolvedLabel(descendantLabels: mergedLabels)
       let traits = accessibilityTraits(for: descriptor)
       view.isAccessibilityElement =
         label != nil || descriptor.stateDescription != nil || !traits.isEmpty || action != nil
@@ -1333,7 +1340,10 @@
     private var documentScale: CGFloat = 1
     private var layoutDirection: NativeLayoutDirection = .leftToRight
 
-    init(command: NativeDrawCommand, fontNames: [Int: String]) {
+    init(
+      componentID: Int, commandIndex: Int, command: NativeDrawCommand,
+      fontNames: [Int: String]
+    ) {
       self.command = command
       self.fontNames = fontNames
       super.init(frame: .zero)
@@ -1343,7 +1353,7 @@
       configureParagraph(layoutDirection: .leftToRight)
       adjustsFontForContentSizeCategory = true
       isAccessibilityElement = true
-      accessibilityIdentifier = "rc-native-text"
+      accessibilityIdentifier = "rc-native-text-\(componentID)-\(commandIndex)"
     }
 
     @available(*, unavailable)
@@ -1686,7 +1696,17 @@
       // Destination leaves the existing buffer unchanged, but must not suppress ordered
       // transforms, clipping, or save/restore commands around the draw.
       guard command.blendMode != 2 else { return }
-      context.addPath(path)
+      // Component-value expressions are resolved before UIKit performs its intrinsic-size pass.
+      // A shader-backed background on a wrap-content component can therefore retain its known
+      // width but have a zero-height path. The owning component has the final bounds now; use them
+      // for this background case and let the component's rounded clip preserve its shape.
+      let pathBounds = path.boundingBoxOfPath
+      let isDeferredShaderBackground =
+        !command.isStroke && (command.textureImageID != nil || command.gradient != nil)
+        && (pathBounds.width <= 0 || pathBounds.height <= 0) && !bounds.isEmpty
+      let effectivePath =
+        isDeferredShaderBackground ? CGPath(rect: bounds, transform: nil) : path
+      context.addPath(effectivePath)
       if let textureImageID = command.textureImageID, let image = images[textureImageID] {
         context.saveGState()
         if command.isStroke { context.replacePathWithStrokedPath() }

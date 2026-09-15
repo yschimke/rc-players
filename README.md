@@ -113,8 +113,10 @@ of the original five were dropped when alpha17 restored them upstream.
 `scripts/rc-operation-conformance/render-lanes.sh` sends one manifest and the same `.rc` bytes
 through AndroidX View, released and/or snapshot AndroidX embedded, vendored Android embedded,
 vendored embedded JVM, and CMP JVM, then validates every result and writes all pairwise pixel
-scores to `comparison.json`. `scripts/rc-text-metrics/` does the same for the focused text-metrics
-set. Committed visual evidence is under `renders/`.
+scores to `comparison.json`. On macOS, `--native-uikit` adds the packaged simulator player to that
+same manifest contract. `scripts/check-native-uikit-comparison.sh` is the focused five-document
+CMP/UIKit regression used by CI. `scripts/rc-text-metrics/` does the same for the focused
+text-metrics set. Committed visual evidence is under `renders/`.
 
 ### Build-only tools
 

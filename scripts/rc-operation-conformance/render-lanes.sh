@@ -13,17 +13,27 @@
 #
 # Usage:
 #   scripts/rc-operation-conformance/render-lanes.sh \
-#     [--upstream release|snapshot|both] <fixture-dir> [lane-output-dir]
+#     [--upstream release|snapshot|both] [--native-uikit] <fixture-dir> [lane-output-dir]
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 upstream=release
-if [ "${1:-}" = "--upstream" ]; then
-  upstream="${2:-}"
-  shift 2
-fi
+include_native_uikit=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --upstream)
+      upstream="${2:-}"
+      shift 2
+      ;;
+    --native-uikit)
+      include_native_uikit=true
+      shift
+      ;;
+    *) break ;;
+  esac
+done
 case "$upstream" in
   release|snapshot|both) ;;
   *)
@@ -49,8 +59,8 @@ fi
 node "$repo_root/scripts/rc-operation-conformance/validate-results.mjs" inputs "$input_dir"
 
 if [ ! -d "$repo_root/scripts/design-artifacts/node_modules/pixelmatch" ]; then
-  echo "==> npm install (scripts/design-artifacts, for pixel comparison)"
-  (cd "$repo_root/scripts/design-artifacts" && npm install --no-audit --no-fund --silent)
+  echo "==> npm ci (scripts/design-artifacts, for pixel comparison)"
+  npm --prefix "$repo_root/scripts/design-artifacts" ci --no-audit --no-fund --silent
 fi
 
 lanes=(view vendored-android vendored-jvm cmp-jvm)
@@ -62,6 +72,9 @@ upstream_lane="upstream-$primary_line"
 lanes+=("$upstream_lane")
 if [ "$upstream" = "both" ]; then
   lanes+=(upstream-snapshot)
+fi
+if [ "$include_native_uikit" = true ]; then
+  lanes+=(native-uikit)
 fi
 
 # Reused output directories must not retain a prior successful render when a current harness skips
@@ -109,6 +122,11 @@ echo "==> CMP JVM"
   "${gradle_line[@]}" \
   "-Prc.cmp.input=$input_dir" \
   "-Prc.cmp.output=$lanes_dir/cmp-jvm"
+
+if [ "$include_native_uikit" = true ]; then
+  echo "==> native UIKit (iOS simulator)"
+  "$repo_root/scripts/render-native-uikit-lane.sh" "$input_dir" "$lanes_dir/native-uikit"
+fi
 
 node "$repo_root/scripts/rc-operation-conformance/validate-results.mjs" \
   results "$input_dir" "$lanes_dir" "${lanes[@]}"

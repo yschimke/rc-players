@@ -16,6 +16,7 @@ class RcNativeTitleCardTest {
     val snapshot = RcNativeSnapshotBridge.decode(document)
     val nodes = snapshot.root.flatten()
 
+    assertEquals(2f, snapshot.density)
     assertTrue(snapshot.diagnostics.isNotEmpty())
     assertTrue(snapshot.diagnostics.all { it.operationName.isNotBlank() && it.reason.isNotBlank() })
 

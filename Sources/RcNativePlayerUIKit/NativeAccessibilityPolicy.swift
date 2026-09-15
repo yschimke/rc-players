@@ -56,7 +56,19 @@ struct NativeAccessibilityDescriptor: Equatable, Sendable {
     }
   }
 
-  var hidesDescendants: Bool { mode == .clearAndSet || mode == .merge }
+  var derivesLabelFromDescendants: Bool {
+    guard Self.nonBlank(contentDescription) == nil, Self.nonBlank(text) == nil else { return false }
+    switch elementKind {
+    case .button, .checkbox, .toggle, .radioButton, .tab, .dropdownList, .picker, .carousel:
+      return true
+    case .image, .generic:
+      return false
+    }
+  }
+
+  var hidesDescendants: Bool {
+    mode == .clearAndSet || mode == .merge || derivesLabelFromDescendants
+  }
 
   func mergingBehavior(from descendant: NativeAccessibilityDescriptor) -> Self {
     guard mode == .merge else { return self }
@@ -76,7 +88,9 @@ struct NativeAccessibilityDescriptor: Equatable, Sendable {
 
   func resolvedLabel(descendantLabels: [String]) -> String? {
     var fragments = [contentDescription, text].compactMap(Self.nonBlank)
-    if mode == .merge { fragments += descendantLabels.compactMap(Self.nonBlank) }
+    if mode == .merge || derivesLabelFromDescendants {
+      fragments += descendantLabels.compactMap(Self.nonBlank)
+    }
     var seen = Set<String>()
     let unique = fragments.filter { seen.insert($0).inserted }
     return unique.isEmpty ? nil : unique.joined(separator: ", ")
