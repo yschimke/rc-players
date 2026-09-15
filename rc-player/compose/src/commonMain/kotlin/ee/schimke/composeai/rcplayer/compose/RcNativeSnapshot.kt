@@ -348,12 +348,10 @@ public constructor(bytes: ByteArray) {
   private val pendingEvents = mutableListOf<RcPlayerEvent>()
   private var requestsNextFrame: Boolean = false
   private var wakeAfterSeconds: Float? = null
-  private val needsContinuousFrames: Boolean =
-    document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null } ||
-      document.operations.any {
-        it is RcMarqueeModifier || (it is RcTimeAttribute && it.type.requiresContinuousFrames)
-      } ||
-      document.referencesMovingSystemVariable()
+  private val alwaysNeedsContinuousFrames: Boolean =
+    document.operations.any {
+      it is RcMarqueeModifier || (it is RcTimeAttribute && it.type.requiresContinuousFrames)
+    } || document.referencesMovingSystemVariable()
   private val state: RcPlayerState =
     RcPlayerState(
       document,
@@ -474,7 +472,7 @@ public constructor(bytes: ByteArray) {
         advanceFrame = advanceFrame,
       )
       .copy(
-        needsContinuousFrames = needsContinuousFrames,
+        needsContinuousFrames = alwaysNeedsContinuousFrames || state.hasActiveFloatAnimations,
         requestsNextFrame = requestsNextFrame,
         wakeAfterSeconds = wakeAfterSeconds ?: -1f,
       )
@@ -693,6 +691,86 @@ public object RcNativeSnapshotBridge {
         }
       val resolvedWidth = resolvedAxis(width, inheritedWidth)
       val resolvedHeight = resolvedAxis(height, inheritedHeight)
+      val componentId = nativeComponentId(operation) ?: 0
+      // AndroidX fixes each axis at the first size modifier in wire order.
+      var minimumWidth = 0f
+      var maximumWidth = -1f
+      var minimumHeight = 0f
+      var maximumHeight = -1f
+      fun mergeRange(horizontal: Boolean, minimum: Float, maximum: Float) {
+        val scaledMinimum = if (minimum == -1f) -1f else minimum / document.header.density
+        val scaledMaximum = if (maximum == -1f) -1f else maximum / document.header.density
+        if (horizontal) {
+          if (scaledMinimum != -1f) minimumWidth = maxOf(minimumWidth, scaledMinimum)
+          if (scaledMaximum != -1f) {
+            maximumWidth =
+              if (maximumWidth == -1f) scaledMaximum else minOf(maximumWidth, scaledMaximum)
+          }
+        } else {
+          if (scaledMinimum != -1f) minimumHeight = maxOf(minimumHeight, scaledMinimum)
+          if (scaledMaximum != -1f) {
+            maximumHeight =
+              if (maximumHeight == -1f) scaledMaximum else minOf(maximumHeight, scaledMaximum)
+          }
+        }
+      }
+      directOperations.forEach { modifier ->
+        when (modifier) {
+          is RcWidthInModifier ->
+            mergeRange(true, state.resolve(modifier.minimum), state.resolve(modifier.maximum))
+          is RcHeightInModifier ->
+            mergeRange(false, state.resolve(modifier.minimum), state.resolve(modifier.maximum))
+          is RcDimensionConstraintsModifier -> {
+            when (modifier.type) {
+              RcDimensionConstraintsModifier.HORIZONTAL,
+              RcDimensionConstraintsModifier.REQUIRED_HORIZONTAL ->
+                mergeRange(
+                  true,
+                  state.resolve(modifier.minimum),
+                  state.resolve(modifier.maximum),
+                )
+              RcDimensionConstraintsModifier.VERTICAL,
+              RcDimensionConstraintsModifier.REQUIRED_VERTICAL ->
+                mergeRange(
+                  false,
+                  state.resolve(modifier.minimum),
+                  state.resolve(modifier.maximum),
+                )
+              else ->
+                diagnostics.unsupportedLimitation(
+                  modifier,
+                  componentId,
+                  "Dimension constraint type ${modifier.type} is invalid",
+                )
+            }
+            if (
+              modifier.type == RcDimensionConstraintsModifier.REQUIRED_HORIZONTAL ||
+                modifier.type == RcDimensionConstraintsModifier.REQUIRED_VERTICAL
+            ) {
+              diagnostics.unsupportedLimitation(
+                modifier,
+                componentId,
+                "Required constraints cannot overflow the native parent bounds",
+              )
+            }
+          }
+          else -> Unit
+        }
+      }
+      fun measuredAxis(
+        resolved: Float?,
+        inherited: Float?,
+        minimum: Float,
+        maximum: Float,
+      ): Float? = resolved?.let { proposed ->
+        val upper =
+          listOfNotNull(inherited, maximum.takeUnless { it == -1f }).minOrNull()
+            ?: Float.POSITIVE_INFINITY
+        minOf(maxOf(proposed, minimum), maxOf(upper, 0f))
+      }
+      val measuredWidth = measuredAxis(resolvedWidth, inheritedWidth, minimumWidth, maximumWidth)
+      val measuredHeight =
+        measuredAxis(resolvedHeight, inheritedHeight, minimumHeight, maximumHeight)
       val padding =
         directOperations.filterIsInstance<RcPaddingModifier>().fold(FloatArray(4)) {
           result,
@@ -703,8 +781,8 @@ public object RcNativeSnapshotBridge {
           result[3] += state.resolve(modifier.bottom) / document.header.density
           result
         }
-      val childWidth = resolvedWidth?.let { maxOf(it - padding[0] - padding[2], 0f) }
-      val childHeight = resolvedHeight?.let { maxOf(it - padding[1] - padding[3], 0f) }
+      val childWidth = measuredWidth?.let { maxOf(it - padding[0] - padding[2], 0f) }
+      val childHeight = measuredHeight?.let { maxOf(it - padding[1] - padding[3], 0f) }
       val accessibilityModifiers =
         container.children
           .filterIsInstance<RcLinkedNode.Operation>()
@@ -731,13 +809,12 @@ public object RcNativeSnapshotBridge {
           is RcImageLayout -> RcNativeNodeSnapshot.IMAGE
           else -> RcNativeNodeSnapshot.GROUP
         }
-      val componentId = nativeComponentId(operation) ?: 0
       if (
-        state.hasComponentValues(componentId) && resolvedWidth != null && resolvedHeight != null
+        state.hasComponentValues(componentId) && measuredWidth != null && measuredHeight != null
       ) {
         state.publishComponentGeometry(
           componentId,
-          RcComponentGeometry(resolvedWidth, resolvedHeight, 0f, 0f, 0f, 0f),
+          RcComponentGeometry(measuredWidth, measuredHeight, 0f, 0f, 0f, 0f),
         )
       }
       val commands = mutableListOf<RcNativeDrawCommand>()
@@ -1072,71 +1149,6 @@ public object RcNativeSnapshotBridge {
           ?.takeUnless { it == 0 }
           ?.let(state::text)
           ?.takeUnless(String::isBlank)
-      // AndroidX fixes each axis at the first size modifier in wire order.
-      var minimumWidth = 0f
-      var maximumWidth = -1f
-      var minimumHeight = 0f
-      var maximumHeight = -1f
-      fun mergeRange(horizontal: Boolean, minimum: Float, maximum: Float) {
-        val scaledMinimum = if (minimum == -1f) -1f else minimum / document.header.density
-        val scaledMaximum = if (maximum == -1f) -1f else maximum / document.header.density
-        if (horizontal) {
-          if (scaledMinimum != -1f) minimumWidth = maxOf(minimumWidth, scaledMinimum)
-          if (scaledMaximum != -1f) {
-            maximumWidth =
-              if (maximumWidth == -1f) scaledMaximum else minOf(maximumWidth, scaledMaximum)
-          }
-        } else {
-          if (scaledMinimum != -1f) minimumHeight = maxOf(minimumHeight, scaledMinimum)
-          if (scaledMaximum != -1f) {
-            maximumHeight =
-              if (maximumHeight == -1f) scaledMaximum else minOf(maximumHeight, scaledMaximum)
-          }
-        }
-      }
-      directOperations.forEach { modifier ->
-        when (modifier) {
-          is RcWidthInModifier ->
-            mergeRange(true, state.resolve(modifier.minimum), state.resolve(modifier.maximum))
-          is RcHeightInModifier ->
-            mergeRange(false, state.resolve(modifier.minimum), state.resolve(modifier.maximum))
-          is RcDimensionConstraintsModifier -> {
-            when (modifier.type) {
-              RcDimensionConstraintsModifier.HORIZONTAL,
-              RcDimensionConstraintsModifier.REQUIRED_HORIZONTAL ->
-                mergeRange(
-                  true,
-                  state.resolve(modifier.minimum),
-                  state.resolve(modifier.maximum),
-                )
-              RcDimensionConstraintsModifier.VERTICAL,
-              RcDimensionConstraintsModifier.REQUIRED_VERTICAL ->
-                mergeRange(
-                  false,
-                  state.resolve(modifier.minimum),
-                  state.resolve(modifier.maximum),
-                )
-              else ->
-                diagnostics.unsupportedLimitation(
-                  modifier,
-                  componentId,
-                  "Dimension constraint type ${modifier.type} is invalid",
-                )
-            }
-            if (
-              modifier.type == RcDimensionConstraintsModifier.REQUIRED_HORIZONTAL ||
-                modifier.type == RcDimensionConstraintsModifier.REQUIRED_VERTICAL
-            ) {
-              diagnostics.unsupportedLimitation(
-                modifier,
-                componentId,
-                "Required constraints cannot overflow the native parent bounds",
-              )
-            }
-          }
-          else -> Unit
-        }
-      }
       val offset =
         directOperations.filterIsInstance<RcOffsetModifier>().fold(FloatArray(2)) { result, modifier
           ->

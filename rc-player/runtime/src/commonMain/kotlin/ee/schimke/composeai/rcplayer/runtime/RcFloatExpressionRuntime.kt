@@ -35,5 +35,10 @@ internal class RcFloatExpressionRuntime(
     return tween?.value(timeSeconds - lastChange) ?: spring!!.value(timeSeconds)
   }
 
+  fun isAnimating(timeSeconds: Float): Boolean =
+    tween?.let { !lastChange.isNaN() && it.isRunning(timeSeconds - lastChange) }
+      ?: spring?.isRunning()
+      ?: false
+
   private fun isSpring(words: List<RcFloatWord>): Boolean = words.size > 4 && words[0].value == 0f
 }
