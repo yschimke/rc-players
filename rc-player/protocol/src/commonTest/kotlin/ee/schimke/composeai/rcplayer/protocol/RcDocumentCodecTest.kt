@@ -782,6 +782,18 @@ class RcDocumentCodecTest {
   }
 
   @Test
+  fun copiedWireLimitsPreserveOperationBudget() {
+    val limits = RcWireLimits(maxOperations = 10)
+
+    val copied = limits.copy(maxBlobBytes = 123)
+
+    assertEquals(10, copied.maxOperations)
+    assertEquals(123, copied.maxBlobBytes)
+    assertEquals(limits, limits.copy())
+    assertTrue(limits != RcWireLimits(maxOperations = 11))
+  }
+
+  @Test
   fun operationBodyLimitCountsSkippedOperations() {
     val writer = RcWireWriter()
     repeat(2) { RcDocumentCodec.encodeOperation(writer, RcSkip(0, 0, 0)) }
