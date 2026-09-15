@@ -43,9 +43,9 @@ buttons dispatch ordinary and single-click action blocks through typed main-acto
 
 - Pixel parity with AndroidX or CMP.
 - Complete operation coverage.
-- Automatic animation scheduling, drag/scroll/raw touch expressions, long/double click, sound, or
+- Drag/scroll/raw touch expressions, long/double click, automatic sound playback, or inferred
   haptics.
-- Production text shaping, bidirectional text, downloadable fonts, or text on paths.
+- Text on paths, inline link spans, font variation axes, or exact CMP text metrics.
 - The final layout algorithm or final Kotlin/Swift boundary.
 - Replacing, deprecating, or internally modifying `RcComposePlayer`.
 - Native AppKit rendering.
