@@ -282,7 +282,9 @@ public data class RcNativePathCommand(
 )
 
 /** Retained native render session. Decode/link state survives immutable frame snapshots. */
-public class RcNativeSnapshotSession(bytes: ByteArray) {
+public class RcNativeSnapshotSession
+@Throws(IllegalArgumentException::class)
+public constructor(bytes: ByteArray) {
   private val document: RcDocument = RcDocumentCodec.decode(bytes)
   private val linked: RcLinkedDocument = RcDocumentLinker.link(document)
   private val state: RcPlayerState = RcPlayerState(document)

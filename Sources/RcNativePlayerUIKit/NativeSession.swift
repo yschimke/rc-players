@@ -17,6 +17,26 @@
       let snapshot: RcNativeDocumentSnapshot
     }
 
+    private actor Decoder {
+      func open(data: Data) throws -> (SessionBox, Frame) {
+        try Task.checkCancellation()
+        let bytes = RcDataBridgeKt.rcByteArray(data: data)
+        do {
+          let session = SessionBox(
+            try RcNativeSnapshotBridge.shared.createSession(bytes: bytes))
+          let frame = try session.value.snapshot(timeSeconds: 0)
+          try Task.checkCancellation()
+          return (session, Frame(snapshot: frame))
+        } catch is CancellationError {
+          throw CancellationError()
+        } catch {
+          throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
+        }
+      }
+    }
+
+    private static let decoder = Decoder()
+
     private let session: SessionBox
 
     private init(session: SessionBox) {
@@ -27,24 +47,8 @@
       guard data.count <= Int(Int32.max) else {
         throw RemoteComposeNativePlayerError.documentTooLarge(data.count)
       }
-      let decodeTask = Task.detached(priority: .userInitiated) {
-        let bytes = RcDataBridgeKt.rcByteArray(data: data)
-        do {
-          let session = SessionBox(
-            try RcNativeSnapshotBridge.shared.createSession(bytes: bytes))
-          let frame = try session.value.snapshot(timeSeconds: 0)
-          return (session, Frame(snapshot: frame))
-        } catch {
-          throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
-        }
-      }
-      let opened = try await withTaskCancellationHandler {
-        let result = try await decodeTask.value
-        try Task.checkCancellation()
-        return result
-      } onCancel: {
-        decodeTask.cancel()
-      }
+      let opened = try await decoder.open(data: data)
+      try Task.checkCancellation()
       return (NativeSnapshotSessionHandle(session: opened.0), opened.1)
     }
 
