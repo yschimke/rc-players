@@ -59,6 +59,11 @@
   /// Root UIKit view. It can be embedded without SwiftUI or the supplied view controller.
   @MainActor
   public final class RemoteComposeNativePlayerView: UIView {
+    private enum PendingWork {
+      case documentLoad
+      case frame
+    }
+
     public var playerBackground: RemoteComposeNativePlayerBackground {
       didSet { applyBackground() }
     }
@@ -76,11 +81,13 @@
     private var documentView: NativeDocumentView?
     private var documentData: Data?
     private var loadTask: Task<Void, Never>?
+    private var pendingWork: PendingWork?
     private var loadGeneration: UInt64 = 0
     private var isApplicationActive = true
     private var needsForegroundRender = false
     private var needsRetry = false
     private var retainedSession: NativeSnapshotSessionHandle?
+    private var retainedSessionData: Data?
     private var retainedResources: NativeResourceStore?
     private var resourceCache: NativeImageCache
     private let errorLabel = UILabel()
@@ -131,7 +138,7 @@
     }
 
     public func load(_ data: Data) {
-      guard data != documentData || retainedSession == nil || needsRetry else { return }
+      if data == documentData, !needsRetry { return }
       loadTask?.cancel()
       documentData = data
       render(data)
@@ -165,10 +172,12 @@
         needsForegroundRender = true
         return
       }
+      needsRetry = false
       needsForegroundRender = false
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
+      pendingWork = .documentLoad
       loadTask = Task { [weak self] in
         do {
           let (session, frame) = try await NativeSnapshotSessionHandle.open(data: data)
@@ -182,6 +191,7 @@
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
           self.retainedSession = session
+          self.retainedSessionData = data
           self.install(model, resources: resources)
         } catch is CancellationError {
           return
@@ -196,10 +206,12 @@
     public func renderFrame(at timeSeconds: TimeInterval) {
       guard isApplicationActive else { return }
       guard loadTask == nil else { return }
+      guard !needsRetry, retainedSessionData == documentData else { return }
       guard let retainedSession, let retainedResources else { return }
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
+      pendingWork = .frame
       loadTask = Task { [weak self] in
         do {
           let frame = try await retainedSession.frame(at: timeSeconds)
@@ -261,6 +273,7 @@
       needsRetry = false
       errorLabel.isHidden = true
       loadTask = nil
+      pendingWork = nil
     }
 
     private func show(error: Error) {
@@ -268,6 +281,7 @@
       errorLabel.text = error.localizedDescription
       errorLabel.isHidden = false
       loadTask = nil
+      pendingWork = nil
     }
 
     public override func layoutSubviews() {
@@ -300,9 +314,10 @@
 
     @objc private func applicationDidEnterBackground() {
       isApplicationActive = false
-      if loadTask != nil { needsForegroundRender = true }
+      if pendingWork == .documentLoad { needsForegroundRender = true }
       loadTask?.cancel()
       loadTask = nil
+      pendingWork = nil
       loadGeneration &+= 1
     }
 
