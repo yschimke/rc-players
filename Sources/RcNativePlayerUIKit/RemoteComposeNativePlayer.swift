@@ -420,6 +420,8 @@
       if let deferredFrameTime {
         self.deferredFrameTime = nil
         renderFrame(at: deferredFrameTime)
+      } else if hasPendingScheduledFrame {
+        requestScheduledFrame()
       }
     }
 
@@ -634,6 +636,10 @@
 
     private func requestScheduledFrame() {
       guard isApplicationActive, window != nil else { return }
+      guard serializedInputCount == 0 else {
+        hasPendingScheduledFrame = true
+        return
+      }
       guard loadTask == nil else {
         hasPendingScheduledFrame = true
         return

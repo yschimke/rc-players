@@ -60,6 +60,12 @@ internal class RcFloatAnimation(description: List<RcFloatWord>) {
     return easing(elapsedSeconds / duration) * (targetValue - initialValue) + initialValue
   }
 
+  fun isRunning(elapsedSeconds: Float): Boolean =
+    initialValue.isFinite() &&
+      targetValue.isFinite() &&
+      initialValue != targetValue &&
+      elapsedSeconds < duration
+
   private fun easing(type: Int, parameters: List<Float>): (Float) -> Float =
     when (type) {
       TYPE_STANDARD -> cubic(.4f, 0f, .2f, 1f)
@@ -260,6 +266,8 @@ internal class RcSpringAnimation(description: List<RcFloatWord>) {
     if (isStopped()) position = target.toFloat()
     return position
   }
+
+  fun isRunning(): Boolean = !isStopped()
 
   private fun isStopped(): Boolean {
     val displacement = position - target

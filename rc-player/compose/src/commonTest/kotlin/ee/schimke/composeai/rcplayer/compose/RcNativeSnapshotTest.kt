@@ -935,6 +935,7 @@ class RcNativeSnapshotTest {
           RcCanvasLayout(-6, 0),
           RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(Float.NaN)),
           RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(Float.NaN)),
+          RcWidthInModifier(RcFloatWord.literal(-1f), RcFloatWord.literal(50f)),
           RcLayoutContent(-7),
           RcComponentValue(RcComponentValue.WIDTH, componentId = -6, valueId = 42),
           RcComponentValue(RcComponentValue.HEIGHT, componentId = -6, valueId = 43),
@@ -970,7 +971,7 @@ class RcNativeSnapshotTest {
     val canvas = checkNotNull(find(snapshot.root, -6))
     val command = commands(canvas).single()
 
-    assertEquals(60f, command.third)
+    assertEquals(50f, command.third)
     assertEquals(40f, command.fourth)
   }
 

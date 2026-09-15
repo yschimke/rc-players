@@ -200,6 +200,10 @@ public class RcPlayerState(
   public val animationTimeSeconds: Float
     get() = frameTimeSeconds
 
+  /** Whether a stateful float tween or spring still needs another evaluation frame. */
+  public val hasActiveFloatAnimations: Boolean
+    get() = floatExpressionRuntimes.values.any { it.isAnimating(frameTimeSeconds) }
+
   public val rootContentBehavior: RcRootContentBehavior? =
     document.operations.filterIsInstance<RcRootContentBehavior>().lastOrNull()
 
