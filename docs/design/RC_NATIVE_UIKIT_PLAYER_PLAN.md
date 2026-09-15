@@ -1,6 +1,7 @@
 # Native UIKit player feature plan
 
-Status: active implementation sequence for the experimental `RcNativePlayerUIKit` product.
+Status: functional work packages 1–11 are implemented for the experimental
+`RcNativePlayerUIKit` product; stabilization evidence remains in progress.
 
 This plan turns the architecture POC into a useful native player without weakening the existing
 CMP player's compatibility contract. Work is ordered by dependency and by how much real document
@@ -15,9 +16,11 @@ native `UILabel` text, semantic `UIButton` overlays, a useful Core Graphics subs
 compatibility diagnostics, the Morning Run Title Card regression, and a downloadable experimental
 package.
 
-It does not yet dispatch actions, update named values, schedule animation frames, or claim a
-complete Remote Compose profile. Those are feature gaps, not implicit
-fallbacks: unsupported behavior must remain visible throughout this plan.
+It dispatches the core click/action contract, updates typed named values, schedules only requested
+animation frames, and publishes a positive machine-readable profile. It does not claim complete
+Remote Compose compatibility: long/double click, drag, scroll, raw touch expressions, advanced
+semantic state, and unlisted layout/drawing families remain explicit diagnostics rather than
+implicit fallbacks.
 
 ## Progress
 
