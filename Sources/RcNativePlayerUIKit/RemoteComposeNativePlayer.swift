@@ -201,7 +201,7 @@
           guard generation == self.loadGeneration else { return }
           self.retainedSession = session
           self.retainedSessionData = data
-          self.install(model, resources: resources)
+          try self.install(model, resources: resources)
         } catch let error as CancellationError {
           guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
           self.show(error: error)
@@ -231,7 +231,7 @@
           try self.validate(model)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
-          self.install(model, resources: retainedResources)
+          try self.install(model, resources: retainedResources)
         } catch let error as CancellationError {
           guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
           self.show(error: error)
@@ -276,7 +276,8 @@
       return resources
     }
 
-    private func install(_ model: NativeDocument, resources: NativeResourceStore) {
+    private func install(_ model: NativeDocument, resources: NativeResourceStore) throws {
+      try resources.activateFonts(replacing: retainedResources)
       if documentView?.update(document: model, resources: resources) != true {
         let nextView = NativeDocumentView(document: model, resources: resources)
         replaceDocumentView(with: nextView)
