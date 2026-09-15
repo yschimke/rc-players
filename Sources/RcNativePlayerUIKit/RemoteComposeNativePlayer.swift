@@ -202,8 +202,9 @@
           self.retainedSession = session
           self.retainedSessionData = data
           self.install(model, resources: resources)
-        } catch is CancellationError {
-          return
+        } catch let error as CancellationError {
+          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
+          self.show(error: error)
         } catch {
           guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
           self.show(error: error)
@@ -231,8 +232,9 @@
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
           self.install(model, resources: retainedResources)
-        } catch is CancellationError {
-          return
+        } catch let error as CancellationError {
+          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
+          self.show(error: error)
         } catch {
           guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
           self.show(error: error)
