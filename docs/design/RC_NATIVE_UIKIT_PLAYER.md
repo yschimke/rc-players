@@ -396,6 +396,11 @@ whether to promote a renderer-neutral retained runtime, use a narrow C/Objective
 codec/runtime to Swift, or retain an explicitly versioned experimental SPI. A retained shared
 runtime best preserves one semantic implementation if incremental interop proves inexpensive.
 
+The current distribution, compatibility, provenance, and migration decisions are recorded in
+[`RC_NATIVE_UIKIT_DISTRIBUTION.md`](RC_NATIVE_UIKIT_DISTRIBUTION.md). Each release publishes the
+validated `rc-native-uikit-core-v1` machine-readable profile beside the standalone archive and
+embeds the identical profile inside it.
+
 ## Security and robustness
 
 The native lane accepts untrusted bytes wherever CMP does. The codec refuses documents above 16

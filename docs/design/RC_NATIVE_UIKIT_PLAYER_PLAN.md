@@ -33,7 +33,7 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 8 — Semantic UIKit components and accessibility | Core implemented | Native role identity, label/text/value mapping, merge/clear behavior, deterministic VoiceOver order, enabled state, and policy tests |
 | 9 — Deterministic time and animation | Core implemented | Runtime frame/wake contract, injectable monotonic timeline, demand-driven display link, lifecycle/Reduce Motion policy, and animated progress fixture |
 | 10 — Performance and untrusted input | Core implemented | Decode-time operation ceiling plus configurable typed byte, node, depth, draw, path, text, geometry, and per-frame work limits |
-| 11 | Planned | Ordered below |
+| 11 — Distribution and API evidence | Core implemented | Versioned machine-readable profile, explicit experimental compatibility/migration decision, checksummed consumer archive, and GitHub provenance attestations |
 
 ## Delivery rules
 
@@ -281,7 +281,7 @@ time, allocation, and memory baselines remain required before this package drops
 implemented` qualifier; those measurements are intentionally observational rather than flaky CI
 wall-clock gates.
 
-### 11. Stabilize distribution and API only after evidence
+### 11. Stabilize distribution and API only after evidence — core implemented
 
 Keep the downloadable package and SwiftPM product experimental through M4. At M5, review whether
 the Kotlin bridge should become stable SPI, move behind a C interface, or be replaced by a Swift
@@ -294,6 +294,19 @@ Acceptance:
 - the operation/profile claim is machine-readable and release-versioned;
 - release artifacts have consumer builds, checksums, and provenance;
 - the support decision is based on coverage, performance, binary size, and maintenance data.
+
+The decision remains deliberately experimental. The additive repository product and standalone iOS
+package support arm64 devices and Apple-silicon simulators on iOS 13 or newer; neither redirects the
+CMP products, and unsupported documents retain an explicit CMP migration path. The reviewed
+`rc-native-uikit-core-v1` JSON template lists native node/draw kinds, verified fixtures, platform
+matrix, default limits, compatibility policy, and artifact names. Release assembly injects the
+semantic version and source SHA, embeds the identical profile in the standalone package, publishes
+both SHA-256 sidecars, and creates GitHub build-provenance attestations for the Apple artifacts.
+
+The long-term runtime boundary remains open until corpus coverage plus fixed-device performance,
+memory, binary-size, accessibility, and maintenance measurements justify stability. The detailed
+decision, verification commands, stability gate, and future major-version migration policy live in
+`RC_NATIVE_UIKIT_DISTRIBUTION.md`.
 
 ## Corpus and verification ladder
 
@@ -313,6 +326,6 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-Begin package 11's distribution decision record from the evidence accumulated by packages 1–10.
-Keep the product experimental while recording the supported operation profile, Apple platform
-matrix, artifact provenance, API compatibility policy, and migration choices.
+Land the stacked packages in order, then collect fixed-device performance and accessibility data
+without widening `rc-native-uikit-core-v1`. Any new operation family starts a new reviewed profile
+diff with a fixture and owned diagnostics before it becomes a release claim.

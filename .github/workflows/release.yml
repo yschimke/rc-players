@@ -228,6 +228,8 @@ jobs:
     runs-on: macos-15
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -244,7 +246,9 @@ jobs:
         with:
           cache-read-only: "true"
       - name: Derive version from tag
-        run: echo "PLUGIN_VERSION=${TAG_NAME#v}" >> "$GITHUB_ENV"
+        run: |
+          echo "PLUGIN_VERSION=${TAG_NAME#v}" >> "$GITHUB_ENV"
+          echo "RC_NATIVE_UIKIT_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Select an Xcode with the iOS 26 SDK
         run: |
           set -euo pipefail
@@ -264,6 +268,13 @@ jobs:
             --max-workers=1
       - name: Validate the native UIKit release package
         run: scripts/check-native-uikit-package.sh
+      - name: Attest the Apple release artifacts
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip
+            rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip
+            rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json
       - name: Upload the Apple libraries to the Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -271,8 +282,11 @@ jobs:
           set -euo pipefail
           gh release upload "$TAG_NAME" \
             rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip \
+            rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip.sha256 \
             rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip \
             rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip.sha256 \
+            rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json \
+            rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json.sha256 \
             --clobber
 
       # The bare `X.Y.Z` tag is the whole deliverable — it is the only thing a Swift consumer
