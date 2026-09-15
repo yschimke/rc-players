@@ -695,7 +695,7 @@
 
     private var isStructural: Bool {
       (node.kind == .content || node.kind == .group || node.kind == .canvas)
-        && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty && semanticView == nil
+        && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty
         && node.backgroundColor == nil
         && node.visibility == 1 && node.widthType == 2 && node.heightType == 2
         && node.minimumWidth == 0 && node.minimumHeight == 0
