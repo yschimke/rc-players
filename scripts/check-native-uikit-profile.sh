@@ -37,6 +37,18 @@ assert platform == [{
     "simulatorArchitectures": ["arm64"],
 }]
 
+assert profile["runtime"] == {
+    "ui": "UIKit/CoreGraphics/CoreText",
+    "decoderBridge": "RcComposePlayer.xcframework Kotlin/Native",
+    "retainedSession": True,
+    "frameScheduling": ["static", "continuous", "next-frame", "delayed-wake"],
+}, "runtime must match the reviewed core-v1 implementation contract"
+assert profile["compatibility"] == {
+    "policy": "No source or binary compatibility guarantee before the profile leaves experimental status.",
+    "unsupportedBehavior": "Compatible mode renders the supported subset with diagnostics; strict mode refuses it.",
+    "migration": "Use RcComposePlayerSwiftUI for documents outside this profile; the native product never replaces or redirects the CMP product.",
+}, "compatibility must match the reviewed experimental migration contract"
+
 assert profile["nativeNodeKinds"] == [
     "root", "content", "canvas", "group", "box", "row", "column", "text", "image",
 ], "nativeNodeKinds must match the reviewed core-v1 capability set"
@@ -51,7 +63,12 @@ assert profile["interaction"] == {
     "semanticRoles": ["button", "image", "checkbox", "switch", "unknown"],
 }, "interaction must match the reviewed core-v1 capability set"
 
-fixtures = {item["id"]: item["coverage"] for item in profile["verifiedFixtures"]}
+fixture_entries = profile["verifiedFixtures"]
+assert len(fixture_entries) == 2, "verifiedFixtures must contain exactly two evidence entries"
+assert len({item["id"] for item in fixture_entries}) == len(fixture_entries), (
+    "verifiedFixtures identifiers must be unique"
+)
+fixtures = {item["id"]: item["coverage"] for item in fixture_entries}
 assert fixtures == {
     "TitleCardRemote-640x480": [
         "layout", "native-text", "canvas-paint", "simulator-pixels",
