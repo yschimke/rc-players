@@ -978,6 +978,51 @@ class RcNativeSnapshotTest {
   }
 
   @Test
+  fun fillFractionScalesAvailableGeometry() {
+    val reference: (Int) -> RcFloatWord = { RcFloatWord(0x7fc00000 or it) }
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 80, modern = false),
+        listOf(
+          RcRootLayout(-2),
+          RcLayoutContent(-3),
+          RcBoxLayout(-4, 0, horizontalPositioning = 1, verticalPositioning = 4),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)),
+          RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(80f)),
+          RcLayoutContent(-5),
+          RcCanvasLayout(-6, 0),
+          RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(0.5f)),
+          RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(0.25f)),
+          RcLayoutContent(-7),
+          RcComponentValue(RcComponentValue.WIDTH, componentId = -6, valueId = 42),
+          RcComponentValue(RcComponentValue.HEIGHT, componentId = -6, valueId = 43),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            reference(42),
+            reference(43),
+          ),
+          end,
+          end,
+          end,
+          end,
+          end,
+          end,
+        ),
+      )
+
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    val command =
+      commands(RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document)).root).single()
+    assertEquals(50f, command.third)
+    assertEquals(20f, command.fourth)
+  }
+
+  @Test
   fun rowPublishesWeightedAllocationToEachChild() {
     val reference: (Int) -> RcFloatWord = { RcFloatWord(0x7fc00000 or it) }
     val end = RcNoArg(RcOpcodes.CONTAINER_END)
