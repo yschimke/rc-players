@@ -87,7 +87,9 @@ private enum NativeComparisonHarness {
       }
     }
 
-    let summary: [String: Int] = ["documents": entries.count, "rendered": rendered, "failed": failed]
+    let summary: [String: Int] = [
+      "documents": entries.count, "rendered": rendered, "failed": failed,
+    ]
     let summaryData = try JSONSerialization.data(
       withJSONObject: summary, options: [.prettyPrinted, .sortedKeys])
     try summaryData.write(to: done, options: .atomic)
@@ -119,9 +121,17 @@ private enum NativeComparisonHarness {
       data: data,
       background: .transparent,
       compatibilityPolicy: .compatible,
+      customComponents: NativeCustomComponentSamples.registry,
       onDiagnostics: { diagnostics = $0 })
     player.overrideUserInterfaceStyle = .light
     player.frame = CGRect(origin: .zero, size: size)
+    let hostView = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .flatMap(\.windows)
+      .first(where: \UIWindow.isKeyWindow)?
+      .rootViewController?.view
+    hostView?.addSubview(player)
+    defer { player.removeFromSuperview() }
 
     let deadline = ProcessInfo.processInfo.systemUptime + 10
     while findRenderedDocument(in: player) == nil,

@@ -96,7 +96,8 @@
       }
     }
 
-    func setString(_ value: String, for name: String, at timeSeconds: TimeInterval) throws -> Update {
+    func setString(_ value: String, for name: String, at timeSeconds: TimeInterval) throws -> Update
+    {
       try update {
         try session.value.setString(name: name, value: value, timeSeconds: Float(timeSeconds))
       }
@@ -106,6 +107,26 @@
       try update {
         try session.value.setColor(
           name: name, argb: Int32(bitPattern: argb), timeSeconds: Float(timeSeconds))
+      }
+    }
+
+    func returnCustomFloat(
+      _ value: Float, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
+    ) throws -> Update {
+      try update {
+        try session.value.returnCustomFloat(
+          componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
+          timeSeconds: Float(timeSeconds))
+      }
+    }
+
+    func returnCustomText(
+      _ value: String, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
+    ) throws -> Update {
+      try update {
+        try session.value.returnCustomText(
+          componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
+          timeSeconds: Float(timeSeconds))
       }
     }
 

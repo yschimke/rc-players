@@ -136,6 +136,7 @@ private struct PlayerCanvas: View {
               RemoteComposeNativePlayerRepresentable(
                 data: document.data,
                 background: library.background.nativeBackground,
+                customComponents: NativeCustomComponentSamples.registry,
                 onEvent: { nativeEvent = $0 },
                 onDiagnostics: { nativeDiagnostics = $0 })
             }

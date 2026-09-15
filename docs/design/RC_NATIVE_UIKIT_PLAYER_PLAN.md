@@ -1,6 +1,6 @@
 # Native UIKit player feature plan
 
-Status: functional work packages 1–11 are implemented for the experimental
+Status: functional work packages 1–12 are implemented for the experimental
 `RcNativePlayerUIKit` product; stabilization evidence remains in progress.
 
 This plan turns the architecture POC into a useful native player without weakening the existing
@@ -39,6 +39,8 @@ implicit fallbacks.
 | 9 — Deterministic time and animation | Core implemented | Runtime frame/wake contract, injectable monotonic timeline, demand-driven display link, lifecycle/Reduce Motion policy, and animated progress fixture |
 | 10 — Performance and untrusted input | Core implemented | Decode-time operation ceiling plus configurable typed byte, node, depth, draw, path, text, geometry, and per-frame work limits |
 | 11 — Distribution and API evidence | Core implemented | Versioned machine-readable profile, explicit experimental compatibility/migration decision, checksummed consumer archive, and GitHub provenance attestations |
+| 12 — Native custom components | Implemented | Explicit Swift registry, typed properties/returns, stable UIKit lifecycle, SwiftUI hosting, strict-policy diagnostics, and CMP/UIKit evidence |
+| 13 — Pure Swift core | Planned | Replace the Kotlin codec/runtime session family by family behind the stable native model and player API |
 
 ## Delivery rules
 
@@ -328,6 +330,39 @@ The long-term runtime boundary remains open until corpus coverage plus fixed-dev
 memory, binary-size, accessibility, and maintenance measurements justify stability. The detailed
 decision, verification commands, stability gate, and future major-version migration policy live in
 `RC_NATIVE_UIKIT_DISTRIBUTION.md`.
+
+### 12. Add host-owned native custom components — implemented
+
+Export resolved `LAYOUT_CUSTOM` values and declared float/text return channels. Swift owns an
+explicit registry whose plugin lifecycle mirrors `UIViewRepresentable`; direct SwiftUI
+registration is hosted inside that same UIKit component node. The observable component model and
+its content view keep stable identity across compatible frames. Missing registrations participate
+in strict/compatible policy rather than constructing classes named by untrusted documents.
+
+The editable-text conformance fixture is generated from the existing CMP demo document and rendered
+through both hosts. It verifies config lookup, text and color reads, native control construction,
+and the visible document structure; Kotlin bridge tests verify return-channel writes update the
+ordinary document text table. Run `scripts/check-native-uikit-custom-components.sh` to regenerate
+the comparison.
+
+### 13. Replace the Kotlin core with pure Swift — planned
+
+Keep `RemoteComposeNativePlayerView`, the immutable native document model, compatibility policy,
+resource boundary, custom registry, and renderer stable. Replace the implementation beneath
+`NativeSnapshotSessionHandle` in vertical protocol slices:
+
+1. bounded Swift wire reader and header/data-table operations;
+2. typed container tree and static layout/drawing operations;
+3. expression evaluation and named state;
+4. click actions, events, and custom return channels;
+5. deterministic animation time and wake scheduling;
+6. remove the native product's XCFramework dependency after corpus parity.
+
+Each slice must decode the same fixture bytes, produce an equivalent native model and diagnostics,
+and pass CMP/UIKit comparison evidence before its Kotlin path is retired. Swift actors own mutable
+session state; value types cross to the main actor; Apple frameworks stay confined to the rendering
+and host layers. The codec must retain the existing byte, operation, nesting, expansion, text, and
+frame-work limits from its first landing rather than adding them after parity.
 
 ## Corpus and verification ladder
 

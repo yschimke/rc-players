@@ -41,3 +41,17 @@ tasks.register<JavaExec>("run") {
   classpath = sourceSets.main.get().runtimeClasspath
   mainClass.set("ee.schimke.composeai.rcplayer.demos.RcDemoMainKt")
 }
+
+tasks.register<JavaExec>("writeEditableTextFixture") {
+  description = "Write the editable custom-component demo as a .rc fixture."
+  group = "verification"
+  classpath = sourceSets.main.get().runtimeClasspath
+  mainClass.set("ee.schimke.composeai.rcplayer.demos.RcDemoFixtureMainKt")
+  val output =
+    providers
+      .gradleProperty("rc.demo.output")
+      .orElse(
+        layout.buildDirectory.file("fixtures/editable-text.rc").map { it.asFile.absolutePath }
+      )
+  argumentProviders.add(org.gradle.process.CommandLineArgumentProvider { listOf(output.get()) })
+}

@@ -35,14 +35,17 @@
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
+      customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
+      let customComponents = customComponents ?? RemoteComposeNativeCustomComponentRegistry()
       playerView = RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
         resourceLimits: resourceLimits, executionLimits: executionLimits,
+        customComponents: customComponents,
         resourceResolver: resourceResolver,
         clock: clock,
         onEvent: onEvent,
@@ -72,6 +75,12 @@
 
     public func configureExecutionLimits(_ limits: RemoteComposeNativeExecutionLimits) {
       playerView.configureExecutionLimits(limits)
+    }
+
+    public func configureCustomComponents(
+      _ registry: RemoteComposeNativeCustomComponentRegistry
+    ) {
+      playerView.configureCustomComponents(registry)
     }
 
     public func renderFrame(at timeSeconds: TimeInterval) {
@@ -122,6 +131,8 @@
     public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
     public private(set) var resourceLimits: RemoteComposeNativeResourceLimits
     public private(set) var executionLimits: RemoteComposeNativeExecutionLimits
+    public private(set) var customComponents: RemoteComposeNativeCustomComponentRegistry
+    private var customComponentsRevision: UInt
     public private(set) var resourceResolver: (any RemoteComposeNativeResourceResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
@@ -161,6 +172,7 @@
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
+      customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
@@ -170,6 +182,9 @@
       self.compatibilityPolicy = compatibilityPolicy
       self.resourceLimits = resourceLimits
       self.executionLimits = executionLimits
+      let customComponents = customComponents ?? RemoteComposeNativeCustomComponentRegistry()
+      self.customComponents = customComponents
+      customComponentsRevision = customComponents.revision
       self.resourceResolver = resourceResolver
       self.clock = clock
       resourceCache = NativeImageCache(
@@ -235,7 +250,7 @@
       let resolverChanged: Bool
       switch (resourceResolver, resolver) {
       case (nil, nil): resolverChanged = false
-      case let (current?, next?): resolverChanged = current !== next
+      case (let current?, let next?): resolverChanged = current !== next
       default: resolverChanged = true
       }
       let limitsChanged = limits != resourceLimits
@@ -254,6 +269,18 @@
     public func configureExecutionLimits(_ limits: RemoteComposeNativeExecutionLimits) {
       guard limits != executionLimits else { return }
       executionLimits = limits
+      if let documentData { render(documentData) }
+    }
+
+    /// Replace the host registry and retry the retained document against its declared names.
+    public func configureCustomComponents(
+      _ registry: RemoteComposeNativeCustomComponentRegistry
+    ) {
+      guard customComponents !== registry || customComponentsRevision != registry.revision else {
+        return
+      }
+      customComponents = registry
+      customComponentsRevision = registry.revision
       if let documentData { render(documentData) }
     }
 
@@ -287,6 +314,7 @@
       let epoch = sessionEpoch
       let executionLimits = executionLimits
       let compatibilityPolicy = compatibilityPolicy
+      let availableCustomComponents = customComponents.names
       let resourceLimits = resourceLimits
       let resourceResolver = resourceResolver
       let resourceCache = resourceCache
@@ -297,11 +325,13 @@
           try Task.checkCancellation()
           let model = try NativeDocument(snapshot: frame.snapshot, limits: executionLimits)
           guard generation == self?.loadGeneration else { return }
-          self?.onDiagnostics(model.diagnostics)
+          let diagnostics = model.diagnostics(
+            availableCustomComponents: availableCustomComponents)
+          self?.onDiagnostics(diagnostics)
           if !RemoteComposeNativeCompatibilityDecision.shouldRender(
-            policy: compatibilityPolicy, diagnostics: model.diagnostics)
+            policy: compatibilityPolicy, diagnostics: diagnostics)
           {
-            throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
+            throw RemoteComposeNativePlayerError.incompatible(diagnostics)
           }
           try Task.checkCancellation()
           let resources = try await Self.prepareResources(
@@ -382,7 +412,8 @@
     }
 
     private func updateSession(
-      _ operation: @escaping @Sendable (NativeSnapshotSessionHandle, TimeInterval) async throws ->
+      _ operation:
+        @escaping @Sendable (NativeSnapshotSessionHandle, TimeInterval) async throws ->
         NativeSnapshotSessionHandle.Update
     ) async -> Bool {
       guard
@@ -501,11 +532,12 @@
     }
 
     private func validate(_ model: NativeDocument) throws {
-      onDiagnostics(model.diagnostics)
+      let diagnostics = model.diagnostics(availableCustomComponents: customComponents.names)
+      onDiagnostics(diagnostics)
       if !RemoteComposeNativeCompatibilityDecision.shouldRender(
-        policy: compatibilityPolicy, diagnostics: model.diagnostics)
+        policy: compatibilityPolicy, diagnostics: diagnostics)
       {
-        throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
+        throw RemoteComposeNativePlayerError.incompatible(diagnostics)
       }
     }
 
@@ -563,11 +595,18 @@
     private func install(_ model: NativeDocument, resources: NativeResourceStore) throws {
       try resources.activateFonts(replacing: retainedResources)
       isRenderingDocument = false
-      if documentView?.update(document: model, resources: resources) != true {
+      if documentView?.update(
+        document: model, resources: resources, customComponents: customComponents) != true
+      {
         let nextView = NativeDocumentView(
           document: model,
           resources: resources,
-          onClick: { [weak self] componentID in self?.performClick(componentID: componentID) })
+          customComponents: customComponents,
+          onClick: { [weak self] componentID in self?.performClick(componentID: componentID) },
+          onCustomReturn: { [weak self] componentID, propertyID, value in
+            self?.performCustomReturn(
+              componentID: componentID, propertyID: propertyID, value: value)
+          })
         replaceDocumentView(with: nextView)
       }
       retainedResources = resources
@@ -597,6 +636,24 @@
         guard let self else { return }
         _ = await self.updateSession { session, time in
           try await session.click(componentID: componentID, at: time)
+        }
+      }
+    }
+
+    private func performCustomReturn(
+      componentID: Int, propertyID: Int, value: NativeCustomReturnValue
+    ) {
+      Task { [weak self] in
+        guard let self else { return }
+        _ = await self.updateSession { session, time in
+          switch value {
+          case .float(let value):
+            try await session.returnCustomFloat(
+              value, componentID: componentID, propertyID: propertyID, at: time)
+          case .text(let value):
+            try await session.returnCustomText(
+              value, componentID: componentID, propertyID: propertyID, at: time)
+          }
         }
       }
     }
@@ -659,7 +716,8 @@
         displayLink = nil
       case .displayLink:
         guard displayLink == nil else { return }
-        let link = CADisplayLink(target: displayLinkTarget, selector: #selector(NativeDisplayLinkTarget.fire))
+        let link = CADisplayLink(
+          target: displayLinkTarget, selector: #selector(NativeDisplayLinkTarget.fire))
         displayLinkTarget.displayLink = link
         link.add(to: .main, forMode: .common)
         displayLink = link
