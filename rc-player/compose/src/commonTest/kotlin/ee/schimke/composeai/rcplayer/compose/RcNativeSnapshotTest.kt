@@ -115,6 +115,42 @@ class RcNativeSnapshotTest {
   }
 
   @Test
+  fun retainedSessionRollsBackNamedValueAfterInvalidSnapshot() {
+    val fontSize = RcFloatWord(0x7fc00000 or 20)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcFloatConstant(20, RcFloatWord.literal(12f)),
+          RcNamedVariable(20, RcNamedVariable.FLOAT_TYPE, "USER:size"),
+          RcTextData(30, "Title"),
+          RcRootLayout(-2),
+          RcTextLayout(
+            -3,
+            0,
+            30,
+            0xff000000.toInt(),
+            fontSize,
+            0,
+            RcFloatWord.literal(400f),
+            0,
+            1,
+            1,
+            1,
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val session = RcNativeSnapshotSession(RcDocumentCodec.encode(document))
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    assertFailsWith<IllegalArgumentException> { session.setFloat("size", -1f) }
+    assertEquals(12f, commands(session.snapshot().root).single().textSize)
+  }
+
+  @Test
   fun retainedSessionAdvancesFramesWithoutRedecoding() {
     val animationTime = RcFloatWord(0xff800000.toInt() or RcSystemVariables.ANIMATION_TIME)
     val document =

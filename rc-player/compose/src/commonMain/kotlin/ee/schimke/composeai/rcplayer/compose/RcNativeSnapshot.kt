@@ -400,8 +400,16 @@ public constructor(bytes: ByteArray) {
     pendingEvents.clear()
     val qualifiedName = if (':' in name) name else "USER:$name"
     val accepted = state.namedVariable(qualifiedName)?.type == expectedType
-    if (accepted) state.setNamedValue(qualifiedName, value)
-    return updateResult(accepted, timeSeconds)
+    if (!accepted) return updateResult(false, timeSeconds)
+    val previousValue = state.namedValue(qualifiedName)
+    state.setNamedValue(qualifiedName, value)
+    return try {
+      updateResult(true, timeSeconds)
+    } catch (error: IllegalArgumentException) {
+      state.setNamedValue(qualifiedName, previousValue)
+      pendingEvents.clear()
+      throw error
+    }
   }
 
   private fun updateResult(
