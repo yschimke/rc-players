@@ -614,8 +614,6 @@
           guard !Task.isCancelled, let self, generation == self.frameDriverGeneration else {
             return
           }
-          self.wakeCountdown.complete()
-          self.frameSchedule.wakeAfter = nil
           self.delayedWakeTask = nil
           self.requestScheduledFrame()
         }
@@ -632,9 +630,9 @@
     }
 
     fileprivate func displayLinkDidFire() {
-      if frameSchedule.requestsNextFrame {
-        frameSchedule.requestsNextFrame = false
-        if !frameSchedule.needsContinuousFrames { updateFrameDriver() }
+      if frameSchedule.requestsNextFrame, !frameSchedule.needsContinuousFrames {
+        displayLink?.invalidate()
+        displayLink = nil
       }
       requestScheduledFrame()
     }
