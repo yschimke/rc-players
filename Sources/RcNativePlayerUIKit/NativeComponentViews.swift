@@ -213,23 +213,26 @@
 
     fileprivate var semanticBehavior: NativeSemanticBehavior? {
       guard let own = accessibilityDescriptor else { return nil }
-      guard
-        own.mode == .merge,
-        let descendant = children.lazy.compactMap(\.effectiveSemanticBehavior).first
-      else {
+      guard own.mode == .merge else {
         return NativeSemanticBehavior(
           descriptor: own, componentID: componentID, clickActionTypes: clickActionTypes)
       }
+      let descendants = children.flatMap(\.effectiveSemanticBehaviors)
+      let mergedDescriptor = descendants.reduce(own) { descriptor, descendant in
+        descriptor.mergingBehavior(from: descendant.descriptor)
+      }
       let ownsAction = !clickActionTypes.isEmpty
+      let descendantAction = descendants.first { !$0.clickActionTypes.isEmpty }
       return NativeSemanticBehavior(
-        descriptor: own.mergingBehavior(from: descendant.descriptor),
-        componentID: ownsAction ? componentID : descendant.componentID,
-        clickActionTypes: ownsAction ? clickActionTypes : descendant.clickActionTypes)
+        descriptor: mergedDescriptor,
+        componentID: ownsAction ? componentID : descendantAction?.componentID ?? componentID,
+        clickActionTypes: ownsAction ? clickActionTypes : descendantAction?.clickActionTypes ?? [])
     }
 
-    private var effectiveSemanticBehavior: NativeSemanticBehavior? {
-      guard visibility == 1 else { return nil }
-      return semanticBehavior ?? children.lazy.compactMap(\.effectiveSemanticBehavior).first
+    private var effectiveSemanticBehaviors: [NativeSemanticBehavior] {
+      guard visibility == 1 else { return [] }
+      if let semanticBehavior { return [semanticBehavior] }
+      return children.flatMap(\.effectiveSemanticBehaviors)
     }
   }
 
