@@ -638,7 +638,7 @@
       canvasView?.frame = bounds
       prepareStructuralChildren()
       if isStructural {
-        semanticView?.frame = bounds
+        updateStructuralSemanticFrames()
         return
       }
 
@@ -655,6 +655,7 @@
       default: layoutOverlay(aligned: false)
       }
       semanticView?.frame = bounds
+      updateStructuralSemanticFrames()
     }
 
     func preferredSize(in available: CGSize) -> CGSize {
@@ -730,6 +731,18 @@
           child.prepareStructuralChildren()
         }
       }
+    }
+
+    private func updateStructuralSemanticFrames() {
+      componentChildren.forEach { $0.updateStructuralSemanticFrames() }
+      guard isStructural, let semanticView else { return }
+      let renderedBounds = flattenedLayoutItems
+        .filter { !$0.isHidden && $0.alpha > 0.01 }
+        .map { convert($0.bounds, from: $0) }
+        .filter { !$0.isEmpty && !$0.isNull }
+        .reduce(CGRect.null) { $0.union($1) }
+      let clippedBounds = renderedBounds.intersection(bounds)
+      semanticView.frame = clippedBounds.isNull ? .zero : clippedBounds
     }
 
     private func layoutOverlay(aligned: Bool) {

@@ -45,6 +45,16 @@ enum NativeAccessibilityPolicyTests {
     precondition(rolelessMerge.elementKind == .button)
     precondition(rolelessMerge.stateDescription == "Expanded")
 
+    let unknownRoleMerge = NativeAccessibilityDescriptor(
+      role: .unknown, mode: .merge, contentDescription: nil, text: nil, stateDescription: nil,
+      isEnabled: true, isClickable: false
+    ).mergingBehavior(
+      from: NativeAccessibilityDescriptor(
+        role: .button, mode: .set, contentDescription: "Open", text: nil,
+        stateDescription: nil, isEnabled: true, isClickable: true))
+    precondition(unknownRoleMerge.role == .button)
+    precondition(unknownRoleMerge.elementKind == .button)
+
     let cleared = NativeAccessibilityDescriptor(
       role: .image,
       mode: .clearAndSet,
