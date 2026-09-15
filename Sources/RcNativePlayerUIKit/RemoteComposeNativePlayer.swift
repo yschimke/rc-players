@@ -550,8 +550,12 @@
       super.didMoveToWindow()
       if window == nil {
         animationTimeline.pause(at: clock.now())
-      } else if isApplicationActive && !UIAccessibility.isReduceMotionEnabled {
-        animationTimeline.resume(at: clock.now())
+      } else if isApplicationActive {
+        if UIAccessibility.isReduceMotionEnabled {
+          animationTimeline.pause(at: clock.now())
+        } else {
+          animationTimeline.resume(at: clock.now())
+        }
       }
       updateFrameDriver()
     }
@@ -649,8 +653,7 @@
       let now = clock.now()
       let time: TimeInterval
       if UIAccessibility.isReduceMotionEnabled {
-        animationTimeline.pause(at: now)
-        time = animationTimeline.elapsed
+        time = animationTimeline.sampleFunctional(at: now)
       } else {
         time = animationTimeline.sample(at: now)
       }
@@ -684,7 +687,11 @@
 
     @objc private func applicationDidBecomeActive() {
       isApplicationActive = true
-      if !UIAccessibility.isReduceMotionEnabled { animationTimeline.resume(at: clock.now()) }
+      if UIAccessibility.isReduceMotionEnabled {
+        animationTimeline.pause(at: clock.now())
+      } else {
+        animationTimeline.resume(at: clock.now())
+      }
       if needsForegroundRender, let documentData {
         render(documentData)
       } else {

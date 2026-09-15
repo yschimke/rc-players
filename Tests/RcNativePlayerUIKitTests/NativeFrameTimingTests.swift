@@ -51,6 +51,17 @@ enum NativeFrameTimingTests {
     precondition(timeline.advance(to: 5, at: 102) == 11)
     precondition(timeline.sample(at: 103) == 12, "an older explicit frame must not rewind time")
 
+    timeline.pause(at: 104)
+    precondition(timeline.sampleFunctional(at: 104.25) == 13.25)
+    precondition(timeline.sampleFunctional(at: 104.75) == 13.75)
+    precondition(
+      timeline.sampleFunctional(at: 104.5) == 13.75,
+      "a backward clock must not reverse paused functional time")
+    timeline.pause(at: 200)
+    precondition(
+      timeline.sampleFunctional(at: 201) == 14.75,
+      "resynchronizing paused time must exclude suspension")
+
     print("native UIKit frame timing tests: ok")
   }
 }

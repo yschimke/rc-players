@@ -67,10 +67,12 @@ struct NativeWakeCountdown: Equatable, Sendable {
 struct NativeAnimationTimeline: Equatable, Sendable {
   private(set) var elapsed: TimeInterval = 0
   private var lastActiveTime: TimeInterval?
+  private var lastPausedTime: TimeInterval?
 
   mutating func reset(at now: TimeInterval, active: Bool) {
     elapsed = 0
     lastActiveTime = active ? now : nil
+    lastPausedTime = active ? nil : now
   }
 
   mutating func sample(at now: TimeInterval) -> TimeInterval {
@@ -83,21 +85,37 @@ struct NativeAnimationTimeline: Equatable, Sendable {
     return elapsed
   }
 
+  /// Advances logical time for functional one-shot work while decorative animation is paused.
+  mutating func sampleFunctional(at now: TimeInterval) -> TimeInterval {
+    guard let lastPausedTime else {
+      self.lastPausedTime = now
+      return elapsed
+    }
+    elapsed += max(now - lastPausedTime, 0)
+    self.lastPausedTime = max(now, lastPausedTime)
+    return elapsed
+  }
+
   mutating func advance(to time: TimeInterval, at now: TimeInterval) -> TimeInterval {
     guard time.isFinite else { return elapsed }
     elapsed = max(elapsed, time)
-    if lastActiveTime != nil { lastActiveTime = now }
+    if lastActiveTime != nil {
+      lastActiveTime = now
+    } else {
+      lastPausedTime = now
+    }
     return elapsed
   }
 
   mutating func pause(at now: TimeInterval) {
-    guard lastActiveTime != nil else { return }
-    _ = sample(at: now)
+    if lastActiveTime != nil { _ = sample(at: now) }
     lastActiveTime = nil
+    lastPausedTime = now
   }
 
   mutating func resume(at now: TimeInterval) {
     guard lastActiveTime == nil else { return }
     lastActiveTime = now
+    lastPausedTime = nil
   }
 }
