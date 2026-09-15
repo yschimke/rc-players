@@ -48,14 +48,19 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   func open(
     data: Data,
     title: String,
+    compatibility: NativeMacCompatibility,
     onEvent: @escaping (String) -> Void,
+    onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
   ) throws {
+    try NativeMacPolicy.validateDocument(data)
     let bytes = RcDataBridgeKt.rcByteArray(data: data)
     let session = try RcNativeSnapshotBridge.shared.createSession(bytes: bytes)
     let snapshot = try session.snapshot(timeSeconds: 0)
-    let player = NativeMacDocumentView(
-      snapshot: snapshot, session: session, onEvent: onEvent, onError: onError)
+    let report = try NativeMacPolicy.evaluate(snapshot, compatibility: compatibility)
+    let player = try NativeMacDocumentView(
+      snapshot: snapshot, session: session, compatibility: compatibility, report: report,
+      onEvent: onEvent, onDiagnostics: onDiagnostics, onError: onError)
     let scroll = NSScrollView()
     scroll.drawsBackground = true
     scroll.backgroundColor = .windowBackgroundColor
@@ -72,7 +77,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered,
       defer: false)
-    window.title = "\(title) — Native AppKit POC"
+    window.title = "\(title) — Native AppKit POC (\(compatibility.title))"
     window.contentView = scroll
     window.delegate = self
     window.center()
@@ -155,9 +160,12 @@ private enum MacLinearLayout {
 
 private final class NativeMacDocumentView: NSView {
   private let session: RcNativeSnapshotSession
+  private let compatibility: NativeMacCompatibility
   private let onEvent: (String) -> Void
+  private let onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
   private let onError: (String) -> Void
   private var snapshot: RcNativeDocumentSnapshot
+  private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
   private var component: NativeMacComponentView!
   private var displayLinkDriver: AnyObject?
   private var fallbackFrameTimer: Timer?
@@ -172,12 +180,17 @@ private final class NativeMacDocumentView: NSView {
   init(
     snapshot: RcNativeDocumentSnapshot,
     session: RcNativeSnapshotSession,
+    compatibility: NativeMacCompatibility,
+    report: NativeMacPolicyReport,
     onEvent: @escaping (String) -> Void,
+    onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
-  ) {
+  ) throws {
     self.snapshot = snapshot
     self.session = session
+    self.compatibility = compatibility
     self.onEvent = onEvent
+    self.onDiagnostics = onDiagnostics
     self.onError = onError
     let density = max(CGFloat(snapshot.density), 1)
     super.init(
@@ -185,7 +198,7 @@ private final class NativeMacDocumentView: NSView {
         x: 0, y: 0, width: CGFloat(snapshot.width) / density,
         height: CGFloat(snapshot.height) / density))
     lastActiveTime = Self.now
-    install(snapshot)
+    try install(snapshot, report: report)
     NotificationCenter.default.addObserver(
       self, selector: #selector(applicationDidBecomeActive),
       name: NSApplication.didBecomeActiveNotification, object: nil)
@@ -209,8 +222,23 @@ private final class NativeMacDocumentView: NSView {
     NSWorkspace.shared.notificationCenter.removeObserver(self)
   }
 
-  private func install(_ next: RcNativeDocumentSnapshot) {
+  private func install(
+    _ next: RcNativeDocumentSnapshot,
+    events: [RcNativeEvent] = [],
+    report suppliedReport: NativeMacPolicyReport? = nil
+  ) throws {
+    let report: NativeMacPolicyReport
+    if let suppliedReport {
+      report = suppliedReport
+    } else {
+      report = try NativeMacPolicy.evaluate(next, compatibility: compatibility)
+    }
+    try NativeMacPolicy.validate(events: events, against: report)
     snapshot = next
+    if reportedDiagnostics != report.diagnostics {
+      reportedDiagnostics = report.diagnostics
+      onDiagnostics(report.diagnostics)
+    }
     component?.removeFromSuperview()
     component = NativeMacComponentView(node: snapshot.root) { [weak self] componentID in
       self?.click(componentID)
@@ -226,7 +254,7 @@ private final class NativeMacDocumentView: NSView {
     do {
       let update = try session.click(
         componentId: Int32(componentID), timeSeconds: Float(sampleTime()))
-      install(update.snapshot)
+      try install(update.snapshot, events: update.events)
       for event in update.events { onEvent(nativeEventSummary(event)) }
     } catch {
       onError("Native input failed: \(error.localizedDescription)")
@@ -300,7 +328,7 @@ private final class NativeMacDocumentView: NSView {
     fallbackFrameTimer = nil
     delayedWakeTimer = nil
     do {
-      install(try session.snapshot(timeSeconds: Float(sampleTime())))
+      try install(try session.snapshot(timeSeconds: Float(sampleTime())))
     } catch {
       stopDisplayFrames()
       onError("Native scheduled frame failed: \(error.localizedDescription)")
@@ -321,7 +349,7 @@ private final class NativeMacDocumentView: NSView {
     }
     do {
       let targetTime = sampleTime(at: targetTimestamp)
-      install(try session.snapshot(timeSeconds: Float(targetTime)))
+      try install(try session.snapshot(timeSeconds: Float(targetTime)))
     } catch {
       stopDisplayFrames()
       onError("Native display frame failed: \(error.localizedDescription)")

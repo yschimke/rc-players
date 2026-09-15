@@ -13,16 +13,18 @@ Swift. It does not replace the CMP player.
 
 ## User model
 
-The control window has two inputs:
+The control window has three inputs:
 
 1. a document selected with the standard macOS open panel, drag and drop, Finder's **Open With**,
    or a path passed to the executable; and
-2. a preferred renderer, `CMP` or `Native AppKit POC`.
+2. a preferred renderer, `CMP` or `Native AppKit POC`; and
+3. a native compatibility policy: `Compatible` renders the supported subset and reports known
+   differences, while `Strict` refuses any partial frame.
 
-The renderer is stored in `UserDefaults`, exposed in the control window and Settings, and reused for
-later documents. Opening a file through Finder renders it immediately with that preference. The app
-declares a Viewer document type for the `.rc` extension but only an Alternate handler rank, so it
-does not attempt to displace a user's default editor.
+The renderer and native compatibility policy are stored in `UserDefaults`, exposed in the control
+window and Settings, and reused for later documents. Opening a file through Finder renders it
+immediately with those preferences. The app declares a Viewer document type for the `.rc` extension
+but only an Alternate handler rank, so it does not attempt to displace a user's default editor.
 
 Each render opens a separate document window. That follows the existing macOS CMP surface, which
 exports a window rather than an embeddable `NSView`, and allows two windows to be placed beside one
@@ -35,7 +37,8 @@ NSApplication / RemoteComposeMacAppDelegate
 └── NSWindow
     └── NSHostingController<DesktopPlayerView>
         ├── Document group (URL, size, Open button)
-        ├── Renderer picker
+        ├── Renderer and native-policy pickers
+        ├── Native compatibility and safety result
         └── Open Player Window button
 
 Selected renderer
@@ -71,9 +74,22 @@ is inactive or the view is detached, preserves the remaining delayed wake, and o
 Reduce Motion setting. Functional `requestsNextFrame` work still runs under Reduce Motion while
 decorative continuous animation pauses.
 
-Malformed input is reported in the control window. The native renderer is intentionally
-best-effort: unsupported commands are skipped rather than silently selecting CMP. Renderer identity
-is always visible in the document-window title.
+Malformed or over-budget input is reported in the control window. Safety is independent of
+compatibility: both modes enforce a 16 MiB encoded-document limit, finite and bounded geometry,
+20,000 nodes, 256 levels of nesting, 50,000 draw commands, 100,000 path elements, 16 KiB of text,
+32 resources with bounded encoded bytes and declared image dimensions/pixels, and 200,000 work units
+per frame. Validation runs before the initial AppKit hierarchy is created and again before animated
+or event-driven snapshots replace the current frame. Host events share that frame budget and are
+validated before delivery.
+
+The native renderer's `Compatible` mode is intentionally best-effort: unsupported commands are
+skipped and structured diagnostics are shown in the control window rather than silently selecting
+CMP. `Strict` refuses both unsupported and known-approximate behavior. The AppKit profile augments
+the renderer-neutral bridge diagnostics with its current platform gaps: image components and draws,
+gradients, paint textures, skew, path clipping, non-source-over blending, embedded fonts, pivoted
+transforms, and incomplete non-button accessibility roles. External image references are validated
+as bounded UTF-8 but never resolved by this app, so document input cannot initiate network or file
+I/O. Renderer identity and policy are always visible in the document-window title.
 
 ## Packaging and release
 
@@ -90,7 +106,8 @@ build/distributions/RemoteComposePlayer-macOS-arm64.zip.sha256
 
 CI packages the app whenever the Apple lane is affected, validates the signature and archive,
 decodes the title-card fixture through the packaged executable's `--validate-native` smoke mode,
-and samples the continuous-progress fixture through `--validate-native-animation`.
+samples the continuous-progress fixture through `--validate-native-animation`, and exercises the
+strict/compatible decision plus hard document limit through dedicated policy smoke modes.
 The release workflow includes the ZIP in build-provenance attestation and uploads the ZIP and SHA-256
 sidecar to the GitHub Release with the Apple libraries.
 
