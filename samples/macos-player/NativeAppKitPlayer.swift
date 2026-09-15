@@ -1,22 +1,24 @@
 import AppKit
 import CoreText
 import QuartzCore
-import RcComposePlayer
+#if canImport(RcNativePlayerCore)
+  import RcNativePlayerCore
+#endif
 
-func nativeEventSummary(_ event: RcNativeEvent) -> String {
-  switch event.kind {
-  case 0: return "Action \(event.actionId)"
-  case 1: return "Action \(event.actionId): \(event.textValue ?? "")"
-  case 2: return "Named \(event.name ?? ""): none"
-  case 3: return "Named \(event.name ?? ""): \(event.floatValue)"
-  case 4: return "Named \(event.name ?? ""): \(event.integerValue)"
-  case 5: return "Named \(event.name ?? ""): \(event.textValue ?? "")"
-  case 6:
-    let values = event.floatListValue.map { String($0.floatValue) }.joined(separator: ", ")
-    return "Named \(event.name ?? ""): \(values)"
-  case 7:
-    return "Debug: \(event.textValue ?? "") (value \(event.floatValue), flags \(event.actionId))"
-  default: return String(describing: event)
+func nativeEventSummary(_ event: NativeSwiftEvent) -> String {
+  switch event {
+  case .namedAction(let name, let value): return "Named \(name): \(value.summary)"
+  }
+}
+
+private extension NativeSwiftActionValue {
+  var summary: String {
+    switch self {
+    case .none: "none"
+    case .float(let value): String(value)
+    case .integer(let value): String(value)
+    case .text(let value): value
+    }
   }
 }
 
@@ -45,6 +47,30 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   static let shared = NativeAppKitWindowController()
   private var windows: [NSWindow] = []
 
+  static func renderPNG(data: Data, timeSeconds: TimeInterval = 0) throws -> Data {
+    try NativeMacPolicy.validateDocument(data)
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    let snapshot = try session.snapshot(timeSeconds: timeSeconds)
+    let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
+    let player = try NativeMacDocumentView(
+      snapshot: snapshot, session: session, compatibility: .compatible, report: report,
+      onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
+    let frame = NSRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height)
+    let window = NSWindow(
+      contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
+    window.contentView = player
+    player.frame = frame
+    player.layoutSubtreeIfNeeded()
+    guard let bitmap = player.bitmapImageRepForCachingDisplay(in: player.bounds) else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not allocate AppKit capture")
+    }
+    player.cacheDisplay(in: player.bounds, to: bitmap)
+    guard let png = bitmap.representation(using: .png, properties: [:]) else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
+    }
+    return png
+  }
+
   func open(
     data: Data,
     title: String,
@@ -54,8 +80,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     onError: @escaping (String) -> Void
   ) throws {
     try NativeMacPolicy.validateDocument(data)
-    let bytes = RcDataBridgeKt.rcByteArray(data: data)
-    let session = try RcNativeSnapshotBridge.shared.createSession(bytes: bytes)
+    let session = try NativeSwiftDocumentSession.open(data: data)
     let snapshot = try session.snapshot(timeSeconds: 0)
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: compatibility)
     let player = try NativeMacDocumentView(
@@ -68,10 +93,9 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     scroll.hasVerticalScroller = true
     scroll.documentView = player
 
-    let density = max(CGFloat(snapshot.density), 1)
     let size = NSSize(
-      width: max(CGFloat(snapshot.width) / density, 640),
-      height: max(CGFloat(snapshot.height) / density, 480))
+      width: max(CGFloat(snapshot.width), 640),
+      height: max(CGFloat(snapshot.height), 480))
     let window = NSWindow(
       contentRect: NSRect(origin: .zero, size: size),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -159,12 +183,12 @@ private enum MacLinearLayout {
 }
 
 private final class NativeMacDocumentView: NSView {
-  private let session: RcNativeSnapshotSession
+  private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
   private let onEvent: (String) -> Void
   private let onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
   private let onError: (String) -> Void
-  private var snapshot: RcNativeDocumentSnapshot
+  private var snapshot: NativeSwiftDocumentSnapshot
   private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
   private var component: NativeMacComponentView!
   private var displayLinkDriver: AnyObject?
@@ -178,8 +202,8 @@ private final class NativeMacDocumentView: NSView {
   override var isFlipped: Bool { true }
 
   init(
-    snapshot: RcNativeDocumentSnapshot,
-    session: RcNativeSnapshotSession,
+    snapshot: NativeSwiftDocumentSnapshot,
+    session: NativeSwiftDocumentSession,
     compatibility: NativeMacCompatibility,
     report: NativeMacPolicyReport,
     onEvent: @escaping (String) -> Void,
@@ -192,11 +216,10 @@ private final class NativeMacDocumentView: NSView {
     self.onEvent = onEvent
     self.onDiagnostics = onDiagnostics
     self.onError = onError
-    let density = max(CGFloat(snapshot.density), 1)
     super.init(
       frame: NSRect(
-        x: 0, y: 0, width: CGFloat(snapshot.width) / density,
-        height: CGFloat(snapshot.height) / density))
+        x: 0, y: 0, width: CGFloat(snapshot.width),
+        height: CGFloat(snapshot.height)))
     lastActiveTime = Self.now
     try install(snapshot, report: report)
     NotificationCenter.default.addObserver(
@@ -223,8 +246,8 @@ private final class NativeMacDocumentView: NSView {
   }
 
   private func install(
-    _ next: RcNativeDocumentSnapshot,
-    events: [RcNativeEvent] = [],
+    _ next: NativeSwiftDocumentSnapshot,
+    events: [NativeSwiftEvent] = [],
     report suppliedReport: NativeMacPolicyReport? = nil
   ) throws {
     let report: NativeMacPolicyReport
@@ -244,7 +267,7 @@ private final class NativeMacDocumentView: NSView {
       self?.click(componentID)
     }
     addSubview(component)
-    remainingWake = snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds)
+    remainingWake = nil
     wakeStartedAt = nil
     needsLayout = true
     updateFrameDriver()
@@ -252,10 +275,10 @@ private final class NativeMacDocumentView: NSView {
 
   private func click(_ componentID: Int) {
     do {
-      let update = try session.click(
-        componentId: Int32(componentID), timeSeconds: Float(sampleTime()))
-      try install(update.snapshot, events: update.events)
-      for event in update.events { onEvent(nativeEventSummary(event)) }
+      guard let events = try session.click(componentID: componentID, timeSeconds: sampleTime())
+      else { return }
+      try install(try session.snapshot(timeSeconds: sampleTime()), events: events)
+      for event in events { onEvent(nativeEventSummary(event)) }
     } catch {
       onError("Native input failed: \(error.localizedDescription)")
       NSSound.beep()
@@ -283,7 +306,7 @@ private final class NativeMacDocumentView: NSView {
     delayedWakeTimer = nil
     let mode = NativeMacFrameDriverMode.resolve(
       needsContinuousFrames: snapshot.needsContinuousFrames,
-      requestsNextFrame: snapshot.requestsNextFrame,
+      requestsNextFrame: false,
       wakeAfter: remainingWake,
       isActive: NSApplication.shared.isActive,
       isVisible: window != nil,
@@ -328,7 +351,7 @@ private final class NativeMacDocumentView: NSView {
     fallbackFrameTimer = nil
     delayedWakeTimer = nil
     do {
-      try install(try session.snapshot(timeSeconds: Float(sampleTime())))
+      try install(try session.snapshot(timeSeconds: sampleTime()))
     } catch {
       stopDisplayFrames()
       onError("Native scheduled frame failed: \(error.localizedDescription)")
@@ -337,19 +360,13 @@ private final class NativeMacDocumentView: NSView {
   }
 
   fileprivate func displayLinkDidFire(targetTimestamp: TimeInterval) {
-    if snapshot.requestsNextFrame, !snapshot.needsContinuousFrames {
-      if #available(macOS 14.0, *) {
-        (displayLinkDriver as? NativeMacDisplayLinkDriver)?.invalidate()
-      }
-      displayLinkDriver = nil
-    }
     guard window != nil, NSApplication.shared.isActive else {
       updateFrameDriver()
       return
     }
     do {
       let targetTime = sampleTime(at: targetTimestamp)
-      try install(try session.snapshot(timeSeconds: Float(targetTime)))
+      try install(try session.snapshot(timeSeconds: targetTime))
     } catch {
       stopDisplayFrames()
       onError("Native display frame failed: \(error.localizedDescription)")
@@ -438,8 +455,57 @@ private final class NativeMacDisplayLinkDriver: NSObject {
   }
 }
 
+private typealias NativeMacNode = NativeSwiftNodeSnapshot
+private typealias NativeMacDrawCommand = NativeSwiftDrawCommandSnapshot
+private typealias NativeMacPathCommand = NativeSwiftPathElementSnapshot
+
+private extension NativeSwiftNodeSnapshot {
+  var clickable: Bool { isClickable || accessibility?.isClickable == true }
+  var semanticLabel: String? { accessibility?.contentDescription }
+  var semanticText: String? { accessibility?.text ?? text?.value }
+  var componentId: Int { componentID }
+  var paddingTop: Float { padding.top }
+  var paddingLeft: Float { padding.left }
+  var paddingBottom: Float { padding.bottom }
+  var paddingRight: Float { padding.right }
+  var minimumWidth: Float { 0 }
+  var maximumWidth: Float { -1 }
+  var maximumHeight: Float { -1 }
+  var offsetX: Float { 0 }
+  var offsetY: Float { 0 }
+  var visibility: Int { 1 }
+  var hasBackground: Bool { backgroundARGB != nil }
+  var backgroundColor: Int32 { Int32(bitPattern: backgroundARGB ?? 0) }
+}
+
+private extension NativeSwiftDrawCommandSnapshot {
+  var first: Float { values[safe: 0] ?? 0 }
+  var second: Float { values[safe: 1] ?? 0 }
+  var third: Float { values[safe: 2] ?? 0 }
+  var fourth: Float { values[safe: 3] ?? 0 }
+  var fifth: Float { values[safe: 4] ?? 0 }
+  var sixth: Float { values[safe: 5] ?? 0 }
+  var color: Int32 { Int32(bitPattern: colorARGB) }
+  var stroke: Bool { isStroke }
+  var text: String? { nil }
+  var textSize: Float { 16 }
+}
+
+private extension NativeSwiftPathElementSnapshot {
+  var first: Float { values[safe: 0] ?? 0 }
+  var second: Float { values[safe: 1] ?? 0 }
+  var third: Float { values[safe: 2] ?? 0 }
+  var fourth: Float { values[safe: 3] ?? 0 }
+  var fifth: Float { values[safe: 4] ?? 0 }
+  var sixth: Float { values[safe: 5] ?? 0 }
+}
+
+private extension Collection {
+  subscript(safe index: Index) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+
 private final class NativeMacComponentView: NSView {
-  private let node: RcNativeNodeSnapshot
+  private let node: NativeMacNode
   private let componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
@@ -448,14 +514,14 @@ private final class NativeMacComponentView: NSView {
 
   override var isFlipped: Bool { true }
 
-  init(node: RcNativeNodeSnapshot, onClick: @escaping (Int) -> Void) {
+  init(node: NativeMacNode, onClick: @escaping (Int) -> Void) {
     self.node = node
     self.onClick = onClick
     componentChildren = node.children.map { NativeMacComponentView(node: $0, onClick: onClick) }
-    let promotesText = node.kind == 7
-    let drawCommands = node.commands.filter { !(promotesText && $0.kind == 17) }
+    let promotesText = node.kind == .text
+    let drawCommands = node.commands
     canvas = drawCommands.isEmpty ? nil : NativeMacCanvasView(commands: drawCommands)
-    labels = promotesText ? node.commands.filter { $0.kind == 17 }.map(Self.makeLabel) : []
+    labels = promotesText ? node.text.map { [Self.makeLabel($0)] } ?? [] : []
     if node.clickable {
       let button = NSButton(title: "", target: nil, action: nil)
       button.isBordered = false
@@ -500,16 +566,18 @@ private final class NativeMacComponentView: NSView {
     super.layout()
     canvas?.frame = bounds
     semanticButton?.frame = bounds
-    if node.kind == 7 {
+    prepareStructuralChildren()
+    if isStructural { return }
+    if node.kind == .text {
       for label in labels {
         let height = min(label.intrinsicContentSize.height, bounds.height)
         label.frame = NSRect(x: 0, y: 0, width: bounds.width, height: height)
       }
     }
     switch node.kind {
-    case 5: layoutRow()
-    case 6: layoutColumn()
-    case 4: layoutOverlay(aligned: true)
+    case .row: layoutRow()
+    case .column: layoutColumn()
+    case .box: layoutOverlay(aligned: true)
     default: layoutOverlay(aligned: false)
     }
   }
@@ -522,16 +590,16 @@ private final class NativeMacComponentView: NSView {
     let sizes = visibleChildren.map { $0.preferredSize(in: content) }
     let intrinsic: CGSize
     switch node.kind {
-    case 7:
+    case .text:
       let labelSize =
         labels.first?.sizeThatFits(NSSize(width: content.width, height: .greatestFiniteMagnitude))
         ?? .zero
       intrinsic = labelSize
-    case 5:
+    case .row:
       intrinsic = CGSize(
         width: sizes.reduce(0) { $0 + $1.width } + spacing * CGFloat(max(sizes.count - 1, 0)),
         height: sizes.map(\.height).max() ?? 0)
-    case 6:
+    case .column:
       intrinsic = CGSize(
         width: sizes.map(\.width).max() ?? 0,
         height: sizes.reduce(0) { $0 + $1.height } + spacing * CGFloat(max(sizes.count - 1, 0)))
@@ -547,7 +615,27 @@ private final class NativeMacComponentView: NSView {
   }
 
   private var visibleChildren: [NativeMacComponentView] {
-    componentChildren.filter { $0.node.visibility != 0 }
+    flattenedLayoutItems
+  }
+  private var isStructural: Bool {
+    (node.kind == .content || (node.kind == .canvas && node.commands.isEmpty))
+      && node.text == nil && node.custom == nil && !node.clickable && !node.hasBackground
+      && node.widthType == 2 && node.heightType == 2 && node.minimumHeight == 0
+      && node.paddingTop == 0 && node.paddingLeft == 0 && node.paddingBottom == 0
+      && node.paddingRight == 0
+  }
+  private var flattenedLayoutItems: [NativeMacComponentView] {
+    componentChildren.filter { $0.node.visibility != 0 }.flatMap { child in
+      child.isStructural ? child.flattenedLayoutItems : [child]
+    }
+  }
+  private func prepareStructuralChildren() {
+    componentChildren.forEach { child in
+      if child.isStructural {
+        child.frame = bounds
+        child.prepareStructuralChildren()
+      }
+    }
   }
   private var spacing: CGFloat { CGFloat(node.spacing) }
   private var insets: MacInsets {
@@ -655,23 +743,23 @@ private final class NativeMacComponentView: NSView {
       ).resolve(intrinsic: intrinsic.height, available: available.height))
   }
 
-  private static func makeLabel(_ command: RcNativeDrawCommand) -> NSTextField {
-    let label = NSTextField(labelWithString: command.text ?? "")
-    let size = max(CGFloat(command.textSize), 1)
-    let weight = NSFont.Weight(rawValue: min(max(CGFloat(command.textWeight - 400) / 500, -1), 1))
+  private static func makeLabel(_ text: NativeSwiftTextSnapshot) -> NSTextField {
+    let label = NSTextField(labelWithString: text.value)
+    let size = max(CGFloat(text.size), 1)
+    let weight = NSFont.Weight(rawValue: min(max(CGFloat(text.weight - 400) / 500, -1), 1))
     var font = NSFont.systemFont(ofSize: size, weight: weight)
-    if ((command.textStyle?.fontStyle ?? 0) & 2) != 0,
+    if (text.style & 2) != 0,
       let italic = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) as NSFont?
     {
       font = italic
     }
     label.font = font
-    label.textColor = color(command.color).withAlphaComponent(CGFloat(command.alpha))
-    label.maximumNumberOfLines = Int(command.textStyle?.maxLines ?? Int32.max)
-    label.lineBreakMode = command.textStyle?.overflow == 2 ? .byTruncatingTail : .byWordWrapping
+    label.textColor = color(Int32(bitPattern: text.colorARGB))
+    label.maximumNumberOfLines = text.maximumLines
+    label.lineBreakMode = text.overflow == 2 ? .byTruncatingTail : .byWordWrapping
     label.alignment =
-      command.textStyle?.alignment == 2
-      ? .center : (command.textStyle?.alignment == 3 ? .right : .left)
+      text.alignment == 2
+      ? .center : (text.alignment == 3 ? .right : .left)
     label.drawsBackground = false
     label.isSelectable = false
     return label
@@ -686,10 +774,10 @@ private final class NativeMacComponentView: NSView {
 }
 
 private final class NativeMacCanvasView: NSView {
-  let commands: [RcNativeDrawCommand]
+  let commands: [NativeMacDrawCommand]
   override var isFlipped: Bool { true }
 
-  init(commands: [RcNativeDrawCommand]) {
+  init(commands: [NativeMacDrawCommand]) {
     self.commands = commands
     super.init(frame: .zero)
   }
@@ -702,7 +790,7 @@ private final class NativeMacCanvasView: NSView {
     for command in commands { draw(command, context) }
   }
 
-  private func draw(_ command: RcNativeDrawCommand, _ context: CGContext) {
+  private func draw(_ command: NativeMacDrawCommand, _ context: CGContext) {
     let v = [
       command.first, command.second, command.third, command.fourth, command.fifth, command.sixth,
     ].map(CGFloat.init)
@@ -762,12 +850,12 @@ private final class NativeMacCanvasView: NSView {
     }
   }
 
-  private func paint(_ path: CGPath, _ command: RcNativeDrawCommand, _ context: CGContext) {
+  private func paint(_ path: CGPath, _ command: NativeMacDrawCommand, _ context: CGContext) {
     context.addPath(path)
     context.drawPath(using: command.stroke ? .stroke : (command.pathWinding == 1 ? .eoFill : .fill))
   }
 
-  private func path(_ commands: [RcNativePathCommand]) -> CGPath {
+  private func path(_ commands: [NativeMacPathCommand]) -> CGPath {
     let path = CGMutablePath()
     for item in commands {
       switch item.kind {
@@ -789,7 +877,7 @@ private final class NativeMacCanvasView: NSView {
     return path
   }
 
-  private func drawText(_ command: RcNativeDrawCommand, _ context: CGContext) {
+  private func drawText(_ command: NativeMacDrawCommand, _ context: CGContext) {
     guard let text = command.text else { return }
     let font = NSFont.systemFont(ofSize: max(CGFloat(command.textSize), 1))
     let string = NSAttributedString(

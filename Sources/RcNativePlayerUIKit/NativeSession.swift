@@ -1,5 +1,6 @@
 #if canImport(UIKit)
   import Foundation
+  import RcNativePlayerCore
 
   public enum RemoteComposeNativePlayerActionValue: Equatable, Sendable {
     case none

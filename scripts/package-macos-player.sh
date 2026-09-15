@@ -12,6 +12,7 @@ app="$repo_root/build/macos-player/Remote Compose Player.app"
 executable="$app/Contents/MacOS/RemoteComposePlayer"
 smoke_document="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc"
 animation_document="$repo_root/rc-player/compose/src/jvmTest/resources/rc-fixtures/IndeterminateCircularProgress-400x400.rc"
+native_capture="$stage/native-appkit-title-card.png"
 
 mkdir -p "$stage/RemoteComposePlayer-macOS-arm64" "$output_dir"
 ditto "$app" "$stage/RemoteComposePlayer-macOS-arm64/Remote Compose Player.app"
@@ -26,8 +27,11 @@ test "$(lipo -archs "$executable")" = "arm64"
 "$executable" --validate-native "$smoke_document"
 "$executable" --validate-native-policy "$smoke_document"
 "$executable" --validate-native-animation "$animation_document"
+"$executable" --validate-native-click-events "$smoke_document"
 "$executable" --validate-native-scheduling-policy
 "$executable" --validate-native-events
 "$executable" --validate-native-safety-policy
+"$executable" --render-native-png "$smoke_document" "$native_capture"
+test -s "$native_capture"
 unzip -tq "$archive"
 echo "$archive"

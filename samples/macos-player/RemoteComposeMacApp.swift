@@ -12,7 +12,7 @@ enum DesktopRenderer: String, CaseIterable, Identifiable {
   var detail: String {
     self == .compose
       ? "The production Compose Multiplatform renderer."
-      : "A Swift-native AppKit hierarchy backed by the shared snapshot bridge."
+      : "A Swift-native AppKit hierarchy backed by the pure-Swift core."
   }
 }
 
@@ -433,6 +433,22 @@ final class RemoteComposeMacAppDelegate: NSObject, NSApplicationDelegate {
 struct RemoteComposeMacApplication {
   @MainActor
   static func main() {
+    if CommandLine.arguments.count == 4,
+      CommandLine.arguments[1] == "--render-native-png"
+    {
+      do {
+        _ = NSApplication.shared
+        let input = URL(fileURLWithPath: CommandLine.arguments[2])
+        let output = URL(fileURLWithPath: CommandLine.arguments[3])
+        let data = try Data(contentsOf: input)
+        try NativeAppKitWindowController.renderPNG(data: data).write(to: output, options: .atomic)
+        print(output.path)
+      } catch {
+        FileHandle.standardError.write(Data("native capture failed: \(error)\n".utf8))
+        exit(1)
+      }
+      return
+    }
     if CommandLine.arguments.count == 2,
       CommandLine.arguments[1] == "--validate-native-scheduling-policy"
     {
@@ -458,14 +474,10 @@ struct RemoteComposeMacApplication {
       return
     }
     if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--validate-native-events" {
-      let action = RcNativeEvent(
-        kind: 0, actionId: 77, name: nil, textValue: nil, floatValue: 0, integerValue: 0,
-        floatListValue: [])
-      let metadata = RcNativeEvent(
-        kind: 1, actionId: 78, name: nil, textValue: "details", floatValue: 0,
-        integerValue: 0, floatListValue: [])
-      guard nativeEventSummary(action) == "Action 77",
-        nativeEventSummary(metadata) == "Action 78: details"
+      let action = NativeSwiftEvent.namedAction(name: "catalogAction", value: .none)
+      let metadata = NativeSwiftEvent.namedAction(name: "catalogAction", value: .text("details"))
+      guard nativeEventSummary(action) == "Named catalogAction: none",
+        nativeEventSummary(metadata) == "Named catalogAction: details"
       else {
         FileHandle.standardError.write(Data("native event mapping failed\n".utf8))
         exit(1)
@@ -512,8 +524,7 @@ struct RemoteComposeMacApplication {
     {
       do {
         let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
-        let session = try RcNativeSnapshotBridge.shared.createSession(
-          bytes: RcDataBridgeKt.rcByteArray(data: data))
+        let session = try NativeSwiftDocumentSession.open(data: data)
         let snapshot = try session.snapshot(timeSeconds: 0)
         switch CommandLine.arguments[1] {
         case "--validate-native-policy":
@@ -533,22 +544,22 @@ struct RemoteComposeMacApplication {
           )
         case "--validate-native-animation":
           guard
-            snapshot.needsContinuousFrames || snapshot.requestsNextFrame
-              || snapshot.wakeAfterSeconds >= 0
+            snapshot.needsContinuousFrames
           else { throw DesktopValidationError("document does not request scheduled frames") }
           _ = try session.snapshot(timeSeconds: 0.25)
           print(
-            "native animation schedule continuous=\(snapshot.needsContinuousFrames), next=\(snapshot.requestsNextFrame), wake=\(snapshot.wakeAfterSeconds)"
+            "native animation schedule continuous=\(snapshot.needsContinuousFrames)"
           )
         case "--validate-native-click-events":
           guard let componentID = firstClickableComponent(in: snapshot.root) else {
             throw DesktopValidationError("document has no clickable component")
           }
-          let update = try session.click(componentId: componentID, timeSeconds: 0)
-          guard !update.events.isEmpty else {
+          guard let events = try session.click(componentID: componentID, timeSeconds: 0),
+            !events.isEmpty
+          else {
             throw DesktopValidationError("click produced no host events")
           }
-          print("native click component=\(componentID), events=\(update.events.count)")
+          print("native click component=\(componentID), events=\(events.count)")
         default:
           print("native snapshot \(snapshot.width)x\(snapshot.height), root=\(snapshot.root.kind)")
         }
@@ -566,8 +577,8 @@ struct RemoteComposeMacApplication {
     application.run()
   }
 
-  private static func firstClickableComponent(in node: RcNativeNodeSnapshot) -> Int32? {
-    if node.clickable { return node.componentId }
+  private static func firstClickableComponent(in node: NativeSwiftNodeSnapshot) -> Int? {
+    if node.isClickable || node.accessibility?.isClickable == true { return node.componentID }
     for child in node.children {
       if let result = firstClickableComponent(in: child) { return result }
     }

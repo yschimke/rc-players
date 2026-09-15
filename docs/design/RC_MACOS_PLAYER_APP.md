@@ -7,9 +7,10 @@ developer and evaluator tool, not a new supported rendering contract. Its primar
 an arbitrary local `.rc` file and make renderer selection explicit and repeatable.
 
 The default remains the supported Compose Multiplatform (CMP) renderer. The second choice is an
-experimental Swift-native AppKit renderer. Like the UIKit POC, it temporarily asks Kotlin to decode
-the wire format and execute state, then owns its native view hierarchy and Core Graphics drawing in
-Swift. It does not replace the CMP player.
+experimental Swift-native AppKit renderer. It shares the platform-neutral `RcNativePlayerCore`
+decoder and retained session with the UIKit player, then owns its native view hierarchy and Core
+Graphics drawing in Swift. The native path has no Kotlin runtime dependency and does not replace the
+CMP player.
 
 ## User model
 
@@ -59,43 +60,39 @@ radius have a small frame-based implementation matching the UIKit POC's philosop
 ## Data and event flow
 
 The host reads bytes with `Data(contentsOf:)`. CMP passes those bytes to `RcComposeWindow`. The
-native path creates an `RcNativeSnapshotSession`, builds AppKit views from its immutable snapshot,
-and asks the retained session for a new snapshot when an `NSButton` is activated. Events returned
-atomically with that update are delivered to the host in wire order and shown in the control
-window. CMP events use the same host event feed. This retains one mature decoder and state runtime
-during the POC while keeping all desktop UI native.
+native path creates a `NativeSwiftDocumentSession`, builds AppKit views from its immutable
+`NativeSwiftDocumentSnapshot`, and asks the retained session for a new snapshot when an `NSButton`
+is activated. Events are delivered to the host in wire order and shown in the control window. CMP
+events use the same host event feed. Both native renderers therefore exercise one pure-Swift state
+runtime while keeping their platform views independent.
 
-The native document view reads the scheduling fields from every immutable snapshot. On macOS 14+
+The native document view reads the continuous-animation requirement from every immutable snapshot. On macOS 14+
 it uses `NSView.displayLink(target:selector:)`, so callbacks follow the display containing the view
 and naturally stop while AppKit hides or detaches it. macOS 12–13 retain a one-frame `Timer`
-fallback because `CADisplayLink` is not available there. Delayed runtime wakes use a common-mode
-one-shot timer on every supported release. The logical animation clock pauses while the application
-is inactive or the view is detached, preserves the remaining delayed wake, and observes AppKit's
-Reduce Motion setting. Functional `requestsNextFrame` work still runs under Reduce Motion while
-decorative continuous animation pauses.
+fallback because `CADisplayLink` is not available there. The logical animation clock pauses while
+the application is inactive or the view is detached and observes AppKit's Reduce Motion setting.
+Decorative continuous animation pauses under Reduce Motion.
 
 Malformed or over-budget input is reported in the control window. Safety is independent of
 compatibility: both modes enforce a 16 MiB encoded-document limit, finite and bounded geometry,
 20,000 nodes, 256 levels of nesting, 50,000 draw commands, 100,000 path elements, 16 KiB of text,
-32 resources with bounded encoded bytes and declared image dimensions/pixels, and 200,000 work units
-per frame. Validation runs before the initial AppKit hierarchy is created and again before animated
+and 200,000 work units per frame. Validation runs before the initial AppKit hierarchy is created and again before animated
 or event-driven snapshots replace the current frame. Host events share that frame budget and are
 validated before delivery.
 
-The native renderer's `Compatible` mode is intentionally best-effort: unsupported commands are
-skipped and structured diagnostics are shown in the control window rather than silently selecting
-CMP. `Strict` refuses both unsupported and known-approximate behavior. The AppKit profile augments
-the renderer-neutral bridge diagnostics with its current platform gaps: image components and draws,
-gradients, paint textures, skew, path clipping, non-source-over blending, embedded fonts, pivoted
-transforms, and incomplete non-button accessibility roles. External image references are validated
-as bounded UTF-8 but never resolved by this app, so document input cannot initiate network or file
-I/O. Renderer identity and policy are always visible in the document-window title.
+The pure-Swift decoder rejects unsupported or malformed operation families instead of silently
+falling back to CMP. `Compatible` and `Strict` retain distinct host-facing policy identities so
+structured approximation diagnostics can be added as coverage grows. The current AppKit profile
+does not resolve external resources, so document input cannot initiate network or file I/O.
+Renderer identity and policy are always visible in the document-window title.
 
 ## Packaging and release
 
-`scripts/build-macos-player.sh` compiles the Swift sources directly against the locally assembled
-`macosArm64` slice of `RcComposePlayer.xcframework`. The framework is static, so the result is a
-self-contained executable. The script creates a conventional `.app` bundle and ad-hoc signs it.
+`scripts/build-macos-player.sh` compiles `RcNativePlayerCore` into the application alongside the
+AppKit renderer. It also links the locally assembled `macosArm64` slice of
+`RcComposePlayer.xcframework` for the separately selectable CMP renderer. The framework is static,
+so the result is a self-contained executable. The script creates a conventional `.app` bundle and
+ad-hoc signs it.
 
 `scripts/package-macos-player.sh` creates:
 
@@ -106,8 +103,10 @@ build/distributions/RemoteComposePlayer-macOS-arm64.zip.sha256
 
 CI packages the app whenever the Apple lane is affected, validates the signature and archive,
 decodes the title-card fixture through the packaged executable's `--validate-native` smoke mode,
-samples the continuous-progress fixture through `--validate-native-animation`, and exercises the
-strict/compatible decision plus hard document limit through dedicated policy smoke modes.
+samples the continuous-progress fixture through `--validate-native-animation`, dispatches the title
+card action through `--validate-native-click-events`, and exercises the strict/compatible decision
+plus hard document limit through dedicated policy smoke modes. Its offscreen
+`--render-native-png` mode captures the same AppKit hierarchy for deterministic visual evidence.
 The release workflow includes the ZIP in build-provenance attestation and uploads the ZIP and SHA-256
 sidecar to the GitHub Release with the Apple libraries.
 
@@ -126,10 +125,9 @@ need Control-click → Open on first launch.
 
 ## Next increments
 
-1. Share renderer-neutral layout and paint policy between the UIKit and AppKit POCs without sharing
-   platform views.
-2. Add image resources, gradients, embedded fonts, pointer gestures and named-value host controls.
-3. Add deterministic macOS CMP/native comparison captures to the existing representative corpus.
-4. Add accessibility assertions for `NSTextField`, `NSButton`, state descriptions and merged nodes.
-5. Decide whether the native AppKit experiment belongs in a reusable library only after operation,
-   visual, performance and accessibility gates match the UIKit graduation criteria.
+1. Add long press, drag, scroll, and raw pointer expressions to the shared session and both native
+   event adapters.
+2. Fill the remaining layout, drawing, font, and complex-text operation families.
+3. Add image resources and the Image Button comparison fixture.
+4. Add deterministic macOS CMP/native comparison captures and accessibility assertions.
+5. Complete the fuzzing and device-performance work tracked by GitHub issue #138.

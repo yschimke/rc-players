@@ -40,7 +40,7 @@ implicit fallbacks.
 | 10 — Performance and untrusted input | Core implemented | Decode-time operation ceiling plus configurable typed byte, node, depth, draw, path, text, geometry, and per-frame work limits |
 | 11 — Distribution and API evidence | Core implemented | Versioned machine-readable profile, explicit experimental compatibility/migration decision, checksummed consumer archive, and GitHub provenance attestations |
 | 12 — Native custom components | Implemented | Explicit Swift registry, typed properties/returns, stable UIKit lifecycle, SwiftUI hosting, strict-policy diagnostics, and CMP/UIKit evidence |
-| 13 — Pure Swift core | In progress | Kotlin runtime dependency removed; legacy/modern headers, editable custom state, Morning Run structure/text/click events, and the animated progress expression/canvas family execute in Swift; broader operation coverage remains |
+| 13 — Pure Swift core | In progress | Kotlin runtime dependency removed from UIKit and the native AppKit path; one shared target handles legacy/modern headers, editable custom state, Morning Run structure/text/click events, and the animated progress expression/canvas family; broader operation coverage remains |
 
 ## Delivery rules
 

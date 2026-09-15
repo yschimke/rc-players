@@ -4,121 +4,136 @@ import Foundation
 ///
 /// Keeping this model free of UIKit and foreign-runtime objects lets decoding and document state remain
 /// actor-isolated while the final UIView model is materialized on the main actor.
-struct NativeSwiftDocumentSnapshot: Sendable {
-  let width: Int
-  let height: Int
-  let root: NativeSwiftNodeSnapshot
-  let needsContinuousFrames: Bool
+public struct NativeSwiftDocumentSnapshot: Sendable {
+  public let width: Int
+  public let height: Int
+  public let root: NativeSwiftNodeSnapshot
+  public let needsContinuousFrames: Bool
 }
 
-struct NativeSwiftNodeSnapshot: Sendable {
-  enum Kind: Sendable {
+public struct NativeSwiftNodeSnapshot: Sendable {
+  public enum Kind: Sendable {
     case root, content, canvas, box, row, column, text, custom
   }
 
-  let kind: Kind
-  let componentID: Int
-  let children: [NativeSwiftNodeSnapshot]
-  let commands: [NativeSwiftDrawCommandSnapshot]
-  let isClickable: Bool
-  let accessibility: NativeSwiftAccessibilitySnapshot?
-  let widthType: Int
-  let widthValue: Float
-  let heightType: Int
-  let heightValue: Float
-  let padding: NativeSwiftInsets
-  let minimumHeight: Float
-  let cornerRadius: Float
-  let backgroundARGB: UInt32?
-  let horizontalPositioning: Int
-  let verticalPositioning: Int
-  let spacing: Float
-  let text: NativeSwiftTextSnapshot?
-  let custom: NativeSwiftCustomSnapshot?
+  public let kind: Kind
+  public let componentID: Int
+  public let children: [NativeSwiftNodeSnapshot]
+  public let commands: [NativeSwiftDrawCommandSnapshot]
+  public let isClickable: Bool
+  public let accessibility: NativeSwiftAccessibilitySnapshot?
+  public let widthType: Int
+  public let widthValue: Float
+  public let heightType: Int
+  public let heightValue: Float
+  public let padding: NativeSwiftInsets
+  public let minimumHeight: Float
+  public let cornerRadius: Float
+  public let backgroundARGB: UInt32?
+  public let horizontalPositioning: Int
+  public let verticalPositioning: Int
+  public let spacing: Float
+  public let text: NativeSwiftTextSnapshot?
+  public let custom: NativeSwiftCustomSnapshot?
 }
 
-struct NativeSwiftAccessibilitySnapshot: Sendable {
-  let role: Int
-  let mode: Int
-  let contentDescription: String?
-  let text: String?
-  let stateDescription: String?
-  let isEnabled: Bool
-  let isClickable: Bool
+public struct NativeSwiftAccessibilitySnapshot: Sendable {
+  public let role: Int
+  public let mode: Int
+  public let contentDescription: String?
+  public let text: String?
+  public let stateDescription: String?
+  public let isEnabled: Bool
+  public let isClickable: Bool
 }
 
-struct NativeSwiftDrawCommandSnapshot: Sendable {
-  let kind: Int
-  let values: [Float]
-  let colorARGB: UInt32
-  let alpha: Float
-  let strokeWidth: Float
-  let isStroke: Bool
-  let strokeCap: Int
-  let strokeJoin: Int
-  let blendMode: Int
-  let path: [NativeSwiftPathElementSnapshot]
-  let pathWinding: Int
+public struct NativeSwiftDrawCommandSnapshot: Sendable {
+  public let kind: Int
+  public let values: [Float]
+  public let colorARGB: UInt32
+  public let alpha: Float
+  public let strokeWidth: Float
+  public let isStroke: Bool
+  public let strokeCap: Int
+  public let strokeJoin: Int
+  public let blendMode: Int
+  public let path: [NativeSwiftPathElementSnapshot]
+  public let pathWinding: Int
 }
 
-struct NativeSwiftPathElementSnapshot: Sendable {
-  let kind: Int
-  let values: [Float]
+public struct NativeSwiftPathElementSnapshot: Sendable {
+  public let kind: Int
+  public let values: [Float]
 }
 
-enum NativeSwiftEvent: Equatable, Sendable {
+public enum NativeSwiftEvent: Equatable, Sendable {
   case namedAction(name: String, value: NativeSwiftActionValue)
 }
 
-enum NativeSwiftActionValue: Equatable, Sendable {
+public enum NativeSwiftActionValue: Equatable, Sendable {
   case none
   case float(Float)
   case integer(Int)
   case text(String)
 }
 
-struct NativeSwiftInsets: Sendable {
-  var left: Float = 0
-  var top: Float = 0
-  var right: Float = 0
-  var bottom: Float = 0
+public struct NativeSwiftInsets: Sendable {
+  public var left: Float = 0
+  public var top: Float = 0
+  public var right: Float = 0
+  public var bottom: Float = 0
 }
 
-struct NativeSwiftTextSnapshot: Sendable {
-  let value: String
-  let colorARGB: UInt32
-  let size: Float
-  let style: Int
-  let weight: Float
-  let familyID: Int
-  let alignment: Int
-  let overflow: Int
-  let maximumLines: Int
+public struct NativeSwiftTextSnapshot: Sendable {
+  public let value: String
+  public let colorARGB: UInt32
+  public let size: Float
+  public let style: Int
+  public let weight: Float
+  public let familyID: Int
+  public let alignment: Int
+  public let overflow: Int
+  public let maximumLines: Int
+
+  public init(
+    value: String, colorARGB: UInt32, size: Float, style: Int, weight: Float,
+    familyID: Int, alignment: Int, overflow: Int, maximumLines: Int
+  ) {
+    self.value = value
+    self.colorARGB = colorARGB
+    self.size = size
+    self.style = style
+    self.weight = weight
+    self.familyID = familyID
+    self.alignment = alignment
+    self.overflow = overflow
+    self.maximumLines = maximumLines
+  }
 }
 
-struct NativeSwiftCustomSnapshot: Sendable {
-  let config: String
-  let properties: [NativeSwiftCustomPropertySnapshot]
+public struct NativeSwiftCustomSnapshot: Sendable {
+  public let config: String
+  public let properties: [NativeSwiftCustomPropertySnapshot]
 }
 
-struct NativeSwiftCustomPropertySnapshot: Sendable {
-  let id: Int
-  let dataType: Int
-  let floatValue: Float
-  let integerValue: Int
-  let textValue: String?
+public struct NativeSwiftCustomPropertySnapshot: Sendable {
+  public let id: Int
+  public let dataType: Int
+  public let floatValue: Float
+  public let integerValue: Int
+  public let textValue: String?
 }
 
-enum NativeSwiftCoreError: Error, CustomStringConvertible {
+public enum NativeSwiftCoreError: Error, CustomStringConvertible {
   case unsupported(opcode: Int, offset: Int, reason: String)
   case malformed(offset: Int, reason: String)
 
-  var isUnsupported: Bool {
+  public var isUnsupported: Bool {
     if case .unsupported = self { return true }
     return false
   }
 
-  var description: String {
+  public var description: String {
     switch self {
     case .unsupported(let opcode, let offset, let reason):
       return "Unsupported Remote Compose opcode \(opcode) at byte \(offset): \(reason)"
@@ -129,7 +144,7 @@ enum NativeSwiftCoreError: Error, CustomStringConvertible {
 }
 
 /// Retained document state for the first pure-Swift operation family.
-final class NativeSwiftDocumentSession: @unchecked Sendable {
+public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private let document: ParsedDocument
   private var texts: [Int: String]
   private var floats: [Int: Float]
@@ -142,11 +157,11 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
     colors = document.colors
   }
 
-  static func open(data: Data) throws -> NativeSwiftDocumentSession {
+  public static func open(data: Data) throws -> NativeSwiftDocumentSession {
     NativeSwiftDocumentSession(document: try NativeSwiftDocumentDecoder.decode(data))
   }
 
-  func snapshot(timeSeconds: TimeInterval = 0) throws -> NativeSwiftDocumentSnapshot {
+  public func snapshot(timeSeconds: TimeInterval = 0) throws -> NativeSwiftDocumentSnapshot {
     let values = try resolvedFloats(timeSeconds: timeSeconds)
     return NativeSwiftDocumentSnapshot(
       width: document.width,
@@ -155,7 +170,7 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
       needsContinuousFrames: document.needsContinuousFrames)
   }
 
-  func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
+  public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
     guard let node = document.nodes[componentID], node.isClickable,
       node.accessibility?.isEnabled != false
     else { return nil }
@@ -174,7 +189,7 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
   }
 
-  func setFloat(_ value: Float, for name: String) -> Bool {
+  public func setFloat(_ value: Float, for name: String) -> Bool {
     guard value.isFinite, let variable = document.namedVariables[name], variable.type == 1 else {
       return false
     }
@@ -182,7 +197,7 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
     return true
   }
 
-  func setString(_ value: String, for name: String) -> Bool {
+  public func setString(_ value: String, for name: String) -> Bool {
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
       let variable = document.namedVariables[name], variable.type == 0
     else { return false }
@@ -190,13 +205,13 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
     return true
   }
 
-  func setColor(_ value: UInt32, for name: String) -> Bool {
+  public func setColor(_ value: UInt32, for name: String) -> Bool {
     guard let variable = document.namedVariables[name], variable.type == 2 else { return false }
     colors[variable.id] = value
     return true
   }
 
-  func returnCustomText(_ value: String, componentID: Int, propertyID: Int) throws -> Bool {
+  public func returnCustomText(_ value: String, componentID: Int, propertyID: Int) throws -> Bool {
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
       let node = document.nodes[componentID], node.kind == .custom,
       let property = node.custom?.properties.first(where: {
@@ -207,7 +222,7 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
     return true
   }
 
-  func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) throws -> Bool {
+  public func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) throws -> Bool {
     guard value.isFinite, let node = document.nodes[componentID], node.kind == .custom,
       node.custom?.properties.contains(where: {
         $0.type == propertyID && $0.dataType == 3
