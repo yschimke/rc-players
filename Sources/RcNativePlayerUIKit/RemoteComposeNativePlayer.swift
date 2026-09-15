@@ -305,7 +305,8 @@
           }
           try Task.checkCancellation()
           let resources = try await Self.prepareResources(
-            for: model, limits: resourceLimits, resolver: resourceResolver, cache: resourceCache)
+            for: model, limits: resourceLimits, resolver: resourceResolver,
+            cache: resourceCache)
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
           self.retainedSession = session
