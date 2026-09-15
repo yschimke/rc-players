@@ -90,13 +90,14 @@ layout pass. This preserves component identity and mirrors the CMP player's layo
 ordinary UIKit.
 
 Where protocol semantics identify a platform concept, the component also owns the corresponding
-native view. The POC turns `clickable` or button-role components into transparent `UIButton`s above
-their captured visuals. The button supplies UIKit hit testing, focus, enabled state, accessibility
-traits, and inspectable type identity; the command surface preserves the document's appearance.
-This promotion is evidence-based: a click modifier can imply a button, while arbitrary painted
-content does not. Text commands similarly become `UILabel`s rather than Core Graphics glyph calls.
-Image-layout components use `UIImageView`; future mappings include `UISwitch` for switch roles and
-purpose-built `UIControl` subclasses where UIKit has no matching standard control.
+native view. Clickable/button, switch, and image roles become transparent `UIButton`, `UISwitch`,
+and `UIImageView` subclasses over their captured visuals. Checkbox, radio, tab, dropdown, picker,
+and carousel roles use focused transparent `UIControl` overlays because UIKit has no exact standard
+control with the authored Remote Compose contract. These elements supply UIKit hit testing, focus,
+enabled state, accessibility traits, and inspectable type identity; the command surface preserves
+the document's appearance. This promotion is evidence-based: a click modifier can imply a button,
+while arbitrary painted content does not. Text commands similarly become `UILabel`s rather than
+Core Graphics glyph calls. Conceptual image-layout components use visible `UIImageView`s.
 
 The POC resolves fill fractions, proportional weights, wrap and exact sizing, min/max constraints,
 padding, offsets, z-order, visibility, AndroidX linear arrangements, RTL placement, spacing, root
@@ -156,8 +157,11 @@ diagnostics. Each diagnostic records severity, opcode, inventory-derived operati
 id, and reason. The legacy unsupported-opcode and note projections remain on the experimental
 bridge for source compatibility, but Swift treats the structured list as authoritative.
 `RcNativeNodeSnapshot` carries a semantic kind (`root`, `content`, `canvas`, or `group`), component
-id, local commands, children, and resolved role/clickability/enabled/label semantics. Swift converts
-integer kinds and roles to private enums at the boundary.
+id, local commands, children, and resolved role, mode, clickability, enabled, content-description,
+text, and state-description semantics. Swift converts integer kinds, roles, and modes to private
+enums at the boundary. Invalid role/mode values fail decode. Multiple accessibility modifiers on
+one component remain an explicit compatibility diagnostic while the bridge exports one effective
+semantic node.
 
 `RcNativeDrawCommand` is a resolved Core Graphics-friendly value. Its flat six-float payload is not
 proposed as a long-term IR; it keeps the POC's generated Kotlin/Native header small and avoids a
@@ -305,11 +309,17 @@ reports work due and will add deterministic pause/resume clock tests.
 
 ## Accessibility and input
 
-Components have stable accessibility identifiers, making the hierarchy inspectable in tests. A
-recognized button is a real `UIButton`, with its enabled state and accessibility label copied from
-the resolved semantics. That is not full accessibility support: merge/clear modes, state
-descriptions, custom actions, dynamic updates, and non-button roles remain incomplete. A canvas must
-not become one monolithic accessibility element.
+Components have stable accessibility identifiers, making the hierarchy inspectable in tests.
+Semantic roles map to real or focused native views; content description and authored text form a
+de-duplicated label, state description becomes the value, and disabled state becomes both control
+state and the `notEnabled` trait. Set mode exposes the semantic node followed by descendants in
+layout order. Merge and clear-and-set modes hide descendants; merge folds their labels into the
+owning node. A canvas never becomes one monolithic accessibility element merely because it draws.
+
+The wire operation has no checked/selected bit, progress range, or adjustable action callbacks, so
+the player does not guess them from localized state text. Custom accessibility actions, complete
+stateful-control behavior, VoiceOver/Switch Control automation, and explicit high-contrast behavior
+remain outside the current core profile.
 
 Click modifiers map to transparent `UIControl` subclasses owned by the semantic component. UIKit
 hit testing follows the rendered component transform and explicitly orders overlapping children by
@@ -342,6 +352,11 @@ Current checks are:
   host-platform Swift test;
 - `scripts/check-native-uikit-layout.sh` executes pure Swift dimension, weight, arrangement, RTL,
   and dynamic root-resize assertions;
+- `scripts/check-native-uikit-accessibility.sh` executes pure Swift role, merge, clear, and label
+  policy assertions;
+- `scripts/check-native-uikit-accessibility-simulator.sh` renders the packaged native player with
+  Increased Contrast and an accessibility Dynamic Type size, then applies the normal title-card
+  pixel sanity checks;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 

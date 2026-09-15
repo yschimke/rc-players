@@ -98,6 +98,10 @@
     let isClickable: Bool
     let isEnabled: Bool
     let accessibilityLabel: String?
+    let accessibilityText: String?
+    let accessibilityValue: String?
+    let accessibilityMode: NativeAccessibilityMode
+    let hasAccessibilitySemantics: Bool
     let clickActionTypes: [Int]
     let widthType: Int
     let widthValue: CGFloat
@@ -126,6 +130,10 @@
       isClickable = snapshot.clickable
       isEnabled = snapshot.enabled
       accessibilityLabel = snapshot.semanticLabel
+      accessibilityText = snapshot.semanticText
+      accessibilityValue = snapshot.semanticStateDescription
+      accessibilityMode = NativeAccessibilityMode(rawValue: Int(snapshot.semanticMode)) ?? .set
+      hasAccessibilitySemantics = snapshot.hasSemantics
       clickActionTypes = snapshot.clickActionTypes.map { Int(truncating: $0) }
       widthType = Int(snapshot.widthType)
       widthValue = CGFloat(snapshot.widthValue)
@@ -152,6 +160,27 @@
 
     var firstText: String? {
       commands.lazy.compactMap(\.text).first ?? children.lazy.compactMap(\.firstText).first
+    }
+
+    var accessibilityDescriptor: NativeAccessibilityDescriptor? {
+      guard hasAccessibilitySemantics || isClickable else { return nil }
+      return NativeAccessibilityDescriptor(
+        role: NativeAccessibilityRole(rawValue: semanticRole),
+        mode: accessibilityMode,
+        contentDescription: accessibilityLabel,
+        text: accessibilityText,
+        stateDescription: accessibilityValue,
+        isEnabled: isEnabled,
+        isClickable: isClickable)
+    }
+
+    var descendantAccessibilityLabels: [String] {
+      children.flatMap { child in
+        let own = [child.accessibilityLabel, child.accessibilityText, child.firstText].compactMap {
+          $0
+        }
+        return own + child.descendantAccessibilityLabels
+      }
     }
   }
 
@@ -304,6 +333,8 @@
       isOpaque = false
       backgroundColor = .clear
       addSubview(componentView)
+      isAccessibilityElement = false
+      accessibilityElements = componentView.accessibilityOrder
       accessibilityIdentifier = "rc-native-document"
     }
 
@@ -320,6 +351,7 @@
       self.resources = resources
       componentView.update(
         node: document.root, images: resources.images, fontNames: resources.fontNames)
+      accessibilityElements = componentView.accessibilityOrder
       setNeedsLayout()
       return true
     }
@@ -440,7 +472,7 @@
         (canvasView != nil) == !local.drawing.isEmpty,
         textLabels.count == local.text.count,
         imageViews.count == local.images.count,
-        (semanticView != nil) == Self.hasSemanticView(next),
+        Self.semanticView(semanticView, matches: next),
         componentChildren.count == next.children.count
       else { return false }
       return zip(componentChildren, next.children).allSatisfy { child, childNode in
@@ -491,8 +523,27 @@
       return (drawing, text, imageItems)
     }
 
-    private static func hasSemanticView(_ node: NativeNode) -> Bool {
-      node.semanticRole == 0 || node.isClickable
+    private static func semanticView(_ view: UIView?, matches node: NativeNode) -> Bool {
+      guard let descriptor = node.accessibilityDescriptor else { return view == nil }
+      switch descriptor.elementKind {
+      case .button: return view is NativeSemanticButton
+      case .toggle: return view is NativeSemanticSwitch
+      case .image: return view is NativeSemanticImageView
+      default:
+        return (view as? NativeSemanticControl)?.kind == descriptor.elementKind
+      }
+    }
+
+    var accessibilityOrder: [Any] {
+      guard node.visibility == 1 else { return [] }
+      let descendants = componentChildren.flatMap(\.accessibilityOrder)
+      guard let semanticView, let descriptor = node.accessibilityDescriptor else {
+        let local: [Any] =
+          textLabels.filter(\.isAccessibilityElement).map { $0 as Any }
+          + imageViews.filter(\.isAccessibilityElement).map { $0 as Any }
+        return local + descendants
+      }
+      return descriptor.hidesDescendants ? [semanticView] : [semanticView] + descendants
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -749,40 +800,149 @@
       for node: NativeNode,
       onClick: @escaping (Int) -> Void
     ) -> UIView? {
-      // AndroidX role 0 is Button. A click modifier without explicit semantics is promoted too.
-      guard node.semanticRole == 0 || node.isClickable else { return nil }
-      let button = NativeSemanticButton(
-        componentID: node.componentID,
-        action: node.clickActionTypes.isEmpty ? nil : onClick)
-      button.backgroundColor = .clear
-      button.isEnabled = node.isEnabled
-      button.isUserInteractionEnabled = node.isEnabled
-      button.isAccessibilityElement = true
-      button.accessibilityLabel = node.accessibilityLabel ?? node.firstText
-      button.accessibilityIdentifier = "rc-native-button-\(node.componentID)"
-      return button
+      guard let descriptor = node.accessibilityDescriptor else { return nil }
+      let view: UIView
+      switch descriptor.elementKind {
+      case .button: view = NativeSemanticButton(componentID: node.componentID)
+      case .toggle: view = NativeSemanticSwitch(componentID: node.componentID)
+      case .image: view = NativeSemanticImageView(componentID: node.componentID)
+      default:
+        view = NativeSemanticControl(
+          componentID: node.componentID,
+          kind: descriptor.elementKind)
+      }
+      configureSemanticView(view, node: node, descriptor: descriptor, onClick: onClick)
+      return view
     }
 
     private func updateSemanticView(_ view: UIView?, from node: NativeNode) {
-      guard let button = view as? UIButton else { return }
-      button.isEnabled = node.isEnabled
-      button.isUserInteractionEnabled = node.isEnabled
-      button.accessibilityLabel = node.accessibilityLabel ?? node.firstText
-      button.accessibilityIdentifier = "rc-native-button-\(node.componentID)"
-      if let button = button as? NativeSemanticButton {
-        button.componentID = node.componentID
-        button.action = node.clickActionTypes.isEmpty ? nil : onClick
+      guard let view, let descriptor = node.accessibilityDescriptor else { return }
+      Self.configureSemanticView(view, node: node, descriptor: descriptor, onClick: onClick)
+    }
+
+    private static func configureSemanticView(
+      _ view: UIView,
+      node: NativeNode,
+      descriptor: NativeAccessibilityDescriptor,
+      onClick: @escaping (Int) -> Void
+    ) {
+      let action = node.clickActionTypes.isEmpty ? nil : onClick
+      if let activating = view as? any NativeSemanticActivating {
+        activating.componentID = node.componentID
+        activating.action = action
       }
+      if let control = view as? UIControl { control.isEnabled = descriptor.isEnabled }
+      view.backgroundColor = .clear
+      // Semantic-only elements remain in the accessibility tree without swallowing pointer input.
+      view.isUserInteractionEnabled = descriptor.isEnabled && action != nil
+      view.isAccessibilityElement = true
+      view.accessibilityLabel =
+        descriptor.resolvedLabel(descendantLabels: node.descendantAccessibilityLabels)
+        ?? (node.hasAccessibilitySemantics ? nil : node.firstText)
+      view.accessibilityValue = descriptor.stateDescription
+      view.accessibilityTraits = accessibilityTraits(for: descriptor)
+      view.accessibilityIdentifier =
+        "rc-native-\(String(describing: descriptor.elementKind))-\(node.componentID)"
+    }
+
+    private static func accessibilityTraits(
+      for descriptor: NativeAccessibilityDescriptor
+    ) -> UIAccessibilityTraits {
+      var traits: UIAccessibilityTraits
+      switch descriptor.elementKind {
+      case .button, .checkbox, .toggle, .radioButton, .tab, .dropdownList: traits = .button
+      case .image: traits = .image
+      case .picker, .carousel: traits = .adjustable
+      case .generic: traits = []
+      }
+      if !descriptor.isEnabled { traits.insert(.notEnabled) }
+      return traits
     }
   }
 
-  private final class NativeSemanticButton: UIButton {
+  @MainActor
+  private protocol NativeSemanticActivating: AnyObject {
+    var componentID: Int { get set }
+    var action: ((Int) -> Void)? { get set }
+  }
+
+  private final class NativeSemanticButton: UIButton, NativeSemanticActivating {
     var componentID: Int
     var action: ((Int) -> Void)?
 
-    init(componentID: Int, action: ((Int) -> Void)?) {
+    init(componentID: Int) {
       self.componentID = componentID
-      self.action = action
+      action = nil
+      super.init(frame: .zero)
+      addTarget(self, action: #selector(activate), for: .touchUpInside)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      guard isEnabled else { return }
+      action?(componentID)
+    }
+  }
+
+  private final class NativeSemanticSwitch: UISwitch, NativeSemanticActivating {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+
+    init(componentID: Int) {
+      self.componentID = componentID
+      action = nil
+      super.init(frame: .zero)
+      // The document still owns pixels. The native switch owns identity, focus, value semantics,
+      // and activation without drawing a second switch over the captured document appearance.
+      layer.opacity = 0
+      addTarget(self, action: #selector(activate), for: .valueChanged)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      guard isEnabled else { return }
+      action?(componentID)
+    }
+  }
+
+  private final class NativeSemanticImageView: UIImageView, NativeSemanticActivating {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+
+    init(componentID: Int) {
+      self.componentID = componentID
+      action = nil
+      super.init(frame: .zero)
+      addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(activate)))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      action?(componentID)
+    }
+  }
+
+  private final class NativeSemanticControl: UIControl, NativeSemanticActivating {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+    let kind: NativeAccessibilityElementKind
+
+    init(componentID: Int, kind: NativeAccessibilityElementKind) {
+      self.componentID = componentID
+      self.kind = kind
+      action = nil
       super.init(frame: .zero)
       addTarget(self, action: #selector(activate), for: .touchUpInside)
     }

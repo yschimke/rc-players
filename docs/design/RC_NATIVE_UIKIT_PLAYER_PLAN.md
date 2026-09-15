@@ -30,7 +30,8 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 5 — Bounded resources | Implemented | Inline/referenced images, `UIImageView` promotion, ordered canvas images, embedded fonts, limits, cache, resolver cancellation, and typed failures |
 | 6 — Retained session | Core implemented | Off-main decode, retained codec/link/state, immutable frames, stable component reconciliation, generation cancellation, and atomic replacement |
 | 7 — Named values, actions, and input | Core implemented | Typed float/string/color updates, ordered host events, single-click dispatch, semantic controls, and UIKit visual-order hit testing |
-| 8–11 | Planned | Ordered below |
+| 8 — Semantic UIKit components and accessibility | Core implemented | Native role identity, label/text/value mapping, merge/clear behavior, deterministic VoiceOver order, enabled state, and policy tests |
+| 9–11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -181,7 +182,7 @@ Acceptance:
 - hit testing honors transforms, clipping, enabled state, and z-order;
 - replacing a document cannot deliver stale callbacks from the old session.
 
-### 8. Expand semantic UIKit components and accessibility
+### 8. Expand semantic UIKit components and accessibility — core implemented
 
 Map explicit roles/states to `UIButton`, `UISwitch`, progress views, image views, and focused custom
 `UIControl` subclasses where behavior aligns. Do not infer controls from appearance. Build a stable
@@ -193,6 +194,23 @@ Acceptance:
 - VoiceOver order follows semantic/layout order, not incidental canvas order;
 - Dynamic Type, high contrast, Reduce Motion, and Switch Control behavior is tested;
 - visual and semantic hit targets remain synchronized after updates.
+
+The core semantic slice preserves the three distinct authored strings: content description and text
+form the accessibility label, while state description becomes the accessibility value. Explicit
+button, switch, and image roles own transparent `UIButton`, `UISwitch`, and `UIImageView` subclasses;
+checkbox, radio, tab, dropdown, picker, and carousel roles use focused `UIControl` overlays with
+role-appropriate button or adjustable traits. The document still owns pixels. Set semantics expose
+their children in stable layout order, while merge and clear-and-set semantics replace descendants
+with one element; merge de-duplicates descendant labels. Role/mode bounds fail at decode, and
+multiple modifiers remain diagnosed because the current bridge intentionally exports one effective
+semantic node.
+
+The protocol semantics operation does not carry checked/selected state, a progress range, custom
+accessibility actions, or adjustable increment/decrement actions. The player does not infer those
+from localized state-description text. `UISwitch` therefore supplies native identity and activation
+but only exposes the authored state description as its value. Stateful controls, custom actions,
+VoiceOver UI automation, high-contrast policy, and Switch Control verification remain required
+before the package can drop its `core implemented` qualifier.
 
 ### 9. Add deterministic time and animation
 
