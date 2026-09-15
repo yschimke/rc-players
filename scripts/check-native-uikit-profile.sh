@@ -52,8 +52,14 @@ assert profile["interaction"] == {
 }, "interaction must match the reviewed core-v1 capability set"
 
 fixtures = {item["id"]: item["coverage"] for item in profile["verifiedFixtures"]}
-assert "simulator-pixels" in fixtures["TitleCardRemote-640x480"]
-assert "simulator-motion" in fixtures["IndeterminateCircularProgress-400x400"]
+assert fixtures == {
+    "TitleCardRemote-640x480": [
+        "layout", "native-text", "canvas-paint", "simulator-pixels",
+    ],
+    "IndeterminateCircularProgress-400x400": [
+        "component-geometry", "continuous-time", "arc-paint", "simulator-motion",
+    ],
+}, "verifiedFixtures must match the reviewed core-v1 evidence set"
 
 limits = profile["defaultLimits"]
 required_limits = {
@@ -115,8 +121,14 @@ assert limits == implemented_limits, (
 )
 
 distribution = profile["distribution"]
-for name in ("standaloneArchive", "archiveChecksum", "profileAsset", "profileChecksum"):
-    assert distribution[name]
+assert distribution == {
+    "repositoryProduct": "RcNativePlayerUIKit",
+    "standaloneArchive": "RcNativePlayerUIKit.swiftpackage.zip",
+    "archiveChecksum": "RcNativePlayerUIKit.swiftpackage.zip.sha256",
+    "profileAsset": "RcNativePlayerUIKit.profile.json",
+    "profileChecksum": "RcNativePlayerUIKit.profile.json.sha256",
+    "buildWorkflow": ".github/workflows/release.yml",
+}, "distribution must match the reviewed core-v1 artifact contract"
 
 source_checks = {
     "distribution/native-uikit/Package.swift": ["platforms: [.iOS(.v13)]"],
