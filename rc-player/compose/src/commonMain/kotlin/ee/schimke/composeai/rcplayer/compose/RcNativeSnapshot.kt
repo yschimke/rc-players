@@ -944,10 +944,19 @@ public object RcNativeSnapshotBridge {
       }
       val clickable = semantics?.clickable == true || hasClickModifier
       val label =
-        semantics?.let { state.text(it.contentDescriptionId) }?.takeUnless(String::isBlank)
-      val semanticText = semantics?.let { state.text(it.textId) }?.takeUnless(String::isBlank)
+        semantics
+          ?.contentDescriptionId
+          ?.takeUnless { it == 0 }
+          ?.let(state::text)
+          ?.takeUnless(String::isBlank)
+      val semanticText =
+        semantics?.textId?.takeUnless { it == 0 }?.let(state::text)?.takeUnless(String::isBlank)
       val semanticStateDescription =
-        semantics?.let { state.text(it.stateDescriptionId) }?.takeUnless(String::isBlank)
+        semantics
+          ?.stateDescriptionId
+          ?.takeUnless { it == 0 }
+          ?.let(state::text)
+          ?.takeUnless(String::isBlank)
       // AndroidX fixes each axis at the first size modifier in wire order.
       val width = directOperations.filterIsInstance<RcWidthModifier>().firstOrNull()
       val height = directOperations.filterIsInstance<RcHeightModifier>().firstOrNull()

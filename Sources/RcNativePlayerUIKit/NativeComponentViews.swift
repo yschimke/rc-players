@@ -888,7 +888,8 @@
       onClick: @escaping (Int) -> Void
     ) {
       let descriptor = behavior.descriptor
-      let action = behavior.clickActionTypes.isEmpty ? nil : onClick
+      let action =
+        descriptor.isEnabled && !behavior.clickActionTypes.isEmpty ? onClick : nil
       if let activating = view as? any NativeSemanticActivating {
         activating.componentID = behavior.componentID
         activating.action = action
