@@ -43,12 +43,18 @@
     ) throws {
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
+      try budget.recordStrings(
+        snapshot.notes.map { Optional($0) }
+          + snapshot.diagnostics.flatMap { [Optional($0.operationName), Optional($0.reason)] },
+        limits: limits)
       try budget.validateDocumentDimensions(
         [Double(snapshot.width), Double(snapshot.height)], limits: limits)
       var pending: [(node: RcNativeNodeSnapshot, depth: Int)] = [(snapshot.root, 1)]
       while let current = pending.popLast() {
         let node = current.node
         try budget.recordNode(depth: current.depth, limits: limits)
+        try budget.recordStrings(
+          [node.semanticLabel, node.semanticText, node.semanticStateDescription], limits: limits)
         let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
         let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
         let widthValue =
@@ -73,7 +79,9 @@
           let gradientWork = command.gradient.map { $0.colors.count + $0.stops.count + 4 } ?? 0
           try budget.recordCommand(
             pathElementCount: command.path.count, additionalWork: gradientWork,
-            text: command.text, limits: limits)
+            strings: [
+              command.text, command.image?.contentDescription, command.textStyle?.fontFamilyName,
+            ], limits: limits)
           let style = command.textStyle
           var commandGeometry = [
             command.first, command.second, command.third, command.fourth, command.fifth,

@@ -25,28 +25,35 @@ enum NativeExecutionLimitsTests {
     var commands = NativeFrameBudget()
     let commandLimit = RemoteComposeNativeExecutionLimits(
       maximumDrawCommandCount: 1, maximumPathElementCount: 1)
-    try commands.recordCommand(pathElementCount: 1, text: "ok", limits: commandLimit)
+    try commands.recordCommand(pathElementCount: 1, strings: ["ok"], limits: commandLimit)
     expect(.tooManyDrawCommands(actual: 2, maximum: 1)) {
-      try commands.recordCommand(pathElementCount: 0, text: nil, limits: commandLimit)
+      try commands.recordCommand(pathElementCount: 0, limits: commandLimit)
     }
 
     var paths = NativeFrameBudget()
     expect(.tooManyPathElements(actual: 2, maximum: 1)) {
       try paths.recordCommand(
-        pathElementCount: 2, text: nil,
+        pathElementCount: 2,
         limits: RemoteComposeNativeExecutionLimits(maximumPathElementCount: 1))
     }
 
     var text = NativeFrameBudget()
     expect(.textTooLong(actual: 4, maximum: 3)) {
       try text.recordCommand(
-        pathElementCount: 0, text: "éé",
+        pathElementCount: 0, strings: ["éé"],
         limits: RemoteComposeNativeExecutionLimits(maximumTextBytes: 3))
+    }
+    var repeatedText = NativeFrameBudget()
+    try repeatedText.recordStrings(
+      ["abc"], limits: RemoteComposeNativeExecutionLimits(maximumTextBytes: 5))
+    expect(.textTooLong(actual: 6, maximum: 5)) {
+      try repeatedText.recordStrings(
+        ["abc"], limits: RemoteComposeNativeExecutionLimits(maximumTextBytes: 5))
     }
     var aggregateText = NativeFrameBudget()
     expect(.frameWorkExceeded(actual: 5, maximum: 4)) {
       try aggregateText.recordCommand(
-        pathElementCount: 0, text: "text",
+        pathElementCount: 0, strings: ["text"],
         limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 4))
     }
 
@@ -76,13 +83,13 @@ enum NativeExecutionLimitsTests {
     var work = NativeFrameBudget()
     expect(.frameWorkExceeded(actual: 3, maximum: 2)) {
       try work.recordCommand(
-        pathElementCount: 2, text: nil,
+        pathElementCount: 2,
         limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 2))
     }
     var gradients = NativeFrameBudget()
     expect(.frameWorkExceeded(actual: 6, maximum: 5)) {
       try gradients.recordCommand(
-        pathElementCount: 0, additionalWork: 5, text: nil,
+        pathElementCount: 0, additionalWork: 5,
         limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 5))
     }
 

@@ -65,7 +65,7 @@ public enum RemoteComposeNativeLimitError: Error, Equatable, LocalizedError, Sen
     case .tooManyPathElements(let actual, let maximum):
       return "Native frame contains \(actual) path elements; the limit is \(maximum)"
     case .textTooLong(let actual, let maximum):
-      return "Native text is \(actual) UTF-8 bytes; the per-command limit is \(maximum)"
+      return "Native frame text is \(actual) UTF-8 bytes; the limit is \(maximum)"
     case .invalidCanvasDimension(let actual):
       return "Native canvas dimension must be finite and positive; got \(actual)"
     case .canvasTooLarge(let actual, let maximum):
@@ -84,6 +84,7 @@ struct NativeFrameBudget: Equatable, Sendable {
   private(set) var nodes = 0
   private(set) var drawCommands = 0
   private(set) var pathElements = 0
+  private(set) var textBytes = 0
   private(set) var work = 0
 
   static func validate(_ limits: RemoteComposeNativeExecutionLimits) throws {
@@ -119,13 +120,12 @@ struct NativeFrameBudget: Equatable, Sendable {
   }
 
   mutating func recordCommand(
-    pathElementCount: Int, additionalWork: Int = 0, text: String?,
+    pathElementCount: Int, additionalWork: Int = 0, strings: [String?] = [],
     limits: RemoteComposeNativeExecutionLimits
   ) throws {
-    let textByteCount = text?.utf8.count ?? 0
     drawCommands += 1
     pathElements += pathElementCount
-    work += 1 + pathElementCount + additionalWork + textByteCount
+    work += 1 + pathElementCount + additionalWork
     guard drawCommands <= limits.maximumDrawCommandCount else {
       throw RemoteComposeNativeLimitError.tooManyDrawCommands(
         actual: drawCommands, maximum: limits.maximumDrawCommandCount)
@@ -134,11 +134,19 @@ struct NativeFrameBudget: Equatable, Sendable {
       throw RemoteComposeNativeLimitError.tooManyPathElements(
         actual: pathElements, maximum: limits.maximumPathElementCount)
     }
-    if text != nil {
-      guard textByteCount <= limits.maximumTextBytes else {
-        throw RemoteComposeNativeLimitError.textTooLong(
-          actual: textByteCount, maximum: limits.maximumTextBytes)
-      }
+    try recordStrings(strings, limits: limits)
+    try validateWork(limits)
+  }
+
+  mutating func recordStrings(
+    _ strings: [String?], limits: RemoteComposeNativeExecutionLimits
+  ) throws {
+    let addedBytes = strings.compactMap { $0 }.reduce(0) { $0 + $1.utf8.count }
+    textBytes += addedBytes
+    work += addedBytes
+    guard textBytes <= limits.maximumTextBytes else {
+      throw RemoteComposeNativeLimitError.textTooLong(
+        actual: textBytes, maximum: limits.maximumTextBytes)
     }
     try validateWork(limits)
   }
