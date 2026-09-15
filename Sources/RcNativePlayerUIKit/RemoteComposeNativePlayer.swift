@@ -103,6 +103,7 @@
     private var inputTail: Task<Void, Never>?
     private var loadGeneration: UInt64 = 0
     private var inputGeneration: UInt64 = 0
+    private var lifecycleGeneration: UInt64 = 0
     private var sessionEpoch: UInt64 = 0
     private var retainedSessionEpoch: UInt64 = 0
     private var isApplicationActive = true
@@ -308,6 +309,7 @@
       loadTask?.cancel()
       loadGeneration &+= 1
       let epoch = sessionEpoch
+      let lifecycle = lifecycleGeneration
       let time = currentFrameTime
       let (input, task) = enqueueInput {
         try await operation(retainedSession, time)
@@ -315,11 +317,13 @@
       switch await task.value {
       case .success(let update):
         guard
+          isApplicationActive, lifecycle == lifecycleGeneration,
           epoch == sessionEpoch, retainedSessionEpoch == epoch,
           self.retainedSession === retainedSession
         else { return update.accepted }
         guard input == inputGeneration else {
-          dispatch(update.events, from: retainedSession, epoch: epoch)
+          dispatch(
+            update.events, from: retainedSession, epoch: epoch, lifecycle: lifecycle)
           return update.accepted
         }
         do {
@@ -327,13 +331,16 @@
           try validate(model)
           guard
             input == inputGeneration, epoch == sessionEpoch, retainedSessionEpoch == epoch,
+            lifecycle == lifecycleGeneration, isApplicationActive,
             self.retainedSession === retainedSession
           else { return update.accepted }
           try install(model, resources: retainedResources)
-          dispatch(update.events, from: retainedSession, epoch: epoch)
+          dispatch(
+            update.events, from: retainedSession, epoch: epoch, lifecycle: lifecycle)
           return update.accepted
         } catch {
           guard
+            isApplicationActive, lifecycle == lifecycleGeneration,
             epoch == sessionEpoch, retainedSessionEpoch == epoch,
             self.retainedSession === retainedSession
           else { return false }
@@ -341,7 +348,9 @@
           return false
         }
       case .failure(let error):
-        guard epoch == sessionEpoch else { return false }
+        guard
+          isApplicationActive, lifecycle == lifecycleGeneration, epoch == sessionEpoch
+        else { return false }
         if !(error is CancellationError) { show(error: error) }
         return false
       }
@@ -369,10 +378,12 @@
     private func dispatch(
       _ events: [RemoteComposeNativePlayerEvent],
       from session: NativeSnapshotSessionHandle,
-      epoch: UInt64
+      epoch: UInt64,
+      lifecycle: UInt64
     ) {
       for event in events {
         guard
+          isApplicationActive, lifecycle == lifecycleGeneration,
           epoch == sessionEpoch, retainedSessionEpoch == epoch,
           retainedSession === session
         else { return }
@@ -485,6 +496,8 @@
       loadTask = nil
       pendingWork = nil
       loadGeneration &+= 1
+      inputGeneration &+= 1
+      lifecycleGeneration &+= 1
     }
 
     @objc private func applicationDidBecomeActive() {
