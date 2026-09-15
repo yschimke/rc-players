@@ -162,7 +162,7 @@
       commands.lazy.compactMap(\.text).first ?? children.lazy.compactMap(\.firstText).first
     }
 
-    private var localAccessibilityLabels: [String] {
+    var localAccessibilityLabels: [String] {
       [accessibilityLabel, accessibilityText].compactMap { $0 }
         + commands.flatMap { command in
           [command.text, command.image?.contentDescription].compactMap { $0 }
@@ -181,10 +181,28 @@
         isClickable: isClickable)
     }
 
-    var descendantAccessibilityLabels: [String] {
-      children.flatMap { child in
-        child.localAccessibilityLabels + child.descendantAccessibilityLabels
+    var effectiveAccessibilityLabels: [String] {
+      guard visibility == 1 else { return [] }
+      let descendants = children.flatMap(\.effectiveAccessibilityLabels)
+      guard let descriptor = accessibilityDescriptor else {
+        return localAccessibilityLabels + descendants
       }
+      switch descriptor.mode {
+      case .clearAndSet:
+        return [descriptor.resolvedLabel(descendantLabels: [])].compactMap { $0 }
+      case .merge:
+        return [
+          descriptor.resolvedLabel(
+            descendantLabels: localAccessibilityLabels + descendants)
+        ].compactMap { $0 }
+      case .set:
+        return [descriptor.resolvedLabel(descendantLabels: [])].compactMap { $0 }
+          + localAccessibilityLabels + descendants
+      }
+    }
+
+    var descendantAccessibilityLabels: [String] {
+      children.flatMap(\.effectiveAccessibilityLabels)
     }
   }
 
@@ -541,13 +559,13 @@
     var accessibilityOrder: [Any] {
       guard node.visibility == 1 else { return [] }
       let descendants = componentChildren.flatMap(\.accessibilityOrder)
+      let local: [Any] =
+        textLabels.filter(\.isAccessibilityElement).map { $0 as Any }
+        + imageViews.filter(\.isAccessibilityElement).map { $0 as Any }
       guard let semanticView, let descriptor = node.accessibilityDescriptor else {
-        let local: [Any] =
-          textLabels.filter(\.isAccessibilityElement).map { $0 as Any }
-          + imageViews.filter(\.isAccessibilityElement).map { $0 as Any }
         return local + descendants
       }
-      return descriptor.hidesDescendants ? [semanticView] : [semanticView] + descendants
+      return descriptor.hidesDescendants ? [semanticView] : [semanticView] + local + descendants
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -840,8 +858,10 @@
       // Semantic-only elements remain in the accessibility tree without swallowing pointer input.
       view.isUserInteractionEnabled = descriptor.isEnabled && action != nil
       view.isAccessibilityElement = true
+      let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
       view.accessibilityLabel =
-        descriptor.resolvedLabel(descendantLabels: node.descendantAccessibilityLabels)
+        descriptor.resolvedLabel(
+          descendantLabels: descriptor.mode == .merge ? mergedLabels : [])
         ?? (node.hasAccessibilitySemantics ? nil : node.firstText)
       view.accessibilityValue = descriptor.stateDescription
       view.accessibilityTraits = accessibilityTraits(for: descriptor)
