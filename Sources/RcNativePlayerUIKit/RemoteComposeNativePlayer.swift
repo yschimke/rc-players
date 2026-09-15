@@ -83,7 +83,6 @@
     private var retainedSession: NativeSnapshotSessionHandle?
     private var retainedResources: NativeResourceStore?
     private var resourceCache: NativeImageCache
-    private var fontRegistry: NativeFontRegistry
     private let errorLabel = UILabel()
 
     public init(
@@ -101,7 +100,6 @@
       resourceCache = NativeImageCache(
         countLimit: resourceLimits.maximumResourceCount,
         totalCostLimit: resourceLimits.maximumDecodedImageBytes)
-      fontRegistry = NativeFontRegistry(countLimit: resourceLimits.maximumResourceCount)
       self.onDiagnostics = onDiagnostics
       super.init(frame: .zero)
       isApplicationActive = UIApplication.shared.applicationState != .background
@@ -159,8 +157,6 @@
       resourceCache = NativeImageCache(
         countLimit: limits.maximumResourceCount,
         totalCostLimit: limits.maximumDecodedImageBytes)
-      fontRegistry.reset()
-      fontRegistry = NativeFontRegistry(countLimit: limits.maximumResourceCount)
       if let documentData { render(documentData) }
     }
 
@@ -173,7 +169,6 @@
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
-      fontRegistry.reset()
       loadTask = Task { [weak self] in
         do {
           let (session, frame) = try await NativeSnapshotSessionHandle.open(data: data)
@@ -181,6 +176,8 @@
           guard let self, generation == self.loadGeneration else { return }
           let model = NativeDocument(snapshot: frame.snapshot)
           try self.validate(model)
+          try Task.checkCancellation()
+          guard generation == self.loadGeneration else { return }
           let resources = try await self.prepareResources(for: model, generation: generation)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
@@ -198,6 +195,7 @@
     /// Resolve another immutable frame from the retained runtime without decoding the document.
     public func renderFrame(at timeSeconds: TimeInterval) {
       guard isApplicationActive else { return }
+      guard loadTask == nil else { return }
       guard let retainedSession, let retainedResources else { return }
       loadTask?.cancel()
       loadGeneration &+= 1
@@ -238,8 +236,7 @@
         resources: model.images,
         fonts: model.fonts,
         limits: resourceLimits,
-        cache: resourceCache,
-        fontRegistry: fontRegistry)
+        cache: resourceCache)
       if !resources.unresolvedImages.isEmpty {
         guard let resourceResolver else {
           throw RemoteComposeNativeResourceError.unresolvedReference(

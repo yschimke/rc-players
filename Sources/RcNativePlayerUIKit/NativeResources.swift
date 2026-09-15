@@ -278,8 +278,15 @@ enum NativeImageGeometry {
 
   @MainActor
   final class NativeFontRegistry {
+    private struct Registration {
+      let data: Data
+      let url: URL
+      var ownerCount: Int
+    }
+
+    private static var processRegistrations: [String: Registration] = [:]
     private let countLimit: Int
-    private var registered: [String: URL] = [:]
+    private var ownedNames = Set<String>()
 
     init(countLimit: Int) {
       self.countLimit = countLimit
@@ -291,10 +298,24 @@ enum NativeImageGeometry {
         let cgFont = CGFont(provider),
         let postScriptName = cgFont.postScriptName as String?
       else { throw RemoteComposeNativeResourceError.corruptFont(id: id) }
-      if registered[postScriptName] != nil { return postScriptName }
-      guard registered.count < countLimit else {
+      if ownedNames.contains(postScriptName) {
+        guard Self.processRegistrations[postScriptName]?.data == data else {
+          throw RemoteComposeNativeResourceError.corruptFont(id: id)
+        }
+        return postScriptName
+      }
+      guard ownedNames.count < countLimit else {
         throw RemoteComposeNativeResourceError.tooManyResources(
-          actual: registered.count + 1, maximum: countLimit)
+          actual: ownedNames.count + 1, maximum: countLimit)
+      }
+      if var existing = Self.processRegistrations[postScriptName] {
+        guard existing.data == data else {
+          throw RemoteComposeNativeResourceError.corruptFont(id: id)
+        }
+        existing.ownerCount += 1
+        Self.processRegistrations[postScriptName] = existing
+        ownedNames.insert(postScriptName)
+        return postScriptName
       }
       let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("rc-native-font-\(UUID().uuidString)")
@@ -302,7 +323,9 @@ enum NativeImageGeometry {
       try data.write(to: url, options: [.atomic])
       var registrationError: Unmanaged<CFError>?
       if CTFontManagerRegisterFontsForURL(url as CFURL, .process, &registrationError) {
-        registered[postScriptName] = url
+        Self.processRegistrations[postScriptName] = Registration(
+          data: data, url: url, ownerCount: 1)
+        ownedNames.insert(postScriptName)
       } else {
         try? FileManager.default.removeItem(at: url)
         throw RemoteComposeNativeResourceError.corruptFont(id: id)
@@ -311,19 +334,27 @@ enum NativeImageGeometry {
     }
 
     func reset() {
-      for url in registered.values {
-        var error: Unmanaged<CFError>?
-        CTFontManagerUnregisterFontsForURL(url as CFURL, .process, &error)
-        try? FileManager.default.removeItem(at: url)
-      }
-      registered.removeAll()
+      Self.release(ownedNames)
+      ownedNames.removeAll()
     }
 
     deinit {
-      for url in registered.values {
-        var error: Unmanaged<CFError>?
-        CTFontManagerUnregisterFontsForURL(url as CFURL, .process, &error)
-        try? FileManager.default.removeItem(at: url)
+      let names = ownedNames
+      Task { @MainActor in Self.release(names) }
+    }
+
+    private static func release(_ names: Set<String>) {
+      for name in names {
+        guard var registration = Self.processRegistrations[name] else { continue }
+        registration.ownerCount -= 1
+        if registration.ownerCount == 0 {
+          var error: Unmanaged<CFError>?
+          CTFontManagerUnregisterFontsForURL(registration.url as CFURL, .process, &error)
+          try? FileManager.default.removeItem(at: registration.url)
+          Self.processRegistrations.removeValue(forKey: name)
+        } else {
+          Self.processRegistrations[name] = registration
+        }
       }
     }
   }
@@ -340,13 +371,13 @@ enum NativeImageGeometry {
     private var retainedImages = Set<ObjectIdentifier>()
 
     private let cache: NativeImageCache
+    private let fontRegistry: NativeFontRegistry
 
     init(
       resources: [NativeImageResource],
       fonts: [NativeFontResource],
       limits: RemoteComposeNativeResourceLimits,
-      cache: NativeImageCache,
-      fontRegistry: NativeFontRegistry
+      cache: NativeImageCache
     ) throws {
       try NativeResourcePolicy.validate(limits: limits)
       guard resources.count + fonts.count <= limits.maximumResourceCount else {
@@ -357,6 +388,7 @@ enum NativeImageGeometry {
       try NativeResourcePolicy.validateUniqueIDs(fonts.map(\.id))
       self.limits = limits
       self.cache = cache
+      fontRegistry = NativeFontRegistry(countLimit: limits.maximumResourceCount)
       resourcesByID = Dictionary(uniqueKeysWithValues: resources.map { ($0.id, $0) })
       var unresolved: [RemoteComposeNativeResourceRequest] = []
       for resource in resources {
