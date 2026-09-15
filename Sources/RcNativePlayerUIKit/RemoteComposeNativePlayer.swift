@@ -319,14 +319,14 @@
           self.retainedSession === retainedSession
         else { return update.accepted }
         guard input == inputGeneration else {
-          update.events.forEach(onEvent)
+          dispatch(update.events, from: retainedSession, epoch: epoch)
           return update.accepted
         }
         do {
           let model = NativeDocument(snapshot: update.frame.snapshot)
           try validate(model)
           try install(model, resources: retainedResources)
-          update.events.forEach(onEvent)
+          dispatch(update.events, from: retainedSession, epoch: epoch)
           return update.accepted
         } catch {
           show(error: error)
@@ -356,6 +356,20 @@
       }
       inputTail = Task { _ = await task.value }
       return (input, task)
+    }
+
+    private func dispatch(
+      _ events: [RemoteComposeNativePlayerEvent],
+      from session: NativeSnapshotSessionHandle,
+      epoch: UInt64
+    ) {
+      for event in events {
+        guard
+          epoch == sessionEpoch, retainedSessionEpoch == epoch,
+          retainedSession === session
+        else { return }
+        onEvent(event)
+      }
     }
 
     private func validate(_ model: NativeDocument) throws {
@@ -445,7 +459,7 @@
               return
             }
           }
-          update.events.forEach(self.onEvent)
+          self.dispatch(update.events, from: retainedSession, epoch: epoch)
         case .failure(let error):
           guard let self, epoch == self.sessionEpoch else { return }
           if !(error is CancellationError) { self.show(error: error) }

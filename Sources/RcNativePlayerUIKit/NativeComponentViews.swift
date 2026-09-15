@@ -496,10 +496,9 @@
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-      guard
-        isUserInteractionEnabled, !isHidden, alpha > 0.01,
-        self.point(inside: point, with: event)
-      else { return nil }
+      guard isUserInteractionEnabled, !isHidden, alpha > 0.01 else { return nil }
+      let isInside = self.point(inside: point, with: event)
+      if clipsToBounds, !isInside { return nil }
       if clipsToBounds, layer.cornerRadius > 0,
         !UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).contains(point)
       {
@@ -518,7 +517,7 @@
       for (_, child) in frontToBack {
         if let hit = child.hitTest(convert(point, to: child), with: event) { return hit }
       }
-      guard let semanticView else { return nil }
+      guard isInside, let semanticView else { return nil }
       return semanticView.hitTest(convert(point, to: semanticView), with: event)
     }
 

@@ -16,6 +16,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
+import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
+import ee.schimke.composeai.rcplayer.protocol.RcHapticType
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHostAction
@@ -273,6 +275,29 @@ class RcNativeSnapshotTest {
     assertEquals(listOf(RcNativeNodeSnapshot.CLICK), node.clickActionTypes)
     assertTrue(node.clickable)
     assertTrue(snapshot.diagnostics.isEmpty())
+  }
+
+  @Test
+  fun diagnosesUnsupportedEffectsInsideSupportedClicks() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(9),
+          RcClickModifier,
+          RcHapticFeedback(RcHapticType.Confirm),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+
+    assertTrue(
+      snapshot.diagnostics.any {
+        it.opcode == RcOpcodes.HAPTIC_FEEDBACK && it.severity == RcNativeDiagnostic.UNSUPPORTED
+      }
+    )
   }
 
   @Test

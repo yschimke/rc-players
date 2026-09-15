@@ -822,6 +822,15 @@ public object RcNativeSnapshotBridge {
             "${multi.type.name.lowercase()} click dispatch is not implemented by the native player",
           )
         }
+        descendantOperations(modifier)
+          .filter { it.opcode == RcOpcodes.HAPTIC_FEEDBACK || it.opcode == RcOpcodes.PLAY_SOUND }
+          .forEach { effect ->
+            diagnostics.unsupportedLimitation(
+              effect,
+              componentId,
+              "Haptic and sound click effects are not implemented by the native player",
+            )
+          }
       }
       for (child in container.children) {
         when (child) {
