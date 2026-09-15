@@ -603,7 +603,8 @@
       guard let semanticView, let descriptor = node.semanticBehavior?.descriptor else {
         return local + descendants
       }
-      return descriptor.hidesDescendants ? [semanticView] : [semanticView] + local + descendants
+      let owner = semanticView.isAccessibilityElement ? [semanticView] : []
+      return descriptor.hidesDescendants ? owner : owner + local + descendants
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -913,14 +914,17 @@
       // Semantic-only elements remain in the accessibility tree without swallowing pointer input.
       view.isUserInteractionEnabled =
         descriptor.isEnabled && action != nil && behavior.acceptsPointerAction
-      view.isAccessibilityElement = true
       let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
-      view.accessibilityLabel =
+      let label =
         descriptor.resolvedLabel(
           descendantLabels: descriptor.mode == .merge ? mergedLabels : [])
         ?? (node.hasAccessibilitySemantics ? nil : node.firstText)
+      let traits = accessibilityTraits(for: descriptor)
+      view.isAccessibilityElement =
+        label != nil || descriptor.stateDescription != nil || !traits.isEmpty || action != nil
+      view.accessibilityLabel = label
       view.accessibilityValue = descriptor.stateDescription
-      view.accessibilityTraits = accessibilityTraits(for: descriptor)
+      view.accessibilityTraits = traits
       view.accessibilityIdentifier =
         "rc-native-\(String(describing: descriptor.elementKind))-\(node.componentID)"
     }
