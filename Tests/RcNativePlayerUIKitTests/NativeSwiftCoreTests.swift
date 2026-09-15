@@ -39,6 +39,16 @@ enum NativeSwiftCoreTests {
       precondition(first.root.allCommandValues != second.root.allCommandValues)
       precondition(first.root.allCommandValues.count >= 15)
     }
+    if CommandLine.arguments.count == 6 {
+      for (path, size) in zip(
+        CommandLine.arguments[4...5], [(384, 384), (454, 400)])
+      {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        let snapshot = try NativeSwiftDocumentSession.open(data: data).snapshot()
+        precondition(snapshot.width == size.0 && snapshot.height == size.1)
+        precondition(snapshot.root.allCommandKinds.contains(15))
+      }
+    }
     let session = try NativeSwiftDocumentSession.open(data: wire)
     let initial = try session.snapshot()
     precondition(initial.width == 360 && initial.height == 150)
@@ -93,6 +103,34 @@ enum NativeSwiftCoreTests {
     let pathSnapshot = try NativeSwiftDocumentSession.open(data: drawPath.data).snapshot()
     let pathCommand = pathSnapshot.root.children[0].children[0].commands[0]
     precondition(pathCommand.kind == 18 && pathCommand.path.count == 2)
+
+    let staticDrawing = Writer()
+    staticDrawing.header(width: 100, height: 100)
+    staticDrawing.u8(123).int(42).int(5)
+      .int(Writer.nanReference(10)).float(0).float(0)
+      .int(Writer.nanReference(15)).int(Writer.nanReference(16))
+    staticDrawing.u8(200).int(1).u8(205).int(2).int(-1)
+    for (opcode, values) in [
+      (39, [Float(0), 0, 90, 90]),
+      (127, [5, 6]),
+      (126, [1.2, 0.8, Float.nan, Float.nan]),
+      (128, [0.1, 0.2]),
+      (42, [0, 0, 20, 20]),
+      (46, [20, 20, 10]),
+      (47, [0, 0, 30, 30]),
+      (51, [0, 0, 40, 40, 4, 4]),
+      (52, [0, 0, 40, 40, 0, 90]),
+      (56, [0, 0, 30, 20]),
+    ] {
+      staticDrawing.u8(opcode)
+      for value in values { staticDrawing.float(value) }
+    }
+    staticDrawing.u8(38).int(42).u8(214).u8(214).u8(214)
+    let drawingCommands =
+      try NativeSwiftDocumentSession.open(data: staticDrawing.data).snapshot().root.children[0]
+        .commands
+    precondition(drawingCommands.map(\.kind) == [6, 2, 3, 5, 10, 12, 13, 14, 16, 11, 7])
+    precondition(drawingCommands.last?.path.count == 2)
 
     let semantics = Writer()
     semantics.header(width: 100, height: 100)
@@ -217,6 +255,10 @@ extension NativeSwiftNodeSnapshot {
 
   fileprivate var allCommandValues: [Float] {
     commands.flatMap(\.values) + children.flatMap(\.allCommandValues)
+  }
+
+  fileprivate var allCommandKinds: [Int] {
+    commands.map(\.kind) + children.flatMap(\.allCommandKinds)
   }
 }
 

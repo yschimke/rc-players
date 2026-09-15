@@ -914,9 +914,21 @@ private final class NativeMacCanvasView: NSView {
     case 0: context.saveGState()
     case 1: context.restoreGState()
     case 2: context.translateBy(x: v[0], y: v[1])
-    case 3: context.scaleBy(x: v[0], y: v[1])
-    case 4: context.rotate(by: v[0] * .pi / 180)
+    case 3:
+      let pivot = CGPoint(x: v[2].isNaN ? 0 : v[2], y: v[3].isNaN ? 0 : v[3])
+      context.translateBy(x: pivot.x, y: pivot.y)
+      context.scaleBy(x: v[0], y: v[1])
+      context.translateBy(x: -pivot.x, y: -pivot.y)
+    case 4:
+      let pivot = CGPoint(x: v[1].isNaN ? 0 : v[1], y: v[2].isNaN ? 0 : v[2])
+      context.translateBy(x: pivot.x, y: pivot.y)
+      context.rotate(by: v[0] * .pi / 180)
+      context.translateBy(x: -pivot.x, y: -pivot.y)
+    case 5: context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
     case 6: context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
+    case 7:
+      context.addPath(path(command.path))
+      context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
     case 10:
       paint(
         CGPath(

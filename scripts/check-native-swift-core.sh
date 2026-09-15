@@ -15,4 +15,7 @@ xcrun swiftc \
 fixture="$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/editable-text.rc"
 title_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc"
 progress_fixture="$repo_root/rc-player/compose/src/jvmTest/resources/rc-fixtures/IndeterminateCircularProgress-400x400.rc"
-"$work/native-swift-core-tests" "$fixture" "$title_fixture" "$progress_fixture"
+circular_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/CircularProgressRemote-384x384.rc"
+arc_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ArcProgressRemote-454x400.rc"
+"$work/native-swift-core-tests" \
+  "$fixture" "$title_fixture" "$progress_fixture" "$circular_fixture" "$arc_fixture"
