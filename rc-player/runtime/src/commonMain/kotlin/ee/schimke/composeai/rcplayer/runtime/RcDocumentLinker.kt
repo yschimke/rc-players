@@ -46,6 +46,9 @@ public object RcDocumentLinker {
     rcTrace(RcTraceCategory.DOCUMENT, "rc:link") { linkUnchecked(document, limits) }
 
   private fun linkUnchecked(document: RcDocument, limits: RcWireLimits): RcLinkedDocument {
+    if (document.operations.size > limits.maxOperations) {
+      throw RcLinkException("Document exceeds ${limits.maxOperations} operations before expansion")
+    }
     val linked = linkNodes(document.operations)
     val references = mutableMapOf<Int, RcLinkedNode.Container>()
     val macros = mutableMapOf<Int, RcMacroDefine>()
@@ -58,7 +61,7 @@ public object RcDocumentLinker {
         arrays,
         idRemapper = RcIdRemapper.expanding(reservedIds = reservedIds(document.operations)),
         limits = limits,
-        operationBudget = RcOperationBudget(limits.maxOperations),
+        operationBudget = RcOperationBudget(limits.maxOperations - document.operations.size),
       )
     return RcLinkedDocument(
       document,
