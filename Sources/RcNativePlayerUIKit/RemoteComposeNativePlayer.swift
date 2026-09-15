@@ -209,6 +209,8 @@
           guard let self, generation == self.loadGeneration else { return }
           let model = NativeDocument(snapshot: frame.snapshot)
           try self.validate(model)
+          try Task.checkCancellation()
+          guard generation == self.loadGeneration else { return }
           self.install(model, resources: retainedResources)
         } catch is CancellationError {
           return
