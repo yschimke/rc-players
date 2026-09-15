@@ -231,7 +231,12 @@
 
     private var effectiveSemanticBehaviors: [NativeSemanticBehavior] {
       guard visibility == 1 else { return [] }
-      if let semanticBehavior { return [semanticBehavior] }
+      if let semanticBehavior {
+        if semanticBehavior.descriptor.mode == .set {
+          return [semanticBehavior] + children.flatMap(\.effectiveSemanticBehaviors)
+        }
+        return [semanticBehavior]
+      }
       return children.flatMap(\.effectiveSemanticBehaviors)
     }
   }
