@@ -61,13 +61,17 @@ struct NativeAccessibilityDescriptor: Equatable, Sendable {
   func mergingBehavior(from descendant: NativeAccessibilityDescriptor) -> Self {
     guard mode == .merge else { return self }
     return NativeAccessibilityDescriptor(
-      role: role ?? descendant.role,
+      role: mergeRole ?? descendant.mergeRole,
       mode: mode,
       contentDescription: contentDescription,
       text: text,
       stateDescription: stateDescription ?? descendant.stateDescription,
       isEnabled: isEnabled && descendant.isEnabled,
       isClickable: isClickable || descendant.isClickable)
+  }
+
+  private var mergeRole: NativeAccessibilityRole? {
+    role == .unknown ? nil : role
   }
 
   func resolvedLabel(descendantLabels: [String]) -> String? {
