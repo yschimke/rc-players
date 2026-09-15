@@ -771,6 +771,7 @@
     private var command: NativeDrawCommand
     private var fontNames: [Int: String]
     private var documentScale: CGFloat = 1
+    private var layoutDirection: NativeLayoutDirection = .leftToRight
 
     init(command: NativeDrawCommand, fontNames: [Int: String]) {
       self.command = command
@@ -795,6 +796,7 @@
       self.fontNames = fontNames
       text = command.text
       textColor = command.color.withAlphaComponent(command.alpha)
+      configureParagraph(layoutDirection: layoutDirection)
       configureFont(documentScale: documentScale)
       setNeedsLayout()
     }
@@ -824,6 +826,7 @@
     }
 
     private func configureParagraph(layoutDirection: NativeLayoutDirection) {
+      self.layoutDirection = layoutDirection
       let style = command.textStyle
       numberOfLines = NativeTextPolicy.numberOfLines(
         overflow: style.overflow, maximum: style.maxLines)
