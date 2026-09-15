@@ -48,10 +48,14 @@ assert "simulator-motion" in fixtures["IndeterminateCircularProgress-400x400"]
 
 limits = profile["defaultLimits"]
 required_limits = {
-    "documentBytes", "wireOperations", "containerNesting", "expansionDepth",
-    "expandedNodes", "nativeNodes", "nativeNesting", "drawCommands",
-    "pathElements", "textBytesPerCommand", "canvasDimension",
-    "coordinateMagnitude", "frameWork",
+    "wireDocumentBytes", "wireBlobBytes", "wireStringBytes", "wireTableEntries",
+    "wirePaintWords", "wirePathWords", "wireCollectionEntries", "wireImageDimension",
+    "wireOperations", "containerNesting", "expansionDepth", "expandedNodes",
+    "nativeDocumentBytes", "nativeNodes", "nativeNesting", "nativeDrawCommands",
+    "nativePathElements", "nativeTextBytes", "nativeCanvasDimension",
+    "nativeCoordinateMagnitude", "nativeFrameWork", "nativeResourceBytes",
+    "nativeTotalResourceBytes", "nativeResourceImageDimension", "nativeDecodedPixels",
+    "nativeDecodedImageBytes", "nativeResourceCount",
 }
 assert required_limits == set(limits)
 assert all(isinstance(value, int) and value > 0 for value in limits.values())
@@ -67,20 +71,35 @@ def integer_default(relative, pattern):
 wire = "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/RcWire.kt"
 linker = "rc-player/runtime/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/runtime/RcDocumentLinker.kt"
 native = "Sources/RcNativePlayerUIKit/NativeExecutionLimits.swift"
+resources = "Sources/RcNativePlayerUIKit/NativeResources.swift"
 implemented_limits = {
-    "documentBytes": integer_default(wire, r"maxDocumentBytes: Int = ([\d_ *]+)"),
+    "wireDocumentBytes": integer_default(wire, r"maxDocumentBytes: Int = ([\d_ *]+)"),
+    "wireBlobBytes": integer_default(wire, r"maxBlobBytes: Int = ([\d_ *]+)"),
+    "wireStringBytes": integer_default(wire, r"maxStringBytes: Int = ([\d_ *]+)"),
+    "wireTableEntries": integer_default(wire, r"maxTableEntries: Int = ([\d_ *]+)"),
+    "wirePaintWords": integer_default(wire, r"maxPaintWords: Int = ([\d_ *]+)"),
+    "wirePathWords": integer_default(wire, r"maxPathWords: Int = ([\d_ *]+)"),
+    "wireCollectionEntries": integer_default(wire, r"maxCollectionEntries: Int = ([\d_ *]+)"),
+    "wireImageDimension": integer_default(wire, r"maxImageDimension: Int = ([\d_ *]+)"),
     "wireOperations": integer_default(wire, r"maxOperations: Int = ([\d_ *]+)"),
     "containerNesting": integer_default(linker, r"MAX_NESTING_DEPTH = ([\d_ *]+)"),
     "expansionDepth": integer_default(linker, r"MAX_EXPANSION_DEPTH = ([\d_ *]+)"),
     "expandedNodes": integer_default(linker, r"MAX_EXPANDED_NODES = ([\d_ *]+)"),
+    "nativeDocumentBytes": integer_default(native, r"maximumDocumentBytes: Int = ([\d_ *]+)"),
     "nativeNodes": integer_default(native, r"maximumNodeCount: Int = ([\d_ *]+)"),
     "nativeNesting": integer_default(native, r"maximumNestingDepth: Int = ([\d_ *]+)"),
-    "drawCommands": integer_default(native, r"maximumDrawCommandCount: Int = ([\d_ *]+)"),
-    "pathElements": integer_default(native, r"maximumPathElementCount: Int = ([\d_ *]+)"),
-    "textBytesPerCommand": integer_default(native, r"maximumTextBytes: Int = ([\d_ *]+)"),
-    "canvasDimension": integer_default(native, r"maximumCanvasDimension: Double = ([\d_ *]+)"),
-    "coordinateMagnitude": integer_default(native, r"maximumCoordinateMagnitude: Double = ([\d_ *]+)"),
-    "frameWork": integer_default(native, r"maximumFrameWork: Int = ([\d_ *]+)"),
+    "nativeDrawCommands": integer_default(native, r"maximumDrawCommandCount: Int = ([\d_ *]+)"),
+    "nativePathElements": integer_default(native, r"maximumPathElementCount: Int = ([\d_ *]+)"),
+    "nativeTextBytes": integer_default(native, r"maximumTextBytes: Int = ([\d_ *]+)"),
+    "nativeCanvasDimension": integer_default(native, r"maximumCanvasDimension: Double = ([\d_ *]+)"),
+    "nativeCoordinateMagnitude": integer_default(native, r"maximumCoordinateMagnitude: Double = ([\d_ *]+)"),
+    "nativeFrameWork": integer_default(native, r"maximumFrameWork: Int = ([\d_ *]+)"),
+    "nativeResourceBytes": integer_default(resources, r"maximumResourceBytes: Int = ([\d_ *]+)"),
+    "nativeTotalResourceBytes": integer_default(resources, r"maximumTotalBytes: Int = ([\d_ *]+)"),
+    "nativeResourceImageDimension": integer_default(resources, r"maximumImageDimension: Int = ([\d_ *]+)"),
+    "nativeDecodedPixels": integer_default(resources, r"maximumDecodedPixels: Int = ([\d_ *]+)"),
+    "nativeDecodedImageBytes": integer_default(resources, r"maximumDecodedImageBytes: Int = ([\d_ *]+)"),
+    "nativeResourceCount": integer_default(resources, r"maximumResourceCount: Int = ([\d_ *]+)"),
 }
 assert limits == implemented_limits, (
     f"profile defaultLimits {limits!r} do not match implementation defaults {implemented_limits!r}"
