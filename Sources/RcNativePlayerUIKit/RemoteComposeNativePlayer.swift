@@ -178,7 +178,6 @@
       loadGeneration &+= 1
       let generation = loadGeneration
       let compatibilityPolicy = compatibilityPolicy
-      let diagnosticsSink = onDiagnostics
       let resourceLimits = resourceLimits
       let resourceResolver = resourceResolver
       let resourceCache = resourceCache
@@ -188,7 +187,8 @@
           let (session, frame) = try await NativeSnapshotSessionHandle.open(data: data)
           try Task.checkCancellation()
           let model = NativeDocument(snapshot: frame.snapshot)
-          diagnosticsSink(model.diagnostics)
+          guard let self, generation == self.loadGeneration else { return }
+          self.onDiagnostics(model.diagnostics)
           if !RemoteComposeNativeCompatibilityDecision.shouldRender(
             policy: compatibilityPolicy, diagnostics: model.diagnostics)
           {
@@ -198,7 +198,7 @@
           let resources = try await Self.prepareResources(
             for: model, limits: resourceLimits, resolver: resourceResolver, cache: resourceCache)
           try Task.checkCancellation()
-          guard let self, generation == self.loadGeneration else { return }
+          guard generation == self.loadGeneration else { return }
           self.retainedSession = session
           self.retainedSessionData = data
           self.install(model, resources: resources)
