@@ -1364,7 +1364,8 @@ public object RcNativeSnapshotBridge {
                   destinationTop = state.resolve(operation.top),
                   destinationRight = state.resolve(operation.right),
                   destinationBottom = state.resolve(operation.bottom),
-                  contentDescription = state.text(operation.contentDescriptionId),
+                  contentDescription =
+                    operation.contentDescriptionId.takeUnless { it == 0 }?.let(state::text),
                 ),
                 bitmaps,
               ),
@@ -1386,7 +1387,8 @@ public object RcNativeSnapshotBridge {
                   destinationTop = operation.dstTop.toFloat(),
                   destinationRight = operation.dstRight.toFloat(),
                   destinationBottom = operation.dstBottom.toFloat(),
-                  contentDescription = state.text(operation.contentDescriptionId),
+                  contentDescription =
+                    operation.contentDescriptionId.takeUnless { it == 0 }?.let(state::text),
                 ),
                 bitmaps,
               ),
@@ -1409,7 +1411,8 @@ public object RcNativeSnapshotBridge {
                   destinationBottom = state.resolve(operation.dstBottom),
                   scaleType = operation.scaleType,
                   scaleFactor = state.resolve(operation.scaleFactor),
-                  contentDescription = state.text(operation.contentDescriptionId),
+                  contentDescription =
+                    operation.contentDescriptionId.takeUnless { it == 0 }?.let(state::text),
                 ),
                 bitmaps,
               ),

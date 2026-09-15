@@ -831,6 +831,47 @@ class RcNativeSnapshotTest {
   }
 
   @Test
+  fun zeroBitmapDescriptionIdDoesNotResolveUnrelatedText() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0), legacyWidth = 10, legacyHeight = 10),
+        listOf(
+          RcBitmapData(
+            imageId = 40,
+            width = 1,
+            height = 1,
+            type = RcBitmapData.TYPE_RAW8888,
+            encoding = RcBitmapData.ENCODING_INLINE,
+            data = byteArrayOf(-1, 0, 0, -1),
+          ),
+          RcTextData(0, "unrelated"),
+          RcRootLayout(1),
+          RcDrawBitmap(
+            imageId = 40,
+            left = RcFloatWord.literal(0f),
+            top = RcFloatWord.literal(0f),
+            right = RcFloatWord.literal(1f),
+            bottom = RcFloatWord.literal(1f),
+            contentDescriptionId = 0,
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val image =
+      checkNotNull(
+        RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+          .root
+          .children
+          .single()
+          .commands
+          .single()
+          .image
+      )
+    assertEquals(null, image.contentDescription)
+  }
+
+  @Test
   fun exportsStaticConstraintsAndSkipsUnreachableStateBranches() {
     val end = RcNoArg(RcOpcodes.CONTAINER_END)
     val document =
