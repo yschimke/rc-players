@@ -253,11 +253,13 @@ delayed functional updates remain enabled under Reduce Motion while continuous d
 is suppressed.
 
 The first graphics family is component-size-driven canvas animation. Before exporting commands, a
-native settling pass publishes inherited/exact geometry to the retained runtime, allowing the real
-indeterminate progress fixture to resolve finite bounds and changing arc angles. Retained canvas
-views hash their render inputs and request display only when those inputs change. Pure timing tests
-advance synthetic timestamps without sleeping; the simulator gate captures two real Progress
-frames and requires visible, changing pixels inside the document surface.
+native settling pass publishes inherited/exact geometry to the retained runtime. The pure-Swift
+decoder now covers the standard rectangle, oval, circle, line, rounded rectangle, arc, sector,
+clip-path/clip-rectangle, and translate/scale/skew/rotate operations used by the real indeterminate,
+circular, and arc progress fixtures. Their scalar float math, integer expressions, derived color
+channels, and dynamic color expressions are evaluated without Kotlin. Retained canvas views hash
+their render inputs and request display only when those inputs change. Pure timing tests advance
+synthetic timestamps without sleeping; simulator and AppKit gates require visible progress geometry.
 
 ### 10. Harden performance and untrusted-input behavior — core implemented
 

@@ -60,7 +60,9 @@ assert profile["nativeNodeKinds"] == [
     "root", "content", "canvas", "box", "row", "column", "text", "custom",
 ], "nativeNodeKinds must match the reviewed core-v1 capability set"
 assert profile["nativeDrawKinds"] == [
-    "text", "save", "restore", "rotate", "arc", "path",
+    "text", "save", "restore", "translate", "scale", "skew", "rotate",
+    "clip-rect", "clip-path", "rect", "oval", "circle", "line", "round-rect",
+    "arc", "sector", "path",
 ], "nativeDrawKinds must match the reviewed core-v1 capability set"
 assert profile["interaction"] == {
     "hostNamedValues": ["float", "string", "color"],
@@ -70,7 +72,7 @@ assert profile["interaction"] == {
 }, "interaction must match the reviewed core-v1 capability set"
 
 fixture_entries = profile["verifiedFixtures"]
-assert len(fixture_entries) == 3, "verifiedFixtures must contain exactly three evidence entries"
+assert len(fixture_entries) == 5, "verifiedFixtures must contain exactly five evidence entries"
 assert len({item["id"] for item in fixture_entries}) == len(fixture_entries), (
     "verifiedFixtures identifiers must be unique"
 )
@@ -84,6 +86,12 @@ assert fixtures == {
     ],
     "IndeterminateCircularProgress-400x400": [
         "canvas", "float-expressions", "continuous-time", "arc", "swift-decode",
+    ],
+    "CircularProgressRemote-384x384": [
+        "canvas", "scalar-math", "circle", "arc", "swift-decode",
+    ],
+    "ArcProgressRemote-454x400": [
+        "canvas", "integer-expressions", "color-expressions", "color-attributes", "arc", "swift-decode",
     ],
 }, "verifiedFixtures must match the reviewed core-v1 evidence set"
 

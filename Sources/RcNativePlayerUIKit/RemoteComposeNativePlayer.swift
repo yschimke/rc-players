@@ -1,6 +1,8 @@
 #if canImport(UIKit)
   import Foundation
-  import RcNativePlayerCore
+  #if canImport(RcNativePlayerCore)
+    import RcNativePlayerCore
+  #endif
   import UIKit
 
   @MainActor

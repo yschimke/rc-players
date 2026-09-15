@@ -34,8 +34,19 @@
     "text",
     "save",
     "restore",
+    "translate",
+    "scale",
+    "skew",
     "rotate",
+    "clip-rect",
+    "clip-path",
+    "rect",
+    "oval",
+    "circle",
+    "line",
+    "round-rect",
     "arc",
+    "sector",
     "path"
   ],
   "interaction": {
@@ -56,6 +67,14 @@
     {
       "id": "IndeterminateCircularProgress-400x400",
       "coverage": ["canvas", "float-expressions", "continuous-time", "arc", "swift-decode"]
+    },
+    {
+      "id": "CircularProgressRemote-384x384",
+      "coverage": ["canvas", "scalar-math", "circle", "arc", "swift-decode"]
+    },
+    {
+      "id": "ArcProgressRemote-454x400",
+      "coverage": ["canvas", "integer-expressions", "color-expressions", "color-attributes", "arc", "swift-decode"]
     }
   ],
   "defaultLimits": {

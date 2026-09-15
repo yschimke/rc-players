@@ -187,10 +187,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   public func snapshot(timeSeconds: TimeInterval = 0) throws -> NativeSwiftDocumentSnapshot {
     let values = try resolvedFloats(timeSeconds: timeSeconds)
+    let resolvedColors = resolveColors(values: values)
     return NativeSwiftDocumentSnapshot(
       width: document.width,
       height: document.height,
-      root: try resolve(document.root, values: values),
+      root: try resolve(document.root, values: values, colors: resolvedColors),
       needsContinuousFrames: document.needsContinuousFrames)
   }
 
@@ -264,12 +265,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return false
   }
 
-  private func resolve(_ node: ParsedNode, values: [Int: Float]) throws -> NativeSwiftNodeSnapshot {
+  private func resolve(
+    _ node: ParsedNode, values: [Int: Float], colors resolvedColors: [Int: UInt32]
+  ) throws -> NativeSwiftNodeSnapshot {
     let text: NativeSwiftTextSnapshot?
     if let source = node.text {
       text = NativeSwiftTextSnapshot(
         value: texts[source.textID] ?? "",
-        colorARGB: source.colorID.flatMap { colors[$0] } ?? source.colorARGB,
+        colorARGB: source.colorID.flatMap { resolvedColors[$0] } ?? source.colorARGB,
         size: source.size,
         style: source.style,
         weight: min(max(source.weight, 1), 1_000),
@@ -298,7 +301,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           integerValue = property.valueBits
           textValue = texts[property.valueBits]
         case 7:
-          integerValue = Int(Int32(bitPattern: colors[property.valueBits] ?? 0))
+          integerValue = Int(Int32(bitPattern: resolvedColors[property.valueBits] ?? 0))
           textValue = nil
         default:
           integerValue = property.valueBits
@@ -316,8 +319,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return NativeSwiftNodeSnapshot(
       kind: node.kind,
       componentID: node.componentID,
-      children: try node.children.map { try resolve($0, values: values) },
-      commands: try node.commands.map { try $0.resolve(values: values, colors: colors) },
+      children: try node.children.map { try resolve($0, values: values, colors: resolvedColors) },
+      commands: try node.commands.map { try $0.resolve(values: values, colors: resolvedColors) },
       isClickable: node.isClickable,
       supportedGestures: node.actions.keys.sorted { $0.rawValue < $1.rawValue },
       accessibility: node.accessibility.map {
@@ -334,7 +337,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       padding: node.padding,
       minimumHeight: node.minimumHeight,
       cornerRadius: node.cornerRadius,
-      backgroundARGB: node.backgroundColorID.flatMap { colors[$0] } ?? node.backgroundARGB,
+      backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
       spacing: node.spacing,
@@ -351,6 +354,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         of: measuredNode, type: binding.type,
         available: binding.type == 0 ? Float(document.width) : Float(document.height))
     }
+    for attribute in document.colorAttributes {
+      result[attribute.outputID] = colorAttribute(
+        attribute.type, of: colors[attribute.colorID] ?? 0)
+    }
     // Player-supplied monotonic animation time. This fixture family uses both ids interchangeably
     // as moving clocks; keeping them tied to the injected logical timeline makes captures stable.
     result[1] = Float(timeSeconds)
@@ -360,6 +367,110 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         expression.words, values: result)
     }
     return result
+  }
+
+  private func colorAttribute(_ type: Int, of color: UInt32) -> Float {
+    let red = Float((color >> 16) & 0xff) / 255
+    let green = Float((color >> 8) & 0xff) / 255
+    let blue = Float(color & 0xff) / 255
+    let maximum = max(red, green, blue)
+    let minimum = min(red, green, blue)
+    let delta = maximum - minimum
+    switch type {
+    case 0:
+      let sector: Float
+      if maximum == minimum { sector = 0 }
+      else if maximum == red { sector = (green - blue) / delta }
+      else if maximum == green { sector = (blue - red) / delta + 2 }
+      else { sector = (red - green) / delta + 4 }
+      var hue = (sector * 60).truncatingRemainder(dividingBy: 360)
+      if hue < 0 { hue += 360 }
+      return hue / 360
+    case 1: return maximum == minimum ? 0 : delta / maximum
+    case 2: return maximum
+    case 3: return red
+    case 4: return green
+    case 5: return blue
+    default: return Float((color >> 24) & 0xff) / 255
+    }
+  }
+
+  private func resolveColors(values: [Int: Float]) -> [Int: UInt32] {
+    var result = colors
+    for expression in document.colorExpressions {
+      let mode = expression.modeAndAlpha & 0xff
+      switch mode {
+      case 0...3:
+        let first = mode & 1 != 0 ? result[expression.first] ?? 0 : UInt32(bitPattern: Int32(expression.first))
+        let second = mode & 2 != 0 ? result[expression.second] ?? 0 : UInt32(bitPattern: Int32(expression.second))
+        let tween = NativeSwiftFloatExpression.resolve(
+          UInt32(bitPattern: Int32(expression.third)), values: values)
+        result[expression.outputID] = interpolateColor(first, second, tween: tween)
+      case 4...6:
+        let alpha: Float
+        if mode == 4 { alpha = Float(expression.modeAndAlpha >> 16) / 255 }
+        else if mode == 5 { alpha = Float(expression.modeAndAlpha >> 16) / 1024 }
+        else {
+          alpha = NativeSwiftFloatExpression.resolve(
+            0x7fc0_0000 | UInt32(expression.modeAndAlpha >> 16), values: values)
+        }
+        let first = NativeSwiftFloatExpression.resolve(
+          UInt32(bitPattern: Int32(expression.first)), values: values)
+        let second = NativeSwiftFloatExpression.resolve(
+          UInt32(bitPattern: Int32(expression.second)), values: values)
+        let third = NativeSwiftFloatExpression.resolve(
+          UInt32(bitPattern: Int32(expression.third)), values: values)
+        result[expression.outputID] =
+          mode == 4
+          ? hsvColor(alpha: alpha, hue: first, saturation: second, brightness: third)
+          : argbColor(alpha: alpha, red: first, green: second, blue: third)
+      default: break
+      }
+    }
+    return result
+  }
+
+  private func interpolateColor(_ first: UInt32, _ second: UInt32, tween: Float) -> UInt32 {
+    if !tween.isFinite || tween == 0 { return first }
+    if tween == 1 { return second }
+    func channel(_ color: UInt32, shift: UInt32) -> Float {
+      powf(Float((color >> shift) & 0xff) / 255, 2.2)
+    }
+    func encoded(_ value: Float) -> UInt32 {
+      UInt32(min(max(Int(powf(value, 1 / 2.2) * 255), 0), 255))
+    }
+    let alpha = Float((first >> 24) & 0xff) + tween * Float(Int((second >> 24) & 0xff) - Int((first >> 24) & 0xff))
+    let red = channel(first, shift: 16) + tween * (channel(second, shift: 16) - channel(first, shift: 16))
+    let green = channel(first, shift: 8) + tween * (channel(second, shift: 8) - channel(first, shift: 8))
+    let blue = channel(first, shift: 0) + tween * (channel(second, shift: 0) - channel(first, shift: 0))
+    return UInt32(min(max(Int(alpha), 0), 255)) << 24 | encoded(red) << 16 | encoded(green) << 8
+      | encoded(blue)
+  }
+
+  private func argbColor(alpha: Float, red: Float, green: Float, blue: Float) -> UInt32 {
+    func byte(_ value: Float) -> UInt32 { UInt32(min(max(Int(value * 255 + 0.5), 0), 255)) }
+    return byte(alpha) << 24 | byte(red) << 16 | byte(green) << 8 | byte(blue)
+  }
+
+  private func hsvColor(
+    alpha: Float, hue: Float, saturation: Float, brightness: Float
+  ) -> UInt32 {
+    let section = Int(hue * 6)
+    let fraction = hue * 6 - Float(section)
+    let p = brightness * (1 - saturation)
+    let q = brightness * (1 - fraction * saturation)
+    let t = brightness * (1 - (1 - fraction) * saturation)
+    let rgb: (Float, Float, Float)
+    switch section {
+    case 0: rgb = (brightness, t, p)
+    case 1: rgb = (q, brightness, p)
+    case 2: rgb = (p, brightness, t)
+    case 3: rgb = (p, q, brightness)
+    case 4: rgb = (t, p, brightness)
+    case 5: rgb = (brightness, p, q)
+    default: rgb = (0, 0, 0)
+    }
+    return argbColor(alpha: alpha, red: rgb.0, green: rgb.1, blue: rgb.2)
   }
 
   private func estimatedDimension(of node: ParsedNode, type: Int, available: Float) -> Float {
@@ -422,6 +533,8 @@ private struct ParsedDocument {
   let namedVariables: [String: ParsedNamedVariable]
   let expressions: [ParsedFloatExpression]
   let componentValues: [ParsedComponentValue]
+  let colorAttributes: [ParsedColorAttribute]
+  let colorExpressions: [ParsedColorExpression]
   let needsContinuousFrames: Bool
 }
 
@@ -429,6 +542,20 @@ private struct ParsedComponentValue {
   let type: Int
   let componentID: Int
   let valueID: Int
+}
+
+private struct ParsedColorAttribute {
+  let outputID: Int
+  let colorID: Int
+  let type: Int
+}
+
+private struct ParsedColorExpression {
+  let outputID: Int
+  let modeAndAlpha: Int
+  let first: Int
+  let second: Int
+  let third: Int
 }
 
 private struct ParsedNamedVariable {
@@ -588,6 +715,72 @@ private final class ParsedNode {
   }
 }
 
+private enum NativeSwiftIntegerExpression {
+  static func evaluate(mask: Int, tokens: [Int], values: [Int: Int]) throws -> Int {
+    var stack: [Int32] = []
+    func pop(_ count: Int) throws -> [Int32] {
+      guard stack.count >= count else {
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Integer expression stack underflow")
+      }
+      let result = Array(stack.suffix(count))
+      stack.removeLast(count)
+      return result
+    }
+    for (index, token) in tokens.enumerated() {
+      let marked = UInt32(bitPattern: Int32(mask)) & (UInt32(1) << UInt32(index & 31)) != 0
+      if !marked || token < 65_536 {
+        stack.append(Int32(truncatingIfNeeded: marked ? values[token] ?? 0 : token))
+        continue
+      }
+      let operation = token - 65_536
+      if (1...14).contains(operation) {
+        let value = try pop(2)
+        let left = value[0]
+        let right = value[1]
+        switch operation {
+        case 1: stack.append(left &+ right)
+        case 2: stack.append(left &- right)
+        case 3: stack.append(left &* right)
+        case 4: stack.append(right == 0 || (left == .min && right == -1) ? 0 : left / right)
+        case 5: stack.append(right == 0 || (left == .min && right == -1) ? 0 : left % right)
+        case 6: stack.append(left << (right & 31))
+        case 7: stack.append(left >> (right & 31))
+        case 8:
+          stack.append(Int32(bitPattern: UInt32(bitPattern: left) >> UInt32(right & 31)))
+        case 9: stack.append(left | right)
+        case 10: stack.append(left & right)
+        case 11: stack.append(left ^ right)
+        case 12: stack.append((left ^ (right >> 31)) &- (right >> 31))
+        case 13: stack.append(min(left, right))
+        default: stack.append(max(left, right))
+        }
+      } else if (15...20).contains(operation) {
+        let value = try pop(1)[0]
+        switch operation {
+        case 15: stack.append(0 &- value)
+        case 16: stack.append(value == .min ? .min : abs(value))
+        case 17: stack.append(value &+ 1)
+        case 18: stack.append(value &- 1)
+        case 19: stack.append(~value)
+        default: stack.append((value >> 31) | Int32(bitPattern: 0 &- UInt32(bitPattern: value)) >> 31)
+        }
+      } else if (21...23).contains(operation) {
+        let value = try pop(3)
+        if operation == 21 { stack.append(min(max(value[0], value[2]), value[1])) }
+        else if operation == 22 { stack.append(value[2] > 0 ? value[1] : value[0]) }
+        else { stack.append(value[2] &+ value[1] &* value[0]) }
+      } else {
+        throw NativeSwiftCoreError.unsupported(
+          opcode: 144, offset: 0, reason: "integer expression operator \(operation)")
+      }
+    }
+    guard stack.count == 1, let result = stack.last else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Invalid integer expression result")
+    }
+    return Int(result)
+  }
+}
+
 private enum NativeSwiftFloatExpression {
   private static let payloadMask: UInt32 = 0x007f_ffff
   private static let referenceMask: UInt32 = 0x003f_ffff
@@ -639,9 +832,55 @@ private enum NativeSwiftFloatExpression {
         case 7: stack.append(max(value[0], value[1]))
         default: stack.append(powf(value[0], value[1]))
         }
+      case 9...11, 13...23, 28...31, 45, 51...53, 73:
+        let value = try pop(1)[0]
+        switch operation {
+        case 9: stack.append(sqrtf(value))
+        case 10: stack.append(abs(value))
+        case 11: stack.append(value == 0 ? 0 : (value < 0 ? -1 : 1))
+        case 13: stack.append(expf(value))
+        case 14: stack.append(floorf(value))
+        case 15: stack.append(log10f(value))
+        case 16: stack.append(logf(value))
+        case 17: stack.append(roundf(value))
+        case 18: stack.append(sinf(value))
+        case 19: stack.append(cosf(value))
+        case 20: stack.append(tanf(value))
+        case 21: stack.append(asinf(value))
+        case 22: stack.append(acosf(value))
+        case 23: stack.append(atanf(value))
+        case 28: stack.append(cbrtf(value))
+        case 29: stack.append(value * 57.29578)
+        case 30: stack.append(value * 0.017453292)
+        case 31: stack.append(ceilf(value))
+        case 45: stack.append(value * value)
+        case 51: stack.append(log2f(value))
+        case 52: stack.append(1 / value)
+        case 53: stack.append(value - Float(Int(value)))
+        default: stack.append(-value)
+        }
+      case 12, 24, 43, 44, 47, 54:
+        let value = try pop(2)
+        switch operation {
+        case 12: stack.append(copysignf(abs(value[0]), value[1]))
+        case 24: stack.append(atan2f(value[0], value[1]))
+        case 43: stack.append(value[0] * value[0] + value[1] * value[1])
+        case 44: stack.append(value[0] > value[1] ? 1 : 0)
+        case 47: stack.append(hypotf(value[0], value[1]))
+        default:
+          let doubled = value[1] * 2
+          let remainder = value[0].truncatingRemainder(dividingBy: doubled)
+          stack.append(remainder < value[1] ? remainder : doubled - remainder)
+        }
+      case 25:
+        let value = try pop(3)
+        stack.append(value[2] + value[1] * value[0])
       case 26:
         let value = try pop(3)
         stack.append(value[2] > 0 ? value[1] : value[0])
+      case 27:
+        let value = try pop(3)
+        stack.append(min(max(value[0], value[2]), value[1]))
       case 49:
         let value = try pop(3)
         stack.append(value[0] + (value[1] - value[0]) * value[2])
@@ -783,10 +1022,12 @@ private enum NativeSwiftDocumentDecoder {
     var texts: [Int: String] = [:]
     var floats: [Int: Float] = [:]
     var colors: [Int: UInt32] = [:]
-    let integers: [Int: Int] = [:]
+    var integers: [Int: Int] = [:]
     var namedVariables: [String: ParsedNamedVariable] = [:]
     var expressions: [ParsedFloatExpression] = []
     var componentValues: [ParsedComponentValue] = []
+    var colorAttributes: [ParsedColorAttribute] = []
+    var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
@@ -832,6 +1073,39 @@ private enum NativeSwiftDocumentDecoder {
         words.reserveCapacity(count)
         for _ in 0..<count { words.append(try input.int("paint word")) }
         try applyPaint(words, to: &paint, input: input)
+      case 38:  // Clip path
+        let id = try input.int("clip path id")
+        guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 7, words: [], paint: paint, path: path))
+      case 39:  // Clip rectangle
+        let words = try (0..<4).map { _ in try input.word("clip rectangle value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 6, words: words, paint: paint))
+      case 42:  // Draw rectangle
+        let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 10, words: words, paint: paint))
+      case 46:  // Draw circle
+        let words = try (0..<3).map { _ in try input.word("draw circle value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 12, words: words, paint: paint))
+      case 47:  // Draw line
+        let words = try (0..<4).map { _ in try input.word("draw line value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 13, words: words, paint: paint))
+      case 51:  // Draw rounded rectangle
+        let words = try (0..<6).map { _ in try input.word("draw rounded rectangle value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 14, words: words, paint: paint))
+      case 52:  // Draw sector
+        let words = try (0..<6).map { _ in try input.word("draw sector value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 16, words: words, paint: paint))
+      case 56:  // Draw oval
+        let words = try (0..<4).map { _ in try input.word("draw oval value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 11, words: words, paint: paint))
       case 54:  // Rounded clip rectangle
         let node = try currentNode(stack, input: input)
         var radius: Float = 0
@@ -953,6 +1227,28 @@ private enum NativeSwiftDocumentDecoder {
         texts[id] = try input.utf8("text", maximum: maximumStringBytes)
       case 138:  // Color constant
         colors[try input.int("color id")] = UInt32(bitPattern: Int32(try input.int("color")))
+      case 140:  // Integer constant
+        integers[try input.int("integer id")] = try input.int("integer value")
+      case 144:  // Integer expression
+        let outputID = try input.int("integer expression output id")
+        let mask = try input.int("integer expression mask")
+        let count = try input.count("integer expression value count", maximum: 320)
+        var tokens: [Int] = []
+        tokens.reserveCapacity(count)
+        for _ in 0..<count { tokens.append(try input.int("integer expression value")) }
+        integers[outputID] = try NativeSwiftIntegerExpression.evaluate(
+          mask: mask, tokens: tokens, values: integers)
+      case 134:  // Dynamic color expression
+        let expression = ParsedColorExpression(
+          outputID: try input.int("color expression output id"),
+          modeAndAlpha: try input.int("color expression mode and alpha"),
+          first: try input.int("color expression first value"),
+          second: try input.int("color expression second value"),
+          third: try input.int("color expression third value"))
+        guard (0...6).contains(expression.modeAndAlpha & 0xff) else {
+          throw input.malformed("Unknown color expression mode")
+        }
+        colorExpressions.append(expression)
       case 123:  // Path data; bounded now, drawing support is a separate operation family.
         let idAndWinding = try input.int("path id and winding")
         let count = try input.count("path word count", maximum: 20_000)
@@ -985,6 +1281,15 @@ private enum NativeSwiftDocumentDecoder {
         }
         componentValues.append(
           ParsedComponentValue(type: type, componentID: componentID, valueID: valueID))
+      case 180:  // Color channel attribute
+        let attribute = ParsedColorAttribute(
+          outputID: try input.int("color attribute output id"),
+          colorID: try input.int("color attribute color id"),
+          type: try input.signedU16("color attribute type"))
+        guard (0...6).contains(attribute.type) else {
+          throw input.malformed("Unknown color attribute type \(attribute.type)")
+        }
+        colorAttributes.append(attribute)
       case 200:  // Root
         try begin(ParsedNode(kind: .root, componentID: try input.int("root component id")))
       case 201:  // Content
@@ -1017,6 +1322,18 @@ private enum NativeSwiftDocumentDecoder {
         let words = try (0..<3).map { _ in try input.word("matrix rotate value") }
         try currentNode(stack, input: input).commands.append(
           ParsedDrawCommand(kind: 4, words: words, paint: paint))
+      case 126:  // Matrix scale
+        let words = try (0..<4).map { _ in try input.word("matrix scale value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 3, words: words, paint: paint))
+      case 127:  // Matrix translate
+        let words = try (0..<2).map { _ in try input.word("matrix translate value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 2, words: words, paint: paint))
+      case 128:  // Matrix skew
+        let words = try (0..<2).map { _ in try input.word("matrix skew value") }
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(kind: 5, words: words, paint: paint))
       case 208:  // Text layout
         let node = ParsedNode(kind: .text, componentID: try input.int("text component id"))
         _ = try input.int("text animation id")
@@ -1137,7 +1454,8 @@ private enum NativeSwiftDocumentDecoder {
     return ParsedDocument(
       width: width, height: height, root: root, nodes: nodes, texts: texts, floats: floats,
       colors: colors, integers: integers, namedVariables: namedVariables, expressions: expressions,
-      componentValues: componentValues,
+      componentValues: componentValues, colorAttributes: colorAttributes,
+      colorExpressions: colorExpressions,
       needsContinuousFrames: needsContinuousFrames)
   }
 

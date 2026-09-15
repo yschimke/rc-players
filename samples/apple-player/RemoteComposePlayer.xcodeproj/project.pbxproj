@@ -85,7 +85,7 @@
 		200000000000000000000020 /* NativeComparisonHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeComparisonHarness.swift; sourceTree = "<group>"; };
 		200000000000000000000021 /* NativeCustomComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeCustomComponents.swift; path = "../../Sources/RcNativePlayerUIKit/NativeCustomComponents.swift"; sourceTree = "<group>"; };
 		200000000000000000000022 /* NativeCustomComponentSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCustomComponentSamples.swift; sourceTree = "<group>"; };
-		200000000000000000000023 /* NativeSwiftCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCore.swift; path = "../../Sources/RcNativePlayerUIKit/NativeSwiftCore.swift"; sourceTree = "<group>"; };
+		200000000000000000000023 /* NativeSwiftCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCore.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftCore.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */

@@ -127,7 +127,8 @@ need Control-click → Open on first launch.
 
 1. Add drag, scroll, and raw pointer expressions to the shared session and both native event
    adapters; single, long, double, and pointer-lifecycle actions are already shared.
-2. Fill the remaining layout, drawing, font, and complex-text operation families.
+2. Fill the remaining layout, bitmap, advanced drawing, font, and complex-text operation families;
+   standard shape/clip/transform operations and all three progress fixtures are pure Swift.
 3. Add image resources and the Image Button comparison fixture.
 4. Add deterministic macOS CMP/native comparison captures and accessibility assertions.
 5. Complete the fuzzing and device-performance work tracked by GitHub issue #138.
