@@ -94,14 +94,44 @@
             if commandGeometry[1].isNaN { commandGeometry[1] = 0 }
             if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
           }
-          if [15, 16].contains(Int(command.kind)) {
+          switch Int(command.kind) {
+          case 2:
+            try budget.validateNumbers(
+              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "translation", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(4).map(Double.init), componentID: Int(node.componentId),
+              field: "translation")
+          case 3:
+            try budget.validateFinite(
+              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "scale")
+            try budget.validateNumbers(
+              commandGeometry[2..<4].map(Double.init), componentID: Int(node.componentId),
+              field: "scale pivot", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "scale")
+          case 4:
+            try budget.validateFinite(
+              [Double(commandGeometry[0])], componentID: Int(node.componentId), field: "rotation")
+            try budget.validateNumbers(
+              commandGeometry[1..<3].map(Double.init), componentID: Int(node.componentId),
+              field: "rotation pivot", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(3).map(Double.init), componentID: Int(node.componentId),
+              field: "rotation")
+          case 5:
+            try budget.validateFinite(
+              commandGeometry.map(Double.init), componentID: Int(node.componentId), field: "skew")
+          case 15, 16:
             try budget.validateNumbers(
               commandGeometry.prefix(4).map(Double.init), componentID: Int(node.componentId),
               field: "draw geometry", limits: limits)
             try budget.validateFinite(
               commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
               field: "arc angles")
-          } else {
+          default:
             try budget.validateNumbers(
               commandGeometry.map(Double.init), componentID: Int(node.componentId),
               field: "draw geometry", limits: limits)
