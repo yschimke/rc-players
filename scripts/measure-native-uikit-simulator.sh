@@ -104,6 +104,9 @@ assert report["metrics"]["labelCount"] > 0
 assert report["metrics"]["buttonCount"] > 0
 assert report["metrics"]["executableBytes"] > 0
 assert report["metrics"]["appBundleBytes"] > 0
+assert report["lifecycle"]["resumedAfterBackground"]
+assert report["lifecycle"]["loadedSubviewCount"] > 1
+assert report["lifecycle"]["releasedAfterResume"]
 assert report["passed"], f"native UIKit evidence exceeded its reviewed budgets: {report}"
 PY
 echo "native UIKit simulator evidence: ok ($output)"

@@ -34,6 +34,12 @@ private struct NativePlayerEvidenceReport: Codable {
     let appBundleBytes: UInt64
   }
 
+  struct Lifecycle: Codable {
+    let resumedAfterBackground: Bool
+    let loadedSubviewCount: Int
+    let releasedAfterResume: Bool
+  }
+
   let schemaVersion: Int
   let fixture: String
   let sourceRevision: String
@@ -42,7 +48,13 @@ private struct NativePlayerEvidenceReport: Codable {
   let iterations: Int
   let metrics: Metrics
   let budgets: Budgets
+  let lifecycle: Lifecycle
   let passed: Bool
+}
+
+@MainActor
+private final class WeakNativePlayerReference {
+  weak var value: RemoteComposeNativePlayerView?
 }
 
 struct NativePlayerEvidenceView: View {
@@ -139,6 +151,7 @@ private enum NativePlayerEvidence {
     let appBundleBytes = try bundleSize()
     let allocatedAfter = allocatedBytes()
     let residentAfter = residentBytes()
+    let lifecycle = try await lifecycleEvidence(data: data)
     let metrics = NativePlayerEvidenceReport.Metrics(
       medianDecodeMilliseconds: median(decodeSamples),
       medianFirstFrameMilliseconds: median(firstFrameSamples),
@@ -164,7 +177,9 @@ private enum NativePlayerEvidence {
       metrics.allocatedByteDelta <= budgets.allocatedByteDelta &&
       metrics.residentByteDelta <= budgets.residentByteDelta &&
       metrics.executableBytes <= budgets.executableBytes &&
-      metrics.appBundleBytes <= budgets.appBundleBytes
+      metrics.appBundleBytes <= budgets.appBundleBytes &&
+      lifecycle.resumedAfterBackground &&
+      lifecycle.releasedAfterResume
     return NativePlayerEvidenceReport(
       schemaVersion: 1,
       fixture: fixture,
@@ -174,7 +189,39 @@ private enum NativePlayerEvidence {
       iterations: iterations,
       metrics: metrics,
       budgets: budgets,
+      lifecycle: lifecycle,
       passed: passed)
+  }
+
+  private static func lifecycleEvidence(
+    data: Data
+  ) async throws -> NativePlayerEvidenceReport.Lifecycle {
+    var player: RemoteComposeNativePlayerView? = RemoteComposeNativePlayerView(data: data)
+    player?.frame = CGRect(x: 0, y: 0, width: 640, height: 480)
+
+    // Interrupt the initial asynchronous load. Becoming active must start a clean replacement load.
+    NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+    NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+
+    let deadline = ProcessInfo.processInfo.systemUptime + 5
+    while player?.subviews.count == 1, ProcessInfo.processInfo.systemUptime < deadline {
+      try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    let loadedSubviewCount = player?.subviews.count ?? 0
+    let resumedAfterBackground = loadedSubviewCount > 1
+
+    let reference = WeakNativePlayerReference()
+    reference.value = player
+    player = nil
+    for _ in 0..<100 where reference.value != nil {
+      await Task.yield()
+      try await Task.sleep(nanoseconds: 1_000_000)
+    }
+
+    return NativePlayerEvidenceReport.Lifecycle(
+      resumedAfterBackground: resumedAfterBackground,
+      loadedSubviewCount: loadedSubviewCount,
+      releasedAfterResume: reference.value == nil)
   }
 
   private static func milliseconds(since start: TimeInterval) -> Double {

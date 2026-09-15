@@ -283,9 +283,11 @@ expanded-node corpus. Release builds exercise the validation in the real UIKit h
 Release sample now emits a source-identified JSON baseline from seven Title Card iterations on a
 named iPad simulator. CI checks broad time, hierarchy, allocation, physical-footprint, executable,
 and app-bundle budgets and requires native labels, a native button/control, and accessibility
-elements. Fixed-device time, allocation, memory, frame pacing, and deallocation baselines remain
-required before this package drops its `core implemented` qualifier; simulator measurements are a
-regression tripwire, not a device performance claim.
+elements. It also interrupts a real public player view's initial load with background/foreground
+notifications, requires the native hierarchy to recover, and verifies ARC deallocation after the
+last strong reference is released. Fixed-device time, allocation, memory, and frame-pacing
+baselines remain required before this package drops its `core implemented` qualifier; simulator
+measurements are a regression tripwire, not a device performance claim.
 
 ### 11. Stabilize distribution and API only after evidence — core implemented
 
@@ -333,7 +335,7 @@ owned reason for every tolerated visual difference.
 ## Immediate next sequence
 
 Land the stacked packages and the packaged-simulator evidence slice in order. Then run the same
-versioned report on a fixed physical device, add VoiceOver/Switch Control UI automation and explicit
-deallocation evidence, and verify one published standalone archive from an external consumer. Keep
+versioned report on a fixed physical device, add VoiceOver/Switch Control UI automation, and verify
+one published standalone archive from an external consumer. Keep
 `rc-native-uikit-core-v1` unchanged while collecting that evidence. Any new operation family starts
 a new reviewed profile diff with a fixture and owned diagnostics before it becomes a release claim.

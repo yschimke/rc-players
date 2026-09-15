@@ -83,7 +83,9 @@ simulator and asks the app to measure seven direct bridge/render iterations of
 `TitleCardRemote-640x480`. The JSON artifact records its source revision, simulator model and OS,
 median decode/first-frame/update time, UIKit hierarchy composition, accessibility elements,
 allocation and physical-footprint growth, executable size, and installed app-bundle size. CI
-retains `native-uikit-evidence.json` beside the rendered evidence.
+retains `native-uikit-evidence.json` beside the rendered evidence. The same run interrupts a real
+public player view's initial load with background/active notifications, requires it to resume to a
+native document hierarchy, releases the last strong reference, and requires ARC deallocation.
 
 The initial regression ceilings are deliberately broad: 250 ms decode, 250 ms first frame, 100 ms
 update, 500 views, 32 MiB allocation growth, 64 MiB physical-footprint growth, a 200 MiB
