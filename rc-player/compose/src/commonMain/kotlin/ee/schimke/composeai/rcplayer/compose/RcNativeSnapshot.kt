@@ -655,6 +655,7 @@ public object RcNativeSnapshotBridge {
       inheritedWidth: Float? = null,
       inheritedHeight: Float? = null,
       linearContentHorizontal: Boolean? = null,
+      settlingGeometry: Boolean = false,
     ): RcNativeNodeSnapshot {
       val operation = container.operation
       val directOperations =
@@ -866,6 +867,23 @@ public object RcNativeSnapshotBridge {
                 is RcHeightModifier -> dimension.type
                 else -> RcDimensionType.WRAP
               }
+            fun naturalSize(): Float {
+              val childOperation = childContainers[index].operation
+              return when (childOperation) {
+                is RcTextLayout -> {
+                  val fontSize = state.resolve(childOperation.fontSize) / document.header.density
+                  val text = state.text(childOperation.textId).orEmpty()
+                  if (horizontal) text.length * fontSize * 0.55f
+                  else fontSize * 1.2f * childOperation.maxLines.coerceAtMost(2)
+                }
+                is RcImageLayout -> {
+                  val bitmap = bitmaps[childOperation.bitmapId]
+                  if (horizontal) bitmap?.width?.toFloat() ?: 0f
+                  else bitmap?.height?.toFloat() ?: 0f
+                }
+                else -> 0f
+              }
+            }
             val scaled =
               when (type) {
                 RcDimensionType.EXACT ->
@@ -895,7 +913,7 @@ public object RcNativeSnapshotBridge {
                         else -> RcFloatWord.literal(Float.NaN)
                       }
                     )
-                else -> 0f
+                else -> naturalSize()
               }
             return minOf(maxOf(scaled, minimum), maximum)
           }
@@ -907,11 +925,12 @@ public object RcNativeSnapshotBridge {
                 if (weight != null) 0.0 else constrainedFixedSize(index, dimension).toDouble()
               }
               .toFloat()
-          val totalWeight = weights.filterNotNull().sum()
+          val normalizedWeights = weights.map { it?.coerceAtLeast(Float.MIN_VALUE) }
+          val totalWeight = normalizedWeights.filterNotNull().sum()
           dimensions.indices.map { index ->
-            val weight = weights[index]
+            val weight = normalizedWeights[index]
             if (weight != null && totalWeight > 0f) {
-              maxOf(available - fixed, 0f) * maxOf(weight, Float.MIN_VALUE) / totalWeight
+              maxOf(available - fixed, 0f) * weight / totalWeight
             } else {
               constrainedFixedSize(index, dimensions[index])
             }
@@ -1209,16 +1228,17 @@ public object RcNativeSnapshotBridge {
       for (child in container.children) {
         when (child) {
           is RcLinkedNode.Operation ->
-            consume(
-              child.operation,
-              componentId,
-              state,
-              paint,
-              commands,
-              diagnostics,
-              paths,
-              bitmaps,
-            )
+            if (!settlingGeometry)
+              consume(
+                child.operation,
+                componentId,
+                state,
+                paint,
+                commands,
+                diagnostics,
+                paths,
+                bitmaps,
+              )
           is RcLinkedNode.Container -> {
             val linearAllocation = linearAllocations?.get(childContainerIndex)
             childContainerIndex++
@@ -1239,16 +1259,17 @@ public object RcNativeSnapshotBridge {
               for (contentChild in child.children) {
                 when (contentChild) {
                   is RcLinkedNode.Operation ->
-                    consume(
-                      contentChild.operation,
-                      contentComponentId,
-                      state,
-                      paint,
-                      commands,
-                      diagnostics,
-                      paths,
-                      bitmaps,
-                    )
+                    if (!settlingGeometry)
+                      consume(
+                        contentChild.operation,
+                        contentComponentId,
+                        state,
+                        paint,
+                        commands,
+                        diagnostics,
+                        paths,
+                        bitmaps,
+                      )
                   is RcLinkedNode.Container -> {
                     val contentVisibility =
                       contentVisibilityModifier?.let {
@@ -1264,7 +1285,13 @@ public object RcNativeSnapshotBridge {
                         alternativeIndex == selected &&
                         alternatives.isNotEmpty()
                     ) {
-                      children += nodeFor(contentChild, childWidth, childHeight)
+                      children +=
+                        nodeFor(
+                          contentChild,
+                          childWidth,
+                          childHeight,
+                          settlingGeometry = settlingGeometry,
+                        )
                     }
                     alternativeIndex++
                   }
@@ -1282,6 +1309,7 @@ public object RcNativeSnapshotBridge {
                       is RcColumnLayout -> false
                       else -> null
                     },
+                  settlingGeometry = settlingGeometry,
                 )
             }
           }
@@ -1421,7 +1449,12 @@ public object RcNativeSnapshotBridge {
     // reference a later sibling's ComponentValue, so a single depth-first materialization can
     // otherwise capture that sibling's previous-frame or initial-zero geometry permanently.
     linked.operations.filterIsInstance<RcLinkedNode.Container>().forEach {
-      nodeFor(it, document.header.width.toFloat(), document.header.height.toFloat())
+      nodeFor(
+        it,
+        document.header.width.toFloat(),
+        document.header.height.toFloat(),
+        settlingGeometry = true,
+      )
     }
     paint = NativePaint()
 
