@@ -57,8 +57,19 @@ radius have a small frame-based implementation matching the UIKit POC's philosop
 
 The host reads bytes with `Data(contentsOf:)`. CMP passes those bytes to `RcComposeWindow`. The
 native path creates an `RcNativeSnapshotSession`, builds AppKit views from its immutable snapshot,
-and asks the retained session for a new snapshot when an `NSButton` is activated. This retains one
-mature decoder and state runtime during the POC while keeping all desktop UI native.
+and asks the retained session for a new snapshot when an `NSButton` is activated. Events returned
+atomically with that update are delivered to the host in wire order and shown in the control
+window. CMP events use the same host event feed. This retains one mature decoder and state runtime
+during the POC while keeping all desktop UI native.
+
+The native document view reads the scheduling fields from every immutable snapshot. On macOS 14+
+it uses `NSView.displayLink(target:selector:)`, so callbacks follow the display containing the view
+and naturally stop while AppKit hides or detaches it. macOS 12–13 retain a one-frame `Timer`
+fallback because `CADisplayLink` is not available there. Delayed runtime wakes use a common-mode
+one-shot timer on every supported release. The logical animation clock pauses while the application
+is inactive or the view is detached, preserves the remaining delayed wake, and observes AppKit's
+Reduce Motion setting. Functional `requestsNextFrame` work still runs under Reduce Motion while
+decorative continuous animation pauses.
 
 Malformed input is reported in the control window. The native renderer is intentionally
 best-effort: unsupported commands are skipped rather than silently selecting CMP. Renderer identity
@@ -77,8 +88,9 @@ build/distributions/RemoteComposePlayer-macOS-arm64.zip
 build/distributions/RemoteComposePlayer-macOS-arm64.zip.sha256
 ```
 
-CI packages the app whenever the Apple lane is affected, validates the signature and archive, and
-decodes the title-card fixture through the packaged executable's `--validate-native` smoke mode.
+CI packages the app whenever the Apple lane is affected, validates the signature and archive,
+decodes the title-card fixture through the packaged executable's `--validate-native` smoke mode,
+and samples the continuous-progress fixture through `--validate-native-animation`.
 The release workflow includes the ZIP in build-provenance attestation and uploads the ZIP and SHA-256
 sidecar to the GitHub Release with the Apple libraries.
 
@@ -89,8 +101,8 @@ need Control-click → Open on first launch.
 ## Deliberate POC limits
 
 - CMP is the compatibility reference; Native AppKit is not a compatibility claim.
-- Native canvas image resources, gradients, embedded fonts, animation pacing, touch gestures beyond
-  click, sound, and the full accessibility-role mapping still need parity work.
+- Native canvas image resources, gradients, embedded fonts, non-click pointer gestures, sound, and
+  the full accessibility-role mapping still need parity work.
 - The two renderers open sibling windows because CMP does not expose an embeddable macOS `NSView`.
 - Sandboxed security bookmarks are not persisted; the app reads the selected file into memory.
 - Distribution is ad-hoc signed and not notarized.
@@ -99,7 +111,7 @@ need Control-click → Open on first launch.
 
 1. Share renderer-neutral layout and paint policy between the UIKit and AppKit POCs without sharing
    platform views.
-2. Add image resources, gradients, embedded fonts, scheduled snapshots and complete event delivery.
+2. Add image resources, gradients, embedded fonts, pointer gestures and named-value host controls.
 3. Add deterministic macOS CMP/native comparison captures to the existing representative corpus.
 4. Add accessibility assertions for `NSTextField`, `NSButton`, state descriptions and merged nodes.
 5. Decide whether the native AppKit experiment belongs in a reusable library only after operation,

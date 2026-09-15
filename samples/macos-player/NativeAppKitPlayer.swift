@@ -1,17 +1,61 @@
 import AppKit
 import CoreText
+import QuartzCore
 import RcComposePlayer
+
+func nativeEventSummary(_ event: RcNativeEvent) -> String {
+  switch event.kind {
+  case 0: return "Action \(event.actionId)"
+  case 1: return "Action \(event.actionId): \(event.textValue ?? "")"
+  case 2: return "Named \(event.name ?? ""): none"
+  case 3: return "Named \(event.name ?? ""): \(event.floatValue)"
+  case 4: return "Named \(event.name ?? ""): \(event.integerValue)"
+  case 5: return "Named \(event.name ?? ""): \(event.textValue ?? "")"
+  case 6:
+    let values = event.floatListValue.map { String($0.floatValue) }.joined(separator: ", ")
+    return "Named \(event.name ?? ""): \(values)"
+  case 7:
+    return "Debug: \(event.textValue ?? "") (value \(event.floatValue), flags \(event.actionId))"
+  default: return String(describing: event)
+  }
+}
+
+enum NativeMacFrameDriverMode: Equatable {
+  case idle
+  case displayLink
+  case wake(after: TimeInterval)
+
+  static func resolve(
+    needsContinuousFrames: Bool,
+    requestsNextFrame: Bool,
+    wakeAfter: TimeInterval?,
+    isActive: Bool,
+    isVisible: Bool,
+    reduceMotion: Bool
+  ) -> NativeMacFrameDriverMode {
+    guard isActive, isVisible else { return .idle }
+    if requestsNextFrame || (needsContinuousFrames && !reduceMotion) { return .displayLink }
+    if let wakeAfter { return wakeAfter <= 0 ? .displayLink : .wake(after: wakeAfter) }
+    return .idle
+  }
+}
 
 @MainActor
 final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   static let shared = NativeAppKitWindowController()
   private var windows: [NSWindow] = []
 
-  func open(data: Data, title: String) throws {
+  func open(
+    data: Data,
+    title: String,
+    onEvent: @escaping (String) -> Void,
+    onError: @escaping (String) -> Void
+  ) throws {
     let bytes = RcDataBridgeKt.rcByteArray(data: data)
     let session = try RcNativeSnapshotBridge.shared.createSession(bytes: bytes)
     let snapshot = try session.snapshot(timeSeconds: 0)
-    let player = NativeMacDocumentView(snapshot: snapshot, session: session)
+    let player = NativeMacDocumentView(
+      snapshot: snapshot, session: session, onEvent: onEvent, onError: onError)
     let scroll = NSScrollView()
     scroll.drawsBackground = true
     scroll.backgroundColor = .windowBackgroundColor
@@ -111,46 +155,258 @@ private enum MacLinearLayout {
 
 private final class NativeMacDocumentView: NSView {
   private let session: RcNativeSnapshotSession
+  private let onEvent: (String) -> Void
+  private let onError: (String) -> Void
   private var snapshot: RcNativeDocumentSnapshot
   private var component: NativeMacComponentView!
+  private var displayLinkDriver: AnyObject?
+  private var fallbackFrameTimer: Timer?
+  private var delayedWakeTimer: Timer?
+  private var remainingWake: TimeInterval?
+  private var wakeStartedAt: TimeInterval?
+  private var elapsed: TimeInterval = 0
+  private var lastActiveTime: TimeInterval?
 
   override var isFlipped: Bool { true }
 
-  init(snapshot: RcNativeDocumentSnapshot, session: RcNativeSnapshotSession) {
+  init(
+    snapshot: RcNativeDocumentSnapshot,
+    session: RcNativeSnapshotSession,
+    onEvent: @escaping (String) -> Void,
+    onError: @escaping (String) -> Void
+  ) {
     self.snapshot = snapshot
     self.session = session
+    self.onEvent = onEvent
+    self.onError = onError
     let density = max(CGFloat(snapshot.density), 1)
     super.init(
       frame: NSRect(
         x: 0, y: 0, width: CGFloat(snapshot.width) / density,
         height: CGFloat(snapshot.height) / density))
-    rebuild()
+    lastActiveTime = Self.now
+    install(snapshot)
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(applicationDidBecomeActive),
+      name: NSApplication.didBecomeActiveNotification, object: nil)
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(applicationDidResignActive),
+      name: NSApplication.didResignActiveNotification, object: nil)
+    NSWorkspace.shared.notificationCenter.addObserver(
+      self, selector: #selector(accessibilityDisplayOptionsDidChange),
+      name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
   }
 
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
-  private func rebuild() {
+  deinit {
+    if #available(macOS 14.0, *) {
+      (displayLinkDriver as? NativeMacDisplayLinkDriver)?.invalidate()
+    }
+    fallbackFrameTimer?.invalidate()
+    delayedWakeTimer?.invalidate()
+    NotificationCenter.default.removeObserver(self)
+    NSWorkspace.shared.notificationCenter.removeObserver(self)
+  }
+
+  private func install(_ next: RcNativeDocumentSnapshot) {
+    snapshot = next
     component?.removeFromSuperview()
     component = NativeMacComponentView(node: snapshot.root) { [weak self] componentID in
       self?.click(componentID)
     }
     addSubview(component)
+    remainingWake = snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds)
+    wakeStartedAt = nil
     needsLayout = true
+    updateFrameDriver()
   }
 
   private func click(_ componentID: Int) {
     do {
-      let update = try session.click(componentId: Int32(componentID), timeSeconds: 0)
-      snapshot = update.snapshot
-      rebuild()
+      let update = try session.click(
+        componentId: Int32(componentID), timeSeconds: Float(sampleTime()))
+      install(update.snapshot)
+      for event in update.events { onEvent(nativeEventSummary(event)) }
     } catch {
+      onError("Native input failed: \(error.localizedDescription)")
       NSSound.beep()
     }
+  }
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    if window == nil {
+      pauseTimeline()
+    } else if NSApplication.shared.isActive {
+      resumeTimeline()
+    }
+    updateFrameDriver()
   }
 
   override func layout() {
     super.layout()
     component.frame = bounds
+  }
+
+  private func updateFrameDriver() {
+    pauseWakeCountdown()
+    delayedWakeTimer?.invalidate()
+    delayedWakeTimer = nil
+    let mode = NativeMacFrameDriverMode.resolve(
+      needsContinuousFrames: snapshot.needsContinuousFrames,
+      requestsNextFrame: snapshot.requestsNextFrame,
+      wakeAfter: remainingWake,
+      isActive: NSApplication.shared.isActive,
+      isVisible: window != nil,
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+    switch mode {
+    case .displayLink:
+      if #available(macOS 14.0, *) {
+        fallbackFrameTimer?.invalidate()
+        fallbackFrameTimer = nil
+        if displayLinkDriver == nil {
+          displayLinkDriver = NativeMacDisplayLinkDriver(view: self, owner: self)
+        }
+      } else {
+        displayLinkDriver = nil
+        fallbackFrameTimer?.invalidate()
+        fallbackFrameTimer = schedule(after: 1.0 / 60.0, repeats: false)
+      }
+    case .wake(let delay):
+      stopDisplayFrames()
+      wakeStartedAt = Self.now
+      delayedWakeTimer = schedule(after: max(delay, 0), repeats: false)
+    case .idle:
+      stopDisplayFrames()
+    }
+  }
+
+  private func schedule(after delay: TimeInterval, repeats: Bool) -> Timer {
+    let timer = Timer(timeInterval: delay, repeats: repeats) { [weak self] _ in
+      DispatchQueue.main.async { self?.frameTimerDidFire() }
+    }
+    RunLoop.main.add(timer, forMode: .common)
+    return timer
+  }
+
+  private func frameTimerDidFire() {
+    guard window != nil, NSApplication.shared.isActive else {
+      updateFrameDriver()
+      return
+    }
+    remainingWake = nil
+    wakeStartedAt = nil
+    fallbackFrameTimer = nil
+    delayedWakeTimer = nil
+    do {
+      install(try session.snapshot(timeSeconds: Float(sampleTime())))
+    } catch {
+      stopDisplayFrames()
+      onError("Native scheduled frame failed: \(error.localizedDescription)")
+      NSSound.beep()
+    }
+  }
+
+  fileprivate func displayLinkDidFire(targetTimestamp: TimeInterval) {
+    if snapshot.requestsNextFrame, !snapshot.needsContinuousFrames {
+      if #available(macOS 14.0, *) {
+        (displayLinkDriver as? NativeMacDisplayLinkDriver)?.invalidate()
+      }
+      displayLinkDriver = nil
+    }
+    guard window != nil, NSApplication.shared.isActive else {
+      updateFrameDriver()
+      return
+    }
+    do {
+      let targetTime = sampleTime(at: targetTimestamp)
+      install(try session.snapshot(timeSeconds: Float(targetTime)))
+    } catch {
+      stopDisplayFrames()
+      onError("Native display frame failed: \(error.localizedDescription)")
+      NSSound.beep()
+    }
+  }
+
+  private func stopDisplayFrames() {
+    if #available(macOS 14.0, *) {
+      (displayLinkDriver as? NativeMacDisplayLinkDriver)?.invalidate()
+    }
+    displayLinkDriver = nil
+    fallbackFrameTimer?.invalidate()
+    fallbackFrameTimer = nil
+  }
+
+  private func sampleTime() -> TimeInterval {
+    sampleTime(at: Self.now)
+  }
+
+  private func sampleTime(at now: TimeInterval) -> TimeInterval {
+    if let lastActiveTime {
+      elapsed += max(now - lastActiveTime, 0)
+      self.lastActiveTime = now
+    }
+    return elapsed
+  }
+
+  private func pauseTimeline() {
+    _ = sampleTime()
+    lastActiveTime = nil
+  }
+
+  private func resumeTimeline() {
+    if lastActiveTime == nil { lastActiveTime = Self.now }
+  }
+
+  private func pauseWakeCountdown() {
+    guard let wakeStartedAt, let remainingWake else { return }
+    self.remainingWake = max(remainingWake - max(Self.now - wakeStartedAt, 0), 0)
+    self.wakeStartedAt = nil
+  }
+
+  @objc private func applicationDidBecomeActive() {
+    resumeTimeline()
+    updateFrameDriver()
+  }
+
+  @objc private func applicationDidResignActive() {
+    pauseTimeline()
+    updateFrameDriver()
+  }
+
+  @objc private func accessibilityDisplayOptionsDidChange() {
+    if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+      pauseTimeline()
+    } else if NSApplication.shared.isActive, window != nil {
+      resumeTimeline()
+    }
+    updateFrameDriver()
+  }
+
+  private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+}
+
+@available(macOS 14.0, *)
+private final class NativeMacDisplayLinkDriver: NSObject {
+  private weak var owner: NativeMacDocumentView?
+  private var link: CADisplayLink!
+
+  init(view: NSView, owner: NativeMacDocumentView) {
+    self.owner = owner
+    super.init()
+    link = view.displayLink(target: self, selector: #selector(fire(_:)))
+    link.add(to: .main, forMode: .common)
+  }
+
+  func invalidate() {
+    link?.invalidate()
+    link = nil
+  }
+
+  @objc private func fire(_ link: CADisplayLink) {
+    owner?.displayLinkDidFire(targetTimestamp: link.targetTimestamp)
   }
 }
 
