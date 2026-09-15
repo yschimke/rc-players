@@ -1229,6 +1229,56 @@ class RcNativeSnapshotTest {
   }
 
   @Test
+  fun publishesResolvedWidthWhenHeightRequiresIntrinsicMeasurement() {
+    val reference = RcFloatWord(0x7fc00000 or 42)
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcTextData(20, "label"),
+          RcRootLayout(-2),
+          RcLayoutContent(-3),
+          RcTextLayout(
+            componentId = -4,
+            animationId = 0,
+            textId = 20,
+            color = 0xff000000.toInt(),
+            fontSize = RcFloatWord.literal(12f),
+            fontStyle = 0,
+            fontWeight = RcFloatWord.literal(400f),
+            fontFamilyId = 0,
+            textAlignAndFlags = 1,
+            overflow = 1,
+            maxLines = 1,
+          ),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(30f)),
+          RcComponentValue(RcComponentValue.WIDTH, componentId = -4, valueId = 42),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            reference,
+            RcFloatWord.literal(10f),
+          ),
+          end,
+          end,
+          end,
+        ),
+      )
+
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    assertEquals(
+      30f,
+      commands(RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document)).root)
+        .single { it.kind == RcNativeDrawCommand.RECT }
+        .third,
+    )
+  }
+
+  @Test
   fun settlesCurrentFrameSizeExpressionBeforePublishingSiblingGeometry() {
     val reference: (Int) -> RcFloatWord = { RcFloatWord(0x7fc00000 or it) }
     val end = RcNoArg(RcOpcodes.CONTAINER_END)
