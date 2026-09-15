@@ -44,11 +44,11 @@ let package = Package(
     .binaryTarget(
       name: "RcComposePlayer",
       url:
-        "https://github.com/yschimke/rc-players/releases/download/v0.0.0/RcComposePlayer.xcframework.zip",
+        "https://github.com/yschimke/rc-players/releases/download/v1.63.0/RcComposePlayer.xcframework.zip",
       // On `main` these two are the placeholder and a resolve fails loudly on the checksum rather
       // than fetching something unverified. On a bare `X.Y.Z` tag they are the real released
       // values, written by scripts/update-package-swift.sh. Check which you are looking at.
-      checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+      checksum: "db83ebd5c8c88c991f5447e669cc3c21c7dfe63b856e7699d4f56a60056ccda1"
     ),
     .target(name: "RcPlayerAppleFonts"),
     .target(
