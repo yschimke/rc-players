@@ -49,6 +49,13 @@
             [text.size, text.weight].map(Double.init), componentID: node.componentID,
             field: "text")
         }
+        for command in node.commands {
+          try budget.recordCommand(pathElementCount: command.path.count, limits: limits)
+          try budget.validateNumbers(
+            command.values.map(Double.init) + [Double(command.strokeWidth), Double(command.alpha)]
+              + command.path.flatMap { $0.values.map(Double.init) },
+            componentID: node.componentID, field: "draw", limits: limits)
+        }
         if let custom = node.custom {
           try budget.recordWork(custom.properties.count, limits: limits)
           try budget.recordStrings(
@@ -199,15 +206,16 @@
         snapshot.commands.map(NativeDrawCommand.init)
         + (snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? [])
       children = snapshot.children.map { NativeNode(swiftSnapshot: $0) }
-      semanticRole = snapshot.isClickable ? 0 : -1
-      isClickable = snapshot.isClickable
-      isEnabled = true
-      accessibilityLabel = nil
-      accessibilityText = snapshot.text?.value
-      accessibilityValue = nil
-      accessibilityMode = .set
-      hasAccessibilitySemantics = false
-      clickActionTypes = snapshot.isClickable ? [0] : []
+      semanticRole = snapshot.accessibility?.role ?? (snapshot.isClickable ? 0 : -1)
+      isClickable = snapshot.accessibility?.isClickable ?? snapshot.isClickable
+      isEnabled = snapshot.accessibility?.isEnabled ?? true
+      accessibilityLabel = snapshot.accessibility?.contentDescription
+      accessibilityText = snapshot.accessibility?.text ?? snapshot.text?.value
+      accessibilityValue = snapshot.accessibility?.stateDescription
+      accessibilityMode =
+        snapshot.accessibility.flatMap { NativeAccessibilityMode(rawValue: $0.mode) } ?? .set
+      hasAccessibilitySemantics = snapshot.accessibility != nil
+      clickActionTypes = snapshot.isClickable && isEnabled ? [0] : []
       widthType = snapshot.widthType
       widthValue = CGFloat(snapshot.widthValue)
       heightType = snapshot.heightType

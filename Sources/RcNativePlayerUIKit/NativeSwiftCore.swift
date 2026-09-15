@@ -21,6 +21,7 @@ struct NativeSwiftNodeSnapshot: Sendable {
   let children: [NativeSwiftNodeSnapshot]
   let commands: [NativeSwiftDrawCommandSnapshot]
   let isClickable: Bool
+  let accessibility: NativeSwiftAccessibilitySnapshot?
   let widthType: Int
   let widthValue: Float
   let heightType: Int
@@ -34,6 +35,16 @@ struct NativeSwiftNodeSnapshot: Sendable {
   let spacing: Float
   let text: NativeSwiftTextSnapshot?
   let custom: NativeSwiftCustomSnapshot?
+}
+
+struct NativeSwiftAccessibilitySnapshot: Sendable {
+  let role: Int
+  let mode: Int
+  let contentDescription: String?
+  let text: String?
+  let stateDescription: String?
+  let isEnabled: Bool
+  let isClickable: Bool
 }
 
 struct NativeSwiftDrawCommandSnapshot: Sendable {
@@ -145,7 +156,9 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
-    guard let node = document.nodes[componentID], node.isClickable else { return nil }
+    guard let node = document.nodes[componentID], node.isClickable,
+      node.accessibility?.isEnabled != false
+    else { return nil }
     let values = try resolvedFloats(timeSeconds: timeSeconds)
     return node.actions.compactMap { action in
       guard let name = texts[action.nameTextID] else { return nil }
@@ -239,7 +252,7 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
           integerValue = property.valueBits
           textValue = texts[property.valueBits]
         case 7:
-          integerValue = Int(Int32(bitPattern: document.colors[property.valueBits] ?? 0))
+          integerValue = Int(Int32(bitPattern: colors[property.valueBits] ?? 0))
           textValue = nil
         default:
           integerValue = property.valueBits
@@ -260,6 +273,13 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
       children: try node.children.map { try resolve($0, values: values) },
       commands: try node.commands.map { try $0.resolve(values: values, colors: colors) },
       isClickable: node.isClickable,
+      accessibility: node.accessibility.map {
+        NativeSwiftAccessibilitySnapshot(
+          role: $0.role, mode: $0.mode,
+          contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
+          stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
+          isClickable: $0.isClickable)
+      },
       widthType: node.widthType,
       widthValue: node.widthValue,
       heightType: node.heightType,
@@ -380,6 +400,16 @@ private struct ParsedNamedAction {
   let valueID: Int
 }
 
+private struct ParsedAccessibility {
+  let contentDescriptionID: Int
+  let role: Int
+  let textID: Int
+  let stateDescriptionID: Int
+  let mode: Int
+  let isEnabled: Bool
+  let isClickable: Bool
+}
+
 private struct ParsedDrawCommand {
   let kind: Int
   let words: [UInt32]
@@ -484,6 +514,7 @@ private final class ParsedNode {
   var commands: [ParsedDrawCommand] = []
   var isClickable = false
   var actions: [ParsedNamedAction] = []
+  var accessibility: ParsedAccessibility?
   var widthType = 2
   var widthValue: Float = 0
   var heightType = 2
@@ -999,13 +1030,21 @@ private enum NativeSwiftDocumentDecoder {
           overflow: integers[10] ?? 1, maximumLines: integers[11] ?? Int.max)
         try begin(node)
       case 250:  // Accessibility semantics
-        _ = try input.int("content description id")
-        _ = try input.u8("semantic role")
-        _ = try input.int("semantic text id")
-        _ = try input.int("state description id")
-        _ = try input.u8("semantic mode")
-        _ = try input.u8("semantic enabled")
-        _ = try input.u8("semantic clickable")
+        let node = try currentNode(stack, input: input)
+        let contentDescriptionID = try input.int("content description id")
+        let role = try input.u8("semantic role")
+        let textID = try input.int("semantic text id")
+        let stateDescriptionID = try input.int("state description id")
+        let mode = try input.u8("semantic mode")
+        let enabled = try input.u8("semantic enabled")
+        let clickable = try input.u8("semantic clickable")
+        guard role <= 9, mode <= 2, enabled <= 1, clickable <= 1 else {
+          throw input.malformed("Invalid accessibility semantics")
+        }
+        node.accessibility = ParsedAccessibility(
+          contentDescriptionID: contentDescriptionID, role: role, textID: textID,
+          stateDescriptionID: stateDescriptionID, mode: mode, isEnabled: enabled == 1,
+          isClickable: clickable == 1)
       case 152:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
         try currentNode(stack, input: input).commands.append(
@@ -1036,13 +1075,15 @@ private enum NativeSwiftDocumentDecoder {
     while index < words.count {
       let command = words[index]
       index += 1
-      let type = command & 0xffff
+      let encodedCommand = UInt32(bitPattern: Int32(command))
+      let type = Int(encodedCommand & 0xffff)
+      let highBits = Int(encodedCommand >> 16)
       let argumentCount: Int
       switch type {
       case 1, 4, 5, 9, 12, 13, 16, 19, 20, 22: argumentCount = 1
       case 24: argumentCount = 3
       case 7, 8, 10, 14, 15, 17, 18, 21: argumentCount = 0
-      case 23: argumentCount = (command >> 16) * 2
+      case 23: argumentCount = highBits * 2
       default:
         throw NativeSwiftCoreError.unsupported(
           opcode: 40, offset: input.offset, reason: "paint command \(type)")
@@ -1053,12 +1094,12 @@ private enum NativeSwiftDocumentDecoder {
         paint.colorARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorID = nil
       case 5: paint.strokeWidth = UInt32(bitPattern: Int32(words[index]))
-      case 7: paint.strokeCap = command >> 16
-      case 8: paint.isStroke = command >> 16 == 1
+      case 7: paint.strokeCap = highBits
+      case 8: paint.isStroke = highBits == 1
       case 12:
         paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
-      case 15: paint.strokeJoin = command >> 16
-      case 18: paint.blendMode = command >> 16
+      case 15: paint.strokeJoin = highBits
+      case 18: paint.blendMode = highBits
       case 19:
         paint.colorID = words[index]
       default: break

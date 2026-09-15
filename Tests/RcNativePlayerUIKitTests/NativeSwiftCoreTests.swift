@@ -52,12 +52,16 @@ enum NativeSwiftCoreTests {
     precondition(content.children[0].custom?.properties[0].textValue == "Hello from the document")
     precondition(content.children[2].text?.value == "Hello from the document")
 
+    precondition(session.setColor(0xff12_3456, for: "accent"))
     let accepted = try session.returnCustomText(
       "Edited in Swift", componentID: 5, propertyID: 2)
     precondition(accepted)
     let updated = try session.snapshot()
     let updatedContent = updated.root.children[0].children[0].children[0]
     precondition(updatedContent.children[0].custom?.properties[0].textValue == "Edited in Swift")
+    precondition(
+      updatedContent.children[0].custom?.properties[2].integerValue
+        == Int(Int32(bitPattern: 0xff12_3456)))
     precondition(updatedContent.children[2].text?.value == "Edited in Swift")
     let rejected = try session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
     precondition(!rejected)
@@ -90,6 +94,35 @@ enum NativeSwiftCoreTests {
     let pathCommand = pathSnapshot.root.children[0].children[0].commands[0]
     precondition(pathCommand.kind == 18 && pathCommand.path.count == 2)
 
+    let semantics = Writer()
+    semantics.header(width: 100, height: 100)
+    semantics.text(id: 10, "activate")
+    semantics.text(id: 11, "Disabled action")
+    semantics.text(id: 12, "Unavailable")
+    semantics.u8(200).int(1).u8(201).int(2).u8(202).int(3).int(-1).int(1).int(4)
+    semantics.u8(59).u8(210).int(10).int(-1).int(-1).u8(214)
+    semantics.u8(250).int(11).u8(0).int(-1).int(12).u8(0).u8(0).u8(1)
+    semantics.u8(214).u8(214).u8(214)
+    let semanticsSession = try NativeSwiftDocumentSession.open(data: semantics.data)
+    let semanticButton = try semanticsSession.snapshot().root.children[0].children[0]
+    precondition(semanticButton.accessibility?.contentDescription == "Disabled action")
+    precondition(semanticButton.accessibility?.stateDescription == "Unavailable")
+    precondition(semanticButton.accessibility?.isEnabled == false)
+    let disabledEvents = try semanticsSession.click(componentID: 3, timeSeconds: 0)
+    precondition(disabledEvents == nil)
+
+    let malformedPaint = Writer()
+    malformedPaint.header(width: 100, height: 100)
+    malformedPaint.u8(200).int(1)
+    malformedPaint.u8(40).int(1).int(Int(Int32(bitPattern: 0xffff_0017)))
+    malformedPaint.u8(214)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: malformedPaint.data)
+      preconditionFailure("negative variable paint count was accepted")
+    } catch let error as NativeSwiftCoreError {
+      precondition(!error.isUnsupported)
+    }
+
     do {
       _ = try NativeSwiftDocumentSession.open(data: wire.dropLast())
       preconditionFailure("truncated input was accepted")
@@ -114,6 +147,7 @@ enum NativeSwiftCoreTests {
     let output = Writer()
     output.header(width: 360, height: 150)
     output.u8(138).int(50).int(Int(Int32(bitPattern: 0xff20_2124)))
+    output.namedVariable(id: 50, type: 2, name: "accent")
     output.text(id: 40, "demo:EditableText")
     output.text(id: 60, "Hello from the document")
     output.text(id: 44, "The document sees:")
@@ -214,6 +248,14 @@ private final class Writer {
     let encoded = Array(value.utf8)
     u8(102).int(id).int(encoded.count)
     bytes.append(contentsOf: encoded)
+  }
+
+  @discardableResult
+  func namedVariable(id: Int, type: Int, name: String) -> Writer {
+    let encoded = Array(name.utf8)
+    u8(137).int(id).int(type).int(encoded.count)
+    bytes.append(contentsOf: encoded)
+    return self
   }
 
   func textLayout(id: Int, textID: Int, color: UInt32, size: Float) {
