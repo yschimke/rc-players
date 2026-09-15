@@ -187,9 +187,19 @@ public object RcDocumentCodec {
           profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL,
         )
       val operations = mutableListOf<RcOperation>()
+      var decodedOperationCount = 0
       while (input.remaining > 0) {
         val opcodeOffset = input.offset
         val opcode = input.readU8("opcode")
+        decodedOperationCount += 1
+        if (decodedOperationCount > limits.maxOperations) {
+          throw RcWireException(
+            opcodeOffset,
+            opcode,
+            fieldName = "opcode",
+            message = "Document exceeds ${limits.maxOperations} operations",
+          )
+        }
         val codec =
           codecs[opcode]
             ?: throw RcWireException(
@@ -244,9 +254,19 @@ public object RcDocumentCodec {
     }
     val input = RcWireReader(bytes, limits, idRemapper, libraryApiLevel, profile)
     return buildList {
+      var decodedOperationCount = 0
       while (input.remaining > 0) {
         val opcodeOffset = input.offset
         val opcode = input.readU8("opcode")
+        decodedOperationCount += 1
+        if (decodedOperationCount > limits.maxOperations) {
+          throw RcWireException(
+            opcodeOffset,
+            opcode,
+            fieldName = "opcode",
+            message = "Operation body exceeds ${limits.maxOperations} operations",
+          )
+        }
         val codec =
           codecs[opcode]
             ?: throw RcWireException(

@@ -32,7 +32,8 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 7 — Named values, actions, and input | Core implemented | Typed float/string/color updates, ordered host events, single-click dispatch, semantic controls, and UIKit visual-order hit testing |
 | 8 — Semantic UIKit components and accessibility | Core implemented | Native role identity, label/text/value mapping, merge/clear behavior, deterministic VoiceOver order, enabled state, and policy tests |
 | 9 — Deterministic time and animation | Core implemented | Runtime frame/wake contract, injectable monotonic timeline, demand-driven display link, lifecycle/Reduce Motion policy, and animated progress fixture |
-| 10–11 | Planned | Ordered below |
+| 10 — Performance and untrusted input | Core implemented | Decode-time operation ceiling plus configurable typed byte, node, depth, draw, path, text, geometry, and per-frame work limits |
+| 11 | Planned | Ordered below |
 
 ## Delivery rules
 
@@ -242,7 +243,7 @@ views hash their render inputs and request display only when those inputs change
 advance synthetic timestamps without sleeping; the simulator gate captures two real Progress
 frames and requires visible, changing pixels inside the document surface.
 
-### 10. Harden performance and untrusted-input behavior
+### 10. Harden performance and untrusted-input behavior — core implemented
 
 Enforce limits for operation count, nesting, macro expansion, path complexity, text length, bitmap
 bytes, offscreen dimensions, and per-frame work. Profile decode, first frame, updates, view count,
@@ -255,6 +256,30 @@ Acceptance:
 - limits produce typed, diagnosable failures;
 - performance budgets run in CI where stable and in scheduled device jobs otherwise;
 - no resource, timer, task, or display link survives player deallocation.
+
+The wire decoder now stops at 100,000 operations, counting conditional `Skip` records as work even
+though they do not enter the decoded model. This complements the existing 16 MiB document limit,
+256-level container limit, 64-level expansion limit, and 100,000-node expansion limit before the
+native bridge begins exporting a frame.
+
+Swift exposes a separate `RemoteComposeNativeExecutionLimits` policy. Every initial frame, timed
+frame, named-value update, and click result is checked before view reconciliation for document
+bytes, node count and nesting, draw-command count, aggregate path elements, per-command UTF-8 text,
+canvas dimensions, finite coordinates, coordinate magnitude, and aggregate frame work. Failures
+are public `RemoteComposeNativeLimitError` values with stable associated measurements; changing the
+policy invalidates the current generation before retrying, so an older task cannot install a frame
+after a new policy rejects it. Resource byte and decoded-image limits remain independently
+configurable because they govern host resolution and cache ownership rather than execution work.
+The asynchronous load path captures only immutable policy/cache inputs while awaiting a host
+resource resolver; it no longer holds the player view strongly. Deallocation can therefore cancel
+the load and delayed-wake tasks, while the display-link proxy already keeps only a weak owner.
+
+Pure adversarial tests exercise every typed Swift refusal and prove the codec operation ceiling is
+applied while decoding. Repository linker tests retain the nesting, recursive macro/reference, and
+expanded-node corpus. Release builds exercise the validation in the real UIKit host. Fixed-device
+time, allocation, and memory baselines remain required before this package drops its `core
+implemented` qualifier; those measurements are intentionally observational rather than flaky CI
+wall-clock gates.
 
 ### 11. Stabilize distribution and API only after evidence
 
@@ -288,6 +313,6 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-Begin package 7's named-value and action contract on the retained session. Keep host mutation and
-event delivery serialized, and prove that a replacement generation cannot emit an action from the
-old document before expanding gesture families.
+Begin package 11's distribution decision record from the evidence accumulated by packages 1–10.
+Keep the product experimental while recording the supported operation profile, Apple platform
+matrix, artifact provenance, API compatibility policy, and migration choices.

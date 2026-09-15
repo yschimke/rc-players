@@ -760,4 +760,40 @@ class RcDocumentCodecTest {
     assertEquals("FunctionCall", failure.operationName)
     assertEquals("arguments.count", failure.fieldName)
   }
+
+  @Test
+  fun documentOperationLimitFailsDuringDecode() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), modern = false),
+        listOf(RcIntegerConstant(42, 1), RcIntegerConstant(43, 2)),
+      )
+
+    val failure =
+      assertFailsWith<RcWireException> {
+        RcDocumentCodec.decode(
+          RcDocumentCodec.encode(document),
+          limits = RcWireLimits(maxOperations = 2),
+        )
+      }
+
+    assertTrue(failure.message.orEmpty().contains("exceeds 2 operations"))
+    assertEquals("opcode", failure.fieldName)
+  }
+
+  @Test
+  fun operationBodyLimitCountsSkippedOperations() {
+    val writer = RcWireWriter()
+    repeat(2) { RcDocumentCodec.encodeOperation(writer, RcSkip(0, 0, 0)) }
+
+    val failure =
+      assertFailsWith<RcWireException> {
+        RcDocumentCodec.decodeOperations(
+          writer.toByteArray(),
+          limits = RcWireLimits(maxOperations = 1),
+        )
+      }
+
+    assertTrue(failure.message.orEmpty().contains("exceeds 1 operations"))
+  }
 }

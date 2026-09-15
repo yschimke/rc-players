@@ -230,6 +230,7 @@ public data class RcWireLimits(
   val maxPathWords: Int = 20_000,
   val maxCollectionEntries: Int = 2_000,
   val maxImageDimension: Int = 8_192,
+  val maxOperations: Int = 100_000,
 )
 
 /** AndroidX document profile bits consumed by conditional [RcSkip] operations. */
