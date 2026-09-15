@@ -1353,8 +1353,14 @@
         }
         if let image = command.image {
           hasher.combine(image.imageID)
-          hasher.combine(image.source)
-          hasher.combine(image.destination)
+          hasher.combine(image.source.origin.x)
+          hasher.combine(image.source.origin.y)
+          hasher.combine(image.source.size.width)
+          hasher.combine(image.source.size.height)
+          hasher.combine(image.destination.origin.x)
+          hasher.combine(image.destination.origin.y)
+          hasher.combine(image.destination.size.width)
+          hasher.combine(image.destination.size.height)
           hasher.combine(image.scaleType)
           hasher.combine(image.scaleFactor)
         }

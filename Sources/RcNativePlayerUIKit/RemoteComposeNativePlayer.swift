@@ -592,7 +592,9 @@
         displayLink = nil
         let generation = frameDriverGeneration
         delayedWakeTask = Task { [weak self] in
-          try? await Task.sleep(for: .seconds(delay))
+          let maximumDelay = TimeInterval(UInt64.max / 1_000_000_000)
+          let nanoseconds = UInt64(min(max(delay, 0), maximumDelay) * 1_000_000_000)
+          try? await Task.sleep(nanoseconds: nanoseconds)
           guard !Task.isCancelled, let self, generation == self.frameDriverGeneration else {
             return
           }
