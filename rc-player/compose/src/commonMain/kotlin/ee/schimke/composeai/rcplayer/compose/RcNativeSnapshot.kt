@@ -137,6 +137,10 @@ public data class RcNativeNodeSnapshot(
   public val clickable: Boolean = false,
   public val enabled: Boolean = true,
   public val semanticLabel: String? = null,
+  public val semanticText: String? = null,
+  public val semanticStateDescription: String? = null,
+  public val semanticMode: Int = RcAccessibilitySemantics.MODE_SET,
+  public val hasSemantics: Boolean = false,
   /** Supported click gestures owned by this component. See [CLICK] and [SINGLE_CLICK]. */
   public val clickActionTypes: List<Int> = emptyList(),
   public val widthType: Int = RcDimensionType.WRAP,
@@ -594,12 +598,12 @@ public object RcNativeSnapshotBridge {
       val operation = container.operation
       val directOperations =
         container.children.filterIsInstance<RcLinkedNode.Operation>().map { it.operation }
-      val semantics =
+      val accessibilityModifiers =
         container.children
           .filterIsInstance<RcLinkedNode.Operation>()
           .map { it.operation }
           .filterIsInstance<RcAccessibilitySemantics>()
-          .lastOrNull()
+      val semantics = accessibilityModifiers.lastOrNull()
       val clickModifiers =
         container.children.filterIsInstance<RcLinkedNode.Container>().filter {
           it.operation is RcClickModifier || it.operation is RcMultiClickModifier
@@ -622,6 +626,21 @@ public object RcNativeSnapshotBridge {
         }
       val componentId = nativeComponentId(operation) ?: 0
       val commands = mutableListOf<RcNativeDrawCommand>()
+      semantics?.let {
+        require(it.role in -1..RcAccessibilitySemantics.ROLE_UNKNOWN) {
+          "Accessibility role ${it.role} is invalid"
+        }
+        require(it.mode in RcAccessibilitySemantics.MODE_SET..RcAccessibilitySemantics.MODE_MERGE) {
+          "Accessibility mode ${it.mode} is invalid"
+        }
+      }
+      if (accessibilityModifiers.size > 1) {
+        diagnostics.unsupportedLimitation(
+          requireNotNull(semantics),
+          componentId,
+          "Multiple accessibility modifiers collapse to the last modifier in the native player",
+        )
+      }
       if (operation is RcImageLayout) {
         val bitmap =
           requireNotNull(bitmaps[operation.bitmapId]) { "Missing bitmap ${operation.bitmapId}" }
@@ -925,9 +944,10 @@ public object RcNativeSnapshotBridge {
       }
       val clickable = semantics?.clickable == true || hasClickModifier
       val label =
-        semantics
-          ?.let { state.text(it.contentDescriptionId) ?: state.text(it.textId) }
-          ?.takeUnless(String::isBlank)
+        semantics?.let { state.text(it.contentDescriptionId) }?.takeUnless(String::isBlank)
+      val semanticText = semantics?.let { state.text(it.textId) }?.takeUnless(String::isBlank)
+      val semanticStateDescription =
+        semantics?.let { state.text(it.stateDescriptionId) }?.takeUnless(String::isBlank)
       // AndroidX fixes each axis at the first size modifier in wire order.
       val width = directOperations.filterIsInstance<RcWidthModifier>().firstOrNull()
       val height = directOperations.filterIsInstance<RcHeightModifier>().firstOrNull()
@@ -1054,6 +1074,10 @@ public object RcNativeSnapshotBridge {
         clickable = clickable,
         enabled = semantics?.enabled ?: true,
         semanticLabel = label,
+        semanticText = semanticText,
+        semanticStateDescription = semanticStateDescription,
+        semanticMode = semantics?.mode ?: RcAccessibilitySemantics.MODE_SET,
+        hasSemantics = semantics != null,
         clickActionTypes =
           clickModifiers.mapNotNull { modifier ->
             when (val click = modifier.operation) {

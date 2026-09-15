@@ -51,6 +51,69 @@ import kotlin.test.assertTrue
 
 class RcNativeSnapshotTest {
   @Test
+  fun validatesAndDiagnosesAccessibilityModifierBoundaries() {
+    val first =
+      RcAccessibilitySemantics(
+        contentDescriptionId = 0,
+        role = RcAccessibilitySemantics.ROLE_BUTTON,
+        textId = 0,
+        stateDescriptionId = 0,
+        mode = RcAccessibilitySemantics.MODE_SET,
+        enabled = true,
+        clickable = false,
+      )
+    val duplicate =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcRootLayout(1),
+          first,
+          first.copy(role = RcAccessibilitySemantics.ROLE_IMAGE),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(duplicate))
+
+    assertEquals(RcAccessibilitySemantics.ROLE_IMAGE, snapshot.root.children.single().semanticRole)
+    assertTrue(snapshot.root.children.single().hasSemantics)
+    assertEquals(
+      "Multiple accessibility modifiers collapse to the last modifier in the native player",
+      snapshot.diagnostics.single().reason,
+    )
+
+    val invalid =
+      duplicate.copy(
+        operations =
+          listOf(
+            RcRootLayout(1),
+            first.copy(role = 100),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          )
+      )
+    assertFailsWith<IllegalArgumentException> {
+      RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(invalid))
+    }
+
+    val roleless =
+      duplicate.copy(
+        operations =
+          listOf(
+            RcRootLayout(1),
+            first.copy(role = -1, mode = RcAccessibilitySemantics.MODE_CLEAR_AND_SET),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          )
+      )
+    assertTrue(
+      RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(roleless))
+        .root
+        .children
+        .single()
+        .hasSemantics
+    )
+  }
+
+  @Test
   fun retainedSessionAppliesNamedValuesAndDispatchesSingleClicksInOrder() {
     val width = RcFloatWord(0x7fc00000 or 20)
     val document =
@@ -209,14 +272,17 @@ class RcNativeSnapshotTest {
       RcDocument(
         RcHeader(RcVersion(0, 1, 0), legacyWidth = 320, legacyHeight = 180),
         listOf(
+          RcTextData(10, "Submit"),
+          RcTextData(11, "Send"),
+          RcTextData(12, "Unavailable"),
           RcRootLayout(7),
           RcAccessibilitySemantics(
-            contentDescriptionId = -1,
+            contentDescriptionId = 10,
             role = RcAccessibilitySemantics.ROLE_BUTTON,
-            textId = -1,
-            stateDescriptionId = -1,
-            mode = RcAccessibilitySemantics.MODE_SET,
-            enabled = true,
+            textId = 11,
+            stateDescriptionId = 12,
+            mode = RcAccessibilitySemantics.MODE_CLEAR_AND_SET,
+            enabled = false,
             clickable = true,
           ),
           RcPaintData(listOf(4, 0xff336699.toInt())),
@@ -242,6 +308,14 @@ class RcNativeSnapshotTest {
       snapshot.root.children.single().semanticRole,
     )
     assertTrue(snapshot.root.children.single().clickable)
+    assertTrue(!snapshot.root.children.single().enabled)
+    assertEquals("Submit", snapshot.root.children.single().semanticLabel)
+    assertEquals("Send", snapshot.root.children.single().semanticText)
+    assertEquals("Unavailable", snapshot.root.children.single().semanticStateDescription)
+    assertEquals(
+      RcAccessibilitySemantics.MODE_CLEAR_AND_SET,
+      snapshot.root.children.single().semanticMode,
+    )
     val command = snapshot.root.children.single().commands.single()
     assertEquals(RcNativeDrawCommand.RECT, command.kind)
     assertEquals(10f, command.first)

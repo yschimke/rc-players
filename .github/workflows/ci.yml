@@ -72,6 +72,8 @@ jobs:
               samples/apple-player \
               scripts/build-apple-player.sh \
               scripts/check-apple-player-screenshot.sh \
+              scripts/check-native-uikit-accessibility.sh \
+              scripts/check-native-uikit-accessibility-simulator.sh \
               scripts/check-native-uikit-compatibility.sh \
               scripts/check-native-uikit-graphics.sh \
               scripts/check-native-uikit-layout.sh \
@@ -312,6 +314,10 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-layout.sh
 
+      - name: Test native UIKit accessibility policy
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-accessibility.sh
+
       - name: Test native UIKit graphics state
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-graphics.sh
@@ -340,12 +346,18 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-apple-player-screenshot.sh
 
+      - name: Validate native UIKit accessibility presentation
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-accessibility-simulator.sh
+
       - name: Upload the Apple player screenshot
         if: always() && needs.apple-changes.outputs.required == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: apple-player-screenshot
-          path: build/apple-player-screenshot.png
+          path: |
+            build/apple-player-screenshot.png
+            build/native-uikit-accessibility.png
           if-no-files-found: ignore
           retention-days: 7
 
