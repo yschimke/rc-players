@@ -369,6 +369,7 @@ enum NativeImageGeometry {
     private var totalBytes = 0
     private var totalDecodedImageBytes = 0
     private var retainedImages = Set<ObjectIdentifier>()
+    private let fontResources: [NativeFontResource]
 
     private let cache: NativeImageCache
     private let fontRegistry: NativeFontRegistry
@@ -388,6 +389,7 @@ enum NativeImageGeometry {
       try NativeResourcePolicy.validateUniqueIDs(fonts.map(\.id))
       self.limits = limits
       self.cache = cache
+      fontResources = fonts
       fontRegistry = NativeFontRegistry(countLimit: limits.maximumResourceCount)
       resourcesByID = Dictionary(uniqueKeysWithValues: resources.map { ($0.id, $0) })
       var unresolved: [RemoteComposeNativeResourceRequest] = []
@@ -424,9 +426,24 @@ enum NativeImageGeometry {
           byteCount: font.data.count,
           runningTotal: &totalBytes,
           limits: limits)
-        fontNames[font.id] = try fontRegistry.register(data: font.data, id: font.id)
       }
       unresolvedImages = unresolved
+    }
+
+    func activateFonts(replacing previous: NativeResourceStore?) throws {
+      guard previous !== self else { return }
+      previous?.fontRegistry.reset()
+      do {
+        fontNames.removeAll(keepingCapacity: true)
+        for font in fontResources {
+          fontNames[font.id] = try fontRegistry.register(data: font.data, id: font.id)
+        }
+      } catch {
+        fontRegistry.reset()
+        fontNames.removeAll()
+        try? previous?.activateFonts(replacing: nil)
+        throw error
+      }
     }
 
     func insertResolved(data: Data, for request: RemoteComposeNativeResourceRequest) throws {
