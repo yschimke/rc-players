@@ -346,13 +346,14 @@ public constructor(bytes: ByteArray) {
     timeSeconds: Float = state.animationTimeSeconds,
   ): RcNativeSessionUpdate {
     requireValidNativeTime(timeSeconds)
+    state.beginFrame(timeSeconds = timeSeconds)
     pendingEvents.clear()
     val actions =
       clickActions[componentId].orEmpty().filter {
         it.type == RcClickActionType.CLICK || it.type == RcClickActionType.SINGLE
       }
     actions.forEach(state::executeClick)
-    return updateResult(actions.isNotEmpty(), timeSeconds)
+    return updateResult(actions.isNotEmpty(), timeSeconds, frameAlreadyBegun = true)
   }
 
   /** Set a declared float named value. Unqualified names use the `USER:` namespace. */
@@ -403,8 +404,19 @@ public constructor(bytes: ByteArray) {
     return updateResult(accepted, timeSeconds)
   }
 
-  private fun updateResult(accepted: Boolean, timeSeconds: Float): RcNativeSessionUpdate {
-    val snapshot = snapshot(timeSeconds)
+  private fun updateResult(
+    accepted: Boolean,
+    timeSeconds: Float,
+    frameAlreadyBegun: Boolean = false,
+  ): RcNativeSessionUpdate {
+    val snapshot =
+      RcNativeSnapshotBridge.snapshot(
+        document,
+        linked,
+        state,
+        timeSeconds,
+        advanceFrame = !frameAlreadyBegun,
+      )
     val events = pendingEvents.map(::nativeEvent)
     pendingEvents.clear()
     return RcNativeSessionUpdate(accepted, snapshot, events)
@@ -522,9 +534,10 @@ public object RcNativeSnapshotBridge {
     linked: RcLinkedDocument,
     state: RcPlayerState,
     timeSeconds: Float,
+    advanceFrame: Boolean = true,
   ): RcNativeDocumentSnapshot {
     requireValidNativeTime(timeSeconds)
-    state.beginFrame(timeSeconds = timeSeconds)
+    if (advanceFrame) state.beginFrame(timeSeconds = timeSeconds)
     val diagnostics = NativeDiagnosticCollector()
     val paint = NativePaint()
     val bitmaps =
