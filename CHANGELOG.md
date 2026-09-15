@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.62.0](https://github.com/yschimke/rc-players/compare/v1.61.1...v1.62.0) (2026-09-15)
+
+
+### Features
+
+* add bounded native UIKit resources ([#122](https://github.com/yschimke/rc-players/issues/122)) ([216a08a](https://github.com/yschimke/rc-players/commit/216a08a58166704929046c1da83bf038ea12948c))
+* add macOS native compatibility safety policy ([#134](https://github.com/yschimke/rc-players/issues/134)) ([7c3322e](https://github.com/yschimke/rc-players/commit/7c3322e0f8937946581c84cd1c4be558c0d59034))
+* add native compatibility policies ([#117](https://github.com/yschimke/rc-players/issues/117)) ([0fee8bb](https://github.com/yschimke/rc-players/commit/0fee8bb8821bc15bfb1abf0ae2a25285c62d3a99))
+* add native Swift custom components ([#135](https://github.com/yschimke/rc-players/issues/135)) ([aa33c4c](https://github.com/yschimke/rc-players/commit/aa33c4cdae426c00f25cafe58dd9927d87a5bf5a))
+* add native Swift gesture events ([#140](https://github.com/yschimke/rc-players/issues/140)) ([da02cc9](https://github.com/yschimke/rc-players/commit/da02cc96f953c8107bf1b1940f4aa62c09fa3a07))
+* add native UIKit player ([#130](https://github.com/yschimke/rc-players/issues/130)) ([bbdb408](https://github.com/yschimke/rc-players/commit/bbdb40861a2ea354c258a328cf93d0467955f7e1))
+* add native UIKit player proof of concept ([#113](https://github.com/yschimke/rc-players/issues/113)) ([f5ab226](https://github.com/yschimke/rc-players/commit/f5ab2263dcef030f3ecd7596f497f9949c3474da))
+* complete native UIKit static drawing core ([#120](https://github.com/yschimke/rc-players/issues/120)) ([bfe7ee7](https://github.com/yschimke/rc-players/commit/bfe7ee76ba235ce1a3f414fd85482b0dcc64658c))
+* complete native UIKit static layout core ([#119](https://github.com/yschimke/rc-players/issues/119)) ([a967571](https://github.com/yschimke/rc-players/commit/a96757189ed003a8740e59e2648d0d90c8408612))
+* complete native UIKit static text core ([#121](https://github.com/yschimke/rc-players/issues/121)) ([b1bdf74](https://github.com/yschimke/rc-players/commit/b1bdf74f423ce55f64992ef3b67631e5c5072cb7))
+* drive macOS animation and events ([#133](https://github.com/yschimke/rc-players/issues/133)) ([f4b625d](https://github.com/yschimke/rc-players/commit/f4b625d35ac1b5a096a8f941d05fafe60aa0d0b7))
+* make native AppKit player pure Swift ([#139](https://github.com/yschimke/rc-players/issues/139)) ([e156b1a](https://github.com/yschimke/rc-players/commit/e156b1a6c81356e7403de62ecc499a577b8eee2f))
+* make native UIKit player pure Swift ([#137](https://github.com/yschimke/rc-players/issues/137)) ([17cdcb4](https://github.com/yschimke/rc-players/commit/17cdcb4b125b03173b2dcbfbb6c530e5e6b9bf77))
+* publish macOS desktop player ([#132](https://github.com/yschimke/rc-players/issues/132)) ([d4faf6e](https://github.com/yschimke/rc-players/commit/d4faf6e10342f73b0eb7691731d20a09f63e0e01))
+* publish native UIKit player package ([#116](https://github.com/yschimke/rc-players/issues/116)) ([b5786f3](https://github.com/yschimke/rc-players/commit/b5786f309952cedffe29d37ba7297d626a11be40))
+* render native Swift image buttons ([#142](https://github.com/yschimke/rc-players/issues/142)) ([ad9bce5](https://github.com/yschimke/rc-players/commit/ad9bce517aabeca84aeec1c6c8b7b86e956e4288))
+* render native Swift progress fixtures ([#141](https://github.com/yschimke/rc-players/issues/141)) ([edb6085](https://github.com/yschimke/rc-players/commit/edb608588e8bd558f18fec9a8c982cbacf8a06f1))
+* start pure Swift native player core ([#136](https://github.com/yschimke/rc-players/issues/136)) ([e10e691](https://github.com/yschimke/rc-players/commit/e10e691ef71ef0efa100e79c2c94abb375416068))
+
+
+### Bug Fixes
+
+* compare and correct native UIKit rendering ([#131](https://github.com/yschimke/rc-players/issues/131)) ([2ff9401](https://github.com/yschimke/rc-players/commit/2ff9401e160948b73f13f0999cdde54032f6a5f3))
+* complete native strict diagnostics ([#118](https://github.com/yschimke/rc-players/issues/118)) ([54a61cd](https://github.com/yschimke/rc-players/commit/54a61cdf86838f96b6ebf7792ba76ab10c335787))
+* configure fonts for lane A/B renders ([#111](https://github.com/yschimke/rc-players/issues/111)) ([2a3d3bf](https://github.com/yschimke/rc-players/commit/2a3d3bfc9e86946f32cf07e8e2e2c2889848df37))
+* **deps:** bring the composeai pins up to the lines they consume ([#103](https://github.com/yschimke/rc-players/issues/103)) ([900c4d9](https://github.com/yschimke/rc-players/commit/900c4d92d78558683b498877a04ec9036a9b0715))
+* **deps:** pin dependencies ([#106](https://github.com/yschimke/rc-players/issues/106)) ([2a15ee9](https://github.com/yschimke/rc-players/commit/2a15ee9a317f54581469e4bca86518f4600e42c3))
+* **deps:** update androidx to v2.0.2 ([#108](https://github.com/yschimke/rc-players/issues/108)) ([ce6a71a](https://github.com/yschimke/rc-players/commit/ce6a71a77e0bc947452c190dc0f091c379d7b096))
+* **deps:** update androidx-compose ([#109](https://github.com/yschimke/rc-players/issues/109)) ([1da5d51](https://github.com/yschimke/rc-players/commit/1da5d511d3f2b3d72312224945019a3faa79558a))
+* **deps:** update compose-preview-daemon to v3.4.5 ([#110](https://github.com/yschimke/rc-players/issues/110)) ([2d7dc95](https://github.com/yschimke/rc-players/commit/2d7dc95f20c81ab3c3fa33069bfc17cb8de7a8ab))
+* **player:** align layout values with AndroidX alpha19 ([#112](https://github.com/yschimke/rc-players/issues/112)) ([f9f7a5d](https://github.com/yschimke/rc-players/commit/f9f7a5da788dc89900cb0b02664c24a777c88b3d))
+
 ## [1.61.1](https://github.com/yschimke/rc-players/compare/v1.61.0...v1.61.1) (2026-09-12)
 
 
