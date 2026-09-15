@@ -76,6 +76,7 @@ jobs:
               scripts/check-native-uikit-accessibility-simulator.sh \
               scripts/check-native-uikit-animation-simulator.sh \
               scripts/check-native-uikit-compatibility.sh \
+              scripts/check-native-uikit-execution-limits.sh \
               scripts/check-native-uikit-frame-timing.sh \
               scripts/check-native-uikit-graphics.sh \
               scripts/check-native-uikit-layout.sh \
@@ -324,6 +325,10 @@ jobs:
       - name: Test native UIKit frame timing
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-frame-timing.sh
+
+      - name: Test native UIKit execution limits
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-execution-limits.sh
 
       - name: Test native UIKit graphics state
         if: needs.apple-changes.outputs.required == 'true'

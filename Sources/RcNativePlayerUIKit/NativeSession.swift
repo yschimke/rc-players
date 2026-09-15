@@ -63,9 +63,12 @@
       self.session = session
     }
 
-    static func open(data: Data) async throws -> (NativeSnapshotSessionHandle, Frame) {
-      guard data.count <= Int(Int32.max) else {
-        throw RemoteComposeNativePlayerError.documentTooLarge(data.count)
+    static func open(
+      data: Data, maximumDocumentBytes: Int
+    ) async throws -> (NativeSnapshotSessionHandle, Frame) {
+      guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
+        throw RemoteComposeNativeLimitError.documentTooLarge(
+          actual: data.count, maximum: min(maximumDocumentBytes, Int(Int32.max)))
       }
       let opened = try await decoder.open(data: data)
       try Task.checkCancellation()

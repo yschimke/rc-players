@@ -34,6 +34,7 @@
       background: RemoteComposeNativePlayerBackground = .opaque,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
+      executionLimits: RemoteComposeNativeExecutionLimits = .default,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
@@ -41,7 +42,8 @@
     ) {
       playerView = RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
-        resourceLimits: resourceLimits, resourceResolver: resourceResolver,
+        resourceLimits: resourceLimits, executionLimits: executionLimits,
+        resourceResolver: resourceResolver,
         clock: clock,
         onEvent: onEvent,
         onDiagnostics: onDiagnostics)
@@ -66,6 +68,10 @@
       resolver: (any RemoteComposeNativeResourceResolving)?
     ) {
       playerView.configureResources(limits: limits, resolver: resolver)
+    }
+
+    public func configureExecutionLimits(_ limits: RemoteComposeNativeExecutionLimits) {
+      playerView.configureExecutionLimits(limits)
     }
 
     public func renderFrame(at timeSeconds: TimeInterval) {
@@ -115,6 +121,7 @@
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
     public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
     public private(set) var resourceLimits: RemoteComposeNativeResourceLimits
+    public private(set) var executionLimits: RemoteComposeNativeExecutionLimits
     public private(set) var resourceResolver: (any RemoteComposeNativeResourceResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
@@ -153,6 +160,7 @@
       background: RemoteComposeNativePlayerBackground = .opaque,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
+      executionLimits: RemoteComposeNativeExecutionLimits = .default,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
@@ -161,6 +169,7 @@
       playerBackground = background
       self.compatibilityPolicy = compatibilityPolicy
       self.resourceLimits = resourceLimits
+      self.executionLimits = executionLimits
       self.resourceResolver = resourceResolver
       self.clock = clock
       resourceCache = NativeImageCache(
@@ -241,6 +250,13 @@
       if let documentData { render(documentData) }
     }
 
+    /// Apply native per-frame work limits and retry the current document when they change.
+    public func configureExecutionLimits(_ limits: RemoteComposeNativeExecutionLimits) {
+      guard limits != executionLimits else { return }
+      executionLimits = limits
+      if let documentData { render(documentData) }
+    }
+
     private func render(_ data: Data) {
       guard isApplicationActive else {
         needsForegroundRender = true
@@ -256,18 +272,31 @@
       loadGeneration &+= 1
       inputGeneration &+= 1
       sessionEpoch &+= 1
+      do {
+        try NativeFrameBudget.validate(executionLimits)
+        guard data.count <= executionLimits.maximumDocumentBytes else {
+          throw RemoteComposeNativeLimitError.documentTooLarge(
+            actual: data.count, maximum: executionLimits.maximumDocumentBytes)
+        }
+      } catch {
+        show(error: error)
+        return
+      }
       let generation = loadGeneration
+      pendingWork = .documentLoad
+      let epoch = sessionEpoch
+      let executionLimits = executionLimits
       let compatibilityPolicy = compatibilityPolicy
       let resourceLimits = resourceLimits
       let resourceResolver = resourceResolver
       let resourceCache = resourceCache
-      pendingWork = .documentLoad
-      let epoch = sessionEpoch
       loadTask = Task { [weak self] in
         do {
-          let (session, frame) = try await NativeSnapshotSessionHandle.open(data: data)
+          let (session, frame) = try await NativeSnapshotSessionHandle.open(
+            data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes)
           try Task.checkCancellation()
           let model = NativeDocument(snapshot: frame.snapshot)
+          try model.validateExecution(limits: executionLimits)
           guard generation == self?.loadGeneration else { return }
           self?.onDiagnostics(model.diagnostics)
           if !RemoteComposeNativeCompatibilityDecision.shouldRender(
@@ -316,6 +345,7 @@
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
           let model = NativeDocument(snapshot: frame.snapshot)
+          try self.validateExecution(model)
           try self.validate(model)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
@@ -387,6 +417,7 @@
         }
         do {
           let model = NativeDocument(snapshot: update.frame.snapshot)
+          try validateExecution(model)
           try validate(model)
           guard
             input == inputGeneration, epoch == sessionEpoch, retainedSessionEpoch == epoch,
@@ -472,6 +503,10 @@
       {
         throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
       }
+    }
+
+    private func validateExecution(_ model: NativeDocument) throws {
+      try model.validateExecution(limits: executionLimits)
     }
 
     private static func prepareResources(

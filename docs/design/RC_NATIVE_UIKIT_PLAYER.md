@@ -398,12 +398,15 @@ runtime best preserves one semantic implementation if incremental interop proves
 
 ## Security and robustness
 
-The native lane accepts untrusted bytes wherever CMP does. It inherits codec/linker size, nesting,
-and expansion checks but adds native resource risks. Bitmap/font byte totals, resource counts,
-decoded dimensions, and decoded pixel counts are bounded today. Production must additionally bound
-command count, path complexity, text length, offscreen area, and per-frame work. Numeric values must
-be finite and sized before Core Graphics use. Custom components require an explicit host registry;
-documents must never instantiate arbitrary Objective-C classes by name.
+The native lane accepts untrusted bytes wherever CMP does. The codec refuses documents above 16
+MiB or 100,000 operations, including conditional records omitted from the decoded model. The linker
+then bounds container nesting, expansion depth, and expanded nodes. UIKit adds two independently
+configurable policies: resource limits cover bitmap/font bytes, counts, decoded dimensions, and
+decoded pixels; execution limits cover native node depth/count, commands, path elements, text,
+canvas dimensions, finite coordinate magnitude, and total frame work. Every initial, animated, and
+input-produced frame passes the same typed validation before view reconciliation or Core Graphics.
+Custom components require an explicit host registry; documents never instantiate arbitrary
+Objective-C classes by name.
 
 ## Evolution plan
 

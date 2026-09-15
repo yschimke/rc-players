@@ -36,6 +36,71 @@
         requestsNextFrame: snapshot.requestsNextFrame,
         wakeAfter: snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds))
     }
+
+    func validateExecution(limits: RemoteComposeNativeExecutionLimits) throws {
+      try NativeFrameBudget.validate(limits)
+      var budget = NativeFrameBudget()
+      try budget.validateDocumentDimensions(
+        [Double(size.width), Double(size.height)], limits: limits)
+      var pending: [(node: NativeNode, depth: Int)] = [(root, 1)]
+      while let current = pending.popLast() {
+        let node = current.node
+        try budget.recordNode(depth: current.depth, limits: limits)
+        try budget.validateNumbers(
+          [
+            Double(node.widthValue), Double(node.heightValue), Double(node.minimumWidth),
+            Double(node.minimumHeight), Double(node.maximumWidth ?? 0),
+            Double(node.maximumHeight ?? 0), Double(node.padding.top),
+            Double(node.padding.left), Double(node.padding.bottom), Double(node.padding.right),
+            Double(node.cornerRadius), Double(node.spacing), Double(node.offset.x),
+            Double(node.offset.y), Double(node.zIndex),
+          ], componentID: node.componentID, field: "layout", limits: limits)
+        try budget.validateCanvasDimensions(
+          [
+            abs(Double(node.widthValue)), abs(Double(node.heightValue)),
+            abs(Double(node.minimumWidth)), abs(Double(node.minimumHeight)),
+            abs(Double(node.maximumWidth ?? 0)), abs(Double(node.maximumHeight ?? 0)),
+          ], limits: limits)
+        for command in node.commands {
+          try budget.recordCommand(
+            pathElementCount: command.path.count, text: command.text, limits: limits)
+          try budget.validateNumbers(
+            command.values.map(Double.init)
+              + [
+                Double(command.alpha), Double(command.strokeWidth), Double(command.textSize),
+                Double(command.textWeight), Double(command.textStyle.letterSpacing),
+                Double(command.textStyle.lineHeightAdd),
+                Double(command.textStyle.lineHeightMultiplier),
+              ], componentID: node.componentID, field: "draw command", limits: limits)
+          for segment in command.path {
+            try budget.validateNumbers(
+              segment.values.map(Double.init), componentID: node.componentID,
+              field: "path", limits: limits)
+          }
+          if let gradient = command.gradient {
+            try budget.validateNumbers(
+              gradient.stops.map(Double.init) + gradient.values.map(Double.init),
+              componentID: node.componentID, field: "gradient", limits: limits)
+          }
+          if let image = command.image {
+            try budget.validateNumbers(
+              [
+                Double(image.source.minX), Double(image.source.minY),
+                Double(image.source.width), Double(image.source.height),
+                Double(image.destination.minX), Double(image.destination.minY),
+                Double(image.destination.width), Double(image.destination.height),
+                Double(image.scaleFactor),
+              ], componentID: node.componentID, field: "image", limits: limits)
+            try budget.validateCanvasDimensions(
+              [
+                abs(Double(image.source.width)), abs(Double(image.source.height)),
+                abs(Double(image.destination.width)), abs(Double(image.destination.height)),
+              ], limits: limits)
+          }
+        }
+        pending.append(contentsOf: node.children.map { ($0, current.depth + 1) })
+      }
+    }
   }
 
   struct NativeImageResource {
