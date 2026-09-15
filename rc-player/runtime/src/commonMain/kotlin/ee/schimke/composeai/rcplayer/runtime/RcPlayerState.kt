@@ -1194,9 +1194,21 @@ public class RcPlayerState(
    * Publishes geometry after placement. The callback fires only when an exposed float changes, so
    * the first layout schedules one settling pass and stable geometry cannot form a measure loop.
    */
-  public fun publishComponentGeometry(componentId: Int, geometry: RcComponentGeometry): Boolean {
+  public fun publishComponentGeometry(
+    componentId: Int,
+    geometry: RcComponentGeometry,
+  ): Boolean = publishComponentGeometry(componentId, geometry, refreshExpressions = true)
+
+  /**
+   * Publishes geometry while allowing a bounded external settling pass to own expression refresh.
+   */
+  public fun publishComponentGeometry(
+    componentId: Int,
+    geometry: RcComponentGeometry,
+    refreshExpressions: Boolean,
+  ): Boolean {
     componentGeometries[componentId] = geometry
-    return publishComponentValues(componentId, geometry)
+    return publishComponentValues(componentId, geometry, refreshExpressions)
   }
 
   /** Supplies the scrollable content extent used by alpha18 CONTENT_WIDTH/CONTENT_HEIGHT. */
@@ -1211,7 +1223,11 @@ public class RcPlayerState(
       ?: false
   }
 
-  private fun publishComponentValues(componentId: Int, geometry: RcComponentGeometry): Boolean {
+  private fun publishComponentValues(
+    componentId: Int,
+    geometry: RcComponentGeometry,
+    refreshExpressions: Boolean = true,
+  ): Boolean {
     var changed = false
     componentValues[componentId].orEmpty().forEach { binding ->
       val value =
@@ -1231,7 +1247,7 @@ public class RcPlayerState(
         changed = true
       }
     }
-    if (changed) {
+    if (changed && refreshExpressions) {
       // ComponentValue is a variable source in AndroidX. Expressions listening to it are refreshed
       // before the settling draw, including expressions used by layout modifiers rather than a
       // CanvasOperations block.

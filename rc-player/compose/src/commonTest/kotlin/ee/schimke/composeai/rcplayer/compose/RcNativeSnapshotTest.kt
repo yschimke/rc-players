@@ -51,6 +51,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -1226,6 +1227,62 @@ class RcNativeSnapshotTest {
 
     val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
     assertEquals(30f, commands(snapshot.root).single().third)
+  }
+
+  @Test
+  fun settlesSizeExpressionThatReadsLaterSiblingGeometry() {
+    val reference: (Int) -> RcFloatWord = { RcFloatWord(0x7fc00000 or it) }
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcRootLayout(-2),
+          RcLayoutContent(-3),
+          RcBoxLayout(-4, 0, 1, 4),
+          RcLayoutContent(-5),
+          RcCanvasLayout(-6, 0),
+          RcFloatExpression(
+            50,
+            listOf(
+              reference(42),
+              RcFloatWord.literal(2f),
+              RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 3),
+            ),
+            null,
+          ),
+          RcWidthModifier(RcDimensionType.EXACT, reference(50)),
+          RcLayoutContent(-7),
+          RcComponentValue(RcComponentValue.WIDTH, componentId = -6, valueId = 43),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            reference(43),
+            RcFloatWord.literal(10f),
+          ),
+          end,
+          end,
+          RcCanvasLayout(-8, 0),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(30f)),
+          RcLayoutContent(-9),
+          RcComponentValue(RcComponentValue.WIDTH, componentId = -8, valueId = 42),
+          end,
+          end,
+          end,
+          end,
+          end,
+          end,
+        ),
+      )
+
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    assertEquals(
+      60f,
+      commands(RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document)).root).single().third,
+    )
   }
 
   @Test
