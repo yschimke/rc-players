@@ -107,7 +107,12 @@ Core Graphics glyph calls. Conceptual image-layout components use visible `UIIma
 The POC resolves fill fractions, proportional weights, wrap and exact sizing, min/max constraints,
 padding, offsets, z-order, visibility, AndroidX linear arrangements, RTL placement, spacing, root
 scaling/alignment, and rounded clipping. Pure functions in `NativeLayout.swift` keep measurement and
-placement policy testable without constructing a UIKit hierarchy.
+placement policy testable without constructing a UIKit hierarchy. Width-constrained containers are
+measured in two passes so multiline `UILabel` content contributes its final height. DP-behavior
+documents preserve density-independent padding, spacing, constraints, and corner radii across the
+root transform; captured-pixel documents retain their pixel geometry. Rounded corners are clamped
+to half the resolved component bounds, matching the protocol's normalized shape rather than relying
+on out-of-range Core Animation clipping.
 
 ### Resolve before rendering
 
@@ -185,7 +190,10 @@ broader coverage is added only in Swift.
 ### Snapshot model
 
 `NativeSwiftDocumentSnapshot` is the Foundation-only value passed by the Swift session. It contains
-the document size, root-node concepts, and resolved values. Compatibility diagnostics record severity, opcode, inventory-derived
+the document size, generation density and density behavior, root-node concepts, and resolved values.
+Draw commands also retain whether their geometry depends on component-width or component-height
+values. UIKit can therefore replace stale pre-measurement background geometry with the owning
+component's final bounds without treating arbitrary paths as backgrounds. Compatibility diagnostics record severity, opcode, inventory-derived
 operation name, component id, and reason. Legacy unsupported-opcode and note projections remain in
 the experimental public diagnostics for source compatibility, but Swift treats structured issues as
 authoritative.

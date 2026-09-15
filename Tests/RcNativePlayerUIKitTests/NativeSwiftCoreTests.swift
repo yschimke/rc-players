@@ -13,11 +13,13 @@ enum NativeSwiftCoreTests {
       let titleSession = try NativeSwiftDocumentSession.open(data: titleData)
       let title = try titleSession.snapshot()
       precondition(title.width == 640 && title.height == 480)
+      precondition(title.density == 2 && title.densityBehavior == 2)
       precondition(title.root.firstText == "Morning run")
       precondition(title.root.allText.contains("5.2 km · 28 min"))
       guard let backgroundPath = title.root.firstPathCommand else {
         preconditionFailure("title card has no native background path")
       }
+      precondition(backgroundPath.usesComponentGeometry)
       let backgroundY = backgroundPath.path.flatMap { element in
         stride(from: 1, to: element.values.count - (element.kind == 13 ? 1 : 0), by: 2).map {
           element.values[$0]
@@ -54,10 +56,12 @@ enum NativeSwiftCoreTests {
       let session = try NativeSwiftDocumentSession.open(data: imageData)
       let snapshot = try session.snapshot()
       precondition(snapshot.width == 454 && snapshot.height == 200)
+      precondition(snapshot.density == 2 && snapshot.densityBehavior == 0)
       precondition(snapshot.images.count == 1)
       precondition(snapshot.images[0].width == 8 && snapshot.images[0].height == 8)
       let imageID = snapshot.root.firstImage?.imageID ?? snapshot.root.firstTextureImageID
       precondition(imageID == snapshot.images[0].id, "image button has no native bitmap draw")
+      precondition(snapshot.root.firstTextureCommand?.usesComponentGeometry == true)
       guard let button = snapshot.root.firstClickable else {
         preconditionFailure("image button has no clickable component")
       }
@@ -67,6 +71,7 @@ enum NativeSwiftCoreTests {
     let session = try NativeSwiftDocumentSession.open(data: wire)
     let initial = try session.snapshot()
     precondition(initial.width == 360 && initial.height == 150)
+    precondition(initial.density == 1 && initial.densityBehavior == 0)
     precondition(initial.root.children.first?.children.first?.kind == .column)
 
     let column = initial.root.children[0].children[0]
@@ -233,6 +238,8 @@ enum NativeSwiftCoreTests {
     print("native pure Swift core tests: ok")
   }
 
+
+
   private static func editableTextDocument() -> Data {
     let output = Writer()
     output.header(width: 360, height: 150)
@@ -297,6 +304,11 @@ extension NativeSwiftNodeSnapshot {
   fileprivate var firstTextureImageID: Int? {
     commands.lazy.compactMap(\.textureImageID).first
       ?? children.lazy.compactMap(\.firstTextureImageID).first
+  }
+
+  fileprivate var firstTextureCommand: NativeSwiftDrawCommandSnapshot? {
+    commands.first(where: { $0.textureImageID != nil })
+      ?? children.lazy.compactMap(\.firstTextureCommand).first
   }
 }
 

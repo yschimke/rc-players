@@ -67,9 +67,14 @@
         pending.append(contentsOf: node.children.map { ($0, depth + 1) })
       }
       executionBudget = budget
-      density = 1
+      density = CGFloat(swiftSnapshot.density)
+      guard density.isFinite, density > 0 else {
+        throw RemoteComposeNativePlayerError.decode("Document density must be finite and positive")
+      }
       size = CGSize(width: swiftSnapshot.width, height: swiftSnapshot.height)
-      root = NativeNode(swiftSnapshot: swiftSnapshot.root)
+      root = NativeNode(
+        swiftSnapshot: swiftSnapshot.root,
+        densityBehavior: swiftSnapshot.densityBehavior)
       images = swiftSnapshot.images.map {
         NativeImageResource(
           id: $0.id, width: $0.width, height: $0.height, type: $0.type,
@@ -197,8 +202,9 @@
     let zIndex: CGFloat
     let visibility: Int
     let custom: NativeCustomComponent?
+    let densityBehavior: Int
 
-    init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot) {
+    init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot, densityBehavior: Int) {
       switch snapshot.kind {
       case .root: kind = .root
       case .content: kind = .content
@@ -214,7 +220,9 @@
       commands =
         snapshot.commands.map(NativeDrawCommand.init)
         + (snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? [])
-      children = snapshot.children.map { NativeNode(swiftSnapshot: $0) }
+      children = snapshot.children.map {
+        NativeNode(swiftSnapshot: $0, densityBehavior: densityBehavior)
+      }
       semanticRole = snapshot.accessibility?.role ?? (snapshot.isClickable ? 0 : -1)
       isClickable = snapshot.isClickable || snapshot.accessibility?.isClickable == true
       isEnabled = snapshot.accessibility?.isEnabled ?? true
@@ -246,6 +254,7 @@
       zIndex = 0
       visibility = 1
       custom = snapshot.custom.map(NativeCustomComponent.init)
+      self.densityBehavior = densityBehavior
     }
 
     var firstText: String? {
@@ -362,6 +371,7 @@
     let textureImageID: Int?
     let textureTileModeX: Int
     let textureTileModeY: Int
+    let usesComponentGeometry: Bool
 
     init(_ snapshot: NativeSwiftDrawCommandSnapshot) {
       kind = snapshot.kind
@@ -399,6 +409,7 @@
       textureImageID = snapshot.textureImageID
       textureTileModeX = snapshot.textureTileModeX
       textureTileModeY = snapshot.textureTileModeY
+      usesComponentGeometry = snapshot.usesComponentGeometry
     }
 
     init(text snapshot: NativeSwiftTextSnapshot) {
@@ -422,6 +433,7 @@
       textureImageID = nil
       textureTileModeX = 0
       textureTileModeY = 0
+      usesComponentGeometry = false
     }
   }
 
@@ -549,6 +561,7 @@
         mode: document.rootMode,
         alignment: document.rootAlignment)
       componentView.transform = .identity
+      componentView.layoutDensityScale = root.scaleX > 0 ? 1 / root.scaleX : 1
       componentView.bounds = CGRect(origin: .zero, size: document.size)
       componentView.center = CGPoint(
         x: root.translateX + document.size.width * root.scaleX / 2,
@@ -577,6 +590,13 @@
         guard documentScale != oldValue else { return }
         canvasView?.documentScale = documentScale
         componentChildren.forEach { $0.documentScale = documentScale }
+        setNeedsLayout()
+      }
+    }
+    var layoutDensityScale: CGFloat = 1 {
+      didSet {
+        guard layoutDensityScale != oldValue else { return }
+        componentChildren.forEach { $0.layoutDensityScale = layoutDensityScale }
         setNeedsLayout()
       }
     }
@@ -867,7 +887,9 @@
 
     override func layoutSubviews() {
       super.layoutSubviews()
-      layer.cornerRadius = node.cornerRadius * documentScale
+      layer.cornerRadius = min(
+        node.cornerRadius * layoutUnitScale,
+        max(min(bounds.width, bounds.height) / 2, 0))
       canvasView?.frame = bounds
       prepareStructuralChildren()
       if isStructural {
@@ -894,8 +916,22 @@
 
     func preferredSize(in available: CGSize) -> CGSize {
       let insets = scaledPadding
+      let widthConstraint: CGFloat
+      switch node.widthType {
+      case 0, 1, 3, 6, 7, 8:
+        widthConstraint =
+          NativeLayoutDimension(
+            type: node.widthType,
+            value: node.widthValue
+              * (node.widthType == 6 ? layoutDensityScale : documentScale),
+            minimum: node.minimumWidth * layoutUnitScale,
+            maximum: node.maximumWidth.map { $0 * layoutUnitScale }
+          ).resolve(intrinsic: available.width, available: available.width)
+      default:
+        widthConstraint = available.width
+      }
       let contentAvailable = CGSize(
-        width: max(available.width - insets.left - insets.right, 0),
+        width: max(min(available.width, widthConstraint) - insets.left - insets.right, 0),
         height: max(available.height - insets.top - insets.bottom, 0))
       let items = flattenedLayoutItems
       let intrinsic: CGSize
@@ -954,13 +990,17 @@
 
     private var scaledPadding: UIEdgeInsets {
       UIEdgeInsets(
-        top: node.padding.top * documentScale,
-        left: node.padding.left * documentScale,
-        bottom: node.padding.bottom * documentScale,
-        right: node.padding.right * documentScale)
+        top: node.padding.top * layoutUnitScale,
+        left: node.padding.left * layoutUnitScale,
+        bottom: node.padding.bottom * layoutUnitScale,
+        right: node.padding.right * layoutUnitScale)
     }
 
-    private var scaledSpacing: CGFloat { node.spacing * documentScale }
+    private var layoutUnitScale: CGFloat {
+      node.densityBehavior == 2 ? layoutDensityScale : documentScale
+    }
+
+    private var scaledSpacing: CGFloat { node.spacing * layoutUnitScale }
 
     private func prepareStructuralChildren() {
       componentChildren.forEach { child in
@@ -1091,15 +1131,15 @@
       return CGSize(
         width: NativeLayoutDimension(
           type: node.widthType,
-          value: node.widthValue * documentScale,
-          minimum: node.minimumWidth * documentScale,
-          maximum: node.maximumWidth.map { $0 * documentScale }
+          value: node.widthValue * (node.widthType == 6 ? layoutDensityScale : documentScale),
+          minimum: node.minimumWidth * layoutUnitScale,
+          maximum: node.maximumWidth.map { $0 * layoutUnitScale }
         ).resolve(intrinsic: intrinsic.width, available: available.width),
         height: NativeLayoutDimension(
           type: node.heightType,
-          value: node.heightValue * documentScale,
-          minimum: node.minimumHeight * documentScale,
-          maximum: node.maximumHeight.map { $0 * documentScale }
+          value: node.heightValue * (node.heightType == 6 ? layoutDensityScale : documentScale),
+          minimum: node.minimumHeight * layoutUnitScale,
+          maximum: node.maximumHeight.map { $0 * layoutUnitScale }
         ).resolve(intrinsic: intrinsic.height, available: available.height))
     }
 
@@ -1384,7 +1424,21 @@
     func preferredSize(maximumWidth: CGFloat, documentScale: CGFloat) -> CGSize {
       self.documentScale = documentScale
       configureFont(documentScale: documentScale)
-      return sizeThatFits(CGSize(width: maximumWidth, height: .greatestFiniteMagnitude))
+      guard let attributedText, maximumWidth > 0 else { return .zero }
+      let storage = NSTextStorage(attributedString: attributedText)
+      let manager = NSLayoutManager()
+      let container = NSTextContainer(
+        size: CGSize(width: maximumWidth, height: .greatestFiniteMagnitude))
+      container.lineFragmentPadding = 0
+      container.maximumNumberOfLines = numberOfLines
+      container.lineBreakMode = lineBreakMode
+      manager.addTextContainer(container)
+      storage.addLayoutManager(manager)
+      manager.ensureLayout(for: container)
+      let measured = manager.usedRect(for: container)
+      return CGSize(
+        width: min(ceil(measured.width), maximumWidth),
+        height: ceil(measured.height))
     }
 
     func layoutInComponent(
@@ -1468,7 +1522,12 @@
       paragraph.lineHeightMultiple = max(command.textStyle.lineHeightMultiplier, 0)
       paragraph.lineSpacing = command.textStyle.lineHeightAdd * scale
       paragraph.hyphenationFactor = command.textStyle.hyphenation > 0 ? 1 : 0
-      paragraph.lineBreakMode = lineBreakMode(command.textStyle.overflow)
+      // Foundation's truncating paragraph modes measure the entire value as one line. UIKit owns
+      // last-line truncation through UILabel.lineBreakMode; the attributed paragraph must still
+      // wrap when Remote Compose permits multiple lines.
+      paragraph.lineBreakMode =
+        command.textStyle.maxLines > 1
+        ? .byWordWrapping : lineBreakMode(command.textStyle.overflow)
       var attributes: [NSAttributedString.Key: Any] = [
         .font: font,
         .foregroundColor: command.color.withAlphaComponent(command.alpha),
@@ -1567,6 +1626,7 @@
         hasher.combine(command.strokeCap)
         hasher.combine(command.strokeJoin)
         hasher.combine(command.blendMode)
+        hasher.combine(command.usesComponentGeometry)
         hasher.combine(command.textSize)
         hasher.combine(command.textWeight)
         hasher.combine(command.text)
@@ -1711,11 +1771,17 @@
       // width but have a zero-height path. The owning component has the final bounds now; use them
       // for this background case and let the component's rounded clip preserve its shape.
       let pathBounds = path.boundingBoxOfPath
+      let isDeferredComponentBackground =
+        !command.isStroke && command.usesComponentGeometry
+        && abs(pathBounds.minX - bounds.minX) <= 1 && abs(pathBounds.minY - bounds.minY) <= 1
+        && abs(pathBounds.width - bounds.width) <= 1
+        && abs(pathBounds.height - bounds.height) > 1
       let isDeferredShaderBackground =
         !command.isStroke && (command.textureImageID != nil || command.gradient != nil)
         && (pathBounds.width <= 0 || pathBounds.height <= 0) && !bounds.isEmpty
       let effectivePath =
-        isDeferredShaderBackground ? CGPath(rect: bounds, transform: nil) : path
+        isDeferredComponentBackground || isDeferredShaderBackground
+        ? CGPath(rect: bounds, transform: nil) : path
       context.addPath(effectivePath)
       if let textureImageID = command.textureImageID, let image = images[textureImageID] {
         context.saveGState()
