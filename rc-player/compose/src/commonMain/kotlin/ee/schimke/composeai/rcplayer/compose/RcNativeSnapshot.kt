@@ -818,27 +818,66 @@ public object RcNativeSnapshotBridge {
               else -> null
             }?.let(state::resolve)
           }
+          fun constrainedFixedSize(index: Int, dimension: RcOperation?): Float {
+            dimension ?: return 0f
+            val operations =
+              childContainers[index].children.filterIsInstance<RcLinkedNode.Operation>().map {
+                it.operation
+              }
+            var minimum = 0f
+            var maximum = Float.POSITIVE_INFINITY
+            fun merge(minimumValue: Float, maximumValue: Float) {
+              if (minimumValue != -1f) {
+                minimum = maxOf(minimum, minimumValue / document.header.density)
+              }
+              if (maximumValue != -1f) {
+                maximum = minOf(maximum, maximumValue / document.header.density)
+              }
+            }
+            operations.forEach { modifier ->
+              when {
+                horizontal && modifier is RcWidthInModifier ->
+                  merge(state.resolve(modifier.minimum), state.resolve(modifier.maximum))
+                !horizontal && modifier is RcHeightInModifier ->
+                  merge(state.resolve(modifier.minimum), state.resolve(modifier.maximum))
+                modifier is RcDimensionConstraintsModifier &&
+                  (horizontal &&
+                    modifier.type in
+                      setOf(
+                        RcDimensionConstraintsModifier.HORIZONTAL,
+                        RcDimensionConstraintsModifier.REQUIRED_HORIZONTAL,
+                      ) ||
+                    !horizontal &&
+                      modifier.type in
+                        setOf(
+                          RcDimensionConstraintsModifier.VERTICAL,
+                          RcDimensionConstraintsModifier.REQUIRED_VERTICAL,
+                        )) ->
+                  merge(state.resolve(modifier.minimum), state.resolve(modifier.maximum))
+              }
+            }
+            val value =
+              when (dimension) {
+                is RcWidthModifier -> state.resolve(dimension.value)
+                is RcHeightModifier -> state.resolve(dimension.value)
+                else -> 0f
+              }
+            val type =
+              when (dimension) {
+                is RcWidthModifier -> dimension.type
+                is RcHeightModifier -> dimension.type
+                else -> RcDimensionType.EXACT
+              }
+            val scaled =
+              value / if (type == RcDimensionType.EXACT_DP) document.header.density else 1f
+            return minOf(maxOf(scaled, minimum), maximum)
+          }
           val fixed =
-            dimensions
-              .zip(weights)
-              .sumOf { (dimension, weight) ->
-                if (weight != null) 0.0
-                else {
-                  val value =
-                    when (dimension) {
-                      is RcWidthModifier -> state.resolve(dimension.value)
-                      is RcHeightModifier -> state.resolve(dimension.value)
-                      else -> 0f
-                    }
-                  val type =
-                    when (dimension) {
-                      is RcWidthModifier -> dimension.type
-                      is RcHeightModifier -> dimension.type
-                      else -> RcDimensionType.EXACT
-                    }
-                  (value / if (type == RcDimensionType.EXACT_DP) document.header.density else 1f)
-                    .toDouble()
-                }
+            dimensions.indices
+              .sumOf { index ->
+                val dimension = dimensions[index]
+                val weight = weights[index]
+                if (weight != null) 0.0 else constrainedFixedSize(index, dimension).toDouble()
               }
               .toFloat()
           val totalWeight = weights.filterNotNull().sum()

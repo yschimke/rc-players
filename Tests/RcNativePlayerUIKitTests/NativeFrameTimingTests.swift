@@ -46,9 +46,9 @@ enum NativeFrameTimingTests {
     timeline.resume(at: 100)
     precondition(timeline.sample(at: 101) == 2)
     precondition(timeline.sample(at: 100.5) == 2, "a backward clock must not reverse animation")
-    timeline.advance(to: 10, at: 101)
+    precondition(timeline.advance(to: 10, at: 101) == 10)
     precondition(timeline.sample(at: 102) == 11)
-    timeline.advance(to: 5, at: 102)
+    precondition(timeline.advance(to: 5, at: 102) == 11)
     precondition(timeline.sample(at: 103) == 12, "an older explicit frame must not rewind time")
 
     print("native UIKit frame timing tests: ok")
