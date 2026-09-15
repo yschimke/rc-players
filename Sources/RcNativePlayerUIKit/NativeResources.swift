@@ -56,7 +56,7 @@ public struct RemoteComposeNativeResourceRequest: Equatable, Sendable {
 }
 
 /// Opt-in host ownership for referenced resource bytes. No default implementation performs I/O.
-public protocol RemoteComposeNativeResourceResolving: Sendable {
+public protocol RemoteComposeNativeResourceResolving: AnyObject, Sendable {
   func resolve(_ request: RemoteComposeNativeResourceRequest) async throws -> Data
 }
 
