@@ -14,7 +14,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcOperationBudget
 import ee.schimke.composeai.rcplayer.protocol.RcReferencedOperations
+import ee.schimke.composeai.rcplayer.protocol.RcWireLimits
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
@@ -38,10 +40,15 @@ public object RcDocumentLinker {
   private const val MAX_EXPANSION_DEPTH = 64
   private const val MAX_EXPANDED_NODES = 100_000
 
-  public fun link(document: RcDocument): RcLinkedDocument =
-    rcTrace(RcTraceCategory.DOCUMENT, "rc:link") { linkUnchecked(document) }
+  public fun link(document: RcDocument): RcLinkedDocument = link(document, RcWireLimits())
 
-  private fun linkUnchecked(document: RcDocument): RcLinkedDocument {
+  public fun link(document: RcDocument, limits: RcWireLimits): RcLinkedDocument =
+    rcTrace(RcTraceCategory.DOCUMENT, "rc:link") { linkUnchecked(document, limits) }
+
+  private fun linkUnchecked(document: RcDocument, limits: RcWireLimits): RcLinkedDocument {
+    if (document.operations.size > limits.maxOperations) {
+      throw RcLinkException("Document exceeds ${limits.maxOperations} operations before expansion")
+    }
     val linked = linkNodes(document.operations)
     val references = mutableMapOf<Int, RcLinkedNode.Container>()
     val macros = mutableMapOf<Int, RcMacroDefine>()
@@ -53,6 +60,8 @@ public object RcDocumentLinker {
         macros,
         arrays,
         idRemapper = RcIdRemapper.expanding(reservedIds = reservedIds(document.operations)),
+        limits = limits,
+        operationBudget = RcOperationBudget(limits.maxOperations - document.operations.size),
       )
     return RcLinkedDocument(
       document,
@@ -168,7 +177,9 @@ public object RcDocumentLinker {
           val body =
             RcDocumentCodec.decodeOperations(
               definition.body,
+              limits = state.limits,
               idRemapper = state.idRemapper.fork(mappings),
+              operationBudget = state.operationBudget,
             )
           val linkedBody = linkNodes(body)
           collectDefinitions(linkedBody, state.references, state.macros, state.arrays)
@@ -188,7 +199,12 @@ public object RcDocumentLinker {
               ?: throw RcLinkException("Missing IdList ${loop.collectionId} for MacroForEach")
           ids.forEach { id ->
             val remapped =
-              remap(node.children, state.idRemapper.fork(mapOf(loop.localItemId to id)))
+              remap(
+                node.children,
+                state.idRemapper.fork(mapOf(loop.localItemId to id)),
+                state.limits,
+                state.operationBudget,
+              )
             collectDefinitions(remapped, state.references, state.macros, state.arrays)
             result += expand(remapped, state, depth + 1, activeDefinitions, blocks)
           }
@@ -217,6 +233,8 @@ public object RcDocumentLinker {
     val macros: MutableMap<Int, RcMacroDefine>,
     val arrays: MutableMap<Int, List<Int>>,
     val idRemapper: RcIdRemapper,
+    val limits: RcWireLimits,
+    val operationBudget: RcOperationBudget,
     var expandedNodes: Int = 0,
   )
 
@@ -226,7 +244,12 @@ public object RcDocumentLinker {
     data class Macro(val id: Int) : DefinitionKey
   }
 
-  private fun remap(nodes: List<RcLinkedNode>, remapper: RcIdRemapper): List<RcLinkedNode> {
+  private fun remap(
+    nodes: List<RcLinkedNode>,
+    remapper: RcIdRemapper,
+    limits: RcWireLimits,
+    operationBudget: RcOperationBudget,
+  ): List<RcLinkedNode> {
     val output = RcWireWriter()
     fun write(node: RcLinkedNode) {
       RcDocumentCodec.encodeOperation(output, node.operation())
@@ -236,7 +259,14 @@ public object RcDocumentLinker {
       }
     }
     nodes.forEach(::write)
-    return linkNodes(RcDocumentCodec.decodeOperations(output.toByteArray(), idRemapper = remapper))
+    return linkNodes(
+      RcDocumentCodec.decodeOperations(
+        output.toByteArray(),
+        limits = limits,
+        idRemapper = remapper,
+        operationBudget = operationBudget,
+      )
+    )
   }
 
   /**

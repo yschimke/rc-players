@@ -12,8 +12,11 @@
     let rootSizing: Int
     let rootMode: Int
     let rootAlignment: Int
+    let frameSchedule: NativeFrameSchedule
+    let executionBudget: NativeFrameBudget
 
-    init(snapshot: RcNativeDocumentSnapshot) {
+    init(snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits) throws {
+      executionBudget = try Self.validate(snapshot: snapshot, limits: limits)
       size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
       root = NativeNode(snapshot: snapshot.root)
       images = snapshot.images.map(NativeImageResource.init)
@@ -30,6 +33,219 @@
       rootSizing = Int(snapshot.rootSizing)
       rootMode = Int(snapshot.rootMode)
       rootAlignment = Int(snapshot.rootAlignment)
+      frameSchedule = NativeFrameSchedule(
+        needsContinuousFrames: snapshot.needsContinuousFrames,
+        requestsNextFrame: snapshot.requestsNextFrame,
+        wakeAfter: snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds))
+    }
+
+    private static func validate(
+      snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits
+    ) throws -> NativeFrameBudget {
+      try NativeFrameBudget.validate(limits)
+      var budget = NativeFrameBudget()
+      try budget.recordStrings(
+        snapshot.notes.map { Optional($0) }
+          + snapshot.diagnostics.flatMap { [Optional($0.operationName), Optional($0.reason)] },
+        limits: limits)
+      try budget.validateDocumentDimensions(
+        [Double(snapshot.width), Double(snapshot.height)], limits: limits)
+      var pending: [(node: RcNativeNodeSnapshot, depth: Int)] = [(snapshot.root, 1)]
+      while let current = pending.popLast() {
+        let node = current.node
+        try budget.recordNode(depth: current.depth, limits: limits)
+        try budget.recordStrings(
+          [node.semanticLabel, node.semanticText, node.semanticStateDescription], limits: limits)
+        try budget.recordWork(node.clickActionTypes.count, limits: limits)
+        let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
+        let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
+        try budget.validateLayoutDimension(
+          value: Double(node.widthValue), type: Int(node.widthType),
+          componentID: Int(node.componentId), field: "width", limits: limits)
+        try budget.validateLayoutDimension(
+          value: Double(node.heightValue), type: Int(node.heightType),
+          componentID: Int(node.componentId), field: "height", limits: limits)
+        try budget.validateNumbers(
+          [
+            Double(node.minimumWidth), Double(node.minimumHeight), Double(maximumWidth),
+            Double(maximumHeight),
+            Double(node.paddingTop), Double(node.paddingLeft), Double(node.paddingBottom),
+            Double(node.paddingRight), Double(node.cornerRadius), Double(node.spacing),
+            Double(node.offsetX), Double(node.offsetY),
+          ], componentID: Int(node.componentId), field: "layout", limits: limits)
+        try budget.validateFinite(
+          [Double(node.zIndex)], componentID: Int(node.componentId), field: "z-index")
+        try budget.validateCanvasDimensions(
+          [
+            abs(Double(node.minimumWidth)), abs(Double(node.minimumHeight)),
+            abs(Double(maximumWidth)), abs(Double(maximumHeight)),
+          ], limits: limits)
+        for command in node.commands {
+          let gradientWork = command.gradient.map { $0.colors.count + $0.stops.count + 4 } ?? 0
+          try budget.recordCommand(
+            pathElementCount: command.path.count, additionalWork: gradientWork,
+            strings: [
+              command.text, command.image?.contentDescription, command.textStyle?.fontFamilyName,
+            ], limits: limits)
+          let style = command.textStyle
+          var commandGeometry = [
+            command.first, command.second, command.third, command.fourth, command.fifth,
+            command.sixth,
+          ]
+          if Int(command.kind) == 3 {
+            if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
+            if commandGeometry[3].isNaN { commandGeometry[3] = 0 }
+          } else if Int(command.kind) == 4 {
+            if commandGeometry[1].isNaN { commandGeometry[1] = 0 }
+            if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
+          }
+          switch Int(command.kind) {
+          case 2:
+            try budget.validateNumbers(
+              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "translation", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(4).map(Double.init), componentID: Int(node.componentId),
+              field: "translation")
+          case 3:
+            try budget.validateFinite(
+              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "scale")
+            try budget.validateNumbers(
+              commandGeometry[2..<4].map(Double.init), componentID: Int(node.componentId),
+              field: "scale pivot", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "scale")
+          case 4:
+            try budget.validateFinite(
+              [Double(commandGeometry[0])], componentID: Int(node.componentId), field: "rotation")
+            try budget.validateNumbers(
+              commandGeometry[1..<3].map(Double.init), componentID: Int(node.componentId),
+              field: "rotation pivot", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(3).map(Double.init), componentID: Int(node.componentId),
+              field: "rotation")
+          case 5:
+            try budget.validateFinite(
+              commandGeometry.map(Double.init), componentID: Int(node.componentId), field: "skew")
+          case 15, 16:
+            try budget.validateNumbers(
+              commandGeometry.prefix(4).map(Double.init), componentID: Int(node.componentId),
+              field: "draw geometry", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "arc angles")
+          case 17:
+            try budget.validateNumbers(
+              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "text position", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(4).map(Double.init), componentID: Int(node.componentId),
+              field: "text anchor")
+          default:
+            try budget.validateNumbers(
+              commandGeometry.map(Double.init), componentID: Int(node.componentId),
+              field: "draw geometry", limits: limits)
+          }
+          switch Int(command.kind) {
+          case 6, 10, 11, 13, 14, 15, 16:
+            try budget.validateCanvasDimensions(
+              [
+                abs(Double(commandGeometry[2] - commandGeometry[0])),
+                abs(Double(commandGeometry[3] - commandGeometry[1])),
+              ], limits: limits)
+            if Int(command.kind) == 14 {
+              try budget.validateCanvasDimensions(
+                [abs(Double(commandGeometry[4] * 2)), abs(Double(commandGeometry[5] * 2))],
+                limits: limits)
+            }
+          case 12:
+            try budget.validateCanvasDimensions(
+              [abs(Double(commandGeometry[2] * 2))], limits: limits)
+          default: break
+          }
+          try budget.validateFinite(
+            [
+              command.alpha, command.strokeWidth, command.textSize, command.textWeight,
+              style?.letterSpacing ?? 0, style?.lineHeightAdd ?? 0,
+              style?.lineHeightMultiplier ?? 1,
+            ].map(Double.init), componentID: Int(node.componentId), field: "paint")
+          var pathX: [Double] = []
+          var pathY: [Double] = []
+          for segment in command.path {
+            let values =
+              [segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
+               segment.sixth].map(Double.init)
+            let coordinateCount: Int
+            switch Int(segment.kind) {
+            case 10, 11: coordinateCount = 2
+            case 12, 13: coordinateCount = 4
+            case 14: coordinateCount = 6
+            default: coordinateCount = 0
+            }
+            try budget.validateNumbers(
+              Array(values.prefix(coordinateCount)), componentID: Int(node.componentId),
+              field: "path", limits: limits)
+            try budget.validateFinite(
+              Array(values.dropFirst(coordinateCount)), componentID: Int(node.componentId),
+              field: "path")
+            for index in stride(from: 0, to: coordinateCount, by: 2) {
+              pathX.append(values[index])
+              pathY.append(values[index + 1])
+            }
+          }
+          if let minimumX = pathX.min(), let maximumX = pathX.max(),
+            let minimumY = pathY.min(), let maximumY = pathY.max()
+          {
+            try budget.validateCanvasDimensions(
+              [maximumX - minimumX, maximumY - minimumY], limits: limits)
+          }
+          if let gradient = command.gradient {
+            try budget.validateNumbers(
+              [gradient.first, gradient.second, gradient.third, gradient.fourth].map(Double.init),
+              componentID: Int(node.componentId), field: "gradient", limits: limits)
+            try budget.validateGradientStops(
+              gradient.stops.map { Double(truncating: $0) }, componentID: Int(node.componentId))
+          }
+          if let image = command.image {
+            let sourceWidth = image.sourceRight - image.sourceLeft
+            let sourceHeight = image.sourceBottom - image.sourceTop
+            let destinationWidth = image.destinationRight - image.destinationLeft
+            let destinationHeight = image.destinationBottom - image.destinationTop
+            try budget.validateNumbers(
+              [
+                image.sourceLeft, image.sourceTop, image.sourceRight, image.sourceBottom,
+                image.destinationLeft, image.destinationTop, image.destinationRight,
+                image.destinationBottom,
+              ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits)
+            try budget.validateFinite(
+              [Double(image.scaleFactor)], componentID: Int(node.componentId), field: "image scale")
+            try budget.validateCanvasDimensions(
+              [
+                abs(Double(sourceWidth)), abs(Double(sourceHeight)),
+                abs(Double(destinationWidth)), abs(Double(destinationHeight)),
+              ], limits: limits)
+            let derivedDestination = NativeImageGeometry.destination(
+              source: CGRect(
+                x: CGFloat(image.sourceLeft), y: CGFloat(image.sourceTop),
+                width: CGFloat(sourceWidth), height: CGFloat(sourceHeight)),
+              destination: CGRect(
+                x: CGFloat(image.destinationLeft), y: CGFloat(image.destinationTop),
+                width: CGFloat(destinationWidth), height: CGFloat(destinationHeight)),
+              scaleType: Int(image.scaleType), scaleFactor: CGFloat(image.scaleFactor))
+            try budget.validateNumbers(
+              [derivedDestination.minX, derivedDestination.minY, derivedDestination.maxX,
+               derivedDestination.maxY].map(Double.init),
+              componentID: Int(node.componentId), field: "derived image geometry", limits: limits)
+            try budget.validateCanvasDimensions(
+              [abs(Double(derivedDestination.width)), abs(Double(derivedDestination.height))],
+              limits: limits)
+          }
+        }
+        pending.append(contentsOf: node.children.map { ($0, current.depth + 1) })
+      }
+      return budget
     }
   }
 
@@ -61,6 +277,13 @@
       type = Int(snapshot.type)
       data = RcDataBridgeKt.rcData(bytes: snapshot.data) as Data
     }
+  }
+
+  private struct NativeSemanticBehavior {
+    let descriptor: NativeAccessibilityDescriptor
+    let componentID: Int
+    let clickActionTypes: [Int]
+    let acceptsPointerAction: Bool
   }
 
   struct NativeNode {
@@ -98,6 +321,11 @@
     let isClickable: Bool
     let isEnabled: Bool
     let accessibilityLabel: String?
+    let accessibilityText: String?
+    let accessibilityValue: String?
+    let accessibilityMode: NativeAccessibilityMode
+    let hasAccessibilitySemantics: Bool
+    let clickActionTypes: [Int]
     let widthType: Int
     let widthValue: CGFloat
     let heightType: Int
@@ -125,6 +353,11 @@
       isClickable = snapshot.clickable
       isEnabled = snapshot.enabled
       accessibilityLabel = snapshot.semanticLabel
+      accessibilityText = snapshot.semanticText
+      accessibilityValue = snapshot.semanticStateDescription
+      accessibilityMode = NativeAccessibilityMode(rawValue: Int(snapshot.semanticMode)) ?? .set
+      hasAccessibilitySemantics = snapshot.hasSemantics
+      clickActionTypes = snapshot.clickActionTypes.map { Int(truncating: $0) }
       widthType = Int(snapshot.widthType)
       widthValue = CGFloat(snapshot.widthValue)
       heightType = Int(snapshot.heightType)
@@ -150,6 +383,80 @@
 
     var firstText: String? {
       commands.lazy.compactMap(\.text).first ?? children.lazy.compactMap(\.firstText).first
+    }
+
+    var localAccessibilityLabels: [String] {
+      [accessibilityLabel, accessibilityText].compactMap { $0 }
+        + commands.flatMap { command in
+          [command.text, command.image?.contentDescription].compactMap { $0 }
+        }
+    }
+
+    var accessibilityDescriptor: NativeAccessibilityDescriptor? {
+      guard hasAccessibilitySemantics || isClickable else { return nil }
+      return NativeAccessibilityDescriptor(
+        role: NativeAccessibilityRole(rawValue: semanticRole),
+        mode: accessibilityMode,
+        contentDescription: accessibilityLabel,
+        text: accessibilityText,
+        stateDescription: accessibilityValue,
+        isEnabled: isEnabled,
+        isClickable: isClickable)
+    }
+
+    var effectiveAccessibilityLabels: [String] {
+      guard visibility == 1 else { return [] }
+      let descendants = children.flatMap(\.effectiveAccessibilityLabels)
+      guard let descriptor = accessibilityDescriptor else {
+        return localAccessibilityLabels + descendants
+      }
+      switch descriptor.mode {
+      case .clearAndSet:
+        return [descriptor.resolvedLabel(descendantLabels: [])].compactMap { $0 }
+      case .merge:
+        return [
+          descriptor.resolvedLabel(
+            descendantLabels: localAccessibilityLabels + descendants)
+        ].compactMap { $0 }
+      case .set:
+        return [descriptor.resolvedLabel(descendantLabels: [])].compactMap { $0 }
+          + localAccessibilityLabels + descendants
+      }
+    }
+
+    var descendantAccessibilityLabels: [String] {
+      children.flatMap(\.effectiveAccessibilityLabels)
+    }
+
+    fileprivate var semanticBehavior: NativeSemanticBehavior? {
+      guard let own = accessibilityDescriptor else { return nil }
+      guard own.mode == .merge else {
+        return NativeSemanticBehavior(
+          descriptor: own, componentID: componentID, clickActionTypes: clickActionTypes,
+          acceptsPointerAction: !clickActionTypes.isEmpty)
+      }
+      let descendants = children.flatMap(\.effectiveSemanticBehaviors)
+      let mergedDescriptor = descendants.reduce(own) { descriptor, descendant in
+        descriptor.mergingBehavior(from: descendant.descriptor)
+      }
+      let ownsAction = !clickActionTypes.isEmpty
+      let descendantAction = descendants.first { !$0.clickActionTypes.isEmpty }
+      return NativeSemanticBehavior(
+        descriptor: mergedDescriptor,
+        componentID: ownsAction ? componentID : descendantAction?.componentID ?? componentID,
+        clickActionTypes: ownsAction ? clickActionTypes : descendantAction?.clickActionTypes ?? [],
+        acceptsPointerAction: ownsAction)
+    }
+
+    private var effectiveSemanticBehaviors: [NativeSemanticBehavior] {
+      guard visibility == 1 else { return [] }
+      if let semanticBehavior {
+        if semanticBehavior.descriptor.mode == .set {
+          return [semanticBehavior] + children.flatMap(\.effectiveSemanticBehaviors)
+        }
+        return [semanticBehavior]
+      }
+      return children.flatMap(\.effectiveSemanticBehaviors)
     }
   }
 
@@ -282,25 +589,47 @@
   }
 
   final class NativeDocumentView: UIView {
-    private let document: NativeDocument
-    private let resources: NativeResourceStore
+    private var document: NativeDocument
+    private var resources: NativeResourceStore
     private let componentView: NativeComponentView
 
-    init(document: NativeDocument, resources: NativeResourceStore) {
+    init(
+      document: NativeDocument,
+      resources: NativeResourceStore,
+      onClick: @escaping (Int) -> Void
+    ) {
       self.document = document
       self.resources = resources
       componentView = NativeComponentView(
-        node: document.root, images: resources.images, fontNames: resources.fontNames)
+        node: document.root,
+        images: resources.images,
+        fontNames: resources.fontNames,
+        onClick: onClick)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
       addSubview(componentView)
+      isAccessibilityElement = false
+      accessibilityElements = componentView.accessibilityOrder
       accessibilityIdentifier = "rc-native-document"
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    func update(document: NativeDocument, resources: NativeResourceStore) -> Bool {
+      guard componentView.canUpdate(
+        with: document.root, images: resources.images, fontNames: resources.fontNames)
+      else { return false }
+      self.document = document
+      self.resources = resources
+      componentView.update(
+        node: document.root, images: resources.images, fontNames: resources.fontNames)
+      accessibilityElements = componentView.accessibilityOrder
+      setNeedsLayout()
+      return true
     }
 
     override func layoutSubviews() {
@@ -332,14 +661,16 @@
   /// of Box, Row, and Column. Structural content wrappers remain visible in the UIKit hierarchy but
   /// are transparent to layout.
   final class NativeComponentView: UIView {
-    private let node: NativeNode
-    private let canvasView: NativeCanvasView?
-    private let textLabels: [NativeTextLabel]
-    private let imageViews: [NativeImageView]
-    private let componentChildren: [NativeComponentView]
-    private let semanticView: UIView?
+    private var node: NativeNode
+    private var canvasView: NativeCanvasView?
+    private var textLabels: [NativeTextLabel]
+    private var imageViews: [NativeImageView]
+    private var componentChildren: [NativeComponentView]
+    private var semanticView: UIView?
+    private let onClick: (Int) -> Void
     var documentScale: CGFloat = 1 {
       didSet {
+        guard documentScale != oldValue else { return }
         canvasView?.documentScale = documentScale
         componentChildren.forEach { $0.documentScale = documentScale }
         setNeedsLayout()
@@ -347,13 +678,20 @@
     }
     var layoutDirection: NativeLayoutDirection = .leftToRight {
       didSet {
+        guard layoutDirection != oldValue else { return }
         componentChildren.forEach { $0.layoutDirection = layoutDirection }
         setNeedsLayout()
       }
     }
 
-    init(node: NativeNode, images: [Int: UIImage], fontNames: [Int: String]) {
+    init(
+      node: NativeNode,
+      images: [Int: UIImage],
+      fontNames: [Int: String],
+      onClick: @escaping (Int) -> Void
+    ) {
       self.node = node
+      self.onClick = onClick
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
       let drawingCommands = node.commands.filter {
@@ -377,9 +715,10 @@
           return NativeImageView(image: image, draw: draw, alpha: command.alpha)
         } : []
       componentChildren = node.children.map {
-        NativeComponentView(node: $0, images: images, fontNames: fontNames)
+        NativeComponentView(
+          node: $0, images: images, fontNames: fontNames, onClick: onClick)
       }
-      semanticView = Self.makeSemanticView(for: node)
+      semanticView = Self.makeSemanticView(for: node, onClick: onClick)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = node.backgroundColor ?? .clear
@@ -387,17 +726,129 @@
       alpha = node.visibility == 2 ? 0 : 1
       clipsToBounds = node.cornerRadius > 0
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
+      if let semanticView { addSubview(semanticView) }
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
       imageViews.forEach(addSubview)
       componentChildren.forEach(addSubview)
       componentChildren.forEach { $0.layer.zPosition = $0.node.zIndex }
-      if let semanticView { addSubview(semanticView) }
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    func canUpdate(
+      with next: NativeNode,
+      images: [Int: UIImage],
+      fontNames: [Int: String]
+    ) -> Bool {
+      guard node.componentID == next.componentID, node.kind == next.kind else { return false }
+      let local = Self.localContent(for: next, images: images)
+      guard
+        (canvasView != nil) == !local.drawing.isEmpty,
+        textLabels.count == local.text.count,
+        imageViews.count == local.images.count,
+        Self.semanticView(semanticView, matches: next),
+        componentChildren.count == next.children.count
+      else { return false }
+      return zip(componentChildren, next.children).allSatisfy { child, childNode in
+        child.canUpdate(with: childNode, images: images, fontNames: fontNames)
+      }
+    }
+
+    func update(node next: NativeNode, images: [Int: UIImage], fontNames: [Int: String]) {
+      precondition(canUpdate(with: next, images: images, fontNames: fontNames))
+      let local = Self.localContent(for: next, images: images)
+      node = next
+      canvasView?.update(commands: local.drawing, images: images, fontNames: fontNames)
+      zip(textLabels, local.text).forEach { label, command in
+        label.update(command: command, fontNames: fontNames)
+      }
+      zip(imageViews, local.images).forEach { imageView, item in
+        imageView.update(image: item.image, draw: item.draw, alpha: item.alpha)
+      }
+      zip(componentChildren, next.children).forEach { child, childNode in
+        child.update(node: childNode, images: images, fontNames: fontNames)
+        child.layer.zPosition = childNode.zIndex
+      }
+      updateSemanticView(semanticView, from: next)
+      backgroundColor = next.backgroundColor ?? .clear
+      isHidden = next.visibility == 0
+      alpha = next.visibility == 2 ? 0 : 1
+      clipsToBounds = next.cornerRadius > 0
+      setNeedsLayout()
+    }
+
+    private static func localContent(
+      for node: NativeNode,
+      images: [Int: UIImage]
+    ) -> (drawing: [NativeDrawCommand], text: [NativeDrawCommand], images: [(image: UIImage, draw: NativeImageDraw, alpha: CGFloat)]) {
+      let promotesText = node.kind == .text
+      let promotesImage = node.kind == .image
+      let drawing = node.commands.filter {
+        !(promotesText && $0.kind == 17) && !(promotesImage && $0.kind == 19)
+      }
+      let text = promotesText ? node.commands.filter { $0.kind == 17 } : []
+      let imageItems =
+        promotesImage
+        ? node.commands.compactMap { command -> (UIImage, NativeImageDraw, CGFloat)? in
+          guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+          else { return nil }
+          return (image, draw, command.alpha)
+        } : []
+      return (drawing, text, imageItems)
+    }
+
+    private static func semanticView(_ view: UIView?, matches node: NativeNode) -> Bool {
+      guard let descriptor = node.semanticBehavior?.descriptor else { return view == nil }
+      switch descriptor.elementKind {
+      case .button: return view is NativeSemanticButton
+      case .toggle: return view is NativeSemanticSwitch
+      case .image: return view is NativeSemanticImageView
+      default:
+        return (view as? NativeSemanticControl)?.kind == descriptor.elementKind
+      }
+    }
+
+    var accessibilityOrder: [Any] {
+      guard node.visibility == 1 else { return [] }
+      let descendants = componentChildren.flatMap(\.accessibilityOrder)
+      let local: [Any] =
+        textLabels.filter(\.isAccessibilityElement).map { $0 as Any }
+        + imageViews.filter(\.isAccessibilityElement).map { $0 as Any }
+      guard let semanticView, let descriptor = node.semanticBehavior?.descriptor else {
+        return local + descendants
+      }
+      let owner = semanticView.isAccessibilityElement ? [semanticView] : []
+      return descriptor.hidesDescendants ? owner : owner + local + descendants
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+      guard isUserInteractionEnabled, !isHidden, alpha > 0.01 else { return nil }
+      let isInside = self.point(inside: point, with: event)
+      if clipsToBounds, !isInside { return nil }
+      if clipsToBounds, layer.cornerRadius > 0,
+        !UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).contains(point)
+      {
+        return nil
+      }
+
+      // Core Animation zPosition controls painting, while UIView.hitTest normally only observes
+      // subview insertion order. Follow the rendered ordering explicitly so overlapping Remote
+      // Compose components activate the same top-most component that the user sees.
+      let frontToBack = componentChildren.enumerated().sorted { left, right in
+        if left.element.layer.zPosition == right.element.layer.zPosition {
+          return left.offset > right.offset
+        }
+        return left.element.layer.zPosition > right.element.layer.zPosition
+      }
+      for (_, child) in frontToBack {
+        if let hit = child.hitTest(convert(point, to: child), with: event) { return hit }
+      }
+      guard isInside, let semanticView else { return nil }
+      return semanticView.hitTest(convert(point, to: semanticView), with: event)
     }
 
     override func layoutSubviews() {
@@ -406,7 +857,7 @@
       canvasView?.frame = bounds
       prepareStructuralChildren()
       if isStructural {
-        semanticView?.frame = bounds
+        updateStructuralSemanticFrames()
         return
       }
 
@@ -423,6 +874,7 @@
       default: layoutOverlay(aligned: false)
       }
       semanticView?.frame = bounds
+      updateStructuralSemanticFrames()
     }
 
     func preferredSize(in available: CGSize) -> CGSize {
@@ -466,7 +918,8 @@
 
     private var isStructural: Bool {
       (node.kind == .content || node.kind == .group || node.kind == .canvas)
-        && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty && semanticView == nil
+        && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty
+        && node.semanticBehavior?.acceptsPointerAction != true
         && node.backgroundColor == nil
         && node.visibility == 1 && node.widthType == 2 && node.heightType == 2
         && node.minimumWidth == 0 && node.minimumHeight == 0
@@ -497,6 +950,18 @@
           child.prepareStructuralChildren()
         }
       }
+    }
+
+    private func updateStructuralSemanticFrames() {
+      componentChildren.forEach { $0.updateStructuralSemanticFrames() }
+      guard isStructural, let semanticView else { return }
+      let renderedBounds = flattenedLayoutItems
+        .filter { !$0.isHidden && $0.alpha > 0.01 }
+        .map { convert($0.bounds, from: $0) }
+        .filter { !$0.isEmpty && !$0.isNull }
+        .reduce(CGRect.null) { $0.union($1) }
+      let clippedBounds = renderedBounds.intersection(bounds)
+      semanticView.frame = clippedBounds.isNull ? .zero : clippedBounds
     }
 
     private func layoutOverlay(aligned: Bool) {
@@ -624,23 +1089,203 @@
         dy: node.offset.y * documentScale)
     }
 
-    private static func makeSemanticView(for node: NativeNode) -> UIView? {
-      // AndroidX role 0 is Button. A click modifier without explicit semantics is promoted too.
-      guard node.semanticRole == 0 || node.isClickable else { return nil }
-      let button = UIButton(type: .custom)
-      button.backgroundColor = .clear
-      button.isEnabled = node.isEnabled
-      button.isAccessibilityElement = true
-      button.accessibilityLabel = node.accessibilityLabel ?? node.firstText
-      button.accessibilityIdentifier = "rc-native-button-\(node.componentID)"
-      // Action dispatch is intentionally not wired in the static POC. Keeping this as a real
-      // UIButton proves native hit testing, focus, traits, and hierarchy without redrawing it.
-      return button
+    private static func makeSemanticView(
+      for node: NativeNode,
+      onClick: @escaping (Int) -> Void
+    ) -> UIView? {
+      guard let behavior = node.semanticBehavior else { return nil }
+      let descriptor = behavior.descriptor
+      let view: UIView
+      switch descriptor.elementKind {
+      case .button: view = NativeSemanticButton(componentID: behavior.componentID)
+      case .toggle: view = NativeSemanticSwitch(componentID: behavior.componentID)
+      case .image: view = NativeSemanticImageView(componentID: behavior.componentID)
+      default:
+        view = NativeSemanticControl(
+          componentID: behavior.componentID,
+          kind: descriptor.elementKind)
+      }
+      configureSemanticView(view, node: node, behavior: behavior, onClick: onClick)
+      return view
+    }
+
+    private func updateSemanticView(_ view: UIView?, from node: NativeNode) {
+      guard let view, let behavior = node.semanticBehavior else { return }
+      Self.configureSemanticView(view, node: node, behavior: behavior, onClick: onClick)
+    }
+
+    private static func configureSemanticView(
+      _ view: UIView,
+      node: NativeNode,
+      behavior: NativeSemanticBehavior,
+      onClick: @escaping (Int) -> Void
+    ) {
+      let descriptor = behavior.descriptor
+      let action =
+        descriptor.isEnabled && !behavior.clickActionTypes.isEmpty ? onClick : nil
+      if let activating = view as? any NativeSemanticActivating {
+        activating.componentID = behavior.componentID
+        activating.action = action
+      }
+      if let control = view as? UIControl { control.isEnabled = descriptor.isEnabled }
+      view.backgroundColor = .clear
+      // Semantic-only elements remain in the accessibility tree without swallowing pointer input.
+      view.isUserInteractionEnabled =
+        descriptor.isEnabled && action != nil && behavior.acceptsPointerAction
+      let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
+      let label =
+        descriptor.resolvedLabel(
+          descendantLabels: descriptor.mode == .merge ? mergedLabels : [])
+        ?? (node.hasAccessibilitySemantics ? nil : node.firstText)
+      let traits = accessibilityTraits(for: descriptor)
+      view.isAccessibilityElement =
+        label != nil || descriptor.stateDescription != nil || !traits.isEmpty || action != nil
+      view.accessibilityLabel = label
+      view.accessibilityValue = descriptor.stateDescription
+      view.accessibilityTraits = traits
+      view.accessibilityIdentifier =
+        "rc-native-\(String(describing: descriptor.elementKind))-\(node.componentID)"
+    }
+
+    private static func accessibilityTraits(
+      for descriptor: NativeAccessibilityDescriptor
+    ) -> UIAccessibilityTraits {
+      var traits: UIAccessibilityTraits
+      switch descriptor.elementKind {
+      case .button, .checkbox, .toggle, .radioButton, .tab, .dropdownList: traits = .button
+      case .image: traits = .image
+      case .picker, .carousel, .generic: traits = []
+      }
+      if descriptor.isClickable { traits.insert(.button) }
+      if !descriptor.isEnabled { traits.insert(.notEnabled) }
+      return traits
+    }
+  }
+
+  @MainActor
+  private protocol NativeSemanticActivating: AnyObject {
+    var componentID: Int { get set }
+    var action: ((Int) -> Void)? { get set }
+  }
+
+  private final class NativeSemanticButton: UIButton, NativeSemanticActivating {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+
+    init(componentID: Int) {
+      self.componentID = componentID
+      action = nil
+      super.init(frame: .zero)
+      addTarget(self, action: #selector(activate), for: .touchUpInside)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      guard isEnabled else { return }
+      action?(componentID)
+    }
+
+    override func accessibilityActivate() -> Bool {
+      guard isEnabled, let action else { return false }
+      action(componentID)
+      return true
+    }
+  }
+
+  private final class NativeSemanticSwitch: UISwitch, NativeSemanticActivating {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+
+    init(componentID: Int) {
+      self.componentID = componentID
+      action = nil
+      super.init(frame: .zero)
+      // The document still owns pixels. The native switch owns identity, focus, value semantics,
+      // and activation without drawing a second switch over the captured document appearance.
+      layer.opacity = 0
+      addTarget(self, action: #selector(activate), for: .valueChanged)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      guard isEnabled else { return }
+      action?(componentID)
+    }
+
+    override func accessibilityActivate() -> Bool {
+      guard isEnabled, let action else { return false }
+      action(componentID)
+      return true
+    }
+  }
+
+  private final class NativeSemanticImageView: UIImageView, NativeSemanticActivating {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+
+    init(componentID: Int) {
+      self.componentID = componentID
+      action = nil
+      super.init(frame: .zero)
+      addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(activate)))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      action?(componentID)
+    }
+
+    override func accessibilityActivate() -> Bool {
+      guard let action else { return false }
+      action(componentID)
+      return true
+    }
+  }
+
+  private final class NativeSemanticControl: UIControl, NativeSemanticActivating {
+    var componentID: Int
+    var action: ((Int) -> Void)?
+    let kind: NativeAccessibilityElementKind
+
+    init(componentID: Int, kind: NativeAccessibilityElementKind) {
+      self.componentID = componentID
+      self.kind = kind
+      action = nil
+      super.init(frame: .zero)
+      addTarget(self, action: #selector(activate), for: .touchUpInside)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+      fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func activate() {
+      guard isEnabled else { return }
+      action?(componentID)
+    }
+
+    override func accessibilityActivate() -> Bool {
+      guard isEnabled, let action else { return false }
+      action(componentID)
+      return true
     }
   }
 
   final class NativeImageView: UIImageView {
-    private let drawCommand: NativeImageDraw
+    private var drawCommand: NativeImageDraw
 
     init(image: UIImage, draw: NativeImageDraw, alpha: CGFloat) {
       drawCommand = draw
@@ -658,6 +1303,16 @@
       fatalError("init(coder:) is not supported")
     }
 
+    func update(image: UIImage, draw: NativeImageDraw, alpha: CGFloat) {
+      self.image = image
+      drawCommand = draw
+      self.alpha = alpha
+      isAccessibilityElement = draw.contentDescription != nil
+      accessibilityLabel = draw.contentDescription
+      accessibilityIdentifier = "rc-native-image-\(draw.imageID)"
+      setNeedsDisplay()
+    }
+
     override func draw(_ rect: CGRect) {
       guard let image else { return }
       let source = CGRect(origin: .zero, size: image.size)
@@ -673,8 +1328,10 @@
   /// A Remote Compose text primitive promoted to a real UIKit text element. Geometry and font
   /// selection remain approximate until the native lane has a resolved layout/text profile.
   final class NativeTextLabel: UILabel {
-    private let command: NativeDrawCommand
-    private let fontNames: [Int: String]
+    private var command: NativeDrawCommand
+    private var fontNames: [Int: String]
+    private var documentScale: CGFloat = 1
+    private var layoutDirection: NativeLayoutDirection = .leftToRight
 
     init(command: NativeDrawCommand, fontNames: [Int: String]) {
       self.command = command
@@ -694,7 +1351,18 @@
       fatalError("init(coder:) is not supported")
     }
 
+    func update(command: NativeDrawCommand, fontNames: [Int: String]) {
+      self.command = command
+      self.fontNames = fontNames
+      text = command.text
+      textColor = command.color.withAlphaComponent(command.alpha)
+      configureParagraph(layoutDirection: layoutDirection)
+      configureFont(documentScale: documentScale)
+      setNeedsLayout()
+    }
+
     func preferredSize(maximumWidth: CGFloat, documentScale: CGFloat) -> CGSize {
+      self.documentScale = documentScale
       configureFont(documentScale: documentScale)
       return sizeThatFits(CGSize(width: maximumWidth, height: .greatestFiniteMagnitude))
     }
@@ -718,6 +1386,7 @@
     }
 
     private func configureParagraph(layoutDirection: NativeLayoutDirection) {
+      self.layoutDirection = layoutDirection
       let style = command.textStyle
       numberOfLines = NativeTextPolicy.numberOfLines(
         overflow: style.overflow, maximum: style.maxLines)
@@ -826,27 +1495,111 @@
   }
 
   final class NativeCanvasView: UIView {
-    private let commands: [NativeDrawCommand]
-    private let images: [Int: UIImage]
-    private let fontNames: [Int: String]
+    private var commands: [NativeDrawCommand]
+    private var images: [Int: UIImage]
+    private var fontNames: [Int: String]
+    private var renderSignature: Int
     var documentScale: CGFloat = 1 {
-      didSet { setNeedsDisplay() }
+      didSet { if documentScale != oldValue { setNeedsDisplay() } }
     }
 
     init(commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]) {
       self.commands = commands
       self.images = images
       self.fontNames = fontNames
+      renderSignature = Self.signature(commands: commands, images: images, fontNames: fontNames)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
       contentMode = .redraw
+      isUserInteractionEnabled = false
       accessibilityIdentifier = "rc-native-canvas"
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    func update(
+      commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]
+    ) {
+      let nextSignature = Self.signature(commands: commands, images: images, fontNames: fontNames)
+      self.commands = commands
+      self.images = images
+      self.fontNames = fontNames
+      guard nextSignature != renderSignature else { return }
+      renderSignature = nextSignature
+      setNeedsDisplay()
+    }
+
+    private static func signature(
+      commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]
+    ) -> Int {
+      var hasher = Hasher()
+      for command in commands {
+        hasher.combine(command.kind)
+        command.values.forEach { hasher.combine($0) }
+        command.color.cgColor.components?.forEach { hasher.combine($0) }
+        hasher.combine(command.alpha)
+        hasher.combine(command.strokeWidth)
+        hasher.combine(command.isStroke)
+        hasher.combine(command.strokeCap)
+        hasher.combine(command.strokeJoin)
+        hasher.combine(command.blendMode)
+        hasher.combine(command.textSize)
+        hasher.combine(command.textWeight)
+        hasher.combine(command.text)
+        hasher.combine(command.textStyle.fontStyle)
+        hasher.combine(command.textStyle.fontFamilyID)
+        hasher.combine(command.textStyle.fontFamilyName)
+        hasher.combine(command.textStyle.alignment)
+        hasher.combine(command.textStyle.overflow)
+        hasher.combine(command.textStyle.maxLines)
+        hasher.combine(command.textStyle.letterSpacing)
+        hasher.combine(command.textStyle.lineHeightAdd)
+        hasher.combine(command.textStyle.lineHeightMultiplier)
+        hasher.combine(command.textStyle.breakStrategy)
+        hasher.combine(command.textStyle.hyphenation)
+        hasher.combine(command.textStyle.isJustified)
+        hasher.combine(command.textStyle.isUnderlined)
+        hasher.combine(command.textStyle.isStruckThrough)
+        for segment in command.path {
+          hasher.combine(segment.kind)
+          segment.values.forEach { hasher.combine($0) }
+        }
+        hasher.combine(command.pathWinding)
+        if let gradient = command.gradient {
+          hasher.combine(gradient.kind)
+          gradient.colors.forEach { $0.components?.forEach { hasher.combine($0) } }
+          gradient.stops.forEach { hasher.combine($0) }
+          gradient.values.forEach { hasher.combine($0) }
+          hasher.combine(gradient.tileMode)
+        }
+        if let image = command.image {
+          hasher.combine(image.imageID)
+          hasher.combine(image.source.origin.x)
+          hasher.combine(image.source.origin.y)
+          hasher.combine(image.source.size.width)
+          hasher.combine(image.source.size.height)
+          hasher.combine(image.destination.origin.x)
+          hasher.combine(image.destination.origin.y)
+          hasher.combine(image.destination.size.width)
+          hasher.combine(image.destination.size.height)
+          hasher.combine(image.scaleType)
+          hasher.combine(image.scaleFactor)
+        }
+        hasher.combine(command.textureImageID)
+      }
+      for id in commands.compactMap({ $0.image?.imageID ?? $0.textureImageID }).sorted() {
+        hasher.combine(id)
+        if let image = images[id] { hasher.combine(ObjectIdentifier(image)) }
+      }
+      for (id, name) in fontNames.sorted(by: { $0.key < $1.key }) {
+        hasher.combine(id)
+        hasher.combine(name)
+      }
+      return hasher.finalize()
     }
 
     override func draw(_ rect: CGRect) {

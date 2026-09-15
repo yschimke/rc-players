@@ -27,6 +27,11 @@
 		100000000000000000000013 /* NativePath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* NativePath.swift */; };
 		100000000000000000000014 /* NativeTextPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* NativeTextPolicy.swift */; };
 		100000000000000000000015 /* NativeResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* NativeResources.swift */; };
+		100000000000000000000016 /* NativeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* NativeSession.swift */; };
+		100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* NativeAccessibilityPolicy.swift */; };
+		100000000000000000000018 /* NativeFrameTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* NativeFrameTiming.swift */; };
+		100000000000000000000019 /* NativeExecutionLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* NativeExecutionLimits.swift */; };
+		10000000000000000000001A /* NativePlayerEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* NativePlayerEvidence.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +58,11 @@
 		200000000000000000000015 /* NativePath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativePath.swift; path = "../../Sources/RcNativePlayerUIKit/NativePath.swift"; sourceTree = "<group>"; };
 		200000000000000000000016 /* NativeTextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeTextPolicy.swift; path = "../../Sources/RcNativePlayerUIKit/NativeTextPolicy.swift"; sourceTree = "<group>"; };
 		200000000000000000000017 /* NativeResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeResources.swift; path = "../../Sources/RcNativePlayerUIKit/NativeResources.swift"; sourceTree = "<group>"; };
+		200000000000000000000018 /* NativeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSession.swift; path = "../../Sources/RcNativePlayerUIKit/NativeSession.swift"; sourceTree = "<group>"; };
+		200000000000000000000019 /* NativeAccessibilityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeAccessibilityPolicy.swift; path = "../../Sources/RcNativePlayerUIKit/NativeAccessibilityPolicy.swift"; sourceTree = "<group>"; };
+		20000000000000000000001A /* NativeFrameTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeFrameTiming.swift; path = "../../Sources/RcNativePlayerUIKit/NativeFrameTiming.swift"; sourceTree = "<group>"; };
+		20000000000000000000001B /* NativeExecutionLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeExecutionLimits.swift; path = "../../Sources/RcNativePlayerUIKit/NativeExecutionLimits.swift"; sourceTree = "<group>"; };
+		20000000000000000000001C /* NativePlayerEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePlayerEvidence.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +93,7 @@
 				200000000000000000000001 /* RemoteComposePlayerApp.swift */,
 				200000000000000000000002 /* PlayerLibrary.swift */,
 				200000000000000000000003 /* PlayerRootView.swift */,
+				20000000000000000000001C /* NativePlayerEvidence.swift */,
 				200000000000000000000005 /* Info.plist */,
 			);
 			path = RemoteComposePlayer;
@@ -125,6 +136,10 @@
 				200000000000000000000015 /* NativePath.swift */,
 				200000000000000000000016 /* NativeTextPolicy.swift */,
 				200000000000000000000017 /* NativeResources.swift */,
+				200000000000000000000018 /* NativeSession.swift */,
+				200000000000000000000019 /* NativeAccessibilityPolicy.swift */,
+				20000000000000000000001A /* NativeFrameTiming.swift */,
+				20000000000000000000001B /* NativeExecutionLimits.swift */,
 				20000000000000000000000F /* RemoteComposeNativePlayer.swift */,
 				200000000000000000000010 /* NativeComponentViews.swift */,
 				200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */,
@@ -211,6 +226,11 @@
 				100000000000000000000013 /* NativePath.swift in Sources */,
 				100000000000000000000014 /* NativeTextPolicy.swift in Sources */,
 				100000000000000000000015 /* NativeResources.swift in Sources */,
+				100000000000000000000016 /* NativeSession.swift in Sources */,
+				100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */,
+				100000000000000000000018 /* NativeFrameTiming.swift in Sources */,
+				100000000000000000000019 /* NativeExecutionLimits.swift in Sources */,
+				10000000000000000000001A /* NativePlayerEvidence.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

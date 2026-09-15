@@ -221,16 +221,129 @@ private class RcIdAllocator(private val reservedIds: Set<Int>, private var next:
   }
 }
 
-public data class RcWireLimits(
-  val maxDocumentBytes: Int = 16 * 1024 * 1024,
-  val maxBlobBytes: Int = 8 * 1024 * 1024,
-  val maxStringBytes: Int = 4_000,
-  val maxTableEntries: Int = 1_000,
-  val maxPaintWords: Int = 1_024,
-  val maxPathWords: Int = 20_000,
-  val maxCollectionEntries: Int = 2_000,
-  val maxImageDimension: Int = 8_192,
-)
+public class RcWireLimits(
+  public val maxDocumentBytes: Int = 16 * 1024 * 1024,
+  public val maxBlobBytes: Int = 8 * 1024 * 1024,
+  public val maxStringBytes: Int = 4_000,
+  public val maxTableEntries: Int = 1_000,
+  public val maxPaintWords: Int = 1_024,
+  public val maxPathWords: Int = 20_000,
+  public val maxCollectionEntries: Int = 2_000,
+  public val maxImageDimension: Int = 8_192,
+) {
+  /** Decoder work ceiling kept outside the primary constructor to preserve its published ABI. */
+  public var maxOperations: Int = 100_000
+    private set
+
+  public constructor(
+    maxDocumentBytes: Int = 16 * 1024 * 1024,
+    maxBlobBytes: Int = 8 * 1024 * 1024,
+    maxStringBytes: Int = 4_000,
+    maxTableEntries: Int = 1_000,
+    maxPaintWords: Int = 1_024,
+    maxPathWords: Int = 20_000,
+    maxCollectionEntries: Int = 2_000,
+    maxImageDimension: Int = 8_192,
+    maxOperations: Int,
+  ) : this(
+    maxDocumentBytes,
+    maxBlobBytes,
+    maxStringBytes,
+    maxTableEntries,
+    maxPaintWords,
+    maxPathWords,
+    maxCollectionEntries,
+    maxImageDimension,
+  ) {
+    this.maxOperations = maxOperations
+  }
+
+  public operator fun component1(): Int = maxDocumentBytes
+
+  public operator fun component2(): Int = maxBlobBytes
+
+  public operator fun component3(): Int = maxStringBytes
+
+  public operator fun component4(): Int = maxTableEntries
+
+  public operator fun component5(): Int = maxPaintWords
+
+  public operator fun component6(): Int = maxPathWords
+
+  public operator fun component7(): Int = maxCollectionEntries
+
+  public operator fun component8(): Int = maxImageDimension
+
+  public fun copy(
+    maxDocumentBytes: Int = this.maxDocumentBytes,
+    maxBlobBytes: Int = this.maxBlobBytes,
+    maxStringBytes: Int = this.maxStringBytes,
+    maxTableEntries: Int = this.maxTableEntries,
+    maxPaintWords: Int = this.maxPaintWords,
+    maxPathWords: Int = this.maxPathWords,
+    maxCollectionEntries: Int = this.maxCollectionEntries,
+    maxImageDimension: Int = this.maxImageDimension,
+  ): RcWireLimits =
+    RcWireLimits(
+      maxDocumentBytes,
+      maxBlobBytes,
+      maxStringBytes,
+      maxTableEntries,
+      maxPaintWords,
+      maxPathWords,
+      maxCollectionEntries,
+      maxImageDimension,
+      maxOperations,
+    )
+
+  override fun equals(other: Any?): Boolean =
+    other is RcWireLimits &&
+      maxDocumentBytes == other.maxDocumentBytes &&
+      maxBlobBytes == other.maxBlobBytes &&
+      maxStringBytes == other.maxStringBytes &&
+      maxTableEntries == other.maxTableEntries &&
+      maxPaintWords == other.maxPaintWords &&
+      maxPathWords == other.maxPathWords &&
+      maxCollectionEntries == other.maxCollectionEntries &&
+      maxImageDimension == other.maxImageDimension &&
+      maxOperations == other.maxOperations
+
+  override fun hashCode(): Int {
+    var result = maxDocumentBytes
+    result = 31 * result + maxBlobBytes
+    result = 31 * result + maxStringBytes
+    result = 31 * result + maxTableEntries
+    result = 31 * result + maxPaintWords
+    result = 31 * result + maxPathWords
+    result = 31 * result + maxCollectionEntries
+    result = 31 * result + maxImageDimension
+    return 31 * result + maxOperations
+  }
+
+  override fun toString(): String =
+    "RcWireLimits(maxDocumentBytes=$maxDocumentBytes, maxBlobBytes=$maxBlobBytes, " +
+      "maxStringBytes=$maxStringBytes, maxTableEntries=$maxTableEntries, " +
+      "maxPaintWords=$maxPaintWords, maxPathWords=$maxPathWords, " +
+      "maxCollectionEntries=$maxCollectionEntries, maxImageDimension=$maxImageDimension, " +
+      "maxOperations=$maxOperations)"
+}
+
+/** A shared decoder-work allowance for related operation bodies such as macro expansions. */
+public class RcOperationBudget(public val maximum: Int = 100_000) {
+  private var consumed: Int = 0
+
+  internal fun consume(byteOffset: Int, opcode: Int, context: String) {
+    consumed += 1
+    if (consumed > maximum) {
+      throw RcWireException(
+        byteOffset,
+        opcode,
+        fieldName = "opcode",
+        message = "$context exceeds $maximum operations",
+      )
+    }
+  }
+}
 
 /** AndroidX document profile bits consumed by conditional [RcSkip] operations. */
 public object RcWireProfiles {

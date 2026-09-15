@@ -1000,6 +1000,8 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
         final fun <get-clickAreas>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcClickArea> // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.clickAreas.<get-clickAreas>|<get-clickAreas>(){}[0]
     final val document // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.document|{}document[0]
         final fun <get-document>(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.document.<get-document>|<get-document>(){}[0]
+    final val hasActiveFloatAnimations // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.hasActiveFloatAnimations|{}hasActiveFloatAnimations[0]
+        final fun <get-hasActiveFloatAnimations>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.hasActiveFloatAnimations.<get-hasActiveFloatAnimations>|<get-hasActiveFloatAnimations>(){}[0]
     final val rootContentBehavior // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.rootContentBehavior|{}rootContentBehavior[0]
         final fun <get-rootContentBehavior>(): ee.schimke.composeai.rcplayer.protocol/RcRootContentBehavior? // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.rootContentBehavior.<get-rootContentBehavior>|<get-rootContentBehavior>(){}[0]
     final val rootContentDescription // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.rootContentDescription|{}rootContentDescription[0]
@@ -1050,6 +1052,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
     final fun playSound(ee.schimke.composeai.rcplayer.protocol/RcPlaySound) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.playSound|playSound(ee.schimke.composeai.rcplayer.protocol.RcPlaySound){}[0]
     final fun publishComponentContentSize(kotlin/Int, kotlin/Float? = ..., kotlin/Float? = ...): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.publishComponentContentSize|publishComponentContentSize(kotlin.Int;kotlin.Float?;kotlin.Float?){}[0]
     final fun publishComponentGeometry(kotlin/Int, ee.schimke.composeai.rcplayer.runtime/RcComponentGeometry): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.publishComponentGeometry|publishComponentGeometry(kotlin.Int;ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry){}[0]
+    final fun publishComponentGeometry(kotlin/Int, ee.schimke.composeai.rcplayer.runtime/RcComponentGeometry, kotlin/Boolean): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.publishComponentGeometry|publishComponentGeometry(kotlin.Int;ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry;kotlin.Boolean){}[0]
     final fun requestWakeIn(ee.schimke.composeai.rcplayer.protocol/RcWakeIn) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.requestWakeIn|requestWakeIn(ee.schimke.composeai.rcplayer.protocol.RcWakeIn){}[0]
     final fun resolve(ee.schimke.composeai.rcplayer.protocol/RcFloatWord): kotlin/Float // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.resolve|resolve(ee.schimke.composeai.rcplayer.protocol.RcFloatWord){}[0]
     final fun setColor(kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.setColor|setColor(kotlin.Int;kotlin.Int){}[0]
@@ -1184,6 +1187,7 @@ final class ee.schimke.composeai.rcplayer.runtime/RcVisibilityTransform { // ee.
 
 final object ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker { // ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker|null[0]
     final fun link(ee.schimke.composeai.rcplayer.protocol/RcDocument): ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument // ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker.link|link(ee.schimke.composeai.rcplayer.protocol.RcDocument){}[0]
+    final fun link(ee.schimke.composeai.rcplayer.protocol/RcDocument, ee.schimke.composeai.rcplayer.protocol/RcWireLimits): ee.schimke.composeai.rcplayer.runtime/RcLinkedDocument // ee.schimke.composeai.rcplayer.runtime/RcDocumentLinker.link|link(ee.schimke.composeai.rcplayer.protocol.RcDocument;ee.schimke.composeai.rcplayer.protocol.RcWireLimits){}[0]
 }
 
 final object ee.schimke.composeai.rcplayer.runtime/RcIntegerExpressionEvaluator { // ee.schimke.composeai.rcplayer.runtime/RcIntegerExpressionEvaluator|null[0]

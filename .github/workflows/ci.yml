@@ -54,6 +54,7 @@ jobs:
           if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null && \
             git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
               .github/workflows/ci.yml \
+              .github/workflows/release.yml \
               Package.swift \
               Sources \
               Tests/RcNativePlayerUIKitTests \
@@ -72,10 +73,17 @@ jobs:
               samples/apple-player \
               scripts/build-apple-player.sh \
               scripts/check-apple-player-screenshot.sh \
+              scripts/check-native-uikit-accessibility.sh \
+              scripts/check-native-uikit-accessibility-simulator.sh \
+              scripts/check-native-uikit-animation-simulator.sh \
               scripts/check-native-uikit-compatibility.sh \
+              scripts/check-native-uikit-execution-limits.sh \
+              scripts/check-native-uikit-frame-timing.sh \
               scripts/check-native-uikit-graphics.sh \
               scripts/check-native-uikit-layout.sh \
+              scripts/measure-native-uikit-simulator.sh \
               scripts/check-native-uikit-package.sh \
+              scripts/check-native-uikit-profile.sh \
               scripts/check-native-uikit-resources.sh \
               scripts/check-native-uikit-text.sh \
               scripts/check-swift-sample.sh \
@@ -83,6 +91,7 @@ jobs:
               scripts/set-apple-player-package-version.sh \
               scripts/update-package-swift.sh \
               scripts/validate-apple-player-screenshot.swift \
+              scripts/validate-native-uikit-animation.swift \
               docs/design/RC_PLAYER_SWIFT.md
           then
             required=false
@@ -297,6 +306,10 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-package.sh
 
+      - name: Validate the native UIKit support profile
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-profile.sh
+
       # Type-checks the Swift sample in docs/design/RC_PLAYER_SWIFT.md against the real framework.
       # Exits 0 and says so when no framework is present, so it is honest about what it checked —
       # with the step above restored, a framework *is* present and this genuinely type-checks.
@@ -311,6 +324,18 @@ jobs:
       - name: Test native UIKit layout geometry
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-layout.sh
+
+      - name: Test native UIKit accessibility policy
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-accessibility.sh
+
+      - name: Test native UIKit frame timing
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-frame-timing.sh
+
+      - name: Test native UIKit execution limits
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-execution-limits.sh
 
       - name: Test native UIKit graphics state
         if: needs.apple-changes.outputs.required == 'true'
@@ -333,6 +358,10 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/package-apple-player.sh
 
+      - name: Measure native UIKit performance and footprint
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/measure-native-uikit-simulator.sh
+
       # Launches the packaged app on a real simulator and checks captured pixels for the white
       # title-card canvas, its dark content band, and the coloured host background. This covers the
       # Metal/Skiko presentation path that Kotlin/Native tests and a Swift type check cannot enter.
@@ -340,12 +369,25 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-apple-player-screenshot.sh
 
+      - name: Validate native UIKit accessibility presentation
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-accessibility-simulator.sh
+
+      - name: Validate native UIKit animation pacing
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-animation-simulator.sh
+
       - name: Upload the Apple player screenshot
         if: always() && needs.apple-changes.outputs.required == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: apple-player-screenshot
-          path: build/apple-player-screenshot.png
+          path: |
+            build/apple-player-screenshot.png
+            build/native-uikit-accessibility.png
+            build/native-uikit-animation-a.png
+            build/native-uikit-animation-b.png
+            build/native-uikit-evidence.json
           if-no-files-found: ignore
           retention-days: 7
 

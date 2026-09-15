@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "profileId": "rc-native-uikit-core-v1",
+  "releaseVersion": "@VERSION@",
+  "sourceRevision": "@SOURCE_REVISION@",
+  "maturity": "experimental",
+  "product": "RcNativePlayerUIKit",
+  "replacesCmpPlayer": false,
+  "platforms": [
+    {
+      "os": "iOS",
+      "minimumVersion": "13.0",
+      "deviceArchitectures": ["arm64"],
+      "simulatorArchitectures": ["arm64"]
+    }
+  ],
+  "runtime": {
+    "ui": "UIKit/CoreGraphics/CoreText",
+    "decoderBridge": "RcComposePlayer.xcframework Kotlin/Native",
+    "retainedSession": true,
+    "frameScheduling": ["static", "continuous", "next-frame", "delayed-wake"]
+  },
+  "nativeNodeKinds": [
+    "root",
+    "content",
+    "canvas",
+    "group",
+    "box",
+    "row",
+    "column",
+    "text",
+    "image"
+  ],
+  "nativeDrawKinds": [
+    "save",
+    "restore",
+    "translate",
+    "scale",
+    "rotate",
+    "skew",
+    "clip-rect",
+    "clip-path",
+    "rect",
+    "oval",
+    "circle",
+    "line",
+    "round-rect",
+    "arc",
+    "sector",
+    "text",
+    "path",
+    "image"
+  ],
+  "interaction": {
+    "hostNamedValues": ["float", "string", "color"],
+    "clickActions": ["click", "single-click"],
+    "semanticRoles": ["button", "image", "checkbox", "switch", "unknown"]
+  },
+  "verifiedFixtures": [
+    {
+      "id": "TitleCardRemote-640x480",
+      "coverage": ["layout", "native-text", "canvas-paint", "simulator-pixels"]
+    },
+    {
+      "id": "IndeterminateCircularProgress-400x400",
+      "coverage": ["component-geometry", "continuous-time", "arc-paint", "simulator-motion"]
+    }
+  ],
+  "defaultLimits": {
+    "wireDocumentBytes": 16777216,
+    "wireBlobBytes": 8388608,
+    "wireStringBytes": 4000,
+    "wireTableEntries": 1000,
+    "wirePaintWords": 1024,
+    "wirePathWords": 20000,
+    "wireCollectionEntries": 2000,
+    "wireImageDimension": 8192,
+    "wireOperations": 100000,
+    "containerNesting": 256,
+    "expansionDepth": 64,
+    "expandedNodes": 100000,
+    "nativeDocumentBytes": 16777216,
+    "nativeNodes": 20000,
+    "nativeNesting": 256,
+    "nativeDrawCommands": 50000,
+    "nativePathElements": 100000,
+    "nativeTextBytes": 16384,
+    "nativeCanvasDimension": 16384,
+    "nativeCoordinateMagnitude": 1000000,
+    "nativeFrameWork": 200000,
+    "nativeResourceBytes": 8388608,
+    "nativeTotalResourceBytes": 25165824,
+    "nativeResourceImageDimension": 4096,
+    "nativeDecodedPixels": 16777216,
+    "nativeDecodedImageBytes": 134217728,
+    "nativeResourceCount": 32
+  },
+  "compatibility": {
+    "policy": "No source or binary compatibility guarantee before the profile leaves experimental status.",
+    "unsupportedBehavior": "Compatible mode renders the supported subset with diagnostics; strict mode refuses it.",
+    "migration": "Use RcComposePlayerSwiftUI for documents outside this profile; the native product never replaces or redirects the CMP product."
+  },
+  "distribution": {
+    "repositoryProduct": "RcNativePlayerUIKit",
+    "standaloneArchive": "RcNativePlayerUIKit.swiftpackage.zip",
+    "archiveChecksum": "RcNativePlayerUIKit.swiftpackage.zip.sha256",
+    "profileAsset": "RcNativePlayerUIKit.profile.json",
+    "profileChecksum": "RcNativePlayerUIKit.profile.json.sha256",
+    "buildWorkflow": ".github/workflows/release.yml"
+  }
+}

@@ -93,6 +93,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcDocumentCapabilities$
 public final class ee/schimke/composeai/rcplayer/runtime/RcDocumentLinker {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/runtime/RcDocumentLinker;
 	public final fun link (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/runtime/RcLinkedDocument;
+	public final fun link (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/runtime/RcLinkedDocument;
 }
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcFloatExpressionEvaluator {
@@ -819,6 +820,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun getAnimationTimeSeconds ()F
 	public final fun getClickAreas ()Ljava/util/List;
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun getHasActiveFloatAnimations ()Z
 	public final fun getRootContentBehavior ()Lee/schimke/composeai/rcplayer/protocol/RcRootContentBehavior;
 	public final fun getRootContentDescription ()Ljava/lang/String;
 	public final fun hasComponentValues (I)Z
@@ -834,6 +836,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun publishComponentContentSize (ILjava/lang/Float;Ljava/lang/Float;)Z
 	public static synthetic fun publishComponentContentSize$default (Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;ILjava/lang/Float;Ljava/lang/Float;ILjava/lang/Object;)Z
 	public final fun publishComponentGeometry (ILee/schimke/composeai/rcplayer/runtime/RcComponentGeometry;)Z
+	public final fun publishComponentGeometry (ILee/schimke/composeai/rcplayer/runtime/RcComponentGeometry;Z)Z
 	public final fun requestWakeIn (Lee/schimke/composeai/rcplayer/protocol/RcWakeIn;)V
 	public final fun resolve-jeHuU8k (I)F
 	public final fun setColor (II)V

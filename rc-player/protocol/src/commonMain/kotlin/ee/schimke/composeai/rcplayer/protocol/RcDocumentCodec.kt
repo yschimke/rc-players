@@ -187,9 +187,11 @@ public object RcDocumentCodec {
           profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL,
         )
       val operations = mutableListOf<RcOperation>()
+      val operationBudget = RcOperationBudget(limits.maxOperations)
       while (input.remaining > 0) {
         val opcodeOffset = input.offset
         val opcode = input.readU8("opcode")
+        operationBudget.consume(opcodeOffset, opcode, "Document")
         val codec =
           codecs[opcode]
             ?: throw RcWireException(
@@ -224,12 +226,22 @@ public object RcDocumentCodec {
     limits: RcWireLimits = RcWireLimits(),
     idRemapper: RcIdRemapper? = null,
   ): List<RcOperation> =
+    decodeOperations(bytes, limits, idRemapper, RcOperationBudget(limits.maxOperations))
+
+  /** Decode an operation body while charging a caller-owned cross-expansion budget. */
+  public fun decodeOperations(
+    bytes: ByteArray,
+    limits: RcWireLimits = RcWireLimits(),
+    idRemapper: RcIdRemapper? = null,
+    operationBudget: RcOperationBudget,
+  ): List<RcOperation> =
     decodeOperationsForReader(
       bytes,
       limits,
       idRemapper,
       libraryApiLevel = 8,
       profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL,
+      operationBudget = operationBudget,
     )
 
   internal fun decodeOperationsForReader(
@@ -238,6 +250,7 @@ public object RcDocumentCodec {
     idRemapper: RcIdRemapper? = null,
     libraryApiLevel: Int,
     profile: Int,
+    operationBudget: RcOperationBudget = RcOperationBudget(limits.maxOperations),
   ): List<RcOperation> {
     if (bytes.size > limits.maxBlobBytes) {
       throw RcWireException(0, message = "Operation body exceeds ${limits.maxBlobBytes} bytes")
@@ -247,6 +260,7 @@ public object RcDocumentCodec {
       while (input.remaining > 0) {
         val opcodeOffset = input.offset
         val opcode = input.readU8("opcode")
+        operationBudget.consume(opcodeOffset, opcode, "Operation body")
         val codec =
           codecs[opcode]
             ?: throw RcWireException(

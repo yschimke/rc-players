@@ -1,6 +1,7 @@
 # Native UIKit player feature plan
 
-Status: active implementation sequence for the experimental `RcNativePlayerUIKit` product.
+Status: functional work packages 1–11 are implemented for the experimental
+`RcNativePlayerUIKit` product; stabilization evidence remains in progress.
 
 This plan turns the architecture POC into a useful native player without weakening the existing
 CMP player's compatibility contract. Work is ordered by dependency and by how much real document
@@ -9,14 +10,17 @@ the player in a releasable state.
 
 ## Baseline
 
-The current POC decodes a time-zero snapshot through Kotlin and renders it through a Swift-owned
-UIKit hierarchy. It has approximate Box, Row, and Column layout, native `UILabel` text, semantic
-`UIButton` overlays, a useful Core Graphics subset, explicit compatibility diagnostics, the Morning
-Run Title Card regression, and a downloadable experimental package.
+The current POC opens a retained Kotlin runtime session off the main actor and renders immutable
+frames through a Swift-owned UIKit hierarchy. It has approximate Box, Row, and Column layout,
+native `UILabel` text, semantic `UIButton` overlays, a useful Core Graphics subset, explicit
+compatibility diagnostics, the Morning Run Title Card regression, and a downloadable experimental
+package.
 
-It does not yet retain a running document, dispatch actions, update named values, animate, or claim
-a complete Remote Compose profile. Those are feature gaps, not implicit
-fallbacks: unsupported behavior must remain visible throughout this plan.
+It dispatches the core click/action contract, updates typed named values, schedules only requested
+animation frames, and publishes a positive machine-readable profile. It does not claim complete
+Remote Compose compatibility: long/double click, drag, scroll, raw touch expressions, advanced
+semantic state, and unlisted layout/drawing families remain explicit diagnostics rather than
+implicit fallbacks.
 
 ## Progress
 
@@ -27,7 +31,12 @@ fallbacks: unsupported behavior must remain visible throughout this plan.
 | 3 — Core Graphics static drawing | Implemented | Validated paths/clipping, gradients, graphics-state order, stroke caps/joins, and representable blend modes |
 | 4 — Static text | Core implemented | Native labels, Core Text canvas glyphs, inherited paragraph styles, bidi alignment, overflow, decoration, and deterministic fallback |
 | 5 — Bounded resources | Implemented | Inline/referenced images, `UIImageView` promotion, ordered canvas images, embedded fonts, limits, cache, resolver cancellation, and typed failures |
-| 6–11 | Planned | Ordered below |
+| 6 — Retained session | Core implemented | Off-main decode, retained codec/link/state, immutable frames, stable component reconciliation, generation cancellation, and atomic replacement |
+| 7 — Named values, actions, and input | Core implemented | Typed float/string/color updates, ordered host events, single-click dispatch, semantic controls, and UIKit visual-order hit testing |
+| 8 — Semantic UIKit components and accessibility | Core implemented | Native role identity, label/text/value mapping, merge/clear behavior, deterministic VoiceOver order, enabled state, and policy tests |
+| 9 — Deterministic time and animation | Core implemented | Runtime frame/wake contract, injectable monotonic timeline, demand-driven display link, lifecycle/Reduce Motion policy, and animated progress fixture |
+| 10 — Performance and untrusted input | Core implemented | Decode-time operation ceiling plus configurable typed byte, node, depth, draw, path, text, geometry, and per-frame work limits |
+| 11 — Distribution and API evidence | Core implemented | Versioned machine-readable profile, explicit experimental compatibility/migration decision, checksummed consumer archive, and GitHub provenance attestations |
 
 ## Delivery rules
 
@@ -134,12 +143,19 @@ Acceptance:
 - oversized, corrupt, missing, and slow resources have typed errors/diagnostics;
 - cache keys include content identity and rendering-relevant parameters.
 
-### 6. Replace snapshots with a retained session
+### 6. Replace snapshots with a retained session — core implemented
 
 Create a narrow renderer-neutral session in Kotlin that owns `RcPlayerState`, exposes immutable
 frame deltas, and schedules no UIKit work itself. Swift applies those deltas on the main actor while
 retaining stable component views by id. Full snapshot rebuild remains available as a correctness
 fallback during development.
+
+The first retained slice exports complete immutable frames rather than a compact wire delta. Swift
+reconciles compatible component shapes recursively and mutates the existing canvas, label, image,
+semantic, and component views in place; a structural mismatch atomically installs a newly built
+tree. Generation-numbered tasks discard stale decode/resource/frame results. Entering the
+background cancels outstanding work and records whether a full render must resume on activation.
+Compact component-local deltas remain an optimization to measure before making them bridge ABI.
 
 Acceptance:
 
@@ -148,12 +164,21 @@ Acceptance:
 - document replacement is atomic and cancels prior work;
 - lifecycle tests cover repeated load, failure, backgrounding, and deallocation.
 
-### 7. Named values, actions, and input
+### 7. Named values, actions, and input — core implemented
 
 Expose typed named-value updates and event callbacks that mirror the supported CMP host contract.
 Route UIKit touch coordinates into the session, implement click/action dispatch, and preserve event
 ordering. Start with tap/click; add drag, scroll, and touch expressions only after coordinate-space
 tests are exact.
+
+The first interactive slice accepts declared float, string, and packed ARGB named values. Bare
+names resolve in the `USER:` namespace; a missing name or type mismatch returns `false` without
+changing runtime state. Ordinary click and multi-click `SINGLE` containers become enabled native
+buttons and execute their action blocks in wire order. UIKit resolves root/component transforms,
+rounded clipping, visibility, enabled state, and visual z-order before sending the winning component
+id to the retained session. Host action, metadata, named-action, and debug events cross as typed
+Swift values and are delivered on the main actor. Long press, double click, drag, scroll, raw touch
+expressions, and compact component-local deltas remain later slices and stay diagnosed.
 
 Acceptance:
 
@@ -162,7 +187,7 @@ Acceptance:
 - hit testing honors transforms, clipping, enabled state, and z-order;
 - replacing a document cannot deliver stale callbacks from the old session.
 
-### 8. Expand semantic UIKit components and accessibility
+### 8. Expand semantic UIKit components and accessibility — core implemented
 
 Map explicit roles/states to `UIButton`, `UISwitch`, progress views, image views, and focused custom
 `UIControl` subclasses where behavior aligns. Do not infer controls from appearance. Build a stable
@@ -175,7 +200,24 @@ Acceptance:
 - Dynamic Type, high contrast, Reduce Motion, and Switch Control behavior is tested;
 - visual and semantic hit targets remain synchronized after updates.
 
-### 9. Add deterministic time and animation
+The core semantic slice preserves the three distinct authored strings: content description and text
+form the accessibility label, while state description becomes the accessibility value. Explicit
+button, switch, and image roles own transparent `UIButton`, `UISwitch`, and `UIImageView` subclasses;
+checkbox, radio, tab, dropdown, picker, and carousel roles use focused `UIControl` overlays with
+role-appropriate button or adjustable traits. The document still owns pixels. Set semantics expose
+their children in stable layout order, while merge and clear-and-set semantics replace descendants
+with one element; merge de-duplicates descendant labels. Role/mode bounds fail at decode, and
+multiple modifiers remain diagnosed because the current bridge intentionally exports one effective
+semantic node.
+
+The protocol semantics operation does not carry checked/selected state, a progress range, custom
+accessibility actions, or adjustable increment/decrement actions. The player does not infer those
+from localized state-description text. `UISwitch` therefore supplies native identity and activation
+but only exposes the authored state description as its value. Stateful controls, custom actions,
+VoiceOver UI automation, high-contrast policy, and Switch Control verification remain required
+before the package can drop its `core implemented` qualifier.
+
+### 9. Add deterministic time and animation — core implemented
 
 Give the retained session an injectable monotonic clock and wake-up contract. Use `CADisplayLink`
 only while a frame is due; pause when offscreen/backgrounded and resume without accumulating time
@@ -188,7 +230,23 @@ Acceptance:
 - frame pacing, pause/resume, and reduced-motion policy are measured on device;
 - updates invalidate only affected views/canvases.
 
-### 10. Harden performance and untrusted-input behavior
+Each immutable bridge frame now reports whether it needs continuous display-paced work, exactly one
+next frame, or an earliest delayed `WakeIn`. Moving system-variable reads use the same static
+analysis as the CMP player. A real `CADisplayLink` is installed only for due display-paced work;
+delayed wakes use a cancellable task and static documents retain neither. The public clock protocol
+defaults to system uptime and can be replaced in tests. Its accumulator excludes background,
+offscreen, and Reduce Motion intervals, so resuming does not jump the animation clock. One-shot and
+delayed functional updates remain enabled under Reduce Motion while continuous decorative motion
+is suppressed.
+
+The first graphics family is component-size-driven canvas animation. Before exporting commands, a
+native settling pass publishes inherited/exact geometry to the retained runtime, allowing the real
+indeterminate progress fixture to resolve finite bounds and changing arc angles. Retained canvas
+views hash their render inputs and request display only when those inputs change. Pure timing tests
+advance synthetic timestamps without sleeping; the simulator gate captures two real Progress
+frames and requires visible, changing pixels inside the document surface.
+
+### 10. Harden performance and untrusted-input behavior — core implemented
 
 Enforce limits for operation count, nesting, macro expansion, path complexity, text length, bitmap
 bytes, offscreen dimensions, and per-frame work. Profile decode, first frame, updates, view count,
@@ -202,7 +260,36 @@ Acceptance:
 - performance budgets run in CI where stable and in scheduled device jobs otherwise;
 - no resource, timer, task, or display link survives player deallocation.
 
-### 11. Stabilize distribution and API only after evidence
+The wire decoder now stops at 100,000 operations, counting conditional `Skip` records as work even
+though they do not enter the decoded model. This complements the existing 16 MiB document limit,
+256-level container limit, 64-level expansion limit, and 100,000-node expansion limit before the
+native bridge begins exporting a frame.
+
+Swift exposes a separate `RemoteComposeNativeExecutionLimits` policy. Every initial frame, timed
+frame, named-value update, and click result is checked before view reconciliation for document
+bytes, node count and nesting, draw-command count, aggregate path elements, per-command UTF-8 text,
+canvas dimensions, finite coordinates, coordinate magnitude, and aggregate frame work. Failures
+are public `RemoteComposeNativeLimitError` values with stable associated measurements; changing the
+policy invalidates the current generation before retrying, so an older task cannot install a frame
+after a new policy rejects it. Resource byte and decoded-image limits remain independently
+configurable because they govern host resolution and cache ownership rather than execution work.
+The asynchronous load path captures only immutable policy/cache inputs while awaiting a host
+resource resolver; it no longer holds the player view strongly. Deallocation can therefore cancel
+the load and delayed-wake tasks, while the display-link proxy already keeps only a weak owner.
+
+Pure adversarial tests exercise every typed Swift refusal and prove the codec operation ceiling is
+applied while decoding. Repository linker tests retain the nesting, recursive macro/reference, and
+expanded-node corpus. Release builds exercise the validation in the real UIKit host. The packaged
+Release sample now emits a source-identified JSON baseline from seven Title Card iterations on a
+named iPad simulator. CI checks broad time, hierarchy, allocation, physical-footprint, executable,
+and app-bundle budgets and requires native labels, a native button/control, and accessibility
+elements. It also interrupts a real public player view's initial load with background/foreground
+notifications, requires the native hierarchy to recover, and verifies ARC deallocation after the
+last strong reference is released. Fixed-device time, allocation, memory, and frame-pacing
+baselines remain required before this package drops its `core implemented` qualifier; simulator
+measurements are a regression tripwire, not a device performance claim.
+
+### 11. Stabilize distribution and API only after evidence — core implemented
 
 Keep the downloadable package and SwiftPM product experimental through M4. At M5, review whether
 the Kotlin bridge should become stable SPI, move behind a C interface, or be replaced by a Swift
@@ -215,6 +302,19 @@ Acceptance:
 - the operation/profile claim is machine-readable and release-versioned;
 - release artifacts have consumer builds, checksums, and provenance;
 - the support decision is based on coverage, performance, binary size, and maintenance data.
+
+The decision remains deliberately experimental. The additive repository product and standalone iOS
+package support arm64 devices and Apple-silicon simulators on iOS 13 or newer; neither redirects the
+CMP products, and unsupported documents retain an explicit CMP migration path. The reviewed
+`rc-native-uikit-core-v1` JSON template lists native node/draw kinds, verified fixtures, platform
+matrix, default limits, compatibility policy, and artifact names. Release assembly injects the
+semantic version and source SHA, embeds the identical profile in the standalone package, publishes
+both SHA-256 sidecars, and creates GitHub build-provenance attestations for the Apple artifacts.
+
+The long-term runtime boundary remains open until corpus coverage plus fixed-device performance,
+memory, binary-size, accessibility, and maintenance measurements justify stability. The detailed
+decision, verification commands, stability gate, and future major-version migration policy live in
+`RC_NATIVE_UIKIT_DISTRIBUTION.md`.
 
 ## Corpus and verification ladder
 
@@ -234,6 +334,8 @@ owned reason for every tolerated visual difference.
 
 ## Immediate next sequence
 
-Begin package 6's retained renderer-neutral session, using the completed static snapshot profile as
-the correctness oracle for incremental updates. Preserve stable UIKit component identity across
-value-only frames before exposing package 7's named-value and action APIs.
+Land the stacked packages and the packaged-simulator evidence slice in order. Then run the same
+versioned report on a fixed physical device, add VoiceOver/Switch Control UI automation, and verify
+one published standalone archive from an external consumer. Keep
+`rc-native-uikit-core-v1` unchanged while collecting that evidence. Any new operation family starts
+a new reviewed profile diff with a fixture and owned diagnostics before it becomes a release claim.

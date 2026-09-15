@@ -6,7 +6,11 @@ struct RemoteComposePlayerApp: App {
 
   var body: some Scene {
     WindowGroup {
-      PlayerRootView(library: library)
+      if ProcessInfo.processInfo.arguments.contains("--native-evidence") {
+        NativePlayerEvidenceView()
+      } else {
+        PlayerRootView(library: library)
+      }
     }
     .commands {
       CommandGroup(replacing: .newItem) {

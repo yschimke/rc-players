@@ -760,4 +760,67 @@ class RcDocumentCodecTest {
     assertEquals("FunctionCall", failure.operationName)
     assertEquals("arguments.count", failure.fieldName)
   }
+
+  @Test
+  fun documentOperationLimitFailsDuringDecode() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), modern = false),
+        listOf(RcIntegerConstant(42, 1), RcIntegerConstant(43, 2)),
+      )
+
+    val failure =
+      assertFailsWith<RcWireException> {
+        RcDocumentCodec.decode(
+          RcDocumentCodec.encode(document),
+          limits = RcWireLimits(maxOperations = 2),
+        )
+      }
+
+    assertTrue(failure.message.orEmpty().contains("exceeds 2 operations"))
+    assertEquals("opcode", failure.fieldName)
+  }
+
+  @Test
+  fun copiedWireLimitsPreserveOperationBudget() {
+    val limits = RcWireLimits(maxOperations = 10)
+
+    val copied = limits.copy(maxBlobBytes = 123)
+
+    assertEquals(10, copied.maxOperations)
+    assertEquals(123, copied.maxBlobBytes)
+    assertEquals(limits, limits.copy())
+    assertTrue(limits != RcWireLimits(maxOperations = 11))
+  }
+
+  @Test
+  fun operationBodyLimitCountsSkippedOperations() {
+    val writer = RcWireWriter()
+    repeat(2) { RcDocumentCodec.encodeOperation(writer, RcSkip(0, 0, 0)) }
+
+    val failure =
+      assertFailsWith<RcWireException> {
+        RcDocumentCodec.decodeOperations(
+          writer.toByteArray(),
+          limits = RcWireLimits(maxOperations = 1),
+        )
+      }
+
+    assertTrue(failure.message.orEmpty().contains("exceeds 1 operations"))
+  }
+
+  @Test
+  fun operationBodyBudgetIsSharedAcrossExpansions() {
+    val writer = RcWireWriter()
+    RcDocumentCodec.encodeOperation(writer, RcSkip(0, 0, 0))
+    val budget = RcOperationBudget(maximum = 1)
+
+    RcDocumentCodec.decodeOperations(writer.toByteArray(), operationBudget = budget)
+    val failure =
+      assertFailsWith<RcWireException> {
+        RcDocumentCodec.decodeOperations(writer.toByteArray(), operationBudget = budget)
+      }
+
+    assertTrue(failure.message.orEmpty().contains("exceeds 1 operations"))
+  }
 }

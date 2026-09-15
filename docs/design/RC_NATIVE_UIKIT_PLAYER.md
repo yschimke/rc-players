@@ -15,7 +15,7 @@ coverage or exact pixels. Its primary API is `RemoteComposeNativePlayerView`; a 
 controller and a thin `UIViewRepresentable` adapter are also supplied. No Compose view or Skia
 surface exists below those entry points.
 
-It currently handles a static frame containing Box, Row, and Column layout; common size, padding,
+It currently handles retained frames containing Box, Row, and Column layout; common size, padding,
 alignment, rounded-clip, and background modifiers; rectangles, ovals, circles, lines, rounded
 rectangles, arcs, sectors, basic text, color/alpha/stroke paint state, clipping, save/restore, and
 basic transforms. It also replays validated paths, path clipping, inline linear/radial/sweep
@@ -26,6 +26,8 @@ behavior opcodes are returned as diagnostics rather than being presented as full
 Inline and host-referenced images cross a bounded resource boundary and render through `UIImageView`
 for conceptual image components or through the ordered Core Graphics stream for canvas images.
 Embedded fonts are validated and registered for the owning player lifetime.
+Hosts can update declared float, string, and color values without re-decoding the document. Native
+buttons dispatch ordinary and single-click action blocks through typed main-actor callbacks.
 
 ## Goals
 
@@ -41,8 +43,9 @@ Embedded fonts are validated and registered for the owning player lifetime.
 
 - Pixel parity with AndroidX or CMP.
 - Complete operation coverage.
-- Animation, live named values, touch expressions, click actions, sound, or haptics.
-- Production text shaping, bidirectional text, downloadable fonts, or text on paths.
+- Drag/scroll/raw touch expressions, long/double click, automatic sound playback, or inferred
+  haptics.
+- Text on paths, inline link spans, font variation axes, or exact CMP text metrics.
 - The final layout algorithm or final Kotlin/Swift boundary.
 - Replacing, deprecating, or internally modifying `RcComposePlayer`.
 - Native AppKit rendering.
@@ -87,13 +90,14 @@ layout pass. This preserves component identity and mirrors the CMP player's layo
 ordinary UIKit.
 
 Where protocol semantics identify a platform concept, the component also owns the corresponding
-native view. The POC turns `clickable` or button-role components into transparent `UIButton`s above
-their captured visuals. The button supplies UIKit hit testing, focus, enabled state, accessibility
-traits, and inspectable type identity; the command surface preserves the document's appearance.
-This promotion is evidence-based: a click modifier can imply a button, while arbitrary painted
-content does not. Text commands similarly become `UILabel`s rather than Core Graphics glyph calls.
-Image-layout components use `UIImageView`; future mappings include `UISwitch` for switch roles and
-purpose-built `UIControl` subclasses where UIKit has no matching standard control.
+native view. Clickable/button, switch, and image roles become transparent `UIButton`, `UISwitch`,
+and `UIImageView` subclasses over their captured visuals. Checkbox, radio, tab, dropdown, picker,
+and carousel roles use focused transparent `UIControl` overlays because UIKit has no exact standard
+control with the authored Remote Compose contract. These elements supply UIKit hit testing, focus,
+enabled state, accessibility traits, and inspectable type identity; the command surface preserves
+the document's appearance. This promotion is evidence-based: a click modifier can imply a button,
+while arbitrary painted content does not. Text commands similarly become `UILabel`s rather than
+Core Graphics glyph calls. Conceptual image-layout components use visible `UIImageView`s.
 
 The POC resolves fill fractions, proportional weights, wrap and exact sizing, min/max constraints,
 padding, offsets, z-order, visibility, AndroidX linear arrangements, RTL placement, spacing, root
@@ -132,17 +136,19 @@ does not depend on `RcComposePlayerSwiftUI`, and neither existing product depend
 ### Data flow
 
 1. The host creates `RemoteComposeNativePlayerView(data:)` or its controller.
-2. Swift bridges `Data` to `KotlinByteArray` through the existing data bridge.
-3. `RcNativeSnapshotBridge` decodes the header and operations.
-4. `RcDocumentLinker` validates containers and expands references/macros.
-5. `RcPlayerState` loads constants and resolves supported expressions at time zero.
-6. The bridge walks the linked tree and emits nodes plus resolved drawing commands.
-7. Swift immediately maps interop objects to Swift value types.
-8. `NativeDocumentView` builds recursive `NativeComponentView`s.
+2. A serial Swift actor opens `RcNativeSnapshotSession` on a detached task.
+3. The session decodes once, links once, and retains `RcPlayerState`.
+4. A requested time resolves an immutable frame without scheduling platform work.
+5. Named values and clicks mutate that retained state and return an atomic frame-plus-events result.
+6. Swift maps the interop frame to private Swift values on the main actor.
+7. `NativeDocumentView` builds recursive `NativeComponentView`s for the first frame.
+8. Compatible later frames reconcile those views in place; structural changes atomically replace
+   the tree.
 9. Each `NativeCanvasView` replays immutable commands in `draw(_:)` using Core Graphics.
 
-Kotlin objects do not remain in the UIKit view tree. That keeps ownership clear, makes view tests
-simple, and permits decode work to move off the main actor later.
+Kotlin objects do not remain in the UIKit view tree. The retained Kotlin object is isolated inside
+one Swift actor; UIKit receives only immutable frames. That keeps ownership clear and prevents the
+non-`Sendable` generated Kotlin surface from crossing concurrent tasks unsafely.
 
 ### Snapshot model
 
@@ -151,8 +157,11 @@ diagnostics. Each diagnostic records severity, opcode, inventory-derived operati
 id, and reason. The legacy unsupported-opcode and note projections remain on the experimental
 bridge for source compatibility, but Swift treats the structured list as authoritative.
 `RcNativeNodeSnapshot` carries a semantic kind (`root`, `content`, `canvas`, or `group`), component
-id, local commands, children, and resolved role/clickability/enabled/label semantics. Swift converts
-integer kinds and roles to private enums at the boundary.
+id, local commands, children, and resolved role, mode, clickability, enabled, content-description,
+text, and state-description semantics. Swift converts integer kinds, roles, and modes to private
+enums at the boundary. Invalid role/mode values fail decode. Multiple accessibility modifiers on
+one component remain an explicit compatibility diagnostic while the bridge exports one effective
+semantic node.
 
 `RcNativeDrawCommand` is a resolved Core Graphics-friendly value. Its flat six-float payload is not
 proposed as a long-term IR; it keeps the POC's generated Kotlin/Native header small and avoids a
@@ -178,8 +187,25 @@ container.addSubview(player)
 ```
 
 `RemoteComposeNativePlayerViewController` is a convenience for controller-based hosts and exposes
-`load(_:)`. `RemoteComposeNativePlayerRepresentable` is only an adapter: its renderer is the same
-UIKit tree. A named-value controller is omitted until retained state is designed.
+`load(_:)`, resource configuration, explicit `renderFrame(at:)`, and asynchronous typed
+`setFloat(_:for:)`, `setString(_:for:)`, and `setColor(_:for:)` updates. The view offers the same
+operations. `RemoteComposeNativePlayerRepresentable` is only an adapter: its renderer is the same
+UIKit tree. All three entry points accept an `onEvent` callback.
+
+```swift
+let player = RemoteComposeNativePlayerView(
+  data: documentData,
+  onEvent: { event in
+    // Called on the main actor after the resulting frame is installed.
+    print(event)
+  }
+)
+
+Task { @MainActor in
+  let accepted = await player.setFloat(0.75, for: "progress")
+  assert(accepted)
+}
+```
 
 The default `.compatible` policy renders the supported subset and reports all known differences.
 `.strict` refuses to install a document view when any diagnostic is present, including a known
@@ -270,28 +296,47 @@ production API should add a first-class `onError` closure.
 
 ## Lifecycle and concurrency
 
-Public view/controller APIs are `@MainActor`, as UIKit requires. Decode is synchronous for a simple,
-deterministic POC, which is not suitable for arbitrary production documents.
+Public view/controller APIs are `@MainActor`, as UIKit requires. Decode/link and frame evaluation run
+through a serial actor away from the main actor. Generation-numbered tasks retain input bytes,
+discard stale decode/resource/frame results, and install a complete candidate only after validation
+and resource preparation succeed. A failed candidate therefore leaves the last valid hierarchy
+and session intact while displaying the native error surface.
 
-A production implementation should use generation-numbered tasks: retain input bytes, decode to
-immutable data off-main, discard stale generations, then build or diff views on the main actor. The
-result must be Swift `Sendable` data before it returns to UIKit.
+The session retains codec/link/runtime state, so animation never has to decode each display frame.
+Frames carry a runtime scheduling contract: continuous work, one next frame, or an earliest delayed
+`WakeIn`. Static documents schedule nothing. Continuous and one-shot work use `CADisplayLink`;
+delayed work uses a generation-checked cancellable task. The player pauses its injectable monotonic
+timeline while offscreen, backgrounded, or under Reduce Motion, then resumes without counting the
+suspended interval. Reduce Motion suppresses continuous decorative motion but preserves one-shot
+and delayed functional state updates. Entering the background cancels outstanding render work;
+activation retries an interrupted full render without advancing the paused timeline.
 
-Animation cannot re-decode every display frame. A retained runtime session should own state;
-`CADisplayLink` should request a resolved delta or refreshed command buffer only for invalidated
-component surfaces.
+Canvas expressions that read component width/height receive a native geometry settling pass before
+commands are exported. This makes the real indeterminate-progress fixture resolve finite arc bounds
+and change across deterministic timestamps. Stable canvas views compare complete render signatures,
+so an unchanged frame does not call `setNeedsDisplay`.
 
 ## Accessibility and input
 
-Components have stable accessibility identifiers, making the hierarchy inspectable in tests. A
-recognized button is a real `UIButton`, with its enabled state and accessibility label copied from
-the resolved semantics. That is not full accessibility support: merge/clear modes, state
-descriptions, custom actions, dynamic updates, and non-button roles remain incomplete. A canvas must
-not become one monolithic accessibility element.
+Components have stable accessibility identifiers, making the hierarchy inspectable in tests.
+Semantic roles map to real or focused native views; content description and authored text form a
+de-duplicated label, state description becomes the value, and disabled state becomes both control
+state and the `notEnabled` trait. Set mode exposes the semantic node followed by descendants in
+layout order. Merge and clear-and-set modes hide descendants; merge folds their labels into the
+owning node. A canvas never becomes one monolithic accessibility element merely because it draws.
 
-Click areas map naturally to transparent `UIControl` subclasses or gesture-owning components.
-Static POC buttons do not dispatch Remote Compose actions yet; exposing an inert control as a
-supported interactive feature would be misleading, so action opcodes remain diagnostics.
+The wire operation has no checked/selected bit, progress range, or adjustable action callbacks, so
+the player does not guess them from localized state text. Custom accessibility actions, complete
+stateful-control behavior, VoiceOver/Switch Control automation, and explicit high-contrast behavior
+remain outside the current core profile.
+
+Click modifiers map to transparent `UIControl` subclasses owned by the semantic component. UIKit
+hit testing follows the rendered component transform and explicitly orders overlapping children by
+Remote Compose z-index, then insertion order. Hidden, clipped, or disabled controls do not dispatch.
+The winning component id enters the retained session; its ordinary and single-click action blocks
+execute in wire order and emit typed Swift action values exactly once. Generation and session
+identity checks prevent a replaced document from delivering an old callback. Long press,
+double-click, drag, scroll, and raw touch expressions remain explicit compatibility gaps.
 Haptics should use UIKit feedback generators. Sound remains host-owned. External URLs remain host
 events and must never trigger automatic network loads.
 
@@ -316,6 +361,15 @@ Current checks are:
   host-platform Swift test;
 - `scripts/check-native-uikit-layout.sh` executes pure Swift dimension, weight, arrangement, RTL,
   and dynamic root-resize assertions;
+- `scripts/check-native-uikit-accessibility.sh` executes pure Swift role, merge, clear, and label
+  policy assertions;
+- `scripts/check-native-uikit-accessibility-simulator.sh` renders the packaged native player with
+  Increased Contrast and an accessibility Dynamic Type size, then applies the normal title-card
+  pixel sanity checks;
+- `scripts/check-native-uikit-frame-timing.sh` advances monotonic timestamps directly and verifies
+  static, continuous, one-shot, delayed, paused, resumed, and Reduce Motion scheduling policy;
+- `scripts/check-native-uikit-animation-simulator.sh` captures two native Progress frames and
+  requires both visible ink and changing pixels within the document surface;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 
@@ -342,14 +396,22 @@ whether to promote a renderer-neutral retained runtime, use a narrow C/Objective
 codec/runtime to Swift, or retain an explicitly versioned experimental SPI. A retained shared
 runtime best preserves one semantic implementation if incremental interop proves inexpensive.
 
+The current distribution, compatibility, provenance, and migration decisions are recorded in
+[`RC_NATIVE_UIKIT_DISTRIBUTION.md`](RC_NATIVE_UIKIT_DISTRIBUTION.md). Each release publishes the
+validated `rc-native-uikit-core-v1` machine-readable profile beside the standalone archive and
+embeds the identical profile inside it.
+
 ## Security and robustness
 
-The native lane accepts untrusted bytes wherever CMP does. It inherits codec/linker size, nesting,
-and expansion checks but adds native resource risks. Bitmap/font byte totals, resource counts,
-decoded dimensions, and decoded pixel counts are bounded today. Production must additionally bound
-command count, path complexity, text length, offscreen area, and per-frame work. Numeric values must
-be finite and sized before Core Graphics use. Custom components require an explicit host registry;
-documents must never instantiate arbitrary Objective-C classes by name.
+The native lane accepts untrusted bytes wherever CMP does. The codec refuses documents above 16
+MiB or 100,000 operations, including conditional records omitted from the decoded model. The linker
+then bounds container nesting, expansion depth, and expanded nodes. UIKit adds two independently
+configurable policies: resource limits cover bitmap/font bytes, counts, decoded dimensions, and
+decoded pixels; execution limits cover native node depth/count, commands, path elements, text,
+canvas dimensions, finite coordinate magnitude, and total frame work. Every initial, animated, and
+input-produced frame passes the same typed validation before view reconciliation or Core Graphics.
+Custom components require an explicit host registry; documents never instantiate arbitrary
+Objective-C classes by name.
 
 ## Evolution plan
 
@@ -372,8 +434,8 @@ static profile has no unsupported diagnostics and reviewed A/B evidence.
 
 ### Phase 2: state and interaction
 
-Introduce a retained session, named-value controller, action dispatch, remaining semantic control
-mappings, haptics, sound, and component-local invalidation. Exit when selected-profile
+Build on the retained session with a named-value controller, action dispatch, remaining semantic
+control mappings, haptics, sound, and component-local invalidation. Exit when selected-profile
 state/interaction tests pass against CMP.
 
 ### Phase 3: animation and advanced graphics

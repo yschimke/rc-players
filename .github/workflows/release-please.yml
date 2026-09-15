@@ -55,8 +55,9 @@ jobs:
     # A called workflow CANNOT ELEVATE what its caller granted. This workflow's top-level
     # `permissions` is `contents: read`, and this job does not override it — so every job in
     # `release.yml` asking for `contents: write` (creating the Release, uploading assets, pushing the
-    # `Package.swift` commit) or `id-token: write` (npm Trusted Publishing's OIDC exchange) asks for
-    # more than it was given, and the CALL fails at startup: no job, no log, no cause.
+    # `Package.swift` commit), `id-token: write` (OIDC), or `attestations: write` (release
+    # provenance) asks for more than it was given, and the CALL fails at startup: no job, no log,
+    # no cause.
     #
     # That is what `startup_failure` on this repository's first two Release PR runs actually was. It
     # survived the switch to `secrets: inherit` because the secrets were never the problem — this
@@ -65,3 +66,4 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      attestations: write

@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.runtime
 
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation
 import kotlin.test.Test
@@ -9,6 +10,32 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RcAnimationTimelineTest {
+  @Test
+  fun floatExpressionReportsOnlyItsActiveTweenWindow() {
+    var target = 0f
+    val targetReference = RcFloatWord(0x7fc00000 or 100)
+    val runtime =
+      RcFloatExpressionRuntime(
+        RcFloatExpression(
+          id = 200,
+          expression = listOf(targetReference),
+          animation = listOf(RcFloatWord.literal(1f), RcFloatWord(4)),
+        ),
+        arrays = { null },
+      )
+    val resolve: (RcFloatWord) -> Float = { word ->
+      if (word.referencedId == 100) target else word.value
+    }
+
+    runtime.evaluate(0f, resolve)
+    assertFalse(runtime.isAnimating(0f), "an unchanged initial target must remain idle")
+    target = 1f
+    runtime.evaluate(.25f, resolve)
+    assertTrue(runtime.isAnimating(.25f))
+    runtime.evaluate(1.25f, resolve)
+    assertFalse(runtime.isAnimating(1.25f), "a finite tween must stop requesting frames")
+  }
+
   @Test
   fun evaluatesMotionAndVisibilityOnTheirIndependentAndroidXDurations() {
     val timeline =

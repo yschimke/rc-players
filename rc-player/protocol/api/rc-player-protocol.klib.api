@@ -2972,6 +2972,13 @@ final class ee.schimke.composeai.rcplayer.protocol/RcOffsetModifier : ee.schimke
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcOffsetModifier.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.protocol/RcOperationBudget { // ee.schimke.composeai.rcplayer.protocol/RcOperationBudget|null[0]
+    constructor <init>(kotlin/Int = ...) // ee.schimke.composeai.rcplayer.protocol/RcOperationBudget.<init>|<init>(kotlin.Int){}[0]
+
+    final val maximum // ee.schimke.composeai.rcplayer.protocol/RcOperationBudget.maximum|{}maximum[0]
+        final fun <get-maximum>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOperationBudget.maximum.<get-maximum>|<get-maximum>(){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry { // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry|null[0]
     constructor <init>(kotlin/Int, kotlin/String, kotlin/String, kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcOperationStatus) // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.<init>|<init>(kotlin.Int;kotlin.String;kotlin.String;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcOperationStatus){}[0]
 
@@ -4362,6 +4369,7 @@ final class ee.schimke.composeai.rcplayer.protocol/RcWireException : kotlin/Ille
 
 final class ee.schimke.composeai.rcplayer.protocol/RcWireLimits { // ee.schimke.composeai.rcplayer.protocol/RcWireLimits|null[0]
     constructor <init>(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...) // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    constructor <init>(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int) // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
 
     final val maxBlobBytes // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.maxBlobBytes|{}maxBlobBytes[0]
         final fun <get-maxBlobBytes>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.maxBlobBytes.<get-maxBlobBytes>|<get-maxBlobBytes>(){}[0]
@@ -4379,6 +4387,9 @@ final class ee.schimke.composeai.rcplayer.protocol/RcWireLimits { // ee.schimke.
         final fun <get-maxStringBytes>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.maxStringBytes.<get-maxStringBytes>|<get-maxStringBytes>(){}[0]
     final val maxTableEntries // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.maxTableEntries|{}maxTableEntries[0]
         final fun <get-maxTableEntries>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.maxTableEntries.<get-maxTableEntries>|<get-maxTableEntries>(){}[0]
+
+    final var maxOperations // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.maxOperations|{}maxOperations[0]
+        final fun <get-maxOperations>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.maxOperations.<get-maxOperations>|<get-maxOperations>(){}[0]
 
     final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.component1|component1(){}[0]
     final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcWireLimits.component2|component2(){}[0]
@@ -4672,6 +4683,7 @@ final object ee.schimke.composeai.rcplayer.protocol/RcDocumentCodec { // ee.schi
 
     final fun decode(kotlin/ByteArray, ee.schimke.composeai.rcplayer.protocol/RcWireLimits = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.protocol/RcDocumentCodec.decode|decode(kotlin.ByteArray;ee.schimke.composeai.rcplayer.protocol.RcWireLimits){}[0]
     final fun decodeOperations(kotlin/ByteArray, ee.schimke.composeai.rcplayer.protocol/RcWireLimits = ..., ee.schimke.composeai.rcplayer.protocol/RcIdRemapper? = ...): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcOperation> // ee.schimke.composeai.rcplayer.protocol/RcDocumentCodec.decodeOperations|decodeOperations(kotlin.ByteArray;ee.schimke.composeai.rcplayer.protocol.RcWireLimits;ee.schimke.composeai.rcplayer.protocol.RcIdRemapper?){}[0]
+    final fun decodeOperations(kotlin/ByteArray, ee.schimke.composeai.rcplayer.protocol/RcWireLimits = ..., ee.schimke.composeai.rcplayer.protocol/RcIdRemapper? = ..., ee.schimke.composeai.rcplayer.protocol/RcOperationBudget): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcOperation> // ee.schimke.composeai.rcplayer.protocol/RcDocumentCodec.decodeOperations|decodeOperations(kotlin.ByteArray;ee.schimke.composeai.rcplayer.protocol.RcWireLimits;ee.schimke.composeai.rcplayer.protocol.RcIdRemapper?;ee.schimke.composeai.rcplayer.protocol.RcOperationBudget){}[0]
     final fun encode(ee.schimke.composeai.rcplayer.protocol/RcDocument): kotlin/ByteArray // ee.schimke.composeai.rcplayer.protocol/RcDocumentCodec.encode|encode(ee.schimke.composeai.rcplayer.protocol.RcDocument){}[0]
     final fun encodeOperation(ee.schimke.composeai.rcplayer.protocol/RcWireWriter, ee.schimke.composeai.rcplayer.protocol/RcOperation) // ee.schimke.composeai.rcplayer.protocol/RcDocumentCodec.encodeOperation|encodeOperation(ee.schimke.composeai.rcplayer.protocol.RcWireWriter;ee.schimke.composeai.rcplayer.protocol.RcOperation){}[0]
 }
