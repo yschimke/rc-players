@@ -74,11 +74,15 @@
           try budget.validateNumbers(
             [
               command.first, command.second, command.third, command.fourth, command.fifth,
-              command.sixth, command.alpha, command.strokeWidth, command.textSize,
-              command.textWeight, style?.letterSpacing ?? 0, style?.lineHeightAdd ?? 0,
-              style?.lineHeightMultiplier ?? 1,
-            ].map(Double.init), componentID: Int(node.componentId), field: "draw command",
+              command.sixth,
+            ].map(Double.init), componentID: Int(node.componentId), field: "draw geometry",
             limits: limits)
+          try budget.validateFinite(
+            [
+              command.alpha, command.strokeWidth, command.textSize, command.textWeight,
+              style?.letterSpacing ?? 0, style?.lineHeightAdd ?? 0,
+              style?.lineHeightMultiplier ?? 1,
+            ].map(Double.init), componentID: Int(node.componentId), field: "paint")
           for segment in command.path {
             try budget.validateNumbers(
               [segment.first, segment.second, segment.third, segment.fourth, segment.fifth,

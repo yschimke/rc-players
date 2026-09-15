@@ -122,9 +122,10 @@ struct NativeFrameBudget: Equatable, Sendable {
     pathElementCount: Int, additionalWork: Int = 0, text: String?,
     limits: RemoteComposeNativeExecutionLimits
   ) throws {
+    let textByteCount = text?.utf8.count ?? 0
     drawCommands += 1
     pathElements += pathElementCount
-    work += 1 + pathElementCount + additionalWork
+    work += 1 + pathElementCount + additionalWork + textByteCount
     guard drawCommands <= limits.maximumDrawCommandCount else {
       throw RemoteComposeNativeLimitError.tooManyDrawCommands(
         actual: drawCommands, maximum: limits.maximumDrawCommandCount)
@@ -133,11 +134,10 @@ struct NativeFrameBudget: Equatable, Sendable {
       throw RemoteComposeNativeLimitError.tooManyPathElements(
         actual: pathElements, maximum: limits.maximumPathElementCount)
     }
-    if let text {
-      let byteCount = text.utf8.count
-      guard byteCount <= limits.maximumTextBytes else {
+    if text != nil {
+      guard textByteCount <= limits.maximumTextBytes else {
         throw RemoteComposeNativeLimitError.textTooLong(
-          actual: byteCount, maximum: limits.maximumTextBytes)
+          actual: textByteCount, maximum: limits.maximumTextBytes)
       }
     }
     try validateWork(limits)
@@ -157,6 +157,13 @@ struct NativeFrameBudget: Equatable, Sendable {
           componentID: componentID, field: field, actual: value,
           maximum: limits.maximumCoordinateMagnitude)
       }
+    }
+  }
+
+  func validateFinite(_ values: [Double], componentID: Int, field: String) throws {
+    for value in values where !value.isFinite {
+      throw RemoteComposeNativeLimitError.nonFiniteValue(
+        componentID: componentID, field: field)
     }
   }
 
