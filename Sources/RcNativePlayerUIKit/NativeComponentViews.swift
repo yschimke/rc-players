@@ -211,7 +211,7 @@
       children.flatMap(\.effectiveAccessibilityLabels)
     }
 
-    var semanticBehavior: NativeSemanticBehavior? {
+    fileprivate var semanticBehavior: NativeSemanticBehavior? {
       guard let own = accessibilityDescriptor else { return nil }
       guard
         own.mode == .merge,
