@@ -38,6 +38,7 @@
       view.playerBackground = background
       view.onDiagnostics = onDiagnostics
       view.compatibilityPolicy = compatibilityPolicy
+      view.configureResources(limits: resourceLimits, resolver: resourceResolver)
       view.load(data)
     }
   }

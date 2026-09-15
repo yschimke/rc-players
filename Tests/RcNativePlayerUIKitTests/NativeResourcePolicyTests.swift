@@ -62,6 +62,18 @@ enum NativeResourcePolicyTests {
       scaleType: 5,
       scaleFactor: 1)
     precondition(crop == CGRect(x: -40, y: 20, width: 200, height: 100))
+    let huge = NativeImageGeometry.destination(
+      source: CGRect(x: 0, y: 0, width: 2, height: 1),
+      destination: CGRect(x: 0, y: 0, width: 1e100, height: 1e100),
+      scaleType: 4,
+      scaleFactor: 1)
+    precondition(huge.width.isFinite && huge.height.isFinite)
+    precondition(
+      NativeImageGeometry.destination(
+        source: CGRect(x: 0, y: 0, width: 2, height: 1),
+        destination: CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 1),
+        scaleType: 6,
+        scaleFactor: 1) == .zero)
     print("native UIKit resource policy tests: ok")
   }
 

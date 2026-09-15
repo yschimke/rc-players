@@ -68,6 +68,7 @@ public enum RemoteComposeNativeResourceError: Error, Equatable, LocalizedError, 
   case invalidDimensions(id: Int, width: Int, height: Int)
   case dimensionMismatch(id: Int, declaredWidth: Int, declaredHeight: Int, actualWidth: Int, actualHeight: Int)
   case decodedImageTooLarge(id: Int, pixels: Int, maximum: Int)
+  case decodedImageBytesTooLarge(actual: Int, maximum: Int)
   case duplicateResource(id: Int)
   case invalidReference(id: Int)
   case corruptImage(id: Int)
@@ -90,6 +91,8 @@ public enum RemoteComposeNativeResourceError: Error, Equatable, LocalizedError, 
       return "Image \(id) declares \(declaredWidth)x\(declaredHeight) but decodes as \(actualWidth)x\(actualHeight)"
     case .decodedImageTooLarge(let id, let pixels, let maximum):
       return "Image \(id) decodes to \(pixels) pixels; the limit is \(maximum)"
+    case .decodedImageBytesTooLarge(let actual, let maximum):
+      return "Document images decode to \(actual) bytes; the limit is \(maximum)"
     case .duplicateResource(let id): return "Resource id \(id) is declared more than once"
     case .invalidReference(let id): return "Image \(id) has an invalid external reference"
     case .corruptImage(let id): return "Image \(id) could not be decoded"
@@ -181,11 +184,16 @@ enum NativeImageGeometry {
     scaleType: Int,
     scaleFactor: CGFloat
   ) -> CGRect {
-    let sourceWidth = Int(source.width)
-    let sourceHeight = Int(source.height)
-    guard sourceWidth > 0, sourceHeight > 0 else { return .zero }
-    let destinationWidth = Int(destination.width)
-    let destinationHeight = Int(destination.height)
+    let sourceWidth = source.width
+    let sourceHeight = source.height
+    let destinationWidth = destination.width
+    let destinationHeight = destination.height
+    guard
+      source.minX.isFinite, source.minY.isFinite, sourceWidth.isFinite, sourceHeight.isFinite,
+      destination.minX.isFinite, destination.minY.isFinite,
+      destinationWidth.isFinite, destinationHeight.isFinite, scaleFactor.isFinite,
+      sourceWidth > 0, sourceHeight > 0, destinationWidth >= 0, destinationHeight >= 0
+    else { return .zero }
     var width = destinationWidth
     var height = destinationHeight
     switch scaleType {
@@ -194,7 +202,7 @@ enum NativeImageGeometry {
       height = sourceHeight
     case 1:
       if !(destinationHeight > sourceHeight && destinationWidth > sourceWidth) {
-        if CGFloat(sourceWidth) * destination.height > destination.width * CGFloat(sourceHeight) {
+        if sourceWidth * destination.height > destination.width * sourceHeight {
           height = destinationWidth * sourceHeight / sourceWidth
         } else {
           width = destinationHeight * sourceWidth / sourceHeight
@@ -206,30 +214,32 @@ enum NativeImageGeometry {
     case 2: height = destinationWidth * sourceHeight / sourceWidth
     case 3: width = destinationHeight * sourceWidth / sourceHeight
     case 4:
-      if CGFloat(sourceWidth) * destination.height > destination.width * CGFloat(sourceHeight) {
+      if sourceWidth * destination.height > destination.width * sourceHeight {
         height = destinationWidth * sourceHeight / sourceWidth
       } else {
         width = destinationHeight * sourceWidth / sourceHeight
       }
     case 5:
-      if CGFloat(sourceWidth) * destination.height < destination.width * CGFloat(sourceHeight) {
+      if sourceWidth * destination.height < destination.width * sourceHeight {
         height = destinationWidth * sourceHeight / sourceWidth
       } else {
         width = destinationHeight * sourceWidth / sourceHeight
       }
     case 6: break
     case 7:
-      width = Int(CGFloat(sourceWidth) * scaleFactor)
-      height = Int(CGFloat(sourceHeight) * scaleFactor)
+      width = sourceWidth * scaleFactor
+      height = sourceHeight * scaleFactor
     default: return .zero
     }
-    let x = (destinationWidth - width) / 2
-    let y = (destinationHeight - height) / 2
-    return CGRect(
-      x: destination.minX + CGFloat(x),
-      y: destination.minY + CGFloat(y),
-      width: CGFloat(width),
-      height: CGFloat(height))
+    let result = CGRect(
+      x: destination.minX + (destinationWidth - width) / 2,
+      y: destination.minY + (destinationHeight - height) / 2,
+      width: width,
+      height: height)
+    guard
+      result.minX.isFinite, result.minY.isFinite, result.width.isFinite, result.height.isFinite
+    else { return .zero }
+    return result
   }
 }
 
@@ -302,12 +312,17 @@ enum NativeImageGeometry {
       return postScriptName
     }
 
-    deinit {
+    func reset() {
       for url in registered.values {
         var error: Unmanaged<CFError>?
         CTFontManagerUnregisterFontsForURL(url as CFURL, .process, &error)
         try? FileManager.default.removeItem(at: url)
       }
+      registered.removeAll()
+    }
+
+    deinit {
+      reset()
     }
   }
 
@@ -315,10 +330,12 @@ enum NativeImageGeometry {
   final class NativeResourceStore {
     private(set) var images: [Int: UIImage] = [:]
     private(set) var fontNames: [Int: String] = [:]
-    let unresolvedImages: [RemoteComposeNativeResourceRequest]
+    private(set) var unresolvedImages: [RemoteComposeNativeResourceRequest] = []
     private let resourcesByID: [Int: NativeImageResource]
     private let limits: RemoteComposeNativeResourceLimits
     private var totalBytes = 0
+    private var totalDecodedImageBytes = 0
+    private var retainedImages = Set<ObjectIdentifier>()
 
     private let cache: NativeImageCache
 
@@ -349,8 +366,9 @@ enum NativeImageGeometry {
           runningTotal: &totalBytes,
           limits: limits)
         if resource.encoding == 0 {
-          images[resource.id] = try Self.decode(
-            resource: resource, data: resource.data, limits: limits)
+          try retain(
+            try Self.decode(resource: resource, data: resource.data, limits: limits),
+            id: resource.id)
         } else {
           let request = RemoteComposeNativeResourceRequest(
             id: resource.id,
@@ -360,7 +378,7 @@ enum NativeImageGeometry {
             type: resource.type,
             encoding: resource.encoding)
           if let cached = cache.image(for: request) {
-            images[resource.id] = cached
+            try retain(cached, id: resource.id)
           } else {
             unresolved.append(request)
           }
@@ -397,9 +415,29 @@ enum NativeImageGeometry {
         encoding: 0,
         data: data)
       let image = try Self.decode(resource: resolved, data: data, limits: limits)
-      images[request.id] = image
+      try retain(image, id: request.id)
       cache.insert(image, for: request)
       totalBytes = nextTotal
+    }
+
+    private func retain(_ image: UIImage, id: Int) throws {
+      let identity = ObjectIdentifier(image)
+      if retainedImages.insert(identity).inserted, let cgImage = image.cgImage {
+        let (cost, costOverflowed) = cgImage.bytesPerRow.multipliedReportingOverflow(
+          by: cgImage.height)
+        let (nextTotal, totalOverflowed) = totalDecodedImageBytes.addingReportingOverflow(
+          costOverflowed ? Int.max : cost)
+        guard
+          !costOverflowed, !totalOverflowed, nextTotal <= limits.maximumDecodedImageBytes
+        else {
+          retainedImages.remove(identity)
+          throw RemoteComposeNativeResourceError.decodedImageBytesTooLarge(
+            actual: costOverflowed || totalOverflowed ? Int.max : nextTotal,
+            maximum: limits.maximumDecodedImageBytes)
+        }
+        totalDecodedImageBytes = nextTotal
+      }
+      images[id] = image
     }
 
     private static func decode(

@@ -60,13 +60,13 @@
     }
 
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
-    public let resourceLimits: RemoteComposeNativeResourceLimits
-    public let resourceResolver: (any RemoteComposeNativeResourceResolving)?
+    public private(set) var resourceLimits: RemoteComposeNativeResourceLimits
+    public private(set) var resourceResolver: (any RemoteComposeNativeResourceResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
     private var resourceTask: Task<Void, Never>?
-    private let resourceCache: NativeImageCache
-    private let fontRegistry: NativeFontRegistry
+    private var resourceCache: NativeImageCache
+    private var fontRegistry: NativeFontRegistry
     private let errorLabel = UILabel()
 
     public init(
@@ -110,9 +110,32 @@
       render(data)
     }
 
+    public func configureResources(
+      limits: RemoteComposeNativeResourceLimits,
+      resolver: (any RemoteComposeNativeResourceResolving)?
+    ) {
+      let resolverChanged: Bool
+      switch (resourceResolver, resolver) {
+      case (nil, nil): resolverChanged = false
+      case let (current?, next?): resolverChanged = current !== next
+      default: resolverChanged = true
+      }
+      guard limits != resourceLimits || resolverChanged else { return }
+      resourceTask?.cancel()
+      resourceLimits = limits
+      resourceResolver = resolver
+      resourceCache = NativeImageCache(
+        countLimit: limits.maximumResourceCount,
+        totalCostLimit: limits.maximumDecodedImageBytes)
+      fontRegistry.reset()
+      fontRegistry = NativeFontRegistry(countLimit: limits.maximumResourceCount)
+      if let documentData { render(documentData) }
+    }
+
     private func render(_ data: Data) {
       resourceTask?.cancel()
       resourceTask = nil
+      fontRegistry.reset()
       do {
         let snapshot = try Self.decode(data)
         let model = NativeDocument(snapshot: snapshot)
