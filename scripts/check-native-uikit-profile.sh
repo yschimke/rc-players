@@ -48,7 +48,7 @@ assert profile["runtime"] == {
     "ui": "UIKit/CoreGraphics/CoreText",
     "decoderBridge": "pure Swift",
     "retainedSession": True,
-    "frameScheduling": ["static"],
+    "frameScheduling": ["static", "continuous"],
 }, "runtime must match the reviewed core-v1 implementation contract"
 assert profile["compatibility"] == {
     "policy": "No source or binary compatibility guarantee before the profile leaves experimental status.",
@@ -57,29 +57,32 @@ assert profile["compatibility"] == {
 }, "compatibility must match the reviewed experimental migration contract"
 
 assert profile["nativeNodeKinds"] == [
-    "root", "content", "box", "row", "column", "text", "custom",
+    "root", "content", "canvas", "box", "row", "column", "text", "custom",
 ], "nativeNodeKinds must match the reviewed core-v1 capability set"
 assert profile["nativeDrawKinds"] == [
-    "text",
+    "text", "save", "restore", "rotate", "arc", "path",
 ], "nativeDrawKinds must match the reviewed core-v1 capability set"
 assert profile["interaction"] == {
-    "hostNamedValues": [],
-    "clickActions": [],
-    "semanticRoles": [],
+    "hostNamedValues": ["float", "string", "color"],
+    "clickActions": ["single"],
+    "semanticRoles": ["button"],
 }, "interaction must match the reviewed core-v1 capability set"
 
 fixture_entries = profile["verifiedFixtures"]
-assert len(fixture_entries) == 2, "verifiedFixtures must contain exactly two evidence entries"
+assert len(fixture_entries) == 3, "verifiedFixtures must contain exactly three evidence entries"
 assert len({item["id"] for item in fixture_entries}) == len(fixture_entries), (
     "verifiedFixtures identifiers must be unique"
 )
 fixtures = {item["id"]: item["coverage"] for item in fixture_entries}
 assert fixtures == {
     "TitleCardRemote-640x480": [
-        "modern-header", "layout", "native-text", "swift-decode",
+        "modern-header", "layout", "native-text", "path", "named-action", "button", "swift-decode",
     ],
     "editable-text": [
         "legacy-header", "custom-component", "text-return", "swift-decode",
+    ],
+    "IndeterminateCircularProgress-400x400": [
+        "canvas", "float-expressions", "continuous-time", "arc", "swift-decode",
     ],
 }, "verifiedFixtures must match the reviewed core-v1 evidence set"
 

@@ -1,5 +1,4 @@
 import java.security.MessageDigest
-import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
   id("composeai.base-conventions")
@@ -186,8 +185,8 @@ tasks.register("rcPlayerXcframeworkChecksum") {
 // A second, explicitly downloadable artifact for the experimental native UIKit player. The normal
 // SwiftPM product remains source-based on the bare release tag; this archive is deliberately
 // self-contained so an evaluator can extract it, add it as a local package, and resolve the Swift
-// target without a second network fetch. It carries the same XCFramework built above because the
-// POC still uses that framework for its Kotlin decoder/runtime bridge.
+// target without a second network fetch. The archive contains source only: its decoder, retained
+// runtime, and UIKit renderer have no dependency on the CMP XCFramework published beside it.
 val rcNativePlayerUIKitProfileTemplate = rootProject.file("distribution/native-uikit/profile.json")
 val rcNativePlayerUIKitProfileFile =
   layout.buildDirectory.file("distributions/RcNativePlayerUIKit.profile.json")
@@ -200,23 +199,23 @@ val rcNativePlayerUIKitSourceRevision =
     .orElse("local")
     .get()
 val rcNativePlayerUIKitProfile =
-  tasks.register<Copy>("rcNativePlayerUIKitProfile") {
+  tasks.register("rcNativePlayerUIKitProfile") {
     description = "Materialize the release-versioned native UIKit support profile."
     group = "distribution"
     inputs.file(rcNativePlayerUIKitProfileTemplate)
     inputs.property("releaseVersion", rcNativePlayerUIKitProfileVersion)
     inputs.property("sourceRevision", rcNativePlayerUIKitSourceRevision)
-    from(rcNativePlayerUIKitProfileTemplate) {
-      rename("profile.json", "RcNativePlayerUIKit.profile.json")
-      filter<ReplaceTokens>(
-        "tokens" to
-          mapOf(
-            "VERSION" to rcNativePlayerUIKitProfileVersion,
-            "SOURCE_REVISION" to rcNativePlayerUIKitSourceRevision,
-          )
+    outputs.file(rcNativePlayerUIKitProfileFile)
+    doLast {
+      val output = outputs.files.singleFile
+      output.parentFile.mkdirs()
+      output.writeText(
+        inputs.files.singleFile
+          .readText()
+          .replace("@VERSION@", inputs.properties.getValue("releaseVersion").toString())
+          .replace("@SOURCE_REVISION@", inputs.properties.getValue("sourceRevision").toString())
       )
     }
-    into(layout.buildDirectory.dir("distributions"))
   }
 
 val rcNativePlayerUIKitProfileChecksum =

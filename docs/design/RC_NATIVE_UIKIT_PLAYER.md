@@ -155,12 +155,19 @@ inside one Swift actor; UIKit receives only immutable snapshots.
 ### Pure Swift migration boundary
 
 The initial Swift family is deliberately a complete executable vertical slice, not a mock codec. It
-parses the AndroidX big-endian wire representation for legacy and modern headers, text and color
-constants, root/content/box/row/column/text/custom containers, container ends, and a bounded subset
-of size, padding, rounded clip, paint/path metadata, and background modifiers. It resolves ordinary text into `UILabel` commands and custom
-properties into the public host component model. A `TEXT_RETURN` updates retained Swift text state,
-so both the custom field and an ordinary document label observe the next atomic frame without
-foreign-runtime involvement.
+parses the AndroidX big-endian wire representation for legacy and modern headers, text, float and
+color constants, root/content/canvas/box/row/column/text/custom containers, container ends, and a
+bounded subset of size, padding, rounded clip, paint, path, transform, arc, and background operations. It
+resolves ordinary text into `UILabel` commands and custom properties into the public host component
+model. A `TEXT_RETURN` updates retained Swift text state, so both the custom field and an ordinary
+document label observe the next atomic frame without foreign-runtime involvement.
+
+The retained Swift value store accepts typed float, string, and color host values. Click modifiers
+promote their conceptual component to a native `UIControl`; named actions are resolved and emitted
+from the actor as an atomic frame-plus-events update. The first animated canvas family evaluates the
+bounded AndroidX reverse-Polish float operations used by the indeterminate progress fixture,
+supplies its logical monotonic time, exports save/restore/rotate/arc commands, and requests the
+existing demand-driven `CADisplayLink` only while that moving system value is referenced.
 
 Safety rules are part of the boundary: byte reads are checked, UTF-8 is strict, strings,
 collections, and operation counts are capped, component identifiers are unique, nesting must
@@ -168,10 +175,10 @@ balance, dimensions and paint values must be finite, and malformed supported inp
 `NativeSwiftCoreError` distinguishes unsupported operation families from malformed bytes, and both
 fail closed at the public player boundary.
 
-The next migration slices are expression evaluation and animation clocks, click/named events,
-remaining layout modifiers, canvas paint/path commands, images and fonts, then complex text and
-accessibility operations. Each slice adds corpus parity tests against CMP output. There is no
-runtime fallback: broader coverage is added only in Swift.
+The next migration slices are the remaining expression operators and action payloads, layout
+modifiers, remaining canvas paint/path commands, images and fonts, then complex text and accessibility
+operations. Each slice adds corpus parity tests against CMP output. There is no runtime fallback:
+broader coverage is added only in Swift.
 
 ### Snapshot model
 

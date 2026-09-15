@@ -68,7 +68,8 @@
       rootMode = 4
       rootAlignment = 34
       frameSchedule = NativeFrameSchedule(
-        needsContinuousFrames: false, requestsNextFrame: false, wakeAfter: nil)
+        needsContinuousFrames: swiftSnapshot.needsContinuousFrames,
+        requestsNextFrame: false, wakeAfter: nil)
     }
 
     func diagnostics(availableCustomComponents: Set<String>)
@@ -186,6 +187,7 @@
       switch snapshot.kind {
       case .root: kind = .root
       case .content: kind = .content
+      case .canvas: kind = .canvas
       case .box: kind = .box
       case .row: kind = .row
       case .column: kind = .column
@@ -193,17 +195,19 @@
       case .custom: kind = .custom
       }
       componentID = snapshot.componentID
-      commands = snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? []
+      commands =
+        snapshot.commands.map(NativeDrawCommand.init)
+        + (snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? [])
       children = snapshot.children.map { NativeNode(swiftSnapshot: $0) }
-      semanticRole = -1
-      isClickable = false
+      semanticRole = snapshot.isClickable ? 0 : -1
+      isClickable = snapshot.isClickable
       isEnabled = true
       accessibilityLabel = nil
       accessibilityText = snapshot.text?.value
       accessibilityValue = nil
       accessibilityMode = .set
       hasAccessibilitySemantics = false
-      clickActionTypes = []
+      clickActionTypes = snapshot.isClickable ? [0] : []
       widthType = snapshot.widthType
       widthValue = CGFloat(snapshot.widthValue)
       heightType = snapshot.heightType
@@ -341,6 +345,31 @@
     let textureTileModeX: Int
     let textureTileModeY: Int
 
+    init(_ snapshot: NativeSwiftDrawCommandSnapshot) {
+      kind = snapshot.kind
+      values = snapshot.values.map(CGFloat.init)
+      color = UIColor(remoteComposeARGB: snapshot.colorARGB)
+      alpha = CGFloat(snapshot.alpha)
+      strokeWidth = CGFloat(snapshot.strokeWidth)
+      isStroke = snapshot.isStroke
+      strokeCap = snapshot.strokeCap
+      strokeJoin = snapshot.strokeJoin
+      blendMode = snapshot.blendMode
+      textSize = 16
+      textWeight = 400
+      text = nil
+      path = snapshot.path.map {
+        NativePathElement(kind: $0.kind, values: $0.values.map(CGFloat.init))
+      }
+      pathWinding = snapshot.pathWinding
+      gradient = nil
+      textStyle = NativeTextStyle.default
+      image = nil
+      textureImageID = nil
+      textureTileModeX = 0
+      textureTileModeY = 0
+    }
+
     init(text snapshot: NativeSwiftTextSnapshot) {
       kind = 17
       values = [0, CGFloat(snapshot.size), -1, -1, 0, 0]
@@ -390,6 +419,11 @@
     let isJustified: Bool
     let isUnderlined: Bool
     let isStruckThrough: Bool
+
+    static let `default` = NativeTextStyle(
+      swiftSnapshot: NativeSwiftTextSnapshot(
+        value: "", colorARGB: 0xff00_0000, size: 16, style: 0, weight: 400,
+        familyID: -1, alignment: 1, overflow: 1, maximumLines: Int.max))
 
     init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
       fontStyle = snapshot.style
@@ -784,7 +818,8 @@
 
     private var isStructural: Bool {
       (node.kind == .content || node.kind == .group || node.kind == .canvas)
-        && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty
+        && (canvasView == nil || node.kind == .content || node.kind == .group)
+        && textLabels.isEmpty && imageViews.isEmpty
         && customView == nil
         && node.semanticBehavior?.acceptsPointerAction != true
         && node.backgroundColor == nil

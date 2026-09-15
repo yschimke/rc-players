@@ -18,11 +18,12 @@
     "ui": "UIKit/CoreGraphics/CoreText",
     "decoderBridge": "pure Swift",
     "retainedSession": true,
-    "frameScheduling": ["static"]
+    "frameScheduling": ["static", "continuous"]
   },
   "nativeNodeKinds": [
     "root",
     "content",
+    "canvas",
     "box",
     "row",
     "column",
@@ -30,21 +31,30 @@
     "custom"
   ],
   "nativeDrawKinds": [
-    "text"
+    "text",
+    "save",
+    "restore",
+    "rotate",
+    "arc",
+    "path"
   ],
   "interaction": {
-    "hostNamedValues": [],
-    "clickActions": [],
-    "semanticRoles": []
+    "hostNamedValues": ["float", "string", "color"],
+    "clickActions": ["single"],
+    "semanticRoles": ["button"]
   },
   "verifiedFixtures": [
     {
       "id": "TitleCardRemote-640x480",
-      "coverage": ["modern-header", "layout", "native-text", "swift-decode"]
+      "coverage": ["modern-header", "layout", "native-text", "path", "named-action", "button", "swift-decode"]
     },
     {
       "id": "editable-text",
       "coverage": ["legacy-header", "custom-component", "text-return", "swift-decode"]
+    },
+    {
+      "id": "IndeterminateCircularProgress-400x400",
+      "coverage": ["canvas", "float-expressions", "continuous-time", "arc", "swift-decode"]
     }
   ],
   "defaultLimits": {

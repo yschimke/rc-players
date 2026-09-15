@@ -57,66 +57,76 @@
     }
 
     func frame(at timeSeconds: TimeInterval) async throws -> Frame {
-      _ = timeSeconds
       do {
-        return Frame(snapshot: try session.snapshot())
+        return Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds))
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
     }
 
     func click(componentID: Int, at timeSeconds: TimeInterval) throws -> Update {
-      _ = componentID
-      _ = timeSeconds
-      return try unchangedUpdate()
+      guard
+        let nativeEvents = try session.click(
+          componentID: componentID, timeSeconds: timeSeconds)
+      else { return try unchangedUpdate(timeSeconds: timeSeconds) }
+      let events = nativeEvents.map { event -> RemoteComposeNativePlayerEvent in
+        switch event {
+        case .namedAction(let name, let value):
+          let publicValue: RemoteComposeNativePlayerActionValue
+          switch value {
+          case .none: publicValue = .none
+          case .float(let value): publicValue = .float(value)
+          case .integer(let value): publicValue = .integer(value)
+          case .text(let value): publicValue = .text(value)
+          }
+          return .namedAction(name: name, value: publicValue)
+        }
+      }
+      return Update(
+        accepted: true,
+        frame: Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds)), events: events)
     }
 
     func setFloat(_ value: Float, for name: String, at timeSeconds: TimeInterval) throws -> Update {
-      _ = value
-      _ = name
-      _ = timeSeconds
-      return try unchangedUpdate()
+      return try update(
+        accepted: session.setFloat(value, for: name), timeSeconds: timeSeconds)
     }
 
     func setString(_ value: String, for name: String, at timeSeconds: TimeInterval) throws -> Update
     {
-      _ = value
-      _ = name
-      _ = timeSeconds
-      return try unchangedUpdate()
+      return try update(
+        accepted: session.setString(value, for: name), timeSeconds: timeSeconds)
     }
 
     func setColor(_ argb: UInt32, for name: String, at timeSeconds: TimeInterval) throws -> Update {
-      _ = argb
-      _ = name
-      _ = timeSeconds
-      return try unchangedUpdate()
+      return try update(
+        accepted: session.setColor(argb, for: name), timeSeconds: timeSeconds)
     }
 
     func returnCustomFloat(
       _ value: Float, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      _ = timeSeconds
       let accepted = try session.returnCustomFloat(
         value, componentID: componentID, propertyID: propertyID)
-      return try update(accepted: accepted)
+      return try update(accepted: accepted, timeSeconds: timeSeconds)
     }
 
     func returnCustomText(
       _ value: String, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      _ = timeSeconds
       let accepted = try session.returnCustomText(
         value, componentID: componentID, propertyID: propertyID)
-      return try update(accepted: accepted)
+      return try update(accepted: accepted, timeSeconds: timeSeconds)
     }
 
-    private func unchangedUpdate() throws -> Update {
-      try update(accepted: false)
+    private func unchangedUpdate(timeSeconds: TimeInterval = 0) throws -> Update {
+      try update(accepted: false, timeSeconds: timeSeconds)
     }
 
-    private func update(accepted: Bool) throws -> Update {
-      Update(accepted: accepted, frame: Frame(snapshot: try session.snapshot()), events: [])
+    private func update(accepted: Bool, timeSeconds: TimeInterval) throws -> Update {
+      Update(
+        accepted: accepted, frame: Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds)),
+        events: [])
     }
   }
 #endif
