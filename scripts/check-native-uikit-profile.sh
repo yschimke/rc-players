@@ -37,10 +37,19 @@ assert platform == [{
     "simulatorArchitectures": ["arm64"],
 }]
 
-assert len(profile["nativeNodeKinds"]) == len(set(profile["nativeNodeKinds"]))
-assert len(profile["nativeDrawKinds"]) == len(set(profile["nativeDrawKinds"]))
-assert {"text", "image", "canvas"} <= set(profile["nativeNodeKinds"])
-assert {"arc", "path", "text", "image"} <= set(profile["nativeDrawKinds"])
+assert profile["nativeNodeKinds"] == [
+    "root", "content", "canvas", "group", "box", "row", "column", "text", "image",
+], "nativeNodeKinds must match the reviewed core-v1 capability set"
+assert profile["nativeDrawKinds"] == [
+    "save", "restore", "translate", "scale", "rotate", "skew", "clip-rect", "clip-path",
+    "rect", "oval", "circle", "line", "round-rect", "arc", "sector", "text", "path",
+    "image",
+], "nativeDrawKinds must match the reviewed core-v1 capability set"
+assert profile["interaction"] == {
+    "hostNamedValues": ["float", "string", "color"],
+    "clickActions": ["click", "single-click"],
+    "semanticRoles": ["button", "image", "checkbox", "switch", "unknown"],
+}, "interaction must match the reviewed core-v1 capability set"
 
 fixtures = {item["id"]: item["coverage"] for item in profile["verifiedFixtures"]}
 assert "simulator-pixels" in fixtures["TitleCardRemote-640x480"]
