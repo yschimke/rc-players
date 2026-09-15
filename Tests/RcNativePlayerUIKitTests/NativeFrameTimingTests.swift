@@ -1,0 +1,41 @@
+import Foundation
+
+@main
+enum NativeFrameTimingTests {
+  static func main() {
+    let staticSchedule = NativeFrameSchedule.idle
+    precondition(
+      staticSchedule.driverMode(isActive: true, isVisible: true, reduceMotion: false) == .idle)
+
+    let continuous = NativeFrameSchedule(
+      needsContinuousFrames: true, requestsNextFrame: false, wakeAfter: nil)
+    precondition(
+      continuous.driverMode(isActive: true, isVisible: true, reduceMotion: false) == .displayLink)
+    precondition(
+      continuous.driverMode(isActive: true, isVisible: true, reduceMotion: true) == .idle)
+    precondition(
+      continuous.driverMode(isActive: false, isVisible: true, reduceMotion: false) == .idle)
+
+    let oneFrame = NativeFrameSchedule(
+      needsContinuousFrames: false, requestsNextFrame: true, wakeAfter: 10)
+    precondition(
+      oneFrame.driverMode(isActive: true, isVisible: true, reduceMotion: true) == .displayLink)
+
+    let delayed = NativeFrameSchedule(
+      needsContinuousFrames: false, requestsNextFrame: false, wakeAfter: 0.25)
+    precondition(
+      delayed.driverMode(isActive: true, isVisible: true, reduceMotion: false)
+        == .wake(after: 0.25))
+
+    var timeline = NativeAnimationTimeline()
+    timeline.reset(at: 10, active: true)
+    precondition(timeline.sample(at: 10.25) == 0.25)
+    timeline.pause(at: 11)
+    precondition(timeline.elapsed == 1)
+    timeline.resume(at: 100)
+    precondition(timeline.sample(at: 101) == 2)
+    precondition(timeline.sample(at: 100.5) == 2, "a backward clock must not reverse animation")
+
+    print("native UIKit frame timing tests: ok")
+  }
+}

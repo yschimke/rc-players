@@ -14,6 +14,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDrawText
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTweenPath
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
@@ -41,6 +42,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
@@ -50,6 +52,41 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class RcNativeSnapshotTest {
+  @Test
+  fun exportsOnlyRequiredNativeFrameScheduling() {
+    fun snapshot(vararg operations: ee.schimke.composeai.rcplayer.protocol.RcOperation) =
+      RcNativeSnapshotBridge.decode(
+        RcDocumentCodec.encode(
+          RcDocument(
+            RcHeader(RcVersion(0, 1, 0)),
+            operations.toList() + RcRootLayout(1) + RcNoArg(RcOpcodes.CONTAINER_END),
+          )
+        )
+      )
+
+    val static = snapshot(RcFloatConstant(100, RcFloatWord.literal(3f)))
+    assertTrue(!static.needsContinuousFrames)
+    assertTrue(!static.requestsNextFrame)
+    assertEquals(-1f, static.wakeAfterSeconds)
+
+    val animated =
+      snapshot(
+        RcFloatExpression(
+          100,
+          listOf(RcFloatWord(0x7fc00000 or RcSystemVariables.CONTINUOUS_SEC)),
+          null,
+        )
+      )
+    assertTrue(animated.needsContinuousFrames)
+    assertTrue(!animated.requestsNextFrame)
+    assertEquals(-1f, animated.wakeAfterSeconds)
+
+    val delayed = snapshot(RcWakeIn(RcFloatWord.literal(0.25f)))
+    assertTrue(!delayed.needsContinuousFrames)
+    assertTrue(!delayed.requestsNextFrame)
+    assertEquals(0.25f, delayed.wakeAfterSeconds)
+  }
+
   @Test
   fun validatesAndDiagnosesAccessibilityModifierBoundaries() {
     val first =

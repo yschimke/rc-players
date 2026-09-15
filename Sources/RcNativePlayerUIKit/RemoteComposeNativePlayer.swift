@@ -3,6 +3,24 @@
   import RcComposePlayer
   import UIKit
 
+  @MainActor
+  private final class NativeDisplayLinkTarget: NSObject {
+    weak var owner: RemoteComposeNativePlayerView?
+    weak var displayLink: CADisplayLink?
+
+    init(owner: RemoteComposeNativePlayerView) {
+      self.owner = owner
+    }
+
+    @objc func fire() {
+      guard let owner else {
+        displayLink?.invalidate()
+        return
+      }
+      owner.displayLinkDidFire()
+    }
+  }
+
   /// A UIKit-native Remote Compose player proof of concept.
   ///
   /// The Kotlin framework currently decodes the wire format into an immutable snapshot. Everything
@@ -17,12 +35,14 @@
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
       playerView = RemoteComposeNativePlayerView(
         data: data, background: background, compatibilityPolicy: compatibilityPolicy,
         resourceLimits: resourceLimits, resourceResolver: resourceResolver,
+        clock: clock,
         onEvent: onEvent,
         onDiagnostics: onDiagnostics)
       super.init(nibName: nil, bundle: nil)
@@ -116,6 +136,13 @@
     private var currentFrameTime: TimeInterval = 0
     private var serializedInputCount = 0
     private var deferredFrameTime: TimeInterval?
+    private let clock: any RemoteComposeNativePlayerClock
+    private var animationTimeline = NativeAnimationTimeline()
+    private var frameSchedule = NativeFrameSchedule.idle
+    private var displayLink: CADisplayLink?
+    private lazy var displayLinkTarget = NativeDisplayLinkTarget(owner: self)
+    private var delayedWakeTask: Task<Void, Never>?
+    private var frameDriverGeneration: UInt64 = 0
     private var resourceCache: NativeImageCache
     private let errorLabel = UILabel()
 
@@ -125,6 +152,7 @@
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
@@ -132,6 +160,7 @@
       self.compatibilityPolicy = compatibilityPolicy
       self.resourceLimits = resourceLimits
       self.resourceResolver = resourceResolver
+      self.clock = clock
       resourceCache = NativeImageCache(
         countLimit: resourceLimits.maximumResourceCount,
         totalCostLimit: resourceLimits.maximumDecodedImageBytes)
@@ -139,6 +168,9 @@
       self.onDiagnostics = onDiagnostics
       super.init(frame: .zero)
       isApplicationActive = UIApplication.shared.applicationState != .background
+      animationTimeline.reset(
+        at: clock.now(),
+        active: isApplicationActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
       isAccessibilityElement = false
       clipsToBounds = true
       configureErrorLabel()
@@ -153,6 +185,11 @@
         selector: #selector(applicationDidBecomeActive),
         name: UIApplication.didBecomeActiveNotification,
         object: nil)
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(reduceMotionStatusDidChange),
+        name: UIAccessibility.reduceMotionStatusDidChangeNotification,
+        object: nil)
       load(data)
     }
 
@@ -163,11 +200,17 @@
 
     deinit {
       loadTask?.cancel()
+      delayedWakeTask?.cancel()
       NotificationCenter.default.removeObserver(self)
     }
 
     public func load(_ data: Data) {
       if data == documentData, !needsRetry { return }
+      if data != documentData {
+        animationTimeline.reset(
+          at: clock.now(),
+          active: isApplicationActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
+      }
       loadTask?.cancel()
       documentData = data
       render(data)
@@ -204,6 +247,7 @@
       needsRetry = false
       needsForegroundRender = false
       isRenderingDocument = true
+      stopFrameDriver()
       loadTask?.cancel()
       inputTail = nil
       loadGeneration &+= 1
@@ -460,14 +504,17 @@
         replaceDocumentView(with: nextView)
       }
       retainedResources = resources
+      frameSchedule = model.frameSchedule
       needsRetry = false
       errorLabel.isHidden = true
       loadTask = nil
       pendingWork = nil
+      updateFrameDriver()
     }
 
     private func show(error: Error) {
       isRenderingDocument = false
+      stopFrameDriver()
       needsRetry = true
       errorLabel.text = error.localizedDescription
       errorLabel.isHidden = false
@@ -488,6 +535,16 @@
       super.layoutSubviews()
       documentView?.frame = bounds
       errorLabel.frame = bounds.insetBy(dx: 24, dy: 24)
+    }
+
+    public override func didMoveToWindow() {
+      super.didMoveToWindow()
+      if window == nil {
+        animationTimeline.pause(at: clock.now())
+      } else if isApplicationActive && !UIAccessibility.isReduceMotionEnabled {
+        animationTimeline.resume(at: clock.now())
+      }
+      updateFrameDriver()
     }
 
     private func replaceDocumentView(with nextView: NativeDocumentView) {
@@ -512,11 +569,85 @@
       backgroundColor = opaque ? .systemBackground : .clear
     }
 
+    private func updateFrameDriver() {
+      frameDriverGeneration &+= 1
+      delayedWakeTask?.cancel()
+      delayedWakeTask = nil
+      let mode = frameSchedule.driverMode(
+        isActive: isApplicationActive,
+        isVisible: window != nil,
+        reduceMotion: UIAccessibility.isReduceMotionEnabled)
+      switch mode {
+      case .idle:
+        displayLink?.invalidate()
+        displayLink = nil
+      case .displayLink:
+        guard displayLink == nil else { return }
+        let link = CADisplayLink(target: displayLinkTarget, selector: #selector(NativeDisplayLinkTarget.fire))
+        displayLinkTarget.displayLink = link
+        link.add(to: .main, forMode: .common)
+        displayLink = link
+      case .wake(let delay):
+        displayLink?.invalidate()
+        displayLink = nil
+        let generation = frameDriverGeneration
+        delayedWakeTask = Task { [weak self] in
+          try? await Task.sleep(for: .seconds(delay))
+          guard !Task.isCancelled, let self, generation == self.frameDriverGeneration else {
+            return
+          }
+          self.frameSchedule.wakeAfter = nil
+          self.delayedWakeTask = nil
+          self.requestScheduledFrame()
+        }
+      }
+    }
+
+    private func stopFrameDriver() {
+      frameDriverGeneration &+= 1
+      delayedWakeTask?.cancel()
+      delayedWakeTask = nil
+      displayLink?.invalidate()
+      displayLink = nil
+    }
+
+    fileprivate func displayLinkDidFire() {
+      if frameSchedule.requestsNextFrame {
+        frameSchedule.requestsNextFrame = false
+        if !frameSchedule.needsContinuousFrames { updateFrameDriver() }
+      }
+      requestScheduledFrame()
+    }
+
+    private func requestScheduledFrame() {
+      guard loadTask == nil, isApplicationActive, window != nil else { return }
+      let now = clock.now()
+      let time: TimeInterval
+      if UIAccessibility.isReduceMotionEnabled {
+        animationTimeline.pause(at: now)
+        time = animationTimeline.elapsed
+      } else {
+        time = animationTimeline.sample(at: now)
+      }
+      renderFrame(at: time)
+    }
+
+    @objc private func reduceMotionStatusDidChange() {
+      if UIAccessibility.isReduceMotionEnabled {
+        animationTimeline.pause(at: clock.now())
+      } else if isApplicationActive, window != nil {
+        animationTimeline.resume(at: clock.now())
+      }
+      updateFrameDriver()
+    }
+
     @objc private func applicationDidEnterBackground() {
       isApplicationActive = false
       needsForegroundRender =
         (isRenderingDocument || serializedInputCount > 0) && documentData != nil
       isRenderingDocument = false
+      animationTimeline.pause(at: clock.now())
+      stopFrameDriver()
       loadTask?.cancel()
       loadTask = nil
       pendingWork = nil
@@ -527,8 +658,12 @@
 
     @objc private func applicationDidBecomeActive() {
       isApplicationActive = true
-      guard needsForegroundRender, let documentData else { return }
-      render(documentData)
+      if !UIAccessibility.isReduceMotionEnabled { animationTimeline.resume(at: clock.now()) }
+      if needsForegroundRender, let documentData {
+        render(documentData)
+      } else {
+        updateFrameDriver()
+      }
     }
   }
 #endif

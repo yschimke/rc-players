@@ -12,6 +12,7 @@
     let rootSizing: Int
     let rootMode: Int
     let rootAlignment: Int
+    let frameSchedule: NativeFrameSchedule
 
     init(snapshot: RcNativeDocumentSnapshot) {
       size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
@@ -30,6 +31,10 @@
       rootSizing = Int(snapshot.rootSizing)
       rootMode = Int(snapshot.rootMode)
       rootAlignment = Int(snapshot.rootAlignment)
+      frameSchedule = NativeFrameSchedule(
+        needsContinuousFrames: snapshot.needsContinuousFrames,
+        requestsNextFrame: snapshot.requestsNextFrame,
+        wakeAfter: snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds))
     }
   }
 
@@ -454,6 +459,7 @@
     private let onClick: (Int) -> Void
     var documentScale: CGFloat = 1 {
       didSet {
+        guard documentScale != oldValue else { return }
         canvasView?.documentScale = documentScale
         componentChildren.forEach { $0.documentScale = documentScale }
         setNeedsLayout()
@@ -461,6 +467,7 @@
     }
     var layoutDirection: NativeLayoutDirection = .leftToRight {
       didSet {
+        guard layoutDirection != oldValue else { return }
         componentChildren.forEach { $0.layoutDirection = layoutDirection }
         setNeedsLayout()
       }
@@ -1280,14 +1287,16 @@
     private var commands: [NativeDrawCommand]
     private var images: [Int: UIImage]
     private var fontNames: [Int: String]
+    private var renderSignature: Int
     var documentScale: CGFloat = 1 {
-      didSet { setNeedsDisplay() }
+      didSet { if documentScale != oldValue { setNeedsDisplay() } }
     }
 
     init(commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]) {
       self.commands = commands
       self.images = images
       self.fontNames = fontNames
+      renderSignature = Self.signature(commands: commands, images: images, fontNames: fontNames)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
@@ -1304,10 +1313,62 @@
     func update(
       commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]
     ) {
+      let nextSignature = Self.signature(commands: commands, images: images, fontNames: fontNames)
       self.commands = commands
       self.images = images
       self.fontNames = fontNames
+      guard nextSignature != renderSignature else { return }
+      renderSignature = nextSignature
       setNeedsDisplay()
+    }
+
+    private static func signature(
+      commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]
+    ) -> Int {
+      var hasher = Hasher()
+      for command in commands {
+        hasher.combine(command.kind)
+        command.values.forEach { hasher.combine($0) }
+        command.color.cgColor.components?.forEach { hasher.combine($0) }
+        hasher.combine(command.alpha)
+        hasher.combine(command.strokeWidth)
+        hasher.combine(command.isStroke)
+        hasher.combine(command.strokeCap)
+        hasher.combine(command.strokeJoin)
+        hasher.combine(command.blendMode)
+        hasher.combine(command.textSize)
+        hasher.combine(command.textWeight)
+        hasher.combine(command.text)
+        for segment in command.path {
+          hasher.combine(segment.kind)
+          segment.values.forEach { hasher.combine($0) }
+        }
+        hasher.combine(command.pathWinding)
+        if let gradient = command.gradient {
+          hasher.combine(gradient.kind)
+          gradient.colors.forEach { $0.components?.forEach { hasher.combine($0) } }
+          gradient.stops.forEach { hasher.combine($0) }
+          gradient.values.forEach { hasher.combine($0) }
+          hasher.combine(gradient.tileMode)
+        }
+        if let image = command.image {
+          hasher.combine(image.imageID)
+          hasher.combine(image.source)
+          hasher.combine(image.destination)
+          hasher.combine(image.scaleType)
+          hasher.combine(image.scaleFactor)
+        }
+        hasher.combine(command.textureImageID)
+      }
+      for id in commands.compactMap({ $0.image?.imageID ?? $0.textureImageID }).sorted() {
+        hasher.combine(id)
+        if let image = images[id] { hasher.combine(ObjectIdentifier(image)) }
+      }
+      for (id, name) in fontNames.sorted(by: { $0.key < $1.key }) {
+        hasher.combine(id)
+        hasher.combine(name)
+      }
+      return hasher.finalize()
     }
 
     override func draw(_ rect: CGRect) {
