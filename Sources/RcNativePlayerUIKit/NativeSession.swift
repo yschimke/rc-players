@@ -70,6 +70,23 @@
         let nativeEvents = try session.click(
           componentID: componentID, timeSeconds: timeSeconds)
       else { return try unchangedUpdate(timeSeconds: timeSeconds) }
+      return try eventUpdate(nativeEvents, timeSeconds: timeSeconds)
+    }
+
+    func gesture(
+      _ kind: NativeSwiftGestureKind, componentID: Int,
+      sample: NativeSwiftPointerSample? = nil, at timeSeconds: TimeInterval
+    ) throws -> Update {
+      guard
+        let nativeEvents = try session.gesture(
+          kind, componentID: componentID, sample: sample, timeSeconds: timeSeconds)
+      else { return try unchangedUpdate(timeSeconds: timeSeconds) }
+      return try eventUpdate(nativeEvents, timeSeconds: timeSeconds)
+    }
+
+    private func eventUpdate(
+      _ nativeEvents: [NativeSwiftEvent], timeSeconds: TimeInterval
+    ) throws -> Update {
       let events = nativeEvents.map { event -> RemoteComposeNativePlayerEvent in
         switch event {
         case .namedAction(let name, let value):

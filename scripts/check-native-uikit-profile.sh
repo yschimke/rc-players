@@ -64,7 +64,8 @@ assert profile["nativeDrawKinds"] == [
 ], "nativeDrawKinds must match the reviewed core-v1 capability set"
 assert profile["interaction"] == {
     "hostNamedValues": ["float", "string", "color"],
-    "clickActions": ["single"],
+    "clickActions": ["single", "long", "double"],
+    "pointerActions": ["down", "up", "cancel"],
     "semanticRoles": ["button"],
 }, "interaction must match the reviewed core-v1 capability set"
 

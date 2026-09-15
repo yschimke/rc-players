@@ -263,8 +263,8 @@ private final class NativeMacDocumentView: NSView {
       onDiagnostics(report.diagnostics)
     }
     component?.removeFromSuperview()
-    component = NativeMacComponentView(node: snapshot.root) { [weak self] componentID in
-      self?.click(componentID)
+    component = NativeMacComponentView(node: snapshot.root) { [weak self] componentID, gesture, sample in
+      self?.gesture(gesture, componentID: componentID, sample: sample)
     }
     addSubview(component)
     remainingWake = nil
@@ -273,9 +273,13 @@ private final class NativeMacDocumentView: NSView {
     updateFrameDriver()
   }
 
-  private func click(_ componentID: Int) {
+  private func gesture(
+    _ gesture: NativeSwiftGestureKind, componentID: Int, sample: NativeSwiftPointerSample?
+  ) {
     do {
-      guard let events = try session.click(componentID: componentID, timeSeconds: sampleTime())
+      guard
+        let events = try session.gesture(
+          gesture, componentID: componentID, sample: sample, timeSeconds: sampleTime())
       else { return }
       try install(try session.snapshot(timeSeconds: sampleTime()), events: events)
       for event in events { onEvent(nativeEventSummary(event)) }
@@ -504,20 +508,27 @@ private extension Collection {
   subscript(safe index: Index) -> Element? { indices.contains(index) ? self[index] : nil }
 }
 
-private final class NativeMacComponentView: NSView {
+private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate {
   private let node: NativeMacNode
   private let componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
   private let semanticButton: NSButton?
-  private let onClick: (Int) -> Void
+  private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
+  private weak var tapRecognizer: NSClickGestureRecognizer?
+  private weak var doubleClickRecognizer: NSClickGestureRecognizer?
 
   override var isFlipped: Bool { true }
 
-  init(node: NativeMacNode, onClick: @escaping (Int) -> Void) {
+  init(
+    node: NativeMacNode,
+    onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
+  ) {
     self.node = node
-    self.onClick = onClick
-    componentChildren = node.children.map { NativeMacComponentView(node: $0, onClick: onClick) }
+    self.onGesture = onGesture
+    componentChildren = node.children.map {
+      NativeMacComponentView(node: $0, onGesture: onGesture)
+    }
     let promotesText = node.kind == .text
     let drawCommands = node.commands
     canvas = drawCommands.isEmpty ? nil : NativeMacCanvasView(commands: drawCommands)
@@ -547,19 +558,116 @@ private final class NativeMacComponentView: NSView {
       semanticButton.action = #selector(activate(_:))
       addSubview(semanticButton)
     }
+    installGestureRecognizers()
   }
 
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
-  @objc private func activate(_ sender: Any?) { onClick(Int(node.componentId)) }
+  @objc private func activate(_ sender: Any?) {
+    onGesture(Int(node.componentId), .tap, nil)
+  }
+
+  private func installGestureRecognizers() {
+    if node.supportedGestures.contains(.doubleTap) {
+      let recognizer = NSClickGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+      recognizer.numberOfClicksRequired = 2
+      recognizer.delegate = self
+      addGestureRecognizer(recognizer)
+      self.doubleClickRecognizer = recognizer
+    }
+    if node.supportedGestures.contains(.tap) {
+      let recognizer = NSClickGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+      recognizer.delegate = self
+      addGestureRecognizer(recognizer)
+      tapRecognizer = recognizer
+    }
+    if node.supportedGestures.contains(.longPress) {
+      let recognizer = NSPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+      recognizer.minimumPressDuration = 0.5
+      recognizer.delegate = self
+      addGestureRecognizer(recognizer)
+    }
+    let pointerGestures: Set<NativeSwiftGestureKind> = [.touchDown, .touchUp, .touchCancel]
+    if node.supportedGestures.contains(where: pointerGestures.contains) {
+      let recognizer = NSPressGestureRecognizer(
+        target: self, action: #selector(handlePointerLifecycle(_:)))
+      recognizer.minimumPressDuration = 0
+      recognizer.allowableMovement = .greatestFiniteMagnitude
+      recognizer.delegate = self
+      addGestureRecognizer(recognizer)
+    }
+  }
+
+  @objc private func handleTap(_ recognizer: NSClickGestureRecognizer) {
+    guard recognizer.state == .ended else { return }
+    onGesture(Int(node.componentId), .tap, pointerSample(recognizer))
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: NSGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer
+  ) -> Bool {
+    !isClickPair(gestureRecognizer, otherGestureRecognizer)
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: NSGestureRecognizer,
+    shouldRequireFailureOf otherGestureRecognizer: NSGestureRecognizer
+  ) -> Bool {
+    gestureRecognizer === tapRecognizer && otherGestureRecognizer === doubleClickRecognizer
+  }
+
+  private func isClickPair(
+    _ first: NSGestureRecognizer, _ second: NSGestureRecognizer
+  ) -> Bool {
+    (first === tapRecognizer && second === doubleClickRecognizer)
+      || (first === doubleClickRecognizer && second === tapRecognizer)
+  }
+
+  @objc private func handleLongPress(_ recognizer: NSPressGestureRecognizer) {
+    guard recognizer.state == .began else { return }
+    onGesture(Int(node.componentId), .longPress, pointerSample(recognizer))
+  }
+
+  @objc private func handleDoubleTap(_ recognizer: NSClickGestureRecognizer) {
+    guard recognizer.state == .ended else { return }
+    onGesture(Int(node.componentId), .doubleTap, pointerSample(recognizer))
+  }
+
+  @objc private func handlePointerLifecycle(_ recognizer: NSPressGestureRecognizer) {
+    let sample = pointerSample(recognizer)
+    switch recognizer.state {
+    case .began:
+      if node.supportedGestures.contains(.touchDown) {
+        onGesture(Int(node.componentId), .touchDown, sample)
+      }
+    case .ended:
+      if node.supportedGestures.contains(.touchUp) {
+        onGesture(Int(node.componentId), .touchUp, sample)
+      }
+    case .cancelled, .failed:
+      if node.supportedGestures.contains(.touchCancel) {
+        onGesture(Int(node.componentId), .touchCancel, sample)
+      }
+    default: break
+    }
+  }
+
+  private func pointerSample(
+    _ recognizer: NSGestureRecognizer, velocity: NSPoint = .zero
+  ) -> NativeSwiftPointerSample {
+    let point = recognizer.location(in: self)
+    return NativeSwiftPointerSample(
+      x: Float(point.x), y: Float(point.y), velocityX: Float(velocity.x),
+      velocityY: Float(velocity.y))
+  }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
     guard !isHidden, alphaValue > 0.01, bounds.contains(point) else { return nil }
     for child in componentChildren.reversed() {
       if let hit = child.hitTest(convert(point, to: child)) { return hit }
     }
-    if let semanticButton, semanticButton.frame.contains(point) { return semanticButton }
-    return nil
+    return node.supportedGestures.isEmpty ? nil : self
   }
 
   override func layout() {

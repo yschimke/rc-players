@@ -1,5 +1,6 @@
 #if canImport(UIKit)
   import Foundation
+  import RcNativePlayerCore
   import UIKit
 
   @MainActor
@@ -601,7 +602,9 @@
           document: model,
           resources: resources,
           customComponents: customComponents,
-          onClick: { [weak self] componentID in self?.performClick(componentID: componentID) },
+          onGesture: { [weak self] componentID, gesture, sample in
+            self?.performGesture(gesture, componentID: componentID, sample: sample)
+          },
           onCustomReturn: { [weak self] componentID, propertyID, value in
             self?.performCustomReturn(
               componentID: componentID, propertyID: propertyID, value: value)
@@ -630,11 +633,15 @@
       hasPendingScheduledFrame = false
     }
 
-    private func performClick(componentID: Int) {
+    private func performGesture(
+      _ gesture: NativeSwiftGestureKind, componentID: Int,
+      sample: NativeSwiftPointerSample?
+    ) {
       Task { [weak self] in
         guard let self else { return }
         _ = await self.updateSession { session, time in
-          try await session.click(componentID: componentID, at: time)
+          try await session.gesture(
+            gesture, componentID: componentID, sample: sample, at: time)
         }
       }
     }

@@ -177,17 +177,18 @@ tests are exact.
 
 The first interactive slice accepts declared float, string, and packed ARGB named values. Bare
 names resolve in the `USER:` namespace; a missing name or type mismatch returns `false` without
-changing runtime state. Ordinary click and multi-click `SINGLE` containers become enabled native
-buttons and execute their action blocks in wire order. UIKit resolves root/component transforms,
-rounded clipping, visibility, enabled state, and visual z-order before sending the winning component
-id to the retained session. Host action, metadata, named-action, and debug events cross as typed
-Swift values and are delivered on the main actor. Long press, double click, drag, scroll, raw touch
-expressions, and compact component-local deltas remain later slices and stay diagnosed.
+changing runtime state. Single, long-press, double-click, and pointer down/up/cancel containers use
+native recognizers and execute their gesture-specific action blocks in wire order. UIKit resolves
+root/component transforms, rounded clipping, visibility, enabled state, and visual z-order before
+sending the winning component id and pointer sample to the retained session. Host action, metadata,
+named-action, and debug events cross as typed Swift values and are delivered on the main actor.
+Drag, scroll, raw touch expressions, and compact component-local deltas remain later slices and stay
+diagnosed.
 
 Acceptance:
 
 - host updates coalesce without dropping the final value;
-- clicks emit the expected action once and on the main actor;
+- each supported gesture emits only its own action block, once and on the main actor;
 - hit testing honors transforms, clipping, enabled state, and z-order;
 - replacing a document cannot deliver stale callbacks from the old session.
 

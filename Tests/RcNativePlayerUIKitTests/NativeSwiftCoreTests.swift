@@ -111,6 +111,29 @@ enum NativeSwiftCoreTests {
     let disabledEvents = try semanticsSession.click(componentID: 3, timeSeconds: 0)
     precondition(disabledEvents == nil)
 
+    let gestures = Writer()
+    gestures.header(width: 100, height: 100)
+    gestures.text(id: 10, "gesture")
+    gestures.u8(200).int(1).u8(202).int(3).int(-1).int(1).int(4)
+    for (opcode, payload) in [(83, 1), (83, 2), (219, -1), (220, -1), (225, -1)] {
+      gestures.u8(opcode)
+      if payload >= 0 { gestures.int(payload) }
+      gestures.u8(210).int(10).int(-1).int(-1).u8(214)
+    }
+    gestures.u8(214).u8(214)
+    let gestureSession = try NativeSwiftDocumentSession.open(data: gestures.data)
+    let gestureNode = try gestureSession.snapshot().root.children[0]
+    precondition(
+      gestureNode.supportedGestures == [
+        .longPress, .doubleTap, .touchDown, .touchUp, .touchCancel,
+      ])
+    for gesture in gestureNode.supportedGestures {
+      let events = try gestureSession.gesture(gesture, componentID: 3, timeSeconds: 0)
+      precondition(events == [.namedAction(name: "gesture", value: .none)])
+    }
+    let missingTap = try gestureSession.click(componentID: 3, timeSeconds: 0)
+    precondition(missingTap == nil)
+
     let malformedPaint = Writer()
     malformedPaint.header(width: 100, height: 100)
     malformedPaint.u8(200).int(1)
