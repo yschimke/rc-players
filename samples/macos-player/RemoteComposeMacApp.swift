@@ -1,5 +1,8 @@
 import AppKit
 import RcComposePlayer
+#if canImport(RcPlayerAppleFonts)
+  import RcPlayerAppleFonts
+#endif
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -29,8 +32,11 @@ final class DesktopPlayerModel: ObservableObject {
   @Published var documentURL: URL?
   @Published var documentData: Data?
   @Published var errorMessage: String?
+  @Published private(set) var fontStatusMessage: String?
   @Published private(set) var nativeDiagnostics: RemoteComposeNativePlayerDiagnostics?
   @Published private(set) var events: [DesktopPlayerEvent] = []
+  private let googleFonts = RemoteComposeGoogleFontsResolver()
+  private var renderTask: Task<Void, Never>?
 
   var renderer: DesktopRenderer {
     get {
@@ -51,6 +57,17 @@ final class DesktopPlayerModel: ObservableObject {
     }
     set {
       UserDefaults.standard.set(newValue.rawValue, forKey: "nativeCompatibility")
+      objectWillChange.send()
+    }
+  }
+
+  var downloadsGoogleFonts: Bool {
+    get {
+      guard UserDefaults.standard.object(forKey: "downloadsGoogleFonts") != nil else { return true }
+      return UserDefaults.standard.bool(forKey: "downloadsGoogleFonts")
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: "downloadsGoogleFonts")
       objectWillChange.send()
     }
   }
@@ -86,46 +103,100 @@ final class DesktopPlayerModel: ObservableObject {
       return
     }
     let title = documentURL?.deletingPathExtension().lastPathComponent ?? "Remote Compose"
-    do {
-      switch renderer {
-      case .compose:
-        nativeDiagnostics = nil
-        let bytes = RcDataBridgeKt.rcByteArray(data: documentData)
-        RcComposeWindowKt.RcComposeWindow(
-          bytes: bytes,
-          title: title,
-          width: 800,
-          height: 600,
-          theme: RcPlayerTheme.system,
-          onEvent: { [weak self] event in
-            DispatchQueue.main.async {
-              self?.record(
-                renderer: .compose, documentTitle: title,
-                summary: Self.describe(event))
-            }
-          },
-          typefaces: RcTypefaceLoaderCompanion.shared.Default,
-          onError: { [weak self] message in
-            DispatchQueue.main.async { self?.errorMessage = message }
-          },
-          lenient: true)
-      case .native:
-        try NativeAppKitWindowController.shared.open(
-          data: documentData, title: title, compatibility: nativeCompatibility,
-          onEvent: { [weak self] summary in
-            self?.record(renderer: .native, documentTitle: title, summary: summary)
-          },
-          onDiagnostics: { [weak self] diagnostics in
-            self?.nativeDiagnostics = diagnostics
-          },
-          onError: { [weak self] message in self?.errorMessage = message })
+    let renderer = renderer
+    let compatibility = nativeCompatibility
+    let resolver: (any RemoteComposeDownloadableFontResolving)? =
+      downloadsGoogleFonts ? googleFonts : nil
+    renderTask?.cancel()
+    errorMessage = nil
+    fontStatusMessage = downloadsGoogleFonts
+      ? "Google Fonts loading is enabled." : "Google Fonts loading is disabled; using system fonts."
+    renderTask = Task { [weak self] in
+      guard let self else { return }
+      do {
+        switch renderer {
+        case .compose:
+          nativeDiagnostics = nil
+          let bytes = RcDataBridgeKt.rcByteArray(data: documentData)
+          let typefaces = await cmpTypefaces(bytes: bytes, resolver: resolver)
+          try Task.checkCancellation()
+          RcComposeWindowKt.RcComposeWindow(
+            bytes: bytes,
+            title: title,
+            width: 800,
+            height: 600,
+            theme: RcPlayerTheme.system,
+            onEvent: { [weak self] event in
+              DispatchQueue.main.async {
+                self?.record(
+                  renderer: .compose, documentTitle: title,
+                  summary: Self.describe(event))
+              }
+            },
+            typefaces: typefaces,
+            onError: { [weak self] message in
+              DispatchQueue.main.async { self?.errorMessage = message }
+            },
+            lenient: true)
+        case .native:
+          try await NativeAppKitWindowController.shared.open(
+            data: documentData, title: title, compatibility: compatibility,
+            downloadableFontResolver: resolver,
+            onFontFallback: { [weak self] message in self?.fontStatusMessage = message },
+            onEvent: { [weak self] summary in
+              self?.record(renderer: .native, documentTitle: title, summary: summary)
+            },
+            onDiagnostics: { [weak self] diagnostics in
+              self?.nativeDiagnostics = diagnostics
+            },
+            onError: { [weak self] message in self?.errorMessage = message })
+        }
+      } catch is CancellationError {
+      } catch RemoteComposeNativePlayerError.incompatible(let diagnostics) {
+        nativeDiagnostics = diagnostics
+        errorMessage =
+          "Strict native policy refused \(title): \(diagnostics.issues.count) known difference(s)."
+      } catch {
+        errorMessage = "Could not render \(title): \(error.localizedDescription)"
       }
-    } catch RemoteComposeNativePlayerError.incompatible(let diagnostics) {
-      nativeDiagnostics = diagnostics
-      errorMessage =
-        "Strict native policy refused \(title): \(diagnostics.issues.count) known difference(s)."
+    }
+  }
+
+  private func cmpTypefaces(
+    bytes: KotlinByteArray,
+    resolver: (any RemoteComposeDownloadableFontResolving)?
+  ) async -> RcTypefaceLoader {
+    let requests = RcDownloadableFontsKt.rcDownloadableFontRequests(bytes: bytes)
+    guard !requests.isEmpty else { return RcTypefaceLoaderCompanion.shared.Default }
+    guard let resolver else {
+      return RcDownloadableFontsKt.rcDownloadableFontFallback(
+        families: requests.map(\.family))
+    }
+    do {
+      var fonts: [RcDownloadedFont] = []
+      for request in requests {
+        let font = try await resolver.resolve(
+          RemoteComposeDownloadableFontRequest(family: request.family))
+        guard font.family.caseInsensitiveCompare(request.family) == .orderedSame else {
+          throw RemoteComposeDownloadableFontError.familyMismatch(
+            expected: request.family, actual: font.family)
+        }
+        try Task.checkCancellation()
+        fonts.append(
+          RcDownloadedFont(
+            family: font.family, identity: font.identity,
+            data: RcDataBridgeKt.rcByteArray(data: font.data)))
+      }
+      fontStatusMessage = "Downloaded \(fonts.count) Google font family(s)."
+      return RcDownloadableFontsKt.rcDownloadedTypefaceLoader(fonts: fonts)
+    } catch is CancellationError {
+      return RcDownloadableFontsKt.rcDownloadableFontFallback(
+        families: requests.map(\.family))
     } catch {
-      errorMessage = "Could not render \(title): \(error.localizedDescription)"
+      fontStatusMessage =
+        "Google Fonts unavailable; using the default font: \(error.localizedDescription)"
+      return RcDownloadableFontsKt.rcDownloadableFontFallback(
+        families: requests.map(\.family))
     }
   }
 
@@ -220,6 +291,13 @@ struct DesktopPlayerView: View {
           Text(model.nativeCompatibility.detail)
             .font(.caption)
             .foregroundStyle(.secondary)
+          Divider()
+          Label(
+            model.downloadsGoogleFonts ? "Google Fonts enabled" : "Google Fonts disabled",
+            systemImage: model.downloadsGoogleFonts ? "textformat" : "textformat.slash"
+          )
+          .font(.caption)
+          .foregroundStyle(.secondary)
         }
         .padding(8)
       }
@@ -297,6 +375,12 @@ struct DesktopPlayerView: View {
           .textSelection(.enabled)
       }
 
+      if let fontStatus = model.fontStatusMessage {
+        Label(fontStatus, systemImage: "textformat")
+          .foregroundStyle(.secondary)
+          .textSelection(.enabled)
+      }
+
       HStack {
         Spacer()
         Button(model.documentData == nil ? "Choose Document" : "Open Player Window") {
@@ -344,6 +428,10 @@ struct DesktopPlayerSettingsView: View {
       Text(model.nativeCompatibility.detail)
         .font(.caption)
         .foregroundStyle(.secondary)
+      Toggle("Download Google Fonts", isOn: downloadableFontsBinding)
+      Text("Enabled by default for both CMP and Native AppKit; unavailable fonts use the default face.")
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
     .padding(24)
     .frame(width: 440)
@@ -355,6 +443,10 @@ struct DesktopPlayerSettingsView: View {
 
   private var nativeCompatibilityBinding: Binding<NativeMacCompatibility> {
     Binding(get: { model.nativeCompatibility }, set: { model.nativeCompatibility = $0 })
+  }
+
+  private var downloadableFontsBinding: Binding<Bool> {
+    Binding(get: { model.downloadsGoogleFonts }, set: { model.downloadsGoogleFonts = $0 })
   }
 }
 
@@ -429,19 +521,55 @@ final class RemoteComposeMacAppDelegate: NSObject, NSApplicationDelegate {
   }
 }
 
+private final class BlockingResult<Value>: @unchecked Sendable {
+  private let semaphore = DispatchSemaphore(value: 0)
+  private var result: Result<Value, Error>?
+
+  func complete(_ result: Result<Value, Error>) {
+    self.result = result
+    semaphore.signal()
+  }
+
+  func wait() -> Result<Value, Error> {
+    semaphore.wait()
+    return result!
+  }
+}
+
 @main
 struct RemoteComposeMacApplication {
   @MainActor
   static func main() {
     if CommandLine.arguments.count == 4,
-      CommandLine.arguments[1] == "--render-native-png"
+      ["--render-native-png", "--render-native-google-font-png"].contains(
+        CommandLine.arguments[1])
     {
       do {
         _ = NSApplication.shared
         let input = URL(fileURLWithPath: CommandLine.arguments[2])
         let output = URL(fileURLWithPath: CommandLine.arguments[3])
         let data = try Data(contentsOf: input)
-        try NativeAppKitWindowController.renderPNG(data: data).write(to: output, options: .atomic)
+        var fonts: [String: RemoteComposeDownloadedFont] = [:]
+        if CommandLine.arguments[1] == "--render-native-google-font-png" {
+          let families = try NativeAppKitWindowController.downloadableFontFamilies(data: data)
+          let blocking = BlockingResult<[String: RemoteComposeDownloadedFont]>()
+          Task.detached {
+            do {
+              let resolver = RemoteComposeGoogleFontsResolver()
+              var resolved: [String: RemoteComposeDownloadedFont] = [:]
+              for family in families {
+                resolved[family.lowercased()] = try await resolver.resolve(
+                  RemoteComposeDownloadableFontRequest(family: family))
+              }
+              blocking.complete(.success(resolved))
+            } catch {
+              blocking.complete(.failure(error))
+            }
+          }
+          fonts = try blocking.wait().get()
+        }
+        try NativeAppKitWindowController.renderPNG(data: data, downloadedFonts: fonts).write(
+          to: output, options: .atomic)
         print(output.path)
       } catch {
         FileHandle.standardError.write(Data("native capture failed: \(error)\n".utf8))

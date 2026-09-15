@@ -14,18 +14,20 @@ CMP player.
 
 ## User model
 
-The control window has three inputs:
+The control window has four inputs:
 
 1. a document selected with the standard macOS open panel, drag and drop, Finder's **Open With**,
    or a path passed to the executable; and
 2. a preferred renderer, `CMP` or `Native AppKit POC`; and
 3. a native compatibility policy: `Compatible` renders the supported subset and reports known
-   differences, while `Strict` refuses any partial frame.
+   differences, while `Strict` refuses any partial frame; and
+4. a downloadable Google Fonts preference, enabled by default for both renderers.
 
-The renderer and native compatibility policy are stored in `UserDefaults`, exposed in the control
-window and Settings, and reused for later documents. Opening a file through Finder renders it
-immediately with those preferences. The app declares a Viewer document type for the `.rc` extension
-but only an Alternate handler rank, so it does not attempt to displace a user's default editor.
+The renderer, native compatibility policy, and font preference are stored in `UserDefaults`,
+exposed in the control window and Settings, and reused for later documents. Opening a file through
+Finder renders it immediately with those preferences. The app declares a Viewer document type for
+the `.rc` extension but only an Alternate handler rank, so it does not attempt to displace a user's
+default editor.
 
 Each render opens a separate document window. That follows the existing macOS CMP surface, which
 exports a window rather than an embeddable `NSView`, and allows two windows to be placed beside one
@@ -82,14 +84,19 @@ validated before delivery.
 
 The pure-Swift decoder rejects unsupported or malformed operation families instead of silently
 falling back to CMP. `Compatible` and `Strict` retain distinct host-facing policy identities so
-structured approximation diagnostics can be added as coverage grows. The current AppKit profile
-does not resolve external resources, so document input cannot initiate network or file I/O.
-Renderer identity and policy are always visible in the document-window title.
+structured approximation diagnostics can be added as coverage grows. A `google:` font family is
+the AppKit profile's only external resource: when the preference is enabled, the app resolves it
+through the bounded HTTPS Google Fonts resolver and registers the validated bytes with CoreText at
+process scope for the lifetime of the document window. CMP receives the same downloaded bytes
+through its `RcTypefaceLoader`. Disabling the preference prevents the requests; any download,
+validation, or registration failure is reported in the control window and both renderers continue
+with their default font. Renderer identity and policy are always visible in the document-window
+title.
 
 ## Packaging and release
 
-`scripts/build-macos-player.sh` compiles `RcNativePlayerCore` into the application alongside the
-AppKit renderer. It also links the locally assembled `macosArm64` slice of
+`scripts/build-macos-player.sh` compiles `RcNativePlayerCore` and `RcPlayerAppleFonts` into the
+application alongside the AppKit renderer. It also links the locally assembled `macosArm64` slice of
 `RcComposePlayer.xcframework` for the separately selectable CMP renderer. The framework is static,
 so the result is a self-contained executable. The script creates a conventional `.app` bundle and
 ad-hoc signs it.
@@ -107,6 +114,9 @@ samples the continuous-progress fixture through `--validate-native-animation`, d
 card action through `--validate-native-click-events`, and exercises the strict/compatible decision
 plus hard document limit through dedicated policy smoke modes. Its offscreen
 `--render-native-png` mode captures the same AppKit hierarchy for deterministic visual evidence.
+`--render-native-google-font-png` enables the release app's live resolver in that capture path;
+`scripts/check-macos-google-font-rendering.sh` uses both modes to preserve fallback/downloaded
+before-and-after evidence.
 The release workflow includes the ZIP in build-provenance attestation and uploads the ZIP and SHA-256
 sidecar to the GitHub Release with the Apple libraries.
 

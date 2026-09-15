@@ -148,6 +148,11 @@ the resolver for offline or privacy-sensitive hosts; explicitly downloadable fam
 Compose's default face without failing the document. A supplied resolver whose request fails still
 reports through `onError`.
 
+The downloadable macOS release app opts into this resolver by default for both its CMP and
+pure-Swift AppKit renderers. Users can disable network font loading in Settings. The app treats
+download or registration errors as non-fatal and shows the document with its default system face,
+because release-player inspection must remain useful when offline or when a font host is blocked.
+
 ### Raw interop
 
 The underlying binary product remains public and source-compatible. Its direct iOS call is:
