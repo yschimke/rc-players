@@ -28,6 +28,9 @@ for conceptual image components or through the ordered Core Graphics stream for 
 Embedded fonts are validated and registered for the owning player lifetime.
 Hosts can update declared float, string, and color values without re-decoding the document. Native
 buttons dispatch ordinary and single-click action blocks through typed main-actor callbacks.
+Host-authored `Custom` layouts resolve through an explicit Swift registry. The host may supply a
+UIKit plugin with make/update/dismantle lifecycle methods or register SwiftUI content directly;
+either form remains inside the native view tree and can write through declared return channels.
 
 ## Goals
 
@@ -212,6 +215,72 @@ The default `.compatible` policy renders the supported subset and reports all kn
 approximation; the error is displayed through the existing native error surface. Changing the
 policy reloads the retained document bytes, so a host may inspect compatible output and then apply
 a stricter gate without recreating the view.
+
+### Custom components
+
+Custom components are named host extensions, not dynamically loaded classes. The document supplies
+a config name plus typed properties; the application explicitly registers the implementation. A
+missing registration is an unsupported `LAYOUT_CUSTOM` diagnostic, so `.strict` refuses it and
+`.compatible` renders the rest of the document without silently claiming coverage.
+
+The UIKit lifecycle deliberately follows the vocabulary of `UIViewRepresentable`:
+
+```swift
+struct RatingPlugin: RemoteComposeNativeCustomComponentPlugin {
+  let name = "example:Rating"
+  private let value = RemoteComposeNativeFloatProperty(1)
+  private let changed = RemoteComposeNativeFloatReturnProperty(2)
+
+  func makeUIView(component: RemoteComposeNativeCustomComponent) -> UISlider {
+    let slider = UISlider()
+    slider.addAction(UIAction { [weak component] action in
+      guard let slider = action.sender as? UISlider else { return }
+      component?.send(slider.value, to: changed)
+    }, for: .valueChanged)
+    return slider
+  }
+
+  func updateUIView(_ view: UISlider, component: RemoteComposeNativeCustomComponent) {
+    view.value = component.float(value)
+  }
+
+  func dismantleUIView(_ view: UISlider) {}
+}
+
+let components = RemoteComposeNativeCustomComponentRegistry(RatingPlugin())
+let player = RemoteComposeNativePlayerView(data: data, customComponents: components)
+```
+
+Property keys make expected value types visible at call sites and provide host defaults. The raw
+property array and its optional `Kind` remain available for generic inspection and forward
+compatibility. `send(_:to:)` accepts only a matching declared float/text return channel and rejects
+non-finite floats before they cross the runtime boundary. Acceptance means the value was enqueued;
+the resulting document frame is still serialized with clicks and named-value updates by the player.
+
+SwiftUI content is a convenience over the same registry, not a second renderer:
+
+```swift
+let components = RemoteComposeNativeCustomComponentRegistry()
+  .registerSwiftUI("example:Headline") { component in
+    Text(component.text(RemoteComposeNativeTextProperty(1)))
+      .font(.headline)
+  }
+```
+
+`RemoteComposeNativeCustomComponent` is a stable `ObservableObject`. The registry makes its view
+once, updates it when resolved properties change, and dismantles it when the Remote Compose node is
+removed. Stable identity lets UIKit and SwiftUI preserve focus, selection, caret position, and
+control-local state. A component that edits document-owned state should update its local control
+state immediately, send the return value, and then reconcile when the resulting document snapshot
+arrives; binding a text field directly to the asynchronous return path can fight the caret.
+Registrations are revisioned: calling `configureCustomComponents(_:)` after mutating an installed
+registry retries the retained document and rebuilds only the registry-bound document tree.
+
+The bridge counts custom properties and their resolved strings toward the existing per-frame work
+and text limits. Kotlin currently resolves document references and applies return values, while all
+view construction, sizing, lifecycle, input, and accessibility remain Apple-native. This boundary
+is intentionally replaceable by the planned pure-Swift codec/runtime without changing the public
+registry or component lifecycle.
 
 ## Rendering behavior
 
@@ -457,18 +526,21 @@ Add display-link scheduling, runtime wakeups, layout transitions, shaders/offscr
 variation, profiling, and resource budgets. Exit when device/simulator correctness and performance
 budgets pass.
 
-### Phase 4: API decision
+### Phase 4: pure Swift core
 
-Measure interop and maintenance cost; select and stabilize the session boundary; decide whether the
-player remains experimental, becomes supported beside CMP, or stops. No phase replaces CMP.
+Replace the temporary Kotlin decoder/linker/state session behind the same immutable Swift model and
+public player API. Split the implementation into a bounded wire reader, typed protocol operations,
+link/evaluation state, and an actor-isolated session. Validate each family against the Kotlin/CMP
+oracle before removing that family from the XCFramework dependency. No phase replaces CMP.
 
 ## Alternatives considered
 
 - **Another wrapper around Compose:** rejected because the existing overlay already does that.
 - **Downcast exported Kotlin operations in Swift:** rejected because it spreads wire/runtime detail
   and couples UIKit to the generated Kotlin class surface.
-- **Port the decoder/runtime first:** deferred because it duplicates the mature platform-neutral
-  part before native rendering proves valuable.
+- **Port the decoder/runtime first:** originally deferred until native rendering proved valuable;
+  custom components, interaction, animation, safety limits, and comparison evidence now justify a
+  staged pure-Swift replacement behind the established player API.
 - **One `UIView` for the document:** rejected as the architecture because it obstructs native
   layout, semantics, hit testing, custom components, and localized invalidation.
 - **A `CALayer` component tree:** deferred as an optimization; `UIView` supplies traits, lifecycle,
@@ -476,9 +548,9 @@ player remains experimental, becomes supported beside CMP, or stops. No phase re
 
 ## Open decisions
 
-- Is the production boundary a resolved tree, retained runtime session, or both?
+- What is the smallest independently testable protocol family for the first pure-Swift session?
 - Which static profile is small enough to finish but useful enough to evaluate?
-- Should layout execute in Kotlin and export geometry, or move into Swift?
+- Which runtime expression and animation families should remain oracle-backed longest?
 - How should Core Text metrics reconcile with AndroidX's measured contract?
 - Can command buffers be diffed cheaply, or do components need narrower typed updates?
 - What compatibility and performance bar promotes the player beyond experimental status?

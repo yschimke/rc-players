@@ -73,13 +73,16 @@ struct NativePlayerEvidenceView: View {
           encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
           let data = try encoder.encode(report)
           let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-          try data.write(to: directory.appendingPathComponent("native-uikit-evidence.json"), options: .atomic)
-          status = report.passed ? "Native UIKit evidence: pass" : "Native UIKit evidence: over budget"
+          try data.write(
+            to: directory.appendingPathComponent("native-uikit-evidence.json"), options: .atomic)
+          status =
+            report.passed ? "Native UIKit evidence: pass" : "Native UIKit evidence: over budget"
         } catch {
           let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
           let message = String(describing: error)
           try? Data(message.utf8).write(
-            to: directory.appendingPathComponent("native-uikit-evidence-error.txt"), options: .atomic)
+            to: directory.appendingPathComponent("native-uikit-evidence-error.txt"),
+            options: .atomic)
           status = "Native UIKit evidence failed: \(error.localizedDescription)"
         }
       }
@@ -134,7 +137,11 @@ private enum NativePlayerEvidence {
         fonts: document.fonts,
         limits: .default,
         cache: cache)
-      let view = NativeDocumentView(document: document, resources: resources, onClick: { _ in })
+      let customComponents = RemoteComposeNativeCustomComponentRegistry()
+      let view = NativeDocumentView(
+        document: document, resources: resources,
+        customComponents: customComponents, onClick: { _ in },
+        onCustomReturn: { _, _, _ in })
       view.frame = CGRect(origin: .zero, size: document.size)
       view.layoutIfNeeded()
       firstFrameSamples.append(milliseconds(since: started))
@@ -142,7 +149,8 @@ private enum NativePlayerEvidence {
       started = ProcessInfo.processInfo.systemUptime
       let updated = try session.snapshot(timeSeconds: 1.0 / 60.0)
       let updatedDocument = try NativeDocument(snapshot: updated, limits: .default)
-      _ = view.update(document: updatedDocument, resources: resources)
+      _ = view.update(
+        document: updatedDocument, resources: resources, customComponents: customComponents)
       view.layoutIfNeeded()
       updateSamples.append(milliseconds(since: started))
       measuredView = view
@@ -170,22 +178,21 @@ private enum NativePlayerEvidence {
       executableBytes: executableBytes,
       appBundleBytes: appBundleBytes)
     let passed =
-      metrics.medianDecodeMilliseconds <= budgets.decodeMilliseconds &&
-      metrics.medianFirstFrameMilliseconds <= budgets.firstFrameMilliseconds &&
-      metrics.medianUpdateMilliseconds <= budgets.updateMilliseconds &&
-      metrics.nativeViewCount <= budgets.nativeViewCount &&
-      metrics.labelCount >= budgets.minimumLabelCount &&
-      metrics.controlCount >= budgets.minimumControlCount &&
-      metrics.buttonCount >= budgets.minimumButtonCount &&
-      metrics.accessibilityElementCount >= budgets.minimumAccessibilityElementCount &&
-      metrics.exposedAccessibilityElementCount
-        == budgets.expectedExposedAccessibilityElementCount &&
-      metrics.allocatedByteDelta <= budgets.allocatedByteDelta &&
-      metrics.residentByteDelta <= budgets.residentByteDelta &&
-      metrics.executableBytes <= budgets.executableBytes &&
-      metrics.appBundleBytes <= budgets.appBundleBytes &&
-      lifecycle.resumedAfterBackground &&
-      lifecycle.releasedAfterResume
+      metrics.medianDecodeMilliseconds <= budgets.decodeMilliseconds
+      && metrics.medianFirstFrameMilliseconds <= budgets.firstFrameMilliseconds
+      && metrics.medianUpdateMilliseconds <= budgets.updateMilliseconds
+      && metrics.nativeViewCount <= budgets.nativeViewCount
+      && metrics.labelCount >= budgets.minimumLabelCount
+      && metrics.controlCount >= budgets.minimumControlCount
+      && metrics.buttonCount >= budgets.minimumButtonCount
+      && metrics.accessibilityElementCount >= budgets.minimumAccessibilityElementCount
+      && metrics.exposedAccessibilityElementCount
+        == budgets.expectedExposedAccessibilityElementCount
+      && metrics.allocatedByteDelta <= budgets.allocatedByteDelta
+      && metrics.residentByteDelta <= budgets.residentByteDelta
+      && metrics.executableBytes <= budgets.executableBytes
+      && metrics.appBundleBytes <= budgets.appBundleBytes && lifecycle.resumedAfterBackground
+      && lifecycle.releasedAfterResume
     return NativePlayerEvidenceReport(
       schemaVersion: 1,
       fixture: fixture,

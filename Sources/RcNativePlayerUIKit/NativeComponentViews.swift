@@ -46,6 +46,30 @@
         wakeAfter: snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds))
     }
 
+    func diagnostics(availableCustomComponents: Set<String>)
+      -> RemoteComposeNativePlayerDiagnostics
+    {
+      var issues = diagnostics.issues
+      var pending = [root]
+      while let node = pending.popLast() {
+        if let custom = node.custom, !availableCustomComponents.contains(custom.config) {
+          issues.append(
+            RemoteComposeNativePlayerDiagnostic(
+              severity: .unsupported, opcode: 93, operationName: "Custom",
+              componentID: node.componentID,
+              reason: "Host custom component '\(custom.config)' is not registered"))
+        }
+        pending.append(contentsOf: node.children)
+      }
+      return RemoteComposeNativePlayerDiagnostics(
+        issues: issues,
+        unsupportedOpcodes: Array(
+          Set(
+            diagnostics.unsupportedOpcodes + (issues.count > diagnostics.issues.count ? [93] : []))
+        ).sorted(),
+        notes: diagnostics.notes)
+    }
+
     private static func validate(
       snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits
     ) throws -> NativeFrameBudget {
@@ -64,6 +88,14 @@
         try budget.recordStrings(
           [node.semanticLabel, node.semanticText, node.semanticStateDescription], limits: limits)
         try budget.recordWork(node.clickActionTypes.count, limits: limits)
+        if let custom = node.custom {
+          try budget.recordWork(custom.properties.count, limits: limits)
+          try budget.recordStrings(
+            [Optional(custom.config)] + custom.properties.map(\.textValue), limits: limits)
+          try budget.validateFinite(
+            custom.properties.map { Double($0.floatValue) },
+            componentID: Int(node.componentId), field: "custom property")
+        }
         let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
         let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
         try budget.validateLayoutDimension(
@@ -182,8 +214,10 @@
           var pathY: [Double] = []
           for segment in command.path {
             let values =
-              [segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
-               segment.sixth].map(Double.init)
+              [
+                segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
+                segment.sixth,
+              ].map(Double.init)
             let coordinateCount: Int
             switch Int(segment.kind) {
             case 10, 11: coordinateCount = 2
@@ -225,7 +259,8 @@
                 image.sourceLeft, image.sourceTop, image.sourceRight, image.sourceBottom,
                 image.destinationLeft, image.destinationTop, image.destinationRight,
                 image.destinationBottom,
-              ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits)
+              ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits
+            )
             try budget.validateFinite(
               [Double(image.scaleFactor)], componentID: Int(node.componentId), field: "image scale")
             try budget.validateCanvasDimensions(
@@ -242,8 +277,10 @@
                 width: CGFloat(destinationWidth), height: CGFloat(destinationHeight)),
               scaleType: Int(image.scaleType), scaleFactor: CGFloat(image.scaleFactor))
             try budget.validateNumbers(
-              [derivedDestination.minX, derivedDestination.minY, derivedDestination.maxX,
-               derivedDestination.maxY].map(Double.init),
+              [
+                derivedDestination.minX, derivedDestination.minY, derivedDestination.maxX,
+                derivedDestination.maxY,
+              ].map(Double.init),
               componentID: Int(node.componentId), field: "derived image geometry", limits: limits)
             try budget.validateCanvasDimensions(
               [abs(Double(derivedDestination.width)), abs(Double(derivedDestination.height))],
@@ -304,6 +341,7 @@
       case column
       case text
       case image
+      case custom
 
       init(rawValue: Int32) {
         switch rawValue {
@@ -315,6 +353,7 @@
         case 6: self = .column
         case 7: self = .text
         case 8: self = .image
+        case 9: self = .custom
         default: self = .group
         }
       }
@@ -350,6 +389,7 @@
     let offset: CGPoint
     let zIndex: CGFloat
     let visibility: Int
+    let custom: NativeCustomComponent?
 
     init(snapshot: RcNativeNodeSnapshot) {
       kind = Kind(rawValue: snapshot.kind)
@@ -386,6 +426,7 @@
       offset = CGPoint(x: CGFloat(snapshot.offsetX), y: CGFloat(snapshot.offsetY))
       zIndex = CGFloat(snapshot.zIndex)
       visibility = Int(snapshot.visibility)
+      custom = snapshot.custom.map(NativeCustomComponent.init)
     }
 
     var firstText: String? {
@@ -464,6 +505,20 @@
         return [semanticBehavior]
       }
       return children.flatMap(\.effectiveSemanticBehaviors)
+    }
+  }
+
+  struct NativeCustomComponent: Equatable {
+    let config: String
+    let properties: [RemoteComposeNativeCustomProperty]
+
+    init(snapshot: RcNativeCustomComponentSnapshot) {
+      config = snapshot.config
+      properties = snapshot.properties.map {
+        RemoteComposeNativeCustomProperty(
+          id: Int($0.type), dataType: Int($0.dataType), floatValue: $0.floatValue,
+          integerValue: Int($0.integerValue), textValue: $0.textValue)
+      }
     }
   }
 
@@ -598,20 +653,28 @@
   final class NativeDocumentView: UIView {
     private var document: NativeDocument
     private var resources: NativeResourceStore
+    private let customComponents: RemoteComposeNativeCustomComponentRegistry
+    private let customComponentsRevision: UInt
     private let componentView: NativeComponentView
 
     init(
       document: NativeDocument,
       resources: NativeResourceStore,
-      onClick: @escaping (Int) -> Void
+      customComponents: RemoteComposeNativeCustomComponentRegistry,
+      onClick: @escaping (Int) -> Void,
+      onCustomReturn: @escaping (Int, Int, NativeCustomReturnValue) -> Void
     ) {
       self.document = document
       self.resources = resources
+      self.customComponents = customComponents
+      customComponentsRevision = customComponents.revision
       componentView = NativeComponentView(
         node: document.root,
         images: resources.images,
         fontNames: resources.fontNames,
-        onClick: onClick)
+        customComponents: customComponents,
+        onClick: onClick,
+        onCustomReturn: onCustomReturn)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
@@ -626,9 +689,18 @@
       fatalError("init(coder:) is not supported")
     }
 
-    func update(document: NativeDocument, resources: NativeResourceStore) -> Bool {
-      guard componentView.canUpdate(
-        with: document.root, images: resources.images, fontNames: resources.fontNames)
+    func update(
+      document: NativeDocument,
+      resources: NativeResourceStore,
+      customComponents: RemoteComposeNativeCustomComponentRegistry
+    ) -> Bool {
+      guard
+        self.customComponents === customComponents,
+        customComponentsRevision == customComponents.revision
+      else { return false }
+      guard
+        componentView.canUpdate(
+          with: document.root, images: resources.images, fontNames: resources.fontNames)
       else { return false }
       self.document = document
       self.resources = resources
@@ -672,6 +744,7 @@
     private var canvasView: NativeCanvasView?
     private var textLabels: [NativeTextLabel]
     private var imageViews: [NativeImageView]
+    private var customView: NativeCustomComponentView?
     private var componentChildren: [NativeComponentView]
     private var semanticView: UIView?
     private let onClick: (Int) -> Void
@@ -695,7 +768,9 @@
       node: NativeNode,
       images: [Int: UIImage],
       fontNames: [Int: String],
-      onClick: @escaping (Int) -> Void
+      customComponents: RemoteComposeNativeCustomComponentRegistry,
+      onClick: @escaping (Int) -> Void,
+      onCustomReturn: @escaping (Int, Int, NativeCustomReturnValue) -> Void
     ) {
       self.node = node
       self.onClick = onClick
@@ -724,9 +799,16 @@
           }
           return NativeImageView(image: image, draw: draw, alpha: command.alpha)
         } : []
+      customView = node.custom.flatMap {
+        NativeCustomComponentView(
+          snapshot: $0, componentID: node.componentID, registry: customComponents,
+          onReturn: onCustomReturn)
+      }
       componentChildren = node.children.map {
         NativeComponentView(
-          node: $0, images: images, fontNames: fontNames, onClick: onClick)
+          node: $0, images: images, fontNames: fontNames,
+          customComponents: customComponents, onClick: onClick,
+          onCustomReturn: onCustomReturn)
       }
       semanticView = Self.makeSemanticView(for: node, onClick: onClick)
       super.init(frame: .zero)
@@ -740,6 +822,7 @@
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
       imageViews.forEach(addSubview)
+      if let customView { addSubview(customView) }
       componentChildren.forEach(addSubview)
       componentChildren.forEach { $0.layer.zPosition = $0.node.zIndex }
     }
@@ -760,6 +843,7 @@
         (canvasView != nil) == !local.drawing.isEmpty,
         textLabels.count == local.text.count,
         imageViews.count == local.images.count,
+        node.custom?.config == next.custom?.config,
         Self.semanticView(semanticView, matches: next),
         componentChildren.count == next.children.count
       else { return false }
@@ -779,6 +863,7 @@
       zip(imageViews, local.images).forEach { imageView, item in
         imageView.update(image: item.image, draw: item.draw, alpha: item.alpha)
       }
+      if let custom = next.custom { customView?.update(custom) }
       zip(componentChildren, next.children).forEach { child, childNode in
         child.update(node: childNode, images: images, fontNames: fontNames)
         child.layer.zPosition = childNode.zIndex
@@ -794,7 +879,10 @@
     private static func localContent(
       for node: NativeNode,
       images: [Int: UIImage]
-    ) -> (drawing: [NativeDrawCommand], text: [NativeDrawCommand], images: [(image: UIImage, draw: NativeImageDraw, alpha: CGFloat)]) {
+    ) -> (
+      drawing: [NativeDrawCommand], text: [NativeDrawCommand],
+      images: [(image: UIImage, draw: NativeImageDraw, alpha: CGFloat)]
+    ) {
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
       let drawing = node.commands.filter {
@@ -828,6 +916,7 @@
       let local: [Any] =
         textLabels.filter(\.isAccessibilityElement).map { $0 as Any }
         + imageViews.filter(\.isAccessibilityElement).map { $0 as Any }
+        + (customView.map { [$0 as Any] } ?? [])
       guard let semanticView, let descriptor = node.semanticBehavior?.descriptor else {
         return local + descendants
       }
@@ -857,6 +946,11 @@
       for (_, child) in frontToBack {
         if let hit = child.hitTest(convert(point, to: child), with: event) { return hit }
       }
+      if isInside, let customView,
+        let hit = customView.hitTest(convert(point, to: customView), with: event)
+      {
+        return hit
+      }
       guard isInside, let semanticView else { return nil }
       return semanticView.hitTest(convert(point, to: semanticView), with: event)
     }
@@ -881,6 +975,7 @@
             bounds: bounds, documentScale: documentScale, layoutDirection: layoutDirection)
         }
       case .image: imageViews.forEach { $0.frame = bounds }
+      case .custom: customView?.frame = bounds
       default: layoutOverlay(aligned: false)
       }
       semanticView?.frame = bounds
@@ -901,6 +996,8 @@
             maximumWidth: contentAvailable.width, documentScale: documentScale) ?? .zero
       case .image:
         intrinsic = imageViews.first?.image?.size ?? .zero
+      case .custom:
+        intrinsic = customView?.sizeThatFits(contentAvailable) ?? .zero
       case .column:
         let sizes = items.map { $0.preferredSize(in: contentAvailable) }
         intrinsic = CGSize(
@@ -929,6 +1026,7 @@
     private var isStructural: Bool {
       (node.kind == .content || node.kind == .group || node.kind == .canvas)
         && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty
+        && customView == nil
         && node.semanticBehavior?.acceptsPointerAction != true
         && node.backgroundColor == nil
         && node.visibility == 1 && node.widthType == 2 && node.heightType == 2
@@ -965,7 +1063,8 @@
     private func updateStructuralSemanticFrames() {
       componentChildren.forEach { $0.updateStructuralSemanticFrames() }
       guard isStructural, let semanticView else { return }
-      let renderedBounds = flattenedLayoutItems
+      let renderedBounds =
+        flattenedLayoutItems
         .filter { !$0.isHidden && $0.alpha > 0.01 }
         .map { convert($0.bounds, from: $0) }
         .filter { !$0.isEmpty && !$0.isNull }

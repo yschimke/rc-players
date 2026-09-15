@@ -35,6 +35,8 @@
 		10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* NativeAccessibilityTestHost.swift */; };
 		10000000000000000000001C /* NativeAccessibilityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* NativeAccessibilityUITests.swift */; };
 		10000000000000000000001D /* NativeComparisonHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000020 /* NativeComparisonHarness.swift */; };
+		10000000000000000000001E /* NativeCustomComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000021 /* NativeCustomComponents.swift */; };
+		10000000000000000000001F /* NativeCustomComponentSamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000022 /* NativeCustomComponentSamples.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +82,8 @@
 		20000000000000000000001E /* NativeAccessibilityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAccessibilityUITests.swift; sourceTree = "<group>"; };
 		20000000000000000000001F /* RemoteComposePlayerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RemoteComposePlayerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		200000000000000000000020 /* NativeComparisonHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeComparisonHarness.swift; sourceTree = "<group>"; };
+		200000000000000000000021 /* NativeCustomComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeCustomComponents.swift; path = "../../Sources/RcNativePlayerUIKit/NativeCustomComponents.swift"; sourceTree = "<group>"; };
+		200000000000000000000022 /* NativeCustomComponentSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCustomComponentSamples.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +120,7 @@
 			children = (
 				200000000000000000000001 /* RemoteComposePlayerApp.swift */,
 				200000000000000000000002 /* PlayerLibrary.swift */,
+				200000000000000000000022 /* NativeCustomComponentSamples.swift */,
 				200000000000000000000003 /* PlayerRootView.swift */,
 				20000000000000000000001C /* NativePlayerEvidence.swift */,
 				20000000000000000000001D /* NativeAccessibilityTestHost.swift */,
@@ -169,6 +174,7 @@
 				200000000000000000000019 /* NativeAccessibilityPolicy.swift */,
 				20000000000000000000001A /* NativeFrameTiming.swift */,
 				20000000000000000000001B /* NativeExecutionLimits.swift */,
+				200000000000000000000021 /* NativeCustomComponents.swift */,
 				20000000000000000000000F /* RemoteComposeNativePlayer.swift */,
 				200000000000000000000010 /* NativeComponentViews.swift */,
 				200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */,
@@ -270,6 +276,7 @@
 				100000000000000000000001 /* RemoteComposePlayerApp.swift in Sources */,
 				100000000000000000000002 /* PlayerLibrary.swift in Sources */,
 				100000000000000000000003 /* PlayerRootView.swift in Sources */,
+				10000000000000000000001F /* NativeCustomComponentSamples.swift in Sources */,
 				100000000000000000000004 /* RemoteComposePlayerTypes.swift in Sources */,
 				10000000000000000000000B /* RemoteComposePlayerView.swift in Sources */,
 				10000000000000000000000C /* RemoteComposePlayerWindow.swift in Sources */,
@@ -286,6 +293,7 @@
 				100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */,
 				100000000000000000000018 /* NativeFrameTiming.swift in Sources */,
 				100000000000000000000019 /* NativeExecutionLimits.swift in Sources */,
+				10000000000000000000001E /* NativeCustomComponents.swift in Sources */,
 				10000000000000000000001A /* NativePlayerEvidence.swift in Sources */,
 				10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */,
 				10000000000000000000001D /* NativeComparisonHarness.swift in Sources */,

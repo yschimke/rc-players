@@ -8,6 +8,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCustomProperty
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -56,9 +58,72 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RcNativeSnapshotTest {
+  @Test
+  fun exportsResolvedCustomPropertiesAndAppliesReturnChannels() {
+    val valueId = 30
+    val textId = 31
+    val configId = 32
+    val reference = RcFloatWord(0x7fc00000 or valueId)
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcFloatConstant(valueId, RcFloatWord.literal(1f)),
+          RcTextData(textId, "Initial"),
+          RcTextData(configId, "demo:Field"),
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcCustomLayout(
+            componentId = 3,
+            animationId = 0,
+            configId = configId,
+            properties =
+              listOf(
+                RcCustomProperty.float(1, reference),
+                RcCustomProperty.floatReturn(2, reference),
+                RcCustomProperty.string(3, textId),
+                RcCustomProperty.textReturn(4, textId),
+              ),
+          ),
+          end,
+          end,
+          end,
+        ),
+      )
+    val session = RcNativeSnapshotSession(RcDocumentCodec.encode(document))
+
+    fun custom(snapshot: RcNativeDocumentSnapshot): RcNativeCustomComponentSnapshot {
+      fun find(node: RcNativeNodeSnapshot): RcNativeCustomComponentSnapshot? =
+        node.custom ?: node.children.firstNotNullOfOrNull(::find)
+      return requireNotNull(find(snapshot.root))
+    }
+
+    val initial = custom(session.snapshot())
+    assertEquals("demo:Field", initial.config)
+    assertEquals(1f, initial.properties.single { it.type == 1 }.floatValue)
+    assertEquals("Initial", initial.properties.single { it.type == 3 }.textValue)
+    assertTrue(
+      initial.properties.any { it.type == 2 && it.dataType == RcCustomProperty.FLOAT_RETURN }
+    )
+    assertTrue(
+      initial.properties.any { it.type == 4 && it.dataType == RcCustomProperty.TEXT_RETURN }
+    )
+
+    val floatUpdate = session.returnCustomFloat(3, 2, 7f)
+    assertTrue(floatUpdate.accepted)
+    assertEquals(7f, custom(floatUpdate.snapshot).properties.single { it.type == 1 }.floatValue)
+    val textUpdate = session.returnCustomText(3, 4, "Edited")
+    assertTrue(textUpdate.accepted)
+    assertEquals("Edited", custom(textUpdate.snapshot).properties.single { it.type == 3 }.textValue)
+    assertFalse(session.returnCustomText(3, 99, "Ignored").accepted)
+    assertTrue(textUpdate.snapshot.unsupportedOpcodes.isEmpty())
+  }
+
   @Test
   fun exportsOnlyRequiredNativeFrameScheduling() {
     fun snapshot(vararg operations: ee.schimke.composeai.rcplayer.protocol.RcOperation) =

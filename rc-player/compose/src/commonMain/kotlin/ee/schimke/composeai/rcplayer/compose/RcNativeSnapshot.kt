@@ -10,6 +10,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCustomProperty
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionConstraintsModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -182,6 +184,8 @@ public data class RcNativeNodeSnapshot(
   public val zIndex: Float = 0f,
   /** AndroidX visibility: 0 gone, 1 visible, 2 invisible but measured. */
   public val visibility: Int = 1,
+  /** Resolved host-extension payload when [kind] is [CUSTOM]. */
+  public val custom: RcNativeCustomComponentSnapshot? = null,
 ) {
   public companion object {
     public const val NONE: Int = -1
@@ -194,11 +198,27 @@ public data class RcNativeNodeSnapshot(
     public const val COLUMN: Int = 6
     public const val TEXT: Int = 7
     public const val IMAGE: Int = 8
+    public const val CUSTOM: Int = 9
 
     public const val CLICK: Int = 0
     public const val SINGLE_CLICK: Int = 1
   }
 }
+
+/** A resolved custom component exported for a native host-owned view registry. */
+public data class RcNativeCustomComponentSnapshot(
+  public val config: String,
+  public val properties: List<RcNativeCustomPropertySnapshot>,
+)
+
+/** One custom property resolved against the current runtime frame. */
+public data class RcNativeCustomPropertySnapshot(
+  public val type: Int,
+  public val dataType: Int,
+  public val floatValue: Float = 0f,
+  public val integerValue: Int = 0,
+  public val textValue: String? = null,
+)
 
 /** One Core Graphics-friendly command with resolved geometry and paint. */
 public data class RcNativeDrawCommand(
@@ -362,6 +382,8 @@ public constructor(bytes: ByteArray) {
       effectSink = ::recordEffect,
     )
   private val clickActions: Map<Int, List<RcClickActionBlock>> = nativeClickActions(linked)
+  private val customComponents: Map<Int, RcCustomLayout> =
+    document.operations.filterIsInstance<RcCustomLayout>().associateBy(RcCustomLayout::componentId)
 
   /**
    * Resolve one immutable frame without rebuilding the document codec, linker, or runtime state.
@@ -480,6 +502,63 @@ public constructor(bytes: ByteArray) {
         wakeAfterSeconds = wakeAfterSeconds ?: -1f,
       )
 
+  /** Write a float through a return property declared by a custom component. */
+  @Throws(IllegalArgumentException::class)
+  public fun returnCustomFloat(
+    componentId: Int,
+    propertyType: Int,
+    value: Float,
+    timeSeconds: Float = state.animationTimeSeconds,
+  ): RcNativeSessionUpdate {
+    require(value.isFinite()) { "Native custom float must be finite" }
+    requireValidNativeTime(timeSeconds)
+    pendingEvents.clear()
+    beginScheduledWork()
+    val channel =
+      customComponents[componentId]?.properties?.firstOrNull {
+        it.type == propertyType && it.dataType == RcCustomProperty.FLOAT_RETURN
+      }
+    val target = channel?.floatValue?.referencedId
+    if (target == null) return updateResult(false, timeSeconds)
+    val previousValue = state.resolve(channel.floatValue)
+    state.setFloat(target, value)
+    return try {
+      updateResult(true, timeSeconds)
+    } catch (error: IllegalArgumentException) {
+      state.setFloat(target, previousValue)
+      pendingEvents.clear()
+      throw error
+    }
+  }
+
+  /** Write text through a return property declared by a custom component. */
+  @Throws(IllegalArgumentException::class)
+  public fun returnCustomText(
+    componentId: Int,
+    propertyType: Int,
+    value: String,
+    timeSeconds: Float = state.animationTimeSeconds,
+  ): RcNativeSessionUpdate {
+    requireValidNativeTime(timeSeconds)
+    pendingEvents.clear()
+    beginScheduledWork()
+    val target =
+      customComponents[componentId]
+        ?.properties
+        ?.firstOrNull { it.type == propertyType && it.dataType == RcCustomProperty.TEXT_RETURN }
+        ?.intValue
+    if (target == null) return updateResult(false, timeSeconds)
+    val previousValue = state.text(target).orEmpty()
+    state.setText(target, value)
+    return try {
+      updateResult(true, timeSeconds)
+    } catch (error: IllegalArgumentException) {
+      state.setText(target, previousValue)
+      pendingEvents.clear()
+      throw error
+    }
+  }
+
   private fun recordEffect(effect: RcPlayerEffect) {
     when (effect) {
       RcPlayerEffect.NextFrame -> requestsNextFrame = true
@@ -540,6 +619,7 @@ private fun nativeComponentId(operation: RcOperation): Int? =
     is RcTextLayout -> operation.componentId
     is RcCoreText -> operation.componentId
     is RcImageLayout -> operation.componentId
+    is RcCustomLayout -> operation.componentId
     else -> null
   }
 
@@ -1038,6 +1118,7 @@ public object RcNativeSnapshotBridge {
           is RcTextLayout,
           is RcCoreText -> RcNativeNodeSnapshot.TEXT
           is RcImageLayout -> RcNativeNodeSnapshot.IMAGE
+          is RcCustomLayout -> RcNativeNodeSnapshot.CUSTOM
           else -> RcNativeNodeSnapshot.GROUP
         }
       if (
@@ -1282,6 +1363,7 @@ public object RcNativeSnapshotBridge {
           operation !is RcRowLayout &&
           operation !is RcColumnLayout &&
           operation !is RcStateLayout &&
+          operation !is RcCustomLayout &&
           operation !is RcImageLayout &&
           operation !is RcClickModifier &&
           operation !is RcMultiClickModifier
@@ -1445,6 +1527,53 @@ public object RcNativeSnapshotBridge {
             state.resolve(modifier.bottomEnd) / document.header.density,
           )
         } ?: 0f
+      val custom =
+        (operation as? RcCustomLayout)?.let { layout ->
+          RcNativeCustomComponentSnapshot(
+            config = state.text(layout.configId).orEmpty(),
+            properties =
+              layout.properties.map { property ->
+                when (property.dataType) {
+                  RcCustomProperty.FLOAT_PROP ->
+                    RcNativeCustomPropertySnapshot(
+                      type = property.type,
+                      dataType = property.dataType,
+                      floatValue = state.resolve(property.floatValue),
+                    )
+                  RcCustomProperty.INT_PROP,
+                  RcCustomProperty.COLOR_PROP ->
+                    RcNativeCustomPropertySnapshot(
+                      type = property.type,
+                      dataType = property.dataType,
+                      integerValue = property.intValue,
+                    )
+                  RcCustomProperty.INT_ID_PROP ->
+                    RcNativeCustomPropertySnapshot(
+                      type = property.type,
+                      dataType = property.dataType,
+                      integerValue = state.integer(property.intValue) ?: 0,
+                    )
+                  RcCustomProperty.COLOR_ID_PROP ->
+                    RcNativeCustomPropertySnapshot(
+                      type = property.type,
+                      dataType = property.dataType,
+                      integerValue = state.color(property.intValue),
+                    )
+                  RcCustomProperty.STRING_PROP ->
+                    RcNativeCustomPropertySnapshot(
+                      type = property.type,
+                      dataType = property.dataType,
+                      textValue = state.text(property.intValue).orEmpty(),
+                    )
+                  else ->
+                    RcNativeCustomPropertySnapshot(
+                      type = property.type,
+                      dataType = property.dataType,
+                    )
+                }
+              },
+          )
+        }
       val hasDrawContent =
         directOperations.filterIsInstance<RcNoArg>().any {
           it.opcode == RcOpcodes.MODIFIER_DRAW_CONTENT
@@ -1531,6 +1660,7 @@ public object RcNativeSnapshotBridge {
         offsetY = offset[1],
         zIndex = zIndex,
         visibility = visibility,
+        custom = custom,
       )
     }
 
