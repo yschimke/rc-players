@@ -919,8 +919,7 @@
       switch descriptor.elementKind {
       case .button, .checkbox, .toggle, .radioButton, .tab, .dropdownList: traits = .button
       case .image: traits = .image
-      case .picker, .carousel: traits = .adjustable
-      case .generic: traits = []
+      case .picker, .carousel, .generic: traits = []
       }
       if descriptor.isClickable { traits.insert(.button) }
       if !descriptor.isEnabled { traits.insert(.notEnabled) }
