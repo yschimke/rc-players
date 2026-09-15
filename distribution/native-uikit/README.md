@@ -5,10 +5,15 @@ the Swift sources and the exact `RcComposePlayer.xcframework` used by their temp
 bridge.
 
 Add the extracted directory as a local Swift package and select the `RcNativePlayerUIKit` product.
-The package supports iOS 13 or newer on arm64 devices and Apple-silicon simulators. It is a static,
-time-zero proof of concept and does not yet provide the full CMP player's operation, state, action,
-or animation compatibility.
+The package supports iOS 13 or newer on arm64 devices and Apple-silicon simulators. It includes
+retained state, named values and click actions, UIKit accessibility semantics, and demand-driven
+animation for the operation families declared in `PROFILE.json`. It is not a claim of full CMP
+compatibility; unlisted behavior remains outside the native profile.
 
 For normal versioned SwiftPM consumption, use the repository's bare semantic-version tag and select
 the same product. This archive is intended for pinned evaluation, CI fixtures, and consumers that
 want one downloadable bundle with no binary fetch during package resolution.
+
+`PROFILE.json` records the exact release version, source revision, platform matrix, capability
+claim, verified fixtures, default execution limits, and migration policy for this archive. Verify
+the archive and profile sidecars from the same GitHub Release before using it.

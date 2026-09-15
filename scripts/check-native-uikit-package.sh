@@ -5,6 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 archive="${1:-$repo_root/rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip}"
 checksum="$archive.sha256"
+profile="$(dirname "$archive")/RcNativePlayerUIKit.profile.json"
+profile_checksum="$profile.sha256"
 
 if [ ! -f "$archive" ]; then
   echo "expected native UIKit package archive at: $archive" >&2
@@ -22,6 +24,16 @@ fi
   shasum -a 256 -c "$(basename "$checksum")"
 )
 
+if [ ! -f "$profile" ] || [ ! -f "$profile_checksum" ]; then
+  echo "expected the versioned profile and checksum beside the native UIKit archive" >&2
+  exit 1
+fi
+(
+  cd "$(dirname "$profile")"
+  shasum -a 256 -c "$(basename "$profile_checksum")"
+)
+"$repo_root/scripts/check-native-uikit-profile.sh" "$profile"
+
 work="$(mktemp -d "${TMPDIR:-/tmp}/rc-native-player-package.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 unzip -q "$archive" -d "$work"
@@ -30,6 +42,8 @@ package="$work/RcNativePlayerUIKit"
 test -f "$package/Package.swift"
 test -f "$package/Sources/RcNativePlayerUIKit/RemoteComposeNativePlayer.swift"
 test -d "$package/Artifacts/RcComposePlayer.xcframework"
+test -f "$package/PROFILE.json"
+cmp "$profile" "$package/PROFILE.json"
 
 swift package --package-path "$package" dump-package >/dev/null
 

@@ -1,4 +1,5 @@
 import java.security.MessageDigest
+import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
   id("composeai.base-conventions")
@@ -187,11 +188,63 @@ tasks.register("rcPlayerXcframeworkChecksum") {
 // self-contained so an evaluator can extract it, add it as a local package, and resolve the Swift
 // target without a second network fetch. It carries the same XCFramework built above because the
 // POC still uses that framework for its Kotlin decoder/runtime bridge.
+val rcNativePlayerUIKitProfileTemplate = rootProject.file("distribution/native-uikit/profile.json")
+val rcNativePlayerUIKitProfileFile =
+  layout.buildDirectory.file("distributions/RcNativePlayerUIKit.profile.json")
+val rcNativePlayerUIKitProfileVersion =
+  providers.environmentVariable("PLUGIN_VERSION").orElse(project.version.toString()).get()
+val rcNativePlayerUIKitSourceRevision =
+  providers
+    .environmentVariable("RC_NATIVE_UIKIT_SOURCE_REVISION")
+    .orElse(providers.environmentVariable("GITHUB_SHA"))
+    .orElse("local")
+    .get()
+val rcNativePlayerUIKitProfile =
+  tasks.register<Copy>("rcNativePlayerUIKitProfile") {
+    description = "Materialize the release-versioned native UIKit support profile."
+    group = "distribution"
+    inputs.file(rcNativePlayerUIKitProfileTemplate)
+    inputs.property("releaseVersion", rcNativePlayerUIKitProfileVersion)
+    inputs.property("sourceRevision", rcNativePlayerUIKitSourceRevision)
+    from(rcNativePlayerUIKitProfileTemplate) {
+      rename("profile.json", "RcNativePlayerUIKit.profile.json")
+      filter<ReplaceTokens>(
+        "tokens" to
+          mapOf(
+            "VERSION" to rcNativePlayerUIKitProfileVersion,
+            "SOURCE_REVISION" to rcNativePlayerUIKitSourceRevision,
+          )
+      )
+    }
+    into(layout.buildDirectory.dir("distributions"))
+  }
+
+val rcNativePlayerUIKitProfileChecksum =
+  tasks.register("rcNativePlayerUIKitProfileChecksum") {
+    description = "Write the checksum for the release-versioned native UIKit support profile."
+    group = "distribution"
+    dependsOn(rcNativePlayerUIKitProfile)
+    val profile = rcNativePlayerUIKitProfileFile
+    val checksumFile =
+      layout.buildDirectory.file("distributions/RcNativePlayerUIKit.profile.json.sha256")
+    inputs.file(profile)
+    outputs.file(checksumFile)
+    doLast {
+      val digest = MessageDigest.getInstance("SHA-256")
+      val hex =
+        digest.digest(profile.get().asFile.readBytes()).joinToString("") { byte ->
+          "%02x".format(byte)
+        }
+      checksumFile.get().asFile.writeText("$hex  ${profile.get().asFile.name}\n")
+      logger.lifecycle("RcNativePlayerUIKit.profile.json sha256: $hex")
+    }
+  }
+
 val rcNativePlayerUIKitPackageZip =
   tasks.register<Zip>("rcNativePlayerUIKitPackageZip") {
     description = "Package the native UIKit player and its bridge as a local Swift package."
     group = "distribution"
-    dependsOn("assembleRcComposePlayerReleaseXCFramework")
+    dependsOn("assembleRcComposePlayerReleaseXCFramework", rcNativePlayerUIKitProfile)
     archiveFileName.set("RcNativePlayerUIKit.swiftpackage.zip")
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
     isPreserveFileTimestamps = false
@@ -201,6 +254,9 @@ val rcNativePlayerUIKitPackageZip =
       from(rootProject.file("distribution/native-uikit/Package.swift"))
       from(rootProject.file("distribution/native-uikit/README.md"))
       from(rootProject.file("LICENSE"))
+      from(rcNativePlayerUIKitProfileFile) {
+        rename("RcNativePlayerUIKit.profile.json", "PROFILE.json")
+      }
       into("Sources/RcNativePlayerUIKit") { from(rootProject.file("Sources/RcNativePlayerUIKit")) }
       into("Artifacts") {
         from(layout.buildDirectory.dir("XCFrameworks/release/RcComposePlayer.xcframework")) {
@@ -213,6 +269,7 @@ val rcNativePlayerUIKitPackageZip =
 tasks.register("rcNativePlayerUIKitPackageChecksum") {
   description = "Write the checksum for the downloadable native UIKit Swift package."
   group = "distribution"
+  dependsOn(rcNativePlayerUIKitProfileChecksum)
   val zip = rcNativePlayerUIKitPackageZip.flatMap { it.archiveFile }
   val checksumFile =
     layout.buildDirectory.file("distributions/RcNativePlayerUIKit.swiftpackage.zip.sha256")
