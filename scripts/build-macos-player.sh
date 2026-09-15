@@ -37,7 +37,11 @@ xcrun swiftc \
   -framework SwiftUI \
   -F "$framework_root" \
   -framework RcComposePlayer \
+  "$repo_root/Sources/RcNativePlayerUIKit/NativeCompatibility.swift" \
+  "$repo_root/Sources/RcNativePlayerUIKit/NativeExecutionLimits.swift" \
+  "$repo_root/Sources/RcNativePlayerUIKit/NativeResources.swift" \
   "$repo_root/samples/macos-player/RemoteComposeMacApp.swift" \
+  "$repo_root/samples/macos-player/NativeMacPolicy.swift" \
   "$repo_root/samples/macos-player/NativeAppKitPlayer.swift" \
   -o "$app/Contents/MacOS/RemoteComposePlayer"
 

@@ -29,6 +29,7 @@ final class DesktopPlayerModel: ObservableObject {
   @Published var documentURL: URL?
   @Published var documentData: Data?
   @Published var errorMessage: String?
+  @Published private(set) var nativeDiagnostics: RemoteComposeNativePlayerDiagnostics?
   @Published private(set) var events: [DesktopPlayerEvent] = []
 
   var renderer: DesktopRenderer {
@@ -38,6 +39,18 @@ final class DesktopPlayerModel: ObservableObject {
     }
     set {
       UserDefaults.standard.set(newValue.rawValue, forKey: "renderer")
+      objectWillChange.send()
+    }
+  }
+
+  var nativeCompatibility: NativeMacCompatibility {
+    get {
+      NativeMacCompatibility(
+        rawValue: UserDefaults.standard.string(forKey: "nativeCompatibility") ?? "compatible")
+        ?? .compatible
+    }
+    set {
+      UserDefaults.standard.set(newValue.rawValue, forKey: "nativeCompatibility")
       objectWillChange.send()
     }
   }
@@ -76,6 +89,7 @@ final class DesktopPlayerModel: ObservableObject {
     do {
       switch renderer {
       case .compose:
+        nativeDiagnostics = nil
         let bytes = RcDataBridgeKt.rcByteArray(data: documentData)
         RcComposeWindowKt.RcComposeWindow(
           bytes: bytes,
@@ -97,12 +111,19 @@ final class DesktopPlayerModel: ObservableObject {
           lenient: true)
       case .native:
         try NativeAppKitWindowController.shared.open(
-          data: documentData, title: title,
+          data: documentData, title: title, compatibility: nativeCompatibility,
           onEvent: { [weak self] summary in
             self?.record(renderer: .native, documentTitle: title, summary: summary)
           },
+          onDiagnostics: { [weak self] diagnostics in
+            self?.nativeDiagnostics = diagnostics
+          },
           onError: { [weak self] message in self?.errorMessage = message })
       }
+    } catch RemoteComposeNativePlayerError.incompatible(let diagnostics) {
+      nativeDiagnostics = diagnostics
+      errorMessage =
+        "Strict native policy refused \(title): \(diagnostics.issues.count) known difference(s)."
     } catch {
       errorMessage = "Could not render \(title): \(error.localizedDescription)"
     }
@@ -189,6 +210,47 @@ struct DesktopPlayerView: View {
           Text(model.renderer.detail)
             .font(.caption)
             .foregroundStyle(.secondary)
+          Divider()
+          Picker("Native policy", selection: nativeCompatibilityBinding) {
+            ForEach(NativeMacCompatibility.allCases) { policy in
+              Text(policy.title).tag(policy)
+            }
+          }
+          .pickerStyle(.segmented)
+          Text(model.nativeCompatibility.detail)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(8)
+      }
+
+      GroupBox("Native compatibility & safety") {
+        VStack(alignment: .leading, spacing: 6) {
+          if let diagnostics = model.nativeDiagnostics {
+            Label(
+              diagnostics.isPartial
+                ? "\(diagnostics.issues.count) known rendering difference(s)"
+                : "Frame is inside the current AppKit compatibility profile",
+              systemImage: diagnostics.isPartial
+                ? "exclamationmark.triangle.fill" : "checkmark.shield.fill"
+            )
+            .foregroundStyle(diagnostics.isPartial ? .orange : .green)
+            ForEach(Array(diagnostics.issues.prefix(4).enumerated()), id: \.offset) { _, issue in
+              Text("Component \(issue.componentID): \(issue.reason)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            }
+          } else {
+            Label(
+              "Native frames are checked before AppKit creates or updates views",
+              systemImage: "shield.lefthalf.filled"
+            )
+            .foregroundStyle(.secondary)
+          }
+          Text("16 MiB document · 20,000 nodes · depth 256 · 200,000 frame work units")
+            .font(.caption2.monospaced())
+            .foregroundStyle(.tertiary)
         }
         .padding(8)
       }
@@ -245,7 +307,7 @@ struct DesktopPlayerView: View {
       }
     }
     .padding(28)
-    .frame(minWidth: 560, idealWidth: 620, minHeight: 500)
+    .frame(minWidth: 560, idealWidth: 620, minHeight: 650)
     .onDrop(of: ["public.file-url"], isTargeted: nil) { providers in
       guard let provider = providers.first else { return false }
       provider.loadDataRepresentation(forTypeIdentifier: "public.file-url") { data, _ in
@@ -258,6 +320,10 @@ struct DesktopPlayerView: View {
 
   private var rendererBinding: Binding<DesktopRenderer> {
     Binding(get: { model.renderer }, set: { model.renderer = $0 })
+  }
+
+  private var nativeCompatibilityBinding: Binding<NativeMacCompatibility> {
+    Binding(get: { model.nativeCompatibility }, set: { model.nativeCompatibility = $0 })
   }
 }
 
@@ -272,6 +338,12 @@ struct DesktopPlayerSettingsView: View {
       Text(model.renderer.detail)
         .font(.caption)
         .foregroundStyle(.secondary)
+      Picker("Native compatibility", selection: nativeCompatibilityBinding) {
+        ForEach(NativeMacCompatibility.allCases) { Text($0.title).tag($0) }
+      }
+      Text(model.nativeCompatibility.detail)
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
     .padding(24)
     .frame(width: 440)
@@ -279,6 +351,10 @@ struct DesktopPlayerSettingsView: View {
 
   private var rendererBinding: Binding<DesktopRenderer> {
     Binding(get: { model.renderer }, set: { model.renderer = $0 })
+  }
+
+  private var nativeCompatibilityBinding: Binding<NativeMacCompatibility> {
+    Binding(get: { model.nativeCompatibility }, set: { model.nativeCompatibility = $0 })
   }
 }
 
@@ -292,7 +368,7 @@ final class RemoteComposeMacAppDelegate: NSObject, NSApplicationDelegate {
     let controller = NSHostingController(rootView: DesktopPlayerView(model: model))
     mainWindow = NSWindow(contentViewController: controller)
     mainWindow.title = "Remote Compose Player"
-    mainWindow.setContentSize(NSSize(width: 620, height: 520))
+    mainWindow.setContentSize(NSSize(width: 620, height: 680))
     mainWindow.center()
     mainWindow.makeKeyAndOrderFront(nil)
     configureMenu()
@@ -397,9 +473,42 @@ struct RemoteComposeMacApplication {
       print("native event mapping action + metadata")
       return
     }
+    if CommandLine.arguments.count == 2,
+      CommandLine.arguments[1] == "--validate-native-safety-policy"
+    {
+      do {
+        try NativeMacPolicy.validateDocument(Data())
+        let oversized = Data(count: NativeMacPolicy.executionLimits.maximumDocumentBytes + 1)
+        do {
+          try NativeMacPolicy.validateDocument(oversized)
+          throw DesktopValidationError("oversized document was accepted")
+        } catch is RemoteComposeNativeLimitError {
+          // Expected hard failure in compatible and strict modes.
+        }
+        let issue = RemoteComposeNativePlayerDiagnostic(
+          severity: .unsupported, opcode: 19, operationName: "image", componentID: 1,
+          reason: "test")
+        let diagnostics = RemoteComposeNativePlayerDiagnostics(
+          issues: [issue], unsupportedOpcodes: [19], notes: [])
+        guard
+          RemoteComposeNativeCompatibilityDecision.shouldRender(
+            policy: .compatible, diagnostics: diagnostics),
+          !RemoteComposeNativeCompatibilityDecision.shouldRender(
+            policy: .strict, diagnostics: diagnostics)
+        else { throw DesktopValidationError("compatibility decision was incorrect") }
+        print("native safety policy document-limit + compatible + strict")
+        return
+      } catch {
+        FileHandle.standardError.write(Data("native safety policy failed: \(error)\n".utf8))
+        exit(1)
+      }
+    }
     if CommandLine.arguments.count == 3,
-      ["--validate-native", "--validate-native-animation", "--validate-native-click-events"]
-        .contains(CommandLine.arguments[1])
+      [
+        "--validate-native", "--validate-native-animation", "--validate-native-click-events",
+        "--validate-native-policy",
+      ]
+      .contains(CommandLine.arguments[1])
     {
       do {
         let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
@@ -407,6 +516,21 @@ struct RemoteComposeMacApplication {
           bytes: RcDataBridgeKt.rcByteArray(data: data))
         let snapshot = try session.snapshot(timeSeconds: 0)
         switch CommandLine.arguments[1] {
+        case "--validate-native-policy":
+          let compatible = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
+          do {
+            _ = try NativeMacPolicy.evaluate(snapshot, compatibility: .strict)
+            guard !compatible.diagnostics.isPartial else {
+              throw DesktopValidationError("strict accepted a partial snapshot")
+            }
+          } catch RemoteComposeNativePlayerError.incompatible {
+            guard compatible.diagnostics.isPartial else {
+              throw DesktopValidationError("strict rejected a compatible snapshot")
+            }
+          }
+          print(
+            "native policy issues=\(compatible.diagnostics.issues.count), unsupported=\(compatible.diagnostics.unsupportedOpcodes.count)"
+          )
         case "--validate-native-animation":
           guard
             snapshot.needsContinuousFrames || snapshot.requestsNextFrame

@@ -24,8 +24,10 @@ rm -f "$archive" "$archive.sha256"
 codesign --verify --deep --strict "$app"
 test "$(lipo -archs "$executable")" = "arm64"
 "$executable" --validate-native "$smoke_document"
+"$executable" --validate-native-policy "$smoke_document"
 "$executable" --validate-native-animation "$animation_document"
 "$executable" --validate-native-scheduling-policy
 "$executable" --validate-native-events
+"$executable" --validate-native-safety-policy
 unzip -tq "$archive"
 echo "$archive"
