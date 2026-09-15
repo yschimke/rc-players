@@ -107,6 +107,7 @@
     private var retainedSessionEpoch: UInt64 = 0
     private var isApplicationActive = true
     private var needsForegroundRender = false
+    private var isRenderingDocument = false
     private var needsRetry = false
     private var retainedSession: NativeSnapshotSessionHandle?
     private var retainedSessionData: Data?
@@ -199,6 +200,7 @@
       }
       needsRetry = false
       needsForegroundRender = false
+      isRenderingDocument = true
       loadTask?.cancel()
       inputTail = nil
       loadGeneration &+= 1
@@ -392,6 +394,7 @@
 
     private func install(_ model: NativeDocument, resources: NativeResourceStore) throws {
       try resources.activateFonts(replacing: retainedResources)
+      isRenderingDocument = false
       if documentView?.update(document: model, resources: resources) != true {
         let nextView = NativeDocumentView(
           document: model,
@@ -407,6 +410,7 @@
     }
 
     private func show(error: Error) {
+      isRenderingDocument = false
       needsRetry = true
       errorLabel.text = error.localizedDescription
       errorLabel.isHidden = false
@@ -479,14 +483,12 @@
 
     @objc private func applicationDidEnterBackground() {
       isApplicationActive = false
-      if pendingWork == .documentLoad { needsForegroundRender = true }
+      needsForegroundRender = isRenderingDocument && documentData != nil
+      isRenderingDocument = false
       loadTask?.cancel()
-      inputTail = nil
       loadTask = nil
       pendingWork = nil
       loadGeneration &+= 1
-      inputGeneration &+= 1
-      sessionEpoch &+= 1
     }
 
     @objc private func applicationDidBecomeActive() {
