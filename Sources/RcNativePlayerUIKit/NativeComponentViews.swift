@@ -1,5 +1,6 @@
 #if canImport(UIKit)
   import CoreText
+  import RcNativePlayerCore
   import UIKit
 
   struct NativeDocument {

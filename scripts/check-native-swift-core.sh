@@ -9,7 +9,7 @@ mkdir -p "$work/module-cache"
 CLANG_MODULE_CACHE_PATH="$work/module-cache" \
 SWIFT_MODULECACHE_PATH="$work/module-cache" \
 xcrun swiftc \
-  "$repo_root/Sources/RcNativePlayerUIKit/NativeSwiftCore.swift" \
+  "$repo_root/Sources/RcNativePlayerCore/NativeSwiftCore.swift" \
   "$repo_root/Tests/RcNativePlayerUIKitTests/NativeSwiftCoreTests.swift" \
   -o "$work/native-swift-core-tests"
 fixture="$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/editable-text.rc"

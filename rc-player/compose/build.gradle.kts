@@ -256,6 +256,7 @@ val rcNativePlayerUIKitPackageZip =
       from(rcNativePlayerUIKitProfileFile) {
         rename("RcNativePlayerUIKit.profile.json", "PROFILE.json")
       }
+      into("Sources/RcNativePlayerCore") { from(rootProject.file("Sources/RcNativePlayerCore")) }
       into("Sources/RcNativePlayerUIKit") { from(rootProject.file("Sources/RcNativePlayerUIKit")) }
     }
   }

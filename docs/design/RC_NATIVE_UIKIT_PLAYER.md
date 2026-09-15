@@ -53,7 +53,7 @@ either form remains inside the native view tree and can write through declared r
   haptics.
 - Text on paths, inline link spans, font variation axes, or exact CMP text metrics.
 - Replacing, deprecating, or internally modifying `RcComposePlayer`.
-- Native AppKit rendering.
+- A stabilized reusable AppKit API; the macOS sample currently consumes the shared core directly.
 
 ## Why this is a separate player
 
@@ -125,7 +125,7 @@ compatible or strict policy; the player does not silently claim compatibility.
 
 | Concern | Location | Responsibility |
 |---|---|---|
-| Swift decode and state | `NativeSwiftCore.swift` | Bounded wire reads, immutable parsed tree, retained document values, snapshot resolution |
+| Swift decode and state | `Sources/RcNativePlayerCore/NativeSwiftCore.swift` | Bounded wire reads, immutable parsed tree, retained document values, snapshot resolution shared by UIKit and AppKit |
 | Session isolation | `NativeSession.swift` | Own the Swift runtime in an actor and serialize state updates |
 | Swift package product | `RcNativePlayerUIKit` in `Package.swift` | Ship the native source beside existing products |
 | Public UIKit API | `RemoteComposeNativePlayer.swift` | View/controller lifecycle, replacement, errors, diagnostics |
@@ -134,7 +134,9 @@ compatible or strict policy; the player does not silently claim compatibility.
 | Executable host | `samples/apple-player` | Toggle CMP/native against identical `.rc` bytes |
 
 The native source product has no dependency on either CMP product. The repository still publishes
-those products independently, and the sample can link both to provide an explicit renderer switch.
+those products independently, and the samples can link both to provide an explicit renderer switch.
+The macOS app builds its native branch from `RcNativePlayerCore` and AppKit; only its independently
+selectable CMP branch links the XCFramework.
 
 ### Data flow
 

@@ -158,10 +158,15 @@ assert distribution == {
 source_checks = {
     "Package.swift": [
         "platforms: [.iOS(.v13), .macOS(.v12)]",
+        '.library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"])',
         '.library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"])',
-        '.target(name: "RcNativePlayerUIKit")',
+        '.target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore"])',
     ],
-    "distribution/native-uikit/Package.swift": ["platforms: [.iOS(.v13)]"],
+    "distribution/native-uikit/Package.swift": [
+        "platforms: [.iOS(.v13), .macOS(.v12)]",
+        '.library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"])',
+        '.target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore"])',
+    ],
 }
 for relative, fragments in source_checks.items():
     source = (repo / relative).read_text()

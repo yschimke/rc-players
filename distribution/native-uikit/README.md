@@ -5,7 +5,9 @@ retained state, component hierarchy, layout, and drawing are pure Swift, with no
 binary-target dependency. The separate CMP product remains available from the repository package.
 
 Add the extracted directory as a local Swift package and select the `RcNativePlayerUIKit` product.
-The package supports iOS 13 or newer on arm64 devices and Apple-silicon simulators. It includes
+Hosts that only need the renderer-neutral decoder and retained session may select
+`RcNativePlayerCore`; that product supports iOS 13 and macOS 12 or newer. The UIKit product supports
+iOS 13 or newer on arm64 devices and Apple-silicon simulators. It includes
 retained state, named values and click actions, UIKit accessibility semantics, and demand-driven
 animation for the operation families declared in `PROFILE.json`. It is not a claim of full CMP
 compatibility; unlisted behavior remains outside the native profile.

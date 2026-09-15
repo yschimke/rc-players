@@ -3,11 +3,13 @@ import PackageDescription
 
 let package = Package(
   name: "RcNativePlayerUIKit",
-  platforms: [.iOS(.v13)],
+  platforms: [.iOS(.v13), .macOS(.v12)],
   products: [
+    .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
     .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
   ],
   targets: [
-    .target(name: "RcNativePlayerUIKit"),
+    .target(name: "RcNativePlayerCore"),
+    .target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore"]),
   ]
 )

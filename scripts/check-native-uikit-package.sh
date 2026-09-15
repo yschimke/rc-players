@@ -43,6 +43,7 @@ export CLANG_MODULE_CACHE_PATH="$work/module-cache"
 export SWIFT_MODULECACHE_PATH="$work/module-cache"
 
 test -f "$package/Package.swift"
+test -f "$package/Sources/RcNativePlayerCore/NativeSwiftCore.swift"
 test -f "$package/Sources/RcNativePlayerUIKit/RemoteComposeNativePlayer.swift"
 test ! -e "$package/Artifacts"
 if rg -n 'RcComposePlayer|Kotlin' "$package/Package.swift" "$package/Sources"; then

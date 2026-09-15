@@ -36,6 +36,7 @@ let package = Package(
   products: [
     .library(name: "RcComposePlayer", targets: ["RcComposePlayer"]),
     .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"]),
+    .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
     .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
   ],
   targets: [
@@ -49,6 +50,7 @@ let package = Package(
       checksum: "0000000000000000000000000000000000000000000000000000000000000000"
     ),
     .target(name: "RcComposePlayerSwiftUI", dependencies: ["RcComposePlayer"]),
-    .target(name: "RcNativePlayerUIKit"),
+    .target(name: "RcNativePlayerCore"),
+    .target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore"]),
   ]
 )
