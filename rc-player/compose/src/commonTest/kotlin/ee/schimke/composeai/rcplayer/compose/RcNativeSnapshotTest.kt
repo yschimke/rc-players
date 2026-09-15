@@ -47,6 +47,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.RcVisibilityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
@@ -1180,6 +1181,96 @@ class RcNativeSnapshotTest {
 
     val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
     assertEquals(30f, commands(snapshot.root).single().third)
+  }
+
+  @Test
+  fun settlesCurrentFrameSizeExpressionBeforePublishingSiblingGeometry() {
+    val reference: (Int) -> RcFloatWord = { RcFloatWord(0x7fc00000 or it) }
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcRootLayout(-2),
+          RcLayoutContent(-3),
+          RcRowLayout(-4, 0, 1, 4, RcFloatWord.literal(0f)),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)),
+          RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(40f)),
+          RcLayoutContent(-5),
+          RcCanvasLayout(-6, 0),
+          RcLayoutContent(-7),
+          RcComponentValue(RcComponentValue.WIDTH, componentId = -8, valueId = 42),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            reference(42),
+            RcFloatWord.literal(10f),
+          ),
+          end,
+          end,
+          RcCanvasLayout(-8, 0),
+          RcFloatExpression(50, listOf(RcFloatWord.literal(30f)), null),
+          RcWidthModifier(RcDimensionType.EXACT, reference(50)),
+          end,
+          end,
+          end,
+          end,
+          end,
+        ),
+      )
+
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+    assertEquals(30f, commands(snapshot.root).single().third)
+  }
+
+  @Test
+  fun goneFixedSiblingDoesNotReduceWeightedAllocation() {
+    val reference = RcFloatWord(0x7fc00000 or 42)
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcIntegerConstant(20, 16),
+          RcRootLayout(-2),
+          RcLayoutContent(-3),
+          RcRowLayout(-4, 0, 1, 4, RcFloatWord.literal(0f)),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)),
+          RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(40f)),
+          RcLayoutContent(-5),
+          RcCanvasLayout(-6, 0),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(50f)),
+          RcVisibilityModifier(20),
+          end,
+          RcCanvasLayout(-7, 0),
+          RcWidthModifier(RcDimensionType.WEIGHT, RcFloatWord.literal(1f)),
+          RcLayoutContent(-8),
+          RcComponentValue(RcComponentValue.WIDTH, componentId = -7, valueId = 42),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            reference,
+            RcFloatWord.literal(10f),
+          ),
+          end,
+          end,
+          end,
+          end,
+          end,
+          end,
+        ),
+      )
+
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+    assertEquals(100f, commands(snapshot.root).single().third)
   }
 
   @Test

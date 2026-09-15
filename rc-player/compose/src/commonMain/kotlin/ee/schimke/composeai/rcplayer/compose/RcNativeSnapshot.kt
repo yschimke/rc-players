@@ -788,6 +788,14 @@ public object RcNativeSnapshotBridge {
       val childWidth = measuredWidth?.let { maxOf(it - padding[0] - padding[2], 0f) }
       val childHeight = measuredHeight?.let { maxOf(it - padding[1] - padding[3], 0f) }
       val childContainers = container.children.filterIsInstance<RcLinkedNode.Container>()
+      val visibleChildren = childContainers.map { child ->
+        child.children
+          .filterIsInstance<RcLinkedNode.Operation>()
+          .map { it.operation }
+          .filterIsInstance<RcVisibilityModifier>()
+          .lastOrNull()
+          ?.let { nativeVisibility(state.integer(it.visibilityId) ?: 0) != 0 } ?: true
+      }
       val linearAllocations = linearContentHorizontal?.let { horizontal ->
         val available = if (horizontal) childWidth else childHeight
         val dimensions = childContainers.map { child ->
@@ -796,26 +804,31 @@ public object RcNativeSnapshotBridge {
             .map { it.operation }
             .firstOrNull { if (horizontal) it is RcWidthModifier else it is RcHeightModifier }
         }
-        val supported = dimensions.all { dimension ->
-          val type =
-            when (dimension) {
-              is RcWidthModifier -> dimension.type
-              is RcHeightModifier -> dimension.type
-              else -> -1
+        val supported =
+          dimensions.indices
+            .filter { visibleChildren[it] }
+            .all { index ->
+              val dimension = dimensions[index]
+              val type =
+                when (dimension) {
+                  is RcWidthModifier -> dimension.type
+                  is RcHeightModifier -> dimension.type
+                  else -> -1
+                }
+              dimension == null ||
+                type == RcDimensionType.WEIGHT ||
+                type == RcDimensionType.EXACT ||
+                type == RcDimensionType.EXACT_DP ||
+                type == RcDimensionType.FILL ||
+                type == RcDimensionType.WRAP ||
+                type == RcDimensionType.FILL_PARENT_MAX_WIDTH ||
+                type == RcDimensionType.FILL_PARENT_MAX_HEIGHT
             }
-          dimension == null ||
-            type == RcDimensionType.WEIGHT ||
-            type == RcDimensionType.EXACT ||
-            type == RcDimensionType.EXACT_DP ||
-            type == RcDimensionType.FILL ||
-            type == RcDimensionType.WRAP ||
-            type == RcDimensionType.FILL_PARENT_MAX_WIDTH ||
-            type == RcDimensionType.FILL_PARENT_MAX_HEIGHT
-        }
         if (available == null || !supported) {
           null
         } else {
-          val weights = dimensions.map { dimension ->
+          val weights = dimensions.mapIndexed { index, dimension ->
+            if (!visibleChildren[index]) return@mapIndexed null
             when (dimension) {
               is RcWidthModifier ->
                 dimension.value.takeIf { dimension.type == RcDimensionType.WEIGHT }
@@ -920,6 +933,7 @@ public object RcNativeSnapshotBridge {
           val fixed =
             dimensions.indices
               .sumOf { index ->
+                if (!visibleChildren[index]) return@sumOf 0.0
                 val dimension = dimensions[index]
                 val weight = weights[index]
                 if (weight != null) 0.0 else constrainedFixedSize(index, dimension).toDouble()
@@ -928,6 +942,7 @@ public object RcNativeSnapshotBridge {
           val normalizedWeights = weights.map { it?.coerceAtLeast(Float.MIN_VALUE) }
           val totalWeight = normalizedWeights.filterNotNull().sum()
           dimensions.indices.map { index ->
+            if (!visibleChildren[index]) return@map null
             val weight = normalizedWeights[index]
             if (weight != null && totalWeight > 0f) {
               maxOf(available - fixed, 0f) * weight / totalWeight
@@ -1444,6 +1459,24 @@ public object RcNativeSnapshotBridge {
         visibility = visibility,
       )
     }
+
+    // Dimension modifiers may reference float expressions declared inside a later component. Settle
+    // only those value-producing operations first; drawing and other stateful commands still run
+    // exactly once during materialization below.
+    fun settleGeometryExpressions(nodes: List<RcLinkedNode>) {
+      nodes.forEach { node ->
+        when (node) {
+          is RcLinkedNode.Operation -> {
+            val operation = node.operation
+            if (operation is RcFloatExpression) {
+              state.applyFloatExpression(operation)
+            }
+          }
+          is RcLinkedNode.Container -> settleGeometryExpressions(node.children)
+        }
+      }
+    }
+    settleGeometryExpressions(linked.operations)
 
     // Publish the complete component geometry tree before resolving any commands. A command may
     // reference a later sibling's ComponentValue, so a single depth-first materialization can
