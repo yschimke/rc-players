@@ -71,7 +71,9 @@ jobs:
               rc-player/runtime \
               rc-player/compose \
               samples/apple-player \
+              samples/macos-player \
               scripts/build-apple-player.sh \
+              scripts/build-macos-player.sh \
               scripts/check-apple-player-screenshot.sh \
               scripts/check-native-uikit-accessibility.sh \
               scripts/check-native-uikit-accessibility-ui.sh \
@@ -91,6 +93,7 @@ jobs:
               scripts/check-native-uikit-text.sh \
               scripts/check-swift-sample.sh \
               scripts/package-apple-player.sh \
+              scripts/package-macos-player.sh \
               scripts/render-native-uikit-lane.sh \
               scripts/set-apple-player-package-version.sh \
               scripts/update-package-swift.sh \
@@ -360,7 +363,9 @@ jobs:
       # and source overlay always describe the same current API.
       - name: Build and package the Apple player app
         if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/package-apple-player.sh
+        run: |
+          scripts/package-apple-player.sh
+          scripts/package-macos-player.sh
 
       - name: Measure native UIKit performance and footprint
         if: needs.apple-changes.outputs.required == 'true'

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+configuration="${RC_MACOS_PLAYER_CONFIGURATION:-release}"
+version="${RC_MACOS_PLAYER_VERSION:-${PLUGIN_VERSION:-0.0.0}}"
+build_root="${RC_MACOS_PLAYER_BUILD_DIR:-$repo_root/build/macos-player}"
+framework_root="$repo_root/rc-player/compose/build/XCFrameworks/release/RcComposePlayer.xcframework/macos-arm64"
+framework="$framework_root/RcComposePlayer.framework"
+app="$build_root/Remote Compose Player.app"
+
+if [ ! -d "$framework" ]; then
+  echo "expected a locally assembled macOS framework at: $framework" >&2
+  echo "build it with ./gradlew :rc-player-compose:assembleRcComposePlayerReleaseXCFramework --max-workers=1" >&2
+  exit 1
+fi
+
+case "$configuration" in
+  release) optimization=(-O -whole-module-optimization) ;;
+  debug) optimization=(-Onone -g) ;;
+  *) echo "unsupported RC_MACOS_PLAYER_CONFIGURATION: $configuration" >&2; exit 1 ;;
+esac
+
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+mkdir -p "$build_root/module-cache"
+cp "$repo_root/samples/macos-player/Info.plist" "$app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app/Contents/Info.plist"
+
+CLANG_MODULE_CACHE_PATH="$build_root/module-cache" \
+SWIFT_MODULECACHE_PATH="$build_root/module-cache" \
+xcrun swiftc \
+  -parse-as-library \
+  -target arm64-apple-macos12.0 \
+  "${optimization[@]}" \
+  -framework AppKit \
+  -framework SwiftUI \
+  -F "$framework_root" \
+  -framework RcComposePlayer \
+  "$repo_root/samples/macos-player/RemoteComposeMacApp.swift" \
+  "$repo_root/samples/macos-player/NativeAppKitPlayer.swift" \
+  -o "$app/Contents/MacOS/RemoteComposePlayer"
+
+codesign --force --deep --sign - "$app"
+echo "$app"

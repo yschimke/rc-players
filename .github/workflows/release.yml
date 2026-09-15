@@ -268,6 +268,8 @@ jobs:
             --max-workers=1
       - name: Validate the native UIKit release package
         run: scripts/check-native-uikit-package.sh
+      - name: Build the downloadable macOS player
+        run: scripts/package-macos-player.sh
       - name: Attest the Apple release artifacts
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -275,7 +277,8 @@ jobs:
             rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip
             rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip
             rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json
-      - name: Upload the Apple libraries to the Release
+            build/distributions/RemoteComposePlayer-macOS-arm64.zip
+      - name: Upload the Apple artifacts to the Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -287,6 +290,8 @@ jobs:
             rc-player/compose/build/distributions/RcNativePlayerUIKit.swiftpackage.zip.sha256 \
             rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json \
             rc-player/compose/build/distributions/RcNativePlayerUIKit.profile.json.sha256 \
+            build/distributions/RemoteComposePlayer-macOS-arm64.zip \
+            build/distributions/RemoteComposePlayer-macOS-arm64.zip.sha256 \
             --clobber
 
       # The bare `X.Y.Z` tag is the whole deliverable — it is the only thing a Swift consumer
