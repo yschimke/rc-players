@@ -59,7 +59,7 @@
   "verifiedFixtures": [
     {
       "id": "TitleCardRemote-640x480",
-      "coverage": ["layout", "native-text", "canvas-paint", "simulator-pixels", "accessibility"]
+      "coverage": ["layout", "native-text", "canvas-paint", "simulator-pixels"]
     },
     {
       "id": "IndeterminateCircularProgress-400x400",
