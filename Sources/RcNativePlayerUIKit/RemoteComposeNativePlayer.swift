@@ -359,13 +359,13 @@
         isApplicationActive, retainedSessionEpoch == sessionEpoch,
         let retainedSession
       else { return false }
+      serializedInputCount += 1
+      defer { finishSerializedInput() }
       if let pendingFrame = loadTask { await pendingFrame.value }
       guard
         isApplicationActive, retainedSessionEpoch == sessionEpoch,
         self.retainedSession === retainedSession, let retainedResources
       else { return false }
-      serializedInputCount += 1
-      defer { finishSerializedInput() }
       let epoch = sessionEpoch
       let lifecycle = lifecycleGeneration
       let time = currentFrameTime

@@ -654,6 +654,7 @@ public object RcNativeSnapshotBridge {
       container: RcLinkedNode.Container,
       inheritedWidth: Float? = null,
       inheritedHeight: Float? = null,
+      linearContentHorizontal: Boolean? = null,
     ): RcNativeNodeSnapshot {
       val operation = container.operation
       val directOperations =
@@ -671,6 +672,7 @@ public object RcNativeSnapshotBridge {
               RcDimensionType.EXACT -> state.resolve(modifier.value)
               RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
               RcDimensionType.FILL -> inherited
+              RcDimensionType.WEIGHT -> inherited
               RcDimensionType.FILL_PARENT_MAX_WIDTH ->
                 inherited?.times(fillFraction(modifier.value))
               else -> null
@@ -680,6 +682,7 @@ public object RcNativeSnapshotBridge {
               RcDimensionType.EXACT -> state.resolve(modifier.value)
               RcDimensionType.EXACT_DP -> state.resolve(modifier.value) / document.header.density
               RcDimensionType.FILL -> inherited
+              RcDimensionType.WEIGHT -> inherited
               RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
                 inherited?.times(fillFraction(modifier.value))
               else -> null
@@ -783,6 +786,75 @@ public object RcNativeSnapshotBridge {
         }
       val childWidth = measuredWidth?.let { maxOf(it - padding[0] - padding[2], 0f) }
       val childHeight = measuredHeight?.let { maxOf(it - padding[1] - padding[3], 0f) }
+      val childContainers = container.children.filterIsInstance<RcLinkedNode.Container>()
+      val linearAllocations = linearContentHorizontal?.let { horizontal ->
+        val available = if (horizontal) childWidth else childHeight
+        val dimensions = childContainers.map { child ->
+          child.children
+            .filterIsInstance<RcLinkedNode.Operation>()
+            .map { it.operation }
+            .firstOrNull { if (horizontal) it is RcWidthModifier else it is RcHeightModifier }
+        }
+        val supported = dimensions.all { dimension ->
+          val type =
+            when (dimension) {
+              is RcWidthModifier -> dimension.type
+              is RcHeightModifier -> dimension.type
+              else -> -1
+            }
+          type == RcDimensionType.WEIGHT ||
+            type == RcDimensionType.EXACT ||
+            type == RcDimensionType.EXACT_DP
+        }
+        if (available == null || !supported) {
+          null
+        } else {
+          val weights = dimensions.map { dimension ->
+            when (dimension) {
+              is RcWidthModifier ->
+                dimension.value.takeIf { dimension.type == RcDimensionType.WEIGHT }
+              is RcHeightModifier ->
+                dimension.value.takeIf { dimension.type == RcDimensionType.WEIGHT }
+              else -> null
+            }?.let(state::resolve)
+          }
+          val fixed =
+            dimensions
+              .zip(weights)
+              .sumOf { (dimension, weight) ->
+                if (weight != null) 0.0
+                else {
+                  val value =
+                    when (dimension) {
+                      is RcWidthModifier -> state.resolve(dimension.value)
+                      is RcHeightModifier -> state.resolve(dimension.value)
+                      else -> 0f
+                    }
+                  val type =
+                    when (dimension) {
+                      is RcWidthModifier -> dimension.type
+                      is RcHeightModifier -> dimension.type
+                      else -> RcDimensionType.EXACT
+                    }
+                  (value / if (type == RcDimensionType.EXACT_DP) document.header.density else 1f)
+                    .toDouble()
+                }
+              }
+              .toFloat()
+          val totalWeight = weights.filterNotNull().sum()
+          dimensions.zip(weights).map { (dimension, weight) ->
+            if (weight != null && totalWeight > 0f) {
+              maxOf(available - fixed, 0f) * maxOf(weight, Float.MIN_VALUE) / totalWeight
+            } else {
+              when (dimension) {
+                is RcWidthModifier -> state.resolve(dimension.value)
+                is RcHeightModifier -> state.resolve(dimension.value)
+                else -> 0f
+              }
+            }
+          }
+        }
+      }
       val accessibilityModifiers =
         container.children
           .filterIsInstance<RcLinkedNode.Operation>()
@@ -1051,6 +1123,7 @@ public object RcNativeSnapshotBridge {
         diagnostics.unsupported(operation, componentId)
       }
       val children = mutableListOf<RcNativeNodeSnapshot>()
+      var childContainerIndex = 0
       clickModifiers.forEach { modifier ->
         val multi = modifier.operation as? RcMultiClickModifier
         if (multi != null && multi.type != RcMultiClickType.SINGLE) {
@@ -1084,6 +1157,12 @@ public object RcNativeSnapshotBridge {
               bitmaps,
             )
           is RcLinkedNode.Container -> {
+            val linearAllocation = linearAllocations?.get(childContainerIndex)
+            childContainerIndex++
+            val allocatedChildWidth =
+              if (linearContentHorizontal == true) linearAllocation else childWidth
+            val allocatedChildHeight =
+              if (linearContentHorizontal == false) linearAllocation else childHeight
             if (operation is RcStateLayout && child.operation is RcLayoutContent) {
               val contentComponentId = (child.operation as RcLayoutContent).componentId
               val contentVisibilityModifier =
@@ -1129,7 +1208,18 @@ public object RcNativeSnapshotBridge {
                 }
               }
             } else {
-              children += nodeFor(child, childWidth, childHeight)
+              children +=
+                nodeFor(
+                  child,
+                  allocatedChildWidth,
+                  allocatedChildHeight,
+                  linearContentHorizontal =
+                    when (operation) {
+                      is RcRowLayout -> true
+                      is RcColumnLayout -> false
+                      else -> null
+                    },
+                )
             }
           }
         }
