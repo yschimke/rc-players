@@ -707,7 +707,9 @@ public object RcNativeSnapshotBridge {
       var maximumHeight = -1f
       fun mergeRange(horizontal: Boolean, minimum: Float, maximum: Float) {
         val scaledMinimum = if (minimum == -1f) -1f else minimum / document.header.density
-        val scaledMaximum = if (maximum == -1f) -1f else maximum / document.header.density
+        val scaledMaximum =
+          if (maximum == -1f || maximum == Float.MAX_VALUE) -1f
+          else maximum / document.header.density
         if (horizontal) {
           if (scaledMinimum != -1f) minimumWidth = maxOf(minimumWidth, scaledMinimum)
           if (scaledMaximum != -1f) {

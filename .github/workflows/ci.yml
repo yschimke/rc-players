@@ -81,6 +81,7 @@ jobs:
               scripts/check-native-uikit-frame-timing.sh \
               scripts/check-native-uikit-graphics.sh \
               scripts/check-native-uikit-layout.sh \
+              scripts/measure-native-uikit-simulator.sh \
               scripts/check-native-uikit-package.sh \
               scripts/check-native-uikit-profile.sh \
               scripts/check-native-uikit-resources.sh \
@@ -357,6 +358,10 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/package-apple-player.sh
 
+      - name: Measure native UIKit performance and footprint
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/measure-native-uikit-simulator.sh
+
       # Launches the packaged app on a real simulator and checks captured pixels for the white
       # title-card canvas, its dark content band, and the coloured host background. This covers the
       # Metal/Skiko presentation path that Kotlin/Native tests and a Swift type check cannot enter.
@@ -382,6 +387,7 @@ jobs:
             build/native-uikit-accessibility.png
             build/native-uikit-animation-a.png
             build/native-uikit-animation-b.png
+            build/native-uikit-evidence.json
           if-no-files-found: ignore
           retention-days: 7
 
