@@ -40,7 +40,8 @@
   ],
   "interaction": {
     "hostNamedValues": ["float", "string", "color"],
-    "clickActions": ["single"],
+    "clickActions": ["single", "long", "double"],
+    "pointerActions": ["down", "up", "cancel"],
     "semanticRoles": ["button"]
   },
   "verifiedFixtures": [

@@ -21,6 +21,7 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let children: [NativeSwiftNodeSnapshot]
   public let commands: [NativeSwiftDrawCommandSnapshot]
   public let isClickable: Bool
+  public let supportedGestures: [NativeSwiftGestureKind]
   public let accessibility: NativeSwiftAccessibilitySnapshot?
   public let widthType: Int
   public let widthValue: Float
@@ -68,6 +69,29 @@ public struct NativeSwiftPathElementSnapshot: Sendable {
 
 public enum NativeSwiftEvent: Equatable, Sendable {
   case namedAction(name: String, value: NativeSwiftActionValue)
+}
+
+public enum NativeSwiftGestureKind: Int, CaseIterable, Equatable, Sendable {
+  case tap
+  case longPress
+  case doubleTap
+  case touchDown
+  case touchUp
+  case touchCancel
+}
+
+public struct NativeSwiftPointerSample: Equatable, Sendable {
+  public let x: Float
+  public let y: Float
+  public let velocityX: Float
+  public let velocityY: Float
+
+  public init(x: Float, y: Float, velocityX: Float = 0, velocityY: Float = 0) {
+    self.x = x
+    self.y = y
+    self.velocityX = velocityX
+    self.velocityY = velocityY
+  }
 }
 
 public enum NativeSwiftActionValue: Equatable, Sendable {
@@ -171,11 +195,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
+    try gesture(.tap, componentID: componentID, sample: nil, timeSeconds: timeSeconds)
+  }
+
+  public func gesture(
+    _ kind: NativeSwiftGestureKind, componentID: Int,
+    sample: NativeSwiftPointerSample? = nil, timeSeconds: TimeInterval
+  ) throws -> [NativeSwiftEvent]? {
     guard let node = document.nodes[componentID], node.isClickable,
-      node.accessibility?.isEnabled != false
+      node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
     let values = try resolvedFloats(timeSeconds: timeSeconds)
-    return node.actions.compactMap { action in
+    return actions.compactMap { action in
       guard let name = texts[action.nameTextID] else { return nil }
       let value: NativeSwiftActionValue
       switch action.valueType {
@@ -288,6 +319,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       children: try node.children.map { try resolve($0, values: values) },
       commands: try node.commands.map { try $0.resolve(values: values, colors: colors) },
       isClickable: node.isClickable,
+      supportedGestures: node.actions.keys.sorted { $0.rawValue < $1.rawValue },
       accessibility: node.accessibility.map {
         NativeSwiftAccessibilitySnapshot(
           role: $0.role, mode: $0.mode,
@@ -415,6 +447,11 @@ private struct ParsedNamedAction {
   let valueID: Int
 }
 
+private struct ParsedModifierContainer {
+  let node: ParsedNode?
+  let gesture: NativeSwiftGestureKind?
+}
+
 private struct ParsedAccessibility {
   let contentDescriptionID: Int
   let role: Int
@@ -528,7 +565,7 @@ private final class ParsedNode {
   var children: [ParsedNode] = []
   var commands: [ParsedDrawCommand] = []
   var isClickable = false
-  var actions: [ParsedNamedAction] = []
+  var actions: [NativeSwiftGestureKind: [ParsedNamedAction]] = [:]
   var accessibility: ParsedAccessibility?
   var widthType = 2
   var widthValue: Float = 0
@@ -756,7 +793,7 @@ private enum NativeSwiftDocumentDecoder {
     var root: ParsedNode?
     var operationCount = 0
     var expressionWordCount = 0
-    var modifierContainers: [ParsedNode?] = []
+    var modifierContainers: [ParsedModifierContainer] = []
     var paint = ParsedPaint()
 
     func begin(_ node: ParsedNode) throws {
@@ -803,7 +840,25 @@ private enum NativeSwiftDocumentDecoder {
       case 59:  // Click modifier encloses its action operations.
         let node = try currentNode(stack, input: input)
         node.isClickable = true
-        modifierContainers.append(node)
+        modifierContainers.append(ParsedModifierContainer(node: node, gesture: .tap))
+      case 83:  // Multi-click modifier.
+        let node = try currentNode(stack, input: input)
+        let raw = try input.int("multi-click type")
+        let gesture: NativeSwiftGestureKind
+        switch raw {
+        case 0: gesture = .tap
+        case 1: gesture = .longPress
+        case 2: gesture = .doubleTap
+        default: throw input.malformed("Unknown multi-click type \(raw)")
+        }
+        node.isClickable = true
+        modifierContainers.append(ParsedModifierContainer(node: node, gesture: gesture))
+      case 219, 220, 225:  // Pointer lifecycle action containers.
+        let node = try currentNode(stack, input: input)
+        let gesture: NativeSwiftGestureKind =
+          opcode == 219 ? .touchDown : (opcode == 220 ? .touchUp : .touchCancel)
+        node.isClickable = true
+        modifierContainers.append(ParsedModifierContainer(node: node, gesture: gesture))
       case 130:  // Matrix save
         try currentNode(stack, input: input).commands.append(
           ParsedDrawCommand(kind: 0, words: [], paint: paint))
@@ -811,7 +866,7 @@ private enum NativeSwiftDocumentDecoder {
         try currentNode(stack, input: input).commands.append(
           ParsedDrawCommand(kind: 1, words: [], paint: paint))
       case 173:  // Canvas operations container
-        modifierContainers.append(nil)
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
       case 139, 174:  // Marker/modifier operations without payload
         break
       case 16:  // Width
@@ -992,10 +1047,13 @@ private enum NativeSwiftDocumentDecoder {
           nameTextID: try input.int("host action name text id"),
           valueType: try input.int("host action value type"),
           valueID: try input.int("host action value id"))
-        guard let target = modifierContainers.reversed().compactMap({ $0 }).first else {
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else {
           throw input.malformed("Host named action is outside a click modifier")
         }
-        target.actions.append(action)
+        target.actions[gesture, default: []].append(action)
       case 214:  // Container end
         if !modifierContainers.isEmpty {
           modifierContainers.removeLast()

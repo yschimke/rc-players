@@ -172,6 +172,7 @@
     let accessibilityMode: NativeAccessibilityMode
     let hasAccessibilitySemantics: Bool
     let clickActionTypes: [Int]
+    let gestureTypes: [NativeSwiftGestureKind]
     let widthType: Int
     let widthValue: CGFloat
     let heightType: Int
@@ -208,7 +209,7 @@
         + (snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? [])
       children = snapshot.children.map { NativeNode(swiftSnapshot: $0) }
       semanticRole = snapshot.accessibility?.role ?? (snapshot.isClickable ? 0 : -1)
-      isClickable = snapshot.accessibility?.isClickable ?? snapshot.isClickable
+      isClickable = snapshot.isClickable || snapshot.accessibility?.isClickable == true
       isEnabled = snapshot.accessibility?.isEnabled ?? true
       accessibilityLabel = snapshot.accessibility?.contentDescription
       accessibilityText = snapshot.accessibility?.text ?? snapshot.text?.value
@@ -216,7 +217,8 @@
       accessibilityMode =
         snapshot.accessibility.flatMap { NativeAccessibilityMode(rawValue: $0.mode) } ?? .set
       hasAccessibilitySemantics = snapshot.accessibility != nil
-      clickActionTypes = snapshot.isClickable && isEnabled ? [0] : []
+      clickActionTypes = isEnabled ? snapshot.supportedGestures.map(\.rawValue) : []
+      gestureTypes = snapshot.supportedGestures
       widthType = snapshot.widthType
       widthValue = CGFloat(snapshot.widthValue)
       heightType = snapshot.heightType
@@ -463,7 +465,7 @@
       document: NativeDocument,
       resources: NativeResourceStore,
       customComponents: RemoteComposeNativeCustomComponentRegistry,
-      onClick: @escaping (Int) -> Void,
+      onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void,
       onCustomReturn: @escaping (Int, Int, NativeCustomReturnValue) -> Void
     ) {
       self.document = document
@@ -475,7 +477,7 @@
         images: resources.images,
         fontNames: resources.fontNames,
         customComponents: customComponents,
-        onClick: onClick,
+        onGesture: onGesture,
         onCustomReturn: onCustomReturn)
       super.init(frame: .zero)
       isOpaque = false
@@ -541,7 +543,7 @@
   /// One UIView per Remote Compose component, with a deliberately small frame-based implementation
   /// of Box, Row, and Column. Structural content wrappers remain visible in the UIKit hierarchy but
   /// are transparent to layout.
-  final class NativeComponentView: UIView {
+  final class NativeComponentView: UIView, UIGestureRecognizerDelegate {
     private var node: NativeNode
     private var canvasView: NativeCanvasView?
     private var textLabels: [NativeTextLabel]
@@ -549,7 +551,7 @@
     private var customView: NativeCustomComponentView?
     private var componentChildren: [NativeComponentView]
     private var semanticView: UIView?
-    private let onClick: (Int) -> Void
+    private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
     var documentScale: CGFloat = 1 {
       didSet {
         guard documentScale != oldValue else { return }
@@ -571,11 +573,11 @@
       images: [Int: UIImage],
       fontNames: [Int: String],
       customComponents: RemoteComposeNativeCustomComponentRegistry,
-      onClick: @escaping (Int) -> Void,
+      onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void,
       onCustomReturn: @escaping (Int, Int, NativeCustomReturnValue) -> Void
     ) {
       self.node = node
-      self.onClick = onClick
+      self.onGesture = onGesture
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
       let drawingCommands = node.commands.filter {
@@ -609,10 +611,10 @@
       componentChildren = node.children.map {
         NativeComponentView(
           node: $0, images: images, fontNames: fontNames,
-          customComponents: customComponents, onClick: onClick,
+          customComponents: customComponents, onGesture: onGesture,
           onCustomReturn: onCustomReturn)
       }
-      semanticView = Self.makeSemanticView(for: node, onClick: onClick)
+      semanticView = Self.makeSemanticView(for: node, onGesture: onGesture)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = node.backgroundColor ?? .clear
@@ -627,11 +629,92 @@
       if let customView { addSubview(customView) }
       componentChildren.forEach(addSubview)
       componentChildren.forEach { $0.layer.zPosition = $0.node.zIndex }
+      installGestureRecognizers()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    private func installGestureRecognizers() {
+      var doubleTapRecognizer: UITapGestureRecognizer?
+      if node.gestureTypes.contains(.doubleTap) {
+        let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+        recognizer.numberOfTapsRequired = 2
+        recognizer.delegate = self
+        addGestureRecognizer(recognizer)
+        doubleTapRecognizer = recognizer
+      }
+      if node.gestureTypes.contains(.tap) {
+        let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        recognizer.delegate = self
+        if let doubleTapRecognizer { recognizer.require(toFail: doubleTapRecognizer) }
+        addGestureRecognizer(recognizer)
+      }
+      if node.gestureTypes.contains(.longPress) {
+        let recognizer = UILongPressGestureRecognizer(
+          target: self, action: #selector(handleLongPress(_:)))
+        recognizer.delegate = self
+        addGestureRecognizer(recognizer)
+      }
+      let pointerGestures: Set<NativeSwiftGestureKind> = [.touchDown, .touchUp, .touchCancel]
+      if node.gestureTypes.contains(where: pointerGestures.contains) {
+        let recognizer = UILongPressGestureRecognizer(
+          target: self, action: #selector(handlePointerLifecycle(_:)))
+        recognizer.minimumPressDuration = 0
+        recognizer.allowableMovement = .greatestFiniteMagnitude
+        recognizer.delegate = self
+        addGestureRecognizer(recognizer)
+      }
+    }
+
+    @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
+      guard recognizer.state == .recognized else { return }
+      onGesture(node.componentID, .tap, pointerSample(recognizer))
+    }
+
+    func gestureRecognizer(
+      _ gestureRecognizer: UIGestureRecognizer,
+      shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+      true
+    }
+
+    @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
+      guard recognizer.state == .began else { return }
+      onGesture(node.componentID, .longPress, pointerSample(recognizer))
+    }
+
+    @objc private func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+      guard recognizer.state == .recognized else { return }
+      onGesture(node.componentID, .doubleTap, pointerSample(recognizer))
+    }
+
+    @objc private func handlePointerLifecycle(_ recognizer: UILongPressGestureRecognizer) {
+      let sample = pointerSample(recognizer)
+      switch recognizer.state {
+      case .began:
+        if node.gestureTypes.contains(.touchDown) {
+          onGesture(node.componentID, .touchDown, sample)
+        }
+      case .ended:
+        if node.gestureTypes.contains(.touchUp) { onGesture(node.componentID, .touchUp, sample) }
+      case .cancelled, .failed:
+        if node.gestureTypes.contains(.touchCancel) {
+          onGesture(node.componentID, .touchCancel, sample)
+        }
+      default: break
+      }
+    }
+
+    private func pointerSample(
+      _ recognizer: UIGestureRecognizer, velocity: CGPoint = .zero
+    ) -> NativeSwiftPointerSample {
+      let point = recognizer.location(in: self)
+      return NativeSwiftPointerSample(
+        x: Float(point.x), y: Float(point.y), velocityX: Float(velocity.x),
+        velocityY: Float(velocity.y))
     }
 
     func canUpdate(
@@ -643,6 +726,7 @@
       let local = Self.localContent(for: next, images: images)
       guard
         (canvasView != nil) == !local.drawing.isEmpty,
+        node.gestureTypes == next.gestureTypes,
         textLabels.count == local.text.count,
         imageViews.count == local.images.count,
         node.custom?.config == next.custom?.config,
@@ -753,8 +837,12 @@
       {
         return hit
       }
-      guard isInside, let semanticView else { return nil }
-      return semanticView.hitTest(convert(point, to: semanticView), with: event)
+      if isInside, let semanticView,
+        let hit = semanticView.hitTest(convert(point, to: semanticView), with: event)
+      {
+        return hit
+      }
+      return isInside && !node.gestureTypes.isEmpty ? self : nil
     }
 
     override func layoutSubviews() {
@@ -1003,7 +1091,7 @@
 
     private static func makeSemanticView(
       for node: NativeNode,
-      onClick: @escaping (Int) -> Void
+      onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
     ) -> UIView? {
       guard let behavior = node.semanticBehavior else { return nil }
       let descriptor = behavior.descriptor
@@ -1017,24 +1105,25 @@
           componentID: behavior.componentID,
           kind: descriptor.elementKind)
       }
-      configureSemanticView(view, node: node, behavior: behavior, onClick: onClick)
+      configureSemanticView(view, node: node, behavior: behavior, onGesture: onGesture)
       return view
     }
 
     private func updateSemanticView(_ view: UIView?, from node: NativeNode) {
       guard let view, let behavior = node.semanticBehavior else { return }
-      Self.configureSemanticView(view, node: node, behavior: behavior, onClick: onClick)
+      Self.configureSemanticView(view, node: node, behavior: behavior, onGesture: onGesture)
     }
 
     private static func configureSemanticView(
       _ view: UIView,
       node: NativeNode,
       behavior: NativeSemanticBehavior,
-      onClick: @escaping (Int) -> Void
+      onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
     ) {
       let descriptor = behavior.descriptor
       let action =
-        descriptor.isEnabled && !behavior.clickActionTypes.isEmpty ? onClick : nil
+        descriptor.isEnabled && behavior.clickActionTypes.contains(NativeSwiftGestureKind.tap.rawValue)
+        ? { componentID in onGesture(componentID, .tap, nil) } : nil
       if let activating = view as? any NativeSemanticActivating {
         activating.componentID = behavior.componentID
         activating.action = action
@@ -1042,8 +1131,7 @@
       if let control = view as? UIControl { control.isEnabled = descriptor.isEnabled }
       view.backgroundColor = .clear
       // Semantic-only elements remain in the accessibility tree without swallowing pointer input.
-      view.isUserInteractionEnabled =
-        descriptor.isEnabled && action != nil && behavior.acceptsPointerAction
+      view.isUserInteractionEnabled = false
       let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
       let label = descriptor.resolvedLabel(descendantLabels: mergedLabels)
       let traits = accessibilityTraits(for: descriptor)

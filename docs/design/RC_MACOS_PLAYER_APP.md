@@ -125,8 +125,8 @@ need Control-click → Open on first launch.
 
 ## Next increments
 
-1. Add long press, drag, scroll, and raw pointer expressions to the shared session and both native
-   event adapters.
+1. Add drag, scroll, and raw pointer expressions to the shared session and both native event
+   adapters; single, long, double, and pointer-lifecycle actions are already shared.
 2. Fill the remaining layout, drawing, font, and complex-text operation families.
 3. Add image resources and the Image Button comparison fixture.
 4. Add deterministic macOS CMP/native comparison captures and accessibility assertions.
