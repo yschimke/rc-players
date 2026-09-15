@@ -796,4 +796,19 @@ class RcDocumentCodecTest {
 
     assertTrue(failure.message.orEmpty().contains("exceeds 1 operations"))
   }
+
+  @Test
+  fun operationBodyBudgetIsSharedAcrossExpansions() {
+    val writer = RcWireWriter()
+    RcDocumentCodec.encodeOperation(writer, RcSkip(0, 0, 0))
+    val budget = RcOperationBudget(maximum = 1)
+
+    RcDocumentCodec.decodeOperations(writer.toByteArray(), operationBudget = budget)
+    val failure =
+      assertFailsWith<RcWireException> {
+        RcDocumentCodec.decodeOperations(writer.toByteArray(), operationBudget = budget)
+      }
+
+    assertTrue(failure.message.orEmpty().contains("exceeds 1 operations"))
+  }
 }

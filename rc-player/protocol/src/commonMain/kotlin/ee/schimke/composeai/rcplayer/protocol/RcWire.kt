@@ -230,8 +230,51 @@ public data class RcWireLimits(
   val maxPathWords: Int = 20_000,
   val maxCollectionEntries: Int = 2_000,
   val maxImageDimension: Int = 8_192,
-  val maxOperations: Int = 100_000,
-)
+) {
+  /** Decoder work ceiling kept outside the primary constructor to preserve its published ABI. */
+  public var maxOperations: Int = 100_000
+    private set
+
+  public constructor(
+    maxDocumentBytes: Int = 16 * 1024 * 1024,
+    maxBlobBytes: Int = 8 * 1024 * 1024,
+    maxStringBytes: Int = 4_000,
+    maxTableEntries: Int = 1_000,
+    maxPaintWords: Int = 1_024,
+    maxPathWords: Int = 20_000,
+    maxCollectionEntries: Int = 2_000,
+    maxImageDimension: Int = 8_192,
+    maxOperations: Int,
+  ) : this(
+    maxDocumentBytes,
+    maxBlobBytes,
+    maxStringBytes,
+    maxTableEntries,
+    maxPaintWords,
+    maxPathWords,
+    maxCollectionEntries,
+    maxImageDimension,
+  ) {
+    this.maxOperations = maxOperations
+  }
+}
+
+/** A shared decoder-work allowance for related operation bodies such as macro expansions. */
+public class RcOperationBudget(public val maximum: Int = 100_000) {
+  private var consumed: Int = 0
+
+  internal fun consume(byteOffset: Int, opcode: Int, context: String) {
+    consumed += 1
+    if (consumed > maximum) {
+      throw RcWireException(
+        byteOffset,
+        opcode,
+        fieldName = "opcode",
+        message = "$context exceeds $maximum operations",
+      )
+    }
+  }
+}
 
 /** AndroidX document profile bits consumed by conditional [RcSkip] operations. */
 public object RcWireProfiles {

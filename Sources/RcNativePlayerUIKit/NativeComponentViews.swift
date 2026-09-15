@@ -51,9 +51,13 @@
         try budget.recordNode(depth: current.depth, limits: limits)
         let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
         let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
+        let widthValue =
+          node.widthValue.isNaN && [1, 7, 8].contains(Int(node.widthType)) ? 0 : node.widthValue
+        let heightValue =
+          node.heightValue.isNaN && [1, 7, 8].contains(Int(node.heightType)) ? 0 : node.heightValue
         try budget.validateNumbers(
           [
-            Double(node.widthValue), Double(node.heightValue), Double(node.minimumWidth),
+            Double(widthValue), Double(heightValue), Double(node.minimumWidth),
             Double(node.minimumHeight), Double(maximumWidth), Double(maximumHeight),
             Double(node.paddingTop), Double(node.paddingLeft), Double(node.paddingBottom),
             Double(node.paddingRight), Double(node.cornerRadius), Double(node.spacing),
@@ -61,7 +65,7 @@
           ], componentID: Int(node.componentId), field: "layout", limits: limits)
         try budget.validateCanvasDimensions(
           [
-            abs(Double(node.widthValue)), abs(Double(node.heightValue)),
+            abs(Double(widthValue)), abs(Double(heightValue)),
             abs(Double(node.minimumWidth)), abs(Double(node.minimumHeight)),
             abs(Double(maximumWidth)), abs(Double(maximumHeight)),
           ], limits: limits)
@@ -71,11 +75,20 @@
             pathElementCount: command.path.count, additionalWork: gradientWork,
             text: command.text, limits: limits)
           let style = command.textStyle
+          var commandGeometry = [
+            command.first, command.second, command.third, command.fourth, command.fifth,
+            command.sixth,
+          ]
+          if Int(command.kind) == 3 {
+            if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
+            if commandGeometry[3].isNaN { commandGeometry[3] = 0 }
+          } else if Int(command.kind) == 4 {
+            if commandGeometry[1].isNaN { commandGeometry[1] = 0 }
+            if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
+          }
           try budget.validateNumbers(
-            [
-              command.first, command.second, command.third, command.fourth, command.fifth,
-              command.sixth,
-            ].map(Double.init), componentID: Int(node.componentId), field: "draw geometry",
+            commandGeometry.map(Double.init), componentID: Int(node.componentId),
+            field: "draw geometry",
             limits: limits)
           try budget.validateFinite(
             [
@@ -102,10 +115,12 @@
             let destinationHeight = image.destinationBottom - image.destinationTop
             try budget.validateNumbers(
               [
-                image.sourceLeft, image.sourceTop, sourceWidth, sourceHeight,
-                image.destinationLeft, image.destinationTop, destinationWidth, destinationHeight,
-                image.scaleFactor,
+                image.sourceLeft, image.sourceTop, image.sourceRight, image.sourceBottom,
+                image.destinationLeft, image.destinationTop, image.destinationRight,
+                image.destinationBottom,
               ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits)
+            try budget.validateFinite(
+              [Double(image.scaleFactor)], componentID: Int(node.componentId), field: "image scale")
             try budget.validateCanvasDimensions(
               [
                 abs(Double(sourceWidth)), abs(Double(sourceHeight)),
