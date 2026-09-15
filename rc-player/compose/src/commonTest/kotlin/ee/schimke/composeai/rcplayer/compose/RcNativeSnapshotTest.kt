@@ -143,6 +143,31 @@ class RcNativeSnapshotTest {
   }
 
   @Test
+  fun clickActionsObserveTheRequestedFrameTime() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcTextData(30, "clock"),
+          RcRootLayout(7),
+          RcClickModifier,
+          RcHostNamedAction(
+            30,
+            RcHostNamedActionValue.FloatValue(RcSystemVariables.ANIMATION_TIME),
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val session = RcNativeSnapshotSession(RcDocumentCodec.encode(document))
+
+    val click = session.click(componentId = 7, timeSeconds = 2.5f)
+
+    assertTrue(click.accepted)
+    assertEquals(2.5f, click.events.single().floatValue)
+  }
+
+  @Test
   fun decodesStaticCanvasCommandsIntoAComponentTree() {
     val document =
       RcDocument(
