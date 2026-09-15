@@ -1,6 +1,5 @@
 #if canImport(UIKit)
   import Foundation
-  import RcComposePlayer
   import UIKit
 
   @MainActor
@@ -23,8 +22,8 @@
 
   /// A UIKit-native Remote Compose player proof of concept.
   ///
-  /// The Kotlin framework currently decodes the wire format into an immutable snapshot. Everything
-  /// from this type down is Swift and UIKit: lifecycle, component hierarchy, layout, and drawing.
+  /// The wire decoder, retained state, lifecycle, component hierarchy, layout, and drawing are all
+  /// implemented in Swift with UIKit, CoreGraphics, and CoreText.
   @MainActor
   public final class RemoteComposeNativePlayerViewController: UIViewController {
     public private(set) var playerView: RemoteComposeNativePlayerView

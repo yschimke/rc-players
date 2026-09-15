@@ -38,10 +38,17 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/rc-native-player-package.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 unzip -q "$archive" -d "$work"
 package="$work/RcNativePlayerUIKit"
+mkdir -p "$work/module-cache"
+export CLANG_MODULE_CACHE_PATH="$work/module-cache"
+export SWIFT_MODULECACHE_PATH="$work/module-cache"
 
 test -f "$package/Package.swift"
 test -f "$package/Sources/RcNativePlayerUIKit/RemoteComposeNativePlayer.swift"
-test -d "$package/Artifacts/RcComposePlayer.xcframework"
+test ! -e "$package/Artifacts"
+if rg -n 'RcComposePlayer|Kotlin' "$package/Package.swift" "$package/Sources"; then
+  echo "native UIKit release package still references the Kotlin/CMP implementation" >&2
+  exit 1
+fi
 test -f "$package/PROFILE.json"
 cmp "$profile" "$package/PROFILE.json"
 

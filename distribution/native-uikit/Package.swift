@@ -8,7 +8,6 @@ let package = Package(
     .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
   ],
   targets: [
-    .binaryTarget(name: "RcComposePlayer", path: "Artifacts/RcComposePlayer.xcframework"),
-    .target(name: "RcNativePlayerUIKit", dependencies: ["RcComposePlayer"]),
+    .target(name: "RcNativePlayerUIKit"),
   ]
 )

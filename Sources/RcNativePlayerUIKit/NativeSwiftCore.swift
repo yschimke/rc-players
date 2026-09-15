@@ -2,7 +2,7 @@ import Foundation
 
 /// Immutable, platform-neutral output from the Swift wire/runtime path.
 ///
-/// Keeping this model free of UIKit and Kotlin objects lets decoding and document state remain
+/// Keeping this model free of UIKit and foreign-runtime objects lets decoding and document state remain
 /// actor-isolated while the final UIView model is materialized on the main actor.
 struct NativeSwiftDocumentSnapshot: Sendable {
   let width: Int
@@ -12,7 +12,7 @@ struct NativeSwiftDocumentSnapshot: Sendable {
 
 struct NativeSwiftNodeSnapshot: Sendable {
   enum Kind: Sendable {
-    case root, content, column, text, custom
+    case root, content, box, row, column, text, custom
   }
 
   let kind: Kind
@@ -23,6 +23,8 @@ struct NativeSwiftNodeSnapshot: Sendable {
   let heightType: Int
   let heightValue: Float
   let padding: NativeSwiftInsets
+  let minimumHeight: Float
+  let cornerRadius: Float
   let backgroundARGB: UInt32?
   let horizontalPositioning: Int
   let verticalPositioning: Int
@@ -183,6 +185,8 @@ final class NativeSwiftDocumentSession: @unchecked Sendable {
       heightType: node.heightType,
       heightValue: node.heightValue,
       padding: node.padding,
+      minimumHeight: node.minimumHeight,
+      cornerRadius: node.cornerRadius,
       backgroundARGB: node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
@@ -210,6 +214,8 @@ private final class ParsedNode {
   var heightType = 2
   var heightValue: Float = 0
   var padding = NativeSwiftInsets()
+  var minimumHeight: Float = 0
+  var cornerRadius: Float = 0
   var backgroundARGB: UInt32?
   var horizontalPositioning = 1
   var verticalPositioning = 4
@@ -258,17 +264,59 @@ private enum NativeSwiftDocumentDecoder {
     guard try input.u8("header opcode") == 0 else {
       throw input.malformed("Document must begin with a header")
     }
-    let major = try input.int("major version")
-    guard major < 0x10000 else {
-      throw NativeSwiftCoreError.unsupported(
-        opcode: 0, offset: 1, reason: "modern header maps are not decoded in Swift yet")
-    }
+    let encodedMajor = try input.int("major version")
     _ = try input.int("minor version")
     _ = try input.int("patch version")
-    let width = try input.int("width")
-    let height = try input.int("height")
-    _ = try input.int("capabilities high word")
-    _ = try input.int("capabilities low word")
+    let major: Int
+    let width: Int
+    let height: Int
+    if encodedMajor < 0x10000 {
+      major = encodedMajor
+      width = try input.int("width")
+      height = try input.int("height")
+      _ = try input.int("capabilities high word")
+      _ = try input.int("capabilities low word")
+    } else {
+      guard encodedMajor & ~0xffff == 0x048c_0000 else {
+        throw input.malformed("Invalid modern header magic")
+      }
+      major = encodedMajor & 0xffff
+      let count = try input.count("header property count", maximum: maximumProperties)
+      var modernWidth: Int?
+      var modernHeight: Int?
+      for index in 0..<count {
+        let tag = try input.u16("header property \(index) tag")
+        let length = Int(try input.u16("header property \(index) length"))
+        let type = Int(tag >> 10)
+        let key = Int(tag & 0x3f)
+        switch type {
+        case 0:
+          guard length == 4 else { throw input.malformed("Invalid integer header property length") }
+          let value = try input.int("header property \(index)")
+          if key == 5 { modernWidth = value }
+          if key == 6 { modernHeight = value }
+        case 1:
+          guard length == 4 else { throw input.malformed("Invalid float header property length") }
+          _ = try input.int("header property \(index)")
+        case 2:
+          guard length == 8 else { throw input.malformed("Invalid long header property length") }
+          _ = try input.int("header property \(index) high word")
+          _ = try input.int("header property \(index) low word")
+        case 3:
+          guard length >= 4 else { throw input.malformed("Invalid string header property length") }
+          let value = try input.utf8("header property \(index)", maximum: maximumStringBytes)
+          guard value.utf8.count + 4 == length else {
+            throw input.malformed("Invalid string header property length")
+          }
+        default: throw input.malformed("Unknown header property type \(type)")
+        }
+      }
+      guard let modernWidth, let modernHeight else {
+        throw input.malformed("Modern header has no document dimensions")
+      }
+      width = modernWidth
+      height = modernHeight
+    }
     guard major >= 0, width > 0, height > 0 else {
       throw input.malformed("Header dimensions and version must be positive")
     }
@@ -279,6 +327,7 @@ private enum NativeSwiftDocumentDecoder {
     var stack: [ParsedNode] = []
     var root: ParsedNode?
     var operationCount = 0
+    var modifierContainerDepth = 0
 
     func begin(_ node: ParsedNode) throws {
       guard nodes.count < maximumNodes else {
@@ -309,6 +358,25 @@ private enum NativeSwiftDocumentDecoder {
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
       switch opcode {
+      case 40:  // Paint data; retain a solid referenced color as a native approximation.
+        let count = try input.count("paint word count", maximum: 1_024)
+        var words: [Int] = []
+        words.reserveCapacity(count)
+        for _ in 0..<count { words.append(try input.int("paint word")) }
+        if let node = stack.reversed().first(where: { $0.kind != .content }),
+          let colorID = words.first(where: { colors[$0] != nil })
+        {
+          node.backgroundARGB = colors[colorID]
+        }
+      case 54:  // Rounded clip rectangle
+        let node = try currentNode(stack, input: input)
+        var radius: Float = 0
+        for _ in 0..<4 { radius = max(radius, try input.literalFloat("corner radius")) }
+        node.cornerRadius = radius
+      case 59:  // Click modifier encloses its action operations.
+        modifierContainerDepth += 1
+      case 139, 173, 174:  // Marker/modifier operations without payload
+        break
       case 16:  // Width
         let node = try currentNode(stack, input: input)
         node.widthType = try input.dimensionType("width type")
@@ -344,6 +412,12 @@ private enum NativeSwiftDocumentDecoder {
         let node = try currentNode(stack, input: input)
         node.heightType = try input.dimensionType("height type")
         node.heightValue = try input.literalFloat("height")
+      case 81:  // Float expression; retain parsing until dynamic evaluation is migrated.
+        _ = try input.int("float expression id")
+        let lengths = try input.int("float expression lengths")
+        let count = (lengths & 0xffff) + ((lengths >> 16) & 0xffff)
+        guard count <= 65_567 else { throw input.malformed("Float expression is too long") }
+        for _ in 0..<count { _ = try input.int("float expression word") }
       case 93:  // Custom
         let id = try input.int("custom component id")
         _ = try input.int("custom animation id")
@@ -379,10 +453,37 @@ private enum NativeSwiftDocumentDecoder {
         texts[id] = try input.utf8("text", maximum: maximumStringBytes)
       case 138:  // Color constant
         colors[try input.int("color id")] = UInt32(bitPattern: Int32(try input.int("color")))
+      case 123:  // Path data; bounded now, drawing support is a separate operation family.
+        _ = try input.int("path id and winding")
+        let count = try input.count("path word count", maximum: 20_000)
+        for _ in 0..<count { _ = try input.int("path word") }
+      case 124:
+        _ = try input.int("path id")
+      case 137:  // Named variable
+        _ = try input.int("named variable id")
+        _ = try input.int("named variable type")
+        _ = try input.utf8("named variable name", maximum: maximumStringBytes)
+      case 150:  // Component value binding
+        _ = try input.int("component value type")
+        _ = try input.int("component value component id")
+        _ = try input.int("component value id")
       case 200:  // Root
         try begin(ParsedNode(kind: .root, componentID: try input.int("root component id")))
       case 201:  // Content
         try begin(ParsedNode(kind: .content, componentID: try input.int("content component id")))
+      case 202:  // Box
+        let node = ParsedNode(kind: .box, componentID: try input.int("box component id"))
+        _ = try input.int("box animation id")
+        node.horizontalPositioning = try input.int("box horizontal positioning")
+        node.verticalPositioning = try input.int("box vertical positioning")
+        try begin(node)
+      case 203:  // Row
+        let node = ParsedNode(kind: .row, componentID: try input.int("row component id"))
+        _ = try input.int("row animation id")
+        node.horizontalPositioning = try input.int("row horizontal positioning")
+        node.verticalPositioning = try input.int("row vertical positioning")
+        node.spacing = try input.floatWord("row spacing", requireLiteral: false)
+        try begin(node)
       case 204:  // Column
         let node = ParsedNode(kind: .column, componentID: try input.int("column component id"))
         _ = try input.int("column animation id")
@@ -415,9 +516,66 @@ private enum NativeSwiftDocumentDecoder {
           familyID: familyID, alignment: alignmentAndFlags & 0xffff, overflow: overflow,
           maximumLines: maximumLines)
         try begin(node)
+      case 210:  // Host named action
+        _ = try input.int("host action name text id")
+        _ = try input.int("host action value type")
+        _ = try input.int("host action value id")
       case 214:  // Container end
-        guard !stack.isEmpty else { throw input.malformed("Unmatched container end") }
-        stack.removeLast()
+        if modifierContainerDepth > 0 {
+          modifierContainerDepth -= 1
+        } else {
+          // Modern AndroidX documents carry a final document-level terminator after the root.
+          if stack.isEmpty, input.isAtEnd { break }
+          guard !stack.isEmpty else { throw input.malformed("Unmatched container end") }
+          stack.removeLast()
+        }
+      case 232:  // Minimum/maximum height
+        let node = try currentNode(stack, input: input)
+        node.minimumHeight = try input.floatWord("minimum height", requireLiteral: false)
+        _ = try input.floatWord("maximum height", requireLiteral: false)
+      case 239:  // CoreText
+        let textID = try input.int("core text id")
+        let propertyCount = Int(try input.u16("core text property count"))
+        guard propertyCount <= 26 else { throw input.malformed("Too many CoreText properties") }
+        var integers: [Int: Int] = [:]
+        var floats: [Int: Float] = [:]
+        for _ in 0..<propertyCount {
+          let id = try input.u8("core text property id")
+          if [1, 2, 3, 4, 6, 8, 9, 10, 11, 15, 16, 17, 23, 24].contains(id) {
+            integers[id] = try input.int("core text integer")
+          } else if [5, 7, 12, 13, 14, 25, 26].contains(id) {
+            floats[id] = try input.floatWord("core text float", requireLiteral: false)
+          } else if [18, 19, 22].contains(id) {
+            _ = try input.u8("core text boolean")
+          } else if id == 20 || id == 21 {
+            let count = Int(try input.u16("core text array count"))
+            guard count <= maximumProperties else {
+              throw input.malformed("CoreText array is too long")
+            }
+            for _ in 0..<count { _ = try input.int("core text array value") }
+          } else {
+            throw input.malformed("Unknown CoreText property \(id)")
+          }
+        }
+        let componentID = integers[1] ?? -(textID + 1)
+        let node = ParsedNode(kind: .text, componentID: componentID)
+        let color =
+          integers[4].flatMap { colors[$0] }
+          ?? UInt32(bitPattern: Int32(integers[3] ?? -16_777_216))
+        node.text = ParsedText(
+          textID: textID, colorARGB: color, size: floats[5] ?? 36,
+          style: integers[6] ?? 0, weight: floats[7] ?? 400,
+          familyID: integers[8] ?? -1, alignment: integers[9] ?? 1,
+          overflow: integers[10] ?? 1, maximumLines: integers[11] ?? Int.max)
+        try begin(node)
+      case 250:  // Accessibility semantics
+        _ = try input.int("content description id")
+        _ = try input.u8("semantic role")
+        _ = try input.int("semantic text id")
+        _ = try input.int("state description id")
+        _ = try input.u8("semantic mode")
+        _ = try input.u8("semantic enabled")
+        _ = try input.u8("semantic clickable")
       default:
         throw NativeSwiftCoreError.unsupported(
           opcode: opcode, offset: opcodeOffset, reason: "operation family not migrated")
@@ -456,8 +614,16 @@ private struct WireReader {
   }
 
   mutating func signedU16(_ field: String) throws -> Int {
-    let raw = try uint16(field)
+    let raw = try u16(field)
     return Int(Int16(bitPattern: raw))
+  }
+
+  mutating func u16(_ field: String) throws -> UInt16 {
+    guard bytes.count - offset >= 2 else {
+      throw malformed("Unexpected end while reading \(field)")
+    }
+    defer { offset += 2 }
+    return UInt16(bytes[offset]) << 8 | UInt16(bytes[offset + 1])
   }
 
   mutating func int(_ field: String) throws -> Int {
@@ -504,16 +670,18 @@ private struct WireReader {
     return value
   }
 
-  func malformed(_ reason: String) -> NativeSwiftCoreError {
-    .malformed(offset: offset, reason: reason)
+  mutating func utf8Bytes(_ field: String, length: Int) throws -> String {
+    guard length >= 0, length <= NativeSwiftDocumentDecoder.maximumStringBytes,
+      bytes.count - offset >= length
+    else { throw malformed("Invalid \(field) length") }
+    let value = String(bytes: bytes[offset..<(offset + length)], encoding: .utf8)
+    offset += length
+    guard let value else { throw malformed("\(field) is not valid UTF-8") }
+    return value
   }
 
-  private mutating func uint16(_ field: String) throws -> UInt16 {
-    guard bytes.count - offset >= 2 else {
-      throw malformed("Unexpected end while reading \(field)")
-    }
-    defer { offset += 2 }
-    return UInt16(bytes[offset]) << 8 | UInt16(bytes[offset + 1])
+  func malformed(_ reason: String) -> NativeSwiftCoreError {
+    .malformed(offset: offset, reason: reason)
   }
 
   private mutating func uint32(_ field: String) throws -> UInt32 {

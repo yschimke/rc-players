@@ -13,4 +13,5 @@ xcrun swiftc \
   "$repo_root/Tests/RcNativePlayerUIKitTests/NativeSwiftCoreTests.swift" \
   -o "$work/native-swift-core-tests"
 fixture="$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/editable-text.rc"
-"$work/native-swift-core-tests" "$fixture"
+title_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc"
+"$work/native-swift-core-tests" "$fixture" "$title_fixture"

@@ -242,9 +242,9 @@ val rcNativePlayerUIKitProfileChecksum =
 
 val rcNativePlayerUIKitPackageZip =
   tasks.register<Zip>("rcNativePlayerUIKitPackageZip") {
-    description = "Package the native UIKit player and its bridge as a local Swift package."
+    description = "Package the pure-Swift native UIKit player as a local Swift package."
     group = "distribution"
-    dependsOn("assembleRcComposePlayerReleaseXCFramework", rcNativePlayerUIKitProfile)
+    dependsOn(rcNativePlayerUIKitProfile)
     archiveFileName.set("RcNativePlayerUIKit.swiftpackage.zip")
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
     isPreserveFileTimestamps = false
@@ -258,11 +258,6 @@ val rcNativePlayerUIKitPackageZip =
         rename("RcNativePlayerUIKit.profile.json", "PROFILE.json")
       }
       into("Sources/RcNativePlayerUIKit") { from(rootProject.file("Sources/RcNativePlayerUIKit")) }
-      into("Artifacts") {
-        from(layout.buildDirectory.dir("XCFrameworks/release/RcComposePlayer.xcframework")) {
-          into("RcComposePlayer.xcframework")
-        }
-      }
     }
   }
 

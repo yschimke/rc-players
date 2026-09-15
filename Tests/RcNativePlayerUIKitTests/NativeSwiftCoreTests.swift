@@ -8,6 +8,13 @@ enum NativeSwiftCoreTests {
       let kotlinFixture = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
       precondition(kotlinFixture == wire, "Swift test fixture differs from the Kotlin encoder")
     }
+    if CommandLine.arguments.count == 3 {
+      let titleData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
+      let title = try NativeSwiftDocumentSession.open(data: titleData).snapshot()
+      precondition(title.width == 640 && title.height == 480)
+      precondition(title.root.firstText == "Morning run")
+      precondition(title.root.allText.contains("5.2 km · 28 min"))
+    }
     let session = try NativeSwiftDocumentSession.open(data: wire)
     let initial = try session.snapshot()
     precondition(initial.width == 360 && initial.height == 150)
@@ -78,6 +85,16 @@ enum NativeSwiftCoreTests {
     output.textLayout(id: 7, textID: 60, color: 0xff20_2124, size: 15)
     for _ in 0..<4 { output.u8(214) }
     return output.data
+  }
+}
+
+extension NativeSwiftNodeSnapshot {
+  fileprivate var firstText: String? {
+    text?.value ?? children.lazy.compactMap(\.firstText).first
+  }
+
+  fileprivate var allText: [String] {
+    text.map { [$0.value] } ?? children.flatMap(\.allText)
   }
 }
 

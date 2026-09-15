@@ -46,28 +46,26 @@ assert platform == [{
 
 assert profile["runtime"] == {
     "ui": "UIKit/CoreGraphics/CoreText",
-    "decoderBridge": "RcComposePlayer.xcframework Kotlin/Native",
+    "decoderBridge": "pure Swift",
     "retainedSession": True,
-    "frameScheduling": ["static", "continuous", "next-frame", "delayed-wake"],
+    "frameScheduling": ["static"],
 }, "runtime must match the reviewed core-v1 implementation contract"
 assert profile["compatibility"] == {
     "policy": "No source or binary compatibility guarantee before the profile leaves experimental status.",
     "unsupportedBehavior": "Compatible mode renders the supported subset with diagnostics; strict mode refuses it.",
-    "migration": "Use RcComposePlayerSwiftUI for documents outside this profile; the native product never replaces or redirects the CMP product.",
+    "migration": "Use RcComposePlayerSwiftUI for documents outside this profile; the native product is an independent pure-Swift implementation and never replaces or redirects the CMP product.",
 }, "compatibility must match the reviewed experimental migration contract"
 
 assert profile["nativeNodeKinds"] == [
-    "root", "content", "canvas", "group", "box", "row", "column", "text", "image",
+    "root", "content", "box", "row", "column", "text", "custom",
 ], "nativeNodeKinds must match the reviewed core-v1 capability set"
 assert profile["nativeDrawKinds"] == [
-    "save", "restore", "translate", "scale", "rotate", "skew", "clip-rect", "clip-path",
-    "rect", "oval", "circle", "line", "round-rect", "arc", "sector", "text", "path",
-    "image",
+    "text",
 ], "nativeDrawKinds must match the reviewed core-v1 capability set"
 assert profile["interaction"] == {
-    "hostNamedValues": ["float", "string", "color"],
-    "clickActions": ["click", "single-click"],
-    "semanticRoles": ["button", "image", "checkbox", "switch", "unknown"],
+    "hostNamedValues": [],
+    "clickActions": [],
+    "semanticRoles": [],
 }, "interaction must match the reviewed core-v1 capability set"
 
 fixture_entries = profile["verifiedFixtures"]
@@ -78,10 +76,10 @@ assert len({item["id"] for item in fixture_entries}) == len(fixture_entries), (
 fixtures = {item["id"]: item["coverage"] for item in fixture_entries}
 assert fixtures == {
     "TitleCardRemote-640x480": [
-        "layout", "native-text", "canvas-paint", "simulator-pixels",
+        "modern-header", "layout", "native-text", "swift-decode",
     ],
-    "IndeterminateCircularProgress-400x400": [
-        "component-geometry", "continuous-time", "arc-paint", "simulator-motion",
+    "editable-text": [
+        "legacy-header", "custom-component", "text-return", "swift-decode",
     ],
 }, "verifiedFixtures must match the reviewed core-v1 evidence set"
 
@@ -158,7 +156,7 @@ source_checks = {
     "Package.swift": [
         "platforms: [.iOS(.v13), .macOS(.v12)]",
         '.library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"])',
-        '.target(name: "RcNativePlayerUIKit", dependencies: ["RcComposePlayer"])',
+        '.target(name: "RcNativePlayerUIKit")',
     ],
     "distribution/native-uikit/Package.swift": ["platforms: [.iOS(.v13)]"],
 }
