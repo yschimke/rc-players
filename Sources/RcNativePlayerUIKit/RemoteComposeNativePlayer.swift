@@ -295,8 +295,7 @@
           let (session, frame) = try await NativeSnapshotSessionHandle.open(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes)
           try Task.checkCancellation()
-          let model = NativeDocument(snapshot: frame.snapshot)
-          try model.validateExecution(limits: executionLimits)
+          let model = try NativeDocument(snapshot: frame.snapshot, limits: executionLimits)
           guard generation == self?.loadGeneration else { return }
           self?.onDiagnostics(model.diagnostics)
           if !RemoteComposeNativeCompatibilityDecision.shouldRender(
@@ -344,8 +343,7 @@
           let frame = try await retainedSession.frame(at: frameTime)
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
-          let model = NativeDocument(snapshot: frame.snapshot)
-          try self.validateExecution(model)
+          let model = try NativeDocument(snapshot: frame.snapshot, limits: self.executionLimits)
           try self.validate(model)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
@@ -416,8 +414,7 @@
           return update.accepted
         }
         do {
-          let model = NativeDocument(snapshot: update.frame.snapshot)
-          try validateExecution(model)
+          let model = try NativeDocument(snapshot: update.frame.snapshot, limits: executionLimits)
           try validate(model)
           guard
             input == inputGeneration, epoch == sessionEpoch, retainedSessionEpoch == epoch,
@@ -503,10 +500,6 @@
       {
         throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
       }
-    }
-
-    private func validateExecution(_ model: NativeDocument) throws {
-      try model.validateExecution(limits: executionLimits)
     }
 
     private static func prepareResources(

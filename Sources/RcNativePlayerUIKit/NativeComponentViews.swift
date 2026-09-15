@@ -14,7 +14,8 @@
     let rootAlignment: Int
     let frameSchedule: NativeFrameSchedule
 
-    init(snapshot: RcNativeDocumentSnapshot) {
+    init(snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits) throws {
+      try Self.validate(snapshot: snapshot, limits: limits)
       size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
       root = NativeNode(snapshot: snapshot.root)
       images = snapshot.images.map(NativeImageResource.init)
@@ -37,64 +38,74 @@
         wakeAfter: snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds))
     }
 
-    func validateExecution(limits: RemoteComposeNativeExecutionLimits) throws {
+    private static func validate(
+      snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits
+    ) throws {
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
       try budget.validateDocumentDimensions(
-        [Double(size.width), Double(size.height)], limits: limits)
-      var pending: [(node: NativeNode, depth: Int)] = [(root, 1)]
+        [Double(snapshot.width), Double(snapshot.height)], limits: limits)
+      var pending: [(node: RcNativeNodeSnapshot, depth: Int)] = [(snapshot.root, 1)]
       while let current = pending.popLast() {
         let node = current.node
         try budget.recordNode(depth: current.depth, limits: limits)
+        let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
+        let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
         try budget.validateNumbers(
           [
             Double(node.widthValue), Double(node.heightValue), Double(node.minimumWidth),
-            Double(node.minimumHeight), Double(node.maximumWidth ?? 0),
-            Double(node.maximumHeight ?? 0), Double(node.padding.top),
-            Double(node.padding.left), Double(node.padding.bottom), Double(node.padding.right),
-            Double(node.cornerRadius), Double(node.spacing), Double(node.offset.x),
-            Double(node.offset.y), Double(node.zIndex),
-          ], componentID: node.componentID, field: "layout", limits: limits)
+            Double(node.minimumHeight), Double(maximumWidth), Double(maximumHeight),
+            Double(node.paddingTop), Double(node.paddingLeft), Double(node.paddingBottom),
+            Double(node.paddingRight), Double(node.cornerRadius), Double(node.spacing),
+            Double(node.offsetX), Double(node.offsetY), Double(node.zIndex),
+          ], componentID: Int(node.componentId), field: "layout", limits: limits)
         try budget.validateCanvasDimensions(
           [
             abs(Double(node.widthValue)), abs(Double(node.heightValue)),
             abs(Double(node.minimumWidth)), abs(Double(node.minimumHeight)),
-            abs(Double(node.maximumWidth ?? 0)), abs(Double(node.maximumHeight ?? 0)),
+            abs(Double(maximumWidth)), abs(Double(maximumHeight)),
           ], limits: limits)
         for command in node.commands {
+          let gradientWork = command.gradient.map { $0.colors.count + $0.stops.count + 4 } ?? 0
           try budget.recordCommand(
-            pathElementCount: command.path.count, text: command.text, limits: limits)
+            pathElementCount: command.path.count, additionalWork: gradientWork,
+            text: command.text, limits: limits)
+          let style = command.textStyle
           try budget.validateNumbers(
-            command.values.map(Double.init)
-              + [
-                Double(command.alpha), Double(command.strokeWidth), Double(command.textSize),
-                Double(command.textWeight), Double(command.textStyle.letterSpacing),
-                Double(command.textStyle.lineHeightAdd),
-                Double(command.textStyle.lineHeightMultiplier),
-              ], componentID: node.componentID, field: "draw command", limits: limits)
+            [
+              command.first, command.second, command.third, command.fourth, command.fifth,
+              command.sixth, command.alpha, command.strokeWidth, command.textSize,
+              command.textWeight, style?.letterSpacing ?? 0, style?.lineHeightAdd ?? 0,
+              style?.lineHeightMultiplier ?? 1,
+            ].map(Double.init), componentID: Int(node.componentId), field: "draw command",
+            limits: limits)
           for segment in command.path {
             try budget.validateNumbers(
-              segment.values.map(Double.init), componentID: node.componentID,
-              field: "path", limits: limits)
+              [segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
+               segment.sixth].map(Double.init), componentID: Int(node.componentId), field: "path",
+              limits: limits)
           }
           if let gradient = command.gradient {
             try budget.validateNumbers(
-              gradient.stops.map(Double.init) + gradient.values.map(Double.init),
-              componentID: node.componentID, field: "gradient", limits: limits)
+              gradient.stops.map { Double(truncating: $0) }
+                + [gradient.first, gradient.second, gradient.third, gradient.fourth].map(Double.init),
+              componentID: Int(node.componentId), field: "gradient", limits: limits)
           }
           if let image = command.image {
+            let sourceWidth = image.sourceRight - image.sourceLeft
+            let sourceHeight = image.sourceBottom - image.sourceTop
+            let destinationWidth = image.destinationRight - image.destinationLeft
+            let destinationHeight = image.destinationBottom - image.destinationTop
             try budget.validateNumbers(
               [
-                Double(image.source.minX), Double(image.source.minY),
-                Double(image.source.width), Double(image.source.height),
-                Double(image.destination.minX), Double(image.destination.minY),
-                Double(image.destination.width), Double(image.destination.height),
-                Double(image.scaleFactor),
-              ], componentID: node.componentID, field: "image", limits: limits)
+                image.sourceLeft, image.sourceTop, sourceWidth, sourceHeight,
+                image.destinationLeft, image.destinationTop, destinationWidth, destinationHeight,
+                image.scaleFactor,
+              ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits)
             try budget.validateCanvasDimensions(
               [
-                abs(Double(image.source.width)), abs(Double(image.source.height)),
-                abs(Double(image.destination.width)), abs(Double(image.destination.height)),
+                abs(Double(sourceWidth)), abs(Double(sourceHeight)),
+                abs(Double(destinationWidth)), abs(Double(destinationHeight)),
               ], limits: limits)
           }
         }
