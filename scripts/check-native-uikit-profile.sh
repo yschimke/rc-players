@@ -158,6 +158,7 @@ source_checks = {
     "Package.swift": [
         "platforms: [.iOS(.v13), .macOS(.v12)]",
         '.library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"])',
+        '.target(name: "RcNativePlayerUIKit", dependencies: ["RcComposePlayer"])',
     ],
     "distribution/native-uikit/Package.swift": ["platforms: [.iOS(.v13)]"],
 }
