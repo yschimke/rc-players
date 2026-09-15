@@ -119,7 +119,7 @@ class RcDocumentLinkerTest {
       )
 
     assertFailsWith<RcWireException> {
-      RcDocumentLinker.link(document, RcWireLimits(maxOperations = 1))
+      RcDocumentLinker.link(document, RcWireLimits(maxOperations = 4))
     }
   }
 

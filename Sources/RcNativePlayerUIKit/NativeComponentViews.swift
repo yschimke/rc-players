@@ -146,17 +146,58 @@
               commandGeometry.map(Double.init), componentID: Int(node.componentId),
               field: "draw geometry", limits: limits)
           }
+          switch Int(command.kind) {
+          case 6, 10, 11, 13, 14, 15, 16:
+            try budget.validateCanvasDimensions(
+              [
+                abs(Double(commandGeometry[2] - commandGeometry[0])),
+                abs(Double(commandGeometry[3] - commandGeometry[1])),
+              ], limits: limits)
+            if Int(command.kind) == 14 {
+              try budget.validateCanvasDimensions(
+                [abs(Double(commandGeometry[4] * 2)), abs(Double(commandGeometry[5] * 2))],
+                limits: limits)
+            }
+          case 12:
+            try budget.validateCanvasDimensions(
+              [abs(Double(commandGeometry[2] * 2))], limits: limits)
+          default: break
+          }
           try budget.validateFinite(
             [
               command.alpha, command.strokeWidth, command.textSize, command.textWeight,
               style?.letterSpacing ?? 0, style?.lineHeightAdd ?? 0,
               style?.lineHeightMultiplier ?? 1,
             ].map(Double.init), componentID: Int(node.componentId), field: "paint")
+          var pathX: [Double] = []
+          var pathY: [Double] = []
           for segment in command.path {
-            try budget.validateNumbers(
+            let values =
               [segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
-               segment.sixth].map(Double.init), componentID: Int(node.componentId), field: "path",
-              limits: limits)
+               segment.sixth].map(Double.init)
+            let coordinateCount: Int
+            switch Int(segment.kind) {
+            case 10, 11: coordinateCount = 2
+            case 12, 13: coordinateCount = 4
+            case 14: coordinateCount = 6
+            default: coordinateCount = 0
+            }
+            try budget.validateNumbers(
+              Array(values.prefix(coordinateCount)), componentID: Int(node.componentId),
+              field: "path", limits: limits)
+            try budget.validateFinite(
+              Array(values.dropFirst(coordinateCount)), componentID: Int(node.componentId),
+              field: "path")
+            for index in stride(from: 0, to: coordinateCount, by: 2) {
+              pathX.append(values[index])
+              pathY.append(values[index + 1])
+            }
+          }
+          if let minimumX = pathX.min(), let maximumX = pathX.max(),
+            let minimumY = pathY.min(), let maximumY = pathY.max()
+          {
+            try budget.validateCanvasDimensions(
+              [maximumX - minimumX, maximumY - minimumY], limits: limits)
           }
           if let gradient = command.gradient {
             try budget.validateNumbers(
