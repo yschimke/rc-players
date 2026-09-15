@@ -441,44 +441,10 @@
     }
 
     private func performClick(componentID: Int) {
-      guard
-        isApplicationActive, retainedSessionEpoch == sessionEpoch,
-        let retainedSession, let retainedResources
-      else { return }
-      let epoch = sessionEpoch
-      let time = currentFrameTime
-      let (input, inputTask) = enqueueInput {
-        try await retainedSession.click(componentID: componentID, at: time)
-      }
       Task { [weak self] in
-        switch await inputTask.value {
-        case .success(let update):
-          guard
-            let self, epoch == self.sessionEpoch, self.retainedSessionEpoch == epoch,
-            self.retainedSession === retainedSession
-          else { return }
-          if input == self.inputGeneration {
-            do {
-              let model = NativeDocument(snapshot: update.frame.snapshot)
-              try self.validate(model)
-              guard
-                input == self.inputGeneration, epoch == self.sessionEpoch,
-                self.retainedSessionEpoch == epoch, self.retainedSession === retainedSession
-              else { return }
-              self.install(model, resources: retainedResources)
-            } catch {
-              guard
-                epoch == self.sessionEpoch, self.retainedSessionEpoch == epoch,
-                self.retainedSession === retainedSession
-              else { return }
-              self.show(error: error)
-              return
-            }
-          }
-          self.dispatch(update.events, from: retainedSession, epoch: epoch)
-        case .failure(let error):
-          guard let self, epoch == self.sessionEpoch else { return }
-          if !(error is CancellationError) { self.show(error: error) }
+        guard let self else { return }
+        _ = await self.updateSession { session, time in
+          try await session.click(componentID: componentID, at: time)
         }
       }
     }
