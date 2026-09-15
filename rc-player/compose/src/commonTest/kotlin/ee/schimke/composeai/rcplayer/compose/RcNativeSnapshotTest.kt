@@ -3,8 +3,10 @@ package ee.schimke.composeai.rcplayer.compose
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
+import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -21,6 +23,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
 import ee.schimke.composeai.rcplayer.protocol.RcHapticType
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightInModifier
+import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHostAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedAction
 import ee.schimke.composeai.rcplayer.protocol.RcHostNamedActionValue
@@ -30,6 +33,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
@@ -906,6 +910,68 @@ class RcNativeSnapshotTest {
           .image
       )
     assertEquals(null, image.contentDescription)
+  }
+
+  @Test
+  fun paddedParentPublishesContentSizeToFillChild() {
+    val reference: (Int) -> RcFloatWord = { RcFloatWord(0x7fc00000 or it) }
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 80, modern = false),
+        listOf(
+          RcRootLayout(-2),
+          RcLayoutContent(-3),
+          RcBoxLayout(-4, 0, horizontalPositioning = 1, verticalPositioning = 4),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)),
+          RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(80f)),
+          RcPaddingModifier(
+            RcFloatWord.literal(10f),
+            RcFloatWord.literal(15f),
+            RcFloatWord.literal(30f),
+            RcFloatWord.literal(25f),
+          ),
+          RcLayoutContent(-5),
+          RcCanvasLayout(-6, 0),
+          RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(Float.NaN)),
+          RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(Float.NaN)),
+          RcLayoutContent(-7),
+          RcComponentValue(RcComponentValue.WIDTH, componentId = -6, valueId = 42),
+          RcComponentValue(RcComponentValue.HEIGHT, componentId = -6, valueId = 43),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            reference(42),
+            reference(43),
+          ),
+          end,
+          end,
+          end,
+          end,
+          end,
+          end,
+        ),
+      )
+
+    fun find(node: RcNativeNodeSnapshot, componentId: Int): RcNativeNodeSnapshot? {
+      if (node.componentId == componentId) return node
+      node.children.forEach { child ->
+        find(child, componentId)?.let {
+          return it
+        }
+      }
+      return null
+    }
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+    val canvas = checkNotNull(find(snapshot.root, -6))
+    val command = commands(canvas).single()
+
+    assertEquals(60f, command.third)
+    assertEquals(40f, command.fourth)
   }
 
   @Test

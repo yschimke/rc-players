@@ -27,6 +27,17 @@ enum NativeFrameTimingTests {
       delayed.driverMode(isActive: true, isVisible: true, reduceMotion: false)
         == .wake(after: 0.25))
 
+    var wake = NativeWakeCountdown()
+    wake.reset(after: 10)
+    precondition(wake.start(after: 10, at: 20) == 10)
+    wake.pause(at: 29)
+    precondition(wake.remaining == 1)
+    precondition(wake.start(after: 10, at: 100) == 1)
+    wake.pause(at: 100.25)
+    precondition(wake.remaining == 0.75)
+    wake.complete()
+    precondition(wake.remaining == nil)
+
     var timeline = NativeAnimationTimeline()
     timeline.reset(at: 10, active: true)
     precondition(timeline.sample(at: 10.25) == 0.25)

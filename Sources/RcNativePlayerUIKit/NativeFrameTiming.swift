@@ -34,6 +34,35 @@ struct NativeFrameSchedule: Equatable, Sendable {
   }
 }
 
+/// Retains the remaining active delay while a view is hidden or the application is suspended.
+struct NativeWakeCountdown: Equatable, Sendable {
+  private(set) var remaining: TimeInterval?
+  private var startedAt: TimeInterval?
+
+  mutating func reset(after delay: TimeInterval?) {
+    remaining = delay.map { max($0, 0) }
+    startedAt = nil
+  }
+
+  mutating func pause(at now: TimeInterval) {
+    guard let startedAt, let remaining else { return }
+    self.remaining = max(remaining - max(now - startedAt, 0), 0)
+    self.startedAt = nil
+  }
+
+  mutating func start(after fallbackDelay: TimeInterval, at now: TimeInterval) -> TimeInterval {
+    pause(at: now)
+    if remaining == nil { remaining = max(fallbackDelay, 0) }
+    startedAt = now
+    return remaining ?? 0
+  }
+
+  mutating func complete() {
+    remaining = nil
+    startedAt = nil
+  }
+}
+
 /// Accumulates only active monotonic time, so suspension never causes a resumed animation to jump.
 struct NativeAnimationTimeline: Equatable, Sendable {
   private(set) var elapsed: TimeInterval = 0
