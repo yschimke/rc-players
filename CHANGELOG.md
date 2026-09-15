@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.63.0](https://github.com/yschimke/rc-players/compare/v1.62.0...v1.63.0) (2026-09-15)
+
+
+### Features
+
+* enable Google Fonts in macOS player ([#147](https://github.com/yschimke/rc-players/issues/147)) ([ac591da](https://github.com/yschimke/rc-players/commit/ac591dac12c39be739a5039a932fc7488980c602))
+* support Google Fonts in Apple players ([#146](https://github.com/yschimke/rc-players/issues/146)) ([e809f93](https://github.com/yschimke/rc-players/commit/e809f93b237e5c95333dc7b3a3d6472a8353b3e4))
+
+
+### Bug Fixes
+
+* improve native Swift rendering correctness ([#144](https://github.com/yschimke/rc-players/issues/144)) ([f9ee8dd](https://github.com/yschimke/rc-players/commit/f9ee8dd5d0dc689a052795e3d1fd75f9f7a8aeb6))
+
 ## [1.62.0](https://github.com/yschimke/rc-players/compare/v1.61.1...v1.62.0) (2026-09-15)
 
 
