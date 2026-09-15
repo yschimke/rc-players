@@ -346,10 +346,13 @@ jobs:
       # part, not the mutation count.
       - name: Fuzz the pure Swift document core
         if: needs.apple-changes.outputs.required == 'true'
+        env:
+          # Both passes, not just the sanitized one: a failing input is the whole point of the run,
+          # and the default temporary directory is not in the uploaded artifact.
+          RC_NATIVE_FUZZ_CORPUS_OUT: ${{ github.workspace }}/build/native-fuzz-failures
         run: |
           scripts/check-native-swift-fuzz.sh
           RC_NATIVE_FUZZ_SANITIZE=address RC_NATIVE_FUZZ_ITERATIONS=24 \
-            RC_NATIVE_FUZZ_CORPUS_OUT="${{ github.workspace }}/build/native-fuzz-failures" \
             scripts/check-native-swift-fuzz.sh
 
       - name: Benchmark the pure Swift document core
