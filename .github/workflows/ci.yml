@@ -403,9 +403,17 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-appkit.sh
 
-      # Machine-readable, budget-carrying evidence for all three native lanes. Uploaded whether or
-      # not the run passed, because a regression is reviewed from the numbers.
-      - name: Upload native performance evidence
+      - name: Compare native UIKit against CMP on representative content
+        if: needs.apple-changes.outputs.required == 'true'
+        env:
+          RC_NATIVE_UIKIT_SKIP_BUILD: 1
+        run: scripts/check-native-uikit-comparison.sh
+
+      # Machine-readable, budget-carrying evidence for all three native lanes, plus the rendered
+      # comparison output — including the same title-card bytes through both density modes, which
+      # is what makes the default mode's geometry reviewable rather than described. Uploaded
+      # whether or not the run passed, because a regression is reviewed from the numbers.
+      - name: Upload native performance and comparison evidence
         if: always() && needs.apple-changes.outputs.required == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -416,12 +424,7 @@ jobs:
             build/native-uikit-evidence.json
             build/native-appkit-evidence.json
             build/native-fuzz-failures
-
-      - name: Compare native UIKit against CMP on representative content
-        if: needs.apple-changes.outputs.required == 'true'
-        env:
-          RC_NATIVE_UIKIT_SKIP_BUILD: 1
-        run: scripts/check-native-uikit-comparison.sh
+            build/native-uikit-comparison
 
       # Launches the packaged app on a real simulator and checks captured pixels for the white
       # title-card canvas, its dark content band, and the coloured host background. This covers the

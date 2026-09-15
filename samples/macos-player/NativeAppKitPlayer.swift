@@ -136,14 +136,33 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       window.contentView = nil
     }
 
-    // Steady state on one retained session: the animation path a display link drives.
+    // Steady state: the frame a display link drives, end to end, on one retained view — resolve,
+    // reconcile the native tree, lay out, draw.
     let session = try NativeSwiftDocumentSession.open(data: data)
+    let snapshot = try session.snapshot(timeSeconds: 0)
+    let steadyPlayer = try NativeMacDocumentView(
+      snapshot: snapshot, session: session, compatibility: .compatible,
+      report: try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible),
+      fonts: try NativeMacFontRegistry.register(snapshot: snapshot, downloadedFonts: [:]),
+      onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
+    let steadyBounds = NSRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height)
+    let steadyWindow = NSWindow(
+      contentRect: steadyBounds, styleMask: .borderless, backing: .buffered, defer: false)
+    steadyWindow.contentView = steadyPlayer
+    steadyPlayer.frame = steadyBounds
+    steadyPlayer.layoutSubtreeIfNeeded()
+    guard let steadyBitmap = steadyPlayer.bitmapImageRepForCachingDisplay(in: steadyPlayer.bounds)
+    else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not allocate AppKit capture")
+    }
     var steadySamples: [Double] = []
     for frame in 0..<frames {
       let started = ProcessInfo.processInfo.systemUptime
-      _ = try session.snapshot(timeSeconds: TimeInterval(frame) / 60)
+      try steadyPlayer.renderEvidenceFrame(
+        at: TimeInterval(frame) / 60, into: steadyBitmap)
       steadySamples.append(nativeAppKitMilliseconds(since: started))
     }
+    steadyWindow.contentView = nil
     let residentAfter = nativeAppKitResidentBytes()
 
     return NativeAppKitEvidenceReport(
@@ -526,6 +545,18 @@ private final class NativeMacDocumentView: NSView {
     wakeStartedAt = nil
     needsLayout = true
     updateFrameDriver()
+  }
+
+  /// One complete AppKit animation frame for the evidence run: resolve the snapshot, reconcile the
+  /// native tree, lay it out and draw it — the same work `frameTimerDidFire` does, minus the
+  /// window and activation guards a headless run cannot satisfy. Timing only the core's
+  /// `snapshot(timeSeconds:)` here would report a number the AppKit renderer never pays.
+  fileprivate func renderEvidenceFrame(
+    at timeSeconds: TimeInterval, into bitmap: NSBitmapImageRep
+  ) throws {
+    try install(try session.snapshot(timeSeconds: timeSeconds))
+    layoutSubtreeIfNeeded()
+    cacheDisplay(in: bounds, to: bitmap)
   }
 
   private func gesture(
@@ -1360,7 +1391,9 @@ struct NativeAppKitEvidenceReport: Codable {
     var decodeMilliseconds: Double = 100
     var buildMilliseconds: Double = 250
     var captureMilliseconds: Double = 250
-    var steadyFrameMilliseconds: Double = 8
+    // A drawn AppKit frame, not a resolved snapshot: the renderer rebuilds its component tree
+    // every frame, so this ceiling is one 30Hz frame rather than the core's 8ms.
+    var steadyFrameMilliseconds: Double = 33
     var maximumViewCount: Int = 500
     var minimumLabelCount: Int = 1
     var residentByteGrowth: Int64 = 64 * 1024 * 1024

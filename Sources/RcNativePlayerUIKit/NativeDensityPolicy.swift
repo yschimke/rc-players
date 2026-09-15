@@ -44,25 +44,31 @@ enum NativeDensityPolicy {
     return playbackDensityScale
   }
 
-  /// Whether this document's authored layout depends on a density other than 1.0.
-  static func requiresNonUnitDensity(density: Float, densityBehavior: Int) -> Bool {
-    guard density.isFinite, density != 1 else { return false }
-    return densityBehavior == dpBehavior || densityBehavior == pixelBehavior
+  /// Whether this document carries density-typed geometry at all.
+  ///
+  /// The generation density is deliberately not part of this decision. Both behaviors convert
+  /// against the *playback* density — the one the root transform resolves from the host's
+  /// viewport, which is not known at decode time — so a document generated at density 1 lays out
+  /// differently under the Android contract whenever it is played at any other density. Gating on
+  /// `DOC_DENSITY_AT_GENERATION` would let exactly that case through silently.
+  static func usesDensityTypedGeometry(densityBehavior: Int) -> Bool {
+    densityBehavior == dpBehavior || densityBehavior == pixelBehavior
   }
 
   /// Compatibility diagnostics for the document header's density contract.
   ///
-  /// A density the native profile does not reproduce is reported rather than applied silently, so
-  /// `.strict` refuses the document and `.compatible` renders it with the difference stated.
+  /// A contract the native profile does not reproduce is reported rather than applied silently, so
+  /// `.strict` refuses the document and `.compatible` renders it with the difference stated. The
+  /// declared generation density travels in the message as context for the host, not as the
+  /// condition.
   static func diagnostics(
     density: Float,
     densityBehavior: Int,
     androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility,
     componentID: Int
   ) -> [RemoteComposeNativePlayerDiagnostic] {
-    guard requiresNonUnitDensity(density: density, densityBehavior: densityBehavior) else {
-      return []
-    }
+    guard usesDensityTypedGeometry(densityBehavior: densityBehavior) else { return [] }
+    let declared = density.isFinite ? "density \(density)" : "an invalid density"
     if densityBehavior == pixelBehavior {
       return [
         RemoteComposeNativePlayerDiagnostic(
@@ -71,8 +77,8 @@ enum NativeDensityPolicy {
           operationName: "Header",
           componentID: componentID,
           reason:
-            "Document declares pixel density behavior at density \(density); the native player "
-            + "does not convert pixel-typed constraints")
+            "Document declares pixel density behavior (generated at \(declared)); the native "
+            + "player does not convert pixel-typed constraints to the playback density")
       ]
     }
     guard androidCompatibility == .disabled else { return [] }
@@ -83,9 +89,9 @@ enum NativeDensityPolicy {
         operationName: "Header",
         componentID: componentID,
         reason:
-          "Document declares dp layout behavior at density \(density); native rendering resolves "
-          + "dp geometry at density 1.0. Set androidCompatibility to .enabled to reproduce the "
-          + "authored layout")
+          "Document declares dp layout behavior (generated at \(declared)); native rendering "
+          + "resolves dp geometry at density 1.0 instead of the playback density. Set "
+          + "androidCompatibility to .enabled to reproduce the authored layout")
     ]
   }
 }

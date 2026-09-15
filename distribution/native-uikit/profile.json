@@ -121,7 +121,7 @@
   "densityContract": {
     "default": "density-1.0",
     "androidCompatibilityMode": "RemoteComposeNativePlayerAndroidCompatibility.enabled",
-    "nonUnitDensityReporting": "diagnostic"
+    "densityTypedGeometryReporting": "diagnostic"
   },
   "evidence": {
     "fuzzCorpus": "scripts/check-native-swift-fuzz.sh",

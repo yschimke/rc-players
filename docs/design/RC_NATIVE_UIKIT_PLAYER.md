@@ -345,9 +345,12 @@ is independent of renderer selection:
 
 * `.disabled` — the default. dp-typed sizes, padding, spacing, and constraints resolve at a density
   of 1.0, so they are captured document units and scale with the document like every other
-  coordinate. A document whose authored layout needs a different density is reported rather than
-  silently reinterpreted: `NativeDensityPolicy` emits a `Header` warning naming the declared
-  density, `.compatible` renders it with that difference stated, and `.strict` refuses it.
+  coordinate. A document that carries density-typed geometry is reported rather than silently
+  reinterpreted: `NativeDensityPolicy` emits a `Header` warning naming the declared generation
+  density, `.compatible` renders it with that difference stated, and `.strict` refuses it. The
+  condition is the declared *behavior*, not the generation density — both behaviors convert against
+  the **playback** density, which is not knowable at decode time, so a document generated at density
+  1 still differs the moment a host plays it at anything else.
 * `.enabled` — dp-typed geometry converts with the playback density that the root transform
   resolved (document units per host point), reproducing the authored Android layout. This is what
   makes the density-2 `TitleCardRemote-640x480` fixture match the CMP player, which always applies
@@ -580,11 +583,12 @@ reviewable without rerunning it:
 | --- | --- | --- |
 | Core | `scripts/measure-native-swift-core.sh` | Decode, first frame, steady-state frame cost over a second of animation, document replacement, and retained-session memory growth, per fixture, on any macOS host |
 | UIKit | `scripts/measure-native-uikit-simulator.sh` | The packaged Release app on a fixed iPad simulator: view hierarchy, accessibility exposure, allocation, footprint, binary size, background/foreground recovery, deallocation |
-| AppKit | `scripts/measure-native-appkit.sh` | The packaged macOS player: native view-tree build, a real Core Graphics capture, steady-state frames, retained memory |
+| AppKit | `scripts/measure-native-appkit.sh` | The packaged macOS player: native view-tree build, a real Core Graphics capture, steady-state frames driven end to end through the renderer (resolve, reconcile, lay out, draw), retained memory |
 
 The timing budgets are order-of-magnitude ceilings rather than tuning gates — a hosted runner's
 clock is too noisy to gate a device-quality number, so the numbers are published and the gate only
-catches a real regression. The structural numbers are the exact ones: node and command counts, view
+catches a real regression. All three reports, plus the rendered comparison output, upload as the
+`native-performance-evidence` CI artifact. The structural numbers are the exact ones: node and command counts, view
 counts, accessibility exposure, and whether a replaced document is released.
 
 ## Distribution and compatibility

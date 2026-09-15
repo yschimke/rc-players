@@ -160,7 +160,7 @@ assert limits == implemented_limits, (
 assert profile["densityContract"] == {
     "default": "density-1.0",
     "androidCompatibilityMode": "RemoteComposeNativePlayerAndroidCompatibility.enabled",
-    "nonUnitDensityReporting": "diagnostic",
+    "densityTypedGeometryReporting": "diagnostic",
 }, "densityContract must match the reviewed native density policy"
 
 # The profile points at the evidence rather than restating it, so a reader can run the same corpus
