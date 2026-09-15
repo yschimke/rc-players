@@ -83,6 +83,12 @@ struct NativeAnimationTimeline: Equatable, Sendable {
     return elapsed
   }
 
+  mutating func advance(to time: TimeInterval, at now: TimeInterval) {
+    guard time.isFinite else { return }
+    elapsed = max(elapsed, time)
+    if lastActiveTime != nil { lastActiveTime = now }
+  }
+
   mutating func pause(at now: TimeInterval) {
     guard lastActiveTime != nil else { return }
     _ = sample(at: now)

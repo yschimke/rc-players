@@ -305,6 +305,7 @@
         return
       }
       guard let retainedSession, let retainedResources else { return }
+      animationTimeline.advance(to: timeSeconds, at: clock.now())
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
