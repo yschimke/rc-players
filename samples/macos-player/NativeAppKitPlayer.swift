@@ -4,6 +4,9 @@ import QuartzCore
 #if canImport(RcNativePlayerCore)
   import RcNativePlayerCore
 #endif
+#if canImport(RcPlayerAppleFonts)
+  import RcPlayerAppleFonts
+#endif
 
 func nativeEventSummary(_ event: NativeSwiftEvent) -> String {
   switch event {
@@ -47,13 +50,20 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   static let shared = NativeAppKitWindowController()
   private var windows: [NSWindow] = []
 
-  static func renderPNG(data: Data, timeSeconds: TimeInterval = 0) throws -> Data {
+  static func renderPNG(
+    data: Data,
+    timeSeconds: TimeInterval = 0,
+    downloadedFonts: [String: RemoteComposeDownloadedFont] = [:]
+  ) throws -> Data {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
     let snapshot = try session.snapshot(timeSeconds: timeSeconds)
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
+    let fonts = try NativeMacFontRegistry.register(
+      snapshot: snapshot, downloadedFonts: downloadedFonts)
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: .compatible, report: report,
+      fonts: fonts,
       onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
     let frame = NSRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height)
     let window = NSWindow(
@@ -71,20 +81,39 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     return png
   }
 
+  static func downloadableFontFamilies(data: Data) throws -> [String] {
+    try NativeMacPolicy.validateDocument(data)
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    return NativeMacFontRegistry.requests(in: try session.snapshot(timeSeconds: 0).root).map(\.family)
+  }
+
   func open(
     data: Data,
     title: String,
     compatibility: NativeMacCompatibility,
+    downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+    onFontFallback: @escaping (String) -> Void = { _ in },
     onEvent: @escaping (String) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
-  ) throws {
+  ) async throws {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
     let snapshot = try session.snapshot(timeSeconds: 0)
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: compatibility)
+    let fonts: NativeMacFontRegistry
+    do {
+      fonts = try await NativeMacFontRegistry.resolve(
+        snapshot: snapshot, resolver: downloadableFontResolver)
+    } catch is CancellationError {
+      throw CancellationError()
+    } catch {
+      onFontFallback("Google Fonts unavailable; using the system font: \(error.localizedDescription)")
+      fonts = NativeMacFontRegistry()
+    }
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: compatibility, report: report,
+      fonts: fonts,
       onEvent: onEvent, onDiagnostics: onDiagnostics, onError: onError)
     let scroll = NSScrollView()
     scroll.drawsBackground = true
@@ -112,6 +141,130 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   func windowWillClose(_ notification: Notification) {
     guard let window = notification.object as? NSWindow else { return }
     windows.removeAll { $0 === window }
+  }
+}
+
+@MainActor
+private final class NativeMacFontRegistry {
+  private struct Registration {
+    let data: Data
+    let url: URL
+    var owners: Int
+  }
+
+  private static var registrations: [String: Registration] = [:]
+  private(set) var namesByID: [Int: String] = [:]
+  private var ownedNames = Set<String>()
+
+  static func resolve(
+    snapshot: NativeSwiftDocumentSnapshot,
+    resolver: (any RemoteComposeDownloadableFontResolving)?
+  ) async throws -> NativeMacFontRegistry {
+    let registry = NativeMacFontRegistry()
+    guard let resolver else { return registry }
+    for request in requests(in: snapshot.root) {
+      let font = try await resolver.resolve(
+        RemoteComposeDownloadableFontRequest(family: request.family))
+      guard font.family.caseInsensitiveCompare(request.family) == .orderedSame else {
+        throw RemoteComposeDownloadableFontError.familyMismatch(
+          expected: request.family, actual: font.family)
+      }
+      try Task.checkCancellation()
+      registry.namesByID[request.id] = try registry.register(data: font.data, id: request.id)
+    }
+    return registry
+  }
+
+  static func register(
+    snapshot: NativeSwiftDocumentSnapshot,
+    downloadedFonts: [String: RemoteComposeDownloadedFont]
+  ) throws -> NativeMacFontRegistry {
+    let registry = NativeMacFontRegistry()
+    for request in requests(in: snapshot.root) {
+      guard let font = downloadedFonts[request.family.lowercased()] else { continue }
+      guard font.family.caseInsensitiveCompare(request.family) == .orderedSame else {
+        throw RemoteComposeDownloadableFontError.familyMismatch(
+          expected: request.family, actual: font.family)
+      }
+      registry.namesByID[request.id] = try registry.register(data: font.data, id: request.id)
+    }
+    return registry
+  }
+
+  static func requests(in root: NativeSwiftNodeSnapshot) -> [(id: Int, family: String)] {
+    var byID: [Int: String] = [:]
+    var pending = [root]
+    while let node = pending.popLast() {
+      if let value = node.text?.familyName?.trimmingCharacters(in: .whitespacesAndNewlines),
+        value.lowercased().hasPrefix("google:")
+      {
+        let family = String(value.dropFirst("google:".count)).trimmingCharacters(
+          in: .whitespacesAndNewlines)
+        if !family.isEmpty { byID[node.text!.familyID] = family }
+      }
+      pending.append(contentsOf: node.children)
+    }
+    return byID.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
+  }
+
+  private func register(data: Data, id: Int) throws -> String {
+    guard
+      let provider = CGDataProvider(data: data as CFData),
+      let font = CGFont(provider),
+      let name = font.postScriptName as String?
+    else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Downloaded font \(id) is invalid")
+    }
+    if ownedNames.contains(name) {
+      guard Self.registrations[name]?.data == data else {
+        throw NativeSwiftCoreError.malformed(
+          offset: 0, reason: "Downloaded font \(id) conflicts with \(name)")
+      }
+      return name
+    }
+    if var existing = Self.registrations[name] {
+      guard existing.data == data else {
+        throw NativeSwiftCoreError.malformed(
+          offset: 0, reason: "Downloaded font \(id) conflicts with \(name)")
+      }
+      existing.owners += 1
+      Self.registrations[name] = existing
+      ownedNames.insert(name)
+      return name
+    }
+    let url = FileManager.default.temporaryDirectory
+      .appendingPathComponent("rc-native-mac-font-\(UUID().uuidString)")
+      .appendingPathExtension("font")
+    try data.write(to: url, options: .atomic)
+    var error: Unmanaged<CFError>?
+    guard CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) else {
+      try? FileManager.default.removeItem(at: url)
+      throw NativeSwiftCoreError.malformed(
+        offset: 0, reason: "Downloaded font \(id) could not be registered")
+    }
+    Self.registrations[name] = Registration(data: data, url: url, owners: 1)
+    ownedNames.insert(name)
+    return name
+  }
+
+  deinit {
+    let names = ownedNames
+    Task { @MainActor in Self.release(names) }
+  }
+
+  private static func release(_ names: Set<String>) {
+    for name in names {
+      guard var registration = registrations[name] else { continue }
+      registration.owners -= 1
+      if registration.owners == 0 {
+        var error: Unmanaged<CFError>?
+        CTFontManagerUnregisterFontsForURL(registration.url as CFURL, .process, &error)
+        try? FileManager.default.removeItem(at: registration.url)
+        registrations.removeValue(forKey: name)
+      } else {
+        registrations[name] = registration
+      }
+    }
   }
 }
 
@@ -190,6 +343,7 @@ private final class NativeMacDocumentView: NSView {
   private let onError: (String) -> Void
   private var snapshot: NativeSwiftDocumentSnapshot
   private let images: [Int: NSImage]
+  private let fonts: NativeMacFontRegistry
   private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
   private var component: NativeMacComponentView!
   private var displayLinkDriver: AnyObject?
@@ -207,11 +361,13 @@ private final class NativeMacDocumentView: NSView {
     session: NativeSwiftDocumentSession,
     compatibility: NativeMacCompatibility,
     report: NativeMacPolicyReport,
+    fonts: NativeMacFontRegistry,
     onEvent: @escaping (String) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
   ) throws {
     self.snapshot = snapshot
+    self.fonts = fonts
     images = try Dictionary(
       uniqueKeysWithValues: snapshot.images.map { resource in
         guard resource.encoding == 0, let image = NSImage(data: resource.data) else {
@@ -279,7 +435,9 @@ private final class NativeMacDocumentView: NSView {
       onDiagnostics(report.diagnostics)
     }
     component?.removeFromSuperview()
-    component = NativeMacComponentView(node: snapshot.root, images: images) {
+    component = NativeMacComponentView(
+      node: snapshot.root, images: images, fontNames: fonts.namesByID
+    ) {
       [weak self] componentID, gesture, sample in
       self?.gesture(gesture, componentID: componentID, sample: sample)
     }
@@ -538,19 +696,21 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   init(
     node: NativeMacNode,
     images: [Int: NSImage],
+    fontNames: [Int: String],
     onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
   ) {
     self.node = node
     self.onGesture = onGesture
     componentChildren = node.children.map {
-      NativeMacComponentView(node: $0, images: images, onGesture: onGesture)
+      NativeMacComponentView(
+        node: $0, images: images, fontNames: fontNames, onGesture: onGesture)
     }
     let promotesText = node.kind == .text
     let promotesImage = node.kind == .image
     let drawCommands = node.commands.filter { !(promotesImage && $0.kind == 19) }
     canvas =
       drawCommands.isEmpty ? nil : NativeMacCanvasView(commands: drawCommands, images: images)
-    labels = promotesText ? node.text.map { [Self.makeLabel($0)] } ?? [] : []
+    labels = promotesText ? node.text.map { [Self.makeLabel($0, fontNames: fontNames)] } ?? [] : []
     imageViews =
       promotesImage
       ? node.commands.compactMap { command in
@@ -880,11 +1040,16 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       ).resolve(intrinsic: intrinsic.height, available: available.height))
   }
 
-  private static func makeLabel(_ text: NativeSwiftTextSnapshot) -> NSTextField {
+  private static func makeLabel(
+    _ text: NativeSwiftTextSnapshot, fontNames: [Int: String]
+  ) -> NSTextField {
     let label = NSTextField(labelWithString: text.value)
     let size = max(CGFloat(text.size), 1)
     let weight = NSFont.Weight(rawValue: min(max(CGFloat(text.weight - 400) / 500, -1), 1))
     var font = NSFont.systemFont(ofSize: size, weight: weight)
+    if let name = fontNames[text.familyID], let downloaded = NSFont(name: name, size: size) {
+      font = downloaded
+    }
     if (text.style & 2) != 0,
       let italic = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) as NSFont?
     {

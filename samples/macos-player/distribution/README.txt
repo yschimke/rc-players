@@ -9,6 +9,10 @@ The Native AppKit POC also has Compatible and Strict policies. Compatible render
 subset and reports known differences; Strict refuses partial frames. Both enforce bounded document,
 frame, geometry, text, path, and resource work before AppKit installs a view hierarchy.
 
+Google Fonts referenced with the google: prefix are downloaded over HTTPS by default for both CMP
+and Native AppKit. Disable this in Settings for offline or privacy-sensitive use. A missing or
+blocked font never prevents the document from opening; the renderer uses its default font instead.
+
 You can also double-click an .rc file after selecting this app with Open With, drag an .rc file
 onto the control window, or pass a file path to the executable from Terminal.
 

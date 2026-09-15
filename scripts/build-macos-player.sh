@@ -37,6 +37,7 @@ xcrun swiftc \
   -framework SwiftUI \
   -F "$framework_root" \
   -framework RcComposePlayer \
+  "$repo_root/Sources/RcPlayerAppleFonts/RemoteComposeDownloadableFonts.swift" \
   "$repo_root/Sources/RcNativePlayerCore/NativeSwiftCore.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeCompatibility.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeExecutionLimits.swift" \
