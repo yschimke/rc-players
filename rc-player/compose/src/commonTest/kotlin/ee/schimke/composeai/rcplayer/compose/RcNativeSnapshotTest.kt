@@ -38,6 +38,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -973,6 +974,62 @@ class RcNativeSnapshotTest {
 
     assertEquals(50f, command.third)
     assertEquals(40f, command.fourth)
+  }
+
+  @Test
+  fun rowPublishesWeightedAllocationToEachChild() {
+    val reference: (Int) -> RcFloatWord = { RcFloatWord(0x7fc00000 or it) }
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    fun weightedCanvas(componentId: Int, contentId: Int, valueId: Int) =
+      listOf(
+        RcCanvasLayout(componentId, 0),
+        RcWidthModifier(RcDimensionType.WEIGHT, RcFloatWord.literal(1f)),
+        RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(Float.NaN)),
+        RcLayoutContent(contentId),
+        RcComponentValue(RcComponentValue.WIDTH, componentId = componentId, valueId = valueId),
+        RcDraw4(
+          RcOpcodes.DRAW_RECT,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          reference(valueId),
+          RcFloatWord.literal(10f),
+        ),
+        end,
+        end,
+      )
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 40, modern = false),
+        listOf(
+          RcRootLayout(-2),
+          RcLayoutContent(-3),
+          RcRowLayout(
+            -4,
+            0,
+            horizontalPositioning = 1,
+            verticalPositioning = 4,
+            spacedBy = RcFloatWord.literal(0f),
+          ),
+          RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(100f)),
+          RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(40f)),
+          RcLayoutContent(-5),
+        ) + weightedCanvas(-6, -7, 42) + weightedCanvas(-8, -9, 43) + listOf(end, end, end, end),
+      )
+    fun find(node: RcNativeNodeSnapshot, componentId: Int): RcNativeNodeSnapshot? {
+      if (node.componentId == componentId) return node
+      node.children.forEach { child ->
+        find(child, componentId)?.let {
+          return it
+        }
+      }
+      return null
+    }
+    fun commands(node: RcNativeNodeSnapshot): List<RcNativeDrawCommand> =
+      node.commands + node.children.flatMap(::commands)
+
+    val snapshot = RcNativeSnapshotBridge.decode(RcDocumentCodec.encode(document))
+    assertEquals(50f, commands(checkNotNull(find(snapshot.root, -6))).single().third)
+    assertEquals(50f, commands(checkNotNull(find(snapshot.root, -8))).single().third)
   }
 
   @Test
