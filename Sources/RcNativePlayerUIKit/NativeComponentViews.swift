@@ -94,10 +94,18 @@
             if commandGeometry[1].isNaN { commandGeometry[1] = 0 }
             if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
           }
-          try budget.validateNumbers(
-            commandGeometry.map(Double.init), componentID: Int(node.componentId),
-            field: "draw geometry",
-            limits: limits)
+          if [15, 16].contains(Int(command.kind)) {
+            try budget.validateNumbers(
+              commandGeometry.prefix(4).map(Double.init), componentID: Int(node.componentId),
+              field: "draw geometry", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "arc angles")
+          } else {
+            try budget.validateNumbers(
+              commandGeometry.map(Double.init), componentID: Int(node.componentId),
+              field: "draw geometry", limits: limits)
+          }
           try budget.validateFinite(
             [
               command.alpha, command.strokeWidth, command.textSize, command.textWeight,
@@ -129,6 +137,13 @@
               ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits)
             try budget.validateFinite(
               [Double(image.scaleFactor)], componentID: Int(node.componentId), field: "image scale")
+            if Int(image.scaleType) == 7 {
+              try budget.validateCanvasDimensions(
+                [
+                  abs(Double(sourceWidth) * Double(image.scaleFactor)),
+                  abs(Double(sourceHeight) * Double(image.scaleFactor)),
+                ], limits: limits)
+            }
             try budget.validateCanvasDimensions(
               [
                 abs(Double(sourceWidth)), abs(Double(sourceHeight)),
