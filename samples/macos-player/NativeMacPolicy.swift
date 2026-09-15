@@ -41,6 +41,7 @@ enum NativeMacPolicy {
     _ snapshot: NativeSwiftDocumentSnapshot,
     compatibility: NativeMacCompatibility
   ) throws -> NativeMacPolicyReport {
+    try validateImages(snapshot.images)
     let budget = try validateSnapshot(snapshot)
     let diagnostics = RemoteComposeNativePlayerDiagnostics(
       issues: [], unsupportedOpcodes: [], notes: [])
@@ -49,6 +50,39 @@ enum NativeMacPolicy {
         policy: compatibility.nativePolicy, diagnostics: diagnostics)
     else { throw RemoteComposeNativePlayerError.incompatible(diagnostics) }
     return NativeMacPolicyReport(diagnostics: diagnostics, budget: budget)
+  }
+
+  private static func validateImages(_ images: [NativeSwiftImageResourceSnapshot]) throws {
+    guard images.count <= 32 else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Too many embedded images")
+    }
+    var totalBytes = 0
+    var ids = Set<Int>()
+    for image in images {
+      guard ids.insert(image.id).inserted else {
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Duplicate image \(image.id)")
+      }
+      guard image.data.count <= 8 * 1_024 * 1_024 else {
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Image \(image.id) is too large")
+      }
+      let (nextTotal, overflowed) = totalBytes.addingReportingOverflow(image.data.count)
+      guard !overflowed, nextTotal <= 24 * 1_024 * 1_024 else {
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Embedded images are too large")
+      }
+      totalBytes = nextTotal
+      let (pixels, pixelOverflowed) = image.width.multipliedReportingOverflow(by: image.height)
+      guard
+        image.width > 0, image.height > 0, image.width <= 4_096, image.height <= 4_096,
+        !pixelOverflowed, pixels <= 16_777_216
+      else {
+        throw NativeSwiftCoreError.malformed(
+          offset: 0, reason: "Image \(image.id) dimensions are unsafe")
+      }
+      guard image.encoding == 0 else {
+        throw NativeSwiftCoreError.unsupported(
+          opcode: 101, offset: 0, reason: "external AppKit image resources")
+      }
+    }
   }
 
   static func validate(events: [NativeSwiftEvent], against report: NativeMacPolicyReport) throws {
@@ -80,7 +114,8 @@ enum NativeMacPolicy {
       try budget.validateNumbers(
         [
           node.widthValue, node.heightValue, node.padding.left, node.padding.top,
-          node.padding.right, node.padding.bottom, node.minimumHeight, node.cornerRadius,
+          node.padding.right, node.padding.bottom, node.minimumWidth, node.maximumWidth,
+          node.minimumHeight, node.maximumHeight, node.cornerRadius,
           node.spacing,
         ].map(Double.init), componentID: node.componentID, field: "layout",
         limits: executionLimits)

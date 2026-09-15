@@ -49,6 +49,21 @@ enum NativeSwiftCoreTests {
         precondition(snapshot.root.allCommandKinds.contains(15))
       }
     }
+    if CommandLine.arguments.count == 7 {
+      let imageData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[6]))
+      let session = try NativeSwiftDocumentSession.open(data: imageData)
+      let snapshot = try session.snapshot()
+      precondition(snapshot.width == 454 && snapshot.height == 200)
+      precondition(snapshot.images.count == 1)
+      precondition(snapshot.images[0].width == 8 && snapshot.images[0].height == 8)
+      let imageID = snapshot.root.firstImage?.imageID ?? snapshot.root.firstTextureImageID
+      precondition(imageID == snapshot.images[0].id, "image button has no native bitmap draw")
+      guard let button = snapshot.root.firstClickable else {
+        preconditionFailure("image button has no clickable component")
+      }
+      let events = try session.click(componentID: button.componentID, timeSeconds: 0)
+      precondition(events == [])
+    }
     let session = try NativeSwiftDocumentSession.open(data: wire)
     let initial = try session.snapshot()
     precondition(initial.width == 360 && initial.height == 150)
@@ -172,6 +187,20 @@ enum NativeSwiftCoreTests {
     let missingTap = try gestureSession.click(componentID: 3, timeSeconds: 0)
     precondition(missingTap == nil)
 
+    let integerAction = Writer()
+    integerAction.header(width: 100, height: 100)
+    integerAction.text(id: 10, "count")
+    integerAction.u8(140).int(20).int(1)
+    integerAction.u8(144).int(31).int(3).int(2).int(20).int(65_553)
+    integerAction.u8(200).int(1).u8(202).int(3).int(-1).int(1).int(4)
+    integerAction.u8(59)
+      .u8(218).long(20).long(31)
+      .u8(210).int(10).int(1).int(20)
+      .u8(214).u8(214).u8(214)
+    let integerSession = try NativeSwiftDocumentSession.open(data: integerAction.data)
+    let integerEvents = try integerSession.click(componentID: 3, timeSeconds: 0)
+    precondition(integerEvents == [.namedAction(name: "count", value: .integer(2))])
+
     let malformedPaint = Writer()
     malformedPaint.header(width: 100, height: 100)
     malformedPaint.u8(200).int(1)
@@ -260,6 +289,15 @@ extension NativeSwiftNodeSnapshot {
   fileprivate var allCommandKinds: [Int] {
     commands.map(\.kind) + children.flatMap(\.allCommandKinds)
   }
+
+  fileprivate var firstImage: NativeSwiftImageDrawSnapshot? {
+    commands.lazy.compactMap(\.image).first ?? children.lazy.compactMap(\.firstImage).first
+  }
+
+  fileprivate var firstTextureImageID: Int? {
+    commands.lazy.compactMap(\.textureImageID).first
+      ?? children.lazy.compactMap(\.firstTextureImageID).first
+  }
 }
 
 private final class Writer {
@@ -291,6 +329,11 @@ private final class Writer {
     bytes.append(UInt8(truncatingIfNeeded: raw >> 8))
     bytes.append(UInt8(truncatingIfNeeded: raw))
     return self
+  }
+
+  @discardableResult
+  func long(_ value: Int) -> Writer {
+    int(0).int(value)
   }
 
   @discardableResult

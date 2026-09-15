@@ -70,7 +70,11 @@
       density = 1
       size = CGSize(width: swiftSnapshot.width, height: swiftSnapshot.height)
       root = NativeNode(swiftSnapshot: swiftSnapshot.root)
-      images = []
+      images = swiftSnapshot.images.map {
+        NativeImageResource(
+          id: $0.id, width: $0.width, height: $0.height, type: $0.type,
+          encoding: $0.encoding, data: $0.data)
+      }
       fonts = []
       diagnostics = RemoteComposeNativePlayerDiagnostics(
         issues: [], unsupportedOpcodes: [], notes: [])
@@ -203,6 +207,7 @@
       case .row: kind = .row
       case .column: kind = .column
       case .text: kind = .text
+      case .image: kind = .image
       case .custom: kind = .custom
       }
       componentID = snapshot.componentID
@@ -226,9 +231,9 @@
       heightType = snapshot.heightType
       heightValue = CGFloat(snapshot.heightValue)
       minimumHeight = CGFloat(snapshot.minimumHeight)
-      minimumWidth = 0
-      maximumWidth = nil
-      maximumHeight = nil
+      minimumWidth = CGFloat(snapshot.minimumWidth)
+      maximumWidth = snapshot.maximumWidth < 0 ? nil : CGFloat(snapshot.maximumWidth)
+      maximumHeight = snapshot.maximumHeight < 0 ? nil : CGFloat(snapshot.maximumHeight)
       padding = UIEdgeInsets(
         top: CGFloat(snapshot.padding.top), left: CGFloat(snapshot.padding.left),
         bottom: CGFloat(snapshot.padding.bottom), right: CGFloat(snapshot.padding.right))
@@ -377,10 +382,23 @@
       pathWinding = snapshot.pathWinding
       gradient = nil
       textStyle = NativeTextStyle.default
-      image = nil
-      textureImageID = nil
-      textureTileModeX = 0
-      textureTileModeY = 0
+      image = snapshot.image.map {
+        NativeImageDraw(
+          imageID: $0.imageID,
+          source: CGRect(
+            x: CGFloat($0.sourceLeft), y: CGFloat($0.sourceTop),
+            width: CGFloat($0.sourceRight - $0.sourceLeft),
+            height: CGFloat($0.sourceBottom - $0.sourceTop)),
+          destination: CGRect(
+            x: CGFloat($0.destinationLeft), y: CGFloat($0.destinationTop),
+            width: CGFloat($0.destinationRight - $0.destinationLeft),
+            height: CGFloat($0.destinationBottom - $0.destinationTop)),
+          scaleType: $0.scaleType, scaleFactor: CGFloat($0.scaleFactor),
+          contentDescription: $0.contentDescription)
+      }
+      textureImageID = snapshot.textureImageID
+      textureTileModeX = snapshot.textureTileModeX
+      textureTileModeY = snapshot.textureTileModeY
     }
 
     init(text snapshot: NativeSwiftTextSnapshot) {

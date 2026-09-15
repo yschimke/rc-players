@@ -28,6 +28,7 @@
     "row",
     "column",
     "text",
+    "image",
     "custom"
   ],
   "nativeDrawKinds": [
@@ -47,7 +48,9 @@
     "round-rect",
     "arc",
     "sector",
-    "path"
+    "path",
+    "image",
+    "texture"
   ],
   "interaction": {
     "hostNamedValues": ["float", "string", "color"],
@@ -75,6 +78,10 @@
     {
       "id": "ArcProgressRemote-454x400",
       "coverage": ["canvas", "integer-expressions", "color-expressions", "color-attributes", "arc", "swift-decode"]
+    },
+    {
+      "id": "ImageBackgroundRemoteButton-454x200",
+      "coverage": ["bitmap-data", "texture", "image-attributes", "derived-text", "integer-action", "swift-decode"]
     }
   ],
   "defaultLimits": {

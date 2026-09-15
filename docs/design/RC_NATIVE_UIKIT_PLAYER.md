@@ -475,7 +475,7 @@ Current checks are:
 - `scripts/check-native-uikit-animation-simulator.sh` captures two native Progress frames and
   requires both visible ink and changing pixels within the document surface;
 - `scripts/check-native-uikit-comparison.sh` renders Title Card, indeterminate and determinate
-  progress, arc progress, and a texture-backed button through CMP and the packaged UIKit player,
+  progress, arc progress, and a texture-backed button through CMP JVM and the packaged UIKit player,
   validates the shared manifest contract, and records pairwise pixel scores;
 - `scripts/rc-operation-conformance/render-lanes.sh --native-uikit` includes UIKit in an arbitrary
   macOS comparison corpus rather than maintaining a separate fixture format;
