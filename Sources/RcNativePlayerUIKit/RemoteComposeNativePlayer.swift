@@ -323,7 +323,7 @@
           let (session, frame) = try await NativeSnapshotSessionHandle.open(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes)
           try Task.checkCancellation()
-          let model = try NativeDocument(snapshot: frame.snapshot, limits: executionLimits)
+          let model = try NativeDocument(frame: frame, limits: executionLimits)
           guard generation == self?.loadGeneration else { return }
           let diagnostics = model.diagnostics(
             availableCustomComponents: availableCustomComponents)
@@ -374,7 +374,7 @@
           let frame = try await retainedSession.frame(at: frameTime)
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
-          let model = try NativeDocument(snapshot: frame.snapshot, limits: self.executionLimits)
+          let model = try NativeDocument(frame: frame, limits: self.executionLimits)
           try self.validate(model)
           try Task.checkCancellation()
           guard generation == self.loadGeneration else { return }
@@ -441,7 +441,7 @@
           self.retainedSession === retainedSession
         else { return update.accepted }
         do {
-          let model = try NativeDocument(snapshot: update.frame.snapshot, limits: executionLimits)
+          let model = try NativeDocument(frame: update.frame, limits: executionLimits)
           try validateExecution(model, events: update.events)
           guard
             isApplicationActive, lifecycle == lifecycleGeneration,

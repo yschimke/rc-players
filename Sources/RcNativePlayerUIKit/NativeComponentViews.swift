@@ -16,6 +16,65 @@
     let frameSchedule: NativeFrameSchedule
     let executionBudget: NativeFrameBudget
 
+    init(
+      frame: NativeSnapshotSessionHandle.Frame, limits: RemoteComposeNativeExecutionLimits
+    ) throws {
+      switch frame.payload {
+      case .swift(let snapshot): try self.init(swiftSnapshot: snapshot, limits: limits)
+      case .kotlin(let snapshot): try self.init(snapshot: snapshot, limits: limits)
+      }
+    }
+
+    private init(
+      swiftSnapshot: NativeSwiftDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits
+    ) throws {
+      try NativeFrameBudget.validate(limits)
+      var budget = NativeFrameBudget()
+      try budget.validateDocumentDimensions(
+        [Double(swiftSnapshot.width), Double(swiftSnapshot.height)], limits: limits)
+      var pending: [(NativeSwiftNodeSnapshot, Int)] = [(swiftSnapshot.root, 1)]
+      while let (node, depth) = pending.popLast() {
+        try budget.recordNode(depth: depth, limits: limits)
+        try budget.validateLayoutDimension(
+          value: Double(node.widthValue), type: node.widthType, componentID: node.componentID,
+          field: "width", limits: limits)
+        try budget.validateLayoutDimension(
+          value: Double(node.heightValue), type: node.heightType, componentID: node.componentID,
+          field: "height", limits: limits)
+        try budget.validateNumbers(
+          [
+            node.padding.left, node.padding.top, node.padding.right, node.padding.bottom,
+            node.spacing,
+          ]
+          .map(Double.init), componentID: node.componentID, field: "layout", limits: limits)
+        if let text = node.text {
+          try budget.recordCommand(pathElementCount: 0, strings: [text.value], limits: limits)
+          try budget.validateFinite(
+            [text.size, text.weight].map(Double.init), componentID: node.componentID,
+            field: "text")
+        }
+        if let custom = node.custom {
+          try budget.recordWork(custom.properties.count, limits: limits)
+          try budget.recordStrings(
+            [Optional(custom.config)] + custom.properties.map(\.textValue), limits: limits)
+        }
+        pending.append(contentsOf: node.children.map { ($0, depth + 1) })
+      }
+      executionBudget = budget
+      density = 1
+      size = CGSize(width: swiftSnapshot.width, height: swiftSnapshot.height)
+      root = NativeNode(swiftSnapshot: swiftSnapshot.root)
+      images = []
+      fonts = []
+      diagnostics = RemoteComposeNativePlayerDiagnostics(
+        issues: [], unsupportedOpcodes: [], notes: [])
+      rootSizing = 0
+      rootMode = 0
+      rootAlignment = 0
+      frameSchedule = NativeFrameSchedule(
+        needsContinuousFrames: false, requestsNextFrame: false, wakeAfter: nil)
+    }
+
     init(snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits) throws {
       executionBudget = try Self.validate(snapshot: snapshot, limits: limits)
       density = CGFloat(snapshot.density)
@@ -429,6 +488,48 @@
       custom = snapshot.custom.map(NativeCustomComponent.init)
     }
 
+    init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot) {
+      switch snapshot.kind {
+      case .root: kind = .root
+      case .content: kind = .content
+      case .column: kind = .column
+      case .text: kind = .text
+      case .custom: kind = .custom
+      }
+      componentID = snapshot.componentID
+      commands = snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? []
+      children = snapshot.children.map { NativeNode(swiftSnapshot: $0) }
+      semanticRole = -1
+      isClickable = false
+      isEnabled = true
+      accessibilityLabel = nil
+      accessibilityText = snapshot.text?.value
+      accessibilityValue = nil
+      accessibilityMode = .set
+      hasAccessibilitySemantics = false
+      clickActionTypes = []
+      widthType = snapshot.widthType
+      widthValue = CGFloat(snapshot.widthValue)
+      heightType = snapshot.heightType
+      heightValue = CGFloat(snapshot.heightValue)
+      minimumHeight = 0
+      minimumWidth = 0
+      maximumWidth = nil
+      maximumHeight = nil
+      padding = UIEdgeInsets(
+        top: CGFloat(snapshot.padding.top), left: CGFloat(snapshot.padding.left),
+        bottom: CGFloat(snapshot.padding.bottom), right: CGFloat(snapshot.padding.right))
+      cornerRadius = 0
+      backgroundColor = snapshot.backgroundARGB.map(UIColor.init(remoteComposeARGB:))
+      horizontalPositioning = snapshot.horizontalPositioning
+      verticalPositioning = snapshot.verticalPositioning
+      spacing = CGFloat(snapshot.spacing)
+      offset = .zero
+      zIndex = 0
+      visibility = 1
+      custom = snapshot.custom.map(NativeCustomComponent.init)
+    }
+
     var firstText: String? {
       commands.lazy.compactMap(\.text).first ?? children.lazy.compactMap(\.firstText).first
     }
@@ -520,6 +621,15 @@
           integerValue: Int($0.integerValue), textValue: $0.textValue)
       }
     }
+
+    init(_ snapshot: NativeSwiftCustomSnapshot) {
+      config = snapshot.config
+      properties = snapshot.properties.map {
+        RemoteComposeNativeCustomProperty(
+          id: $0.id, dataType: $0.dataType, floatValue: $0.floatValue,
+          integerValue: $0.integerValue, textValue: $0.textValue)
+      }
+    }
   }
 
   struct NativeDrawCommand {
@@ -588,6 +698,29 @@
       textureTileModeX = Int(snapshot.textureTileModeX)
       textureTileModeY = Int(snapshot.textureTileModeY)
     }
+
+    init(text snapshot: NativeSwiftTextSnapshot) {
+      kind = 17
+      values = [0, CGFloat(snapshot.size), -1, -1, 0, 0]
+      color = UIColor(remoteComposeARGB: snapshot.colorARGB)
+      alpha = 1
+      strokeWidth = 1
+      isStroke = false
+      strokeCap = 0
+      strokeJoin = 0
+      blendMode = 3
+      textSize = CGFloat(snapshot.size)
+      textWeight = CGFloat(snapshot.weight)
+      text = snapshot.value
+      path = []
+      pathWinding = 0
+      gradient = nil
+      textStyle = NativeTextStyle(swiftSnapshot: snapshot)
+      image = nil
+      textureImageID = nil
+      textureTileModeX = 0
+      textureTileModeY = 0
+    }
   }
 
   struct NativeImageDraw {
@@ -647,6 +780,23 @@
       isJustified = snapshot?.justified ?? false
       isUnderlined = snapshot?.underline ?? false
       isStruckThrough = snapshot?.strikeThrough ?? false
+    }
+
+    init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
+      fontStyle = snapshot.style
+      fontFamilyID = snapshot.familyID
+      fontFamilyName = nil
+      alignment = snapshot.alignment
+      overflow = snapshot.overflow
+      maxLines = snapshot.maximumLines
+      letterSpacing = 0
+      lineHeightAdd = 0
+      lineHeightMultiplier = 1
+      breakStrategy = 0
+      hyphenation = 0
+      isJustified = false
+      isUnderlined = false
+      isStruckThrough = false
     }
   }
 

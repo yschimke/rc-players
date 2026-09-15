@@ -66,8 +66,8 @@
       case text = 2
       case floatReturn = 3
       case textReturn = 4
-      case color = 7
-      case colorReference = 8
+      case colorReference = 7
+      case color = 8
       case integerReference = 9
     }
 
