@@ -82,6 +82,19 @@ enum NativeExecutionLimitsTests {
     expect(.invalidGradientStop(componentID: 9, actual: -0.1)) {
       try numbers.validateGradientStops([-0.1, 1], componentID: 9)
     }
+    let strictCoordinates = RemoteComposeNativeExecutionLimits(maximumCoordinateMagnitude: 0.5)
+    try numbers.validateLayoutDimension(
+      value: 1, type: 1, componentID: 9, field: "width", limits: strictCoordinates)
+    try numbers.validateLayoutDimension(
+      value: 2, type: 3, componentID: 9, field: "width", limits: strictCoordinates)
+    expect(.coordinateTooLarge(componentID: 9, field: "width", actual: 1, maximum: 0.5)) {
+      try numbers.validateLayoutDimension(
+        value: 1, type: 0, componentID: 9, field: "width", limits: strictCoordinates)
+    }
+    expect(.invalidDimensionValue(componentID: 9, field: "width", actual: -1)) {
+      try numbers.validateLayoutDimension(
+        value: -1, type: 1, componentID: 9, field: "width", limits: .default)
+    }
 
     var work = NativeFrameBudget()
     expect(.frameWorkExceeded(actual: 3, maximum: 2)) {

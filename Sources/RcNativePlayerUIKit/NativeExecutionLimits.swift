@@ -49,6 +49,7 @@ public enum RemoteComposeNativeLimitError: Error, Equatable, LocalizedError, Sen
   case canvasTooLarge(actual: Double, maximum: Double)
   case nonFiniteValue(componentID: Int, field: String)
   case coordinateTooLarge(componentID: Int, field: String, actual: Double, maximum: Double)
+  case invalidDimensionValue(componentID: Int, field: String, actual: Double)
   case invalidGradientStop(componentID: Int, actual: Double)
   case frameWorkExceeded(actual: Int, maximum: Int)
 
@@ -75,6 +76,8 @@ public enum RemoteComposeNativeLimitError: Error, Equatable, LocalizedError, Sen
       return "Component \(componentID) has a non-finite \(field) value"
     case .coordinateTooLarge(let componentID, let field, let actual, let maximum):
       return "Component \(componentID) has \(field)=\(actual); the magnitude limit is \(maximum)"
+    case .invalidDimensionValue(let componentID, let field, let actual):
+      return "Component \(componentID) has invalid \(field)=\(actual)"
     case .invalidGradientStop(let componentID, let actual):
       return "Component \(componentID) has gradient stop \(actual); stops must be between 0 and 1"
     case .frameWorkExceeded(let actual, let maximum):
@@ -213,6 +216,30 @@ struct NativeFrameBudget: Equatable, Sendable {
         throw RemoteComposeNativeLimitError.canvasTooLarge(
           actual: value, maximum: limits.maximumCanvasDimension)
       }
+    }
+  }
+
+  func validateLayoutDimension(
+    value: Double, type: Int, componentID: Int, field: String,
+    limits: RemoteComposeNativeExecutionLimits
+  ) throws {
+    switch type {
+    case 0, 6:
+      try validateNumbers([value], componentID: componentID, field: field, limits: limits)
+      try validateCanvasDimensions([abs(value)], limits: limits)
+    case 1, 7, 8:
+      if value.isNaN { return }
+      guard value.isFinite, value >= 0 else {
+        throw RemoteComposeNativeLimitError.invalidDimensionValue(
+          componentID: componentID, field: field, actual: value)
+      }
+    case 3:
+      guard value.isFinite, value >= 0 else {
+        throw RemoteComposeNativeLimitError.invalidDimensionValue(
+          componentID: componentID, field: field, actual: value)
+      }
+    default:
+      try validateFinite([value], componentID: componentID, field: field)
     }
   }
 

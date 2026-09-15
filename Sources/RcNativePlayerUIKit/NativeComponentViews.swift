@@ -59,21 +59,22 @@
         try budget.recordWork(node.clickActionTypes.count, limits: limits)
         let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
         let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
-        let widthValue =
-          node.widthValue.isNaN && [1, 7, 8].contains(Int(node.widthType)) ? 0 : node.widthValue
-        let heightValue =
-          node.heightValue.isNaN && [1, 7, 8].contains(Int(node.heightType)) ? 0 : node.heightValue
+        try budget.validateLayoutDimension(
+          value: Double(node.widthValue), type: Int(node.widthType),
+          componentID: Int(node.componentId), field: "width", limits: limits)
+        try budget.validateLayoutDimension(
+          value: Double(node.heightValue), type: Int(node.heightType),
+          componentID: Int(node.componentId), field: "height", limits: limits)
         try budget.validateNumbers(
           [
-            Double(widthValue), Double(heightValue), Double(node.minimumWidth),
-            Double(node.minimumHeight), Double(maximumWidth), Double(maximumHeight),
+            Double(node.minimumWidth), Double(node.minimumHeight), Double(maximumWidth),
+            Double(maximumHeight),
             Double(node.paddingTop), Double(node.paddingLeft), Double(node.paddingBottom),
             Double(node.paddingRight), Double(node.cornerRadius), Double(node.spacing),
             Double(node.offsetX), Double(node.offsetY), Double(node.zIndex),
           ], componentID: Int(node.componentId), field: "layout", limits: limits)
         try budget.validateCanvasDimensions(
           [
-            abs(Double(widthValue)), abs(Double(heightValue)),
             abs(Double(node.minimumWidth)), abs(Double(node.minimumHeight)),
             abs(Double(maximumWidth)), abs(Double(maximumHeight)),
           ], limits: limits)
