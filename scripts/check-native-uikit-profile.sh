@@ -11,6 +11,7 @@ fi
 python3 - "$profile" "$repo_root" <<'PY'
 import json
 import pathlib
+import re
 import sys
 
 path = pathlib.Path(sys.argv[1])
@@ -55,30 +56,41 @@ required_limits = {
 assert required_limits == set(limits)
 assert all(isinstance(value, int) and value > 0 for value in limits.values())
 
+def integer_default(relative, pattern):
+    source = (repo / relative).read_text()
+    match = re.search(pattern, source)
+    assert match, f"profile drift: {pattern!r} missing from {relative}"
+    expression = match.group(1)
+    assert re.fullmatch(r"[\d_ *]+", expression), f"unsupported limit expression: {expression}"
+    return eval(expression.replace("_", ""), {"__builtins__": {}}, {})
+
+wire = "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/RcWire.kt"
+linker = "rc-player/runtime/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/runtime/RcDocumentLinker.kt"
+native = "Sources/RcNativePlayerUIKit/NativeExecutionLimits.swift"
+implemented_limits = {
+    "documentBytes": integer_default(wire, r"maxDocumentBytes: Int = ([\d_ *]+)"),
+    "wireOperations": integer_default(wire, r"maxOperations: Int = ([\d_ *]+)"),
+    "containerNesting": integer_default(linker, r"MAX_NESTING_DEPTH = ([\d_ *]+)"),
+    "expansionDepth": integer_default(linker, r"MAX_EXPANSION_DEPTH = ([\d_ *]+)"),
+    "expandedNodes": integer_default(linker, r"MAX_EXPANDED_NODES = ([\d_ *]+)"),
+    "nativeNodes": integer_default(native, r"maximumNodeCount: Int = ([\d_ *]+)"),
+    "nativeNesting": integer_default(native, r"maximumNestingDepth: Int = ([\d_ *]+)"),
+    "drawCommands": integer_default(native, r"maximumDrawCommandCount: Int = ([\d_ *]+)"),
+    "pathElements": integer_default(native, r"maximumPathElementCount: Int = ([\d_ *]+)"),
+    "textBytesPerCommand": integer_default(native, r"maximumTextBytes: Int = ([\d_ *]+)"),
+    "canvasDimension": integer_default(native, r"maximumCanvasDimension: Double = ([\d_ *]+)"),
+    "coordinateMagnitude": integer_default(native, r"maximumCoordinateMagnitude: Double = ([\d_ *]+)"),
+    "frameWork": integer_default(native, r"maximumFrameWork: Int = ([\d_ *]+)"),
+}
+assert limits == implemented_limits, (
+    f"profile defaultLimits {limits!r} do not match implementation defaults {implemented_limits!r}"
+)
+
 distribution = profile["distribution"]
 for name in ("standaloneArchive", "archiveChecksum", "profileAsset", "profileChecksum"):
     assert distribution[name]
 
 source_checks = {
-    "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/RcWire.kt": [
-        "val maxDocumentBytes: Int = 16 * 1024 * 1024",
-        "val maxOperations: Int = 100_000",
-    ],
-    "rc-player/runtime/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/runtime/RcDocumentLinker.kt": [
-        "MAX_NESTING_DEPTH = 256",
-        "MAX_EXPANSION_DEPTH = 64",
-        "MAX_EXPANDED_NODES = 100_000",
-    ],
-    "Sources/RcNativePlayerUIKit/NativeExecutionLimits.swift": [
-        "maximumNodeCount: Int = 20_000",
-        "maximumNestingDepth: Int = 256",
-        "maximumDrawCommandCount: Int = 50_000",
-        "maximumPathElementCount: Int = 100_000",
-        "maximumTextBytes: Int = 16 * 1024",
-        "maximumCanvasDimension: Double = 16_384",
-        "maximumCoordinateMagnitude: Double = 1_000_000",
-        "maximumFrameWork: Int = 200_000",
-    ],
     "distribution/native-uikit/Package.swift": ["platforms: [.iOS(.v13)]"],
 }
 for relative, fragments in source_checks.items():
