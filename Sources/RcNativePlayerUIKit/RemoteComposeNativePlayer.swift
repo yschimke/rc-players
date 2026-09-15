@@ -325,10 +325,18 @@
         do {
           let model = NativeDocument(snapshot: update.frame.snapshot)
           try validate(model)
+          guard
+            input == inputGeneration, epoch == sessionEpoch, retainedSessionEpoch == epoch,
+            self.retainedSession === retainedSession
+          else { return update.accepted }
           try install(model, resources: retainedResources)
           dispatch(update.events, from: retainedSession, epoch: epoch)
           return update.accepted
         } catch {
+          guard
+            epoch == sessionEpoch, retainedSessionEpoch == epoch,
+            self.retainedSession === retainedSession
+          else { return false }
           show(error: error)
           return false
         }
@@ -453,8 +461,16 @@
             do {
               let model = NativeDocument(snapshot: update.frame.snapshot)
               try self.validate(model)
+              guard
+                input == self.inputGeneration, epoch == self.sessionEpoch,
+                self.retainedSessionEpoch == epoch, self.retainedSession === retainedSession
+              else { return }
               self.install(model, resources: retainedResources)
             } catch {
+              guard
+                epoch == self.sessionEpoch, self.retainedSessionEpoch == epoch,
+                self.retainedSession === retainedSession
+              else { return }
               self.show(error: error)
               return
             }
