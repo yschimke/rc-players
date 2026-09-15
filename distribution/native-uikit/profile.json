@@ -54,7 +54,7 @@
   "interaction": {
     "hostNamedValues": ["float", "string", "color"],
     "clickActions": ["click", "single-click"],
-    "semanticRoles": ["button", "text", "image", "header", "checkbox", "switch", "unknown"]
+    "semanticRoles": ["button", "text", "image", "checkbox", "switch", "unknown"]
   },
   "verifiedFixtures": [
     {
