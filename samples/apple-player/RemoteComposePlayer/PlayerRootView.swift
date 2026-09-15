@@ -108,6 +108,8 @@ struct PlayerRootView: View {
 }
 
 private struct PlayerCanvas: View {
+  private static let googleFonts = RemoteComposeGoogleFontsResolver()
+
   let document: PlayerDocument
   @Bindable var library: PlayerLibrary
   @State private var nativeDiagnostics: RemoteComposeNativePlayerDiagnostics?
@@ -128,6 +130,7 @@ private struct PlayerCanvas: View {
                   theme: library.theme.playerTheme,
                   compatibility: .compatible,
                   background: library.background),
+                downloadableFontResolver: Self.googleFonts,
                 onError: { error in
                   Task { @MainActor in library.errorMessage = error.localizedDescription }
                 }
@@ -137,6 +140,7 @@ private struct PlayerCanvas: View {
                 data: document.data,
                 background: library.background.nativeBackground,
                 customComponents: NativeCustomComponentSamples.registry,
+                downloadableFontResolver: Self.googleFonts,
                 onEvent: { nativeEvent = $0 },
                 onDiagnostics: { nativeDiagnostics = $0 })
             }

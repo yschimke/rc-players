@@ -48,6 +48,30 @@ class RcComposeViewControllerTest {
   }
 
   @Test
+  fun downloadableFontBridgeFindsGoogleFamiliesAndBuildsLoader() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(
+          RcTextData(42, "google:Orbitron"),
+          RcTextData(43, "Not a font: google:Unused"),
+          RcTextStyle(
+            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(8, 42))
+          ),
+        ),
+      )
+
+    val requests = rcDownloadableFontRequests(RcDocumentCodec.encode(document))
+    assertEquals(listOf("Orbitron"), requests.map { it.family })
+
+    val loader =
+      rcDownloadedTypefaceLoader(
+        listOf(RcDownloadedFont("Orbitron", "test-orbitron", byteArrayOf(1, 2, 3)))
+      )
+    assertEquals(setOf("orbitron"), loader.families)
+  }
+
+  @Test
   fun playerEventsReachTheIosHostCallback() {
     val events = mutableListOf<RcPlayerEvent>()
     val event = RcPlayerEvent.HostAction(17)

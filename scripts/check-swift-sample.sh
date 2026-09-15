@@ -44,6 +44,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/ios" "$work/macos"
 overlay_sources=(Sources/RcComposePlayerSwiftUI/*.swift)
+font_sources=(Sources/RcPlayerAppleFonts/*.swift)
 extract_sample() {
   local platform="$1"
   local sample="$2"
@@ -93,7 +94,15 @@ echo "type-checking iOS sample against $ios_slice ($target)"
 # own nested-type mapping, and it should stay visible rather than be suppressed here.
 xcrun -sdk "$sdk" swiftc \
   -target "$target" \
+  -parse-as-library \
+  -emit-module \
+  -module-name RcPlayerAppleFonts \
+  -emit-module-path "$work/ios/RcPlayerAppleFonts.swiftmodule" \
+  "${font_sources[@]}"
+xcrun -sdk "$sdk" swiftc \
+  -target "$target" \
   -F "$(dirname "$ios_slice")" \
+  -I "$work/ios" \
   -parse-as-library \
   -emit-module \
   -module-name RcComposePlayerSwiftUI \
@@ -110,7 +119,15 @@ macos_target="$arch-apple-macos12.0"
 echo "type-checking macOS sample against $macos_slice ($macos_target)"
 xcrun -sdk "$macos_sdk" swiftc \
   -target "$macos_target" \
+  -parse-as-library \
+  -emit-module \
+  -module-name RcPlayerAppleFonts \
+  -emit-module-path "$work/macos/RcPlayerAppleFonts.swiftmodule" \
+  "${font_sources[@]}"
+xcrun -sdk "$macos_sdk" swiftc \
+  -target "$macos_target" \
   -F "$(dirname "$macos_slice")" \
+  -I "$work/macos" \
   -parse-as-library \
   -emit-module \
   -module-name RcComposePlayerSwiftUI \

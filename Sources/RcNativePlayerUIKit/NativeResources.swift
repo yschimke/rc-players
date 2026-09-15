@@ -372,6 +372,7 @@ enum NativeImageGeometry {
     private var totalDecodedImageBytes = 0
     private var retainedImages = Set<ObjectIdentifier>()
     private let fontResources: [NativeFontResource]
+    private var downloadedFontResources: [NativeFontResource] = []
 
     private let cache: NativeImageCache
     private let fontRegistry: NativeFontRegistry
@@ -437,7 +438,7 @@ enum NativeImageGeometry {
       previous?.fontRegistry.reset()
       do {
         fontNames.removeAll(keepingCapacity: true)
-        for font in fontResources {
+        for font in fontResources + downloadedFontResources {
           fontNames[font.id] = try fontRegistry.register(data: font.data, id: font.id)
         }
       } catch {
@@ -446,6 +447,20 @@ enum NativeImageGeometry {
         try? previous?.activateFonts(replacing: nil)
         throw error
       }
+    }
+
+    func insertDownloadedFont(data: Data, id: Int) throws {
+      guard !fontResources.contains(where: { $0.id == id }),
+        !downloadedFontResources.contains(where: { $0.id == id })
+      else { throw RemoteComposeNativeResourceError.duplicateResource(id: id) }
+      let count = resourcesByID.count + fontResources.count + downloadedFontResources.count + 1
+      guard count <= limits.maximumResourceCount else {
+        throw RemoteComposeNativeResourceError.tooManyResources(
+          actual: count, maximum: limits.maximumResourceCount)
+      }
+      try NativeResourcePolicy.validateBytes(
+        id: id, byteCount: data.count, runningTotal: &totalBytes, limits: limits)
+      downloadedFontResources.append(NativeFontResource(id: id, type: 0, data: data))
     }
 
     func insertResolved(data: Data, for request: RemoteComposeNativeResourceRequest) throws {

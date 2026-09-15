@@ -24,6 +24,7 @@ Swift surface. Coverage and maintenance data do not yet justify a stability prom
 
 | Deliverable | Purpose | Supported host |
 | --- | --- | --- |
+| `RcPlayerAppleFonts` repository and archive product | Optional, bounded Google Fonts resolver shared by Apple players | iOS 13+, macOS 12+ |
 | `RcNativePlayerUIKit` repository SwiftPM product | Normal versioned source integration beside the CMP products | iOS 13+, arm64 device and Apple-silicon simulator |
 | `RcNativePlayerUIKit.swiftpackage.zip` | Self-contained pure-Swift evaluation/CI package | iOS 13+, arm64 device and Apple-silicon simulator |
 | `RcNativePlayerUIKit.profile.json` | Release-versioned, machine-readable capability and policy claim | Any JSON consumer |

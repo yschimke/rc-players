@@ -35,6 +35,7 @@ let package = Package(
   platforms: [.iOS(.v13), .macOS(.v12)],
   products: [
     .library(name: "RcComposePlayer", targets: ["RcComposePlayer"]),
+    .library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"]),
     .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"]),
     .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
     .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
@@ -49,8 +50,11 @@ let package = Package(
       // values, written by scripts/update-package-swift.sh. Check which you are looking at.
       checksum: "0000000000000000000000000000000000000000000000000000000000000000"
     ),
-    .target(name: "RcComposePlayerSwiftUI", dependencies: ["RcComposePlayer"]),
+    .target(name: "RcPlayerAppleFonts"),
+    .target(
+      name: "RcComposePlayerSwiftUI", dependencies: ["RcComposePlayer", "RcPlayerAppleFonts"]),
     .target(name: "RcNativePlayerCore"),
-    .target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore"]),
+    .target(
+      name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
   ]
 )

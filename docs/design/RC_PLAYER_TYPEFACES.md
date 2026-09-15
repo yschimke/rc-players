@@ -28,6 +28,8 @@ question:
 | **CMP Android** — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + `Font(File, …, variationSettings)` | ❌ canvas ops |
 | **CMP JVM** (embedded player over Skiko, server-side) | ✅ | ⚠️ host families, else nearest standard | ✅ downloaded via `GoogleFontTypefaceResolver` | ❌ ignored |
 | **CMP JVM** — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + an axis-carrying font identity | ❌ canvas ops |
+| **CMP Apple Swift API** | ✅ Compose families | ⚠️ host loader | ✅ opt-in `RemoteComposeGoogleFontsResolver` | ✅ `decodeInlineFonts` |
+| **Native UIKit** | ✅ native system designs | ⚠️ deterministic system fallback | ✅ opt-in `RemoteComposeGoogleFontsResolver` + CoreText registration | ✅ bounded CoreText registration |
 
 Two rows of that table are worth stating as findings, because they make two chips in the *same*
 viewer disagree about the *same* document:
@@ -88,6 +90,24 @@ render simply comes out flat. That is what the `java` lane did for the two varia
 and it is worth checking first whenever axes land correct-but-invisible in a lane resolving here.
 
 ## Lane detail
+
+### Apple Swift players
+
+Both public Apple players accept the same `RemoteComposeDownloadableFontResolving` dependency. The
+provided `RemoteComposeGoogleFontsResolver` uses `URLSession` to request the CSS2 endpoint only for
+families explicitly marked `google:` by a document, accepts font URLs only from
+`https://fonts.gstatic.com`, bounds stylesheet and font response sizes, validates the result with
+Core Graphics, and caches validated bytes in memory. Supplying the resolver is the host's explicit
+network opt-in; neither player contacts a font service by default. If the dependency is absent,
+both players render the text with their normal platform-default face instead of rejecting the
+document. A configured resolver's validation or network failure remains visible through the
+player's error callback.
+
+The CMP wrapper asks the protocol decoder for referenced Google families, finishes the asynchronous
+downloads, and then constructs its synchronous byte-backed `RcTypefaceLoader` before Compose's
+first paint. The native UIKit player performs the same preflight and registers those bytes with
+CoreText for the owning player lifetime. Document replacement cancels either path, so a late font
+cannot install into a newer document.
 
 ### JS — vendored TypeScript player, client-side
 

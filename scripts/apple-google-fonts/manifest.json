@@ -1,0 +1,16 @@
+[
+  {
+    "id": "google-font-fallback",
+    "width": 640,
+    "height": 240,
+    "density": 1,
+    "downloadableFonts": false
+  },
+  {
+    "id": "google-font-downloaded",
+    "width": 640,
+    "height": 240,
+    "density": 1,
+    "downloadableFonts": true
+  }
+]

@@ -6,6 +6,7 @@ private struct NativeComparisonEntry: Decodable {
   let width: Int
   let height: Int
   let density: Double
+  let downloadableFonts: Bool?
 }
 
 private enum NativeComparisonError: LocalizedError {
@@ -46,6 +47,7 @@ struct NativeComparisonHarnessView: View {
 @MainActor
 private enum NativeComparisonHarness {
   private static let directoryName = "native-comparison"
+  private static let googleFonts = RemoteComposeGoogleFontsResolver()
 
   static func run() async throws -> Int {
     let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -122,6 +124,7 @@ private enum NativeComparisonHarness {
       background: .transparent,
       compatibilityPolicy: .compatible,
       customComponents: NativeCustomComponentSamples.registry,
+      downloadableFontResolver: entry.downloadableFonts == false ? nil : googleFonts,
       onDiagnostics: { diagnostics = $0 })
     player.overrideUserInterfaceStyle = .light
     player.frame = CGRect(origin: .zero, size: size)

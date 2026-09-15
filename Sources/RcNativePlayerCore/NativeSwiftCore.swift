@@ -150,13 +150,14 @@ public struct NativeSwiftTextSnapshot: Sendable {
   public let style: Int
   public let weight: Float
   public let familyID: Int
+  public let familyName: String?
   public let alignment: Int
   public let overflow: Int
   public let maximumLines: Int
 
   public init(
     value: String, colorARGB: UInt32, size: Float, style: Int, weight: Float,
-    familyID: Int, alignment: Int, overflow: Int, maximumLines: Int
+    familyID: Int, familyName: String? = nil, alignment: Int, overflow: Int, maximumLines: Int
   ) {
     self.value = value
     self.colorARGB = colorARGB
@@ -164,6 +165,7 @@ public struct NativeSwiftTextSnapshot: Sendable {
     self.style = style
     self.weight = weight
     self.familyID = familyID
+    self.familyName = familyName
     self.alignment = alignment
     self.overflow = overflow
     self.maximumLines = maximumLines
@@ -339,6 +341,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         style: source.style,
         weight: min(max(source.weight, 1), 1_000),
         familyID: source.familyID,
+        familyName: texts[source.familyID],
         alignment: source.alignment,
         overflow: source.overflow,
         maximumLines: source.maximumLines)
