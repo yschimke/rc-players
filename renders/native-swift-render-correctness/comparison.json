@@ -1,0 +1,56 @@
+{
+  "lanes": [
+    "cmp-jvm",
+    "native-uikit"
+  ],
+  "documents": 2,
+  "results": {
+    "cmp-jvm": {
+      "image-button": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "title-card": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      }
+    },
+    "native-uikit": {
+      "image-button": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      },
+      "title-card": {
+        "primary": "rendered",
+        "error": null,
+        "unsupported": []
+      }
+    }
+  },
+  "comparisons": [
+    {
+      "left": "cmp-jvm",
+      "right": "native-uikit",
+      "documents": 2,
+      "exact": 0,
+      "unavailable": [],
+      "rows": [
+        {
+          "id": "title-card",
+          "fraction": 0.010960286458333333,
+          "differing": 3367,
+          "total": 307200
+        },
+        {
+          "id": "image-button",
+          "fraction": 0.0004185022026431718,
+          "differing": 38,
+          "total": 90800
+        }
+      ]
+    }
+  ]
+}

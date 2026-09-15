@@ -7,6 +7,8 @@ import Foundation
 public struct NativeSwiftDocumentSnapshot: Sendable {
   public let width: Int
   public let height: Int
+  public let density: Float
+  public let densityBehavior: Int
   public let root: NativeSwiftNodeSnapshot
   public let images: [NativeSwiftImageResourceSnapshot]
   public let needsContinuousFrames: Bool
@@ -77,6 +79,7 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let textureImageID: Int?
   public let textureTileModeX: Int
   public let textureTileModeY: Int
+  public let usesComponentGeometry: Bool
 }
 
 public struct NativeSwiftImageDrawSnapshot: Sendable {
@@ -238,6 +241,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return NativeSwiftDocumentSnapshot(
       width: document.width,
       height: document.height,
+      density: document.density,
+      densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
       needsContinuousFrames: document.needsContinuousFrames)
@@ -378,7 +383,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       componentID: node.componentID,
       children: try node.children.map { try resolve($0, values: values, colors: resolvedColors) },
       commands: try node.commands.map {
-        try $0.resolve(values: values, colors: resolvedColors, texts: texts)
+        try $0.resolve(
+          values: values, colors: resolvedColors, texts: texts,
+          componentValueIDs: Set(document.componentValues.map(\.valueID)))
       },
       isClickable: node.isClickable,
       supportedGestures: node.actions.keys.sorted { $0.rawValue < $1.rawValue },
@@ -586,6 +593,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 private struct ParsedDocument {
   let width: Int
   let height: Int
+  let density: Float
+  let densityBehavior: Int
   let root: ParsedNode
   let nodes: [Int: ParsedNode]
   let texts: [Int: String]
@@ -719,9 +728,16 @@ private struct ParsedDrawCommand {
     self.alphaWord = alphaWord
   }
 
-  func resolve(values: [Int: Float], colors: [Int: UInt32], texts: [Int: String]) throws
+  func resolve(
+    values: [Int: Float], colors: [Int: UInt32], texts: [Int: String],
+    componentValueIDs: Set<Int>
+  ) throws
     -> NativeSwiftDrawCommandSnapshot
   {
+    let geometryWords = words + (path?.words ?? []) + (image?.destination ?? [])
+    let usesComponentGeometry = geometryWords.contains { word in
+      NativeSwiftFloatExpression.referenceID(word).map(componentValueIDs.contains) ?? false
+    }
     return NativeSwiftDrawCommandSnapshot(
       kind: kind,
       values: words.map { NativeSwiftFloatExpression.resolve($0, values: values) },
@@ -737,7 +753,8 @@ private struct ParsedDrawCommand {
       image: image?.resolve(values: values, texts: texts),
       textureImageID: paint.textureImageID,
       textureTileModeX: paint.textureTileModeX,
-      textureTileModeY: paint.textureTileModeY)
+      textureTileModeY: paint.textureTileModeY,
+      usesComponentGeometry: usesComponentGeometry)
   }
 }
 
@@ -1116,6 +1133,8 @@ private enum NativeSwiftDocumentDecoder {
     let major: Int
     let width: Int
     let height: Int
+    var density: Float = 1
+    var densityBehavior = 0
     if encodedMajor < 0x10000 {
       major = encodedMajor
       width = try input.int("width")
@@ -1141,9 +1160,11 @@ private enum NativeSwiftDocumentDecoder {
           let value = try input.int("header property \(index)")
           if key == 5 { modernWidth = value }
           if key == 6 { modernHeight = value }
+          if key == 27 { densityBehavior = value }
         case 1:
           guard length == 4 else { throw input.malformed("Invalid float header property length") }
-          _ = try input.int("header property \(index)")
+          let value = Float(bitPattern: try input.word("header property \(index)"))
+          if key == 7 { density = value }
         case 2:
           guard length == 8 else { throw input.malformed("Invalid long header property length") }
           _ = try input.int("header property \(index) high word")
@@ -1163,8 +1184,10 @@ private enum NativeSwiftDocumentDecoder {
       width = modernWidth
       height = modernHeight
     }
-    guard major >= 0, width > 0, height > 0 else {
-      throw input.malformed("Header dimensions and version must be positive")
+    guard major >= 0, width > 0, height > 0, density.isFinite, density > 0,
+      (0...2).contains(densityBehavior)
+    else {
+      throw input.malformed("Header dimensions, version, or density metadata are invalid")
     }
 
     var texts: [Int: String] = [:]
@@ -1717,7 +1740,8 @@ private enum NativeSwiftDocumentDecoder {
       }
     }
     return ParsedDocument(
-      width: width, height: height, root: root, nodes: nodes, texts: texts, floats: floats,
+      width: width, height: height, density: density, densityBehavior: densityBehavior,
+      root: root, nodes: nodes, texts: texts, floats: floats,
       colors: colors, integers: integers, integerExpressions: integerExpressions,
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
