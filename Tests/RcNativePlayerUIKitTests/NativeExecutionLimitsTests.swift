@@ -106,6 +106,12 @@ enum NativeExecutionLimitsTests {
       try eventWork.recordEvent(
         additionalWork: 3, limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 3))
     }
+    var actionWork = NativeFrameBudget()
+    try actionWork.recordWork(2, limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 2))
+    expect(.frameWorkExceeded(actual: 3, maximum: 2)) {
+      try actionWork.recordWork(
+        1, limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 2))
+    }
 
     print("native UIKit execution limit tests: ok")
   }

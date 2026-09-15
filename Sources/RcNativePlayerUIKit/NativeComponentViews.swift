@@ -56,6 +56,7 @@
         try budget.recordNode(depth: current.depth, limits: limits)
         try budget.recordStrings(
           [node.semanticLabel, node.semanticText, node.semanticStateDescription], limits: limits)
+        try budget.recordWork(node.clickActionTypes.count, limits: limits)
         let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
         let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
         let widthValue =
@@ -132,6 +133,13 @@
             try budget.validateFinite(
               commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
               field: "arc angles")
+          case 17:
+            try budget.validateNumbers(
+              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
+              field: "text position", limits: limits)
+            try budget.validateFinite(
+              commandGeometry.suffix(4).map(Double.init), componentID: Int(node.componentId),
+              field: "text anchor")
           default:
             try budget.validateNumbers(
               commandGeometry.map(Double.init), componentID: Int(node.componentId),

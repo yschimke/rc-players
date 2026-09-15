@@ -163,6 +163,13 @@ struct NativeFrameBudget: Equatable, Sendable {
     try validateWork(limits)
   }
 
+  mutating func recordWork(
+    _ additionalWork: Int, limits: RemoteComposeNativeExecutionLimits
+  ) throws {
+    work += additionalWork
+    try validateWork(limits)
+  }
+
   func validateNumbers(
     _ values: [Double], componentID: Int, field: String,
     limits: RemoteComposeNativeExecutionLimits
