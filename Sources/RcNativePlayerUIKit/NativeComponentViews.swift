@@ -162,6 +162,13 @@
       commands.lazy.compactMap(\.text).first ?? children.lazy.compactMap(\.firstText).first
     }
 
+    private var localAccessibilityLabels: [String] {
+      [accessibilityLabel, accessibilityText].compactMap { $0 }
+        + commands.flatMap { command in
+          [command.text, command.image?.contentDescription].compactMap { $0 }
+        }
+    }
+
     var accessibilityDescriptor: NativeAccessibilityDescriptor? {
       guard hasAccessibilitySemantics || isClickable else { return nil }
       return NativeAccessibilityDescriptor(
@@ -176,10 +183,7 @@
 
     var descendantAccessibilityLabels: [String] {
       children.flatMap { child in
-        let own = [child.accessibilityLabel, child.accessibilityText, child.firstText].compactMap {
-          $0
-        }
-        return own + child.descendantAccessibilityLabels
+        child.localAccessibilityLabels + child.descendantAccessibilityLabels
       }
     }
   }
