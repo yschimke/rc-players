@@ -58,6 +58,18 @@ struct NativeAccessibilityDescriptor: Equatable, Sendable {
 
   var hidesDescendants: Bool { mode == .clearAndSet || mode == .merge }
 
+  func mergingBehavior(from descendant: NativeAccessibilityDescriptor) -> Self {
+    guard mode == .merge else { return self }
+    return NativeAccessibilityDescriptor(
+      role: role ?? descendant.role,
+      mode: mode,
+      contentDescription: contentDescription,
+      text: text,
+      stateDescription: stateDescription ?? descendant.stateDescription,
+      isEnabled: isEnabled && descendant.isEnabled,
+      isClickable: isClickable || descendant.isClickable)
+  }
+
   func resolvedLabel(descendantLabels: [String]) -> String? {
     var fragments = [contentDescription, text].compactMap(Self.nonBlank)
     if mode == .merge { fragments += descendantLabels.compactMap(Self.nonBlank) }
