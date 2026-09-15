@@ -66,6 +66,7 @@ class RcNativeSnapshotTest {
       RcDocument(
         RcHeader(RcVersion(0, 1, 0)),
         listOf(
+          RcTextData(0, "not semantic content"),
           RcRootLayout(1),
           first,
           first.copy(role = RcAccessibilitySemantics.ROLE_IMAGE),
@@ -77,6 +78,9 @@ class RcNativeSnapshotTest {
 
     assertEquals(RcAccessibilitySemantics.ROLE_IMAGE, snapshot.root.children.single().semanticRole)
     assertTrue(snapshot.root.children.single().hasSemantics)
+    assertEquals(null, snapshot.root.children.single().semanticLabel)
+    assertEquals(null, snapshot.root.children.single().semanticText)
+    assertEquals(null, snapshot.root.children.single().semanticStateDescription)
     assertEquals(
       "Multiple accessibility modifiers collapse to the last modifier in the native player",
       snapshot.diagnostics.single().reason,
