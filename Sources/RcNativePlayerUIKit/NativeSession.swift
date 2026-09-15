@@ -27,7 +27,7 @@
       guard data.count <= Int(Int32.max) else {
         throw RemoteComposeNativePlayerError.documentTooLarge(data.count)
       }
-      let opened = try await Task.detached(priority: .userInitiated) {
+      let decodeTask = Task.detached(priority: .userInitiated) {
         let bytes = RcDataBridgeKt.rcByteArray(data: data)
         do {
           let session = SessionBox(
@@ -37,7 +37,14 @@
         } catch {
           throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
         }
-      }.value
+      }
+      let opened = try await withTaskCancellationHandler {
+        let result = try await decodeTask.value
+        try Task.checkCancellation()
+        return result
+      } onCancel: {
+        decodeTask.cancel()
+      }
       return (NativeSnapshotSessionHandle(session: opened.0), opened.1)
     }
 

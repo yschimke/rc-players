@@ -177,19 +177,28 @@
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
+      let compatibilityPolicy = compatibilityPolicy
+      let diagnosticsSink = onDiagnostics
+      let resourceLimits = resourceLimits
+      let resourceResolver = resourceResolver
+      let resourceCache = resourceCache
       pendingWork = .documentLoad
       loadTask = Task { [weak self] in
         do {
           let (session, frame) = try await NativeSnapshotSessionHandle.open(data: data)
           try Task.checkCancellation()
-          guard let self, generation == self.loadGeneration else { return }
           let model = NativeDocument(snapshot: frame.snapshot)
-          try self.validate(model)
+          diagnosticsSink(model.diagnostics)
+          if !RemoteComposeNativeCompatibilityDecision.shouldRender(
+            policy: compatibilityPolicy, diagnostics: model.diagnostics)
+          {
+            throw RemoteComposeNativePlayerError.incompatible(model.diagnostics)
+          }
           try Task.checkCancellation()
-          guard generation == self.loadGeneration else { return }
-          let resources = try await self.prepareResources(for: model, generation: generation)
+          let resources = try await Self.prepareResources(
+            for: model, limits: resourceLimits, resolver: resourceResolver, cache: resourceCache)
           try Task.checkCancellation()
-          guard generation == self.loadGeneration else { return }
+          guard let self, generation == self.loadGeneration else { return }
           self.retainedSession = session
           self.retainedSessionData = data
           self.install(model, resources: resources)
@@ -240,24 +249,25 @@
       }
     }
 
-    private func prepareResources(
+    private static func prepareResources(
       for model: NativeDocument,
-      generation: UInt64
+      limits: RemoteComposeNativeResourceLimits,
+      resolver: (any RemoteComposeNativeResourceResolving)?,
+      cache: NativeImageCache
     ) async throws -> NativeResourceStore {
       let resources = try NativeResourceStore(
         resources: model.images,
         fonts: model.fonts,
-        limits: resourceLimits,
-        cache: resourceCache)
+        limits: limits,
+        cache: cache)
       if !resources.unresolvedImages.isEmpty {
-        guard let resourceResolver else {
+        guard let resolver else {
           throw RemoteComposeNativeResourceError.unresolvedReference(
             id: resources.unresolvedImages[0].id)
         }
         for request in resources.unresolvedImages {
-          let resolved = try await resourceResolver.resolve(request)
+          let resolved = try await resolver.resolve(request)
           try Task.checkCancellation()
-          guard generation == loadGeneration else { throw CancellationError() }
           try resources.insertResolved(data: resolved, for: request)
         }
       }
