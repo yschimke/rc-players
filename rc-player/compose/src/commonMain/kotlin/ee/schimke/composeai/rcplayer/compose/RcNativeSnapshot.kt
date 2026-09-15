@@ -345,6 +345,7 @@ public constructor(bytes: ByteArray) {
     componentId: Int,
     timeSeconds: Float = state.animationTimeSeconds,
   ): RcNativeSessionUpdate {
+    requireValidNativeTime(timeSeconds)
     pendingEvents.clear()
     val actions =
       clickActions[componentId].orEmpty().filter {
@@ -394,6 +395,7 @@ public constructor(bytes: ByteArray) {
     value: RcNamedValue,
     timeSeconds: Float,
   ): RcNativeSessionUpdate {
+    requireValidNativeTime(timeSeconds)
     pendingEvents.clear()
     val qualifiedName = if (':' in name) name else "USER:$name"
     val accepted = state.namedVariable(qualifiedName)?.type == expectedType
@@ -406,6 +408,12 @@ public constructor(bytes: ByteArray) {
     val events = pendingEvents.map(::nativeEvent)
     pendingEvents.clear()
     return RcNativeSessionUpdate(accepted, snapshot, events)
+  }
+}
+
+private fun requireValidNativeTime(timeSeconds: Float) {
+  require(timeSeconds.isFinite() && timeSeconds >= 0f) {
+    "Native snapshot time must be finite and non-negative"
   }
 }
 
@@ -515,9 +523,7 @@ public object RcNativeSnapshotBridge {
     state: RcPlayerState,
     timeSeconds: Float,
   ): RcNativeDocumentSnapshot {
-    require(timeSeconds.isFinite() && timeSeconds >= 0f) {
-      "Native snapshot time must be finite and non-negative"
-    }
+    requireValidNativeTime(timeSeconds)
     state.beginFrame(timeSeconds = timeSeconds)
     val diagnostics = NativeDiagnosticCollector()
     val paint = NativePaint()

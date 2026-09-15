@@ -311,7 +311,7 @@
       let epoch = sessionEpoch
       let lifecycle = lifecycleGeneration
       let time = currentFrameTime
-      let (input, task) = enqueueInput {
+      let (input, task) = enqueueInput(lifecycle: lifecycle) {
         try await operation(retainedSession, time)
       }
       switch await task.value {
@@ -357,15 +357,19 @@
     }
 
     private func enqueueInput(
+      lifecycle: UInt64,
       _ operation: @escaping @Sendable () async throws -> NativeSnapshotSessionHandle.Update
     ) -> (UInt64, Task<Result<NativeSnapshotSessionHandle.Update, any Error>, Never>) {
       inputGeneration &+= 1
       let input = inputGeneration
       let previous = inputTail
-      let task = Task<Result<NativeSnapshotSessionHandle.Update, any Error>, Never> {
+      let task = Task<Result<NativeSnapshotSessionHandle.Update, any Error>, Never> { [weak self] in
         await previous?.value
         do {
           try Task.checkCancellation()
+          guard
+            self?.isApplicationActive == true, lifecycle == self?.lifecycleGeneration
+          else { throw CancellationError() }
           return .success(try await operation())
         } catch {
           return .failure(error)

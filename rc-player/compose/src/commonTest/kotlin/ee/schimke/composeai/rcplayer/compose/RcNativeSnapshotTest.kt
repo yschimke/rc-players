@@ -82,6 +82,12 @@ class RcNativeSnapshotTest {
       )
     val session = RcNativeSnapshotSession(RcDocumentCodec.encode(document))
 
+    assertFailsWith<IllegalArgumentException> {
+      session.setFloat("width", 99f, timeSeconds = Float.NaN)
+    }
+    assertEquals(2f, session.snapshot().root.children.single().commands.single().first)
+    assertFailsWith<IllegalArgumentException> { session.click(7, timeSeconds = -1f) }
+
     val named = session.setFloat("width", 5f)
     assertTrue(named.accepted)
     assertEquals(5f, named.snapshot.root.children.single().commands.single().first)
