@@ -27,6 +27,23 @@ enum NativeAccessibilityPolicyTests {
     precondition(merged.elementKind == .toggle)
     precondition(merged.hidesDescendants)
     precondition(merged.resolvedLabel(descendantLabels: ["Network", "Network"]) == "Wi-Fi, Network")
+    let mergedChild = merged.mergingBehavior(
+      from: NativeAccessibilityDescriptor(
+        role: .button, mode: .set, contentDescription: "Open", text: nil,
+        stateDescription: "Expanded", isEnabled: true, isClickable: true))
+    precondition(mergedChild.role == .toggle)
+    precondition(mergedChild.isClickable)
+    precondition(mergedChild.stateDescription == "Connected")
+
+    let rolelessMerge = NativeAccessibilityDescriptor(
+      role: nil, mode: .merge, contentDescription: nil, text: nil, stateDescription: nil,
+      isEnabled: true, isClickable: false
+    ).mergingBehavior(
+      from: NativeAccessibilityDescriptor(
+        role: .button, mode: .set, contentDescription: "Open", text: nil,
+        stateDescription: "Expanded", isEnabled: true, isClickable: true))
+    precondition(rolelessMerge.elementKind == .button)
+    precondition(rolelessMerge.stateDescription == "Expanded")
 
     let cleared = NativeAccessibilityDescriptor(
       role: .image,

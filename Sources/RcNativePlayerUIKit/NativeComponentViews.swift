@@ -63,6 +63,12 @@
     }
   }
 
+  private struct NativeSemanticBehavior {
+    let descriptor: NativeAccessibilityDescriptor
+    let componentID: Int
+    let clickActionTypes: [Int]
+  }
+
   struct NativeNode {
     enum Kind: Equatable {
       case root
@@ -203,6 +209,27 @@
 
     var descendantAccessibilityLabels: [String] {
       children.flatMap(\.effectiveAccessibilityLabels)
+    }
+
+    var semanticBehavior: NativeSemanticBehavior? {
+      guard let own = accessibilityDescriptor else { return nil }
+      guard
+        own.mode == .merge,
+        let descendant = children.lazy.compactMap(\.effectiveSemanticBehavior).first
+      else {
+        return NativeSemanticBehavior(
+          descriptor: own, componentID: componentID, clickActionTypes: clickActionTypes)
+      }
+      let ownsAction = !clickActionTypes.isEmpty
+      return NativeSemanticBehavior(
+        descriptor: own.mergingBehavior(from: descendant.descriptor),
+        componentID: ownsAction ? componentID : descendant.componentID,
+        clickActionTypes: ownsAction ? clickActionTypes : descendant.clickActionTypes)
+    }
+
+    private var effectiveSemanticBehavior: NativeSemanticBehavior? {
+      guard visibility == 1 else { return nil }
+      return semanticBehavior ?? children.lazy.compactMap(\.effectiveSemanticBehavior).first
     }
   }
 
@@ -546,7 +573,7 @@
     }
 
     private static func semanticView(_ view: UIView?, matches node: NativeNode) -> Bool {
-      guard let descriptor = node.accessibilityDescriptor else { return view == nil }
+      guard let descriptor = node.semanticBehavior?.descriptor else { return view == nil }
       switch descriptor.elementKind {
       case .button: return view is NativeSemanticButton
       case .toggle: return view is NativeSemanticSwitch
@@ -562,7 +589,7 @@
       let local: [Any] =
         textLabels.filter(\.isAccessibilityElement).map { $0 as Any }
         + imageViews.filter(\.isAccessibilityElement).map { $0 as Any }
-      guard let semanticView, let descriptor = node.accessibilityDescriptor else {
+      guard let semanticView, let descriptor = node.semanticBehavior?.descriptor else {
         return local + descendants
       }
       return descriptor.hidesDescendants ? [semanticView] : [semanticView] + local + descendants
@@ -822,35 +849,37 @@
       for node: NativeNode,
       onClick: @escaping (Int) -> Void
     ) -> UIView? {
-      guard let descriptor = node.accessibilityDescriptor else { return nil }
+      guard let behavior = node.semanticBehavior else { return nil }
+      let descriptor = behavior.descriptor
       let view: UIView
       switch descriptor.elementKind {
-      case .button: view = NativeSemanticButton(componentID: node.componentID)
-      case .toggle: view = NativeSemanticSwitch(componentID: node.componentID)
-      case .image: view = NativeSemanticImageView(componentID: node.componentID)
+      case .button: view = NativeSemanticButton(componentID: behavior.componentID)
+      case .toggle: view = NativeSemanticSwitch(componentID: behavior.componentID)
+      case .image: view = NativeSemanticImageView(componentID: behavior.componentID)
       default:
         view = NativeSemanticControl(
-          componentID: node.componentID,
+          componentID: behavior.componentID,
           kind: descriptor.elementKind)
       }
-      configureSemanticView(view, node: node, descriptor: descriptor, onClick: onClick)
+      configureSemanticView(view, node: node, behavior: behavior, onClick: onClick)
       return view
     }
 
     private func updateSemanticView(_ view: UIView?, from node: NativeNode) {
-      guard let view, let descriptor = node.accessibilityDescriptor else { return }
-      Self.configureSemanticView(view, node: node, descriptor: descriptor, onClick: onClick)
+      guard let view, let behavior = node.semanticBehavior else { return }
+      Self.configureSemanticView(view, node: node, behavior: behavior, onClick: onClick)
     }
 
     private static func configureSemanticView(
       _ view: UIView,
       node: NativeNode,
-      descriptor: NativeAccessibilityDescriptor,
+      behavior: NativeSemanticBehavior,
       onClick: @escaping (Int) -> Void
     ) {
-      let action = node.clickActionTypes.isEmpty ? nil : onClick
+      let descriptor = behavior.descriptor
+      let action = behavior.clickActionTypes.isEmpty ? nil : onClick
       if let activating = view as? any NativeSemanticActivating {
-        activating.componentID = node.componentID
+        activating.componentID = behavior.componentID
         activating.action = action
       }
       if let control = view as? UIControl { control.isEnabled = descriptor.isEnabled }
@@ -879,6 +908,7 @@
       case .picker, .carousel: traits = .adjustable
       case .generic: traits = []
       }
+      if descriptor.isClickable { traits.insert(.button) }
       if !descriptor.isEnabled { traits.insert(.notEnabled) }
       return traits
     }
@@ -955,6 +985,12 @@
 
     @objc private func activate() {
       action?(componentID)
+    }
+
+    override func accessibilityActivate() -> Bool {
+      guard isUserInteractionEnabled, let action else { return false }
+      action(componentID)
+      return true
     }
   }
 
