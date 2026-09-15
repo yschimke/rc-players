@@ -607,7 +607,7 @@ public object RcNativeSnapshotBridge {
     requireValidNativeTime(timeSeconds)
     if (advanceFrame) state.beginFrame(timeSeconds = timeSeconds)
     val diagnostics = NativeDiagnosticCollector()
-    val paint = NativePaint()
+    var paint = NativePaint()
     val bitmaps =
       document.operations.filterIsInstance<RcBitmapData>().associateBy(RcBitmapData::imageId)
     val paths = document.operations.filterIsInstance<RcPathData>().associateBy(RcPathData::id)
@@ -802,9 +802,14 @@ public object RcNativeSnapshotBridge {
               is RcHeightModifier -> dimension.type
               else -> -1
             }
-          type == RcDimensionType.WEIGHT ||
+          dimension == null ||
+            type == RcDimensionType.WEIGHT ||
             type == RcDimensionType.EXACT ||
-            type == RcDimensionType.EXACT_DP
+            type == RcDimensionType.EXACT_DP ||
+            type == RcDimensionType.FILL ||
+            type == RcDimensionType.WRAP ||
+            type == RcDimensionType.FILL_PARENT_MAX_WIDTH ||
+            type == RcDimensionType.FILL_PARENT_MAX_HEIGHT
         }
         if (available == null || !supported) {
           null
@@ -819,7 +824,6 @@ public object RcNativeSnapshotBridge {
             }?.let(state::resolve)
           }
           fun constrainedFixedSize(index: Int, dimension: RcOperation?): Float {
-            dimension ?: return 0f
             val operations =
               childContainers[index].children.filterIsInstance<RcLinkedNode.Operation>().map {
                 it.operation
@@ -856,20 +860,43 @@ public object RcNativeSnapshotBridge {
                   merge(state.resolve(modifier.minimum), state.resolve(modifier.maximum))
               }
             }
-            val value =
-              when (dimension) {
-                is RcWidthModifier -> state.resolve(dimension.value)
-                is RcHeightModifier -> state.resolve(dimension.value)
-                else -> 0f
-              }
             val type =
               when (dimension) {
                 is RcWidthModifier -> dimension.type
                 is RcHeightModifier -> dimension.type
-                else -> RcDimensionType.EXACT
+                else -> RcDimensionType.WRAP
               }
             val scaled =
-              value / if (type == RcDimensionType.EXACT_DP) document.header.density else 1f
+              when (type) {
+                RcDimensionType.EXACT ->
+                  state.resolve(
+                    when (dimension) {
+                      is RcWidthModifier -> dimension.value
+                      is RcHeightModifier -> dimension.value
+                      else -> RcFloatWord.literal(0f)
+                    }
+                  )
+                RcDimensionType.EXACT_DP ->
+                  state.resolve(
+                    when (dimension) {
+                      is RcWidthModifier -> dimension.value
+                      is RcHeightModifier -> dimension.value
+                      else -> RcFloatWord.literal(0f)
+                    }
+                  ) / document.header.density
+                RcDimensionType.FILL -> available
+                RcDimensionType.FILL_PARENT_MAX_WIDTH,
+                RcDimensionType.FILL_PARENT_MAX_HEIGHT ->
+                  available *
+                    fillFraction(
+                      when (dimension) {
+                        is RcWidthModifier -> dimension.value
+                        is RcHeightModifier -> dimension.value
+                        else -> RcFloatWord.literal(Float.NaN)
+                      }
+                    )
+                else -> 0f
+              }
             return minOf(maxOf(scaled, minimum), maximum)
           }
           val fixed =
@@ -881,15 +908,12 @@ public object RcNativeSnapshotBridge {
               }
               .toFloat()
           val totalWeight = weights.filterNotNull().sum()
-          dimensions.zip(weights).map { (dimension, weight) ->
+          dimensions.indices.map { index ->
+            val weight = weights[index]
             if (weight != null && totalWeight > 0f) {
               maxOf(available - fixed, 0f) * maxOf(weight, Float.MIN_VALUE) / totalWeight
             } else {
-              when (dimension) {
-                is RcWidthModifier -> state.resolve(dimension.value)
-                is RcHeightModifier -> state.resolve(dimension.value)
-                else -> 0f
-              }
+              constrainedFixedSize(index, dimensions[index])
             }
           }
         }
@@ -1392,6 +1416,14 @@ public object RcNativeSnapshotBridge {
         visibility = visibility,
       )
     }
+
+    // Publish the complete component geometry tree before resolving any commands. A command may
+    // reference a later sibling's ComponentValue, so a single depth-first materialization can
+    // otherwise capture that sibling's previous-frame or initial-zero geometry permanently.
+    linked.operations.filterIsInstance<RcLinkedNode.Container>().forEach {
+      nodeFor(it, document.header.width.toFloat(), document.header.height.toFloat())
+    }
+    paint = NativePaint()
 
     val rootCommands = mutableListOf<RcNativeDrawCommand>()
     val rootChildren = mutableListOf<RcNativeNodeSnapshot>()
