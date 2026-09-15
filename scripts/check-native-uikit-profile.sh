@@ -155,6 +155,10 @@ assert distribution == {
 }, "distribution must match the reviewed core-v1 artifact contract"
 
 source_checks = {
+    "Package.swift": [
+        "platforms: [.iOS(.v13), .macOS(.v12)]",
+        '.library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"])',
+    ],
     "distribution/native-uikit/Package.swift": ["platforms: [.iOS(.v13)]"],
 }
 for relative, fragments in source_checks.items():

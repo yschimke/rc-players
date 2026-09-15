@@ -173,12 +173,12 @@ tasks.register("rcPlayerXcframeworkChecksum") {
   inputs.file(zip)
   outputs.file(checksumFile)
   doLast {
-    // Plain SHA-256 of the archive — the same value `swift package compute-checksum` prints, which
-    // is what `Package.swift`'s `binaryTarget(checksum:)` is compared against at resolve time.
+    // Standard check-file format, matching the other published checksum sidecars. The release
+    // workflow extracts the first field for Package.swift's binaryTarget(checksum:) value.
     val digest = MessageDigest.getInstance("SHA-256")
     val hex =
       digest.digest(zip.get().asFile.readBytes()).joinToString("") { byte -> "%02x".format(byte) }
-    checksumFile.get().asFile.writeText(hex + "\n")
+    checksumFile.get().asFile.writeText("$hex  ${zip.get().asFile.name}\n")
     logger.lifecycle("RcComposePlayer.xcframework.zip sha256: $hex")
   }
 }

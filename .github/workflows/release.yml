@@ -323,7 +323,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          checksum="$(cat rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip.sha256)"
+          checksum="$(awk '{print $1}' rc-player/compose/build/distributions/RcComposePlayer.xcframework.zip.sha256)"
           url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/RcComposePlayer.xcframework.zip"
 
           git config user.name "github-actions[bot]"
