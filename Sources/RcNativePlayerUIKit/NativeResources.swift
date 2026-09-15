@@ -322,7 +322,11 @@ enum NativeImageGeometry {
     }
 
     deinit {
-      reset()
+      for url in registered.values {
+        var error: Unmanaged<CFError>?
+        CTFontManagerUnregisterFontsForURL(url as CFURL, .process, &error)
+        try? FileManager.default.removeItem(at: url)
+      }
     }
   }
 
