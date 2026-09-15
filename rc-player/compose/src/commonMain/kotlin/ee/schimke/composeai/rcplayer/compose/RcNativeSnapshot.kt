@@ -8,6 +8,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionConstraintsModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
@@ -651,6 +652,7 @@ public object RcNativeSnapshotBridge {
       }
 
     val settledFloatExpressionIds = mutableSetOf<Int>()
+    var settlingGeometryChanged = false
 
     fun nodeFor(
       container: RcLinkedNode.Container,
@@ -991,10 +993,12 @@ public object RcNativeSnapshotBridge {
       if (
         state.hasComponentValues(componentId) && (measuredWidth != null || measuredHeight != null)
       ) {
-        state.publishComponentGeometry(
-          componentId,
-          RcComponentGeometry(measuredWidth ?: 0f, measuredHeight ?: 0f, 0f, 0f, 0f, 0f),
-        )
+        settlingGeometryChanged =
+          state.publishComponentGeometry(
+            componentId,
+            RcComponentGeometry(measuredWidth ?: 0f, measuredHeight ?: 0f, 0f, 0f, 0f, 0f),
+            refreshExpressions = false,
+          ) || settlingGeometryChanged
       }
       val commands = mutableListOf<RcNativeDrawCommand>()
       semantics?.let {
@@ -1475,32 +1479,64 @@ public object RcNativeSnapshotBridge {
     // Dimension modifiers may reference float expressions declared inside a later component. Settle
     // only those value-producing operations first; drawing and other stateful commands still run
     // exactly once during materialization below.
-    fun settleGeometryExpressions(nodes: List<RcLinkedNode>) {
+    fun settleGeometryExpressions(
+      nodes: List<RcLinkedNode>,
+      expressionIds: Set<Int>? = null,
+    ) {
       nodes.forEach { node ->
         when (node) {
           is RcLinkedNode.Operation -> {
             val operation = node.operation
-            if (operation is RcFloatExpression) {
+            if (
+              operation is RcFloatExpression &&
+                (expressionIds == null || operation.id in expressionIds)
+            ) {
               state.applyFloatExpression(operation)
               settledFloatExpressionIds += operation.id
             }
           }
-          is RcLinkedNode.Container -> settleGeometryExpressions(node.children)
+          is RcLinkedNode.Container -> settleGeometryExpressions(node.children, expressionIds)
         }
       }
     }
     settleGeometryExpressions(linked.operations)
 
+    val componentValueIds =
+      document.operations.filterIsInstance<RcComponentValue>().mapTo(mutableSetOf()) { it.valueId }
+    val geometryExpressionIds = mutableSetOf<Int>()
+    val geometryDependencies = componentValueIds.toMutableSet()
+    var foundDependency: Boolean
+    do {
+      foundDependency = false
+      document.operations.filterIsInstance<RcFloatExpression>().forEach { expression ->
+        if (
+          expression.id !in geometryExpressionIds &&
+            expression.expression.any {
+              it.referencedId?.let(geometryDependencies::contains) == true
+            }
+        ) {
+          geometryExpressionIds += expression.id
+          geometryDependencies += expression.id
+          foundDependency = true
+        }
+      }
+    } while (foundDependency)
+
     // Publish the complete component geometry tree before resolving any commands. A command may
     // reference a later sibling's ComponentValue, so a single depth-first materialization can
     // otherwise capture that sibling's previous-frame or initial-zero geometry permanently.
-    linked.operations.filterIsInstance<RcLinkedNode.Container>().forEach {
-      nodeFor(
-        it,
-        document.header.width.toFloat(),
-        document.header.height.toFloat(),
-        settlingGeometry = true,
-      )
+    for (iteration in 0 until 8) {
+      settlingGeometryChanged = false
+      linked.operations.filterIsInstance<RcLinkedNode.Container>().forEach {
+        nodeFor(
+          it,
+          document.header.width.toFloat(),
+          document.header.height.toFloat(),
+          settlingGeometry = true,
+        )
+      }
+      if (!settlingGeometryChanged || geometryExpressionIds.isEmpty()) break
+      settleGeometryExpressions(linked.operations, geometryExpressionIds)
     }
     paint = NativePaint()
 
