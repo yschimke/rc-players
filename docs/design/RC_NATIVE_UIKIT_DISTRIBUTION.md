@@ -11,22 +11,21 @@ silently redirect the CMP player. A host chooses it explicitly and can keep
 The repository SwiftPM product and the standalone downloadable package keep the current Swift API
 shape, but neither source nor binary compatibility is promised while the profile is experimental.
 The repository follows the project's ordinary semantic version; the independently versioned
-profile id changes only when its meaning changes. Moving the bridge behind C/Objective-C or into a
-Swift runtime is therefore allowed before stability. Such a move must preserve the high-level
+profile id changes only when its meaning changes. Extending or replacing internal Swift runtime
+types is therefore allowed before stability. Such a move must preserve the high-level
 UIKit initializer and event concepts where practical, document source migration, and use a major
 release if it breaks an already stable profile.
 
-This is intentionally the conservative choice. The current Kotlin/Native bridge preserves one
-codec/link/runtime implementation and has strong conformance value, but it also dominates binary
-size and exports Kotlin ABI that is wider than the UIKit layer needs. Coverage and maintenance data
-do not yet justify declaring that bridge a permanent public contract.
+The player is deliberately source-only. CMP preserves its value as an independent conformance
+oracle, while the native artifact avoids shipping a second runtime and exposes only an idiomatic
+Swift surface. Coverage and maintenance data do not yet justify a stability promise.
 
 ## Products and platforms
 
 | Deliverable | Purpose | Supported host |
 | --- | --- | --- |
 | `RcNativePlayerUIKit` repository SwiftPM product | Normal versioned source integration beside the CMP products | iOS 13+, arm64 device and Apple-silicon simulator |
-| `RcNativePlayerUIKit.swiftpackage.zip` | Self-contained evaluation/CI package with the exact bridge XCFramework | iOS 13+, arm64 device and Apple-silicon simulator |
+| `RcNativePlayerUIKit.swiftpackage.zip` | Self-contained pure-Swift evaluation/CI package | iOS 13+, arm64 device and Apple-silicon simulator |
 | `RcNativePlayerUIKit.profile.json` | Release-versioned, machine-readable capability and policy claim | Any JSON consumer |
 
 UIKit is not claimed on macOS. The shared `RcComposePlayer.xcframework` still contains the macOS
@@ -34,9 +33,8 @@ arm64 CMP framework for the other SwiftPM products; that does not make the UIKit
 macOS renderer. Intel iOS simulators are not supported because Compose Multiplatform 1.11 does not
 publish the required x86_64 Apple variant.
 
-The standalone archive remains useful while the bridge is experimental: it pins Swift sources,
-profile, and binary together without a second network fetch. Revisit removing it only after the
-native runtime boundary and ordinary SwiftPM binary delivery are stable.
+The standalone archive pins the Swift sources and profile together without a binary or second
+network fetch. Revisit removing it only after ordinary versioned SwiftPM source delivery is stable.
 
 ## Versioned profile
 
@@ -79,7 +77,7 @@ updated only by `scripts/update-package-swift.sh`.
 ### Automated simulator baseline
 
 `scripts/measure-native-uikit-simulator.sh` installs the packaged Release sample on a named iPad
-simulator and asks the app to measure seven direct bridge/render iterations of
+simulator and asks the app to measure seven direct decode/render iterations of
 `TitleCardRemote-640x480`. The JSON artifact records its source revision, simulator model and OS,
 median decode/first-frame/update time, UIKit hierarchy composition, accessibility elements,
 allocation and physical-footprint growth, executable size, and installed app-bundle size. CI
@@ -108,8 +106,7 @@ The profile can leave experimental status only after all of these are true:
   have reviewed budgets and a regression history;
 - VoiceOver, Switch Control, Dynamic Type, contrast, lifecycle, Reduce Motion, and deallocation
   checks run on the supported platform matrix;
-- the narrow long-term runtime boundary (retained Kotlin API, C/Objective-C facade, or Swift
-  runtime) has an owner and an ABI policy;
+- the long-term Swift runtime boundary has an owner and an API/ABI policy;
 - at least one released standalone artifact has been verified from outside the repository build.
 
 Until then, migration is explicit and low risk: keep the CMP product installed, select the native

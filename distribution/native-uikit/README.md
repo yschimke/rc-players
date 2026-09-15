@@ -1,8 +1,8 @@
 # RcNativePlayerUIKit release package
 
-This archive is the self-contained, experimental UIKit Remote Compose player for iOS. It includes
-the Swift sources and the exact `RcComposePlayer.xcframework` used by their temporary Kotlin decode
-bridge.
+This archive is the self-contained, experimental UIKit Remote Compose player for iOS. Its decoder,
+retained state, component hierarchy, layout, and drawing are pure Swift, with no Kotlin framework or
+binary-target dependency. The separate CMP product remains available from the repository package.
 
 Add the extracted directory as a local Swift package and select the `RcNativePlayerUIKit` product.
 The package supports iOS 13 or newer on arm64 devices and Apple-silicon simulators. It includes

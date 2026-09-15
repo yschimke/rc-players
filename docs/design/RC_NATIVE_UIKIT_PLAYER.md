@@ -7,10 +7,10 @@ the compatibility oracle for this work.
 
 `RcNativePlayerUIKit` is a second Apple player next to, not instead of, the CMP player. It proves
 that an iOS app can decode a real `.rc` document into a small immutable render snapshot and render
-it through a Swift-owned hierarchy of `UIView`s and Core Graphics calls. The migration now includes
-a bounded, Foundation-only Swift decoder and retained Swift state session. Documents made entirely
-from its migrated operation families never enter Kotlin; other documents use the existing Kotlin
-runtime as an explicit family-by-family fallback while coverage grows.
+it through a Swift-owned hierarchy of `UIView`s and Core Graphics calls. The player now contains a
+bounded, Foundation-only Swift decoder and retained Swift state session. The source product and its
+standalone archive have no Kotlin or XCFramework dependency. Documents outside the migrated Swift
+operation families fail with a typed decode error; hosts can select the separate CMP product.
 
 The POC optimizes for a comprehensible native component hierarchy rather than complete operation
 coverage or exact pixels. Its primary API is `RemoteComposeNativePlayerView`; a conventional view
@@ -52,7 +52,6 @@ either form remains inside the native view tree and can write through declared r
 - Drag/scroll/raw touch expressions, long/double click, automatic sound playback, or inferred
   haptics.
 - Text on paths, inline link spans, font variation axes, or exact CMP text metrics.
-- Removing the fallback binary before the Swift corpus and safety gates reach parity.
 - Replacing, deprecating, or internally modifying `RcComposePlayer`.
 - Native AppKit rendering.
 
@@ -81,11 +80,11 @@ Only the left path is currently production-supported.
 
 ## Design principles
 
-### Swift owns presentation
+### Swift owns the complete native path
 
-Kotlin may decode and resolve semantics during the POC, but it never creates an Apple view,
-controller, layer, color, font, or graphics context. The snapshot crossing the language boundary is
-immutable data. UIKit owns lifecycle and layout; Core Graphics owns drawing.
+Foundation decodes and retains document state, UIKit owns lifecycle and layout, and Core Graphics
+and Core Text own drawing. The native product has no language boundary or binary bridge. CMP remains
+an independent renderer and test oracle rather than a runtime fallback.
 
 ### Components retain native identity
 
@@ -113,10 +112,8 @@ placement policy testable without constructing a UIKit hierarchy.
 ### Resolve before rendering
 
 The renderer receives concrete floats, colors, strings, commands, and node relationships; it never
-inspects wire operations or NaN-boxed identifiers. On the Swift path, a Foundation-only decoder and
-retained session perform that work before UIKit materializes the view model. On the fallback path,
-`RcDocumentCodec`, `RcDocumentLinker`, and `RcPlayerState` produce the same shape through the
-temporary Kotlin snapshot bridge.
+inspects wire operations or NaN-boxed identifiers. A Foundation-only decoder and retained session
+perform that work before UIKit materializes the view model.
 
 ### Partial means explicit
 
@@ -129,77 +126,76 @@ compatible or strict policy; the player does not silently claim compatibility.
 | Concern | Location | Responsibility |
 |---|---|---|
 | Swift decode and state | `NativeSwiftCore.swift` | Bounded wire reads, immutable parsed tree, retained document values, snapshot resolution |
-| Migration fallback | `RcNativeSnapshotBridge` in `rc-player-compose` | Resolve operation families not migrated to Swift yet and serve as the parity oracle |
-| Backend selection | `NativeSession.swift` | Prefer Swift; fall back only for a typed unsupported-family result; serialize state updates |
+| Session isolation | `NativeSession.swift` | Own the Swift runtime in an actor and serialize state updates |
 | Swift package product | `RcNativePlayerUIKit` in `Package.swift` | Ship the native source beside existing products |
 | Public UIKit API | `RemoteComposeNativePlayer.swift` | View/controller lifecycle, replacement, errors, diagnostics |
 | Component renderer | `NativeComponentViews.swift` | Build `UIView`s, aspect-fit the document, draw commands |
 | SwiftUI adapter | `RemoteComposeNativePlayerRepresentable.swift` | Embed that same UIKit tree in SwiftUI |
 | Executable host | `samples/apple-player` | Toggle CMP/native against identical `.rc` bytes |
 
-The native source product still depends on the `RcComposePlayer` binary for the migration fallback.
-That dependency can be removed once the fixture corpus is entirely Swift-backed. It does not depend
-on `RcComposePlayerSwiftUI`, and neither existing product depends on it.
+The native source product has no dependency on either CMP product. The repository still publishes
+those products independently, and the sample can link both to provide an explicit renderer switch.
 
 ### Data flow
 
 1. The host creates `RemoteComposeNativePlayerView(data:)` or its controller.
-2. A serial Swift actor first asks `NativeSwiftDocumentSession` to open the bytes.
-3. A typed unsupported-operation result selects the Kotlin bridge; malformed input never falls
-   through to a second parser.
-4. The selected session decodes once and retains document state.
+2. A serial Swift actor asks `NativeSwiftDocumentSession` to open the bytes.
+3. The session decodes once and retains document state; malformed or unsupported input fails closed.
 5. A requested time resolves an immutable frame without scheduling platform work.
 6. Inputs mutate that retained state and return an atomic frame-plus-events result.
-7. Swift maps either backend's frame to private UIKit values on the main actor.
+7. Swift maps the immutable frame to private UIKit values on the main actor.
 8. `NativeDocumentView` builds recursive `NativeComponentView`s for the first frame.
 9. Compatible later frames reconcile those views in place; structural changes atomically replace
    the tree.
 10. Each `NativeCanvasView` replays immutable commands in `draw(_:)` using Core Graphics.
 
-Kotlin objects do not remain in the UIKit view tree. When fallback is necessary, its retained object
-is isolated inside one Swift actor; UIKit receives only immutable frames. Swift-backed frames are
-`Sendable` value types with no platform objects at all.
+Frames are `Sendable` Swift value types with no platform objects. Mutable retained state remains
+inside one Swift actor; UIKit receives only immutable snapshots.
 
 ### Pure Swift migration boundary
 
 The initial Swift family is deliberately a complete executable vertical slice, not a mock codec. It
-parses the AndroidX big-endian wire representation for legacy headers, text and color constants,
-root/content/column/text/custom containers, container ends, and width, height, padding, and
-rectangular background modifiers. It resolves ordinary text into `UILabel` commands and custom
-properties into the public host component model. A `TEXT_RETURN` updates retained Swift text state,
-so both the custom field and an ordinary document label observe the next atomic frame without
-Kotlin involvement.
+parses the AndroidX big-endian wire representation for legacy and modern headers, text, float and
+color constants, root/content/canvas/box/row/column/text/custom containers, container ends, and a
+bounded subset of size, padding, rounded clip, paint, path, transform, arc, and background operations. It
+resolves ordinary text into `UILabel` commands and custom properties into the public host component
+model. A `TEXT_RETURN` updates retained Swift text state, so both the custom field and an ordinary
+document label observe the next atomic frame without foreign-runtime involvement.
+
+The retained Swift value store accepts typed float, string, and color host values. Click modifiers
+promote their conceptual component to a native `UIControl`; named actions are resolved and emitted
+from the actor as an atomic frame-plus-events update. The first animated canvas family evaluates the
+bounded AndroidX reverse-Polish float operations used by the indeterminate progress fixture,
+supplies its logical monotonic time, exports save/restore/rotate/arc commands, and requests the
+existing demand-driven `CADisplayLink` only while that moving system value is referenced.
 
 Safety rules are part of the boundary: byte reads are checked, UTF-8 is strict, strings,
 collections, and operation counts are capped, component identifiers are unique, nesting must
 balance, dimensions and paint values must be finite, and malformed supported input fails closed.
-Only `NativeSwiftCoreError.unsupported` may select the Kotlin fallback. This distinction prevents a
-malformed document from being accepted merely because two parsers disagree.
+`NativeSwiftCoreError` distinguishes unsupported operation families from malformed bytes, and both
+fail closed at the public player boundary.
 
-The next migration slices are, in order: modern header maps and named data, expressions and
-animation clocks, click/named events, Box/Row and remaining layout modifiers, canvas paint/path
-commands, images and fonts, then complex text and accessibility operations. Each slice adds corpus
-parity tests against Kotlin snapshots before the fallback surface shrinks. The binary dependency is
-removed only after every supported fixture selects Swift and the Kotlin oracle can move to tests.
+The next migration slices are the remaining expression operators and action payloads, layout
+modifiers, remaining canvas paint/path commands, images and fonts, then complex text and accessibility
+operations. Each slice adds corpus parity tests against CMP output. There is no runtime fallback:
+broader coverage is added only in Swift.
 
 ### Snapshot model
 
-`NativeSwiftDocumentSnapshot` is the Foundation-only value passed by the Swift session. The fallback
-equivalent, `RcNativeDocumentSnapshot`, contains the same document size and root-node concepts plus
-structured compatibility diagnostics. Each diagnostic records severity, opcode, inventory-derived
-operation name, component id, and reason. The legacy unsupported-opcode and note projections remain
-on the experimental bridge for source compatibility, but Swift treats the structured list as
+`NativeSwiftDocumentSnapshot` is the Foundation-only value passed by the Swift session. It contains
+the document size, root-node concepts, and resolved values. Compatibility diagnostics record severity, opcode, inventory-derived
+operation name, component id, and reason. Legacy unsupported-opcode and note projections remain in
+the experimental public diagnostics for source compatibility, but Swift treats structured issues as
 authoritative.
-`RcNativeNodeSnapshot` carries a semantic kind (`root`, `content`, `canvas`, or `group`), component
+`NativeSwiftNodeSnapshot` carries a semantic kind, component
 id, local commands, children, and resolved role, mode, clickability, enabled, content-description,
 text, and state-description semantics. Swift converts integer kinds, roles, and modes to private
 enums at the boundary. Invalid role/mode values fail decode. Multiple accessibility modifiers on
-one component remain an explicit compatibility diagnostic while the bridge exports one effective
+one component remain an explicit compatibility diagnostic while the session exports one effective
 semantic node.
 
-`RcNativeDrawCommand` is a resolved Core Graphics-friendly value. Its flat six-float payload is not
-proposed as a long-term IR; it keeps the POC's generated Kotlin/Native header small and avoids a
-large exported sealed hierarchy that Swift would have to downcast.
+`NativeDrawCommand` is a private, resolved Core Graphics-friendly value. Its flat payload is an
+internal implementation detail and can evolve without exposing wire operations through the API.
 
 ### Public API
 
@@ -307,11 +303,9 @@ arrives; binding a text field directly to the asynchronous return path can fight
 Registrations are revisioned: calling `configureCustomComponents(_:)` after mutating an installed
 registry retries the retained document and rebuilds only the registry-bound document tree.
 
-The bridge counts custom properties and their resolved strings toward the existing per-frame work
-and text limits. Kotlin currently resolves document references and applies return values, while all
-view construction, sizing, lifecycle, input, and accessibility remain Apple-native. This boundary
-is intentionally replaceable by the planned pure-Swift codec/runtime without changing the public
-registry or component lifecycle.
+The Swift session counts custom properties and their resolved strings toward the existing per-frame
+work and text limits, resolves supported references, and applies supported return values. View
+construction, sizing, lifecycle, input, and accessibility remain Apple-native.
 
 ## Rendering behavior
 
@@ -333,8 +327,8 @@ no general component margin modifier; external spacing is expressed by parent ar
 
 ### Paint and graphics state
 
-The bridge snapshots paint onto each drawing command, so Swift does not depend on Kotlin's internal
-paint model. Core Graphics state remains ordered for save/restore, clipping, and transforms.
+The runtime resolves paint into each drawing command before UIKit rendering. Core Graphics state
+remains ordered for save/restore, clipping, and transforms.
 
 Current paint support is color, alpha, fill/stroke, stroke width/cap/join, Core
 Graphics-representable blend modes, ordered line/quadratic/cubic paths, path clipping, inline
@@ -348,8 +342,8 @@ effects, font axes, and textures produce diagnostics or unsupported opcodes.
 Layout text uses real `UILabel`s and attributed strings. UIKit owns Unicode shaping, bidirectional
 text, native fallback, Dynamic Type, accessibility, wrapping, line limits, ellipsis placement,
 logical start/end alignment, line height, letter spacing, and decoration. Its intrinsic measurement
-feeds the same frame-based layout pass as other components. The bridge resolves inherited
-`CoreText` properties before Swift sees them.
+feeds the same frame-based layout pass as other components. The Swift session resolves supported
+`CoreText` properties before UIKit sees them.
 
 Canvas text uses Core Text inside the ordered Core Graphics command stream, preserving the active
 transform, clip, blend state, baseline anchor, and primitive interleaving. Canvas glyphs intentionally
@@ -361,8 +355,8 @@ process are not consulted opportunistically.
 
 ### Images and resources
 
-The snapshot exports image metadata and opaque bytes without asking Kotlin or UIKit to perform
-network I/O. Inline PNG and raw alpha/RGBA resources are decoded only after enforcing per-resource,
+The snapshot exports image metadata and opaque bytes without asking UIKit to perform network I/O.
+Inline PNG and raw alpha/RGBA resources are decoded only after enforcing per-resource,
 aggregate-byte, dimension, decoded-pixel, and resource-count limits. Declared and decoded image
 dimensions must agree. The shared decoded-image cache also has an independent byte-cost ceiling, so
 repeated document replacement cannot retain one maximum-sized image per count slot. Duplicate ids,
@@ -390,9 +384,9 @@ than silently claimed.
 
 ### Errors
 
-Oversized input fails before bridging. Decode/link failures are exported as throwing Kotlin APIs and
-translated to `RemoteComposeNativePlayerError`. The view shows a native error label for the POC; a
-production API should add a first-class `onError` closure.
+Oversized input fails before decoding. Swift decode/link failures become
+`RemoteComposeNativePlayerError`. The view shows a native error label for the POC; a production API
+should add a first-class `onError` closure.
 
 ## Lifecycle and concurrency
 
@@ -499,15 +493,13 @@ thresholds can start tolerant; structure and state should be exact from the begi
 
 The bare semantic-version tag is the normal SwiftPM distribution. Releases also publish
 `RcNativePlayerUIKit.swiftpackage.zip` plus a SHA-256 sidecar. The archive is a self-contained local
-Swift package with the UIKit sources and the exact `RcComposePlayer.xcframework` used by the
-temporary bridge. CI extracts and builds that archive before release, so it tests the downloadable
+Swift package with the UIKit sources and no binary target. CI extracts and builds that archive
+before release, so it tests the downloadable
 unit rather than only the repository source tree. This is intentionally an experimental artifact;
 it does not imply parity with or replacement of the CMP product.
 
-The bridge adds recorded public Kotlin/Native ABI to the XCFramework. Before stable release, choose
-whether to promote a renderer-neutral retained runtime, use a narrow C/Objective-C bridge, port the
-codec/runtime to Swift, or retain an explicitly versioned experimental SPI. A retained shared
-runtime best preserves one semantic implementation if incremental interop proves inexpensive.
+The native artifact adds no ABI to the CMP XCFramework. Before stable release, decide which Swift
+runtime and model types remain internal and which host-facing capabilities warrant stable API.
 
 The current distribution, compatibility, provenance, and migration decisions are recorded in
 [`RC_NATIVE_UIKIT_DISTRIBUTION.md`](RC_NATIVE_UIKIT_DISTRIBUTION.md). Each release publishes the
@@ -534,7 +526,7 @@ product maturity boundaries; the plan describes how to reach them.
 
 ### Phase 0: architecture POC (this change)
 
-Separate product and sample toggle; shared static bridge; recursive `UIView` hierarchy; a small
+Separate product and sample toggle; pure-Swift static session; recursive `UIView` hierarchy; a small
 Box/Row/Column layout profile; `UILabel` and semantic `UIButton` promotion; primitive drawing;
 visible diagnostics. Exit when the bundled Morning Run card is clearly recognizable in Native POC
 mode without a Compose view beneath it and incomplete behavior is reported.
@@ -557,12 +549,11 @@ Add display-link scheduling, runtime wakeups, layout transitions, shaders/offscr
 variation, profiling, and resource budgets. Exit when device/simulator correctness and performance
 budgets pass.
 
-### Phase 4: pure Swift core
+### Phase 4: pure Swift core (in progress)
 
-Replace the temporary Kotlin decoder/linker/state session behind the same immutable Swift model and
-public player API. Split the implementation into a bounded wire reader, typed protocol operations,
-link/evaluation state, and an actor-isolated session. Validate each family against the Kotlin/CMP
-oracle before removing that family from the XCFramework dependency. No phase replaces CMP.
+The runtime dependency and fallback are removed. Continue extending the bounded wire reader, typed
+protocol operations, link/evaluation state, and actor-isolated session. Validate each family against
+the independent CMP oracle before adding it to the released profile. No phase replaces CMP.
 
 ## Alternatives considered
 

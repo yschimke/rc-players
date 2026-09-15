@@ -17,7 +17,7 @@ questions. The supported renderer remains CMP; UIKit is an explicitly experiment
 | **CMP player** (`rc-player/compose`) | JVM · Android · iOS (`iosArm64`, `iosSimulatorArm64`) · macOS (`macosArm64`) · `wasmJs` | Kotlin Multiplatform + Compose Multiplatform | **Yes** — the one supported API here | The player written here. One implementation that draws a document natively on every surface this stack targets, with a platform-neutral wire model underneath it. This is what a consumer should depend on. |
 | **Wasm host** (`rc-player/wasm`) | Browser | The CMP player compiled to WebAssembly | Yes, as an embed contract | Makes the CMP player renderable in a page with no server: an iframe driven by query parameters and `window.rcPlayerLoad`. It is the CMP player, not a second implementation — same pixels, different host. |
 | **Apple XCFramework** (`Package.swift`) | iOS + Apple-silicon macOS, from Swift | The CMP player's native Apple targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
-| **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Swift + UIKit/Core Graphics, temporarily reusing the Kotlin decoder/runtime | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
+| **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Pure Swift + UIKit/Core Graphics/Core Text | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **macOS player app** (`samples/macos-player`) | Apple-silicon macOS | SwiftUI host + CMP or experimental AppKit-native rendering | **Release utility** | Opens local `.rc` files and persists a renderer preference, so both Apple desktop paths can be exercised from one downloadable app. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
 | **Vendored AndroidX player, JVM cut** (`third_party/rc-embedded-player-jvm`) | Desktop JVM (Skia) | The platform-neutral subset of the above, against Compose Desktop | **No** — testing/tooling only | Runs the same comparison headlessly, without Robolectric — and, by compiling the shared files against a non-Android target, makes "platform-neutral" a compiled fact rather than a claim. AndroidX publishes no desktop cut, so this one has no upstream to switch to. |
@@ -81,9 +81,9 @@ interop surface.
 
 The experimental `RcNativePlayerUIKit` product is published by the same bare version tag. Each
 GitHub Release also carries `RcNativePlayerUIKit.swiftpackage.zip` and its SHA-256 file: a
-self-contained local Swift package containing the native Swift sources and the matching bridge
-XCFramework. This duplicate packaging is intentional while the POC still depends on Kotlin; it
-gives evaluators a pinned, offline-resolvable artifact without changing the supported CMP product.
+self-contained, pure-Swift local package containing the native sources with no binary target. It
+gives evaluators a small pinned, offline-resolvable artifact without changing the supported CMP
+product.
 
 [`samples/apple-player`](samples/apple-player/) is the full application check: a SwiftUI document
 player linked against the current release XCFramework build, built in CI for the arm64 iOS

@@ -10,13 +10,13 @@ the player in a releasable state.
 
 ## Baseline
 
-The current POC opens a retained Kotlin runtime session off the main actor and renders immutable
+The current POC opens a retained pure-Swift runtime session off the main actor and renders immutable
 frames through a Swift-owned UIKit hierarchy. It has approximate Box, Row, and Column layout,
 native `UILabel` text, semantic `UIButton` overlays, a useful Core Graphics subset, explicit
 compatibility diagnostics, the Morning Run Title Card regression, and a downloadable experimental
 package. A manifest-driven simulator lane now renders the same bytes as CMP, with a focused
-five-document baseline covering layout/text, determinate and indeterminate progress, arcs, and a
-texture-backed semantic button.
+title-card baseline covering the modern header, native layout, and text. The former five-document
+Kotlin-backed comparison set remains the next Swift coverage target.
 
 It dispatches the core click/action contract, updates typed named values, schedules only requested
 animation frames, and publishes a positive machine-readable profile. It does not claim complete
@@ -40,7 +40,7 @@ implicit fallbacks.
 | 10 — Performance and untrusted input | Core implemented | Decode-time operation ceiling plus configurable typed byte, node, depth, draw, path, text, geometry, and per-frame work limits |
 | 11 — Distribution and API evidence | Core implemented | Versioned machine-readable profile, explicit experimental compatibility/migration decision, checksummed consumer archive, and GitHub provenance attestations |
 | 12 — Native custom components | Implemented | Explicit Swift registry, typed properties/returns, stable UIKit lifecycle, SwiftUI hosting, strict-policy diagnostics, and CMP/UIKit evidence |
-| 13 — Pure Swift core | Planned | Replace the Kotlin codec/runtime session family by family behind the stable native model and player API |
+| 13 — Pure Swift core | In progress | Kotlin runtime dependency removed; legacy/modern headers, editable custom state, Morning Run structure/text/click events, and the animated progress expression/canvas family execute in Swift; broader operation coverage remains |
 
 ## Delivery rules
 
@@ -53,7 +53,7 @@ implicit fallbacks.
 - Preserve operation order and graphics state before optimizing view count.
 - Treat malformed documents and unbounded work as correctness issues, not later polish.
 - Add public API only when a real host needs it. Keep experimental machinery internal where
-  possible and record intentional Kotlin/Native ABI changes.
+  possible and record intentional public API changes.
 
 ## Milestones
 
@@ -149,17 +149,17 @@ Acceptance:
 
 ### 6. Replace snapshots with a retained session — core implemented
 
-Create a narrow renderer-neutral session in Kotlin that owns `RcPlayerState`, exposes immutable
-frame deltas, and schedules no UIKit work itself. Swift applies those deltas on the main actor while
-retaining stable component views by id. Full snapshot rebuild remains available as a correctness
-fallback during development.
+Create a narrow renderer-neutral session that exposes immutable frame deltas and schedules no UIKit
+work itself. The original implementation used `RcPlayerState`; `NativeSwiftDocumentSession` now
+owns the supported state directly. Swift applies frames on the main actor while retaining stable
+component views by id. Full snapshot rebuild remains available as a correctness fallback.
 
 The first retained slice exports complete immutable frames rather than a compact wire delta. Swift
 reconciles compatible component shapes recursively and mutates the existing canvas, label, image,
 semantic, and component views in place; a structural mismatch atomically installs a newly built
 tree. Generation-numbered tasks discard stale decode/resource/frame results. Entering the
 background cancels outstanding work and records whether a full render must resume on activation.
-Compact component-local deltas remain an optimization to measure before making them bridge ABI.
+Compact component-local deltas remain an internal optimization to measure.
 
 Acceptance:
 
@@ -306,9 +306,8 @@ measurements are a regression tripwire, not a device performance claim.
 
 ### 11. Stabilize distribution and API only after evidence — core implemented
 
-Keep the downloadable package and SwiftPM product experimental through M4. At M5, review whether
-the Kotlin bridge should become stable SPI, move behind a C interface, or be replaced by a Swift
-runtime. Decide minimum OS/architecture support, semantic versioning guarantees, module naming,
+Keep the downloadable package and SwiftPM product experimental through M4. At M5, review the Swift
+runtime boundary and decide minimum OS/architecture support, semantic versioning guarantees, module naming,
 and whether the standalone archive remains useful beside normal SwiftPM distribution.
 
 Acceptance:
@@ -341,11 +340,11 @@ in strict/compatible policy rather than constructing classes named by untrusted 
 
 The editable-text conformance fixture is generated from the existing CMP demo document and rendered
 through both hosts. It verifies config lookup, text and color reads, native control construction,
-and the visible document structure; Kotlin bridge tests verify return-channel writes update the
+and the visible document structure; Swift core tests verify return-channel writes update the
 ordinary document text table. Run `scripts/check-native-uikit-custom-components.sh` to regenerate
 the comparison.
 
-### 13. Replace the Kotlin core with pure Swift — planned
+### 13. Replace the Kotlin core with pure Swift — in progress
 
 Keep `RemoteComposeNativePlayerView`, the immutable native document model, compatibility policy,
 resource boundary, custom registry, and renderer stable. Replace the implementation beneath
@@ -356,10 +355,11 @@ resource boundary, custom registry, and renderer stable. Replace the implementat
 3. expression evaluation and named state;
 4. click actions, events, and custom return channels;
 5. deterministic animation time and wake scheduling;
-6. remove the native product's XCFramework dependency after corpus parity.
+6. keep the native product and standalone archive free of XCFramework dependencies.
 
-Each slice must decode the same fixture bytes, produce an equivalent native model and diagnostics,
-and pass CMP/UIKit comparison evidence before its Kotlin path is retired. Swift actors own mutable
+The runtime dependency has been retired; unsupported families now fail explicitly rather than
+falling back. Each next slice must decode the same fixture bytes, produce an equivalent native model and diagnostics,
+and pass CMP/UIKit comparison evidence. Swift actors own mutable
 session state; value types cross to the main actor; Apple frameworks stay confined to the rendering
 and host layers. The codec must retain the existing byte, operation, nesting, expansion, text, and
 frame-work limits from its first landing rather than adding them after parity.
@@ -368,7 +368,7 @@ frame-work limits from its first landing rather than adding them after parity.
 
 Every work package advances through the same ladder:
 
-1. pure Kotlin tests for decode, linking, evaluation, and exported bridge failures;
+1. protocol/CMP oracle tests for decode, linking, and evaluation behavior;
 2. pure Swift tests for value mapping, measurement, placement, and diagnostics;
 3. focused UIKit/Core Graphics tests for hierarchy, semantics, and pixels;
 4. simulator A/B rendering against CMP for the selected fixture shard;

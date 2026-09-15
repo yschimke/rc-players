@@ -66,7 +66,8 @@ public enum RemoteComposeNativeResourceError: Error, Equatable, LocalizedError, 
   case resourceTooLarge(id: Int, actual: Int, maximum: Int)
   case totalTooLarge(actual: Int, maximum: Int)
   case invalidDimensions(id: Int, width: Int, height: Int)
-  case dimensionMismatch(id: Int, declaredWidth: Int, declaredHeight: Int, actualWidth: Int, actualHeight: Int)
+  case dimensionMismatch(
+    id: Int, declaredWidth: Int, declaredHeight: Int, actualWidth: Int, actualHeight: Int)
   case decodedImageTooLarge(id: Int, pixels: Int, maximum: Int)
   case decodedImageBytesTooLarge(actual: Int, maximum: Int)
   case duplicateResource(id: Int)
@@ -88,7 +89,8 @@ public enum RemoteComposeNativeResourceError: Error, Equatable, LocalizedError, 
       return "Image \(id) has invalid dimensions \(width)x\(height)"
     case .dimensionMismatch(
       let id, let declaredWidth, let declaredHeight, let actualWidth, let actualHeight):
-      return "Image \(id) declares \(declaredWidth)x\(declaredHeight) but decodes as \(actualWidth)x\(actualHeight)"
+      return
+        "Image \(id) declares \(declaredWidth)x\(declaredHeight) but decodes as \(actualWidth)x\(actualHeight)"
     case .decodedImageTooLarge(let id, let pixels, let maximum):
       return "Image \(id) decodes to \(pixels) pixels; the limit is \(maximum)"
     case .decodedImageBytesTooLarge(let actual, let maximum):
@@ -575,14 +577,4 @@ enum NativeImageGeometry {
     }
   }
 
-  extension NativeImageResource {
-    fileprivate init(id: Int, width: Int, height: Int, type: Int, encoding: Int, data: Data) {
-      self.id = id
-      self.width = width
-      self.height = height
-      self.type = type
-      self.encoding = encoding
-      self.data = data
-    }
-  }
 #endif

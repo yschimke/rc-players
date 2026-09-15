@@ -1,7 +1,3 @@
 [
-  {"id": "title-card", "width": 640, "height": 480, "density": 2},
-  {"id": "indeterminate-progress", "width": 400, "height": 400, "density": 2},
-  {"id": "image-button", "width": 454, "height": 200, "density": 2},
-  {"id": "circular-progress", "width": 384, "height": 384, "density": 2},
-  {"id": "arc-progress", "width": 454, "height": 400, "density": 2}
+  {"id": "title-card", "width": 640, "height": 480, "density": 2}
 ]

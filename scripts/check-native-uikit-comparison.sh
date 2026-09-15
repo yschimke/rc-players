@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compare representative non-title-card content between the native UIKit and CMP players.
+# Compare the current pure-Swift native profile against the CMP player.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,10 +11,6 @@ trap 'rm -rf "$input_dir"' EXIT
 
 cp "$repo_root/scripts/native-uikit-comparison/manifest.json" "$input_dir/manifest.json"
 cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc" "$input_dir/title-card.rc"
-cp "$repo_root/rc-player/compose/src/jvmTest/resources/rc-fixtures/IndeterminateCircularProgress-400x400.rc" "$input_dir/indeterminate-progress.rc"
-cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc" "$input_dir/image-button.rc"
-cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/CircularProgressRemote-384x384.rc" "$input_dir/circular-progress.rc"
-cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ArcProgressRemote-454x400.rc" "$input_dir/arc-progress.rc"
 
 rm -rf "$lanes_dir/cmp-jvm" "$lanes_dir/native-uikit"
 mkdir -p "$lanes_dir/cmp-jvm"

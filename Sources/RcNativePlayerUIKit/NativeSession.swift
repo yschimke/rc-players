@@ -1,6 +1,5 @@
 #if canImport(UIKit)
   import Foundation
-  import RcComposePlayer
 
   public enum RemoteComposeNativePlayerActionValue: Equatable, Sendable {
     case none
@@ -17,61 +16,22 @@
     case debug(message: String, value: Float, flags: Int)
   }
 
-  /// Runtime objects are confined to this serial handle. New operation families execute in the
-  /// Swift session; the Kotlin session remains a migration fallback for documents containing an
-  /// operation family the Swift decoder does not understand yet.
+  /// Serial ownership boundary for the pure-Swift decoder and retained document state.
   actor NativeSnapshotSessionHandle {
-    private final class SessionBox: @unchecked Sendable {
-      let value: RcNativeSnapshotSession
-
-      init(_ value: RcNativeSnapshotSession) {
-        self.value = value
-      }
+    struct Frame: Sendable {
+      let snapshot: NativeSwiftDocumentSnapshot
     }
-
-    struct Frame: @unchecked Sendable {
-      enum Payload {
-        case swift(NativeSwiftDocumentSnapshot)
-        case kotlin(RcNativeDocumentSnapshot)
-      }
-
-      let payload: Payload
-    }
-
-    private actor Decoder {
-      func open(data: Data) throws -> (SessionBox, Frame) {
-        try Task.checkCancellation()
-        let bytes = RcDataBridgeKt.rcByteArray(data: data)
-        do {
-          let session = SessionBox(
-            try RcNativeSnapshotBridge.shared.createSession(bytes: bytes))
-          let frame = try session.value.snapshot(timeSeconds: 0)
-          try Task.checkCancellation()
-          return (session, Frame(payload: .kotlin(frame)))
-        } catch is CancellationError {
-          throw CancellationError()
-        } catch {
-          throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
-        }
-      }
-    }
-
-    private static let decoder = Decoder()
 
     struct Update: Sendable {
       let accepted: Bool
       let frame: Frame
       let events: [RemoteComposeNativePlayerEvent]
     }
-    private enum Backend {
-      case swift(NativeSwiftDocumentSession)
-      case kotlin(SessionBox)
-    }
 
-    private let backend: Backend
+    private let session: NativeSwiftDocumentSession
 
-    private init(backend: Backend) {
-      self.backend = backend
+    private init(session: NativeSwiftDocumentSession) {
+      self.session = session
     }
 
     static func open(
@@ -82,156 +42,91 @@
           actual: data.count, maximum: min(maximumDocumentBytes, Int(Int32.max)))
       }
       do {
+        try Task.checkCancellation()
         let session = try NativeSwiftDocumentSession.open(data: data)
-        let frame = Frame(payload: .swift(try session.snapshot()))
+        let frame = Frame(snapshot: try session.snapshot())
         try Task.checkCancellation()
-        return (
-          NativeSnapshotSessionHandle(backend: .swift(session)),
-          frame
-        )
-      } catch let error as NativeSwiftCoreError where error.isUnsupported {
-        let opened = try await decoder.open(data: data)
-        try Task.checkCancellation()
-        return (NativeSnapshotSessionHandle(backend: .kotlin(opened.0)), opened.1)
+        return (NativeSnapshotSessionHandle(session: session), frame)
+      } catch is CancellationError {
+        throw CancellationError()
       } catch let error as NativeSwiftCoreError {
         throw RemoteComposeNativePlayerError.decode(error.description)
+      } catch {
+        throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
     }
 
     func frame(at timeSeconds: TimeInterval) async throws -> Frame {
       do {
-        switch backend {
-        case .swift(let session): return Frame(payload: .swift(try session.snapshot()))
-        case .kotlin(let session):
-          return Frame(
-            payload: .kotlin(try session.value.snapshot(timeSeconds: Float(timeSeconds))))
-        }
+        return Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds))
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
     }
 
     func click(componentID: Int, at timeSeconds: TimeInterval) throws -> Update {
-      switch backend {
-      case .swift(let session): return try unchangedSwiftUpdate(session: session)
-      case .kotlin(let session):
-        return try update {
-          try session.value.click(
-            componentId: Int32(componentID), timeSeconds: Float(timeSeconds))
+      guard
+        let nativeEvents = try session.click(
+          componentID: componentID, timeSeconds: timeSeconds)
+      else { return try unchangedUpdate(timeSeconds: timeSeconds) }
+      let events = nativeEvents.map { event -> RemoteComposeNativePlayerEvent in
+        switch event {
+        case .namedAction(let name, let value):
+          let publicValue: RemoteComposeNativePlayerActionValue
+          switch value {
+          case .none: publicValue = .none
+          case .float(let value): publicValue = .float(value)
+          case .integer(let value): publicValue = .integer(value)
+          case .text(let value): publicValue = .text(value)
+          }
+          return .namedAction(name: name, value: publicValue)
         }
       }
+      return Update(
+        accepted: true,
+        frame: Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds)), events: events)
     }
 
     func setFloat(_ value: Float, for name: String, at timeSeconds: TimeInterval) throws -> Update {
-      switch backend {
-      case .swift(let session): return try unchangedSwiftUpdate(session: session)
-      case .kotlin(let session):
-        return try update {
-          try session.value.setFloat(name: name, value: value, timeSeconds: Float(timeSeconds))
-        }
-      }
+      return try update(
+        accepted: session.setFloat(value, for: name), timeSeconds: timeSeconds)
     }
 
     func setString(_ value: String, for name: String, at timeSeconds: TimeInterval) throws -> Update
     {
-      switch backend {
-      case .swift(let session): return try unchangedSwiftUpdate(session: session)
-      case .kotlin(let session):
-        return try update {
-          try session.value.setString(name: name, value: value, timeSeconds: Float(timeSeconds))
-        }
-      }
+      return try update(
+        accepted: session.setString(value, for: name), timeSeconds: timeSeconds)
     }
 
     func setColor(_ argb: UInt32, for name: String, at timeSeconds: TimeInterval) throws -> Update {
-      switch backend {
-      case .swift(let session): return try unchangedSwiftUpdate(session: session)
-      case .kotlin(let session):
-        return try update {
-          try session.value.setColor(
-            name: name, argb: Int32(bitPattern: argb), timeSeconds: Float(timeSeconds))
-        }
-      }
+      return try update(
+        accepted: session.setColor(argb, for: name), timeSeconds: timeSeconds)
     }
 
     func returnCustomFloat(
       _ value: Float, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      switch backend {
-      case .swift(let session):
-        let accepted = try session.returnCustomFloat(
-          value, componentID: componentID, propertyID: propertyID)
-        return Update(
-          accepted: accepted, frame: Frame(payload: .swift(try session.snapshot())), events: [])
-      case .kotlin(let session):
-        return try update {
-          try session.value.returnCustomFloat(
-            componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
-            timeSeconds: Float(timeSeconds))
-        }
-      }
+      let accepted = try session.returnCustomFloat(
+        value, componentID: componentID, propertyID: propertyID)
+      return try update(accepted: accepted, timeSeconds: timeSeconds)
     }
 
     func returnCustomText(
       _ value: String, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      switch backend {
-      case .swift(let session):
-        let accepted = try session.returnCustomText(
-          value, componentID: componentID, propertyID: propertyID)
-        return Update(
-          accepted: accepted, frame: Frame(payload: .swift(try session.snapshot())), events: [])
-      case .kotlin(let session):
-        return try update {
-          try session.value.returnCustomText(
-            componentId: Int32(componentID), propertyType: Int32(propertyID), value: value,
-            timeSeconds: Float(timeSeconds))
-        }
-      }
+      let accepted = try session.returnCustomText(
+        value, componentID: componentID, propertyID: propertyID)
+      return try update(accepted: accepted, timeSeconds: timeSeconds)
     }
 
-    private func update(_ operation: () throws -> RcNativeSessionUpdate) throws -> Update {
-      do {
-        let result = try operation()
-        return Update(
-          accepted: result.accepted,
-          frame: Frame(payload: .kotlin(result.snapshot)),
-          events: result.events.compactMap(Self.event))
-      } catch {
-        throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
-      }
+    private func unchangedUpdate(timeSeconds: TimeInterval = 0) throws -> Update {
+      try update(accepted: false, timeSeconds: timeSeconds)
     }
 
-    private func unchangedSwiftUpdate(session: NativeSwiftDocumentSession) throws -> Update {
+    private func update(accepted: Bool, timeSeconds: TimeInterval) throws -> Update {
       Update(
-        accepted: false, frame: Frame(payload: .swift(try session.snapshot())), events: [])
-    }
-
-    private static func event(_ event: RcNativeEvent) -> RemoteComposeNativePlayerEvent? {
-      switch Int(event.kind) {
-      case 0: return .action(id: Int(event.actionId))
-      case 1:
-        return .actionWithMetadata(
-          id: Int(event.actionId), metadata: event.textValue ?? "")
-      case 2: return .namedAction(name: event.name ?? "", value: .none)
-      case 3:
-        return .namedAction(name: event.name ?? "", value: .float(event.floatValue))
-      case 4:
-        return .namedAction(
-          name: event.name ?? "", value: .integer(Int(event.integerValue)))
-      case 5:
-        return .namedAction(
-          name: event.name ?? "", value: .text(event.textValue ?? ""))
-      case 6:
-        return .namedAction(
-          name: event.name ?? "",
-          value: .floatList(event.floatListValue.map { $0.floatValue }))
-      case 7:
-        return .debug(
-          message: event.textValue ?? "", value: event.floatValue,
-          flags: Int(event.actionId))
-      default: return nil
-      }
+        accepted: accepted, frame: Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds)),
+        events: [])
     }
   }
 #endif

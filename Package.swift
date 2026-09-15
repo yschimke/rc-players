@@ -49,6 +49,6 @@ let package = Package(
       checksum: "0000000000000000000000000000000000000000000000000000000000000000"
     ),
     .target(name: "RcComposePlayerSwiftUI", dependencies: ["RcComposePlayer"]),
-    .target(name: "RcNativePlayerUIKit", dependencies: ["RcComposePlayer"]),
+    .target(name: "RcNativePlayerUIKit"),
   ]
 )

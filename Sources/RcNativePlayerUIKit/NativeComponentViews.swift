@@ -1,6 +1,5 @@
 #if canImport(UIKit)
   import CoreText
-  import RcComposePlayer
   import UIKit
 
   struct NativeDocument {
@@ -19,10 +18,7 @@
     init(
       frame: NativeSnapshotSessionHandle.Frame, limits: RemoteComposeNativeExecutionLimits
     ) throws {
-      switch frame.payload {
-      case .swift(let snapshot): try self.init(swiftSnapshot: snapshot, limits: limits)
-      case .kotlin(let snapshot): try self.init(snapshot: snapshot, limits: limits)
-      }
+      try self.init(swiftSnapshot: frame.snapshot, limits: limits)
     }
 
     private init(
@@ -53,6 +49,13 @@
             [text.size, text.weight].map(Double.init), componentID: node.componentID,
             field: "text")
         }
+        for command in node.commands {
+          try budget.recordCommand(pathElementCount: command.path.count, limits: limits)
+          try budget.validateNumbers(
+            command.values.map(Double.init) + [Double(command.strokeWidth), Double(command.alpha)]
+              + command.path.flatMap { $0.values.map(Double.init) },
+            componentID: node.componentID, field: "draw", limits: limits)
+        }
         if let custom = node.custom {
           try budget.recordWork(custom.properties.count, limits: limits)
           try budget.recordStrings(
@@ -68,41 +71,12 @@
       fonts = []
       diagnostics = RemoteComposeNativePlayerDiagnostics(
         issues: [], unsupportedOpcodes: [], notes: [])
-      rootSizing = 0
-      rootMode = 0
-      rootAlignment = 0
+      rootSizing = 2
+      rootMode = 4
+      rootAlignment = 34
       frameSchedule = NativeFrameSchedule(
-        needsContinuousFrames: false, requestsNextFrame: false, wakeAfter: nil)
-    }
-
-    init(snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits) throws {
-      executionBudget = try Self.validate(snapshot: snapshot, limits: limits)
-      density = CGFloat(snapshot.density)
-      guard density.isFinite, density > 0 else {
-        throw RemoteComposeNativePlayerError.decode("Document density must be finite and positive")
-      }
-      size = CGSize(
-        width: CGFloat(snapshot.width) / density,
-        height: CGFloat(snapshot.height) / density)
-      root = NativeNode(snapshot: snapshot.root)
-      images = snapshot.images.map(NativeImageResource.init)
-      fonts = snapshot.fonts.map(NativeFontResource.init)
-      diagnostics = RemoteComposeNativePlayerDiagnostics(
-        issues: snapshot.diagnostics.map { diagnostic in
-          RemoteComposeNativePlayerDiagnostic(
-            severity: diagnostic.severity == 0 ? .warning : .unsupported,
-            opcode: Int(diagnostic.opcode), operationName: diagnostic.operationName,
-            componentID: Int(diagnostic.componentId), reason: diagnostic.reason)
-        },
-        unsupportedOpcodes: snapshot.unsupportedOpcodes.map { Int(truncating: $0) },
-        notes: snapshot.notes)
-      rootSizing = Int(snapshot.rootSizing)
-      rootMode = Int(snapshot.rootMode)
-      rootAlignment = Int(snapshot.rootAlignment)
-      frameSchedule = NativeFrameSchedule(
-        needsContinuousFrames: snapshot.needsContinuousFrames,
-        requestsNextFrame: snapshot.requestsNextFrame,
-        wakeAfter: snapshot.wakeAfterSeconds < 0 ? nil : TimeInterval(snapshot.wakeAfterSeconds))
+        needsContinuousFrames: swiftSnapshot.needsContinuousFrames,
+        requestsNextFrame: false, wakeAfter: nil)
     }
 
     func diagnostics(availableCustomComponents: Set<String>)
@@ -129,227 +103,6 @@
         notes: diagnostics.notes)
     }
 
-    private static func validate(
-      snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits
-    ) throws -> NativeFrameBudget {
-      try NativeFrameBudget.validate(limits)
-      var budget = NativeFrameBudget()
-      try budget.recordStrings(
-        snapshot.notes.map { Optional($0) }
-          + snapshot.diagnostics.flatMap { [Optional($0.operationName), Optional($0.reason)] },
-        limits: limits)
-      try budget.validateDocumentDimensions(
-        [Double(snapshot.width), Double(snapshot.height)], limits: limits)
-      var pending: [(node: RcNativeNodeSnapshot, depth: Int)] = [(snapshot.root, 1)]
-      while let current = pending.popLast() {
-        let node = current.node
-        try budget.recordNode(depth: current.depth, limits: limits)
-        try budget.recordStrings(
-          [node.semanticLabel, node.semanticText, node.semanticStateDescription], limits: limits)
-        try budget.recordWork(node.clickActionTypes.count, limits: limits)
-        if let custom = node.custom {
-          try budget.recordWork(custom.properties.count, limits: limits)
-          try budget.recordStrings(
-            [Optional(custom.config)] + custom.properties.map(\.textValue), limits: limits)
-          try budget.validateFinite(
-            custom.properties.map { Double($0.floatValue) },
-            componentID: Int(node.componentId), field: "custom property")
-        }
-        let maximumWidth = node.maximumWidth < 0 ? 0 : node.maximumWidth
-        let maximumHeight = node.maximumHeight < 0 ? 0 : node.maximumHeight
-        try budget.validateLayoutDimension(
-          value: Double(node.widthValue), type: Int(node.widthType),
-          componentID: Int(node.componentId), field: "width", limits: limits)
-        try budget.validateLayoutDimension(
-          value: Double(node.heightValue), type: Int(node.heightType),
-          componentID: Int(node.componentId), field: "height", limits: limits)
-        try budget.validateNumbers(
-          [
-            Double(node.minimumWidth), Double(node.minimumHeight), Double(maximumWidth),
-            Double(maximumHeight),
-            Double(node.paddingTop), Double(node.paddingLeft), Double(node.paddingBottom),
-            Double(node.paddingRight), Double(node.cornerRadius), Double(node.spacing),
-            Double(node.offsetX), Double(node.offsetY),
-          ], componentID: Int(node.componentId), field: "layout", limits: limits)
-        try budget.validateFinite(
-          [Double(node.zIndex)], componentID: Int(node.componentId), field: "z-index")
-        try budget.validateCanvasDimensions(
-          [
-            abs(Double(node.minimumWidth)), abs(Double(node.minimumHeight)),
-            abs(Double(maximumWidth)), abs(Double(maximumHeight)),
-          ], limits: limits)
-        for command in node.commands {
-          let gradientWork = command.gradient.map { $0.colors.count + $0.stops.count + 4 } ?? 0
-          try budget.recordCommand(
-            pathElementCount: command.path.count, additionalWork: gradientWork,
-            strings: [
-              command.text, command.image?.contentDescription, command.textStyle?.fontFamilyName,
-            ], limits: limits)
-          let style = command.textStyle
-          var commandGeometry = [
-            command.first, command.second, command.third, command.fourth, command.fifth,
-            command.sixth,
-          ]
-          if Int(command.kind) == 3 {
-            if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
-            if commandGeometry[3].isNaN { commandGeometry[3] = 0 }
-          } else if Int(command.kind) == 4 {
-            if commandGeometry[1].isNaN { commandGeometry[1] = 0 }
-            if commandGeometry[2].isNaN { commandGeometry[2] = 0 }
-          }
-          switch Int(command.kind) {
-          case 2:
-            try budget.validateNumbers(
-              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
-              field: "translation", limits: limits)
-            try budget.validateFinite(
-              commandGeometry.suffix(4).map(Double.init), componentID: Int(node.componentId),
-              field: "translation")
-          case 3:
-            try budget.validateFinite(
-              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
-              field: "scale")
-            try budget.validateNumbers(
-              commandGeometry[2..<4].map(Double.init), componentID: Int(node.componentId),
-              field: "scale pivot", limits: limits)
-            try budget.validateFinite(
-              commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
-              field: "scale")
-          case 4:
-            try budget.validateFinite(
-              [Double(commandGeometry[0])], componentID: Int(node.componentId), field: "rotation")
-            try budget.validateNumbers(
-              commandGeometry[1..<3].map(Double.init), componentID: Int(node.componentId),
-              field: "rotation pivot", limits: limits)
-            try budget.validateFinite(
-              commandGeometry.suffix(3).map(Double.init), componentID: Int(node.componentId),
-              field: "rotation")
-          case 5:
-            try budget.validateFinite(
-              commandGeometry.map(Double.init), componentID: Int(node.componentId), field: "skew")
-          case 15, 16:
-            try budget.validateNumbers(
-              commandGeometry.prefix(4).map(Double.init), componentID: Int(node.componentId),
-              field: "draw geometry", limits: limits)
-            try budget.validateFinite(
-              commandGeometry.suffix(2).map(Double.init), componentID: Int(node.componentId),
-              field: "arc angles")
-          case 17:
-            try budget.validateNumbers(
-              commandGeometry.prefix(2).map(Double.init), componentID: Int(node.componentId),
-              field: "text position", limits: limits)
-            try budget.validateFinite(
-              commandGeometry.suffix(4).map(Double.init), componentID: Int(node.componentId),
-              field: "text anchor")
-          default:
-            try budget.validateNumbers(
-              commandGeometry.map(Double.init), componentID: Int(node.componentId),
-              field: "draw geometry", limits: limits)
-          }
-          switch Int(command.kind) {
-          case 6, 10, 11, 13, 14, 15, 16:
-            try budget.validateCanvasDimensions(
-              [
-                abs(Double(commandGeometry[2] - commandGeometry[0])),
-                abs(Double(commandGeometry[3] - commandGeometry[1])),
-              ], limits: limits)
-            if Int(command.kind) == 14 {
-              try budget.validateCanvasDimensions(
-                [abs(Double(commandGeometry[4] * 2)), abs(Double(commandGeometry[5] * 2))],
-                limits: limits)
-            }
-          case 12:
-            try budget.validateCanvasDimensions(
-              [abs(Double(commandGeometry[2] * 2))], limits: limits)
-          default: break
-          }
-          try budget.validateFinite(
-            [
-              command.alpha, command.strokeWidth, command.textSize, command.textWeight,
-              style?.letterSpacing ?? 0, style?.lineHeightAdd ?? 0,
-              style?.lineHeightMultiplier ?? 1,
-            ].map(Double.init), componentID: Int(node.componentId), field: "paint")
-          var pathX: [Double] = []
-          var pathY: [Double] = []
-          for segment in command.path {
-            let values =
-              [
-                segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
-                segment.sixth,
-              ].map(Double.init)
-            let coordinateCount: Int
-            switch Int(segment.kind) {
-            case 10, 11: coordinateCount = 2
-            case 12, 13: coordinateCount = 4
-            case 14: coordinateCount = 6
-            default: coordinateCount = 0
-            }
-            try budget.validateNumbers(
-              Array(values.prefix(coordinateCount)), componentID: Int(node.componentId),
-              field: "path", limits: limits)
-            try budget.validateFinite(
-              Array(values.dropFirst(coordinateCount)), componentID: Int(node.componentId),
-              field: "path")
-            for index in stride(from: 0, to: coordinateCount, by: 2) {
-              pathX.append(values[index])
-              pathY.append(values[index + 1])
-            }
-          }
-          if let minimumX = pathX.min(), let maximumX = pathX.max(),
-            let minimumY = pathY.min(), let maximumY = pathY.max()
-          {
-            try budget.validateCanvasDimensions(
-              [maximumX - minimumX, maximumY - minimumY], limits: limits)
-          }
-          if let gradient = command.gradient {
-            try budget.validateNumbers(
-              [gradient.first, gradient.second, gradient.third, gradient.fourth].map(Double.init),
-              componentID: Int(node.componentId), field: "gradient", limits: limits)
-            try budget.validateGradientStops(
-              gradient.stops.map { Double(truncating: $0) }, componentID: Int(node.componentId))
-          }
-          if let image = command.image {
-            let sourceWidth = image.sourceRight - image.sourceLeft
-            let sourceHeight = image.sourceBottom - image.sourceTop
-            let destinationWidth = image.destinationRight - image.destinationLeft
-            let destinationHeight = image.destinationBottom - image.destinationTop
-            try budget.validateNumbers(
-              [
-                image.sourceLeft, image.sourceTop, image.sourceRight, image.sourceBottom,
-                image.destinationLeft, image.destinationTop, image.destinationRight,
-                image.destinationBottom,
-              ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits
-            )
-            try budget.validateFinite(
-              [Double(image.scaleFactor)], componentID: Int(node.componentId), field: "image scale")
-            try budget.validateCanvasDimensions(
-              [
-                abs(Double(sourceWidth)), abs(Double(sourceHeight)),
-                abs(Double(destinationWidth)), abs(Double(destinationHeight)),
-              ], limits: limits)
-            let derivedDestination = NativeImageGeometry.destination(
-              source: CGRect(
-                x: CGFloat(image.sourceLeft), y: CGFloat(image.sourceTop),
-                width: CGFloat(sourceWidth), height: CGFloat(sourceHeight)),
-              destination: CGRect(
-                x: CGFloat(image.destinationLeft), y: CGFloat(image.destinationTop),
-                width: CGFloat(destinationWidth), height: CGFloat(destinationHeight)),
-              scaleType: Int(image.scaleType), scaleFactor: CGFloat(image.scaleFactor))
-            try budget.validateNumbers(
-              [
-                derivedDestination.minX, derivedDestination.minY, derivedDestination.maxX,
-                derivedDestination.maxY,
-              ].map(Double.init),
-              componentID: Int(node.componentId), field: "derived image geometry", limits: limits)
-            try budget.validateCanvasDimensions(
-              [abs(Double(derivedDestination.width)), abs(Double(derivedDestination.height))],
-              limits: limits)
-          }
-        }
-        pending.append(contentsOf: node.children.map { ($0, current.depth + 1) })
-      }
-      return budget
-    }
   }
 
   struct NativeImageResource {
@@ -360,14 +113,6 @@
     let encoding: Int
     let data: Data
 
-    init(snapshot: RcNativeImageResource) {
-      id = Int(snapshot.id)
-      width = Int(snapshot.width)
-      height = Int(snapshot.height)
-      type = Int(snapshot.type)
-      encoding = Int(snapshot.encoding)
-      data = RcDataBridgeKt.rcData(bytes: snapshot.data) as Data
-    }
   }
 
   struct NativeFontResource {
@@ -375,11 +120,6 @@
     let type: Int
     let data: Data
 
-    init(snapshot: RcNativeFontResource) {
-      id = Int(snapshot.id)
-      type = Int(snapshot.type)
-      data = RcDataBridgeKt.rcData(bytes: snapshot.data) as Data
-    }
   }
 
   private struct NativeSemanticBehavior {
@@ -450,76 +190,44 @@
     let visibility: Int
     let custom: NativeCustomComponent?
 
-    init(snapshot: RcNativeNodeSnapshot) {
-      kind = Kind(rawValue: snapshot.kind)
-      componentID = Int(snapshot.componentId)
-      commands = snapshot.commands.map(NativeDrawCommand.init)
-      children = snapshot.children.map(NativeNode.init)
-      semanticRole = Int(snapshot.semanticRole)
-      isClickable = snapshot.clickable
-      isEnabled = snapshot.enabled
-      accessibilityLabel = snapshot.semanticLabel
-      accessibilityText = snapshot.semanticText
-      accessibilityValue = snapshot.semanticStateDescription
-      accessibilityMode = NativeAccessibilityMode(rawValue: Int(snapshot.semanticMode)) ?? .set
-      hasAccessibilitySemantics = snapshot.hasSemantics
-      clickActionTypes = snapshot.clickActionTypes.map { Int(truncating: $0) }
-      widthType = Int(snapshot.widthType)
-      widthValue = CGFloat(snapshot.widthValue)
-      heightType = Int(snapshot.heightType)
-      heightValue = CGFloat(snapshot.heightValue)
-      minimumHeight = CGFloat(snapshot.minimumHeight)
-      minimumWidth = CGFloat(snapshot.minimumWidth)
-      maximumWidth = snapshot.maximumWidth < 0 ? nil : CGFloat(snapshot.maximumWidth)
-      maximumHeight = snapshot.maximumHeight < 0 ? nil : CGFloat(snapshot.maximumHeight)
-      padding = UIEdgeInsets(
-        top: CGFloat(snapshot.paddingTop), left: CGFloat(snapshot.paddingLeft),
-        bottom: CGFloat(snapshot.paddingBottom), right: CGFloat(snapshot.paddingRight))
-      cornerRadius = CGFloat(snapshot.cornerRadius)
-      backgroundColor =
-        snapshot.hasBackground
-        ? UIColor(remoteComposeARGB: UInt32(bitPattern: snapshot.backgroundColor)) : nil
-      horizontalPositioning = Int(snapshot.horizontalPositioning)
-      verticalPositioning = Int(snapshot.verticalPositioning)
-      spacing = CGFloat(snapshot.spacing)
-      offset = CGPoint(x: CGFloat(snapshot.offsetX), y: CGFloat(snapshot.offsetY))
-      zIndex = CGFloat(snapshot.zIndex)
-      visibility = Int(snapshot.visibility)
-      custom = snapshot.custom.map(NativeCustomComponent.init)
-    }
-
     init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot) {
       switch snapshot.kind {
       case .root: kind = .root
       case .content: kind = .content
+      case .canvas: kind = .canvas
+      case .box: kind = .box
+      case .row: kind = .row
       case .column: kind = .column
       case .text: kind = .text
       case .custom: kind = .custom
       }
       componentID = snapshot.componentID
-      commands = snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? []
+      commands =
+        snapshot.commands.map(NativeDrawCommand.init)
+        + (snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? [])
       children = snapshot.children.map { NativeNode(swiftSnapshot: $0) }
-      semanticRole = -1
-      isClickable = false
-      isEnabled = true
-      accessibilityLabel = nil
-      accessibilityText = snapshot.text?.value
-      accessibilityValue = nil
-      accessibilityMode = .set
-      hasAccessibilitySemantics = false
-      clickActionTypes = []
+      semanticRole = snapshot.accessibility?.role ?? (snapshot.isClickable ? 0 : -1)
+      isClickable = snapshot.accessibility?.isClickable ?? snapshot.isClickable
+      isEnabled = snapshot.accessibility?.isEnabled ?? true
+      accessibilityLabel = snapshot.accessibility?.contentDescription
+      accessibilityText = snapshot.accessibility?.text ?? snapshot.text?.value
+      accessibilityValue = snapshot.accessibility?.stateDescription
+      accessibilityMode =
+        snapshot.accessibility.flatMap { NativeAccessibilityMode(rawValue: $0.mode) } ?? .set
+      hasAccessibilitySemantics = snapshot.accessibility != nil
+      clickActionTypes = snapshot.isClickable && isEnabled ? [0] : []
       widthType = snapshot.widthType
       widthValue = CGFloat(snapshot.widthValue)
       heightType = snapshot.heightType
       heightValue = CGFloat(snapshot.heightValue)
-      minimumHeight = 0
+      minimumHeight = CGFloat(snapshot.minimumHeight)
       minimumWidth = 0
       maximumWidth = nil
       maximumHeight = nil
       padding = UIEdgeInsets(
         top: CGFloat(snapshot.padding.top), left: CGFloat(snapshot.padding.left),
         bottom: CGFloat(snapshot.padding.bottom), right: CGFloat(snapshot.padding.right))
-      cornerRadius = 0
+      cornerRadius = CGFloat(snapshot.cornerRadius)
       backgroundColor = snapshot.backgroundARGB.map(UIColor.init(remoteComposeARGB:))
       horizontalPositioning = snapshot.horizontalPositioning
       verticalPositioning = snapshot.verticalPositioning
@@ -613,15 +321,6 @@
     let config: String
     let properties: [RemoteComposeNativeCustomProperty]
 
-    init(snapshot: RcNativeCustomComponentSnapshot) {
-      config = snapshot.config
-      properties = snapshot.properties.map {
-        RemoteComposeNativeCustomProperty(
-          id: Int($0.type), dataType: Int($0.dataType), floatValue: $0.floatValue,
-          integerValue: Int($0.integerValue), textValue: $0.textValue)
-      }
-    }
-
     init(_ snapshot: NativeSwiftCustomSnapshot) {
       config = snapshot.config
       properties = snapshot.properties.map {
@@ -654,49 +353,29 @@
     let textureTileModeX: Int
     let textureTileModeY: Int
 
-    init(snapshot: RcNativeDrawCommand) {
-      kind = Int(snapshot.kind)
-      values = [
-        snapshot.first, snapshot.second, snapshot.third, snapshot.fourth, snapshot.fifth,
-        snapshot.sixth,
-      ].map(CGFloat.init)
-      color = UIColor(remoteComposeARGB: UInt32(bitPattern: snapshot.color))
+    init(_ snapshot: NativeSwiftDrawCommandSnapshot) {
+      kind = snapshot.kind
+      values = snapshot.values.map(CGFloat.init)
+      color = UIColor(remoteComposeARGB: snapshot.colorARGB)
       alpha = CGFloat(snapshot.alpha)
       strokeWidth = CGFloat(snapshot.strokeWidth)
-      isStroke = snapshot.stroke
-      strokeCap = Int(snapshot.strokeCap)
-      strokeJoin = Int(snapshot.strokeJoin)
-      blendMode = Int(snapshot.blendMode)
-      textSize = CGFloat(snapshot.textSize)
-      textWeight = CGFloat(snapshot.textWeight)
-      text = snapshot.text
-      path = snapshot.path.map { segment in
-        NativePathElement(
-          kind: Int(segment.kind),
-          values: [
-            segment.first, segment.second, segment.third, segment.fourth, segment.fifth,
-            segment.sixth,
-          ].map(CGFloat.init))
+      isStroke = snapshot.isStroke
+      strokeCap = snapshot.strokeCap
+      strokeJoin = snapshot.strokeJoin
+      blendMode = snapshot.blendMode
+      textSize = 16
+      textWeight = 400
+      text = nil
+      path = snapshot.path.map {
+        NativePathElement(kind: $0.kind, values: $0.values.map(CGFloat.init))
       }
-      pathWinding = Int(snapshot.pathWinding)
-      if let value = snapshot.gradient {
-        gradient = NativeGradient(
-          kind: Int(value.kind),
-          colors: value.colors.map {
-            UIColor(remoteComposeARGB: UInt32(bitPattern: $0.int32Value)).cgColor
-          },
-          stops: value.stops.map { CGFloat(truncating: $0) },
-          values: [value.first, value.second, value.third, value.fourth].map(CGFloat.init),
-          tileMode: Int(value.tileMode))
-      } else {
-        gradient = nil
-      }
-      textStyle = NativeTextStyle(snapshot: snapshot.textStyle)
-      image = snapshot.image.map(NativeImageDraw.init)
-      let rawTextureImageID = Int(snapshot.textureImageId)
-      textureImageID = rawTextureImageID == -1 ? nil : rawTextureImageID
-      textureTileModeX = Int(snapshot.textureTileModeX)
-      textureTileModeY = Int(snapshot.textureTileModeY)
+      pathWinding = snapshot.pathWinding
+      gradient = nil
+      textStyle = NativeTextStyle.default
+      image = nil
+      textureImageID = nil
+      textureTileModeX = 0
+      textureTileModeY = 0
     }
 
     init(text snapshot: NativeSwiftTextSnapshot) {
@@ -731,22 +410,6 @@
     let scaleFactor: CGFloat
     let contentDescription: String?
 
-    init(snapshot: RcNativeImageDraw) {
-      imageID = Int(snapshot.imageId)
-      source = CGRect(
-        x: CGFloat(snapshot.sourceLeft),
-        y: CGFloat(snapshot.sourceTop),
-        width: CGFloat(snapshot.sourceRight - snapshot.sourceLeft),
-        height: CGFloat(snapshot.sourceBottom - snapshot.sourceTop))
-      destination = CGRect(
-        x: CGFloat(snapshot.destinationLeft),
-        y: CGFloat(snapshot.destinationTop),
-        width: CGFloat(snapshot.destinationRight - snapshot.destinationLeft),
-        height: CGFloat(snapshot.destinationBottom - snapshot.destinationTop))
-      scaleType = Int(snapshot.scaleType)
-      scaleFactor = CGFloat(snapshot.scaleFactor)
-      contentDescription = snapshot.contentDescription
-    }
   }
 
   struct NativeTextStyle {
@@ -765,22 +428,10 @@
     let isUnderlined: Bool
     let isStruckThrough: Bool
 
-    init(snapshot: RcNativeTextStyle?) {
-      fontStyle = Int(snapshot?.fontStyle ?? 0)
-      fontFamilyID = Int(snapshot?.fontFamilyId ?? -1)
-      fontFamilyName = snapshot?.fontFamilyName
-      alignment = Int(snapshot?.alignment ?? 1)
-      overflow = Int(snapshot?.overflow ?? 1)
-      maxLines = Int(snapshot?.maxLines ?? Int32.max)
-      letterSpacing = CGFloat(snapshot?.letterSpacing ?? 0)
-      lineHeightAdd = CGFloat(snapshot?.lineHeightAdd ?? 0)
-      lineHeightMultiplier = CGFloat(snapshot?.lineHeightMultiplier ?? 1)
-      breakStrategy = Int(snapshot?.breakStrategy ?? 0)
-      hyphenation = Int(snapshot?.hyphenation ?? 0)
-      isJustified = snapshot?.justified ?? false
-      isUnderlined = snapshot?.underline ?? false
-      isStruckThrough = snapshot?.strikeThrough ?? false
-    }
+    static let `default` = NativeTextStyle(
+      swiftSnapshot: NativeSwiftTextSnapshot(
+        value: "", colorARGB: 0xff00_0000, size: 16, style: 0, weight: 400,
+        familyID: -1, alignment: 1, overflow: 1, maximumLines: Int.max))
 
     init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
       fontStyle = snapshot.style
@@ -1175,7 +826,8 @@
 
     private var isStructural: Bool {
       (node.kind == .content || node.kind == .group || node.kind == .canvas)
-        && canvasView == nil && textLabels.isEmpty && imageViews.isEmpty
+        && (canvasView == nil || node.kind == .content || node.kind == .group)
+        && textLabels.isEmpty && imageViews.isEmpty
         && customView == nil
         && node.semanticBehavior?.acceptsPointerAction != true
         && node.backgroundColor == nil

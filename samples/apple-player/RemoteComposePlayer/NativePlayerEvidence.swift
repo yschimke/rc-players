@@ -121,14 +121,14 @@ private enum NativePlayerEvidence {
     var measuredView: NativeDocumentView?
 
     for _ in 0..<iterations {
-      let bytes = RcDataBridgeKt.rcByteArray(data: data)
       var started = ProcessInfo.processInfo.systemUptime
-      let session = try RcNativeSnapshotBridge.shared.createSession(bytes: bytes)
+      let session = try NativeSwiftDocumentSession.open(data: data)
       decodeSamples.append(milliseconds(since: started))
 
       started = ProcessInfo.processInfo.systemUptime
-      let snapshot = try session.snapshot(timeSeconds: 0)
-      let document = try NativeDocument(snapshot: snapshot, limits: .default)
+      let snapshot = try session.snapshot()
+      let document = try NativeDocument(
+        frame: NativeSnapshotSessionHandle.Frame(snapshot: snapshot), limits: .default)
       let cache = NativeImageCache(
         countLimit: RemoteComposeNativeResourceLimits.default.maximumResourceCount,
         totalCostLimit: RemoteComposeNativeResourceLimits.default.maximumDecodedImageBytes)
@@ -147,8 +147,9 @@ private enum NativePlayerEvidence {
       firstFrameSamples.append(milliseconds(since: started))
 
       started = ProcessInfo.processInfo.systemUptime
-      let updated = try session.snapshot(timeSeconds: 1.0 / 60.0)
-      let updatedDocument = try NativeDocument(snapshot: updated, limits: .default)
+      let updated = try session.snapshot()
+      let updatedDocument = try NativeDocument(
+        frame: NativeSnapshotSessionHandle.Frame(snapshot: updated), limits: .default)
       _ = view.update(
         document: updatedDocument, resources: resources, customComponents: customComponents)
       view.layoutIfNeeded()
