@@ -93,6 +93,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcDocumentCapabilities$
 public final class ee/schimke/composeai/rcplayer/runtime/RcDocumentLinker {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/runtime/RcDocumentLinker;
 	public final fun link (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/runtime/RcLinkedDocument;
+	public final fun link (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/runtime/RcLinkedDocument;
 }
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcFloatExpressionEvaluator {

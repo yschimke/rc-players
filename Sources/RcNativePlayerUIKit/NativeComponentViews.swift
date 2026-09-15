@@ -13,9 +13,10 @@
     let rootMode: Int
     let rootAlignment: Int
     let frameSchedule: NativeFrameSchedule
+    let executionBudget: NativeFrameBudget
 
     init(snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits) throws {
-      try Self.validate(snapshot: snapshot, limits: limits)
+      executionBudget = try Self.validate(snapshot: snapshot, limits: limits)
       size = CGSize(width: Int(snapshot.width), height: Int(snapshot.height))
       root = NativeNode(snapshot: snapshot.root)
       images = snapshot.images.map(NativeImageResource.init)
@@ -40,7 +41,7 @@
 
     private static func validate(
       snapshot: RcNativeDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits
-    ) throws {
+    ) throws -> NativeFrameBudget {
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
       try budget.recordStrings(
@@ -150,9 +151,10 @@
           }
           if let gradient = command.gradient {
             try budget.validateNumbers(
-              gradient.stops.map { Double(truncating: $0) }
-                + [gradient.first, gradient.second, gradient.third, gradient.fourth].map(Double.init),
+              [gradient.first, gradient.second, gradient.third, gradient.fourth].map(Double.init),
               componentID: Int(node.componentId), field: "gradient", limits: limits)
+            try budget.validateGradientStops(
+              gradient.stops.map { Double(truncating: $0) }, componentID: Int(node.componentId))
           }
           if let image = command.image {
             let sourceWidth = image.sourceRight - image.sourceLeft
@@ -167,22 +169,31 @@
               ].map(Double.init), componentID: Int(node.componentId), field: "image", limits: limits)
             try budget.validateFinite(
               [Double(image.scaleFactor)], componentID: Int(node.componentId), field: "image scale")
-            if Int(image.scaleType) == 7 {
-              try budget.validateCanvasDimensions(
-                [
-                  abs(Double(sourceWidth) * Double(image.scaleFactor)),
-                  abs(Double(sourceHeight) * Double(image.scaleFactor)),
-                ], limits: limits)
-            }
             try budget.validateCanvasDimensions(
               [
                 abs(Double(sourceWidth)), abs(Double(sourceHeight)),
                 abs(Double(destinationWidth)), abs(Double(destinationHeight)),
               ], limits: limits)
+            let derivedDestination = NativeImageGeometry.destination(
+              source: CGRect(
+                x: CGFloat(image.sourceLeft), y: CGFloat(image.sourceTop),
+                width: CGFloat(sourceWidth), height: CGFloat(sourceHeight)),
+              destination: CGRect(
+                x: CGFloat(image.destinationLeft), y: CGFloat(image.destinationTop),
+                width: CGFloat(destinationWidth), height: CGFloat(destinationHeight)),
+              scaleType: Int(image.scaleType), scaleFactor: CGFloat(image.scaleFactor))
+            try budget.validateNumbers(
+              [derivedDestination.minX, derivedDestination.minY, derivedDestination.maxX,
+               derivedDestination.maxY].map(Double.init),
+              componentID: Int(node.componentId), field: "derived image geometry", limits: limits)
+            try budget.validateCanvasDimensions(
+              [abs(Double(derivedDestination.width)), abs(Double(derivedDestination.height))],
+              limits: limits)
           }
         }
         pending.append(contentsOf: node.children.map { ($0, current.depth + 1) })
       }
+      return budget
     }
   }
 
