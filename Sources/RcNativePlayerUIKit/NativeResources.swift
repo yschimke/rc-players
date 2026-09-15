@@ -303,11 +303,9 @@ enum NativeImageGeometry {
       var registrationError: Unmanaged<CFError>?
       if CTFontManagerRegisterFontsForURL(url as CFURL, .process, &registrationError) {
         registered[postScriptName] = url
-      } else if UIFont(name: postScriptName, size: 12) == nil {
-        try? FileManager.default.removeItem(at: url)
-        throw RemoteComposeNativeResourceError.corruptFont(id: id)
       } else {
         try? FileManager.default.removeItem(at: url)
+        throw RemoteComposeNativeResourceError.corruptFont(id: id)
       }
       return postScriptName
     }

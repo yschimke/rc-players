@@ -1015,7 +1015,7 @@
       UIImage(cgImage: cropped, scale: 1, orientation: .up).draw(
         in: destination,
         blendMode: NativeGraphicsState.blendMode(command.blendMode),
-        alpha: command.alpha)
+        alpha: 1)
       context.restoreGState()
     }
 
