@@ -71,6 +71,12 @@ enum NativeExecutionLimitsTests {
         pathElementCount: 2, text: nil,
         limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 2))
     }
+    var gradients = NativeFrameBudget()
+    expect(.frameWorkExceeded(actual: 6, maximum: 5)) {
+      try gradients.recordCommand(
+        pathElementCount: 0, additionalWork: 5, text: nil,
+        limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 5))
+    }
 
     print("native UIKit execution limit tests: ok")
   }

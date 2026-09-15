@@ -119,11 +119,12 @@ struct NativeFrameBudget: Equatable, Sendable {
   }
 
   mutating func recordCommand(
-    pathElementCount: Int, text: String?, limits: RemoteComposeNativeExecutionLimits
+    pathElementCount: Int, additionalWork: Int = 0, text: String?,
+    limits: RemoteComposeNativeExecutionLimits
   ) throws {
     drawCommands += 1
     pathElements += pathElementCount
-    work += 1 + pathElementCount
+    work += 1 + pathElementCount + additionalWork
     guard drawCommands <= limits.maximumDrawCommandCount else {
       throw RemoteComposeNativeLimitError.tooManyDrawCommands(
         actual: drawCommands, maximum: limits.maximumDrawCommandCount)
