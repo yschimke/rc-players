@@ -14,9 +14,8 @@ The current POC opens a retained pure-Swift runtime session off the main actor a
 frames through a Swift-owned UIKit hierarchy. It has approximate Box, Row, and Column layout,
 native `UILabel` text, semantic `UIButton` overlays, a useful Core Graphics subset, explicit
 compatibility diagnostics, the Morning Run Title Card regression, and a downloadable experimental
-package. A manifest-driven simulator lane now renders the same bytes as CMP, with a focused
-title-card baseline covering the modern header, native layout, and text. The former five-document
-Kotlin-backed comparison set remains the next Swift coverage target.
+package. A manifest-driven simulator lane now renders the same bytes as CMP, covering the title
+card plus the pure-Swift progress, arc, and embedded-bitmap slices as they land.
 
 It dispatches the core click/action contract, updates typed named values, schedules only requested
 animation frames, and publishes a positive machine-readable profile. It does not claim complete
@@ -40,7 +39,7 @@ implicit fallbacks.
 | 10 — Performance and untrusted input | Core implemented | Decode-time operation ceiling plus configurable typed byte, node, depth, draw, path, text, geometry, and per-frame work limits |
 | 11 — Distribution and API evidence | Core implemented | Versioned machine-readable profile, explicit experimental compatibility/migration decision, checksummed consumer archive, and GitHub provenance attestations |
 | 12 — Native custom components | Implemented | Explicit Swift registry, typed properties/returns, stable UIKit lifecycle, SwiftUI hosting, strict-policy diagnostics, and CMP/UIKit evidence |
-| 13 — Pure Swift core | In progress | Kotlin runtime dependency removed from UIKit and the native AppKit path; one shared target handles legacy/modern headers, editable custom state, Morning Run structure/text/click events, and the animated progress expression/canvas family; broader operation coverage remains |
+| 13 — Pure Swift core | In progress | Kotlin runtime dependency removed from UIKit and the native AppKit path; one shared target handles legacy/modern headers, editable custom state, Morning Run structure/text/click events, progress/arc expressions, and embedded bitmap textures with integer click state; broader operation coverage remains |
 
 ## Delivery rules
 

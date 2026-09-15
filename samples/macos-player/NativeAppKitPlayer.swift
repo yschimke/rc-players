@@ -189,6 +189,7 @@ private final class NativeMacDocumentView: NSView {
   private let onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
   private let onError: (String) -> Void
   private var snapshot: NativeSwiftDocumentSnapshot
+  private let images: [Int: NSImage]
   private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
   private var component: NativeMacComponentView!
   private var displayLinkDriver: AnyObject?
@@ -211,6 +212,21 @@ private final class NativeMacDocumentView: NSView {
     onError: @escaping (String) -> Void
   ) throws {
     self.snapshot = snapshot
+    images = try Dictionary(
+      uniqueKeysWithValues: snapshot.images.map { resource in
+        guard resource.encoding == 0, let image = NSImage(data: resource.data) else {
+          throw NativeSwiftCoreError.malformed(
+            offset: 0, reason: "Could not decode embedded image \(resource.id)")
+        }
+        if let representation = image.representations.first,
+          representation.pixelsWide != resource.width
+            || representation.pixelsHigh != resource.height
+        {
+          throw NativeSwiftCoreError.malformed(
+            offset: 0, reason: "Embedded image \(resource.id) dimensions do not match its data")
+        }
+        return (resource.id, image)
+      })
     self.session = session
     self.compatibility = compatibility
     self.onEvent = onEvent
@@ -263,7 +279,8 @@ private final class NativeMacDocumentView: NSView {
       onDiagnostics(report.diagnostics)
     }
     component?.removeFromSuperview()
-    component = NativeMacComponentView(node: snapshot.root) { [weak self] componentID, gesture, sample in
+    component = NativeMacComponentView(node: snapshot.root, images: images) {
+      [weak self] componentID, gesture, sample in
       self?.gesture(gesture, componentID: componentID, sample: sample)
     }
     addSubview(component)
@@ -472,9 +489,6 @@ private extension NativeSwiftNodeSnapshot {
   var paddingLeft: Float { padding.left }
   var paddingBottom: Float { padding.bottom }
   var paddingRight: Float { padding.right }
-  var minimumWidth: Float { 0 }
-  var maximumWidth: Float { -1 }
-  var maximumHeight: Float { -1 }
   var offsetX: Float { 0 }
   var offsetY: Float { 0 }
   var visibility: Int { 1 }
@@ -513,6 +527,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   private let componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
+  private let imageViews: [NSImageView]
   private let semanticButton: NSButton?
   private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
   private weak var tapRecognizer: NSClickGestureRecognizer?
@@ -522,17 +537,27 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
 
   init(
     node: NativeMacNode,
+    images: [Int: NSImage],
     onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
   ) {
     self.node = node
     self.onGesture = onGesture
     componentChildren = node.children.map {
-      NativeMacComponentView(node: $0, onGesture: onGesture)
+      NativeMacComponentView(node: $0, images: images, onGesture: onGesture)
     }
     let promotesText = node.kind == .text
-    let drawCommands = node.commands
-    canvas = drawCommands.isEmpty ? nil : NativeMacCanvasView(commands: drawCommands)
+    let promotesImage = node.kind == .image
+    let drawCommands = node.commands.filter { !(promotesImage && $0.kind == 19) }
+    canvas =
+      drawCommands.isEmpty ? nil : NativeMacCanvasView(commands: drawCommands, images: images)
     labels = promotesText ? node.text.map { [Self.makeLabel($0)] } ?? [] : []
+    imageViews =
+      promotesImage
+      ? node.commands.compactMap { command in
+        guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+        else { return nil }
+        return Self.makeImageView(image, draw: draw, alpha: command.alpha)
+      } : []
     if node.clickable {
       let button = NSButton(title: "", target: nil, action: nil)
       button.isBordered = false
@@ -552,6 +577,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     setAccessibilityIdentifier("rc-native-component-\(node.componentId)")
     if let canvas { addSubview(canvas) }
     labels.forEach(addSubview)
+    imageViews.forEach(addSubview)
     componentChildren.forEach(addSubview)
     if let semanticButton {
       semanticButton.target = self
@@ -673,6 +699,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   override func layout() {
     super.layout()
     canvas?.frame = bounds
+    imageViews.forEach { $0.frame = bounds }
     semanticButton?.frame = bounds
     prepareStructuralChildren()
     if isStructural { return }
@@ -703,6 +730,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         labels.first?.sizeThatFits(NSSize(width: content.width, height: .greatestFiniteMagnitude))
         ?? .zero
       intrinsic = labelSize
+    case .image:
+      intrinsic = imageViews.first?.image?.size ?? .zero
     case .row:
       intrinsic = CGSize(
         width: sizes.reduce(0) { $0 + $1.width } + spacing * CGFloat(max(sizes.count - 1, 0)),
@@ -873,6 +902,22 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     return label
   }
 
+  private static func makeImageView(
+    _ image: NSImage, draw: NativeSwiftImageDrawSnapshot, alpha: Float
+  ) -> NSImageView {
+    let view = NSImageView(image: image)
+    view.imageFrameStyle = .none
+    view.imageAlignment = .alignCenter
+    view.imageScaling = draw.scaleType == 6 ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
+    view.alphaValue = CGFloat(min(max(alpha, 0), 1))
+    view.setAccessibilityIdentifier("rc-native-image-\(draw.imageID)")
+    if let label = draw.contentDescription {
+      view.setAccessibilityElement(true)
+      view.setAccessibilityLabel(label)
+    }
+    return view
+  }
+
   fileprivate static func color(_ argb: Int32) -> NSColor {
     let value = UInt32(bitPattern: argb)
     return NSColor(
@@ -883,10 +928,12 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
 
 private final class NativeMacCanvasView: NSView {
   let commands: [NativeMacDrawCommand]
+  let images: [Int: NSImage]
   override var isFlipped: Bool { true }
 
-  init(commands: [NativeMacDrawCommand]) {
+  init(commands: [NativeMacDrawCommand], images: [Int: NSImage]) {
     self.commands = commands
+    self.images = images
     super.init(frame: .zero)
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
@@ -966,13 +1013,37 @@ private final class NativeMacCanvasView: NSView {
       paint(path, command, context)
     case 17: drawText(command, context)
     case 18: paint(path(command.path), command, context)
+    case 19: drawImage(command)
     default: break
     }
   }
 
   private func paint(_ path: CGPath, _ command: NativeMacDrawCommand, _ context: CGContext) {
+    if let imageID = command.textureImageID, let image = images[imageID], !command.stroke {
+      context.saveGState()
+      context.addPath(path)
+      context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
+      image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: CGFloat(command.alpha))
+      context.restoreGState()
+      return
+    }
     context.addPath(path)
     context.drawPath(using: command.stroke ? .stroke : (command.pathWinding == 1 ? .eoFill : .fill))
+  }
+
+  private func drawImage(_ command: NativeMacDrawCommand) {
+    guard let draw = command.image, let image = images[draw.imageID] else { return }
+    let source = NSRect(
+      x: CGFloat(draw.sourceLeft), y: CGFloat(draw.sourceTop),
+      width: CGFloat(draw.sourceRight - draw.sourceLeft),
+      height: CGFloat(draw.sourceBottom - draw.sourceTop))
+    let destination = NSRect(
+      x: CGFloat(draw.destinationLeft), y: CGFloat(draw.destinationTop),
+      width: CGFloat(draw.destinationRight - draw.destinationLeft),
+      height: CGFloat(draw.destinationBottom - draw.destinationTop))
+    image.draw(
+      in: destination, from: source, operation: .sourceOver,
+      fraction: CGFloat(min(max(command.alpha, 0), 1)), respectFlipped: true, hints: nil)
   }
 
   private func path(_ commands: [NativeMacPathCommand]) -> CGPath {

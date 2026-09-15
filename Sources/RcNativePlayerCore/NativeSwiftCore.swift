@@ -8,12 +8,22 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let width: Int
   public let height: Int
   public let root: NativeSwiftNodeSnapshot
+  public let images: [NativeSwiftImageResourceSnapshot]
   public let needsContinuousFrames: Bool
+}
+
+public struct NativeSwiftImageResourceSnapshot: Sendable {
+  public let id: Int
+  public let width: Int
+  public let height: Int
+  public let type: Int
+  public let encoding: Int
+  public let data: Data
 }
 
 public struct NativeSwiftNodeSnapshot: Sendable {
   public enum Kind: Sendable {
-    case root, content, canvas, box, row, column, text, custom
+    case root, content, canvas, box, row, column, text, image, custom
   }
 
   public let kind: Kind
@@ -28,7 +38,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let heightType: Int
   public let heightValue: Float
   public let padding: NativeSwiftInsets
+  public let minimumWidth: Float
+  public let maximumWidth: Float
   public let minimumHeight: Float
+  public let maximumHeight: Float
   public let cornerRadius: Float
   public let backgroundARGB: UInt32?
   public let horizontalPositioning: Int
@@ -60,6 +73,25 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let blendMode: Int
   public let path: [NativeSwiftPathElementSnapshot]
   public let pathWinding: Int
+  public let image: NativeSwiftImageDrawSnapshot?
+  public let textureImageID: Int?
+  public let textureTileModeX: Int
+  public let textureTileModeY: Int
+}
+
+public struct NativeSwiftImageDrawSnapshot: Sendable {
+  public let imageID: Int
+  public let sourceLeft: Float
+  public let sourceTop: Float
+  public let sourceRight: Float
+  public let sourceBottom: Float
+  public let destinationLeft: Float
+  public let destinationTop: Float
+  public let destinationRight: Float
+  public let destinationBottom: Float
+  public let scaleType: Int
+  public let scaleFactor: Float
+  public let contentDescription: String?
 }
 
 public struct NativeSwiftPathElementSnapshot: Sendable {
@@ -173,12 +205,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var texts: [Int: String]
   private var floats: [Int: Float]
   private var colors: [Int: UInt32]
+  private var integers: [Int: Int]
 
   private init(document: ParsedDocument) {
     self.document = document
     texts = document.texts
     floats = document.floats
     colors = document.colors
+    integers = document.integers
   }
 
   public static func open(data: Data) throws -> NativeSwiftDocumentSession {
@@ -187,11 +221,25 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   public func snapshot(timeSeconds: TimeInterval = 0) throws -> NativeSwiftDocumentSnapshot {
     let values = try resolvedFloats(timeSeconds: timeSeconds)
+    for conversion in document.textFromFloats {
+      let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
+      let precision = min(max(conversion.digitsAfter, 0), 12)
+      texts[conversion.outputID] = String(format: "%.*f", precision, value)
+    }
+    for lookup in document.textLookups {
+      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
+      let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
+      texts[lookup.outputID] = texts[ids[index]] ?? ""
+    }
+    for merge in document.textMerges {
+      texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
+    }
     let resolvedColors = resolveColors(values: values)
     return NativeSwiftDocumentSnapshot(
       width: document.width,
       height: document.height,
       root: try resolve(document.root, values: values, colors: resolvedColors),
+      images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
       needsContinuousFrames: document.needsContinuousFrames)
   }
 
@@ -207,18 +255,27 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
     let values = try resolvedFloats(timeSeconds: timeSeconds)
-    return actions.compactMap { action in
-      guard let name = texts[action.nameTextID] else { return nil }
-      let value: NativeSwiftActionValue
-      switch action.valueType {
-      case -1: value = .none
-      case 0: value = .float(values[action.valueID] ?? 0)
-      case 1: value = .integer(document.integers[action.valueID] ?? 0)
-      case 2: value = .text(texts[action.valueID] ?? "")
-      default: return nil
+    var events: [NativeSwiftEvent] = []
+    for action in actions {
+      switch action {
+      case .integerExpression(let targetID, let expressionID):
+        guard let expression = document.integerExpressions[expressionID] else { continue }
+        integers[targetID] = try NativeSwiftIntegerExpression.evaluate(
+          mask: expression.mask, tokens: expression.tokens, values: integers)
+      case .named(let action):
+        guard let name = texts[action.nameTextID] else { continue }
+        let value: NativeSwiftActionValue
+        switch action.valueType {
+        case -1: value = .none
+        case 0: value = .float(values[action.valueID] ?? 0)
+        case 1: value = .integer(integers[action.valueID] ?? 0)
+        case 2: value = .text(texts[action.valueID] ?? "")
+        default: continue
+        }
+        events.append(.namedAction(name: name, value: value))
       }
-      return .namedAction(name: name, value: value)
     }
+    return events
   }
 
   public func setFloat(_ value: Float, for name: String) -> Bool {
@@ -320,7 +377,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       kind: node.kind,
       componentID: node.componentID,
       children: try node.children.map { try resolve($0, values: values, colors: resolvedColors) },
-      commands: try node.commands.map { try $0.resolve(values: values, colors: resolvedColors) },
+      commands: try node.commands.map {
+        try $0.resolve(values: values, colors: resolvedColors, texts: texts)
+      },
       isClickable: node.isClickable,
       supportedGestures: node.actions.keys.sorted { $0.rawValue < $1.rawValue },
       accessibility: node.accessibility.map {
@@ -335,7 +394,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       heightType: node.heightType,
       heightValue: node.heightValue,
       padding: node.padding,
+      minimumWidth: node.minimumWidth,
+      maximumWidth: node.maximumWidth,
       minimumHeight: node.minimumHeight,
+      maximumHeight: node.maximumHeight,
       cornerRadius: node.cornerRadius,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
@@ -530,12 +592,32 @@ private struct ParsedDocument {
   let floats: [Int: Float]
   let colors: [Int: UInt32]
   let integers: [Int: Int]
+  let integerExpressions: [Int: ParsedIntegerExpression]
   let namedVariables: [String: ParsedNamedVariable]
   let expressions: [ParsedFloatExpression]
   let componentValues: [ParsedComponentValue]
   let colorAttributes: [ParsedColorAttribute]
   let colorExpressions: [ParsedColorExpression]
+  let images: [Int: ParsedImageResource]
+  let textFromFloats: [ParsedTextFromFloat]
+  let textMerges: [ParsedTextMerge]
+  let idLists: [Int: [Int]]
+  let textLookups: [ParsedTextLookupInt]
   let needsContinuousFrames: Bool
+}
+
+private struct ParsedImageResource {
+  let id: Int
+  let width: Int
+  let height: Int
+  let type: Int
+  let encoding: Int
+  let data: Data
+
+  var snapshot: NativeSwiftImageResourceSnapshot {
+    NativeSwiftImageResourceSnapshot(
+      id: id, width: width, height: height, type: type, encoding: encoding, data: data)
+  }
 }
 
 private struct ParsedComponentValue {
@@ -568,10 +650,38 @@ private struct ParsedFloatExpression {
   let words: [UInt32]
 }
 
+private struct ParsedIntegerExpression {
+  let mask: Int
+  let tokens: [Int]
+}
+
+private struct ParsedTextFromFloat {
+  let outputID: Int
+  let value: UInt32
+  let digitsAfter: Int
+}
+
+private struct ParsedTextMerge {
+  let outputID: Int
+  let leftID: Int
+  let rightID: Int
+}
+
+private struct ParsedTextLookupInt {
+  let outputID: Int
+  let listID: Int
+  let indexID: Int
+}
+
 private struct ParsedNamedAction {
   let nameTextID: Int
   let valueType: Int
   let valueID: Int
+}
+
+private enum ParsedAction {
+  case named(ParsedNamedAction)
+  case integerExpression(targetID: Int, expressionID: Int)
 }
 
 private struct ParsedModifierContainer {
@@ -594,29 +704,61 @@ private struct ParsedDrawCommand {
   let words: [UInt32]
   let paint: ParsedPaint
   let path: ParsedPath?
+  let image: ParsedImageDraw?
+  let alphaWord: UInt32?
 
-  init(kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil) {
+  init(
+    kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
+    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil
+  ) {
     self.kind = kind
     self.words = words
     self.paint = paint
     self.path = path
+    self.image = image
+    self.alphaWord = alphaWord
   }
 
-  func resolve(values: [Int: Float], colors: [Int: UInt32]) throws
+  func resolve(values: [Int: Float], colors: [Int: UInt32], texts: [Int: String]) throws
     -> NativeSwiftDrawCommandSnapshot
   {
     return NativeSwiftDrawCommandSnapshot(
       kind: kind,
       values: words.map { NativeSwiftFloatExpression.resolve($0, values: values) },
       colorARGB: paint.colorID.flatMap { colors[$0] } ?? paint.colorARGB,
-      alpha: paint.alpha,
+      alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? paint.alpha,
       strokeWidth: NativeSwiftFloatExpression.resolve(paint.strokeWidth, values: values),
       isStroke: paint.isStroke,
       strokeCap: paint.strokeCap,
       strokeJoin: paint.strokeJoin,
       blendMode: paint.blendMode,
       path: try path?.resolve(values: values) ?? [],
-      pathWinding: path?.winding ?? 0)
+      pathWinding: path?.winding ?? 0,
+      image: image?.resolve(values: values, texts: texts),
+      textureImageID: paint.textureImageID,
+      textureTileModeX: paint.textureTileModeX,
+      textureTileModeY: paint.textureTileModeY)
+  }
+}
+
+private struct ParsedImageDraw {
+  let imageID: Int
+  let source: [UInt32]
+  let destination: [UInt32]
+  let scaleType: Int
+  let scaleFactor: UInt32
+  let contentDescriptionID: Int
+
+  func resolve(values: [Int: Float], texts: [Int: String]) -> NativeSwiftImageDrawSnapshot {
+    let source = source.map { NativeSwiftFloatExpression.resolve($0, values: values) }
+    let destination = destination.map { NativeSwiftFloatExpression.resolve($0, values: values) }
+    return NativeSwiftImageDrawSnapshot(
+      imageID: imageID,
+      sourceLeft: source[0], sourceTop: source[1], sourceRight: source[2],
+      sourceBottom: source[3], destinationLeft: destination[0], destinationTop: destination[1],
+      destinationRight: destination[2], destinationBottom: destination[3], scaleType: scaleType,
+      scaleFactor: NativeSwiftFloatExpression.resolve(scaleFactor, values: values),
+      contentDescription: contentDescriptionID == 0 ? nil : texts[contentDescriptionID])
   }
 }
 
@@ -683,6 +825,9 @@ private struct ParsedPaint {
   var strokeCap = 0
   var strokeJoin = 0
   var blendMode = 3
+  var textureImageID: Int?
+  var textureTileModeX = 0
+  var textureTileModeY = 0
 }
 
 private final class ParsedNode {
@@ -692,14 +837,17 @@ private final class ParsedNode {
   var children: [ParsedNode] = []
   var commands: [ParsedDrawCommand] = []
   var isClickable = false
-  var actions: [NativeSwiftGestureKind: [ParsedNamedAction]] = [:]
+  var actions: [NativeSwiftGestureKind: [ParsedAction]] = [:]
   var accessibility: ParsedAccessibility?
   var widthType = 2
   var widthValue: Float = 0
   var heightType = 2
   var heightValue: Float = 0
   var padding = NativeSwiftInsets()
+  var minimumWidth: Float = 0
+  var maximumWidth: Float = -1
   var minimumHeight: Float = 0
+  var maximumHeight: Float = -1
   var cornerRadius: Float = 0
   var backgroundARGB: UInt32?
   var backgroundColorID: Int?
@@ -1023,12 +1171,18 @@ private enum NativeSwiftDocumentDecoder {
     var floats: [Int: Float] = [:]
     var colors: [Int: UInt32] = [:]
     var integers: [Int: Int] = [:]
+    var integerExpressions: [Int: ParsedIntegerExpression] = [:]
     var namedVariables: [String: ParsedNamedVariable] = [:]
     var expressions: [ParsedFloatExpression] = []
     var componentValues: [ParsedComponentValue] = []
     var colorAttributes: [ParsedColorAttribute] = []
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
+    var images: [Int: ParsedImageResource] = [:]
+    var textFromFloats: [ParsedTextFromFloat] = []
+    var textMerges: [ParsedTextMerge] = []
+    var idLists: [Int: [Int]] = [:]
+    var textLookups: [ParsedTextLookupInt] = []
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -1086,6 +1240,19 @@ private enum NativeSwiftDocumentDecoder {
         let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
         try currentNode(stack, input: input).commands.append(
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
+      case 44:  // Draw bitmap
+        let imageID = try input.int("draw bitmap image id")
+        guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
+        let destination = try (0..<4).map { _ in try input.word("draw bitmap destination") }
+        let descriptionID = try input.int("draw bitmap content description id")
+        try currentNode(stack, input: input).commands.append(
+          ParsedDrawCommand(
+            kind: 19, words: [], paint: paint,
+            image: ParsedImageDraw(
+              imageID: imageID,
+              source: [0, 0, Float(bitmap.width).bitPattern, Float(bitmap.height).bitPattern],
+              destination: destination, scaleType: 0, scaleFactor: Float(1).bitPattern,
+              contentDescriptionID: descriptionID)))
       case 46:  // Draw circle
         let words = try (0..<3).map { _ in try input.word("draw circle value") }
         try currentNode(stack, input: input).commands.append(
@@ -1179,6 +1346,22 @@ private enum NativeSwiftDocumentDecoder {
         node.heightValue = try input.literalFloat("height")
       case 80:  // Float constant
         floats[try input.int("float id")] = try input.literalFloat("float value")
+      case 101:  // Bitmap data
+        let imageID = try input.int("bitmap id")
+        let widthAndType = UInt32(bitPattern: Int32(try input.int("bitmap width and type")))
+        let heightAndEncoding = UInt32(
+          bitPattern: Int32(try input.int("bitmap height and encoding")))
+        let width = Int(widthAndType & 0xffff)
+        let height = Int(heightAndEncoding & 0xffff)
+        let type = Int(widthAndType >> 16)
+        let encoding = Int(heightAndEncoding >> 16)
+        guard width > 0, height > 0, width <= 4_096, height <= 4_096 else {
+          throw input.malformed("Invalid bitmap dimensions \(width)x\(height)")
+        }
+        guard images[imageID] == nil else { throw input.malformed("Duplicate bitmap \(imageID)") }
+        images[imageID] = ParsedImageResource(
+          id: imageID, width: width, height: height, type: type, encoding: encoding,
+          data: try input.data("bitmap data", maximum: 8 * 1_024 * 1_024))
       case 81:  // Float expression
         let id = try input.int("float expression id")
         let lengths = try input.int("float expression lengths")
@@ -1236,8 +1419,13 @@ private enum NativeSwiftDocumentDecoder {
         var tokens: [Int] = []
         tokens.reserveCapacity(count)
         for _ in 0..<count { tokens.append(try input.int("integer expression value")) }
+        integerExpressions[outputID] = ParsedIntegerExpression(mask: mask, tokens: tokens)
         integers[outputID] = try NativeSwiftIntegerExpression.evaluate(
           mask: mask, tokens: tokens, values: integers)
+      case 146:  // List of resource ids
+        let id = try input.int("id list id")
+        let count = try input.count("id list count", maximum: maximumProperties)
+        idLists[id] = try (0..<count).map { _ in try input.int("id list value") }
       case 134:  // Dynamic color expression
         let expression = ParsedColorExpression(
           outputID: try input.int("color expression output id"),
@@ -1249,6 +1437,27 @@ private enum NativeSwiftDocumentDecoder {
           throw input.malformed("Unknown color expression mode")
         }
         colorExpressions.append(expression)
+      case 135:  // Text derived from a float
+        let outputID = try input.int("text from float output id")
+        let value = try input.word("text from float value")
+        let digits = UInt32(bitPattern: Int32(try input.int("text from float digits")))
+        _ = try input.int("text from float flags")
+        textFromFloats.append(
+          ParsedTextFromFloat(
+            outputID: outputID, value: value,
+            digitsAfter: Int(Int16(bitPattern: UInt16(digits & 0xffff)))))
+      case 136:  // Text concatenation
+        textMerges.append(
+          ParsedTextMerge(
+            outputID: try input.int("text merge output id"),
+            leftID: try input.int("text merge left id"),
+            rightID: try input.int("text merge right id")))
+      case 153:  // Text lookup using an integer id
+        textLookups.append(
+          ParsedTextLookupInt(
+            outputID: try input.int("text lookup output id"),
+            listID: try input.int("text lookup list id"),
+            indexID: try input.int("text lookup index id")))
       case 123:  // Path data; bounded now, drawing support is a separate operation family.
         let idAndWinding = try input.int("path id and winding")
         let count = try input.count("path word count", maximum: 20_000)
@@ -1290,6 +1499,26 @@ private enum NativeSwiftDocumentDecoder {
           throw input.malformed("Unknown color attribute type \(attribute.type)")
         }
         colorAttributes.append(attribute)
+      case 187:  // Matrix expression; retained shader transforms are approximated by native scaling.
+        _ = try input.int("matrix expression id")
+        _ = try input.int("matrix expression type")
+        let count = try input.count("matrix expression value count", maximum: 32)
+        for _ in 0..<count { _ = try input.word("matrix expression value") }
+      case 171:  // Image dimension attribute
+        let outputID = try input.int("image attribute output id")
+        let imageID = try input.int("image attribute image id")
+        let type = try input.signedU16("image attribute type")
+        let count = Int(try input.u16("image attribute argument count"))
+        guard count <= maximumProperties else {
+          throw input.malformed("Too many image attribute arguments")
+        }
+        for _ in 0..<count { _ = try input.int("image attribute argument") }
+        guard let image = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
+        guard type == 0 || type == 1 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "image attribute type \(type)")
+        }
+        floats[outputID] = Float(type == 0 ? image.width : image.height)
       case 200:  // Root
         try begin(ParsedNode(kind: .root, componentID: try input.int("root component id")))
       case 201:  // Content
@@ -1359,6 +1588,24 @@ private enum NativeSwiftDocumentDecoder {
           familyID: familyID, alignment: alignmentAndFlags & 0xffff, overflow: overflow,
           maximumLines: maximumLines)
         try begin(node)
+      case 234:  // Image layout
+        let node = ParsedNode(kind: .image, componentID: try input.int("image component id"))
+        _ = try input.int("image animation id")
+        let imageID = try input.int("image bitmap id")
+        let scaleType = try input.int("image scale type")
+        let alpha = try input.word("image alpha")
+        guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
+        guard (0...7).contains(scaleType) else { throw input.malformed("Invalid image scale type") }
+        let source: [UInt32] = [
+          0, 0, Float(bitmap.width).bitPattern, Float(bitmap.height).bitPattern,
+        ]
+        node.commands.append(
+          ParsedDrawCommand(
+            kind: 19, words: [], paint: paint,
+            image: ParsedImageDraw(
+              imageID: imageID, source: source, destination: source, scaleType: scaleType,
+              scaleFactor: Float(1).bitPattern, contentDescriptionID: 0), alphaWord: alpha))
+        try begin(node)
       case 210:  // Host named action
         let action = ParsedNamedAction(
           nameTextID: try input.int("host action name text id"),
@@ -1370,7 +1617,19 @@ private enum NativeSwiftDocumentDecoder {
         else {
           throw input.malformed("Host named action is outside a click modifier")
         }
-        target.actions[gesture, default: []].append(action)
+        target.actions[gesture, default: []].append(.named(action))
+      case 218:  // Integer expression change action
+        let targetID = try input.longAsInt("integer action target id")
+        let expressionID = try input.longAsInt("integer action expression id")
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else { throw input.malformed("Integer action is outside a click modifier") }
+        guard integerExpressions[expressionID] != nil else {
+          throw input.malformed("Missing integer action expression \(expressionID)")
+        }
+        target.actions[gesture, default: []].append(
+          .integerExpression(targetID: targetID, expressionID: expressionID))
       case 214:  // Container end
         if !modifierContainers.isEmpty {
           modifierContainers.removeLast()
@@ -1380,10 +1639,16 @@ private enum NativeSwiftDocumentDecoder {
           guard !stack.isEmpty else { throw input.malformed("Unmatched container end") }
           stack.removeLast()
         }
+      case 231:  // Minimum/maximum width
+        let node = try currentNode(stack, input: input)
+        node.minimumWidth = try input.literalFloat("minimum width")
+        let maximum = try input.literalFloat("maximum width")
+        node.maximumWidth = maximum > 1_000_000 ? -1 : maximum
       case 232:  // Minimum/maximum height
         let node = try currentNode(stack, input: input)
-        node.minimumHeight = try input.floatWord("minimum height", requireLiteral: false)
-        _ = try input.floatWord("maximum height", requireLiteral: false)
+        node.minimumHeight = try input.literalFloat("minimum height")
+        let maximum = try input.literalFloat("maximum height")
+        node.maximumHeight = maximum > 1_000_000 ? -1 : maximum
       case 239:  // CoreText
         let textID = try input.int("core text id")
         let propertyCount = Int(try input.u16("core text property count"))
@@ -1453,9 +1718,11 @@ private enum NativeSwiftDocumentDecoder {
     }
     return ParsedDocument(
       width: width, height: height, root: root, nodes: nodes, texts: texts, floats: floats,
-      colors: colors, integers: integers, namedVariables: namedVariables, expressions: expressions,
+      colors: colors, integers: integers, integerExpressions: integerExpressions,
+      namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
-      colorExpressions: colorExpressions,
+      colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
+      textMerges: textMerges, idLists: idLists, textLookups: textLookups,
       needsContinuousFrames: needsContinuousFrames)
   }
 
@@ -1470,7 +1737,19 @@ private enum NativeSwiftDocumentDecoder {
       let type = Int(encodedCommand & 0xffff)
       let highBits = Int(encodedCommand >> 16)
       let argumentCount: Int
-      switch type {
+      if type == 11 {
+        guard index < words.count else { throw input.malformed("Truncated paint gradient") }
+        let colorCount = words[index] & 0xff
+        guard (1...16).contains(colorCount), index + 1 + colorCount < words.count else {
+          throw input.malformed("Invalid paint gradient")
+        }
+        let stopCount = words[index + 1 + colorCount]
+        guard stopCount == 0 || stopCount == colorCount else {
+          throw input.malformed("Invalid paint gradient stops")
+        }
+        argumentCount = 1 + colorCount + 1 + stopCount + (highBits == 0 ? 5 : (highBits == 1 ? 4 : 2))
+      } else {
+        switch type {
       case 1, 4, 5, 9, 12, 13, 16, 19, 20, 22: argumentCount = 1
       case 24: argumentCount = 3
       case 7, 8, 10, 14, 15, 17, 18, 21: argumentCount = 0
@@ -1478,6 +1757,7 @@ private enum NativeSwiftDocumentDecoder {
       default:
         throw NativeSwiftCoreError.unsupported(
           opcode: 40, offset: input.offset, reason: "paint command \(type)")
+        }
       }
       guard index + argumentCount <= words.count else { throw input.malformed("Truncated paint") }
       switch type {
@@ -1493,6 +1773,10 @@ private enum NativeSwiftDocumentDecoder {
       case 18: paint.blendMode = highBits
       case 19:
         paint.colorID = words[index]
+      case 24:
+        paint.textureImageID = words[index]
+        paint.textureTileModeX = words[index + 1] & 0xf
+        paint.textureTileModeY = (words[index + 1] >> 16) & 0xf
       default: break
       }
       index += argumentCount
@@ -1584,6 +1868,26 @@ private struct WireReader {
     offset += length
     guard let value else { throw malformed("\(field) is not valid UTF-8") }
     return value
+  }
+
+  mutating func data(_ field: String, maximum: Int) throws -> Data {
+    let length = try count("\(field) length", maximum: maximum)
+    guard bytes.count - offset >= length else {
+      throw malformed("Unexpected end while reading \(field)")
+    }
+    defer { offset += length }
+    return Data(bytes[offset..<(offset + length)])
+  }
+
+  mutating func longAsInt(_ field: String) throws -> Int {
+    let high = UInt64(try word("\(field) high word"))
+    let low = UInt64(try word("\(field) low word"))
+    let value = high << 32 | low
+    if (0x1_0000_0000...0x1_003f_ffff).contains(value) {
+      return Int(value - 0x1_0000_0000)
+    }
+    guard value <= UInt64(Int.max) else { throw malformed("\(field) is outside Int range") }
+    return Int(value)
   }
 
   mutating func utf8Bytes(_ field: String, length: Int) throws -> String {
