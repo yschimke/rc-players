@@ -14,6 +14,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcOperationBudget
 import ee.schimke.composeai.rcplayer.protocol.RcReferencedOperations
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
@@ -169,6 +170,7 @@ public object RcDocumentLinker {
             RcDocumentCodec.decodeOperations(
               definition.body,
               idRemapper = state.idRemapper.fork(mappings),
+              operationBudget = state.operationBudget,
             )
           val linkedBody = linkNodes(body)
           collectDefinitions(linkedBody, state.references, state.macros, state.arrays)
@@ -188,7 +190,11 @@ public object RcDocumentLinker {
               ?: throw RcLinkException("Missing IdList ${loop.collectionId} for MacroForEach")
           ids.forEach { id ->
             val remapped =
-              remap(node.children, state.idRemapper.fork(mapOf(loop.localItemId to id)))
+              remap(
+                node.children,
+                state.idRemapper.fork(mapOf(loop.localItemId to id)),
+                state.operationBudget,
+              )
             collectDefinitions(remapped, state.references, state.macros, state.arrays)
             result += expand(remapped, state, depth + 1, activeDefinitions, blocks)
           }
@@ -217,6 +223,7 @@ public object RcDocumentLinker {
     val macros: MutableMap<Int, RcMacroDefine>,
     val arrays: MutableMap<Int, List<Int>>,
     val idRemapper: RcIdRemapper,
+    val operationBudget: RcOperationBudget = RcOperationBudget(),
     var expandedNodes: Int = 0,
   )
 
@@ -226,7 +233,11 @@ public object RcDocumentLinker {
     data class Macro(val id: Int) : DefinitionKey
   }
 
-  private fun remap(nodes: List<RcLinkedNode>, remapper: RcIdRemapper): List<RcLinkedNode> {
+  private fun remap(
+    nodes: List<RcLinkedNode>,
+    remapper: RcIdRemapper,
+    operationBudget: RcOperationBudget,
+  ): List<RcLinkedNode> {
     val output = RcWireWriter()
     fun write(node: RcLinkedNode) {
       RcDocumentCodec.encodeOperation(output, node.operation())
@@ -236,7 +247,13 @@ public object RcDocumentLinker {
       }
     }
     nodes.forEach(::write)
-    return linkNodes(RcDocumentCodec.decodeOperations(output.toByteArray(), idRemapper = remapper))
+    return linkNodes(
+      RcDocumentCodec.decodeOperations(
+        output.toByteArray(),
+        idRemapper = remapper,
+        operationBudget = operationBudget,
+      )
+    )
   }
 
   /**
