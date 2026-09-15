@@ -3,6 +3,9 @@
   #if canImport(RcNativePlayerCore)
     import RcNativePlayerCore
   #endif
+  #if canImport(RcPlayerAppleFonts)
+    import RcPlayerAppleFonts
+  #endif
   import UIKit
 
   @MainActor
@@ -39,6 +42,7 @@
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
@@ -49,6 +53,7 @@
         resourceLimits: resourceLimits, executionLimits: executionLimits,
         customComponents: customComponents,
         resourceResolver: resourceResolver,
+        downloadableFontResolver: downloadableFontResolver,
         clock: clock,
         onEvent: onEvent,
         onDiagnostics: onDiagnostics)
@@ -77,6 +82,12 @@
 
     public func configureExecutionLimits(_ limits: RemoteComposeNativeExecutionLimits) {
       playerView.configureExecutionLimits(limits)
+    }
+
+    public func configureDownloadableFonts(
+      resolver: (any RemoteComposeDownloadableFontResolving)?
+    ) {
+      playerView.configureDownloadableFonts(resolver: resolver)
     }
 
     public func configureCustomComponents(
@@ -136,6 +147,8 @@
     public private(set) var customComponents: RemoteComposeNativeCustomComponentRegistry
     private var customComponentsRevision: UInt
     public private(set) var resourceResolver: (any RemoteComposeNativeResourceResolving)?
+    public private(set) var downloadableFontResolver:
+      (any RemoteComposeDownloadableFontResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
     private var loadTask: Task<Void, Never>?
@@ -176,6 +189,7 @@
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
@@ -188,6 +202,7 @@
       self.customComponents = customComponents
       customComponentsRevision = customComponents.revision
       self.resourceResolver = resourceResolver
+      self.downloadableFontResolver = downloadableFontResolver
       self.clock = clock
       resourceCache = NativeImageCache(
         countLimit: resourceLimits.maximumResourceCount,
@@ -274,6 +289,21 @@
       if let documentData { render(documentData) }
     }
 
+    /// Replace the opt-in network font source and retry the retained document when it changes.
+    public func configureDownloadableFonts(
+      resolver: (any RemoteComposeDownloadableFontResolving)?
+    ) {
+      let changed: Bool
+      switch (downloadableFontResolver, resolver) {
+      case (nil, nil): changed = false
+      case (let current?, let next?): changed = current !== next
+      default: changed = true
+      }
+      guard changed else { return }
+      downloadableFontResolver = resolver
+      if let documentData { render(documentData) }
+    }
+
     /// Replace the host registry and retry the retained document against its declared names.
     public func configureCustomComponents(
       _ registry: RemoteComposeNativeCustomComponentRegistry
@@ -319,6 +349,7 @@
       let availableCustomComponents = customComponents.names
       let resourceLimits = resourceLimits
       let resourceResolver = resourceResolver
+      let downloadableFontResolver = downloadableFontResolver
       let resourceCache = resourceCache
       loadTask = Task { [weak self] in
         do {
@@ -338,6 +369,7 @@
           try Task.checkCancellation()
           let resources = try await Self.prepareResources(
             for: model, limits: resourceLimits, resolver: resourceResolver,
+            downloadableFontResolver: downloadableFontResolver,
             cache: resourceCache)
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
@@ -573,6 +605,7 @@
       for model: NativeDocument,
       limits: RemoteComposeNativeResourceLimits,
       resolver: (any RemoteComposeNativeResourceResolving)?,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?,
       cache: NativeImageCache
     ) async throws -> NativeResourceStore {
       let resources = try NativeResourceStore(
@@ -589,6 +622,20 @@
           let resolved = try await resolver.resolve(request)
           try Task.checkCancellation()
           try resources.insertResolved(data: resolved, for: request)
+        }
+      }
+      if !model.downloadableFonts.isEmpty {
+        if let downloadableFontResolver {
+          for request in model.downloadableFonts {
+            let font = try await downloadableFontResolver.resolve(
+              RemoteComposeDownloadableFontRequest(family: request.family))
+            guard font.family.caseInsensitiveCompare(request.family) == .orderedSame else {
+              throw RemoteComposeDownloadableFontError.familyMismatch(
+                expected: request.family, actual: font.family)
+            }
+            try Task.checkCancellation()
+            try resources.insertDownloadedFont(data: font.data, id: request.id)
+          }
         }
       }
       return resources

@@ -11,6 +11,7 @@
     let root: NativeNode
     let images: [NativeImageResource]
     let fonts: [NativeFontResource]
+    let downloadableFonts: [NativeDownloadableFont]
     let diagnostics: RemoteComposeNativePlayerDiagnostics
     let rootSizing: Int
     let rootMode: Int
@@ -29,6 +30,7 @@
     ) throws {
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
+      var downloadableByID: [Int: NativeDownloadableFont] = [:]
       try budget.validateDocumentDimensions(
         [Double(swiftSnapshot.width), Double(swiftSnapshot.height)], limits: limits)
       var pending: [(NativeSwiftNodeSnapshot, Int)] = [(swiftSnapshot.root, 1)]
@@ -51,6 +53,15 @@
           try budget.validateFinite(
             [text.size, text.weight].map(Double.init), componentID: node.componentID,
             field: "text")
+          if let family = text.familyName?.trimmingCharacters(in: .whitespacesAndNewlines),
+            family.lowercased().hasPrefix("google:")
+          {
+            let name = String(family.dropFirst("google:".count)).trimmingCharacters(
+              in: .whitespacesAndNewlines)
+            if !name.isEmpty {
+              downloadableByID[text.familyID] = NativeDownloadableFont(id: text.familyID, family: name)
+            }
+          }
         }
         for command in node.commands {
           try budget.recordCommand(pathElementCount: command.path.count, limits: limits)
@@ -81,6 +92,7 @@
           encoding: $0.encoding, data: $0.data)
       }
       fonts = []
+      downloadableFonts = downloadableByID.values.sorted { $0.id < $1.id }
       diagnostics = RemoteComposeNativePlayerDiagnostics(
         issues: [], unsupportedOpcodes: [], notes: [])
       rootSizing = 2
@@ -132,6 +144,11 @@
     let type: Int
     let data: Data
 
+  }
+
+  struct NativeDownloadableFont {
+    let id: Int
+    let family: String
   }
 
   private struct NativeSemanticBehavior {
@@ -471,7 +488,7 @@
     init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
       fontStyle = snapshot.style
       fontFamilyID = snapshot.familyID
-      fontFamilyName = nil
+      fontFamilyName = snapshot.familyName
       alignment = snapshot.alignment
       overflow = snapshot.overflow
       maxLines = snapshot.maximumLines

@@ -38,6 +38,7 @@
 		10000000000000000000001E /* NativeCustomComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000021 /* NativeCustomComponents.swift */; };
 		10000000000000000000001F /* NativeCustomComponentSamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000022 /* NativeCustomComponentSamples.swift */; };
 		100000000000000000000020 /* NativeSwiftCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* NativeSwiftCore.swift */; };
+		100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +87,7 @@
 		200000000000000000000021 /* NativeCustomComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeCustomComponents.swift; path = "../../Sources/RcNativePlayerUIKit/NativeCustomComponents.swift"; sourceTree = "<group>"; };
 		200000000000000000000022 /* NativeCustomComponentSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCustomComponentSamples.swift; sourceTree = "<group>"; };
 		200000000000000000000023 /* NativeSwiftCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCore.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftCore.swift"; sourceTree = "<group>"; };
+		200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeDownloadableFonts.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeDownloadableFonts.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +113,7 @@
 				400000000000000000000007 /* RemoteComposePlayerUITests */,
 				400000000000000000000005 /* RcComposePlayerSwiftUI */,
 				400000000000000000000006 /* RcNativePlayerUIKit */,
+				200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */,
 				20000000000000000000000E /* RcComposePlayer.xcframework */,
 				400000000000000000000003 /* Fixtures */,
 				400000000000000000000004 /* Products */,
@@ -294,6 +297,7 @@
 				100000000000000000000015 /* NativeResources.swift in Sources */,
 				100000000000000000000016 /* NativeSession.swift in Sources */,
 				100000000000000000000020 /* NativeSwiftCore.swift in Sources */,
+				100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */,
 				100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */,
 				100000000000000000000018 /* NativeFrameTiming.swift in Sources */,
 				100000000000000000000019 /* NativeExecutionLimits.swift in Sources */,

@@ -12,6 +12,11 @@ retained state, named values and click actions, UIKit accessibility semantics, a
 animation for the operation families declared in `PROFILE.json`. It is not a claim of full CMP
 compatibility; unlisted behavior remains outside the native profile.
 
+The archive also includes the optional `RcPlayerAppleFonts` product. Add that product to the host
+target and pass its `RemoteComposeGoogleFontsResolver` to the UIKit player to opt into downloading
+`google:` families. If no resolver is configured, those families render with the normal system-font
+fallback and the document continues loading.
+
 For normal versioned SwiftPM consumption, use the repository's bare semantic-version tag and select
 the same product. This archive is intended for pinned evaluation, CI fixtures, and consumers that
 want one downloadable bundle with no binary fetch during package resolution.

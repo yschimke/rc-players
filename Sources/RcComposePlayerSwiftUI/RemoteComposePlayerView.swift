@@ -1,5 +1,8 @@
 #if canImport(UIKit)
   import RcComposePlayer
+  #if canImport(RcPlayerAppleFonts)
+    import RcPlayerAppleFonts
+  #endif
   import SwiftUI
   import UIKit
 
@@ -10,19 +13,23 @@
     private var eventHandler: (RemoteComposePlayerEvent) -> Void
     private var errorHandler: (RemoteComposePlayerError) -> Void
     private var playerController: RemoteComposePlayerController
+    private var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
     private var contentController: UIViewController?
+    private var fontLoadTask: Task<Void, Never>?
     private var generation = 0
 
     public init(
       data: Data,
       controller: RemoteComposePlayerController? = nil,
       configuration: RemoteComposePlayerConfiguration = .init(),
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
     ) {
       documentData = data
       playerController = controller ?? RemoteComposePlayerController()
       self.configuration = configuration
+      self.downloadableFontResolver = downloadableFontResolver
       eventHandler = onEvent
       errorHandler = onError
       super.init(nibName: nil, bundle: nil)
@@ -31,6 +38,10 @@
     @available(*, unavailable)
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
+    }
+
+    deinit {
+      fontLoadTask?.cancel()
     }
 
     public override func viewDidLoad() {
@@ -45,14 +56,15 @@
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
       update(
-        data: data, controller: playerController, configuration: configuration, onEvent: onEvent,
-        onError: onError)
+        data: data, controller: playerController, configuration: configuration,
+        downloadableFontResolver: downloadableFontResolver, onEvent: onEvent, onError: onError)
     }
 
     public func update(
       data: Data,
       controller: RemoteComposePlayerController,
       configuration: RemoteComposePlayerConfiguration,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
@@ -60,18 +72,20 @@
       errorHandler = onError
 
       guard
-        data != documentData || configuration != self.configuration ||
-          controller !== playerController
+        data != documentData || configuration != self.configuration || controller !== playerController
+          || !sameResolver(downloadableFontResolver, self.downloadableFontResolver)
       else { return }
       documentData = data
       playerController = controller
       self.configuration = configuration
+      self.downloadableFontResolver = downloadableFontResolver
       if isViewLoaded { rebuildContent() }
     }
 
     private func rebuildContent() {
       generation += 1
       let activeGeneration = generation
+      fontLoadTask?.cancel()
       applyBackground()
       let bytes: KotlinByteArray
       do {
@@ -84,6 +98,56 @@
         return
       }
 
+      let requests = RcDownloadableFontsKt.rcDownloadableFontRequests(bytes: bytes)
+      guard !requests.isEmpty else {
+        buildContent(
+          bytes: bytes, typefaces: RcTypefaceLoaderCompanion.shared.Default,
+          activeGeneration: activeGeneration)
+        return
+      }
+      guard let downloadableFontResolver else {
+        buildContent(
+          bytes: bytes,
+          typefaces: RcDownloadableFontsKt.rcDownloadableFontFallback(
+            families: requests.map(\.family)),
+          activeGeneration: activeGeneration)
+        return
+      }
+      fontLoadTask = Task { [weak self] in
+        do {
+          var fonts: [RcDownloadedFont] = []
+          fonts.reserveCapacity(requests.count)
+          for request in requests {
+            try Task.checkCancellation()
+            let resolved = try await downloadableFontResolver.resolve(
+              RemoteComposeDownloadableFontRequest(family: request.family))
+            guard resolved.family.caseInsensitiveCompare(request.family) == .orderedSame else {
+              throw RemoteComposeDownloadableFontError.familyMismatch(
+                expected: request.family, actual: resolved.family)
+            }
+            fonts.append(
+              RcDownloadedFont(
+                family: resolved.family, identity: resolved.identity,
+                data: try kotlinBytes(from: resolved.data)))
+          }
+          try Task.checkCancellation()
+          guard let self, self.generation == activeGeneration else { return }
+          self.buildContent(
+            bytes: bytes,
+            typefaces: RcDownloadableFontsKt.rcDownloadedTypefaceLoader(fonts: fonts),
+            activeGeneration: activeGeneration)
+        } catch is CancellationError {
+          return
+        } catch {
+          guard let self, self.generation == activeGeneration else { return }
+          self.show(.playback("Downloadable font loading failed: \(error.localizedDescription)"))
+        }
+      }
+    }
+
+    private func buildContent(
+      bytes: KotlinByteArray, typefaces: RcTypefaceLoader, activeGeneration: Int
+    ) {
       var initialError: RemoteComposePlayerError?
       var isBuilding = true
       let player = RcComposeViewControllerKt.RcComposeViewController(
@@ -93,7 +157,7 @@
           guard let self, self.generation == activeGeneration else { return }
           self.eventHandler(swiftEvent(from: event))
         },
-        typefaces: RcTypefaceLoaderCompanion.shared.Default,
+        typefaces: typefaces,
         onError: { [weak self] message in
           guard let self, self.generation == activeGeneration else { return }
           let error = RemoteComposePlayerError.playback(message)
@@ -115,6 +179,17 @@
         install(RemoteComposePlayerErrorViewController(error: initialError))
       } else {
         install(player)
+      }
+    }
+
+    private func sameResolver(
+      _ first: (any RemoteComposeDownloadableFontResolving)?,
+      _ second: (any RemoteComposeDownloadableFontResolving)?
+    ) -> Bool {
+      switch (first, second) {
+      case (nil, nil): true
+      case (let first?, let second?): first === second
+      default: false
       }
     }
 
@@ -159,6 +234,7 @@
     public let data: Data
     public let controller: RemoteComposePlayerController?
     public var configuration: RemoteComposePlayerConfiguration
+    public var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
     public var onEvent: (RemoteComposePlayerEvent) -> Void
     public var onError: (RemoteComposePlayerError) -> Void
 
@@ -166,12 +242,14 @@
       data: Data,
       controller: RemoteComposePlayerController? = nil,
       configuration: RemoteComposePlayerConfiguration = .init(),
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
     ) {
       self.data = data
       self.controller = controller
       self.configuration = configuration
+      self.downloadableFontResolver = downloadableFontResolver
       self.onEvent = onEvent
       self.onError = onError
     }
@@ -179,7 +257,8 @@
     public func makeUIViewController(context: Context) -> RemoteComposePlayerViewController {
       RemoteComposePlayerViewController(
         data: data, controller: controller ?? context.coordinator.defaultController,
-        configuration: configuration, onEvent: onEvent, onError: onError)
+        configuration: configuration, downloadableFontResolver: downloadableFontResolver,
+        onEvent: onEvent, onError: onError)
     }
 
     public func makeCoordinator() -> Coordinator {
@@ -191,7 +270,8 @@
     ) {
       controller.update(
         data: data, controller: self.controller ?? context.coordinator.defaultController,
-        configuration: configuration, onEvent: onEvent, onError: onError)
+        configuration: configuration, downloadableFontResolver: downloadableFontResolver,
+        onEvent: onEvent, onError: onError)
     }
   }
 

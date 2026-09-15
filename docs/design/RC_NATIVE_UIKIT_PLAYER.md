@@ -359,9 +359,12 @@ Canvas text uses Core Text inside the ordered Core Graphics command stream, pres
 transform, clip, blend state, baseline anchor, and primitive interleaving. Canvas glyphs intentionally
 remain fixed-size document graphics rather than Dynamic Type content. Generic sans-serif, serif,
 and monospace families map to deterministic system designs. Other named families resolve only from
-font bytes declared by the document and validated by the bounded resource store. Unavailable
-families use deterministic system fallback with a diagnostic; fonts installed elsewhere in the
-process are not consulted opportunistically.
+font bytes declared by the document or an explicitly injected
+`RemoteComposeDownloadableFontResolving` source. `google:` families can use the shared
+`RemoteComposeGoogleFontsResolver`; UIKit waits for validated bytes and then registers them through
+CoreText before installing the document view. Without a resolver, a `google:` family uses the
+native system default without failing the document. Fonts installed elsewhere in the process are
+not consulted opportunistically.
 
 ### Images and resources
 
@@ -384,6 +387,16 @@ ordered command stream so transforms, clipping, blend state, and primitive inter
 preserved. AndroidX scale modes use a shared deterministic integer-centering geometry policy.
 Embedded fonts are registered process-wide from private temporary files and unregistered when the
 owning player releases its font registry.
+
+```swift
+import RcNativePlayerUIKit
+import RcPlayerAppleFonts
+
+RemoteComposeNativePlayerRepresentable(
+  data: documentData,
+  downloadableFontResolver: RemoteComposeGoogleFontsResolver()
+)
+```
 
 The standard protocol text operations carry a single style rather than inline attributed runs, and
 they do not carry a locale property. Link spans are a separate `SupportSpannableString` custom

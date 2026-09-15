@@ -170,14 +170,16 @@ assert distribution == {
 source_checks = {
     "Package.swift": [
         "platforms: [.iOS(.v13), .macOS(.v12)]",
+        '.library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"])',
         '.library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"])',
         '.library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"])',
-        '.target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore"])',
+        'name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]',
     ],
     "distribution/native-uikit/Package.swift": [
         "platforms: [.iOS(.v13), .macOS(.v12)]",
+        '.library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"])',
         '.library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"])',
-        '.target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore"])',
+        'name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]',
     ],
 }
 for relative, fragments in source_checks.items():

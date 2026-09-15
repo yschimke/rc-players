@@ -140,6 +140,30 @@ final class ee.schimke.composeai.rcplayer.compose/RcCustomComponentRegistry { //
     }
 }
 
+final class ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest { // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest|null[0]
+    constructor <init>(kotlin/String) // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.<init>|<init>(kotlin.String){}[0]
+
+    final val family // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.family|{}family[0]
+        final fun <get-family>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.family.<get-family>|<get-family>(){}[0]
+
+    final fun component1(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.component1|component1(){}[0]
+    final fun copy(kotlin/String = ...): ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.copy|copy(kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcplayer.compose/RcDownloadedFont { // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont|null[0]
+    constructor <init>(kotlin/String, kotlin/String, kotlin/ByteArray) // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.<init>|<init>(kotlin.String;kotlin.String;kotlin.ByteArray){}[0]
+
+    final val data // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.data|{}data[0]
+        final fun <get-data>(): kotlin/ByteArray // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.data.<get-data>|<get-data>(){}[0]
+    final val family // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.family|{}family[0]
+        final fun <get-family>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.family.<get-family>|<get-family>(){}[0]
+    final val identity // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.identity|{}identity[0]
+        final fun <get-identity>(): kotlin/String // ee.schimke.composeai.rcplayer.compose/RcDownloadedFont.identity.<get-identity>|<get-identity>(){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.compose/RcFontAxis { // ee.schimke.composeai.rcplayer.compose/RcFontAxis|null[0]
     constructor <init>(kotlin/String, kotlin/Float) // ee.schimke.composeai.rcplayer.compose/RcFontAxis.<init>|<init>(kotlin.String;kotlin.Float){}[0]
 
@@ -936,6 +960,8 @@ final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeSupportReport$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeSupportReport$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcComposeSupportReport$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop[0]
+final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFace$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFace$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcFontFace$stableprop[0]
 final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFaces$stableprop // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFaces$stableprop|#static{}ee_schimke_composeai_rcplayer_compose_RcFontFaces$stableprop[0]
@@ -976,6 +1002,8 @@ final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeSupportReport$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcComposeSupportReport$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcComposeSupportReport$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcCustomComponent$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcCustomComponentRegistry$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDownloadableFontRequest$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcDownloadedFont$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcFontAxis$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFace$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFace$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcFontFace$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFaces$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcFontFaces$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcFontFaces$stableprop_getter(){}[0]
@@ -1004,6 +1032,9 @@ final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeSnapshotSession$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeSnapshotSession$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcNativeSnapshotSession$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcNativeTextStyle$stableprop_getter(){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcSpannableString$stableprop_getter(){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/rcDownloadableFontFallback(kotlin.collections/List<kotlin/String>): ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader // ee.schimke.composeai.rcplayer.compose/rcDownloadableFontFallback|rcDownloadableFontFallback(kotlin.collections.List<kotlin.String>){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/rcDownloadableFontRequests(kotlin/ByteArray): kotlin.collections/List<ee.schimke.composeai.rcplayer.compose/RcDownloadableFontRequest> // ee.schimke.composeai.rcplayer.compose/rcDownloadableFontRequests|rcDownloadableFontRequests(kotlin.ByteArray){}[0]
+final fun ee.schimke.composeai.rcplayer.compose/rcDownloadedTypefaceLoader(kotlin.collections/List<ee.schimke.composeai.rcplayer.compose/RcDownloadedFont>): ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader // ee.schimke.composeai.rcplayer.compose/rcDownloadedTypefaceLoader|rcDownloadedTypefaceLoader(kotlin.collections.List<ee.schimke.composeai.rcplayer.compose.RcDownloadedFont>){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/rcNamedColor(androidx.compose.ui.graphics/Color): ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color // ee.schimke.composeai.rcplayer.compose/rcNamedColor|rcNamedColor(androidx.compose.ui.graphics.Color){}[0]
 final fun ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues(kotlin/Array<out kotlin/Pair<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue>>..., androidx.compose.runtime/Composer?, kotlin/Int): androidx.compose.runtime.snapshots/SnapshotStateMap<kotlin/String, ee.schimke.composeai.rcplayer.runtime/RcNamedValue> // ee.schimke.composeai.rcplayer.compose/rememberRcNamedValues|rememberRcNamedValues(kotlin.Array<out|kotlin.Pair<kotlin.String,ee.schimke.composeai.rcplayer.runtime.RcNamedValue>>...;androidx.compose.runtime.Composer?;kotlin.Int){}[0]
 

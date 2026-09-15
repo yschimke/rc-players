@@ -1,4 +1,7 @@
 #if canImport(UIKit) && canImport(SwiftUI)
+  #if canImport(RcPlayerAppleFonts)
+    import RcPlayerAppleFonts
+  #endif
   import SwiftUI
 
   /// Optional SwiftUI host adapter. Rendering remains entirely UIKit/Core Graphics.
@@ -11,6 +14,7 @@
     public var executionLimits: RemoteComposeNativeExecutionLimits
     public var customComponents: RemoteComposeNativeCustomComponentRegistry?
     public var resourceResolver: (any RemoteComposeNativeResourceResolving)?
+    public var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
     public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
 
@@ -22,6 +26,7 @@
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
       resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
     ) {
@@ -32,6 +37,7 @@
       self.executionLimits = executionLimits
       self.customComponents = customComponents
       self.resourceResolver = resourceResolver
+      self.downloadableFontResolver = downloadableFontResolver
       self.onEvent = onEvent
       self.onDiagnostics = onDiagnostics
     }
@@ -42,6 +48,7 @@
         resourceLimits: resourceLimits, executionLimits: executionLimits,
         customComponents: customComponents ?? .init(),
         resourceResolver: resourceResolver,
+        downloadableFontResolver: downloadableFontResolver,
         onEvent: onEvent,
         onDiagnostics: onDiagnostics)
     }
@@ -52,6 +59,7 @@
       view.onDiagnostics = onDiagnostics
       view.compatibilityPolicy = compatibilityPolicy
       view.configureResources(limits: resourceLimits, resolver: resourceResolver)
+      view.configureDownloadableFonts(resolver: downloadableFontResolver)
       view.configureExecutionLimits(executionLimits)
       if let customComponents { view.configureCustomComponents(customComponents) }
       view.load(data)

@@ -102,6 +102,17 @@ enum NativeSwiftCoreTests {
     let modernSnapshot = try NativeSwiftDocumentSession.open(data: modern.data).snapshot()
     precondition(modernSnapshot.width == 100 && modernSnapshot.height == 50)
 
+    let googleFont = Writer()
+    googleFont.header(width: 100, height: 50)
+    googleFont.text(id: 20, "Downloadable")
+    googleFont.text(id: 21, "google:Orbitron")
+    googleFont.u8(200).int(1).u8(201).int(2)
+    googleFont.textLayout(
+      id: 3, textID: 20, color: 0xff00_0000, size: 16, familyID: 21)
+    googleFont.u8(214).u8(214)
+    let googleSnapshot = try NativeSwiftDocumentSession.open(data: googleFont.data).snapshot()
+    precondition(googleSnapshot.root.firstTextSnapshot?.familyName == "google:Orbitron")
+
     let canvasOperations = Writer()
     canvasOperations.header(width: 100, height: 100)
     canvasOperations.u8(200).int(1)
@@ -272,6 +283,10 @@ enum NativeSwiftCoreTests {
 }
 
 extension NativeSwiftNodeSnapshot {
+  fileprivate var firstTextSnapshot: NativeSwiftTextSnapshot? {
+    text ?? children.lazy.compactMap(\.firstTextSnapshot).first
+  }
+
   fileprivate var firstText: String? {
     text?.value ?? children.lazy.compactMap(\.firstText).first
   }
@@ -378,9 +393,11 @@ private final class Writer {
     return self
   }
 
-  func textLayout(id: Int, textID: Int, color: UInt32, size: Float) {
+  func textLayout(
+    id: Int, textID: Int, color: UInt32, size: Float, familyID: Int = -1
+  ) {
     u8(208).int(id).int(0).int(textID).int(Int(Int32(bitPattern: color)))
-      .float(size).int(0).float(400).int(-1).int(1).int(1).int(1)
+      .float(size).int(0).float(400).int(familyID).int(1).int(1).int(1)
     u8(214)
   }
 }

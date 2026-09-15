@@ -31,9 +31,10 @@ Implements #4068.
 .package(url: "https://github.com/yschimke/rc-players.git", from: "1.60.0")
 ```
 
-For an application target, depend on the `RcComposePlayerSwiftUI` product. It wraps the binary
-product without hiding it, so an advanced consumer can still select `RcComposePlayer` and use the
-generated Kotlin API directly.
+For an application target, depend on the `RcComposePlayerSwiftUI` product. Add the
+`RcPlayerAppleFonts` product as well only when the host opts into the provided Google Fonts
+resolver. The wrapper leaves the binary product visible, so an advanced consumer can still select
+`RcComposePlayer` and use the generated Kotlin API directly.
 
 ```swift
 // iOS
@@ -121,6 +122,31 @@ struct LivePlayer: View {
 Bare names resolve in the `USER:` namespace; explicitly namespaced declarations are accepted as
 written. Each setter returns `false` for an absent name or a type mismatch. Metadata actions and
 text-valued named actions also expose a pre-parsed `event.url` convenience property.
+
+### Downloadable Google Fonts
+
+Network font loading is explicit and shared by the CMP and native UIKit products:
+
+```swift
+// iOS
+import RcComposePlayerSwiftUI
+import RcPlayerAppleFonts
+
+@MainActor
+func makeGoogleFontsPlayer() -> RemoteComposePlayerView {
+  let googleFonts = RemoteComposeGoogleFontsResolver()
+  return RemoteComposePlayerView(
+    data: documentData,
+    downloadableFontResolver: googleFonts
+  )
+}
+```
+
+Only document families carrying the `google:` prefix are requested. The wrapper waits for all
+validated bytes before building the Compose controller, avoiding a fallback-font first frame. Omit
+the resolver for offline or privacy-sensitive hosts; explicitly downloadable families then use
+Compose's default face without failing the document. A supplied resolver whose request fails still
+reports through `onError`.
 
 ### Raw interop
 
