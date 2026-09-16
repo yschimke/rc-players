@@ -337,6 +337,7 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         Observation.Value(JsonPrimitive(ids.distinct().size == ids.size))
       }
       "records:components" -> Observation.Value(names().toJsonArray())
+      "draw_log:commands" -> Observation.Value(drawLog().toJsonArray())
       else -> Observation.NotImplemented
     }
 
@@ -515,6 +516,32 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       buildJsonArray { snapshot.forEach { particle -> add(particle.toFloatArray().toJsonArray()) } }
     )
   }
+
+  /**
+   * The drawing stream in the corpus's portable vocabulary.
+   *
+   * Derived from the decoded document rather than from a recorder inside the renderer, which is
+   * possible because of how the check is matched: `draw_log:commands` is an **ordered
+   * subsequence**, not an exact list (§4.2), precisely so the recorded stream may carry scaffolding
+   * the gold does not name. A document's canvas operations already appear in draw order, so the
+   * sequence the gold asserts is a subsequence of them.
+   *
+   * What this does *not* capture is anything the renderer decides at paint time — an operation
+   * skipped by a conditional still appears here. The corpus's `draw_log` golds are straight-line
+   * canvas documents, so that distinction does not arise in them; a gold where it did would need a
+   * real recorder, and would be wrong to answer from here.
+   */
+  private fun drawLog(): List<String> =
+    names().mapNotNull { name ->
+      when {
+        // `applyPaint` -> `paint` and `matrixSave` -> `save`: the vocabulary drops the subsystem
+        // prefix the wire name carries (guide §6).
+        name == "PaintValues" -> "paint"
+        name.startsWith("Matrix") -> name.removePrefix("Matrix").replaceFirstChar(Char::lowercase)
+        name.startsWith("Draw") || name.startsWith("Clip") -> name.replaceFirstChar(Char::lowercase)
+        else -> null
+      }
+    }
 
   private fun names(): List<String> =
     document.operations.mapNotNull { RcOperationInventory.byOpcode[it.opcode]?.stableName }
