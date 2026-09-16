@@ -90,6 +90,32 @@ else
   failures=$((failures + 1))
 fi
 
+# A long run says where it is as it goes. Without this a 55-minute corpus lane logged nothing at
+# all between "inputs: 701/701" and the job being cancelled, which is not a measurement.
+root="$work/heartbeat"
+start_harness "$root" 6 1 true
+pid="$harness_pid"
+progress="$(rc_await_lane_completion "$root" 6 10 30 2 2>"$work/heartbeat.err")"
+wait "$pid"
+expect "a heartbeat run still reports its final count" "6" "$progress"
+beats="$(grep -c '^lane progress: [0-9]* of 6 after [0-9]*s$' "$work/heartbeat.err")"
+if [ "$beats" -ge 2 ]; then
+  echo "ok   progress is reported while the lane runs ($beats heartbeats)"
+else
+  echo "FAIL expected at least 2 heartbeats, got $beats" >&2
+  failures=$((failures + 1))
+fi
+
+# A heartbeat of 0 turns it off, so a short lane's output stays clean.
+root="$work/quiet"
+start_harness "$root" 3 1 true
+pid="$harness_pid"
+progress="$(rc_await_lane_completion "$root" 3 10 30 0 2>"$work/quiet.err")"
+wait "$pid"
+expect "heartbeat 0 reports no progress lines" "0" \
+  "$(grep -c 'lane progress:' "$work/quiet.err")"
+expect "heartbeat 0 still reports the final count" "3" "$progress"
+
 # A harness that never writes anything at all is a stall from the start, not a hang.
 root="$work/silent"
 mkdir -p "$root/output"

@@ -82,7 +82,8 @@ xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" --native-co
 documents="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
   "$input_dir/manifest.json")"
 if ! progress="$(rc_await_lane_completion "$harness_root" "$documents" \
-  "${RC_NATIVE_UIKIT_STALL_BUDGET:-120}" "${RC_NATIVE_UIKIT_LANE_BUDGET:-1200}")"; then
+  "${RC_NATIVE_UIKIT_STALL_BUDGET:-120}" "${RC_NATIVE_UIKIT_LANE_BUDGET:-1200}" \
+  "${RC_NATIVE_UIKIT_HEARTBEAT:-60}")"; then
   cp -R "$harness_root/output/." "$output_dir/" 2>/dev/null || true
   echo "error: native UIKit comparison stopped after $progress of $documents documents;" \
     "partial output in $output_dir" >&2
