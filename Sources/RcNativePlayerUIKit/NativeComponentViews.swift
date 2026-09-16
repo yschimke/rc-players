@@ -419,7 +419,14 @@
         NativePathElement(kind: $0.kind, values: $0.values.map(CGFloat.init))
       }
       pathWinding = snapshot.pathWinding
-      gradient = nil
+      gradient = snapshot.gradient.map {
+        NativeGradient(
+          kind: $0.kind,
+          colors: $0.colorsARGB.map { UIColor(remoteComposeARGB: $0).cgColor },
+          stops: $0.stops.map(CGFloat.init),
+          values: $0.values.map(CGFloat.init),
+          tileMode: $0.tileMode)
+      }
       textStyle = NativeTextStyle.default
       image = snapshot.image.map {
         NativeImageDraw(
