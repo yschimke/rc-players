@@ -73,11 +73,27 @@ The reference lane's gold-level zero is not a defect in it: it drives only `pain
 reports no tree, so most golds carry a check it cannot answer. Its raster column is the number it
 exists for.
 
-For scale, the vendored TypeScript player's own published run — `results/typescript/` in the corpus —
-scores **205 / 249**. That number is not directly comparable: it comes from a different runner, one
-that implements the closed-form Ahem text model (#203) and the transient-event channels this lane
-does not. Part of the distance is this runner's, and part is the player's; the table below is the
-attempt to say which.
+### Comparing with the TypeScript player, carefully
+
+The corpus ships the vendored TypeScript player's own run at `results/typescript/`, whose summary
+reads **205 / 249**. That number is not measured the way this lane measures, and comparing against it
+directly overstates the gap by more than half.
+
+Its runner treats `raster` checks as **advisory**: they are counted (`advisory_total: 605`) but they
+do not decide a gold's verdict. 38 of its 205 passing golds carry raster diffs — 133 of them — and
+pass anyway. This lane gates on rasters, so a gold whose pixels disagree fails here and passes there.
+
+Scoring both files by the same rule, from their own recorded diffs:
+
+| | rasters **gating** | rasters **advisory** |
+| --- | ---: | ---: |
+| CMP (this lane) | **141 / 249** | 153 / 249 |
+| TypeScript (published) | 167 / 249 | 213 / 249 |
+
+So the like-for-like gap is **26 golds**, not the 64 the headline numbers suggest. Which basis is
+right is a separate question — `CONFORMANCE_FORMAT.md` §2.5 treats a `raster` check as a check like
+any other, and the guide's §7 scoring rule excludes only suspicious and skipped golds, which is what
+this lane implements. But whichever basis is used, it has to be the same one on both sides.
 
 ### The finding that matters
 
