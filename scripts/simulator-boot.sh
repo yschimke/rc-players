@@ -33,12 +33,22 @@ rc_run_bounded() {
 # Waits for a simulator to finish booting, and escalates once if it will not.
 #
 # The deadline stays — a boot that never completes must not eat the whole job — but a first failure
-# now erases and tries again rather than failing a run on a daemon that simply was not ready. The
-# erase is deliberate: a simulator that hangs on first boot is usually wedged in its own state, and
-# these runners are ephemeral so there is nothing worth keeping. A second failure is real.
+# erases and tries again rather than failing a run on a daemon that simply was not ready. The erase
+# is deliberate: a simulator that hangs on first boot may be wedged in its own state, and these
+# runners are ephemeral so there is nothing worth keeping.
+#
+# THE SECOND WAIT GETS ITS OWN, MUCH LARGER BUDGET, and that is not symmetry for its own sake. The
+# first run of this helper failed exactly here: the retry fired, erased, re-booted, and then timed
+# out at the same 120s — because an *erased* device's next boot is the slowest boot it will ever
+# do, having to redo first-boot setup from nothing. Giving the hardest attempt the easiest
+# attempt's budget made the escalation defeat itself, so a device that was merely slow was reported
+# as one that would not boot at all.
 rc_await_boot() {
   local udid="$1"
   local timeout="${2:-120}"
+  # Deliberately generous: this covers a first boot after an erase, which is not the same operation
+  # the first deadline measures.
+  local erased_timeout="${3:-420}"
   local log
   log="$(mktemp)"
 
@@ -57,10 +67,11 @@ rc_await_boot() {
     echo "simulator $udid could not be booted after an erase; this is a runner failure" >&2
     return 1
   fi
-  if ! rc_run_bounded "$timeout" xcrun simctl bootstatus "$udid" -b > "$log" 2>&1; then
+  if ! rc_run_bounded "$erased_timeout" xcrun simctl bootstatus "$udid" -b > "$log" 2>&1; then
     cat "$log" >&2
     rm -f "$log"
-    echo "simulator $udid did not boot on either attempt; this is a runner failure" >&2
+    echo "simulator $udid did not boot within ${erased_timeout}s even after an erase;" \
+      "this is a runner failure" >&2
     return 1
   fi
   rm -f "$log"
