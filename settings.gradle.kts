@@ -126,6 +126,17 @@ include(":rc-player-metrics")
 
 project(":rc-player-metrics").projectDir = file("rc-player/metrics")
 
+// The conformance lane: scores a player against the AndroidX RemoteCompose conformance corpus and
+// writes the scorecard. Root-level rather than under `rc-player/` because it measures every lane in
+// the repository, the vendored comparison players included, and belongs to none of them.
+//
+// The corpus itself is NOT in this repository's main line. It lives on the long-lived
+// `vendor/androidx-rc-conformance` branch, and this module resolves it as configuration
+// (`-Prc.specDir`, or `RC_SPEC_DIR`) — see `third_party/rc-conformance-spec/PROVENANCE.md` there.
+include(":rc-conformance")
+
+project(":rc-conformance").projectDir = file("rc-conformance")
+
 // Runnable examples of the host half of a custom component — see `rc-player/demos/build.gradle.kts`.
 include(":rc-player-demos")
 

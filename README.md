@@ -125,6 +125,14 @@ text-metrics set. Committed visual evidence is under `renders/`.
 tested against documents it did not produce. `rc-player/profile` and `rc-player/metrics` are the
 profiling and text-metric harnesses. None of the three publishes anything.
 
+`rc-conformance` scores a player against AndroidX's own **conformance corpus** — 252 golds over 18
+subsystems, each carrying its own compiled document — and writes `conformance-results.json` plus a
+scorecard. It is how *"how conformant is this player?"* gets a number attached to it, against one
+published reference rather than against the other lanes here. The corpus is upstream-unmerged and
+therefore lives on the long-lived `vendor/androidx-rc-conformance` branch rather than on `main`; the
+module resolves it as configuration, never by path. The design, the current CMP score and the work
+list are in [`docs/design/RC_CONFORMANCE.md`](docs/design/RC_CONFORMANCE.md).
+
 `rc-player/demos` is the host half of a custom component, which is the one part of the stack the
 published API cannot show on its own: the player draws a `Custom` component only if the host
 registers a renderer for its config name. Two are demonstrated — `SupportSpannableString`, which the
