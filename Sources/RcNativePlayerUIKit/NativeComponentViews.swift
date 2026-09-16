@@ -1804,16 +1804,26 @@
       // Destination leaves the existing buffer unchanged, but must not suppress ordered
       // transforms, clipping, or save/restore commands around the draw.
       guard command.blendMode != 2 else { return }
-      // Component-value expressions are resolved before UIKit performs its intrinsic-size pass.
-      // A shader-backed background on a wrap-content component can therefore retain its known
-      // width but have a zero-height path. The owning component has the final bounds now; use them
-      // for this background case and let the component's rounded clip preserve its shape.
+      // Component-value expressions are resolved before UIKit performs its intrinsic-size pass, so
+      // a background path built from them is stale in whichever dimension layout later decided.
+      // The owning component has the final bounds now; use them for this background case and let
+      // the component's rounded clip preserve its shape.
+      //
+      // Either dimension can be the stale one, and both can be at once. This originally required
+      // the width to match and only rescued a stale height, which covered a wrap-content component
+      // whose height had not been measured yet. A component that is stale in width as well fell
+      // straight through to the pre-layout path: on the catalog corpus that drew `button-filled`
+      // and its filled siblings at roughly half size, anchored at the right origin, while the
+      // label drawn over them sat at full scale.
+      //
+      // The origin still has to match. That is what separates a background whose size layout has
+      // not yet decided from a shape genuinely inset within its component, which must be left
+      // alone.
       let pathBounds = path.boundingBoxOfPath
       let isDeferredComponentBackground =
         !command.isStroke && command.usesComponentGeometry
         && abs(pathBounds.minX - bounds.minX) <= 1 && abs(pathBounds.minY - bounds.minY) <= 1
-        && abs(pathBounds.width - bounds.width) <= 1
-        && abs(pathBounds.height - bounds.height) > 1
+        && (abs(pathBounds.width - bounds.width) > 1 || abs(pathBounds.height - bounds.height) > 1)
       let isDeferredShaderBackground =
         !command.isStroke && (command.textureImageID != nil || command.gradient != nil)
         && (pathBounds.width <= 0 || pathBounds.height <= 0) && !bounds.isEmpty
