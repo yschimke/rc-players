@@ -204,8 +204,10 @@ public object RcDemoDocuments {
           overflow = RcTextLayout.OVERFLOW_CLIP,
           maxLines = 1,
         ),
+        // Five containers are opened above — root, content, column, content, text — so five close.
+        // Shipping four left the document unclosed, which every player rejects at decode.
         end,
-      ) + List(3) { end }
+      ) + List(4) { end }
     return RcDocument(
       RcHeader(
         RcVersion(1, 0, 0),

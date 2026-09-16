@@ -14,6 +14,9 @@ cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/Tit
 # The same bytes twice: once through the Android density contract, once at native density 1.0.
 cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc" "$input_dir/title-card-native-density.rc"
 cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc" "$input_dir/image-button.rc"
+# The deferred-density capture. Both lanes resolve its size from the ids they supply rather than
+# from a constant, so agreeing here is the only evidence that they supply the same thing.
+cp "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/host-density.rc" "$input_dir/host-density.rc"
 
 rm -rf "$lanes_dir/cmp-jvm" "$lanes_dir/native-uikit"
 mkdir -p "$lanes_dir/cmp-jvm"
