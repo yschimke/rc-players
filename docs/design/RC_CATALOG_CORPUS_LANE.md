@@ -153,6 +153,40 @@ Not in scope for A: scoring against the Figma baseline. The catalog owns that co
 already does it well. Ours is player-versus-player, where CMP JVM is the reference because it is
 the lane with a rendering test suite behind it.
 
+## What the lane scores: one document per component
+
+The lane scores **60 documents, one per component**, not all 701. `RC_CATALOG_SAMPLE=all` restores
+the full sheet. Two reasons, and the second is the one that matters.
+
+**Cost.** The CMP JVM lane renders all 701 in 43 seconds. The native UIKit lane ran 55 minutes
+without finishing and took a 90-minute macOS job down with it, so the full sheet was not merely
+slow — it was unaffordable on a shared job that also has an XCFramework link, four simulator
+validations and a screenshot to get through.
+
+**Balance.** The sheet is not evenly spread:
+
+| Component | Documents |
+| --- | --- |
+| `pageindicator-vertical` | 100 |
+| `circularprogressindicator` | 65 |
+| `edgebutton` | 64 |
+| `pageindicator-horizontal` | 50 |
+| …26 components | 1 each |
+
+Four components are 279 of the 701. A score over the whole sheet is therefore mostly a score of
+those four: "14% of documents failed" could mean one component is broken or fourteen are, and the
+two have completely different backlogs. One document per component answers *which components can
+this player draw*, which is the question a fix is scoped to — and it makes every component count
+once, so a rare component is as visible as a well-populated one.
+
+The pick is deterministic, so two runs are comparable: the `ideal__default` variant when a
+component publishes one, otherwise any `ideal` variant, otherwise the first by name. Deliberately
+not random — a sample that moves between runs turns every change in the score into an
+investigation of the sample.
+
+The full sheet stays committed and stays the source the sample is cut from, so widening the score
+later is a flag rather than a re-fetch.
+
 ## The one weak link, and what it cost
 
 The documents used to come from `preview.coo.ee` at request time, which put a live server in this
