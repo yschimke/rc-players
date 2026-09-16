@@ -33,6 +33,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
+import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
@@ -353,8 +354,16 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       // where the header is *kept*, not in what was read.
       // Top-level operations, header included. A container holds its children rather than sitting
       // beside them, which is why this counts linked nodes and not the flat decoded list.
+      // Top-level operations, header included. Linking supplies the nesting — a container holds its
+      // children rather than sitting beside them — and the expansion it performs is what the corpus
+      // counts. A macro *definition* is not part of that result: it is consumed by the expansion it
+      // drives, so the reference counts the call sites and not the template.
       "ops:count" ->
-        Observation.Value(JsonPrimitive((linked?.operations?.size ?: document.operations.size) + 1))
+        Observation.Value(
+          JsonPrimitive(
+            (linked?.operations?.count { !it.isMacroDefinition() } ?: document.operations.size) + 1
+          )
+        )
       "ops:present",
       "ops:absent" -> Observation.Value(names().distinct().toJsonArray())
       "ops:counts" ->
@@ -648,6 +657,9 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       put(id(operation).toString(), buildJsonObject { put("present", JsonPrimitive(true)) })
     }
   }
+
+  private fun RcLinkedNode.isMacroDefinition(): Boolean =
+    this is RcLinkedNode.Container && operation is RcMacroDefine
 
   /** Drawing operations in draw order, walking the expanded tree. */
   private fun drawnComponents(): List<String> {
