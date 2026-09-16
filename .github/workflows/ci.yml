@@ -430,8 +430,15 @@ jobs:
       # On PUSH ONLY. It adds about ten minutes to a job that has hit its 90-minute ceiling once
       # already, and a non-gating score does not need to be on the path of every pull request to do
       # its job — main produces the findings continuously, and the script runs locally unchanged.
+      #
+      # `continue-on-error` is what actually makes it non-gating, and the script alone was not
+      # enough: it fails soft on a corpus it cannot fetch, but a crash in either lane still exited
+      # non-zero and would have taken main red on a step that is explicitly not a gate. The step
+      # still shows as failed and still says why — it just cannot fail the job, which is the
+      # difference between evidence and a gate.
       - name: Score native UIKit against CMP on the catalog corpus
         if: needs.apple-changes.outputs.required == 'true' && github.event_name == 'push'
+        continue-on-error: true
         env:
           RC_NATIVE_UIKIT_SKIP_BUILD: 1
         run: scripts/check-native-uikit-corpus.sh

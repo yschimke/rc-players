@@ -137,7 +137,12 @@ Four changes, all landed:
 4. **It is enrichment, not a gate.** A document the native player declines is a finding to read,
    not a build to fail, and a corpus that cannot be fetched is reported and skipped — the sheet is
    generated output this repository does not control, served by a host whose render lane has been
-   disabled outright before. The exit status covers only whether the comparison ran.
+   disabled outright before.
+
+   The script's own fail-soft was not enough to make that true: a crash in either lane still exited
+   non-zero, which would have taken `main` red on a step that is explicitly not a gate. The CI step
+   carries `continue-on-error: true`, so it still shows as failed and still says why, but cannot
+   fail the job — which is the difference between evidence and a gate.
 
    **It runs on pushes to `main`, not on pull requests.** It adds about ten minutes to a job that
    has hit its 90-minute ceiling once already, and a non-gating score does not need to be on the
