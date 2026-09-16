@@ -46,12 +46,42 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let maximumHeight: Float
   public let cornerRadius: Float
   public let clipsToBounds: Bool
+  public let graphicsLayer: NativeSwiftGraphicsLayerSnapshot?
   public let backgroundARGB: UInt32?
   public let horizontalPositioning: Int
   public let verticalPositioning: Int
   public let spacing: Float
   public let text: NativeSwiftTextSnapshot?
   public let custom: NativeSwiftCustomSnapshot?
+}
+
+/// The 2D subset of MODIFIER_GRAPHICS_LAYER this player applies. Rotation about X and Y, Z
+/// translation, camera distance, shadow elevation and blur are parsed and deliberately not applied:
+/// nothing on the catalog sheet uses them, and a wrong 3D transform is worse than an absent one.
+public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
+  public let scaleX: Float
+  public let scaleY: Float
+  public let translationX: Float
+  public let translationY: Float
+  public let rotationZ: Float
+  public let alpha: Float
+
+  public init(
+    scaleX: Float, scaleY: Float, translationX: Float, translationY: Float, rotationZ: Float,
+    alpha: Float
+  ) {
+    self.scaleX = scaleX
+    self.scaleY = scaleY
+    self.translationX = translationX
+    self.translationY = translationY
+    self.rotationZ = rotationZ
+    self.alpha = alpha
+  }
+
+  public var isIdentity: Bool {
+    scaleX == 1 && scaleY == 1 && translationX == 0 && translationY == 0 && rotationZ == 0
+      && alpha == 1
+  }
 }
 
 public struct NativeSwiftAccessibilitySnapshot: Sendable {
@@ -494,6 +524,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       maximumHeight: maximumHeight > 1_000_000 ? -1 : maximumHeight,
       cornerRadius: cornerRadius,
       clipsToBounds: node.clipsToBounds,
+      graphicsLayer: node.graphicsLayer.isEmpty
+        ? nil
+        : NativeSwiftGraphicsLayerSnapshot(
+          scaleX: node.graphicsLayer[0] ?? 1, scaleY: node.graphicsLayer[1] ?? 1,
+          translationX: node.graphicsLayer[5] ?? 0, translationY: node.graphicsLayer[6] ?? 0,
+          rotationZ: node.graphicsLayer[4] ?? 0, alpha: node.graphicsLayer[8] ?? 1),
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
@@ -1075,6 +1111,7 @@ private final class ParsedNode {
   /// payload to say so. Separate from `cornerRadiusWords` because a square clip is not a zero-radius
   /// rounded clip: the rounded modifier states radii, this one states nothing at all.
   var clipsToBounds = false
+  var graphicsLayer: [Int: Float] = [:]
   var backgroundARGB: UInt32?
   var backgroundColorID: Int?
   var horizontalPositioning = 1
@@ -1510,6 +1547,21 @@ private enum NativeSwiftDocumentDecoder {
         // time, taking them from layout rather than the wire, so all this has to record is that the
         // component clips at all.
         try currentNode(stack, input: input).clipsToBounds = true
+      case 224:  // Graphics layer
+        // INT length, then that many [INT tag, value] pairs. The tag's low 10 bits are the
+        // attribute id and bits 10-11 its data type: 1 is a float, anything else an int.
+        let attributeCount = try input.count("graphics layer attribute count", maximum: 64)
+        for _ in 0..<attributeCount {
+          let tag = try input.int("graphics layer tag")
+          let word = try input.word("graphics layer value")
+          let attribute = tag & 0x3ff
+          let isFloat = (tag >> 10) & 0x3 == 1
+          let value =
+            isFloat
+            ? NativeSwiftFloatExpression.resolve(word, values: [:])
+            : Float(Int32(bitPattern: word))
+          try currentNode(stack, input: input).graphicsLayer[attribute] = value
+        }
       case 54:  // Rounded clip rectangle
         let node = try currentNode(stack, input: input)
         node.cornerRadiusWords = try (0..<4).map { _ in try input.word("corner radius") }

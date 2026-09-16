@@ -224,6 +224,7 @@
     let padding: UIEdgeInsets
     let cornerRadius: CGFloat
     let clipsToBounds: Bool
+    let graphicsLayer: NativeSwiftGraphicsLayerSnapshot?
     let backgroundColor: UIColor?
     let horizontalPositioning: Int
     let verticalPositioning: Int
@@ -277,6 +278,7 @@
         bottom: CGFloat(snapshot.padding.bottom), right: CGFloat(snapshot.padding.right))
       cornerRadius = CGFloat(snapshot.cornerRadius)
       clipsToBounds = snapshot.clipsToBounds
+      graphicsLayer = snapshot.graphicsLayer
       backgroundColor = snapshot.backgroundARGB.map(UIColor.init(remoteComposeARGB:))
       horizontalPositioning = snapshot.horizontalPositioning
       verticalPositioning = snapshot.verticalPositioning
@@ -925,8 +927,50 @@
       return isInside && !node.gestureTypes.isEmpty ? self : nil
     }
 
+    /// MODIFIER_GRAPHICS_LAYER's 2D attributes, applied about a transform origin of (0, 0).
+    ///
+    /// The origin is the contested part, and the choice here is deliberate and costly. No document
+    /// on the catalog sheet carries `TRANSFORM_ORIGIN`, so the default decides every transform, and
+    /// upstream disagrees with itself: `remote-core` declares 0, `remote-creation-compose` omits
+    /// the attribute at 0.5. This player follows `remote-core` and uses **0**.
+    ///
+    /// What that costs, measured rather than assumed: the only attribute any document on the sheet
+    /// sets is `SCALE_X = -1`, a horizontal mirror, on the 50 `pageindicator-vertical__ideal__left-*`
+    /// variants. About an origin of 0 a mirror maps x to -x, so their content lands entirely off
+    /// the left of the canvas and they render blank -- 0 opaque pixels, against 544 for the
+    /// untransformed sibling. About the centre they land at x 10..26, the exact mirror of that
+    /// sibling's 359..373. So origin 0 is known to draw these 50 documents empty, and they are
+    /// scored as rendered rather than declined while doing it. Changing `dx`/`dy` below to
+    /// `origin - anchor` for an origin of (w/2, h/2) is the whole difference.
+    ///
+    /// CALayer applies `transform` about its own anchor point, so an origin of (0, 0) has to be
+    /// folded into the matrix rather than assumed. For a linear part S and an anchor at A, the
+    /// transform that behaves as if applied about p is S with a translation of (I - S)(p - A);
+    /// with p = (0, 0) that is -(I - S)A. Recomputed from `bounds` on every layout pass, so it
+    /// stays correct through resizes and never compounds.
+    private func applyGraphicsLayer() {
+      guard let graphicsLayer = node.graphicsLayer, !graphicsLayer.isIdentity else { return }
+      let anchor = CGPoint(
+        x: layer.anchorPoint.x * bounds.width, y: layer.anchorPoint.y * bounds.height)
+      let linear = CGAffineTransform(
+        rotationAngle: CGFloat(graphicsLayer.rotationZ) * .pi / 180
+      ).scaledBy(x: CGFloat(graphicsLayer.scaleX), y: CGFloat(graphicsLayer.scaleY))
+      let dx = -anchor.x, dy = -anchor.y
+      let originX = dx - (linear.a * dx + linear.c * dy)
+      let originY = dy - (linear.b * dx + linear.d * dy)
+      layer.transform = CATransform3DMakeAffineTransform(
+        linear.concatenating(
+          CGAffineTransform(
+            translationX: originX + CGFloat(graphicsLayer.translationX),
+            y: originY + CGFloat(graphicsLayer.translationY))))
+      if graphicsLayer.alpha != 1, node.visibility != 2 {
+        alpha = CGFloat(max(0, min(1, graphicsLayer.alpha)))
+      }
+    }
+
     override func layoutSubviews() {
       super.layoutSubviews()
+      applyGraphicsLayer()
       layer.cornerRadius = min(
         node.cornerRadius * layoutUnitScale,
         max(min(bounds.width, bounds.height) / 2, 0))
