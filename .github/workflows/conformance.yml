@@ -1,0 +1,124 @@
+name: Conformance
+
+# Scores each player against the AndroidX RemoteCompose conformance corpus and publishes the
+# scorecard.
+#
+# **Scheduled, not per-push, and never gating.** Three reasons, in order of how much they matter:
+#
+#  1. The corpus is not in this repository's main line. It lives on the long-lived
+#     `vendor/androidx-rc-conformance` branch, reconstructed from an *unmerged* AOSP Gerrit change
+#     (see that branch's `third_party/rc-conformance-spec/PROVENANCE.md`). A pull request cannot be
+#     blocked on an expectation set that upstream may revise without warning.
+#  2. The score is a measurement, not a contract. Most of what it currently reports is this
+#     runner's own observability gaps — probes the CMP player exposes no seam for — and gating on a
+#     number that moves when the *runner* improves teaches people to ignore the gate.
+#  3. A full run rebuilds a Compose scene per resize step across 252 golds. That is minutes of
+#     wall clock nobody should pay on every push.
+#
+# What it is for: noticing that the number moved. A drop between two runs is either a player
+# regression or an upstream corpus revision, and the artifact says which.
+
+on:
+  schedule:
+    # 04:20 UTC daily — off the hour, so this does not pile onto the top-of-hour rush on GitHub's
+    # shared scheduler, where jobs queue rather than run.
+    - cron: "20 4 * * *"
+  workflow_dispatch:
+    inputs:
+      spec_ref:
+        description: "Branch or SHA carrying the conformance corpus"
+        required: false
+        default: "vendor/androidx-rc-conformance"
+      filter:
+        description: "Only golds whose name or category matches this (blank = the whole corpus)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: conformance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  score:
+    name: Score ${{ matrix.player }}
+    # Linux is enough for both JVM lanes: `ImageComposeScene` rasterizes through skiko's software
+    # path with no display server, which is the same property `:rc-player-profile` relies on. The
+    # Apple and Wasm lanes will need their own hosts when they arrive; they are not here yet.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # One red lane must not cancel the others: the point of the matrix is the comparison between
+      # them, and a partial scorecard is worth more than none.
+      fail-fast: false
+      matrix:
+        player: [cmp]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The corpus, checked out beside the source tree rather than into it. Keeping it out of the
+      # working tree is what stops it being committed here by accident, which is the failure mode
+      # `PLAYER_IMPLEMENTATION_GUIDE.md` §1 warns about: a copy drifts the first time a gold is
+      # regenerated, and the drift is silent because the runner keeps passing against it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.spec_ref || 'vendor/androidx-rc-conformance' }}
+          path: conformance-spec
+          persist-credentials: false
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+        with:
+          cache-read-only: "true"
+
+      - name: Confirm the corpus is really there
+        id: corpus
+        run: |
+          set -euo pipefail
+          spec="$GITHUB_WORKSPACE/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance"
+          # An absent corpus and a player that renders nothing produce the same zero. Failing here,
+          # loudly, is the difference between "the score dropped" and "nobody measured anything".
+          if [ ! -d "$spec/gold" ]; then
+            echo "::error::no gold corpus at $spec/gold — is vendor/androidx-rc-conformance still carrying it?"
+            exit 1
+          fi
+          golds="$(find "$spec/gold" -name '*.gold.json' | wc -l | tr -d ' ')"
+          echo "corpus: $golds golds"
+          echo "spec=$spec" >> "$GITHUB_OUTPUT"
+          echo "golds=$golds" >> "$GITHUB_OUTPUT"
+
+      - name: Score
+        run: |
+          ./gradlew --no-daemon :rc-conformance:conformance \
+            -Prc.player=${{ matrix.player }} \
+            -Prc.specDir='${{ steps.corpus.outputs.spec }}' \
+            -Prc.filter='${{ github.event.inputs.filter }}'
+
+      - name: Summarise
+        if: always()
+        run: |
+          set -euo pipefail
+          card=rc-conformance/build/conformance/scorecard.md
+          if [ -f "$card" ]; then
+            cat "$card" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "The run produced no scorecard — see the job log." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: conformance-${{ matrix.player }}
+          # `conformance-results.json` is the file the corpus's own player-agnostic report
+          # generators consume — `node generate-audit-report.mjs --player cmp` turns it into the
+          # visual audit. Keeping it as an artifact is what makes that possible after the fact.
+          path: rc-conformance/build/conformance/
+          retention-days: 30
+          if-no-files-found: warn
