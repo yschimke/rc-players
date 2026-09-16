@@ -1879,7 +1879,12 @@ internal fun androidXVisibility(value: Int): Int =
   }
 
 internal fun boxAlignment(horizontal: Int, vertical: Int): Alignment =
-  when (horizontal to vertical) {
+  // 0 is "unset", not a positioning value: AndroidX numbers horizontal 1/2/3 and vertical 4/2/5,
+  // and
+  // writes 0 where a component states no preference — a spacer, or a box a macro expanded. Erroring
+  // on it refused the whole document over a field that simply was not filled in, so it resolves to
+  // the start/top default a Box has when nothing asks otherwise.
+  when ((horizontal.takeIf { it != 0 } ?: 1) to (vertical.takeIf { it != 0 } ?: 4)) {
     1 to 4 -> Alignment.TopStart
     2 to 4 -> Alignment.TopCenter
     3 to 4 -> Alignment.TopEnd
