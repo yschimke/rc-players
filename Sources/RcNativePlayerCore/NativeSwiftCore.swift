@@ -1865,13 +1865,20 @@ private enum NativeSwiftDocumentDecoder {
         let mode = try input.u8("semantic mode")
         let enabled = try input.u8("semantic enabled")
         let clickable = try input.u8("semantic clickable")
-        guard role <= 9, mode <= 2, enabled <= 1, clickable <= 1 else {
-          throw input.malformed("Invalid accessibility semantics")
-        }
+        // Out-of-range values degrade this metadata rather than rejecting the document. These
+        // fields describe a component to a screen reader and contribute nothing to the painted
+        // frame, and the operation is fixed-width, so a value this player does not recognise costs
+        // no sync and tells us nothing about the rest of the stream. The reference player reads all
+        // four without validating any of them.
+        //
+        // The catalog sheet writes role 255 for "no role", which a `role <= 9` guard rejected -- and
+        // with it the whole document, including everything it draws. `icon`, `button-compact` and
+        // `button-loading` were refused on that alone. -1 is the unspecified role the UIKit side
+        // already falls back to, so an unrecognised one resolves there too.
         node.accessibility = ParsedAccessibility(
-          contentDescriptionID: contentDescriptionID, role: role, textID: textID,
-          stateDescriptionID: stateDescriptionID, mode: mode, isEnabled: enabled == 1,
-          isClickable: clickable == 1)
+          contentDescriptionID: contentDescriptionID, role: role <= 9 ? role : -1, textID: textID,
+          stateDescriptionID: stateDescriptionID, mode: mode <= 2 ? mode : 0,
+          isEnabled: enabled != 0, isClickable: clickable != 0)
       case 152:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
         try currentNode(stack, input: input).commands.append(
