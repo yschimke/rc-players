@@ -67,7 +67,8 @@ python3 - "$corpus" "$lanes_dir" <<'PY'
 import json, pathlib, sys
 
 corpus, lanes = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-total = len(json.loads(corpus.joinpath("manifest.json").read_text()))
+manifest = json.loads(corpus.joinpath("manifest.json").read_text())
+total = len(manifest)
 native = lanes / "native-uikit"
 errors = sorted(p.stem for p in native.glob("*.error"))
 unsupported = sorted(p.stem for p in native.glob("*.unsupported"))
@@ -79,6 +80,29 @@ print(f"native UIKit corpus: {rendered}/{total} rendered, {len(errors)} declined
       f"{len(unsupported)} with unsupported operations")
 if attempted < total:
     print(f"  incomplete: the lane attempted {attempted} of {total} documents")
+    # Which document it stopped ON, not just how many it managed. The harness works the manifest in
+    # order, so the first entry with no result is the one it was on when it stopped — and on a
+    # stall that document is the prime suspect, which a count alone never names.
+    produced = {p.stem for p in native.iterdir() if p.suffix in {".png", ".error", ".unsupported"}}
+    for position, entry in enumerate(manifest, start=1):
+        if entry["id"] not in produced:
+            print(f"  stopped at #{position} of {total}: {entry['id']} "
+                  f"({entry['width']}x{entry['height']} @ {entry['density']})")
+            break
+
+# The reasons, not just the counts. A component grouping says which stickers the player refused; it
+# never says what it refused them for, and that is the whole content of the finding. Grouped by
+# message because ~700 documents across 60 components produce a handful of distinct causes, and one
+# example id per cause is what makes a cause reproducible.
+reasons: dict[str, list[str]] = {}
+for path in sorted(native.glob("*.error")):
+    reason = path.read_text().strip().splitlines()
+    reasons.setdefault(reason[0].strip() if reason else "(empty)", []).append(path.stem)
+if reasons:
+    print(f"  {len(reasons)} distinct failure reason(s):")
+    for reason, names in sorted(reasons.items(), key=lambda item: -len(item[1])):
+        print(f"    {len(names):4d}  {reason}")
+        print(f"          e.g. {names[0]}")
 for label, names in (("declined", errors), ("unsupported", unsupported)):
     if not names:
         continue
