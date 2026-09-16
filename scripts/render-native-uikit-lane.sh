@@ -66,18 +66,24 @@ harness_root="$data_container/Documents/native-comparison"
 rm -rf "$harness_root"
 mkdir -p "$harness_root/input" "$harness_root/output"
 cp "$input_dir/manifest.json" "$harness_root/input/manifest.json"
-for source in "$input_dir"/*.rc; do
-  cp "$source" "$harness_root/input/"
-done
+cp "$input_dir"/*.rc "$harness_root/input/"
 
 rm -rf "$output_dir"
 mkdir -p "$output_dir"
 xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" --native-comparison >/dev/null
 
-deadline=$((SECONDS + 90))
+# The budget scales with the manifest. Ninety seconds was a constant sized for the four-document
+# fixture set; the catalog corpus is ~700, and a fixed deadline would have failed it partway
+# through with nothing to say about why. Thirty seconds covers launch and first frame, then a
+# second per document — far more than a render costs, which is the point: this exists to catch a
+# harness that has stopped, not to police its speed.
+documents="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
+  "$input_dir/manifest.json")"
+budget=$((30 + documents))
+deadline=$((SECONDS + budget))
 while [ ! -f "$harness_root/done.json" ]; do
   if [ "$SECONDS" -ge "$deadline" ]; then
-    echo "error: native UIKit comparison did not finish within 90 seconds" >&2
+    echo "error: native UIKit comparison did not finish $documents documents within ${budget}s" >&2
     exit 1
   fi
   sleep 1

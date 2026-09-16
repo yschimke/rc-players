@@ -101,6 +101,8 @@ jobs:
               scripts/package-macos-player.sh \
               scripts/render-native-uikit-lane.sh \
               scripts/simulator-boot.sh \
+              scripts/check-native-uikit-corpus.sh \
+              scripts/rc-catalog-corpus \
               scripts/set-apple-player-package-version.sh \
               scripts/update-package-swift.sh \
               scripts/validate-apple-player-screenshot.swift \
@@ -419,6 +421,21 @@ jobs:
           RC_NATIVE_UIKIT_SKIP_BUILD: 1
         run: scripts/check-native-uikit-comparison.sh
 
+      # The same two lanes over ~700 real Material 3 documents from wear-m3-catalog, instead of the
+      # four fixtures above. ENRICHMENT: it reports what the native player declines rather than
+      # failing on it, and a corpus it cannot fetch is skipped — the sheet is generated output this
+      # repository does not control, served by a live host. See
+      # docs/design/RC_CATALOG_CORPUS_LANE.md.
+      #
+      # On PUSH ONLY. It adds about ten minutes to a job that has hit its 90-minute ceiling once
+      # already, and a non-gating score does not need to be on the path of every pull request to do
+      # its job — main produces the findings continuously, and the script runs locally unchanged.
+      - name: Score native UIKit against CMP on the catalog corpus
+        if: needs.apple-changes.outputs.required == 'true' && github.event_name == 'push'
+        env:
+          RC_NATIVE_UIKIT_SKIP_BUILD: 1
+        run: scripts/check-native-uikit-corpus.sh
+
       # Machine-readable, budget-carrying evidence for all three native lanes, plus the rendered
       # comparison output — including the same title-card bytes through both density modes, which
       # is what makes the default mode's geometry reviewable rather than described. Uploaded
@@ -435,6 +452,7 @@ jobs:
             build/native-appkit-evidence.json
             build/native-fuzz-failures
             build/native-uikit-comparison
+            build/native-uikit-corpus/comparison.json
 
       # Launches the packaged app on a real simulator and checks captured pixels for the white
       # title-card canvas, its dark content band, and the coloured host background. This covers the

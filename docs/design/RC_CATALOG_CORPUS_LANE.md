@@ -1,7 +1,7 @@
 # Scoring the players against the wear-m3-catalog sticker sheet
 
-**Status:** proposal. The corpus fetch (`scripts/rc-catalog-corpus/fetch-corpus.sh`) and the
-measurements below are real and reproducible today; the lanes and CI wiring are not built yet.
+**Status:** option A is built — `scripts/check-native-uikit-corpus.sh`, wired into the macOS lane
+on pushes to `main`. Option B, the eighth column on the catalog's own page, is still a proposal.
 
 [`preview.coo.ee/remote-m3/compare?format=rc`](https://preview.coo.ee/remote-m3/compare?format=rc)
 is a wall of ~700 Remote Compose documents drawn by seven players at once, each row scored against
@@ -114,24 +114,35 @@ first.** A produces the artifact B would publish, so A is not thrown away; and i
 native player failing a third of the sheet, an eighth column is a wall of red rather than a
 comparison.
 
-## What A costs
+## What A cost
 
-Four changes, none large:
+Four changes, all landed:
 
-1. **`scripts/rc-catalog-corpus/fetch-corpus.sh`** — written, and validated end to end: fetch →
-   manifest → `RcCmpRenderHarness` → `validate-results.mjs` reports
+1. **`scripts/rc-catalog-corpus/fetch-corpus.sh`** — validated end to end: fetch → manifest →
+   `RcCmpRenderHarness` → `validate-results.mjs` reports
    `cmp-jvm: 701/701 png, 0 error, 0 unsupported`. The pin lives in
    `scripts/rc-catalog-corpus/pin`; the corpus itself is not committed, because it is ~700 files of
    generated output that regenerate upstream and a stale copy would silently score the wrong
-   sheet.
-2. **A corpus comparison script** beside `check-native-uikit-comparison.sh`, running the same two
-   lanes over the fetched corpus instead of four local fixtures.
-3. **Raise the harness deadline.** `render-native-uikit-lane.sh` waits 90 seconds for
-   `done.json` — a constant sized for four documents. It has to scale with the manifest count.
-4. **Decide the gate.** Start as *enrichment*: report the score, do not fail the build. A corpus
-   this repository does not control must not be able to break its CI by changing upstream — that is
-   what the pin is for, and the pin should move in a reviewable commit that shows the score moving
-   with it.
+   sheet. A corpus already on disk is reused, so a local run iterates without re-fetching.
+2. **`scripts/check-native-uikit-corpus.sh`**, beside `check-native-uikit-comparison.sh`, running
+   the same two lanes over the corpus instead of four local fixtures — and printing the headline
+   this lane exists for: how many documents the native player rendered, how many it declined, and
+   how many it drew while naming an operation it does not implement, each grouped by component
+   because a flat list of ~700 stickers is unreadable and the component is what a fix is scoped to.
+3. **The harness deadline now scales with the manifest.** `render-native-uikit-lane.sh` waited 90
+   seconds for `done.json` — a constant sized for four documents, which the corpus would have
+   tripped partway through with nothing to say about why. It is now 30 seconds of fixed cost plus a
+   second per document: far more than a render takes, which is the point, since it exists to catch
+   a harness that has stopped rather than to police its speed.
+4. **It is enrichment, not a gate.** A document the native player declines is a finding to read,
+   not a build to fail, and a corpus that cannot be fetched is reported and skipped — the sheet is
+   generated output this repository does not control, served by a host whose render lane has been
+   disabled outright before. The exit status covers only whether the comparison ran.
+
+   **It runs on pushes to `main`, not on pull requests.** It adds about ten minutes to a job that
+   has hit its 90-minute ceiling once already, and a non-gating score does not need to be on the
+   path of every pull request to do its job: main produces the findings continuously, and the
+   script runs locally unchanged.
 
 Not in scope for A: scoring against the Figma baseline. The catalog owns that comparison and
 already does it well. Ours is player-versus-player, where CMP JVM is the reference because it is
