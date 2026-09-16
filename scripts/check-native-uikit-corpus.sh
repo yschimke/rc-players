@@ -108,7 +108,13 @@ if attempted < total:
 reasons: dict[str, list[str]] = {}
 for path in sorted(native.glob("*.error")):
     reason = path.read_text().strip().splitlines()
-    reasons.setdefault(reason[0].strip() if reason else "(empty)", []).append(path.stem)
+    message = reason[0].strip() if reason else "(empty)"
+    # The document's own id is stripped before grouping, because the harness names the document in
+    # the message it writes. Grouping the raw text therefore groups nothing: a sample where every
+    # document fails the same way reported "17 distinct failure reason(s)", one per document, each
+    # with itself as the example — the exact unreadable list the grouping exists to replace.
+    message = message.replace(path.stem, "<document>")
+    reasons.setdefault(message, []).append(path.stem)
 if reasons:
     print(f"  {len(reasons)} distinct failure reason(s):")
     for reason, names in sorted(reasons.items(), key=lambda item: -len(item[1])):
