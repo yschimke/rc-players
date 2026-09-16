@@ -140,8 +140,15 @@ public data class RcInspectedNode(
  * `static`, because it is read once per component per layout and never changes for the lifetime of
  * a player: a non-static local would invalidate every reader on every provide.
  *
- * Null by default, and the player skips the bookkeeping entirely when it is — observation costs
- * nothing when nobody is observing.
+ * Null by default. With no inspector the player allocates nothing and adds no
+ * `onGloballyPositioned` to any modifier chain, so an unobserved document does no layout-pass work
+ * for this.
+ *
+ * It is not literally free, and the difference is worth stating rather than rounding away: every
+ * component still pays one composition-local read, and `RenderLayoutNode` carries a `depth`
+ * parameter that Compose tracks for change regardless. Both are small, neither has been measured,
+ * and `:rc-player-profile` is the thing to measure them with before anyone calls it negligible on
+ * the record.
  */
 public val LocalRcPlayerInspector: ProvidableCompositionLocal<RcPlayerInspector?> =
   staticCompositionLocalOf {
