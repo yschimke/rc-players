@@ -83,10 +83,18 @@ enum NativeGradientRenderer {
         CGFloat($0) / CGFloat(normalizedColors.count - 1)
       }
     }
+    // Converted into the gradient's own space first. CGGradient returns nil when a colour is not
+    // already in the space it is handed, and `UIColor.cgColor` is sRGB rather than device RGB — so
+    // building against CGColorSpaceCreateDeviceRGB() failed for every real colour and painted
+    // nothing at all. sRGB is also what the reference players interpolate in.
+    let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+    let spaceColors = normalizedColors.map {
+      $0.converted(to: space, intent: .defaultIntent, options: nil) ?? $0
+    }
     guard
       let gradient = CGGradient(
-        colorsSpace: CGColorSpaceCreateDeviceRGB(),
-        colors: normalizedColors as CFArray,
+        colorsSpace: space,
+        colors: spaceColors as CFArray,
         locations: normalizedStops)
     else { return }
 

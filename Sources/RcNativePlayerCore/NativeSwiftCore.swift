@@ -80,6 +80,25 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let textureTileModeX: Int
   public let textureTileModeY: Int
   public let usesComponentGeometry: Bool
+  public let gradient: NativeSwiftGradientSnapshot?
+}
+
+/// A resolved paint gradient: colours as ARGB, stops and coordinates as floats, ready to draw.
+/// `kind` is 0 linear, 1 radial, 2 sweep, matching the wire.
+public struct NativeSwiftGradientSnapshot: Sendable, Equatable {
+  public let kind: Int
+  public let colorsARGB: [UInt32]
+  public let stops: [Float]
+  public let values: [Float]
+  public let tileMode: Int
+
+  public init(kind: Int, colorsARGB: [UInt32], stops: [Float], values: [Float], tileMode: Int) {
+    self.kind = kind
+    self.colorsARGB = colorsARGB
+    self.stops = stops
+    self.values = values
+    self.tileMode = tileMode
+  }
 }
 
 public struct NativeSwiftImageDrawSnapshot: Sendable {
@@ -858,7 +877,9 @@ private struct ParsedDrawCommand {
   ) throws
     -> NativeSwiftDrawCommandSnapshot
   {
-    let geometryWords = words + (path?.words ?? []) + (image?.destination ?? [])
+    let geometryWords =
+      words + (path?.words ?? []) + (image?.destination ?? [])
+      + (paint.gradient?.coordinateWords ?? [])
     let usesComponentGeometry = geometryWords.contains { word in
       NativeSwiftFloatExpression.referenceID(word).map(componentValueIDs.contains) ?? false
     }
@@ -878,7 +899,24 @@ private struct ParsedDrawCommand {
       textureImageID: paint.textureImageID,
       textureTileModeX: paint.textureTileModeX,
       textureTileModeY: paint.textureTileModeY,
-      usesComponentGeometry: usesComponentGeometry)
+      usesComponentGeometry: usesComponentGeometry,
+      gradient: paint.gradient.map { gradient in
+        NativeSwiftGradientSnapshot(
+          kind: gradient.kind,
+          // A colour word is a literal ARGB unless its bit is set in the register, where it is an
+          // ID resolved from the same colour table every other paint colour comes from.
+          colorsARGB: gradient.colorWords.enumerated().map { index, word in
+            if gradient.colorRegister & (1 << index) != 0 {
+              return colors[word] ?? 0
+            }
+            return UInt32(bitPattern: Int32(word))
+          },
+          stops: gradient.stopWords.map { NativeSwiftFloatExpression.resolve($0, values: values) },
+          values: gradient.coordinateWords.map {
+            NativeSwiftFloatExpression.resolve($0, values: values)
+          },
+          tileMode: gradient.tileMode)
+      })
   }
 }
 
@@ -957,9 +995,22 @@ private struct ParsedPath {
   }
 }
 
+/// A paint gradient held as it arrived on the wire, so its colours and coordinates resolve at the
+/// same point as every other draw value. Colour words are literal ARGB unless their bit is set in
+/// `colorRegister`, in which case they are colour IDs to look up.
+private struct ParsedGradient {
+  var kind: Int
+  var colorWords: [Int]
+  var colorRegister: Int
+  var stopWords: [UInt32]
+  var coordinateWords: [UInt32]
+  var tileMode: Int
+}
+
 private struct ParsedPaint {
   var colorARGB: UInt32 = 0xff00_0000
   var colorID: Int?
+  var gradient: ParsedGradient?
   var alpha: Float = 1
   var strokeWidth: UInt32 = Float(1).bitPattern
   var isStroke = false
@@ -1950,6 +2001,25 @@ private enum NativeSwiftDocumentDecoder {
         paint.textureImageID = words[index]
         paint.textureTileModeX = words[index + 1] & 0xf
         paint.textureTileModeY = (words[index + 1] >> 16) & 0xf
+      case 11:
+        // Layout, matching the reference player: a meta word carrying the colour count and the
+        // colour-ID register, that many colour words, a stop count, that many stop words, and then
+        // the coordinates the gradient kind calls for — linear four and a tile mode, radial three
+        // and a tile mode, sweep two and none. The bounds were checked when `argumentCount` was
+        // computed above.
+        let meta = words[index]
+        let colorCount = meta & 0xff
+        let stopCount = words[index + 1 + colorCount]
+        let coordinateStart = index + 2 + colorCount + stopCount
+        let coordinateCount = highBits == 0 ? 4 : (highBits == 1 ? 3 : 2)
+        let word = { (offset: Int) in UInt32(bitPattern: Int32(words[offset])) }
+        paint.gradient = ParsedGradient(
+          kind: highBits,
+          colorWords: Array(words[(index + 1)..<(index + 1 + colorCount)]),
+          colorRegister: (meta >> 16) & 0xffff,
+          stopWords: (0..<stopCount).map { word(index + 2 + colorCount + $0) },
+          coordinateWords: (0..<coordinateCount).map { word(coordinateStart + $0) },
+          tileMode: highBits == 2 ? 0 : words[coordinateStart + coordinateCount])
       default: break
       }
       index += argumentCount
