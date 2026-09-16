@@ -50,7 +50,11 @@ fi
 if [ -n "${RC_APPLE_PLAYER_FIXTURE:-}" ]; then
   launch_arguments+=("--fixture=${RC_APPLE_PLAYER_FIXTURE}")
 fi
-xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" "${launch_arguments[@]}"
+# `${a[@]+"${a[@]}"}` rather than `"${a[@]}"`: /bin/bash on macOS is 3.2, where expanding an EMPTY
+# array under `set -u` is an unbound-variable error rather than an empty list. The default renderer
+# and no fixture is exactly the empty case, which is what CI runs.
+xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" \
+  ${launch_arguments[@]+"${launch_arguments[@]}"}
 mkdir -p "$(dirname "$screenshot")"
 
 # Metal can need several frames after process launch. Validate each capture and retain the last one

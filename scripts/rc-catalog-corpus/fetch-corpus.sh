@@ -51,9 +51,22 @@ output.joinpath("urls.txt").write_text(
 print(f"catalog {pin[:12]}: {len(identifiers)} stickers")
 PY
 
+# --fail matters more than it looks. Without it, a non-2xx response is written to the output file
+# like any other body, so the corpus fills with small error pages that pass an "is the file
+# non-empty?" check and only fail later as unreadable headers — which is exactly how the first CI
+# run of this script produced 701 files and zero usable documents.
+#
 # No --fail-early: a sticker the sheet renders but does not publish as a document should drop out of
 # the manifest below rather than abort the corpus.
-curl --silent --show-error --parallel --parallel-max 6 --retry 2 --config "$output/urls.txt"
+#
+# The status of every request is recorded whether it succeeded or not. The first failure said
+# nothing about WHY, and a corpus fetched from a live host over ~700 requests has several plausible
+# whys — rate limiting, an edge returning errors, a redirect this path does not follow. Writing the
+# codes down means the next failure names its own cause instead of being guessed at.
+curl --silent --show-error --location --fail \
+  --parallel --parallel-max 6 --retry 3 --retry-delay 1 \
+  --write-out '%{http_code} %{url_effective}\n' \
+  --config "$output/urls.txt" > "$output/http-status.txt" || true
 rm -f "$output/urls.txt"
 
 # The manifest is built from each document's OWN header, not from the catalog's rendered image
@@ -62,7 +75,7 @@ rm -f "$output/urls.txt"
 # document at the size the document states, or every lane draws a different picture and the score
 # measures the manifest instead of the players.
 python3 - "$output" "$pin" <<'PY'
-import json, pathlib, struct, sys
+import collections, json, pathlib, struct, sys
 
 WIDTH, HEIGHT, DENSITY_AT_GENERATION = 5, 6, 1031
 
@@ -121,6 +134,20 @@ if dropped:
 if unreadable:
     print(f"unreadable header for {len(unreadable)}: {', '.join(unreadable[:4])}")
 print(f"corpus: {len(entries)} documents in {output}")
+
+# A corpus that fetched nothing usable is reported with what the server actually said, rather than
+# as a bare count. The caller still treats this as "skip the comparison", but the log now carries
+# the reason instead of leaving it to be inferred from a number.
+if not entries:
+    statuses = collections.Counter()
+    status_log = output / "http-status.txt"
+    if status_log.is_file():
+        for line in status_log.read_text().splitlines():
+            code = line.split(" ", 1)[0].strip()
+            if code:
+                statuses[code] += 1
+    summary = ", ".join(f"{code}x{count}" for code, count in sorted(statuses.items()))
+    print(f"no usable documents; HTTP responses: {summary or 'none recorded'}", file=sys.stderr)
 PY
 
 node "$repo_root/scripts/rc-operation-conformance/validate-results.mjs" inputs "$output"
