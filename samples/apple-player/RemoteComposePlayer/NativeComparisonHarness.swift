@@ -129,6 +129,12 @@ private enum NativeComparisonHarness {
       customComponents: NativeCustomComponentSamples.registry,
       downloadableFontResolver: entry.downloadableFonts == false ? nil : googleFonts,
       onDiagnostics: { diagnostics = $0 })
+    // The CMP lane builds its scene with `Density(entry.density)`, so a deferred-density document
+    // must meet the same value here or the two lanes would differ on the player rather than on the
+    // renderer. Native-default entries stay at 1.0, which is the density they resolve dp at.
+    if entry.androidCompatibility == true {
+      player.configureHostDensity(Float(entry.density))
+    }
     player.overrideUserInterfaceStyle = .light
     player.frame = CGRect(origin: .zero, size: size)
     let hostView = UIApplication.shared.connectedScenes

@@ -53,5 +53,14 @@ tasks.register<JavaExec>("writeEditableTextFixture") {
       .orElse(
         layout.buildDirectory.file("fixtures/editable-text.rc").map { it.asFile.absolutePath }
       )
-  argumentProviders.add(org.gradle.process.CommandLineArgumentProvider { listOf(output.get()) })
+  // The deferred-density fixture rides along with the same task: it is generated the same way, from
+  // the same document set, and a consumer that regenerates one should not be able to leave the
+  // other stale.
+  val hostDensityOutput =
+    providers
+      .gradleProperty("rc.demo.host-density.output")
+      .orElse(layout.buildDirectory.file("fixtures/host-density.rc").map { it.asFile.absolutePath })
+  argumentProviders.add(
+    org.gradle.process.CommandLineArgumentProvider { listOf(output.get(), hostDensityOutput.get()) }
+  )
 }

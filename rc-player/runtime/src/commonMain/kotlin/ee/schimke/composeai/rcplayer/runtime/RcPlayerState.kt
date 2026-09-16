@@ -73,6 +73,15 @@ import ee.schimke.composeai.rcplayer.trace.rcTrace
 
 private const val MAX_LOOP_ITERATIONS = 10_000
 
+/**
+ * The `sp` size AndroidX publishes as `RemoteContext.ID_FONT_SIZE`, before density and font scale.
+ *
+ * Matches what both vendored AndroidX players load (`14f * fontScale * density`); a document that
+ * divides a captured text size by this id recovers its authored `sp` only if every player agrees on
+ * the 14.
+ */
+private const val DEFAULT_FONT_SIZE_SP = 14f
+
 /** Final component geometry in Remote Compose's pixel coordinate space. */
 public data class RcComponentGeometry(
   val width: Float,
@@ -188,6 +197,20 @@ public class RcPlayerState(
   }
     .intersect(RcSystemVariables.ALL)
     .toMutableSet()
+  /**
+   * The host's density and font scale, published as [RcSystemVariables.DENSITY] and
+   * [RcSystemVariables.FONT_SIZE].
+   *
+   * Held rather than taken at construction because the state outlives the thing that changes them:
+   * the player is remembered on the document alone, so a rotation or an accessibility text change
+   * recomposes around the same [RcPlayerState] and has to be able to correct these in place.
+   *
+   * 1.0 is the honest default for a host that has not said: a document that defers its density then
+   * resolves at 1:1 rather than against a guess.
+   */
+  private var hostDensity: Float = 1f
+  private var hostFontScale: Float = 1f
+
   private val documentLoadTimeMillis = timeSource.currentTimeMillis()
   private var frameTimeSeconds: Float = 0f
   private var frameEpochMillis: Long = documentLoadTimeMillis
@@ -373,6 +396,11 @@ public class RcPlayerState(
       if (previous.isNaN()) 0f else frameTimeSeconds - previous,
     )
     lastAnimationTimeSeconds = frameTimeSeconds
+    // Not clocks, but loaded on the same pass for the same reason: a document that reads them and
+    // is handed nothing resolves the reference to its own raw NaN bits, and every size derived from
+    // it becomes NaN. See RcSystemVariables.DENSITY.
+    loadSystem(RcSystemVariables.DENSITY, hostDensity)
+    loadSystem(RcSystemVariables.FONT_SIZE, DEFAULT_FONT_SIZE_SP * hostFontScale * hostDensity)
     if (RcSystemVariables.EPOCH_SECOND !in claimedSystemIds) {
       setInteger(RcSystemVariables.EPOCH_SECOND, frameEpochMillis.floorDiv(1000L).toInt())
     }
@@ -380,6 +408,19 @@ public class RcPlayerState(
 
   private fun loadSystem(id: Int, value: Float) {
     if (id !in claimedSystemIds) storeFloat(id, value)
+  }
+
+  /**
+   * Tells the document what density it is being played at.
+   *
+   * Only a `RemoteDensity.Host` capture reads these; a capture that folded its density into
+   * constants is unaffected by any value here. Non-finite and non-positive arguments are ignored
+   * rather than stored: they reach documents as a divisor, and a host that briefly reports a zero
+   * density during layout should not turn a document's geometry into `NaN` for the frame.
+   */
+  public fun setHostDensity(density: Float, fontScale: Float = 1f) {
+    if (density.isFinite() && density > 0f) hostDensity = density
+    if (fontScale.isFinite() && fontScale > 0f) hostFontScale = fontScale
   }
 
   /** Evaluates AndroidX `TimeAttribute.paint` against one wall-clock snapshot for this frame. */

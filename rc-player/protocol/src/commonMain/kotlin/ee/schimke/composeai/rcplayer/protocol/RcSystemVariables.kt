@@ -40,6 +40,19 @@ public object RcSystemVariables {
 
   public const val DAY_OF_MONTH: Int = 12
 
+  /**
+   * The density the document is being played at, in device pixels per dp.
+   *
+   * A capture decides at authoring time whether it needs this. `RemoteDensity.from(displayInfo)`
+   * folds the capture device's density into literal constants and never reads this id, so the
+   * geometry it carries only means what it meant on that device. `RemoteDensity.Host` instead
+   * defers: it writes expressions over this id and [FONT_SIZE] — `([33] 14.0 / [27] / 15.0 *)` for
+   * a 15sp text — so the same document resolves correctly at whatever density the player supplies.
+   * Those are the documents that need this loaded, and the ones that render as `NaN` geometry
+   * without it.
+   */
+  public const val DENSITY: Int = 27
+
   /** Seconds since the document was loaded — the player's own animation clock. */
   public const val ANIMATION_TIME: Int = 30
 
@@ -48,6 +61,15 @@ public object RcSystemVariables {
 
   /** Whole seconds since the Unix epoch, loaded as an integer. */
   public const val EPOCH_SECOND: Int = 32
+
+  /**
+   * The host's default text size in pixels — `14sp` at the player's density and font scale.
+   *
+   * The companion to [DENSITY] in a `RemoteDensity.Host` capture: dividing a text size by this
+   * recovers the authored `sp`, which is how such a document follows the host's accessibility text
+   * setting instead of freezing the capture device's.
+   */
+  public const val FONT_SIZE: Int = 33
 
   public const val DAY_OF_YEAR: Int = 34
 
@@ -64,9 +86,11 @@ public object RcSystemVariables {
       OFFSET_TO_UTC,
       WEEK_DAY,
       DAY_OF_MONTH,
+      DENSITY,
       ANIMATION_TIME,
       ANIMATION_DELTA_TIME,
       EPOCH_SECOND,
+      FONT_SIZE,
       DAY_OF_YEAR,
       YEAR,
     )
@@ -76,7 +100,9 @@ public object RcSystemVariables {
    * the player has to keep drawing frames rather than paint once and stop.
    *
    * The date fields are excluded: they change at most once a day, which a player that redraws on
-   * its own schedule picks up without spinning a frame loop for it.
+   * its own schedule picks up without spinning a frame loop for it. [DENSITY] and [FONT_SIZE] are
+   * excluded for the same reason and a stronger one: they change only when the host's configuration
+   * does, and that already brings the player back through composition with the new value.
    */
   public val MOVING: Set<Int> =
     setOf(

@@ -673,6 +673,8 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession
 	public static synthetic fun setColor$default (Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession;Ljava/lang/String;IFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeSessionUpdate;
 	public final fun setFloat (Ljava/lang/String;FF)Lee/schimke/composeai/rcplayer/compose/RcNativeSessionUpdate;
 	public static synthetic fun setFloat$default (Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession;Ljava/lang/String;FFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeSessionUpdate;
+	public final fun setHostDensity (FF)V
+	public static synthetic fun setHostDensity$default (Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession;FFILjava/lang/Object;)V
 	public final fun setString (Ljava/lang/String;Ljava/lang/String;F)Lee/schimke/composeai/rcplayer/compose/RcNativeSessionUpdate;
 	public static synthetic fun setString$default (Lee/schimke/composeai/rcplayer/compose/RcNativeSnapshotSession;Ljava/lang/String;Ljava/lang/String;FILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcNativeSessionUpdate;
 	public final fun snapshot (F)Lee/schimke/composeai/rcplayer/compose/RcNativeDocumentSnapshot;

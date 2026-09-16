@@ -51,7 +51,36 @@ enum NativeSwiftCoreTests {
         precondition(snapshot.root.allCommandKinds.contains(15))
       }
     }
-    if CommandLine.arguments.count == 7 {
+    if CommandLine.arguments.count == 8 {
+      // The deferred-density capture — the one fixture here that computes its text size from
+      // ID_DENSITY/ID_FONT_SIZE instead of folding a capture device's density in.
+      //
+      // This core does not resolve a dynamic text size: `literalFloat` refuses a NaN-boxed word
+      // outright. That is the right failure — a typed refusal rather than the silent NaN geometry
+      // a player gets when it accepts the reference and never loads the id — but it does mean a
+      // `RemoteDensity.Host` document is declined rather than rendered. Asserted here so the
+      // limit is visible in the suite and a future slice that resolves dynamic sizes has to come
+      // and change it deliberately.
+      let hostData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[7]))
+      do {
+        _ = try NativeSwiftDocumentSession.open(data: hostData)
+        preconditionFailure("a deferred text size was accepted; update this expectation")
+      } catch let error as NativeSwiftCoreError {
+        precondition(error.isUnsupported, "expected an unsupported error, got \(error)")
+        precondition(
+          error.description.contains("text size"),
+          "expected the refusal to name the dynamic text size, got \(error.description)")
+      }
+
+      // The density the document would have been resolved against is still the player's own, and
+      // the host can set it. Kept next to the refusal above because these are the two halves of
+      // the same contract: what the player supplies, and what it declines to guess.
+      let session = try NativeSwiftDocumentSession.open(data: wire)
+      session.setHostDensity(2.2625, fontScale: 1.3)
+      session.setHostDensity(0, fontScale: -1)  // Ignored: both reach a document as a divisor.
+      _ = try session.snapshot()
+    }
+    if CommandLine.arguments.count >= 7 {
       let imageData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[6]))
       let session = try NativeSwiftDocumentSession.open(data: imageData)
       let snapshot = try session.snapshot()

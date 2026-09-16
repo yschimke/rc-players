@@ -18,6 +18,8 @@ progress_fixture="$repo_root/rc-player/compose/src/jvmTest/resources/rc-fixtures
 circular_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/CircularProgressRemote-384x384.rc"
 arc_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ArcProgressRemote-454x400.rc"
 image_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc"
+# The only fixture here that defers its density instead of folding it in; see RcDemoDocuments.
+host_density_fixture="$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/host-density.rc"
 "$work/native-swift-core-tests" \
   "$fixture" "$title_fixture" "$progress_fixture" "$circular_fixture" "$arc_fixture" \
-  "$image_fixture"
+  "$image_fixture" "$host_density_fixture"

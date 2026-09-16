@@ -392,6 +392,93 @@ class RcSystemVariableTest {
     )
   }
 
+  @Test
+  fun theDensityBuiltInsAreLoadedAndDefaultToAnUnscaledHost() {
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()), timeSource = clock)
+
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+
+    // A host that has said nothing plays at 1:1 rather than at a guess, and 14sp is 14px there.
+    assertEquals(1f, state.system(RcSystemVariables.DENSITY))
+    assertEquals(14f, state.system(RcSystemVariables.FONT_SIZE))
+
+    state.setHostDensity(density = 2.2625f, fontScale = 1.3f)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+
+    assertEquals(2.2625f, state.system(RcSystemVariables.DENSITY))
+    assertEquals(14f * 1.3f * 2.2625f, state.system(RcSystemVariables.FONT_SIZE))
+  }
+
+  @Test
+  fun aDensityThatWouldPoisonADocumentIsIgnoredRatherThanStored() {
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()), timeSource = clock)
+    state.setHostDensity(density = 3f, fontScale = 1.5f)
+
+    // These reach a document as a divisor. A host mid-layout reporting zero must not turn every
+    // size derived from DENSITY into an infinity, and NaN would be worse than the bug being fixed.
+    state.setHostDensity(density = 0f, fontScale = 1.5f)
+    state.setHostDensity(density = Float.NaN, fontScale = Float.NaN)
+    state.setHostDensity(density = Float.NEGATIVE_INFINITY, fontScale = -2f)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+
+    assertEquals(3f, state.system(RcSystemVariables.DENSITY))
+    assertEquals(14f * 1.5f * 3f, state.system(RcSystemVariables.FONT_SIZE))
+  }
+
+  @Test
+  fun eachHostDensityArgumentIsJudgedOnItsOwn() {
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()), timeSource = clock)
+    state.setHostDensity(density = 3f, fontScale = 1.5f)
+
+    // Deliberately not all-or-nothing: a host correcting one of the two should not have to restate
+    // the other, and a real font scale arriving beside a momentarily unusable density is still a
+    // real font scale.
+    state.setHostDensity(density = 0f, fontScale = 2f)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+
+    assertEquals(3f, state.system(RcSystemVariables.DENSITY))
+    assertEquals(14f * 2f * 3f, state.system(RcSystemVariables.FONT_SIZE))
+  }
+
+  @Test
+  fun aHostCaptureTextSizeResolvesToANumberInsteadOfNaN() {
+    // The shape a `RemoteDensity.Host` capture writes for a 15sp text: `([33] 14.0 / [27] / 15.0
+    // *)`
+    // — recover the host's font scale from the two built-ins, then apply it to the authored size.
+    // Without both ids loaded every word of this is NaN, and the text it sizes is never drawn.
+    val expression =
+      RcFloatExpression(
+        id = 100,
+        expression =
+          listOf(
+            RcFloatWord(NAN_REFERENCE or RcSystemVariables.FONT_SIZE),
+            RcFloatWord.literal(14f),
+            RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 4),
+            RcFloatWord(NAN_REFERENCE or RcSystemVariables.DENSITY),
+            RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 4),
+            RcFloatWord.literal(15f),
+            RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 3),
+          ),
+        animation = null,
+      )
+    val state =
+      RcPlayerState(
+        RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(expression)),
+        timeSource = clock,
+      )
+    state.setHostDensity(density = 2f, fontScale = 1.5f)
+
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    state.applyFloatExpression(expression)
+    val size = state.resolve(RcFloatWord(NAN_REFERENCE or 100))
+
+    assertFalse(size.isNaN(), "a deferred-density text size resolved to NaN")
+    assertEquals(15f * 1.5f, size)
+  }
+
   private fun RcPlayerState.system(id: Int): Float = resolve(RcFloatWord(NAN_REFERENCE or id))
 
   private companion object {
