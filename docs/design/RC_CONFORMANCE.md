@@ -65,9 +65,9 @@ Measured against patch set 1 of the Gerrit change:
 
 | | `cmp` | `androidx-jvm` |
 | --- | ---: | ---: |
-| Golds passed (core profile) | **134 / 241 (55.6%)** | 0 / 241 |
+| Golds passed (core profile) | **141 / 241 (58.5%)** | 0 / 241 |
 | Raster checks passed | **490 / 633** | 399 / 633 |
-| Checks failed | 563 / 1515 | 1240 / 1515 |
+| Checks failed | 506 / 1515 | 1240 / 1515 |
 
 The reference lane's gold-level zero is not a defect in it: it drives only `paint` and `resize`, and
 reports no tree, so most golds carry a check it cannot answer. Its raster column is the number it
@@ -195,7 +195,7 @@ filed issue carrying the evidence:
 | --- | ---: | --- |
 | Four document shapes crash it — LOOM linking, box alignment `0/0`, `LayoutComponentContent`, a missing tween path | 9 (+202 downstream checks) | #182 |
 | Collapsible layouts do not collapse to `GONE` when nothing fits | ~18 | #198 |
-| `StateLayout` honours fill modifiers where AndroidX sizes to the active child | ~10 | #202 |
+| ~~`StateLayout` honours fill modifiers~~ — **fixed**, +7 golds | — | #202 |
 | `canvas_shader_gradient` — the one raster difference attributable to this player alone | 1 | #183 |
 
 **In the runner.**
