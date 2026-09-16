@@ -305,7 +305,12 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       "matrix" -> scalar(check) { id -> state()?.matrixValues(id)?.toJsonArray() }
       "float_array:dynamic" -> scalar(check) { id -> state()?.floatValues(id)?.toJsonArray() }
       "particles" -> particles(check)
-      "ops:count" -> Observation.Value(JsonPrimitive(document.operations.size))
+      // The header is `HEADER`, opcode 0 — an operation on the wire like any other. This player's
+      // model hoists it into `RcDocument.header` and leaves `operations` to the rest, so the
+      // decoded
+      // list is always one short of the count AndroidX reports. Adding it back is a difference in
+      // where the header is *kept*, not in what was read.
+      "ops:count" -> Observation.Value(JsonPrimitive(document.operations.size + 1))
       "ops:present",
       "ops:absent" -> Observation.Value(names().distinct().toJsonArray())
       "ops:counts" ->
