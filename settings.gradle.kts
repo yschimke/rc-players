@@ -87,6 +87,12 @@ rootProject.name = "rc-players"
 // Directory names are short (`rc-player/protocol`) while project names are qualified
 // (`:rc-player-protocol`) — the project name is what becomes the published artifact id, and
 // `:protocol` would be a poor coordinate.
+
+// The BOM: one coordinate a consumer imports to pin the whole published set at one version. Listed
+// first because it is the index of the release rather than a member of it — it publishes at every
+// release, whichever players changed.
+include(":bom")
+
 include(":rc-player-trace")
 
 project(":rc-player-trace").projectDir = file("rc-player/trace")
