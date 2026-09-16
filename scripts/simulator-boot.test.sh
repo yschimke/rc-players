@@ -22,9 +22,12 @@ echo "$*" >> "$RC_STUB_LOG"
 if [ "${2:-}" = "bootstatus" ]; then
   outcome="$(head -n 1 "$RC_STUB_PLAN")"
   tail -n +2 "$RC_STUB_PLAN" > "$RC_STUB_PLAN.rest" && mv "$RC_STUB_PLAN.rest" "$RC_STUB_PLAN"
-  if [ "$outcome" = "hang" ]; then
-    sleep 30
-  fi
+  case "$outcome" in
+    hang) sleep 30 ;;
+    # Longer than the first deadline, shorter than the post-erase one: only a caller that gives the
+    # second attempt its own larger budget gets through this.
+    slow) sleep 3 ;;
+  esac
   exit 0
 fi
 exit 0
@@ -62,7 +65,7 @@ check "clean boot is quiet" "$(wc -c < "$work/err" | tr -d ' ')" "0"
 # A first failure escalates: shutdown, erase, boot, and a second wait — then succeeds, loudly.
 run_case hang ok
 status=0
-rc_await_boot SIM 2 2> "$work/err" || status=$?
+rc_await_boot SIM 2 6 2> "$work/err" || status=$?
 check "retried boot succeeds" "$status" "0"
 check "retried boot erases once" "$(grep -c 'simctl erase' "$work/log" || true)" "1"
 # Matched whole-line: `simctl bootstatus` also contains "simctl boot".
@@ -70,13 +73,22 @@ check "retried boot re-boots" "$(grep -cx 'simctl boot SIM' "$work/log" || true)
 check "retried boot says so" \
   "$(grep -c 'booted only on the second attempt' "$work/err" || true)" "1"
 
+# The post-erase wait gets its own, larger budget. An erased device's next boot is the slowest one
+# it will ever do, and the first run of this helper in CI failed precisely because the retry was
+# held to the first attempt's deadline. A boot that is too slow for the first budget but fine for
+# the second must succeed.
+run_case hang slow
+status=0
+rc_await_boot SIM 2 6 2> "$work/err" || status=$?
+check "post-erase boot gets a larger budget" "$status" "0"
+
 # A second failure is real, and says which kind of failure it is.
 run_case hang hang
 status=0
-rc_await_boot SIM 2 2> "$work/err" || status=$?
+rc_await_boot SIM 2 6 2> "$work/err" || status=$?
 check "twice-failed boot fails" "$status" "1"
 check "twice-failed boot names the runner" \
-  "$(grep -c 'did not boot on either attempt' "$work/err" || true)" "1"
+  "$(grep -c 'did not boot within 6s even after an erase' "$work/err" || true)" "1"
 
 # A bounded command that finishes inside its deadline returns the command's own status, so a caller
 # can still tell a timeout from a genuine non-zero exit.
