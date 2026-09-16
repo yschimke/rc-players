@@ -133,6 +133,42 @@ whole reason the corpus specifies its pixel metric down to the source.
 **Nothing in `corpus/` or `runner/` imports a player.** That is what lets a second lane be one new
 file in `engine/` rather than a fork of the runner.
 
+### The inspection seam, and why it is semantics
+
+The CMP lane reads the laid-out tree and the document state through Compose's **semantics** tree,
+using custom `SemanticsPropertyKey`s gated on `LocalRcInspection`.
+
+Semantics is not an accessibility-only channel — it is Compose's general description of what the UI
+*means*, read by accessibility services, by the testing framework and by autofill, with custom keys
+as its documented extension point. Three things follow, and they are why this beat the bespoke
+observer it replaced:
+
+* **Geometry is pull-based.** `SemanticsNode.positionInRoot`, `size` and `boundsInRoot` read from the
+  layout node on demand, so there is no positioning callback at all. The first version of this seam
+  pushed geometry from an `onGloballyPositioned` per component — a callback that fires after every
+  layout pass of the whole tree, and the usual way an inspection seam turns into a performance
+  problem.
+* **Depth is free.** The semantics tree is a tree, so nesting comes from walking it. The bespoke
+  version had to thread a `depth` parameter down through `RenderLayoutNode` and its thirteen
+  recursive call sites, which every document paid for in change-tracking whether or not anyone was
+  inspecting.
+* **One reader, many consumers.** A Compose UI test, `ImageComposeScene.semanticsOwners` and a
+  standalone harness all read the same data the same way, with no type owned by the player in
+  between. The seam's whole public surface is four keys and one composition local.
+
+Read the **unmerged** tree. The merged one folds a subtree's properties into its nearest merging
+ancestor, which collapses several components into one entry.
+
+Two further notes. Custom keys are not mapped into platform accessibility node info, so a screen
+reader does not see them. And `Modifier.semantics` is applied only when `LocalRcInspection` is true,
+so an ordinary document's modifier chain is byte-for-byte what it was before the seam existed — the
+one unconditional cost left is a static composition-local read per component, which is unmeasured;
+`:rc-player-profile` is the thing to measure it with.
+
+What semantics is *not* the right channel for: `InspectableValue` / `debugInspectorInfo` is Compose's
+canonical free-unless-enabled pattern, and its gating idea is the one adopted here, but its payload
+goes to the Layout Inspector through the slot table rather than to an in-process typed reader.
+
 ### The raster metric is ported exactly
 
 `Pixelmatch.kt` is a direct port of the guide's §10 reference implementation — Vyšniauskas'

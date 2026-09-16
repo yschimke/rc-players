@@ -2,10 +2,13 @@ package ee.schimke.composeai.rcconformance.engine
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcconformance.corpus.Check
 import ee.schimke.composeai.rcconformance.corpus.Gold
@@ -15,10 +18,12 @@ import ee.schimke.composeai.rcconformance.runner.ConformanceSession
 import ee.schimke.composeai.rcconformance.runner.Observation
 import ee.schimke.composeai.rcconformance.runner.UnsupportedStepKind
 import ee.schimke.composeai.rcconformance.runner.toRgba
-import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerInspector
+import ee.schimke.composeai.rcplayer.compose.LocalRcInspection
+import ee.schimke.composeai.rcplayer.compose.RcComponentIdKey
+import ee.schimke.composeai.rcplayer.compose.RcComponentKindKey
+import ee.schimke.composeai.rcplayer.compose.RcComponentVisibilityKey
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
-import ee.schimke.composeai.rcplayer.compose.RcInspectedNode
-import ee.schimke.composeai.rcplayer.compose.RcPlayerInspector
+import ee.schimke.composeai.rcplayer.compose.RcDocumentStateKey
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -90,7 +95,6 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
    */
   private val history = mutableListOf<Step>()
 
-  private var inspector = RcPlayerInspector()
   private var scene: ImageComposeScene = newScene()
 
   /**
@@ -104,7 +108,7 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
 
   private fun newScene(): ImageComposeScene =
     ImageComposeScene(width = width, height = height, density = Density(density)) {
-      CompositionLocalProvider(LocalRcPlayerInspector provides inspector) {
+      CompositionLocalProvider(LocalRcInspection provides true) {
         // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
         // sized by the modifier the host supplies; with the default `Modifier` that canvas measures
         // 0x0, and anything sized *from* the `DrawScope` — canvas-drawn text especially — lays out
@@ -264,7 +268,6 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
     // A fresh inspector too: the old one's newest-pass bookkeeping belongs to a scene that no
     // longer
     // exists, and carrying it over would let a stale tree answer the next probe.
-    inspector = RcPlayerInspector()
     scene = newScene()
     frameNanos = 0L
     history.forEach { earlier ->
@@ -310,16 +313,86 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
             names().groupingBy { it }.eachCount().forEach { (n, c) -> put(n, JsonPrimitive(c)) }
           }
         )
-      "ops:component_count" -> Observation.Value(JsonPrimitive(inspector.nodes.size))
+      "ops:component_count" -> Observation.Value(JsonPrimitive(components().size))
       "ops:distinct_ids" -> {
-        val ids = inspector.nodes.map { it.componentId }
+        val ids = components().map { it.id }
         Observation.Value(JsonPrimitive(ids.distinct().size == ids.size))
       }
       "records:components" -> Observation.Value(names().toJsonArray())
       else -> Observation.NotImplemented
     }
 
-  private fun state(): RcPlayerState? = inspector.state
+  /**
+   * The unmerged semantics root, or null before the first frame.
+   *
+   * `semanticsOwners` is experimental on `ImageComposeScene`, which is fine for a measurement
+   * harness: if it changes, this lane fails to compile rather than silently measuring the wrong
+   * thing.
+   */
+  @OptIn(ExperimentalComposeUiApi::class, InternalComposeUiApi::class)
+  private fun semanticsRoot(): SemanticsNode? =
+    scene.semanticsOwners.firstOrNull()?.unmergedRootSemanticsNode
+
+  /**
+   * Every component the player published, with its nesting depth.
+   *
+   * Read from the **unmerged** tree: the merged one folds a subtree's properties into its nearest
+   * merging ancestor, which would collapse several components into one entry. Depth counts only
+   * nodes that carry a component id, so the intermediate layout nodes a manager builds for its own
+   * measuring — and the player's `Content` wrappers, which AndroidX's tree has no entry for — do
+   * not inflate it.
+   */
+  private fun components(): List<Component> {
+    val out = mutableListOf<Component>()
+
+    fun walk(node: SemanticsNode, depth: Int, parent: Offset?) {
+      val id = node.config.getOrElseNullable(RcComponentIdKey) { null }
+      if (id != null) {
+        out += Component(node, id, depth, parent ?: Offset.Zero)
+      }
+      val childDepth = if (id == null) depth else depth + 1
+      val childParent = if (id == null) parent else node.positionInRoot
+      node.children.forEach { walk(it, childDepth, childParent) }
+    }
+
+    semanticsRoot()?.let { walk(it, 0, null) }
+
+    // One component can appear twice. `FitBox` measures through a `SubcomposeLayout` with an
+    // intrinsics *probe* slot and a content slot, and both compose the same child — so the child
+    // publishes two semantics nodes under one component id, and the probe's is never placed. Taking
+    // whichever came last reported the probe's zeroes as the component's geometry, which reads as a
+    // layout collapse rather than as the measurement artefact it is.
+    //
+    // `isPlaced` is the discriminator, and it is the right one: a measurement that was never placed
+    // is not where the component is.
+    return out
+      .groupBy { it.id }
+      .values
+      .map { candidates ->
+        candidates.firstOrNull { it.node.layoutInfo.isPlaced } ?: candidates.first()
+      }
+  }
+
+  /** One published component: the semantics node, its id, its depth, and its parent's origin. */
+  private class Component(
+    val node: SemanticsNode,
+    val id: Int,
+    val depth: Int,
+    val parentOrigin: Offset,
+  )
+
+  /**
+   * The live document state, published once on the player's root.
+   *
+   * Found by walking rather than assuming the root semantics node carries it: the player's root
+   * component sits under whatever the host wrapped it in.
+   */
+  private fun state(): RcPlayerState? {
+    fun find(node: SemanticsNode): RcPlayerState? =
+      node.config.getOrElseNullable(RcDocumentStateKey) { null }
+        ?: node.children.firstNotNullOfOrNull(::find)
+    return semanticsRoot()?.let(::find)
+  }
 
   /**
    * Reads float slot [id], or null when the document has no such slot.
@@ -339,30 +412,26 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
   /**
    * The tree in the corpus's encoding: ids ascending, positions **parent-relative**.
    *
-   * The inspector reports root coordinates, because a component's Compose position is relative to
-   * its immediate layout node and several managers wrap each child in one — see [RcInspectedNode].
-   * Parent-relative is recovered here by the corpus's own reconstruction rule (§4.3): nodes are in
-   * reverse creation order, so a node's parent is the first *later* entry one level shallower.
+   * Semantics reports position in root coordinates, which is the unambiguous form — several of this
+   * player's layout managers wrap a child in an intermediate measuring node, so a child sits at
+   * (0, 0) of its wrapper however far across the screen the wrapper was placed. Parent-relative is
+   * recovered against the nearest enclosing *component*, which is what the corpus means by parent.
    */
-  private fun tree(): JsonArray {
-    val nodes = inspector.nodes
-    return buildJsonArray {
-      nodes.forEachIndexed { index, node ->
-        val parent = nodes.drop(index + 1).firstOrNull { it.depth == node.depth - 1 }
-        add(node.toJson(parentX = parent?.x ?: 0f, parentY = parent?.y ?: 0f))
-      }
-    }
+  private fun tree(): JsonArray = buildJsonArray {
+    components().sortedBy { it.id }.forEach { add(it.toJson()) }
   }
 
-  private fun RcInspectedNode.toJson(parentX: Float, parentY: Float): JsonObject = buildJsonObject {
-    put("id", JsonPrimitive(componentId))
-    put("kind", JsonPrimitive(kind))
+  private fun Component.toJson(): JsonObject = buildJsonObject {
+    val position = node.positionInRoot
+    val visibility = node.config.getOrElseNullable(RcComponentVisibilityKey) { 1 } ?: 1
+    put("id", JsonPrimitive(id))
+    put("kind", JsonPrimitive(node.config.getOrElseNullable(RcComponentKindKey) { "" }))
     put("depth", JsonPrimitive(depth))
-    put("x", JsonPrimitive(x - parentX))
-    put("y", JsonPrimitive(y - parentY))
-    put("width", JsonPrimitive(width))
-    put("height", JsonPrimitive(height))
-    put("isGone", JsonPrimitive(isGone))
+    put("x", JsonPrimitive(position.x - parentOrigin.x))
+    put("y", JsonPrimitive(position.y - parentOrigin.y))
+    put("width", JsonPrimitive(node.size.width.toFloat()))
+    put("height", JsonPrimitive(node.size.height.toFloat()))
+    put("isGone", JsonPrimitive(visibility == 0))
     put(
       "visibility",
       JsonPrimitive(
@@ -373,9 +442,6 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         }
       ),
     )
-    // §4.3: emitted only when non-zero, and then on both sides.
-    if (scrollX != 0f) put("scroll_x", JsonPrimitive(scrollX))
-    if (scrollY != 0f) put("scroll_y", JsonPrimitive(scrollY))
   }
 
   /**
