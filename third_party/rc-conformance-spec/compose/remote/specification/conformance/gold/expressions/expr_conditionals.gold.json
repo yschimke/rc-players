@@ -1,0 +1,66 @@
+{
+  "name": "expr_conditionals",
+  "category": "expressions",
+  "description": "Conditional branching with ifElse and nested conditions",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_if_false",
+      "expect": 100,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_if_greater_false",
+      "expect": 42,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_if_greater_true",
+      "expect": 42,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_if_true",
+      "expect": 100,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_nested_if",
+      "expect": 1,
+      "tolerance": 0.001
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAFQAAABFleHByX2NvbmRpdGlvbmFscwAOAAQAAAIBUQAAACoAAAAEP4AAAELIAABDSAAA/7EAGokAAAAqAAAAAQAAAAtyZXNfaWZfdHJ1ZVEAAAArAAAABAAAAABCyAAAQ0gAAP+xABqJAAAAKwAAAAEAAAAMcmVzX2lmX2ZhbHNlUQAAACwAAAAGQSAAAEGgAAD/sQAsQigAAEKoAAD/sQAaiQAAACwAAAABAAAAE3Jlc19pZl9ncmVhdGVyX3RydWVRAAAALQAAAAZBoAAAQSAAAP+xACxCKAAAQqgAAP+xABqJAAAALQAAAAEAAAAUcmVzX2lmX2dyZWF0ZXJfZmFsc2VRAAAALgAAAAcAAAAAP4AAAD+AAABAAAAAQEAAAP+xABr/sQAaiQAAAC4AAAABAAAADXJlc19uZXN0ZWRfaWbI/////sr////9/////wAAAAIAAAAC1tY="
+}

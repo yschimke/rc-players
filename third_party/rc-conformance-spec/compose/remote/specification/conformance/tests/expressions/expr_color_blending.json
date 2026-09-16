@@ -1,0 +1,46 @@
+{
+  "name": "expr_color_blending",
+  "category": "expressions",
+  "description": "Color space operations: linear interpolation, HSV color generation, and ARGB composition (ColorExpression)",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100
+    },
+    "colorExpressions": [
+      {
+        "id": 301,
+        "mode": "lerp",
+        "c1": "#FF000000",
+        "c2": "#FFFFFFFF",
+        "tween": 0.5
+      },
+      {
+        "id": 302,
+        "mode": "lerp",
+        "c1": "#FFFF0000",
+        "c2": "#FF0000FF",
+        "tween": 0.5
+      },
+      {
+        "id": 303,
+        "mode": "hsv",
+        "h": 0.33333334,
+        "s": 1,
+        "v": 1,
+        "a": 1
+      },
+      {
+        "id": 304,
+        "mode": "argb",
+        "a": 1,
+        "r": 1,
+        "g": 1,
+        "b": 0
+      }
+    ]
+  }
+}

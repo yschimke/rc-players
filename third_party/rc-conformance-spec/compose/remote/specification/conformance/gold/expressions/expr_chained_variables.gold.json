@@ -1,0 +1,73 @@
+{
+  "name": "expr_chained_variables",
+  "category": "expressions",
+  "description": "Sequential variable dependency pipeline (A -> B -> C -> D -> E)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "v_base",
+      "expect": 10,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "v_final",
+      "expect": 11,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "v_step1",
+      "expect": 25,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "v_step2",
+      "expect": 40,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "v_step3",
+      "expect": 40,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "v_step4",
+      "expect": 18,
+      "tolerance": 0.001
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAGgAAABZleHByX2NoYWluZWRfdmFyaWFibGVzAA4ABAAAAgFRAAAAKgAAAAFBIAAAiQAAACoAAAABAAAABnZfYmFzZVEAAAArAAAAA/+AACpAIAAA/7EAA4kAAAArAAAAAQAAAAd2X3N0ZXAxUQAAACwAAAAD/4AAK0FwAAD/sQABiQAAACwAAAABAAAAB3Zfc3RlcDJRAAAALQAAAAT/gAAsQiAAAP+xAAP/sQAJiQAAAC0AAAABAAAAB3Zfc3RlcDNRAAAALgAAAAX/gAAtQKAAAP+xAAT/gAAq/7EAAYkAAAAuAAAAAQAAAAd2X3N0ZXA0UQAAAC8AAAAF/4AALkAAAAD/sQAD/4AAK/+xAAKJAAAALwAAAAEAAAAHdl9maW5hbMj////+yv////3/////AAAAAgAAAALW1g=="
+}

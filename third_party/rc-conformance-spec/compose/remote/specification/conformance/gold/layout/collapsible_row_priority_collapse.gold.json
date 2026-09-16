@@ -1,0 +1,97 @@
+{
+  "name": "collapsible_row_priority_collapse",
+  "category": "layout",
+  "description": "CollapsibleRow where lowest priority child collapses and is marked GONE when space is insufficient",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 250,
+    "height": 100,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 225,
+          "y": 20,
+          "width": 100,
+          "height": 60,
+          "depth": 2,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 125,
+          "y": 20,
+          "width": 100,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 25,
+          "y": 20,
+          "width": 100,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 250,
+          "height": 100,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 250,
+          "height": 100,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPoAAABkCAYAAACvgC0OAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAFtSURBVHic7dUxEcIAEEVBwqAjBV00RBECcIAGKgSgAyU4CS0lTZIZ3q6Bf82bG8ZpXg7AXzvufQCwPqFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIeC0xcj18dpihh9d3s+9T+DL+XZffcNHhwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhYBinedn7CGBdPjoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAR/BjQjLvc+F/gAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAA+gAGAAQAAABkDAkAJQAAACFjb2xsYXBzaWJsZV9yb3dfcHJpb3JpdHlfY29sbGFwc2UADgAEAAACAcj////+5v////3/////AAAAAgAAAAIAAAAAEAAAAAE/gAAAQwAAAAE/gAAANwAAAAAAAAAAAAAAAAAAAAA98PDxPiSkpT5s7O0/gAAAAAAAAMn////8yv////v/////AAAAAgAAAAIQAAAAAELIAABDAAAAAEJwAAA3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q/RcXGP339/j+AAAAAAAAA6wAAAABCyAAA1sr////6/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCcAAANwAAAAAAAAAAAAAAAAAAAAA/fPz9PyWlpj8lpaY/gAAAAAAAAOsAAAAAQkgAANbK////+f////8AAAACAAAAAhAAAAAAQsgAAEMAAAAAQnAAADcAAAAAAAAAAAAAAAAAAAAAPwaGhz9v7/A/LKytP4AAAAAAAADrAAAAAEEgAADW1tbW"
+}

@@ -1,0 +1,66 @@
+{
+  "name": "particle_restart_threshold",
+  "category": "particles",
+  "description": "Particle recycling and loop emitter with restart condition",
+  "parameters": {
+    "count": 4,
+    "variables": [
+      "x",
+      "y",
+      "vx",
+      "vy"
+    ],
+    "frames": 8,
+    "tolerance": 0.01
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "canvas",
+      "commands": [
+        {
+          "createParticles": {
+            "id": "ps",
+            "count": 4,
+            "variables": [
+              "x",
+              "y",
+              "vx",
+              "vy"
+            ],
+            "initialValues": [
+              "20 + a[0] * 30",
+              "10",
+              "0.5",
+              "20.0 + a[0] * 5.0"
+            ]
+          }
+        },
+        {
+          "particlesLoop": {
+            "system": "@ps",
+            "restart": "y - 90",
+            "equations": [
+              "x + vx",
+              "y + vy",
+              "vx",
+              "vy"
+            ],
+            "commands": [
+              {
+                "drawCircle": {
+                  "cx": "x",
+                  "cy": "y",
+                  "radius": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

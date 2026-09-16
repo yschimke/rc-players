@@ -1,0 +1,29 @@
+{
+  "name": "color_expression_dynamic",
+  "category": "colortheme",
+  "description": "ColorConstant declarations, RGBA channel definitions, and dynamic theme palette slots",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "colorConstants": [
+      {
+        "id": 10,
+        "color": "#FFFF0000"
+      },
+      {
+        "id": 11,
+        "color": "#FF0000FF"
+      },
+      {
+        "id": 12,
+        "color": "#FF00FF00"
+      }
+    ]
+  }
+}

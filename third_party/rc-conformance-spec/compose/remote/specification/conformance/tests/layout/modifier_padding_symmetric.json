@@ -1,0 +1,61 @@
+{
+  "name": "modifier_padding_symmetric",
+  "description": "Component using 2-element symmetric padding [vertical, horizontal]",
+  "parameters": {
+    "width": 200,
+    "height": 150,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 150,
+        "label": "initial (200x150)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 300,
+        "label": "doubled (400x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 150
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": [
+            15,
+            30
+          ]
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxSize": 1.0
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

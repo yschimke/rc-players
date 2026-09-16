@@ -1,0 +1,60 @@
+{
+  "name": "shader_uniform_binding",
+  "category": "shaders",
+  "description": "ShaderData declaration with float vectors, resolution uniforms, and integer mode parameters",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": {
+        "10": {
+          "u_mode": true,
+          "u_resolution": true,
+          "u_time": true
+        }
+      },
+      "tolerance": 0,
+      "channel": "uniforms"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "expected_uniforms[*].values",
+      "reason": "bound uniform values are not observable from the decoded document"
+    },
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgFmAAAAAQAAAG51bmlmb3JtIGZsb2F0IHVfdGltZTsgdW5pZm9ybSB2ZWMyIHVfcmVzb2x1dGlvbjsgdW5pZm9ybSBpbnQgdV9tb2RlOyBoYWxmNCBtYWluKHZlYzIgcCkgeyByZXR1cm4gaGFsZjQoMS4wKTsgfS0AAAAKAAAAAQAAAQIAAAAGdV90aW1lAAAAAUAgAAAAAAAMdV9yZXNvbHV0aW9uAAAAAkPIAABDyAAAAAAABnVfbW9kZQAAAAEAAAAB",
+  "expected_uniforms": {
+    "10": {
+      "u_mode": [
+        1
+      ],
+      "u_resolution": [
+        400,
+        400
+      ],
+      "u_time": [
+        2.5
+      ]
+    }
+  }
+}

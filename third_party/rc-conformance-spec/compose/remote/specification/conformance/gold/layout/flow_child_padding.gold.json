@@ -1,0 +1,267 @@
+{
+  "name": "flow_child_padding",
+  "category": "layout",
+  "description": "Flow layout items with individual padding modifiers",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 250,
+    "height": 180,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1,
+    "resize_steps": [
+      {
+        "label": "initial (250x180)",
+        "step": 0,
+        "width": 250,
+        "height": 180
+      },
+      {
+        "label": "doubled (500x360)",
+        "step": 1,
+        "width": 500,
+        "height": 360
+      }
+    ]
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    },
+    {
+      "id": "resize_0",
+      "kind": "resize",
+      "label": "initial (250x180)",
+      "width": 250,
+      "height": 180,
+      "frames": 2,
+      "animation_enabled": false
+    },
+    {
+      "id": "resize_1",
+      "kind": "resize",
+      "label": "doubled (500x360)",
+      "width": 500,
+      "height": 360,
+      "frames": 2,
+      "animation_enabled": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "resize_0",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 130,
+          "y": 0,
+          "width": 50,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 60,
+          "y": 0,
+          "width": 70,
+          "height": 70,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "FlowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 250,
+          "height": 180,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 250,
+          "height": 180,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "resize_1",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 130,
+          "y": 0,
+          "width": 50,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 60,
+          "y": 0,
+          "width": 70,
+          "height": 70,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "FlowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 500,
+          "height": 360,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 500,
+          "height": 360,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 130,
+          "y": 0,
+          "width": 50,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 60,
+          "y": 0,
+          "width": 70,
+          "height": 70,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "FlowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 250,
+          "height": 180,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 250,
+          "height": 180,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPoAAAC0CAYAAAC9vjEhAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJuSURBVHic7dUxTUMBGIVRSprgojsWSoIAdLC0GlAAQweWSsBIfdQIKSZ4/V/ynaPgLl/u5vvye3sIOVx/pies0ufb0/SEf3Hen6YnrNLj9ABgeUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAdvpAazDeX+ansCCPDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgRsv95fpzfc1eHjOD0B7s6jQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDwGb3/HKbHgEsy6NDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgT8AdxPDkp7ypk8AAAAAElFTkSuQmCC",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_0",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPoAAAC0CAYAAAC9vjEhAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJuSURBVHic7dUxTUMBGIVRSprgojsWSoIAdLC0GlAAQweWSsBIfdQIKSZ4/V/ynaPgLl/u5vvye3sIOVx/pies0ufb0/SEf3Hen6YnrNLj9ABgeUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAdvpAazDeX+ansCCPDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgRsv95fpzfc1eHjOD0B7s6jQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDwGb3/HKbHgEsy6NDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgQIHQKEDgFChwChQ4DQIUDoECB0CBA6BAgdAoQOAUKHAKFDgNAhQOgQIHQIEDoECB0ChA4BQocAoUOA0CFA6BAgdAgQOgT8AdxPDkp7ypk8AAAAAElFTkSuQmCC",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_1",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAfQAAAFoCAYAAAChcgmyAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAYHSURBVHic7dexTYIBGEVRMSRsYe8KkDiAc9jgDE6ABYUNI7CIe7gIwSF+4keu50zwupu3+vq+XB/+kf3PeXrCXTq8bqYn3MRpe5yeADDicXoAALCcoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0CAoANAgKADQICgA0DAenoA9+G0PU5PAGABDx0AAgQdAAIEHQACBB0AAgQdAAIEHQACBB0AAgQdAAIEHQAC1p9vL9Mb/tT+4316AgDcnIcOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAaun5911egQAsIyHDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABgg4AAYIOAAGCDgABv6R3D7L+XsF9AAAAAElFTkSuQmCC",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAA+gAGAAQAAAC0DAkAFgAAABJmbG93X2NoaWxkX3BhZGRpbmcADgAEAAACAcj////+8P////3/////AAAAAQAAAAQAAAAAf////3////8QAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////zK////+/////8AAAACAAAAAhAAAAAAQnAAAEMAAAAAQnAAADcAAAAAAAAAAAAAAAAAAAAAPxOTlD9FxcY/ff3+P4AAAAAAAAA6QQAAAEEAAABBAAAAQQAAANbK////+v////8AAAACAAAAAhAAAAAAQowAAEMAAAAAQowAADcAAAAAAAAAAAAAAAAAAAAAP3z8/T8lpaY/JaWmP4AAAAAAAAA6QUAAAEFAAABBQAAAQUAAANbK////+f////8AAAACAAAAAhAAAAAAQkgAAEMAAAAAQkgAADcAAAAAAAAAAAAAAAAAAAAAPwaGhz9v7/A/LKytP4AAAAAAAAA6QMAAAEDAAABAwAAAQMAAANbW1tY="
+}

@@ -1,0 +1,88 @@
+{
+  "name": "row_padding_all",
+  "description": "Row container and children using uniform padding modifiers",
+  "parameters": {
+    "width": 300,
+    "height": 150,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 150,
+        "label": "initial (300x150)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 300,
+        "label": "doubled (600x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 150,
+      "contentDescription": "row_padding_all",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": 16
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "padding": 8
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "padding": 12
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

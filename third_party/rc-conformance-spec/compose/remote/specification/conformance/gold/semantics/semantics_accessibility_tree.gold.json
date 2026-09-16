@@ -1,0 +1,65 @@
+{
+  "name": "semantics_accessibility_tree",
+  "category": "semantics",
+  "description": "AccessibilitySemantics component annotations with button/heading roles and clickable flags",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "clickable": true,
+          "contentDescriptionId": 10,
+          "enabled": true,
+          "role": 1
+        },
+        {
+          "clickable": false,
+          "contentDescriptionId": 11,
+          "enabled": true,
+          "role": 2
+        }
+      ],
+      "tolerance": 0,
+      "channel": "semantics"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQZgAAAAoAAAANU3VibWl0IEJ1dHRvbmYAAAALAAAADE1haW4gSGVhZGluZ/oAAAAKAQAAAAAAAAAAAAEB+gAAAAsCAAAAAAAAAAAAAQA=",
+  "expected_semantics": [
+    {
+      "clickable": true,
+      "contentDescriptionId": 10,
+      "enabled": true,
+      "role": 1,
+      "roleName": "Button"
+    },
+    {
+      "clickable": false,
+      "contentDescriptionId": 11,
+      "enabled": true,
+      "role": 2,
+      "roleName": "Heading"
+    }
+  ]
+}

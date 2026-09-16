@@ -1,0 +1,45 @@
+{
+  "name": "scheduling_wake_in_intervals",
+  "category": "scheduling",
+  "description": "WakeIn autonomous repaint scheduling intervals for time-gated documents",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": {
+        "WakeIn": 2
+      },
+      "channel": "counts"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "expected_wakeups[*]",
+      "reason": "WakeIn exposes no decoded interval; only the op count is observable"
+    },
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgG/PoAAAL8/gAAA",
+  "expected_wakeups": [
+    0.25,
+    1
+  ]
+}

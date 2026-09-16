@@ -1,0 +1,27 @@
+{
+  "name": "shader_agsl_radial_gradient",
+  "category": "shaders",
+  "description": "AGSL procedural radial shader uniform declaration and center coordinate parameters",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "shaders": [
+      {
+        "id": 12,
+        "shaderText": "uniform vec2 u_center; half4 main(vec2 p) { return half4(0.0); }",
+        "uniforms": {
+          "u_center": [
+            150,
+            150
+          ]
+        }
+      }
+    ]
+  }
+}

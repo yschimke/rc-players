@@ -1,0 +1,74 @@
+{
+  "name": "box_padding_all",
+  "description": "Box container and children using padding modifiers",
+  "parameters": {
+    "width": 250,
+    "height": 250,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 250,
+        "label": "initial (250x250)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 500,
+        "label": "doubled (500x500)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 250,
+      "contentDescription": "box_padding_all",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": 24
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "padding": 12
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 40
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

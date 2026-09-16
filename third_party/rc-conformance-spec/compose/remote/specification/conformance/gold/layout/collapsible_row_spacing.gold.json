@@ -1,0 +1,300 @@
+{
+  "name": "collapsible_row_spacing",
+  "category": "layout",
+  "description": "CollapsibleRow with priority items and horizontal item spacing",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 220,
+    "height": 120,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1,
+    "resize_steps": [
+      {
+        "label": "initial (220x120)",
+        "step": 0,
+        "width": 220,
+        "height": 120
+      },
+      {
+        "label": "doubled (440x240)",
+        "step": 1,
+        "width": 440,
+        "height": 240
+      }
+    ]
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    },
+    {
+      "id": "resize_0",
+      "kind": "resize",
+      "label": "initial (220x120)",
+      "width": 220,
+      "height": 120,
+      "frames": 2,
+      "animation_enabled": false
+    },
+    {
+      "id": "resize_1",
+      "kind": "resize",
+      "label": "doubled (440x240)",
+      "width": 440,
+      "height": 240,
+      "frames": 2,
+      "animation_enabled": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "resize_0",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 160,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 110,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 60,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 10,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 120,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 120,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "resize_1",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 270,
+          "y": 90,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 220,
+          "y": 90,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 170,
+          "y": 90,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 120,
+          "y": 90,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 440,
+          "height": 240,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 440,
+          "height": 240,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 160,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 110,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 60,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 10,
+          "y": 30,
+          "width": 50,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 120,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 120,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANwAAAB4CAYAAACZ15x5AAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAGsSURBVHic7dUxcQJhFEbRkGEmLrZIhwYcIAAPEQAioiFNOnSghIIaCxsLW2zuX+w59Su+5s7bTYfj/AYk3kcPgC0RHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwENovPbz83P9zR+brcRs9YRXfp4/RE1Zxff6OnrCKz/Nr0Z0PByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBDaTYfjPHoEbIUPByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHoT/rXAvzooyrfQAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_0",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANwAAAB4CAYAAACZ15x5AAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAGsSURBVHic7dUxcQJhFEbRkGEmLrZIhwYcIAAPEQAioiFNOnSghIIaCxsLW2zuX+w59Su+5s7bTYfj/AYk3kcPgC0RHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwENovPbz83P9zR+brcRs9YRXfp4/RE1Zxff6OnrCKz/Nr0Z0PByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBDaTYfjPHoEbIUPByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHIcFBSHAQEhyEBAchwUFIcBASHIQEByHBQUhwEBIchAQHoT/rXAvzooyrfQAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_1",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbgAAADwCAYAAABytnEGAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAPmSURBVHic7ddBbQJRAEVRhpDggkV3aMBBBeChAkBENbBhhw6UdNF1LUxN/MlPbs5R8HY3bzmdL+sOAGL2swcAwBYEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIEDoAkgQMgSeAASBI4AJIOswewrdvjPXvCEF8/r9kThvj+PM6eMMT99zl7whAf17/ZE9iQBwdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQJHABJAgdAksABkCRwACQtp/NlnT0CAEbz4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABIEjgAkgQOgCSBAyBJ4ABI+geCfgzjDTutVAAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAA3AAGAAQAAAB4DAkAGwAAABdjb2xsYXBzaWJsZV9yb3dfc3BhY2luZwAOAAQAAAIByP////7m/////f////8AAAACAAAAAgAAAAAQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////zK////+/////8AAAACAAAAAhAAAAAAQkgAAEMAAAAAQnAAADcAAAAAAAAAAAAAAAAAAAAAPxOTlD9FxcY/ff3+P4AAAAAAAADrAAAAAEEgAADWyv////r/////AAAAAgAAAAIQAAAAAEJIAABDAAAAAEJwAAA3AAAAAAAAAAAAAAAAAAAAAD98/P0/JaWmPyWlpj+AAAAAAAAA6wAAAABAoAAA1sr////5/////wAAAAIAAAACEAAAAABCSAAAQwAAAABCcAAANwAAAAAAAAAAAAAAAAAAAAA/BoaHP2/v8D8srK0/gAAAAAAAAOsAAAAAP4AAANbK////+P////8AAAACAAAAAhAAAAAAQkgAAEMAAAAAQnAAADcAAAAAAAAAAAAAAAAAAAAAP3z8/T9T09Q+mpqbP4AAAAAAAADrAAAAAEGgAADW1tbW"
+}

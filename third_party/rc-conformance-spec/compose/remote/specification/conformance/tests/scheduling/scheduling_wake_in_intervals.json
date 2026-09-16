@@ -1,0 +1,19 @@
+{
+  "name": "scheduling_wake_in_intervals",
+  "category": "scheduling",
+  "description": "WakeIn autonomous repaint scheduling intervals for time-gated documents",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "wakeIn": [
+      0.25,
+      1
+    ]
+  }
+}

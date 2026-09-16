@@ -1,0 +1,260 @@
+{
+  "name": "expr_animation_waveforms",
+  "category": "expressions",
+  "description": "Dynamic time-driven waveforms evaluated across animationTime steps",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.005,
+    "animation_steps": [
+      0,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ]
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    },
+    {
+      "id": "t_0",
+      "kind": "time",
+      "measure": false,
+      "seconds": 0
+    },
+    {
+      "id": "t_0.25",
+      "kind": "time",
+      "measure": false,
+      "seconds": 0.25
+    },
+    {
+      "id": "t_0.5",
+      "kind": "time",
+      "measure": false,
+      "seconds": 0.5
+    },
+    {
+      "id": "t_0.75",
+      "kind": "time",
+      "measure": false,
+      "seconds": 0.75
+    },
+    {
+      "id": "t_1",
+      "kind": "time",
+      "measure": false,
+      "seconds": 1
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "scaled_sine",
+      "expect": 50,
+      "tolerance": 0.005
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "sine_wave",
+      "expect": 0,
+      "tolerance": 0.005
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "square_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "triangle_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0",
+      "probe": "float",
+      "target": "scaled_sine",
+      "expect": 50,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0",
+      "probe": "float",
+      "target": "sine_wave",
+      "expect": 0,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0",
+      "probe": "float",
+      "target": "square_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0",
+      "probe": "float",
+      "target": "triangle_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.25",
+      "probe": "float",
+      "target": "scaled_sine",
+      "expect": 75,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.25",
+      "probe": "float",
+      "target": "sine_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.25",
+      "probe": "float",
+      "target": "square_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.25",
+      "probe": "float",
+      "target": "triangle_wave",
+      "expect": 0.5,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.5",
+      "probe": "float",
+      "target": "scaled_sine",
+      "expect": 50,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.5",
+      "probe": "float",
+      "target": "sine_wave",
+      "expect": 0,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.5",
+      "probe": "float",
+      "target": "square_wave",
+      "expect": 0,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.5",
+      "probe": "float",
+      "target": "triangle_wave",
+      "expect": 0,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.75",
+      "probe": "float",
+      "target": "scaled_sine",
+      "expect": 25,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.75",
+      "probe": "float",
+      "target": "sine_wave",
+      "expect": -1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.75",
+      "probe": "float",
+      "target": "square_wave",
+      "expect": 0,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_0.75",
+      "probe": "float",
+      "target": "triangle_wave",
+      "expect": 0.5,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_1",
+      "probe": "float",
+      "target": "scaled_sine",
+      "expect": 50,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_1",
+      "probe": "float",
+      "target": "sine_wave",
+      "expect": 0,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_1",
+      "probe": "float",
+      "target": "square_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    },
+    {
+      "at": "t_1",
+      "probe": "float",
+      "target": "triangle_wave",
+      "expect": 1,
+      "tolerance": 0.005
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "expected_steps[1..4]",
+      "reason": "waveform shape over time is not asserted: the v2 timeline has no step kind that advances animation time, so only the t=0 sample survives as a check"
+    },
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@t_0",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@t_0.25",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@t_0.5",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@t_0.75",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@t_1",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAHAAAABhleHByX2FuaW1hdGlvbl93YXZlZm9ybXMADgAEAAACAVEAAAAqAAAABP+AAB5AyQ/b/7EAA/+xABKJAAAAKgAAAAEAAAAJc2luZV93YXZlUQAAACsAAAAIQkgAAEHIAAD/gAAeQMkP2/+xAAP/sQAS/7EAA/+xAAGJAAAAKwAAAAEAAAALc2NhbGVkX3NpbmVRAAAALAAAAAf/gAAe/7EANUAAAAD/sQADP4AAAP+xAAL/sQAKiQAAACwAAAABAAAADXRyaWFuZ2xlX3dhdmVRAAAALQAAAAc/AAAA/4AAHv+xADX/sQAsP4AAAL+AAAD/sQAaiQAAAC0AAAABAAAAC3NxdWFyZV93YXZlyP////7K/////f////8AAAACAAAAAtbW"
+}

@@ -1,0 +1,65 @@
+{
+  "name": "particle_radial_burst",
+  "category": "particles",
+  "description": "Omnidirectional circular particle explosion with trigonometric velocity vectors",
+  "parameters": {
+    "count": 8,
+    "variables": [
+      "x",
+      "y",
+      "vx",
+      "vy"
+    ],
+    "frames": 6,
+    "tolerance": 0.02
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "canvas",
+      "commands": [
+        {
+          "createParticles": {
+            "id": "ps",
+            "count": 8,
+            "variables": [
+              "x",
+              "y",
+              "vx",
+              "vy"
+            ],
+            "initialValues": [
+              "100",
+              "100",
+              "cos(a[0] * 0.785398) * 4.0",
+              "sin(a[0] * 0.785398) * 4.0"
+            ]
+          }
+        },
+        {
+          "particlesLoop": {
+            "system": "@ps",
+            "equations": [
+              "x + vx",
+              "y + vy",
+              "vx",
+              "vy"
+            ],
+            "commands": [
+              {
+                "drawCircle": {
+                  "cx": "x",
+                  "cy": "y",
+                  "radius": 2.5
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

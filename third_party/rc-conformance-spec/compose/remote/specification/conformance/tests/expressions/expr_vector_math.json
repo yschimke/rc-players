@@ -1,0 +1,53 @@
+{
+  "name": "expr_vector_math",
+  "category": "expressions",
+  "description": "2D Euclidean geometry, vector magnitude, and distance calculations",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_vector_math",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "dx",
+          "value": "60 - 20",
+          "export": true
+        },
+        {
+          "name": "dy",
+          "value": "75 - 45",
+          "export": true
+        },
+        {
+          "name": "dist",
+          "value": "hypot(dx, dy)",
+          "export": true
+        },
+        {
+          "name": "norm_x",
+          "value": "dx / dist",
+          "export": true
+        },
+        {
+          "name": "norm_y",
+          "value": "dy / dist",
+          "export": true
+        },
+        {
+          "name": "dot_self",
+          "value": "norm_x * norm_x + norm_y * norm_y",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "animation_spec_defaults_and_disable",
+  "category": "animationspec",
+  "description": "A component with no ANIMATION_SPEC must fall back to the default spec (id −1, 300 ms, CUBIC_STANDARD, FADE_IN/FADE_OUT) and stay animation-enabled, while animationId 0 is the one and only value that disables animation",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "label": "box without a spec",
+          "animationEnabled": true,
+          "animationId": -1,
+          "componentIndex": 0,
+          "componentType": "BoxLayout",
+          "enterAnimation": 0,
+          "exitAnimation": 1,
+          "motionDuration": 300,
+          "motionEasingType": 1,
+          "usesDefaultSpec": true,
+          "visibilityDuration": 300,
+          "visibilityEasingType": 1
+        },
+        {
+          "label": "box with animationId 0",
+          "animationEnabled": false,
+          "animationId": 0,
+          "componentIndex": 1,
+          "componentType": "BoxLayout",
+          "motionDuration": 500,
+          "usesDefaultSpec": false
+        },
+        {
+          "label": "box with animationId -1",
+          "animationEnabled": true,
+          "animationId": -1,
+          "componentIndex": 2,
+          "componentType": "BoxLayout",
+          "motionDuration": 500,
+          "motionEasingType": 4,
+          "usesDefaultSpec": false
+        }
+      ],
+      "tolerance": 0,
+      "channel": "component_bindings"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAJwAAACNhbmltYXRpb25fc3BlY19kZWZhdWx0c19hbmRfZGlzYWJsZQAOAAQAAAIByP////7M/////f////8AAAABAAAABAAAAAAQAAAAAX/AAABDAAAAAX/AAADJ/////Mr////7/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAA1sr////6/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAADgAAAABD+gAAAAAABEOWAAAAAAABAAAAAAAAAAHWyv////n/////AAAAAgAAAAIQAAAAAELIAABDAAAAAEJIAAAO/////0P6AAAAAAAEQ5YAAAAAAAEAAAAAAAAAAdbW1tY="
+}

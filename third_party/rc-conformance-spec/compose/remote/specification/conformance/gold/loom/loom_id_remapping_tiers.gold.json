@@ -1,0 +1,53 @@
+{
+  "name": "loom_id_remapping_tiers",
+  "category": "loom",
+  "description": "ID remapping across tiers: tier 1 system globals preserved, tier 2 macro-locals uniqueified",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "totalComponentsExpected": 4,
+    "uniqueIdsRequired": 4
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 2,
+      "channel": "count"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 4,
+      "channel": "component_count"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": true,
+      "channel": "distinct_ids"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMAAAAEAAABLAAAAAQAAAEsAA4ABAAAAgH2AAAAZgAAAAAAAAAAygAAQAEAAEACAAAAAAAAAADWygAAQAMAAEAEAAAAAAAAAADW1sj////+9wAAAGYAAAAA1vcAAABmAAAAANbW",
+  "assert_distinct_ids": true,
+  "expected_components_count": 4,
+  "expected_operations_count": 2
+}

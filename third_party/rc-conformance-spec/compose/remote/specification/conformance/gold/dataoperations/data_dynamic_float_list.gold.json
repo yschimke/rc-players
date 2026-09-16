@@ -1,0 +1,60 @@
+{
+  "name": "data_dynamic_float_list",
+  "category": "dataoperations",
+  "description": "Dynamic float array allocation and indexed in-place updates (DataDynamicListFloat and UpdateDynamicFloatList)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float_array",
+      "target": 500,
+      "expect": [
+        10.5,
+        20.25,
+        30.125,
+        40.0625
+      ],
+      "tolerance": 0.001,
+      "channel": "dynamic"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 6,
+      "channel": "count"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABLAAGAAQAAAEsAA4ABAAAAgHFAAAB9ECAAADGAAAB9AAAAABBKAAAxgAAAfQ/gAAAQaIAAMYAAAH0QAAAAEHxAADGAAAB9EBAAABCIEAA",
+  "expected_dynamic_floats": {
+    "500": [
+      10.5,
+      20.25,
+      30.125,
+      40.0625
+    ]
+  },
+  "expected_operations_count": 6
+}

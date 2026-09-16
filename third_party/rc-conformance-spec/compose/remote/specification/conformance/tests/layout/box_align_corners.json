@@ -1,0 +1,138 @@
+{
+  "name": "box_align_corners",
+  "description": "Box placing children at all four corners via horizontal/vertical alignments",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 200,
+        "label": "initial (200x200)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 400,
+        "label": "doubled (400x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200,
+      "contentDescription": "box_align_corners",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "horizontalAlignment": "start",
+          "verticalAlignment": "top",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 30
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "horizontalAlignment": "end",
+          "verticalAlignment": "top",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 30
+                },
+                {
+                  "background": "#fca5a5"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "horizontalAlignment": "start",
+          "verticalAlignment": "bottom",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 30
+                },
+                {
+                  "background": "#86efac"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "horizontalAlignment": "end",
+          "verticalAlignment": "bottom",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 30
+                },
+                {
+                  "background": "#fcd34d"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

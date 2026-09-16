@@ -1,0 +1,90 @@
+{
+  "name": "row_basic",
+  "description": "Row layout arranging fixed-size children horizontally with top alignment",
+  "parameters": {
+    "width": 400,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 200,
+        "label": "initial (400x200)"
+      },
+      {
+        "step": 1,
+        "width": 800,
+        "height": 400,
+        "label": "doubled (800x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 200,
+      "contentDescription": "row_basic",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "horizontalAlignment": "start",
+      "verticalAlignment": "top",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 120
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

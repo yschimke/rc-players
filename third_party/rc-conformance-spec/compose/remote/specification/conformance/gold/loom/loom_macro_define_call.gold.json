@@ -1,0 +1,63 @@
+{
+  "name": "loom_macro_define_call",
+  "category": "loom",
+  "description": "Basic macro definition (PatternDefine) and single call (PatternInflation) with parameter binding",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "expectedChildren": [
+      "_DrawCircle"
+    ],
+    "expectedExpandedOps": 1,
+    "macroId": 100
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        "DrawCircle"
+      ],
+      "tolerance": 0,
+      "channel": "components"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 3,
+      "channel": "count"
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,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",
+      "tolerance": 16
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "expected_id_mappings",
+      "reason": "no observable channel: LOOM id remapping is internal"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMAAAAEAAABLAAAAAQAAAEsAA4ABAAAAgH2AAAAZAAAAAEAAAH0AAAAAC7/gAH0QsgAAEHIAADWUAAAACpCoAAAyP////73AAAAZAAAAAH/gAAq1tY=",
+  "expected_components": [
+    "_DrawCircle"
+  ],
+  "expected_id_mappings": {
+    "500": 4286578730
+  },
+  "expected_operations_count": 3
+}

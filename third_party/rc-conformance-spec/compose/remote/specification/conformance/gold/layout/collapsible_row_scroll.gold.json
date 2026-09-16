@@ -1,0 +1,275 @@
+{
+  "name": "collapsible_row_scroll",
+  "category": "layout",
+  "description": "CollapsibleRow container combined with horizontalScroll modifier",
+  "tags": [
+    "suspicious"
+  ],
+  "suspicious_reason": "Horizontal mirror of collapsible_column_scroll: the collapse is decided against the viewport, but RowLayout positions the survivors against the pre-collapse virtual scroll dimension (RowLayout.java:336-347, 472-474), leaving a (240-160)/2 = 40px offset the collapse never reclaims. Separately, the collapsed child is recorded at x=40, the same position as the first surviving child, because RowLayout.java:546-550 assigns x before the isGone check. That is a shared coordinate, not a painted overlap: the child is GONE and is never drawn.",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tags": [
+      "suspicious"
+    ],
+    "suspicious_reason": "Horizontal mirror of collapsible_column_scroll: the collapse is decided against the viewport, but RowLayout positions the survivors against the pre-collapse virtual scroll dimension (RowLayout.java:336-347, 472-474), leaving a (240-160)/2 = 40px offset the collapse never reclaims. Separately, the collapsed child is recorded at x=40, the same position as the first surviving child, because RowLayout.java:546-550 assigns x before the isGone check. That is a shared coordinate, not a painted overlap: the child is GONE and is never drawn.",
+    "width": 200,
+    "height": 100,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1,
+    "resize_steps": [
+      {
+        "label": "initial (200x100)",
+        "step": 0,
+        "width": 200,
+        "height": 100
+      },
+      {
+        "label": "doubled (400x200)",
+        "step": 1,
+        "width": 400,
+        "height": 200
+      }
+    ]
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    },
+    {
+      "id": "resize_0",
+      "kind": "resize",
+      "label": "initial (200x100)",
+      "width": 200,
+      "height": 100,
+      "frames": 2,
+      "animation_enabled": false
+    },
+    {
+      "id": "resize_1",
+      "kind": "resize",
+      "label": "doubled (400x200)",
+      "width": 400,
+      "height": 200,
+      "frames": 2,
+      "animation_enabled": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "resize_0",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 120,
+          "y": 25,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 40,
+          "y": 25,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 40,
+          "y": 25,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 100,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 100,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "resize_1",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 160,
+          "y": 75,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 80,
+          "y": 75,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 75,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 120,
+          "y": 25,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 40,
+          "y": 25,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 40,
+          "y": 25,
+          "width": 80,
+          "height": 50,
+          "depth": 2,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 100,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 100,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAABkCAYAAADDhn8LAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAFASURBVHic7dVBDcJQAERBSprgovdqqINKQQMKEImVYoA8jr9NZhTs5WWnZd2OG/DTffQAODOBQBAIBIFAEAgEgUAQCASBQBAIBIFAEAgEgUAQCASBQBAIBIFAEAgEgUAQCASBQBAIBIFAEAgEgUCYRw/45/N6jp5wae/9MXrCpXkQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCNOybsfoEXBWHgSCQCAIBIJAIAgEgkAgCASCQCAIBIJAIAgEgkAgCASCQCAIBIJAIAgEgkAgCASCQCAIBIJAIAgEgkAgfAHL5QZqN0zr2QAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_0",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAABkCAYAAADDhn8LAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAFASURBVHic7dVBDcJQAERBSprgovdqqINKQQMKEImVYoA8jr9NZhTs5WWnZd2OG/DTffQAODOBQBAIBIFAEAgEgUAQCASBQBAIBIFAEAgEgUAQCASBQBAIBIFAEAgEgUAQCASBQBAIBIFAEAgEgUCYRw/45/N6jp5wae/9MXrCpXkQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCNOybsfoEXBWHgSCQCAIBIJAIAgEgkAgCASCQCAIBIJAIAgEgkAgCASCQCAIBIJAIAgEgkAgCASCQCAIBIJAIAgEgkAgfAHL5QZqN0zr2QAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_1",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAADICAYAAADGFbfiAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAMOSURBVHic7dexEUFRAERRX6ILuRboQCdakQgkStCIPjRivhrc5M0b51Sw2Z1d9ofTugGAH21HDwBgTgICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQLLcX5919IiZXd7P0ROmdj3vRk+Y2uN4Gz2BP+aBAJAICACJgACQCAgAiYAAkAgIAImAAJAICACJgACQCAgAiYAAkAgIAImAAJAICACJgACQCAgAiYAAkAgIAImAAJAICACJgACQCAgAiYAAkAgIAImAAJAICACJgACQCAgAiYAAkAgIAImAAJAICACJgACQCAgAiYAAkAgIAImAAJAICACJgACQCAgAiYAAkAgIAImAAJAICACJgACQCAgAiYAAkAgIAImAAJAs+8NpHT0CgPl4IAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJA8gUICwwR087jIAAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAyAAGAAQAAABkDAkAGgAAABZjb2xsYXBzaWJsZV9yb3dfc2Nyb2xsAA4ABAAAAgHI/////ub////9/////wAAAAIAAAACAAAAABAAAAABP4AAAEMAAAABP4AAADcAAAAAAAAAAAAAAAAAAAAAPfDw8T4kpKU+bOztP4AAAAAAAABsUAAAACoAAAAA4gAAAAH/gAAq/4AAK/+AACydAAAAKgAAAAAAAAAA/4AAKwAAAAAAAAADAAAAA/+AAA2/gAAA/7EAAwAAAAAAAAAA1sn////8yv////v/////AAAAAgAAAAIQAAAAAEKgAABDAAAAAEJIAAA3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q/RcXGP339/j+AAAAAAAAA6wAAAAA/gAAA1sr////6/////wAAAAIAAAACEAAAAABCoAAAQwAAAABCSAAANwAAAAAAAAAAAAAAAAAAAAA/fPz9PyWlpj8lpaY/gAAAAAAAAOsAAAAAQAAAANbK////+f////8AAAACAAAAAhAAAAAAQqAAAEMAAAAAQkgAADcAAAAAAAAAAAAAAAAAAAAAPwaGhz9v7/A/LKytP4AAAAAAAADrAAAAAEBAAADW1tbW"
+}

@@ -1,0 +1,71 @@
+{
+  "name": "animation_spec_component_binding",
+  "category": "animationspec",
+  "description": "A component must adopt the ANIMATION_SPEC emitted inside its own operation run. Two boxes carry different specs; each must report its own durations and easing, and its animation id must match the spec",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "animation_spec_component_binding",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "type": "column",
+        "modifiers": [
+          "fillMaxSize"
+        ],
+        "children": [
+          {
+            "type": "box",
+            "modifiers": [
+              {
+                "width": 100
+              },
+              {
+                "height": 50
+              },
+              {
+                "animationSpec": {
+                  "id": 11,
+                  "motionDuration": 120,
+                  "motionEasingType": "accelerate",
+                  "visibilityDuration": 640,
+                  "visibilityEasingType": "linear",
+                  "enterAnimation": "slide_top",
+                  "exitAnimation": "slide_bottom"
+                }
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "modifiers": [
+              {
+                "width": 100
+              },
+              {
+                "height": 50
+              },
+              {
+                "animationSpec": {
+                  "id": 22,
+                  "motionDuration": 900,
+                  "motionEasingType": "decelerate",
+                  "visibilityDuration": 40,
+                  "visibilityEasingType": "anticipate",
+                  "enterAnimation": "fade_in",
+                  "exitAnimation": "particle"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

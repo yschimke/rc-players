@@ -1,0 +1,41 @@
+{
+  "name": "data_dynamic_float_list",
+  "category": "dataoperations",
+  "description": "Dynamic float array allocation and indexed in-place updates (DataDynamicListFloat and UpdateDynamicFloatList)",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "dynamicFloatList": {
+      "id": 500,
+      "size": 4
+    },
+    "updates": [
+      {
+        "id": 500,
+        "index": 0,
+        "value": 10.5
+      },
+      {
+        "id": 500,
+        "index": 1,
+        "value": 20.25
+      },
+      {
+        "id": 500,
+        "index": 2,
+        "value": 30.125
+      },
+      {
+        "id": 500,
+        "index": 3,
+        "value": 40.0625
+      }
+    ]
+  }
+}

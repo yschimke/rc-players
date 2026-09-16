@@ -1,0 +1,47 @@
+{
+  "name": "path_tween_morph",
+  "category": "pathoperations",
+  "description": "PathTween linear interpolation and topological shape morphing specification",
+  "known_unimplemented": "The view player disables the document while loading it: NullPointerException, \"Cannot read the array length because \\\"data2\\\" is null\". There is no reference behaviour to assert against until the reference path-tween operation is fixed.",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": {
+        "20": {
+          "present": true
+        }
+      },
+      "tolerance": 0,
+      "channel": "tweens"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "expected_tweens[*].fromPath/toPath/tweenFactor",
+      "reason": "PathTween exposes no decoded fields; only presence is observable"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQngAAABQAAAAKAAAACz8AAAA=",
+  "expected_tweens": {
+    "20": {
+      "fromPath": 10,
+      "toPath": 11,
+      "tweenFactor": 0.5
+    }
+  }
+}

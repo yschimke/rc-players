@@ -1,0 +1,53 @@
+{
+  "name": "expr_math_constants",
+  "category": "expressions",
+  "description": "Mathematical identities, fractions, and square relations",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_math_constants",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "quarter",
+          "value": "1 / 4",
+          "export": true
+        },
+        {
+          "name": "eighth",
+          "value": "1 / 8",
+          "export": true
+        },
+        {
+          "name": "sum_fractions",
+          "value": "quarter + eighth",
+          "export": true
+        },
+        {
+          "name": "pythagoras_check",
+          "value": "hypot(20, 21)",
+          "export": true
+        },
+        {
+          "name": "mad_check",
+          "value": "mad(5, 6, 7)",
+          "export": true
+        },
+        {
+          "name": "ping_pong_val",
+          "value": "ping_pong(14, 10)",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

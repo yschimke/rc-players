@@ -1,0 +1,201 @@
+{
+  "name": "modifier_graphics_layer",
+  "category": "layout",
+  "description": "Component with graphicsLayer modifier specifying scale and alpha",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1,
+    "resize_steps": [
+      {
+        "label": "initial (300x200)",
+        "step": 0,
+        "width": 300,
+        "height": 200
+      },
+      {
+        "label": "doubled (600x400)",
+        "step": 1,
+        "width": 600,
+        "height": 400
+      }
+    ]
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    },
+    {
+      "id": "resize_0",
+      "kind": "resize",
+      "label": "initial (300x200)",
+      "width": 300,
+      "height": 200,
+      "frames": 2,
+      "animation_enabled": false
+    },
+    {
+      "id": "resize_1",
+      "kind": "resize",
+      "label": "doubled (600x400)",
+      "width": 600,
+      "height": 400,
+      "frames": 2,
+      "animation_enabled": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "resize_0",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 80,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "resize_1",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 80,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 600,
+          "height": 400,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 600,
+          "height": 400,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 80,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADICAYAAABS39xVAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAKuSURBVHic7dQxDcAgAADBUiHsaMC/LmqhG/nkTsFPP+ba5wEIeG8HAPxlWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGR9BjwMRAOrjKgAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_0",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADICAYAAABS39xVAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAKuSURBVHic7dQxDcAgAADBUiHsaMC/LmqhG/nkTsFPP+ba5wEIeG8HAPxlWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGYYFZBgWkGFYQIZhARmGBWQYFpBhWECGYQEZhgVkGBaQYVhAhmEBGR9BjwMRAOrjKgAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_1",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAGQCAYAAAByNR6YAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAcsSURBVHic7dZBDcAgAMBAQMj+aMC/rs1EE5LlTkGfnc8+7wAAILNuBwAA/I3BAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgJjBAgCIGSwAgNgHFhIEoesRWUMAAAAASUVORK5CYII=",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABLAAGAAQAAADIDAkAGwAAABdtb2RpZmllcl9ncmFwaGljc19sYXllcgAOAAQAAAIByP////7K/////f////8AAAABAAAABBAAAAABP4AAAEMAAAABP4AAADcAAAAAAAAAAAAAAAAAAAAAPfDw8T4kpKU+bOztP4AAAAAAAADJ/////Mr////7/////wAAAAIAAAACEAAAAABC8AAAQwAAAABCoAAANwAAAAAAAAAAAAAAAAAAAAA/E5OUP0XFxj99/f4/gAAAAAAAAOAAAAADAAAEAD/AAAAAAAQBP8AAAAAABAs/QAAA1tbW1g=="
+}

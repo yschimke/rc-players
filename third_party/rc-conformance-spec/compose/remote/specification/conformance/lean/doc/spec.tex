@@ -1,0 +1,2762 @@
+% Copyright 2026 The Android Open Source Project
+%
+% Licensed under the Apache License, Version 2.0 (the "License");
+% you may not use this file except in compliance with the License.
+% You may obtain a copy of the License at
+%
+%      http://www.apache.org/licenses/LICENSE-2.0
+%
+% Unless required by applicable law or agreed to in writing, software
+% distributed under the License is distributed on an "AS IS" BASIS,
+% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+% See the License for the specific language governing permissions and
+% limitations under the License.
+%
+% Build with:  tectonic doc/spec.tex
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=2.6cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+% Long Java identifiers appear inline constantly; let them hyphenate rather
+% than punch through the right margin.
+\usepackage[htt]{hyphenat}
+\usepackage[colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=blue]{hyperref}
+
+%%% ------------------------------------------------------------------ macros
+
+\newcommand{\Sc}{\mathbb{S}}
+\newcommand{\Om}{\Omega}
+\newcommand{\bo}{\bot}
+
+\newcommand{\Exact}{\mathsf{Exact}}
+\newcommand{\Fill}{\mathsf{Fill}}
+\newcommand{\Wrap}{\mathsf{Wrap}}
+\newcommand{\Weight}{\mathsf{Weight}}
+
+\newcommand{\pad}{\mathsf{pad}}
+\newcommand{\wdt}{\mathsf{wdt}}
+\newcommand{\hgt}{\mathsf{hgt}}
+\newcommand{\pri}{\mathsf{pri}}
+
+\newcommand{\Horz}{\mathsf{H}}
+\newcommand{\Vrt}{\mathsf{V}}
+
+\newcommand{\leaf}{\mathsf{leaf}}
+\newcommand{\ttext}{\mathsf{text}}
+\newcommand{\bbox}{\mathsf{box}}
+\newcommand{\rrow}{\mathsf{row}}
+\newcommand{\ccol}{\mathsf{col}}
+\newcommand{\crow}{\mathsf{crow}}
+\newcommand{\ccolp}{\mathsf{ccol}}
+\newcommand{\fflow}{\mathsf{flow}}
+
+\newcommand{\miw}{\mathsf{miw}}
+\newcommand{\mih}{\mathsf{mih}}
+\newcommand{\gone}{\mathsf{gone}}
+\newcommand{\vis}{\mathsf{vis}}
+
+\newcommand{\Start}{\mathsf{Start}}
+\newcommand{\Center}{\mathsf{Center}}
+\newcommand{\End}{\mathsf{End}}
+\newcommand{\Top}{\mathsf{Top}}
+\newcommand{\Bottom}{\mathsf{Bottom}}
+\newcommand{\SBetween}{\mathsf{SpaceBetween}}
+\newcommand{\SEvenly}{\mathsf{SpaceEvenly}}
+\newcommand{\SAround}{\mathsf{SpaceAround}}
+
+\newcommand{\Mm}{\mathcal{M}}          % measure judgement
+\newcommand{\Rr}{\mathcal{R}}          % axis resolution
+\newcommand{\Aa}{\mathcal{A}}          % arrangement
+\newcommand{\Pp}{\mathcal{P}}          % padding accumulation
+\newcommand{\Dw}{\Delta_{\mathrm{w}}}
+\newcommand{\Dh}{\Delta_{\mathrm{h}}}
+\newcommand{\Iw}{\iota_{\mathrm{w}}}
+\newcommand{\Ih}{\iota_{\mathrm{h}}}
+\newcommand{\Dimw}{\mathsf{dim}_{\mathrm{w}}}
+\newcommand{\Dimh}{\mathsf{dim}_{\mathrm{h}}}
+\newcommand{\base}{\mathsf{base}}
+\newcommand{\val}{\mathsf{val}}
+\newcommand{\wt}{\mathsf{wt}}
+
+\newcommand{\clampL}{\mathord{\uparrow}}
+\newcommand{\clampH}{\mathord{\downarrow}}
+
+\newcommand{\lo}[1]{\texttt{#1}}       % a Lean identifier
+\newcommand{\jv}[1]{\texttt{#1}}       % a Java identifier
+\newcommand{\file}[1]{\texttt{#1}}
+
+\DeclareMathOperator{\clamp}{clamp}
+\DeclareMathOperator{\len}{len}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\theoremstyle{plain}
+\newtheorem{property}{Property}[section]
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+\newtheorem{warning}{Caveat}[section]
+
+\setlist[description]{style=nextline,leftmargin=1.2em}
+
+%%% ------------------------------------------------------------------ title
+
+\title{\bfseries A Formal Specification of the\\ RemoteCompose Layout Algorithm\\[4pt]
+  \large Core Managers, Adaptive Containers, Extended Subsystems, and Optimizations}
+\author{Machine-checked in Lean~4 \\
+  \texttt{compose/remote/specification/conformance/lean}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This document is a mathematical specification of the complete layout engine
+implemented by the RemoteCompose player. It formalizes nine layout managers:
+the core containers (\jv{Box}, \jv{Row}, \jv{Column}),
+line-breaking and adaptive containers (\jv{Flow}, collapsible \jv{Row} and \jv{Column}),
+and specialized containers (\jv{FitBox}, \jv{State}, \jv{Image}).
+Beyond container sizing and placement, it specifies the modifier pipeline
+--- including visibility modes (\jv{VISIBLE}, \jv{INVISIBLE}, \jv{GONE}),
+typographic baseline alignment, visual translation offsets, scrollable viewports,
+affine graphics layers, and $z$-ordering --- as well as hierarchical window coordinates,
+interactive pointer hit-testing, temporal layout animations, dynamic
+expression evaluation, and document-level layout optimization passes.
+It is the prose counterpart of a Lean~4 development that defines the entire engine
+as total recursive functions, proves core structural properties, and validates
+computed rectangles and component visibility against the project's conformance
+gold corpus. Every rule is traceable to the reference Java implementation and its
+corresponding Lean definition.
+\end{abstract}
+
+\tableofcontents
+
+%%% ==================================================================
+\section{Introduction}
+
+\subsection{Purpose}
+
+RemoteCompose documents carry a component tree that a player must lay out
+identically on every platform. The Java player in \file{remote-core} is the de
+facto reference, but its behaviour is defined only by its own source code:
+several rules are order-sensitive, two of the managers that look like mirror
+images are not, and a handful of arithmetic paths overflow their container by
+construction. Reimplementing the player --- in TypeScript, C++, or anywhere else
+--- therefore means reverse-engineering those rules from the Java, which is
+error-prone and unauditable.
+
+This specification exists to make the algorithm an object one can read, cite and
+check. It has three layers:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{This document}, which states the algorithm as a system of
+    mathematical definitions.
+  \item \textbf{A Lean~4 development}, which states exactly the same algorithm
+    as a total function \lo{measure} and proves properties of it. The Lean text
+    is the authority: this document is generated from it by hand, and any
+    disagreement is a bug in this document.
+  \item \textbf{A conformance harness}, which replays the project's existing
+    gold corpus against the Lean function and checks the resulting rectangles
+    inside the Lean kernel.
+\end{enumerate}
+
+\subsection{Relation to the reference implementation}
+
+The Java sources referred to throughout live under
+\begin{center}
+\file{compose/remote/remote-core/src/main/java/} \\
+\file{androidx/compose/remote/core/operations/layout/}
+\end{center}
+and the relevant files are
+\begin{itemize}[leftmargin=1.6em,itemsep=0pt,topsep=4pt]
+  \item \jv{LayoutManager.java}, \jv{LayoutComponent.java} and
+    \jv{Component.java};
+  \item \jv{BoxLayout.java}, \jv{RowLayout.java}, \jv{ColumnLayout.java},
+    \jv{CollapsibleRowLayout.java}, \jv{CollapsibleColumnLayout.java},
+    \jv{FlowLayout.java} and \jv{CollapsiblePriority.java}, in \jv{managers/};
+  \item \jv{BaseModernMeasurePolicy.java}, in \jv{managers/policies/}.
+\end{itemize}
+Two files outside that tree also matter, because they decide what a document
+\emph{means} before layout ever runs: \jv{DefaultComponentParsers.java} fixes the
+per-kind alignment defaults of Caveat~\ref{sec:defaults}, and
+\jv{DefaultModifierParsers.java} resolves a bare \jv{weight} or
+\jv{collapsiblePriority} against the axis of the enclosing container. Both live
+under
+\begin{center}
+\file{compose/remote/remote-creation-core/\ldots/json/}.
+\end{center}
+
+Measurement is dispatched through a \emph{policy chain}. \jv{LayoutManager}
+holds a static array
+\[
+  \jv{POLICIES} = [\,
+    \jv{Legacy},\;
+    \jv{BaseModern},\;
+    \jv{InsetWrap},\;
+    \jv{InlineExpression},\;
+    \jv{EnforceConstraints}\,]
+\]
+indexed by the document's measure version, and each entry from index~1 onwards
+extends its predecessor by flipping one boolean. Since
+\jv{LayoutManager.DEFAULT\_MEASURE\_TYPE} is \jv{ENFORCE\_CONSTRAINTS}, the
+behaviour that matters is \jv{BaseModernMeasurePolicy.measure} evaluated with
+\[
+  \begin{gathered}
+    \jv{shouldApplyInsetWrap} = \jv{shouldUpdateComponentValues} \\
+    = \jv{shouldEnforceConstraints} = \textsf{true},
+  \end{gathered}
+\]
+and that is what this document specifies. Line numbers cited as
+``policy~$\ell_1$--$\ell_2$'' refer to \jv{BaseModernMeasurePolicy.java}.
+
+\subsection{Scope}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Subsystem} & \textbf{Formally Specified and Verified Components} \\
+\midrule
+\textbf{Core Containers} & \jv{BoxLayout}, \jv{RowLayout}, \jv{ColumnLayout} \\
+\textbf{Adaptive Containers} & \jv{CollapsibleRowLayout}, \jv{CollapsibleColumnLayout}, \jv{FlowLayout} \\
+\textbf{Extended Containers} & \jv{FitBoxLayout}, \jv{StateLayout}, \jv{ImageLayout} (aspect ratio scaling) \\
+\textbf{Sizing Modifiers} & \jv{width}, \jv{height}, \jv{widthIn}, \jv{heightIn}, \jv{padding}, \jv{weight} \\
+\textbf{Arrangement} & \jv{spacedBy}, all alignments (\jv{Start}, \jv{Center}, \jv{End}, \jv{SpaceBetween}, \ldots) \\
+\textbf{Extended Modifiers} & \jv{visibility} (\jv{VISIBLE}, \jv{INVISIBLE}, \jv{GONE}), \jv{alignByBaseline}, \\
+ & \jv{offset}, \jv{scroll} viewports, \jv{graphicsLayer}, \jv{zIndex} \\
+\textbf{Window Hierarchy} & Hierarchical coordinate accumulation (\jv{getLocationInWindow}) \\
+\textbf{Interaction} & Geometric pointer inclusion, hit-testing soundness (\jv{hitTest}) \\
+\textbf{Layout Animations} & Temporal progress $\alpha(t)$, bounds interpolation, start/end continuity \\
+\textbf{Expressions} & Dynamic expression AST, runtime variable binding, clamping bounds \\
+\textbf{Optimizations} & Relayout boundaries, memoized cache, flat-pass generation \\
+\textbf{Text \& Autosizing} & \jv{CoreText}, proportional font scaling, autosize bounds \\
+\textbf{Repaint Dynamics} & Invalidation cycles, Choreographer attractor, fix verification \\
+\bottomrule
+\end{tabular}
+\caption{Scope of this specification.}
+\end{table}
+
+Terminal components include both generic leaves (spacers, canvases, images)
+abstracted as intrinsic content sizes and \jv{CoreText} components with nominal
+or dynamic autosizing metrics.
+
+%%% ==================================================================
+\section{Preliminaries}
+
+\subsection{Scalars}
+
+\begin{definition}[Scalar domain]
+Let $\Sc = \mathbb{Q}$.
+\end{definition}
+
+The reference implementation computes in IEEE-754 single precision. Modelling
+that faithfully would make every statement below carry a rounding hypothesis and
+would make the conformance checks undecidable in practice. We therefore work in
+$\mathbb{Q}$, which is exact, decidable and closed under the four operations the
+algorithm uses. The gap between the two is absorbed by comparing against the
+gold corpus with the same tolerance the existing harness uses,
+$\varepsilon = \tfrac12$ device pixel (Section~\ref{sec:conformance}).
+
+\begin{definition}[Float sentinel]
+\[
+  \Om \;=\; 2^{128} - 2^{104} \;=\; 340282346638528859811704183484516925440 .
+\]
+\end{definition}
+
+$\Om$ is the exact value of \jv{Float.MAX\_VALUE}. It is not a symbolic
+infinity: \jv{LayoutComponent.computeModifierDefinedWidth} returns it as an
+ordinary finite number for a \jv{FILL} axis, and the caller then takes a
+\jv{Math.min} against the incoming maximum. Arithmetic on $\Om$ is therefore
+observable and must be exact, which is why it is written out in full.
+
+\subsection{Geometry}
+
+A \emph{size} is a pair $\sigma = (\sigma_w, \sigma_h) \in \Sc^2$; a
+\emph{rectangle} is a quadruple $(x, y, w, h) \in \Sc^4$.
+
+\begin{definition}[Padding]
+A padding is $p = (p_\ell, p_r, p_t, p_b) \in \Sc^4$, with the abbreviations
+\[
+  p_{\mathrm{h}} = p_\ell + p_r, \qquad p_{\mathrm{v}} = p_t + p_b .
+\]
+\end{definition}
+
+\begin{definition}[Constraints]
+A constraint box is $\kappa = (w^-, w^+, h^-, h^+) \in \Sc^4$, read as
+``the measured width must lie in $[w^-, w^+]$ and the measured height in
+$[h^-, h^+]$''. We write
+\[
+  \kappa_{\mathrm{tight}}(w,h) = (w,w,h,h), \qquad
+  \kappa_{\mathrm{loose}}(w,h) = (0,w,0,h).
+\]
+\end{definition}
+
+\begin{definition}[One-sided clamps]
+For $x \in \Sc$ and $o \in \Sc \cup \{\bo\}$,
+\[
+  x \clampL o = \begin{cases} x & o = \bo \\ \max(x, o) & o \in \Sc \end{cases}
+  \qquad\qquad
+  x \clampH o = \begin{cases} x & o = \bo \\ \min(x, o) & o \in \Sc. \end{cases}
+\]
+\end{definition}
+
+$\bo$ models the two distinct ``absent'' encodings the wire format uses:
+\jv{Float.NaN} for a missing \jv{FILL} fraction, and $-1$ for a missing
+\jv{widthIn} bound. Both are read back as $\bo$ here.
+
+%%% ==================================================================
+\section{Syntax}
+
+\subsection{Dimensions}
+
+\begin{definition}[Dimension descriptor]
+\[
+  d \;::=\; \Exact(v) \;\mid\; \Fill(\varphi) \;\mid\; \Wrap
+        \;\mid\; \Weight(\omega),
+  \qquad v, \omega \in \Sc,\; \varphi \in \Sc \cup \{\bo\}.
+\]
+\end{definition}
+
+These are the four inhabited cases of
+\jv{DimensionModifierOperation.Type}, whose full wire encoding is
+\[
+  \begin{array}{llll}
+    0\ \jv{EXACT} & 1\ \jv{FILL} & 2\ \jv{WRAP} & 3\ \jv{WEIGHT} \\
+    4\ \jv{INTRINSIC\_MIN} & 5\ \jv{INTRINSIC\_MAX} & 6\ \jv{EXACT\_DP} & \\
+    7\ \jv{FILL\_PARENT\_MAX\_WIDTH} & 8\ \jv{FILL\_PARENT\_MAX\_HEIGHT}. & &
+  \end{array}
+\]
+Cases 4--8 are out of scope; \jv{EXACT\_DP} is folded into $\Exact$ by the
+density conversion that happens before layout.
+
+Two projections are used throughout:
+\[
+  \val(d) = \begin{cases}
+    v & d = \Exact(v) \\
+    \varphi & d = \Fill(\varphi) \\
+    \bo & d = \Wrap \\
+    \omega & d = \Weight(\omega)
+  \end{cases}
+  \qquad
+  \wt(d) = \begin{cases}
+    \omega & d = \Weight(\omega) \\
+    0 & \text{otherwise.}
+  \end{cases}
+\]
+
+\begin{definition}[Intrinsic base of a dimension]
+For $b \in \{\min, \max\}$,
+\[
+  \base_b(\Exact(v)) = v, \quad
+  \base_b(\Fill(\_)) = \begin{cases} 0 & b = \min \\ \Om & b = \max \end{cases}, \quad
+  \base_b(\Wrap) = \base_b(\Weight(\_)) = 0 .
+\]
+\end{definition}
+
+\subsection{Modifiers}
+
+\begin{definition}[Modifier chain]
+\[
+  m \;::=\; \pad(p) \;\mid\; \wdt(d, \iota) \;\mid\; \hgt(d, \iota)
+        \;\mid\; \pri(o, v),
+  \qquad \iota \in (\Sc\cup\{\bo\})^2 \cup \{\bo\},
+\]
+\[
+  o \in \{\Horz, \Vrt\}, \qquad v \in \Sc,
+\]
+and a chain is a finite \emph{ordered list} $\mu = m_1 \cdot m_2 \cdots m_k$,
+written $\varepsilon$ when empty.
+\end{definition}
+
+The $\iota$ component of a size modifier carries the associated
+\jv{widthIn} / \jv{heightIn} bounds as a pair $(\iota^-, \iota^+)$, each
+possibly $\bo$.
+
+A $\pri(o, v)$ is a \jv{CollapsiblePriorityModifier}. It affects nothing unless
+the node's parent is a collapsible manager, and it names the axis it applies to
+--- a priority declared for one axis is invisible to the other. Its reading is
+$P_o$, defined in Section~\ref{sec:crow}.
+
+Purely decorative operations --- \jv{BackgroundModifierOperation},
+\jv{BorderModifierOperation}, \jv{ZIndexModifierOperation}, clipping, click
+handling --- take no part in measurement and are simply absent from $\mu$.
+
+\begin{warning}
+The chain is a \emph{list}, not a record, and the order is observable. An
+earlier draft of this specification modelled modifiers as a flat record of
+optional fields; it disagreed with the gold corpus on eight documents. See
+Section~\ref{sec:orderquirk}.
+\end{warning}
+
+\subsection{Nodes}
+
+\begin{definition}[Component tree]
+\[
+  \begin{aligned}
+    n \;::=\;\;
+      & \leaf(\mu, \sigma)
+      && \text{a spacer or fixed atom} \\
+    \mid\;\; & \ttext(\mu, \theta)
+      && \text{\jv{CoreText} (nominal or autosizing)} \\
+    \mid\;\; & \bbox(\mu, a_{\mathrm{h}}, a_{\mathrm{v}}, \vec{n})
+      && \text{\jv{BoxLayout}} \\
+    \mid\;\; & \rrow(\mu, A, a_{\mathrm{v}}, s, \vec{n})
+      && \text{\jv{RowLayout}} \\
+    \mid\;\; & \ccol(\mu, a_{\mathrm{h}}, A, s, \vec{n})
+      && \text{\jv{ColumnLayout}} \\
+    \mid\;\; & \crow(\mu, A, a_{\mathrm{v}}, s, \vec{n})
+      && \text{\jv{CollapsibleRowLayout}} \\
+    \mid\;\; & \ccolp(\mu, a_{\mathrm{h}}, A, s, \vec{n})
+      && \text{\jv{CollapsibleColumnLayout}} \\
+    \mid\;\; & \fflow(\mu, A, a_{\mathrm{v}}, s, k_{\mathrm{items}}, k_{\mathrm{lines}}, \vec{n})
+      && \text{\jv{FlowLayout}}
+  \end{aligned}
+\]
+where $\vec{n}$ is a list of nodes, $s \in \Sc$ is the \jv{spacedBy} gap,
+$\theta = (\sigma_0, s_0, a, s_{\min}, s_{\max})$ is a text specification (\jv{TextSpec}),
+$a_{\mathrm{h}}$ and $a_{\mathrm{v}}$ are cross-axis alignments, $A$ is a
+main-axis arrangement, and $k_{\mathrm{items}}, k_{\mathrm{lines}} \in \mathbb{N}$
+are the flow's \jv{maxColumns} and \jv{maxLines}.
+\end{definition}
+
+A collapsible manager has the same shape as the plain one it extends, and a flow
+has a row's shape plus its two limits. What distinguishes them is entirely in the
+hooks of Section~\ref{sec:crow} and Section~\ref{sec:flow}.
+
+\begin{definition}[Alignments]
+\[
+  a_{\mathrm{h}} \in \{\Start, \Center, \End\}, \qquad
+  a_{\mathrm{v}} \in \{\Top, \Center, \Bottom\},
+\]
+\[
+  A \in \{\Start, \Center, \End, \SBetween, \SEvenly, \SAround\}.
+\]
+\end{definition}
+
+\begin{warning}[The defaults are not uniform]
+\label{sec:defaults}
+A document that omits an alignment does not get $\Start$ / $\Top$. The parser's
+per-kind defaults (\jv{DefaultComponentParsers}, lines 55--113) are
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Kind} & \textbf{Default $(a_{\mathrm{h}}\text{ or }A,\; a_{\mathrm{v}}\text{ or }A)$} \\
+\midrule
+$\bbox$ with children & $(\Start, \Top)$ \\
+$\bbox$ without children & $(\Center, \Center)$ \\
+$\rrow$, $\ccol$ & $(\Start, \Top)$ \\
+$\crow$, $\ccolp$ & $(\Center, \Center)$ \\
+$\fflow$ & $(\Start, \Top)$, $k_{\mathrm{items}} = k_{\mathrm{lines}} = 2147483647$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+and when both are present, \jv{horizontalAlignment} takes precedence over
+\jv{horizontalArrangement} (\jv{RemoteComposeJsonParser}, lines 550--560).
+Getting a collapsible manager's default wrong shifts every child.
+\end{warning}
+
+All six managers agree on the integer encoding written to the wire buffer:
+\[
+  \begin{gathered}
+    \Start = 1,\quad \Center = 2,\quad \End = 3,\quad \Top = 4,\quad \Bottom = 5, \\
+    \SBetween = 6,\quad \SEvenly = 7,\quad \SAround = 8 .
+  \end{gathered}
+\]
+
+\begin{definition}[Spaced arrangements]
+$\mathrm{spaced}(A)$ holds iff
+\[
+  A \in \{\SBetween,\; \SEvenly,\; \SAround\}.
+\]
+\end{definition}
+
+\subsection{Output}
+
+\begin{definition}[Layout tree]
+A layout tree is
+$\tau ::= \langle r, p, g, \vec{\tau}\,\rangle$ with $r$ a rectangle, $p$ the
+node's padding, $g \in \mathbb{B}$ its visibility flag, and $\vec{\tau}$ its
+laid-out children. We write $\tau.\gone$ for $g$, and call the node
+\emph{visible} when $\neg g$.
+\end{definition}
+
+\begin{remark}[Why one bit suffices]
+\jv{Component} carries six visibility values --- a base
+$\jv{GONE} = 0$, $\jv{VISIBLE} = 1$, $\jv{INVISIBLE} = 2$ and the overrides
+$\jv{OVERRIDE\_GONE} = 16$, $\jv{OVERRIDE\_VISIBLE} = 32$,
+$\jv{OVERRIDE\_INVISIBLE} = 64$ --- read by
+\[
+  \mathrm{isGone}(v) = \begin{cases}
+    (v \mathbin{\&} 16) = 16 & (v \gg 4) > 0 \\
+    v = 0 & \text{otherwise,}
+  \end{cases}
+\]
+so that an override, if present, wins outright. \jv{INVISIBLE} differs from
+\jv{VISIBLE} only in painting, which is out of scope, and the \jv{visibility}
+modifier that would let a document set the base value directly is also out of
+scope. Everything that remains is $\mathrm{isGone}$, and one bit records it.
+The distinction between a base value and an override does still matter, because
+it decides whether a decision survives to the next pass; that shows up in
+Caveat~\ref{sec:flowsticky}.
+\end{remark}
+
+\begin{warning}[Coordinate convention]
+\label{sec:coords}
+The $x$ and $y$ of a child are relative to the \emph{content origin} of its
+parent: the parent's padding is \textbf{not} folded in. This matches
+\jv{ComponentMeasure.setX} / \jv{setY}, which the managers fill in with offsets
+measured inside the content box $(\,W - p_{\mathrm{h}}\,) \times (\,H -
+p_{\mathrm{v}}\,)$. Window coordinates are recovered by
+\jv{LayoutComponent.getLocationInWindow}, which adds each ancestor's padding
+while walking up; the specification's $\mathrm{abs}$ function does the same.
+The gold corpus records content-relative coordinates.
+\end{warning}
+
+An invisible child is still a child: it keeps its place in $\vec{\tau}$, it is
+assigned coordinates, and the gold corpus records them
+(Caveat~\ref{sec:goneplaced}). What it does not do is take up room.
+
+%%% ==================================================================
+\section{Derived attributes of a modifier chain}
+\label{sec:derived}
+
+Five functions read a chain. Three of them scan it in order and stop early;
+that asymmetry is the source of the most surprising behaviour in the whole
+algorithm.
+
+\subsection{Padding: every modifier contributes}
+
+\begin{definition}[Accumulated padding]
+\[
+  \Pp(\varepsilon) = (0,0,0,0), \qquad
+  \Pp(\pad(p)\cdot\mu') = p + \Pp(\mu'), \qquad
+  \Pp(m\cdot\mu') = \Pp(\mu') \text{ otherwise,}
+\]
+with $+$ componentwise.
+\end{definition}
+
+This mirrors the \jv{updatePadding} accumulation in
+\jv{LayoutComponent.updateModifiers}: \emph{every} \jv{PaddingModifierOperation}
+in the chain, wherever it sits, adds to \jv{mPaddingLeft} and friends. $\Pp(\mu)$
+is what insets the children.
+
+\subsection{Size descriptors: the first modifier wins}
+
+\begin{definition}[Selected dimensions and bounds]
+\[
+  \Dimw(\varepsilon) = \Wrap, \qquad
+  \Dimw(\wdt(d,\iota)\cdot\mu') = d, \qquad
+  \Dimw(m\cdot\mu') = \Dimw(\mu') \text{ otherwise,}
+\]
+and $\Iw$ likewise returns the $\iota$ of the first $\wdt$. $\Dimh$, $\Ih$ are
+the vertical mirrors.
+\end{definition}
+
+The default of $\Wrap$ is the reference implementation's: a component with no
+size modifier wraps its content on that axis. ``First wins'' is
+\jv{LayoutComponent.updateModifiers}, which assigns \jv{mWidthModifier} only
+under the guard \jv{\&\& mWidthModifier == null}.
+
+\begin{remark}[Encoder-level de-duplication]
+In practice a chain rarely contains two width modifiers, because
+\jv{RecordingModifier.setWidthModifier} keeps at most one slot per component and
+a later write \emph{updates the existing element in place}, preserving its
+position in the chain. Thus \jv{Modifier.width(100).weight(1)} records a single
+$\Weight$ modifier at the position where the $\Exact(100)$ used to be, and the
+$100$ is discarded. This is a property of document construction, not of layout,
+and is not modelled; but it explains why the ``first wins'' rule is hard to
+observe from the authoring API.
+\end{remark}
+
+\subsection{Modifier-defined size: the scan stops at the first size modifier}
+\label{sec:orderquirk}
+
+\begin{definition}[Modifier-defined width]
+$\Dw(\mu, b) = g(\mu, 0, 0)$ where
+\[
+  \begin{aligned}
+    g(\varepsilon, s, e) &= s + e, \\
+    g(\wdt(d,\iota)\cdot\mu', s, e) &= s + \bigl(\base_b(d) \clampL \iota^-\bigr) + e,
+      &&\text{(stop)} \\
+    g(\pad(p)\cdot\mu', s, e) &= g(\mu', s + p_\ell, e + p_r), \\
+    g(\hgt(\_)\cdot\mu', s, e) &= g(\mu', s, e).
+  \end{aligned}
+\]
+$\Dh$ is the vertical mirror, accumulating $p_t$ and $p_b$ and stopping at the
+first $\hgt$.
+\end{definition}
+
+This is \jv{LayoutComponent.computeModifierDefinedWidth}, which walks the same
+list as \jv{updateModifiers} but \jv{break}s at the first width modifier. Two
+consequences follow, and both are load-bearing:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Only padding declared \emph{before} the size modifier is added
+    to the modifier-defined width.} Hence
+    \[
+      \Dw(\pad(8)\cdot\wdt(\Exact(50)), \max) = 66,
+      \qquad
+      \Dw(\wdt(\Exact(50))\cdot\pad(8), \max) = 50,
+    \]
+    while $\Pp$ --- and therefore the inset applied to the children --- is $8$ on
+    every edge in both cases. \jv{Modifier.padding(8).size(50)} and
+    \jv{Modifier.size(50).padding(8)} genuinely lay out differently.
+  \item \textbf{A height modifier does not stop the width walk}, and vice versa.
+    $\Dw(\pad(8)\cdot\hgt(\Exact(20))\cdot\wdt(\Exact(50)), \max) = 66$.
+\end{enumerate}
+
+%%% ==================================================================
+\section{Intrinsic sizes}
+\label{sec:intrinsic}
+
+A second recursion, entirely independent of the first, computes what a node
+would like to be if nothing constrained it. It is \jv{Component.minIntrinsicWidth}
+and \jv{minIntrinsicHeight} together with the managers' overrides. Nothing in it
+consults a measurement, so it is a function of the tree alone and terminates on
+its own; \jv{FlowLayout} is the only consumer in scope, and it uses $\mih$ to
+height the rows it has cut.
+
+Throughout, the modifier-defined size is taken with $b = \min$, so that a $\Fill$
+axis contributes $0$ rather than $\Om$ --- this is the \jv{isMin} argument to
+\jv{computeModifierDefinedWidth}.
+
+\begin{definition}[Intrinsic width]
+\[
+  \miw(n) = \begin{cases}
+    \max\bigl(\Dw(\mu,\min),\; \sigma_w\bigr)
+      & n = \leaf(\mu, \sigma) \\[2pt]
+    \max\bigl(\Dw(\mu,\min),\; \max_i \miw(n_i)\bigr)
+      & n = \bbox,\ \ccol \\[2pt]
+    \max\bigl(\Dw(\mu,\min),\; \sum_i \miw(n_i)\bigr)
+      & n = \rrow,\ \fflow \\[2pt]
+    \Dw(\mu,\min) + \miw\bigl(\ell_{\Horz}(\vec{n})\bigr)
+      & n = \crow \\[2pt]
+    \Dw(\mu,\min) + \miw\bigl(\ell_{\Vrt}(\vec{n})\bigr)
+      & n = \ccolp
+  \end{cases}
+\]
+\end{definition}
+
+\begin{definition}[Intrinsic height]
+\[
+  \mih(n) = \begin{cases}
+    \max\bigl(\Dh(\mu,\min),\; \sigma_h\bigr)
+      & n = \leaf(\mu, \sigma) \\[2pt]
+    \max\bigl(\Dh(\mu,\min),\; \max_i \mih(n_i)\bigr)
+      & n = \bbox,\ \rrow,\ \fflow \\[2pt]
+    \max\bigl(\Dh(\mu,\min),\; \sum_i \mih(n_i)\bigr)
+      & n = \ccol \\[2pt]
+    \Dh(\mu,\min) + \mih\bigl(\ell_{\Horz}(\vec{n})\bigr)
+      & n = \crow \\[2pt]
+    \Dh(\mu,\min) + \mih\bigl(\ell_{\Vrt}(\vec{n})\bigr)
+      & n = \ccolp
+  \end{cases}
+\]
+\end{definition}
+
+Empty maxima and empty sums are $0$, and the collapsible cases contribute $0$ for
+the child term when the node has no children.
+
+The pattern is that a manager sums along its main axis and maximises across it,
+with two departures. \jv{BoxLayout} and \jv{ColumnLayout} override neither width
+rule, so both inherit \jv{LayoutManager}'s maximum; and \jv{FlowLayout} inherits
+\jv{RowLayout}'s width \emph{sum}, even though it wraps, so a flow's intrinsic
+width is the width it would need on a single line.
+
+\begin{definition}[Last standing]
+$\ell_o(\vec{n})$ is the child of greatest $P_o$ (Section~\ref{sec:crow}), ties
+going to the earliest, and $\bo$ for an empty list. It is
+\jv{CollapsiblePriority.findLastStanding}, and it names the child a collapsible
+manager would keep longest --- so its intrinsic size is the smallest the manager
+can be reduced to without disappearing altogether.
+\end{definition}
+
+\begin{remark}
+\jv{findLastStanding} is guarded by \jv{Header.FEATURE\_PRIORITY\_FIX}, which
+defaults to enabled. The legacy branch took the first child instead; it is not
+modelled.
+\end{remark}
+
+%%% ==================================================================
+\section{Axis resolution}
+\label{sec:axis}
+
+Both axes of a node are resolved by the same function, applied once
+horizontally and once vertically. It is the transcription of policy lines
+90--154, where the reference implementation carries the same four results in
+local variables.
+
+\begin{definition}[Axis resolution]
+\[
+  \Rr(d, f, p, \delta, \mu_0, c^-, c^+, \hat c)
+  \;=\; (a,\; c^{-\prime},\; \hat c\,',\; \omega)
+\]
+is defined by cases:
+\[
+\begin{array}{@{}l@{\;}l@{}}
+\textbf{(F)} \text{ if } f: &
+  \begin{cases}
+    (c^+,\; \hat c,\; \hat c,\; \textsf{false})
+      & \text{if } \val(d) = \bo \text{ or } d = \Exact, \\[2pt]
+    (c^+\varphi,\; c^+\varphi - p,\; \hat c,\; \textsf{false})
+      & \text{if } \val(d) = \varphi \in \Sc,\; d \neq \Exact,
+  \end{cases} \\[16pt]
+\textbf{(W)} \text{ else if } d = \Weight: &
+  \bigl(\max(\mu_0, \delta),\; c^-,\; \hat c,\; \textsf{false}\bigr), \\[6pt]
+\textbf{(C)} \text{ otherwise:} &
+  \bigl(a,\; c^-,\; \hat c\,',\; \omega\bigr) \text{ with }
+  \begin{aligned}[t]
+    a &= \min\bigl(\max(\mu_0, c^-),\, c^+\bigr), \\
+    \omega &= [\,d = \Wrap\,], \\
+    \hat c\,' &= \begin{cases} \hat c & \omega \\ a - p & \neg\omega. \end{cases}
+  \end{aligned}
+\end{array}
+\]
+\end{definition}
+
+The arguments are, in order: the axis' dimension descriptor $d$; the
+\emph{fill} flag $f$ (Section~\ref{sec:fillflag}); the total padding $p$ on this
+axis; the uncapped modifier-defined size $\delta$; the pre-capped measurement
+$\mu_0 = \min(c^+_{\text{incoming}}, \delta)$; the constraints $c^-, c^+$ after
+the \jv{widthIn} rewrite; and $\hat c = c^+ - p$, the maximum available to the
+children. The results are the running measured size $a$, a possibly rewritten
+minimum, the inset maximum handed down, and whether this axis wraps.
+
+Three points deserve comment.
+
+\begin{description}
+  \item[Case (F) with an $\Exact$ descriptor.] A row whose own width is exact
+    but whose children carry weights enters case~(F) because of the fill flag,
+    and then $\jv{isExact()}$ wins and the row fills its whole slot. The
+    declared exact width is overridden.
+  \item[Case (W) is provisional.] A weighted axis is only given a placeholder
+    here. Its real size is imposed later by its parent, through the tight
+    constraints of the weight-resolution sweep (Sections~\ref{sec:row}
+    and~\ref{sec:column}).
+  \item[Inset wrap.] The rewrite $\hat c\,' = a - p$ in case~(C) is the effect of
+    \jv{shouldApplyInsetWrap}, which is true for the default policy: when an
+    axis does \emph{not} wrap, its children are capped by the size the node
+    actually resolved to, not by the maximum it was offered.
+\end{description}
+
+\subsection{The fill flag}
+\label{sec:fillflag}
+
+\begin{definition}[Fill flags]
+\[
+  F_{\mathrm{h}}(n) =
+  \begin{cases}
+    \Dimw(\mu) = \Fill(\_) \;\vee\; \mathrm{someHW}(\vec{n})
+      & n = \rrow(\mu, \_, \_, \_, \vec{n}) \\
+    \Dimw(\mu) = \Fill(\_) & \text{otherwise,}
+  \end{cases}
+\]
+\[
+  F_{\mathrm{v}}(n) =
+  \begin{cases}
+    \Dimh(\mu) = \Fill(\_) \;\vee\; \mathrm{someVW}(\vec{n})
+      & n = \ccol(\mu, \_, \_, \_, \vec{n}) \\
+    \Dimh(\mu) = \Fill(\_) & \text{otherwise,}
+  \end{cases}
+\]
+where $\mathrm{someHW}(\vec{n})$ holds iff some child has
+$\Dimw = \Weight(\_)$, and $\mathrm{someVW}$ is its vertical mirror.
+\end{definition}
+
+A row containing weighted children must behave as though it were
+\jv{fillMaxWidth}, since it has leftover space to hand out; \jv{RowLayout}
+overrides \jv{isInHorizontalFill} to say so, and \jv{ColumnLayout} overrides
+\jv{isInVerticalFill} symmetrically.
+
+\begin{remark}
+There is a latent discrepancy in the reference implementation here:
+\jv{childrenHaveHorizontalWeights} tests \jv{instanceof LayoutManager} while
+\jv{computeWrapSize} tests \jv{instanceof LayoutComponent}. The two predicates
+differ for non-manager layout components. No document in the corpus
+distinguishes them, and the specification does not model the difference.
+\end{remark}
+
+\subsection{Weight totals}
+\label{sec:weights}
+
+\[
+  \Theta_{\mathrm{h}}(\vec{n}) = \!\!\sum_{i \,:\, \neg \tau_i.\gone}\!\! \wt(\Dimw(\mu_i)),
+  \qquad
+  \Theta_{\mathrm{v}}(\vec{n}) = \!\!\sum_{i \,:\, \neg \tau_i.\gone}\!\! \wt(\Dimh(\mu_i)).
+\]
+
+The sums --- and the ``some child is weighted'' tests that gate them --- range
+over the \emph{visible} children only. \jv{RowLayout} guards both
+\jv{hasWeights} and \jv{totalWeights} with \jv{isGone} (lines 379 and 399), so a
+child that a collapsing sweep or a flow segmentation has dropped neither claims
+a share of the leftover space nor dilutes anybody else's. For the three
+managers that cannot make a child invisible this is vacuous; for the other
+three it is load-bearing.
+
+\begin{warning}[A bare \texttt{weight} is axis-relative]
+\label{sec:axisweight}
+This is a fact about authoring rather than about layout, but it decides which of
+$\Dimw$ and $\Dimh$ a document's \jv{"weight"} lands in, and so which of the two
+sums above sees it. \jv{DefaultModifierParsers} (lines 145--155) consults
+\jv{parser.isParentVertical()} and routes the key to \jv{verticalWeight} inside
+a \jv{column} or \jv{collapsibleColumn} and to \jv{horizontalWeight} everywhere
+else --- note that \jv{flow} counts as \emph{horizontal}, being row-major.
+\jv{"collapsiblepriority"} (lines 193--216) resolves its orientation the same
+way. The explicit \jv{"horizontalweight"} and \jv{"verticalweight"} keys bypass
+the rule.
+\end{warning}
+
+%%% ==================================================================
+\section{The measure judgement}
+\label{sec:measure}
+
+\begin{definition}[Measure]
+$\Mm(n, \kappa) = \tau$ is defined by the following sequence, where
+$\kappa = (w^-, w^+, h^-, h^+)$ and $\mu$ is $n$'s chain.
+\end{definition}
+
+\paragraph{Step 1 --- padding and modifier-defined sizes (policy 57--60).}
+\[
+  p = \Pp(\mu), \qquad
+  \delta_w = \Dw(\mu, \max), \qquad
+  \delta_h = \Dh(\mu, \max),
+\]
+\[
+  \mu^0_w = \min(w^+, \delta_w), \qquad
+  \mu^0_h = \min(h^+, \delta_h).
+\]
+For a $\Fill$ axis $\delta = \Om$ and the $\min$ collapses to $w^+$; this is
+precisely why $\Om$ must be a real number.
+
+\paragraph{Step 2 --- \texttt{widthIn} / \texttt{heightIn} rewrite (policy 70--79).}
+\[
+  w^-_1 = w^- \clampL \Iw^-, \quad
+  w^+_1 = w^+ \clampH \Iw^+, \quad
+  h^-_1 = h^- \clampL \Ih^-, \quad
+  h^+_1 = h^+ \clampH \Ih^+ .
+\]
+
+\paragraph{Step 3 --- inset maxima (policy 81--82).}
+\[
+  \hat c_w = w^+_1 - p_{\mathrm{h}}, \qquad
+  \hat c_h = h^+_1 - p_{\mathrm{v}} .
+\]
+
+\paragraph{Step 4 --- resolve both axes (policy 90--154).}
+\[
+  (a_w, w^-_2, \hat w, \omega_w)
+    = \Rr\bigl(\Dimw(\mu),\, F_{\mathrm{h}}(n),\, p_{\mathrm{h}},\, \delta_w,\,
+               \mu^0_w,\, w^-_1,\, w^+_1,\, \hat c_w\bigr),
+\]
+\[
+  (a_h, h^-_2, \hat h, \omega_h)
+    = \Rr\bigl(\Dimh(\mu),\, F_{\mathrm{v}}(n),\, p_{\mathrm{v}},\, \delta_h,\,
+               \mu^0_h,\, h^-_1,\, h^+_1,\, \hat c_h\bigr).
+\]
+
+\paragraph{Step 5 --- enforce constraints (policy 163--168).}
+\[
+  a^1_w = \min\bigl(\max(a_w, w^-_2),\, w^+_1\bigr), \qquad
+  a^1_h = \min\bigl(\max(a_h, h^-_2),\, h^+_1\bigr).
+\]
+
+\paragraph{Step 6 --- fully determined axes (policy 170--175).}
+\[
+  a^2_w = \begin{cases} w^+_1 & w^-_2 = w^+_1 \\ a^1_w & \text{else,}\end{cases}
+  \qquad
+  a^2_h = \begin{cases} h^+_1 & h^-_2 = h^+_1 \\ a^1_h & \text{else.}\end{cases}
+\]
+A tight constraint wins outright, whatever the content wants. This is why a
+$\Wrap$ root still fills its viewport: \jv{RootLayoutComponent} measures the
+document tightly.
+
+\paragraph{Step 7 --- measure the children (policy 181--336).}
+Exactly one of two hooks runs.
+
+\emph{Wrap branch}, taken when $\omega_w \vee \omega_h$ (policy 182--205). Let
+$\kappa_{\mathrm{wrap}} = (w^-_2, \hat w, h^-_2, \hat h)$ and let
+$(\varsigma, \vec{\tau}\,)$ be the manager's wrap hook applied to
+$(\vec{n}, \kappa_{\mathrm{wrap}})$, returning a content size $\varsigma$ and the
+measured children. Then
+\[
+  a^3_w = \begin{cases}
+    \max(\varsigma_w + p_{\mathrm{h}},\, w^-_2) & \omega_w \\
+    a^2_w & \neg\omega_w
+  \end{cases}
+  \qquad
+  a^3_h = \begin{cases}
+    \max(\varsigma_h + p_{\mathrm{v}},\, h^-_2) & \omega_h \\
+    a^2_h & \neg\omega_h .
+  \end{cases}
+\]
+
+\emph{Size branch}, otherwise (policy 324--335). With
+$\kappa_{\mathrm{size}} = (0,\; a^2_w - p_{\mathrm{h}},\; 0,\; a^2_h -
+p_{\mathrm{v}})$, the manager's size hook produces $\vec{\tau}$, and
+$a^3_w = a^2_w$, $a^3_h = a^2_h$. The children see the node's resolved content
+box.
+
+\paragraph{Step 8 --- final size (policy 349--357).}
+\[
+  W = \bigl(\min(\max(a^3_w, w^-_2),\, w^+_1)\bigr) \clampL \Iw^- \clampH \Iw^+,
+\]
+\[
+  H = \bigl(\min(\max(a^3_h, h^-_2),\, h^+_1)\bigr) \clampL \Ih^- \clampH \Ih^+ .
+\]
+
+\paragraph{Step 9 --- placement (policy 364).}
+The content box is
+\[
+  W_{\!*} = W - p_{\mathrm{h}}, \qquad H_{\!*} = H - p_{\mathrm{v}},
+\]
+and the manager's placement hook assigns each measured child an offset inside
+it, returning the placed children together with a flag $g$ saying whether the
+manager has decided it is itself invisible:
+\[
+  \Mm(n,\kappa) \;=\; \bigl\langle (0, 0, W, H),\; p,\; g,\; \mathrm{place}(\ldots) \bigr\rangle .
+\]
+The node's own $x$ and $y$ are left at $0$; its parent sets them. Only the two
+collapsible managers can return $g = \textsf{true}$, and only when nothing
+survived their final sweep (Section~\ref{sec:crow}); for every other kind
+$g = \textsf{false}$.
+
+\begin{definition}[Document layout]
+\[
+  \mathrm{layout}(n, W, H) = \Mm\bigl(n,\, \kappa_{\mathrm{tight}}(W, H)\bigr).
+\]
+\end{definition}
+
+\begin{definition}[Absolute coordinates]
+$\mathrm{abs}(\tau, o_x, o_y)$ lists every rectangle of $\tau$ in pre-order,
+translated into window coordinates:
+\[
+  \mathrm{abs}\bigl(\langle r, p, g, \vec\tau\,\rangle, o_x, o_y\bigr)
+    = (o_x + r.x,\, o_y + r.y,\, r.w,\, r.h) \;::\;
+      \bigl[\,\mathrm{abs}(\tau_i,\; o_x + r.x + p_\ell,\; o_y + r.y + p_t)\,\bigr]_i .
+\]
+The parallel traversal that lists the flags $g$ in the same order is written
+$\mathrm{abs}_{\gone}$; the conformance harness of
+Section~\ref{sec:conformance} checks both.
+\end{definition}
+
+%%% ==================================================================
+\section{Per-manager rules}
+
+Six managers are specified, and they differ in exactly three places: the wrap
+pass, the size pass, and the placement pass. Everything in
+Section~\ref{sec:measure} is shared. Two of the six insert an extra structural
+step of their own before those hooks run --- the collapsible managers decide
+which children to keep, and the flow manager decides which row each child joins
+--- but both steps are pure functions of children that have already been
+measured, so they sit inside the hooks rather than beside them.
+
+\subsection{Box}
+
+\begin{definition}[Box hooks]
+\[
+  \mathrm{wrap}_{\bbox}(\vec{n}, \kappa) =
+    \Bigl(\bigl(\textstyle\max_i \tau_i.w,\; \max_i \tau_i.h\bigr),\; \vec{\tau}\,\Bigr),
+  \qquad \tau_i = \Mm\bigl(n_i,\, \kappa_{\mathrm{loose}}(\kappa.w^+, \kappa.h^+)\bigr),
+\]
+\[
+  \mathrm{size}_{\bbox}(\vec{n}, \kappa) = \bigl[\,\Mm(n_i, \kappa)\,\bigr]_i ,
+\]
+\[
+  \mathrm{place}_{\bbox}(\vec{\tau}, a_{\mathrm{h}}, a_{\mathrm{v}}, W_{\!*}, H_{\!*})
+    = \bigl[\,\tau_i \text{ at } \bigl(X(a_{\mathrm{h}}, W_{\!*}, \tau_i.w),\;
+                                       Y(a_{\mathrm{v}}, H_{\!*}, \tau_i.h)\bigr)\,\bigr]_i ,
+\]
+with $X$, $Y$ from Section~\ref{sec:cross}, and the empty maxima taken to be $0$.
+\end{definition}
+
+Every child of a box sees identical constraints, and the box takes the pointwise
+maximum. Children overlap; they are painted in list order.
+
+\subsection{Row}
+\label{sec:row}
+
+\paragraph{Wrap pass.}
+Let $k = |\vec{n}|$. If no child is weighted, the row performs a single
+left-to-right sweep in which each child sees the space its predecessors did not
+take:
+\[
+  \tau_i = \Mm\bigl(n_i,\, (0,\, \rho_{i-1},\, 0,\, \kappa.h^+)\bigr),
+  \qquad \rho_0 = \kappa.w^+, \quad \rho_i = \rho_{i-1} - \tau_i.w .
+\]
+If some child is weighted, the sweep is split. First the unweighted children are
+measured to find the space left over,
+\[
+  \rho^\star = \kappa.w^+ - \!\!\sum_{i \,:\, \Dimw(\mu_i) \neq \Weight(\_)}\!\! \tau_i.w ,
+\]
+then the measuring sweep runs, pinning each weighted child to its share:
+\[
+  \tau_i = \begin{cases}
+    \Mm\bigl(n_i,\, \kappa_{\mathrm{tight}}(c_i, \cdot)\bigr),\;
+      c_i = \dfrac{\wt(\Dimw(\mu_i)) \cdot \rho^\star}{\Theta_{\mathrm{h}}(\vec{n})}
+      & \Dimw(\mu_i) = \Weight(\_) \\[10pt]
+    \Mm\bigl(n_i,\, (0,\, \rho_{i-1},\, 0,\, \kappa.h^+)\bigr) & \text{otherwise,}
+  \end{cases}
+\]
+where the running budget $\rho$ advances only on unweighted children. (Weighted
+children receive the vertical constraint $[0, \kappa.h^+]$.) The content size is
+\[
+  \varsigma_w = \sum_i \tau_i.w + s\,(k-1), \qquad
+  \varsigma_h = \max_i \tau_i.h ,
+\]
+with the spacing term taken to be $0$ when $k = 0$.
+
+\begin{remark}
+Because $\Mm$ is a function, re-measuring an unweighted child in the second
+sweep yields exactly the value the first sweep computed for it. The reference
+implementation's two physical passes therefore collapse into one ordered sweep
+without changing the result.
+\end{remark}
+
+\paragraph{Size pass.}
+A plain shrinking sweep that forwards the minimum unchanged and shrinks only the
+maximum:
+\[
+  \tau_i = \Mm\bigl(n_i,\, (\kappa.w^-,\, \rho_{i-1},\, \kappa.h^-,\, \kappa.h^+)\bigr),
+  \qquad \rho_0 = \kappa.w^+, \quad \rho_i = \rho_{i-1} - \tau_i.w .
+\]
+Weights are \emph{not} resolved here; they are deferred to placement.
+
+\paragraph{Placement.}
+If some child is weighted, each weighted child is re-measured tightly against
+its share of the space left inside the \emph{final} content width, preserving
+the height it already measured:
+\[
+  \mathrm{avail} = W_{\!*} - \!\!\sum_{i \,:\, \Dimw(\mu_i) \neq \Weight(\_)}\!\! \tau_i.w,
+  \qquad
+  \tau_i' = \Mm\Bigl(n_i,\; \kappa_{\mathrm{tight}}\bigl(
+      \tfrac{\wt(\Dimw(\mu_i)) \cdot \mathrm{avail}}{\Theta_{\mathrm{h}}(\vec{n})}
+      \clampL \Iw^- \clampH \Iw^+ ,\;\; \tau_i.h \bigr)\Bigr).
+\]
+Unweighted children keep $\tau_i' = \tau_i$. Then, with
+\[
+  T = \sum_i \tau_i'.w, \qquad
+  C = T + s\,(k-1),
+\]
+the arrangement $\Aa$ of Section~\ref{sec:arrange} yields an initial offset
+$t_0$ and an inter-child gap $g$, and the children are laid out by
+\[
+  x_1 = t_0, \qquad
+  x_{i+1} = \begin{cases}
+    x_i & \tau_i' \text{ is } \gone \\
+    x_i + \tau_i'.w + [\,\mathrm{spaced}(A)\,]\cdot g + s & \text{otherwise,}
+  \end{cases}
+  \qquad
+  y_i = Y(a_{\mathrm{v}}, H_{\!*}, \tau_i'.h).
+\]
+The sums $T$ and $C$, and the count $k$ that $\Aa$ divides by, likewise range
+over the visible children only; $\Theta_{\mathrm{h}}$ skips the invisible ones
+too, so a collapsed child neither claims a share of the leftover space nor
+dilutes anyone else's.
+
+\begin{warning}[A collapsed child is still positioned]
+\label{sec:goneplaced}
+Only the \emph{cursor advance} is skipped, not the assignment. \jv{setX} and
+\jv{setY} run at lines 546--547, before the \jv{isGone} test at line 548, so an
+invisible child is recorded at exactly the coordinates its next visible sibling
+will occupy. Nothing is painted there, but the gold dumps record the rectangle
+and the specification reproduces it. This matters only for the collapsible and
+flow managers, which are the only ones in scope that can make a child invisible.
+\end{warning}
+
+\begin{remark}[The weight loop]
+The reference implementation wraps weight resolution in
+\jv{while (checkWeights)}, whose body re-runs only when \jv{applyVisibility}
+returns true. \jv{LayoutManager.applyVisibility} returns \jv{false}
+unconditionally (lines 76--79), and \textbf{no} subclass overrides it --- not
+even the collapsible managers, which do their visibility work in
+\jv{computeVisibleChildren} instead. The loop is therefore always a single pass,
+for every manager, and is modelled as straight-line code.
+\end{remark}
+
+\subsection{Column}
+\label{sec:column}
+
+The column is the vertical mirror of the row in its wrap pass and its
+placement pass. It is \textbf{not} a mirror in its size pass.
+
+\begin{warning}[Row/Column asymmetry]
+\label{sec:rowcolasym}
+\jv{ColumnLayout.computeSize} is guarded by
+\begin{center}
+\jv{private static final boolean DIRECT\_WEIGHT\_CALCULATION = true;}
+\end{center}
+and resolves vertical weights \emph{during the size pass}, in two sweeps with
+different running budgets. \jv{RowLayout.computeSize} does no such thing.
+Specifying the column as a mirror of the row disagrees with the gold corpus.
+\end{warning}
+
+\paragraph{Size pass with weights.}
+When no child is weighted, the column runs the vertical mirror of the row's
+shrinking sweep. When some child is weighted:
+
+\emph{First sweep.} The unweighted children are measured against their own
+running budget and their total height recorded:
+\[
+  N = \!\!\sum_{i \,:\, \Dimh(\mu_i) \neq \Weight(\_)}\!\! \tau_i.h,
+  \qquad
+  \tau_i = \Mm\bigl(n_i,\, (\kappa.w^-,\, \kappa.w^+,\, \kappa.h^-,\, \eta_{i-1})\bigr),
+\]
+with $\eta_0 = \kappa.h^+$ and $\eta$ decreasing only on unweighted children.
+
+\emph{Second sweep.} With $\mathrm{avail} = \kappa.h^+ - N$, every child is
+measured again, weighted ones tightly:
+\[
+  \tau_i' = \begin{cases}
+    \Mm\bigl(n_i,\, (\kappa.w^-,\, \kappa.w^+,\, c_i,\, c_i)\bigr),\;
+      c_i = \dfrac{\mathrm{avail}\cdot\wt(\Dimh(\mu_i))}{\Theta_{\mathrm{v}}(\vec{n})}
+      & \Dimh(\mu_i) = \Weight(\_) \\[10pt]
+    \Mm\bigl(n_i,\, (\kappa.w^-,\, \kappa.w^+,\, \kappa.h^-,\, \eta'_{i-1})\bigr)
+      & \text{otherwise,}
+  \end{cases}
+\]
+where the second budget $\eta'$ now shrinks by \emph{every} child, weighted ones
+included. An unweighted child can therefore measure differently in the two
+sweeps; it is the second result that is kept.
+
+\paragraph{Wrap and placement.}
+The vertical mirrors of the row's, with $\Dimh$, $\Theta_{\mathrm{v}}$,
+$\varsigma_h = \sum_i \tau_i.h + s(k-1)$, $\varsigma_w = \max_i \tau_i.w$, and
+the cross-axis offset $X(a_{\mathrm{h}}, W_{\!*}, \tau_i.w)$.
+
+\subsection{Collapsible row}
+\label{sec:crow}
+
+A \jv{CollapsibleRowLayout} is a \jv{RowLayout} that first decides which of its
+children it can afford to keep, and then defers to \jv{RowLayout} for the
+arrangement. The decision --- \jv{computeVisibleChildren}, lines 239--326 --- is
+taken in two phases, and it is retaken from scratch at each of the manager's
+three entry points.
+
+\paragraph{Priorities.}
+
+\begin{definition}[Collapsible priority]
+For an orientation $o \in \{\Horz, \Vrt\}$,
+\[
+  P_o(n) = \begin{cases}
+    v & \text{the chain of } n \text{ contains } \pri(o, v), \\
+    \Om & \text{otherwise.}
+  \end{cases}
+\]
+\end{definition}
+
+A child that declares no priority --- or declares one for the \emph{other} axis
+--- therefore holds the largest priority there is, and is the last to be dropped.
+
+\begin{definition}[Priority order]
+$a \prec_o b$ iff $P_o(a) \geq P_o(b) + 1$. Write $\mathrm{sort}_o$ for the
+stable sort by $\prec_o$: highest priority first, so that the tail of the sorted
+list is what goes first.
+\end{definition}
+
+The reference comparator is \jv{(int) (priority2 - priority1)}, and the $+1$
+encodes its truncation towards zero: an \jv{int} result is negative only for a
+difference of at least one, so two priorities less than a unit apart compare
+equal and, the sort being stable, keep their declaration order.
+
+\begin{warning}[Fractional priorities are unspecified]
+Within one unit the truncating comparator is not a strict weak ordering, and the
+reference implementation's output then depends on the internals of Java's
+\jv{TimSort}. Integer priorities --- everything the corpus uses --- are
+unaffected, and the specification commits to nothing else.
+\end{warning}
+
+\paragraph{Phase 1: the measuring sweep (lines 251--281).}
+Each child is measured once, in declaration order, against a budget that shrinks
+by what its predecessors took --- but the budget is only \emph{offered} to a
+child that is itself a collapsible row or that carries a horizontal weight:
+\[
+  \tau_i = \Mm\bigl(n_i,\; (0,\; \beta^{\ast}_i,\; 0,\; \kappa.h^+)\bigr),
+  \qquad
+  \beta^{\ast}_i = \begin{cases}
+    \beta_{i-1} & n_i = \crow(\ldots) \text{ or } \Dimw(\mu_i) = \Weight(\_) \\
+    \Om & \text{otherwise,}
+  \end{cases}
+\]
+\[
+  \beta_0 = \kappa.w^+,
+  \qquad
+  \beta_i = \begin{cases}
+    \beta_{i-1} & \tau_i \text{ is } \gone \\
+    \beta_{i-1} - \tau_i.w & \text{otherwise.}
+  \end{cases}
+\]
+
+\begin{remark}
+The $\Om$ is the point of the phase. A child measured against the space that is
+actually left would report a width that fits by construction, and phase~2 would
+have nothing to discover. Measuring it against \jv{Float.MAX\_VALUE} instead
+makes it report the width it \emph{wants}, which is what the fit test needs.
+\end{remark}
+
+\paragraph{Phase 2: the collapsing sweep (lines 290--325).}
+This phase re-enters nothing: it works purely on the sizes phase~1 established.
+
+\begin{definition}[Collapsing sweep]
+Let $e(\tau) = \tau.w$ for a row and $\tau.h$ for a column. For a budget $B$,
+\[
+  \Sigma(B, \varepsilon, \alpha, f) = \varepsilon,
+\]
+\[
+  \Sigma\bigl(B,\; (i,\tau)\cdot\vec{x},\; \alpha,\; f\bigr) = \begin{cases}
+    (i, \textsf{true}) \cdot \Sigma(B, \vec{x}, \alpha, f)
+      & f \vee \tau.\gone, \\[2pt]
+    (i, \textsf{true}) \cdot \Sigma(B, \vec{x}, \alpha, \textsf{true})
+      & \alpha + e(\tau) > B, \\[2pt]
+    (i, \textsf{false}) \cdot \Sigma\bigl(B, \vec{x}, \alpha + e(\tau), \textsf{false}\bigr)
+      & \text{otherwise.}
+  \end{cases}
+\]
+\end{definition}
+
+Three things are load-bearing. The refusal flag $f$ is \textbf{sticky}: once one
+child has been refused, so is every child after it in priority order, however
+small. A child that arrived already $\gone$ is skipped \emph{without} setting the
+flag, so it costs its successors nothing. And $\alpha$ accumulates over the
+survivors only.
+
+\begin{definition}[Collapse decision]
+$G_o(B, \vec{n}, \vec{\tau}\,)$ is the list of flags produced by
+$\Sigma(B, \Pi, 0, \textsf{false})$, read back into declaration order, where
+$\Pi$ is the indexed child list --- sorted by $\mathrm{sort}_o$ when at least one
+child carries a $\pri$ modifier, and left in declaration order otherwise.
+\end{definition}
+
+\begin{warning}[The sort gate ignores orientation]
+The \jv{hasPriorities} flag is set by the mere presence of a
+\jv{CollapsiblePriorityModifier}, whatever axis it names. A child carrying a
+\emph{vertical} priority is therefore enough to make a \emph{row} sort its
+children --- and $P_\Horz$ then returns $\Om$ for that child, so it sorts to the
+front and collapses last.
+\end{warning}
+
+\paragraph{The three hooks.}
+Write $\vec{\tau} = \Phi(\vec{n}, \kappa)$ for the result of phase~1 and $\nu$
+for the number of children it left visible.
+
+\emph{Wrap pass.}
+\[
+  \varsigma_w = \begin{cases}
+    \min\bigl(\kappa.w^+,\; \sum_{i \notin G} \tau_i.w\bigr) & \omega_w \\[4pt]
+    \sum_i \tau_i.w + s\,(\nu - 1) & \neg\omega_w
+  \end{cases}
+  \qquad
+  \varsigma_h = \max_i \tau_i.h,
+\]
+with $G = G_\Horz(\kappa.w^+, \vec{n}, \vec{\tau}\,)$ and the spacing term taken
+as $0$ for an empty child list. The two branches disagree about more than the
+clamp: the wrapping one sums the \emph{survivors} and contains no spacing at all,
+the other sums \emph{everything} phase~1 measured and does. The height is the
+tallest child of phase~1 either way, collapsed or not.
+
+\emph{Size pass.} Phase~1 alone. Whatever $G$ this pass would compute is
+discarded, because the placement pass clears every visibility override and takes
+the decision again.
+
+\emph{Placement.} The decision is taken a final time, and it is this one that is
+observable:
+\[
+  \vec{\tau}\,' = \text{apply } G_\Horz(W, \vec{n}, \vec{\tau}\,),
+  \qquad
+  \mathrm{place}_{\crow} = \mathrm{place}_{\rrow}\bigl(\vec{\tau}\,', A, a_{\mathrm{v}}, s, W_{\!*}, H_{\!*}\bigr),
+\]
+and the manager declares \emph{itself} $\gone$ iff no $\tau'_i$ survives.
+
+\begin{warning}[The budget includes the padding]
+The final decision is taken against $W$, the manager's full measured width, and
+\textbf{not} against $W_{\!*} = W - p_{\mathrm{h}}$, the content box the children
+are then placed inside. A padded collapsible row admits children its content box
+cannot hold, and they overflow it by up to $p_{\mathrm{h}}$.
+\end{warning}
+
+\begin{warning}[The fit test is blind to \texttt{spacedBy}]
+\label{sec:collapsespaced}
+$\Sigma$ compares $\alpha + e(\tau)$ against $B$ with no spacing term, and the
+placement loop then adds $s$ between every surviving pair anyway. A spaced
+collapsible layout therefore admits one child too many and overflows by up to
+$s\,(\nu - 1)$; see Appendix~\ref{app:examples}, Example~6.
+\end{warning}
+
+\begin{remark}[Why the decision is retaken]
+Collapsible visibility is written as an \jv{OVERRIDE\_GONE} bit rather than a
+base value, and every entry point begins by calling
+\jv{clearVisibilityOverride}. Only the last decision --- the one placement takes
+--- reaches the output. An empty collapsible manager declares itself $\gone$
+vacuously, having no visible child.
+\end{remark}
+
+\subsection{Collapsible column}
+\label{sec:ccol}
+
+The vertical mirror, and this time genuinely a mirror: unlike \jv{ColumnLayout},
+whose size pass departs from \jv{RowLayout}'s (Caveat~\ref{sec:rowcolasym}),
+\jv{CollapsibleColumnLayout} is a line-for-line transcription of
+\jv{CollapsibleRowLayout} with the axes exchanged. Read
+Section~\ref{sec:crow} with $\Dimh$ for $\Dimw$, $\Vrt$ for $\Horz$, $e(\tau) =
+\tau.h$, the budget $H$ for $W$, and $\ccolp$ for $\crow$ in the phase-1 test.
+
+Note in particular that the collapsible column does \emph{not} inherit
+\jv{ColumnLayout}'s \jv{DIRECT\_WEIGHT\_CALCULATION} asymmetry, because it
+overrides \jv{computeSize} itself.
+
+\subsection{Flow}
+\label{sec:flow}
+
+A \jv{FlowLayout} is a \jv{RowLayout} that cuts its children into rows and then
+runs the inherited row machinery once per row. Segmentation is a pure function
+of the measured children, like the collapsing sweep, and is likewise re-run by
+each entry point.
+
+\paragraph{Extents.}
+
+\begin{definition}[Segmentation extents]
+\[
+  e_i = \begin{cases}
+    (0, 0) & \tau_i \text{ is } \gone, \\
+    \bigl(\Iw^-(\mu_i) \text{ or } 0,\;\; \mih(n_i)\bigr)
+      & \Dimw(\mu_i) = \Weight(\_), \\
+    (\tau_i.w,\; \tau_i.h) & \text{otherwise.}
+  \end{cases}
+\]
+\end{definition}
+
+A weighted child is not measured for segmentation at all: it is credited with its
+\jv{widthIn} minimum, or nothing, and with its intrinsic height
+(Section~\ref{sec:intrinsic}). Its real width is settled later, once the row it
+landed in is known.
+
+\paragraph{The segmentation walk (lines 225--277).}
+The state is $(c, \theta, \Theta, \varrho, \nu, f)$: the current row's width and
+height, the height already stacked, the number of rows opened, the number of
+items in the current row, and the sticky refusal flag. It starts at
+$(0, 0, 0, 1, 0, \textsf{false})$ --- note $\varrho = 1$ --- and the box is
+$(\hat W, \hat H)$.
+
+For each child in declaration order: if $f$, the child is refused. Otherwise let
+\[
+  \mathrm{brk} = \bigl(e_i.w + c > \hat W\bigr) \;\vee\; \bigl(\nu \geq k_{\mathrm{items}}\bigr)
+\]
+be the test that the current row cannot take it. If $\mathrm{brk}$ holds and no
+further row may be opened,
+\[
+  \varrho \geq k_{\mathrm{lines}} \;\vee\; \Theta + \theta \geq \hat H,
+\]
+the child is refused and $f$ is set. Otherwise the child joins row
+$\varrho' - 1$, and the state advances by
+\[
+  \begin{gathered}
+    \varrho' = \varrho + [\mathrm{brk}], \qquad
+    \Theta' = \Theta + [\mathrm{brk}]\cdot\theta, \\
+    c' = [\neg\mathrm{brk}]\cdot c + e_i.w + s, \qquad
+    \theta' = \max\bigl([\neg\mathrm{brk}]\cdot\theta,\; e_i.h\bigr), \qquad
+    \nu' = [\neg\mathrm{brk}]\cdot\nu + 1,
+  \end{gathered}
+\]
+every right-hand side reading the pre-update state. Write
+$R = \{0, \ldots, |R| - 1\}$ for the rows opened, $|R| = \max\bigl(1, 1 + \max_i
+r_i\bigr)$, and $i \in r$ for membership.
+
+\begin{warning}[A flow opens a row before it starts]
+$\varrho$ counts from $1$, because the reference implementation appends an empty
+row before the walk. $k_{\mathrm{lines}}$ therefore bites one row earlier than
+the name suggests. Both limits default to \jv{Integer.MAX\_VALUE} $=
+2147483647$.
+\end{warning}
+
+\begin{warning}[\texttt{spacedBy} is added after the last item of a row]
+$c'$ adds $s$ after \emph{every} child, including the one that ends a row, so a
+spaced flow breaks one item earlier than the arithmetic suggests --- the phantom
+trailing gap is charged against the next child's fit test.
+\end{warning}
+
+\begin{warning}[A refused child does not stay refused]
+\label{sec:flowsticky}
+\jv{segmentComponents} records a refusal with \jv{setVisibility(GONE)}, which
+writes the component's \emph{base} visibility rather than an override, and
+nothing ever clears it. The refusal therefore survives into the next pass, which
+reads the child back through the first case of $e_i$ as a zero-width item, finds
+that a zero-width item fits, and lets it rejoin a row --- at whatever position the
+cursor had reached, which may be well outside the container. Appendix
+\ref{app:examples}, Example~8 shows this happening; \file{flow\_max\_lines} is
+tagged \jv{suspicious} in the gold suite for exactly it.
+\end{warning}
+
+\paragraph{Wrap pass (lines 290--331).}
+Every child is measured against the full box, the children are segmented, and
+then each row in turn is handed to the inherited \jv{RowLayout.computeWrapSize}
+--- which re-measures that row's unweighted members against a budget shrinking
+along the row, and its weighted members against their share of what is left,
+exactly as in Section~\ref{sec:row}. With
+\[
+  \mathrm{rw}(r) = \!\!\sum_{i \in r,\; \text{visible}}\!\! \tau_i.w
+    \;+\; s\,\bigl(|r|_{\vis} - 1\bigr)
+  \quad (0 \text{ for an empty row}),
+\]
+the content size is
+\[
+  \varsigma_w = \min\Bigl(\max\bigl(\kappa.w^-,\; \max_{r} \mathrm{rw}(r)\bigr),\; \kappa.w^+\Bigr),
+  \qquad
+  \varsigma_h = \min\Bigl(\max\bigl(\kappa.h^-,\; \sum_{r} \max_{i \in r} \tau_i.h\bigr),\; \kappa.h^+\Bigr).
+\]
+This is the only wrap hook in the specification that clamps into its own incoming
+constraints rather than leaving that to Step~8.
+
+\paragraph{Size pass (lines 333--354).}
+A single uniform measurement against the content box, followed by segmentation
+and the refusals it decides. There is no per-row re-measurement here: the
+shrinking budget that would provide one is commented out at line~350 of the
+reference implementation, which makes the two nominal sweeps identical.
+
+\paragraph{Placement (lines 356--399).}
+Four steps.
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \emph{Re-measure.} Every child that is neither $\gone$ nor weighted is
+    measured again against $(W_{\!*}, H_{\!*})$; the others keep the size they
+    have. A $\gone$ child is thus left holding a stale size that segmentation
+    will not read anyway.
+  \item \emph{Re-segment} against $(W_{\!*}, H_{\!*})$, giving the final rows and
+    the final refusals.
+  \item \emph{Stack.} Each row is given the intrinsic height
+    \[
+      \eta(r) = \max\Bigl(\Dh(\mu, \min),\;\; \max_{i \in r} \mih(n_i)\Bigr),
+    \]
+    where $\mu$ is the \textbf{flow's own} chain --- the protected
+    \jv{RowLayout.minIntrinsicHeight} is invoked on \jv{this}, not on the row.
+    The rows begin at $y_0 = Y\bigl(a_{\mathrm{v}}, H_{\!*}, \sum_r \eta(r)\bigr)$.
+  \item \emph{Lay out each row} as an ordinary row inside a box
+    $W_{\!*} \times \eta(r)$, shift its children down by the running $y$, and
+    advance
+    \[
+      y \;\mathrel{+}=\; \max_{i \in r,\; \text{visible}} \tau_i.h .
+    \]
+\end{enumerate}
+
+\begin{warning}[Two different row heights]
+Step~3 resolves the stack, and the cross-axis alignment \emph{inside} each row,
+against the row's \emph{intrinsic} height $\eta(r)$; step~4 advances the cursor
+by the row's \emph{measured} height. These are different quantities, and nothing
+reconciles them. Where a row measures taller than it intrinsically is, the rows
+gape apart and the last of them runs past the bottom of the flow; where it
+measures shorter, they overlap.
+\end{warning}
+
+%%% ==================================================================
+\section{Alignment and arrangement}
+
+\subsection{Cross axis}
+\label{sec:cross}
+
+\begin{definition}[Cross-axis offsets]
+\[
+  X(a_{\mathrm{h}}, L, c) = \begin{cases}
+    0 & a_{\mathrm{h}} = \Start \\
+    (L - c)/2 & a_{\mathrm{h}} = \Center \\
+    L - c & a_{\mathrm{h}} = \End
+  \end{cases}
+  \qquad
+  Y(a_{\mathrm{v}}, L, c) = \begin{cases}
+    0 & a_{\mathrm{v}} = \Top \\
+    (L - c)/2 & a_{\mathrm{v}} = \Center \\
+    L - c & a_{\mathrm{v}} = \Bottom .
+  \end{cases}
+\]
+\end{definition}
+
+$X$ is used for the cross axis of a column and for the horizontal axis of a box;
+$Y$ for the cross axis of a row and the vertical axis of a box. Note that
+neither clamps: a child larger than its container gets a negative offset, and
+overflows symmetrically under $\Center$.
+
+\subsection{Main axis}
+\label{sec:arrange}
+
+\begin{definition}[Arrangement]
+Given the container's main extent $L$, the children's total extent \emph{with}
+spacing $C$, their total extent \emph{without} spacing $T$, and their count $k$,
+\[
+  \Aa(A, L, C, T, k) = (t_0, g)
+\]
+where
+\[
+\begin{array}{lll}
+  \Aa(\Start) &=& (0,\; 0) \\
+  \Aa(\End) &=& (L - C,\; 0) \\
+  \Aa(\Center) &=& \bigl((L - C)/2,\; 0\bigr) \\
+  \Aa(\SBetween) &=& \begin{cases}
+      \bigl(0,\; (L - T)/(k-1)\bigr) & k > 1 \\
+      \bigl((L - C)/2,\; 0\bigr) & k \leq 1
+    \end{cases} \\[10pt]
+  \Aa(\SEvenly) &=& (g,\; g), \quad g = (L - T)/(k+1) \\[2pt]
+  \Aa(\SAround) &=& (g/2,\; g), \quad g = (L - T)/k .
+\end{array}
+\]
+\end{definition}
+
+A single child under $\SBetween$ is centred, which is what the reference
+implementation's comment says it intends.
+
+\begin{warning}[\texttt{spacedBy} and \texttt{SPACE\_*} do not compose]
+\label{sec:spacedquirk}
+The gaps for the three $\mathsf{Space}$ arrangements are computed from $T$,
+which \emph{excludes} \jv{spacedBy}, but the placement loop then still executes
+\jv{tx += spacedBy}. A row or column that mixes \jv{spacedBy} with a
+$\mathsf{Space}$ arrangement therefore overflows its container by exactly
+$s\,(k-1)$. This is reproduced faithfully; see Appendix~\ref{app:examples},
+Example~4.
+\end{warning}
+
+%%% ==================================================================
+\section{Properties}
+\label{sec:properties}
+
+The Lean development proves the following. Unless noted, they are proved by
+structural induction or by \jv{rfl} and are checked by the Lean kernel. They
+live in \file{RemoteComposeLayout/Theorems.lean}.
+
+\subsection{Placement preserves measurement}
+
+Placement assigns offsets and never resizes.
+
+\begin{property}[\texttt{rowPlace\_length}, \texttt{colPlace\_length}]
+Placement returns exactly as many children as it was given.
+\end{property}
+
+\begin{property}[\texttt{rowPlace\_preserves\_widths}]
+The list of widths is unchanged by row placement; dually
+\texttt{colPlace\_preserves\_heights} for heights, and
+\texttt{boxPlace\_preserves\_sizes} for both axes of a box.
+\end{property}
+
+\subsection{Main-axis progression}
+
+\begin{property}[\texttt{rowPlace\_start\_head}]
+Under $\Start$ with $s = 0$, the first child sits at $x = 0$.
+\end{property}
+
+\begin{property}[\texttt{rowPlace\_start\_tail}]
+Under $\Start$, the remaining children are placed exactly as if the row had
+begun at $\tau_1.w + s$.
+\end{property}
+
+\subsection{Cross-axis alignment}
+
+\begin{property}[\texttt{crossX\_Start}, \texttt{crossY\_Top}]
+$X(\Start, L, c) = 0$ and $Y(\Top, L, c) = 0$, for all $L$ and $c$.
+\end{property}
+
+\begin{property}[\texttt{crossX\_Center\_symmetric}]
+$X(\Center, L, c) = \bigl(L - c\bigr)/2$ leaves equal margins:
+the leading margin equals $L - c - X(\Center, L, c)$.
+\end{property}
+
+\begin{property}[\texttt{crossX\_End\_flush}, \texttt{crossY\_Bottom\_flush}]
+Under $\End$ the child's trailing edge coincides with the container's:
+$X(\End, L, c) + c = L$.
+\end{property}
+
+\begin{property}[\texttt{cross\_Center\_exact}]
+A child exactly as large as its container is placed at $0$ under every
+alignment.
+\end{property}
+
+\subsection{Arrangements fill their container}
+
+\begin{property}[\texttt{spaceEvenly\_fills}]
+Under $\SEvenly$ with $s = 0$, the $k$ children and the $k+1$ gaps exactly
+partition $L$: $t_0 + T + k\,g = L$.
+\end{property}
+
+\begin{property}[\texttt{spaceAround\_fills}]
+Under $\SAround$ with $s = 0$ and $k \neq 0$, the half-gaps at the ends and the
+full gaps between children exactly partition $L$.
+\end{property}
+
+\begin{property}[\texttt{spaceBetween\_singleton}]
+\[
+  \Aa(\SBetween, L, C, T, 1) = \Aa(\Center, L, C, T, 1).
+\]
+\end{property}
+
+\subsection{The modifier chain}
+
+\begin{property}[\texttt{padding\_order\_irrelevant}]
+$\Pp$ is invariant under permutation of the chain: accumulated padding does not
+depend on where the padding modifiers sit.
+\end{property}
+
+\begin{property}[\texttt{definedWidth\_order\_matters}]
+$\Dw$ \emph{is} order-dependent. Concretely,
+\[
+  \Dw\bigl(\pad(8)\cdot\wdt(\Exact(50))\bigr) = 66
+  \;\neq\; 50 = \Dw\bigl(\wdt(\Exact(50))\cdot\pad(8)\bigr).
+\]
+This is a proved disequality, not an assumption: it pins the quirk of
+Section~\ref{sec:orderquirk} down as a theorem.
+\end{property}
+
+\begin{property}[\texttt{definedWidth\_ignores\_height}]
+A $\hgt$ modifier does not terminate the horizontal walk.
+\end{property}
+
+\begin{property}[\texttt{widthDim\_first\_wins}]
+$\Dimw(\wdt(d,\iota)\cdot\wdt(d',\iota')\cdot\mu) = d$.
+\end{property}
+
+\subsection{Constraint enforcement}
+
+\begin{property}[\texttt{clamp\_le}]
+$\min(\max(x, \ell), u) \leq u$ for all $x, \ell, u$.
+\end{property}
+
+\begin{property}[\texttt{measure\_width\_le\_maxW}, \texttt{measure\_height\_le\_maxH}]
+Under the hypotheses that the node declares no \jv{widthIn} (resp.\
+\jv{heightIn}) and that its padding is non-negative, the measured size never
+exceeds the incoming maximum:
+$\Mm(n,\kappa).w \leq \kappa.w^+$.
+\end{property}
+
+\begin{remark}
+The \jv{widthIn} hypothesis is necessary, not an artefact of the proof. Step~8
+applies the \jv{widthIn} clamp \emph{after} the final constraint clamp, so a
+\jv{widthIn} whose minimum exceeds the incoming maximum does push the measured
+size past $\kappa.w^+$. The reference implementation has the same behaviour.
+\end{remark}
+
+\subsection{Collapsing and segmentation}
+
+The two structural passes the collapsible and flow managers add are, on the face
+of it, the two places in the algorithm where a child could go missing. These
+properties say that neither loses one, and pin down the one respect in which
+both are irreversible.
+
+\begin{property}[\texttt{collapseSweep\_length}]
+The collapsing sweep reaches a decision about every child, exactly once:
+$\len\bigl(\Sigma(B, \vec{x}, \alpha, f)\bigr) = \len(\vec{x})$.
+\end{property}
+
+\begin{property}[\texttt{collapseSweep\_overflow}]
+\emph{Refusal is sticky.} Once the sweep has refused one child, it refuses every
+child after it in priority order, however small:
+\[
+  \Sigma(B, \vec{x}, \alpha, \textsf{true})
+    = \bigl[\,(i, \textsf{true}) \;\big|\; (i, \tau) \in \vec{x}\,\bigr].
+\]
+A collapsible manager never back-fills.
+\end{property}
+
+\begin{property}[\texttt{applyFlags\_preserves\_rects}]
+Applying the decisions changes visibility and nothing else: the list of
+rectangles is unaffected. Collapsing does not move or resize anything; the
+consequences of the decision are drawn later, by the placement sweep.
+\end{property}
+
+\begin{property}[\texttt{priorityLt\_irrefl}]
+$\prec_o$ is irreflexive --- no child precedes itself. This is the least a sort
+may ask of a comparator, and it is not automatic here, since $\prec_o$ is
+defined by the truncating \jv{(int) (priority2 - priority1)} rather than by a
+plain comparison.
+\end{property}
+
+\begin{property}[\texttt{priorityInsert\_length}, \texttt{sortWithPriorities\_length}]
+The priority sort keeps every child: $\len(\mathrm{sort}_o(\vec{n})) =
+\len(\vec{n})$. It decides only the order in which children are offered space;
+which of them survive is the sweep's business.
+\end{property}
+
+\begin{property}[\texttt{flowSegment\_length}]
+Segmentation assigns every child either a row or a refusal, and never both or
+neither: $\len(\mathrm{seg}(\ldots, \vec{e})) = \len(\vec{e})$.
+\end{property}
+
+\begin{property}[\texttt{flowRowCount\_pos}]
+A flow always opens at least one row, even when every child is refused and even
+when there are none. The count starts at $1$ because the reference
+implementation appends an empty row before it begins walking --- which is
+exactly why $k_{\mathrm{lines}}$ bites a row earlier than one would expect.
+\end{property}
+
+\begin{property}[\texttt{maskRow\_length}]
+Masking a row hides the other rows and disturbs nothing else, preserving the
+length of the child list. This is what makes the masking construction of
+Section~\ref{sec:flow} faithful to the reference implementation's habit of
+passing one row's sublist to \jv{RowLayout}.
+\end{property}
+
+%%% ==================================================================
+\section{Layout Optimization Passes and Invariants}
+\label{sec:optimizations}
+
+The reference Java player defines four core layout optimizations in
+\jv{CoreDocument.java}, governed by a four-bit mask:
+\begin{align*}
+  \jv{OPTIMIZATION\_NONE}               &= 0, \\
+  \jv{OPTIMIZATION\_MEASURE\_CACHE}       &= 1 \quad (2^0), \\
+  \jv{OPTIMIZATION\_LAYOUT\_BOUNDARIES}  &= 2 \quad (2^1), \\
+  \jv{OPTIMIZATION\_FLAT\_MEASURE\_PASS} &= 4 \quad (2^2), \\
+  \jv{OPTIMIZATION\_CONSTRAINTS\_CACHE}  &= 8 \quad (2^3), \\
+  \jv{OPTIMIZATION\_ALL}                 &= 15.
+\end{align*}
+The Lean module \file{RemoteComposeLayout/Optimizations.lean} models each of
+these passes, their interaction with document invalidation and subtree
+remeasurement, and proves their correctness invariants.
+
+\subsection{Optimization levels and bitmask isomorphism}
+
+The flags are represented as a four-field record \lo{OptimizationLevel}:
+\[
+  \lo{OptimizationLevel} = \langle \textsf{measureCache}, \textsf{layoutBoundaries},
+  \textsf{flatMeasurePass}, \textsf{constraintsCache} \rangle.
+\]
+The bitmask packing and unpacking functions satisfy an exact roundtrip isomorphism:
+
+\begin{property}[\lo{bitmask\_roundtrip}]
+For any configuration $\mathrm{opt} \in \lo{OptimizationLevel}$,
+\[
+  \mathrm{fromNat}(\mathrm{toNat}(\mathrm{opt})) = \mathrm{opt}.
+\]
+Every combination of optimization flags is uniquely and reversibly encoded in the
+range $[0, 15]$.
+\end{property}
+
+\subsection{Relayout boundaries and incremental layout}
+\label{sec:opt-boundaries}
+
+A component is declared a \emph{relayout boundary}
+(\jv{Component.isRelayoutBoundary}) when its dimensions are externally
+determined and cannot depend on the size of its children:
+\begin{definition}[Relayout Boundary]
+A node $n$ is a relayout boundary if and only if:
+\[
+  \mathrm{isBoundary}(n) \iff
+  \bigl(\Dimw(n).\mathrm{isExact} \land \Dimh(n).\mathrm{isExact}\bigr) \;\lor\;
+  \bigl(\Dimw(n).\mathrm{isFill} \land \Dimh(n).\mathrm{isFill}\bigr).
+\]
+\end{definition}
+
+When a descendant component triggers an invalidation via \jv{invalidateMeasure()},
+the tree climbs parent pointers:
+\begin{enumerate}
+  \item If \jv{OPTIMIZATION\_LAYOUT\_BOUNDARIES} is disabled, invalidation ascends to
+  the document root, forcing a full pass (\lo{InvalidationTarget.fullRoot}).
+  \item If enabled, the ascent halts at the first ancestor satisfying
+  $\mathrm{isBoundary}(n)$, registering that ancestor's path as a dirty boundary
+  (\lo{InvalidationTarget.dirtyBoundary}).
+\end{enumerate}
+
+During playback, \jv{RootLayoutComponent.performPartialLayoutPass} traverses only
+registered dirty boundaries:
+\[
+  \tau' = \mathrm{layout}(n_{\mathrm{dirty}}, \tau.\mathrm{w}, \tau.\mathrm{h})
+  \quad\text{with}\quad
+  (x', y') = (\tau.x, \tau.y).
+\]
+The surrounding layout tree, sibling positions, and ancestor geometry are
+preserved without re-execution.
+
+\begin{property}[\lo{exact\_boundary\_width\_fixed}]
+An exact-sized component's boundary status is an invariant under arbitrary child
+mutations: for any child lists $\vec{c}_1, \vec{c}_2$, letting
+\begin{gather*}
+  n_1 = \lo{Node.box}([\wdt(\Exact(w)), \hgt(\Exact(h))], \vec{c}_1), \\
+  n_2 = \lo{Node.box}([\wdt(\Exact(w)), \hgt(\Exact(h))], \vec{c}_2),
+\end{gather*}
+we have $\mathrm{isBoundary}(n_1) = \mathrm{isBoundary}(n_2) = \textsf{true}$.
+Mutations within the subtree cannot disturb the boundary classification.
+\end{property}
+
+\subsection{Constraint caching and memoization}
+\label{sec:opt-cache}
+
+\jv{ComponentMeasure.hasCachedConstraints} memoizes measurement results. A cache
+hit occurs if the incoming constraints match one of three predicates:
+\begin{definition}[Constraint Cache Hit Criteria]
+Let $C = (w_{\min}, w_{\max}, h_{\min}, h_{\max})$ be the cached constraints,
+$(w^*, h^*)$ the previous dimensions, and $C' = (w'_{\min}, w'_{\max},$
+$h'_{\min}, h'_{\max})$ the incoming constraints. Then $C'$ hits the cache if:
+\begin{align*}
+  \mathrm{Match}_1 &\iff C' = C \quad \text{(exact match)}, \\
+  \mathrm{Match}_2 &\iff w'_{\min} = w_{\min} \;\land\; w'_{\max} = w_{\max} \;\land\;
+  h'_{\min} = h^* = h'_{\max}, \\
+  \mathrm{Match}_3 &\iff h'_{\min} = h_{\min} \;\land\; h'_{\max} = h_{\max} \;\land\;
+  w'_{\min} = w^* = w'_{\max}.
+\end{align*}
+\end{definition}
+
+\begin{property}[\lo{cache\_exact\_match}]
+If incoming constraints exactly match the cached descriptor,
+$\lo{hasCachedConstraints}$ evaluates unconditionally to $\textsf{true}$.
+\end{property}
+
+\subsection{Generational flat-array measure pass}
+\label{sec:opt-flatpass}
+
+Rather than allocating per-component \jv{ComponentMeasure} objects and clearing
+them with an $O(N)$ tree walk, \jv{FlatMeasurePass.java} assigns each component an
+integer index into preallocated flat arrays. Invalidation is achieved in $O(1)$
+via a monotonically increasing generation token:
+\[
+  g \gets g + 1.
+\]
+A slot $i$ is fresh for the current layout cycle if and only if:
+\[
+  \mathrm{isFresh}(i) \iff \mathrm{slot}[i].\mathrm{generation} = g.
+\]
+When $g$ reaches $2^{31}-1$, the generation resets to $1$ and the array is cleared.
+
+\begin{property}[\texttt{flatPass\_clear\_expires\_slots}]
+For any state where all allocated slots have generation $\leq g < 2^{31}-1$,
+incrementing the pass generation guarantees that every existing slot becomes stale
+immediately:
+\[
+  \mathrm{isFresh}(\lo{clear}(s), i) = \textsf{false} \quad (\forall i).
+\]
+No slot memory needs to be zeroed or reallocated during steady-state frame rendering.
+\end{property}
+
+\subsection{Flex two-pass short-circuiting}
+\label{sec:opt-flex}
+
+In \jv{RowLayout} and \jv{ColumnLayout}, allocating extra space to weighted
+children requires a second measurement sweep. The engine short-circuits this
+when no weighted children are present:
+
+\begin{property}[\texttt{unweighted\_row\_single\_pass}]
+If no child declares a weight on either dimension:
+\[
+  \bigvee_{c \in \vec{c}} \bigl(\Dimw(c).\mathrm{hasWeight} \lor \Dimh(c).\mathrm{hasWeight}\bigr) = \textsf{false},
+\]
+then all children satisfy:
+\[
+  \bigwedge_{c \in \vec{c}} \bigl(\neg \Dimw(c).\mathrm{hasWeight} \land \neg \Dimh(c).\mathrm{hasWeight}\bigr) = \textsf{true}.
+\]
+The measure pass finishes in a single pass without invoking flex space redistribution.
+\end{property}
+
+\subsection{Measure policy hierarchy}
+\label{sec:opt-policies}
+
+Layout behavior across RemoteCompose versions is formalized via five progressive
+policy configurations:
+\[
+  \lo{MeasurePolicyVersion} = \left\{
+  \begin{aligned}
+    &\lo{v0\_legacy}, \lo{v1\_baseModern}, \lo{v2\_insetWrap}, \\
+    &\lo{v3\_inlineExpression}, \lo{v4\_enforceConstraints}
+  \end{aligned}
+  \right\}.
+\]
+Each configuration determines three behavioral predicates:
+\[
+  \lo{MeasurePolicyConfig} = \langle \textsf{applyInsetWrap},
+  \textsf{updateComponentValues}, \textsf{enforceConstraints} \rangle.
+\]
+The policies form a monotonic progression:
+\begin{align*}
+  \lo{v0\_legacy}             &\mapsto \langle \textsf{false}, \textsf{false}, \textsf{false} \rangle, \\
+  \lo{v1\_baseModern}         &\mapsto \langle \textsf{false}, \textsf{false}, \textsf{false} \rangle, \\
+  \lo{v2\_insetWrap}          &\mapsto \langle \textsf{true},  \textsf{false}, \textsf{false} \rangle, \\
+  \lo{v3\_inlineExpression}   &\mapsto \langle \textsf{true},  \textsf{true},  \textsf{false} \rangle, \\
+  \lo{v4\_enforceConstraints} &\mapsto \langle \textsf{true},  \textsf{true},  \textsf{true}  \rangle.
+\end{align*}
+
+%%% ==================================================================
+\section{Extended Modifiers and Transformations}
+\label{sec:extended-modifiers}
+
+The Lean module \file{RemoteComposeLayout/ExtendedModifiers.lean} formalizes
+the full suite of geometric transformations, visibility states, alignment anchors,
+and rendering properties defined across \file{remote-core/operations/layout/modifiers/}.
+
+\subsection{Visibility modes and space preservation}
+\label{sec:mod-visibility}
+
+The reference player defines component visibility via the operation
+\jv{ComponentVisibilityOperation} (\jv{Component.java}), taking values in:
+\[
+  \lo{VisibilityMode} = \{\lo{visible},\, \lo{invisible},\, \lo{gone}\}.
+\]
+These modes govern two distinct semantic questions: whether the component occupies
+spatial layout bounds, and whether it produces visual raster output or receives touch:
+\begin{align*}
+  \lo{takesSpace}(v) &= \begin{cases}
+    \textsf{true}  & \text{if } v \in \{\lo{visible}, \lo{invisible}\}, \\
+    \textsf{false} & \text{if } v = \lo{gone},
+  \end{cases} \\
+  \lo{isPainted}(v) &= \begin{cases}
+    \textsf{true}  & \text{if } v = \lo{visible}, \\
+    \textsf{false} & \text{if } v \in \{\lo{invisible}, \lo{gone}\}.
+  \end{cases}
+\end{align*}
+The effective layout dimension $\lo{effectiveDim}(v, s)$ of a component with
+natural dimension $s \in \Sc$ is defined by:
+\[
+  \lo{effectiveDim}(v, s) = \begin{cases}
+    s   & \text{if } \lo{takesSpace}(v), \\
+    0.0 & \text{otherwise.}
+  \end{cases}
+\]
+
+\begin{property}[\lo{invisible\_preserves\_space}]
+An invisible component allocates identical spatial dimensions to a fully visible component:
+\[
+  \lo{effectiveDim}(\lo{invisible}, s) = \lo{effectiveDim}(\lo{visible}, s) = s \quad (\forall s \in \Sc).
+\]
+Invisible items maintain line breaks, cross-axis height, and flex spacing without drawing.
+\end{property}
+
+\begin{property}[\lo{gone\_collapses\_space}]
+A gone component unconditionally collapses its spatial footprint to zero:
+\[
+  \lo{effectiveDim}(\lo{gone}, s) = 0.0 \quad (\forall s \in \Sc).
+\]
+It is treated as non-existent during measure and placement loops.
+\end{property}
+
+\subsection{Typographic baseline alignment}
+\label{sec:mod-baseline}
+
+In horizontal layouts, text and icon components can be aligned relative to their
+typographic baseline via \jv{AlignByModifierOperation}. A baseline descriptor
+$\lo{BaselineDesc} = \langle h, b \rangle$ records the child height $h$ and the
+offset $b \in \Sc$ from the top of the component to the text baseline.
+
+When a row container computes cross-axis placement for baseline-aligned children,
+it determines the maximal baseline across all aligned siblings:
+\[
+  B_{\max} = \max_{i} b_i.
+\]
+Each child is then assigned a cross-axis placement offset:
+\[
+  y_i = \lo{alignByOffsetY}(B_{\max}, b_i) \triangleq B_{\max} - b_i.
+\]
+
+\begin{property}[\lo{baseline\_alignment\_coincident}]
+For any child with baseline $b_i$, its global baseline coordinate in the container satisfies:
+\[
+  y_i + b_i = (B_{\max} - b_i) + b_i = B_{\max}.
+\]
+All aligned children achieve exact typographic baseline coincidence regardless of differences
+in font size, ascent, or total component height.
+\end{property}
+
+\subsection{Visual translation offset}
+\label{sec:mod-offset}
+
+The \jv{OffsetModifierOperation} applies a local displacement vector
+$\langle dx, dy \rangle \in \Sc^2$ to the placed bounding box:
+\[
+  \lo{applyToRect}(\langle dx, dy \rangle, \langle x, y, w, h \rangle) \triangleq
+  \langle x + dx, y + dy, w, h \rangle.
+\]
+
+\begin{property}[\lo{offset\_preserves\_dimensions}]
+Local offset translation preserves rectangle dimensions invariant:
+\[
+  (\lo{applyToRect}(\mathrm{off}, r)).w = r.w \;\land\;
+  (\lo{applyToRect}(\mathrm{off}, r)).h = r.h \quad (\forall \mathrm{off}, r).
+\]
+Local offsets shift visual rendering and semantic hit-testing without perturbing
+sibling layout coordinates or container boundary measurements.
+\end{property}
+
+\subsection{Scrollable viewports and bounds clamping}
+\label{sec:mod-scroll}
+
+\jv{ScrollModifierOperation} manages virtual scrollable viewports over child content
+larger than the allocated window bounds. For scroll position $p$ and maximum scrollable
+extent $M \in \Sc$, the player clamps the translation:
+\[
+  \lo{clampScroll}(p, M) \triangleq \begin{cases}
+    0.0 & \text{if } M \le 0.0 \lor p \le 0.0, \\
+    M   & \text{if } p \ge M, \\
+    p   & \text{otherwise.}
+  \end{cases}
+\]
+
+\begin{property}[\lo{scroll\_clamp\_nonneg} and \lo{scroll\_clamp\_upper}]
+For any query position $p$ and non-negative extent $M \ge 0.0$:
+\[
+  0.0 \le \lo{clampScroll}(p, M) \le M.
+\]
+Virtual scrolling cannot expose unpainted negative coordinates or exceed valid content extents.
+\end{property}
+
+\subsection{Graphics layers and Z-index ordering}
+\label{sec:mod-graphics}
+
+Visual styling and affine transformations are encapsulated in \jv{GraphicsLayerModifierOperation},
+represented by the record $\lo{GraphicsLayer}$:
+\[
+  \lo{GraphicsLayer} = \langle s_x, s_y, \theta, t_x, t_y, \alpha \rangle
+\]
+with default identity values $s_x = s_y = \alpha = 1.0$ and $\theta = t_x = t_y = 0.0$.
+\begin{property}[\lo{identity\_is\_identity}]
+The default $\lo{GraphicsLayer.identity}$ satisfies $\lo{isIdentity}$ unconditionally.
+\end{property}
+
+Component stacking order across overlapping siblings is parameterized by \jv{ZIndexModifierOperation},
+recording a scalar $z \in \Sc$. Components with higher $z$-values are painted in front and receive
+interactive hit-test events ahead of lower-$z$ siblings.
+
+%%% ==================================================================
+\section{Extended Layout Containers}
+\label{sec:extended-containers}
+
+The Lean module \file{RemoteComposeLayout/ExtendedContainers.lean} formalizes
+three specialized layout managers implemented in \file{remote-core/operations/layout/managers/}:
+\jv{FitBoxLayout}, \jv{StateLayout}, and \jv{ImageLayout}.
+
+\subsection{FitBox layout: greedy alternative selection}
+\label{sec:fitbox}
+
+\jv{FitBoxLayout} acts as an adaptive selector among a list of alternative candidate
+representations $[c_0, c_1, \ldots, c_{m-1}]$:
+\begin{enumerate}
+  \item Candidates are evaluated sequentially in declaration order.
+  \item The \emph{first} candidate $c_k$ whose measured dimensions satisfy
+    $c_k.w \le w_{\max}$ and $c_k.h \le h_{\max}$ is admitted as the visible child.
+  \item All other candidates are collapsed to $\lo{gone}$.
+\end{enumerate}
+
+\begin{property}[\lo{fitbox\_at\_most\_one\_visible}]
+For any constraints $(w_{\max}, h_{\max})$ and candidate list $\vec{c}$:
+\[
+  \bigl|\{r \in \lo{fitBoxSelect}(w_{\max}, h_{\max}, \vec{c}) \mid r.\mathrm{visible} = \textsf{true}\}\bigr| \le 1.
+\]
+FitBox guarantees mutual exclusion among candidate representations.
+\end{property}
+
+\begin{property}[\lo{fitbox\_admitted\_fits\_container}]
+\leavevmode\\
+If a candidate $r$ is admitted with $r.\mathrm{visible} = \textsf{true}$, it strictly fits
+within the container constraints:
+\[
+  r.w \le w_{\max} \;\land\; r.h \le h_{\max}.
+\]
+\end{property}
+
+\subsection{State layout: declarative state switching}
+\label{sec:statelayout}
+
+\jv{StateLayout} models a dynamic multi-state container indexed by an integer variable
+$k \in \mathbb{N}$ over an array of subtrees $[s_0, s_1, \ldots, s_{m-1}]$:
+\[
+  \lo{resolveStateLayout}(\langle k, \vec{s} \rangle) \triangleq \vec{s}[k].
+\]
+Unselected states are omitted from the composition tree.
+
+\begin{property}[\lo{state\_isolation}]
+If two configurations $\vec{s}_1, \vec{s}_2$ share active state $k$ with identical subtree $t$:
+\[
+  \vec{s}_1[k] = \vec{s}_2[k] = \mathrm{some}(t) \implies
+  \lo{resolveStateLayout}(\langle k, \vec{s}_1 \rangle) = \lo{resolveStateLayout}(\langle k, \vec{s}_2 \rangle).
+\]
+Mutations to inactive states cannot alter the current visual layout.
+\end{property}
+
+\subsection{Image layout and aspect ratio scaling}
+\label{sec:imagelayout}
+
+\jv{ImageLayout} sizes an image with intrinsic content dimensions $(w_i, h_i)$ inside container
+bounds $(w_b, h_b)$ under three scaling policies:
+\begin{itemize}
+  \item \lo{fillBounds}: Direct stretch to $(w_b, h_b)$, ignoring aspect ratio.
+  \item \lo{fit}: Uniform scaling by $s = \min(w_b / w_i, h_b / h_i)$ yielding $(w_i \cdot s, h_i \cdot s)$.
+  \item \lo{inside}: If $(w_i, h_i)$ fits inside $(w_b, h_b)$, retains $(w_i, h_i)$; otherwise scales as \lo{fit}.
+\end{itemize}
+
+\begin{property}[\lo{fit\_preserves\_aspect\_ratio}]
+Under $\lo{fit}$ scaling with $s \ne 0$ and $h_i \ne 0$:
+\[
+  \frac{w_i \cdot s}{h_i \cdot s} = \frac{w_i}{h_i}.
+\]
+The intrinsic geometric aspect ratio is preserved under uniform scaling.
+\end{property}
+
+%%% ==================================================================
+\section{Window Hierarchy and Pointer Hit Testing}
+\label{sec:window-hit}
+
+The Lean module \file{RemoteComposeLayout/WindowAndHitTest.lean} formalizes
+the transformation from local component coordinates to global window space
+and the dispatch of interactive pointer events.
+
+\subsection{Window coordinate accumulation}
+\label{sec:window-loc}
+
+Each component's placement $(x, y)$ is defined relative to its direct parent.
+The reference method \jv{Component.getLocationInWindow} ascends the ancestor chain
+$\vec{f} = [f_1, \ldots, f_k]$, where each frame records local origin $(f.x, f.y)$
+and scroll offsets $(f.\mathrm{scrollX}, f.\mathrm{scrollY})$:
+\[
+  \lo{accumulateWindowLocation}(\vec{f}, x, y) \triangleq
+  \biggl(x + \sum_{f \in \vec{f}} (f.x - f.\mathrm{scrollX}),\;
+         y + \sum_{f \in \vec{f}} (f.y - f.\mathrm{scrollY})\biggr).
+\]
+
+\begin{property}[\lo{subtree\_locality\_shift}]
+Shifting each ancestor frame origin by $(\Delta x, \Delta y)$ shifts the resulting
+global window location of all descendant elements by exactly:
+\[
+  \lo{accumulateWindowLocation}(\vec{f}', x, y) =
+  \lo{accumulateWindowLocation}(\vec{f}, x, y) + |\vec{f}| \cdot (\Delta x, \Delta y).
+\]
+Hierarchical translation is strictly linear in the depth of the ancestor chain.
+\end{property}
+
+\subsection{Soundness of pointer hit-testing}
+\label{sec:hittest}
+
+Pointer events $(px, py)$ are dispatched by \jv{TouchHandler} and \jv{ClickHandler}
+down the tree of interactive targets $\lo{HitTarget} = \lo{node}(id, r, v, z, \vec{c})$:
+\begin{enumerate}
+  \item A node is rejected if $\neg\lo{takesSpace}(v)$ or $\neg\lo{pointInRect}(px, py, r)$, where:
+    \[
+      \lo{pointInRect}(px, py, r) \iff r.x \le px < r.x + r.w \;\land\; r.y \le py < r.y + r.h.
+    \]
+  \item If the point is geometrically contained, children are tested recursively
+    in front-to-back order (deepest child takes priority).
+  \item If no child accepts the event and the node satisfies $\lo{isPainted}(v)$,
+    the event is captured by the parent node $id$.
+\end{enumerate}
+
+\begin{property}[\lo{hitTest\_soundness}]
+If $\lo{hitTest}(T, px, py) = \mathrm{some}(T.id)$, the query point $(px, py)$
+is guaranteed to lie within the bounding box of target $T$:
+\[
+  T.r.x \le px < T.r.x + T.r.w \;\land\; T.r.y \le py < T.r.y + T.r.h.
+\]
+A component can never capture pointer events occurring outside its spatial layout bounds.
+\end{property}
+
+%%% ==================================================================
+\section{Layout Animations and Continuity}
+\label{sec:animation}
+
+The Lean module \file{RemoteComposeLayout/Animation.lean} formalizes smooth
+temporal layout transitions defined in \jv{AnimateMeasure.java}.
+
+\subsection{Temporal progress mapping}
+\label{sec:anim-progress}
+
+For animation elapsed time $t$ and total duration $T \in \Sc$, the normalized
+progress $\alpha(t, T) = \lo{animProgress}(t, T)$ is computed by:
+\[
+  \lo{animProgress}(t, T) \triangleq \begin{cases}
+    1.0   & \text{if } T \le 0.0, \\
+    0.0   & \text{if } t \le 0.0, \\
+    1.0   & \text{if } t \ge T, \\
+    t / T & \text{otherwise.}
+  \end{cases}
+\]
+
+\begin{property}[\lo{animProgress\_nonneg} and \lo{animProgress\_le\_one}]
+For all $t, T \in \Sc$, the normalized animation progress is bounded:
+\[
+  0.0 \le \lo{animProgress}(t, T) \le 1.0.
+\]
+Progress cannot underflow before the start instant or overflow after completion.
+\end{property}
+
+\subsection{Geometric bounds interpolation and continuity}
+\label{sec:anim-interp}
+
+During layout transitions, component rectangles are interpolated continuously between
+original bounds $R_0 = \langle x_0, y_0, w_0, h_0 \rangle$ and target bounds
+$R_1 = \langle x_1, y_1, w_1, h_1 \rangle$ using scalar linear interpolation
+$\lo{lerp}(a, b, p) = a + p(b - a)$:
+\[
+  \lo{interpRect}(R_0, R_1, p) \triangleq \langle
+    \lo{lerp}(x_0, x_1, p),\, \lo{lerp}(y_0, y_1, p),\,
+    \lo{lerp}(w_0, w_1, p),\, \lo{lerp}(h_0, h_1, p) \rangle.
+\]
+
+\begin{property}[\lo{animate\_at\_zero}]
+At $t = 0$ with duration $T > 0$, the interpolated rectangle matches the origin bounds exactly:
+\[
+  \lo{interpRect}(R_0, R_1, \lo{animProgress}(0, T)) = R_0.
+\]
+Transitions begin with zero discontinuous jumping.
+\end{property}
+
+\begin{property}[\lo{animate\_at\_end}]
+At any time $t \ge T$ with $T > 0$, the interpolated rectangle matches the target bounds exactly:
+\[
+  \lo{interpRect}(R_0, R_1, \lo{animProgress}(t, T)) = R_1.
+\]
+Transitions settle precisely on their target layout without residual drift.
+\end{property}
+
+\begin{property}[\lo{animate\_stationary}]
+If origin and target bounds coincide ($R_0 = R_1 = R$), the rectangle is stationary:
+\[
+  \lo{interpRect}(R, R, p) = R \quad (\forall p \in \Sc).
+\]
+\end{property}
+
+%%% ==================================================================
+\section{Dynamic Expressions and Runtime Invariants}
+\label{sec:dynamic-expressions}
+
+The Lean module \file{RemoteComposeLayout/DynamicExpressions.lean} formalizes
+dynamic layout expressions evaluated at runtime from state variables:
+\begin{center}
+\file{remote-core/operations/expressions/}.
+\end{center}
+
+\subsection{Expression syntax and evaluation}
+\label{sec:expr-eval}
+
+Layout expressions $\lo{LayoutExpr}$ are formed according to the grammar:
+\[
+  e ::= \lo{const}(v) \mid \lo{var}(i) \mid e_1 + e_2 \mid e_1 - e_2 \mid e_1 \cdot e_2 \mid \lo{clamp}(e, \min, \max)
+\]
+where $v, \min, \max \in \Sc$ and $i \in \mathbb{N}$ denotes a state variable ID.
+Given an evaluation environment $\eta : \mathbb{N} \to \Sc$, the evaluation function
+$\lo{evalExpr}(\eta, e)$ computes the scalar value, interpreting $\lo{clamp}(e, v_{\min}, v_{\max})$ as:
+\[
+  \lo{evalExpr}(\eta, \lo{clamp}(e, v_{\min}, v_{\max})) \triangleq \max\bigl(v_{\min}, \min(\lo{evalExpr}(\eta, e), v_{\max})\bigr).
+\]
+
+\subsection{Safety and boundedness invariants}
+\label{sec:expr-invariants}
+
+Dynamic layout dimensions are subject to verified safety bounds:
+
+\begin{property}[\lo{eval\_const}]
+Constant expressions evaluate independently of the variable environment:
+\[
+  \lo{evalExpr}(\eta_1, \lo{const}(v)) = \lo{evalExpr}(\eta_2, \lo{const}(v)) = v \quad (\forall \eta_1, \eta_2).
+\]
+\end{property}
+
+\begin{property}[\lo{eval\_clamp\_lower} and \lo{eval\_clamp\_upper}]
+For any expression $e$, environment $\eta$, and bounds $v_{\min} \le v_{\max}$:
+\[
+  v_{\min} \le \lo{evalExpr}(\eta, \lo{clamp}(e, v_{\min}, v_{\max})) \le v_{\max}.
+\]
+Dynamic dimensions constrained by clamping cannot violate container min/max boundaries.
+\end{property}
+
+\begin{property}[\lo{eval\_env\_agree}]
+Let $\mathrm{vars}(e) \subset \mathbb{N}$ be the set of free variables occurring in $e$.
+If two environments $\eta_1, \eta_2$ agree on all free variables of $e$:
+\[
+  \bigl(\forall i \in \mathrm{vars}(e),\; \eta_1(i) = \eta_2(i)\bigr) \implies
+  \lo{evalExpr}(\eta_1, e) = \lo{evalExpr}(\eta_2, e).
+\]
+Evaluation depends only on referenced variables; unrelated state updates cannot perturb layout expressions.
+\end{property}
+
+%%% ==================================================================
+\section{Autosize Text and Repaint Loop Invariants}
+\label{sec:autosize-loop}
+
+The Lean module \file{RemoteComposeLayout/AutosizeRepaintLoop.lean} formalizes
+the interplay between adaptive text sizing and collapsible layout containers,
+and mathematically proves the root cause of the infinite repaint loop bug reported
+in production.
+
+\subsection{Autosize text sizing dynamics}
+\label{sec:autosize-dynamics}
+
+A text node $\ttext(\mu, \theta)$ with autosizing enabled (\jv{CoreText.java}, lines 705--757)
+determines its font size $s \in [s_{\min}, s_{\max}]$ dynamically by finding the maximal
+font size whose rendered bounding box fits within the incoming container constraints.
+Formally, let $h(s)$ be the monotonically non-decreasing height of the text at font size $s$:
+\[
+  s_1 \le s_2 \implies h(s_1) \le h(s_2).
+\]
+Given an upper height constraint $H^+$, the autosizing font selection function is:
+\[
+  \lo{selectAutosizeFont}(\theta, H^+) \triangleq \begin{cases}
+    s_{\max} & \text{if } H^+ \ge h(s_{\max}), \\
+    s_{\min} & \text{otherwise.}
+  \end{cases}
+\]
+
+\begin{property}[\lo{autosize\_balloons\_under\_fltMax}]
+When an autosizing text component is measured against an unbounded height budget $H^+ = \Om = \lo{fltMax}$:
+\[
+  \lo{selectAutosizeFont}(\theta, \Om) = s_{\max} \quad\text{and}\quad
+  \lo{autosizeMeasureHeight}(\theta, \Om) = h(s_{\max}).
+\]
+Because $\Om$ is unbinding, the component unconditionally balloons to its maximum font size.
+\end{property}
+
+\subsection{False overflow and container self-collapse}
+\label{sec:autosize-collapse}
+
+In \jv{CollapsibleColumnLayout}, measurement proceeds in two phases (Section~\ref{sec:ccol}):
+\begin{enumerate}
+  \item \textbf{Phase 1 (\jv{computeVisibleChildren})}: Each child is provisionally measured.
+    Crucially, in the reference implementation, unweighted children are queried with
+    $H^+ = \Om$ (\jv{Float.MAX\_VALUE}).
+  \item \textbf{Phase 2 (\jv{collapseSweep})}: The measured heights from Phase 1 are tested
+    against the actual container budget $B$.
+\end{enumerate}
+
+\begin{property}[\lo{collapsible\_child\_falsely\_collapsed}]
+Suppose an autosizing text component fits comfortably at minimum size ($h(s_{\min}) \le B$),
+but exceeds the container budget at maximum size ($h(s_{\max}) > B$).
+Because Phase~1 measured the child with $H^+ = \Om$, Phase~2 receives the ballooned height
+$h(s_{\max}) > B$ and marks the child $\gone = \textsf{true}$.
+\end{property}
+
+\begin{property}[\lo{collapsible\_column\_total\_collapse}]
+If all children are marked $\gone$ by the collapsing sweep:
+\[
+  \lo{countVisible}(\lo{applyFlags}(\vec{\tau}, \vec{\gone})) = 0.
+\]
+The collapsible column marks itself $\gone$ and reports a measured height of $0$.
+\end{property}
+
+\subsection{Infinite repaint loop as a dynamical system}
+\label{sec:autosize-repaint-loop}
+
+The interaction between the layout engine and the Android view lifecycle
+(\jv{RemoteComposeView.java} and \jv{CoreDocument.java}) is formalized as a discrete
+dynamical system on the frame state $\sigma = \langle V_h, R_h, m, p, k \rangle$, where
+$V_h$ is the host viewport height, $R_h$ is the root component's measured height,
+$m \in \{\textsf{true}, \textsf{false}\}$ indicates $\lo{needsMeasure}$,
+$p \in \{\textsf{true}, \textsf{false}\}$ indicates $\lo{needsRepaint}$, and
+$k \in \mathbb{N}$ is the $\lo{repaintNext}$ frame counter.
+
+A frame tick $\Phi(\sigma) = \lo{paintStep}(\lo{measureStep}(\sigma))$ consists of:
+\begin{enumerate}
+  \item \textbf{Measure step}: If $m = \textsf{true}$, the host re-measures the root.
+    Under the autosize bug, the root collapses again to $R_h = 0$, setting $m \gets \textsf{false}$.
+  \item \textbf{Paint step}: \jv{CoreDocument.paint} checks whether the viewport dimension matches the root:
+    \[
+      \lo{dirty} \triangleq (V_h \neq R_h).
+    \]
+    If $\lo{dirty}$, it invokes \jv{invalidateMeasure()}, which asserts $m \gets \textsf{true}$
+    and $p \gets \textsf{true}$. When $p = \textsf{true}$, it posts an immediate frame callback by
+    setting $k \gets 1$.
+\end{enumerate}
+
+\begin{property}[\lo{infinite\_repaint\_loop\_invariant}]
+For any host viewport $V_h > 0$ with an initial collapsed root $R_h = 0$, the state under iteration
+$\Phi^n(\sigma_0)$ satisfies for all $n \ge 1$:
+\[
+  \Phi^n(\sigma_0) = \langle V_h, 0, \textsf{true}, \textsf{true}, 1 \rangle,
+  \qquad \lo{repaintNext} = 1 \;\land\; \lo{needsRepaint} = \textsf{true}.
+\]
+The non-quiescent state is an attractor with cycle period $1$. The system never quiesces,
+triggering an infinite stream of 60/120~Hz Choreographer redraws.
+\end{property}
+
+\subsection{Sound fix and verified quiescence}
+\label{sec:autosize-fix}
+
+The Lean development proves two theorems establishing the formal fix:
+\begin{enumerate}
+  \item \textbf{Sound child budget (\lo{sound\_autosize\_fits})}: In Phase~1, the container must pass
+    its remaining container budget $B_{\mathrm{rem}} \le B$ rather than $\Om$. Then:
+    \[
+      \lo{autosizeMeasureHeight}(\theta, B_{\mathrm{rem}}) \le B.
+    \]
+    The child fits within the container and is not falsely collapsed.
+  \item \textbf{Quiescence verification (\lo{sound\_engine\_quiescence})}: Invalidation in \jv{paint}
+    must check whether \emph{viewport constraints} changed, rather than comparing viewport size against
+    content wrap height. When viewport constraints are stable, the system reaches the quiescent state
+    $\langle V_h, R_h, \textsf{false}, \textsf{false}, 0 \rangle$ in exactly one frame.
+\end{enumerate}
+
+%%% ==================================================================
+\section{Conformance}
+
+\label{sec:conformance}
+
+\subsection{Method}
+
+The specification is validated against the project's existing gold corpus,
+which lives at
+\begin{center}
+\file{compose/remote/specification/conformance/\{tests,gold\}/layout/}
+\end{center}
+and is generated from the Java player itself. A generator script,
+\file{tools/gen\_conformance.py}, reads each test document and its gold file,
+translates the component tree into the syntax of Section~3, and emits Lean
+\jv{\#guard} assertions comparing $\mathrm{abs}(\mathrm{layout}(n, W, H))$
+against the recorded rectangles. The assertions are discharged by the Lean
+kernel when the library is built, so a regression breaks the build.
+
+Two details of the gold format matter. Its \jv{expected\_tree} is stored in
+\emph{reverse} pre-order, and its first element after reversal is a
+\jv{RootLayoutComponent} viewport wrapper that must be dropped. Comparison uses
+the corpus' own tolerance, $\varepsilon = \tfrac12$ pixel per coordinate.
+
+Every check compares \emph{two} lists: the rectangles, against the gold
+\jv{x}/\jv{y}/\jv{width}/\jv{height}, and the visibility flags $g$, against the
+gold \jv{isGone}. A specification that placed every child correctly but
+collapsed the wrong one would fail. The assertion form is \lo{conformsVis}.
+
+Documents that use any construct outside the scope of Section~1.3 are skipped
+rather than approximated, so that a passing run means what it says.
+
+\subsection{Results}
+
+\begin{center}
+\begin{tabular}{@{}lr@{}}
+\toprule
+Documents in scope & \textbf{99} \\
+Viewport configurations checked & \textbf{294} \\
+Geometry failures & \textbf{0} \\
+Visibility failures & \textbf{0} \\
+Documents skipped as out of scope & 75 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The skipped documents break down as follows.
+
+\begin{center}
+\begin{tabular}{@{}rl@{\qquad}rl@{}}
+\toprule
+\multicolumn{2}{c}{\textbf{Reason}} & \multicolumn{2}{c}{\textbf{Reason}} \\
+\midrule
+14 & \jv{stateLayout}             &  2 & modifier \jv{animationSpec} \\
+10 & \jv{text}                    &  2 & \jv{widthIn} without a width modifier \\
+10 & \jv{fitBox}                  &  2 & malformed component \\
+ 8 & modifier \jv{offset}         &  1 & \jv{canvas} \\
+ 8 & modifier \jv{visibility}     &  1 & \jv{image} \\
+ 7 & modifier \jv{verticalScroll} &  1 & \jv{heightIn} without a height modifier \\
+ 3 & modifier \jv{horizontalScroll} & 1 & modifier \jv{alignByBaseline} \\
+ 3 & column alignment             &  1 & modifier \jv{fillParentMaxWidth} \\
+   &                              &  1 & modifier \jv{wrapContentSize} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The three collapsible and flow entries that dominated this table in the
+Box/Row/Column-only edition --- 18 \jv{collapsibleColumn}, 18
+\jv{collapsibleRow}, 15 \jv{flow}, together with the \jv{spacedBy} and
+\jv{collapsiblePriority} modifier skips --- are gone: those 52 documents are now
+in scope, which is where most of the growth from 54 to 99 comes from.
+
+\subsection{Discrepancies found}
+\label{sec:discrepancies}
+
+Conformance was not a formality. Six genuine fidelity bugs were found this way,
+three while specifying Box, Row and Column and three more while adding the
+collapsible and flow managers. In every case the specification was wrong and the
+reference implementation was right.
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Modifiers modelled as a record.} A flat record of optional
+    fields cannot express Section~\ref{sec:orderquirk}. Replacing it with an
+    ordered list fixed eight documents.
+  \item \textbf{Column size pass modelled as the row's mirror.} The
+    \jv{DIRECT\_WEIGHT\_CALCULATION} path of Section~\ref{sec:column} was
+    missing.
+  \item \textbf{A bare JSON \texttt{weight} read as a horizontal weight.} It is
+    \emph{axis-relative}: \jv{DefaultModifierParsers} consults
+    \jv{parser.isParentVertical()} and routes \jv{"weight"} to
+    \jv{verticalWeight} inside a \jv{column} or \jv{collapsibleColumn} and to
+    \jv{horizontalWeight} everywhere else. \jv{collapsiblePriority} resolves its
+    orientation by the same rule. Reading the key unconditionally as horizontal
+    broke four column documents and twelve checks.
+  \item \textbf{A \texttt{spacedBy} \emph{component key} treated as spacing.} No
+    component parser reads one; only the modifier of that name reaches a
+    container, so a document that declares \jv{"spacedBy"} as a property of the
+    component itself gets no spacing at all. Two documents record exactly that.
+  \item \textbf{Weight resolution counting collapsed children.} \jv{RowLayout}
+    guards both \jv{hasWeights} and \jv{totalWeights} with \jv{isGone}
+    (lines 379 and 399), so a child the collapsing sweep dropped neither claims a
+    share of the leftover space nor dilutes anyone else's. Modelling the totals
+    over all children instead of the visible ones changes every sibling's width.
+  \item \textbf{\texttt{applyVisibility} believed to be overridden.} An earlier
+    draft of this document asserted that the collapsible managers override it to
+    re-run the weight loop. They do not, and nothing else does either; see the
+    remark in Section~\ref{sec:row}. The behaviour is unaffected, but the
+    justification was wrong.
+\end{enumerate}
+
+\begin{remark}[Weighted children of a column can vanish]
+Point~3 has a visible consequence that is easy to mistake for a corpus bug. A
+child of a \jv{row} authored with \jv{"weight"} takes a share of the row's
+leftover width; the same child inside a \jv{column} takes a share of the
+column's leftover \emph{height} and keeps a $\Wrap$ width. Over no content that
+width is $0$, so the child measures $0 \times h$ and disappears. The gold files
+record this, and it is correct: it is what the reference parser does.
+\end{remark}
+
+\subsection{Trust boundary}
+
+Not every check has the same status.
+
+\begin{itemize}[leftmargin=1.6em]
+  \item The \textbf{properties} of Section~\ref{sec:properties} are proved and
+    kernel-checked.
+  \item The \textbf{conformance assertions} are decided by kernel reduction of
+    \jv{\#guard}. They are as trustworthy as the translation performed by the
+    generator.
+  \item The \textbf{worked examples} of Appendix~\ref{app:examples} are
+    discharged by \jv{native\_decide}, which trusts the compiler as well as the
+    kernel.
+  \item The correspondence between this specification and the Java is
+    established by \emph{reading}, and by the conformance corpus. It is not
+    proved, and cannot be.
+\end{itemize}
+
+%%% ==================================================================
+\appendix
+
+\section{Notation correspondence}
+
+\begin{center}
+\small
+\begin{longtable}{@{}
+  >{\raggedright\arraybackslash}p{0.16\textwidth}
+  >{\raggedright\arraybackslash}p{0.36\textwidth}
+  >{\raggedright\arraybackslash}p{0.40\textwidth}@{}}
+\toprule
+\textbf{This document} & \textbf{Lean} & \textbf{Java} \\
+\midrule
+\endhead
+$\Sc$ & \lo{S} & \jv{float} \\
+$\Om$ & \lo{fltMax} & \jv{Float.MAX\_VALUE} \\
+$p$, $p_{\mathrm{h}}$, $p_{\mathrm{v}}$ & \lo{Padding}, \lo{.horizontal}, \lo{.vertical}
+  & \jv{mPaddingLeft} \dots \\
+$\kappa$ & \lo{Constraints} & \jv{minWidth}, \jv{maxWidth}, \dots \\
+$\kappa_{\mathrm{tight}}$, $\kappa_{\mathrm{loose}}$ & \lo{Constraints.tight}, \lo{.loose} & --- \\
+$d$ & \lo{Dim} & \jv{DimensionModifierOperation.Type} \\
+$\val$, $\wt$ & \lo{Dim.value}, \lo{Dim.weightValue} & \jv{getValue()}, \jv{hasWeight()} \\
+$\base_b$ & \lo{Dim.base} & inline in \jv{computeModifierDefinedWidth} \\
+$\iota$ & \lo{DimIn} & \jv{WidthInModifierOperation} \\
+$\clampL$, $\clampH$ & \lo{clampLo}, \lo{clampHi} & \jv{Math.max}, \jv{Math.min} \\
+$\mu$ & \lo{Modifiers} & \jv{ComponentModifiers} \newline \jv{.getModifiersList()} \\
+$\Pp$ & \lo{Modifiers.padding} & \jv{updatePadding} \\
+$\Dimw$, $\Dimh$ & \lo{Modifiers.widthDim}, \lo{.heightDim} & \jv{mWidthModifier} \\
+$\Iw$, $\Ih$ & \lo{Modifiers.widthIn}, \lo{.heightIn} & \jv{getWidthIn()} \\
+$\Dw$, $\Dh$ & \lo{Modifiers.definedWidth}, \lo{.definedHeight} & \jv{computeModifierDefinedWidth} \\
+$n$ & \lo{Node} & \jv{Component} subclasses \\
+$\tau$ & \lo{LayoutTree} & \jv{ComponentMeasure} in a \jv{MeasurePass} \\
+$F_{\mathrm{h}}$, $F_{\mathrm{v}}$ & \lo{Node.isInHorizontalFill}, \lo{.isInVerticalFill}
+  & \jv{isInHorizontalFill()} \\
+$\Theta_{\mathrm{h}}$, $\Theta_{\mathrm{v}}$ & \lo{totalHWeights}, \lo{totalVWeights} & \jv{totalWeights} \\
+$\Rr$ & \lo{resolveAxis} & policy 90--154 \\
+$\Mm$ & \lo{measure} & \jv{BaseModernMeasurePolicy.measure} \\
+$\mathrm{layout}$ & \lo{layout} & \jv{RootLayoutComponent} \\
+$\mathrm{abs}$ & \lo{LayoutTree.absolute} & \jv{getLocationInWindow} \\
+$\Aa$ & \lo{arrange} & \jv{internalLayoutMeasure} 465--512 \\
+$X$, $Y$ & \lo{crossX}, \lo{crossY} & \jv{internalLayoutMeasure} 524--545 \\
+$\mathrm{wrap}_\bullet$ & \lo{boxWrapPass}, \lo{rowWrapPass}, \lo{colWrapPass} & \jv{computeWrapSize} \\
+$\mathrm{size}_\bullet$ & \lo{boxSizePass}, \lo{rowSizePass}, \lo{colSizePass} & \jv{computeSize} \\
+$\mathrm{place}_\bullet$ & \lo{boxPlace}, \lo{rowPlaceAll}, \lo{colPlaceAll} & \jv{internalLayoutMeasure} \\
+\midrule
+$g$, $\gone$ & \lo{LayoutTree.gone} & \jv{Component.isGone()} \\
+$\miw$, $\mih$ & \lo{minIntrinsicWidth}, \lo{minIntrinsicHeight} & \jv{minIntrinsicWidth} \\
+$P_o$ & \lo{Modifiers.priority} & \jv{CollapsiblePriority} \newline \jv{.getPriority} \\
+$\prec_o$ & \lo{priorityLt} & the comparator \jv{(int)(p2 - p1)} \\
+$\mathrm{sort}_o$ & \lo{sortWithPriorities} & \jv{sortWithPriorities} \\
+$\ell_o$ & \lo{findLastStanding} & \jv{findLastStanding} \\
+$\Sigma$ & \lo{collapseSweep} & \jv{computeVisibleChildren} 290--325 \\
+$G_o$ & \lo{collapseFlags}, \lo{applyFlags} & \jv{setVisibility} \newline \jv{(OVERRIDE\_GONE)} \\
+$\Phi$ & \lo{cRowPhase1}, \lo{cColPhase1} & \jv{computeVisibleChildren} 251--281 \\
+$e_i$ & \lo{flowDims} & \jv{segmentComponents} 231--253 \\
+$\mathrm{seg}$ & \lo{flowSegment} & \jv{segmentComponents} 225--277 \\
+$R$, $|r|$ & \lo{flowRowList}, \lo{flowRowMembers} & the \jv{rows} array \\
+$\mathrm{mask}_r$ & \lo{maskRow}, \lo{mergeRow} & the per-row \jv{ArrayList} \\
+$\eta(r)$ & \lo{flowRowIntrinsic} & \jv{minIntrinsicHeight(ctx, row, true)} \\
+\bottomrule
+\end{longtable}
+\end{center}
+
+\section{Worked examples}
+\label{app:examples}
+
+Each example below is stated in the Lean sources as an \jv{example} discharged
+by \jv{native\_decide}, so the numbers are computed, not asserted. Rectangles
+are listed in pre-order as $(x, y, w, h)$ in window coordinates.
+
+\subsection*{Example 1 --- centring}
+
+A $100 \times 40$ box centred in a $300 \times 200$ viewport:
+\[
+  \begin{gathered}
+    \bbox\bigl(\wdt(\Fill(\bo))\cdot\hgt(\Fill(\bo)),\; \Center,\; \Center,\; [\,c\,]\bigr), \\
+    c = \bbox\bigl(\wdt(\Exact(100))\cdot\hgt(\Exact(40)),\; \Start,\; \Top,\; [\,]\bigr)
+  \end{gathered}
+\]
+lays out to $(0,0,300,200)$ and $(100, 80, 100, 40)$. The offsets are
+$(300-100)/2 = 100$ and $(200-40)/2 = 80$.
+
+\subsection*{Example 2 --- weights}
+
+A row of three children in a $500 \times 100$ viewport: a fixed $100$ px child
+followed by two children of weight $1$ and $3$:
+\[
+  (0,0,500,100),\quad (0,0,100,20),\quad (100,0,100,20),\quad (200,0,300,20).
+\]
+The leftover $400$ px is split $1:3$ into $100$ and $300$.
+
+\subsection*{Example 3 --- wrapping with padding}
+
+A wrapping row with $10$ px padding, $s = 5$, and children $30\times30$ and
+$40\times20$, nested inside a filling box in a $500\times500$ viewport:
+\[
+  (0,0,500,500),\quad (0,0,95,50),\quad (0,0,30,30),\quad (35,0,40,20).
+\]
+The row's content is $30 + 5 + 40 = 75$ wide and $30$ tall, and the padding is
+added around it: $10 + 75 + 10 = 95$ and $10 + 30 + 10 = 50$.
+
+The nesting is necessary. A root component is measured against \emph{tight}
+viewport constraints, so Step~6 forces even a $\Wrap$ root to the viewport size:
+\[
+  \mathrm{layout}\bigl(\rrow(\pad(10), \Start, \Top, 0, [\,]),\, 500,\, 500\bigr)
+    \text{ has rectangle } (0,0,500,500).
+\]
+
+\subsection*{Example 4 --- \texttt{spacedBy} overflows a \texttt{SPACE\_*} arrangement}
+
+A $\SBetween$ row of width $200$, height $50$, with $s = 10$ and two
+$50 \times 10$ children:
+\[
+  (0,0,200,50),\quad (0,0,50,10),\quad (160,0,50,10).
+\]
+The gap is computed from $T = 100$ as $(200 - 100)/(2-1) = 100$, and then
+$s = 10$ is added on top, so the second child starts at $0 + 50 + 100 + 10 =
+160$ and ends at $210$ --- ten pixels outside its container. This is the quirk
+of Caveat~\ref{sec:spacedquirk}, reproduced exactly.
+
+\subsection*{Example 5 --- a collapsible row drops its lowest priority}
+
+A collapsible row filling a $200 \times 100$ viewport, centred on both axes,
+with three $90 \times 50$ children of priorities $1$, $2$ and $3$:
+\[
+  (0,0,200,100),\quad (10,25,90,50),\quad (10,25,90,50),\quad (100,25,90,50).
+\]
+\[
+  \gone = [\,\textsf{false},\; \textsf{true},\; \textsf{false},\; \textsf{false}\,].
+\]
+Three children want $270$ px and only $200$ are available, so the sweep, walking
+priorities $3, 2, 1$, admits the first two ($90 + 90 \leq 200$) and refuses the
+third --- which is the child of priority~$1$, the \emph{first} in declaration
+order. The two survivors total $180$, centred at $x = 10$ and $x = 100$.
+
+The collapsed child is nonetheless assigned $x = 10$: it is placed at the cursor
+position its successor then also takes, because \jv{setX} runs before the
+\jv{isGone} test and only the cursor advance is skipped
+(Caveat~\ref{sec:goneplaced}).
+
+\subsection*{Example 6 --- the collapsing fit test ignores \texttt{spacedBy}}
+
+The same shape with two $90 \times 50$ children, $s = 20$, in $180 \times 100$:
+\[
+  (0,0,180,100),\quad (0,0,90,50),\quad (110,0,90,50),
+  \qquad \gone = [\,\textsf{false},\;\textsf{false},\;\textsf{false}\,].
+\]
+Both children are admitted, because the fit test asks only whether
+$90 + 90 \leq 180$. The placement loop then adds the $20$ px gap anyway, so the
+second child runs from $110$ to $200$ --- $20$ px past the container it was
+just certified to fit inside (Caveat~\ref{sec:collapsespaced}).
+
+\subsection*{Example 7 --- a flow breaks on \texttt{maxColumns}}
+
+A flow with $k_{\mathrm{items}} = 2$ and four $80 \times 40$ children, filling a
+$400 \times 300$ viewport:
+\[
+  (0,0,400,300),\quad (0,0,80,40),\quad (80,0,80,40),\quad
+  (0,40,80,40),\quad (80,40,80,40).
+\]
+All four would fit on one line --- $320 \leq 400$ --- but the item cap cuts a row
+after the second. Each row's intrinsic height and its measured height agree here,
+both $40$, so the rows stack flush.
+
+\subsection*{Example 8 --- \texttt{maxLines} refuses a child, and it comes back}
+
+A flow with $k_{\mathrm{lines}} = 2$ and five $100 \times 40$ children in a
+$260 \times 400$ viewport:
+\[
+  \begin{gathered}
+    (0,0,260,400),\quad (0,0,100,40),\quad (100,0,100,40), \\
+    (0,40,100,40),\quad (100,40,100,40),\quad (200,40,100,40),
+  \end{gathered}
+\]
+\[
+  \gone = [\,\textsf{false},\;\textsf{false},\;\textsf{false},\;
+             \textsf{false},\;\textsf{false},\;\textsf{true}\,].
+\]
+Two rows of two exhaust the line budget, so the fifth child is refused. That
+refusal is written as a \emph{base} visibility, which nothing clears
+(Caveat~\ref{sec:flowsticky}); the next pass therefore reads the child back as
+zero-width, finds that a zero-width item fits, and lets it rejoin the second row
+at the cursor position $x = 200$ --- outside the $260$ px container, and past
+both children that genuinely occupy that row. The child stays gone, so nothing
+is painted there, but the recorded rectangle is real. This is what
+\file{flow\_max\_lines.gold.json} is tagged \jv{suspicious} for, and the
+specification reproduces it rather than tidying it away.
+
+\subsection*{Example 9 --- autosize text inside a collapsible column collapses to zero}
+
+A collapsible column of width $300$ and wrapping height, containing a single autosizing
+text child with nominal size $42 \times 16.8$, min font size $4$, max font size $100$,
+and current font size $14$ (which easily fits within the available height $100$):
+\[
+  \ccolp\bigl(\wdt(\Exact(300))\cdot\hgt(\Wrap),\; \Center,\; \Center,\; 0,\;
+    [\,\ttext(\wdt(\Wrap)\cdot\hgt(\Wrap), \theta_{\mathrm{auto}})\,]\bigr).
+\]
+Because Phase~1 measures unweighted children with $H^+ = \Om$, the autosizing text balloons
+to its maximum font size $100$ with height $120 > 100$. Phase~2 rejects it, yielding:
+\[
+  \gone = [\,\textsf{true},\; \textsf{true}\,].
+\]
+Inside a wrapping parent container, the column collapses to height $0$.
+
+\section{Source map}
+
+\begin{center}
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{File} & \textbf{Contents} & \textbf{Lines} \\
+\midrule
+\file{Basic.lean} & Sections 2--4: scalars, geometry, modifiers & 382 \\
+\file{Node.lean} & Sections 3.3, 6.1, 8.4: trees, weights, priorities & 415 \\
+\file{Measure.lean} & Sections 5--9: the algorithm & 1134 \\
+\file{Theorems.lean} & Section 10: structural properties & 509 \\
+\file{Optimizations.lean} & Section 11: optimization passes and invariants & 362 \\
+\file{ExtendedModifiers.lean} & Section 12: visibility, baseline, offset, scroll, graphics & 201 \\
+\file{ExtendedContainers.lean} & Section 13: FitBox, StateLayout, ImageLayout & 180 \\
+\file{WindowAndHitTest.lean} & Section 14: ancestor coordinates, hit testing & 145 \\
+\file{Animation.lean} & Section 15: progress, bounds lerp, transitions & 138 \\
+\file{DynamicExpressions.lean} & Section 16: expression AST, evaluation, invariants & 145 \\
+\file{AutosizeRepaintLoop.lean} & Section 17: Autosize text, false collapse, repaint loop & 266 \\
+\file{Conform.lean} & Section 18: traversal and tolerance & 99 \\
+\file{Conformance.lean} & Generated: 99 documents, 294 checks & 824 \\
+\file{RemoteComposeLayout.lean} & Root module aggregation & 14 \\
+\file{tools/gen\_conformance.py} & The corpus translator & 486 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+The Lean modules sit under \file{RemoteComposeLayout/}. Build the development, and with it every check in this document, with
+\begin{center}
+\file{lake build}
+\end{center}
+from the \file{lean} directory. Regenerate \file{Conformance.lean} after a
+corpus change with \file{python3 tools/gen\_conformance.py}.
+
+\end{document}

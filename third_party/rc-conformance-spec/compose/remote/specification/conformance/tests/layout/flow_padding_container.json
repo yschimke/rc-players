@@ -1,0 +1,93 @@
+{
+  "name": "flow_padding_container",
+  "description": "Flow container with uniform padding around wrapping items",
+  "parameters": {
+    "width": 250,
+    "height": 180,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 180,
+        "label": "initial (250x180)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 360,
+        "label": "doubled (500x360)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 180,
+      "contentDescription": "flow_padding_container",
+      "profiles": 513
+    },
+    "root": {
+      "type": "flow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": 16
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#fcd34d"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

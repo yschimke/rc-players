@@ -1,0 +1,54 @@
+{
+  "name": "loom_foreach_expansion",
+  "category": "loom",
+  "description": "PatternForEach templating over an array collection (DataListIds)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "expectedItems": 3
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        "DrawCircle",
+        "DrawCircle",
+        "DrawCircle"
+      ],
+      "tolerance": 0,
+      "channel": "components"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 3,
+      "channel": "count"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMAAAAEAAABLAAAAAQAAAEsAA4ABAAAAgGSAAAAMgAAAAMAAAAKAAAAFAAAAB7I/////vQAAAAyAAAB9C7/gAH0QkgAAEFAAADW1g==",
+  "expected_components": [
+    "_DrawCircle",
+    "_DrawCircle",
+    "_DrawCircle"
+  ],
+  "expected_operations_count": 3
+}

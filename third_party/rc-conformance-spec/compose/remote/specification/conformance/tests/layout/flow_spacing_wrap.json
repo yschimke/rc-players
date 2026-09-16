@@ -1,0 +1,101 @@
+{
+  "name": "flow_spacing_wrap",
+  "description": "Flow layout with item spacing wrapping multiple elements",
+  "parameters": {
+    "width": 180,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 180,
+        "height": 200,
+        "label": "initial (180x200)"
+      },
+      {
+        "step": 1,
+        "width": 360,
+        "height": 400,
+        "label": "doubled (360x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 180,
+      "height": 200,
+      "contentDescription": "flow_spacing_wrap",
+      "profiles": 513
+    },
+    "root": {
+      "type": "flow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#fcd34d"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#d8b4fe"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

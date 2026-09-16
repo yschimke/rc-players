@@ -1,0 +1,50 @@
+{
+  "name": "path_create_and_append",
+  "category": "pathoperations",
+  "description": "PathCreate initialization and PathAppend command streaming for closed vector polygons",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": {
+        "10": {
+          "present": true
+        }
+      },
+      "tolerance": 0,
+      "channel": "paths"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "expected_paths[*].pointCount/closed",
+      "reason": "path geometry is not exposed by the path cache; only presence is observable"
+    },
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQnwAAAApBoAAAQaAAAKAAAAAKAAAACv+AAAtCyAAAQaAAAP+AAAtCyAAAQsgAAP+AAAtBoAAAQsgAAP+AAA8=",
+  "expected_paths": {
+    "10": {
+      "closed": true,
+      "pointCount": 4
+    }
+  }
+}

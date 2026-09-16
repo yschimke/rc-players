@@ -1,0 +1,42 @@
+{
+  "name": "text_from_float_precision",
+  "category": "textoperations",
+  "description": "Dynamic text conversion from float value with precision formatting and digit padding (TextFromFloat)",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "variables": {
+      "val": 123.4567
+    },
+    "textOperations": [
+      {
+        "type": "textFromFloat",
+        "textId": 20,
+        "value": "@val",
+        "digitsBefore": 3,
+        "digitsAfter": 2
+      },
+      {
+        "type": "textFromFloat",
+        "textId": 21,
+        "value": "@val",
+        "digitsBefore": 3,
+        "digitsAfter": 0
+      },
+      {
+        "type": "textFromFloat",
+        "textId": 22,
+        "value": "@val",
+        "digitsBefore": 5,
+        "digitsAfter": 1,
+        "flags": 12
+      }
+    ]
+  }
+}

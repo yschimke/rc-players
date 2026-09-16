@@ -1,0 +1,20 @@
+name = "RemoteComposeLayout"
+version = "0.1.0"
+keywords = ["math"]
+defaultTargets = ["RemoteComposeLayout", "RemoteComposeExpression"]
+
+[leanOptions]
+pp.unicode.fun = true
+relaxedAutoImplicit = false
+maxSynthPendingDepth = 3
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.33.1"
+
+[[lean_lib]]
+name = "RemoteComposeLayout"
+
+[[lean_lib]]
+name = "RemoteComposeExpression"

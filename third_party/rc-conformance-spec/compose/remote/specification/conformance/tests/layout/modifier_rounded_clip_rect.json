@@ -1,0 +1,67 @@
+{
+  "name": "modifier_rounded_clip_rect",
+  "category": "layout",
+  "description": "Rounded rectangular clipping mask modifier applied to nested container boundaries",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "tolerance": 0.5
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "root": [
+      {
+        "type": "box",
+        "modifiers": [
+          {
+            "width": 300
+          },
+          {
+            "height": 300
+          }
+        ],
+        "children": [
+          {
+            "type": "box",
+            "modifiers": [
+              {
+                "width": 200
+              },
+              {
+                "height": 200
+              },
+              {
+                "clip": {
+                  "type": "roundedRect",
+                  "radius": 24
+                }
+              },
+              {
+                "background": "#3B82F6"
+              }
+            ],
+            "children": [
+              {
+                "type": "box",
+                "modifiers": [
+                  {
+                    "width": 100
+                  },
+                  {
+                    "height": 100
+                  },
+                  {
+                    "background": "#EF4444"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

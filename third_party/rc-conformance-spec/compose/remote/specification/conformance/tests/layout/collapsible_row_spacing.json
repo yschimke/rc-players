@@ -1,0 +1,112 @@
+{
+  "name": "collapsible_row_spacing",
+  "description": "CollapsibleRow with priority items and horizontal item spacing",
+  "parameters": {
+    "width": 220,
+    "height": 120,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 220,
+        "height": 120,
+        "label": "initial (220x120)"
+      },
+      {
+        "step": 1,
+        "width": 440,
+        "height": 240,
+        "label": "doubled (440x240)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 220,
+      "height": 120
+    },
+    "root": {
+      "type": "collapsibleRow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                60
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 10
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                60
+              ]
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 5
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                60
+              ]
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                60
+              ]
+            },
+            {
+              "background": "#fcd34d"
+            },
+            {
+              "collapsiblePriority": 20
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "name": "canvas_matrix_stack",
+  "category": "canvas",
+  "description": "Matrix transformations: save, translate, scale, rotate, and restore state stack",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#3B82F6",
+                    "style": "stroke",
+                    "strokeWidth": 4
+                  }
+                ]
+              }
+            },
+            {
+              "drawRect": {
+                "left": 50,
+                "top": 50,
+                "right": 150,
+                "bottom": 150
+              }
+            },
+            {
+              "save": {}
+            },
+            {
+              "translate": {
+                "dx": 60,
+                "dy": 60
+              }
+            },
+            {
+              "rotate": {
+                "angle": 30,
+                "centerX": 100,
+                "centerY": 100
+              }
+            },
+            {
+              "scale": {
+                "sx": 1.2,
+                "sy": 1.2
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#F97316",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawRect": {
+                "left": 50,
+                "top": 50,
+                "right": 150,
+                "bottom": 150
+              }
+            },
+            {
+              "restore": {}
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

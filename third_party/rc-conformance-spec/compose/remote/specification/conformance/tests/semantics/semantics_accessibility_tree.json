@@ -1,0 +1,29 @@
+{
+  "name": "semantics_accessibility_tree",
+  "category": "semantics",
+  "description": "AccessibilitySemantics component annotations with button/heading roles and clickable flags",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "semantics": [
+      {
+        "contentDescription": "Submit Button",
+        "role": "button",
+        "enabled": true,
+        "clickable": true
+      },
+      {
+        "contentDescription": "Main Heading",
+        "role": "heading",
+        "enabled": true,
+        "clickable": false
+      }
+    ]
+  }
+}

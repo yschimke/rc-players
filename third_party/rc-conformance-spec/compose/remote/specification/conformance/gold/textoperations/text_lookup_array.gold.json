@@ -1,0 +1,55 @@
+{
+  "name": "text_lookup_array",
+  "category": "textoperations",
+  "description": "Dynamic text indexing and retrieval from collection of text IDs (TextLookup and DataListIds)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 200,
+      "expect": "Beta"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 201,
+      "expect": "Gamma"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 7,
+      "channel": "count"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAGUAAAAFQWxwaGFmAAAAZgAAAARCZXRhZgAAAGcAAAAFR2FtbWGSAAAAMgAAAAMAAABlAAAAZgAAAGeXAAAAyAAAADI/gAAAlwAAAMkAAAAyQAAAAA==",
+  "expected_operations_count": 7,
+  "expected_texts": {
+    "200": "Beta",
+    "201": "Gamma"
+  }
+}

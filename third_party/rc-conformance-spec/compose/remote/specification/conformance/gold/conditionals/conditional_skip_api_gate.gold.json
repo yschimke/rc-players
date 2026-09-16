@@ -1,0 +1,65 @@
+{
+  "name": "conditional_skip_api_gate",
+  "category": "conditionals",
+  "description": "SKIP (op 241) API gating at parse time: each of api_less_than / api_greater_than / api_equal_to / api_not_equal_to is exercised both true and false against the player's API level 7; skipped operations must be absent from the decoded document and the trailing DrawRect proves the skip byte ranges stayed aligned",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "DrawRoundRect",
+        "DrawArc",
+        "DrawRect"
+      ],
+      "channel": "present"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "DrawCircle",
+        "DrawOval",
+        "DrawLine"
+      ],
+      "channel": "absent"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": {
+        "DrawArc": 1,
+        "DrawCircle": 0,
+        "DrawLine": 0,
+        "DrawOval": 0,
+        "DrawRect": 1,
+        "DrawRoundRect": 1
+      },
+      "channel": "counts"
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAS9SURBVHic7dwxThVRAIXhA8SEzoLGBWhUGiyJtZuwMVq6ArcAq9BVuAYqpUK3QIExsTKBYMErjFacvJkLb74vuf25j2T+N4SQJNcBgJKIAFATEQBqIgJATUQAqIkIADURAaAmIgDURASAmogAUBMRAGoiAkBNRACoiQgANREBoCYiANREBICaiABQExEAaiICQE1EAKiJCAA1EQGgJiIA1EQEgJqIAFATEQBqIgJATUQAqIkIADURAaAmIgDURASAmogAUBMRAGoiAkBNRACoiQgANREBoCYiANREBICaiABQExEAaiICQE1EAKiJCAA1EQGgJiIA1EQEgJqIAAAAAAAAAAAAAAAAAAAAAMBQW6MH3AGHSd4leZ5kP8ne2Dm3dpHkbHU+JTkZugZgAXaTHCe5zM3/0tqEc5nkKMmDNX5OAPzlIMn3jH/gT3VOV3cEmMz26AGDvE7ydPSICR3k5o4ArNHLJFcZ/5Yw9bmKtxBgQkt8A3mTZdx7O8n70SOAzbWEB+m/XoweMKNnowcAm2uJf8b7M8nD0SNmcp7k0egRwGZaYkCuRw+Y2RJ/xsAMlvgrLADWQEAAqAgIABUBAaAiIABUBASAioAAUBEQACoCAkBFQACoCAgAFQEBoCIgAFQEBICKgABQERAAKgICQEVAAKgICAAVAQGgIiAAVAQEgIqAAFAREAAqAgJARUAAqAgIABUBAaAiIABUBASAioAAUBEQACoCAkBFQACoCAgAFQEBoCIgAFQEBICKgABQERAAKgICQEVAAKgICACVJQbkfPSAGS3prsDMlhiQ09EDZrSkuwIzE5DNtqS7AkzuSZLfSa43/PxK8nhNnxnAf3ZGDxjgR5LLJK9GD5nYhySfR48A2DQ7Sb5k/FvCVOdrlvnlAGAWu0mOcvM2MvqBv65zmeR4dTeASW2NHnAHHCZ5m2R/dfaGrrm9iyRnSb4l+ZjkZOwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADWbSvJ9egRANw/26MHAHA/CQgAFQEBoCIgAFQEBICKgABQERAAKgICQEVAAKgICAAVAQGgIiAAVAQEgIqAAFAREAAqAgJARUAAqAgIABUBAaDyBx8UmDWmFNTuAAAAAElFTkSuQmCC",
+      "tolerance": 16
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAHQAAABljb25kaXRpb25hbF9za2lwX2FwaV9nYXRlAA4ABAAAAgHI/////s3////9/////xAAAAABf8AAAEMAAAABf8AAAMn////8z/////vxAAAAAQAAAGMAAAANLkEgAABBIAAAQIAAAPEAAAACAAAAAwAAABE4QSAAAEEgAABCIAAAQiAAAPEAAAADAAAABwAAABEvAAAAAAAAAABCSAAAQkgAAPEAAAABAAAAAQAAABkzQnAAAEJwAABC8AAAQvAAAEEAAABBAAAA8QAAAAQAAAAHAAAAGZhDDAAAQwwAAENIAABDSAAAAAAAAEK0AAAqAAAAAEO+AABDyAAAQ8gAANbW1tY="
+}

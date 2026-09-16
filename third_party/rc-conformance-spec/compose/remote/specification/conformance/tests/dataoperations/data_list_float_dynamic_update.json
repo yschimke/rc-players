@@ -1,0 +1,46 @@
+{
+  "name": "data_list_float_dynamic_update",
+  "category": "dataoperations",
+  "description": "DataListFloat array buffer storage and runtime element mutation via UpdateDynamicFloatList",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "dynamicFloatList": {
+      "id": 10,
+      "size": 4
+    },
+    "updates": [
+      {
+        "id": 10,
+        "index": 0,
+        "value": 10.5
+      },
+      {
+        "id": 10,
+        "index": 1,
+        "value": 20.25
+      },
+      {
+        "id": 10,
+        "index": 2,
+        "value": 30.75
+      },
+      {
+        "id": 10,
+        "index": 3,
+        "value": 40
+      },
+      {
+        "id": 10,
+        "index": 1,
+        "value": 99.5
+      }
+    ]
+  }
+}

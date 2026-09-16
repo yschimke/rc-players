@@ -1,0 +1,103 @@
+{
+  "name": "matrix_vector_math_affine_and_perspective",
+  "category": "matrixmath",
+  "description": "MATRIX_VECTOR_MATH (188): type 0 applies the affine part (scale then translate) to (1,1,0); type 1 runs the full 4x4 transform and divides by w, which a matrix with w=2 makes distinguishable from type 0",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 330,
+      "expect": 7,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 331,
+      "expect": 10,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 332,
+      "expect": 0,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 340,
+      "expect": 1,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 341,
+      "expect": 1,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 342,
+      "expect": 0,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 350,
+      "expect": 0.5,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 351,
+      "expect": 0.5,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 352,
+      "expect": 0,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "MatrixVectorMath"
+      ],
+      "channel": "present"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkALQAAACltYXRyaXhfdmVjdG9yX21hdGhfYWZmaW5lX2FuZF9wZXJzcGVjdGl2ZQAOAAQAAAIByP////7N/////f////8QAAAAAX/AAABDAAAAAX/AAADJ/////M/////7ugAAAUAAAAAAAAAAEEAAAAAAAAAAAAAAAECgAAAAAAAAQEAAAAAAAABA4AAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAC8AAAAAAFAAAAAAwAAAUoAAAFLAAABTAAAAAM/gAAAP4AAAAAAAAC6AAABQQAAAAAAAAAQP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAAAAAAAAAAAAAAAAAAAAAAAQAAAALwAAAAAAUEAAAADAAABVAAAAVUAAAFWAAAAAz+AAAA/gAAAAAAAALwAAQAAAUEAAAADAAABXgAAAV8AAAFgAAAAAz+AAAA/gAAAAAAAANbW1tY="
+}

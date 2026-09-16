@@ -1,0 +1,75 @@
+{
+  "name": "row_alignment_space_evenly",
+  "description": "Row layout with spaceEvenly distribution",
+  "parameters": {
+    "width": 400,
+    "height": 100,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 100,
+        "label": "initial (400x100)"
+      },
+      {
+        "step": 1,
+        "width": 800,
+        "height": 200,
+        "label": "doubled (800x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 100,
+      "contentDescription": "row_alignment_space_evenly",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "horizontalAlignment": "spaceEvenly",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 50
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 50
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

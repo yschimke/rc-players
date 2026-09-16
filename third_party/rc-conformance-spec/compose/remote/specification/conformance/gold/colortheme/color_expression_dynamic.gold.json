@@ -1,0 +1,52 @@
+{
+  "name": "color_expression_dynamic",
+  "category": "colortheme",
+  "description": "ColorConstant declarations, RGBA channel definitions, and dynamic theme palette slots",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "color",
+      "target": 10,
+      "expect": 4294901760
+    },
+    {
+      "at": "initial",
+      "probe": "color",
+      "target": 11,
+      "expect": 4278190335
+    },
+    {
+      "at": "initial",
+      "probe": "color",
+      "target": 12,
+      "expect": 4278255360
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQigAAAAr//wAAigAAAAv/AAD/igAAAAz/AP8A",
+  "expected_colors": {
+    "10": 4294901760,
+    "11": 4278190335,
+    "12": 4278255360
+  }
+}

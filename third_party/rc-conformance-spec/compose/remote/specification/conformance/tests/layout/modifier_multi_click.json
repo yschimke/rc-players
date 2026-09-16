@@ -1,0 +1,242 @@
+{
+  "name": "modifier_multi_click",
+  "category": "layout",
+  "description": "Three MultiClick modifiers on one Box route single click, long press and double click to three independent StateLayouts. Each gesture flips exactly one of them, so the layout tree tells the three click types apart from one another, from a misrouted gesture, and from one that was dropped. The settle steps then observe the StateLayout resize animation each flip starts.",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1.0,
+    "frames": 1,
+    "tolerance": 0.5,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "click",
+        "x": 100,
+        "y": 30,
+        "label": "single_click_on_target"
+      },
+      {
+        "step": 1,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_after_single_click"
+      },
+      {
+        "step": 2,
+        "type": "longPress",
+        "x": 100,
+        "y": 30,
+        "label": "long_press_on_target"
+      },
+      {
+        "step": 3,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_after_long_press"
+      },
+      {
+        "step": 4,
+        "type": "doubleClick",
+        "x": 100,
+        "y": 30,
+        "label": "double_click_on_target"
+      },
+      {
+        "step": 5,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_after_double_click"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 200,
+      "height": 200
+    },
+    "resources": {
+      "variables": {
+        "state_single": {
+          "type": "integer",
+          "value": 0
+        },
+        "state_long": {
+          "type": "integer",
+          "value": 0
+        },
+        "state_double": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#0f172a"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "name": "gesture_target",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#334155"
+            },
+            {
+              "multiClick": {
+                "clickType": 0,
+                "actions": [
+                  {
+                    "type": "valueIntegerChange",
+                    "target": "state_single",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "multiClick": {
+                "clickType": 1,
+                "actions": [
+                  {
+                    "type": "valueIntegerChange",
+                    "target": "state_long",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "multiClick": {
+                "clickType": 2,
+                "actions": [
+                  {
+                    "type": "valueIntegerChange",
+                    "target": "state_double",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$state_single",
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 30
+                },
+                {
+                  "background": "#1e3a8a"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 160
+                },
+                {
+                  "height": 30
+                },
+                {
+                  "background": "#60a5fa"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$state_long",
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 30
+                },
+                {
+                  "background": "#14532d"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 160
+                },
+                {
+                  "height": 30
+                },
+                {
+                  "background": "#4ade80"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$state_double",
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 30
+                },
+                {
+                  "background": "#7c2d12"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 160
+                },
+                {
+                  "height": 30
+                },
+                {
+                  "background": "#fb923c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

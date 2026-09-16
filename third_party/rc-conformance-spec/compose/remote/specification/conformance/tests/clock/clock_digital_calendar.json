@@ -1,0 +1,184 @@
+{
+  "name": "clock_digital_calendar",
+  "category": "clock",
+  "description": "Calendar date and epoch variables: dayOfMonth, calendarMonth, year, dayOfWeek, epochSecond",
+  "parameters": {
+    "fixedTimestamp": "2026-09-10T14:30:00Z",
+    "width": 300,
+    "height": 300,
+    "tolerance": 50
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "cal_year",
+          "value": "year",
+          "export": true
+        },
+        {
+          "name": "cal_month",
+          "value": "calendarMonth",
+          "export": true
+        },
+        {
+          "name": "cal_day",
+          "value": "dayOfMonth",
+          "export": true
+        },
+        {
+          "name": "cal_weekday",
+          "value": "weekDay",
+          "export": true
+        },
+        {
+          "name": "cal_epoch",
+          "value": "epochSecond",
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#0F172A",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawRoundRect": {
+                "left": 20,
+                "top": 20,
+                "right": 280,
+                "bottom": 280,
+                "rx": 20,
+                "ry": 20
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#3B82F6",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawRoundRect": {
+                "left": 20,
+                "top": 20,
+                "right": 280,
+                "bottom": 90,
+                "rx": 20,
+                "ry": 20
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#FFFFFF",
+                    "style": "fill",
+                    "textSize": 24
+                  }
+                ]
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "SEPTEMBER",
+                "x": 150,
+                "y": 55,
+                "panX": 0,
+                "panY": 0
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#38BDF8",
+                    "style": "fill",
+                    "textSize": 96
+                  }
+                ]
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": {
+                  "type": "textFromFloat",
+                  "value": "cal_day",
+                  "whole": 2,
+                  "decimal": 0
+                },
+                "x": 150,
+                "y": 170,
+                "panX": 0,
+                "panY": 0
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#94A3B8",
+                    "style": "fill",
+                    "textSize": 20
+                  }
+                ]
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "THURSDAY 2026",
+                "x": 150,
+                "y": 245,
+                "panX": 0,
+                "panY": 0
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#38BDF8",
+                    "style": "stroke",
+                    "strokeWidth": 3
+                  }
+                ]
+              }
+            },
+            {
+              "drawRoundRect": {
+                "left": 20,
+                "top": 20,
+                "right": 280,
+                "bottom": 280,
+                "rx": 20,
+                "ry": 20
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

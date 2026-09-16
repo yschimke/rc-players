@@ -1,0 +1,58 @@
+{
+  "name": "core_text_overflow_ellipsis",
+  "description": "CoreText multiline layout truncated with ellipsis when exceeding maxLines",
+  "parameters": {
+    "width": 160,
+    "height": 100,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 160,
+        "height": 100,
+        "label": "initial (160x100)"
+      },
+      {
+        "step": 1,
+        "width": 320,
+        "height": 200,
+        "label": "doubled (320x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 160,
+      "height": 100,
+      "profiles": 513,
+      "contentDescription": "core_text_overflow_ellipsis"
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "text": "Ahem font wraps and truncates with ellipsis",
+          "fontSize": 16,
+          "maxLines": 2,
+          "overflow": "ellipsis",
+          "modifiers": [
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

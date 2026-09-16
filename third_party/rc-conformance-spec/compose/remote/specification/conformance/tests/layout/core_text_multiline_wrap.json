@@ -1,0 +1,57 @@
+{
+  "name": "core_text_multiline_wrap",
+  "description": "Multi-line text layout wrapping words across lines with resize adaptation",
+  "parameters": {
+    "width": 200,
+    "height": 120,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 120,
+        "label": "initial (200x120)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 240,
+        "label": "doubled (400x240)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 120,
+      "profiles": 513,
+      "contentDescription": "core_text_multiline_wrap"
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "text": "Ahem font multiline test wrapping",
+          "fontSize": 16,
+          "maxLines": 10,
+          "modifiers": [
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

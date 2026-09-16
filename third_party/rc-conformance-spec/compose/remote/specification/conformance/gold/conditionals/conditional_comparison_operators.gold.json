@@ -1,0 +1,136 @@
+{
+  "name": "conditional_comparison_operators",
+  "category": "conditionals",
+  "description": "All six CONDITIONAL_OPERATIONS comparison operators (EQ/NEQ/LT/LTE/GT/GTE) evaluated over an equal pair (5,5) and an ordered pair (2,7); asserts both the operator encoded on the wire and whether the guarded body actually executed during paint",
+  "format_version": 2,
+  "profile": "extended",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "trace",
+      "expect": [
+        {
+          "a": 5,
+          "b": 5,
+          "executed": true,
+          "executedChildOps": 1,
+          "path": "0",
+          "type": "eq"
+        },
+        {
+          "a": 5,
+          "b": 5,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "1",
+          "type": "neq"
+        },
+        {
+          "a": 5,
+          "b": 5,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "2",
+          "type": "lt"
+        },
+        {
+          "a": 5,
+          "b": 5,
+          "executed": true,
+          "executedChildOps": 1,
+          "path": "3",
+          "type": "lte"
+        },
+        {
+          "a": 5,
+          "b": 5,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "4",
+          "type": "gt"
+        },
+        {
+          "a": 5,
+          "b": 5,
+          "executed": true,
+          "executedChildOps": 1,
+          "path": "5",
+          "type": "gte"
+        },
+        {
+          "a": 2,
+          "b": 7,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "6",
+          "type": "eq"
+        },
+        {
+          "a": 2,
+          "b": 7,
+          "executed": true,
+          "executedChildOps": 1,
+          "path": "7",
+          "type": "neq"
+        },
+        {
+          "a": 2,
+          "b": 7,
+          "executed": true,
+          "executedChildOps": 1,
+          "path": "8",
+          "type": "lt"
+        },
+        {
+          "a": 2,
+          "b": 7,
+          "executed": true,
+          "executedChildOps": 1,
+          "path": "9",
+          "type": "lte"
+        },
+        {
+          "a": 2,
+          "b": 7,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "10",
+          "type": "gt"
+        },
+        {
+          "a": 2,
+          "b": 7,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "11",
+          "type": "gte"
+        }
+      ],
+      "tolerance": 0,
+      "channel": "branches"
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAALvSURBVHic7dqxDYNADAXQr8yXgpWyGxIjMEbYIGloCYYYRZHek9zcfSNXd8WRAAAAAAAAAAAAcJ17kjHJc61xXevs/Sb3KK5VZwagwZDktVFDU29Hrlp7MwPQZMr2YTw19XbkqrU3MwBNlmwfxktTb0euWnszA3DA7dcDAPCfPl0g88m9I70duaqObwBQ4BEdgNP8xgsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHC5NwoQ0HmN9VHHAAAAAElFTkSuQmCC",
+      "tolerance": 16
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAJAAAACBjb25kaXRpb25hbF9jb21wYXJpc29uX29wZXJhdG9ycwAOAAQAAAIByP////7N/////f////8QAAAAAX/AAABDAAAAAX/AAADJ/////M/////7sgBAoAAAQKAAAC5BIAAAQSAAAECAAADWsgFAoAAAQKAAAC5BcAAAQSAAAECAAADWsgJAoAAAQKAAAC5BoAAAQSAAAECAAADWsgNAoAAAQKAAAC5ByAAAQSAAAECAAADWsgRAoAAAQKAAAC5B8AAAQSAAAECAAADWsgVAoAAAQKAAAC5CDAAAQSAAAECAAADWsgBAAAAAQOAAAC5CIAAAQSAAAECAAADWsgFAAAAAQOAAAC5CNAAAQSAAAECAAADWsgJAAAAAQOAAAC5CSAAAQSAAAECAAADWsgNAAAAAQOAAAC5CXAAAQSAAAECAAADWsgRAAAAAQOAAAC5CcAAAQSAAAECAAADWsgVAAAAAQOAAAC5CggAAQSAAAECAAADW1tbW1g=="
+}

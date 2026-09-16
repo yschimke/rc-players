@@ -1,0 +1,63 @@
+{
+  "name": "fitbox_padding_container",
+  "description": "FitBox container with outer padding modifier",
+  "parameters": {
+    "width": 200,
+    "height": 150,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 150,
+        "label": "initial (200x150)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 300,
+        "label": "doubled (400x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 150,
+      "contentDescription": "fitbox_padding_container",
+      "profiles": 513
+    },
+    "root": {
+      "type": "fitBox",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": 16
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                80,
+                80
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

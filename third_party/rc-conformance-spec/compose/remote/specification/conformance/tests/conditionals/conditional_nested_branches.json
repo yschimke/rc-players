@@ -1,0 +1,95 @@
+{
+  "name": "conditional_nested_branches",
+  "category": "conditionals",
+  "description": "Nested CONDITIONAL_OPERATIONS: a false outer branch must prevent a true inner branch from running, while a true outer branch lets each inner branch decide for itself",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "conditional_nested_branches",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "conditionalOperations": {
+                "condition": "gt",
+                "v1": 1,
+                "v2": 2,
+                "commands": [
+                  {
+                    "conditionalOperations": {
+                      "condition": "eq",
+                      "v1": 3,
+                      "v2": 3,
+                      "commands": [
+                        {
+                          "drawCircle": {
+                            "cx": 20,
+                            "cy": 20,
+                            "radius": 4
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "lt",
+                "v1": 1,
+                "v2": 2,
+                "commands": [
+                  {
+                    "conditionalOperations": {
+                      "condition": "eq",
+                      "v1": 3,
+                      "v2": 3,
+                      "commands": [
+                        {
+                          "drawCircle": {
+                            "cx": 40,
+                            "cy": 20,
+                            "radius": 4
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "conditionalOperations": {
+                      "condition": "neq",
+                      "v1": 3,
+                      "v2": 3,
+                      "commands": [
+                        {
+                          "drawOval": {
+                            "left": 60,
+                            "top": 10,
+                            "right": 90,
+                            "bottom": 40
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

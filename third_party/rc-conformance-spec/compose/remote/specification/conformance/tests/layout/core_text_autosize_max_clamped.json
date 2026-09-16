@@ -1,0 +1,57 @@
+{
+  "name": "core_text_autosize_max_clamped",
+  "description": "CoreText autosize capping font size at maxFontSize despite large container",
+  "parameters": {
+    "width": 300,
+    "height": 150,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 150,
+        "label": "initial (300x150)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 300,
+        "label": "doubled (600x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 150,
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "text": "Clamped Autosize",
+          "autoSize": true,
+          "minFontSize": 8,
+          "maxFontSize": 18,
+          "modifiers": [
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "core_text_autosize_multiline",
+  "description": "CoreText autosize multiline wrapping text across multiple lines to fill height",
+  "parameters": {
+    "width": 200,
+    "height": 100,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 100,
+        "label": "initial (200x100)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 200,
+        "label": "doubled (400x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 100,
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "text": "Autosize multiline wrapping text",
+          "autoSize": true,
+          "minFontSize": 10,
+          "maxFontSize": 80,
+          "maxLines": 5,
+          "modifiers": [
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

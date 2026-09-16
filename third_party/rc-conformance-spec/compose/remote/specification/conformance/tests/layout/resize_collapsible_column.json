@@ -1,0 +1,107 @@
+{
+  "name": "resize_collapsible_column",
+  "description": "CollapsibleColumn responsive priority collapse and expansion under vertical constraints",
+  "parameters": {
+    "width": 150,
+    "height": 260,
+    "density": 1.0,
+    "tolerance": 0.5,
+    "frames": 2,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 150,
+        "height": 260,
+        "label": "all_items_fit"
+      },
+      {
+        "step": 1,
+        "width": 150,
+        "height": 180,
+        "label": "collapse_lowest_priority"
+      },
+      {
+        "step": 2,
+        "width": 150,
+        "height": 90,
+        "label": "only_highest_priority"
+      },
+      {
+        "step": 3,
+        "width": 150,
+        "height": 260,
+        "label": "restore_all"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 150,
+      "height": 260
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 70
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 3
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 70
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 2
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 70
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "name": "row_multi_weights",
+  "description": "Row dividing available width according to 1:2:3 fractional weights",
+  "parameters": {
+    "width": 360,
+    "height": 100,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 360,
+        "height": 100,
+        "label": "initial (360x100)"
+      },
+      {
+        "step": 1,
+        "width": 720,
+        "height": 200,
+        "label": "doubled (720x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 360,
+      "height": 100,
+      "contentDescription": "row_multi_weights",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 1
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 2
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 3
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

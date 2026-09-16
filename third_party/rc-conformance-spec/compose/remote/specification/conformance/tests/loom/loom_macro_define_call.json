@@ -1,0 +1,41 @@
+{
+  "name": "loom_macro_define_call",
+  "category": "loom",
+  "description": "Basic macro definition (PatternDefine) and single call (PatternInflation) with parameter binding",
+  "parameters": {
+    "macroId": 100,
+    "paramId": 500,
+    "argValue": 80
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "macros": [
+      {
+        "id": 100,
+        "params": [
+          "param_cx"
+        ],
+        "body": [
+          {
+            "type": "drawCircle",
+            "cx": "@param_cx",
+            "cy": 100,
+            "radius": 25
+          }
+        ]
+      }
+    ],
+    "root": [
+      {
+        "type": "macroCall",
+        "id": 100,
+        "args": [
+          80
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "name": "row_align_top_bottom",
+  "description": "Row container with bottom alignment positioning all children",
+  "parameters": {
+    "width": 250,
+    "height": 120,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 120,
+        "label": "initial (250x120)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 240,
+        "label": "doubled (500x240)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 120,
+      "contentDescription": "row_align_top_bottom",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "verticalAlignment": "bottom",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                40,
+                30
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                40,
+                70
+              ]
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                40,
+                50
+              ]
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

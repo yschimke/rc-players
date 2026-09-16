@@ -1,0 +1,41 @@
+{
+  "name": "interactivity_click_toggle_state",
+  "category": "interactivity",
+  "description": "Tap toggle button alternating state between 0 and 1 (active = 1 - active)",
+  "parameters": {
+    "toggles": 2
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 200,
+      "height": 200
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "is_active",
+          "value": 0,
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "box": {
+          "modifiers": [
+            "fillMaxSize",
+            {
+              "onClick": {
+                "type": "valueFloatExpressionChange",
+                "target": "@is_active",
+                "expression": "1 - is_active"
+              }
+            }
+          ],
+          "content": []
+        }
+      }
+    ]
+  }
+}

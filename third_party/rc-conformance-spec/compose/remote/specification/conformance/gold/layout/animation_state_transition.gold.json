@@ -1,0 +1,574 @@
+{
+  "name": "animation_state_transition",
+  "category": "layout",
+  "description": "StateLayout animated page transition with shared element position animation from Start to End",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "frames": 2,
+    "tolerance": 0.5,
+    "animation": {
+      "capture_frames": [
+        0,
+        6,
+        12,
+        20
+      ],
+      "total_frames": 20,
+      "trigger": {
+        "x": 80,
+        "y": 120,
+        "type": "click"
+      }
+    },
+    "density": 1
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    },
+    {
+      "id": "trigger",
+      "kind": "trigger",
+      "capture": false,
+      "trigger": {
+        "x": 80,
+        "y": 120,
+        "type": "click"
+      }
+    },
+    {
+      "id": "animate",
+      "kind": "frame_sequence",
+      "capture": [
+        0,
+        6,
+        12,
+        20
+      ],
+      "base_time_millis": 10000,
+      "total_frames": 20
+    }
+  ],
+  "checks": [
+    {
+      "at": "frame_0",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 100,
+          "width": 160,
+          "height": 48,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -9,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "frame_6",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 100,
+          "width": 160,
+          "height": 48,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 114.3,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -9,
+          "kind": "BoxLayout",
+          "x": 114.3,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "frame_12",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 100,
+          "width": 160,
+          "height": 48,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 230.18,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -9,
+          "kind": "BoxLayout",
+          "x": 230.18,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "frame_20",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 100,
+          "width": 160,
+          "height": 48,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 250,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -9,
+          "kind": "BoxLayout",
+          "x": 250,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -5,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 100,
+          "width": 160,
+          "height": 48,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 100,
+          "depth": 3,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -9,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "RowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 100,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADICAYAAABS39xVAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAALZSURBVHic7d2xDYNAEEVBnwshpwYkV0M3Dl0TZSHcAol1etZMBT962mzHsm7XAyDgOXsAwF2CBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQMb4HOdfPFJ976/ZE4Afc2EBGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGWNZt2v2CIA7XFhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQMT7H6ZEq07z31+wJhLiwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBjLul2zRwDc4cICMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIOMLEXoPEe4DVuMAAAAASUVORK5CYII=",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_0",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADICAYAAABS39xVAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAALfSURBVHic7d2xCQJBFEVRxxqMzQ0Ec8EmbMFGjAUTa7IsWVvYRIYr51TwosvP/thdj8sGIGA7ewDAWoIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAxni9P3/xSPX+PM2eAPyYCwvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIGLvrcZk9AmANFxaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkjNf745Eq0zxul9kTCHFhARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkDH2h/MyewTAGi4sIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjK++04PR132/68AAAAASUVORK5CYII=",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_6",
+      "probe": "raster",
+      "expect": "data:image/png;base64,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",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_12",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADICAYAAABS39xVAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAL5SURBVHic7d0xSgNRGEbRGXEJCVhZChZZgW0KWwnYWbul1CndixuwsxTsU44LsBlI4HHhnAU8vuryd2/eHHbLBBBwM3oAwFqCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQMbt6AHAf+9vH9Pd9mH0jIsdT6/Tz+/X1d5zYQEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZ8+awW0aPAFjDhQVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZ8+f32UeqDPPyvB89gRAXFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARnz/ePTMnoEwBouLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIy/gBA7RC3bnpwdAAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_20",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAADICAYAAABS39xVAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAALgSURBVHic7d0xDQJRFEVBliCBmp5iFSAAATSIoMIAnlACXugXC1tAfk4yo+BWJ6970/4yLxuAgO3oAQBrCRaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZu9EDgP973F+jJ/yECwvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvImPaXeRk9AmANFxaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkCBaQIVhAhmABGYIFZAgWkCFYQIZgARmCBWQIFpAhWECGYAEZggVkTM/3xyNVhrldz6MnEOLCAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIGM6HE/L6BEAa7iwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8gQLCBDsIAMwQIyBAvIECwgQ7CADMECMgQLyBAsIEOwgAzBAjIEC8j4AhduDHgjkYFiAAAAAElFTkSuQmCC",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABLAAGAAQAAADIDAkAHgAAABphbmltYXRpb25fc3RhdGVfdHJhbnNpdGlvbgAOAAQAAAIBjAAAACoAAAAAyP////7M/////f////8AAAABAAAABAAAAAAQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////zZ////+/////8AAAAAAAAAAAAAACoQAAAAAT+AAABDAAAAAELIAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+aOjpPwqKiz+AAAAAAAAAyf////rL////+f////8AAAABAAAAAgAAAAAQAAAAAT+AAABDAAAAAELIAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////jK////9/////8AAAACAAAAAhAAAAAAQkgAAEMAAAAAQkgAADcAAAAAAAAAAAAAAAAAAAAAPxOTlD9FxcY/ff3+P4AAAAAAAAAOAAAAZEOWAAAAAAABQ5YAAAAAAAEAAAAAAAAAAdbW1sv////2/////wAAAAMAAAACAAAAABAAAAABP4AAAEMAAAAAQsgAADcAAAAAAAAAAAAAAAAAAAAAPaCgoT6mpqc+NLS1P4AAAAAAAADJ////9cr////0/////wAAAAIAAAACEAAAAABCSAAAQwAAAABCSAAANwAAAAAAAAAAAAAAAAAAAAA/E5OUP0XFxj99/f4/gAAAAAAAAA4AAABkQ5YAAAAAAAFDlgAAAAAAAQAAAAAAAAAB1tbW1tZmAAAAKwAAAAVzdGF0Zcr////z/////wAAAAIAAAACEAAAAABDIAAAQwAAAABCQAAANwAAAAAAAAAAAAAAAAAAAAA/E5OUP0XFxj99/f4/gAAAAAAAADvUAAAAKgAAAAHW1tbW1g=="
+}

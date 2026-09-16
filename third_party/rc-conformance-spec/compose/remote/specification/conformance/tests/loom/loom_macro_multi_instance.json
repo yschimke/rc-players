@@ -1,0 +1,50 @@
+{
+  "name": "loom_macro_multi_instance",
+  "category": "loom",
+  "description": "Macro instantiated twice with distinct arguments verifying independent expansion",
+  "parameters": {
+    "instances": 2
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "macros": [
+      {
+        "id": 101,
+        "params": [
+          "r",
+          "b"
+        ],
+        "body": [
+          {
+            "type": "drawRect",
+            "left": 0,
+            "top": 0,
+            "right": "@r",
+            "bottom": "@b"
+          }
+        ]
+      }
+    ],
+    "root": [
+      {
+        "type": "macroCall",
+        "id": 101,
+        "args": [
+          60,
+          60
+        ]
+      },
+      {
+        "type": "macroCall",
+        "id": 101,
+        "args": [
+          140,
+          140
+        ]
+      }
+    ]
+  }
+}

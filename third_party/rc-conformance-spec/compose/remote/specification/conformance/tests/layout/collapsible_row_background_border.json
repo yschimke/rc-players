@@ -1,0 +1,68 @@
+{
+  "name": "collapsible_row_background_border",
+  "description": "CollapsibleRow container with background and border styling",
+  "parameters": {
+    "width": 260,
+    "height": 100,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 260,
+        "height": 100,
+        "label": "initial (260x100)"
+      },
+      {
+        "step": 1,
+        "width": 520,
+        "height": 200,
+        "label": "doubled (520x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 260,
+      "height": 100
+    },
+    "root": {
+      "type": "collapsibleRow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#0f172a"
+        },
+        {
+          "border": {
+            "width": 2.0,
+            "cornerRadius": 6.0,
+            "color": "#475569"
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                40
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

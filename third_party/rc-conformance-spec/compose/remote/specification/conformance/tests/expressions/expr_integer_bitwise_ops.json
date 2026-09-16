@@ -1,0 +1,65 @@
+{
+  "name": "expr_integer_bitwise_ops",
+  "category": "expressions",
+  "description": "Bitwise shifts, masks, boolean logic, and integer math expressions (IntegerExpression)",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100
+    },
+    "integerExpressions": [
+      {
+        "id": 201,
+        "op": "shl",
+        "a": 12,
+        "b": 2
+      },
+      {
+        "id": 202,
+        "op": "shr",
+        "a": 64,
+        "b": 2
+      },
+      {
+        "id": 203,
+        "op": "or",
+        "a": 15,
+        "b": 240
+      },
+      {
+        "id": 204,
+        "op": "and",
+        "a": 255,
+        "b": 15
+      },
+      {
+        "id": 205,
+        "op": "xor",
+        "a": 255,
+        "b": 15
+      },
+      {
+        "id": 206,
+        "op": "min",
+        "a": 100,
+        "b": 20
+      },
+      {
+        "id": 207,
+        "op": "max",
+        "a": 100,
+        "b": 20
+      },
+      {
+        "id": 208,
+        "op": "clamp",
+        "val": 150,
+        "min": 10,
+        "max": 50
+      }
+    ]
+  }
+}

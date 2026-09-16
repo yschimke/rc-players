@@ -1,0 +1,81 @@
+{
+  "name": "collapsible_row_non_contiguous",
+  "description": "CollapsibleRow where middle child has lowest priority and collapses while outer children compact without gap",
+  "parameters": {
+    "width": 220,
+    "height": 100,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5
+  },
+  "document": {
+    "header": {
+      "width": 220,
+      "height": 100
+    },
+    "root": {
+      "type": "collapsibleRow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 90
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 100
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 90
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 5
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 90
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": 50
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "name": "text_from_float_precision",
+  "category": "textoperations",
+  "description": "Dynamic text conversion from float value with precision formatting and digit padding (TextFromFloat)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 20,
+      "expect": "123.46"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 21,
+      "expect": "123"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 22,
+      "expect": "00123.5"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 5,
+      "channel": "count"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAApC9unVhwAAABR/gAAKAAMAAgAAAACHAAAAFX+AAAoAAwAAAAAAAIcAAAAWf4AACgAFAAEAAAAM",
+  "expected_operations_count": 5,
+  "expected_texts": {
+    "20": "123.46",
+    "21": "123",
+    "22": "00123.5"
+  }
+}

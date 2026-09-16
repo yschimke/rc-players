@@ -1,0 +1,74 @@
+{
+  "name": "modifier_marquee_ticker",
+  "category": "layout",
+  "description": "Marquee modifier scrolls overflowing text over time: the offset stays at rest through the initial delay, then sweeps out to the full overflow distance and back over one cycle",
+  "parameters": {
+    "width": 300,
+    "height": 100,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "animation": {
+      "total_frames": 240,
+      "capture_frames": [
+        0,
+        30,
+        60,
+        90,
+        150,
+        210,
+        240
+      ]
+    }
+  },
+  "document": {
+    "header": {
+      "profiles": 513,
+      "width": 300,
+      "height": 100
+    },
+    "root": {
+      "type": "row",
+      "name": "root_row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "name": "marquee_text",
+          "value": "RemoteCompose Marquee Ticker",
+          "fontSize": 16,
+          "maxLines": 1,
+          "overflow": "visible",
+          "modifiers": [
+            {
+              "width": 240
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "marquee": {
+                "iterations": -1,
+                "animationMode": 0,
+                "repeatDelayMillis": 0,
+                "initialDelayMillis": 500,
+                "spacing": 32,
+                "velocity": 60
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

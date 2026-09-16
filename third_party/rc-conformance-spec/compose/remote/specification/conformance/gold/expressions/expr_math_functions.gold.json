@@ -1,0 +1,108 @@
+{
+  "name": "expr_math_functions",
+  "category": "expressions",
+  "description": "Core mathematical functions: abs, min, max, clamp, sqrt, pow, hypot, square",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_abs_neg",
+      "expect": 42.5,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_abs_pos",
+      "expect": 17.2,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_clamp_high",
+      "expect": 10,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_clamp_low",
+      "expect": 10,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_clamp_mid",
+      "expect": 10,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_hypot",
+      "expect": 5,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_max",
+      "expect": 15.5,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_min",
+      "expect": 9.2,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_pow",
+      "expect": 256,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_sqrt",
+      "expect": 12,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_square",
+      "expect": 49,
+      "tolerance": 0.001
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAFwAAABNleHByX21hdGhfZnVuY3Rpb25zAA4ABAAAAgFRAAAAKgAAAALCKgAA/7EACokAAAAqAAAAAQAAAAtyZXNfYWJzX25lZ1EAAAArAAAAAkGJmZr/sQAKiQAAACsAAAABAAAAC3Jlc19hYnNfcG9zUQAAACwAAAADQXgAAEETMzP/sQAGiQAAACwAAAABAAAAB3Jlc19taW5RAAAALQAAAANBeAAAQRMzM/+xAAeJAAAALQAAAAEAAAAHcmVzX21heFEAAAAuAAAABECgAABBIAAAQkgAAP+xABuJAAAALgAAAAEAAAANcmVzX2NsYW1wX2xvd1EAAAAvAAAABEHIAABBIAAAQkgAAP+xABuJAAAALwAAAAEAAAANcmVzX2NsYW1wX21pZFEAAAAwAAAABEKgAABBIAAAQkgAAP+xABuJAAAAMAAAAAEAAAAOcmVzX2NsYW1wX2hpZ2hRAAAAMQAAAAJDEAAA/7EACYkAAAAxAAAAAQAAAAhyZXNfc3FydFEAAAAyAAAAA0AAAABBAAAA/7EACIkAAAAyAAAAAQAAAAdyZXNfcG93UQAAADMAAAADQEAAAECAAAD/sQAviQAAADMAAAABAAAACXJlc19oeXBvdFEAAAA0AAAAAkDgAAD/sQAtiQAAADQAAAABAAAACnJlc19zcXVhcmXI/////sr////9/////wAAAAIAAAAC1tY="
+}

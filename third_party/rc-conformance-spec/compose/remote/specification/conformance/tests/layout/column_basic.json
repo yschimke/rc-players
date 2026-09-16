@@ -1,0 +1,90 @@
+{
+  "name": "column_basic",
+  "description": "Column layout arranging fixed-size children vertically with start alignment",
+  "parameters": {
+    "width": 300,
+    "height": 400,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 400,
+        "label": "initial (300x400)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 800,
+        "label": "doubled (600x800)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 400,
+      "contentDescription": "column_basic",
+      "profiles": 513
+    },
+    "root": {
+      "type": "column",
+      "horizontalAlignment": "start",
+      "verticalAlignment": "top",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 150
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

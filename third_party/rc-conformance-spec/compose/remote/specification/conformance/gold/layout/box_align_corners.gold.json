@@ -1,0 +1,432 @@
+{
+  "name": "box_align_corners",
+  "category": "layout",
+  "description": "Box placing children at all four corners via horizontal/vertical alignments",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1,
+    "resize_steps": [
+      {
+        "label": "initial (200x200)",
+        "step": 0,
+        "width": 200,
+        "height": 200
+      },
+      {
+        "label": "doubled (400x400)",
+        "step": 1,
+        "width": 400,
+        "height": 400
+      }
+    ]
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    },
+    {
+      "id": "resize_0",
+      "kind": "resize",
+      "label": "initial (200x200)",
+      "width": 200,
+      "height": 200,
+      "frames": 2,
+      "animation_enabled": false
+    },
+    {
+      "id": "resize_1",
+      "kind": "resize",
+      "label": "doubled (400x400)",
+      "width": 400,
+      "height": 400,
+      "frames": 2,
+      "animation_enabled": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "resize_0",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -16,
+          "kind": "BoxLayout",
+          "x": 170,
+          "y": 170,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -14,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 170,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -11,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "BoxLayout",
+          "x": 170,
+          "y": 0,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "resize_1",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -16,
+          "kind": "BoxLayout",
+          "x": 370,
+          "y": 370,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -14,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 400,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 370,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -11,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 400,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "BoxLayout",
+          "x": 370,
+          "y": 0,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 400,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 400,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 400,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 400,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -16,
+          "kind": "BoxLayout",
+          "x": 170,
+          "y": 170,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -14,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 170,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -11,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "BoxLayout",
+          "x": 170,
+          "y": 0,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 30,
+          "height": 30,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJPSURBVHic7dyxDUFhGEZh1wgG0FuBxDQqM6g1CoXGDGINa1jBBMIGp/1zk+dZ4K1Ovu6bbq/vbzHA5bAfMctMvU/HIbvLIaswEwKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAjTerMb8t0d5sAFgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgTCdP8/fiOH79jpilpl6P1ZDdl0QCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAh/WdkPb/1bikwAAAAASUVORK5CYII=",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_0",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJPSURBVHic7dyxDUFhGEZh1wgG0FuBxDQqM6g1CoXGDGINa1jBBMIGp/1zk+dZ4K1Ovu6bbq/vbzHA5bAfMctMvU/HIbvLIaswEwKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAjTerMb8t0d5sAFgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgTCdP8/fiOH79jpilpl6P1ZDdl0QCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAh/WdkPb/1bikwAAAAASUVORK5CYII=",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "resize_1",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAXVSURBVHic7dcxTQQBFEVRBgkrgB4LkKyardBATUNBQYMGsjbWxlhYBWTwcJufmZxj4P3u5i/ft7/tYcDn5TwxC3A46/vbyO7jyCoAuycgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAsjw9v27TRwCwPz4QABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREACS5eN+3SaGf16+JmYBDmf9PY3s+kAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABI/gGCrxD/fcMXyAAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAyAAGAAQAAADIDAkAFQAAABFib3hfYWxpZ25fY29ybmVycwAOAAQAAAIByP////7K/////f////8AAAABAAAABBAAAAABP4AAAEMAAAABP4AAADcAAAAAAAAAAAAAAAAAAAAAPfDw8T4kpKU+bOztP4AAAAAAAADJ/////Mr////7/////wAAAAEAAAAEEAAAAAE/gAAAQwAAAAE/gAAAyf////rK////+f////8AAAACAAAAAhAAAAAAQfAAAEMAAAAAQfAAADcAAAAAAAAAAAAAAAAAAAAAPxOTlD9FxcY/ff3+P4AAAAAAAADW1tbK////+P////8AAAADAAAABBAAAAABP4AAAEMAAAABP4AAAMn////3yv////b/////AAAAAgAAAAIQAAAAAEHwAABDAAAAAEHwAAA3AAAAAAAAAAAAAAAAAAAAAD98/P0/JaWmPyWlpj+AAAAAAAAA1tbWyv////X/////AAAAAQAAAAUQAAAAAT+AAABDAAAAAT+AAADJ////9Mr////z/////wAAAAIAAAACEAAAAABB8AAAQwAAAABB8AAANwAAAAAAAAAAAAAAAAAAAAA/BoaHP2/v8D8srK0/gAAAAAAAANbW1sr////y/////wAAAAMAAAAFEAAAAAE/gAAAQwAAAAE/gAAAyf////HK////8P////8AAAACAAAAAhAAAAAAQfAAAEMAAAAAQfAAADcAAAAAAAAAAAAAAAAAAAAAP3z8/T9T09Q+mpqbP4AAAAAAAADW1tbW1tY="
+}

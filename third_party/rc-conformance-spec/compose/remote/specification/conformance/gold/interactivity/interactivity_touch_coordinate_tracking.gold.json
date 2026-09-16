@@ -1,0 +1,110 @@
+{
+  "name": "interactivity_touch_coordinate_tracking",
+  "category": "interactivity",
+  "description": "Multi-step touch gesture tracking touchX, touchY, and touchDown/touchDrag/touchUp sequence",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 200,
+    "height": 200
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    },
+    {
+      "id": "act_0",
+      "kind": "touch_down",
+      "x": 45,
+      "y": 85,
+      "repaint": false
+    },
+    {
+      "id": "act_1",
+      "kind": "touch_drag",
+      "x": 120,
+      "y": 95,
+      "repaint": false
+    },
+    {
+      "id": "act_2",
+      "kind": "touch_up",
+      "x": 160,
+      "y": 110,
+      "dx": 30,
+      "dy": 5,
+      "repaint": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "act_2",
+      "probe": "float",
+      "target": 13,
+      "expect": 160,
+      "tolerance": 0
+    },
+    {
+      "at": "act_2",
+      "probe": "float",
+      "target": 14,
+      "expect": 110,
+      "tolerance": 0
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@act_0",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@act_1",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@act_2",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAAAyAAGAAQAAADIyP////7K/////f////8AAAACAAAAAhAAAAABf8AAAEMAAAABf8AAANbW",
+  "expected_touch_coords": {
+    "touchX": 160,
+    "touchY": 110
+  },
+  "interactions": [
+    {
+      "x": 45,
+      "y": 85,
+      "expectedTouchX": 45,
+      "expectedTouchY": 85,
+      "type": "touchDown"
+    },
+    {
+      "x": 120,
+      "y": 95,
+      "expectedTouchX": 120,
+      "expectedTouchY": 95,
+      "type": "touchDrag"
+    },
+    {
+      "x": 160,
+      "y": 110,
+      "dx": 30,
+      "dy": 5,
+      "expectedTouchX": 160,
+      "expectedTouchY": 110,
+      "type": "touchUp"
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "name": "flow_max_lines",
+  "description": "Flow layout with maxLines constraint limiting wrapped rows",
+  "parameters": {
+    "width": 260,
+    "height": 400,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "tags": [
+      "suspicious"
+    ],
+    "suspicious_reason": "FlowLayout.segmentComponents runs several times over a single MeasurePass and never clears the GONE flags an earlier pass set -- contrast CollapsibleRowLayout.java:253, which calls clearVisibilityOverride first -- and it treats a GONE child as 0x0 (FlowLayout.java:233-235). The fifth child, correctly dropped by maxLines=2, is therefore re-segmented into the last row and recorded spanning x=200..300, outside the 260px container. It stays GONE and is never painted, so the defect is confined to the reported geometry.",
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 260,
+        "height": 400,
+        "label": "initial (260x400)"
+      },
+      {
+        "step": 1,
+        "width": 520,
+        "height": 800,
+        "label": "doubled (520x800)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 260,
+      "height": 400
+    },
+    "root": {
+      "type": "flow",
+      "maxLines": 2,
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fcd34d"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#d8b4fe"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tags": [
+    "suspicious"
+  ],
+  "suspicious_reason": "FlowLayout.segmentComponents runs several times over a single MeasurePass and never clears the GONE flags an earlier pass set -- contrast CollapsibleRowLayout.java:253, which calls clearVisibilityOverride first -- and it treats a GONE child as 0x0 (FlowLayout.java:233-235). The fifth child, correctly dropped by maxLines=2, is therefore re-segmented into the last row and recorded spanning x=200..300, outside the 260px container. It stays GONE and is never painted, so the defect is confined to the reported geometry."
+}

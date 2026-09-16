@@ -1,0 +1,78 @@
+{
+  "name": "expr_trigonometry",
+  "category": "expressions",
+  "description": "Trigonometric functions: sin, cos, tan, asin, acos, atan, atan2",
+  "parameters": {
+    "tolerance": 0.002
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_trigonometry",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "res_sin_0",
+          "value": "sin(0)",
+          "export": true
+        },
+        {
+          "name": "res_sin_pi_6",
+          "value": "sin(0.5235987756)",
+          "export": true
+        },
+        {
+          "name": "res_sin_pi_2",
+          "value": "sin(1.5707963268)",
+          "export": true
+        },
+        {
+          "name": "res_cos_0",
+          "value": "cos(0)",
+          "export": true
+        },
+        {
+          "name": "res_cos_pi_3",
+          "value": "cos(1.0471975512)",
+          "export": true
+        },
+        {
+          "name": "res_cos_pi",
+          "value": "cos(3.1415926536)",
+          "export": true
+        },
+        {
+          "name": "res_tan_pi_4",
+          "value": "tan(0.7853981634)",
+          "export": true
+        },
+        {
+          "name": "res_asin_half",
+          "value": "asin(0.5)",
+          "export": true
+        },
+        {
+          "name": "res_acos_half",
+          "value": "acos(0.5)",
+          "export": true
+        },
+        {
+          "name": "res_atan_1",
+          "value": "atan(1.0)",
+          "export": true
+        },
+        {
+          "name": "res_atan2_diag",
+          "value": "atan2(4.0, 4.0)",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

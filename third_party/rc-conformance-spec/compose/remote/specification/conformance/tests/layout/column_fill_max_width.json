@@ -1,0 +1,88 @@
+{
+  "name": "column_fill_max_width",
+  "description": "Column with children filling parent maximum width",
+  "parameters": {
+    "width": 300,
+    "height": 250,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 250,
+        "label": "initial (300x250)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 500,
+        "label": "doubled (600x500)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 250,
+      "contentDescription": "column_fill_max_width",
+      "profiles": 513
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxWidth": 0.6
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

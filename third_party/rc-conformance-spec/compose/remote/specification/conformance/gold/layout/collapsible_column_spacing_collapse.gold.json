@@ -1,0 +1,97 @@
+{
+  "name": "collapsible_column_spacing_collapse",
+  "category": "layout",
+  "description": "CollapsibleColumn with spacedBy where overflowing child is marked GONE and remaining visible children use spacing",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 120,
+    "height": 220,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -7,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 190,
+          "width": 60,
+          "height": 80,
+          "depth": 2,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 110,
+          "width": 60,
+          "height": 80,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 60,
+          "height": 80,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 220,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 220,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAADcCAYAAAC76WUqAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAI9SURBVHic7dNRCQIBEEVRV8yx/5tBMI0/BjDFVjCAOUxikzWFDFzOKfAGLrOs2/U4kXWePoD/EjhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOu0wNP1+fqekR+/02suuD4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzhO4DiB4wSOEzjuMjX8+L6npkfsQ7s+OE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjlnW7HtNH8D8+OE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOE7gOIHjBI4TOO4HPgoKOT+ZTk4AAAAASUVORK5CYII=",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAeAAGAAQAAADcDAkAJwAAACNjb2xsYXBzaWJsZV9jb2x1bW5fc3BhY2luZ19jb2xsYXBzZQAOAAQAAAIByP////7p/////f////8AAAACAAAAAgAAAAAQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////zK////+/////8AAAACAAAAAhAAAAAAQnAAAEMAAAAAQqAAADcAAAAAAAAAAAAAAAAAAAAAPxOTlD9FxcY/ff3+P4AAAAAAAADrAAAAAULIAADWyv////r/////AAAAAgAAAAIQAAAAAEJwAABDAAAAAEKgAAA3AAAAAAAAAAAAAAAAAAAAAD98/P0/JaWmPyWlpj+AAAAAAAAA6wAAAAFCSAAA1sr////5/////wAAAAIAAAACEAAAAABCcAAAQwAAAABCoAAANwAAAAAAAAAAAAAAAAAAAAA/BoaHP2/v8D8srK0/gAAAAAAAAOsAAAABQSAAANbW1tY="
+}

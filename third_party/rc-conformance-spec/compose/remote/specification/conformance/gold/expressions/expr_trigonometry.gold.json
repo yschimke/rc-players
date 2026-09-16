@@ -1,0 +1,108 @@
+{
+  "name": "expr_trigonometry",
+  "category": "expressions",
+  "description": "Trigonometric functions: sin, cos, tan, asin, acos, atan, atan2",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.002
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_acos_half",
+      "expect": 1.0472,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_asin_half",
+      "expect": 0.5236,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_atan2_diag",
+      "expect": 0.7854,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_atan_1",
+      "expect": 0.7854,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_cos_0",
+      "expect": 1,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_cos_pi",
+      "expect": -1,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_cos_pi_3",
+      "expect": 0.5,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_sin_0",
+      "expect": 0,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_sin_pi_2",
+      "expect": 1,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_sin_pi_6",
+      "expect": 0.5,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_tan_pi_4",
+      "expect": 1,
+      "tolerance": 0.002
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAFQAAABFleHByX3RyaWdvbm9tZXRyeQAOAAQAAAIBUQAAACoAAAACAAAAAP+xABKJAAAAKgAAAAEAAAAJcmVzX3Npbl8wUQAAACsAAAACPwYKkv+xABKJAAAAKwAAAAEAAAAMcmVzX3Npbl9waV82UQAAACwAAAACP8kP2/+xABKJAAAALAAAAAEAAAAMcmVzX3Npbl9waV8yUQAAAC0AAAACAAAAAP+xABOJAAAALQAAAAEAAAAJcmVzX2Nvc18wUQAAAC4AAAACP4YKkv+xABOJAAAALgAAAAEAAAAMcmVzX2Nvc19waV8zUQAAAC8AAAACQEkP2/+xABOJAAAALwAAAAEAAAAKcmVzX2Nvc19waVEAAAAwAAAAAj9JD9v/sQAUiQAAADAAAAABAAAADHJlc190YW5fcGlfNFEAAAAxAAAAAj8AAAD/sQAViQAAADEAAAABAAAADXJlc19hc2luX2hhbGZRAAAAMgAAAAI/AAAA/7EAFokAAAAyAAAAAQAAAA1yZXNfYWNvc19oYWxmUQAAADMAAAACP4AAAP+xABeJAAAAMwAAAAEAAAAKcmVzX2F0YW5fMVEAAAA0AAAAA0CAAABAgAAA/7EAGIkAAAA0AAAAAQAAAA5yZXNfYXRhbjJfZGlhZ8j////+yv////3/////AAAAAgAAAALW1g=="
+}

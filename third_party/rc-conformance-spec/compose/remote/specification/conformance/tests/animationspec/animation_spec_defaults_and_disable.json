@@ -1,0 +1,74 @@
+{
+  "name": "animation_spec_defaults_and_disable",
+  "category": "animationspec",
+  "description": "A component with no ANIMATION_SPEC must fall back to the default spec (id −1, 300 ms, CUBIC_STANDARD, FADE_IN/FADE_OUT) and stay animation-enabled, while animationId 0 is the one and only value that disables animation",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "animation_spec_defaults_and_disable",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "type": "column",
+        "modifiers": [
+          "fillMaxSize"
+        ],
+        "children": [
+          {
+            "type": "box",
+            "modifiers": [
+              {
+                "width": 100
+              },
+              {
+                "height": 50
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "modifiers": [
+              {
+                "width": 100
+              },
+              {
+                "height": 50
+              },
+              {
+                "animationSpec": {
+                  "id": 0,
+                  "motionDuration": 500,
+                  "motionEasingType": "linear"
+                }
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "modifiers": [
+              {
+                "width": 100
+              },
+              {
+                "height": 50
+              },
+              {
+                "animationSpec": {
+                  "id": -1,
+                  "motionDuration": 500,
+                  "motionEasingType": "linear"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

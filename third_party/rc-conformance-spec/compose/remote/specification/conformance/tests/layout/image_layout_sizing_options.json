@@ -1,0 +1,171 @@
+{
+  "name": "image_layout_sizing_options",
+  "description": "ImageLayout sizing options testing wrap content (intrinsic bitmap dimensions), exact size, fill container, fractional fill, and flex weights under dynamic resizing, with golden visual raster verification",
+  "parameters": {
+    "width": 400,
+    "height": 500,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 500,
+        "label": "initial (400x500)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 500,
+        "label": "expanded (600x500)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 500
+    },
+    "root": {
+      "type": "column",
+      "name": "root_column",
+      "horizontalAlignment": "start",
+      "verticalAlignment": "top",
+      "spacedBy": 10,
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#0F172A"
+        }
+      ],
+      "children": [
+        {
+          "type": "image",
+          "name": "image_wrap_content",
+          "bitmap": "badge_60x40",
+          "scale": "fit",
+          "description": "WrapContent: dimensions resolve to intrinsic bitmap size (60x40)",
+          "modifiers": [
+            {
+              "wrapContent": true
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "name": "image_exact_size",
+          "bitmap": "badge_60x40",
+          "scale": "crop",
+          "description": "Exact: fixed width (120) and height (80)",
+          "modifiers": [
+            {
+              "width": 120
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "name": "image_fill_max_width",
+          "bitmap": "badge_60x40",
+          "scale": "fillWidth",
+          "description": "FillMaxWidth: expands to full parent width (400 -> 600)",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "name": "image_fractional_fill",
+          "bitmap": "badge_60x40",
+          "scale": "inside",
+          "description": "FractionalFill: 50% width of parent container (200 -> 300)",
+          "modifiers": [
+            {
+              "fillMaxWidth": 0.5
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fcd34d"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "name": "weighted_image_row",
+          "spacedBy": 10,
+          "modifiers": [
+            {
+              "fillMaxWidth": 1
+            },
+            {
+              "height": 70
+            },
+            {
+              "background": "#1e293b"
+            }
+          ],
+          "children": [
+            {
+              "type": "image",
+              "name": "image_weight_1",
+              "bitmap": "badge_60x40",
+              "scale": "fillBounds",
+              "description": "Weight 1.0: receives 1/3 of remaining row width (133.33 -> 200)",
+              "modifiers": [
+                {
+                  "weight": 1
+                },
+                {
+                  "fillMaxHeight": 1
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            },
+            {
+              "type": "image",
+              "name": "image_weight_2",
+              "bitmap": "badge_60x40",
+              "scale": "fit",
+              "description": "Weight 2.0: receives 2/3 of remaining row width (266.67 -> 400)",
+              "modifiers": [
+                {
+                  "weight": 2
+                },
+                {
+                  "fillMaxHeight": 1
+                },
+                {
+                  "background": "#fca5a5"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

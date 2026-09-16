@@ -1,0 +1,95 @@
+{
+  "name": "color_theme_mode_switching",
+  "category": "colortheme",
+  "description": "ColorTheme light mode vs dark mode palette resolution and fallback mapping",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    },
+    {
+      "id": "light",
+      "kind": "theme",
+      "theme": -3
+    },
+    {
+      "id": "dark",
+      "kind": "theme",
+      "theme": -2
+    }
+  ],
+  "checks": [
+    {
+      "at": "light",
+      "probe": "color",
+      "target": 10,
+      "expect": 4280171146
+    },
+    {
+      "at": "light",
+      "probe": "color",
+      "target": 11,
+      "expect": 4294967295
+    },
+    {
+      "at": "light",
+      "probe": "color",
+      "target": 12,
+      "expect": 4294047225
+    },
+    {
+      "at": "dark",
+      "probe": "color",
+      "target": 10,
+      "expect": 4281908728
+    },
+    {
+      "at": "dark",
+      "probe": "color",
+      "target": 11,
+      "expect": 4279179050
+    },
+    {
+      "at": "dark",
+      "probe": "color",
+      "target": 12,
+      "expect": 4280166715
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@light",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@dark",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgHEAAAACgAAAAEAAAAA/x46iv84vfjEAAAACwAAAAEAAAAA//////8PFyrEAAAADAAAAAEAAAAA//H1+f8eKTs=",
+  "expected_theme_colors": {
+    "dark": {
+      "10": 4281908728,
+      "11": 4279179050,
+      "12": 4280166715
+    },
+    "light": {
+      "10": 4280171146,
+      "11": 4294967295,
+      "12": 4294047225
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "matrix_expression_composition",
+  "category": "matrixmath",
+  "description": "MATRIX_EXPRESSION (187) RPN evaluation: translate(5,7) composed with scale(2,3,1) via MUL must equal the hand-written affine matrix, and ROT_Z takes degrees",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "matrix_expression_composition",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "matrixExpression": {
+                "id": 310,
+                "expression": [
+                  5,
+                  7,
+                  "matrix:TRANSLATE2",
+                  "matrix:IDENTITY",
+                  2,
+                  3,
+                  1,
+                  "matrix:SCALE3",
+                  "matrix:MUL"
+                ]
+              }
+            },
+            {
+              "matrixExpression": {
+                "id": 311,
+                "expression": [
+                  90,
+                  "matrix:ROT_Z"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

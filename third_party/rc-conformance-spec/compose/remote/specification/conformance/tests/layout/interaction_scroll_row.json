@@ -1,0 +1,117 @@
+{
+  "name": "interaction_scroll_row",
+  "description": "Row horizontal touch drag gesture scrolling overflowing children horizontally",
+  "parameters": {
+    "width": 120,
+    "height": 100,
+    "density": 1.0,
+    "tolerance": 0.5,
+    "frames": 2,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "touch_down",
+        "x": 80,
+        "y": 50,
+        "label": "touch_down"
+      },
+      {
+        "step": 1,
+        "type": "touch_drag",
+        "x": 40,
+        "y": 50,
+        "label": "drag_left_40px"
+      },
+      {
+        "step": 2,
+        "type": "touch_up",
+        "x": 40,
+        "y": 50,
+        "dx": -40,
+        "dy": 0,
+        "label": "release"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 120,
+      "height": 100
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "horizontalScroll": {
+            "position": 0.0,
+            "notches": 0
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fcd34d"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "name": "conditional_nested_branches",
+  "category": "conditionals",
+  "description": "Nested CONDITIONAL_OPERATIONS: a false outer branch must prevent a true inner branch from running, while a true outer branch lets each inner branch decide for itself",
+  "format_version": 2,
+  "profile": "extended",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "trace",
+      "expect": [
+        {
+          "a": 1,
+          "b": 2,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "0",
+          "type": "gt"
+        },
+        {
+          "a": 3,
+          "b": 3,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "0.0",
+          "type": "eq"
+        },
+        {
+          "a": 1,
+          "b": 2,
+          "executed": true,
+          "executedChildOps": 2,
+          "path": "1",
+          "type": "lt"
+        },
+        {
+          "a": 3,
+          "b": 3,
+          "executed": true,
+          "executedChildOps": 1,
+          "path": "1.0",
+          "type": "eq"
+        },
+        {
+          "a": 3,
+          "b": 3,
+          "executed": false,
+          "executedChildOps": 0,
+          "path": "1.1",
+          "type": "neq"
+        }
+      ],
+      "tolerance": 0,
+      "channel": "branches"
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAALISURBVHic7dohDoAwEATADe9D8OgmPIFnwA/AIDA1mJYyk5y5mnUrrgkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwujlJSbLfU+4dAFQtSc7KLA1zAdC5NfUCWRvmAqBzR+oFcjTMBcDD1DoAAN/UY4FsL98A+DlHdABe840XAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIChXRa7JkVfAWPpAAAAAElFTkSuQmCC",
+      "tolerance": 16
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAHwAAABtjb25kaXRpb25hbF9uZXN0ZWRfYnJhbmNoZXMADgAEAAACAcj////+zf////3/////EAAAAAF/wAAAQwAAAAF/wAAAyf////zP////+7IEP4AAAEAAAACyAEBAAABAQAAALkGgAABBoAAAQIAAANbWsgI/gAAAQAAAALIAQEAAAEBAAAAuQiAAAEGgAABAgAAA1rIBQEAAAEBAAAA4QnAAAEEgAABCtAAAQiAAANbW1tbW1g=="
+}

@@ -1,0 +1,80 @@
+{
+  "name": "resize_row_weights",
+  "description": "Row proportional weight distribution responding dynamically to width resize changes",
+  "parameters": {
+    "width": 300,
+    "height": 100,
+    "density": 1,
+    "tolerance": 0.5,
+    "frames": 2,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 100,
+        "label": "standard_300"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 100,
+        "label": "expanded_600"
+      },
+      {
+        "step": 2,
+        "width": 150,
+        "height": 100,
+        "label": "compressed_150"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 100,
+      "contentDescription": "resize_row_weights",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 1
+            },
+            {
+              "fillMaxHeight": 1
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 2
+            },
+            {
+              "fillMaxHeight": 1
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

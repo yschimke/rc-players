@@ -1,0 +1,88 @@
+{
+  "name": "flow_child_padding",
+  "description": "Flow layout items with individual padding modifiers",
+  "parameters": {
+    "width": 250,
+    "height": 180,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 180,
+        "label": "initial (250x180)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 360,
+        "label": "doubled (500x360)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 180,
+      "contentDescription": "flow_child_padding",
+      "profiles": 513
+    },
+    "root": {
+      "type": "flow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "padding": 8
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 70
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "padding": 12
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "padding": 6
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

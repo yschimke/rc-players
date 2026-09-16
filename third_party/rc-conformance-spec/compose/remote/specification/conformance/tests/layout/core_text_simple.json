@@ -1,0 +1,56 @@
+{
+  "name": "core_text_simple",
+  "description": "Simple text layout measuring single line text component",
+  "parameters": {
+    "width": 300,
+    "height": 100,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 100,
+        "label": "initial (300x100)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 200,
+        "label": "doubled (600x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 100,
+      "profiles": 513,
+      "contentDescription": "core_text_simple"
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "text": "Hello RemoteCompose",
+          "fontSize": 12,
+          "modifiers": [
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "name": "expr_arithmetic_basic",
+  "category": "expressions",
+  "description": "Standard arithmetic operators (+, -, *, /, %), unary minus, and operator precedence",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_add",
+      "expect": 46,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_complex_arith",
+      "expect": 26,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_div",
+      "expect": 4.5,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_mod",
+      "expect": 1,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_mul",
+      "expect": 240,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_parentheses",
+      "expect": 20,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_precedence",
+      "expect": 14,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_sub",
+      "expect": 58,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_unary_neg",
+      "expect": 5,
+      "tolerance": 0.001
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAGQAAABVleHByX2FyaXRobWV0aWNfYmFzaWMADgAEAAACAVEAAAAqAAAAA0FAAABCCAAA/7EAAYkAAAAqAAAAAQAAAAdyZXNfYWRkUQAAACsAAAADQsgAAEIoAAD/sQACiQAAACsAAAABAAAAB3Jlc19zdWJRAAAALAAAAANBcAAAQYAAAP+xAAOJAAAALAAAAAEAAAAHcmVzX211bFEAAAAtAAAAA0K0AABBoAAA/7EABIkAAAAtAAAAAQAAAAdyZXNfZGl2UQAAAC4AAAADQegAAEDgAAD/sQAFiQAAAC4AAAABAAAAB3Jlc19tb2RRAAAALwAAAAVAAAAAQEAAAECAAAD/sQAD/7EAAYkAAAAvAAAAAQAAAA5yZXNfcHJlY2VkZW5jZVEAAAAwAAAABUAAAABAQAAA/7EAAUCAAAD/sQADiQAAADAAAAABAAAAD3Jlc19wYXJlbnRoZXNlc1EAAAAxAAAAA8FwAABBoAAA/7EAAYkAAAAxAAAAAQAAAA1yZXNfdW5hcnlfbmVnUQAAADIAAAANQsgAAEGgAAD/sQACQAAAAECgAAD/sQAD/7EABEBAAABBAAAAQAAAAP+xAAL/sQAD/7EAAYkAAAAyAAAAAQAAABFyZXNfY29tcGxleF9hcml0aMj////+yv////3/////AAAAAgAAAALW1g=="
+}

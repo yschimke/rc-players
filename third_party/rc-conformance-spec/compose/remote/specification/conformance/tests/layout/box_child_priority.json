@@ -1,0 +1,72 @@
+{
+  "name": "box_child_priority",
+  "description": "Box layout children with collapsiblePriority metadata",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 200,
+        "label": "initial (200x200)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 400,
+        "label": "doubled (400x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 80
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 2
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

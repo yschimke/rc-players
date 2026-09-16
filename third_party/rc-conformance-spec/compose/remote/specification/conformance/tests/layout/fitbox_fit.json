@@ -1,0 +1,60 @@
+{
+  "name": "fitbox_fit",
+  "description": "FitBox whose only candidate is larger than the container: no child fits, so nothing is displayed",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 300,
+        "label": "initial (300x300)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 600,
+        "label": "doubled (600x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300,
+      "contentDescription": "fitbox_fit",
+      "profiles": 513
+    },
+    "root": {
+      "type": "fitBox",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 400
+            },
+            {
+              "height": 200
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

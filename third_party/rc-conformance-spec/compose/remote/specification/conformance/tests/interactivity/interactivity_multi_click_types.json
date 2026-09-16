@@ -1,0 +1,84 @@
+{
+  "name": "interactivity_multi_click_types",
+  "category": "interactivity",
+  "description": "MultiClickModifier discriminating single click, long press, and double click",
+  "parameters": {
+    "clickTypes": [
+      "single",
+      "long",
+      "double"
+    ]
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 200,
+      "height": 200
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "count_single",
+          "value": 0,
+          "export": true
+        },
+        {
+          "name": "count_long",
+          "value": 0,
+          "export": true
+        },
+        {
+          "name": "count_double",
+          "value": 0,
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "box": {
+          "modifiers": [
+            "fillMaxSize",
+            {
+              "multiClick": {
+                "clickType": 0,
+                "actions": [
+                  {
+                    "type": "valueFloatExpressionChange",
+                    "target": "@count_single",
+                    "expression": "count_single + 1"
+                  }
+                ]
+              }
+            },
+            {
+              "multiClick": {
+                "clickType": 1,
+                "actions": [
+                  {
+                    "type": "valueFloatExpressionChange",
+                    "target": "@count_long",
+                    "expression": "count_long + 1"
+                  }
+                ]
+              }
+            },
+            {
+              "multiClick": {
+                "clickType": 2,
+                "actions": [
+                  {
+                    "type": "valueFloatExpressionChange",
+                    "target": "@count_double",
+                    "expression": "count_double + 1"
+                  }
+                ]
+              }
+            }
+          ],
+          "content": []
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "name": "wire_buffer_types",
+  "category": "wire",
+  "description": "WireBuffer serialization and deserialization of all wire protocol primitives",
+  "parameters": {
+    "verifiedTypes": [
+      "float",
+      "color",
+      "text",
+      "floatArray",
+      "id"
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "pi",
+          "value": 3.14159
+        }
+      ],
+      "colors": [
+        {
+          "name": "brand_green",
+          "value": "#FF00FF00"
+        }
+      ],
+      "strings": [
+        {
+          "name": "title",
+          "value": "RemoteCompose Wire Protocol"
+        }
+      ],
+      "arrays": [
+        {
+          "name": "powers",
+          "value": [
+            1,
+            2,
+            4,
+            8
+          ]
+        }
+      ]
+    },
+    "root": [
+      {
+        "type": "canvas",
+        "commands": [
+          {
+            "drawCircle": {
+              "cx": 100,
+              "cy": 100,
+              "radius": 50
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

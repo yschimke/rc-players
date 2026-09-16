@@ -1,0 +1,84 @@
+{
+  "name": "collapsible_column_child_padding",
+  "description": "CollapsibleColumn children with padding modifiers",
+  "parameters": {
+    "width": 150,
+    "height": 260,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 150,
+        "height": 260,
+        "label": "initial (150x260)"
+      },
+      {
+        "step": 1,
+        "width": 300,
+        "height": 520,
+        "label": "doubled (300x520)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 150,
+      "height": 260
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                40
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "padding": 8
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                40
+              ]
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "padding": 8
+            },
+            {
+              "collapsiblePriority": 2
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

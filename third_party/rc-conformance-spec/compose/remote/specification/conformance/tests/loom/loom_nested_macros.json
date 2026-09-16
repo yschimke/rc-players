@@ -1,0 +1,61 @@
+{
+  "name": "loom_nested_macros",
+  "category": "loom",
+  "description": "Nested macro hierarchy with parameter forwarding between parent and child macros",
+  "parameters": {
+    "depth": 2
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "macros": [
+      {
+        "id": 105,
+        "params": [
+          "p2"
+        ],
+        "body": [
+          {
+            "type": "drawCircle",
+            "cx": "@p2",
+            "cy": 50,
+            "radius": 15
+          }
+        ]
+      },
+      {
+        "id": 104,
+        "params": [
+          "p1"
+        ],
+        "body": [
+          {
+            "type": "drawRect",
+            "left": 0,
+            "top": 0,
+            "right": 100,
+            "bottom": 100
+          },
+          {
+            "type": "macroCall",
+            "id": 105,
+            "args": [
+              "@p1"
+            ]
+          }
+        ]
+      }
+    ],
+    "root": [
+      {
+        "type": "macroCall",
+        "id": 104,
+        "args": [
+          120
+        ]
+      }
+    ]
+  }
+}

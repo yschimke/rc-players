@@ -1,0 +1,103 @@
+{
+  "name": "flow_max_columns",
+  "description": "Flow layout with maxColumns constraint limiting items per row",
+  "parameters": {
+    "width": 400,
+    "height": 300,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 300,
+        "label": "initial (400x300)"
+      },
+      {
+        "step": 1,
+        "width": 800,
+        "height": 600,
+        "label": "doubled (800x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 300,
+      "contentDescription": "flow_max_columns",
+      "profiles": 513
+    },
+    "root": {
+      "type": "flow",
+      "maxColumns": 2,
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fcd34d"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

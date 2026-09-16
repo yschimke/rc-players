@@ -1,0 +1,62 @@
+{
+  "name": "canvas_layout_embedded",
+  "category": "layout",
+  "description": "CanvasLayout embedded custom canvas container with layout bounds and constraint sizing",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "density": 1,
+    "frames": 1,
+    "tolerance": 0.5
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "root": {
+      "type": "row",
+      "name": "root_row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "canvas",
+          "name": "embedded_canvas_1",
+          "modifiers": [
+            {
+              "width": 150
+            },
+            {
+              "height": 150
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "name": "sibling_box",
+          "modifiers": [
+            {
+              "width": 150
+            },
+            {
+              "height": 150
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

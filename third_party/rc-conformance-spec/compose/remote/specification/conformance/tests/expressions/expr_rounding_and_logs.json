@@ -1,0 +1,63 @@
+{
+  "name": "expr_rounding_and_logs",
+  "category": "expressions",
+  "description": "Rounding operations and logarithmic functions: floor, ceil, round, log, ln, exp",
+  "parameters": {
+    "tolerance": 0.002
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_rounding_and_logs",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "res_floor",
+          "value": "floor(7.85)",
+          "export": true
+        },
+        {
+          "name": "res_ceil",
+          "value": "ceil(7.15)",
+          "export": true
+        },
+        {
+          "name": "res_round_down",
+          "value": "round(4.3)",
+          "export": true
+        },
+        {
+          "name": "res_round_up",
+          "value": "round(4.7)",
+          "export": true
+        },
+        {
+          "name": "res_log10_100",
+          "value": "log(100)",
+          "export": true
+        },
+        {
+          "name": "res_ln_e",
+          "value": "ln(2.718281828459)",
+          "export": true
+        },
+        {
+          "name": "res_exp_1",
+          "value": "exp(1)",
+          "export": true
+        },
+        {
+          "name": "res_exp_0",
+          "value": "exp(0)",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

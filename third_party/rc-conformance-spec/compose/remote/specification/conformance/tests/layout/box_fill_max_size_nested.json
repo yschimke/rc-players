@@ -1,0 +1,70 @@
+{
+  "name": "box_fill_max_size_nested",
+  "description": "Nested boxes each using fillMaxSize fractions",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 200,
+        "label": "initial (200x200)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 400,
+        "label": "doubled (400x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200,
+      "contentDescription": "box_fill_max_size_nested",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxSize": 0.75
+            },
+            {
+              "background": "#1e3a8a"
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "fillMaxSize": 0.5
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

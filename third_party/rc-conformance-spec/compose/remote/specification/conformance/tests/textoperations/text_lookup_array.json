@@ -1,0 +1,51 @@
+{
+  "name": "text_lookup_array",
+  "category": "textoperations",
+  "description": "Dynamic text indexing and retrieval from collection of text IDs (TextLookup and DataListIds)",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "texts": [
+      {
+        "id": 101,
+        "text": "Alpha"
+      },
+      {
+        "id": 102,
+        "text": "Beta"
+      },
+      {
+        "id": 103,
+        "text": "Gamma"
+      }
+    ],
+    "dataListIds": {
+      "id": 50,
+      "ids": [
+        101,
+        102,
+        103
+      ]
+    },
+    "operations": [
+      {
+        "type": "textLookup",
+        "textId": 200,
+        "dataSetId": 50,
+        "index": 1
+      },
+      {
+        "type": "textLookup",
+        "textId": 201,
+        "dataSetId": 50,
+        "index": 2
+      }
+    ]
+  }
+}

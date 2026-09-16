@@ -1,0 +1,86 @@
+{
+  "name": "modifier_constraints_in",
+  "description": "Dimension constraints clamping sizes using widthIn and heightIn",
+  "parameters": {
+    "width": 400,
+    "height": 300,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 300,
+        "label": "initial (400x300)"
+      },
+      {
+        "step": 1,
+        "width": 800,
+        "height": 600,
+        "label": "doubled (800x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 300,
+      "contentDescription": "modifier_constraints_in",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 50
+            },
+            {
+              "widthIn": {
+                "min": 100,
+                "max": 200
+              }
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 300
+            },
+            {
+              "widthIn": {
+                "min": 50,
+                "max": 120
+              }
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

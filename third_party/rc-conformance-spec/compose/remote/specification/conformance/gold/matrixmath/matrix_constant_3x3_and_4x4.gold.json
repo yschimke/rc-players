@@ -1,0 +1,124 @@
+{
+  "name": "matrix_constant_3x3_and_4x4",
+  "category": "matrixmath",
+  "description": "MATRIX_CONSTANT (186) accepts 9 or 16 floats. The 4x4 form transforms (1,1,0) to (7,10,0) as written; the 3x3 form describing the same affine transform yields (7,3,0) instead, because Matrix.copyFrom expands the second row into the Z column",
+  "known_divergence": "Matrix.copyFrom (Matrix.java:408-424 and Matrix.ts:47-61) maps a 3x3 onto slots 0,1,3 / 4,5,6 / 8,9,10. The second row should map to 4,5,7; writing values[5] into m[6] puts translate-y in the Z column, so a 3x3 constant silently loses its vertical translation. Both engines share the bug, so the expected value below is (7,3,0) \u2014 the intended value is (7,10,0).",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 360,
+      "expect": 7,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 361,
+      "expect": 10,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 362,
+      "expect": 0,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 370,
+      "expect": 7,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 371,
+      "expect": 3,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 372,
+      "expect": 0,
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "matrix",
+      "target": 300,
+      "expect": [
+        2,
+        0,
+        0,
+        5,
+        0,
+        3,
+        0,
+        7,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "matrix",
+      "target": 301,
+      "expect": [
+        2,
+        0,
+        5,
+        0,
+        3,
+        7,
+        0,
+        0,
+        1
+      ],
+      "tolerance": 1.0E-4
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "MatrixConstant"
+      ],
+      "channel": "present"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAHwAAABttYXRyaXhfY29uc3RhbnRfM3gzX2FuZF80eDQADgAEAAACAcj////+zf////3/////EAAAAAF/wAAAQwAAAAF/wAAAyf////zP////+7oAAAEsAAAAAAAAABBAAAAAAAAAAAAAAABAoAAAAAAAAEBAAAAAAAAAQOAAAAAAAAAAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAugAAAS0AAAAAAAAACUAAAAAAAAAAQKAAAAAAAABAQAAAQOAAAAAAAAAAAAAAP4AAALwAAAAAASwAAAADAAABaAAAAWkAAAFqAAAAAz+AAAA/gAAAAAAAALwAAAAAAS0AAAADAAABcgAAAXMAAAF0AAAAAz+AAAA/gAAAAAAAANbW1tY="
+}

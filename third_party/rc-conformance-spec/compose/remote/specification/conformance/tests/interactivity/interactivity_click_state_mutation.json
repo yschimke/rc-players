@@ -1,0 +1,41 @@
+{
+  "name": "interactivity_click_state_mutation",
+  "category": "interactivity",
+  "description": "Tap dispatch mutating document state variable via valueFloatExpressionChange",
+  "parameters": {
+    "clicks": 3
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 200,
+      "height": 200
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "counter",
+          "value": 0,
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "box": {
+          "modifiers": [
+            "fillMaxSize",
+            {
+              "onClick": {
+                "type": "valueFloatExpressionChange",
+                "target": "@counter",
+                "expression": "counter + 1"
+              }
+            }
+          ],
+          "content": []
+        }
+      }
+    ]
+  }
+}

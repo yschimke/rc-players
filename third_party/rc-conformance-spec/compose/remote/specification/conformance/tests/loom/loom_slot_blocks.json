@@ -1,0 +1,78 @@
+{
+  "name": "loom_slot_blocks",
+  "category": "loom",
+  "description": "Slot arguments (PatternBlock and PatternArgument) injecting custom content into macro templates",
+  "parameters": {
+    "slots": [
+      0,
+      1
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "macros": [
+      {
+        "id": 103,
+        "params": [],
+        "body": [
+          {
+            "type": "drawRect",
+            "left": 0,
+            "top": 0,
+            "right": 100,
+            "bottom": 20
+          },
+          {
+            "type": "slot",
+            "index": 0
+          },
+          {
+            "type": "slot",
+            "index": 1
+          },
+          {
+            "type": "drawRect",
+            "left": 0,
+            "top": 80,
+            "right": 100,
+            "bottom": 100
+          }
+        ]
+      }
+    ],
+    "root": [
+      {
+        "type": "macroCall",
+        "id": 103,
+        "blocks": [
+          {
+            "index": 0,
+            "children": [
+              {
+                "type": "drawCircle",
+                "cx": 50,
+                "cy": 40,
+                "radius": 15
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "children": [
+              {
+                "type": "drawLine",
+                "x1": 10,
+                "y1": 60,
+                "x2": 90,
+                "y2": 60
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

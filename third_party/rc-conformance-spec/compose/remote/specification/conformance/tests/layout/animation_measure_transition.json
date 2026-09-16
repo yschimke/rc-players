@@ -1,0 +1,64 @@
+{
+  "name": "animation_measure_transition",
+  "description": "Multi-frame layout animation measuring position interpolation over time during resize",
+  "parameters": {
+    "width": 200,
+    "height": 100,
+    "density": 1,
+    "tolerance": 0.5,
+    "frames": 2,
+    "animation": {
+      "trigger": {
+        "type": "resize",
+        "width": 400,
+        "height": 100
+      },
+      "capture_frames": [
+        0,
+        6,
+        12,
+        20
+      ],
+      "total_frames": 20
+    }
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 100,
+      "contentDescription": "animation_measure_transition",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "horizontalAlignment": "end",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "animationSpec": 100
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

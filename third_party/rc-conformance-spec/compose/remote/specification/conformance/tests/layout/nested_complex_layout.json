@@ -1,0 +1,148 @@
+{
+  "name": "nested_complex_layout",
+  "description": "Hierarchical card UI with nested Columns, Rows, Padding, and Weights",
+  "parameters": {
+    "width": 360,
+    "height": 400,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 360,
+        "height": 400,
+        "label": "initial (360x400)"
+      },
+      {
+        "step": 1,
+        "width": 720,
+        "height": 800,
+        "label": "doubled (720x800)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 360,
+      "height": 400
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": 16
+        }
+      ],
+      "children": [
+        {
+          "type": "row",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#1e3a8a"
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 64
+                },
+                {
+                  "height": 64
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            },
+            {
+              "type": "column",
+              "modifiers": [
+                {
+                  "weight": 1.0
+                },
+                {
+                  "background": "#1e293b"
+                },
+                {
+                  "padding": {
+                    "start": 12,
+                    "top": 0,
+                    "end": 0,
+                    "bottom": 0
+                  }
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "fillMaxWidth": 1.0
+                    },
+                    {
+                      "height": 24
+                    },
+                    {
+                      "background": "#93c5fd"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 120
+                    },
+                    {
+                      "height": 16
+                    },
+                    {
+                      "background": "#fca5a5"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "weight": 1.0
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "padding": {
+                "start": 0,
+                "top": 12,
+                "end": 0,
+                "bottom": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

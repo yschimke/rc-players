@@ -1,0 +1,122 @@
+{
+  "name": "matrix_vector_math_affine_and_perspective",
+  "category": "matrixmath",
+  "description": "MATRIX_VECTOR_MATH (188): type 0 applies the affine part (scale then translate) to (1,1,0); type 1 runs the full 4x4 transform and divides by w, which a matrix with w=2 makes distinguishable from type 0",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "matrix_vector_math_affine_and_perspective",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "matrixConstant": {
+                "id": 320,
+                "values": [
+                  2,
+                  0,
+                  0,
+                  5,
+                  0,
+                  3,
+                  0,
+                  7,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              }
+            },
+            {
+              "matrixVectorMath": {
+                "matrix": 320,
+                "mathType": "multiply",
+                "from": [
+                  1,
+                  1,
+                  0
+                ],
+                "out": [
+                  330,
+                  331,
+                  332
+                ]
+              }
+            },
+            {
+              "matrixConstant": {
+                "id": 321,
+                "values": [
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2
+                ]
+              }
+            },
+            {
+              "matrixVectorMath": {
+                "matrix": 321,
+                "mathType": "multiply",
+                "from": [
+                  1,
+                  1,
+                  0
+                ],
+                "out": [
+                  340,
+                  341,
+                  342
+                ]
+              }
+            },
+            {
+              "matrixVectorMath": {
+                "matrix": 321,
+                "mathType": "perspective",
+                "from": [
+                  1,
+                  1,
+                  0
+                ],
+                "out": [
+                  350,
+                  351,
+                  352
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

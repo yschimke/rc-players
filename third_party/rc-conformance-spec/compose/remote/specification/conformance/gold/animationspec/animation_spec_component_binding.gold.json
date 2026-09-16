@@ -1,0 +1,92 @@
+{
+  "name": "animation_spec_component_binding",
+  "category": "animationspec",
+  "description": "A component must adopt the ANIMATION_SPEC emitted inside its own operation run. Two boxes carry different specs; each must report its own durations and easing, and its animation id must match the spec",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "label": "first box spec",
+          "animationId": 11,
+          "enterAnimation": 4,
+          "exitAnimation": 5,
+          "motionDuration": 120,
+          "motionEasingType": 2,
+          "visibilityDuration": 640,
+          "visibilityEasingType": 4
+        },
+        {
+          "label": "second box spec",
+          "animationId": 22,
+          "enterAnimation": 0,
+          "exitAnimation": 7,
+          "motionDuration": 900,
+          "motionEasingType": 3,
+          "visibilityDuration": 40,
+          "visibilityEasingType": 5
+        }
+      ],
+      "tolerance": 0,
+      "channel": "animation_specs"
+    },
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "label": "first box",
+          "animationId": 11,
+          "componentAnimationId": 11,
+          "componentIndex": 0,
+          "componentType": "BoxLayout",
+          "motionDuration": 120,
+          "motionEasingType": 2,
+          "usesDefaultSpec": false,
+          "visibilityDuration": 640,
+          "visibilityEasingType": 4
+        },
+        {
+          "label": "second box",
+          "animationId": 22,
+          "componentAnimationId": 22,
+          "componentIndex": 1,
+          "componentType": "BoxLayout",
+          "motionDuration": 900,
+          "motionEasingType": 3,
+          "usesDefaultSpec": false,
+          "visibilityDuration": 40,
+          "visibilityEasingType": 5
+        }
+      ],
+      "tolerance": 0,
+      "channel": "component_bindings"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAJAAAACBhbmltYXRpb25fc3BlY19jb21wb25lbnRfYmluZGluZwAOAAQAAAIByP////7M/////f////8AAAABAAAABAAAAAAQAAAAAX/AAABDAAAAAX/AAADJ/////Mr////7/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAADgAAAAtC8AAAAAAAAkQgAAAAAAAEAAAABAAAAAXWyv////r/////AAAAAgAAAAIQAAAAAELIAABDAAAAAEJIAAAOAAAAFkRhAAAAAAADQiAAAAAAAAUAAAAAAAAAB9bW1tY="
+}

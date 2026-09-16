@@ -1,0 +1,49 @@
+{
+  "name": "data_map_literal_key_lookup",
+  "category": "dataoperations",
+  "description": "Key-value dictionary keyed by literal strings, with the values stored inline in the map (DataMapIds + DataMapLookup). The dataoperations test of the same shape instead keys by text resource id and stores resource ids as the values.",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "dataMap": {
+      "id": 100,
+      "entries": {
+        "greetingKey": {
+          "type": "string",
+          "value": "Hello DataMap"
+        },
+        "countKey": {
+          "type": "int",
+          "value": 42
+        },
+        "ratioKey": {
+          "type": "float",
+          "value": 3.14159
+        }
+      }
+    },
+    "lookups": [
+      {
+        "id": 20,
+        "map": 100,
+        "key": "greetingKey"
+      },
+      {
+        "id": 21,
+        "map": 100,
+        "key": "countKey"
+      },
+      {
+        "id": 22,
+        "map": 100,
+        "key": "ratioKey"
+      }
+    ]
+  }
+}

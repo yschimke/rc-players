@@ -1,0 +1,220 @@
+{
+  "name": "conditional_comparison_operators",
+  "category": "conditionals",
+  "description": "All six CONDITIONAL_OPERATIONS comparison operators (EQ/NEQ/LT/LTE/GT/GTE) evaluated over an equal pair (5,5) and an ordered pair (2,7); asserts both the operator encoded on the wire and whether the guarded body actually executed during paint",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "conditional_comparison_operators",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "conditionalOperations": {
+                "condition": "eq",
+                "v1": 5,
+                "v2": 5,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 10,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "neq",
+                "v1": 5,
+                "v2": 5,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 15,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "lt",
+                "v1": 5,
+                "v2": 5,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 20,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "lte",
+                "v1": 5,
+                "v2": 5,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 25,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "gt",
+                "v1": 5,
+                "v2": 5,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 30,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "gte",
+                "v1": 5,
+                "v2": 5,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 35,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "eq",
+                "v1": 2,
+                "v2": 7,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 40,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "neq",
+                "v1": 2,
+                "v2": 7,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 45,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "lt",
+                "v1": 2,
+                "v2": 7,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 50,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "lte",
+                "v1": 2,
+                "v2": 7,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 55,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "gt",
+                "v1": 2,
+                "v2": 7,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 60,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditionalOperations": {
+                "condition": "gte",
+                "v1": 2,
+                "v2": 7,
+                "commands": [
+                  {
+                    "drawCircle": {
+                      "cx": 65,
+                      "cy": 10,
+                      "radius": 4
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "state_layout_basic",
+  "description": "StateLayout adopts the active state's size (pass-through container): the 120x80 active child sizes the container and the root, and the 200x150 inactive state is kept GONE",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 200,
+        "label": "initial (300x200)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 400,
+        "label": "doubled (600x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 200
+    },
+    "root": {
+      "type": "stateLayout",
+      "index": 0,
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 120
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 200
+            },
+            {
+              "height": 150
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "name": "column_align_center_mixed_widths",
+  "description": "Column with horizontal center alignment and varying child widths",
+  "parameters": {
+    "width": 200,
+    "height": 300,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 300,
+        "label": "initial (200x300)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 600,
+        "label": "doubled (400x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 300,
+      "contentDescription": "column_align_center_mixed_widths",
+      "profiles": 513
+    },
+    "root": {
+      "type": "column",
+      "horizontalAlignment": "center",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 40
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 120
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

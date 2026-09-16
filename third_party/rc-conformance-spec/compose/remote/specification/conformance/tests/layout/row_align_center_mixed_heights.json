@@ -1,0 +1,89 @@
+{
+  "name": "row_align_center_mixed_heights",
+  "description": "Row with vertical center alignment and varying child heights",
+  "parameters": {
+    "width": 300,
+    "height": 150,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 150,
+        "label": "initial (300x150)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 300,
+        "label": "doubled (600x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 150,
+      "contentDescription": "row_align_center_mixed_heights",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "verticalAlignment": "center",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 50
+            },
+            {
+              "height": 30
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 100
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 40
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

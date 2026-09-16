@@ -1,0 +1,97 @@
+{
+  "name": "column_padding_all",
+  "description": "Column container and children using uniform padding modifiers",
+  "parameters": {
+    "width": 200,
+    "height": 350,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 350,
+        "label": "initial (200x350)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 700,
+        "label": "doubled (400x700)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 350,
+      "contentDescription": "column_padding_all",
+      "profiles": 513
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": 20
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                40
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "padding": 6
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                80,
+                50
+              ]
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "padding": 10
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                30
+              ]
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

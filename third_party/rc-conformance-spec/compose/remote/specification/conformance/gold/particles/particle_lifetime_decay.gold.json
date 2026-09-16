@@ -1,0 +1,501 @@
+{
+  "name": "particle_lifetime_decay",
+  "category": "particles",
+  "description": "Finite particle lifespan with fade-out alpha factor and state advancement",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "frames": 6,
+    "tolerance": 0.01,
+    "count": 6,
+    "variables": [
+      "x",
+      "y",
+      "vx",
+      "vy",
+      "life"
+    ]
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 0,
+      "measure": false
+    },
+    {
+      "id": "animate",
+      "kind": "frame_sequence",
+      "capture": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "inclusive": true,
+      "total_frames": 6
+    },
+    {
+      "id": "final",
+      "kind": "settle"
+    }
+  ],
+  "checks": [
+    {
+      "at": "frame_0",
+      "probe": "particles",
+      "expect": [
+        [
+          51.5,
+          52,
+          1.5,
+          2,
+          0.85
+        ],
+        [
+          52,
+          52.3,
+          2,
+          2.3,
+          0.85
+        ],
+        [
+          52.5,
+          52.6,
+          2.5,
+          2.6,
+          0.85
+        ],
+        [
+          53,
+          52.9,
+          3,
+          2.9,
+          0.85
+        ],
+        [
+          53.5,
+          53.2,
+          3.5,
+          3.2,
+          0.85
+        ],
+        [
+          54,
+          53.5,
+          4,
+          3.5,
+          0.85
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "frame_1",
+      "probe": "particles",
+      "expect": [
+        [
+          53,
+          54,
+          1.5,
+          2,
+          0.7
+        ],
+        [
+          54,
+          54.6,
+          2,
+          2.3,
+          0.7
+        ],
+        [
+          55,
+          55.2,
+          2.5,
+          2.6,
+          0.7
+        ],
+        [
+          56,
+          55.8,
+          3,
+          2.9,
+          0.7
+        ],
+        [
+          57,
+          56.4,
+          3.5,
+          3.2,
+          0.7
+        ],
+        [
+          58,
+          57,
+          4,
+          3.5,
+          0.7
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "frame_2",
+      "probe": "particles",
+      "expect": [
+        [
+          54.5,
+          56,
+          1.5,
+          2,
+          0.55
+        ],
+        [
+          56,
+          56.9,
+          2,
+          2.3,
+          0.55
+        ],
+        [
+          57.5,
+          57.8,
+          2.5,
+          2.6,
+          0.55
+        ],
+        [
+          59,
+          58.7,
+          3,
+          2.9,
+          0.55
+        ],
+        [
+          60.5,
+          59.6,
+          3.5,
+          3.2,
+          0.55
+        ],
+        [
+          62,
+          60.5,
+          4,
+          3.5,
+          0.55
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "frame_3",
+      "probe": "particles",
+      "expect": [
+        [
+          56,
+          58,
+          1.5,
+          2,
+          0.4
+        ],
+        [
+          58,
+          59.2,
+          2,
+          2.3,
+          0.4
+        ],
+        [
+          60,
+          60.4,
+          2.5,
+          2.6,
+          0.4
+        ],
+        [
+          62,
+          61.6,
+          3,
+          2.9,
+          0.4
+        ],
+        [
+          64,
+          62.8,
+          3.5,
+          3.2,
+          0.4
+        ],
+        [
+          66,
+          64,
+          4,
+          3.5,
+          0.4
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "frame_4",
+      "probe": "particles",
+      "expect": [
+        [
+          57.5,
+          60,
+          1.5,
+          2,
+          0.25
+        ],
+        [
+          60,
+          61.5,
+          2,
+          2.3,
+          0.25
+        ],
+        [
+          62.5,
+          63,
+          2.5,
+          2.6,
+          0.25
+        ],
+        [
+          65,
+          64.5,
+          3,
+          2.9,
+          0.25
+        ],
+        [
+          67.5,
+          66,
+          3.5,
+          3.2,
+          0.25
+        ],
+        [
+          70,
+          67.5,
+          4,
+          3.5,
+          0.25
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "frame_5",
+      "probe": "particles",
+      "expect": [
+        [
+          59,
+          62,
+          1.5,
+          2,
+          0.1
+        ],
+        [
+          62,
+          63.8,
+          2,
+          2.3,
+          0.1
+        ],
+        [
+          65,
+          65.6,
+          2.5,
+          2.6,
+          0.1
+        ],
+        [
+          68,
+          67.4,
+          3,
+          2.9,
+          0.1
+        ],
+        [
+          71,
+          69.2,
+          3.5,
+          3.2,
+          0.1
+        ],
+        [
+          74,
+          71,
+          4,
+          3.5,
+          0.1
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "frame_6",
+      "probe": "particles",
+      "expect": [
+        [
+          60.5,
+          64,
+          1.5,
+          2,
+          0
+        ],
+        [
+          64,
+          66.1,
+          2,
+          2.3,
+          0
+        ],
+        [
+          67.5,
+          68.2,
+          2.5,
+          2.6,
+          0
+        ],
+        [
+          71,
+          70.3,
+          3,
+          2.9,
+          0
+        ],
+        [
+          74.5,
+          72.4,
+          3.5,
+          3.2,
+          0
+        ],
+        [
+          78,
+          74.5,
+          4,
+          3.5,
+          0
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "final",
+      "probe": "particles",
+      "expect": [
+        [
+          60.5,
+          64,
+          1.5,
+          2,
+          0
+        ],
+        [
+          64,
+          66.1,
+          2,
+          2.3,
+          0
+        ],
+        [
+          67.5,
+          68.2,
+          2.5,
+          2.6,
+          0
+        ],
+        [
+          71,
+          70.3,
+          3,
+          2.9,
+          0
+        ],
+        [
+          74.5,
+          72.4,
+          3.5,
+          3.2,
+          0
+        ],
+        [
+          78,
+          74.5,
+          4,
+          3.5,
+          0
+        ]
+      ],
+      "tolerance": 0.01
+    },
+    {
+      "at": "frame_0",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAMdSURBVHic7do9LoRRFIDhNyQSotAKhR0otRZgEVYnFmEN9iASNkBIJEYxihG/xXBnxvMkp/uKtzu5370FAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAqWx8dMCc71cnr7FY31ePQIgAW3mF1V01m5rk6HxkFwOI76+3ymJ2npqcSAHjnus8XyKS6rzaH1QGsqLXRAXPw3T3OVnX0FyEA/8kqLJDLH3xz8NsRACyf/aYvrr76jXU8Kg6AxbZd3fbx8riqNsalAbAMTpsujMfqobqo9kYGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwVy+1YS2JsdyEhwAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_1",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAMpSURBVHic7dshTkNBFEDR26AROFYAm8Cj2AAGDY5V4FgH7ABFKvHspIqEhCJ+CCSlVYRpm3OSUd9c9zL/ZQoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgmNnogD80qy6ri+qweq7uq+XIKAC2323TsPh5FtXZyCgAtt+81QHydV6r02FlAGy1eesHyLL6qO5GxQHsm4PRAX/oqDrf8H3W9DtrUb38SxEAO2HWtAd5b/NNZD6oD4Atd9K081g3QJ7GpQGwC66qt1YHyPXIKIB9sU/vQH5zXN30vft4rB7yNgQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADW+gSkqjZvQLsz1wAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_2",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAMoSURBVHic7dgxLoRRGIXhl+lnDVZAIpFMRGkhVqCwCrEGW1ApLYDGBlQajYKODsWMEJlJROGf4XmSL/eWp7on3y0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVtao2pydAPAtW9VD9Vo9VvvDxgFgVRw3LY/Pc1ltDxkK4K9ZHzrAL5lU19VJNR44CwBLaqfp19XXLeR9brONALDAqDqrnlpcJBfV7lABAVhuG9V59dL8Ermr1oYKB8DyO6zum18ikwFzAbACxtVR9dxHedxkAwH4kf/4eO5VB7P7aXU1XBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4F96A6ZjL/OmY2VdAAAAAElFTkSuQmCC",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_3",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAANESURBVHic7dqxSWZBGIXhV7YBBUtYc3PtwC1gQxPBEixCsAuxAQswMxC0gM0XNhQUQUWD+8sFIwNl9srzwMAw0ckOM98UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw2troAF9ordpb7c+rl4FZAFiQw6bSeKlOql9978IE4JMcNRfI2zqoNkeGAuD/t950C7lpLpDn6qHaHZgLgIX4WZ1Vf5qL5F91VW0NzAXAQuxUf6u75iK5qY6rjYG5AFiI3aZnrKfmIjnNkB2AD9hsGqi/H7LvD8wEsCg/RgcY5L66bpqDPFbbq/OL6nJUKIAl8WQz/db6vdqfVrcDswAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPApXgE7zCvqHNFSYgAAAABJRU5ErkJggg==",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_4",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAALrSURBVHic7dmxCQJBEAXQj1qKzXhl2KGJLdiAGFmAcE2YbCByoJ7HrrLvwTDBJj/dPwkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdG+XZCwbgIWsWgeobCgDAB+5lQHgS+vWASq7JDkk2SY5JTknuTZNBPCnNq0DVHYs+/EeMjy9AcBb1FoAM/RWYU1RawHM0FuFNUWtBcBi1FoAL/iBTNu3DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP+4OylIUOlfU8oEAAAAASUVORK5CYII=",
+      "tolerance": 16,
+      "advisory": true
+    },
+    {
+      "at": "frame_5",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAK/SURBVHic7duxCYBAEEVBERGxAmNjsf/yTDYSE+9kT3EGXr4F7O86AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACDdEgHwgKH1AYmm1gcA8H1rBAC3zBEAFNsiAACAXHsEAMXGCIALfesDXsynFgDVjBABTv40JKxhhAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKQ7ALayAdfnXDRfAAAAAElFTkSuQmCC",
+      "tolerance": 16,
+      "advisory": true
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@frame_6",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@final",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAyAAGAAQAAADIDAkAGwAAABdwYXJ0aWNsZV9saWZldGltZV9kZWNheQAOAAQAAAIByP////7N/////f/////J/////KEAAAAqAAAABgAAAAUAAAArAAAAAUJIAAAAAAAsAAAAAUJIAAAAAAAtAAAABT/AAAD/sQBGPwAAAP+xAAP/sQABAAAALgAAAAVAAAAA/7EARj6ZmZr/sQAD/7EAAQAAAC8AAAABP4AAAKMAAAAqAAAAAAAAAAUAAAAD/4AAK/+AAC3/sQABAAAAA/+AACz/gAAu/7EAAQAAAAH/gAAtAAAAAf+AAC4AAAAFAAAAAP+AAC8+GZma/7EAAv+xAAdRAAAAMAAAAAP/gAAvQIAAAP+xAAMu/4AAK/+AACz/gAAw1tbW1g=="
+}

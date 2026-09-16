@@ -1,0 +1,73 @@
+{
+  "name": "text_merge_and_transform",
+  "category": "textoperations",
+  "description": "TextMerge string concatenation and TextTransform uppercase, lowercase, and substring extraction",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 10,
+      "expect": "Remote"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 11,
+      "expect": "Compose"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 20,
+      "expect": "RemoteCompose"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 21,
+      "expect": "REMOTECOMPOSE"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 22,
+      "expect": "remotecompose"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 23,
+      "expect": "Compose"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgFmAAAACgAAAAZSZW1vdGVmAAAACwAAAAdDb21wb3NliAAAABQAAAAKAAAAC8cAAAAVAAAAFH/AAAB/wAAAAAAAAscAAAAWAAAAFH/AAAB/wAAAAAAAAccAAAAXAAAAFEDAAABA4AAAAAAAAA==",
+  "expected_texts": {
+    "10": "Remote",
+    "11": "Compose",
+    "20": "RemoteCompose",
+    "21": "REMOTECOMPOSE",
+    "22": "remotecompose",
+    "23": "Compose"
+  }
+}

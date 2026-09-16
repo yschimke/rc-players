@@ -1,0 +1,110 @@
+{
+  "name": "interaction_touch_drag_sequence",
+  "description": "Sequential touch down and drag displacement across coordinate steps",
+  "parameters": {
+    "width": 200,
+    "height": 150,
+    "density": 1.0,
+    "tolerance": 0.5,
+    "frames": 2,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "touch_down",
+        "x": 100,
+        "y": 120,
+        "label": "initial_touch"
+      },
+      {
+        "step": 1,
+        "type": "touch_drag",
+        "x": 100,
+        "y": 80,
+        "label": "drag_step_1"
+      },
+      {
+        "step": 2,
+        "type": "touch_drag",
+        "x": 100,
+        "y": 40,
+        "label": "drag_step_2"
+      },
+      {
+        "step": 3,
+        "type": "touch_up",
+        "x": 100,
+        "y": 40,
+        "dx": 0,
+        "dy": -80,
+        "label": "touch_finish"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 150
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "verticalScroll": {
+            "position": 0.0,
+            "notches": 0
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 160
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 160
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 160
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "name": "modifier_visibility",
+  "description": "Visibility modifier handling VISIBLE (0), INVISIBLE (1), and GONE (2)",
+  "parameters": {
+    "width": 400,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 200,
+        "label": "initial (400x200)"
+      },
+      {
+        "step": 1,
+        "width": 800,
+        "height": 400,
+        "label": "doubled (800x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 200
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "visibility": "gone"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

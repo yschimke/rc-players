@@ -1,0 +1,44 @@
+{
+  "name": "text_formatting_from_float",
+  "category": "textoperations",
+  "description": "TextFromFloat formatting with variable decimal places, rounding, and leading zero padding",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "variables": {
+      "val": 123.4567
+    },
+    "textOperations": [
+      {
+        "type": "textFromFloat",
+        "textId": 20,
+        "value": "@val",
+        "digitsBefore": 3,
+        "digitsAfter": 2,
+        "flags": 0
+      },
+      {
+        "type": "textFromFloat",
+        "textId": 21,
+        "value": "@val",
+        "digitsBefore": 3,
+        "digitsAfter": 0,
+        "flags": 0
+      },
+      {
+        "type": "textFromFloat",
+        "textId": 22,
+        "value": "@val",
+        "digitsBefore": 5,
+        "digitsAfter": 1,
+        "flags": 12
+      }
+    ]
+  }
+}

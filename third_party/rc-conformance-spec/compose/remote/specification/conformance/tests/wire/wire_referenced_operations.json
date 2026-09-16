@@ -1,0 +1,45 @@
+{
+  "name": "wire_referenced_operations",
+  "category": "wire",
+  "description": "ReferencedOperations definition and IncludeReferencedOperations inlining",
+  "parameters": {
+    "referenceId": 300,
+    "includeCount": 2
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "referenced": [
+      {
+        "id": 300,
+        "operations": [
+          {
+            "type": "drawRect",
+            "left": 10,
+            "top": 10,
+            "right": 50,
+            "bottom": 50
+          },
+          {
+            "type": "drawCircle",
+            "cx": 75,
+            "cy": 75,
+            "radius": 20
+          }
+        ]
+      }
+    ],
+    "root": [
+      {
+        "type": "includeReferenced",
+        "id": 300
+      },
+      {
+        "type": "includeReferenced",
+        "id": 300
+      }
+    ]
+  }
+}

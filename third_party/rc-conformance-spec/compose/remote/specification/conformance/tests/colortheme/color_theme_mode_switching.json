@@ -1,0 +1,32 @@
+{
+  "name": "color_theme_mode_switching",
+  "category": "colortheme",
+  "description": "ColorTheme light mode vs dark mode palette resolution and fallback mapping",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "colorTheme": [
+      {
+        "id": 10,
+        "light": "#1E3A8A",
+        "dark": "#38BDF8"
+      },
+      {
+        "id": 11,
+        "light": "#FFFFFF",
+        "dark": "#0F172A"
+      },
+      {
+        "id": 12,
+        "light": "#F1F5F9",
+        "dark": "#1E293B"
+      }
+    ]
+  }
+}

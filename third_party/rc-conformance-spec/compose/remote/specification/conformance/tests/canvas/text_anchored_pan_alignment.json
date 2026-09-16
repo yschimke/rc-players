@@ -1,0 +1,97 @@
+{
+  "name": "text_anchored_pan_alignment",
+  "category": "canvas",
+  "description": "DRAW_TEXT_ANCHOR (133): panX/panY of \u22121/0/+1 must shift the resolved baseline origin by exactly half the measured text width/height per step, and a NaN panY must leave the baseline y untouched",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "text_anchored_pan_alignment",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#38bdf8"
+                  },
+                  {
+                    "style": "fill"
+                  },
+                  {
+                    "textSize": 24
+                  }
+                ]
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "Anchor",
+                "x": 200,
+                "y": 200,
+                "panX": -1,
+                "panY": "NaN"
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "Anchor",
+                "x": 200,
+                "y": 200,
+                "panX": 0,
+                "panY": "NaN"
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "Anchor",
+                "x": 200,
+                "y": 200,
+                "panX": 1,
+                "panY": "NaN"
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "Anchor",
+                "x": 100,
+                "y": 300,
+                "panX": 0,
+                "panY": -1
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "Anchor",
+                "x": 100,
+                "y": 300,
+                "panX": 0,
+                "panY": 0
+              }
+            },
+            {
+              "drawTextAnchored": {
+                "text": "Anchor",
+                "x": 100,
+                "y": 300,
+                "panX": 0,
+                "panY": 1
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

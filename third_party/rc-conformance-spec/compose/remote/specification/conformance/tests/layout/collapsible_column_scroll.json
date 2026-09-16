@@ -1,0 +1,109 @@
+{
+  "name": "collapsible_column_scroll",
+  "description": "CollapsibleColumn container combined with verticalScroll modifier",
+  "parameters": {
+    "width": 150,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "tags": [
+      "suspicious"
+    ],
+    "suspicious_reason": "CollapsibleColumn decides which child to collapse by measuring against the viewport (CollapsibleColumnLayout.java:302-319), but ColumnLayout then positions the survivors against the virtual scroll dimension (ColumnLayout.java:316-325) and centres against it (ColumnLayout.java:412-414). That dimension is the pre-collapse 240px, so the two surviving 80px children are centred with a (240-160)/2 = 40px top offset: the collapse frees no space, it only moves the content down. The collapsed child is recorded at the end cursor (y=200). No children overlap.",
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 150,
+        "height": 200,
+        "label": "initial (150x200)"
+      },
+      {
+        "step": 1,
+        "width": 300,
+        "height": 400,
+        "label": "doubled (300x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 150,
+      "height": 200
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "verticalScroll": {
+            "position": 0.0,
+            "notches": 0
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                80
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                80
+              ]
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 2
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                80
+              ]
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": 3
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tags": [
+    "suspicious"
+  ],
+  "suspicious_reason": "CollapsibleColumn decides which child to collapse by measuring against the viewport (CollapsibleColumnLayout.java:302-319), but ColumnLayout then positions the survivors against the virtual scroll dimension (ColumnLayout.java:316-325) and centres against it (ColumnLayout.java:412-414). That dimension is the pre-collapse 240px, so the two surviving 80px children are centred with a (240-160)/2 = 40px top offset: the collapse frees no space, it only moves the content down. The collapsed child is recorded at the end cursor (y=200). No children overlap."
+}

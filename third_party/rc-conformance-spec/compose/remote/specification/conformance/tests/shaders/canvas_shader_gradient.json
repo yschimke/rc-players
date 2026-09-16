@@ -1,0 +1,78 @@
+{
+  "name": "canvas_shader_gradient",
+  "category": "shaders",
+  "description": "Linear two-stop gradient and sweep multi-color angular gradient applied to 2D primitives",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "linearGradient": {
+                      "x1": 20,
+                      "y1": 20,
+                      "x2": 280,
+                      "y2": 140,
+                      "colors": [
+                        "#FF0055",
+                        "#00AAFF"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "drawRect": {
+                "left": 20,
+                "top": 20,
+                "right": 280,
+                "bottom": 140
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "sweepGradient": {
+                      "centerX": 150,
+                      "centerY": 220,
+                      "colors": [
+                        "#FFFF00",
+                        "#FF00FF",
+                        "#00FFFF",
+                        "#FFFF00"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 150,
+                "cy": 220,
+                "radius": 65
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

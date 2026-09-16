@@ -1,0 +1,108 @@
+{
+  "name": "text_anchored_pan_alignment",
+  "category": "canvas",
+  "description": "DRAW_TEXT_ANCHOR (133): panX/panY of \u22121/0/+1 must shift the resolved baseline origin by exactly half the measured text width/height per step, and a NaN panY must leave the baseline y untouched",
+  "format_version": 2,
+  "profile": "extended",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "y": 200
+        },
+        {
+          "y": 200
+        },
+        {
+          "y": 200
+        },
+        {},
+        {},
+        {}
+      ],
+      "tolerance": 0.01,
+      "channel": "anchor_runs"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "DrawTextAnchored"
+      ],
+      "channel": "present"
+    },
+    {
+      "at": "initial",
+      "probe": "relation",
+      "expect": [
+        {
+          "kind": "strictly_decreasing",
+          "axis": "x",
+          "runs": [
+            0,
+            1,
+            2
+          ],
+          "why": "raising panX moves the run start left"
+        },
+        {
+          "kind": "equal_gaps",
+          "axis": "x",
+          "runs": [
+            0,
+            1,
+            2
+          ],
+          "why": "each panX step is exactly half the text width"
+        },
+        {
+          "kind": "strictly_increasing",
+          "axis": "y",
+          "runs": [
+            3,
+            4,
+            5
+          ],
+          "why": "raising panY moves the baseline down"
+        },
+        {
+          "kind": "equal_gaps",
+          "axis": "y",
+          "runs": [
+            3,
+            4,
+            5
+          ],
+          "why": "each panY step is exactly half the text height"
+        }
+      ],
+      "tolerance": 0.01,
+      "channel": "anchor_runs"
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAOcSURBVHic7daxTQNRFEXBb2RRC6IAS8TUTWyZhAxRiwMvASnRkbx/15pp4N3svDEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABg2w6zB9zb28f1NHvDli1jvM7ewH4dxvievWHLzu/Pn7M33NNx9oB7W8btMnsDPKpl9oDte+gn/Wn2AAD2SUAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEgEBIBEQABIBASAREAASAQEgERAAEiOswfc3TK+Zk/YsmWMl9kb2K/DGD+zNwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBzWPvg28f1tPZNHsf5/flz9gbgz3Htg8u4Xda+yUNZ/ekB/vc0ewAA+yQgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAclz94jK+Vr8JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+/ULLmAWxpsL44cAAAAASUVORK5CYII=",
+      "tolerance": 16
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAHwAAABt0ZXh0X2FuY2hvcmVkX3Bhbl9hbGlnbm1lbnQADgAEAAACAcj////+zf////3/////EAAAAAF/wAAAQwAAAAF/wAAAyf////woAAAABQAAAAT/OL34AAAACAAAAAFBwAAAZgAAACoAAAAGQW5jaG9yhQAAACpDSAAAQ0gAAL+AAAB/wAAAAAAAAIUAAAAqQ0gAAENIAAAAAAAAf8AAAAAAAACFAAAAKkNIAABDSAAAP4AAAH/AAAAAAAAAhQAAACpCyAAAQ5YAAAAAAAC/gAAAAAAAAIUAAAAqQsgAAEOWAAAAAAAAAAAAAAAAAACFAAAAKkLIAABDlgAAAAAAAD+AAAAAAAAA1tbW"
+}

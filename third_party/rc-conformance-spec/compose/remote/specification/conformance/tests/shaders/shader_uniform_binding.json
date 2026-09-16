@@ -1,0 +1,33 @@
+{
+  "name": "shader_uniform_binding",
+  "category": "shaders",
+  "description": "ShaderData declaration with float vectors, resolution uniforms, and integer mode parameters",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "shaders": [
+      {
+        "id": 10,
+        "shaderText": "uniform float u_time; uniform vec2 u_resolution; uniform int u_mode; half4 main(vec2 p) { return half4(1.0); }",
+        "uniforms": {
+          "u_time": [
+            2.5
+          ],
+          "u_resolution": [
+            400,
+            400
+          ],
+          "u_mode": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

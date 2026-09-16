@@ -1,0 +1,121 @@
+{
+  "name": "canvas_draw_primitives",
+  "category": "canvas",
+  "description": "2D drawing primitives: rect, circle, roundRect, line, oval with styled colors and strokes",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "primitivesCount": 5
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#3B82F6",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawRect": {
+                "left": 20,
+                "top": 20,
+                "right": 100,
+                "bottom": 100
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#10B981",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 200,
+                "cy": 60,
+                "radius": 40
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#F59E0B",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawRoundRect": {
+                "left": 20,
+                "top": 140,
+                "right": 120,
+                "bottom": 240,
+                "rx": 16,
+                "ry": 16
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#EC4899",
+                    "style": "stroke",
+                    "strokeWidth": 6,
+                    "strokeCap": "round"
+                  }
+                ]
+              }
+            },
+            {
+              "drawLine": {
+                "x1": 160,
+                "y1": 140,
+                "x2": 260,
+                "y2": 240
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#8B5CF6",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawOval": {
+                "left": 80,
+                "top": 220,
+                "right": 220,
+                "bottom": 280
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

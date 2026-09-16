@@ -1,0 +1,85 @@
+{
+  "name": "column_child_offset",
+  "description": "Column children with offset modifier shifts",
+  "parameters": {
+    "width": 150,
+    "height": 300,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 150,
+        "height": 300,
+        "label": "initial (150x300)"
+      },
+      {
+        "step": 1,
+        "width": 300,
+        "height": 600,
+        "label": "doubled (300x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 150,
+      "height": 300,
+      "contentDescription": "column_child_offset",
+      "profiles": 513
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 40
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "offset": [
+                15,
+                10
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

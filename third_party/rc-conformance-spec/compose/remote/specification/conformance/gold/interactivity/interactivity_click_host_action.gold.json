@@ -1,0 +1,75 @@
+{
+  "name": "interactivity_click_host_action",
+  "category": "interactivity",
+  "description": "Tap dispatch via doc.onClick triggering hostNamedAction callback",
+  "format_version": 2,
+  "profile": "extended",
+  "parameters": {
+    "width": 200,
+    "height": 200
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    },
+    {
+      "id": "act_0",
+      "kind": "click",
+      "x": 100,
+      "y": 100,
+      "repaint": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "act_0",
+      "probe": "trace",
+      "expect": true,
+      "channel": "handled"
+    },
+    {
+      "at": "act_0",
+      "probe": "trace",
+      "expect": [
+        {
+          "name": "submit_order",
+          "value": "item_42"
+        }
+      ],
+      "tolerance": 0.05,
+      "channel": "host_actions"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@act_0",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAAAyAAGAAQAAADIyP////7K/////f////8AAAACAAAAAhAAAAABf8AAAEMAAAABf8AAADtmAAAAKgAAAAxzdWJtaXRfb3JkZXJmAAAAKwAAAAdpdGVtXzQy0gAAACoAAAACAAAAK9bW1g==",
+  "expected_actions": [
+    {
+      "name": "submit_order",
+      "value": "item_42"
+    }
+  ],
+  "interactions": [
+    {
+      "x": 100,
+      "y": 100,
+      "expectedHandled": true,
+      "type": "click"
+    }
+  ]
+}

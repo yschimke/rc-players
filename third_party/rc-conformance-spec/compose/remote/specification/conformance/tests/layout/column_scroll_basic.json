@@ -1,0 +1,83 @@
+{
+  "name": "column_scroll_basic",
+  "description": "Column with verticalScroll modifier containing tall overflowing children",
+  "parameters": {
+    "width": 100,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 100,
+        "height": 200,
+        "label": "initial (100x200)"
+      },
+      {
+        "step": 1,
+        "width": 200,
+        "height": 400,
+        "label": "doubled (200x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 200
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "verticalScroll": {
+            "position": 0.0,
+            "notches": 0
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 80
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 80
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

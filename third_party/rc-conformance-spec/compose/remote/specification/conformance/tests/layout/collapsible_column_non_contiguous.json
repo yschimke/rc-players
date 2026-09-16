@@ -1,0 +1,90 @@
+{
+  "name": "collapsible_column_non_contiguous",
+  "description": "CollapsibleColumn where middle child has lowest priority and collapses while outer children compact vertically",
+  "parameters": {
+    "width": 120,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5
+  },
+  "document": {
+    "header": {
+      "width": 120,
+      "height": 200
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 70
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 100
+              }
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 70
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 70
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 50
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

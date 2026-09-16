@@ -1,0 +1,24 @@
+{
+  "name": "semantics_roles_and_descriptions",
+  "category": "semantics",
+  "description": "RootContentDescription document description and Image role semantic annotations",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "rootContentDescription": "Weather Dashboard Card",
+    "semantics": [
+      {
+        "contentDescription": "Sunny Weather Icon",
+        "role": "image",
+        "enabled": true,
+        "clickable": false
+      }
+    ]
+  }
+}

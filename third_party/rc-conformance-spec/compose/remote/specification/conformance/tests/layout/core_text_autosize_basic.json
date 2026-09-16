@@ -1,0 +1,57 @@
+{
+  "name": "core_text_autosize_basic",
+  "description": "CoreText autosize dynamically scaling single word up to container bounds",
+  "parameters": {
+    "width": 200,
+    "height": 40,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 40,
+        "label": "initial (200x40)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 80,
+        "label": "doubled (400x80)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 40,
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "text": "Autosize",
+          "autoSize": true,
+          "minFontSize": 10,
+          "maxFontSize": 100,
+          "modifiers": [
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

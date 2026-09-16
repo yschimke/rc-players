@@ -1,0 +1,100 @@
+{
+  "name": "matrix_constant_3x3_and_4x4",
+  "category": "matrixmath",
+  "description": "MATRIX_CONSTANT (186) accepts 9 or 16 floats. The 4x4 form transforms (1,1,0) to (7,10,0) as written; the 3x3 form describing the same affine transform yields (7,3,0) instead, because Matrix.copyFrom expands the second row into the Z column",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "matrix_constant_3x3_and_4x4",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "matrixConstant": {
+                "id": 300,
+                "values": [
+                  2,
+                  0,
+                  0,
+                  5,
+                  0,
+                  3,
+                  0,
+                  7,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              }
+            },
+            {
+              "matrixConstant": {
+                "id": 301,
+                "values": [
+                  2,
+                  0,
+                  5,
+                  0,
+                  3,
+                  7,
+                  0,
+                  0,
+                  1
+                ]
+              }
+            },
+            {
+              "matrixVectorMath": {
+                "matrix": 300,
+                "mathType": "multiply",
+                "from": [
+                  1,
+                  1,
+                  0
+                ],
+                "out": [
+                  360,
+                  361,
+                  362
+                ]
+              }
+            },
+            {
+              "matrixVectorMath": {
+                "matrix": 301,
+                "mathType": "multiply",
+                "from": [
+                  1,
+                  1,
+                  0
+                ],
+                "out": [
+                  370,
+                  371,
+                  372
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "known_divergence": "Matrix.copyFrom (Matrix.java:408-424 and Matrix.ts:47-61) maps a 3x3 onto slots 0,1,3 / 4,5,6 / 8,9,10. The second row should map to 4,5,7; writing values[5] into m[6] puts translate-y in the Z column, so a 3x3 constant silently loses its vertical translation. Both engines share the bug, so the expected value below is (7,3,0) — the intended value is (7,10,0)."
+}

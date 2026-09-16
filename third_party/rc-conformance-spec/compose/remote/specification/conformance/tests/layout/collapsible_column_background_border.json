@@ -1,0 +1,68 @@
+{
+  "name": "collapsible_column_background_border",
+  "description": "CollapsibleColumn container with background and border styling",
+  "parameters": {
+    "width": 150,
+    "height": 260,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 150,
+        "height": 260,
+        "label": "initial (150x260)"
+      },
+      {
+        "step": 1,
+        "width": 300,
+        "height": 520,
+        "label": "doubled (300x520)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 150,
+      "height": 260
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#0f172a"
+        },
+        {
+          "border": {
+            "width": 2.0,
+            "cornerRadius": 6.0,
+            "color": "#475569"
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                40
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

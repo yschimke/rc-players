@@ -1,0 +1,94 @@
+{
+  "name": "expr_physics_trajectory",
+  "category": "expressions",
+  "description": "Kinematic equations for 2D ballistic trajectory and kinetic energy",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.01
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "g",
+      "expect": 9.8,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "kinetic_energy",
+      "expect": 1220.2488,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "mass",
+      "expect": 2,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "speed_sqr",
+      "expect": 1220.2488,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "t",
+      "expect": 2.5,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "v0",
+      "expect": 40,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "vy_curr",
+      "expect": -4.5,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "x_pos",
+      "expect": 86.6025,
+      "tolerance": 0.01
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "y_pos",
+      "expect": 19.375,
+      "tolerance": 0.01
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAGwAAABdleHByX3BoeXNpY3NfdHJhamVjdG9yeQAOAAQAAAIBUQAAACoAAAABQCAAAIkAAAAqAAAAAQAAAAF0UQAAACsAAAABQiAAAIkAAAArAAAAAQAAAAJ2MFEAAAAsAAAAAUEczM2JAAAALAAAAAEAAAABZ1EAAAAtAAAAAUAAAACJAAAALQAAAAEAAAAEbWFzc1EAAAAuAAAABf+AACs/XbPQ/7EAA/+AACr/sQADiQAAAC4AAAABAAAABXhfcG9zUQAAAC8AAAAN/4AAKz8AAAD/sQAD/4AAKv+xAAM/AAAA/4AALP+xAAP/gAAq/7EAA/+AACr/sQAD/7EAAokAAAAvAAAAAQAAAAV5X3Bvc1EAAAAwAAAAB/+AACs/AAAA/7EAA/+AACz/gAAq/7EAA/+xAAKJAAAAMAAAAAEAAAAHdnlfY3VyclEAAAAxAAAAB/+AACs/XbPQ/7EAA/+xAC3/gAAw/7EALf+xAAGJAAAAMQAAAAEAAAAJc3BlZWRfc3FyUQAAADIAAAAFPwAAAP+AAC3/sQAD/4AAMf+xAAOJAAAAMgAAAAEAAAAOa2luZXRpY19lbmVyZ3nI/////sr////9/////wAAAAIAAAAC1tY="
+}

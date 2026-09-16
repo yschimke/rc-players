@@ -1,0 +1,44 @@
+{
+  "name": "path_create_and_append",
+  "category": "pathoperations",
+  "description": "PathCreate initialization and PathAppend command streaming for closed vector polygons",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "paths": [
+      {
+        "id": 10,
+        "start": [
+          20,
+          20
+        ],
+        "commands": [
+          {
+            "type": "lineTo",
+            "x": 100,
+            "y": 20
+          },
+          {
+            "type": "lineTo",
+            "x": 100,
+            "y": 100
+          },
+          {
+            "type": "lineTo",
+            "x": 20,
+            "y": 100
+          },
+          {
+            "type": "close"
+          }
+        ]
+      }
+    ]
+  }
+}

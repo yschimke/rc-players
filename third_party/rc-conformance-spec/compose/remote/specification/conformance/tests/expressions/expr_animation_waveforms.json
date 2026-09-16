@@ -1,0 +1,50 @@
+{
+  "name": "expr_animation_waveforms",
+  "category": "expressions",
+  "description": "Dynamic time-driven waveforms evaluated across animationTime steps",
+  "parameters": {
+    "tolerance": 0.005,
+    "animation_steps": [
+      0,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_animation_waveforms",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "sine_wave",
+          "value": "sin(animationTime * 6.2831853)",
+          "export": true
+        },
+        {
+          "name": "scaled_sine",
+          "value": "50 + 25 * sin(animationTime * 6.2831853)",
+          "export": true
+        },
+        {
+          "name": "triangle_wave",
+          "value": "abs(fract(animationTime) * 2 - 1)",
+          "export": true
+        },
+        {
+          "name": "square_wave",
+          "value": "ifElse(step(0.5, fract(animationTime)), 1, -1)",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

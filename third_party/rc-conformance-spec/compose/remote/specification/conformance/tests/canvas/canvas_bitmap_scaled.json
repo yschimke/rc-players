@@ -1,0 +1,43 @@
+{
+  "name": "canvas_bitmap_scaled",
+  "category": "canvas",
+  "description": "Bitmap raster asset decoding, transformation, and scaled destination bounds rendering",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "bitmaps": {
+        "invader_sprite": {
+          "width": 16,
+          "height": 16,
+          "format": "png"
+        }
+      }
+    },
+    "root": [
+      {
+        "type": "drawBitmapScaled",
+        "imageId": 42,
+        "src": [
+          0,
+          0,
+          16,
+          16
+        ],
+        "dst": [
+          30,
+          30,
+          270,
+          270
+        ],
+        "scaleType": "fill_bounds"
+      }
+    ]
+  }
+}

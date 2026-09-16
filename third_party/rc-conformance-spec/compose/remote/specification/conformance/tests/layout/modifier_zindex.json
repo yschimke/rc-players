@@ -1,0 +1,95 @@
+{
+  "name": "modifier_zindex",
+  "description": "Box stack with zIndex modifiers controlling child evaluation order",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 300,
+        "label": "initial (300x300)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 600,
+        "label": "doubled (600x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 100
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "zIndex": 10.0
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 150
+            },
+            {
+              "height": 150
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "zIndex": 2.0
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 200
+            },
+            {
+              "height": 200
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "zIndex": 5.0
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

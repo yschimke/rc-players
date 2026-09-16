@@ -1,0 +1,100 @@
+{
+  "name": "canvas_clip_rect",
+  "category": "canvas",
+  "description": "Clipping operations: clipRect boundary restricting subsequent overlapping circular drawing",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "clipBounds": [
+      50,
+      50,
+      250,
+      250
+    ]
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#334155",
+                    "style": "stroke",
+                    "strokeWidth": 2
+                  }
+                ]
+              }
+            },
+            {
+              "drawRect": {
+                "left": 48,
+                "top": 48,
+                "right": 252,
+                "bottom": 252
+              }
+            },
+            {
+              "save": {}
+            },
+            {
+              "clipRect": {
+                "left": 50,
+                "top": 50,
+                "right": 250,
+                "bottom": 250
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#EF4444",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 100,
+                "cy": 100,
+                "radius": 90
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#06B6D4",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 220,
+                "cy": 220,
+                "radius": 80
+              }
+            },
+            {
+              "restore": {}
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

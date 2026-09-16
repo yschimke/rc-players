@@ -1,0 +1,108 @@
+{
+  "name": "expr_interpolation",
+  "category": "expressions",
+  "description": "Interpolation and step functions: lerp, step, smooth_step, sign, fract",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_fract",
+      "expect": 0.75,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_lerp_end",
+      "expect": 50,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_lerp_mid",
+      "expect": 30,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_lerp_start",
+      "expect": 10,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_sign_neg",
+      "expect": -1,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_sign_pos",
+      "expect": 1,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_smooth_above",
+      "expect": 0,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_smooth_below",
+      "expect": 0.0741,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_smooth_mid",
+      "expect": 0,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_step_above",
+      "expect": 0,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_step_below",
+      "expect": 1,
+      "tolerance": 0.001
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAFgAAABJleHByX2ludGVycG9sYXRpb24ADgAEAAACAVEAAAAqAAAABEEgAABCSAAAAAAAAP+xADGJAAAAKgAAAAEAAAAOcmVzX2xlcnBfc3RhcnRRAAAAKwAAAARBIAAAQkgAAD8AAAD/sQAxiQAAACsAAAABAAAADHJlc19sZXJwX21pZFEAAAAsAAAABEEgAABCSAAAP4AAAP+xADGJAAAALAAAAAEAAAAMcmVzX2xlcnBfZW5kUQAAAC0AAAADQSAAAECgAAD/sQAsiQAAAC0AAAABAAAADnJlc19zdGVwX2JlbG93UQAAAC4AAAADQSAAAEFwAAD/sQAsiQAAAC4AAAABAAAADnJlc19zdGVwX2Fib3ZlUQAAAC8AAAAEAAAAAEEgAADAAAAA/7EAMokAAAAvAAAAAQAAABByZXNfc21vb3RoX2JlbG93UQAAADAAAAAEAAAAAEEgAABAoAAA/7EAMokAAAAwAAAAAQAAAA5yZXNfc21vb3RoX21pZFEAAAAxAAAABAAAAABBIAAAQUAAAP+xADKJAAAAMQAAAAEAAAAQcmVzX3Ntb290aF9hYm92ZVEAAAAyAAAAAsHLMzP/sQALiQAAADIAAAABAAAADHJlc19zaWduX25lZ1EAAAAzAAAAAkJAzM3/sQALiQAAADMAAAABAAAADHJlc19zaWduX3Bvc1EAAAA0AAAAAkFsAAD/sQA1iQAAADQAAAABAAAACXJlc19mcmFjdMj////+yv////3/////AAAAAgAAAALW1g=="
+}

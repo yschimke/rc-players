@@ -1,0 +1,78 @@
+{
+  "name": "expr_interpolation",
+  "category": "expressions",
+  "description": "Interpolation and step functions: lerp, step, smooth_step, sign, fract",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_interpolation",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "res_lerp_start",
+          "value": "lerp(10, 50, 0.0)",
+          "export": true
+        },
+        {
+          "name": "res_lerp_mid",
+          "value": "lerp(10, 50, 0.5)",
+          "export": true
+        },
+        {
+          "name": "res_lerp_end",
+          "value": "lerp(10, 50, 1.0)",
+          "export": true
+        },
+        {
+          "name": "res_step_below",
+          "value": "step(10, 5)",
+          "export": true
+        },
+        {
+          "name": "res_step_above",
+          "value": "step(10, 15)",
+          "export": true
+        },
+        {
+          "name": "res_smooth_below",
+          "value": "smooth_step(0, 10, -2)",
+          "export": true
+        },
+        {
+          "name": "res_smooth_mid",
+          "value": "smooth_step(0, 10, 5)",
+          "export": true
+        },
+        {
+          "name": "res_smooth_above",
+          "value": "smooth_step(0, 10, 12)",
+          "export": true
+        },
+        {
+          "name": "res_sign_neg",
+          "value": "sign(-25.4)",
+          "export": true
+        },
+        {
+          "name": "res_sign_pos",
+          "value": "sign(48.2)",
+          "export": true
+        },
+        {
+          "name": "res_fract",
+          "value": "fract(14.75)",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

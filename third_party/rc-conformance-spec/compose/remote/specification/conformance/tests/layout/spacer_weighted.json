@@ -1,0 +1,85 @@
+{
+  "name": "spacer_weighted",
+  "description": "Row with content separated by an expanding weighted spacer",
+  "parameters": {
+    "width": 500,
+    "height": 100,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 500,
+        "height": 100,
+        "label": "initial (500x100)"
+      },
+      {
+        "step": 1,
+        "width": 1000,
+        "height": 200,
+        "label": "doubled (1000x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 500,
+      "height": 100,
+      "contentDescription": "spacer_weighted",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "spacer",
+          "modifiers": [
+            {
+              "weight": 1
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

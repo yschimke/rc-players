@@ -1,0 +1,63 @@
+{
+  "name": "state_layout_background_border",
+  "description": "StateLayout container with background and border styling",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 200,
+        "label": "initial (200x200)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 400,
+        "label": "doubled (400x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "stateLayout",
+      "index": 0,
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e1b4b"
+        },
+        {
+          "border": {
+            "width": 2.0,
+            "cornerRadius": 8.0,
+            "color": "#818cf8"
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 70
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

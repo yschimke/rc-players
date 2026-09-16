@@ -1,0 +1,102 @@
+{
+  "name": "flow_basic",
+  "description": "Flow layout wrapping items across multiple horizontal lines",
+  "parameters": {
+    "width": 250,
+    "height": 400,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 400,
+        "label": "initial (250x400)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 800,
+        "label": "doubled (500x800)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 400,
+      "contentDescription": "flow_basic",
+      "profiles": 513
+    },
+    "root": {
+      "type": "flow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 90
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 70
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#fcd34d"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

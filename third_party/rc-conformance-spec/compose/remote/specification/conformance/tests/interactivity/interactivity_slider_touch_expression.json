@@ -1,0 +1,52 @@
+{
+  "name": "interactivity_slider_touch_expression",
+  "category": "interactivity",
+  "description": "Accumulating TouchExpression driving a slider position that persists after release",
+  "parameters": {
+    "dragRange": [
+      50,
+      200
+    ]
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "slider_pos",
+          "value": 50,
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "touchExpression": {
+                "name": "drag_x",
+                "expression": "touchX()"
+              }
+            },
+            {
+              "drawRect": {
+                "left": "@drag_x",
+                "top": 140,
+                "right": "@drag_x + 40",
+                "bottom": 160
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

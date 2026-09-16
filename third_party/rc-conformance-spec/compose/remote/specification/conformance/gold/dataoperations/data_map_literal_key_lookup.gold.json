@@ -1,0 +1,67 @@
+{
+  "name": "data_map_literal_key_lookup",
+  "category": "dataoperations",
+  "description": "Key-value dictionary mapping and dynamic property resolution (DataMapIds and DataMapLookup)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": 22,
+      "expect": 3.14159,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 21,
+      "expect": 42
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 20,
+      "expect": "Hello DataMap"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 11,
+      "channel": "count"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABLAAGAAQAAAEsAA4ABAAAAgFmAAAAAQAAAAtncmVldGluZ0tleWYAAAACAAAACGNvdW50S2V5ZgAAAAMAAAAIcmF0aW9LZXlmAAAACgAAAA1IZWxsbyBEYXRhTWFwkAAAAAsAAAAAAAAAAQAAACpQAAAADEBJD9CRAAAAZAAAAAMAAAALZ3JlZXRpbmdLZXkAAAAACgAAAAhjb3VudEtleQEAAAALAAAACHJhdGlvS2V5AgAAAAyaAAAAFAAAAGQAAAABmgAAABUAAABkAAAAApoAAAAWAAAAZAAAAAM=",
+  "expected_integers": {
+    "21": 42
+  },
+  "expected_operations_count": 11,
+  "expected_texts": {
+    "20": "Hello DataMap"
+  },
+  "expected_variables": {
+    "22": 3.14159
+  }
+}

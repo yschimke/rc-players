@@ -1,0 +1,33 @@
+{
+  "name": "text_merge_concatenation",
+  "category": "textoperations",
+  "description": "Dynamic text concatenation combining multiple text buffers into one (TextMerge)",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "texts": [
+      {
+        "id": 10,
+        "text": "Hello, "
+      },
+      {
+        "id": 11,
+        "text": "RemoteCompose!"
+      }
+    ],
+    "operations": [
+      {
+        "type": "textMerge",
+        "textId": 12,
+        "srcId1": 10,
+        "srcId2": 11
+      }
+    ]
+  }
+}

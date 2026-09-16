@@ -1,0 +1,85 @@
+{
+  "name": "collapsible_row_container_gone",
+  "category": "layout",
+  "description": "CollapsibleRow where available width cannot accommodate even highest priority child, collapsing container to GONE",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 60,
+    "height": 100,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -6,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 25,
+          "width": 100,
+          "height": 50,
+          "depth": 2,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 25,
+          "width": 100,
+          "height": 50,
+          "depth": 2,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -3,
+          "kind": "CollapsibleRowLayout",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 100,
+          "depth": 1,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 100,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAPAAGAAQAAABkDAkAIgAAAB5jb2xsYXBzaWJsZV9yb3dfY29udGFpbmVyX2dvbmUADgAEAAACAcj////+5v////3/////AAAAAgAAAAIAAAAAEAAAAAE/gAAAQwAAAAE/gAAANwAAAAAAAAAAAAAAAAAAAAA98PDxPiSkpT5s7O0/gAAAAAAAAMn////8yv////v/////AAAAAgAAAAIQAAAAAELIAABDAAAAAEJIAAA3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q/RcXGP339/j+AAAAAAAAA6wAAAABCyAAA1sr////6/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAANwAAAAAAAAAAAAAAAAAAAAA/fPz9PyWlpj8lpaY/gAAAAAAAAOsAAAAAQkgAANbW1tY="
+}

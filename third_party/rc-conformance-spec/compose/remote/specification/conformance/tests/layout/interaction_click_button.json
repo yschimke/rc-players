@@ -1,0 +1,119 @@
+{
+  "name": "interaction_click_button",
+  "description": "Touch click interaction switching StateLayout state, then settling: the click swaps the active child immediately but the container resize is animated, so the layout update is only observable on a later frame.",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "density": 1.0,
+    "tolerance": 0.5,
+    "frames": 2,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "click",
+        "x": 50,
+        "y": 25,
+        "label": "click_toggle_to_page_1"
+      },
+      {
+        "step": 1,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_on_page_1"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 200
+    },
+    "resources": {
+      "variables": {
+        "stateVar": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "onClick": {
+                "type": "valueIntegerChange",
+                "target": "stateVar",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$stateVar",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "height": 100
+            },
+            {
+              "background": "#1e3a8a"
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 80
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 160
+                },
+                {
+                  "height": 80
+                },
+                {
+                  "background": "#fca5a5"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

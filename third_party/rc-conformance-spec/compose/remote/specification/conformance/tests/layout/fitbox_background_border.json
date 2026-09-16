@@ -1,0 +1,65 @@
+{
+  "name": "fitbox_background_border",
+  "description": "FitBox container with background and border styling",
+  "parameters": {
+    "width": 200,
+    "height": 150,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 150,
+        "label": "initial (200x150)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 300,
+        "label": "doubled (400x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 150
+    },
+    "root": {
+      "type": "fitBox",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "border": {
+            "width": 2.0,
+            "cornerRadius": 8.0,
+            "color": "#38bdf8"
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                60,
+                60
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "name": "text_on_path_glyph_placement",
+  "category": "canvas",
+  "description": "DRAW_TEXT_ON_PATH (53): glyphs are laid out from the path start offset by hOffset, displaced perpendicular to the tangent by vOffset, and rotated to the tangent angle \u2014 checked on a horizontal path (0\u00b0) and a vertical one (90\u00b0) with a real draw recorder",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "label": "horizontal path (20,100)\u2192(380,100), hOffset=12, vOffset=-4",
+          "allDeviceY": 96,
+          "allRotationsDeg": 0,
+          "deviceXOrder": "increasing",
+          "firstDeviceX": 32,
+          "glyphCount": 3,
+          "text": "ABC"
+        },
+        {
+          "label": "vertical path (200,20)\u2192(200,380), hOffset=10, vOffset=6",
+          "allDeviceX": 194,
+          "allRotationsDeg": 90,
+          "deviceYOrder": "increasing",
+          "firstDeviceY": 30,
+          "glyphCount": 3,
+          "text": "XYZ"
+        }
+      ],
+      "tolerance": 0.01,
+      "channel": "glyph_runs"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "DrawTextOnPath"
+      ],
+      "channel": "present"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 6,
+      "channel": "total_glyphs"
+    },
+    {
+      "at": "initial",
+      "probe": "raster",
+      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAANvSURBVHic7dg9ToJRFEXR9xFCnI4W/tQ4bKlRCp2OsRAnQKE7gYfJWgO4Od1O7hgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8FvL7AFwaY8vn+9jGbfnur+M1cN+uzmc6z5ci9XsAQD8TwICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACTr2QOedl/3szdcs/12c5i9AeCU6QE5ju+32Ruu3DJ7AMApXlgAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkAiIAAkAgJAIiAAJAICQCIgACQCAkCynj1gHMfH7AkA/N30gLw+39zN3gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAl/MDJoMPc+VOO1kAAAAASUVORK5CYII=",
+      "tolerance": 16
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAIAAAABx0ZXh0X29uX3BhdGhfZ2x5cGhfcGxhY2VtZW50AA4ABAAAAgHI/////s3////9/////xAAAAABf8AAAEMAAAABf8AAAMn////8KAAAAAUAAAAE/zi9+AAAAAgAAAABQcAAAJ8AAAAqQaAAAELIAACgAAAAKgAAAAX/gAALAAAAAAAAAABDvgAAQsgAAGYAAAArAAAAA0FCQzUAAAArAAAAKsCAAABBQAAAnwAAACxDSAAAQaAAAKAAAAAsAAAABf+AAAsAAAAAAAAAAENIAABDvgAAZgAAAC0AAAADWFlaNQAAAC0AAAAsQMAAAEEgAADW1tY="
+}

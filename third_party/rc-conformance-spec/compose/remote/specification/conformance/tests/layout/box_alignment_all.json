@@ -1,0 +1,176 @@
+{
+  "name": "box_alignment_all",
+  "description": "Box layout arranging children with various corner and center alignments",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 300,
+        "label": "initial (300x300)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 600,
+        "label": "doubled (600x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300,
+      "contentDescription": "box_alignment_all",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "horizontalAlignment": "start",
+          "verticalAlignment": "top",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "horizontalAlignment": "end",
+          "verticalAlignment": "top",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#fca5a5"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "horizontalAlignment": "start",
+          "verticalAlignment": "bottom",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#86efac"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "horizontalAlignment": "end",
+          "verticalAlignment": "bottom",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#fcd34d"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "horizontalAlignment": "center",
+          "verticalAlignment": "center",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "width": 60
+                },
+                {
+                  "height": 60
+                },
+                {
+                  "background": "#d8b4fe"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

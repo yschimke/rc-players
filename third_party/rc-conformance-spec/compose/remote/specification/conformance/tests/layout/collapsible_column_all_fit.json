@@ -1,0 +1,95 @@
+{
+  "name": "collapsible_column_all_fit",
+  "description": "CollapsibleColumn sized adequately so all priority children remain visible",
+  "parameters": {
+    "width": 150,
+    "height": 300,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 150,
+        "height": 300,
+        "label": "initial (150x300)"
+      },
+      {
+        "step": 1,
+        "width": 300,
+        "height": 600,
+        "label": "doubled (300x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 150,
+      "height": 300
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                100,
+                40
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                100,
+                40
+              ]
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 2
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                100,
+                40
+              ]
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": 3
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

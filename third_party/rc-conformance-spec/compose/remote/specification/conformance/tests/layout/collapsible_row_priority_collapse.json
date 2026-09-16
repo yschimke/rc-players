@@ -1,0 +1,81 @@
+{
+  "name": "collapsible_row_priority_collapse",
+  "description": "CollapsibleRow where lowest priority child collapses and is marked GONE when space is insufficient",
+  "parameters": {
+    "width": 250,
+    "height": 100,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 100
+    },
+    "root": {
+      "type": "collapsibleRow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 100
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 50
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 60
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": 10
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

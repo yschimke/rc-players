@@ -1,0 +1,64 @@
+{
+  "name": "collapsible_row_container_gone",
+  "description": "CollapsibleRow where available width cannot accommodate even highest priority child, collapsing container to GONE",
+  "parameters": {
+    "width": 60,
+    "height": 100,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5
+  },
+  "document": {
+    "header": {
+      "width": 60,
+      "height": 100
+    },
+    "root": {
+      "type": "collapsibleRow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": 100
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 50
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 50
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "name": "collapsible_column",
+  "description": "Collapsible column hiding low-priority children vertically on height overflow",
+  "parameters": {
+    "width": 200,
+    "height": 180,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 180,
+        "label": "initial (200x180)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 360,
+        "label": "doubled (400x360)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 180
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "height": 70
+            },
+            {
+              "width": 100
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 10.0
+              }
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "height": 70
+            },
+            {
+              "width": 100
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 5.0
+              }
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "height": 70
+            },
+            {
+              "width": 100
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 1.0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

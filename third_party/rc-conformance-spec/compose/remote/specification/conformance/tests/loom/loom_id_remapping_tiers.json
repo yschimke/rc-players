@@ -1,0 +1,41 @@
+{
+  "name": "loom_id_remapping_tiers",
+  "category": "loom",
+  "description": "ID remapping across tiers: tier 1 system globals preserved, tier 2 macro-locals uniqueified",
+  "parameters": {
+    "macroLocalRange": "0x4000..0x4FFF",
+    "systemGlobalsPreserved": true
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "macros": [
+      {
+        "id": 102,
+        "params": [],
+        "body": [
+          {
+            "type": "box",
+            "id": 16385
+          },
+          {
+            "type": "box",
+            "id": 16387
+          }
+        ]
+      }
+    ],
+    "root": [
+      {
+        "type": "macroCall",
+        "id": 102
+      },
+      {
+        "type": "macroCall",
+        "id": 102
+      }
+    ]
+  }
+}

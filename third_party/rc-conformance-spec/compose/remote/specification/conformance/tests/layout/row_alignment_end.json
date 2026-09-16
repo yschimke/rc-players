@@ -1,0 +1,76 @@
+{
+  "name": "row_alignment_end",
+  "description": "Row layout with horizontal end alignment and bottom vertical alignment",
+  "parameters": {
+    "width": 400,
+    "height": 150,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 150,
+        "label": "initial (400x150)"
+      },
+      {
+        "step": 1,
+        "width": 800,
+        "height": 300,
+        "label": "doubled (800x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 150,
+      "contentDescription": "row_alignment_end",
+      "profiles": 513
+    },
+    "root": {
+      "type": "row",
+      "horizontalAlignment": "end",
+      "verticalAlignment": "bottom",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 80
+            },
+            {
+              "height": 70
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

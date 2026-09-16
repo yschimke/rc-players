@@ -1,0 +1,53 @@
+{
+  "name": "expr_chained_variables",
+  "category": "expressions",
+  "description": "Sequential variable dependency pipeline (A -> B -> C -> D -> E)",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_chained_variables",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "v_base",
+          "value": "10",
+          "export": true
+        },
+        {
+          "name": "v_step1",
+          "value": "v_base * 2.5",
+          "export": true
+        },
+        {
+          "name": "v_step2",
+          "value": "v_step1 + 15",
+          "export": true
+        },
+        {
+          "name": "v_step3",
+          "value": "sqrt(v_step2 * 40)",
+          "export": true
+        },
+        {
+          "name": "v_step4",
+          "value": "v_step3 / 5 + v_base",
+          "export": true
+        },
+        {
+          "name": "v_final",
+          "value": "v_step4 * 2 - v_step1",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

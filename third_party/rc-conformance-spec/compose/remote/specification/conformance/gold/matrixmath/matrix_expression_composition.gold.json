@@ -1,0 +1,88 @@
+{
+  "name": "matrix_expression_composition",
+  "category": "matrixmath",
+  "description": "MATRIX_EXPRESSION (187) RPN evaluation: translate(5,7) composed with scale(2,3,1) via MUL must equal the hand-written affine matrix, and ROT_Z takes degrees",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "matrix",
+      "target": 310,
+      "expect": [
+        2,
+        0,
+        0,
+        5,
+        0,
+        3,
+        0,
+        7,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "tolerance": 1.0E-5
+    },
+    {
+      "at": "initial",
+      "probe": "matrix",
+      "target": 311,
+      "expect": [
+        0,
+        -1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "tolerance": 1.0E-5
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "MatrixExpression"
+      ],
+      "channel": "present"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAIQAAAB1tYXRyaXhfZXhwcmVzc2lvbl9jb21wb3NpdGlvbgAOAAQAAAIByP////7N/////f////8QAAAAAX/AAABDAAAAAX/AAADJ/////M/////7uwAAATYAAAAAAAAACUCgAABA4AAA/7IACP+yAAFAAAAAQEAAAD+AAAD/sgAO/7IAD7sAAAE3AAAAAAAAAAJCtAAA/7IABNbW1tY="
+}

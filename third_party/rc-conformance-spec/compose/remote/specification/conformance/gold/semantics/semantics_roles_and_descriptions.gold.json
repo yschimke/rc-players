@@ -1,0 +1,52 @@
+{
+  "name": "semantics_roles_and_descriptions",
+  "category": "semantics",
+  "description": "RootContentDescription document description and Image role semantic annotations",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "clickable": false,
+          "contentDescriptionId": 16,
+          "enabled": true,
+          "role": 3
+        }
+      ],
+      "tolerance": 0,
+      "channel": "semantics"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQZgAAAA8AAAAWV2VhdGhlciBEYXNoYm9hcmQgQ2FyZGcAAAAPZgAAABAAAAASU3VubnkgV2VhdGhlciBJY29u+gAAABADAAAAAAAAAAAAAQA=",
+  "expected_semantics": [
+    {
+      "clickable": false,
+      "contentDescriptionId": 16,
+      "enabled": true,
+      "role": 3,
+      "roleName": "Image"
+    }
+  ]
+}

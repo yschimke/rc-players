@@ -1,0 +1,79 @@
+{
+  "name": "expr_integer_bitwise_ops",
+  "category": "expressions",
+  "description": "Bitwise shifts, masks, boolean logic, and integer math expressions (IntegerExpression)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 201,
+      "expect": 0
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 202,
+      "expect": 0
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 203,
+      "expect": 0
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 204,
+      "expect": 0
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 205,
+      "expect": 0
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 206,
+      "expect": 0
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 207,
+      "expect": 0
+    },
+    {
+      "at": "initial",
+      "probe": "int",
+      "target": 208,
+      "expect": 0
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAHAAAABhleHByX2ludGVnZXJfYml0d2lzZV9vcHMADgAEAAACAQ=="
+}

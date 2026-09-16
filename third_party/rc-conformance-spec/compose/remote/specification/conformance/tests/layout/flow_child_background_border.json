@@ -1,0 +1,84 @@
+{
+  "name": "flow_child_background_border",
+  "description": "Flow layout items with backgrounds and border styling",
+  "parameters": {
+    "width": 250,
+    "height": 180,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 180,
+        "label": "initial (250x180)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 360,
+        "label": "doubled (500x360)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 180
+    },
+    "root": {
+      "type": "flow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#3b82f6"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "border": {
+                "width": 2.0,
+                "cornerRadius": 4.0,
+                "color": "#ef4444"
+              }
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#10b981"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

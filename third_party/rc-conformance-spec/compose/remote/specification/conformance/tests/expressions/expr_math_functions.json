@@ -1,0 +1,78 @@
+{
+  "name": "expr_math_functions",
+  "category": "expressions",
+  "description": "Core mathematical functions: abs, min, max, clamp, sqrt, pow, hypot, square",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_math_functions",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "res_abs_neg",
+          "value": "abs(-42.5)",
+          "export": true
+        },
+        {
+          "name": "res_abs_pos",
+          "value": "abs(17.2)",
+          "export": true
+        },
+        {
+          "name": "res_min",
+          "value": "min(15.5, 9.2)",
+          "export": true
+        },
+        {
+          "name": "res_max",
+          "value": "max(15.5, 9.2)",
+          "export": true
+        },
+        {
+          "name": "res_clamp_low",
+          "value": "clamp(5, 10, 50)",
+          "export": true
+        },
+        {
+          "name": "res_clamp_mid",
+          "value": "clamp(25, 10, 50)",
+          "export": true
+        },
+        {
+          "name": "res_clamp_high",
+          "value": "clamp(80, 10, 50)",
+          "export": true
+        },
+        {
+          "name": "res_sqrt",
+          "value": "sqrt(144)",
+          "export": true
+        },
+        {
+          "name": "res_pow",
+          "value": "pow(2, 8)",
+          "export": true
+        },
+        {
+          "name": "res_hypot",
+          "value": "hypot(3, 4)",
+          "export": true
+        },
+        {
+          "name": "res_square",
+          "value": "square(7)",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

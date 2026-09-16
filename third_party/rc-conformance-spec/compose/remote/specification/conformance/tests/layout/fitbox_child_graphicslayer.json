@@ -1,0 +1,65 @@
+{
+  "name": "fitbox_child_graphicslayer",
+  "description": "FitBox child with graphicsLayer alpha and scale",
+  "parameters": {
+    "width": 200,
+    "height": 150,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 150,
+        "label": "initial (200x150)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 300,
+        "label": "doubled (400x300)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 150
+    },
+    "root": {
+      "type": "fitBox",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                80,
+                80
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "graphicsLayer": {
+                "alpha": 0.75,
+                "scaleX": 1.1,
+                "scaleY": 1.1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

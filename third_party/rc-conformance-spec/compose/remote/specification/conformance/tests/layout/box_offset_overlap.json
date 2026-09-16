@@ -1,0 +1,91 @@
+{
+  "name": "box_offset_overlap",
+  "description": "Box with multiple overlapping children shifted by offsets",
+  "parameters": {
+    "width": 250,
+    "height": 250,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 250,
+        "label": "initial (250x250)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 500,
+        "label": "doubled (500x500)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 250,
+      "contentDescription": "box_offset_overlap",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 80
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 80
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "offset": [
+                30,
+                30
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 80
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "offset": [
+                60,
+                60
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

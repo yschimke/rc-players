@@ -1,0 +1,113 @@
+{
+  "name": "interactivity_click_state_mutation",
+  "category": "interactivity",
+  "description": "Tap dispatch mutating document state variable via valueFloatExpressionChange",
+  "format_version": 2,
+  "profile": "extended",
+  "parameters": {
+    "width": 200,
+    "height": 200
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    },
+    {
+      "id": "act_0",
+      "kind": "click",
+      "x": 100,
+      "y": 100,
+      "repaint": false
+    },
+    {
+      "id": "act_1",
+      "kind": "click",
+      "x": 100,
+      "y": 100,
+      "repaint": false
+    },
+    {
+      "id": "act_2",
+      "kind": "click",
+      "x": 100,
+      "y": 100,
+      "repaint": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "act_0",
+      "probe": "trace",
+      "expect": true,
+      "channel": "handled"
+    },
+    {
+      "at": "act_1",
+      "probe": "trace",
+      "expect": true,
+      "channel": "handled"
+    },
+    {
+      "at": "act_2",
+      "probe": "trace",
+      "expect": true,
+      "channel": "handled"
+    },
+    {
+      "at": "act_2",
+      "probe": "float",
+      "target": "counter",
+      "expect": 3,
+      "tolerance": 0.05
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@act_0",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@act_1",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    },
+    {
+      "key": "raster@act_2",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAAAyAAGAAQAAADIiQAAACoAAAABAAAAB2NvdW50ZXJQAAAAKgAAAADI/////lEAAAArAAAAA/+AACo/gAAA/7EAAcr////9/////wAAAAIAAAACEAAAAAF/wAAAQwAAAAF/wAAAO+MAAAAqAAAAK9bW1g==",
+  "expected_final_variables": {
+    "counter": 3
+  },
+  "interactions": [
+    {
+      "x": 100,
+      "y": 100,
+      "expectedHandled": true,
+      "type": "click"
+    },
+    {
+      "x": 100,
+      "y": 100,
+      "expectedHandled": true,
+      "type": "click"
+    },
+    {
+      "x": 100,
+      "y": 100,
+      "expectedHandled": true,
+      "type": "click"
+    }
+  ]
+}

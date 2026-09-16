@@ -1,0 +1,86 @@
+{
+  "name": "column_multi_weights",
+  "description": "Column dividing available height according to 1:2:3 fractional weights",
+  "parameters": {
+    "width": 120,
+    "height": 360,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 120,
+        "height": 360,
+        "label": "initial (120x360)"
+      },
+      {
+        "step": 1,
+        "width": 240,
+        "height": 720,
+        "label": "doubled (240x720)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 120,
+      "height": 360
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 1.0
+            },
+            {
+              "width": 80
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 2.0
+            },
+            {
+              "width": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "weight": 3.0
+            },
+            {
+              "width": 80
+            },
+            {
+              "background": "#86efac"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

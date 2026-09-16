@@ -1,0 +1,52 @@
+{
+  "name": "text_formatting_from_float",
+  "category": "textoperations",
+  "description": "TextFromFloat formatting with variable decimal places, rounding, and leading zero padding",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 20,
+      "expect": "123.46"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 21,
+      "expect": "123"
+    },
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 22,
+      "expect": "00123.5"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQUAAAAApC9unVhwAAABR/gAAKAAMAAgAAAACHAAAAFX+AAAoAAwAAAAAAAIcAAAAWf4AACgAFAAEAAAAM",
+  "expected_texts": {
+    "20": "123.46",
+    "21": "123",
+    "22": "00123.5"
+  }
+}

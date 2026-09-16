@@ -1,0 +1,60 @@
+{
+  "name": "modifier_background",
+  "description": "Box with background modifier applying solid fill color",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 200,
+        "label": "initial (300x200)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 400,
+        "label": "doubled (600x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 200,
+      "contentDescription": "modifier_background",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 140
+            },
+            {
+              "height": 90
+            },
+            {
+              "background": "#00ff00"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "loom_slot_blocks",
+  "category": "loom",
+  "description": "Slot arguments (PatternBlock and PatternArgument) injecting custom content into macro templates",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "expectedChildrenCount": 4
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        "DrawRect",
+        "DrawCircle",
+        "DrawLine",
+        "DrawRect"
+      ],
+      "tolerance": 0,
+      "channel": "components"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 2,
+      "channel": "count"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMAAAAEAAABLAAAAAQAAAEsAA4ABAAAAgH2AAAAZwAAAAAAAAAAKgAAAAAAAAAAAAAAZAAAABT4AAAAAPgAAAABKgAAAAAAAABQAAAAZAAAAGTWyP////73AAAAZwAAAAD5AAAAAC4AAAAyAAAAKAAAAA/W+QAAAAEvAAAACgAAADwAAABaAAAAPNbW1g==",
+  "expected_components": [
+    "_DrawRect",
+    "_DrawCircle",
+    "_DrawLine",
+    "_DrawRect"
+  ],
+  "expected_operations_count": 2
+}

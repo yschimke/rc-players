@@ -1,0 +1,58 @@
+{
+  "name": "core_text_autosize_min_clamped",
+  "description": "CoreText autosize clamping at minFontSize when container is too small",
+  "parameters": {
+    "width": 100,
+    "height": 30,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 100,
+        "height": 30,
+        "label": "initial (100x30)"
+      },
+      {
+        "step": 1,
+        "width": 200,
+        "height": 60,
+        "label": "doubled (200x60)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 30,
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "text",
+          "text": "Very long autosize text that exceeds small box bounds",
+          "autoSize": true,
+          "minFontSize": 14,
+          "maxFontSize": 50,
+          "maxLines": 2,
+          "modifiers": [
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

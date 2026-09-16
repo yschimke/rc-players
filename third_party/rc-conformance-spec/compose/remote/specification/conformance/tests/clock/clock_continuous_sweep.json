@@ -1,0 +1,122 @@
+{
+  "name": "clock_continuous_sweep",
+  "category": "clock",
+  "description": "Continuous smooth second hand sweep driven by continuousSec() fractional seconds",
+  "parameters": {
+    "tolerance": 0.01,
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "sweep_sec",
+          "value": "(continuousSec() % 60) * 6",
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#0F172A",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 150,
+                "cy": 150,
+                "radius": 140
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#10B981",
+                    "style": "stroke",
+                    "strokeWidth": 5
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 150,
+                "cy": 150,
+                "radius": 140
+              }
+            },
+            {
+              "save": {}
+            },
+            {
+              "rotate": {
+                "angle": "sweep_sec",
+                "centerX": 150,
+                "centerY": 150
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#F59E0B",
+                    "style": "stroke",
+                    "strokeWidth": 3,
+                    "strokeCap": "round"
+                  }
+                ]
+              }
+            },
+            {
+              "drawLine": {
+                "x1": 150,
+                "y1": 165,
+                "x2": 150,
+                "y2": 35
+              }
+            },
+            {
+              "restore": {}
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#F59E0B",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 150,
+                "cy": 150,
+                "radius": 5
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "name": "text_on_path_glyph_placement",
+  "category": "canvas",
+  "description": "DRAW_TEXT_ON_PATH (53): glyphs are laid out from the path start offset by hOffset, displaced perpendicular to the tangent by vOffset, and rotated to the tangent angle \u2014 checked on a horizontal path (0\u00b0) and a vertical one (90\u00b0) with a real draw recorder",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "text_on_path_glyph_placement",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#38bdf8"
+                  },
+                  {
+                    "style": "fill"
+                  },
+                  {
+                    "textSize": 24
+                  }
+                ]
+              }
+            },
+            {
+              "pathCreate": {
+                "id": "horiz",
+                "x": 20,
+                "y": 100
+              }
+            },
+            {
+              "pathAppendLineTo": {
+                "path": "horiz",
+                "x": 380,
+                "y": 100
+              }
+            },
+            {
+              "drawTextOnPath": {
+                "text": "ABC",
+                "path": "horiz",
+                "hOffset": 12,
+                "vOffset": -4
+              }
+            },
+            {
+              "pathCreate": {
+                "id": "vert",
+                "x": 200,
+                "y": 20
+              }
+            },
+            {
+              "pathAppendLineTo": {
+                "path": "vert",
+                "x": 200,
+                "y": 380
+              }
+            },
+            {
+              "drawTextOnPath": {
+                "text": "XYZ",
+                "path": "vert",
+                "hOffset": 10,
+                "vOffset": 6
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

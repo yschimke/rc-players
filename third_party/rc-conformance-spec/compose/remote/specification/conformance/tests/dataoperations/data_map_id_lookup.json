@@ -1,0 +1,62 @@
+{
+  "name": "data_map_id_lookup",
+  "category": "dataoperations",
+  "description": "DataMapIds dictionary lookup mapping string keys to text and numeric resource IDs",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "resources": {
+      "texts": [
+        {
+          "id": 10,
+          "value": "title_key"
+        },
+        {
+          "id": 11,
+          "value": "RemoteCompose SDUI"
+        },
+        {
+          "id": 13,
+          "value": "age_key"
+        }
+      ],
+      "floats": [
+        {
+          "id": 12,
+          "value": 42
+        }
+      ]
+    },
+    "dataMap": {
+      "id": 20,
+      "entries": {
+        "title_key": {
+          "type": "string",
+          "id": 11
+        },
+        "age_key": {
+          "type": "float",
+          "id": 12
+        }
+      }
+    },
+    "lookups": [
+      {
+        "id": 30,
+        "map": 20,
+        "key": 10
+      },
+      {
+        "id": 31,
+        "map": 20,
+        "key": 13
+      }
+    ]
+  }
+}

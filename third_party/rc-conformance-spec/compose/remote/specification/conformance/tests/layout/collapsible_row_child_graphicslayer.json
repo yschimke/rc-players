@@ -1,0 +1,85 @@
+{
+  "name": "collapsible_row_child_graphicslayer",
+  "description": "CollapsibleRow items with graphicsLayer transformations",
+  "parameters": {
+    "width": 260,
+    "height": 100,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 260,
+        "height": 100,
+        "label": "initial (260x100)"
+      },
+      {
+        "step": 1,
+        "width": 520,
+        "height": 200,
+        "label": "doubled (520x200)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 260,
+      "height": 100
+    },
+    "root": {
+      "type": "collapsibleRow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                50
+              ]
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "graphicsLayer": {
+                "scaleX": 1.1,
+                "scaleY": 1.1,
+                "alpha": 0.8
+              }
+            },
+            {
+              "collapsiblePriority": 1
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": [
+                50,
+                50
+              ]
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": 2
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

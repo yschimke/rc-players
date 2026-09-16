@@ -1,0 +1,65 @@
+{
+  "name": "particle_linear_drift",
+  "category": "particles",
+  "description": "Uniform linear drift of 6 particles across 5 simulation frames",
+  "parameters": {
+    "count": 6,
+    "variables": [
+      "x",
+      "y",
+      "vx",
+      "vy"
+    ],
+    "frames": 5,
+    "tolerance": 0.01
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "canvas",
+      "commands": [
+        {
+          "createParticles": {
+            "id": "ps",
+            "count": 6,
+            "variables": [
+              "x",
+              "y",
+              "vx",
+              "vy"
+            ],
+            "initialValues": [
+              "20 + a[0] * 25",
+              "30 + a[0] * 20",
+              "2.5",
+              "1.5"
+            ]
+          }
+        },
+        {
+          "particlesLoop": {
+            "system": "@ps",
+            "equations": [
+              "x + vx",
+              "y + vy",
+              "vx",
+              "vy"
+            ],
+            "commands": [
+              {
+                "drawCircle": {
+                  "cx": "x",
+                  "cy": "y",
+                  "radius": 3
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

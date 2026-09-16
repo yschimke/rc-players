@@ -1,0 +1,65 @@
+{
+  "name": "modifier_padding_directional",
+  "description": "Component with asymmetric 4-sided directional padding",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 300,
+        "height": 200,
+        "label": "initial (300x200)"
+      },
+      {
+        "step": 1,
+        "width": 600,
+        "height": 400,
+        "label": "doubled (600x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 200,
+      "contentDescription": "modifier_padding_directional",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        },
+        {
+          "padding": {
+            "start": 10,
+            "top": 20,
+            "end": 30,
+            "bottom": 40
+          }
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxSize": 1
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

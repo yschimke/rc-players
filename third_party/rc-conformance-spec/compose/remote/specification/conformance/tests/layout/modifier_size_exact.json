@@ -1,0 +1,60 @@
+{
+  "name": "modifier_size_exact",
+  "description": "Component with explicit width and height modifier dimensions",
+  "parameters": {
+    "width": 250,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 200,
+        "label": "initial (250x200)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 400,
+        "label": "doubled (500x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 200,
+      "contentDescription": "modifier_size_exact",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 140
+            },
+            {
+              "height": 70
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

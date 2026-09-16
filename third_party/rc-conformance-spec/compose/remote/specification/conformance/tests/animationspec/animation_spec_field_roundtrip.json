@@ -1,0 +1,41 @@
+{
+  "name": "animation_spec_field_roundtrip",
+  "category": "animationspec",
+  "description": "ANIMATION_SPEC (14): all seven fields survive the wire round trip, including the named easing types (overshoot=6, decelerate=3) and enter/exit animation ordinals (slide_left=2, rotate=6)",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "animation_spec_field_roundtrip",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "type": "box",
+        "modifiers": [
+          {
+            "width": 120
+          },
+          {
+            "height": 80
+          },
+          {
+            "animationSpec": {
+              "id": 100,
+              "motionDuration": 450,
+              "motionEasingType": "overshoot",
+              "visibilityDuration": 250,
+              "visibilityEasingType": "decelerate",
+              "enterAnimation": "slide_left",
+              "exitAnimation": "rotate"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

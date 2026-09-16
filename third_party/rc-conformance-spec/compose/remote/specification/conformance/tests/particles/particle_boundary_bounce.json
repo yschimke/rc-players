@@ -1,0 +1,65 @@
+{
+  "name": "particle_boundary_bounce",
+  "category": "particles",
+  "description": "Floor collision and velocity inversion with coefficient of restitution",
+  "parameters": {
+    "count": 4,
+    "variables": [
+      "x",
+      "y",
+      "vx",
+      "vy"
+    ],
+    "frames": 8,
+    "tolerance": 0.02
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "canvas",
+      "commands": [
+        {
+          "createParticles": {
+            "id": "ps",
+            "count": 4,
+            "variables": [
+              "x",
+              "y",
+              "vx",
+              "vy"
+            ],
+            "initialValues": [
+              "30 + a[0] * 35",
+              "120 + a[0] * 10",
+              "2.0",
+              "6.0"
+            ]
+          }
+        },
+        {
+          "particlesLoop": {
+            "system": "@ps",
+            "equations": [
+              "x + vx",
+              "min(180, y + vy)",
+              "vx",
+              "ifElse(step(170, y), -abs(vy) * 0.75, vy + 0.8)"
+            ],
+            "commands": [
+              {
+                "drawCircle": {
+                  "cx": "x",
+                  "cy": "y",
+                  "radius": 3
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

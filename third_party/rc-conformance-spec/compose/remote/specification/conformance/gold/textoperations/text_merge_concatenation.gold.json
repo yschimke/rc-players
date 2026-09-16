@@ -1,0 +1,48 @@
+{
+  "name": "text_merge_concatenation",
+  "category": "textoperations",
+  "description": "Dynamic text concatenation combining multiple text buffers into one (TextMerge)",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "text",
+      "target": 12,
+      "expect": "Hello, RemoteCompose!"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 4,
+      "channel": "count"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAoAAAAHSGVsbG8sIGYAAAALAAAADlJlbW90ZUNvbXBvc2UhiAAAAAwAAAAKAAAACw==",
+  "expected_operations_count": 4,
+  "expected_texts": {
+    "12": "Hello, RemoteCompose!"
+  }
+}

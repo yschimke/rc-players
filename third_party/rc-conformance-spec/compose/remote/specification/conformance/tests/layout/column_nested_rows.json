@@ -1,0 +1,120 @@
+{
+  "name": "column_nested_rows",
+  "description": "Column containing nested Rows with proportional weights",
+  "parameters": {
+    "width": 250,
+    "height": 300,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 300,
+        "label": "initial (250x300)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 600,
+        "label": "doubled (500x600)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 300
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "row",
+          "modifiers": [
+            {
+              "weight": 1.0
+            },
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "background": "#1e3a8a"
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 30
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 40
+                },
+                {
+                  "background": "#fca5a5"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "modifiers": [
+            {
+              "weight": 2.0
+            },
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "background": "#14532d"
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 50
+                },
+                {
+                  "background": "#93c5fd"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "modifiers": [
+                {
+                  "size": 50
+                },
+                {
+                  "background": "#fca5a5"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

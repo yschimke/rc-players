@@ -1,0 +1,59 @@
+{
+  "name": "box_center_in_parent",
+  "description": "Single box centered precisely within parent container",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 200,
+        "label": "initial (200x200)"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 400,
+        "label": "doubled (400x400)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200,
+      "contentDescription": "box_center_in_parent",
+      "profiles": 513
+    },
+    "root": {
+      "type": "box",
+      "horizontalAlignment": "center",
+      "verticalAlignment": "center",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 60
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

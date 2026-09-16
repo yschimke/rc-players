@@ -1,0 +1,77 @@
+{
+  "name": "text_on_circle_stream_alignment",
+  "category": "canvas",
+  "description": "DRAW_TEXT_ON_CIRCLE (57) is unimplemented in both engines (TS parses it into a stub, Java throws on paint). This pins the honest contract: the op consumes exactly its 27 bytes, draws nothing, and the following text-on-path run is unaffected",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "text_on_circle_stream_alignment",
+      "profiles": 513
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#38bdf8"
+                  },
+                  {
+                    "style": "fill"
+                  },
+                  {
+                    "textSize": 24
+                  }
+                ]
+              }
+            },
+            {
+              "drawTextOnCircle": {
+                "text": "CIRCLE",
+                "centerX": 200,
+                "centerY": 200,
+                "radius": 80,
+                "startAngle": 0,
+                "alignment": "center",
+                "placement": "inside"
+              }
+            },
+            {
+              "pathCreate": {
+                "id": "after",
+                "x": 20,
+                "y": 360
+              }
+            },
+            {
+              "pathAppendLineTo": {
+                "path": "after",
+                "x": 380,
+                "y": 360
+              }
+            },
+            {
+              "drawTextOnPath": {
+                "text": "OK",
+                "path": "after",
+                "hOffset": 5,
+                "vOffset": 0
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "known_unimplemented": "DrawTextOnCircle throws UnsupportedOperationException in the Java reference, so there is no reference behaviour to assert against"
+}

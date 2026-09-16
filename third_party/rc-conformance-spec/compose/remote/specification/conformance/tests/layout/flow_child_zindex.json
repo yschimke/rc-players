@@ -1,0 +1,72 @@
+{
+  "name": "flow_child_zindex",
+  "description": "Flow items with explicit zIndex ordering",
+  "parameters": {
+    "width": 250,
+    "height": 180,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 250,
+        "height": 180,
+        "label": "initial (250x180)"
+      },
+      {
+        "step": 1,
+        "width": 500,
+        "height": 360,
+        "label": "doubled (500x360)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 250,
+      "height": 180
+    },
+    "root": {
+      "type": "flow",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "zIndex": 2
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "size": 50
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "zIndex": 1
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

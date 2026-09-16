@@ -1,0 +1,87 @@
+{
+  "name": "expr_rounding_and_logs",
+  "category": "expressions",
+  "description": "Rounding operations and logarithmic functions: floor, ceil, round, log, ln, exp",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.002
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_ceil",
+      "expect": 8,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_exp_0",
+      "expect": 1,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_exp_1",
+      "expect": 2.7183,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_floor",
+      "expect": 7,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_ln_e",
+      "expect": 1,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_log10_100",
+      "expect": 2,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_round_down",
+      "expect": 4,
+      "tolerance": 0.002
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_round_up",
+      "expect": 5,
+      "tolerance": 0.002
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAGgAAABZleHByX3JvdW5kaW5nX2FuZF9sb2dzAA4ABAAAAgFRAAAAKgAAAAJA+zMz/7EADokAAAAqAAAAAQAAAAlyZXNfZmxvb3JRAAAAKwAAAAJA5MzN/7EAH4kAAAArAAAAAQAAAAhyZXNfY2VpbFEAAAAsAAAAAkCJmZr/sQARiQAAACwAAAABAAAADnJlc19yb3VuZF9kb3duUQAAAC0AAAACQJZmZv+xABGJAAAALQAAAAEAAAAMcmVzX3JvdW5kX3VwUQAAAC4AAAACQsgAAP+xAA+JAAAALgAAAAEAAAANcmVzX2xvZzEwXzEwMFEAAAAvAAAAAkAt+FT/sQAQiQAAAC8AAAABAAAACHJlc19sbl9lUQAAADAAAAACP4AAAP+xAA2JAAAAMAAAAAEAAAAJcmVzX2V4cF8xUQAAADEAAAACAAAAAP+xAA2JAAAAMQAAAAEAAAAJcmVzX2V4cF8wyP////7K/////f////8AAAACAAAAAtbW"
+}

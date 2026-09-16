@@ -1,0 +1,25 @@
+{
+  "name": "interactivity_touch_coordinate_tracking",
+  "category": "interactivity",
+  "description": "Multi-step touch gesture tracking touchX, touchY, and touchDown/touchDrag/touchUp sequence",
+  "parameters": {
+    "gestureSteps": 3
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 200,
+      "height": 200
+    },
+    "root": [
+      {
+        "box": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "content": []
+        }
+      }
+    ]
+  }
+}

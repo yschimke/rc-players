@@ -1,0 +1,195 @@
+{
+  "name": "animation_state_3_states",
+  "description": "StateLayout animated 3-state transition with position and size animation (Start to Center to End)",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "density": 1.0,
+    "tolerance": 0.5,
+    "frames": 2,
+    "animation": {
+      "trigger": {
+        "type": "click",
+        "x": 80,
+        "y": 140
+      },
+      "capture_frames": [
+        0,
+        6,
+        12,
+        20
+      ],
+      "total_frames": 20
+    }
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 200
+    },
+    "resources": {
+      "variables": {
+        "state": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "stateLayout",
+          "stateId": "$state",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "height": 120
+            },
+            {
+              "background": "#1e3a8a"
+            }
+          ],
+          "children": [
+            {
+              "type": "row",
+              "horizontalArrangement": "start",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "fillMaxWidth": 1.0
+                },
+                {
+                  "height": 120
+                },
+                {
+                  "background": "#1e293b"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#93c5fd"
+                    },
+                    {
+                      "animationSpec": 100
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "horizontalArrangement": "center",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "fillMaxWidth": 1.0
+                },
+                {
+                  "height": 120
+                },
+                {
+                  "background": "#14532d"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 80
+                    },
+                    {
+                      "height": 80
+                    },
+                    {
+                      "background": "#93c5fd"
+                    },
+                    {
+                      "animationSpec": 100
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "horizontalArrangement": "end",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "fillMaxWidth": 1.0
+                },
+                {
+                  "height": 120
+                },
+                {
+                  "background": "#7f1d1d"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#93c5fd"
+                    },
+                    {
+                      "animationSpec": 100
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 160
+            },
+            {
+              "height": 48
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "onClick": {
+                "type": "valueIntegerChange",
+                "target": "state",
+                "value": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

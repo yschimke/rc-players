@@ -1,0 +1,47 @@
+{
+  "name": "scheduling_impulse_animation",
+  "category": "scheduling",
+  "description": "ImpulseOperation discrete event window and duration timing specification",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "duration": 2.5,
+          "startAt": 0.5
+        }
+      ],
+      "tolerance": 0,
+      "channel": "impulses"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQpEAgAAA/AAAA1g==",
+  "expected_impulses": [
+    {
+      "duration": 2.5,
+      "startAt": 0.5
+    }
+  ]
+}

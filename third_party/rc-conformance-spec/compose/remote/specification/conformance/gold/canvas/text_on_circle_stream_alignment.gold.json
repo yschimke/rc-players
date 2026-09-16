@@ -1,0 +1,58 @@
+{
+  "name": "text_on_circle_stream_alignment",
+  "category": "canvas",
+  "description": "DRAW_TEXT_ON_CIRCLE (57) is unimplemented in both engines (TS parses it into a stub, Java throws on paint). This pins the honest contract: the op consumes exactly its 27 bytes, draws nothing, and the following text-on-path run is unaffected",
+  "known_unimplemented": "DrawTextOnCircle throws UnsupportedOperationException in the Java reference, so there is no reference behaviour to assert against",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "harness": {
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": [
+        {
+          "label": "text-on-path after the unimplemented circle op",
+          "allDeviceY": 360,
+          "allRotationsDeg": 0,
+          "deviceXOrder": "increasing",
+          "firstDeviceX": 25,
+          "glyphCount": 2,
+          "text": "OK"
+        }
+      ],
+      "tolerance": 0.01,
+      "channel": "glyph_runs"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": [
+        "DrawTextOnCircleStub",
+        "DrawTextOnPath"
+      ],
+      "channel": "present"
+    },
+    {
+      "at": "initial",
+      "probe": "ops",
+      "expect": 2,
+      "channel": "total_glyphs"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAIwAAAB90ZXh0X29uX2NpcmNsZV9zdHJlYW1fYWxpZ25tZW50AA4ABAAAAgHI/////s3////9/////xAAAAABf8AAAEMAAAABf8AAAMn////8z/////soAAAABQAAAAT/AAAAAAAACAAAAAFBwAAAZgAAACoAAAAGQ0lSQ0xFOQAAACpDSAAAQ0gAAEKgAAAAAAAAAAAAAAEBnwAAACtBoAAAQ7QAAKAAAAArAAAABf+AAAsAAAAAAAAAAEO+AABDtAAAZgAAACwAAAACT0s1AAAALAAAACsAAAAAQKAAANbW1tY="
+}

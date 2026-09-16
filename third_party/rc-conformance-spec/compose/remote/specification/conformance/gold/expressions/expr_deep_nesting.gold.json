@@ -1,0 +1,52 @@
+{
+  "name": "expr_deep_nesting",
+  "category": "expressions",
+  "description": "Deeply nested parentheses and operator priority hierarchy",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_balanced",
+      "expect": 15,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_depth_4",
+      "expect": 30,
+      "tolerance": 0.001
+    },
+    {
+      "at": "initial",
+      "probe": "float",
+      "target": "res_depth_6",
+      "expect": 28,
+      "tolerance": 0.001
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAZAAGAAQAAABkDAkAFQAAABFleHByX2RlZXBfbmVzdGluZwAOAAQAAAIBUQAAACoAAAAJQAAAAEBAAAD/sQABQIAAAP+xAANAoAAA/7EAAkAAAAD/sQADiQAAACoAAAABAAAAC3Jlc19kZXB0aF80UQAAACsAAAANP4AAAD+AAAD/sQABQAAAAP+xAANAAAAA/7EAAUAAAAD/sQADQAAAAP+xAAFAAAAA/7EAA4kAAAArAAAAAQAAAAtyZXNfZGVwdGhfNlEAAAAsAAAADUEgAABBoAAA/7EAAUHwAABBcAAA/7EAAv+xAANAoAAAQKAAAP+xAAFAQAAA/7EAA/+xAASJAAAALAAAAAEAAAAMcmVzX2JhbGFuY2VkyP////7K/////f////8AAAACAAAAAtbW"
+}

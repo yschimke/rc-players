@@ -1,0 +1,52 @@
+{
+  "name": "shader_agsl_radial_gradient",
+  "category": "shaders",
+  "description": "AGSL procedural radial shader uniform declaration and center coordinate parameters",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {},
+  "harness": {
+    "raster_source": "android-view-player",
+    "text_metrics": "native"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 1,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "at": "initial",
+      "probe": "records",
+      "expect": {
+        "12": {
+          "u_center": true
+        }
+      },
+      "tolerance": 0,
+      "channel": "uniforms"
+    }
+  ],
+  "unasserted": [
+    {
+      "key": "expected_uniforms[*].values",
+      "reason": "bound uniform values are not observable from the decoded document"
+    },
+    {
+      "key": "raster@initial",
+      "reason": "the document draws nothing at this step, so there is no reference image to compare against"
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABLAAGAAQAAAEsAA4ABAAAAgFmAAAAAgAAAEB1bmlmb3JtIHZlYzIgdV9jZW50ZXI7IGhhbGY0IG1haW4odmVjMiBwKSB7IHJldHVybiBoYWxmNCgwLjApOyB9LQAAAAwAAAACAAAAAQAAAAh1X2NlbnRlcgAAAAJDFgAAQxYAAA==",
+  "expected_uniforms": {
+    "12": {
+      "u_center": [
+        150,
+        150
+      ]
+    }
+  }
+}

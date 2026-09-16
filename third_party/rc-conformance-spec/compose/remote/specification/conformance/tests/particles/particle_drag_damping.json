@@ -1,0 +1,65 @@
+{
+  "name": "particle_drag_damping",
+  "category": "particles",
+  "description": "Air resistance / aerodynamic damping decaying particle velocity exponentially",
+  "parameters": {
+    "count": 5,
+    "variables": [
+      "x",
+      "y",
+      "vx",
+      "vy"
+    ],
+    "frames": 7,
+    "tolerance": 0.01
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "canvas",
+      "commands": [
+        {
+          "createParticles": {
+            "id": "ps",
+            "count": 5,
+            "variables": [
+              "x",
+              "y",
+              "vx",
+              "vy"
+            ],
+            "initialValues": [
+              "10",
+              "20 + a[0] * 35",
+              "10.0 + a[0] * 3.0",
+              "1.0"
+            ]
+          }
+        },
+        {
+          "particlesLoop": {
+            "system": "@ps",
+            "equations": [
+              "x + vx",
+              "y + vy",
+              "vx * 0.82",
+              "vy * 0.82"
+            ],
+            "commands": [
+              {
+                "drawCircle": {
+                  "cx": "x",
+                  "cy": "y",
+                  "radius": 3
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

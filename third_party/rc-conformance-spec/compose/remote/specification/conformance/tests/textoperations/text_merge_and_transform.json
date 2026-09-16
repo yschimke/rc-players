@@ -1,0 +1,54 @@
+{
+  "name": "text_merge_and_transform",
+  "category": "textoperations",
+  "description": "TextMerge string concatenation and TextTransform uppercase, lowercase, and substring extraction",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "resources": {
+      "texts": [
+        {
+          "id": 10,
+          "value": "Remote"
+        },
+        {
+          "id": 11,
+          "value": "Compose"
+        }
+      ]
+    },
+    "textOperations": [
+      {
+        "type": "textMerge",
+        "textId": 20,
+        "text1": 10,
+        "text2": 11
+      },
+      {
+        "type": "textTransform",
+        "textId": 21,
+        "source": 20,
+        "transform": "uppercase"
+      },
+      {
+        "type": "textTransform",
+        "textId": 22,
+        "source": 20,
+        "transform": "lowercase"
+      },
+      {
+        "type": "textTransform",
+        "textId": 23,
+        "source": 20,
+        "start": 6,
+        "length": 7
+      }
+    ]
+  }
+}

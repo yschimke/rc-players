@@ -1,0 +1,42 @@
+{
+  "name": "loom_foreach_expansion",
+  "category": "loom",
+  "description": "PatternForEach templating over an array collection (DataListIds)",
+  "parameters": {
+    "collectionId": 50,
+    "itemCount": 3
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "collections": [
+        {
+          "id": 50,
+          "items": [
+            10,
+            20,
+            30
+          ]
+        }
+      ]
+    },
+    "root": [
+      {
+        "type": "patternForEach",
+        "collection": 50,
+        "itemVar": "it",
+        "body": [
+          {
+            "type": "drawCircle",
+            "cx": "@it",
+            "cy": 50,
+            "radius": 12
+          }
+        ]
+      }
+    ]
+  }
+}

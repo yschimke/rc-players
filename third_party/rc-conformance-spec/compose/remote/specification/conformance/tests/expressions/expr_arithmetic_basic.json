@@ -1,0 +1,68 @@
+{
+  "name": "expr_arithmetic_basic",
+  "category": "expressions",
+  "description": "Standard arithmetic operators (+, -, *, /, %), unary minus, and operator precedence",
+  "parameters": {
+    "tolerance": 0.001
+  },
+  "document": {
+    "header": {
+      "width": 100,
+      "height": 100,
+      "contentDescription": "expr_arithmetic_basic",
+      "profiles": 513
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "res_add",
+          "value": "12 + 34",
+          "export": true
+        },
+        {
+          "name": "res_sub",
+          "value": "100 - 42",
+          "export": true
+        },
+        {
+          "name": "res_mul",
+          "value": "15 * 16",
+          "export": true
+        },
+        {
+          "name": "res_div",
+          "value": "90 / 20",
+          "export": true
+        },
+        {
+          "name": "res_mod",
+          "value": "29 % 7",
+          "export": true
+        },
+        {
+          "name": "res_precedence",
+          "value": "2 + 3 * 4",
+          "export": true
+        },
+        {
+          "name": "res_parentheses",
+          "value": "(2 + 3) * 4",
+          "export": true
+        },
+        {
+          "name": "res_unary_neg",
+          "value": "-15 + 20",
+          "export": true
+        },
+        {
+          "name": "res_complex_arith",
+          "value": "(100 - 20) / (2 * 5) + 3 * (8 - 2)",
+          "export": true
+        }
+      ]
+    },
+    "root": {
+      "type": "box"
+    }
+  }
+}

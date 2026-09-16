@@ -1,0 +1,66 @@
+{
+  "name": "resize_fitbox",
+  "description": "FitBox uniform aspect ratio preservation and scaling across viewport dimension changes",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1,
+    "tolerance": 0.5,
+    "frames": 2,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 200,
+        "height": 200,
+        "label": "square_200"
+      },
+      {
+        "step": 1,
+        "width": 400,
+        "height": 200,
+        "label": "wide_400"
+      },
+      {
+        "step": 2,
+        "width": 100,
+        "height": 300,
+        "label": "tall_300"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200,
+      "contentDescription": "resize_fitbox",
+      "profiles": 513
+    },
+    "root": {
+      "type": "fitBox",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 100
+            },
+            {
+              "height": 100
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

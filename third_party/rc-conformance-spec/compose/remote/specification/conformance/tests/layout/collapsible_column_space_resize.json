@@ -1,0 +1,122 @@
+{
+  "name": "collapsible_column_space_resize",
+  "description": "CollapsibleColumn dynamically collapsing children as height shrinks and uncollapsing as height expands",
+  "parameters": {
+    "width": 120,
+    "height": 280,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 120,
+        "height": 280,
+        "label": "all fit (120x280)"
+      },
+      {
+        "step": 1,
+        "width": 120,
+        "height": 190,
+        "label": "lowest collapses (120x190)"
+      },
+      {
+        "step": 2,
+        "width": 120,
+        "height": 100,
+        "label": "two lowest collapse (120x100)"
+      },
+      {
+        "step": 3,
+        "width": 120,
+        "height": 40,
+        "label": "container collapses (120x40)"
+      },
+      {
+        "step": 4,
+        "width": 120,
+        "height": 280,
+        "label": "uncollapsed back (120x280)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 120,
+      "height": 280
+    },
+    "root": {
+      "type": "collapsibleColumn",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 100
+              }
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 50
+              }
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 60
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#86efac"
+            },
+            {
+              "collapsiblePriority": {
+                "orientation": "vertical",
+                "priority": 10
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

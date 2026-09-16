@@ -1,0 +1,228 @@
+{
+  "name": "animation_state_row_to_column",
+  "description": "StateLayout animated transition from Row to Column with position and size animation",
+  "parameters": {
+    "width": 300,
+    "height": 340,
+    "density": 1.0,
+    "tolerance": 0.5,
+    "frames": 2,
+    "animation": {
+      "trigger": {
+        "type": "click",
+        "x": 80,
+        "y": 280
+      },
+      "capture_frames": [
+        0,
+        6,
+        12,
+        20
+      ],
+      "total_frames": 20
+    }
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 340
+    },
+    "resources": {
+      "variables": {
+        "state": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "stateLayout",
+          "stateId": "$state",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "height": 260
+            },
+            {
+              "background": "#1e3a8a"
+            }
+          ],
+          "children": [
+            {
+              "type": "row",
+              "horizontalArrangement": "spaceEvenly",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "fillMaxWidth": 1.0
+                },
+                {
+                  "height": 260
+                },
+                {
+                  "background": "#1e293b"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#93c5fd"
+                    },
+                    {
+                      "animationSpec": 100
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#fca5a5"
+                    },
+                    {
+                      "animationSpec": 101
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#86efac"
+                    },
+                    {
+                      "animationSpec": 102
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "column",
+              "horizontalAlignment": "center",
+              "verticalArrangement": "spaceEvenly",
+              "modifiers": [
+                {
+                  "fillMaxWidth": 1.0
+                },
+                {
+                  "height": 260
+                },
+                {
+                  "background": "#14532d"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#93c5fd"
+                    },
+                    {
+                      "animationSpec": 100
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 120
+                    },
+                    {
+                      "height": 120
+                    },
+                    {
+                      "background": "#fca5a5"
+                    },
+                    {
+                      "animationSpec": 101
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#86efac"
+                    },
+                    {
+                      "animationSpec": 102
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "width": 160
+            },
+            {
+              "height": 48
+            },
+            {
+              "background": "#93c5fd"
+            },
+            {
+              "onClick": {
+                "type": "valueIntegerChange",
+                "target": "state",
+                "value": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,198 @@
+{
+  "name": "clock_analog_hands",
+  "category": "clock",
+  "description": "Analog clock hand rotation angles evaluated from system time variables (timeInHr, timeInMin, timeInSec)",
+  "parameters": {
+    "tolerance": 0.01,
+    "width": 300,
+    "height": 300
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "rot_hour",
+          "value": "(timeInHr % 12) * 30 + (timeInMin % 60) * 0.5",
+          "export": true
+        },
+        {
+          "name": "rot_min",
+          "value": "(timeInMin % 60) * 6 + (timeInSec % 60) * 0.1",
+          "export": true
+        },
+        {
+          "name": "rot_sec",
+          "value": "(timeInSec % 60) * 6",
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "canvas": {
+          "modifiers": [
+            "fillMaxSize"
+          ],
+          "commands": [
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#0F172A",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 150,
+                "cy": 150,
+                "radius": 140
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#38BDF8",
+                    "style": "stroke",
+                    "strokeWidth": 5
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 150,
+                "cy": 150,
+                "radius": 140
+              }
+            },
+            {
+              "save": {}
+            },
+            {
+              "rotate": {
+                "angle": "rot_hour",
+                "centerX": 150,
+                "centerY": 150
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#F8FAFC",
+                    "style": "stroke",
+                    "strokeWidth": 7,
+                    "strokeCap": "round"
+                  }
+                ]
+              }
+            },
+            {
+              "drawLine": {
+                "x1": 150,
+                "y1": 150,
+                "x2": 150,
+                "y2": 80
+              }
+            },
+            {
+              "restore": {}
+            },
+            {
+              "save": {}
+            },
+            {
+              "rotate": {
+                "angle": "rot_min",
+                "centerX": 150,
+                "centerY": 150
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#94A3B8",
+                    "style": "stroke",
+                    "strokeWidth": 4,
+                    "strokeCap": "round"
+                  }
+                ]
+              }
+            },
+            {
+              "drawLine": {
+                "x1": 150,
+                "y1": 150,
+                "x2": 150,
+                "y2": 50
+              }
+            },
+            {
+              "restore": {}
+            },
+            {
+              "save": {}
+            },
+            {
+              "rotate": {
+                "angle": "rot_sec",
+                "centerX": 150,
+                "centerY": 150
+              }
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#EF4444",
+                    "style": "stroke",
+                    "strokeWidth": 2,
+                    "strokeCap": "round"
+                  }
+                ]
+              }
+            },
+            {
+              "drawLine": {
+                "x1": 150,
+                "y1": 165,
+                "x2": 150,
+                "y2": 35
+              }
+            },
+            {
+              "restore": {}
+            },
+            {
+              "paint": {
+                "ops": [
+                  {
+                    "color": "#EF4444",
+                    "style": "fill"
+                  }
+                ]
+              }
+            },
+            {
+              "drawCircle": {
+                "cx": 150,
+                "cy": 150,
+                "radius": 5
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

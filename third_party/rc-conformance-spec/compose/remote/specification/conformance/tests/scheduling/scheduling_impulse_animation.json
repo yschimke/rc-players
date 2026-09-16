@@ -1,0 +1,19 @@
+{
+  "name": "scheduling_impulse_animation",
+  "category": "scheduling",
+  "description": "ImpulseOperation discrete event window and duration timing specification",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "impulse": {
+      "duration": 2.5,
+      "startAt": 0.5
+    }
+  }
+}

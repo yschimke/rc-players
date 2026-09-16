@@ -1,0 +1,57 @@
+{
+  "name": "interactivity_hit_testing_bounds",
+  "category": "interactivity",
+  "description": "Spatial hit testing: clicks inside component bounds trigger action, clicks outside return false",
+  "parameters": {
+    "bounds": [
+      50,
+      50,
+      150,
+      110
+    ]
+  },
+  "document": {
+    "header": {
+      "apiLevel": 7,
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": [
+        {
+          "name": "hit_count",
+          "value": 0,
+          "export": true
+        }
+      ]
+    },
+    "root": [
+      {
+        "box": {
+          "modifiers": [
+            {
+              "offset": [
+                50,
+                50
+              ]
+            },
+            {
+              "size": [
+                100,
+                60
+              ]
+            },
+            {
+              "onClick": {
+                "type": "valueFloatExpressionChange",
+                "target": "@hit_count",
+                "expression": "hit_count + 1"
+              }
+            }
+          ],
+          "content": []
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "name": "modifier_fractional_fill",
+  "description": "Child components sized with fractional fillMaxWidth and fillMaxHeight",
+  "parameters": {
+    "width": 400,
+    "height": 400,
+    "density": 1,
+    "frames": 2,
+    "tolerance": 0.5,
+    "resize_steps": [
+      {
+        "step": 0,
+        "width": 400,
+        "height": 400,
+        "label": "initial (400x400)"
+      },
+      {
+        "step": 1,
+        "width": 800,
+        "height": 800,
+        "label": "doubled (800x800)"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400,
+      "contentDescription": "modifier_fractional_fill",
+      "profiles": 513
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxWidth": 0.75
+            },
+            {
+              "height": 100
+            },
+            {
+              "background": "#93c5fd"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "modifiers": [
+            {
+              "fillMaxWidth": 0.5
+            },
+            {
+              "height": 80
+            },
+            {
+              "background": "#fca5a5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

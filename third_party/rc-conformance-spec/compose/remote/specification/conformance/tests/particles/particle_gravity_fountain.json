@@ -1,0 +1,65 @@
+{
+  "name": "particle_gravity_fountain",
+  "category": "particles",
+  "description": "Parabolic motion under gravitational acceleration (vy' = vy + g)",
+  "parameters": {
+    "count": 5,
+    "variables": [
+      "x",
+      "y",
+      "vx",
+      "vy"
+    ],
+    "frames": 8,
+    "tolerance": 0.02
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "root": {
+      "type": "canvas",
+      "commands": [
+        {
+          "createParticles": {
+            "id": "ps",
+            "count": 5,
+            "variables": [
+              "x",
+              "y",
+              "vx",
+              "vy"
+            ],
+            "initialValues": [
+              "50 + a[0] * 20",
+              "150",
+              "-2.0 + a[0] * 1.0",
+              "-12.0 + a[0] * 1.5"
+            ]
+          }
+        },
+        {
+          "particlesLoop": {
+            "system": "@ps",
+            "equations": [
+              "x + vx",
+              "y + vy",
+              "vx",
+              "vy + 1.2"
+            ],
+            "commands": [
+              {
+                "drawCircle": {
+                  "cx": "x",
+                  "cy": "y",
+                  "radius": 3
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

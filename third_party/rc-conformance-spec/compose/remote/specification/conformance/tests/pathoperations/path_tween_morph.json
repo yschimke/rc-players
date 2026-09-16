@@ -1,0 +1,23 @@
+{
+  "name": "path_tween_morph",
+  "category": "pathoperations",
+  "description": "PathTween linear interpolation and topological shape morphing specification",
+  "parameters": {
+    "width": 400,
+    "height": 400
+  },
+  "document": {
+    "header": {
+      "width": 400,
+      "height": 400
+    },
+    "tweens": [
+      {
+        "id": 20,
+        "fromPath": 10,
+        "toPath": 11,
+        "tween": 0.5
+      }
+    ]
+  }
+}
