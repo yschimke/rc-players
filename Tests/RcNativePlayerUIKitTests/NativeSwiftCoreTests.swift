@@ -3,6 +3,19 @@ import Foundation
 @main
 enum NativeSwiftCoreTests {
   static func main() throws {
+    // A host surfaces a failed frame through `localizedDescription`, not `description`: only the
+    // document-open path in NativeSession downcasts to NativeSwiftCoreError. Without
+    // `LocalizedError` that goes through the NSError bridge and the user reads "The operation
+    // couldn't be completed. (…NativeSwiftCoreError error 1.)" instead of the real reason.
+    for sample in [
+      NativeSwiftCoreError.malformed(offset: 12, reason: "sample"),
+      NativeSwiftCoreError.unsupported(opcode: 81, offset: 4, reason: "sample"),
+    ] {
+      precondition(
+        sample.localizedDescription == sample.description,
+        "NativeSwiftCoreError must surface its own description through localizedDescription")
+    }
+
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {
       let kotlinFixture = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
