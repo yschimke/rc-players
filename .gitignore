@@ -6,3 +6,7 @@ node_modules/
 *.hprof
 .DS_Store
 .idea/
+
+# Resolved from Maven Central by .github/scripts/maven-publish-plan.sh at release time and read by
+# the Gradle build; never committed, because Central is the source of truth for what is published.
+publishing-manifest.json
