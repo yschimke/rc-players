@@ -69,7 +69,10 @@ enum NativeSwiftFuzzTests {
     precondition(
       elapsed < budget,
       "fuzzing \(cases) cases took \(elapsed)s, over the \(budget)s bounded-work budget")
-    precondition(decoded > 0, "no fuzz case decoded; the corpus is not exercising the core")
+    precondition(
+      decoded >= seeds.count,
+      "only \(decoded) of \(cases) cases decoded; the corpus is dying at the header instead of "
+        + "reaching the operation stream")
     precondition(rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
     print(
       "native Swift fuzz: ok (\(cases) cases, \(decoded) decoded, \(rejected) typed rejections, "
@@ -217,6 +220,22 @@ enum NativeSwiftFuzzTests {
     case extremeWord
   }
 
+  /// Where a byte-level mutation lands.
+  ///
+  /// Uniform offsets overwhelmingly corrupt the header, and an input rejected at byte 0 never
+  /// reaches the operation stream — the part of the decoder that does the interesting work. Half
+  /// the offsets are therefore biased past a header floor, so the corpus keeps a plausible document
+  /// prefix and gets deep enough to matter. The run prints how many cases decoded so shallow
+  /// coverage is visible rather than implied.
+  private static func offset(in count: Int, using random: inout SplitMix64) -> Int {
+    guard count > 0 else { return 0 }
+    let floor = min(64, count / 4)
+    guard floor > 0, random.next(upperBound: 2) == 1 else {
+      return Int(random.next(upperBound: UInt64(count)))
+    }
+    return floor + Int(random.next(upperBound: UInt64(count - floor)))
+  }
+
   private static func mutate(_ seed: Data, using random: inout SplitMix64) -> Data {
     var bytes = [UInt8](seed)
     let rounds = 1 + Int(random.next(upperBound: 3))
@@ -226,44 +245,44 @@ enum NativeSwiftFuzzTests {
       switch mutation {
       case .truncate:
         guard !bytes.isEmpty else { break }
-        bytes = Array(bytes.prefix(Int(random.next(upperBound: UInt64(bytes.count)))))
+        bytes = Array(bytes.prefix(offset(in: bytes.count, using: &random)))
       case .flipBits:
         guard !bytes.isEmpty else { break }
-        let index = Int(random.next(upperBound: UInt64(bytes.count)))
+        let index = offset(in: bytes.count, using: &random)
         bytes[index] ^= UInt8(truncatingIfNeeded: random.next())
       case .spliceNoise:
         guard !bytes.isEmpty else { break }
-        let start = Int(random.next(upperBound: UInt64(bytes.count)))
+        let start = offset(in: bytes.count, using: &random)
         let length = min(bytes.count - start, 1 + Int(random.next(upperBound: 32)))
         for offset in start..<(start + length) {
           bytes[offset] = UInt8(truncatingIfNeeded: random.next())
         }
       case .deleteRange:
         guard bytes.count > 1 else { break }
-        let start = Int(random.next(upperBound: UInt64(bytes.count - 1)))
+        let start = offset(in: bytes.count, using: &random)
         let length = min(bytes.count - start, 1 + Int(random.next(upperBound: 16)))
         bytes.removeSubrange(start..<(start + length))
       case .insertRange:
-        let start = bytes.isEmpty ? 0 : Int(random.next(upperBound: UInt64(bytes.count)))
+        let start = offset(in: bytes.count, using: &random)
         let inserted = (0..<(1 + Int(random.next(upperBound: 16)))).map { _ in
           UInt8(truncatingIfNeeded: random.next())
         }
         bytes.insert(contentsOf: inserted, at: start)
       case .zeroRange:
         guard !bytes.isEmpty else { break }
-        let start = Int(random.next(upperBound: UInt64(bytes.count)))
+        let start = offset(in: bytes.count, using: &random)
         let length = min(bytes.count - start, 1 + Int(random.next(upperBound: 24)))
         for offset in start..<(start + length) { bytes[offset] = 0 }
       case .duplicateChunk:
         guard !bytes.isEmpty, bytes.count < 1 << 20 else { break }
-        let start = Int(random.next(upperBound: UInt64(bytes.count)))
+        let start = offset(in: bytes.count, using: &random)
         let length = min(bytes.count - start, 1 + Int(random.next(upperBound: 64)))
         let chunk = Array(bytes[start..<(start + length)])
         bytes.insert(contentsOf: chunk, at: start)
       case .extremeWord:
         // Counts, lengths, and floats are read as big-endian words; extremes are where a decoder
         // stops being bounded.
-        guard bytes.count >= 4 else { break }
+        guard bytes.count >= 8 else { break }
         let word = [
           [0xFF, 0xFF, 0xFF, 0xFF] as [UInt8],  // -1 / huge count
           [0x7F, 0xFF, 0xFF, 0xFF],  // Int32.max
@@ -272,7 +291,7 @@ enum NativeSwiftFuzzTests {
           [0x7F, 0xC0, 0x00, 0x00],  // NaN
           [0x80, 0x00, 0x00, 0x00],  // -0 / Int32.min
         ][Int(random.next(upperBound: 6))]
-        let start = Int(random.next(upperBound: UInt64(bytes.count - 3)))
+        let start = offset(in: bytes.count - 3, using: &random)
         bytes.replaceSubrange(start..<(start + 4), with: word)
       }
     }
