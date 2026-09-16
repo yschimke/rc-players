@@ -456,11 +456,6 @@ private fun RcComposePlayerResolved(
         systemColorLookup = { name -> latestSystemColors(name)?.toRcArgb() },
       )
     }
-  // Hand the live state to an observing host. Keyed on `state` rather than on `document`, so a
-  // rebuild for any other reason still republishes rather than leaving a stale reference behind.
-  val inspectorSink = LocalRcPlayerInspector.current
-  SideEffect { inspectorSink?.state = state }
-
   // Apply host edits to the live state instead of rebuilding it. `setNamedValue` already applied a
   // single value incrementally against `variableNames`, type-checked against the AndroidX variable
   // type; nothing on the public path called it. A removal means "stop overriding this", which needs
@@ -596,10 +591,17 @@ private fun RcComposePlayerResolved(
       documentHeight = document.header.height.coerceAtLeast(1).toFloat(),
       rootContentBehavior = state.rootContentBehavior,
     )
-  val redrawModifier = interactiveModifier.drawWithContent {
-    invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
-    drawContent()
-  }
+  val redrawModifier =
+    interactiveModifier
+      .drawWithContent {
+        invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
+        drawContent()
+      }
+      // Published here rather than on the root layout component, because a canvas-only document has
+      // no layout tree at all — it takes the `Canvas` branch below — and hanging the state off a
+      // component that does not exist made every expression, colour and text probe on such a
+      // document report "not implemented" while the document itself was perfectly observable.
+      .inspectDocument(state, LocalRcInspection.current)
   if (layout != null) {
     // Layout variables (visibility, dimensions, offsets, and constraints) are read during
     // composition/measurement rather than painting, so action mutations must invalidate this
@@ -669,8 +671,6 @@ private fun RenderLayoutNode(
   node: RcLayoutNode,
   modifier: Modifier = Modifier,
   forceGone: Boolean = false,
-  /** Depth in the *reported* tree; see [RcInspectedNode.depth]. Costs nothing unobserved. */
-  depth: Int = 0,
   state: RcPlayerState,
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
@@ -718,19 +718,15 @@ private fun RenderLayoutNode(
       animateRcVisibility(visibility, node.modifiers.animationSpec, boundsModifier)
     }
   val geometryIds = node.geometryComponentIds()
-  val inspector = LocalRcPlayerInspector.current
-  // `Content` is a wrapper, not a level: its layout manager owns the geometry, and AndroidX's own
-  // tree encoding has no entry for it. Counting it would shift every descendant's depth by one
-  // against every other player's report of the same document.
-  val childDepth = if (node is RcLayoutNode.Content) depth else depth + 1
+  val inspecting = LocalRcInspection.current
   if (!animatedVisibility.shouldRender) {
-    if (geometryIds.any(state::hasComponentValues) || inspector != null) {
+    if (geometryIds.any(state::hasComponentValues) || inspecting) {
       // A gone component still reports, at zero size. Dropping it would make "laid out at nothing"
       // and "not in the tree" the same observation, and they are not: the corpus asserts `isGone`
       // on nodes it still expects to find.
       Layout(
         Modifier.trackComponentGeometry(geometryIds, state)
-          .reportToInspector(node, depth, inspector, visibility, layoutVersion)
+          .inspectComponent(node, visibility, inspecting)
       ) { _, _ ->
         layout(0, 0) {}
       }
@@ -740,7 +736,7 @@ private fun RenderLayoutNode(
   val effectiveModifier =
     animatedVisibility.modifier
       .trackComponentGeometry(geometryIds, state)
-      .reportToInspector(node, depth, inspector, visibility, layoutVersion)
+      .inspectComponent(node, visibility, inspecting)
   when (node) {
     is RcLayoutNode.Root ->
       Box(
@@ -758,7 +754,6 @@ private fun RenderLayoutNode(
         node.children.forEach {
           RenderLayoutNode(
             it,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -771,7 +766,6 @@ private fun RenderLayoutNode(
         node.children.forEach {
           RenderLayoutNode(
             it,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -818,7 +812,6 @@ private fun RenderLayoutNode(
         node.content?.let {
           RenderLayoutNode(
             it,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -883,7 +876,6 @@ private fun RenderLayoutNode(
         node.content?.let { content ->
           RenderLayoutNode(
             content,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -908,7 +900,6 @@ private fun RenderLayoutNode(
         )
       if (node.content.children.any { it.modifiers.alignBy != null }) {
         RcAlignedRow(
-          depth = childDepth,
           children = node.content.children,
           horizontalPositioning = node.operation.horizontalPositioning,
           verticalPositioning = node.operation.verticalPositioning,
@@ -943,7 +934,6 @@ private fun RenderLayoutNode(
           node.content.children.forEach { child ->
             RenderLayoutNode(
               child,
-              depth = childDepth,
               modifier = rowWeightModifier(child, state),
               state = state,
               textMeasurer = textMeasurer,
@@ -974,7 +964,6 @@ private fun RenderLayoutNode(
         node.content.children.forEach { child ->
           RenderLayoutNode(
             child,
-            depth = childDepth,
             modifier = columnWeightModifier(child, state),
             state = state,
             textMeasurer = textMeasurer,
@@ -1008,7 +997,6 @@ private fun RenderLayoutNode(
       ) {
         RenderLayoutNode(
           node.content,
-          depth = childDepth,
           state = state,
           textMeasurer = textMeasurer,
           images = images,
@@ -1044,7 +1032,6 @@ private fun RenderLayoutNode(
             if (index != target || contentVisibility == 0) {
               RenderLayoutNode(
                 child,
-                depth = childDepth,
                 forceGone = true,
                 state = state,
                 textMeasurer = textMeasurer,
@@ -1067,7 +1054,6 @@ private fun RenderLayoutNode(
               key(child.componentId) {
                 RenderLayoutNode(
                   child,
-                  depth = childDepth,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
@@ -1091,7 +1077,6 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.CollapsibleRow -> {
       RcCollapsibleLayout(
-        depth = childDepth,
         children = node.content.children,
         orientation = RcCollapseOrientation.Horizontal,
         mainPositioning = node.operation.horizontalPositioning,
@@ -1116,7 +1101,6 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.CollapsibleColumn -> {
       RcCollapsibleLayout(
-        depth = childDepth,
         children = node.content.children,
         orientation = RcCollapseOrientation.Vertical,
         mainPositioning = node.operation.verticalPositioning,
@@ -1366,7 +1350,6 @@ private fun RenderLayoutNode(
           key(child.componentId) {
             RenderLayoutNode(
               child,
-              depth = childDepth,
               state = state,
               textMeasurer = textMeasurer,
               images = images,
@@ -1396,7 +1379,6 @@ private fun RenderLayoutNode(
               Box(Modifier.clearAndSetSemantics {}) {
                 RenderLayoutNode(
                   child,
-                  depth = childDepth,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
@@ -1572,11 +1554,10 @@ private fun RcAlignedRow(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
-  depth: Int,
 ) {
   Layout(
     content = {
-      children.forEach { child -> RcLayoutChild(child, state, textMeasurer, images, theme, depth) }
+      children.forEach { child -> RcLayoutChild(child, state, textMeasurer, images, theme) }
     },
     modifier = modifier,
   ) { measurables, constraints ->
@@ -1614,13 +1595,11 @@ private fun RcLayoutChild(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
-  depth: Int,
 ) {
   Layout(
     content = {
       RenderLayoutNode(
         child,
-        depth = depth,
         state = state,
         textMeasurer = textMeasurer,
         images = images,
@@ -1696,13 +1675,12 @@ private fun RcCollapsibleLayout(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
-  depth: Int,
 ) {
   Layout(
     content = {
       children.forEach { child ->
         // Keep one measurable per wire child even when its visibility modifier resolves to gone.
-        RcLayoutChild(child, state, textMeasurer, images, theme, depth)
+        RcLayoutChild(child, state, textMeasurer, images, theme)
       }
     },
     modifier = modifier,
@@ -2747,44 +2725,46 @@ private fun Modifier.trackComponentGeometry(
 }
 
 /**
- * Reports this component's laid-out geometry to an [RcPlayerInspector], when one is observing.
+ * Publishes this component's identity onto the semantics tree, when inspection is on.
  *
- * The sibling of [trackComponentGeometry], and deliberately separate from it. That one exists to
- * feed the *document* — it publishes only the components a `ComponentValue` binds, because that is
- * all a document can read — and widening it to every node would make every document pay for an
- * observation only a harness wants. This one is inert unless a host provides an inspector.
+ * The sibling of [trackComponentGeometry], and deliberately separate from it. That one feeds the
+ * *document* — it publishes only the components a `ComponentValue` binds, because that is all a
+ * document can read — and widening it to every node would make every document pay for an
+ * observation only a harness wants.
  *
- * Position is reported in **root** coordinates; [RcInspectedNode] explains why parent-relative
- * would be ambiguous here.
+ * No geometry is written here, and that is the point: a semantics node already exposes
+ * `positionInRoot`, `size` and `boundsInRoot`, read from the layout node on demand. Pushing
+ * geometry instead would mean an `onGloballyPositioned` per component, firing after every layout
+ * pass of the whole tree, to deliver numbers the reader could have pulled.
+ *
+ * Returns the receiver untouched when inspection is off, so no semantics modifier is added and the
+ * chain is byte-for-byte what it was before this existed.
  */
-private fun Modifier.reportToInspector(
+private fun Modifier.inspectComponent(
   node: RcLayoutNode,
-  depth: Int,
-  inspector: RcPlayerInspector?,
   visibility: Int,
-  layoutVersion: Int,
+  inspecting: Boolean,
 ): Modifier {
-  if (inspector == null) return this
-  val componentId = node.componentId ?: return this
+  if (!inspecting) return this
+  val id = node.componentId ?: return this
   val kind = node.androidXComponentKind() ?: return this
-  return onGloballyPositioned { coordinates ->
-    val position = coordinates.positionInRoot()
-    inspector.record(
-      RcInspectedNode(
-        componentId = componentId,
-        kind = kind,
-        depth = depth,
-        x = position.x,
-        y = position.y,
-        width = coordinates.size.width.toFloat(),
-        height = coordinates.size.height.toFloat(),
-        isGone = visibility == 0,
-        visibility = visibility,
-      ),
-      layoutVersion,
-    )
+  return semantics {
+    rcComponentId = id
+    rcComponentKind = kind
+    rcComponentVisibility = visibility
   }
 }
+
+/**
+ * Publishes the document's non-visual state — slots, named variables, particles — onto the player's
+ * outermost node.
+ *
+ * It rides the same semantics channel as the tree so a reader needs one traversal and no second
+ * API, and it sits at the player's root rather than the *document's* root component because the two
+ * are not the same thing: a canvas-only document has no layout components whatsoever.
+ */
+private fun Modifier.inspectDocument(state: RcPlayerState, inspecting: Boolean): Modifier =
+  if (!inspecting) this else semantics { rcDocumentState = state }
 
 /**
  * This node's class in AndroidX's vocabulary, or null for a node AndroidX's tree does not name.
