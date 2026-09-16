@@ -72,7 +72,7 @@ assert profile["interaction"] == {
 }, "interaction must match the reviewed core-v1 capability set"
 
 fixture_entries = profile["verifiedFixtures"]
-assert len(fixture_entries) == 6, "verifiedFixtures must contain exactly six evidence entries"
+assert len(fixture_entries) == 7, "verifiedFixtures must contain exactly seven evidence entries"
 assert len({item["id"] for item in fixture_entries}) == len(fixture_entries), (
     "verifiedFixtures identifiers must be unique"
 )
@@ -95,6 +95,9 @@ assert fixtures == {
     ],
     "ImageBackgroundRemoteButton-454x200": [
         "bitmap-data", "texture", "image-attributes", "derived-text", "integer-action", "swift-decode",
+    ],
+    "host-density": [
+        "deferred-density", "dynamic-text-size", "float-expressions", "swift-decode",
     ],
 }, "verifiedFixtures must match the reviewed core-v1 evidence set"
 
