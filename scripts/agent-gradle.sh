@@ -36,11 +36,15 @@ for argument in "$@"; do
   esac
 done
 
+# Expanded through the `+` form because macOS ships bash 3.2, where "${empty[@]}" under `set -u` is
+# an unbound-variable error rather than nothing at all. The empty case is not a corner: it is what a
+# caller-supplied limit produces, so `--max-workers=1` — the Apple link's own documented invocation —
+# aborted the launcher in a quarter of a second on every Mac, while working on bash 4.4+ Linux.
 command=(
   build-brief
   "${repo_root}/gradlew"
   --priority=low
-  "${worker_limit[@]}"
+  ${worker_limit[@]+"${worker_limit[@]}"}
   -Dorg.gradle.daemon.idletimeout=600000
   --non-interactive
   "$@"
