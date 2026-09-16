@@ -44,15 +44,26 @@ echo "==> CMP JVM corpus lane"
   "-Prc.cmp.output=$lanes_dir/cmp-jvm"
 
 echo "==> native UIKit corpus lane"
-"$repo_root/scripts/render-native-uikit-lane.sh" "$corpus" "$lanes_dir/native-uikit"
+# A stalled lane still leaves what it rendered behind, and on a ~700-document corpus that partial
+# score is the finding — "480 of 701 before it stopped" tells you far more than a bare failure. So
+# the lane's exit status is recorded rather than propagated, and the run continues over whatever is
+# on disk; only the per-document comparison, which needs both lanes complete, is skipped.
+native_complete=true
+if ! "$repo_root/scripts/render-native-uikit-lane.sh" "$corpus" "$lanes_dir/native-uikit"; then
+  native_complete=false
+  echo "warning: the native UIKit lane did not finish; scoring its partial output" >&2
+fi
 
-node "$repo_root/scripts/rc-operation-conformance/validate-results.mjs" \
-  results "$corpus" "$lanes_dir" cmp-jvm native-uikit
+if [ "$native_complete" = true ]; then
+  node "$repo_root/scripts/rc-operation-conformance/validate-results.mjs" \
+    results "$corpus" "$lanes_dir" cmp-jvm native-uikit
+fi
 if [ ! -d "$repo_root/scripts/design-artifacts/node_modules/pixelmatch" ]; then
   npm --prefix "$repo_root/scripts/design-artifacts" ci --no-audit --no-fund --silent
 fi
 node "$repo_root/scripts/design-artifacts/rc-multi-lane-score.mjs" \
-  "$lanes_dir" cmp-jvm native-uikit --json "$lanes_dir/comparison.json"
+  "$lanes_dir" cmp-jvm native-uikit --json "$lanes_dir/comparison.json" || \
+  echo "warning: scoring the partial corpus output failed" >&2
 
 # The headline the design asks this lane to produce: how much of a real Material 3 sheet the native
 # player draws at all, and what it declines. `.error` is a document it refused; `.unsupported` is
@@ -65,9 +76,14 @@ total = len(json.loads(corpus.joinpath("manifest.json").read_text()))
 native = lanes / "native-uikit"
 errors = sorted(p.stem for p in native.glob("*.error"))
 unsupported = sorted(p.stem for p in native.glob("*.unsupported"))
-rendered = total - len(errors)
+# Counted, not inferred: a stalled lane attempts only part of the manifest, and `total - errors`
+# would silently score every document it never reached as rendered.
+rendered = len(list(native.glob("*.png")))
+attempted = rendered + len(errors)
 print(f"native UIKit corpus: {rendered}/{total} rendered, {len(errors)} declined, "
       f"{len(unsupported)} with unsupported operations")
+if attempted < total:
+    print(f"  incomplete: the lane attempted {attempted} of {total} documents")
 for label, names in (("declined", errors), ("unsupported", unsupported)):
     if not names:
         continue
