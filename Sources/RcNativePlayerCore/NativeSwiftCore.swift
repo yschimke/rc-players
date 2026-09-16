@@ -512,9 +512,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // a node's own geometry can now itself be a reference, so neither ordering is right alone: the
     // first pass gives the measurement something better than zero to read, the second lets an
     // expression that reads a measured value see it. Evaluation is pure, so repeating it is safe.
+    //
+    // This first pass is deliberately tolerant. An expression that reads a binding the measurement
+    // below has not produced yet resolves that reference to zero, which can divide to a non-finite
+    // result that `evaluate` rejects — correctly, but not yet. Dropping it here leaves the id
+    // unset, exactly as it was before this pass existed; the authoritative pass after the
+    // measurement evaluates it for real and throws if it is still bad.
     for expression in document.expressions {
-      result[expression.id] = try NativeSwiftFloatExpression.evaluate(
-        expression.words, values: result)
+      if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
+        result[expression.id] = value
+      }
     }
     for binding in document.componentValues {
       guard let node = document.nodes[binding.componentID] else { continue }
@@ -650,7 +657,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if dimensionType == 1 || dimensionType == 7 || dimensionType == 8 {
       return available * (dimensionValue.isNaN ? 1 : max(dimensionValue, 0))
     }
-    let children = flattenedChildren(of: node)
+    let children = flattenedChildren(of: node, values: values)
     let childDimensions = children.map {
       estimatedDimension(of: $0, type: type, available: available, values: values)
     }
@@ -678,13 +685,22 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return max(intrinsic + padding, minimum)
   }
 
-  private func flattenedChildren(of node: ParsedNode) -> [ParsedNode] {
-    node.children.flatMap { child in
+  /// Flattens a bare content wrapper into its parent for measurement.
+  ///
+  /// The padding test runs on resolved values, not on words: a wrapper whose padding is computed
+  /// and comes out zero is just as bare as one that says `0`, and comparing the encoded words
+  /// would keep it — and so measure a row's grandchildren as one child's maximum rather than
+  /// their sum.
+  private func flattenedChildren(of node: ParsedNode, values: [Int: Float]) -> [ParsedNode] {
+    func isZero(_ word: UInt32) -> Bool {
+      NativeSwiftFloatExpression.resolve(word, values: values) == 0
+    }
+    return node.children.flatMap { child in
       if child.kind == .content, child.widthType == 2, child.heightType == 2,
-        child.paddingWords.left == 0, child.paddingWords.top == 0,
-        child.paddingWords.right == 0, child.paddingWords.bottom == 0
+        isZero(child.paddingWords.left), isZero(child.paddingWords.top),
+        isZero(child.paddingWords.right), isZero(child.paddingWords.bottom)
       {
-        return flattenedChildren(of: child)
+        return flattenedChildren(of: child, values: values)
       }
       return [child]
     }
