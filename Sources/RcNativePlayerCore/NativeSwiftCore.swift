@@ -1534,8 +1534,19 @@ private enum NativeSwiftDocumentDecoder {
           data: try input.data("bitmap data", maximum: 8 * 1_024 * 1_024))
       case 81:  // Float expression
         let id = try input.int("float expression id")
+        // The length word packs two counts: the expression's own tokens in the low half, and an
+        // optional trailing animation description in the high half. Both have to be consumed to
+        // keep the stream in sync -- the buffer has no length prefixes -- but only the first half
+        // is the expression. Reading all of them as tokens left the animation's parameters on the
+        // evaluation stack, so a one-token expression with a spring or duration after it finished
+        // holding two values and was rejected as malformed, taking the document with it.
+        //
+        // The animation itself is read and dropped: this player resolves a float expression to its
+        // current value and does not animate it.
         let lengths = try input.int("float expression lengths")
-        let count = (lengths & 0xffff) + ((lengths >> 16) & 0xffff)
+        let valueCount = lengths & 0xffff
+        let animationCount = (lengths >> 16) & 0xffff
+        let count = valueCount + animationCount
         guard count <= 65_567 else { throw input.malformed("Float expression is too long") }
         expressionWordCount += count
         guard expressionWordCount <= 200_000 else {
@@ -1544,7 +1555,7 @@ private enum NativeSwiftDocumentDecoder {
         var words: [UInt32] = []
         words.reserveCapacity(count)
         for _ in 0..<count { words.append(try input.word("float expression word")) }
-        expressions.append(ParsedFloatExpression(id: id, words: words))
+        expressions.append(ParsedFloatExpression(id: id, words: Array(words.prefix(valueCount))))
       case 93:  // Custom
         let id = try input.int("custom component id")
         _ = try input.int("custom animation id")
