@@ -153,15 +153,29 @@ Not in scope for A: scoring against the Figma baseline. The catalog owns that co
 already does it well. Ours is player-versus-player, where CMP JVM is the reference because it is
 the lane with a rendering test suite behind it.
 
-## The one weak link
+## The one weak link, and what it cost
 
-The documents come from `preview.coo.ee` at request time, which puts a live server in this
-repository's CI path — and the `PROVENANCE.md` note about a `NoSuchMethodError` disabling that
-server's whole render lane is a reminder that it does go down.
+The documents used to come from `preview.coo.ee` at request time, which put a live server in this
+repository's CI path. It broke immediately, and in the way that is hardest to argue with.
 
-The fix is one input on the catalog's side, and it is nearly free there: that workflow already
-publishes `documents/<id>.rc.json` — the operation stream as text — to the delivery branch under
-`rc-document-json: true`. Publishing `documents/<id>.rc` beside it is the same step with a
-different serialiser, and it would turn this corpus into a `git fetch` of a pinned commit with no
-live dependency at all. Worth asking for before A lands, and worth doing even if A never happens:
-the bytes on the branch make the text form verifiable against what actually drew the pixels.
+The first corpus run fetched all 701 documents at generation `60c4c8af`. Ninety minutes later the
+same pinned URLs returned 404 for all 701 — the server publishes exactly one generation, the current
+one, and answers `?gen=<sha>` for anything else with a 409 reading "this catalog has moved on". So
+the pin bought no reproducibility at all: it named a sheet that could not be re-fetched, and the
+score it named could not be repeated, let alone reproduced. During the session that fixed this, the
+compare page itself went from 200 to 404 between two runs of the refresh script.
+
+**The documents are now committed**, under `scripts/rc-catalog-corpus/corpus`: 701 `.rc` files,
+1.7 MB, with the generation recorded beside them in `PIN`. CI reads those bytes and contacts nothing.
+`scripts/rc-catalog-corpus/refresh-corpus.sh` is the update process, run by hand, and it is the only
+thing in the repository that may reach the catalog at all.
+
+The refresh prefers the delivery branch and falls back to the server, so the weak link closes itself
+the moment the catalog publishes wire bytes. That is still one input on the catalog's side and still
+nearly free there: the workflow already publishes `documents/<id>.rc.json` — the operation stream as
+text — under `rc-document-json: true`, and publishing `documents/<id>.rc` beside it is the same step
+with a different serialiser. As of generation `40b842d5` the branch carries the rendered PNGs and the
+JSON but no wire bytes, so the refresh still uses the server; the day it does not, the refresh
+becomes a pure `git fetch` of a pinned commit with no live dependency anywhere, and it needs no
+change here to do so. Worth asking for: the bytes on the branch also make the text form verifiable
+against what actually drew the pixels.

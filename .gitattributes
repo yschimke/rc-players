@@ -1,0 +1,3 @@
+
+# The catalog corpus is upstream wire format, not text to be normalised.
+scripts/rc-catalog-corpus/corpus/*.rc binary
