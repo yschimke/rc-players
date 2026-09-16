@@ -38,6 +38,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
+import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
+import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
@@ -86,6 +88,16 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
   ConformanceSession {
 
   private val document: RcDocument = RcDocumentCodec.decode(gold.documentBytes())
+
+  /**
+   * The document after linking, which is also after macro and loop *expansion*.
+   *
+   * That expansion is the point for the census probes: the corpus counts what a document resolves
+   * to, so a `foreach` over three items reports three draws and a referenced block included twice
+   * reports its contents twice. The flat decoded list in [document] is the unexpanded form and
+   * answers a different question.
+   */
+  private val linked = runCatching { RcDocumentLinker.link(document) }.getOrNull()
 
   private var width = gold.parameters.intOr("width", 400)
   private var height = gold.parameters.intOr("height", 400)
@@ -339,7 +351,10 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       // decoded
       // list is always one short of the count AndroidX reports. Adding it back is a difference in
       // where the header is *kept*, not in what was read.
-      "ops:count" -> Observation.Value(JsonPrimitive(document.operations.size + 1))
+      // Top-level operations, header included. A container holds its children rather than sitting
+      // beside them, which is why this counts linked nodes and not the flat decoded list.
+      "ops:count" ->
+        Observation.Value(JsonPrimitive((linked?.operations?.size ?: document.operations.size) + 1))
       "ops:present",
       "ops:absent" -> Observation.Value(names().distinct().toJsonArray())
       "ops:counts" ->
@@ -353,7 +368,9 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         val ids = components().map { it.id }
         Observation.Value(JsonPrimitive(ids.distinct().size == ids.size))
       }
-      "records:components" -> Observation.Value(names().toJsonArray())
+      // Component *class names* (§4.2) — the drawing operations, not every operation in the
+      // document. Returning the whole census made a document with four draws report eight entries.
+      "records:components" -> Observation.Value(drawnComponents().toJsonArray())
       "draw_log:commands" -> Observation.Value(drawLog().toJsonArray())
       // The guide files these among the long tail, and describes them accurately: they are
       // decoded-operation field reads, not observations of a running player. Nothing here needs the
@@ -630,6 +647,25 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
     document.operations.filterIsInstance<T>().forEach { operation ->
       put(id(operation).toString(), buildJsonObject { put("present", JsonPrimitive(true)) })
     }
+  }
+
+  /** Drawing operations in draw order, walking the expanded tree. */
+  private fun drawnComponents(): List<String> {
+    val out = mutableListOf<String>()
+    fun walk(nodes: List<RcLinkedNode>) {
+      nodes.forEach { node ->
+        when (node) {
+          is RcLinkedNode.Operation ->
+            RcOperationInventory.byOpcode[node.operation.opcode]
+              ?.stableName
+              ?.takeIf { it.startsWith("Draw") }
+              ?.let(out::add)
+          is RcLinkedNode.Container -> walk(node.children)
+        }
+      }
+    }
+    linked?.operations?.let(::walk)
+    return out
   }
 
   private fun names(): List<String> =
