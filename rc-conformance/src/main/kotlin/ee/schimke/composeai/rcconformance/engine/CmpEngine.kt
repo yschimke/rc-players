@@ -30,12 +30,14 @@ import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
+import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
@@ -320,6 +322,17 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       "text" -> scalar(check) { id -> state()?.text(id)?.let(::JsonPrimitive) }
       "matrix" -> scalar(check) { id -> state()?.matrixValues(id)?.toJsonArray() }
       "float_array:dynamic" -> scalar(check) { id -> state()?.floatValues(id)?.toJsonArray() }
+      // The *stored* list, as written, against `float_array:dynamic`'s *computed* one (§4.2).
+      "float_array:data" ->
+        scalar(check) { id ->
+          document.operations
+            .filterIsInstance<RcFloatList>()
+            .firstOrNull { it.id == id }
+            ?.values
+            ?.map { it.value }
+            ?.toFloatArray()
+            ?.toJsonArray()
+        }
       "particles" -> particles(check)
       // The header is `HEADER`, opcode 0 — an operation on the wire like any other. This player's
       // model hoists it into `RcDocument.header` and leaves `operations` to the rest, so the
@@ -356,6 +369,22 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
                   put("duration", JsonPrimitive(impulse.duration.value))
                   put("startAt", JsonPrimitive(impulse.startAt.value))
                 }
+              )
+            }
+          }
+        )
+      // Names only — the bound values live in the compiled program, which is what the corpus says
+      // it asserts (§4.2).
+      "records:uniforms" ->
+        Observation.Value(
+          buildJsonObject {
+            document.operations.filterIsInstance<RcShaderData>().forEach { shader ->
+              put(
+                shader.shaderId.toString(),
+                buildJsonObject {
+                  (shader.floatUniforms.keys + shader.intUniforms.keys + shader.bitmapUniforms.keys)
+                    .forEach { put(it, JsonPrimitive(true)) }
+                },
               )
             }
           }
