@@ -729,11 +729,14 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPlayerInspectionKt {
 	public static final fun getRcComponentKindKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
 	public static final fun getRcComponentVisibility (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)I
 	public static final fun getRcComponentVisibilityKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
+	public static final fun getRcContentInset (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)J
+	public static final fun getRcContentInsetKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
 	public static final fun getRcDocumentState (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;
 	public static final fun getRcDocumentStateKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
 	public static final fun setRcComponentId (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;I)V
 	public static final fun setRcComponentKind (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;Ljava/lang/String;)V
 	public static final fun setRcComponentVisibility (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;I)V
+	public static final fun setRcContentInset-Uv8p0NA (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;J)V
 	public static final fun setRcDocumentState (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;)V
 }
 

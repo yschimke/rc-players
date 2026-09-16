@@ -719,6 +719,8 @@ private fun RenderLayoutNode(
     }
   val geometryIds = node.geometryComponentIds()
   val inspecting = LocalRcInspection.current
+  val contentInset =
+    if (inspecting) rcContentInsetPixels(node.modifiers, state, density) else Offset.Zero
   if (!animatedVisibility.shouldRender) {
     if (geometryIds.any(state::hasComponentValues) || inspecting) {
       // A gone component still reports, at zero size. Dropping it would make "laid out at nothing"
@@ -726,7 +728,7 @@ private fun RenderLayoutNode(
       // on nodes it still expects to find.
       Layout(
         Modifier.trackComponentGeometry(geometryIds, state)
-          .inspectComponent(node, visibility, inspecting)
+          .inspectComponent(node, visibility, inspecting, contentInset)
       ) { _, _ ->
         layout(0, 0) {}
       }
@@ -736,7 +738,7 @@ private fun RenderLayoutNode(
   val effectiveModifier =
     animatedVisibility.modifier
       .trackComponentGeometry(geometryIds, state)
-      .inspectComponent(node, visibility, inspecting)
+      .inspectComponent(node, visibility, inspecting, contentInset)
   when (node) {
     is RcLayoutNode.Root ->
       Box(
@@ -2744,6 +2746,7 @@ private fun Modifier.inspectComponent(
   node: RcLayoutNode,
   visibility: Int,
   inspecting: Boolean,
+  contentInset: Offset,
 ): Modifier {
   if (!inspecting) return this
   val id = node.componentId ?: return this
@@ -2752,7 +2755,34 @@ private fun Modifier.inspectComponent(
     rcComponentId = id
     rcComponentKind = kind
     rcComponentVisibility = visibility
+    if (contentInset != Offset.Zero) rcContentInset = contentInset
   }
+}
+
+/**
+ * The top-left inset this component's padding modifiers impose on its children, in pixels.
+ *
+ * Summed over every `RcPaddingModifier` in the chain, matching how `applyComponentModifiers`
+ * applies them — AndroidX writes consecutive padding operations and the player accumulates rather
+ * than replaces. Computed here, before the chain is built, because the component's semantics node
+ * sits *outside* the padding: a value published from inside it would land on a different layout
+ * node and never reach the same semantics configuration.
+ */
+@Composable
+private fun rcContentInsetPixels(
+  modifiers: RcLayoutModifiers,
+  state: RcPlayerState,
+  density: Density,
+): Offset {
+  var left = 0f
+  var top = 0f
+  modifiers.ordered.forEach { operation ->
+    if (operation is RcPaddingModifier) {
+      left += state.dpTypedPixels(state.resolve(operation.left), density)
+      top += state.dpTypedPixels(state.resolve(operation.top), density)
+    }
+  }
+  return if (left == 0f && top == 0f) Offset.Zero else Offset(left, top)
 }
 
 /**

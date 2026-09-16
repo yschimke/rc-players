@@ -23,6 +23,7 @@ import ee.schimke.composeai.rcplayer.compose.RcComponentIdKey
 import ee.schimke.composeai.rcplayer.compose.RcComponentKindKey
 import ee.schimke.composeai.rcplayer.compose.RcComponentVisibilityKey
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
+import ee.schimke.composeai.rcplayer.compose.RcContentInsetKey
 import ee.schimke.composeai.rcplayer.compose.RcDocumentStateKey
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -351,7 +352,15 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         out += Component(node, id, depth, parent ?: Offset.Zero)
       }
       val childDepth = if (id == null) depth else depth + 1
-      val childParent = if (id == null) parent else node.positionInRoot
+      // Children are reported relative to their parent's *content* origin, not its outer box.
+      // §2.7: `x`/`y` carry only the layout manager's assignment, so a padded child reports 0 and
+      // the padding shows up as the parent being larger — which it already is, because the
+      // component's semantics node sits outside the padding.
+      val childParent =
+        if (id == null) parent
+        else
+          node.positionInRoot +
+            (node.config.getOrElseNullable(RcContentInsetKey) { null } ?: Offset.Zero)
       node.children.forEach { walk(it, childDepth, childParent) }
     }
 
