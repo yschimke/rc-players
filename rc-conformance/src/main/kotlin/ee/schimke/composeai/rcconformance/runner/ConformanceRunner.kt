@@ -59,7 +59,14 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
         engine.open(gold).use { session ->
           for (step in gold.timeline) {
             try {
-              session.execute(step)
+              // A capture is a step id in its own right as far as the checks are concerned, so it
+              // is marked executed and evaluated inline — see `ConformanceSession.execute`.
+              session.execute(step) { captureId ->
+                executed += captureId
+                for (check in checksByStep[captureId].orEmpty()) {
+                  if (evaluate(gold, session, check, diffs, observed, attachments)) failedChecks++
+                }
+              }
             } catch (unsupported: UnsupportedStepKind) {
               // Left out of `executed`, so this step's checks fail as STEP_NOT_RUN below. The kind
               // is recorded so the report can say which capability is missing rather than only that
