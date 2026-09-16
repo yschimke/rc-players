@@ -151,6 +151,10 @@ jobs:
       # mistake in it is caught in seconds instead of fifty minutes later on a macOS runner.
       - name: Test the simulator boot helper
         run: scripts/simulator-boot.test.sh
+      # Same reasoning for the lane's waiting rule: it decides when a ~700-document corpus run is
+      # declared stuck, and getting it wrong costs a fifteen-minute macOS job that reports nothing.
+      - name: Test the lane progress helper
+        run: scripts/lane-progress.test.sh
       - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
         with:
           distribution: temurin

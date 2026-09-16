@@ -4,6 +4,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$repo_root/scripts/simulator-boot.sh"
+. "$repo_root/scripts/lane-progress.sh"
 bundle_id="ee.schimke.rcplayers.appleplayer"
 app="$repo_root/build/apple-player-derived-data/Build/Products/Release-iphonesimulator/Remote Compose.app"
 
@@ -72,22 +73,20 @@ rm -rf "$output_dir"
 mkdir -p "$output_dir"
 xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" --native-comparison >/dev/null
 
-# The budget scales with the manifest. Ninety seconds was a constant sized for the four-document
-# fixture set; the catalog corpus is ~700, and a fixed deadline would have failed it partway
-# through with nothing to say about why. Thirty seconds covers launch and first frame, then a
-# second per document — far more than a render costs, which is the point: this exists to catch a
-# harness that has stopped, not to police its speed.
+# Bounded by stalls, not by total runtime. A per-document budget has to guess a render cost, and
+# guessing low fails a lane that was working: 30s + 1s/document expired 731s into the 701-document
+# catalog corpus and discarded every result it had. What this needs to catch is a harness that has
+# stopped, which shows up as silence — no new output file — regardless of manifest size. Partial
+# output is copied out either way, so a stall leaves evidence of how far the lane got.
 documents="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
   "$input_dir/manifest.json")"
-budget=$((30 + documents))
-deadline=$((SECONDS + budget))
-while [ ! -f "$harness_root/done.json" ]; do
-  if [ "$SECONDS" -ge "$deadline" ]; then
-    echo "error: native UIKit comparison did not finish $documents documents within ${budget}s" >&2
-    exit 1
-  fi
-  sleep 1
-done
+if ! progress="$(rc_await_lane_completion "$harness_root" "$documents" \
+  "${RC_NATIVE_UIKIT_STALL_BUDGET:-120}")"; then
+  cp -R "$harness_root/output/." "$output_dir/" 2>/dev/null || true
+  echo "error: native UIKit comparison stalled after $progress of $documents documents;" \
+    "partial output in $output_dir" >&2
+  exit 1
+fi
 
 cp -R "$harness_root/output/." "$output_dir/"
 lanes_dir="$(dirname "$output_dir")"
