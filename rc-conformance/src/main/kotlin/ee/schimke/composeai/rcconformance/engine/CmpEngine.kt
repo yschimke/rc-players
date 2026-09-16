@@ -27,11 +27,15 @@ import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcContentInsetKey
 import ee.schimke.composeai.rcplayer.compose.RcDocumentStateKey
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
+import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
+import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
@@ -338,6 +342,42 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       }
       "records:components" -> Observation.Value(names().toJsonArray())
       "draw_log:commands" -> Observation.Value(drawLog().toJsonArray())
+      // The guide files these among the long tail, and describes them accurately: they are
+      // decoded-operation field reads, not observations of a running player. Nothing here needs the
+      // renderer, so nothing here needs a hook in it.
+      "records:paths" -> Observation.Value(presenceMap<RcPathData> { it.id })
+      "records:tweens" -> Observation.Value(presenceMap<RcPathTween> { it.outId })
+      "records:impulses" ->
+        Observation.Value(
+          buildJsonArray {
+            document.operations.filterIsInstance<RcImpulseStart>().forEach { impulse ->
+              add(
+                buildJsonObject {
+                  put("duration", JsonPrimitive(impulse.duration.value))
+                  put("startAt", JsonPrimitive(impulse.startAt.value))
+                }
+              )
+            }
+          }
+        )
+      "records:semantics" ->
+        Observation.Value(
+          buildJsonArray {
+            document.operations.filterIsInstance<RcAccessibilitySemantics>().forEach { semantics ->
+              add(
+                buildJsonObject {
+                  put("contentDescriptionId", JsonPrimitive(semantics.contentDescriptionId))
+                  put("role", JsonPrimitive(semantics.role))
+                  put("textId", JsonPrimitive(semantics.textId))
+                  put("stateDescriptionId", JsonPrimitive(semantics.stateDescriptionId))
+                  put("mode", JsonPrimitive(semantics.mode))
+                  put("enabled", JsonPrimitive(semantics.enabled))
+                  put("clickable", JsonPrimitive(semantics.clickable))
+                }
+              )
+            }
+          }
+        )
       else -> Observation.NotImplemented
     }
 
@@ -542,6 +582,15 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         else -> null
       }
     }
+
+  /**
+   * `{"<id>": {"present": true}}` — the shape the corpus uses where a cache exposes presence only.
+   */
+  private inline fun <reified T : Any> presenceMap(id: (T) -> Int): JsonObject = buildJsonObject {
+    document.operations.filterIsInstance<T>().forEach { operation ->
+      put(id(operation).toString(), buildJsonObject { put("present", JsonPrimitive(true)) })
+    }
+  }
 
   private fun names(): List<String> =
     document.operations.mapNotNull { RcOperationInventory.byOpcode[it.opcode]?.stableName }
