@@ -100,6 +100,7 @@ jobs:
               scripts/package-apple-player.sh \
               scripts/package-macos-player.sh \
               scripts/render-native-uikit-lane.sh \
+              scripts/simulator-boot.sh \
               scripts/set-apple-player-package-version.sh \
               scripts/update-package-swift.sh \
               scripts/validate-apple-player-screenshot.swift \
@@ -127,6 +128,12 @@ jobs:
           persist-credentials: false
       - name: Test automated Gradle launcher
         run: .github/scripts/test-agent-gradle.sh
+      # The simulator boot retry only ever runs on macOS, against the least reproducible thing in
+      # the job — which is how three scripts ended up with three different answers to it. This
+      # holds its control flow to the contract against a stubbed `simctl`, on the cheap lane, so a
+      # mistake in it is caught in seconds instead of fifty minutes later on a macOS runner.
+      - name: Test the simulator boot helper
+        run: scripts/simulator-boot.test.sh
       - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
         with:
           distribution: temurin
