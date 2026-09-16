@@ -369,12 +369,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftNodeSnapshot {
     let text: NativeSwiftTextSnapshot?
     if let source = node.text {
+      // `size > 0` used to be a parse-time guard. It still holds, but a computed size has no value
+      // to check until here, so the check moved with it rather than being dropped.
+      let size = try resolvedFloat(source.sizeWord, "text size", values: values, positive: true)
+      let weight = try resolvedFloat(source.weightWord, "text weight", values: values)
       text = NativeSwiftTextSnapshot(
         value: texts[source.textID] ?? "",
         colorARGB: source.colorID.flatMap { resolvedColors[$0] } ?? source.colorARGB,
-        size: source.size,
+        size: size,
         style: source.style,
-        weight: min(max(source.weight, 1), 1_000),
+        weight: min(max(weight, 1), 1_000),
         familyID: source.familyID,
         familyName: texts[source.familyID],
         alignment: source.alignment,
@@ -416,6 +420,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       custom = nil
     }
 
+    let maximumWidth = try resolvedFloat(node.maximumWidthWord, "maximum width", values: values)
+    let maximumHeight = try resolvedFloat(node.maximumHeightWord, "maximum height", values: values)
+    let cornerRadii = try node.cornerRadiusWords.map {
+      try resolvedFloat($0, "corner radius", values: values)
+    }
+    let cornerRadius = cornerRadii.max() ?? 0
+
     return NativeSwiftNodeSnapshot(
       kind: node.kind,
       componentID: node.componentID,
@@ -435,32 +446,49 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           isClickable: $0.isClickable)
       },
       widthType: node.widthType,
-      widthValue: node.widthValue,
+      widthValue: try resolvedFloat(node.widthWord, "width", values: values),
       heightType: node.heightType,
-      heightValue: node.heightValue,
-      padding: node.padding,
-      minimumWidth: node.minimumWidth,
-      maximumWidth: node.maximumWidth,
-      minimumHeight: node.minimumHeight,
-      maximumHeight: node.maximumHeight,
-      cornerRadius: node.cornerRadius,
+      heightValue: try resolvedFloat(node.heightWord, "height", values: values),
+      padding: NativeSwiftInsets(
+        left: try resolvedFloat(node.paddingWords.left, "padding left", values: values),
+        top: try resolvedFloat(node.paddingWords.top, "padding top", values: values),
+        right: try resolvedFloat(node.paddingWords.right, "padding right", values: values),
+        bottom: try resolvedFloat(node.paddingWords.bottom, "padding bottom", values: values)),
+      minimumWidth: try resolvedFloat(node.minimumWidthWord, "minimum width", values: values),
+      maximumWidth: maximumWidth > 1_000_000 ? -1 : maximumWidth,
+      minimumHeight: try resolvedFloat(node.minimumHeightWord, "minimum height", values: values),
+      maximumHeight: maximumHeight > 1_000_000 ? -1 : maximumHeight,
+      cornerRadius: cornerRadius,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
-      spacing: node.spacing,
+      spacing: try resolvedFloat(node.spacingWord, "spacing", values: values),
       text: text,
       custom: custom)
   }
 
+  /// Resolves a float field that a document may either state outright or compute.
+  ///
+  /// A literal word is its own bit pattern, so `resolve` is a strict generalisation of the eager
+  /// `Float` these fields used to hold; a NaN-boxed word is a reference into `values`. Validation
+  /// that used to run while parsing runs here, because a computed field has nothing to validate
+  /// until it resolves — and failing here is what keeps a garbage value from reaching UIKit.
+  private func resolvedFloat(
+    _ word: UInt32, _ field: String, values: [Int: Float], positive: Bool = false
+  ) throws -> Float {
+    let value = NativeSwiftFloatExpression.resolve(word, values: values)
+    guard value.isFinite else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "\(field) resolved to \(value)")
+    }
+    guard !positive || value > 0 else {
+      throw NativeSwiftCoreError.malformed(
+        offset: 0, reason: "\(field) resolved to \(value), which is not positive")
+    }
+    return value
+  }
+
   private func resolvedFloats(timeSeconds: TimeInterval) throws -> [Int: Float] {
     var result = floats
-    for binding in document.componentValues {
-      guard let node = document.nodes[binding.componentID] else { continue }
-      let measuredNode = node.parent ?? node
-      result[binding.valueID] = estimatedDimension(
-        of: measuredNode, type: binding.type,
-        available: binding.type == 0 ? Float(document.width) : Float(document.height))
-    }
     for attribute in document.colorAttributes {
       result[attribute.outputID] = colorAttribute(
         attribute.type, of: colors[attribute.colorID] ?? 0)
@@ -479,6 +507,29 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if result[NativeSwiftSystemVariables.fontSize] == nil {
       result[NativeSwiftSystemVariables.fontSize] =
         NativeSwiftSystemVariables.defaultFontSizeSp * hostFontScale * hostDensity
+    }
+    // Expressions are evaluated twice, deliberately. A component-value binding measures a node, and
+    // a node's own geometry can now itself be a reference, so neither ordering is right alone: the
+    // first pass gives the measurement something better than zero to read, the second lets an
+    // expression that reads a measured value see it. Evaluation is pure, so repeating it is safe.
+    //
+    // This first pass is deliberately tolerant. An expression that reads a binding the measurement
+    // below has not produced yet resolves that reference to zero, which can divide to a non-finite
+    // result that `evaluate` rejects — correctly, but not yet. Dropping it here leaves the id
+    // unset, exactly as it was before this pass existed; the authoritative pass after the
+    // measurement evaluates it for real and throws if it is still bad.
+    for expression in document.expressions {
+      if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
+        result[expression.id] = value
+      }
+    }
+    for binding in document.componentValues {
+      guard let node = document.nodes[binding.componentID] else { continue }
+      let measuredNode = node.parent ?? node
+      result[binding.valueID] = estimatedDimension(
+        of: measuredNode, type: binding.type,
+        available: binding.type == 0 ? Float(document.width) : Float(document.height),
+        values: result)
     }
     for expression in document.expressions {
       result[expression.id] = try NativeSwiftFloatExpression.evaluate(
@@ -591,23 +642,31 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return argbColor(alpha: alpha, red: rgb.0, green: rgb.1, blue: rgb.2)
   }
 
-  private func estimatedDimension(of node: ParsedNode, type: Int, available: Float) -> Float {
+  private func estimatedDimension(
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float]
+  ) -> Float {
+    // Measurement runs before the final resolution pass and must not throw: an unresolvable field
+    // reads as zero here and is rejected properly by `resolvedFloat` when the snapshot is built.
+    func float(_ word: UInt32) -> Float {
+      let value = NativeSwiftFloatExpression.resolve(word, values: values)
+      return value.isFinite ? value : 0
+    }
     let dimensionType = type == 0 ? node.widthType : node.heightType
-    let dimensionValue = type == 0 ? node.widthValue : node.heightValue
+    let dimensionValue = float(type == 0 ? node.widthWord : node.heightWord)
     if dimensionType == 0 || dimensionType == 6 { return max(dimensionValue, 0) }
     if dimensionType == 1 || dimensionType == 7 || dimensionType == 8 {
       return available * (dimensionValue.isNaN ? 1 : max(dimensionValue, 0))
     }
-    let children = flattenedChildren(of: node)
+    let children = flattenedChildren(of: node, values: values)
     let childDimensions = children.map {
-      estimatedDimension(of: $0, type: type, available: available)
+      estimatedDimension(of: $0, type: type, available: available, values: values)
     }
     let intrinsic: Float
     if let text = node.text {
       if type == 0 {
-        intrinsic = Float(texts[text.textID]?.count ?? 0) * text.size * 0.6
+        intrinsic = Float(texts[text.textID]?.count ?? 0) * float(text.sizeWord) * 0.6
       } else {
-        intrinsic = text.size * 1.2
+        intrinsic = float(text.sizeWord) * 1.2
       }
     } else if type == 0 {
       intrinsic = node.kind == .row ? childDimensions.reduce(0, +) : childDimensions.max() ?? 0
@@ -615,24 +674,33 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       intrinsic =
         node.kind == .column
         ? childDimensions.reduce(0, +)
-          + node.spacing * Float(max(childDimensions.count - 1, 0))
+          + float(node.spacingWord) * Float(max(childDimensions.count - 1, 0))
         : childDimensions.max() ?? 0
     }
     let padding =
       type == 0
-      ? node.padding.left + node.padding.right
-      : node.padding.top + node.padding.bottom
-    let minimum = type == 1 ? node.minimumHeight : 0
+      ? float(node.paddingWords.left) + float(node.paddingWords.right)
+      : float(node.paddingWords.top) + float(node.paddingWords.bottom)
+    let minimum = type == 1 ? float(node.minimumHeightWord) : 0
     return max(intrinsic + padding, minimum)
   }
 
-  private func flattenedChildren(of node: ParsedNode) -> [ParsedNode] {
-    node.children.flatMap { child in
+  /// Flattens a bare content wrapper into its parent for measurement.
+  ///
+  /// The padding test runs on resolved values, not on words: a wrapper whose padding is computed
+  /// and comes out zero is just as bare as one that says `0`, and comparing the encoded words
+  /// would keep it — and so measure a row's grandchildren as one child's maximum rather than
+  /// their sum.
+  private func flattenedChildren(of node: ParsedNode, values: [Int: Float]) -> [ParsedNode] {
+    func isZero(_ word: UInt32) -> Bool {
+      NativeSwiftFloatExpression.resolve(word, values: values) == 0
+    }
+    return node.children.flatMap { child in
       if child.kind == .content, child.widthType == 2, child.heightType == 2,
-        child.padding.left == 0, child.padding.top == 0, child.padding.right == 0,
-        child.padding.bottom == 0
+        isZero(child.paddingWords.left), isZero(child.paddingWords.top),
+        isZero(child.paddingWords.right), isZero(child.paddingWords.bottom)
       {
-        return flattenedChildren(of: child)
+        return flattenedChildren(of: child, values: values)
       }
       return [child]
     }
@@ -896,6 +964,18 @@ private struct ParsedPaint {
   var textureTileModeY = 0
 }
 
+/// The word for a literal `-1`, which is how a node says "no maximum". Spelled once so the default
+/// cannot drift from the `> 1_000_000 ? -1` sentinel the snapshot still hands the layout.
+private let nativeSwiftNegativeOneWord = Float(-1).bitPattern
+
+/// Padding held as it arrived on the wire. `NativeSwiftInsets` stays the resolved, public shape.
+private struct ParsedInsetWords {
+  var left: UInt32 = 0
+  var top: UInt32 = 0
+  var right: UInt32 = 0
+  var bottom: UInt32 = 0
+}
+
 private final class ParsedNode {
   let kind: NativeSwiftNodeSnapshot.Kind
   let componentID: Int
@@ -906,20 +986,22 @@ private final class ParsedNode {
   var actions: [NativeSwiftGestureKind: [ParsedAction]] = [:]
   var accessibility: ParsedAccessibility?
   var widthType = 2
-  var widthValue: Float = 0
+  var widthWord: UInt32 = 0
   var heightType = 2
-  var heightValue: Float = 0
-  var padding = NativeSwiftInsets()
-  var minimumWidth: Float = 0
-  var maximumWidth: Float = -1
-  var minimumHeight: Float = 0
-  var maximumHeight: Float = -1
-  var cornerRadius: Float = 0
+  var heightWord: UInt32 = 0
+  var paddingWords = ParsedInsetWords()
+  var minimumWidthWord: UInt32 = 0
+  var maximumWidthWord: UInt32 = nativeSwiftNegativeOneWord
+  var minimumHeightWord: UInt32 = 0
+  var maximumHeightWord: UInt32 = nativeSwiftNegativeOneWord
+  // Four words rather than one: a rounded clip states a radius per corner, and the maximum of four
+  // references is not itself a word, so the reduction has to wait until they resolve.
+  var cornerRadiusWords: [UInt32] = []
   var backgroundARGB: UInt32?
   var backgroundColorID: Int?
   var horizontalPositioning = 1
   var verticalPositioning = 4
-  var spacing: Float = 0
+  var spacingWord: UInt32 = 0
   var text: ParsedText?
   var custom: ParsedCustom?
 
@@ -1144,9 +1226,9 @@ private struct ParsedText {
   let textID: Int
   let colorARGB: UInt32
   let colorID: Int?
-  let size: Float
+  let sizeWord: UInt32
   let style: Int
-  let weight: Float
+  let weightWord: UInt32
   let familyID: Int
   let alignment: Int
   let overflow: Int
@@ -1347,9 +1429,7 @@ private enum NativeSwiftDocumentDecoder {
           ParsedDrawCommand(kind: 11, words: words, paint: paint))
       case 54:  // Rounded clip rectangle
         let node = try currentNode(stack, input: input)
-        var radius: Float = 0
-        for _ in 0..<4 { radius = max(radius, try input.literalFloat("corner radius")) }
-        node.cornerRadius = radius
+        node.cornerRadiusWords = try (0..<4).map { _ in try input.word("corner radius") }
       case 59:  // Click modifier encloses its action operations.
         let node = try currentNode(stack, input: input)
         node.isClickable = true
@@ -1385,7 +1465,7 @@ private enum NativeSwiftDocumentDecoder {
       case 16:  // Width
         let node = try currentNode(stack, input: input)
         node.widthType = try input.dimensionType("width type")
-        node.widthValue = try input.literalFloat("width")
+        node.widthWord = try input.word("width")
       case 55:  // Background
         let node = try currentNode(stack, input: input)
         let flags = try input.int("background flags")
@@ -1407,17 +1487,28 @@ private enum NativeSwiftDocumentDecoder {
         node.backgroundColorID = usesColorID ? colorID : nil
       case 58:  // Padding
         let node = try currentNode(stack, input: input)
-        node.padding = NativeSwiftInsets(
-          left: try input.literalFloat("padding left"),
-          top: try input.literalFloat("padding top"),
-          right: try input.literalFloat("padding right"),
-          bottom: try input.literalFloat("padding bottom"))
+        node.paddingWords = ParsedInsetWords(
+          left: try input.word("padding left"),
+          top: try input.word("padding top"),
+          right: try input.word("padding right"),
+          bottom: try input.word("padding bottom"))
       case 67:  // Height
         let node = try currentNode(stack, input: input)
         node.heightType = try input.dimensionType("height type")
-        node.heightValue = try input.literalFloat("height")
+        node.heightWord = try input.word("height")
       case 80:  // Float constant
-        floats[try input.int("float id")] = try input.literalFloat("float value")
+        let floatID = try input.int("float id")
+        let constantWord = try input.word("float value")
+        if NativeSwiftFloatExpression.referenceID(constantWord) != nil {
+          // A constant that names another value is an alias, not a number. Expressing it as a
+          // one-word expression runs it through the same ordered evaluation as any other computed
+          // value, instead of freezing a reference's raw NaN bits into the seed map.
+          expressions.append(ParsedFloatExpression(id: floatID, words: [constantWord]))
+        } else {
+          let value = Float(bitPattern: constantWord)
+          guard value.isFinite else { throw input.malformed("float value must be finite") }
+          floats[floatID] = value
+        }
       case 101:  // Bitmap data
         let imageID = try input.int("bitmap id")
         let widthAndType = UInt32(bitPattern: Int32(try input.int("bitmap width and type")))
@@ -1606,14 +1697,14 @@ private enum NativeSwiftDocumentDecoder {
         _ = try input.int("row animation id")
         node.horizontalPositioning = try input.int("row horizontal positioning")
         node.verticalPositioning = try input.int("row vertical positioning")
-        node.spacing = try input.floatWord("row spacing", requireLiteral: false)
+        node.spacingWord = try input.word("row spacing")
         try begin(node)
       case 204:  // Column
         let node = ParsedNode(kind: .column, componentID: try input.int("column component id"))
         _ = try input.int("column animation id")
         node.horizontalPositioning = try input.int("column horizontal positioning")
         node.verticalPositioning = try input.int("column vertical positioning")
-        node.spacing = try input.literalFloat("column spacing")
+        node.spacingWord = try input.word("column spacing")
         try begin(node)
       case 205:  // Canvas
         let node = ParsedNode(kind: .canvas, componentID: try input.int("canvas component id"))
@@ -1640,9 +1731,9 @@ private enum NativeSwiftDocumentDecoder {
         _ = try input.int("text animation id")
         let textID = try input.int("text id")
         let color = UInt32(bitPattern: Int32(try input.int("text color")))
-        let size = try input.literalFloat("text size")
+        let size = try input.word("text size")
         let style = try input.int("text style")
-        let weight = try input.literalFloat("text weight")
+        let weight = try input.word("text weight")
         let familyID = try input.int("text family id")
         let alignmentAndFlags = try input.int("text alignment")
         let flags = UInt32(bitPattern: Int32(alignmentAndFlags)) >> 16
@@ -1652,11 +1743,14 @@ private enum NativeSwiftDocumentDecoder {
         }
         let overflow = try input.int("text overflow")
         let maximumLines = try input.int("text maximum lines")
-        guard size > 0, (0...3).contains(style), (1...6).contains(alignmentAndFlags & 0xffff),
+        // `size` is no longer checked here: it may be a reference, and `resolvedFloat` applies the
+        // same `> 0` rule once there is a number to apply it to.
+        guard (0...3).contains(style), (1...6).contains(alignmentAndFlags & 0xffff),
           (1...5).contains(overflow), maximumLines > 0
         else { throw input.malformed("Invalid text layout values") }
         node.text = ParsedText(
-          textID: textID, colorARGB: color, colorID: nil, size: size, style: style, weight: weight,
+          textID: textID, colorARGB: color, colorID: nil, sizeWord: size, style: style,
+          weightWord: weight,
           familyID: familyID, alignment: alignmentAndFlags & 0xffff, overflow: overflow,
           maximumLines: maximumLines)
         try begin(node)
@@ -1713,26 +1807,24 @@ private enum NativeSwiftDocumentDecoder {
         }
       case 231:  // Minimum/maximum width
         let node = try currentNode(stack, input: input)
-        node.minimumWidth = try input.literalFloat("minimum width")
-        let maximum = try input.literalFloat("maximum width")
-        node.maximumWidth = maximum > 1_000_000 ? -1 : maximum
+        node.minimumWidthWord = try input.word("minimum width")
+        node.maximumWidthWord = try input.word("maximum width")
       case 232:  // Minimum/maximum height
         let node = try currentNode(stack, input: input)
-        node.minimumHeight = try input.literalFloat("minimum height")
-        let maximum = try input.literalFloat("maximum height")
-        node.maximumHeight = maximum > 1_000_000 ? -1 : maximum
+        node.minimumHeightWord = try input.word("minimum height")
+        node.maximumHeightWord = try input.word("maximum height")
       case 239:  // CoreText
         let textID = try input.int("core text id")
         let propertyCount = Int(try input.u16("core text property count"))
         guard propertyCount <= 26 else { throw input.malformed("Too many CoreText properties") }
         var integers: [Int: Int] = [:]
-        var floats: [Int: Float] = [:]
+        var floats: [Int: UInt32] = [:]
         for _ in 0..<propertyCount {
           let id = try input.u8("core text property id")
           if [1, 2, 3, 4, 6, 8, 9, 10, 11, 15, 16, 17, 23, 24].contains(id) {
             integers[id] = try input.int("core text integer")
           } else if [5, 7, 12, 13, 14, 25, 26].contains(id) {
-            floats[id] = try input.floatWord("core text float", requireLiteral: false)
+            floats[id] = try input.word("core text float")
           } else if [18, 19, 22].contains(id) {
             _ = try input.u8("core text boolean")
           } else if id == 20 || id == 21 {
@@ -1751,8 +1843,9 @@ private enum NativeSwiftDocumentDecoder {
           integers[4].flatMap { colors[$0] }
           ?? UInt32(bitPattern: Int32(integers[3] ?? -16_777_216))
         node.text = ParsedText(
-          textID: textID, colorARGB: color, colorID: integers[4], size: floats[5] ?? 36,
-          style: integers[6] ?? 0, weight: floats[7] ?? 400,
+          textID: textID, colorARGB: color, colorID: integers[4],
+          sizeWord: floats[5] ?? Float(36).bitPattern,
+          style: integers[6] ?? 0, weightWord: floats[7] ?? Float(400).bitPattern,
           familyID: integers[8] ?? -1, alignment: integers[9] ?? 1,
           overflow: integers[10] ?? 1, maximumLines: integers[11] ?? Int.max)
         try begin(node)
@@ -1917,10 +2010,12 @@ private struct WireReader {
     return value
   }
 
-  mutating func literalFloat(_ field: String) throws -> Float {
-    try floatWord(field, requireLiteral: true)
-  }
-
+  /// Reads a float word, optionally refusing a reference outright.
+  ///
+  /// `requireLiteral: true` is the deliberate refusal a field keeps when it genuinely cannot be
+  /// resolved later — a background colour written as channels rather than a colour id, where the
+  /// document itself says which form it used. Fields that can carry a word to resolution time read
+  /// it with `word(_:)` and resolve it against the frame's values instead.
   mutating func floatWord(_ field: String, requireLiteral: Bool) throws -> Float {
     let bits = try uint32(field)
     let value = Float(bitPattern: bits)

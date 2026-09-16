@@ -55,26 +55,29 @@ enum NativeSwiftCoreTests {
       // The deferred-density capture — the one fixture here that computes its text size from
       // ID_DENSITY/ID_FONT_SIZE instead of folding a capture device's density in.
       //
-      // This core does not resolve a dynamic text size: `literalFloat` refuses a NaN-boxed word
-      // outright. That is the right failure — a typed refusal rather than the silent NaN geometry
-      // a player gets when it accepts the reference and never loads the id — but it does mean a
-      // `RemoteDensity.Host` document is declined rather than rendered. Asserted here so the
-      // limit is visible in the suite and a future slice that resolves dynamic sizes has to come
-      // and change it deliberately.
+      // This used to assert a refusal: the size arrives NaN-boxed and `literalFloat` rejected it
+      // outright, so a `RemoteDensity.Host` capture was declined rather than drawn. The core now
+      // carries the word to resolution time, so the same fixture renders, and its size is whatever
+      // the host supplied — the inversion is the point, so it is written out rather than deleted.
       let hostData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[7]))
-      do {
-        _ = try NativeSwiftDocumentSession.open(data: hostData)
-        preconditionFailure("a deferred text size was accepted; update this expectation")
-      } catch let error as NativeSwiftCoreError {
-        precondition(error.isUnsupported, "expected an unsupported error, got \(error)")
-        precondition(
-          error.description.contains("text size"),
-          "expected the refusal to name the dynamic text size, got \(error.description)")
+      let hostSession = try NativeSwiftDocumentSession.open(data: hostData)
+      // `([33] 14.0 / [27] / 15.0 *)` cancels the density back out, leaving the font scale times
+      // the 15sp the capture asked for: 15 unscaled, 22.5 at fontScale 1.5.
+      guard let unscaled = try hostSession.snapshot().root.firstTextSnapshot else {
+        preconditionFailure("the deferred-density fixture rendered no text")
       }
+      precondition(
+        abs(unscaled.size - 15) < 0.01, "expected a 15pt deferred size, got \(unscaled.size)")
+      hostSession.setHostDensity(2.2625, fontScale: 1.5)
+      guard let scaled = try hostSession.snapshot().root.firstTextSnapshot else {
+        preconditionFailure("the deferred-density fixture rendered no text after rescaling")
+      }
+      precondition(
+        abs(scaled.size - 22.5) < 0.01, "expected a 22.5pt deferred size, got \(scaled.size)")
 
-      // The density the document would have been resolved against is still the player's own, and
-      // the host can set it. Kept next to the refusal above because these are the two halves of
-      // the same contract: what the player supplies, and what it declines to guess.
+      // The density the document resolves against is the player's own, and the host sets it. Kept
+      // next to the assertions above because these are the two halves of the same contract: what
+      // the player supplies, and what it refuses to be talked into.
       let session = try NativeSwiftDocumentSession.open(data: wire)
       session.setHostDensity(2.2625, fontScale: 1.3)
       session.setHostDensity(0, fontScale: -1)  // Ignored: both reach a document as a divisor.
@@ -124,6 +127,41 @@ enum NativeSwiftCoreTests {
     precondition(updatedContent.children[2].text?.value == "Edited in Swift")
     let rejected = try session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
     precondition(!rejected)
+
+    // A Row whose spacing is computed rather than stated. Before float words were carried to
+    // resolution time this stored the reference's raw NaN bits into a plain `Float` and laid the
+    // row out at NaN — silently, while the Column one opcode later refused the identical word.
+    let computedSpacing = Writer()
+    computedSpacing.header(width: 100, height: 100)
+    computedSpacing.u8(80).int(40).float(3)
+    computedSpacing.u8(81).int(41).int(3)
+      .int(Writer.nanReference(40)).float(4).int(Writer.floatOperator(3))
+    computedSpacing.u8(200).int(1)
+    computedSpacing.u8(203).int(2).int(0).int(1).int(4).int(Writer.nanReference(41))
+    computedSpacing.u8(214).u8(214)
+    let spacingSnapshot = try NativeSwiftDocumentSession.open(data: computedSpacing.data).snapshot()
+    precondition(
+      spacingSnapshot.root.children[0].spacing == 12,
+      "computed row spacing resolved to \(spacingSnapshot.root.children[0].spacing)")
+
+    // The other half of moving validation to resolution time: a size that resolves to something
+    // unusable has to fail closed with a typed error rather than reach UIKit.
+    let poisonedSize = Writer()
+    poisonedSize.header(width: 100, height: 100)
+    poisonedSize.text(id: 20, "Zero")
+    poisonedSize.u8(80).int(60).float(0)
+    poisonedSize.u8(200).int(1).u8(201).int(2)
+    poisonedSize.u8(208).int(3).int(0).int(20).int(Int(Int32(bitPattern: UInt32(0xff00_0000))))
+      .int(Writer.nanReference(60)).int(0).float(400).int(-1).int(1).int(1).int(1)
+    poisonedSize.u8(214).u8(214).u8(214)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: poisonedSize.data).snapshot()
+      preconditionFailure("a text size resolving to zero was accepted")
+    } catch let error as NativeSwiftCoreError {
+      precondition(
+        error.description.contains("text size"),
+        "expected the failure to name the text size, got \(error.description)")
+    }
 
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
@@ -359,6 +397,11 @@ extension NativeSwiftNodeSnapshot {
 private final class Writer {
   static func nanReference(_ id: Int) -> Int {
     Int(Int32(bitPattern: 0xff80_0000 | UInt32(id)))
+  }
+
+  /// A NaN-boxed float-expression operator word. `3` is multiply; see `NativeSwiftFloatExpression`.
+  static func floatOperator(_ operation: Int) -> Int {
+    Int(Int32(bitPattern: 0xff80_0000 | UInt32(0x0031_0000 + operation)))
   }
 
   private(set) var bytes: [UInt8] = []

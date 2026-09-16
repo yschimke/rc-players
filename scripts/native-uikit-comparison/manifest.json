@@ -1,5 +1,6 @@
 [
   {"id": "title-card", "width": 640, "height": 480, "density": 2, "androidCompatibility": true},
   {"id": "title-card-native-density", "width": 640, "height": 480, "density": 2},
-  {"id": "image-button", "width": 454, "height": 200, "density": 1}
+  {"id": "image-button", "width": 454, "height": 200, "density": 1},
+  {"id": "host-density", "width": 360, "height": 80, "density": 1}
 ]
