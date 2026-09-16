@@ -422,6 +422,11 @@ jobs:
       # and source overlay always describe the same current API.
       - name: Build and package the Apple player app
         if: needs.apple-changes.outputs.required == 'true'
+        # The framework is assembled by an earlier step in this job. Requiring it rather than
+        # letting the script assemble one keeps a fault in that step loud: a silent twenty-minute
+        # rebuild here would hide it and bill the job for it.
+        env:
+          RC_APPLE_PLAYER_REQUIRE_FRAMEWORK: 1
         run: |
           scripts/package-apple-player.sh
           scripts/package-macos-player.sh
