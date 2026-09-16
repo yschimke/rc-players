@@ -361,7 +361,9 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       "ops:count" ->
         Observation.Value(
           JsonPrimitive(
-            (linked?.operations?.count { !it.isMacroDefinition() } ?: document.operations.size) + 1
+            (linked?.operations?.count { !it.isMacroDefinition() } ?: document.operations.size) +
+              declarationsExpansionConsumes() +
+              1
           )
         )
       "ops:present",
@@ -657,6 +659,19 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       put(id(operation).toString(), buildJsonObject { put("present", JsonPrimitive(true)) })
     }
   }
+
+  /**
+   * Declarations that survive upstream but not this linker's expansion.
+   *
+   * The mirror of the macro case: a macro definition is consumed by the expansion it drives and is
+   * *not* counted, while a referenced-operations block is inlined at its call sites and still is.
+   * Counted by stable name rather than by class so the inventory stays the single place that
+   * decides what an opcode is.
+   */
+  private fun declarationsExpansionConsumes(): Int =
+    document.operations.count {
+      RcOperationInventory.byOpcode[it.opcode]?.stableName == "ReferencedOperations"
+    }
 
   private fun RcLinkedNode.isMacroDefinition(): Boolean =
     this is RcLinkedNode.Container && operation is RcMacroDefine
