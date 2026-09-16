@@ -45,6 +45,7 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let minimumHeight: Float
   public let maximumHeight: Float
   public let cornerRadius: Float
+  public let clipsToBounds: Bool
   public let backgroundARGB: UInt32?
   public let horizontalPositioning: Int
   public let verticalPositioning: Int
@@ -485,6 +486,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       minimumHeight: try resolvedFloat(node.minimumHeightWord, "minimum height", values: values),
       maximumHeight: maximumHeight > 1_000_000 ? -1 : maximumHeight,
       cornerRadius: cornerRadius,
+      clipsToBounds: node.clipsToBounds,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
@@ -1060,6 +1062,10 @@ private final class ParsedNode {
   // Four words rather than one: a rounded clip states a radius per corner, and the maximum of four
   // references is not itself a word, so the reduction has to wait until they resolve.
   var cornerRadiusWords: [UInt32] = []
+  /// Set by MODIFIER_CLIP_RECT, which clips a component to its own laid-out bounds and carries no
+  /// payload to say so. Separate from `cornerRadiusWords` because a square clip is not a zero-radius
+  /// rounded clip: the rounded modifier states radii, this one states nothing at all.
+  var clipsToBounds = false
   var backgroundARGB: UInt32?
   var backgroundColorID: Int?
   var horizontalPositioning = 1
@@ -1490,6 +1496,11 @@ private enum NativeSwiftDocumentDecoder {
         let words = try (0..<4).map { _ in try input.word("draw oval value") }
         try currentNode(stack, input: input).commands.append(
           ParsedDrawCommand(kind: 11, words: words, paint: paint))
+      case 108:  // Clip to the component's bounds
+        // No payload. The reference clips to the component's laid-out width and height at paint
+        // time, taking them from layout rather than the wire, so all this has to record is that the
+        // component clips at all.
+        try currentNode(stack, input: input).clipsToBounds = true
       case 54:  // Rounded clip rectangle
         let node = try currentNode(stack, input: input)
         node.cornerRadiusWords = try (0..<4).map { _ in try input.word("corner radius") }

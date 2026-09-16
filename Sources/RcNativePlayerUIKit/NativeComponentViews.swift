@@ -223,6 +223,7 @@
     let maximumHeight: CGFloat?
     let padding: UIEdgeInsets
     let cornerRadius: CGFloat
+    let clipsToBounds: Bool
     let backgroundColor: UIColor?
     let horizontalPositioning: Int
     let verticalPositioning: Int
@@ -275,6 +276,7 @@
         top: CGFloat(snapshot.padding.top), left: CGFloat(snapshot.padding.left),
         bottom: CGFloat(snapshot.padding.bottom), right: CGFloat(snapshot.padding.right))
       cornerRadius = CGFloat(snapshot.cornerRadius)
+      clipsToBounds = snapshot.clipsToBounds
       backgroundColor = snapshot.backgroundARGB.map(UIColor.init(remoteComposeARGB:))
       horizontalPositioning = snapshot.horizontalPositioning
       verticalPositioning = snapshot.verticalPositioning
@@ -698,7 +700,7 @@
       backgroundColor = node.backgroundColor ?? .clear
       isHidden = node.visibility == 0
       alpha = node.visibility == 2 ? 0 : 1
-      clipsToBounds = node.cornerRadius > 0
+      clipsToBounds = node.cornerRadius > 0 || node.clipsToBounds
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
       if let semanticView { addSubview(semanticView) }
       if let canvasView { addSubview(canvasView) }
@@ -836,7 +838,7 @@
       backgroundColor = next.backgroundColor ?? .clear
       isHidden = next.visibility == 0
       alpha = next.visibility == 2 ? 0 : 1
-      clipsToBounds = next.cornerRadius > 0
+      clipsToBounds = next.cornerRadius > 0 || next.clipsToBounds
       setNeedsLayout()
     }
 
