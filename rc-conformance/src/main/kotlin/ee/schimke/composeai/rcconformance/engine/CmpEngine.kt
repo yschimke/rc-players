@@ -519,7 +519,18 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
 
   private fun Component.toJson(): JsonObject = buildJsonObject {
     val position = node.positionInRoot
-    val visibility = node.config.getOrElseNullable(RcComponentVisibilityKey) { 1 } ?: 1
+    // A component the layout never placed is gone, whatever its own visibility modifier says. That
+    // is how a collapsible layout expresses "this child did not fit": it measures every child and
+    // places only the ones it kept, so the dropped ones carry no visibility of their own and are
+    // simply never positioned. Their pixels are already correct — the rasters on these golds pass —
+    // so this reports what the player did rather than papering over it.
+    //
+    // It does not hide #198. There the *container* is placed and still paints its background, so
+    // its
+    // node keeps reporting VISIBLE and the gold keeps failing on exactly the node whose pixels are
+    // wrong.
+    val declared = node.config.getOrElseNullable(RcComponentVisibilityKey) { 1 } ?: 1
+    val visibility = if (!node.layoutInfo.isPlaced) 0 else declared
     put("id", JsonPrimitive(id))
     put("kind", JsonPrimitive(node.config.getOrElseNullable(RcComponentKindKey) { "" }))
     put("depth", JsonPrimitive(depth))
