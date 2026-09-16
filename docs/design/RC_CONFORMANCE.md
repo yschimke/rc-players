@@ -65,13 +65,19 @@ Measured against patch set 1 of the Gerrit change:
 
 | | `cmp` | `androidx-jvm` |
 | --- | ---: | ---: |
-| Golds passed (core profile) | **117 / 241 (48.5%)** | 0 / 241 |
+| Golds passed (core profile) | **134 / 241 (55.6%)** | 0 / 241 |
 | Raster checks passed | **490 / 633** | 399 / 633 |
-| Checks failed | 607 / 1515 | 1240 / 1515 |
+| Checks failed | 563 / 1515 | 1240 / 1515 |
 
 The reference lane's gold-level zero is not a defect in it: it drives only `paint` and `resize`, and
 reports no tree, so most golds carry a check it cannot answer. Its raster column is the number it
 exists for.
+
+For scale, the vendored TypeScript player's own published run — `results/typescript/` in the corpus —
+scores **205 / 249**. That number is not directly comparable: it comes from a different runner, one
+that implements the closed-form Ahem text model (#203) and the transient-event channels this lane
+does not. Part of the distance is this runner's, and part is the player's; the table below is the
+attempt to say which.
 
 ### The finding that matters
 
@@ -182,19 +188,24 @@ three ways a runner loses a check, all of which make the score look *better*.
 
 ## The work list
 
-**In the player**, in order of leverage:
+**In the player.** Each is a measured divergence from the engine that generated the corpus, with a
+filed issue carrying the evidence:
 
-1. **The four document shapes that crash it** — LOOM macro/slot linking, box alignment `0/0`,
-   `LayoutComponentContent` under a column, and the missing path in a tween. Nine golds plus 202
-   downstream checks.
-2. **`canvas_shader_gradient`** — the one rendering difference attributable to this player.
+| | golds | issue |
+| --- | ---: | --- |
+| Four document shapes crash it — LOOM linking, box alignment `0/0`, `LayoutComponentContent`, a missing tween path | 9 (+202 downstream checks) | #182 |
+| Collapsible layouts do not collapse to `GONE` when nothing fits | ~18 | #198 |
+| `StateLayout` honours fill modifiers where AndroidX sizes to the active child | ~10 | #202 |
+| `canvas_shader_gradient` — the one raster difference attributable to this player alone | 1 | #183 |
 
-**In the runner**, the five gaps in the table above. The first three are each worth roughly 12–19
-golds, which is more than anything else on either list.
+**In the runner.**
 
-**In the reference lane.** It reports no tree, and the reason is worth knowing: `RcPlayerJvm` walks
-the operation tree and emits Compose layout nodes, so Compose does the measuring and
-`CoreDocument`'s own `Component.getX()/getY()` are never assigned — they read 0 for every node while
-the *declared* sizes come through. A tree built from them looks complete and is wrong. Giving the
-reference lane a real tree means running AndroidX's own measure/layout pass, which that cut does not
-currently have.
+| | golds | issue |
+| --- | ---: | --- |
+| The closed-form Ahem text-metrics model | 6 | #203 |
+| Gestures dispatched through `ImageComposeScene` have no effect | 5 (+14 `trace:handled` checks) | #199 |
+| The four transient-event channels, and scroll offsets | ~8 | #184 |
+
+Two of these were nearly filed the other way round, which is the argument for the reference lane
+existing at all: the collapsible and `StateLayout` divergences both *looked* like reporting gaps
+until the pixels were checked.
