@@ -330,6 +330,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         guard let expression = document.integerExpressions[expressionID] else { continue }
         integers[targetID] = try NativeSwiftIntegerExpression.evaluate(
           mask: expression.mask, tokens: expression.tokens, values: integers)
+      case .floatExpression(let targetID, let expressionID):
+        guard let expression = document.expressions.first(where: { $0.id == expressionID })
+        else { continue }
+        floats[targetID] = try NativeSwiftFloatExpression.evaluate(
+          expression.words, values: values)
+      case .integerValue(let targetID, let value):
+        integers[targetID] = value
       case .named(let action):
         guard let name = texts[action.nameTextID] else { continue }
         let value: NativeSwiftActionValue
@@ -839,6 +846,8 @@ private struct ParsedNamedAction {
 private enum ParsedAction {
   case named(ParsedNamedAction)
   case integerExpression(targetID: Int, expressionID: Int)
+  case floatExpression(targetID: Int, expressionID: Int)
+  case integerValue(targetID: Int, value: Int)
 }
 
 private struct ParsedModifierContainer {
@@ -1873,6 +1882,29 @@ private enum NativeSwiftDocumentDecoder {
         }
         target.actions[gesture, default: []].append(
           .integerExpression(targetID: targetID, expressionID: expressionID))
+      case 227:  // Float expression change action
+        // How a document mutates its own state: `score = score + 1`. Two ints, not longs -- the
+        // integer-expression sibling at 218 reads longs, and the widths are not interchangeable.
+        let targetID = try input.int("float action target id")
+        let expressionID = try input.int("float action expression id")
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else { throw input.malformed("Float action is outside a click modifier") }
+        guard expressions.contains(where: { $0.id == expressionID }) else {
+          throw input.malformed("Missing float action expression \(expressionID)")
+        }
+        target.actions[gesture, default: []].append(
+          .floatExpression(targetID: targetID, expressionID: expressionID))
+      case 212:  // Integer value change action
+        let targetID = try input.int("integer value action target id")
+        let value = try input.int("integer value action value")
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else { throw input.malformed("Integer value action is outside a click modifier") }
+        target.actions[gesture, default: []].append(
+          .integerValue(targetID: targetID, value: value))
       case 214:  // Container end
         if !modifierContainers.isEmpty {
           modifierContainers.removeLast()
