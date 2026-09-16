@@ -60,7 +60,7 @@ class RunnerAccountingTest {
 
     override fun open(gold: Gold) =
       object : ConformanceSession {
-        override fun execute(step: Step) {
+        override fun execute(step: Step, onCapture: (String) -> Unit) {
           if (step.kind !in drivable) throw UnsupportedStepKind(step.kind)
         }
 

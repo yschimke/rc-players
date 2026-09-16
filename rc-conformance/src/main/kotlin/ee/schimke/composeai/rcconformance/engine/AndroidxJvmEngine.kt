@@ -70,7 +70,7 @@ private class AndroidxJvmSession(private val gold: Gold) : ConformanceSession {
 
   private class Rendered(val document: CoreDocument, val png: ByteArray)
 
-  override fun execute(step: Step) {
+  override fun execute(step: Step, onCapture: (String) -> Unit) {
     when (step.kind) {
       "paint" -> render()
       "resize" -> {

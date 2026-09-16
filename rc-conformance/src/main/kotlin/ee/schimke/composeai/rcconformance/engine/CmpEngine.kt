@@ -30,6 +30,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
@@ -120,7 +121,7 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       }
     }
 
-  override fun execute(step: Step) {
+  override fun execute(step: Step, onCapture: (String) -> Unit) {
     when (step.kind) {
       "paint" -> paintStep(step)
       "resize" -> resize(step.int("width", width), step.int("height", height), step.frames)
@@ -136,7 +137,7 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         step.float("seconds")?.let { frameNanos = (it * NANOS_PER_SECOND).toLong() }
         paint(step.frames, measure = step.bool("measure", true))
       }
-      "frame_sequence" -> frameSequence(step)
+      "frame_sequence" -> frameSequence(step, onCapture)
       "trigger" -> trigger(step)
       "click",
       "longPress",
@@ -216,17 +217,20 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
   }
 
   /**
-   * Paints frames `0…total_frames`, walking wall-clock from the declared base.
+   * Paints frames `0…total_frames`, walking wall-clock from the declared base and snapshotting each
+   * frame the step names.
    *
-   * The `capture` list is not acted on here: this runner evaluates every check at the step it is
-   * bound to, and the corpus binds these checks to the step itself, so walking the frames and
-   * leaving the clock where the last one put it is exactly what the following checks read.
+   * The `capture` list is the point of the step. Checks bind to `frame_<n>`, where `n` is the frame
+   * *number* rather than its index in the list, so a capture of `[0, 5, 10, 18]` answers to
+   * `frame_0`, `frame_5`, `frame_10` and `frame_18`.
    */
-  private fun frameSequence(step: Step) {
+  private fun frameSequence(step: Step, onCapture: (String) -> Unit) {
     val base = step.int("base_time_millis", 0).toLong() * NANOS_PER_MILLI
+    val captures = step.ints("capture").toSet()
     for (frame in 0..step.int("total_frames", 0)) {
       frameNanos = base + frame.toLong() * FRAME_INTERVAL_NANOS
       scene.render(frameNanos)
+      if (frame in captures) onCapture("frame_$frame")
     }
   }
 
@@ -475,8 +479,20 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
     return read(id)?.let { Observation.Value(it) } ?: Observation.NotImplemented
   }
 
+  /**
+   * One simulation frame of a particle system.
+   *
+   * The corpus's `particles` checks carry **no target**: a gold that exercises particles defines
+   * one system, so naming it would be redundant. The id therefore comes from the document — the
+   * `ParticlesCreate` operation's own id, which is what the runtime keys its systems by. Falling
+   * back to "not implemented" when a document defines none is right; guessing an id and reading the
+   * empty list that comes back would report "no particles" as a real observation.
+   */
   private fun particles(check: Check): Observation {
-    val id = check.target?.toIntOrNull() ?: return Observation.NotImplemented
+    val id =
+      check.target?.toIntOrNull()
+        ?: document.operations.filterIsInstance<RcParticleDefine>().singleOrNull()?.id
+        ?: return Observation.NotImplemented
     val snapshot = state()?.particleSnapshot(id) ?: return Observation.NotImplemented
     return Observation.Value(
       buildJsonArray { snapshot.forEach { particle -> add(particle.toFloatArray().toJsonArray()) } }
