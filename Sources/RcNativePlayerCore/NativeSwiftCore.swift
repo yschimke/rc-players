@@ -531,12 +531,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
     }
     for binding in document.componentValues {
-      guard let node = document.nodes[binding.componentID] else { continue }
+      let available = binding.type == 0 ? Float(document.width) : Float(document.height)
+      guard let node = document.nodes[binding.componentID] else {
+        // Matching the reference player: a width or height binding to a component this document
+        // does not describe resolves to the document's own, rather than leaving the id unset and
+        // taking every expression built on it down with it.
+        if binding.type == 0 || binding.type == 1 { result[binding.valueID] = available }
+        continue
+      }
       let measuredNode = node.parent ?? node
       result[binding.valueID] = estimatedDimension(
-        of: measuredNode, type: binding.type,
-        available: binding.type == 0 ? Float(document.width) : Float(document.height),
-        values: result)
+        of: measuredNode, type: binding.type, available: available, values: result)
     }
     for expression in document.expressions {
       result[expression.id] = try NativeSwiftFloatExpression.evaluate(
@@ -1666,9 +1671,12 @@ private enum NativeSwiftDocumentDecoder {
           throw NativeSwiftCoreError.unsupported(
             opcode: opcode, offset: opcodeOffset, reason: "component value type \(type)")
         }
-        guard stack.contains(where: { $0.componentID == componentID }) else {
-          throw input.malformed("Missing component \(componentID) for value binding")
-        }
+        // A binding may name a component that is not an open ancestor at this point in the stream --
+        // one already closed, or one the document declares elsewhere. The old guard searched the
+        // open stack only and rejected the whole document otherwise, which is both stricter than
+        // the lookup that consumes these bindings (it searches every known node) and stricter than
+        // the reference player, which falls back to the document's own dimensions when it cannot
+        // find the component. Resolution below handles an unknown component on its own.
         componentValues.append(
           ParsedComponentValue(type: type, componentID: componentID, valueID: valueID))
       case 180:  // Color channel attribute
