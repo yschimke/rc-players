@@ -1008,13 +1008,19 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.State -> {
       val selected = state.integer(node.operation.indexId) ?: 0
+      // AndroidX sizes a state container to whichever branch is showing and ignores fill modifiers
+      // on it — `state_layout_basic` declares `fillMaxSize` and the reference still reports the
+      // container at its active child's 120x80. Honouring the fill, as Compose naturally does,
+      // stretches the container to the viewport and paints its background across everything the
+      // reference leaves clear: 50,400 differing pixels on a 300x200 canvas.
+      val stateModifiers = node.modifiers.withoutFillDimensions()
       val contentVisibility =
         node.content.modifiers.visibility?.let {
           androidXVisibility(state.integer(it.visibilityId) ?: 0)
         } ?: 1
       Box(
         effectiveModifier.applyComponentModifiers(
-          node.modifiers,
+          stateModifiers,
           state,
           geometryIds,
           fillMissingDimensions = false,
@@ -2742,6 +2748,31 @@ private fun Modifier.trackComponentGeometry(
  * Returns the receiver untouched when inspection is off, so no semantics modifier is added and the
  * chain is byte-for-byte what it was before this existed.
  */
+
+/**
+ * This component's modifiers with any `FILL` width or height dropped, so it wraps its content.
+ *
+ * Only `StateLayout` uses this, and only because AndroidX's own state container does: it takes its
+ * size from the branch it is showing whatever the document asks for. Dropping the modifier from
+ * both `ordered` and the resolved `width`/`height` matters — `applyComponentModifiers` walks the
+ * ordered list to preserve AndroidX's order-sensitive modifier semantics and consults the resolved
+ * fields separately, so removing it from one and not the other would apply half of it.
+ */
+private fun RcLayoutModifiers.withoutFillDimensions(): RcLayoutModifiers {
+  val fillsWidth = width?.type == RcDimensionType.FILL
+  val fillsHeight = height?.type == RcDimensionType.FILL
+  if (!fillsWidth && !fillsHeight) return this
+  return copy(
+    width = width.takeUnless { fillsWidth },
+    height = height.takeUnless { fillsHeight },
+    ordered =
+      ordered.filterNot { operation ->
+        (fillsWidth && operation is RcWidthModifier && operation.type == RcDimensionType.FILL) ||
+          (fillsHeight && operation is RcHeightModifier && operation.type == RcDimensionType.FILL)
+      },
+  )
+}
+
 private fun Modifier.inspectComponent(
   node: RcLayoutNode,
   visibility: Int,
