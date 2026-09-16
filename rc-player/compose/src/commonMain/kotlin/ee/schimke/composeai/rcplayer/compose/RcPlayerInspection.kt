@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
@@ -88,6 +89,21 @@ public val RcComponentVisibilityKey: SemanticsPropertyKey<Int> =
   SemanticsPropertyKey("RcComponentVisibility")
 
 /**
+ * How far this component insets its children — its accumulated padding, in pixels.
+ *
+ * Published because AndroidX's tree encoding needs it and cannot derive it. `x`/`y` there are
+ * **parent-relative and reflect only the layout manager's assignment**: modifier-induced
+ * translation is applied at paint time and is not in them, so a padded child reports `x: 0` and the
+ * padding shows up as the parent being *larger* (`CONFORMANCE_FORMAT.md` §2.7).
+ *
+ * Compose does not work that way — padding is a layout node, so the child really is placed at the
+ * inset. A reader converting to the corpus's convention subtracts the parent's inset from the
+ * child's position, which is exactly what this key is for. The component's own reported size stays
+ * the outer, padded box, because the semantics node sits outside the padding in the modifier chain.
+ */
+public val RcContentInsetKey: SemanticsPropertyKey<Offset> = SemanticsPropertyKey("RcContentInset")
+
+/**
  * The live document state, published once on the player's root.
  *
  * Float, integer, colour, text and matrix slots, named variables and particle arrays — the half of
@@ -109,6 +125,9 @@ public var SemanticsPropertyReceiver.rcComponentKind: String by RcComponentKindK
 
 /** Sets [RcComponentVisibilityKey]. */
 public var SemanticsPropertyReceiver.rcComponentVisibility: Int by RcComponentVisibilityKey
+
+/** Sets [RcContentInsetKey]. */
+public var SemanticsPropertyReceiver.rcContentInset: Offset by RcContentInsetKey
 
 /** Sets [RcDocumentStateKey]. */
 public var SemanticsPropertyReceiver.rcDocumentState: RcPlayerState by RcDocumentStateKey
