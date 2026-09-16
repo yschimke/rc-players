@@ -4,6 +4,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+. "$repo_root/scripts/simulator-boot.sh"
 app="$repo_root/build/apple-player-derived-data/Build/Products/Release-iphonesimulator/Remote Compose.app"
 screenshot="${RC_APPLE_PLAYER_SCREENSHOT:-$repo_root/build/apple-player-screenshot.png}"
 bundle_id="ee.schimke.rcplayers.appleplayer"
@@ -40,7 +41,7 @@ if [ "$state" != "Booted" ]; then
   xcrun simctl boot "$udid"
   trap 'xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true' EXIT
 fi
-xcrun simctl bootstatus "$udid" -b
+rc_await_boot "$udid"
 xcrun simctl install "$udid" "$app"
 launch_arguments=()
 if [ "${RC_APPLE_PLAYER_RENDERER:-compose}" = "native" ]; then

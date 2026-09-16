@@ -4,6 +4,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$repo_root/scripts/simulator-boot.sh"
 app="$repo_root/build/apple-player-derived-data/Build/Products/Release-iphonesimulator/Remote Compose.app"
 screenshot="${RC_NATIVE_ACCESSIBILITY_SCREENSHOT:-$repo_root/build/native-uikit-accessibility.png}"
 
@@ -34,7 +35,7 @@ if ! xcrun simctl list devices | grep -F "$udid" | grep -q '(Booted)'; then
   xcrun simctl boot "$udid"
   started=true
 fi
-xcrun simctl bootstatus "$udid" -b
+rc_await_boot "$udid"
 previous_contrast="$(xcrun simctl ui "$udid" increase_contrast)"
 previous_size="$(xcrun simctl ui "$udid" content_size)"
 

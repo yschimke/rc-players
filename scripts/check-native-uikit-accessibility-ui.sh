@@ -7,6 +7,7 @@ project="$repo_root/samples/apple-player/RemoteComposePlayer.xcodeproj"
 framework="$repo_root/rc-player/compose/build/XCFrameworks/release/RcComposePlayer.xcframework"
 derived_data="$repo_root/build/apple-player-ui-tests"
 result="$repo_root/build/native-uikit-accessibility-ui.xcresult"
+. "$repo_root/scripts/simulator-boot.sh"
 
 if [ ! -d "$framework" ]; then
   echo "expected a locally assembled framework at: $framework" >&2
@@ -28,36 +29,19 @@ print(ordered[0]["udid"], ordered[0]["state"], sep="\t")
 ')"
 IFS=$'\t' read -r udid state <<< "$device"
 started=false
-boot_log=""
 if [ "$state" != "Booted" ]; then
   xcrun simctl boot "$udid"
   started=true
 fi
 
 cleanup() {
-  if [ -n "$boot_log" ]; then
-    rm -f "$boot_log"
-  fi
   if [ "$started" = true ]; then
     xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
 
-boot_log="$(mktemp)"
-xcrun simctl bootstatus "$udid" -b >"$boot_log" 2>&1 &
-boot_pid=$!
-deadline=$((SECONDS + 120))
-while kill -0 "$boot_pid" >/dev/null 2>&1; do
-  if [ "$SECONDS" -ge "$deadline" ]; then
-    kill "$boot_pid" >/dev/null 2>&1 || true
-    wait "$boot_pid" >/dev/null 2>&1 || true
-    cat "$boot_log" >&2
-    echo "simulator $udid did not finish booting within 120 seconds" >&2
-    exit 1
-  fi
-  sleep 1
-done
+rc_await_boot "$udid"
 if ! wait "$boot_pid"; then
   cat "$boot_log" >&2
   echo "simulator $udid failed to finish booting" >&2

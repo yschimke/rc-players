@@ -3,6 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$repo_root/scripts/simulator-boot.sh"
 bundle_id="ee.schimke.rcplayers.appleplayer"
 app="$repo_root/build/apple-player-derived-data/Build/Products/Release-iphonesimulator/Remote Compose.app"
 
@@ -58,7 +59,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-xcrun simctl bootstatus "$udid" -b
+rc_await_boot "$udid"
 xcrun simctl install "$udid" "$app"
 data_container="$(xcrun simctl get_app_container "$udid" "$bundle_id" data)"
 harness_root="$data_container/Documents/native-comparison"
