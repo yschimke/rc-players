@@ -70,6 +70,26 @@ expect "a stalled lane reports its progress" "2" "$progress"
 expect "the stall message names how far the lane got" "1" \
   "$(grep -c 'stalled at 2 of 700 documents' "$work/stalled.err")"
 
+# A lane that keeps producing results but never finishes is capped by the total budget. This is the
+# case the stall rule alone cannot catch, and the one that ate 51 minutes of a 90-minute macOS job:
+# every result resets the stall deadline, so without a total budget the wait never ends.
+root="$work/endless"
+start_harness "$root" 40 1 false
+pid="$harness_pid"
+status=0
+progress="$(rc_await_lane_completion "$root" 700 10 4 2>"$work/endless.err")" || status=$?
+kill "$pid" 2>/dev/null || true
+wait "$pid" 2>/dev/null || true
+expect "a lane that never finishes is capped" "1" "$status"
+expect "the cap message names how far the lane got" "1" \
+  "$(grep -c 'was still going; stopping so it cannot consume the whole job' "$work/endless.err")"
+if [ "$progress" -ge 2 ] && [ "$progress" -le 6 ]; then
+  echo "ok   the capped lane reports the progress it had made ($progress)"
+else
+  echo "FAIL the capped lane reported implausible progress: $progress" >&2
+  failures=$((failures + 1))
+fi
+
 # A harness that never writes anything at all is a stall from the start, not a hang.
 root="$work/silent"
 mkdir -p "$root/output"

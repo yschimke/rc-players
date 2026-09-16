@@ -73,17 +73,18 @@ rm -rf "$output_dir"
 mkdir -p "$output_dir"
 xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" --native-comparison >/dev/null
 
-# Bounded by stalls, not by total runtime. A per-document budget has to guess a render cost, and
-# guessing low fails a lane that was working: 30s + 1s/document expired 731s into the 701-document
-# catalog corpus and discarded every result it had. What this needs to catch is a harness that has
-# stopped, which shows up as silence — no new output file — regardless of manifest size. Partial
-# output is copied out either way, so a stall leaves evidence of how far the lane got.
+# Two bounds, because one was not enough. A stall bound catches a harness that has stopped, which a
+# per-document budget cannot: guessing the cost low fails a lane that was working, as 30s +
+# 1s/document did 731s into the 701-document corpus. But bounding only stalls let a lane that kept
+# producing results slowly run 51 minutes of a 90-minute job, so the four validation steps after it
+# never ran. The total budget is a cap on this lane's share of the job rather than a guess at a
+# render cost. Partial output is copied out on both, so either bound leaves evidence.
 documents="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
   "$input_dir/manifest.json")"
 if ! progress="$(rc_await_lane_completion "$harness_root" "$documents" \
-  "${RC_NATIVE_UIKIT_STALL_BUDGET:-120}")"; then
+  "${RC_NATIVE_UIKIT_STALL_BUDGET:-120}" "${RC_NATIVE_UIKIT_LANE_BUDGET:-1200}")"; then
   cp -R "$harness_root/output/." "$output_dir/" 2>/dev/null || true
-  echo "error: native UIKit comparison stalled after $progress of $documents documents;" \
+  echo "error: native UIKit comparison stopped after $progress of $documents documents;" \
     "partial output in $output_dir" >&2
   exit 1
 fi
