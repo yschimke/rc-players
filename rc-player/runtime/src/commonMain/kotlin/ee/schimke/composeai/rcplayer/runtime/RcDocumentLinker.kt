@@ -70,24 +70,65 @@ public object RcDocumentLinker {
   }
 
   /**
-   * Whether this macro definition carries its body as following operations rather than inline.
+   * Folds a wire-form macro definition into the in-memory form, so nothing downstream sees two.
    *
-   * AndroidX writes a definition both ways, and the encoding says which: the wire form emits an
-   * empty `body` blob and then the operations themselves, terminated by a `CONTAINER_END`, while
-   * the in-memory form carries the body as bytes and is closed by nothing. Keying on the blob being
-   * empty distinguishes them exactly — a definition with an inline body opens no container, so the
-   * hand-built documents in `RcDocumentLinkerTest` link as they always have, and a decoded one
-   * stops failing with `Unmatched ContainerEnd` on the terminator its own body needs.
+   * AndroidX writes a definition both ways. The wire form emits an **empty** `body` blob and then
+   * the body's operations themselves, closed by a `CONTAINER_END`; the in-memory form carries the
+   * body as bytes and is closed by nothing. Everything after this point — registration, parameter
+   * substitution through `idRemapper.fork`, expansion — is written against the second, so this
+   * re-encodes the first into it rather than teaching each of those about the difference.
+   *
+   * Re-encoding is what keeps the substitution working. Parameter ids are remapped while the body
+   * is *decoded*, so a definition whose body were handed on as already-decoded nodes would expand
+   * every call site with the definition's own ids — exactly what `loom_id_remapping_tiers` exists
+   * to catch.
+   *
+   * The scan tracks nesting, because a macro body may contain containers of its own.
    */
-  private fun RcOperation.opensMacroBody(): Boolean = this is RcMacroDefine && body.isEmpty()
+  private fun foldMacroBodies(operations: List<RcOperation>): List<RcOperation> {
+    if (operations.none { it is RcMacroDefine && it.body.isEmpty() }) return operations
+    val out = mutableListOf<RcOperation>()
+    var index = 0
+    while (index < operations.size) {
+      val operation = operations[index]
+      if (operation !is RcMacroDefine || operation.body.isNotEmpty()) {
+        out += operation
+        index++
+        continue
+      }
+      val body = mutableListOf<RcOperation>()
+      var depth = 0
+      var cursor = index + 1
+      while (cursor < operations.size) {
+        val candidate = operations[cursor]
+        if (candidate.opcode == RcOpcodes.CONTAINER_END) {
+          if (depth == 0) break
+          depth--
+        } else if (candidate.opcode in containerStartOpcodes) {
+          depth++
+        }
+        body += candidate
+        cursor++
+      }
+      if (cursor >= operations.size) {
+        throw RcLinkException("Unclosed RcMacroDefine container at end of document")
+      }
+      val writer = RcWireWriter()
+      body.forEach { RcDocumentCodec.encodeOperation(writer, it) }
+      out += RcMacroDefine(operation.id, operation.parameterIds, writer.toByteArray())
+      index = cursor + 1
+    }
+    return out
+  }
 
-  private fun linkNodes(operations: List<RcOperation>): List<RcLinkedNode> {
+  private fun linkNodes(rawOperations: List<RcOperation>): List<RcLinkedNode> {
+    val operations = foldMacroBodies(rawOperations)
     val root = mutableListOf<RcLinkedNode>()
     val stack = mutableListOf<Frame>()
     var destination = root
     operations.forEachIndexed { index, operation ->
       when {
-        operation.opcode in containerStartOpcodes || operation.opensMacroBody() -> {
+        operation.opcode in containerStartOpcodes -> {
           if (stack.size >= MAX_NESTING_DEPTH) {
             throw RcLinkException(
               "Container nesting exceeds $MAX_NESTING_DEPTH at operation $index"
