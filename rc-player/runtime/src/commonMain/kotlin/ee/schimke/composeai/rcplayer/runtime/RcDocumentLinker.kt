@@ -69,13 +69,25 @@ public object RcDocumentLinker {
     )
   }
 
+  /**
+   * Whether this macro definition carries its body as following operations rather than inline.
+   *
+   * AndroidX writes a definition both ways, and the encoding says which: the wire form emits an
+   * empty `body` blob and then the operations themselves, terminated by a `CONTAINER_END`, while
+   * the in-memory form carries the body as bytes and is closed by nothing. Keying on the blob being
+   * empty distinguishes them exactly — a definition with an inline body opens no container, so the
+   * hand-built documents in `RcDocumentLinkerTest` link as they always have, and a decoded one
+   * stops failing with `Unmatched ContainerEnd` on the terminator its own body needs.
+   */
+  private fun RcOperation.opensMacroBody(): Boolean = this is RcMacroDefine && body.isEmpty()
+
   private fun linkNodes(operations: List<RcOperation>): List<RcLinkedNode> {
     val root = mutableListOf<RcLinkedNode>()
     val stack = mutableListOf<Frame>()
     var destination = root
     operations.forEachIndexed { index, operation ->
       when {
-        operation.opcode in containerStartOpcodes -> {
+        operation.opcode in containerStartOpcodes || operation.opensMacroBody() -> {
           if (stack.size >= MAX_NESTING_DEPTH) {
             throw RcLinkException(
               "Container nesting exceeds $MAX_NESTING_DEPTH at operation $index"
