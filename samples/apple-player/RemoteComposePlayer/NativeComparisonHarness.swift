@@ -21,7 +21,11 @@ private enum NativeComparisonError: LocalizedError {
     switch self {
     case .invalidIdentifier(let id): "Invalid comparison fixture identifier: \(id)"
     case .invalidSize(let id): "Invalid comparison fixture size: \(id)"
-    case .renderTimeout(let id): "Native UIKit player timed out rendering \(id)"
+    // Says what was observed, not why. The deadline expiring means the player produced no view;
+    // on this corpus that is overwhelmingly a refusal — a document using an opcode the Swift core
+    // does not implement — rather than a slow render. Calling it a timeout sent one investigation
+    // after lane performance for five CI cycles when the finding was an unimplemented-opcode backlog.
+    case .renderTimeout(let id): "Native UIKit player drew nothing for \(id) within the render deadline"
     case .pngEncoding(let id): "UIKit could not encode \(id) as PNG"
     }
   }
