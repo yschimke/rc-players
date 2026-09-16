@@ -38,6 +38,7 @@ import java.io.File
 import javax.imageio.ImageIO
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -472,11 +473,20 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
    */
   private fun scalar(check: Check, read: (Int) -> JsonElement?): Observation {
     val target = check.target ?: return Observation.NotImplemented
-    val id =
-      target.toIntOrNull()
-        ?: state()?.namedVariable(target)?.id
-        ?: return Observation.NotImplemented
-    return read(id)?.let { Observation.Value(it) } ?: Observation.NotImplemented
+    val numeric = target.toIntOrNull()
+    val id = numeric ?: state()?.namedVariable(target)?.id
+    // A *named* target this document never declared is genuinely unobservable: there is no slot to
+    // address. A *numeric* one is different — the slot was addressed and the document simply has
+    // nothing there, which is an observation, and reporting it as "not implemented" would file a
+    // player gap under the runner's. That conflation has already produced one wrong bug report in
+    // this lane's history, so the two are kept apart here.
+    if (id == null) return Observation.NotImplemented
+    val value = read(id)
+    return when {
+      value != null -> Observation.Value(value)
+      numeric != null -> Observation.Value(JsonNull)
+      else -> Observation.NotImplemented
+    }
   }
 
   /**
