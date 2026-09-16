@@ -48,7 +48,7 @@ enum NativeSwiftFuzzTests {
     for (index, seed) in seeds.enumerated() {
       // The pristine seed first: a supported fixture must stay supported, and a synthetic
       // malformed seed must stay typed.
-      watchdog.begin(label: "\(seed.name)#pristine")
+      watchdog.begin(label: "\(seed.name)#pristine", data: seed.data)
       exercise(seed.data, label: "\(seed.name)#pristine", decoded: &decoded, rejected: &rejected)
       cases += 1
 
@@ -56,7 +56,7 @@ enum NativeSwiftFuzzTests {
       for iteration in 0..<iterations {
         let label = "\(seed.name)#\(iteration)"
         let mutant = mutate(seed.data, using: &random)
-        watchdog.begin(label: label)
+        watchdog.begin(label: label, data: mutant)
         exercise(mutant, label: label, decoded: &decoded, rejected: &rejected)
         cases += 1
       }
@@ -301,6 +301,18 @@ enum NativeSwiftFuzzTests {
   // MARK: - Failure reporting
 
   private static func report(_ data: Data, label: String, reason: String) -> Never {
+    let path = persist(data, label: label)
+    FileHandle.standardError.write(
+      Data("native Swift fuzz failure: \(reason)\n  case: \(label)\n  bytes: \(path)\n".utf8))
+    exit(1)
+  }
+
+  /// Write one case's bytes where the run can be reproduced from, and return where they landed.
+  ///
+  /// Both failure paths need this: a hang is terminated by the watchdog on another thread and never
+  /// reaches `report`, so without a shared writer the uploaded corpus would be empty for exactly
+  /// the unbounded-work failure it exists to capture.
+  static func persist(_ data: Data, label: String) -> String {
     let directory =
       ProcessInfo.processInfo.environment["RC_NATIVE_FUZZ_CORPUS_OUT"]
       ?? NSTemporaryDirectory().appending("rc-native-fuzz")
@@ -309,9 +321,7 @@ enum NativeSwiftFuzzTests {
     let safeLabel = label.replacingOccurrences(of: "/", with: "_")
     let path = directory.appending("/\(safeLabel).rc")
     try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
-    FileHandle.standardError.write(
-      Data("native Swift fuzz failure: \(reason)\n  case: \(label)\n  bytes: \(path)\n".utf8))
-    exit(1)
+    return path
   }
 
   private static func environmentInt(_ name: String) -> Int? {
@@ -344,6 +354,7 @@ private final class Watchdog: @unchecked Sendable {
   private let timeout: TimeInterval
   private let lock = NSLock()
   private var label = "<none>"
+  private var data = Data()
   private var startedAt = ProcessInfo.processInfo.systemUptime
   private var running = true
 
@@ -357,11 +368,15 @@ private final class Watchdog: @unchecked Sendable {
         let active = running
         let elapsed = ProcessInfo.processInfo.systemUptime - startedAt
         let current = label
+        let bytes = data
         lock.unlock()
         if !active { return }
         if elapsed > timeout {
+          let path = NativeSwiftFuzzTests.persist(bytes, label: current)
           FileHandle.standardError.write(
-            Data("native Swift fuzz hang: \(current) exceeded \(timeout)s\n".utf8))
+            Data(
+              "native Swift fuzz hang: \(current) exceeded \(timeout)s\n  bytes: \(path)\n"
+                .utf8))
           exit(1)
         }
       }
@@ -370,9 +385,10 @@ private final class Watchdog: @unchecked Sendable {
     thread.start()
   }
 
-  func begin(label: String) {
+  func begin(label: String, data: Data) {
     lock.lock()
     self.label = label
+    self.data = data
     startedAt = ProcessInfo.processInfo.systemUptime
     lock.unlock()
   }
