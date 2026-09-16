@@ -3081,7 +3081,9 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcSystemVariables {
 	public static final field CONTINUOUS_SEC I
 	public static final field DAY_OF_MONTH I
 	public static final field DAY_OF_YEAR I
+	public static final field DENSITY I
 	public static final field EPOCH_SECOND I
+	public static final field FONT_SIZE I
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/protocol/RcSystemVariables;
 	public static final field OFFSET_TO_UTC I
 	public static final field TIME_IN_HR I

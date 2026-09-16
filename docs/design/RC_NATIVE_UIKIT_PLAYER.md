@@ -359,6 +359,34 @@ is independent of renderer selection:
 `DENSITY_BEHAVIOR_PIXELS` is not implemented in either mode; a document that declares it at a
 non-unit density is diagnosed whichever mode is selected.
 
+#### The other density axis: what the capture did
+
+`DOC_DENSITY_BEHAVIOR` says how dp-typed values convert. It does **not** say whether the document
+carries a density at all, and that is a separate question with a separate answer:
+
+* A **`RemoteDensity.from(displayInfo)` capture** folds the capture device's density and font scale
+  into literal constants. Its numbers only mean what they meant on that device — this is the
+  document worth warning about when the player is not reproducing that density.
+* A **`RemoteDensity.Host` capture** defers instead: it writes expressions over the player-supplied
+  `ID_DENSITY` (27) and `ID_FONT_SIZE` (33) — `([33] 14.0 / [27] / 15.0 *)` for a 15sp label — so
+  the same bytes resolve correctly at whatever density the player supplies, 1.0 included. Nothing to
+  warn about; something to *supply*.
+
+Every fixture this repository shipped before `host-density.rc` was the first kind, which is why no
+lane noticed that neither the CMP player nor the Swift core loaded those two ids. Both now do:
+`RcSystemVariables.DENSITY`/`FONT_SIZE` on the Kotlin side, seeded from `LocalDensity` through
+`RcPlayerState.setHostDensity`, and `NativeSwiftSystemVariables` on the Swift side, seeded from
+`setHostDensity(_:fontScale:)` and defaulting to 1.0 — which is the density the native default mode
+already resolves dp geometry at, so the two agree by construction. `RemoteComposeNativePlayerView`
+exposes `configureHostDensity(_:fontScale:)` for a host reproducing Android geometry.
+
+The Swift core still **declines** a deferred *text size* rather than resolving it: `literalFloat`
+refuses a NaN-boxed word, so a `RemoteDensity.Host` document fails closed with a typed
+`unsupported` error naming the dynamic text size. That is the right failure — a refusal beats the
+silent `NaN` a player gets by accepting the reference and never loading the id — but it does mean
+such documents are not yet renderable natively. Resolving dynamic text sizes and dimensions is its
+own slice.
+
 ```swift
 let player = RemoteComposeNativePlayerView(
   data: androidAuthoredDocument,

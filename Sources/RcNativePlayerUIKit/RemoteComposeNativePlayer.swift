@@ -93,6 +93,11 @@
       playerView.androidCompatibility = compatibility
     }
 
+    /// Tell a deferred-density document what density this host plays at.
+    public func configureHostDensity(_ density: Float, fontScale: Float = 1) {
+      playerView.configureHostDensity(density, fontScale: fontScale)
+    }
+
     public func configureDownloadableFonts(
       resolver: (any RemoteComposeDownloadableFontResolving)?
     ) {
@@ -148,6 +153,16 @@
         render(documentData)
       }
     }
+
+    /// The density a deferred-density capture resolves against.
+    ///
+    /// A `RemoteDensity.Host` document computes its sizes from `ID_DENSITY`/`ID_FONT_SIZE` instead
+    /// of folding a capture device's density in, so the player owes it a value. 1.0 is the default
+    /// because that is what `androidCompatibility == .disabled` resolves dp geometry at; a host
+    /// reproducing Android geometry sets its real playback density with
+    /// `configureHostDensity(_:fontScale:)`.
+    public private(set) var hostDensity: Float = 1
+    public private(set) var hostFontScale: Float = 1
 
     /// Whether dp-typed geometry follows the document's Android density contract.
     ///
@@ -312,6 +327,20 @@
       if let documentData { render(documentData) }
     }
 
+    /// Tell a deferred-density document what density this host plays at.
+    ///
+    /// Reloads the retained bytes, because the first frame is resolved as the session opens and a
+    /// document that reads `ID_DENSITY` would otherwise keep the geometry it built from the old
+    /// value. Non-finite and non-positive values are ignored by the core rather than stored.
+    public func configureHostDensity(_ density: Float, fontScale: Float = 1) {
+      let density = density.isFinite && density > 0 ? density : hostDensity
+      let fontScale = fontScale.isFinite && fontScale > 0 ? fontScale : hostFontScale
+      guard density != hostDensity || fontScale != hostFontScale else { return }
+      hostDensity = density
+      hostFontScale = fontScale
+      if let documentData { render(documentData) }
+    }
+
     /// Replace the opt-in network font source and retry the retained document when it changes.
     public func configureDownloadableFonts(
       resolver: (any RemoteComposeDownloadableFontResolving)?
@@ -370,6 +399,8 @@
       let executionLimits = executionLimits
       let compatibilityPolicy = compatibilityPolicy
       let androidCompatibility = androidCompatibility
+      let hostDensity = hostDensity
+      let hostFontScale = hostFontScale
       let availableCustomComponents = customComponents.names
       let resourceLimits = resourceLimits
       let resourceResolver = resourceResolver
@@ -378,7 +409,8 @@
       loadTask = Task { [weak self] in
         do {
           let (session, frame) = try await NativeSnapshotSessionHandle.open(
-            data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes)
+            data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes,
+            hostDensity: hostDensity, hostFontScale: hostFontScale)
           try Task.checkCancellation()
           let model = try NativeDocument(
             frame: frame, limits: executionLimits, androidCompatibility: androidCompatibility)

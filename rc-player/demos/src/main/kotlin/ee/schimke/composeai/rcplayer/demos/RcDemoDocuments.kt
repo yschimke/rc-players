@@ -8,8 +8,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCustomProperty
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
+import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
@@ -17,10 +20,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
 
 /**
  * The two demo documents, written the way a document that reached this player from the wire would
@@ -35,6 +40,9 @@ public object RcDemoDocuments {
 
   /** The editable-text document is a field, a caption and the document's own echo of the value. */
   public const val EDITABLE_HEIGHT: Int = 150
+
+  /** The deferred-density document is one label. */
+  public const val HOST_DENSITY_HEIGHT: Int = 80
 
   /** The text id the editable-text demo both reads and writes; see [RcEditableText]. */
   public const val EDITED_TEXT_ID: Int = 60
@@ -136,6 +144,91 @@ public object RcDemoDocuments {
     )
   }
 
+  /**
+   * A capture that DEFERS its density instead of folding it in — `RemoteDensity.Host`.
+   *
+   * Every other fixture in this repository folds the capture device's density and font scale into
+   * literal constants, so none of them reads [RcSystemVariables.DENSITY] or
+   * [RcSystemVariables.FONT_SIZE] and none of them notices a player that fails to load those ids.
+   * This one is the other kind: its text size is the expression such a capture writes for a 15sp
+   * label — `([33] 14.0 / [27] / 15.0 *)`, which recovers the host's font scale from the two
+   * built-ins and applies it to the authored size.
+   *
+   * A player that loads neither id resolves both references to their own raw `NaN` bits (or to
+   * zero, in the Swift core's value map) and the whole expression collapses — which is the bug this
+   * fixture exists to catch, in any player, without needing a device to see it.
+   *
+   * The header declares dp behavior at a real device density so the document is also a specimen of
+   * the case worth distinguishing: dp-typed geometry whose density is nonetheless *not* baked in.
+   */
+  public fun hostDensityText(): RcDocument {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val divide = RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 4)
+    val multiply = RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 3)
+    val operations =
+      listOf<RcOperation>(
+        RcTextData(LABEL_ID, "Deferred density"),
+        RcFloatExpression(
+          id = HOST_TEXT_SIZE_ID,
+          expression =
+            listOf(
+              reference(RcSystemVariables.FONT_SIZE),
+              RcFloatWord.literal(DEFAULT_FONT_SIZE_SP),
+              divide,
+              reference(RcSystemVariables.DENSITY),
+              divide,
+              RcFloatWord.literal(HOST_TEXT_SIZE_SP),
+              multiply,
+            ),
+          animation = null,
+        ),
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcColumnLayout(3, 0, 1, 4, RcFloatWord.literal(0f)),
+        background(1f, 1f, 1f),
+        padding(16f),
+        width(WIDTH.toFloat()),
+        height(HOST_DENSITY_HEIGHT.toFloat()),
+        RcLayoutContent(4),
+        RcTextLayout(
+          componentId = 5,
+          animationId = 0,
+          textId = LABEL_ID,
+          color = 0xff202124.toInt(),
+          // The whole point: a size the player has to resolve, not a constant it can read.
+          fontSize = reference(HOST_TEXT_SIZE_ID),
+          fontStyle = 0,
+          fontWeight = RcFloatWord.literal(400f),
+          fontFamilyId = -1,
+          textAlignAndFlags = RcTextLayout.ALIGN_LEFT,
+          overflow = RcTextLayout.OVERFLOW_CLIP,
+          maxLines = 1,
+        ),
+        end,
+      ) + List(3) { end }
+    return RcDocument(
+      RcHeader(
+        RcVersion(1, 0, 0),
+        properties =
+          listOf(
+            RcHeaderProperty(RcHeader.DOC_WIDTH, RcHeaderValue.IntValue(WIDTH)),
+            RcHeaderProperty(RcHeader.DOC_HEIGHT, RcHeaderValue.IntValue(HOST_DENSITY_HEIGHT)),
+            RcHeaderProperty(
+              RcHeader.DOC_DENSITY_AT_GENERATION,
+              RcHeaderValue.FloatValue(RcFloatWord.literal(CAPTURE_DENSITY)),
+            ),
+            RcHeaderProperty(
+              RcHeader.DOC_DENSITY_BEHAVIOR,
+              RcHeaderValue.IntValue(RcHeader.DENSITY_BEHAVIOR_DP),
+            ),
+          ),
+      ),
+      operations,
+    )
+  }
+
+  private fun reference(id: Int) = RcFloatWord(NAN_REFERENCE or id)
+
   private fun header(height: Int) =
     RcHeader(RcVersion(1, 0, 0), legacyWidth = WIDTH, legacyHeight = height, modern = false)
 
@@ -190,4 +283,16 @@ public object RcDemoDocuments {
   private const val PRIVACY_URL_ID = 43
   private const val LABEL_ID = 44
   private const val TEXT_COLOR_ID = 50
+  private const val HOST_TEXT_SIZE_ID = 70
+
+  /** The document's authored text size, in `sp`. */
+  private const val HOST_TEXT_SIZE_SP = 15f
+
+  /** The `sp` behind `ID_FONT_SIZE`; every player has to agree on it. */
+  private const val DEFAULT_FONT_SIZE_SP = 14f
+
+  /** A real device density, recorded but deliberately not folded into the geometry. */
+  private const val CAPTURE_DENSITY = 2.2625f
+
+  private const val NAN_REFERENCE = 0x7fc00000
 }

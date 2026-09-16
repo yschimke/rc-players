@@ -204,11 +204,30 @@ public enum NativeSwiftCoreError: Error, CustomStringConvertible {
   }
 }
 
+/// The ids AndroidX's `RemoteContext` reserves for values the player supplies, not the document.
+///
+/// Only the ones this core actually loads are named, matching `RcSystemVariables` on the Kotlin
+/// side. A reference to an id the player does not load resolves to 0 and poisons the arithmetic
+/// downstream, so naming one here without loading it would be worse than leaving it out.
+public enum NativeSwiftSystemVariables {
+  /// Device pixels per dp, as the player is playing the document.
+  public static let density = 27
+
+  /// The host's default text size in pixels — 14sp at the player's density and font scale.
+  public static let fontSize = 33
+
+  /// The `sp` behind `fontSize`, before density and font scale. Every player has to agree on it:
+  /// a capture divides its text size by this id to recover the `sp` it authored.
+  public static let defaultFontSizeSp: Float = 14
+}
+
 /// Retained document state for the first pure-Swift operation family.
 public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private let document: ParsedDocument
   private var texts: [Int: String]
   private var floats: [Int: Float]
+  private var hostDensity: Float = 1
+  private var hostFontScale: Float = 1
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
 
@@ -222,6 +241,22 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   public static func open(data: Data) throws -> NativeSwiftDocumentSession {
     NativeSwiftDocumentSession(document: try NativeSwiftDocumentDecoder.decode(data))
+  }
+
+  /// Tells the document what density it is being played at.
+  ///
+  /// A `RemoteDensity.Host` capture defers its density instead of folding it in: it writes
+  /// expressions over `ID_DENSITY` (27) and `ID_FONT_SIZE` (33), so the same document resolves at
+  /// whatever the player supplies. Left unsaid, the native player plays at 1.0 — which is the
+  /// density its default layout mode resolves dp geometry at, so the two agree by construction.
+  /// A host reproducing Android geometry supplies its real playback density here.
+  ///
+  /// Non-finite and non-positive values are ignored rather than stored: both reach a document as a
+  /// divisor, and a host that reports a zero density mid-layout should not turn the frame's
+  /// geometry into NaN.
+  public func setHostDensity(_ density: Float, fontScale: Float = 1) {
+    if density.isFinite, density > 0 { hostDensity = density }
+    if fontScale.isFinite, fontScale > 0 { hostFontScale = fontScale }
   }
 
   public func snapshot(timeSeconds: TimeInterval = 0) throws -> NativeSwiftDocumentSnapshot {
@@ -434,6 +469,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // as moving clocks; keeping them tied to the injected logical timeline makes captures stable.
     result[1] = Float(timeSeconds)
     result[30] = Float(timeSeconds)
+    // Not clocks, but owed by the player for the same reason and with the same failure: an
+    // unsupplied reference resolves to 0 here, so a `RemoteDensity.Host` capture's
+    // `([33] 14.0 / [27] / 15.0 *)` divides by zero and every size built from it becomes NaN.
+    // A document that declares its own value at either id keeps it — `floats` seeds `result`.
+    if result[NativeSwiftSystemVariables.density] == nil {
+      result[NativeSwiftSystemVariables.density] = hostDensity
+    }
+    if result[NativeSwiftSystemVariables.fontSize] == nil {
+      result[NativeSwiftSystemVariables.fontSize] =
+        NativeSwiftSystemVariables.defaultFontSizeSp * hostFontScale * hostDensity
+    }
     for expression in document.expressions {
       result[expression.id] = try NativeSwiftFloatExpression.evaluate(
         expression.words, values: result)

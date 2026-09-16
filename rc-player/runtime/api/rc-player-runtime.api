@@ -842,6 +842,8 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun setColor (II)V
 	public final fun setDynamicFloatValues (I[F)V
 	public final fun setFloat (IF)V
+	public final fun setHostDensity (FF)V
+	public static synthetic fun setHostDensity$default (Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;FFILjava/lang/Object;)V
 	public final fun setInteger (II)V
 	public final fun setLong (IJ)V
 	public final fun setNamedValue (Ljava/lang/String;Lee/schimke/composeai/rcplayer/runtime/RcNamedValue;)V

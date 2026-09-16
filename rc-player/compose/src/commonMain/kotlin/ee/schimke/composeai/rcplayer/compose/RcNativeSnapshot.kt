@@ -386,6 +386,17 @@ public constructor(bytes: ByteArray) {
     document.operations.filterIsInstance<RcCustomLayout>().associateBy(RcCustomLayout::componentId)
 
   /**
+   * Tells the document what density this host plays at, for a capture that deferred it.
+   *
+   * Defaults to 1.0, which is what a headless snapshot of a deferred-density document should
+   * resolve at until a host says otherwise. A capture that folded its density into constants is
+   * unaffected either way.
+   */
+  public fun setHostDensity(density: Float, fontScale: Float = 1f) {
+    state.setHostDensity(density, fontScale)
+  }
+
+  /**
    * Resolve one immutable frame without rebuilding the document codec, linker, or runtime state.
    */
   @Throws(IllegalArgumentException::class)

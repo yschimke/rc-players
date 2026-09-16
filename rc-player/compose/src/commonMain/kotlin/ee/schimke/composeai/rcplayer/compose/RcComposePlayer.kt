@@ -478,6 +478,12 @@ private fun RcComposePlayerResolved(
   //    `RcPlayerState`, which is the whole point of this bridge; because `appliedNamedValues`
   //    outlives the restart, the new holder is diffed against what the state really has, so
   //    entries the old holder had and the new one does not are cleared rather than left applied.
+  // What the host is actually playing at, for a capture that deferred its density instead of
+  // folding it in. `state` is remembered on the document alone, so a rotation or an accessibility
+  // text change arrives here as a recomposition around the same state rather than a new one — which
+  // is why this is pushed on every composition instead of passed to the constructor.
+  val hostDensity = androidx.compose.ui.platform.LocalDensity.current
+  SideEffect { state.setHostDensity(hostDensity.density, hostDensity.fontScale) }
   val appliedNamedValues = remember(state) { seededNamedValues.toMutableMap() }
   LaunchedEffect(state, namedValues) {
     snapshotFlow { namedValues.toMap() }

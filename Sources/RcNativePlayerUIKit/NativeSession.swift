@@ -37,8 +37,13 @@
       self.session = session
     }
 
+    /// - Parameters:
+    ///   - hostDensity: what a deferred-density capture resolves against. Supplied at open rather
+    ///     than set afterwards because the first frame is produced here, and a document that reads
+    ///     `ID_DENSITY` would otherwise resolve its very first geometry against the wrong value and
+    ///     only correct itself on the next frame.
     static func open(
-      data: Data, maximumDocumentBytes: Int
+      data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1
     ) async throws -> (NativeSnapshotSessionHandle, Frame) {
       guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
         throw RemoteComposeNativeLimitError.documentTooLarge(
@@ -47,6 +52,7 @@
       do {
         try Task.checkCancellation()
         let session = try NativeSwiftDocumentSession.open(data: data)
+        session.setHostDensity(hostDensity, fontScale: hostFontScale)
         let frame = Frame(snapshot: try session.snapshot())
         try Task.checkCancellation()
         return (NativeSnapshotSessionHandle(session: session), frame)
@@ -57,6 +63,11 @@
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
+    }
+
+    /// Forwards the host's density to the retained document; see `setHostDensity` on the core.
+    func setHostDensity(_ density: Float, fontScale: Float) {
+      session.setHostDensity(density, fontScale: fontScale)
     }
 
     func frame(at timeSeconds: TimeInterval) async throws -> Frame {
