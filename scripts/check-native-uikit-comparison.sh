@@ -11,6 +11,8 @@ trap 'rm -rf "$input_dir"' EXIT
 
 cp "$repo_root/scripts/native-uikit-comparison/manifest.json" "$input_dir/manifest.json"
 cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc" "$input_dir/title-card.rc"
+# The same bytes twice: once through the Android density contract, once at native density 1.0.
+cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc" "$input_dir/title-card-native-density.rc"
 cp "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc" "$input_dir/image-button.rc"
 
 rm -rf "$lanes_dir/cmp-jvm" "$lanes_dir/native-uikit"

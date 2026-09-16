@@ -118,6 +118,19 @@
     "unsupportedBehavior": "Compatible mode renders the supported subset with diagnostics; strict mode refuses it.",
     "migration": "Use RcComposePlayerSwiftUI for documents outside this profile; the native product is an independent pure-Swift implementation and never replaces or redirects the CMP product."
   },
+  "densityContract": {
+    "default": "density-1.0",
+    "androidCompatibilityMode": "RemoteComposeNativePlayerAndroidCompatibility.enabled",
+    "densityTypedGeometryReporting": "diagnostic"
+  },
+  "evidence": {
+    "fuzzCorpus": "scripts/check-native-swift-fuzz.sh",
+    "coreBenchmark": "scripts/measure-native-swift-core.sh",
+    "uikitBenchmark": "scripts/measure-native-uikit-simulator.sh",
+    "appkitBenchmark": "scripts/measure-native-appkit.sh",
+    "comparison": "scripts/check-native-uikit-comparison.sh",
+    "ciArtifact": "native-performance-evidence"
+  },
   "distribution": {
     "repositoryProduct": "RcNativePlayerUIKit",
     "standaloneArchive": "RcNativePlayerUIKit.swiftpackage.zip",

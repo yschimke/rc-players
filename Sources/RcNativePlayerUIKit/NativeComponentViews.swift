@@ -8,6 +8,8 @@
   struct NativeDocument {
     let size: CGSize
     let density: CGFloat
+    let densityBehavior: Int
+    let androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility
     let root: NativeNode
     let images: [NativeImageResource]
     let fonts: [NativeFontResource]
@@ -20,13 +22,16 @@
     let executionBudget: NativeFrameBudget
 
     init(
-      frame: NativeSnapshotSessionHandle.Frame, limits: RemoteComposeNativeExecutionLimits
+      frame: NativeSnapshotSessionHandle.Frame, limits: RemoteComposeNativeExecutionLimits,
+      androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled
     ) throws {
-      try self.init(swiftSnapshot: frame.snapshot, limits: limits)
+      try self.init(
+        swiftSnapshot: frame.snapshot, limits: limits, androidCompatibility: androidCompatibility)
     }
 
     private init(
-      swiftSnapshot: NativeSwiftDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits
+      swiftSnapshot: NativeSwiftDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits,
+      androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility
     ) throws {
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
@@ -82,6 +87,8 @@
       guard density.isFinite, density > 0 else {
         throw RemoteComposeNativePlayerError.decode("Document density must be finite and positive")
       }
+      densityBehavior = swiftSnapshot.densityBehavior
+      self.androidCompatibility = androidCompatibility
       size = CGSize(width: swiftSnapshot.width, height: swiftSnapshot.height)
       root = NativeNode(
         swiftSnapshot: swiftSnapshot.root,
@@ -94,7 +101,12 @@
       fonts = []
       downloadableFonts = downloadableByID.values.sorted { $0.id < $1.id }
       diagnostics = RemoteComposeNativePlayerDiagnostics(
-        issues: [], unsupportedOpcodes: [], notes: [])
+        issues: NativeDensityPolicy.diagnostics(
+          density: swiftSnapshot.density,
+          densityBehavior: swiftSnapshot.densityBehavior,
+          androidCompatibility: androidCompatibility,
+          componentID: swiftSnapshot.root.componentID),
+        unsupportedOpcodes: [], notes: [])
       rootSizing = 2
       rootMode = 4
       rootAlignment = 34
@@ -578,7 +590,9 @@
         mode: document.rootMode,
         alignment: document.rootAlignment)
       componentView.transform = .identity
-      componentView.layoutDensityScale = root.scaleX > 0 ? 1 / root.scaleX : 1
+      componentView.layoutDensityScale = NativeDensityPolicy.layoutDensityScale(
+        androidCompatibility: document.androidCompatibility,
+        playbackDensityScale: root.scaleX > 0 ? 1 / root.scaleX : 1)
       componentView.bounds = CGRect(origin: .zero, size: document.size)
       componentView.center = CGPoint(
         x: root.translateX + document.size.width * root.scaleX / 2,

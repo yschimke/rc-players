@@ -157,6 +157,25 @@ assert limits == implemented_limits, (
     f"profile defaultLimits {limits!r} do not match implementation defaults {implemented_limits!r}"
 )
 
+assert profile["densityContract"] == {
+    "default": "density-1.0",
+    "androidCompatibilityMode": "RemoteComposeNativePlayerAndroidCompatibility.enabled",
+    "densityTypedGeometryReporting": "diagnostic",
+}, "densityContract must match the reviewed native density policy"
+
+# The profile points at the evidence rather than restating it, so a reader can run the same corpus
+# and benchmarks the gate ran. A stale path here is drift.
+evidence = profile["evidence"]
+assert set(evidence) == {
+    "fuzzCorpus", "coreBenchmark", "uikitBenchmark", "appkitBenchmark", "comparison", "ciArtifact",
+}
+assert evidence["ciArtifact"] == "native-performance-evidence"
+for key, relative in evidence.items():
+    if key == "ciArtifact":
+        continue
+    script = repo / relative
+    assert script.is_file(), f"profile evidence {key} points at a missing script: {relative}"
+
 distribution = profile["distribution"]
 assert distribution == {
     "repositoryProduct": "RcNativePlayerUIKit",
