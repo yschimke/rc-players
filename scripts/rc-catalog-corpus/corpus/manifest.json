@@ -1,0 +1,4909 @@
+[
+ {
+  "id": "appcard__ideal__content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon-outlined-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon-outlined-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon-outlined-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon-outlined__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__icon__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__no-app-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__outlined-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__outlined-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__outlined-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "appcard__ideal__outlined__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "arcprogressindicator__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__left-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-child__ideal__left__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__child-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__child-icon-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__child-icon-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__child-text-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__child-text-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__child__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__filled-variant-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__filled-variant-icon-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__filled-variant-icon-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__filled-variant-text-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__filled-variant-text-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__filled-variant__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__icon-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__icon-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__outlined-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__outlined-icon-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__outlined-icon-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__outlined-text-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__outlined-text-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__outlined__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__text-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__text-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__tonal-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__tonal-icon-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__tonal-icon-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__tonal-text-only-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__tonal-text-only__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-compact__ideal__tonal__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-customshape__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__left-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filled__ideal__left__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__left-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-filledvariant__ideal__left__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-imagebackground__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-imagebackground__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-imagebackground__ideal__secondary-label-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-imagebackground__ideal__secondary-label__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__child-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__child-icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__child-icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__child-icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__child-icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__child__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__outlined-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__outlined-icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__outlined-icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__outlined-icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__outlined-icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-loading__ideal__outlined__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-namedlabel__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__left-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-outlined__ideal__left__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__icon-extra-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__icon-extra-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__left-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "button-tonal__ideal__left__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "buttongroup__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "card-outlined__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "card__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__split-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__split__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__unselected-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__unselected-split-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__unselected-split__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "checkboxbutton__ideal__unselected__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__complete__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__complete__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__complete__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__complete__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__complete__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__default__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__default__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__default__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__default__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__default__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__disabled__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__disabled__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__disabled__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__disabled__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__disabled__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__indeterminate__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__indeterminate__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__indeterminate__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__indeterminate__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__indeterminate__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__overflow__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__overflow__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__overflow__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__overflow__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__overflow__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-complete__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-complete__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-complete__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-complete__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-complete__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-disabled__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-disabled__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-disabled__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-disabled__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-disabled__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-overflow__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-overflow__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-overflow__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-overflow__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-overflow__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero-disabled__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero-disabled__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero-disabled__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero-disabled__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero-disabled__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke-zero__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__small-stroke__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero-disabled__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero-disabled__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero-disabled__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero-disabled__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero-disabled__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "circularprogressindicator__ideal__zero__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon-extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon-extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon-medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon-medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant-medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__filled-variant__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon-extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon-extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon-medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon-medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon-extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon-extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon-medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon-medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined-medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__outlined__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon-extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon-extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon-medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon-medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-medium-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal-medium__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "edgebutton__ideal__tonal__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "icon__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filled__ideal__small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-filledvariant__ideal__small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-outlined__ideal__small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-standard__ideal__small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__extra-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__extra-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "iconbutton-tonal__ideal__small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__default__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__default__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__default__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__default__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__default__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__disabled__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__disabled__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__disabled__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__disabled__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__disabled__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__full__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__full__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__full__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__full__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__full__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__low__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__low__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__low__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__low__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "levelindicator__ideal__low__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__20-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__20__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__complete-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__complete__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__min-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__min__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "linearprogressindicator__ideal__small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "listheader__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "listheader__ideal__left-aligned__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "listsubheader__ideal__centred__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "listsubheader__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "listsubheader__ideal__icon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__default__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__default__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__default__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__default__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__default__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__five-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__five-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__five-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__five-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__five-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-end__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-end__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-end__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-end__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-end__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-middle__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-middle__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-middle__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-middle__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages-middle__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__many-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-end__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-end__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-end__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-end__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-end__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-middle__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-middle__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-middle__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-middle__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages-middle__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__six-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__three-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__three-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__three-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__three-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__three-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__two-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__two-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__two-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__two-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-horizontal__ideal__two-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-interactive__ideal__default__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-interactive__ideal__default__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-interactive__ideal__default__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-interactive__ideal__default__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-interactive__ideal__default__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__default__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__default__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__default__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__default__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__default__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__five-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__five-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__five-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__five-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__five-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-five-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-five-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-five-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-five-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-five-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-end__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-end__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-end__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-end__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-end__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-middle__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-middle__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-middle__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-middle__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages-middle__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-many-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-end__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-end__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-end__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-end__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-end__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-middle__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-middle__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-middle__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-middle__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages-middle__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-six-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-three-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-three-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-three-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-three-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-three-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-two-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-two-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-two-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-two-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left-two-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__left__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-end__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-end__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-end__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-end__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-end__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-middle__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-middle__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-middle__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-middle__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages-middle__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__many-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-end__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-end__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-end__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-end__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-end__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-middle__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-middle__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-middle__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-middle__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages-middle__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__six-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__three-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__three-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__three-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__three-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__three-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__two-pages__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__two-pages__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__two-pages__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__two-pages__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "pageindicator-vertical__ideal__two-pages__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__split-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__split__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__unselected-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__unselected-split-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__unselected-split__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "radiobutton__ideal__unselected__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scaffold__ideal__default__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__bottom__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__bottom__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__bottom__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__bottom__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__bottom__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__default__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__default__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__default__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__default__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__default__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__middle__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__middle__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__middle__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__middle__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__middle__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-40__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-40__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-40__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-40__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-40__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-50__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-50__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-50__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-50__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-50__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-60__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-60__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-60__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-60__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-60__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-70__192dp",
+  "width": 384,
+  "height": 384,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-70__204dp",
+  "width": 408,
+  "height": 408,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-70__216dp",
+  "width": 432,
+  "height": 432,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-70__225dp",
+  "width": 450,
+  "height": 450,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "scrollindicator__ideal__size-70__240dp",
+  "width": 480,
+  "height": 480,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shader-lineargradient__ideal__default__compact",
+  "width": 400,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__12-sided-cookie__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__4-leaf-clover__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__4-sided-cookie__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__6-sided-cookie__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__7-sided-cookie__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__8-leaf-clover__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__9-sided-cookie__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__arch__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__arrow__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__boom__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__bun__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__burst__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__diamond__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__fan__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__flower__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__gem__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__ghost-ish__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__heart__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__hexagon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__oval__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__pantagon__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__pill__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__pixel-circle__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__pixel-triangle__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__puffy-diamond__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__puffy__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__semicircle__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__slanted__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__soft-boom__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__soft-burst__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__square__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__sunny__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__triangle__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "shape-materialshapes__ideal__very-sunny__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__continuous-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__continuous-full-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__continuous-full__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__continuous-low-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__continuous-low__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__continuous__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__four-increments-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__four-increments-full-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__four-increments-full__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__four-increments-low-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__four-increments-low__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__four-increments__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__full-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__full__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__low-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__low__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__seven-increments-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__seven-increments-full-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__seven-increments-full__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__seven-increments-low-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__seven-increments-low__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__seven-increments__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__six-increments-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__six-increments-full-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__six-increments-full__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__six-increments-low-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__six-increments-low__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__six-increments__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__three-increments-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__three-increments-full-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__three-increments-full__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__three-increments-low-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__three-increments-low__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "slider__ideal__three-increments__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__default__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__disabled__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__icon-disabled__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__icon-no-button-fill-disabled__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__icon-no-button-fill__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__icon__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__no-button-fill-disabled__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "stepper__ideal__no-button-fill__compact",
+  "width": 454,
+  "height": 454,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__split-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__split__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__unselected-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__unselected-split-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__unselected-split__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "switchbutton__ideal__unselected__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "text-body__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "text-body__ideal__left-aligned__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "text-branded__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "text-caption__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "text-caption__ideal__left-aligned__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "text-maxlines-truncated__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__child-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__child-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__child-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__child-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__child-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__child__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__filled-variant-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__filled-variant-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__filled-variant-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__filled-variant-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__filled-variant-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__filled-variant__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__outlined-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__outlined-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__outlined-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__outlined-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__outlined-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__outlined__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__tonal-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__tonal-large-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__tonal-large__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__tonal-small-disabled__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__tonal-small__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "textbutton__ideal__tonal__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-colorscheme__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-specimen-androidmakers__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-specimen-confettidefault__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-specimen-devfest__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-specimen-droidcon__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-specimen-googlesansflex__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-specimen-kotlinconf__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-systemthemeswatches__ideal__default__compact",
+  "width": 454,
+  "height": 200,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "theme-typography__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__background-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__outlined-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__outlined-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__outlined-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__outlined__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-background-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-outlined-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-outlined-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-outlined-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle-outlined__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__title-and-subtitle__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-background-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-outlined-content-image__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-outlined-gallery-1__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-outlined-gallery-2__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle-outlined__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "titlecard__ideal__with-subtitle__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "typeface-specimen__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "typeface-variableweight__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "typeface-variablewidth__ideal__default__compact",
+  "width": 454,
+  "height": 400,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "widgetcontainer-gradientbackground__ideal__default__216dp",
+  "width": 525,
+  "height": 157,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "widgetcontainer-large__ideal__default__216dp",
+  "width": 525,
+  "height": 283,
+  "density": 2.0,
+  "androidCompatibility": true
+ },
+ {
+  "id": "widgetcontainer-small__ideal__default__216dp",
+  "width": 525,
+  "height": 157,
+  "density": 2.0,
+  "androidCompatibility": true
+ }
+]

@@ -3,31 +3,26 @@
 # ~700 real Material 3 documents, authored by another team, that this player has never seen.
 #
 # This is ENRICHMENT, not a gate. The corpus is generated output this repository does not control,
-# fetched at run time from a live server, and a document the native player declines is a finding to
-# read rather than a build to fail. So the exit status covers only whether the comparison ran: a
-# corpus that cannot be fetched is reported and skipped, and a lane that declines documents still
+# and a document the native player declines is a finding to read rather than a build to fail. So the
+# exit status covers only whether the comparison ran, and a lane that declines documents still
 # publishes its score. See docs/design/RC_CATALOG_CORPUS_LANE.md.
+#
+# The documents are committed under scripts/rc-catalog-corpus/corpus and this reads them from disk.
+# Nothing here contacts the network: the server publishes only its current generation, so a pinned
+# URL stops resolving the moment the catalog moves — which it did, ninety minutes after the first
+# corpus run, turning 701 fetched documents into 701 404s. scripts/rc-catalog-corpus/refresh-corpus.sh
+# is how the committed copy moves, run by hand.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 lanes_dir="${1:-$repo_root/build/native-uikit-corpus}"
-corpus="${RC_CATALOG_CORPUS:-$repo_root/build/rc-catalog-corpus}"
+corpus="${RC_CATALOG_CORPUS:-$repo_root/scripts/rc-catalog-corpus/corpus}"
 mkdir -p "$lanes_dir"
 lanes_dir="$(cd "$lanes_dir" && pwd)"
 
-# A corpus already on disk is reused, so a local run can iterate without re-fetching ~700 documents
-# and a CI job can stage it however it likes.
-if [ -f "$corpus/manifest.json" ]; then
-  echo "==> reusing the corpus at $corpus"
-else
-  echo "==> fetching the catalog corpus"
-  if ! "$repo_root/scripts/rc-catalog-corpus/fetch-corpus.sh" "$corpus"; then
-    # preview.coo.ee is a live dependency, and its render lane has been disabled outright before
-    # (see third_party/rc-embedded-player/PROVENANCE.md). An outage there must not read as a
-    # regression here.
-    echo "warning: the catalog corpus could not be fetched; skipping the corpus comparison" >&2
-    exit 0
-  fi
+if [ ! -f "$corpus/manifest.json" ]; then
+  echo "error: no corpus at $corpus; run scripts/rc-catalog-corpus/refresh-corpus.sh" >&2
+  exit 1
 fi
 
 documents="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
