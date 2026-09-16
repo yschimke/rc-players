@@ -28,6 +28,15 @@ private enum NativeComparisonError: LocalizedError {
 }
 
 /// App-hosted renderer for the manifest contract used by the cross-player comparison scripts.
+///
+/// What is bounded here, and what is not. The wait for a document to draw is bounded below, and
+/// that bound is what the corpus lane's runtime is made of. Everything else in a document's render
+/// — building the view, which decodes, and rasterising it — runs synchronously on the main actor,
+/// and a synchronous hang there cannot be interrupted from inside this process: a timeout task
+/// cannot preempt the thread it would need to run on. That case is bounded from outside instead, by
+/// the stall deadline in `scripts/lane-progress.sh`, which notices that no new result has appeared
+/// and reports which document the lane was on. Both halves are needed; neither substitutes for the
+/// other.
 struct NativeComparisonHarnessView: View {
   @State private var status = "Rendering native UIKit comparison lane…"
 
@@ -145,7 +154,21 @@ private enum NativeComparisonHarness {
     hostView?.addSubview(player)
     defer { player.removeFromSuperview() }
 
-    let deadline = ProcessInfo.processInfo.systemUptime + 10
+    // Two seconds, not ten. This deadline is only ever paid IN FULL by a document that never
+    // produces a view, so it is not a render budget — it is the price of each decline, and the
+    // corpus lane pays it once per declined document. At ten seconds a sheet with a few hundred
+    // declines spent most of an hour waiting to be told "no": one 55-minute run of the 701-document
+    // corpus did not finish, while the CMP JVM lane renders the same sheet in 43 seconds.
+    //
+    // Two seconds is not tight. The reviewed budgets this player is held to are 50ms to decode and
+    // 50ms to first frame (NativeSwiftBenchmark), so this is roughly 40x the time a healthy
+    // document needs, and a document that has drawn nothing after 2s has not drawn anything.
+    // Overridable for a host slower than a CI runner; `simctl` forwards it as
+    // SIMCTL_CHILD_RC_NATIVE_RENDER_DEADLINE_SECONDS.
+    let budget =
+      ProcessInfo.processInfo.environment["RC_NATIVE_RENDER_DEADLINE_SECONDS"]
+      .flatMap { Double($0) } ?? 2
+    let deadline = ProcessInfo.processInfo.systemUptime + budget
     while findRenderedDocument(in: player) == nil,
       ProcessInfo.processInfo.systemUptime < deadline
     {
