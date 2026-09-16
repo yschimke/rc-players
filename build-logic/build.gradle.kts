@@ -40,5 +40,15 @@ gradlePlugin {
       id = "composeai.maven-publishing"
       implementationClass = "ee.schimke.composeai.buildlogic.ComposeAiMavenPublishingPlugin"
     }
+    register("composeAiPlatformPublishing") {
+      id = "composeai.maven-publishing-platform"
+      implementationClass = "ee.schimke.composeai.buildlogic.ComposeAiPlatformPublishingPlugin"
+    }
   }
 }
+
+// build-logic's own tests. `kotlin-dsl` gives this project a `test` task but no test framework, so
+// nothing here compiled until this was declared.
+dependencies { testImplementation(kotlin("test-junit5")) }
+
+tasks.test { useJUnitPlatform() }

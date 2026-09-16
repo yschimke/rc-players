@@ -1,0 +1,13 @@
+{
+  "_comment": "The version each coordinate was LAST PUBLISHED at. Written by the release job; see .github/scripts/maven-publish-plan.sh. Seeded from Maven Central, not from the tag: every coordinate was verified to resolve at 1.63.0 before this file was committed.",
+  "modules": {
+    "rc-player-compose": "1.63.0",
+    "rc-player-protocol": "1.63.0",
+    "rc-player-runtime": "1.63.0",
+    "rc-player-trace": "1.63.0",
+    "rc-player-wasm-dist": "1.63.0",
+    "remote-compose-player-js-dist": "1.63.0",
+    "third-party-rc-embedded-player": "1.63.0",
+    "third-party-rc-embedded-player-jvm": "1.63.0"
+  }
+}
