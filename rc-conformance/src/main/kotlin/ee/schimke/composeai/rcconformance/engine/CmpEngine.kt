@@ -18,6 +18,7 @@ import ee.schimke.composeai.rcconformance.runner.ConformanceSession
 import ee.schimke.composeai.rcconformance.runner.Observation
 import ee.schimke.composeai.rcconformance.runner.UnsupportedStepKind
 import ee.schimke.composeai.rcconformance.runner.toRgba
+import ee.schimke.composeai.rcplayer.compose.LocalRcAhemTextMetrics
 import ee.schimke.composeai.rcplayer.compose.LocalRcInspection
 import ee.schimke.composeai.rcplayer.compose.RcComponentIdKey
 import ee.schimke.composeai.rcplayer.compose.RcComponentKindKey
@@ -111,7 +112,13 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
 
   private fun newScene(): ImageComposeScene =
     ImageComposeScene(width = width, height = height, density = Density(density)) {
-      CompositionLocalProvider(LocalRcInspection provides true) {
+      CompositionLocalProvider(
+        LocalRcInspection provides true,
+        // Per gold: the closed-form model and a real text stack agree on a single-line run and
+        // disagree on line breaking (§2.3), so a gold measured with the real stack must not be
+        // replayed through the model.
+        LocalRcAhemTextMetrics provides (gold.textMetrics == "ahem"),
+      ) {
         // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
         // sized by the modifier the host supplies; with the default `Modifier` that canvas measures
         // 0x0, and anything sized *from* the `DrawScope` — canvas-drawn text especially — lays out

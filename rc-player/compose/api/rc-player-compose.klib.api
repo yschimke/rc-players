@@ -952,6 +952,8 @@ final object ee.schimke.composeai.rcplayer.compose/RcSpannableString { // ee.sch
     final fun annotate(ee.schimke.composeai.rcplayer.compose/RcCustomComponent): androidx.compose.ui.text/AnnotatedString // ee.schimke.composeai.rcplayer.compose/RcSpannableString.annotate|annotate(ee.schimke.composeai.rcplayer.compose.RcCustomComponent){}[0]
 }
 
+final val ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics // ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics|{}LocalRcAhemTextMetrics[0]
+    final fun <get-LocalRcAhemTextMetrics>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics.<get-LocalRcAhemTextMetrics>|<get-LocalRcAhemTextMetrics>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcInspection // ee.schimke.composeai.rcplayer.compose/LocalRcInspection|{}LocalRcInspection[0]
     final fun <get-LocalRcInspection>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcInspection.<get-LocalRcInspection>|<get-LocalRcInspection>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost|{}LocalRcSoundHost[0]
