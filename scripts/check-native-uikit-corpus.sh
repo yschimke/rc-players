@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Score the native UIKit player against the CMP JVM player over the wear-m3-catalog sticker sheet —
-# ~700 real Material 3 documents, authored by another team, that this player has never seen.
+# real Material 3 documents, authored by another team, that this player has never seen.
+#
+# ONE DOCUMENT PER COMPONENT by default: 60 of the sheet's 701. Set RC_CATALOG_SAMPLE=all to score
+# every document. See scripts/rc-catalog-corpus/sample-corpus.py for why the sample is the better
+# measurement as well as the cheaper one — the sheet is dominated by four components, so a score
+# over all 701 mostly reports on those.
 #
 # This is ENRICHMENT, not a gate. The corpus is generated output this repository does not control,
 # and a document the native player declines is a finding to read rather than a build to fail. So the
@@ -23,6 +28,12 @@ lanes_dir="$(cd "$lanes_dir" && pwd)"
 if [ ! -f "$corpus/manifest.json" ]; then
   echo "error: no corpus at $corpus; run scripts/rc-catalog-corpus/refresh-corpus.sh" >&2
   exit 1
+fi
+
+sheet="$corpus"
+if [ "${RC_CATALOG_SAMPLE:-component}" != "all" ]; then
+  corpus="$repo_root/build/rc-catalog-corpus-sample"
+  "$repo_root/scripts/rc-catalog-corpus/sample-corpus.py" "$sheet" "$corpus"
 fi
 
 documents="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
@@ -106,13 +117,15 @@ if reasons:
 for label, names in (("declined", errors), ("unsupported", unsupported)):
     if not names:
         continue
-    # Grouped by component rather than listed one by one: ~700 stickers across 60 components means
-    # a flat list is unreadable, and the component is what a fix is scoped to anyway.
+    # Grouped by component, because the component is what a fix is scoped to. With one document
+    # per component the count after each name is 1 and adds nothing, so it is dropped; scoring the
+    # whole sheet (RC_CATALOG_SAMPLE=all) puts it back, where a flat list would be unreadable.
     components = {}
     for name in names:
         components.setdefault(name.split("__")[0], []).append(name)
     summary = ", ".join(
-        f"{component} ({len(items)})" for component, items in sorted(components.items())
+        component if len(items) == 1 else f"{component} ({len(items)})"
+        for component, items in sorted(components.items())
     )
     print(f"  {label}: {summary}")
 PY
