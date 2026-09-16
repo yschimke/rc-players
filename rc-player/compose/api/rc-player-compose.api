@@ -722,6 +722,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNativeTextStyle {
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcPlayerInspectionKt {
+	public static final fun getLocalRcAhemTextMetrics ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 	public static final fun getLocalRcInspection ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 	public static final fun getRcComponentId (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)I
 	public static final fun getRcComponentIdKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;

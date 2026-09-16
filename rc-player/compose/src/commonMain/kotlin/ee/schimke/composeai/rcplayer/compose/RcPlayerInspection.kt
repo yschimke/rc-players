@@ -126,6 +126,18 @@ public var SemanticsPropertyReceiver.rcComponentKind: String by RcComponentKindK
 /** Sets [RcComponentVisibilityKey]. */
 public var SemanticsPropertyReceiver.rcComponentVisibility: Int by RcComponentVisibilityKey
 
+/**
+ * Selects the **closed-form Ahem text model** instead of the real text stack.
+ *
+ * The model AndroidX's conformance corpus measures its golds with (`CONFORMANCE_FORMAT.md` §2.3):
+ * one em of advance per glyph, ascent `0.8em`, descent `0.2em`, greedy word wrap on character
+ * counts. Deliberately naive, and not how you would lay out real text even in Ahem — so it is a
+ * switch, off by default, for a harness replaying that corpus and nothing else.
+ */
+public val LocalRcAhemTextMetrics: ProvidableCompositionLocal<Boolean> = staticCompositionLocalOf {
+  false
+}
+
 /** Sets [RcContentInsetKey]. */
 public var SemanticsPropertyReceiver.rcContentInset: Offset by RcContentInsetKey
 

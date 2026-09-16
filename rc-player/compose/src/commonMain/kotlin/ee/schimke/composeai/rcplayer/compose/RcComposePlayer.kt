@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -147,6 +148,7 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -283,6 +285,7 @@ import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -1320,7 +1323,17 @@ private fun RenderLayoutNode(
             properties.intProperty(11, Int.MAX_VALUE),
           ),
         autoSize =
-          if (autosize)
+          if (autosize && LocalRcAhemTextMetrics.current)
+            RcAhemAutoSize(
+              minPx = resolvedMinFontSize,
+              maxPx = resolvedMaxFontSize,
+              maxLines =
+                androidXMaxLines(
+                  properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP),
+                  properties.intProperty(11, Int.MAX_VALUE),
+                ),
+            )
+          else if (autosize)
             TextAutoSize.StepBased(
               minFontSize = with(density) { resolvedMinFontSize.toSp() },
               maxFontSize = with(density) { resolvedMaxFontSize.toSp() },
@@ -2771,6 +2784,84 @@ private fun RcLayoutModifiers.withoutFillDimensions(): RcLayoutModifiers {
           (fillsHeight && operation is RcHeightModifier && operation.type == RcDimensionType.FILL)
       },
   )
+}
+
+/**
+ * Greedy word wrap on character counts — the closed-form Ahem model (`CONFORMANCE_FORMAT.md` §2.3).
+ */
+internal fun rcAhemWrap(text: String, availableWidthPx: Float, fontSizePx: Float): List<String> {
+  if (fontSizePx <= 0f || availableWidthPx <= 0f) return listOf(text)
+  val perLine = floor(availableWidthPx / fontSizePx).toInt()
+  if (perLine <= 0) return listOf(text)
+  val lines = mutableListOf<String>()
+  var line = ""
+  text.split(' ').forEach { word ->
+    val candidate = if (line.isEmpty()) word else "$line $word"
+    if (candidate.length <= perLine || line.isEmpty()) line = candidate
+    else {
+      lines += line
+      line = word
+    }
+  }
+  if (line.isNotEmpty()) lines += line
+  return lines
+}
+
+/**
+ * Autosize under the closed-form Ahem model, resolved where Compose resolves it.
+ *
+ * `TextAutoSize.getFontSize` is handed the incoming [Constraints] — the one place the available
+ * space is visible at the moment the size is chosen. Earlier attempts at this tried to obtain that
+ * space by wrapping `CoreText` in a `BoxWithConstraints` or a `SubcomposeLayout`; both reported the
+ * host's size rather than the text run's. No host is needed.
+ *
+ * The predicate is derived from the corpus, and each clause is load-bearing — it reproduces all
+ * four autosize golds exactly, and dropping any one of them breaks at least one:
+ *
+ * * **the search starts strictly below `maxFontSize`.** `core_text_autosize_max_clamped` clamps at
+ *   18 and the reference settles at 17.5 even though 18 fits;
+ * * **width must fit, inclusively** (`widest × size <= availableWidth`). A single unsplittable word
+ *   can overflow the line the wrap computed, which is what `core_text_autosize_basic` turns on: at
+ *   39.5 the one word measures 316 in a 200 box, and only `<= 200` steps it down to 25;
+ * * **height must fit, strictly** (`lines × size < availableHeight`).
+ *   `core_text_autosize_height_driven` has a 24px box where a 24px line fits exactly, and the
+ *   reference still steps to 23.5;
+ * * **`maxLines` caps the line count before the height test**, which is the whole of
+ *   `core_text_autosize_min_clamped`.
+ *
+ * Every line is one em tall (`0.8em` ascent + `0.2em` descent), so a block is `lines × size`.
+ */
+private class RcAhemAutoSize(
+  private val minPx: Float,
+  private val maxPx: Float,
+  private val maxLines: Int,
+  private val stepPx: Float = 0.5f,
+) : TextAutoSize {
+  override fun TextAutoSizeLayoutScope.getFontSize(
+    constraints: Constraints,
+    text: AnnotatedString,
+  ): TextUnit {
+    val width = constraints.maxWidth.toFloat()
+    val height = constraints.maxHeight.toFloat()
+    var size = maxPx - stepPx
+    while (size > minPx) {
+      val lines = rcAhemWrap(text.text, width, size).take(maxLines)
+      val widest = (lines.maxOfOrNull { it.length } ?: 0) * size
+      if (widest <= width && lines.size * size < height) break
+      size -= stepPx
+    }
+    return with(this) { size.coerceAtLeast(minPx).toSp() }
+  }
+
+  override fun equals(other: Any?): Boolean =
+    other is RcAhemAutoSize &&
+      minPx == other.minPx &&
+      maxPx == other.maxPx &&
+      maxLines == other.maxLines &&
+      stepPx == other.stepPx
+
+  override fun hashCode(): Int =
+    ((minPx.hashCode() * 31 + maxPx.hashCode()) * 31 + maxLines) * 31 + stepPx.hashCode()
 }
 
 private fun Modifier.inspectComponent(
