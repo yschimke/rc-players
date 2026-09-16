@@ -1,8 +1,11 @@
 package ee.schimke.composeai.rcconformance.engine
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcconformance.corpus.Check
 import ee.schimke.composeai.rcconformance.corpus.Gold
@@ -12,16 +15,23 @@ import ee.schimke.composeai.rcconformance.runner.ConformanceSession
 import ee.schimke.composeai.rcconformance.runner.Observation
 import ee.schimke.composeai.rcconformance.runner.UnsupportedStepKind
 import ee.schimke.composeai.rcconformance.runner.toRgba
+import ee.schimke.composeai.rcplayer.compose.LocalRcPlayerInspector
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
+import ee.schimke.composeai.rcplayer.compose.RcInspectedNode
+import ee.schimke.composeai.rcplayer.compose.RcPlayerInspector
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.File
 import javax.imageio.ImageIO
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -30,33 +40,24 @@ import org.jetbrains.skia.EncodedImageFormat
 /**
  * The supported CMP player — `rc-player-compose` — driven headless through `ImageComposeScene`.
  *
- * `ImageComposeScene` rasterizes through skiko's software path with no `DISPLAY`, which is the same
- * property `:rc-player-profile` relies on and what lets this lane produce a real score on a CI
- * runner rather than only on a desktop.
+ * `ImageComposeScene` rasterizes through skiko's software path with no `DISPLAY`, the same property
+ * `:rc-player-profile` relies on, which is what lets this lane produce a real score on a CI runner
+ * rather than only on a desktop.
  *
- * ### What this lane can and cannot observe yet
+ * ### What it observes
  *
- * Two probe families work against the player exactly as it ships:
+ * `tree` and the scalar state probes both go through `RcPlayerInspector`, the observation seam on
+ * the player. `raster` renders real pixels through the real renderer with the corpus font
+ * registered. `ops:*` is a census of the decoded document, named through the generated AndroidX
+ * inventory so `DRAW_RECT` reports as `DrawRect` without a translation table that could drift.
  *
- * * **`raster`** — the scene renders real pixels through the real renderer, with the corpus font
- *   registered ([AhemTypefaces]). 633 of the corpus's 1515 checks are rasters.
- * * **`ops:*` and `records:components`** — an operation census off the decoded document. The
- *   generated AndroidX inventory maps each opcode to the corpus's own class vocabulary, so
- *   `DRAW_RECT` is reported as `DrawRect` without a hand-written translation table that could
- *   drift.
- *
- * Everything else reports [Observation.NotImplemented], which the runner scores as a **failed**
- * check. That is the guide's instruction (§8) and it is the honest answer: the CMP player has no
- * public seam that exposes its laid-out component geometry or its float slots to a host, so this
- * lane genuinely cannot observe them today. `Modifier.trackComponentGeometry` publishes geometry
- * only for components the *document* binds a `ComponentValue` to, which is a small minority of
- * nodes and not the tree the `tree` probe asks for.
- *
- * Reporting them as unimplemented rather than skipping them is the whole point. A runner that
- * scores 100% by skipping what it cannot do has told you nothing; one that reports a partial score
- * with named gaps has told you something true, and the gaps are the work list.
+ * What remains unobserved is the four **transient-event** channels — `records:glyph_runs`,
+ * `records:anchor_runs`, `draw_log:commands`, `trace:branches`. Those are not state a probe can
+ * read after the fact: once the paint returns there is nothing left to query, so capturing them
+ * needs the player to surface each event as it happens. They report [Observation.NotImplemented],
+ * which the runner scores as a failure — the guide's instruction, and the honest answer.
  */
-public class CmpEngine(private val specDir: File) : ConformanceEngine {
+public class CmpEngine(specDir: File) : ConformanceEngine {
   override val name: String = "cmp"
 
   override val version: String = CmpEngine::class.java.`package`?.implementationVersion ?: "dev"
@@ -71,70 +72,199 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
 
   private val document: RcDocument = RcDocumentCodec.decode(gold.documentBytes())
 
-  /**
-   * Viewport, seeded from the gold's authoring parameters.
-   *
-   * Falls back to the corpus's prevailing 400x400 rather than to the document header: a gold's
-   * `parameters` are what the reference engine was driven at, and the header's own size is a
-   * *declaration* the document may scale away from.
-   */
   private var width = gold.parameters.intOr("width", 400)
   private var height = gold.parameters.intOr("height", 400)
   private val density = gold.parameters.floatOr("density", 1f)
 
+  /** Explicit theme, when a `theme` step has selected one. Light `-3`, dark `-2`, normal `-1`. */
+  private var theme = RcPlayerTheme.System
+
   /**
-   * The steps run so far, replayed whenever the viewport changes.
+   * The steps run so far, replayed whenever the scene has to be rebuilt.
    *
    * `ImageComposeScene` fixes its output surface at construction, and a `raster` check must be
    * compared at the reference image's own dimensions — so a resize needs a new scene. Rebuilding
    * and replaying, rather than carrying the old scene forward, is what keeps that from silently
    * resetting accumulated state: a gold whose third step asserts the effect of its first two would
-   * otherwise pass or fail against a document that had only ever seen the resize. It costs time,
-   * which is the right thing to spend to keep a step's history intact.
+   * otherwise be scored against a document that had only ever seen the resize.
    */
   private val history = mutableListOf<Step>()
 
+  private var inspector = RcPlayerInspector()
   private var scene: ImageComposeScene = newScene()
+
+  /**
+   * Animation time, in nanoseconds, which is what `ImageComposeScene.render` is driven by.
+   *
+   * Held here rather than read back from the scene because several step kinds move it in ways a
+   * frame count cannot express — `advance_time` jumps it, `frame_sequence` walks it from a declared
+   * base, and `time` sets it outright.
+   */
   private var frameNanos = 0L
 
   private fun newScene(): ImageComposeScene =
     ImageComposeScene(width = width, height = height, density = Density(density)) {
-      // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
-      // sized by the modifier the host supplies; with the default `Modifier` that canvas measures
-      // 0x0, and anything sized *from* the `DrawScope` — canvas-drawn text especially — lays out
-      // into nothing while explicitly positioned draws still land. The result looks like a partial
-      // render rather than a misconfigured harness.
-      RcComposePlayer(
-        document,
-        Modifier.fillMaxSize(),
-        theme = RcPlayerTheme.System,
-        typefaces = typefaces,
-      )
+      CompositionLocalProvider(LocalRcPlayerInspector provides inspector) {
+        // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
+        // sized by the modifier the host supplies; with the default `Modifier` that canvas measures
+        // 0x0, and anything sized *from* the `DrawScope` — canvas-drawn text especially — lays out
+        // into nothing while explicitly positioned draws still land. The result looks like a
+        // partial
+        // render rather than a misconfigured harness.
+        RcComposePlayer(document, Modifier.fillMaxSize(), theme = theme, typefaces = typefaces)
+      }
     }
 
   override fun execute(step: Step) {
     when (step.kind) {
-      "paint" -> paint(step.frames)
-      "resize" -> {
-        val newWidth = step.int("width", width)
-        val newHeight = step.int("height", height)
-        if (newWidth != width || newHeight != height) {
-          width = newWidth
-          height = newHeight
-          rebuildAndReplay()
-        }
+      "paint" -> paintStep(step)
+      "resize" -> resize(step.int("width", width), step.int("height", height), step.frames)
+      // `settle` runs nothing by definition (§3): a terminal marker so a check can bind to "after
+      // everything". Treating it as unsupported would fail its checks as STEP_NOT_RUN.
+      "settle" -> Unit
+      "theme" -> themeStep(step)
+      "advance_time" -> {
+        frameNanos += step.int("advance_millis", 0).toLong() * NANOS_PER_MILLI
         paint(step.frames)
       }
-      // `settle` runs nothing by definition (§3): it is a terminal marker so a check can bind to
-      // "after everything". Treating it as unsupported would fail its checks as STEP_NOT_RUN.
-      "settle" -> Unit
+      "time" -> {
+        step.float("seconds")?.let { frameNanos = (it * NANOS_PER_SECOND).toLong() }
+        paint(step.frames, measure = step.bool("measure", true))
+      }
+      "frame_sequence" -> frameSequence(step)
+      "trigger" -> trigger(step)
+      "click",
+      "longPress",
+      "doubleClick" -> {
+        val point = Offset(step.float("x") ?: 0f, step.float("y") ?: 0f)
+        repeat(if (step.kind == "doubleClick") 2 else 1) { press(point, release = true) }
+        afterGesture(step)
+      }
+      "touch_down" -> {
+        press(Offset(step.float("x") ?: 0f, step.float("y") ?: 0f), release = false)
+        afterGesture(step)
+      }
+      "touch_drag" -> {
+        scene.sendPointerEvent(
+          PointerEventType.Move,
+          Offset(step.float("x") ?: 0f, step.float("y") ?: 0f),
+        )
+        afterGesture(step)
+      }
+      "touch_up" -> {
+        scene.sendPointerEvent(
+          PointerEventType.Release,
+          Offset(step.float("x") ?: 0f, step.float("y") ?: 0f),
+        )
+        afterGesture(step)
+      }
+      "clock_snapshot" -> clockSnapshot(step)
       else -> throw UnsupportedStepKind(step.kind)
     }
     history += step
   }
 
+  private fun paintStep(step: Step) {
+    step.float("animation_time_seconds")?.let { frameNanos = (it * NANOS_PER_SECOND).toLong() }
+    paint(step.frames, measure = step.bool("measure", true))
+  }
+
+  private fun themeStep(step: Step) {
+    theme =
+      when (step.int("theme", -1)) {
+        LIGHT_THEME -> RcPlayerTheme.Light
+        DARK_THEME -> RcPlayerTheme.Dark
+        else -> RcPlayerTheme.System
+      }
+    // The theme is a composition input, so it takes a rebuild rather than a repaint.
+    rebuildAndReplay()
+    paint(step.frames)
+  }
+
+  private fun resize(newWidth: Int, newHeight: Int, frames: Int) {
+    if (newWidth != width || newHeight != height) {
+      width = newWidth
+      height = newHeight
+      rebuildAndReplay()
+    }
+    paint(frames)
+  }
+
+  /**
+   * A `trigger` is a one-shot stimulus followed by a single measure/paint (§3).
+   *
+   * Only `resize` and `click` triggers appear in the corpus; anything else throws rather than being
+   * silently treated as a no-op, which would turn the step's checks into false passes.
+   */
+  private fun trigger(step: Step) {
+    val trigger = step.obj("trigger") ?: throw UnsupportedStepKind("trigger(no payload)")
+    fun number(key: String): Float? = (trigger[key] as? JsonPrimitive)?.content?.toFloatOrNull()
+    when ((trigger["type"] as? JsonPrimitive)?.content) {
+      "resize" ->
+        resize(number("width")?.toInt() ?: width, number("height")?.toInt() ?: height, frames = 1)
+      "click" -> {
+        press(Offset(number("x") ?: 0f, number("y") ?: 0f), release = true)
+        paint(frames = 1)
+      }
+      else -> throw UnsupportedStepKind("trigger(${trigger["type"]})")
+    }
+  }
+
+  /**
+   * Paints frames `0…total_frames`, walking wall-clock from the declared base.
+   *
+   * The `capture` list is not acted on here: this runner evaluates every check at the step it is
+   * bound to, and the corpus binds these checks to the step itself, so walking the frames and
+   * leaving the clock where the last one put it is exactly what the following checks read.
+   */
+  private fun frameSequence(step: Step) {
+    val base = step.int("base_time_millis", 0).toLong() * NANOS_PER_MILLI
+    for (frame in 0..step.int("total_frames", 0)) {
+      frameNanos = base + frame.toLong() * FRAME_INTERVAL_NANOS
+      scene.render(frameNanos)
+    }
+  }
+
+  /**
+   * Rebuilds the document against a frozen clock, then paints.
+   *
+   * The rebuild is not optional: the clock is consulted at *construction*, so repainting an
+   * existing document would not re-derive the values and the run would silently compare the same
+   * instant at every snapshot (guide §8).
+   */
+  private fun clockSnapshot(step: Step) {
+    val seconds =
+      (step.obj("clock")?.get("continuous_seconds") as? JsonPrimitive)?.content?.toDoubleOrNull()
+        ?: 0.0
+    rebuildAndReplay()
+    frameNanos = (seconds * NANOS_PER_SECOND).toLong()
+    paint(frames = 2)
+  }
+
+  /**
+   * The measure/paint that follows a gesture, unless the step declines it.
+   *
+   * `repaint: false` is honoured because the post-gesture repaint clears the transient
+   * touch-coordinate slots (13 = x, 14 = y) that the interactivity checks read — repainting anyway
+   * makes those checks compare against cleared values (§3).
+   */
+  private fun afterGesture(step: Step) {
+    val advance = step.int("advance_millis", 0)
+    if (advance > 0) frameNanos += advance.toLong() * NANOS_PER_MILLI
+    if (step.bool("repaint", true)) paint(frames = 1)
+  }
+
+  private fun press(point: Offset, release: Boolean) {
+    scene.sendPointerEvent(PointerEventType.Press, point)
+    if (release) scene.sendPointerEvent(PointerEventType.Release, point)
+  }
+
   private fun rebuildAndReplay() {
     scene.close()
+    // A fresh inspector too: the old one's newest-pass bookkeeping belongs to a scene that no
+    // longer
+    // exists, and carrying it over would let a stale tree answer the next probe.
+    inspector = RcPlayerInspector()
     scene = newScene()
     frameNanos = 0L
     history.forEach { earlier ->
@@ -147,39 +277,132 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
   }
 
   /** Paints [frames] frames, advancing animation time by 1/60 s per frame (§3). */
-  private fun paint(frames: Int) {
-    repeat(frames) {
+  private fun paint(frames: Int, measure: Boolean = true) {
+    if (!measure && frames == 0) return
+    repeat(frames.coerceAtLeast(1)) {
       scene.render(frameNanos)
       frameNanos += FRAME_INTERVAL_NANOS
     }
   }
 
+  // ------------------------------------------------------------------ probes
+
   override fun observe(check: Check): Observation =
     when (check.key) {
+      "tree" -> Observation.Value(tree())
       "raster" -> raster()
+      "float" -> scalar(check) { id -> readFloat(id) }
+      "int" -> scalar(check) { id -> state()?.integer(id)?.let(::JsonPrimitive) }
+      // §4.2: ARGB as an *unsigned* 32-bit integer, so 0xFFFF0000 reports as 4294901760 rather than
+      // as the negative Int the same bits mean on the JVM.
+      "color" ->
+        scalar(check) { id -> state()?.color(id)?.let { JsonPrimitive(it.toUInt().toLong()) } }
+      "text" -> scalar(check) { id -> state()?.text(id)?.let(::JsonPrimitive) }
+      "matrix" -> scalar(check) { id -> state()?.matrixValues(id)?.toJsonArray() }
+      "float_array:dynamic" -> scalar(check) { id -> state()?.floatValues(id)?.toJsonArray() }
+      "particles" -> particles(check)
       "ops:count" -> Observation.Value(JsonPrimitive(document.operations.size))
       "ops:present",
       "ops:absent" -> Observation.Value(names().distinct().toJsonArray())
       "ops:counts" ->
         Observation.Value(
           buildJsonObject {
-            names()
-              .groupingBy { it }
-              .eachCount()
-              .forEach { (name, count) -> put(name, JsonPrimitive(count)) }
+            names().groupingBy { it }.eachCount().forEach { (n, c) -> put(n, JsonPrimitive(c)) }
           }
         )
+      "ops:component_count" -> Observation.Value(JsonPrimitive(inspector.nodes.size))
+      "ops:distinct_ids" -> {
+        val ids = inspector.nodes.map { it.componentId }
+        Observation.Value(JsonPrimitive(ids.distinct().size == ids.size))
+      }
       "records:components" -> Observation.Value(names().toJsonArray())
       else -> Observation.NotImplemented
     }
 
+  private fun state(): RcPlayerState? = inspector.state
+
   /**
-   * The document's operations in the corpus's own class vocabulary.
+   * Reads float slot [id], or null when the document has no such slot.
    *
-   * Taken from the generated AndroidX inventory rather than from this player's Kotlin class names:
-   * the inventory is derived from `Operations.java`, so `DRAW_RECT` becomes `DrawRect` by the same
-   * rule the corpus was authored under, and a renamed Kotlin type cannot silently change a score.
+   * A slot reference on the wire is a NaN-encoded word rather than a plain index, so this builds
+   * one the way the decoder would. `integer` is the presence test: the state stores a float and its
+   * truncation together, so a slot that holds nothing answers null there — whereas `resolve` would
+   * return the word's own NaN payload, which is a number, and would compare as a real observation
+   * of a slot that does not exist.
    */
+  private fun readFloat(id: Int): JsonElement? {
+    val state = state() ?: return null
+    if (state.integer(id) == null) return null
+    return JsonPrimitive(state.resolve(RcFloatWord(NAN_SLOT_REFERENCE or id)))
+  }
+
+  /**
+   * The tree in the corpus's encoding: ids ascending, positions **parent-relative**.
+   *
+   * The inspector reports root coordinates, because a component's Compose position is relative to
+   * its immediate layout node and several managers wrap each child in one — see [RcInspectedNode].
+   * Parent-relative is recovered here by the corpus's own reconstruction rule (§4.3): nodes are in
+   * reverse creation order, so a node's parent is the first *later* entry one level shallower.
+   */
+  private fun tree(): JsonArray {
+    val nodes = inspector.nodes
+    return buildJsonArray {
+      nodes.forEachIndexed { index, node ->
+        val parent = nodes.drop(index + 1).firstOrNull { it.depth == node.depth - 1 }
+        add(node.toJson(parentX = parent?.x ?: 0f, parentY = parent?.y ?: 0f))
+      }
+    }
+  }
+
+  private fun RcInspectedNode.toJson(parentX: Float, parentY: Float): JsonObject = buildJsonObject {
+    put("id", JsonPrimitive(componentId))
+    put("kind", JsonPrimitive(kind))
+    put("depth", JsonPrimitive(depth))
+    put("x", JsonPrimitive(x - parentX))
+    put("y", JsonPrimitive(y - parentY))
+    put("width", JsonPrimitive(width))
+    put("height", JsonPrimitive(height))
+    put("isGone", JsonPrimitive(isGone))
+    put(
+      "visibility",
+      JsonPrimitive(
+        when (visibility) {
+          0 -> "GONE"
+          2 -> "INVISIBLE"
+          else -> "VISIBLE"
+        }
+      ),
+    )
+    // §4.3: emitted only when non-zero, and then on both sides.
+    if (scrollX != 0f) put("scroll_x", JsonPrimitive(scrollX))
+    if (scrollY != 0f) put("scroll_y", JsonPrimitive(scrollY))
+  }
+
+  /**
+   * Reads a scalar slot addressed either by numeric id or by variable name (§4).
+   *
+   * Name resolution goes through the document's own `NamedVariable` table rather than a lookup this
+   * runner maintains, so a name the document does not declare reports as unresolved instead of
+   * quietly reading slot 0 — which exists, holds a plausible number, and would compare as a real
+   * observation.
+   */
+  private fun scalar(check: Check, read: (Int) -> JsonElement?): Observation {
+    val target = check.target ?: return Observation.NotImplemented
+    val id =
+      target.toIntOrNull()
+        ?: state()?.namedVariable(target)?.id
+        ?: return Observation.NotImplemented
+    return read(id)?.let { Observation.Value(it) } ?: Observation.NotImplemented
+  }
+
+  private fun particles(check: Check): Observation {
+    val id = check.target?.toIntOrNull() ?: return Observation.NotImplemented
+    val snapshot = state()?.particleSnapshot(id) ?: return Observation.NotImplemented
+    return Observation.Value(
+      buildJsonArray { snapshot.forEach { particle -> add(particle.toFloatArray().toJsonArray()) } }
+    )
+  }
+
   private fun names(): List<String> =
     document.operations.mapNotNull { RcOperationInventory.byOpcode[it.opcode]?.stableName }
 
@@ -200,6 +423,13 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
 
   private companion object {
     const val FRAME_INTERVAL_NANOS = 1_000_000_000L / 60
+    const val NANOS_PER_MILLI = 1_000_000L
+    const val NANOS_PER_SECOND = 1_000_000_000.0
+    const val LIGHT_THEME = -3
+
+    /** The NaN payload that marks a float word as a reference to a slot rather than a literal. */
+    const val NAN_SLOT_REFERENCE = 0x7fc00000
+    const val DARK_THEME = -2
   }
 }
 
@@ -207,8 +437,12 @@ private fun List<String>.toJsonArray(): JsonArray = buildJsonArray {
   forEach { add(JsonPrimitive(it)) }
 }
 
-private fun kotlinx.serialization.json.JsonObject.intOr(key: String, fallback: Int): Int =
+private fun FloatArray.toJsonArray(): JsonArray = buildJsonArray {
+  forEach { add(JsonPrimitive(it)) }
+}
+
+private fun JsonObject.intOr(key: String, fallback: Int): Int =
   (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toInt() ?: fallback
 
-private fun kotlinx.serialization.json.JsonObject.floatOr(key: String, fallback: Float): Float =
+private fun JsonObject.floatOr(key: String, fallback: Float): Float =
   (this[key] as? JsonPrimitive)?.content?.toFloatOrNull() ?: fallback
