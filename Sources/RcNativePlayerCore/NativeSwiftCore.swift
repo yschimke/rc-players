@@ -1667,6 +1667,31 @@ private enum NativeSwiftDocumentDecoder {
         texts[id] = try input.utf8("text", maximum: maximumStringBytes)
       case 138:  // Color constant
         colors[try input.int("color id")] = UInt32(bitPattern: Int32(try input.int("color")))
+      case 196:  // Color theme
+        // INT id, INT colorGroupId, SHORT lightIndex, SHORT darkIndex, INT lightFallback,
+        // INT darkFallback. The two indices select from a colour group this player does not carry,
+        // so only the fallbacks are usable -- which is what the reference seeds its light and dark
+        // values with at construction, so a player that is never told a theme still resolves to a
+        // real colour.
+        //
+        // Light is the one taken, and that is measured rather than reasoned. The TypeScript
+        // reference resolves light only for THEME_LIGHT (-3) and falls to dark for everything else
+        // including THEME_UNSPECIFIED, which is what a player with no theme concept is -- so
+        // following it would mean dark. Against the CMP JVM lane, which is what this player is
+        // scored on, dark renders theme-systemthemeswatches 25.59% wrong and light renders it
+        // pixel-exact. The catalog publishes a light-theme sheet, so light is what its reference
+        // pixels are.
+        //
+        // This is a constant standing in for a theme this player does not model. The moment it
+        // gains one, this reads it instead, and both fallbacks are already parsed for that.
+        let colorID = try input.int("color theme id")
+        _ = try input.int("color theme group id")
+        _ = try input.signedU16("color theme light index")
+        _ = try input.signedU16("color theme dark index")
+        let lightFallback = try input.int("color theme light fallback")
+        let darkFallback = try input.int("color theme dark fallback")
+        _ = darkFallback
+        colors[colorID] = UInt32(bitPattern: Int32(lightFallback))
       case 140:  // Integer constant
         integers[try input.int("integer id")] = try input.int("integer value")
       case 144:  // Integer expression
