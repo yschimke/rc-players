@@ -8,8 +8,23 @@ on:
 permissions:
   contents: read
 
+# A pull request collapses per branch: a new push supersedes the run it replaces, because only the
+# latest state of a branch is worth a runner.
+#
+# A PUSH TO MAIN GETS A GROUP OF ITS OWN, per commit. Every main run used to share
+# `CI-refs/heads/main` and queue behind the one before it, and with a 45-70 minute Apple lane and
+# merges arriving faster than that, main's verification ran hours behind HEAD — six commits sat
+# queued at once, and the answer to "is main green?" was about a tree from two hours ago.
+#
+# Serialising never saved a runner minute. The same six runs cost the same six runs' worth of
+# macOS time either way; queueing only decided when it was spent, and deferred the signal until it
+# was worthless. And `cancel-in-progress` would be worse than the queue here, not better: when
+# merges arrive faster than a run finishes, each new one cancels its predecessor and main ends up
+# never verified at all.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: >-
+    ${{ github.workflow }}-${{ github.ref
+    }}${{ github.event_name == 'push' && format('-{0}', github.sha) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
