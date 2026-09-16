@@ -42,11 +42,6 @@ cleanup() {
 trap cleanup EXIT
 
 rc_await_boot "$udid"
-if ! wait "$boot_pid"; then
-  cat "$boot_log" >&2
-  echo "simulator $udid failed to finish booting" >&2
-  exit 1
-fi
 
 rm -rf "$result"
 xcodebuild test -quiet \
