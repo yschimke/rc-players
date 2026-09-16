@@ -377,6 +377,9 @@ jobs:
           echo "  .package(url: \"https://github.com/${GITHUB_REPOSITORY}.git\", from: \"${swift_tag}\")"
 
       - name: Build the downloadable Simulator player
+        # Assembled by an earlier step; a release must not quietly build its own framework.
+        env:
+          RC_APPLE_PLAYER_REQUIRE_FRAMEWORK: 1
         run: |
           set -euo pipefail
           scripts/package-apple-player.sh
