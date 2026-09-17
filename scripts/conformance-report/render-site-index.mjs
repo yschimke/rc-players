@@ -225,7 +225,9 @@ ${cards}
         <li><a href="gold-overview.html">Gold overview</a>
           <span>What the corpus asserts, by subsystem. About the golds, not about a player.</span></li>
         <li><a href="https://github.com/yschimke/rc-players/blob/reports/conformance/README.md">Report branch</a>
-          <span>The durable record: the cross-lane split and the trend, in Markdown, kept per run.</span></li>
+          <span>The durable record: the cross-lane split, the work list and the trend, in Markdown,
+          kept per run. These pages are rebuilt each run and never versioned, so that is where to
+          look for what a score was last week.</span></li>
         <li><a href="https://github.com/yschimke/rc-players/blob/main/docs/design/RC_CONFORMANCE.md">What the score measures</a>
           <span>And what it does not. Read before quoting a pass rate.</span></li>
       </ul>

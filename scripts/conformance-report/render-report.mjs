@@ -665,7 +665,18 @@ function renderLanding(options, lanes, history) {
       "disagrees*, and only the first is a bug report.",
   );
   out.push("");
-  out.push("See `docs/design/RC_CONFORMANCE.md` on `main` for what the lane does and does not measure.");
+  out.push("## Elsewhere");
+  out.push("");
+  out.push(
+    "- **[The visual audits](https://yschimke.github.io/rc-players/)** — one per player, rendered " +
+      "by the corpus's own generators: the conformance matrix, side-by-side and overlay diffs, " +
+      "animation playback, and a per-test inspector with frame scrubbers. Built fresh each run and " +
+      "not versioned, which is why this Markdown is the durable record.",
+  );
+  out.push(
+    "- **[What the score measures](https://github.com/yschimke/rc-players/blob/main/docs/design/RC_CONFORMANCE.md)** " +
+      "— and what it does not. Read before quoting a pass rate.",
+  );
 
   return out.join("\n").trimEnd() + "\n";
 }
