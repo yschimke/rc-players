@@ -709,10 +709,14 @@ private fun RenderLayoutNode(
     } else if (node is RcLayoutNode.Content || lookaheadScope == null) {
       modifier
     } else {
-      modifier.animateRcBounds(
-        lookaheadScope,
-        node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
-      )
+      // Only when the document asked for it. Falling back to `DefaultRcAnimationSpec` here made
+      // every layout node animate its bounds over 300ms, so a viewport change crossed the screen
+      // instead of taking effect -- and the conformance corpus asserts the opposite in 119 golds:
+      // a `resize` lands immediately, while `animation_box_offset`, whose document *does* declare a
+      // spec, interpolates across its 18 captured frames. The default still applies to shared
+      // elements inside a `StateLayout` (see RcSharedElements), which is the case upstream declares
+      // it for.
+      node.modifiers.animationSpec?.let { modifier.animateRcBounds(lookaheadScope, it) } ?: modifier
     }
   val animatedVisibility =
     if (node is RcLayoutNode.Content) {

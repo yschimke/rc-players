@@ -36,11 +36,41 @@ wasmJs — and Android, if it had a target. That is a rewrite of `CmpEngine`, no
 platform.
 
 > [!NOTE]
-> That rewrite is worth doing **even if no other platform is ever scored.** The current engine drives
-> `ImageComposeScene` and advances animation by adding to a nanosecond counter by hand;
-> `mainClock` is the framework's own deterministic clock. It is also the obvious candidate for fixing
-> #199, where gestures dispatched through `ImageComposeScene.sendPointerEvent` reach the player not at
-> all while `performTouchInput` is the path the player's own passing tests use.
+> **That rewrite is done.** `CmpEngine` now hosts the player in `SkikoComposeUiTest`, advances time
+> with `mainClock` and dispatches gestures with `performTouchInput`, at the same 167/241 core golds
+> as the `ImageComposeScene` engine it replaced. It was worth doing even before a second platform
+> exists, and it paid for itself twice on the way:
+>
+> * **Gestures now arrive.** `interaction_scroll_column` and `interaction_scroll_row` previously
+>   observed a scroll offset of `null` and a tree that never moved — the pointer events dispatched
+>   through `ImageComposeScene.sendPointerEvent` reached the player not at all (#199). Under
+>   `performTouchInput` the content actually scrolls. Both golds still fail, at a smaller offset than
+>   the corpus expects, but the mechanism works and the remaining gap is a real one rather than a
+>   harness that was never delivering the input.
+> * **It exposed a player bug the old harness hid.** The old engine could not resize its host, so
+>   every `resize` step rebuilt the scene and replayed the timeline — which also discarded any
+>   in-flight animation. Driving a live composition instead showed the player animating *every*
+>   layout node's bounds over 300ms by default, so a viewport change crossed the screen rather than
+>   landing. See the note below.
+
+### What the live composition found
+
+Removing the rebuild-and-replay is the substantive behavioural change, and it immediately
+contradicted the corpus in 119 golds: every `resize` step reported a viewport part-way to its new
+size.
+
+The corpus is unambiguous about which side is wrong, because it asserts *both* behaviours. §3 says a
+`resize` step sets the viewport and then paints — 119 golds expect the new size in the very next
+`tree`. And `animation_box_offset`, whose document **declares** an animation spec, captures 18 frames
+across a resize and expects `100 → 199.45 → 299.75 → 300`: an animation, interpolated in the tree.
+
+So the player was animating a document that never asked it to: `animateRcBounds` fell back to
+`DefaultRcAnimationSpec` for any node without one. Animating only when the document declares a spec
+restores all 119 and removes 22 further failing checks with no gold regressing. The default still
+applies to shared elements inside a `StateLayout`, which is the case upstream declares it for.
+
+This is the rewrite's real argument. A harness that rebuilds on every resize cannot see a resize
+animation at all, and had been quietly scoring the player against a behaviour it does not have.
 
 ### Verified, not assumed
 
@@ -50,9 +80,15 @@ the whole plan rests on it:
 | | macOS native | wasmJs | iOS simulator | JVM |
 | --- | --- | --- | --- | --- |
 | compiles against `ui-test` | yes | yes | yes | yes (today) |
-| `runComposeUiTest` + `mainClock` | **runs** | not yet run | not yet run | in use |
-| unmerged semantics (`fetchSemanticsNode`) | **runs** | — | — | in use |
-| `captureToImage()` headless | **runs** — real pixels | — | — | via `ImageComposeScene` |
+| `runComposeUiTest` + `mainClock` | **runs** | not yet run | not yet run | **in use — the lane** |
+| unmerged semantics (`fetchSemanticsNode`) | **runs** | — | — | **in use — the lane** |
+| `captureToImage()` headless | **runs** — real pixels | — | — | **in use — the lane** |
+
+One thing the rewrite had to work around: `SkikoComposeUiTest` fixes its output **surface** at
+construction, so the surface is sized once to the largest viewport a gold's timeline ever asks for
+and `scene.size` — reachable, but internal compose-ui API — is what a `resize` moves. Content lays
+out from the origin, so a frame is the surface snapshot cropped to the current viewport. Any port to
+another platform inherits that arrangement.
 
 `org.jetbrains.compose.ui:ui-test` is declared only in `jvmTest` today; moving it to `commonTest` is
 what makes the klib targets resolve it, and they do.

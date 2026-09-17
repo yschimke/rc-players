@@ -2,14 +2,22 @@ package ee.schimke.composeai.rcconformance.engine
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.ImageComposeScene
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SkikoComposeUiTest
+import androidx.compose.ui.test.TouchInjectionScope
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
 import ee.schimke.composeai.rcconformance.corpus.Check
 import ee.schimke.composeai.rcconformance.corpus.Gold
 import ee.schimke.composeai.rcconformance.corpus.Step
@@ -55,20 +63,38 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
 
 /**
- * The supported CMP player — `rc-player-compose` — driven headless through `ImageComposeScene`.
+ * The supported CMP player — `rc-player-compose` — driven through the Compose **test** API.
  *
- * `ImageComposeScene` rasterizes through skiko's software path with no `DISPLAY`, the same property
- * `:rc-player-profile` relies on, which is what lets this lane produce a real score on a CI runner
- * rather than only on a desktop.
+ * The host is [SkikoComposeUiTest]: the same `ComposeUiTest` surface that exists on every Compose
+ * target, so this engine is the one that can be lifted to macOS, iOS and wasm rather than a
+ * JVM-only harness. It also means animation is advanced by `mainClock` — the framework's own
+ * deterministic clock — instead of a nanosecond counter this file increments by hand, and gestures
+ * go through `performTouchInput`, the path the player's own passing interaction tests use.
+ *
+ * It still rasterizes through skiko's software path with no `DISPLAY`, which is what lets this lane
+ * produce a real score on a CI runner rather than only on a desktop.
+ *
+ * ### The viewport and the surface are not the same thing
+ *
+ * `SkikoComposeUiTest` fixes its output **surface** at construction, and a `raster` check must be
+ * compared at the reference image's own dimensions. So the surface is sized once to the largest
+ * viewport the gold's timeline ever asks for, and the **viewport** — `scene.size` — is what a
+ * `resize` step moves. Content sits at the origin, so a frame is the surface snapshot cropped to
+ * the current viewport.
+ *
+ * That is why there is no longer a rebuild-and-replay: the old host could not be resized, so every
+ * resize meant a new scene and a replay of the steps so far, which risked silently resetting
+ * accumulated state. One composition now survives the whole timeline.
  *
  * ### What it observes
  *
- * `tree` and the scalar state probes both go through `RcPlayerInspector`, the observation seam on
- * the player. `raster` renders real pixels through the real renderer with the corpus font
- * registered. `ops:*` is a census of the decoded document, named through the generated AndroidX
- * inventory so `DRAW_RECT` reports as `DrawRect` without a translation table that could drift.
+ * `tree` and the scalar state probes both go through the player's semantics seam. `raster` renders
+ * real pixels through the real renderer with the corpus font registered. `ops:*` is a census of the
+ * decoded document, named through the generated AndroidX inventory so `DRAW_RECT` reports as
+ * `DrawRect` without a translation table that could drift.
  *
  * What remains unobserved is the four **transient-event** channels — `records:glyph_runs`,
  * `records:anchor_runs`, `draw_log:commands`, `trace:branches`. Those are not state a probe can
@@ -83,12 +109,60 @@ public class CmpEngine(specDir: File) : ConformanceEngine {
 
   private val typefaces = AhemTypefaces(File(specDir, "fonts/Ahem.ttf"))
 
-  override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T =
-    CmpSession(gold, typefaces).use { block(it) }
+  @OptIn(ExperimentalTestApi::class)
+  override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T {
+    val surface = surfaceSize(gold)
+    val test =
+      SkikoComposeUiTest(
+        width = surface.width,
+        height = surface.height,
+        density = Density(gold.parameters.floatOr("density", 1f)),
+      )
+    // `runTest` owns the composition for the duration of the block and closes the scene after it,
+    // which is why the engine SPI hands the session to a caller-supplied block rather than
+    // returning something closeable: there is no point at which a session outlives its host.
+    var outcome: Result<T>? = null
+    test.runTest { outcome = runCatching { block(CmpSession(this, gold, typefaces)) } }
+    return checkNotNull(outcome) { "the ${gold.name} session never ran" }.getOrThrow()
+  }
 }
 
-private class CmpSession(private val gold: Gold, private val typefaces: AhemTypefaces) :
-  ConformanceSession, AutoCloseable {
+/**
+ * The surface the whole timeline has to fit in.
+ *
+ * Every viewport the gold will ever ask for, because the surface cannot grow once the host is
+ * constructed. Missing a resize here does not fail loudly — it silently clips the frame — so both
+ * the `resize` step and the `resize` trigger are counted.
+ */
+private fun surfaceSize(gold: Gold): IntSize {
+  var width = gold.parameters.intOr("width", 400)
+  var height = gold.parameters.intOr("height", 400)
+  gold.timeline.forEach { step ->
+    when (step.kind) {
+      "resize" -> {
+        width = maxOf(width, step.int("width", 0))
+        height = maxOf(height, step.int("height", 0))
+      }
+      "trigger" -> {
+        val trigger = step.obj("trigger") ?: return@forEach
+        if ((trigger["type"] as? JsonPrimitive)?.content != "resize") return@forEach
+        width = maxOf(width, trigger.floatOr("width", 0f).toInt())
+        height = maxOf(height, trigger.floatOr("height", 0f).toInt())
+      }
+    }
+  }
+  return IntSize(width, height)
+}
+
+// `scene` is internal compose-ui API. That is acceptable in a measurement harness pinned to one
+// Compose version: if it moves, this lane fails to compile rather than silently measuring something
+// else.
+@OptIn(ExperimentalTestApi::class, InternalComposeUiApi::class)
+private class CmpSession(
+  private val test: SkikoComposeUiTest,
+  private val gold: Gold,
+  typefaces: AhemTypefaces,
+) : ConformanceSession {
 
   private val document: RcDocument = RcDocumentCodec.decode(gold.documentBytes())
 
@@ -104,35 +178,34 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
 
   private var width = gold.parameters.intOr("width", 400)
   private var height = gold.parameters.intOr("height", 400)
-  private val density = gold.parameters.floatOr("density", 1f)
 
   /** Explicit theme, when a `theme` step has selected one. Light `-3`, dark `-2`, normal `-1`. */
-  private var theme = RcPlayerTheme.System
+  private var theme by mutableStateOf(RcPlayerTheme.System)
 
   /**
-   * The steps run so far, replayed whenever the scene has to be rebuilt.
+   * Bumped to force the player to be composed afresh.
    *
-   * `ImageComposeScene` fixes its output surface at construction, and a `raster` check must be
-   * compared at the reference image's own dimensions — so a resize needs a new scene. Rebuilding
-   * and replaying, rather than carrying the old scene forward, is what keeps that from silently
-   * resetting accumulated state: a gold whose third step asserts the effect of its first two would
-   * otherwise be scored against a document that had only ever seen the resize.
+   * `clock_snapshot` is the one step that needs it: the clock is consulted at *construction*, so
+   * repainting an existing document would not re-derive the values and the run would silently
+   * compare the same instant at every snapshot (guide §8).
    */
-  private val history = mutableListOf<Step>()
-
-  private var scene: ImageComposeScene = newScene()
+  private var generation by mutableStateOf(0)
 
   /**
-   * Animation time, in nanoseconds, which is what `ImageComposeScene.render` is driven by.
+   * Milliseconds the **current composition** has been advanced by, which is what the player sees.
    *
-   * Held here rather than read back from the scene because several step kinds move it in ways a
-   * frame count cannot express — `advance_time` jumps it, `frame_sequence` walks it from a declared
-   * base, and `time` sets it outright.
+   * The player rebases: it records the first frame it is given as its origin and reports elapsed
+   * time relative to that, per document. So the absolute value of `mainClock.currentTime` is not
+   * observable and only the delta since the last rebuild matters — which is why this resets to zero
+   * with [generation] rather than tracking the clock.
    */
-  private var frameNanos = 0L
+  private var elapsedMillis = 0L
 
-  private fun newScene(): ImageComposeScene =
-    ImageComposeScene(width = width, height = height, density = Density(density)) {
+  init {
+    // Deterministic from the first frame: nothing may advance the clock except this engine.
+    test.mainClock.autoAdvance = false
+    test.scene.size = IntSize(width, height)
+    test.setContent {
       CompositionLocalProvider(
         LocalRcInspection provides true,
         // Per gold: the closed-form model and a real text stack agree on a single-line run and
@@ -140,15 +213,18 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         // replayed through the model.
         LocalRcAhemTextMetrics provides (gold.textMetrics == "ahem"),
       ) {
-        // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
-        // sized by the modifier the host supplies; with the default `Modifier` that canvas measures
-        // 0x0, and anything sized *from* the `DrawScope` — canvas-drawn text especially — lays out
-        // into nothing while explicitly positioned draws still land. The result looks like a
-        // partial
-        // render rather than a misconfigured harness.
-        RcComposePlayer(document, Modifier.fillMaxSize(), theme = theme, typefaces = typefaces)
+        key(generation) {
+          // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
+          // sized by the modifier the host supplies; with the default `Modifier` that canvas
+          // measures 0x0, and anything sized *from* the `DrawScope` — canvas-drawn text especially
+          // — lays out into nothing while explicitly positioned draws still land. The result looks
+          // like a partial render rather than a misconfigured harness.
+          RcComposePlayer(document, Modifier.fillMaxSize(), theme = theme, typefaces = typefaces)
+        }
       }
     }
+    test.waitForIdle()
+  }
 
   override fun execute(step: Step, onCapture: (String) -> Unit) {
     when (step.kind) {
@@ -159,11 +235,11 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       "settle" -> Unit
       "theme" -> themeStep(step)
       "advance_time" -> {
-        frameNanos += step.int("advance_millis", 0).toLong() * NANOS_PER_MILLI
+        advanceBy(step.int("advance_millis", 0).toLong())
         paint(step.frames)
       }
       "time" -> {
-        step.float("seconds")?.let { frameNanos = (it * NANOS_PER_SECOND).toLong() }
+        step.float("seconds")?.let { advanceTo((it * MILLIS_PER_SECOND).toLong()) }
         paint(step.frames, measure = step.bool("measure", true))
       }
       "frame_sequence" -> frameSequence(step, onCapture)
@@ -180,27 +256,20 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         afterGesture(step)
       }
       "touch_drag" -> {
-        scene.sendPointerEvent(
-          PointerEventType.Move,
-          Offset(step.float("x") ?: 0f, step.float("y") ?: 0f),
-        )
+        touch { moveTo(Offset(step.float("x") ?: 0f, step.float("y") ?: 0f)) }
         afterGesture(step)
       }
       "touch_up" -> {
-        scene.sendPointerEvent(
-          PointerEventType.Release,
-          Offset(step.float("x") ?: 0f, step.float("y") ?: 0f),
-        )
+        touch { up() }
         afterGesture(step)
       }
       "clock_snapshot" -> clockSnapshot(step)
       else -> throw UnsupportedStepKind(step.kind)
     }
-    history += step
   }
 
   private fun paintStep(step: Step) {
-    step.float("animation_time_seconds")?.let { frameNanos = (it * NANOS_PER_SECOND).toLong() }
+    step.float("animation_time_seconds")?.let { advanceTo((it * MILLIS_PER_SECOND).toLong()) }
     paint(step.frames, measure = step.bool("measure", true))
   }
 
@@ -211,8 +280,6 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
         DARK_THEME -> RcPlayerTheme.Dark
         else -> RcPlayerTheme.System
       }
-    // The theme is a composition input, so it takes a rebuild rather than a repaint.
-    rebuildAndReplay()
     paint(step.frames)
   }
 
@@ -220,7 +287,7 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
     if (newWidth != width || newHeight != height) {
       width = newWidth
       height = newHeight
-      rebuildAndReplay()
+      test.scene.size = IntSize(width, height)
     }
     paint(frames)
   }
@@ -246,7 +313,7 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
   }
 
   /**
-   * Paints frames `0…total_frames`, walking wall-clock from the declared base and snapshotting each
+   * Paints frames `0…total_frames`, walking the clock from the declared base and snapshotting each
    * frame the step names.
    *
    * The `capture` list is the point of the step. Checks bind to `frame_<n>`, where `n` is the frame
@@ -254,28 +321,22 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
    * `frame_0`, `frame_5`, `frame_10` and `frame_18`.
    */
   private fun frameSequence(step: Step, onCapture: (String) -> Unit) {
-    val base = step.int("base_time_millis", 0).toLong() * NANOS_PER_MILLI
-    val captures = step.ints("capture").toSet()
+    val base = step.int("base_time_millis", 0).toLong()
     for (frame in 0..step.int("total_frames", 0)) {
-      frameNanos = base + frame.toLong() * FRAME_INTERVAL_NANOS
-      scene.render(frameNanos)
-      if (frame in captures) onCapture("frame_$frame")
+      // 1/60 s per frame (§3), kept in milliseconds because that is the clock's unit.
+      advanceTo(base + frame * MILLIS_PER_SECOND.toLong() / FRAMES_PER_SECOND)
+      test.waitForIdle()
+      if (frame in step.ints("capture")) onCapture("frame_$frame")
     }
   }
 
-  /**
-   * Rebuilds the document against a frozen clock, then paints.
-   *
-   * The rebuild is not optional: the clock is consulted at *construction*, so repainting an
-   * existing document would not re-derive the values and the run would silently compare the same
-   * instant at every snapshot (guide §8).
-   */
+  /** Rebuilds the document against a frozen clock, then paints. */
   private fun clockSnapshot(step: Step) {
     val seconds =
       (step.obj("clock")?.get("continuous_seconds") as? JsonPrimitive)?.content?.toDoubleOrNull()
         ?: 0.0
-    rebuildAndReplay()
-    frameNanos = (seconds * NANOS_PER_SECOND).toLong()
+    rebuild()
+    advanceTo((seconds * MILLIS_PER_SECOND).toLong())
     paint(frames = 2)
   }
 
@@ -288,38 +349,65 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
    */
   private fun afterGesture(step: Step) {
     val advance = step.int("advance_millis", 0)
-    if (advance > 0) frameNanos += advance.toLong() * NANOS_PER_MILLI
+    if (advance > 0) advanceBy(advance.toLong())
     if (step.bool("repaint", true)) paint(frames = 1)
   }
 
   private fun press(point: Offset, release: Boolean) {
-    scene.sendPointerEvent(PointerEventType.Press, point)
-    if (release) scene.sendPointerEvent(PointerEventType.Release, point)
-  }
-
-  private fun rebuildAndReplay() {
-    scene.close()
-    // A fresh inspector too: the old one's newest-pass bookkeeping belongs to a scene that no
-    // longer
-    // exists, and carrying it over would let a stale tree answer the next probe.
-    scene = newScene()
-    frameNanos = 0L
-    history.forEach { earlier ->
-      when (earlier.kind) {
-        "paint",
-        "resize" -> paint(earlier.frames)
-        else -> Unit
-      }
+    touch {
+      down(point)
+      if (release) up()
     }
   }
 
-  /** Paints [frames] frames, advancing animation time by 1/60 s per frame (§3). */
+  /**
+   * Dispatches a touch sequence at the root.
+   *
+   * The root rather than a matched node: the corpus addresses gestures in viewport coordinates, and
+   * the root's bounds are the viewport, so a position needs no translation. Pointer state survives
+   * between calls, which is what lets `touch_down` / `touch_drag` / `touch_up` be three steps.
+   */
+  private fun touch(block: TouchInjectionScope.() -> Unit) {
+    test.onRoot().performTouchInput(block)
+  }
+
+  /**
+   * Discards the player and composes it again, restarting its animation origin.
+   *
+   * The frame after the bump is what the new player records as its origin, so it is rendered before
+   * the clock moves again — otherwise the rebuild would start already advanced.
+   */
+  private fun rebuild() {
+    generation += 1
+    test.waitForIdle()
+    elapsedMillis = 0L
+  }
+
+  /** Paints [frames] frames, advancing the clock by one frame each (§3). */
   private fun paint(frames: Int, measure: Boolean = true) {
     if (!measure && frames == 0) return
     repeat(frames.coerceAtLeast(1)) {
-      scene.render(frameNanos)
-      frameNanos += FRAME_INTERVAL_NANOS
+      test.waitForIdle()
+      advanceFrame()
     }
+    test.waitForIdle()
+  }
+
+  private fun advanceFrame() {
+    val before = test.mainClock.currentTime
+    test.mainClock.advanceTimeByFrame()
+    elapsedMillis += test.mainClock.currentTime - before
+  }
+
+  /** Advances to [targetMillis] since this composition's first frame, if it is still ahead. */
+  private fun advanceTo(targetMillis: Long) {
+    advanceBy(targetMillis - elapsedMillis)
+  }
+
+  private fun advanceBy(millis: Long) {
+    if (millis <= 0L) return
+    test.mainClock.advanceTimeBy(millis)
+    elapsedMillis += millis
   }
 
   // ------------------------------------------------------------------ probes
@@ -456,13 +544,13 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
   /**
    * The unmerged semantics root, or null before the first frame.
    *
-   * `semanticsOwners` is experimental on `ImageComposeScene`, which is fine for a measurement
-   * harness: if it changes, this lane fails to compile rather than silently measuring the wrong
-   * thing.
+   * Unmerged because the merged tree folds a subtree's properties into its nearest merging
+   * ancestor, which would collapse several of the player's components into one node.
    */
-  @OptIn(ExperimentalComposeUiApi::class, InternalComposeUiApi::class)
-  private fun semanticsRoot(): SemanticsNode? =
-    scene.semanticsOwners.firstOrNull()?.unmergedRootSemanticsNode
+  private fun semanticsRoot(): SemanticsNode? = runCatching {
+    test.onRoot(useUnmergedTree = true).fetchSemanticsNode()
+  }
+    .getOrNull()
 
   /**
    * Every component the player published, with its nesting depth.
@@ -713,25 +801,37 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
   private fun names(): List<String> =
     document.operations.mapNotNull { RcOperationInventory.byOpcode[it.opcode]?.stableName }
 
+  /**
+   * The current frame, cropped from the surface to the current viewport.
+   *
+   * The surface is the largest viewport the timeline asks for and never changes; `scene.size` is
+   * what a `resize` moves. Content is laid out from the origin, so the frame is the top-left corner
+   * of the snapshot — and the crop is what makes a resized gold's raster comparable at the
+   * reference image's own dimensions.
+   */
   private fun raster(): Observation {
-    val image = scene.render(frameNanos)
     val png =
-      image.encodeToData(EncodedImageFormat.PNG)?.bytes
-        ?: error("skiko declined to encode the ${gold.name} frame")
-    val decoded: BufferedImage =
+      Image.makeFromBitmap(test.captureToImage().asSkiaBitmap())
+        .encodeToData(EncodedImageFormat.PNG)
+        ?.bytes ?: error("skiko declined to encode the ${gold.name} frame")
+    val surface: BufferedImage =
       ImageIO.read(ByteArrayInputStream(png)) ?: error("could not decode the re-encoded frame")
+    val decoded =
+      if (surface.width == width && surface.height == height) surface
+      else
+        surface.getSubimage(
+          0,
+          0,
+          width.coerceAtMost(surface.width),
+          height.coerceAtMost(surface.height),
+        )
     val rgba = decoded.toRgba()
     return Observation.Raster(rgba.width, rgba.height, rgba.rgba)
   }
 
-  override fun close() {
-    scene.close()
-  }
-
   private companion object {
-    const val FRAME_INTERVAL_NANOS = 1_000_000_000L / 60
-    const val NANOS_PER_MILLI = 1_000_000L
-    const val NANOS_PER_SECOND = 1_000_000_000.0
+    const val FRAMES_PER_SECOND = 60L
+    const val MILLIS_PER_SECOND = 1_000.0
     const val LIGHT_THEME = -3
 
     /** The NaN payload that marks a float word as a reference to a slot rather than a literal. */
