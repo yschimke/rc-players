@@ -18,6 +18,7 @@ package ee.schimke.composeai.rcembedded.jvm
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.remote.core.CoreDocument
+import androidx.compose.remote.core.SystemClock
 import androidx.compose.remote.core.operations.Theme
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
@@ -72,4 +73,65 @@ public fun renderRemoteDocumentForInspection(
   } finally {
     scene.close()
   }
+}
+
+/**
+ * A document laid out by AndroidX's own measure pass, and whether that layout can be trusted.
+ *
+ * [measuredComplexText] is not a detail. When it is set, the pass asked [MeasuringPaintContext] for
+ * a wrapped multi-line layout it cannot produce, so at least one component measured against empty
+ * text and the geometry below is wrong in a way no diff can distinguish from a real layout
+ * disagreement. A caller must report the tree as unobserved rather than compare it.
+ */
+public class RcJvmLaidOutDocument
+internal constructor(public val document: CoreDocument, public val measuredComplexText: Boolean)
+
+/**
+ * Lays [bytes] out at the given viewport through **AndroidX's own** measure pass, and hands back
+ * the document so a caller can read what AndroidX decided.
+ *
+ * ### Why this is separate from [renderRemoteDocumentForInspection]
+ *
+ * That function renders: it stands the document up on a Compose scene and `RcPlayerJvm` walks the
+ * operations and draws them. It is a faithful renderer and it is *not* AndroidX's layout — the
+ * `Component` geometry on the returned document is never assigned, which is why the conformance
+ * lane could report `raster` from it and not `tree`.
+ *
+ * This runs `CoreDocument.paint`, which is where AndroidX measures and places its components. The
+ * paint context is a measure-only one, so nothing is drawn; the point is the side effect the corpus
+ * asserts, not the pixels.
+ *
+ * Keep the two side by side rather than merging them. They answer different questions — *what does
+ * AndroidX draw* and *what does AndroidX decide* — and a lane that conflated them would be
+ * comparing one player's pixels against another's layout.
+ */
+public fun layoutRemoteDocumentForInspection(
+  bytes: ByteArray,
+  widthPx: Int,
+  heightPx: Int,
+  density: Float = 1f,
+  theme: Int = Theme.LIGHT,
+): RcJvmLaidOutDocument {
+  val document = parseDocument(bytes)
+  val context =
+    initDrawContext(
+      document = document,
+      clock = SystemClock(),
+      density = density,
+      fontScale = 1f,
+      seeds = emptyMap(),
+      theme = theme,
+      systemColorLookup = { null },
+    )
+  val paintContext = MeasuringPaintContext(context)
+  context.setPaintContext(paintContext)
+  // The viewport goes on both: `CoreDocument` measures against its own width and height, while a
+  // document reading `ID_WINDOW_WIDTH` resolves it from the context. Setting one and not the other
+  // lays out at one size and computes expressions at another.
+  document.setWidth(widthPx)
+  document.setHeight(heightPx)
+  context.mWidth = widthPx.toFloat()
+  context.mHeight = heightPx.toFloat()
+  document.paint(context, theme)
+  return RcJvmLaidOutDocument(document, paintContext.measuredComplexText)
 }

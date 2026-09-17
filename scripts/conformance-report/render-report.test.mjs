@@ -174,3 +174,37 @@ test("a lane excluded from --reference cannot mask the subject's unique failures
   assert.match(run, /- `mine` at `initial`/);
   assert.match(run, /Scored above but not compared here: `native-appkit`/);
 });
+
+test("names the golds the reference reproduces and the subject does not", () => {
+  const root = workspace();
+  const out = path.join(root, "report");
+
+  // The one row that is a work list. `ours` fails here and passes on the reference, so the
+  // expectation cannot be blamed -- that is the finding. `disputed` is suspicious on both sides and
+  // must not appear in any column.
+  const subject = writeResults(root, "cmp", [
+    gold("settled"),
+    gold("ours", { status: "FAIL", diffs: [{ probe: "tree", at: "initial" }, { probe: "tree", at: "resize_0" }] }),
+    gold("ahead"),
+    gold("neither", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
+    gold("disputed", { status: "SUSPICIOUS", suspicious: true }),
+  ]);
+  const reference = writeResults(root, "androidx-jvm", [
+    gold("settled"),
+    gold("ours"),
+    gold("ahead", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
+    gold("neither", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
+    gold("disputed", { status: "SUSPICIOUS", suspicious: true }),
+  ]);
+
+  render(root, out, [subject, reference]);
+  const run = fs.readFileSync(path.join(out, "runs", "2026-01-01", "README.md"), "utf8");
+
+  assert.match(run, /\| both pass \| 1 \|/);
+  assert.match(run, /\| only `androidx-jvm` passes \| \*\*1\*\* \|/);
+  assert.match(run, /\| only `cmp` passes \| 1 \|/);
+  assert.match(run, /\| both fail \| 1 \|/);
+  // Named with its probes: "which gold" without "which probe" is not yet a bug report.
+  assert.match(run, /- `ours` — tree ×2/);
+  assert.doesNotMatch(run, /`disputed` — /);
+});
