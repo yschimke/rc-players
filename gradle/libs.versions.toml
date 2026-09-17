@@ -47,16 +47,21 @@ androidx-tracing = "2.0.2"
 # one classpath. Note 2.x publishes only `androidJvm` + `jvm` variants — there is no wasmJs or Apple
 # klib, which is the whole reason `:rc-player-trace` is an `expect`/`actual` facade.
 androidx-tracing-kmp = "2.0.2"
-# renderer-android compiles its public API surface against this OLDER BOM so
-# the emitted bytecode only references Compose 1.9.x method signatures.
-# AndroidX honours binary-backward-compatibility within a major version, so
-# consumer apps on any Compose 1.9+ runtime (including the current 1.10.x /
-# 1.11.x BOMs) can invoke it without NoSuchMethodError. When bumping this,
-# check `./gradlew :renderer-android:compileKotlin` against the new floor.
-# 2025.11.01 pins compose-ui AND compose-runtime to 1.9.5 — latest 1.9.x
-# release line. See https://developer.android.com/develop/ui/compose/bom/bom-mapping
-# Renovate is constrained to the 2025.11.x line in `.github/renovate.json` —
-# raising the supported-Compose-minimum is a manual decision.
+# The Android BOM for the VENDORED player only — `third_party/rc-embedded-player` is the sole
+# consumer (`implementation(platform(libs.compose.bom.compat))`, plus its own unit tests).
+#
+# The name is inherited and the `-compat` half of it no longer means anything here. In
+# compose-preview-daemon this ref is a published-ABI FLOOR held at 2025.11.x, because
+# `renderer-android` there compiles its public API against it so the emitted bytecode only
+# references Compose 1.9.x signatures. `renderer-android` does not exist in this repository, and
+# nothing here publishes against this BOM: the vendored player is a measurement baseline, not a
+# published artifact. So there is no supported-Compose-minimum to protect and the ref is free to
+# track the current line — which is why it sits on 2025.12.01 and why `renovate.json` carries no
+# `androidx.compose:compose-bom` ceiling, unlike its siblings.
+#
+# What DOES constrain this repository is `compose-multiplatform` below (the skiko `PathConic`
+# seams), and that one is pinned in `renovate.json`. Do not copy the daemon's compose-bom rule
+# across on the strength of the shared ref name.
 compose-bom-compat = "2025.12.01"
 # The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP
 # player. This version is also a CEILING CONSTRAINT ON EVERY CATALOG THE SERVE HOST RENDERS LIVE:
