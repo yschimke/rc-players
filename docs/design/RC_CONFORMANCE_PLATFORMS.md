@@ -42,6 +42,26 @@ platform.
 > #199, where gestures dispatched through `ImageComposeScene.sendPointerEvent` reach the player not at
 > all while `performTouchInput` is the path the player's own passing tests use.
 
+### Verified, not assumed
+
+The multiplatform Compose test API was probed on the real targets rather than taken on trust, because
+the whole plan rests on it:
+
+| | macOS native | wasmJs | iOS simulator | JVM |
+| --- | --- | --- | --- | --- |
+| compiles against `ui-test` | yes | yes | yes | yes (today) |
+| `runComposeUiTest` + `mainClock` | **runs** | not yet run | not yet run | in use |
+| unmerged semantics (`fetchSemanticsNode`) | **runs** | — | — | in use |
+| `captureToImage()` headless | **runs** — real pixels | — | — | via `ImageComposeScene` |
+
+`org.jetbrains.compose.ui:ui-test` is declared only in `jvmTest` today; moving it to `commonTest` is
+what makes the klib targets resolve it, and they do.
+
+One trap worth recording, because it cost a wrong conclusion: `captureToImage()` on a root that
+measures 0×0 fails with `kotlin.RuntimeException: Can't wrap nullptr`, which reads like "native
+cannot render headless" and is not. Give the probe real content and it returns a real frame. A
+conformance run always has content, so this only bites when writing the probe.
+
 ## What is actually hard: getting the corpus in and the results out
 
 The rendering is the easy half. Every remaining problem is logistics, and they differ per platform.
@@ -110,4 +130,5 @@ interpretation or a backend difference — which is the open question behind #20
 
 So: a second platform is worth building for the **raster** channels, and close to redundant for
 `tree`, `float` and the operation census. Scope it that way rather than running all 252 golds
-everywhere for the sake of symmetry.
+everywhere for the sake of symmetry — and since `captureToImage()` does work headless on native, the
+channel that carries the value is the one that is available.
