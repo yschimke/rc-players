@@ -2,7 +2,7 @@
 
 Every player in this repository, scored against the AndroidX RemoteCompose conformance corpus. The corpus comes from an unmerged AOSP Gerrit change and is held on `vendor/androidx-rc-conformance`; it is deliberately not in the main line.
 
-Measured at `8f0d0b81f045d5f6c811d5155e89ca9e9459c329` on `main`.
+Measured at `e8bb898d3cbfd593587053baad023555e2ea2d32` on `main`.
 
 ## Lanes
 
@@ -12,8 +12,11 @@ Measured at `8f0d0b81f045d5f6c811d5155e89ca9e9459c329` on `main`.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `cmp` | 167 / 241 | 69.3% | 0 / 8 | 195 | 2 |
 | `androidx-jvm` | 0 / 241 | 0.0% | 0 / 8 | 358 | 1 |
+| `native-appkit` | 0 / 241 | 0.0% | 0 / 8 | 368 | 0 |
 
 ## Where the subject lane stands alone
+
+Scored above but not compared here: `native-appkit`. A lane only counts as a reference if disagreeing with it is evidence; one that fails nearly every frame would mark every subject failure as shared and leave nothing to act on.
 
 The corpus was generated *by* AndroidX, from its own player. So a gold both lanes fail is most likely the harness failing to observe something, or the reference asserting behaviour no independent player would reproduce — while a gold only the subject lane fails is a finding about the subject lane.
 

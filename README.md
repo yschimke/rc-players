@@ -14,9 +14,9 @@ Of 195 frames where `cmp` disagrees with the reference image, 194 are frames a r
 
 ## Trend
 
-| run | `androidx-jvm` golds | `cmp` golds | commit |
-| --- | ---: | ---: | --- |
-| [`2026-09-17`](runs/2026-09-17/README.md) | 0 / 241 | 167 / 241 | `8f0d0b8` |
+| run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | commit |
+| --- | ---: | ---: | ---: | --- |
+| [`2026-09-17`](runs/2026-09-17/README.md) | 0 / 241 | 167 / 241 | 0 / 241 | `e8bb898` |
 
 `history.csv` holds every row, including runs older than the table above.
 

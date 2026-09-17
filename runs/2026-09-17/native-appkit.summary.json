@@ -1,0 +1,3927 @@
+{
+ "player": {
+  "name": "native-appkit",
+  "version": "appkit"
+ },
+ "corpus": {
+  "path": "/private/tmp/claude-502/-Users-yschimke-workspace-rc-players--claude-worktrees-player-validation-scorecard-fc645b/ddcf1970-0e9d-4db7-8700-b144d49d40ba/scratchpad/spec-branch/third_party/rc-conformance-spec/compose/remote/specification/conformance/gold",
+  "gold_count": 252
+ },
+ "summary": {
+  "passed": 0,
+  "failed": 249,
+  "errored": 0,
+  "skipped": 0,
+  "suspicious": 3,
+  "checks_total": 1515,
+  "checks_failed": 1250
+ },
+ "results": [
+  {
+   "name": "animation_spec_component_binding",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "records:animation_specs": 1,
+    "records:component_bindings": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_defaults_and_disable",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:component_bindings": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_field_roundtrip",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:animation_specs": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_arc_and_sector",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "draw_log:commands": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_bitmap_scaled",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "draw_log:commands": 1,
+    "raster": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "canvas_clip_rect",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "draw_log:commands": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_draw_primitives",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "draw_log:commands": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_matrix_stack",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "draw_log:commands": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_path_bezier",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "draw_log:commands": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_anchored_pan_alignment",
+   "category": "canvas",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "ops:present": 1,
+    "raster": 1,
+    "records:anchor_runs": 1,
+    "relation:anchor_runs": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "text_on_circle_stream_alignment",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "ops:present": 1,
+    "ops:total_glyphs": 1,
+    "records:glyph_runs": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_on_path_glyph_placement",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "ops:present": 1,
+    "ops:total_glyphs": 1,
+    "raster": 1,
+    "records:glyph_runs": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "clock_analog_hands",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 9,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "float": 6,
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "snap_0",
+    "snap_1"
+   ]
+  },
+  {
+   "name": "clock_continuous_sweep",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "float": 2,
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "snap_0",
+    "snap_1"
+   ]
+  },
+  {
+   "name": "clock_digital_calendar",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 7,
+   "checks_failed": 7,
+   "diffs_by_probe": {
+    "float": 5,
+    "raster": 2
+   },
+   "raster_failures": [
+    "initial",
+    "snap_0"
+   ]
+  },
+  {
+   "name": "color_expression_dynamic",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "color": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "color_theme_mode_switching",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "color": 6
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "conditional_comparison_operators",
+   "category": "conditionals",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "trace:branches": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "conditional_nested_branches",
+   "category": "conditionals",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "trace:branches": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "conditional_skip_api_gate",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "ops:absent": 1,
+    "ops:counts": 1,
+    "ops:present": 1,
+    "raster": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "data_dynamic_float_list",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float_array:dynamic": 1,
+    "ops:count": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "data_list_float_dynamic_update",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "float_array:data": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "data_map_id_lookup",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "text": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "data_map_literal_key_lookup",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "float": 1,
+    "int": 1,
+    "ops:count": 1,
+    "text": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_animation_waveforms",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 24,
+   "checks_failed": 24,
+   "diffs_by_probe": {
+    "float": 24
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_arithmetic_basic",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 9,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "float": 9
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_chained_variables",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "float": 6
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_color_blending",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "color": 4
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_conditionals",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "float": 5
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_deep_nesting",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "float": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_integer_bitwise_ops",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 8,
+   "checks_failed": 8,
+   "diffs_by_probe": {
+    "int": 8
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_interpolation",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 11,
+   "checks_failed": 11,
+   "diffs_by_probe": {
+    "float": 11
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_math_constants",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "float": 6
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_math_functions",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 11,
+   "checks_failed": 11,
+   "diffs_by_probe": {
+    "float": 11
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_physics_trajectory",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 9,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "float": 9
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_rounding_and_logs",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 8,
+   "checks_failed": 8,
+   "diffs_by_probe": {
+    "float": 8
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_trigonometry",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 11,
+   "checks_failed": 11,
+   "diffs_by_probe": {
+    "float": 11
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_vector_math",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "float": 6
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_click_host_action",
+   "category": "interactivity",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "trace:handled": 1,
+    "trace:host_actions": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_click_state_mutation",
+   "category": "interactivity",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "float": 1,
+    "trace:handled": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_click_toggle_state",
+   "category": "interactivity",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "float": 3,
+    "trace:handled": 2
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_hit_testing_bounds",
+   "category": "interactivity",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "float": 1,
+    "trace:handled": 5
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_multi_click_types",
+   "category": "interactivity",
+   "profile": "extended",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "float": 3,
+    "trace:handled": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_slider_touch_expression",
+   "category": "interactivity",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 7,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "float": 2,
+    "raster": 4
+   },
+   "raster_failures": [
+    "act_0",
+    "act_1",
+    "act_2",
+    "act_3"
+   ]
+  },
+  {
+   "name": "interactivity_touch_coordinate_tracking",
+   "category": "interactivity",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 2
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_box_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "raster": 4,
+    "tree": 5
+   },
+   "raster_failures": [
+    "frame_0",
+    "frame_10",
+    "frame_18",
+    "frame_5"
+   ]
+  },
+  {
+   "name": "animation_measure_transition",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "raster": 4,
+    "tree": 5
+   },
+   "raster_failures": [
+    "frame_0",
+    "frame_12",
+    "frame_20",
+    "frame_6"
+   ]
+  },
+  {
+   "name": "animation_state_3_states",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 10,
+   "diffs_by_probe": {
+    "raster": 5,
+    "tree": 5
+   },
+   "raster_failures": [
+    "frame_0",
+    "frame_12",
+    "frame_20",
+    "frame_6",
+    "initial"
+   ]
+  },
+  {
+   "name": "animation_state_row_to_column",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 10,
+   "diffs_by_probe": {
+    "raster": 5,
+    "tree": 5
+   },
+   "raster_failures": [
+    "frame_0",
+    "frame_12",
+    "frame_20",
+    "frame_6",
+    "initial"
+   ]
+  },
+  {
+   "name": "animation_state_transition",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 10,
+   "diffs_by_probe": {
+    "raster": 5,
+    "tree": 5
+   },
+   "raster_failures": [
+    "frame_0",
+    "frame_12",
+    "frame_20",
+    "frame_6",
+    "initial"
+   ]
+  },
+  {
+   "name": "box_align_corners",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "box_alignment_all",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "box_background_border_container",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "box_center_in_parent",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "box_child_priority",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "box_child_scroll",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "box_fill_max_size_nested",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "box_offset_overlap",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "box_padding_all",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "box_stack",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_layout_embedded",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "tree": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
+  },
+  {
+   "name": "collapsible_column_all_fit",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column_background_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_column_child_graphicslayer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_column_child_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_column_child_padding",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column_child_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column_child_zindex",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column_container_gone",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "tree": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column_non_contiguous",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "tree": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "collapsible_column_padding_container",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column_priority_collapse",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "tree": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "collapsible_column_scroll",
+   "category": "layout",
+   "profile": "core",
+   "status": "SUSPICIOUS",
+   "suspicious": true,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_column_space_resize",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 12,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 6
+   },
+   "raster_failures": [
+    "resize_1",
+    "resize_2",
+    "resize_3"
+   ]
+  },
+  {
+   "name": "collapsible_column_spacing",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_column_spacing_collapse",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "tree": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "collapsible_column_weights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
+  },
+  {
+   "name": "collapsible_row_all_fit",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row_background_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_row_child_graphicslayer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_row_child_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_row_child_padding",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row_child_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row_child_zindex",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row_container_gone",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "tree": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row_non_contiguous",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "tree": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "collapsible_row_padding_container",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row_priority_collapse",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "tree": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "collapsible_row_scroll",
+   "category": "layout",
+   "profile": "core",
+   "status": "SUSPICIOUS",
+   "suspicious": true,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "collapsible_row_space_resize",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 12,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 6
+   },
+   "raster_failures": [
+    "resize_1",
+    "resize_2",
+    "resize_3"
+   ]
+  },
+  {
+   "name": "collapsible_row_spacing",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "collapsible_row_spacing_collapse",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 1,
+    "tree": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "collapsible_row_weights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_align_center_mixed_widths",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_align_start_end",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_alignment_center",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_alignment_end",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_alignment_space_around",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_alignment_space_between",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_alignment_space_evenly",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_background_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "column_basic",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_child_constraints",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "column_child_graphicslayer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "column_child_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "column_child_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_child_zindex",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_fill_max_width",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_multi_weights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_nested_rows",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_padding_all",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_scroll_basic",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "column_spaced_by",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "column_weights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "core_text_alignment",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_autosize_basic",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_autosize_height_driven",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_autosize_max_clamped",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_autosize_min_clamped",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_autosize_multiline",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_multiline_wrap",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_overflow_ellipsis",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "core_text_simple",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "fitbox_background_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "fitbox_child_constraints",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "fitbox_child_graphicslayer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "fitbox_child_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "fitbox_child_padding",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "fitbox_child_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "fitbox_fit",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "fitbox_padding_container",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "fitbox_scale_fit",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "flow_basic",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
+  },
+  {
+   "name": "flow_child_background_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "flow_child_constraints",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "flow_child_graphicslayer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "flow_child_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "flow_child_padding",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "flow_child_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "flow_child_zindex",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "flow_item_alignment",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "flow_max_columns",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "flow_max_lines",
+   "category": "layout",
+   "profile": "core",
+   "status": "SUSPICIOUS",
+   "suspicious": true,
+   "checks_total": 6,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
+  },
+  {
+   "name": "flow_padding_container",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
+  },
+  {
+   "name": "flow_spacing",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
+  },
+  {
+   "name": "flow_spacing_wrap",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 5,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
+  },
+  {
+   "name": "image_layout_sizing_options",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "interaction_click_button",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "step_0",
+    "step_1"
+   ]
+  },
+  {
+   "name": "interaction_scroll_column",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 8,
+   "checks_failed": 8,
+   "diffs_by_probe": {
+    "raster": 4,
+    "tree": 4
+   },
+   "raster_failures": [
+    "initial",
+    "step_0",
+    "step_1",
+    "step_2"
+   ]
+  },
+  {
+   "name": "interaction_scroll_row",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 8,
+   "checks_failed": 8,
+   "diffs_by_probe": {
+    "raster": 4,
+    "tree": 4
+   },
+   "raster_failures": [
+    "initial",
+    "step_0",
+    "step_1",
+    "step_2"
+   ]
+  },
+  {
+   "name": "interaction_swipe_scroll_decay",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 16,
+   "checks_failed": 16,
+   "diffs_by_probe": {
+    "raster": 8,
+    "tree": 8
+   },
+   "raster_failures": [
+    "initial",
+    "step_0",
+    "step_1",
+    "step_2",
+    "step_3",
+    "step_4",
+    "step_5",
+    "step_6"
+   ]
+  },
+  {
+   "name": "interaction_touch_drag_sequence",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 10,
+   "diffs_by_probe": {
+    "raster": 5,
+    "tree": 5
+   },
+   "raster_failures": [
+    "initial",
+    "step_0",
+    "step_1",
+    "step_2",
+    "step_3"
+   ]
+  },
+  {
+   "name": "modifier_align_by_baseline",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_background",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_border_padding",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_constraints_in",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_fill_parent",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_fractional_fill",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_graphics_layer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_graphicslayer_scale",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_marquee_ticker",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 16,
+   "checks_failed": 16,
+   "diffs_by_probe": {
+    "raster": 8,
+    "tree": 8
+   },
+   "raster_failures": [
+    "frame_0",
+    "frame_150",
+    "frame_210",
+    "frame_240",
+    "frame_30",
+    "frame_60",
+    "frame_90",
+    "initial"
+   ]
+  },
+  {
+   "name": "modifier_multi_click",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 14,
+   "checks_failed": 14,
+   "diffs_by_probe": {
+    "raster": 7,
+    "tree": 7
+   },
+   "raster_failures": [
+    "initial",
+    "step_0",
+    "step_1",
+    "step_2",
+    "step_3",
+    "step_4",
+    "step_5"
+   ]
+  },
+  {
+   "name": "modifier_negative_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_padding",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_padding_directional",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_padding_symmetric",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_rounded_clip_rect",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "tree": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_scroll",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_size_array",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_size_exact",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_visibility_gone",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_visibility_invisible",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "modifier_zindex",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "modifier_zindex_reorder",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "nested_complex_layout",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "resize_collapsible_column",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 7,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 5
+   },
+   "raster_failures": [
+    "resize_1",
+    "resize_2"
+   ]
+  },
+  {
+   "name": "resize_collapsible_row",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 7,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 5
+   },
+   "raster_failures": [
+    "resize_1",
+    "resize_2"
+   ]
+  },
+  {
+   "name": "resize_fitbox",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 8,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "tree": 4
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "resize_flow_wrap",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 7,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 5
+   },
+   "raster_failures": [
+    "resize_1",
+    "resize_2"
+   ]
+  },
+  {
+   "name": "resize_row_weights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 8,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "tree": 4
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_align_center_mixed_heights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_align_top_bottom",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_alignment_center",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_alignment_end",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_alignment_space_around",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_alignment_space_between",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_alignment_space_evenly",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_background_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "row_basic",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_child_constraints",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "row_child_graphicslayer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "row_child_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "row_child_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_child_zindex",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_fill_max_height",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_multi_weights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_nested_columns",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_padding_all",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_scroll_basic",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "row_spaced_by",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "row_weights",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "raster": 1,
+    "tree": 3
+   },
+   "raster_failures": [
+    "resize_1"
+   ]
+  },
+  {
+   "name": "row_wrap_content",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "spacer_fixed_sizes",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "spacer_weighted",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_background_border",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_basic",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_child_constraints",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_child_graphicslayer",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "state_layout_child_offset",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_child_padding",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_child_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_padding_container",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_pages",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
+  },
+  {
+   "name": "state_layout_state_switch",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 14,
+   "checks_failed": 14,
+   "diffs_by_probe": {
+    "raster": 7,
+    "tree": 7
+   },
+   "raster_failures": [
+    "initial",
+    "step_0",
+    "step_1",
+    "step_2",
+    "step_3",
+    "step_4",
+    "step_5"
+   ]
+  },
+  {
+   "name": "loom_foreach_expansion",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "records:components": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "loom_id_remapping_tiers",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "ops:component_count": 1,
+    "ops:count": 1,
+    "ops:distinct_ids": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "loom_macro_define_call",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "raster": 1,
+    "records:components": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "loom_macro_multi_instance",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "raster": 1,
+    "records:components": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "loom_nested_macros",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "raster": 1,
+    "records:components": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "loom_slot_blocks",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "records:components": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_constant_3x3_and_4x4",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 9,
+   "checks_failed": 9,
+   "diffs_by_probe": {
+    "float": 6,
+    "matrix": 2,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_expression_composition",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "matrix": 2,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_vector_math_affine_and_perspective",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 10,
+   "checks_failed": 10,
+   "diffs_by_probe": {
+    "float": 9,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "particle_boundary_bounce",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 20,
+   "checks_failed": 20,
+   "diffs_by_probe": {
+    "particles": 10,
+    "raster": 10
+   },
+   "raster_failures": [
+    "final",
+    "frame_0",
+    "frame_1",
+    "frame_2",
+    "frame_3",
+    "frame_4",
+    "frame_5",
+    "frame_6",
+    "frame_7",
+    "frame_8"
+   ]
+  },
+  {
+   "name": "particle_deterministic_seeding",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 8,
+   "checks_failed": 8,
+   "diffs_by_probe": {
+    "particles": 4,
+    "raster": 4
+   },
+   "raster_failures": [
+    "final",
+    "frame_0",
+    "frame_1",
+    "frame_2"
+   ]
+  },
+  {
+   "name": "particle_drag_damping",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 18,
+   "checks_failed": 18,
+   "diffs_by_probe": {
+    "particles": 9,
+    "raster": 9
+   },
+   "raster_failures": [
+    "final",
+    "frame_0",
+    "frame_1",
+    "frame_2",
+    "frame_3",
+    "frame_4",
+    "frame_5",
+    "frame_6",
+    "frame_7"
+   ]
+  },
+  {
+   "name": "particle_gravity_fountain",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 20,
+   "checks_failed": 20,
+   "diffs_by_probe": {
+    "particles": 10,
+    "raster": 10
+   },
+   "raster_failures": [
+    "final",
+    "frame_0",
+    "frame_1",
+    "frame_2",
+    "frame_3",
+    "frame_4",
+    "frame_5",
+    "frame_6",
+    "frame_7",
+    "frame_8"
+   ]
+  },
+  {
+   "name": "particle_lifetime_decay",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 14,
+   "checks_failed": 14,
+   "diffs_by_probe": {
+    "particles": 8,
+    "raster": 6
+   },
+   "raster_failures": [
+    "frame_0",
+    "frame_1",
+    "frame_2",
+    "frame_3",
+    "frame_4",
+    "frame_5"
+   ]
+  },
+  {
+   "name": "particle_linear_drift",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 14,
+   "checks_failed": 14,
+   "diffs_by_probe": {
+    "particles": 7,
+    "raster": 7
+   },
+   "raster_failures": [
+    "final",
+    "frame_0",
+    "frame_1",
+    "frame_2",
+    "frame_3",
+    "frame_4",
+    "frame_5"
+   ]
+  },
+  {
+   "name": "particle_radial_burst",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 16,
+   "checks_failed": 16,
+   "diffs_by_probe": {
+    "particles": 8,
+    "raster": 8
+   },
+   "raster_failures": [
+    "final",
+    "frame_0",
+    "frame_1",
+    "frame_2",
+    "frame_3",
+    "frame_4",
+    "frame_5",
+    "frame_6"
+   ]
+  },
+  {
+   "name": "particle_restart_threshold",
+   "category": "particles",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 20,
+   "checks_failed": 20,
+   "diffs_by_probe": {
+    "particles": 10,
+    "raster": 10
+   },
+   "raster_failures": [
+    "final",
+    "frame_0",
+    "frame_1",
+    "frame_2",
+    "frame_3",
+    "frame_4",
+    "frame_5",
+    "frame_6",
+    "frame_7",
+    "frame_8"
+   ]
+  },
+  {
+   "name": "path_create_and_append",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:paths": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "path_tween_morph",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:tweens": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_impulse_animation",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:impulses": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_wake_in_intervals",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "ops:counts": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_accessibility_tree",
+   "category": "semantics",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:semantics": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_roles_and_descriptions",
+   "category": "semantics",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:semantics": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_shader_gradient",
+   "category": "shaders",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "draw_log:commands": 1,
+    "raster": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
+  },
+  {
+   "name": "shader_agsl_radial_gradient",
+   "category": "shaders",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:uniforms": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "shader_uniform_binding",
+   "category": "shaders",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "records:uniforms": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_formatting_from_float",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "text": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_from_float_precision",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 4,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "text": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_lookup_array",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "text": 2
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_merge_and_transform",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 6,
+   "checks_failed": 6,
+   "diffs_by_probe": {
+    "text": 6
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_merge_concatenation",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "text": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_buffer_types",
+   "category": "wire",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "ops:count": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_referenced_operations",
+   "category": "wire",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "ops:count": 1,
+    "records:components": 1
+   },
+   "raster_failures": []
+  }
+ ]
+}
