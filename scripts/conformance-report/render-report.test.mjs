@@ -93,8 +93,25 @@ test("renders a lane whose job produced nothing as not measured rather than as a
   render(root, out, [subject, `native-appkit=${path.join(root, "absent.json")}`]);
   const run = fs.readFileSync(path.join(out, "runs", "2026-01-01", "README.md"), "utf8");
 
-  assert.match(run, /\| `native-appkit` \| — \| — \| — \| — \| \*not measured\* \|/);
+  assert.match(run, /\| `native-appkit` \| — \| — \| — \| — \| — \| \*not measured\* \|/);
   assert.equal(fs.existsSync(path.join(out, "runs", "2026-01-01", "native-appkit.summary.json")), false);
+});
+
+test("says so when a lane's results do not record the advisory basis", () => {
+  const root = workspace();
+  const out = path.join(root, "report");
+
+  // A results file with no `advisory_total` came from a runner that did not read the corpus's
+  // advisory flag, so its gold count is on a different basis from a lane that did. Printing its
+  // raster number bare would invite exactly the comparison that is not valid.
+  const blind = writeResults(root, "cmp", [
+    gold("one", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
+  ]);
+
+  render(root, out, [blind]);
+  const run = fs.readFileSync(path.join(out, "runs", "2026-01-01", "README.md"), "utf8");
+
+  assert.match(run, /1 \*\(basis not recorded\)\*/);
 });
 
 test("archives per-gold outcomes without the observation blobs", () => {

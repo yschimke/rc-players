@@ -250,6 +250,14 @@ function renderRun(options, lanes) {
   // ---- lanes
   out.push("## Lanes");
   out.push("");
+  out.push(
+    "The corpus marks 605 of its 1515 checks **advisory** — every one of them `raster` — because " +
+      "an antialiasing-aware pixel walk across two text stacks and two GPU backends disagrees for " +
+      "reasons no player can fix. They are reported and never decide a gold. A lane whose advisory " +
+      "column says *basis not recorded* was measured by a runner that did not read the flag, and " +
+      "its gold count is not comparable with the others.",
+  );
+  out.push("");
   // Named rather than asserted of every reference lane: `androidx-jvm` observes `tree` and does
   // pass golds, so the old blanket claim is now false for it and would read as a bug in the table.
   const rasterOnly = present
@@ -270,22 +278,35 @@ function renderRun(options, lanes) {
   }
   out.push(
     table(
-      ["lane", "core golds", "pass rate", "extended", "raster disagreements", "errored"],
-      ["l", "r", "r", "r", "r", "r"],
+      ["lane", "core golds", "pass rate", "extended", "binding checks failing", "raster disagreeing", "errored"],
+      ["l", "r", "r", "r", "r", "r", "r"],
       lanes.map((lane) => {
         if (lane.missing) {
-          return [`\`${lane.name}\``, "—", "—", "—", "—", "*not measured*"];
+          return [`\`${lane.name}\``, "—", "—", "—", "—", "—", "*not measured*"];
         }
         const counts = profiles(lane.results);
         const [coreTotal, corePassed] = counts.core ?? [0, 0];
         const [extTotal, extPassed] = counts.extended ?? [0, 0];
+        // Binding and advisory, side by side and named. A run that quotes raster failures without
+        // saying the corpus marks them advisory is a run nobody else can reproduce, which is how
+        // every number on this branch before 2026-09-17 came to be on its own private basis.
+        const summary = lane.results.summary;
+        const binding =
+          summary.checks_total == null
+            ? "—"
+            : `${summary.checks_failed} / ${summary.checks_total}`;
+        const advisory =
+          summary.advisory_total == null
+            ? `${rasterFailures(lane.results).size} *(basis not recorded)*`
+            : `${summary.advisory_failed} / ${summary.advisory_total}`;
         return [
           `\`${lane.name}\``,
           `${corePassed} / ${coreTotal}`,
           percent(corePassed, coreTotal),
           `${extPassed} / ${extTotal}`,
-          String(rasterFailures(lane.results).size),
-          String(lane.results.summary.errored),
+          binding,
+          advisory,
+          String(summary.errored),
         ];
       }),
     ),
