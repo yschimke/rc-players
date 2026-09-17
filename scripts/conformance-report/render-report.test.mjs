@@ -143,3 +143,34 @@ test("excludes suspicious golds from the rate instead of counting them as failur
   assert.match(run, /\| `cmp` \| 1 \/ 1 \| 100\.0% \|/);
   assert.match(run, /- `disputed`/);
 });
+
+test("a lane excluded from --reference cannot mask the subject's unique failures", () => {
+  const root = workspace();
+
+  // `mine` is a frame only the subject fails: the credible reference passes it. A lane that fails
+  // everything would mark it shared, which is the whole reason the reference set is narrowable.
+  const subject = writeResults(root, "cmp", [
+    gold("mine", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
+  ]);
+  const reference = writeResults(root, "androidx-jvm", [gold("mine")]);
+  const weak = writeResults(root, "native-appkit", [
+    gold("mine", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
+  ]);
+
+  const diluted = path.join(root, "diluted");
+  render(root, diluted, [subject, reference, weak]);
+  assert.match(
+    fs.readFileSync(path.join(diluted, "README.md"), "utf8"),
+    /not shared with a reference lane \| \*\*0\*\*/,
+  );
+
+  const narrowed = path.join(root, "narrowed");
+  render(root, narrowed, [subject, reference, weak], ["--reference", "androidx-jvm"]);
+  const index = fs.readFileSync(path.join(narrowed, "README.md"), "utf8");
+  const run = fs.readFileSync(path.join(narrowed, "runs", "2026-01-01", "README.md"), "utf8");
+
+  // The landing page and the run it links to must agree about the number both lead with.
+  assert.match(index, /not shared with a reference lane \| \*\*1\*\*/);
+  assert.match(run, /- `mine` at `initial`/);
+  assert.match(run, /Scored above but not compared here: `native-appkit`/);
+});
