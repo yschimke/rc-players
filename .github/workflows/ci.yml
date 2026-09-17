@@ -170,6 +170,12 @@ jobs:
           npm ci
           npm test
 
+      # No dependencies and no corpus: the report generator is pure Node over a results file, so its
+      # test runs anywhere. It is here rather than beside the lane because the lane is scheduled and
+      # non-gating, while a generator that renders the wrong number would be believed.
+      - name: Test the conformance report generator
+        run: node --test scripts/conformance-report/render-report.test.mjs
+
       # `:third-party-rc-embedded-player` is an Android library, so this lane needs an SDK. The
       # runner image ships one; AGP resolves it from ANDROID_HOME.
       - name: Run the JVM and Android player suites
