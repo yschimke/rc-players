@@ -44,6 +44,22 @@ enum NativeDensityPolicy {
     return playbackDensityScale
   }
 
+  /// The scale a `widthIn`/`heightIn` bound is resolved with, which is not the scale every other
+  /// dp-typed field uses.
+  ///
+  /// `DimensionIn` is AndroidX's exception: it reads a bound as dp under both LEGACY and DP, and as
+  /// pixels only under PIXELS — where padding, spacing, corner radii and the rest are pixels under
+  /// LEGACY and dp only under DP. Resolving a bound like those left every filled, tonal and
+  /// outlined button short, because their `heightIn(min = 52.dp)` came out 52 document units
+  /// instead of 104 and the pill was sized by its label instead of by the minimum.
+  static func dimensionConstraintScale(
+    densityBehavior: Int,
+    layoutDensityScale: CGFloat,
+    documentScale: CGFloat
+  ) -> CGFloat {
+    densityBehavior == pixelBehavior ? documentScale : layoutDensityScale
+  }
+
   /// Whether this document carries density-typed geometry at all.
   ///
   /// The generation density is deliberately not part of this decision. Both behaviors convert

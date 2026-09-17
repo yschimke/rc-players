@@ -82,6 +82,20 @@ enum NativeDensityPolicyTests {
           androidCompatibility: .enabled, playbackDensityScale: scale) == 1)
     }
 
+    // `DimensionIn` runs the other way round from every other dp-typed field: LEGACY and DP are
+    // both dp, and only PIXELS is pixels. A LEGACY document is the one that separates this rule
+    // from `layoutUnitScale`'s, and it is what the whole catalog corpus is.
+    for behavior in [0, 2] {
+      precondition(
+        NativeDensityPolicy.dimensionConstraintScale(
+          densityBehavior: behavior, layoutDensityScale: 2, documentScale: 1) == 2,
+        "a DimensionIn bound is dp under density behavior \(behavior)")
+    }
+    precondition(
+      NativeDensityPolicy.dimensionConstraintScale(
+        densityBehavior: NativeDensityPolicy.pixelBehavior,
+        layoutDensityScale: 2, documentScale: 1) == 1)
+
     // A density warning is a difference, so strict refuses it and compatible renders it.
     let diagnostics = RemoteComposeNativePlayerDiagnostics(
       issues: dpAtTwo, unsupportedOpcodes: [], notes: [])
