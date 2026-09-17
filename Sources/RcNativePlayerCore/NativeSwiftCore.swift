@@ -1880,6 +1880,69 @@ private enum NativeSwiftDocumentDecoder {
         node.verticalPositioning = try input.int("column vertical positioning")
         node.spacingWord = try input.word("column spacing")
         try begin(node)
+      case 207:  // Canvas content
+        // INT component id, the same shape as the content at 201, and the same role: the container
+        // a canvas draws into.
+        try begin(
+          ParsedNode(kind: .content, componentID: try input.int("canvas content component id")))
+      case 176:  // Fit box
+        // Component id, animation id, both positionings. A fit box scales its content to fit rather
+        // than clipping it; laid out here as an ordinary box, so the content keeps its own size.
+        let node = ParsedNode(kind: .box, componentID: try input.int("fit box component id"))
+        _ = try input.int("fit box animation id")
+        node.horizontalPositioning = try input.int("fit box horizontal positioning")
+        node.verticalPositioning = try input.int("fit box vertical positioning")
+        try begin(node)
+      case 217:  // State layout
+        // Component id, animation id, both positionings, then the id of the float holding the index
+        // of the child to show. Laid out as a box, which shows every child stacked rather than the
+        // one the index selects -- a real difference, tracked rather than implied.
+        let node = ParsedNode(kind: .box, componentID: try input.int("state layout component id"))
+        _ = try input.int("state layout animation id")
+        node.horizontalPositioning = try input.int("state layout horizontal positioning")
+        node.verticalPositioning = try input.int("state layout vertical positioning")
+        _ = try input.int("state layout index id")
+        try begin(node)
+      case 240:  // Flow layout
+        // The row payload plus two ints: the maximum items per row and the maximum number of rows.
+        // Laid out as a plain row, so its children do not wrap onto further lines -- tracked.
+        let node = ParsedNode(kind: .row, componentID: try input.int("flow component id"))
+        _ = try input.int("flow animation id")
+        node.horizontalPositioning = try input.int("flow horizontal positioning")
+        node.verticalPositioning = try input.int("flow vertical positioning")
+        node.spacingWord = try input.word("flow spacing")
+        _ = try input.int("flow maximum items in each row")
+        _ = try input.int("flow maximum lines")
+        try begin(node)
+      case 223:  // Z-index modifier
+        _ = try currentNode(stack, input: input)
+        _ = try input.word("z-index")
+      case 221:  // Offset modifier
+        _ = try currentNode(stack, input: input)
+        _ = try input.word("offset x")
+        _ = try input.word("offset y")
+      case 211:  // Visibility modifier
+        _ = try currentNode(stack, input: input)
+        _ = try input.int("visibility id")
+      case 226:  // Scroll modifier
+        // INT direction, then position, max and notch max as float words.
+        _ = try currentNode(stack, input: input)
+        _ = try input.int("scroll direction")
+        _ = try input.word("scroll position")
+        _ = try input.word("scroll maximum")
+        _ = try input.word("scroll notch maximum")
+      case 107:  // Border modifier
+        // INT flags, INT color id, two reserved ints, then width, corner radius and r/g/b/a as
+        // float words, then INT shape type.
+        _ = try currentNode(stack, input: input)
+        _ = try input.int("border flags")
+        _ = try input.int("border color id")
+        _ = try input.int("border reserved 1")
+        _ = try input.int("border reserved 2")
+        for field in ["width", "corner", "red", "green", "blue", "alpha"] {
+          _ = try input.word("border \(field)")
+        }
+        _ = try input.int("border shape type")
       case 230:  // Collapsible row
         // The row half of the same family as 233, and the same wire shape as the row at 203.
         let node = ParsedNode(
