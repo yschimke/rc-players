@@ -141,12 +141,19 @@ jobs:
       # using it — and publishing everything is the safe answer there. An EMPTY set from a plan
       # that DID run is a different thing, and the two must not collapse: it means "publish only
       # the BOM", the right answer for a releasable change confined to `.github/` or the docs.
+      #
+      # `github.event_name` cannot express that condition: in a called workflow it carries the
+      # CALLER's event, which for `release-please.yml` is `push`. Testing it against
+      # `workflow_call` was therefore false on the one path that is supposed to plan, and v1.64.0
+      # published nothing while reporting the fallback as normal. `inputs.tag` is the honest
+      # signal — set by `workflow_call` and by `workflow_dispatch`, empty for a tag push — so the
+      # two recovery routes are excluded by naming `workflow_dispatch` explicitly.
       - name: Compute the publish plan
         run: |
           set -euo pipefail
           PUBLISH_SET=""
           PUBLISH_PLANNED=false
-          if [ "${{ github.event_name }}" = "workflow_call" ]; then
+          if [ -n "${{ inputs.tag }}" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             # `--write-manifest` puts the baseline the plan resolved from Central into the
             # workspace, where the Gradle build reads it to give a skipped module the version it
             # is already published at. Written, never committed.
@@ -171,7 +178,11 @@ jobs:
           if [ "$PUBLISH_PLANNED" = "true" ]; then
             PLAN_ARGS+=("-Pcomposeai.publishSet=$PUBLISH_SET")
           fi
-          ./gradlew publishPlayers "${PLAN_ARGS[@]}"
+          # `${PLAN_ARGS[@]+...}` rather than a bare `${PLAN_ARGS[@]}`: this job runs on macOS,
+          # whose /bin/bash is 3.2, and there an EMPTY array under `set -u` expands as an unbound
+          # variable and kills the step. That is how v1.64.0 died — before Gradle started, with
+          # every other job of the release already green.
+          ./gradlew publishPlayers ${PLAN_ARGS[@]+"${PLAN_ARGS[@]}"}
 
   # The Wasm bundle, published to npm so a web consumer can drop the player into a page without
   # cloning this repo and running Gradle.
