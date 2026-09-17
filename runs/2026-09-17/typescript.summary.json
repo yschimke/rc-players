@@ -1,22 +1,19 @@
 {
  "player": {
-  "name": "cmp",
-  "version": "dev"
+  "name": "typescript"
  },
  "corpus": {
-  "path": "/private/tmp/claude-502/-Users-yschimke-workspace-rc-players--claude-worktrees-player-validation-scorecard-fc645b/ddcf1970-0e9d-4db7-8700-b144d49d40ba/scratchpad/spec-branch/third_party/rc-conformance-spec/compose/remote/specification/conformance/gold",
   "gold_count": 252
  },
  "summary": {
-  "passed": 183,
-  "failed": 64,
-  "errored": 2,
-  "skipped": 0,
+  "passed": 205,
+  "failed": 44,
+  "errored": 0,
   "suspicious": 3,
   "checks_total": 910,
-  "checks_failed": 236,
+  "checks_failed": 142,
   "advisory_total": 605,
-  "advisory_failed": 180
+  "advisory_failed": 214
  },
  "results": [
   {
@@ -26,10 +23,9 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 2,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "records:animation_specs": 1,
-    "records:component_bindings": 1
+    "records": 14
    },
    "raster_failures": []
   },
@@ -42,7 +38,7 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "records:component_bindings": 1
+    "records": 6
    },
    "raster_failures": []
   },
@@ -50,13 +46,11 @@
    "name": "animation_spec_field_roundtrip",
    "category": "animationspec",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 1,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "records:animation_specs": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -74,16 +68,12 @@
    "name": "canvas_bitmap_scaled",
    "category": "canvas",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "raster": 1
-   },
-   "raster_failures": [
-    "initial"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "canvas_clip_rect",
@@ -136,12 +126,9 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 4,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "ops:present": 1,
-    "raster": 1,
-    "records:anchor_runs": 1,
-    "relation:anchor_runs": 1
+    "raster": 1
    },
    "raster_failures": [
     "initial"
@@ -151,33 +138,23 @@
    "name": "text_on_circle_stream_alignment",
    "category": "canvas",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
-   "diffs_by_probe": {
-    "ops:present": 1,
-    "ops:total_glyphs": 1,
-    "records:glyph_runs": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "text_on_path_glyph_placement",
    "category": "canvas",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 3,
-   "diffs_by_probe": {
-    "ops:total_glyphs": 1,
-    "raster": 1,
-    "records:glyph_runs": 1
-   },
-   "raster_failures": [
-    "initial"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "clock_analog_hands",
@@ -186,15 +163,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 9,
-   "checks_failed": 9,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "float": 6,
-    "raster": 3
+    "raster": 1
    },
    "raster_failures": [
-    "initial",
-    "snap_0",
-    "snap_1"
+    "initial"
    ]
   },
   {
@@ -204,9 +178,8 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 5,
-   "checks_failed": 5,
+   "checks_failed": 3,
    "diffs_by_probe": {
-    "float": 2,
     "raster": 3
    },
    "raster_failures": [
@@ -222,14 +195,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 7,
-   "checks_failed": 7,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "float": 5,
-    "raster": 2
+    "raster": 1
    },
    "raster_failures": [
-    "initial",
-    "snap_0"
+    "initial"
    ]
   },
   {
@@ -258,26 +229,22 @@
    "name": "conditional_comparison_operators",
    "category": "conditionals",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "trace:branches": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "conditional_nested_branches",
    "category": "conditionals",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "trace:branches": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -287,13 +254,13 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 3,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "ops:absent": 1,
-    "ops:counts": 4,
-    "ops:present": 1
+    "raster": 1
    },
-   "raster_failures": []
+   "raster_failures": [
+    "initial"
+   ]
   },
   {
    "name": "data_dynamic_float_list",
@@ -310,13 +277,11 @@
    "name": "data_list_float_dynamic_update",
    "category": "dataoperations",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 1,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "float_array:data": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -348,9 +313,9 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 24,
-   "checks_failed": 18,
+   "checks_failed": 15,
    "diffs_by_probe": {
-    "float": 18
+    "float": 15
    },
    "raster_failures": []
   },
@@ -413,13 +378,11 @@
    "name": "expr_integer_bitwise_ops",
    "category": "expressions",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 8,
-   "checks_failed": 8,
-   "diffs_by_probe": {
-    "int": 8
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -503,55 +466,44 @@
    "name": "interactivity_click_host_action",
    "category": "interactivity",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 2,
-   "diffs_by_probe": {
-    "trace:handled": 1,
-    "trace:host_actions": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "interactivity_click_state_mutation",
    "category": "interactivity",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 4,
-   "diffs_by_probe": {
-    "float": 1,
-    "trace:handled": 3
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "interactivity_click_toggle_state",
    "category": "interactivity",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 5,
-   "checks_failed": 3,
-   "diffs_by_probe": {
-    "float": 1,
-    "trace:handled": 2
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "interactivity_hit_testing_bounds",
    "category": "interactivity",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 6,
-   "checks_failed": 5,
-   "diffs_by_probe": {
-    "trace:handled": 5
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -564,7 +516,7 @@
    "checks_failed": 6,
    "diffs_by_probe": {
     "float": 3,
-    "trace:handled": 3
+    "trace": 3
    },
    "raster_failures": []
   },
@@ -572,26 +524,22 @@
    "name": "interactivity_slider_touch_expression",
    "category": "interactivity",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 7,
-   "checks_failed": 2,
-   "diffs_by_probe": {
-    "float": 2
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "interactivity_touch_coordinate_tracking",
    "category": "interactivity",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 2,
-   "diffs_by_probe": {
-    "float": 2
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -601,14 +549,14 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 5,
-   "checks_failed": 2,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 12
+    "tree": 18
    },
    "raster_failures": [
-    "frame_0",
     "frame_10",
+    "frame_18",
     "frame_5"
    ]
   },
@@ -619,13 +567,14 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 5,
-   "checks_failed": 2,
+   "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 2,
-    "tree": 6
+    "raster": 3,
+    "tree": 9
    },
    "raster_failures": [
-    "frame_0",
+    "frame_12",
+    "frame_20",
     "frame_6"
    ]
   },
@@ -639,13 +588,13 @@
    "checks_failed": 5,
    "diffs_by_probe": {
     "raster": 4,
-    "tree": 34
+    "tree": 64
    },
    "raster_failures": [
     "frame_0",
     "frame_12",
-    "frame_20",
-    "frame_6"
+    "frame_6",
+    "initial"
    ]
   },
   {
@@ -658,13 +607,13 @@
    "checks_failed": 5,
    "diffs_by_probe": {
     "raster": 4,
-    "tree": 51
+    "tree": 104
    },
    "raster_failures": [
     "frame_0",
     "frame_12",
-    "frame_20",
-    "frame_6"
+    "frame_6",
+    "initial"
    ]
   },
   {
@@ -677,13 +626,13 @@
    "checks_failed": 5,
    "diffs_by_probe": {
     "raster": 4,
-    "tree": 20
+    "tree": 37
    },
    "raster_failures": [
     "frame_0",
     "frame_12",
-    "frame_20",
-    "frame_6"
+    "frame_6",
+    "initial"
    ]
   },
   {
@@ -716,8 +665,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "box_center_in_parent",
@@ -837,8 +792,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "collapsible_column_child_graphicslayer",
@@ -910,7 +871,7 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "tree": 4
+    "tree": 1
    },
    "raster_failures": []
   },
@@ -957,7 +918,7 @@
    "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 11
+    "tree": 7
    },
    "raster_failures": [
     "initial",
@@ -975,7 +936,7 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "raster": 2,
-    "tree": 4
+    "tree": 1
    },
    "raster_failures": [
     "resize_2",
@@ -1008,19 +969,12 @@
    "name": "collapsible_column_weights",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
-   "diffs_by_probe": {
-    "raster": 3,
-    "tree": 12
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row",
@@ -1052,8 +1006,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "collapsible_row_child_graphicslayer",
@@ -1125,7 +1085,7 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "tree": 4
+    "tree": 1
    },
    "raster_failures": []
   },
@@ -1172,7 +1132,7 @@
    "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 11
+    "tree": 7
    },
    "raster_failures": [
     "initial",
@@ -1190,7 +1150,7 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "raster": 2,
-    "tree": 4
+    "tree": 1
    },
    "raster_failures": [
     "resize_2",
@@ -1223,19 +1183,12 @@
    "name": "collapsible_row_weights",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
-   "diffs_by_probe": {
-    "raster": 3,
-    "tree": 12
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "column_align_center_mixed_widths",
@@ -1322,8 +1275,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "column_basic",
@@ -1499,8 +1458,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "core_text_autosize_height_driven",
@@ -1540,13 +1505,12 @@
    "name": "core_text_autosize_min_clamped",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 6
+    "raster": 3
    },
    "raster_failures": [
     "initial",
@@ -1558,13 +1522,12 @@
    "name": "core_text_autosize_multiline",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 3
+    "raster": 3
    },
    "raster_failures": [
     "initial",
@@ -1576,13 +1539,12 @@
    "name": "core_text_multiline_wrap",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 3
+    "raster": 3
    },
    "raster_failures": [
     "initial",
@@ -1594,13 +1556,12 @@
    "name": "core_text_overflow_ellipsis",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 1,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 1
+    "raster": 3
    },
    "raster_failures": [
     "initial",
@@ -1633,8 +1594,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "fitbox_child_constraints",
@@ -1693,16 +1660,11 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 18
+    "tree": 1
    },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "raster_failures": []
   },
   {
    "name": "fitbox_fit",
@@ -1758,8 +1720,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "flow_child_constraints",
@@ -1848,12 +1816,19 @@
    "name": "flow_max_columns",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 12
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "flow_max_lines",
@@ -1862,9 +1837,15 @@
    "status": "SUSPICIOUS",
    "suspicious": true,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "raster": 2,
+    "tree": 6
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0"
+   ]
   },
   {
    "name": "flow_padding_container",
@@ -1903,18 +1884,14 @@
    "name": "image_layout_sizing_options",
    "category": "layout",
    "profile": "core",
-   "status": "ERROR",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
-   "error": "ee.schimke.composeai.rcplayer.runtime.RcLayoutException: RcColumnLayout requires LayoutComponentContent",
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 3
+    "raster": 1
    },
    "raster_failures": [
-    "initial",
-    "resize_0",
     "resize_1"
    ]
   },
@@ -1928,7 +1905,7 @@
    "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 3
+    "tree": 11
    },
    "raster_failures": [
     "initial",
@@ -1943,13 +1920,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 2,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 2,
-    "tree": 10
+    "raster": 1,
+    "tree": 1
    },
    "raster_failures": [
-    "step_1",
     "step_2"
    ]
   },
@@ -1960,13 +1936,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 2,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 2,
-    "tree": 10
+    "raster": 1,
+    "tree": 1
    },
    "raster_failures": [
-    "step_1",
     "step_2"
    ]
   },
@@ -1977,13 +1952,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 8,
-   "checks_failed": 6,
+   "checks_failed": 5,
    "diffs_by_probe": {
-    "raster": 6,
-    "tree": 36
+    "raster": 5,
+    "tree": 5
    },
    "raster_failures": [
-    "step_1",
     "step_2",
     "step_3",
     "step_4",
@@ -1998,14 +1972,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 5,
-   "checks_failed": 3,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 12
+    "raster": 1,
+    "tree": 1
    },
    "raster_failures": [
-    "step_1",
-    "step_2",
     "step_3"
    ]
   },
@@ -2039,8 +2011,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "modifier_border_padding",
@@ -2050,30 +2028,50 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "modifier_constraints_in",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 9
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "modifier_fill_parent",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "raster": 3,
+    "tree": 6
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "modifier_fractional_fill",
@@ -2150,10 +2148,10 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 7,
-   "checks_failed": 5,
+   "checks_failed": 7,
    "diffs_by_probe": {
     "raster": 7,
-    "tree": 33
+    "tree": 69
    },
    "raster_failures": [
     "initial",
@@ -2235,13 +2233,11 @@
    "name": "modifier_scroll",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 2,
-   "diffs_by_probe": {
-    "tree": 2
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -2307,8 +2303,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "modifier_zindex_reorder",
@@ -2318,8 +2320,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "nested_complex_layout",
@@ -2480,8 +2488,14 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 3
+   },
+   "raster_failures": [
+    "initial",
+    "resize_0",
+    "resize_1"
+   ]
   },
   {
    "name": "row_basic",
@@ -2629,12 +2643,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 1
-   },
-   "raster_failures": [
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "row_wrap_content",
@@ -2673,66 +2683,78 @@
    "name": "state_layout_background_border",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 6
+   },
    "raster_failures": []
   },
   {
    "name": "state_layout_basic",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 6
+   },
    "raster_failures": []
   },
   {
    "name": "state_layout_child_constraints",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 6
+   },
    "raster_failures": []
   },
   {
    "name": "state_layout_child_graphicslayer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 6
+   },
    "raster_failures": []
   },
   {
    "name": "state_layout_child_offset",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 6
+   },
    "raster_failures": []
   },
   {
    "name": "state_layout_child_padding",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 6
+   },
    "raster_failures": []
   },
   {
@@ -2744,14 +2766,9 @@
    "checks_total": 3,
    "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 18
+    "tree": 3
    },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "raster_failures": []
   },
   {
    "name": "state_layout_padding_container",
@@ -2762,36 +2779,34 @@
    "checks_total": 3,
    "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 3,
     "tree": 6
    },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "raster_failures": []
   },
   {
    "name": "state_layout_pages",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
+   "checks_failed": 3,
+   "diffs_by_probe": {
+    "tree": 6
+   },
    "raster_failures": []
   },
   {
    "name": "state_layout_state_switch",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 7,
-   "checks_failed": 0,
+   "checks_failed": 7,
    "diffs_by_probe": {
-    "raster": 7
+    "raster": 7,
+    "tree": 19
    },
    "raster_failures": [
     "initial",
@@ -2818,13 +2833,11 @@
    "name": "loom_id_remapping_tiers",
    "category": "loom",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "ops:component_count": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -2920,16 +2933,16 @@
    "name": "particle_boundary_bounce",
    "category": "particles",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 10,
-   "checks_failed": 8,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "particles": 96,
-    "raster": 8
+    "raster": 9
    },
    "raster_failures": [
     "final",
+    "frame_1",
     "frame_2",
     "frame_3",
     "frame_4",
@@ -2943,16 +2956,16 @@
    "name": "particle_deterministic_seeding",
    "category": "particles",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 2,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "particles": 32,
-    "raster": 2
+    "raster": 3
    },
    "raster_failures": [
     "final",
+    "frame_1",
     "frame_2"
    ]
   },
@@ -2960,16 +2973,16 @@
    "name": "particle_drag_damping",
    "category": "particles",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 9,
-   "checks_failed": 7,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "particles": 140,
-    "raster": 7
+    "raster": 8
    },
    "raster_failures": [
     "final",
+    "frame_1",
     "frame_2",
     "frame_3",
     "frame_4",
@@ -2982,16 +2995,16 @@
    "name": "particle_gravity_fountain",
    "category": "particles",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 10,
-   "checks_failed": 8,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "particles": 112,
-    "raster": 8
+    "raster": 9
    },
    "raster_failures": [
     "final",
+    "frame_1",
     "frame_2",
     "frame_3",
     "frame_4",
@@ -3005,33 +3018,34 @@
    "name": "particle_lifetime_decay",
    "category": "particles",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 8,
-   "checks_failed": 6,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "particles": 96,
-    "raster": 2
+    "raster": 4
    },
    "raster_failures": [
     "frame_2",
-    "frame_3"
+    "frame_3",
+    "frame_4",
+    "frame_5"
    ]
   },
   {
    "name": "particle_linear_drift",
    "category": "particles",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 7,
-   "checks_failed": 5,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "particles": 60,
-    "raster": 5
+    "raster": 6
    },
    "raster_failures": [
     "final",
+    "frame_1",
     "frame_2",
     "frame_3",
     "frame_4",
@@ -3042,16 +3056,16 @@
    "name": "particle_radial_burst",
    "category": "particles",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 8,
-   "checks_failed": 6,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "particles": 72,
-    "raster": 6
+    "raster": 7
    },
    "raster_failures": [
     "final",
+    "frame_1",
     "frame_2",
     "frame_3",
     "frame_4",
@@ -3066,13 +3080,14 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 10,
-   "checks_failed": 8,
+   "checks_failed": 7,
    "diffs_by_probe": {
-    "particles": 52,
-    "raster": 8
+    "particles": 22,
+    "raster": 9
    },
    "raster_failures": [
     "final",
+    "frame_1",
     "frame_2",
     "frame_3",
     "frame_4",
@@ -3086,27 +3101,22 @@
    "name": "path_create_and_append",
    "category": "pathoperations",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 1,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "records:paths": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "path_tween_morph",
    "category": "pathoperations",
    "profile": "core",
-   "status": "ERROR",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 1,
-   "checks_failed": 1,
-   "error": "java.lang.IllegalArgumentException: Missing path 10",
-   "diffs_by_probe": {
-    "records:tweens": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -3157,16 +3167,12 @@
    "name": "canvas_shader_gradient",
    "category": "shaders",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "raster": 1
-   },
-   "raster_failures": [
-    "initial"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "shader_agsl_radial_gradient",
