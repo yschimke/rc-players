@@ -105,7 +105,16 @@ import org.jetbrains.skia.Image
 public class CmpEngine(specDir: File) : ConformanceEngine {
   override val name: String = "cmp"
 
-  override val version: String = CmpEngine::class.java.`package`?.implementationVersion ?: "dev"
+  /**
+   * The player's version, from the build rather than from a manifest.
+   *
+   * `Package.getImplementationVersion()` reads a JAR manifest, and a Gradle test runs against class
+   * directories -- so it was null on every run and every published score recorded this player as
+   * `dev`. The Gradle task passes the real version instead; `dev` remains the answer only for a run
+   * launched without it.
+   */
+  override val version: String =
+    System.getProperty("rc.player.version")?.takeIf { it.isNotBlank() } ?: "dev"
 
   private val typefaces = AhemTypefaces(File(specDir, "fonts/Ahem.ttf"))
 

@@ -90,6 +90,14 @@ tasks.register<Test>("conformance") {
   // `gradleProperty` read as a configuration input, so changing one still invalidates the cache.
   systemProperty("rc.specDir", specDirProvider.get())
   systemProperty("rc.player", providers.gradleProperty("rc.player").orElse("cmp").get())
+
+  // The CMP lane's own version, for the results file and the published trend.
+  //
+  // It used to come from `Package.getImplementationVersion()`, which is read from a JAR manifest --
+  // and a Gradle test runs against class *directories*, so that was null on every run and every
+  // score this lane has published records the player as `dev`. A trend across releases that cannot
+  // say which release it measured is not much of a trend.
+  systemProperty("rc.player.version", project(":rc-player-compose").version.toString())
   systemProperty("rc.filter", providers.gradleProperty("rc.filter").orElse("").get())
   systemProperty(
     "rc.player.out",
