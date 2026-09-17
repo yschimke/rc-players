@@ -34,6 +34,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
@@ -333,7 +334,20 @@ private class CmpSession(private val gold: Gold, private val typefaces: AhemType
       "color" ->
         scalar(check) { id -> state()?.color(id)?.let { JsonPrimitive(it.toUInt().toLong()) } }
       "text" -> scalar(check) { id -> state()?.text(id)?.let(::JsonPrimitive) }
-      "matrix" -> scalar(check) { id -> state()?.matrixValues(id)?.toJsonArray() }
+      // A constant matrix is asserted at its **declared** size — 9 for a 3x3, 16 for a 4x4 (§4.2) —
+      // and the declaration is the only place that size survives: the runtime stores every matrix
+      // in
+      // a 4x4 slot, so reading it back reports sixteen numbers for a 3x3 that never had them.
+      "matrix" ->
+        scalar(check) { id ->
+          document.operations
+            .filterIsInstance<RcMatrixConstant>()
+            .firstOrNull { it.id == id }
+            ?.values
+            ?.map { it.value }
+            ?.toFloatArray()
+            ?.toJsonArray() ?: state()?.matrixValues(id)?.toJsonArray()
+        }
       "float_array:dynamic" -> scalar(check) { id -> state()?.floatValues(id)?.toJsonArray() }
       // The *stored* list, as written, against `float_array:dynamic`'s *computed* one (§4.2).
       "float_array:data" ->
