@@ -766,9 +766,6 @@ private extension NativeSwiftNodeSnapshot {
   var paddingLeft: Float { padding.left }
   var paddingBottom: Float { padding.bottom }
   var paddingRight: Float { padding.right }
-  var offsetX: Float { 0 }
-  var offsetY: Float { 0 }
-  var visibility: Int { 1 }
   var hasBackground: Bool { backgroundARGB != nil }
   var backgroundColor: Int32 { Int32(bitPattern: backgroundARGB ?? 0) }
 }
