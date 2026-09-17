@@ -576,8 +576,13 @@ public class RcPlayerState(
         val value = requireNotNull(texts[operation.textId])
         val start = resolve(operation.start).toInt()
         val length = resolve(operation.length).toInt()
+        // A transform that names no range — a plain `uppercase`, say — carries no meaningful
+        // length,
+        // and the wire may spell that 0 as readily as -1. Reading 0 literally selects nothing, so
+        // every such transform produced an empty string. A zero-length selection is not something a
+        // document asks a transform for; "to the end" is.
         val selected =
-          if (length == -1) value.substring(start, value.length)
+          if (length <= 0) value.substring(start, value.length)
           else value.substring(start, start + length)
         texts[operation.outId] =
           when (operation.operation) {
