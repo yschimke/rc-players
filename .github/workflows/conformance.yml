@@ -164,6 +164,16 @@ jobs:
           fi
           echo "spec=$spec" >> "$GITHUB_OUTPUT"
 
+      # `package-macos-player.sh` does *not* build the framework it packages -- it asserts one is
+      # already there and exits if not. `ci.yml` assembles first for the same reason; without this
+      # step the job below fails with "expected a locally assembled macOS framework".
+      #
+      # `--max-workers=1` is the Apple link's own limit rather than this repository's automation
+      # policy: Kotlin/Native compiles inside the Gradle daemon's JVM, so parallel release links
+      # peak together in one heap.
+      - name: Assemble the release XCFramework
+        run: ./gradlew --no-daemon :rc-player-compose:assembleRcComposePlayerReleaseXCFramework --max-workers=1
+
       # The lane shells out to this binary. Building it here rather than depending on another job
       # keeps the lane self-contained, and it is the same script the Apple CI job already runs.
       - name: Build the macOS player
@@ -271,3 +281,76 @@ jobs:
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
               commit -m "report: conformance run $(date -u +%Y-%m-%d)"
           git push origin reports/conformance
+
+  site:
+    name: Publish the site
+    needs: [score, score-apple]
+    # A red lane must not cost the site: the index renders a lane with no results as *not measured*,
+    # which is the statement a reader needs, and the other lanes' reports are still worth having.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # `deploy-pages` needs both, and nothing here writes to the repository. The Markdown reports
+      # are the `publish` job's business; this one only ever produces a Pages artifact.
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The site generators ship *with the corpus*, not with this repository. They are
+      # player-agnostic -- `generate-audit-report.mjs` renders whatever results it is handed and
+      # takes the player's name from the file -- which is why the corpus is checked out here too.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.spec_ref || 'vendor/androidx-rc-conformance' }}
+          path: conformance-spec
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+          pattern: conformance-*
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Render a report per player
+        run: |
+          set -euo pipefail
+          spec="$GITHUB_WORKSPACE/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance"
+          mkdir -p site
+          lanes=()
+          for player in cmp androidx-jvm native-appkit; do
+            results="artifacts/conformance-$player/conformance-results.json"
+            lanes+=("$player=$results")
+            # A lane whose job failed has no results file. Skipping the generator here is what makes
+            # the index say *not measured* instead of showing a player that passes nothing.
+            if [ ! -f "$results" ]; then
+              echo "::warning::no results for $player; the index will report it as not measured"
+              continue
+            fi
+            mkdir -p "site/$player"
+            node "$spec/generate-audit-report.mjs" --results "$results" --out "site/$player"
+          done
+          # Corpus-level, so once rather than per player: it describes the golds, not a player.
+          node "$spec/generate-gold-overview.mjs" --out site
+          node scripts/conformance-report/render-site-index.mjs \
+            --out site \
+            --run-id "$(date -u +%Y-%m-%d)" \
+            --commit "${{ github.sha }}" \
+            "${lanes[@]}"
+          du -sh site
+
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
