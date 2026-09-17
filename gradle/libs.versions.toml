@@ -143,7 +143,7 @@ androidx-core = "1.19.0"
 # `androidx.compose.remote.foundation:foundation`, which used to exist only on the
 # androidx-main snapshot line and now publishes to Google Maven — that is what
 # unblocked the move back to released coordinates.
-wear-compose-remote = "1.0.0-alpha10"
+wear-compose-remote = "1.0.0-alpha11"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.11.0"
