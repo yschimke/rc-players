@@ -89,6 +89,24 @@ val publishSet =
 val projectsToPublish =
   publishedProjects.filterValues { publishSet == null || it in publishSet }.keys
 
+// An id the plan named that matches no module here is drift between the plan and the build, and it
+// fails silently in the dangerous direction: the filter above simply does not match it, the module
+// does not publish, and `publishPlayers` succeeds having uploaded one coordinate fewer than the
+// release believes it did. Central refuses a second upload of a version, so that module then never
+// ships at that version at all.
+//
+// Nothing else catches it. `PublishedArtifactIdsTest` pins this table against the build files, but
+// the plan derives its ids independently in `maven-publish-plan.sh` — and that script has already
+// dropped two modules once, from a `projectDir` line ktfmt had wrapped. This is the seam where the
+// two representations meet, so it is where they are compared.
+val unknownPublishSetIds = publishSet.orEmpty() - publishedProjects.values.toSet()
+
+require(unknownPublishSetIds.isEmpty()) {
+  "composeai.publishSet names ${unknownPublishSetIds.sorted()}, which match no published module. " +
+    "Known ids: ${publishedProjects.values.sorted()}. " +
+    "The publish plan and this build disagree; publishing would silently skip them."
+}
+
 tasks.register("publishPlayers") {
   group = "publishing"
   description = "Publishes the player artifacts this release changed to Maven Central."
@@ -105,9 +123,9 @@ tasks.register("publishPlayersToMavenLocal") {
   publishedProjects.keys.forEach { dependsOn("$it:publishToMavenLocal") }
 }
 
-// What `publishPlayers` would upload, one artifact id per line, for the release job to hand to
-// `record-published.py`. Reading it back off the task graph rather than re-deriving it in YAML is
-// what keeps the manifest describing what actually published.
+// What `publishPlayers` would upload, one artifact id per line. Reading it back off the task graph
+// rather than re-deriving it in YAML is what lets a release state what it actually published.
+// (It fed `record-published.py` until the baseline moved to Central and that script was deleted.)
 tasks.register("printPublishSet") {
   group = "publishing"
   description = "Print the artifact id of each module publishPlayers would upload."
