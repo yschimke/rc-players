@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.66.0](https://github.com/yschimke/rc-players/compare/v1.65.0...v1.66.0) (2026-09-17)
+
+
+### Features
+
+* apply the offset, z-index and visibility modifiers ([#231](https://github.com/yschimke/rc-players/issues/231)) ([78a2f4a](https://github.com/yschimke/rc-players/commit/78a2f4ab60bed38cfc9b444be228338248fa8c59))
+* decode animation specs, touch expressions and root content descriptions ([#233](https://github.com/yschimke/rc-players/issues/233)) ([478adab](https://github.com/yschimke/rc-players/commit/478adabc780f6f2e6564b19c8382e157552f8893))
+* decode nine more layout containers and modifiers ([#230](https://github.com/yschimke/rc-players/issues/230)) ([e841b30](https://github.com/yschimke/rc-players/commit/e841b3052b879b68b08e4fd5f6d68d6f69d263f4))
+* decode the collapsible layout family (opcodes 233, 230, 235) ([#227](https://github.com/yschimke/rc-players/issues/227)) ([0205c8d](https://github.com/yschimke/rc-players/commit/0205c8da8f5b31b0e141344d58801f313f82928e))
+* decode the particle operations (opcodes 161 and 163) ([#235](https://github.com/yschimke/rc-players/issues/235)) ([ded55ea](https://github.com/yschimke/rc-players/commit/ded55ea2ed73c0b0f04c724323ac95f606de1691))
+* publish conformance reports to a browsable branch ([#236](https://github.com/yschimke/rc-players/issues/236)) ([49b1d23](https://github.com/yschimke/rc-players/commit/49b1d2367f2ab0213fa2b96fe6f13566880ddb54))
+* score the native lane in the conformance report ([#237](https://github.com/yschimke/rc-players/issues/237)) ([e8bb898](https://github.com/yschimke/rc-players/commit/e8bb898d3cbfd593587053baad023555e2ea2d32))
+* score the native Swift core and AppKit renderer against the conformance corpus ([#223](https://github.com/yschimke/rc-players/issues/223)) ([b51aa60](https://github.com/yschimke/rc-players/commit/b51aa601d693ae7c735143ca70ee35fc860d77ba))
+
+
+### Bug Fixes
+
+* **build:** fail the release when the publish plan names a module this build does not have ([#221](https://github.com/yschimke/rc-players/issues/221)) ([9a4e4ab](https://github.com/yschimke/rc-players/commit/9a4e4abc3e2c87f1a9b8ccd6ff1e1ead3a977712))
+* centre the graphics-layer transform origin until AndroidX settles the default ([#239](https://github.com/yschimke/rc-players/issues/239)) ([45fab7e](https://github.com/yschimke/rc-players/commit/45fab7e8c6251696838880f2cf8aeccb7252d1a5))
+* **deps:** update compose-preview-contracts to v2.20.0 ([#246](https://github.com/yschimke/rc-players/issues/246)) ([c700f8d](https://github.com/yschimke/rc-players/commit/c700f8d4b8f0aac9a46e88acdc90c7e0bec278d5))
+* **deps:** update compose-preview-daemon ([#247](https://github.com/yschimke/rc-players/issues/247)) ([7a7cb6b](https://github.com/yschimke/rc-players/commit/7a7cb6bd4b1f14388710bd84c70196e36151bc0d))
+* **deps:** update dependency com.android.tools.build:gradle to v9.4.0 ([#248](https://github.com/yschimke/rc-players/issues/248)) ([069bc24](https://github.com/yschimke/rc-players/commit/069bc245eb4ce56cc80fb318ad411e5cc934949d))
+* **deps:** update dependency com.squareup.okio:okio to v3.18.2 ([#242](https://github.com/yschimke/rc-players/issues/242)) ([2550388](https://github.com/yschimke/rc-players/commit/2550388340ff6d16b5b3ac4b91ed00eb42c0ee17))
+* **deps:** update kotlin to v2.4.20 ([#243](https://github.com/yschimke/rc-players/issues/243)) ([8785bfa](https://github.com/yschimke/rc-players/commit/8785bfa1a9a1dc1a240bedca9fd9801be24c452d))
+* drop the AppKit sample's stale node shims ([#240](https://github.com/yschimke/rc-players/issues/240)) ([8f065e6](https://github.com/yschimke/rc-players/commit/8f065e6d8808ba1285d02b72bb3ecf7220c276bd))
+
 ## [1.65.0](https://github.com/yschimke/rc-players/compare/v1.64.0...v1.65.0) (2026-09-17)
 
 
