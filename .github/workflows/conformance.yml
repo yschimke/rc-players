@@ -339,6 +339,20 @@ jobs:
             mkdir -p "site/$player"
             node "$spec/generate-audit-report.mjs" --results "$results" --out "site/$player"
           done
+
+          # A fourth player, for free. The corpus ships upstream's own TypeScript run under
+          # `results/typescript/`, in the same schema the generators read -- so it is a column this
+          # repository gets without measuring anything. It is *reported by upstream* rather than
+          # measured here, which is why the index labels it so, and it is the only external number
+          # these scores can be checked against.
+          typescript="$spec/results/typescript/conformance-results.json"
+          if [ -f "$typescript" ]; then
+            mkdir -p site/typescript
+            node "$spec/generate-audit-report.mjs" --results "$typescript" --out site/typescript
+            lanes+=("typescript=$typescript")
+          else
+            echo "::warning::the corpus carries no typescript results; skipping that column"
+          fi
           # Corpus-level, so once rather than per player: it describes the golds, not a player.
           node "$spec/generate-gold-overview.mjs" --out site
           node scripts/conformance-report/render-site-index.mjs \
