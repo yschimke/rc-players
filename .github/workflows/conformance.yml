@@ -350,7 +350,13 @@ jobs:
               continue
             fi
             mkdir -p "site/$player"
-            node "$spec/generate-audit-report.mjs" --results "$results" --out "site/$player"
+            # Not fatal. Under `set -e` one player's generator failing would take the whole site
+            # with it, and three players' reports are worth more than none -- the index already has
+            # a shape for a lane it has nothing for.
+            if ! node "$spec/generate-audit-report.mjs" --results "$results" --out "site/$player"; then
+              echo "::warning::the audit generator failed for $player; its pages will be missing"
+              rm -rf "site/$player"
+            fi
           done
 
           # A fourth player, for free. The corpus ships upstream's own TypeScript run under
@@ -361,18 +367,27 @@ jobs:
           typescript="$spec/results/typescript/conformance-results.json"
           if [ -f "$typescript" ]; then
             mkdir -p site/typescript
-            node "$spec/generate-audit-report.mjs" --results "$typescript" --out site/typescript
-            lanes+=("typescript=$typescript")
+            if node "$spec/generate-audit-report.mjs" --results "$typescript" --out site/typescript
+            then
+              lanes+=("typescript=$typescript")
+            else
+              echo "::warning::the audit generator failed for typescript"
+              rm -rf site/typescript
+            fi
           else
             echo "::warning::the corpus carries no typescript results; skipping that column"
           fi
           # Corpus-level, so once rather than per player: it describes the golds, not a player.
-          node "$spec/generate-gold-overview.mjs" --out site
+          if ! node "$spec/generate-gold-overview.mjs" --out site; then
+            echo "::warning::the gold overview failed to render; the index will link a missing page"
+          fi
           node scripts/conformance-report/render-site-index.mjs \
             --out site \
             --run-id "$(date -u +%Y-%m-%d)" \
             --commit "${{ github.sha }}" \
             "${lanes[@]}"
+          # The index is the one page that must exist: without it Pages serves a directory listing.
+          test -f site/index.html
           du -sh site
 
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
