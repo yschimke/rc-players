@@ -58,16 +58,16 @@ class RunnerAccountingTest {
     override val name = "fake"
     override val version = "test"
 
-    override fun open(gold: Gold) =
-      object : ConformanceSession {
-        override fun execute(step: Step, onCapture: (String) -> Unit) {
-          if (step.kind !in drivable) throw UnsupportedStepKind(step.kind)
+    override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T =
+      block(
+        object : ConformanceSession {
+          override fun execute(step: Step, onCapture: (String) -> Unit) {
+            if (step.kind !in drivable) throw UnsupportedStepKind(step.kind)
+          }
+
+          override fun observe(check: Check) = observation(check)
         }
-
-        override fun observe(check: Check) = observation(check)
-
-        override fun close() = Unit
-      }
+      )
   }
 
   @Test

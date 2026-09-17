@@ -74,7 +74,8 @@ public class NativeSwiftEngine(private val playerBinary: File) : ConformanceEngi
     }
   }
 
-  override fun open(gold: Gold): ConformanceSession = NativeSwiftSession(gold, playerBinary)
+  override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T =
+    NativeSwiftSession(gold, playerBinary).use { block(it) }
 
   public companion object {
     /**
@@ -93,7 +94,7 @@ public class NativeSwiftEngine(private val playerBinary: File) : ConformanceEngi
 }
 
 private class NativeSwiftSession(private val gold: Gold, private val playerBinary: File) :
-  ConformanceSession {
+  ConformanceSession, AutoCloseable {
   private var width = gold.parameters.intOrDefault("width", 400)
   private var height = gold.parameters.intOrDefault("height", 400)
 

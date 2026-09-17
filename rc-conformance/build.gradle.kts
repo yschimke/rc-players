@@ -47,6 +47,11 @@ dependencies {
 
   testImplementation(libs.junit)
   testImplementation(kotlin("test"))
+  // The Compose test API drives a player the same way on every Compose target — `runComposeUiTest`
+  // owns a composition, `mainClock` advances animation deterministically, semantics exposes the
+  // tree, and `captureToImage` returns real pixels. It resolves from a test configuration, which is
+  // why the engines live in the test source set. See docs/design/RC_CONFORMANCE_PLATFORMS.md.
+  testImplementation("org.jetbrains.compose.ui:ui-test-desktop:1.11.1")
 }
 
 /**
@@ -70,23 +75,26 @@ val specDirProvider =
         .absolutePath
     )
 
-tasks.register<JavaExec>("conformance") {
+tasks.register<Test>("conformance") {
   description = "Score a player against the RemoteCompose conformance corpus."
   group = "verification"
-  classpath = sourceSets.main.get().runtimeClasspath
-  mainClass.set("ee.schimke.composeai.rcconformance.ConformanceMainKt")
+  testClassesDirs = sourceSets.test.get().output.classesDirs
+  classpath = sourceSets.test.get().runtimeClasspath
+  filter { includeTestsMatching("*RcConformanceHarness*") }
 
-  // Headless skiko: the same setting `:rc-player-profile` relies on, so the lane runs on a CI
-  // runner with no display server.
+  // Headless skiko: the same setting the other rendering lanes rely on, so this runs on a CI runner
+  // with no display server.
   systemProperty("java.awt.headless", "true")
 
-  // Resolved at configuration time rather than through an `argumentProviders` lambda: a lambda
-  // declared in a build script is a script object reference, which the configuration cache cannot
-  // serialize. Gradle tracks each `gradleProperty` read as a configuration input, so changing
-  // `-Prc.player` still invalidates the entry — laziness buys nothing here and costs the cache.
-  val player = providers.gradleProperty("rc.player").orElse("cmp").get()
-  val filter = providers.gradleProperty("rc.filter").orElse("").get()
-  val outDir = layout.buildDirectory.dir("conformance").get().asFile.absolutePath
+  // Resolved at configuration time rather than through a lazy provider: Gradle tracks each
+  // `gradleProperty` read as a configuration input, so changing one still invalidates the cache.
+  systemProperty("rc.specDir", specDirProvider.get())
+  systemProperty("rc.player", providers.gradleProperty("rc.player").orElse("cmp").get())
+  systemProperty("rc.filter", providers.gradleProperty("rc.filter").orElse("").get())
+  systemProperty(
+    "rc.player.out",
+    layout.buildDirectory.dir("conformance").get().asFile.absolutePath,
+  )
 
   // The native-swift lane drives the packaged macOS player as a subprocess. Resolved here, against
   // the root project, because a relative default would resolve against this task's working
@@ -100,21 +108,12 @@ tasks.register<JavaExec>("conformance") {
       .absolutePath,
   )
 
-  // Deliberately not declared as task outputs: a conformance score is a measurement, not a build
-  // artifact. Declaring it would make the task UP-TO-DATE on the second run — exactly when a
-  // re-measure is what was asked for. `:rc-player-profile` makes the same call for the same reason.
+  // A conformance score is a measurement, not a build artifact. Declaring outputs would make the
+  // task UP-TO-DATE on the second run — exactly when a re-measure is what was asked for.
   outputs.upToDateWhen { false }
-
-  args = buildList {
-    add("--spec-dir")
-    add(specDirProvider.get())
-    add("--player")
-    add(player)
-    add("--out")
-    add(outDir)
-    if (filter.isNotBlank()) {
-      add("--filter")
-      add(filter)
-    }
-  }
+  testLogging { showStandardStreams = true }
 }
+
+// `check` must not depend on it: the corpus is upstream-unmerged and the lane is deliberately
+// non-gating, so a corpus revision can never turn a pull request red.
+tasks.named<Test>("test") { filter { excludeTestsMatching("*RcConformanceHarness*") } }

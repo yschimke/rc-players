@@ -9,12 +9,21 @@ import ee.schimke.composeai.rcconformance.runner.ConformanceEngine
 import ee.schimke.composeai.rcconformance.runner.ConformanceRunner
 import ee.schimke.composeai.rcconformance.runner.GoldResult
 import java.io.File
-import kotlin.system.exitProcess
+import kotlin.test.Test
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
 /**
  * Scores one player against the corpus and writes its results and scorecard.
+ *
+ * A JUnit harness rather than a `main`, because the engines it drives live in the test source set:
+ * the Compose test API — `runComposeUiTest`, `mainClock`, `captureToImage` — is the only thing that
+ * drives a player the same way on every Compose target, and it resolves from a test configuration.
+ * The repo's other rendering harnesses are shaped the same way for the same reason.
+ *
+ * **A harness, not an assertion test.** With no corpus configured it renders nothing and passes, so
+ * `check` stays green on a bare tree; a failing gold is a *result* to report, not a reason to fail
+ * the build. The lane is deliberately non-gating — see `docs/design/RC_CONFORMANCE.md`.
  *
  * The corpus directory is **required configuration**, never a path baked into this repository. That
  * is `PLAYER_IMPLEMENTATION_GUIDE.md` §1's instruction, and the reason behind it is the one failure
@@ -22,9 +31,33 @@ import kotlinx.serialization.json.jsonObject
  * and the drift is silent — the runner keeps passing against a stale expectation and the score
  * still looks fine.
  */
-public fun main(args: Array<String>) {
-  val options = parseArgs(args)
+public class RcConformanceHarness {
+  @Test
+  public fun score() {
+    val specDir = System.getProperty(SPEC_PROPERTY)?.let(::File)
+    if (specDir == null) {
+      println("no $SPEC_PROPERTY configured — nothing to score")
+      return
+    }
+    run(
+      Options(
+        specDir = specDir,
+        player = System.getProperty(PLAYER_PROPERTY) ?: "cmp",
+        out = System.getProperty(OUT_PROPERTY) ?: "build/conformance",
+        filter = System.getProperty(FILTER_PROPERTY)?.takeIf(String::isNotBlank),
+      )
+    )
+  }
 
+  private companion object {
+    const val SPEC_PROPERTY = "rc.specDir"
+    const val PLAYER_PROPERTY = "rc.player"
+    const val OUT_PROPERTY = "rc.player.out"
+    const val FILTER_PROPERTY = "rc.filter"
+  }
+}
+
+private fun run(options: Options) {
   val goldDir = File(options.specDir, "gold")
   if (!goldDir.isDirectory) {
     // Not an empty run: an absent corpus and a player that renders nothing produce the same zero,
@@ -34,7 +67,7 @@ public fun main(args: Array<String>) {
         "  Check out the vendor/androidx-rc-conformance branch and point --spec-dir (or RC_SPEC_DIR)\n" +
         "  at third_party/rc-conformance-spec/compose/remote/specification/conformance."
     )
-    exitProcess(2)
+    error("no corpus at ${goldDir.absolutePath}")
   }
 
   val json = Json { ignoreUnknownKeys = true }
@@ -53,10 +86,7 @@ public fun main(args: Array<String>) {
       }
       .toList()
 
-  if (golds.isEmpty()) {
-    System.err.println("no golds matched ${options.filter ?: "(no filter)"}")
-    exitProcess(2)
-  }
+  check(golds.isNotEmpty()) { "no golds matched ${options.filter ?: "(no filter)"}" }
 
   val engine = engineFor(options.player, options.specDir)
   val runner = ConformanceRunner(engine)
@@ -115,25 +145,3 @@ private data class Options(
   val out: String,
   val filter: String?,
 )
-
-private fun parseArgs(args: Array<String>): Options {
-  var specDir: String? = System.getenv("RC_SPEC_DIR")
-  var player = "cmp"
-  var out = "build/conformance"
-  var filter: String? = null
-
-  var index = 0
-  while (index < args.size) {
-    when (val arg = args[index]) {
-      "--spec-dir" -> specDir = args[++index]
-      "--player" -> player = args[++index]
-      "--out" -> out = args[++index]
-      "--filter" -> filter = args[++index]
-      else -> error("unknown argument: $arg")
-    }
-    index++
-  }
-
-  val resolved = specDir ?: error("--spec-dir (or RC_SPEC_DIR) is required")
-  return Options(File(resolved), player, out, filter)
-}
