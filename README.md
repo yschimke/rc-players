@@ -133,6 +133,15 @@ therefore lives on the long-lived `vendor/androidx-rc-conformance` branch rather
 module resolves it as configuration, never by path. The design, the current CMP score and the work
 list are in [`docs/design/RC_CONFORMANCE.md`](docs/design/RC_CONFORMANCE.md).
 
+The results are published, nightly, in two places that answer different questions:
+
+- **[The visual audits](https://yschimke.github.io/rc-players/)** — one per player, rendered by the
+  corpus's own generators: the conformance matrix, side-by-side and overlay pixel diffs, animation
+  playback, and a per-test inspector with frame scrubbers. Rebuilt each run and never versioned.
+- **[`reports/conformance`](https://github.com/yschimke/rc-players/tree/reports/conformance)** — the
+  durable record, in Markdown: the cross-lane split, the work list separated into the player's gaps
+  and the runner's, and the trend per run.
+
 `rc-player/demos` is the host half of a custom component, which is the one part of the stack the
 published API cannot show on its own: the player draws a `Custom` component only if the host
 registers a renderer for its config name. Two are demonstrated — `SupportSpannableString`, which the
