@@ -1920,6 +1920,41 @@ private enum NativeSwiftDocumentDecoder {
         node.verticalPositioning = try input.int("column vertical positioning")
         node.spacingWord = try input.word("column spacing")
         try begin(node)
+      case 14:  // Animation spec
+        // Verified against AndroidX's own AnimationSpec.read in remote-core: an id, the motion
+        // duration as a float, its easing as an int, the visibility duration as a float, its easing,
+        // then the enter and exit animation kinds. Seven words.
+        //
+        // Read and dropped: this player resolves a document at a point in time rather than animating
+        // between states, so a spec describing how a component should transition has nothing to act
+        // on. It still has to be consumed to keep the stream in sync.
+        _ = try input.int("animation spec id")
+        _ = try input.word("animation spec motion duration")
+        _ = try input.int("animation spec motion easing")
+        _ = try input.word("animation spec visibility duration")
+        _ = try input.int("animation spec visibility easing")
+        _ = try input.int("animation spec enter animation")
+        _ = try input.int("animation spec exit animation")
+      case 157:  // Touch expression
+        // An id, four float words (start value, minimum, maximum, velocity id), the touch effects,
+        // then three length-prefixed float arrays. Each length is the low 16 bits of its word --
+        // the high half of the second carries the stop mode -- which is masked in both AndroidX's
+        // own reader and the reference port, and getting that wrong desynchronises everything after.
+        _ = try input.int("touch expression id")
+        for field in ["start value", "minimum", "maximum", "velocity id"] {
+          _ = try input.word("touch expression \(field)")
+        }
+        _ = try input.int("touch expression effects")
+        for array in ["expression", "stops", "easing"] {
+          let header = try input.int("touch expression \(array) length")
+          let count = header & 0xffff
+          guard count <= 4096 else {
+            throw input.malformed("Touch expression \(array) is too long")
+          }
+          for _ in 0..<count { _ = try input.word("touch expression \(array) value") }
+        }
+      case 103:  // Root content description
+        _ = try input.int("root content description id")
       case 207:  // Canvas content
         // INT component id, the same shape as the content at 201, and the same role: the container
         // a canvas draws into.
