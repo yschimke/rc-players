@@ -64,9 +64,6 @@ jobs:
     name: Publish to Maven Central
     runs-on: macos-15
     timeout-minutes: 120
-    outputs:
-      publish-set: ${{ steps.plan.outputs.publish-set }}
-      planned: ${{ steps.plan.outputs.planned }}
     env:
       ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
       ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
@@ -145,20 +142,21 @@ jobs:
       # that DID run is a different thing, and the two must not collapse: it means "publish only
       # the BOM", the right answer for a releasable change confined to `.github/` or the docs.
       - name: Compute the publish plan
-        id: plan
         run: |
           set -euo pipefail
           PUBLISH_SET=""
           PUBLISH_PLANNED=false
           if [ "${{ github.event_name }}" = "workflow_call" ]; then
-            PUBLISH_SET="$(.github/scripts/maven-publish-plan.sh --head "$TAG_NAME" | paste -sd, -)"
+            # `--write-manifest` puts the baseline the plan resolved from Central into the
+            # workspace, where the Gradle build reads it to give a skipped module the version it
+            # is already published at. Written, never committed.
+            PUBLISH_SET="$(.github/scripts/maven-publish-plan.sh --head "$TAG_NAME" \
+              --write-manifest publishing-manifest.json | paste -sd, -)"
             PUBLISH_PLANNED=true
           fi
           echo "plan ran: $PUBLISH_PLANNED; publish set: ${PUBLISH_SET:-<empty>}"
           echo "PUBLISH_SET=$PUBLISH_SET" >> "$GITHUB_ENV"
           echo "PUBLISH_PLANNED=$PUBLISH_PLANNED" >> "$GITHUB_ENV"
-          echo "publish-set=$PUBLISH_SET" >> "$GITHUB_OUTPUT"
-          echo "planned=$PUBLISH_PLANNED" >> "$GITHUB_OUTPUT"
 
       # `publishPlayers` (root build) names the publishing projects explicitly, so a module that
       # does not publish can never be swept in by task-name matching — and it now filters them by
@@ -436,52 +434,3 @@ jobs:
             build/distributions/RemoteComposePlayer-Simulator-arm64.zip \
             build/distributions/RemoteComposePlayer-Simulator-arm64.zip.sha256 \
             --clobber
-
-
-  # Write back what actually published, so the next release's plan has a per-module baseline.
-  #
-  # Its own job, and `continue-on-error`, deliberately. In compose-preview-daemon this started as a
-  # step inside the publish job that pushed straight to `main`; the branch ruleset rejected the push
-  # (`GH013: changes must be made through a pull request`) and took the whole release down with it
-  # AFTER the artifacts were already on Central — unrepairable, because Central refuses a second
-  # upload of a version (its #127). Recording is bookkeeping: it must never be able to fail a
-  # release that succeeded, least of all this one, whose Apple and npm jobs come after it.
-  #
-  # It opens a pull request rather than pushing, which needs `pull-requests: write` — granted on the
-  # `uses:` in release-please.yml, for the reason that file already explains at length.
-  #
-  # Skipped when no plan ran, where every module published at the tag anyway.
-  record-published:
-    name: Record what published
-    needs: publish-maven
-    if: ${{ !cancelled() && needs.publish-maven.result == 'success' && needs.publish-maven.outputs.planned == 'true' }}
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Record the published versions
-        run: |
-          set -euo pipefail
-          .github/scripts/record-published.py \
-            --manifest publishing-manifest.json \
-            --version "${TAG_NAME#v}" \
-            --modules "${{ needs.publish-maven.outputs.publish-set }}"
-      - name: Open a pull request with the updated manifest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- publishing-manifest.json; then
-            echo "manifest unchanged"; exit 0
-          fi
-          BRANCH="chore/record-published-${TAG_NAME}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git add publishing-manifest.json
-          git commit -m "chore: record published versions for ${TAG_NAME}"
-          git push -u origin "$BRANCH"
-          gh pr create --fill --base main --head "$BRANCH"

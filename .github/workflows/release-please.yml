@@ -67,7 +67,7 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-      # For `record-published`, which opens a pull request with the manifest of what actually
-      # published. Same rule as above — it has to be granted HERE or that job's `pull-requests:
-      # write` is an elevation and the whole call fails at startup.
-      pull-requests: write
+      # No `pull-requests: write`: `record-published` was the only job that wanted it, and it is
+      # gone — the publish plan reads its baseline from Maven Central and writes nothing back.
+      # Keep that true; by the rule above, a job asking for more than this block grants fails the
+      # whole call at startup.

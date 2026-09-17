@@ -57,19 +57,10 @@ class PublishedArtifactIdsTest {
     assertEquals(declaredByProjectPath(), PublishedArtifactIds.byProjectPath)
   }
 
-  @Test
-  fun `every published coordinate has a recorded version`() {
-    // The manifest is what a skipped module's POM takes its version from. An id in one file and
-    // not the other fails the release during Gradle configuration at best, and publishes a POM
-    // naming a coordinate that does not exist at worst.
-    val manifest = repoRoot.resolve("publishing-manifest.json").readText()
-    val missing =
-      PublishedArtifactIds.byProjectPath.values.filter {
-        PublishedVersions.recordedVersion(it, manifest) == null
-      }
-    assertEquals(emptyList(), missing)
-  }
-
+  // `every published coordinate has a recorded version` lived here, reading the committed
+  // publishing-manifest.json. There is no committed manifest now: the release plan resolves each
+  // coordinate's published version from Maven Central and writes the file into the workspace, so
+  // a coordinate cannot be missing from a list — Central is asked about whatever this table names.
   @Test
   fun `the root build's publish list agrees with the table`() {
     // `build.gradle.kts` keeps its own copy so `publishPlayers` can map ids back to project paths
