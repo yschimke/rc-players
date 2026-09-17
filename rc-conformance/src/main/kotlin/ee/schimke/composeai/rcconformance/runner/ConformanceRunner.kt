@@ -14,8 +14,11 @@ public data class GoldResult(
   public val gold: Gold,
   public val status: String,
   public val rawStatus: String,
+  /** **Binding** assertions only. Advisory ones are counted separately — see [Check.advisory]. */
   public val checksTotal: Int,
   public val checksFailed: Int,
+  public val advisoryTotal: Int,
+  public val advisoryFailed: Int,
   public val durationMs: Long,
   public val diffs: List<Diff>,
   public val observed: Map<String, Map<String, JsonElement>>,
@@ -51,7 +54,11 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
     val attachments = mutableMapOf<String, String>()
     val checksByStep = gold.checks.groupBy(Check::at)
     val executed = mutableSetOf<String>()
+    // Kept apart because they mean different things. A failing binding check is a conformance gap;
+    // a failing advisory one is a number the corpus wants reported and has declined to fail a gold
+    // on. Both are recorded in `diffs`, which is what upstream's own results file does.
     var failedChecks = 0
+    var advisoryFailed = 0
     var error: String? = null
 
     val duration = measureTimeMillis {
@@ -64,7 +71,9 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
               session.execute(step) { captureId ->
                 executed += captureId
                 for (check in checksByStep[captureId].orEmpty()) {
-                  if (evaluate(gold, session, check, diffs, observed, attachments)) failedChecks++
+                  if (evaluate(gold, session, check, diffs, observed, attachments)) {
+                    if (check.advisory) advisoryFailed++ else failedChecks++
+                  }
                 }
               }
             } catch (unsupported: UnsupportedStepKind) {
@@ -78,7 +87,9 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
             executed += step.id
 
             for (check in checksByStep[step.id].orEmpty()) {
-              if (evaluate(gold, session, check, diffs, observed, attachments)) failedChecks++
+              if (evaluate(gold, session, check, diffs, observed, attachments)) {
+                if (check.advisory) advisoryFailed++ else failedChecks++
+              }
             }
           }
         }
@@ -93,7 +104,7 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
     for ((stepId, checks) in checksByStep) {
       if (stepId in executed) continue
       checks.forEach { check ->
-        failedChecks++
+        if (check.advisory) advisoryFailed++ else failedChecks++
         diffs +=
           Diff(
             at = check.at,
@@ -107,10 +118,13 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
       }
     }
 
+    // `failedChecks`, not `diffs`: a gold whose only disagreements are advisory passes. That is the
+    // corpus's own rule and upstream's own results follow it — 38 of its TypeScript golds pass with
+    // advisory failures recorded against them.
     val rawStatus =
       when {
         error != null -> "ERROR"
-        diffs.isEmpty() -> "PASS"
+        failedChecks == 0 -> "PASS"
         else -> "FAIL"
       }
 
@@ -121,8 +135,10 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
       // a failure this player is responsible for.
       status = if (gold.isSuspicious) "SUSPICIOUS" else rawStatus,
       rawStatus = rawStatus,
-      checksTotal = gold.checks.size,
+      checksTotal = gold.checks.count { !it.advisory },
       checksFailed = failedChecks,
+      advisoryTotal = gold.checks.count(Check::advisory),
+      advisoryFailed = advisoryFailed,
       durationMs = duration,
       diffs = diffs,
       observed = observed.mapValues { it.value.toMap() },
@@ -215,6 +231,8 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
       rawStatus = "SKIP",
       checksTotal = gold.checks.size,
       checksFailed = 0,
+      advisoryTotal = 0,
+      advisoryFailed = 0,
       durationMs = 0,
       diffs = emptyList(),
       observed = emptyMap(),
