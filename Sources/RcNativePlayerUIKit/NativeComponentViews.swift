@@ -283,9 +283,9 @@
       horizontalPositioning = snapshot.horizontalPositioning
       verticalPositioning = snapshot.verticalPositioning
       spacing = CGFloat(snapshot.spacing)
-      offset = .zero
-      zIndex = 0
-      visibility = 1
+      offset = CGPoint(x: CGFloat(snapshot.offsetX), y: CGFloat(snapshot.offsetY))
+      zIndex = CGFloat(snapshot.zIndex)
+      visibility = snapshot.visibility
       custom = snapshot.custom.map(NativeCustomComponent.init)
       self.densityBehavior = densityBehavior
     }
