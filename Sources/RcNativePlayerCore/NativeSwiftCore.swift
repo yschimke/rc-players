@@ -1953,6 +1953,41 @@ private enum NativeSwiftDocumentDecoder {
           }
           for _ in 0..<count { _ = try input.word("touch expression \(array) value") }
         }
+      case 161:  // Particle define
+        // From AndroidX's ParticlesCreate.read: an id, the particle count, then a variable count and
+        // that many variables, each an id followed by a length-prefixed expression. The bounds are
+        // the reader's own -- fewer than 8000 particles, at most 2000 variables, at most 32 words
+        // per expression -- and they are kept because they are what stops a malformed length from
+        // allocating the document's remainder.
+        _ = try input.int("particle id")
+        let particleCount = try input.int("particle count")
+        guard particleCount < 8000 else { throw input.malformed("Too many particles") }
+        let variableCount = try input.int("particle variable count")
+        guard variableCount <= 2000 else { throw input.malformed("Too many particle variables") }
+        for _ in 0..<max(variableCount, 0) {
+          _ = try input.int("particle variable id")
+          let length = try input.int("particle expression length")
+          guard length <= 32 else { throw input.malformed("Particle expression is too long") }
+          for _ in 0..<max(length, 0) { _ = try input.word("particle expression word") }
+        }
+      case 163:  // Particle loop
+        // ParticlesLoop.read: an id, one length-prefixed expression for the loop itself, then a
+        // variable count and a length-prefixed expression per variable. Same bounds as above.
+        _ = try input.int("particle loop id")
+        let loopLength = try input.int("particle loop expression length")
+        guard loopLength <= 32 else { throw input.malformed("Particle loop expression is too long") }
+        for _ in 0..<max(loopLength, 0) { _ = try input.word("particle loop expression word") }
+        let loopVariables = try input.int("particle loop variable count")
+        guard loopVariables <= 2000 else {
+          throw input.malformed("Too many particle loop variables")
+        }
+        for _ in 0..<max(loopVariables, 0) {
+          let length = try input.int("particle loop variable expression length")
+          guard length <= 32 else {
+            throw input.malformed("Particle loop variable expression is too long")
+          }
+          for _ in 0..<max(length, 0) { _ = try input.word("particle loop variable word") }
+        }
       case 103:  // Root content description
         _ = try input.int("root content description id")
       case 207:  // Canvas content
