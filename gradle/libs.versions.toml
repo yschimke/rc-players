@@ -62,7 +62,7 @@ androidx-tracing-kmp = "2.0.2"
 # What DOES constrain this repository is `compose-multiplatform` below (the skiko `PathConic`
 # seams), and that one is pinned in `renovate.json`. Do not copy the daemon's compose-bom rule
 # across on the strength of the shared ref name.
-compose-bom-compat = "2025.12.01"
+compose-bom-compat = "2026.08.00"
 # The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP
 # player. This version is also a CEILING CONSTRAINT ON EVERY CATALOG THE SERVE HOST RENDERS LIVE:
 # it must be >= the newest `compose-multiplatform` of any catalog served from this host. A catalog
