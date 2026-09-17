@@ -62,6 +62,7 @@ import ee.schimke.composeai.rcembedded.player.resolveThemedColors
 import ee.schimke.composeai.rcembedded.player.updateTimeReflection
 import java.io.ByteArrayInputStream
 import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Typeface
 
 /*
  * The desktop/JVM render entry point for a captured Remote Compose document — the jvm counterpart of
@@ -229,6 +230,7 @@ internal fun RcPlayerJvm(
   seeds: Map<String, RcSeed> = emptyMap(),
   theme: Int = Theme.LIGHT,
   systemColorLookup: (name: String) -> Int? = { null },
+  pinnedTypeface: Typeface? = null,
 ) {
   val clock: RemoteClock =
     remember(document) { document.clock.takeUnless { it is SystemClock } ?: RemoteClock.SYSTEM }
@@ -249,6 +251,7 @@ internal fun RcPlayerJvm(
         theme,
         systemColorLookup,
         preprocessed,
+        pinnedTypeface,
       )
     }
 
@@ -299,9 +302,13 @@ internal fun initDrawContext(
   theme: Int,
   systemColorLookup: (name: String) -> Int?,
   preprocessed: DocumentPreprocessResult = preprocessDocument(document),
+  pinnedTypeface: Typeface? = null,
 ): JvmRemoteContext =
   Tracer.global.trace(category = RC_EMBEDDED_TRACE_DOCUMENT, name = "rcEmbedded:initContext") {
     JvmRemoteContext(clock = clock).also { context ->
+      // Before anything measures. Text resolution reads this on every run, and a face installed
+      // after the first measurement would leave earlier runs measured against the platform default.
+      context.pinnedTypeface = pinnedTypeface
       // Back the document's reactive scalar state with Compose snapshot state, so variables
       // resolve reactively; swap before initializeContext propagates document state onto the
       // context, and re-gather the collections the loader put in the previous state.

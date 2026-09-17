@@ -130,7 +130,7 @@ private const val PROGRESS_WIDTH = 48
 private fun engineFor(player: String, specDir: File): ConformanceEngine =
   when (player) {
     "cmp" -> CmpEngine(specDir)
-    "androidx-jvm" -> AndroidxJvmEngine()
+    "androidx-jvm" -> AndroidxJvmEngine(specDir)
     "native-appkit" -> NativeSwiftEngine(NativeSwiftEngine.defaultBinary())
     else ->
       error(

@@ -23,7 +23,10 @@ import androidx.compose.remote.core.operations.Theme
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
+import org.jetbrains.skia.Data
 import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.FontMgr
+import org.jetbrains.skia.Typeface
 
 /**
  * A rendered frame together with the document that produced it.
@@ -42,6 +45,17 @@ public class RcJvmRenderedDocument
 internal constructor(public val document: CoreDocument, public val png: ByteArray)
 
 /**
+ * Instances [ttf] as the face that answers for every family the document names.
+ *
+ * Both entry points below take the font as **bytes** rather than a `Typeface`, so a caller needs no
+ * skiko types of its own; the conformance lane hands over the corpus's `fonts/Ahem.ttf` and nothing
+ * else in this module has to know what Ahem is.
+ */
+private fun pinnedFace(ttf: ByteArray?): Typeface? = ttf?.let {
+  FontMgr.default.makeFromData(Data.makeFromBytes(it))
+}
+
+/**
  * Renders [bytes] and returns the laid-out document alongside the frame.
  *
  * This exists for the conformance lane in `:rc-conformance`, which measures this player as the
@@ -57,11 +71,13 @@ public fun renderRemoteDocumentForInspection(
   heightPx: Int,
   density: Float = 1f,
   theme: Int = Theme.LIGHT,
+  pinnedFontTtf: ByteArray? = null,
 ): RcJvmRenderedDocument {
   val document = parseDocument(bytes)
+  val face = pinnedFace(pinnedFontTtf)
   val scene =
     ImageComposeScene(width = widthPx, height = heightPx, density = Density(density)) {
-      RcPlayerJvm(document, Modifier.fillMaxSize(), theme = theme)
+      RcPlayerJvm(document, Modifier.fillMaxSize(), theme = theme, pinnedTypeface = face)
     }
   return try {
     val image = scene.render()
@@ -111,6 +127,7 @@ public fun layoutRemoteDocumentForInspection(
   heightPx: Int,
   density: Float = 1f,
   theme: Int = Theme.LIGHT,
+  pinnedFontTtf: ByteArray? = null,
 ): RcJvmLaidOutDocument {
   val document = parseDocument(bytes)
   val context =
@@ -122,6 +139,7 @@ public fun layoutRemoteDocumentForInspection(
       seeds = emptyMap(),
       theme = theme,
       systemColorLookup = { null },
+      pinnedTypeface = pinnedFace(pinnedFontTtf),
     )
   val paintContext = MeasuringPaintContext(context)
   context.setPaintContext(paintContext)

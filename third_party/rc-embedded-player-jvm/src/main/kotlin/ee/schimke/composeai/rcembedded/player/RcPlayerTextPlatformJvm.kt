@@ -87,6 +87,9 @@ private val GENERIC_FAMILY_CANDIDATES =
  * cache configured, offline, a failed fetch) still falls back to a local match and then the default
  * face — a *substitution*, not an error, exactly as before.
  *
+ * A host may pin one face for every family (`JvmRemoteContext.pinnedTypeface`), which
+ * short-circuits all of the below.
+ *
  * **Never resolves to null while the host has any font at all**, which matters more than it looks:
  * `Font(null, size)` maps every character to the missing glyph and measures zero, so a null
  * typeface would not be a fallback but a silently blank render. `matchFamilyStyle(null, …)` — the
@@ -94,6 +97,12 @@ private val GENERIC_FAMILY_CANDIDATES =
  * last resort is the first family the manager enumerates instead.
  */
 private fun resolveSkiaTypeface(spec: TextPaintSpec, context: RemoteContext): Typeface? {
+  // A pinned face wins over everything, including the generic families: see
+  // `JvmRemoteContext.pinnedTypeface`. Checked before the style is even built, because a pinned
+  // face is a *substitution* of the whole resolution rather than a candidate within it.
+  (context as? JvmRemoteContext)?.pinnedTypeface?.let {
+    return it
+  }
   val style =
     FontStyle(
       spec.fontWeight,

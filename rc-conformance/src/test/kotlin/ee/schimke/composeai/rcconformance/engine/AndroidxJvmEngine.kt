@@ -14,6 +14,7 @@ import ee.schimke.composeai.rcembedded.jvm.RcJvmLaidOutDocument
 import ee.schimke.composeai.rcembedded.jvm.layoutRemoteDocumentForInspection
 import ee.schimke.composeai.rcembedded.jvm.renderRemoteDocumentForInspection
 import java.io.ByteArrayInputStream
+import java.io.File
 import javax.imageio.ImageIO
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -54,17 +55,31 @@ import kotlinx.serialization.json.buildJsonObject
  * `PROBE_NOT_IMPLEMENTED` rather than emitted. A reference lane's fabricated geometry is worse than
  * no reference: it would mark a real CMP disagreement as *shared* and bury the finding.
  *
- * ### The gap this lane's tree still has: Ahem
+ * ### The corpus font
  *
- * 174 of the 252 golds declare `harness.text_metrics: ahem`, meaning the corpus measured them with
- * the Ahem font installed. The CMP lane installs it. This lane does **not** — the measure pass
- * resolves typefaces through skiko's default font manager — so any gold that both draws text and
- * declares `ahem` is measured here against a different font from the one the gold assumes.
+ * 174 of the 252 golds declare `harness.text_metrics: ahem`, meaning the corpus measured *and drew*
+ * them with the Ahem font answering for every family. This lane pins it too, for both passes, which
+ * is required setup rather than a refinement (`CONFORMANCE_FORMAT.md` §2.2): Ahem's glyphs are
+ * solid 1em squares, so a run's pixels and metrics depend only on where it was placed — the thing
+ * the corpus asserts — and not on glyph outlines, which two text engines may legitimately disagree
+ * about. Measured against the platform default instead, every text-bearing gold carries a permanent
+ * error floor from outline mismatch alone, and a gold failing for that reason is indistinguishable
+ * from a real disagreement.
  *
- * That biases the comparison in a specific and stateable direction: such a gold can fail on this
- * lane for a *harness* reason, which moves it out of the "only the reference passes" work list and
- * into "both fail". So the work list is a lower bound, never an overstatement. Installing Ahem into
- * this lane's font resolution is the fix and is not done yet.
+ * A `native` gold is left on the host's own fonts, because that is what `native` means.
+ *
+ * **The pin reaches the measure pass and not the render.** Three of the four canvas text operations
+ * resolve through the skiko seam this pins; `DrawText` builds a Compose `TextStyle` and is drawn by
+ * Compose text, whose face comes from a `FontFamily.Resolver` — and that interface is `sealed`, so
+ * a scene-level substitution is not available. Overriding it needs the pinned family threaded to
+ * `toTextStyle` through the platform-neutral drawing code, which is a change in the shared player
+ * rather than here.
+ *
+ * So this lane's `tree` is measured in Ahem and its `raster` is not. That is a strict improvement
+ * on neither being — no gold regressed and two text golds lost diffs — but it bounds what the
+ * raster column means for text golds, and it is the largest remaining lever on this lane: 49 of its
+ * 164 failing golds fail on `raster` **alone**, and 17 of those are golds the CMP player also
+ * fails, so they would join the work list rather than the shared bucket.
  *
  * ### What it cannot do, and why that is stated rather than hidden
  *
@@ -74,7 +89,23 @@ import kotlinx.serialization.json.buildJsonObject
  * `STEP_NOT_RUN` — which is the truth about this lane, and much more useful than a reference that
  * silently no-ops its way to a flattering number.
  */
-public class AndroidxJvmEngine : ConformanceEngine {
+public class AndroidxJvmEngine(specDir: File) : ConformanceEngine {
+  /**
+   * The corpus's own Ahem face, read once.
+   *
+   * Required rather than optional: a missing font would silently score every text-bearing gold
+   * against the platform default, and the lane would look like it had measured something.
+   */
+  private val ahemTtf: ByteArray =
+    File(specDir, "fonts/Ahem.ttf").let { file ->
+      require(file.isFile) {
+        "the corpus font is missing at ${file.absolutePath} — every text-bearing gold would be " +
+          "scored against the platform default face, which measures differently and makes the " +
+          "text results meaningless"
+      }
+      file.readBytes()
+    }
+
   override val name: String = "androidx-jvm"
 
   override val version: String =
@@ -85,10 +116,11 @@ public class AndroidxJvmEngine : ConformanceEngine {
       CoreDocument.PATCH_VERSION
 
   override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T =
-    block(AndroidxJvmSession(gold))
+    block(AndroidxJvmSession(gold, ahemTtf.takeIf { gold.textMetrics == "ahem" }))
 }
 
-private class AndroidxJvmSession(private val gold: Gold) : ConformanceSession {
+private class AndroidxJvmSession(private val gold: Gold, private val pinnedFontTtf: ByteArray?) :
+  ConformanceSession {
   private val bytes = gold.documentBytes()
 
   private var width = gold.parameters.intOrDefault("width", 400)
@@ -124,7 +156,14 @@ private class AndroidxJvmSession(private val gold: Gold) : ConformanceSession {
   }
 
   private fun render() {
-    val result = renderRemoteDocumentForInspection(bytes, width, height, density)
+    val result =
+      renderRemoteDocumentForInspection(
+        bytes,
+        width,
+        height,
+        density,
+        pinnedFontTtf = pinnedFontTtf,
+      )
     rendered = Rendered(result.document, result.png)
     // A resize invalidates the layout as surely as it invalidates the frame.
     laidOut = null
@@ -189,7 +228,7 @@ private class AndroidxJvmSession(private val gold: Gold) : ConformanceSession {
   }
 
   private fun layout(): RcJvmLaidOutDocument =
-    layoutRemoteDocumentForInspection(bytes, width, height, density)
+    layoutRemoteDocumentForInspection(bytes, width, height, density, pinnedFontTtf = pinnedFontTtf)
 
   private fun raster(): Observation {
     val png = rendered?.png ?: return Observation.NotImplemented

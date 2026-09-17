@@ -26,6 +26,7 @@ import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.Typeface
 
 /**
  * The desktop/JVM draw [androidx.compose.remote.core.RemoteContext] — the jvm counterpart of
@@ -66,6 +67,21 @@ internal class JvmRemoteContext(
   state: RemoteComposeState = SnapshotRemoteComposeState(),
   clock: RemoteClock = SystemClock(),
 ) : StoreBackedRemoteContext(clock) {
+
+  /**
+   * A face that answers for **every** family the document names, or null to resolve normally.
+   *
+   * A host pinning one face is not a hypothetical: it is what the RemoteCompose conformance corpus
+   * requires (`CONFORMANCE_FORMAT.md` §2.2). Ahem's glyphs are solid 1em squares, so a text run's
+   * pixels depend only on where the run was placed -- which is what the corpus asserts -- and not
+   * on glyph shape, which two engines may legitimately disagree about. Without it every
+   * text-bearing gold carries a permanent error floor from outline mismatch alone.
+   *
+   * Substituting wholesale is the point: `sans-serif`, `serif` and `monospace` all collapse to it.
+   * Resolving only the families it happens to name would leave the rest on the platform default and
+   * silently reintroduce the floor.
+   */
+  var pinnedTypeface: Typeface? = null
 
   init {
     mRemoteComposeState = state
