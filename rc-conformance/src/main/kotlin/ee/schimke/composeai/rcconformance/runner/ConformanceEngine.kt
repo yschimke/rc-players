@@ -21,17 +21,22 @@ public interface ConformanceEngine {
   public val version: String
 
   /**
-   * Prepares a session for one gold.
+   * Runs [block] against a session for one gold, and tears the session down afterwards.
+   *
+   * Scoped rather than returned, because the natural way to drive a Compose player is
+   * `runComposeUiTest { … }` — a function that owns the composition for the duration of a lambda
+   * and cannot hand one back. An engine that *can* return a session simply calls [block] and
+   * closes.
    *
    * The text-metrics policy in `gold.harness.text_metrics` must be installed *before* the document
    * is constructed, and event recorders before the first paint — see the guide §2. That ordering is
    * the session's responsibility because only it knows how its player is built.
    */
-  public fun open(gold: Gold): ConformanceSession
+  public fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T
 }
 
 /** A player driven through one gold's timeline. */
-public interface ConformanceSession : AutoCloseable {
+public interface ConformanceSession {
   /**
    * Runs one timeline step, calling [onCapture] at each point the step passes through that checks
    * may be bound to.

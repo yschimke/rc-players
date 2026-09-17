@@ -56,7 +56,7 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
 
     val duration = measureTimeMillis {
       try {
-        engine.open(gold).use { session ->
+        engine.withSession(gold) { session ->
           for (step in gold.timeline) {
             try {
               // A capture is a step id in its own right as far as the checks are concerned, so it

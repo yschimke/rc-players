@@ -56,7 +56,8 @@ public class AndroidxJvmEngine : ConformanceEngine {
       "." +
       CoreDocument.PATCH_VERSION
 
-  override fun open(gold: Gold): ConformanceSession = AndroidxJvmSession(gold)
+  override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T =
+    block(AndroidxJvmSession(gold))
 }
 
 private class AndroidxJvmSession(private val gold: Gold) : ConformanceSession {
@@ -109,10 +110,6 @@ private class AndroidxJvmSession(private val gold: Gold) : ConformanceSession {
       ImageIO.read(ByteArrayInputStream(png)) ?: error("could not decode the ${gold.name} frame")
     val rgba = decoded.toRgba()
     return Observation.Raster(rgba.width, rgba.height, rgba.rgba)
-  }
-
-  override fun close() {
-    rendered = null
   }
 }
 

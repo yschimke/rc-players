@@ -83,11 +83,12 @@ public class CmpEngine(specDir: File) : ConformanceEngine {
 
   private val typefaces = AhemTypefaces(File(specDir, "fonts/Ahem.ttf"))
 
-  override fun open(gold: Gold): ConformanceSession = CmpSession(gold, typefaces)
+  override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T =
+    CmpSession(gold, typefaces).use { block(it) }
 }
 
 private class CmpSession(private val gold: Gold, private val typefaces: AhemTypefaces) :
-  ConformanceSession {
+  ConformanceSession, AutoCloseable {
 
   private val document: RcDocument = RcDocumentCodec.decode(gold.documentBytes())
 

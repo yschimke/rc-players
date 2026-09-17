@@ -51,6 +51,40 @@ score currently reports is this runner's own gaps rather than the player's.
 Running it on the other Compose targets — iOS, macOS, wasmJs, and why Android cannot be run at all
 yet — is worked out in [`RC_CONFORMANCE_PLATFORMS.md`](RC_CONFORMANCE_PLATFORMS.md).
 
+## The rule: never trade the player for a number
+
+A conformance score is a diagnostic, not a target. It is worth saying plainly because the pressure
+runs the other way — a failing check is concrete and a regression is abstract, so "make the gold
+pass" is always the nearer goal.
+
+**Do not degrade the player's behaviour, correctness or performance to move this number.** If
+matching a gold would mean carrying accounting the player has no other use for, holding state it
+would otherwise not hold, or doing work on a path that has to be fast, then the right outcome is a
+*documented divergence*, not a worse player.
+
+`ops:count` is the standing example. Matching it exactly required deriving five rules the corpus
+never states — that the header counts, that a container holds its children rather than sitting beside
+them, that linking's expansion is what gets counted, that a macro definition is *not* counted because
+the expansion consumes it, and that a referenced-operations block *is* counted even though it is
+inlined. The last two are opposites. Reproducing that faithfully inside the player would mean the
+player maintaining an operation census it has no other reason to keep, and it is the sort of thing
+that is both fiddly and easy to get subtly wrong.
+
+So when a gold and the player disagree, the options are, in order:
+
+1. **The player is wrong** — fix it. Most of the time this is the answer, and this lane has the
+   receipts: collapsible `GONE`, `StateLayout` sizing, box alignment and macro linking all looked
+   like awkward golds and were all real defects.
+2. **The lane cannot observe it yet** — fix the lane. Also common, and cheap: several probes reported
+   `PROBE_NOT_IMPLEMENTED` for fields that were already sitting decoded in the document.
+3. **The corpus is asserting something a player cannot or should not reproduce** — record it, raise it
+   upstream, and let the check keep failing. Never paper over it.
+
+A permanently failing check with a written reason is a better artefact than a passing one bought with
+a worse player. `unasserted` exists in the gold format for exactly this reason (§2.8), and the
+corpus's own §1 says an assertion that cannot fail is worse than no assertion — the same logic applies
+to an assertion that only passes because the implementation contorted itself to satisfy it.
+
 ## The two lanes
 
 | lane | what it is | what it observes |
