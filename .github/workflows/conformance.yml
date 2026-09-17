@@ -224,6 +224,13 @@ jobs:
         with:
           persist-credentials: true
 
+      # For `results/typescript/` — upstream's own run, which the report uses as a reference lane.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.spec_ref || 'vendor/androidx-rc-conformance' }}
+          path: conformance-spec
+          persist-credentials: false
+
       - name: Check out the report branch
         run: |
           set -euo pipefail
@@ -255,15 +262,21 @@ jobs:
           # from. `--reference` says which of the others that split may use: `native-appkit` is
           # scored beside them but is not a credible reference for it, because a lane that fails
           # nearly every frame marks every subject failure as shared and leaves nothing to act on.
+          spec="$GITHUB_WORKSPACE/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance"
+          # `typescript` is upstream's own run, shipped with the corpus. It is the best reference
+          # this repository has: an independent implementation, scored by the runner that generated
+          # the golds, so a gold it passes and `cmp` fails cannot be blamed on the expectation.
           node scripts/conformance-report/render-report.mjs \
             --out report \
             --reference androidx-jvm \
+            --reference typescript \
             --run-id "$(date -u +%Y-%m-%d)" \
             --commit "${{ github.sha }}" \
             --ref "${{ github.ref_name }}" \
             cmp=artifacts/conformance-cmp/conformance-results.json \
             androidx-jvm=artifacts/conformance-androidx-jvm/conformance-results.json \
-            native-appkit=artifacts/conformance-native-appkit/conformance-results.json
+            native-appkit=artifacts/conformance-native-appkit/conformance-results.json \
+            typescript="$spec/results/typescript/conformance-results.json"
           cat report/README.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish

@@ -208,3 +208,27 @@ test("names the golds the reference reproduces and the subject does not", () => 
   assert.match(run, /- `ours` — tree ×2/);
   assert.doesNotMatch(run, /`disputed` — /);
 });
+
+test("separates a work list entry the runner cannot observe from one the player gets wrong", () => {
+  const root = workspace();
+  const out = path.join(root, "report");
+
+  // Two golds the reference passes and the subject fails, for opposite reasons. `wrong` disagrees
+  // about a value; `blind` fails only because this runner has no seam for the probe. Reporting them
+  // together would put a lane gap on a list of player bugs.
+  const subject = writeResults(root, "cmp", [
+    gold("wrong", { status: "FAIL", diffs: [{ probe: "tree", at: "initial", property: "y" }] }),
+    gold("blind", {
+      status: "FAIL",
+      diffs: [{ probe: "trace:branches", at: "initial", property: "PROBE_NOT_IMPLEMENTED" }],
+    }),
+  ]);
+  const reference = writeResults(root, "typescript", [gold("wrong"), gold("blind")]);
+
+  render(root, out, [subject, reference]);
+  const run = fs.readFileSync(path.join(out, "runs", "2026-01-01", "README.md"), "utf8");
+
+  assert.match(run, /\*\*1 the player:[^\n]*\*\*\n\n- `wrong` — tree ×1/);
+  assert.match(run, /\*\*1 this runner:[^*]*\*\*/);
+  assert.match(run, /- `blind` — trace:branches ×1/);
+});
