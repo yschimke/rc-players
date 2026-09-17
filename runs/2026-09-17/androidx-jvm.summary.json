@@ -14,7 +14,7 @@
   "skipped": 0,
   "suspicious": 3,
   "checks_total": 1515,
-  "checks_failed": 808
+  "checks_failed": 805
  },
  "results": [
   {
@@ -1811,7 +1811,7 @@
    "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 4
+    "tree": 3
    },
    "raster_failures": [
     "initial",
@@ -1844,10 +1844,9 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 6,
-   "checks_failed": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 3
+    "raster": 3
    },
    "raster_failures": [
     "initial",
