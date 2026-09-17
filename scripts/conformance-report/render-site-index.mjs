@@ -53,8 +53,9 @@ if (options.lanes.length === 0) usage("at least one lane is required");
 /** What each lane observes, which is the difference between a score and a reference number. */
 const CHANNELS = {
   cmp: "every probe",
-  "androidx-jvm": "raster only",
+  "androidx-jvm": "tree + raster",
   "native-appkit": "raster only",
+  typescript: "reported by upstream",
 };
 
 const escape = (value) =>
@@ -85,6 +86,9 @@ function measure(file) {
     corePassed,
     raster: raster.size,
     errored: results.summary?.errored ?? 0,
+    // The corpus marks every raster check advisory: reported, never binding. Showing the two
+    // together is what let this repository quote a score nobody else could reproduce.
+    advisory: results.summary?.advisory_failed ?? null,
   };
 }
 
@@ -104,7 +108,7 @@ const cards = lanes
         <p class="detail">This run produced no results for the lane.</p>
       </article>`;
     }
-    const { coreTotal, corePassed, raster, errored, version } = lane.stats;
+    const { coreTotal, corePassed, raster, errored, version, advisory } = lane.stats;
     const rate = coreTotal === 0 ? "—" : `${((corePassed / coreTotal) * 100).toFixed(1)}%`;
     const rasterOnly = coreTotal > 0 && corePassed === 0;
     return `      <article class="card">
@@ -118,6 +122,7 @@ const cards = lanes
         }</p>
         <dl>
           <dt>Raster disagreements</dt><dd>${raster}</dd>
+          <dt>…advisory, not binding</dt><dd>${advisory ?? "—"}</dd>
           <dt>Errored</dt><dd>${errored}</dd>
         </dl>
         <nav>

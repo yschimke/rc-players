@@ -37,8 +37,12 @@ public object Results {
       put("errored", results.count { it.status == "ERROR" })
       put("skipped", results.count { it.status == "SKIP" })
       put("suspicious", results.count { it.status == "SUSPICIOUS" })
+      // Binding and advisory, apart and both named, which is the shape upstream's own results file
+      // uses. Folding them together is what made this repository's numbers incomparable with it.
       put("checks_total", results.sumOf { it.checksTotal })
       put("checks_failed", results.sumOf { it.checksFailed })
+      put("advisory_total", results.sumOf { it.advisoryTotal })
+      put("advisory_failed", results.sumOf { it.advisoryFailed })
     }
     putJsonArray("results") { results.forEach { add(renderOne(it)) } }
   }
@@ -55,6 +59,8 @@ public object Results {
     result.error?.let { put("error", it) }
     put("checks_total", result.checksTotal)
     put("checks_failed", result.checksFailed)
+    put("advisory_total", result.advisoryTotal)
+    put("advisory_failed", result.advisoryFailed)
     put("duration_ms", result.durationMs)
     putJsonArray("diffs") { result.diffs.forEach { add(renderDiff(it)) } }
     putJsonObject("observed") {

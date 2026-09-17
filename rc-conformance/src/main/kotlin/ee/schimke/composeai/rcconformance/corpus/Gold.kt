@@ -82,6 +82,19 @@ public data class Check(
   public val target: String?,
   public val expect: JsonElement,
   public val tolerance: Double?,
+  /**
+   * Whether the corpus declares this assertion **advisory** — reported, never binding.
+   *
+   * The corpus sets it on 605 of its 1515 checks, every one of them `raster`, and the reason is the
+   * raster metric itself: an antialiasing-aware pixel walk across two different text stacks and two
+   * different GPU backends disagrees for reasons that are not conformance gaps, so upstream reports
+   * the number and declines to fail a gold on it. Its own published TypeScript results do exactly
+   * that — 910 binding checks beside 605 advisory ones.
+   *
+   * Ignoring the flag does not make a runner stricter in a useful way; it makes its score
+   * incomparable with every other player's, which is the one thing a conformance number is for.
+   */
+  public val advisory: Boolean = false,
 ) {
   /** `probe[:channel]` — the key both the report and `observed` are indexed by. */
   public val key: String
@@ -115,6 +128,7 @@ public fun parseGold(root: JsonObject): Gold {
         target = (check["target"] as? JsonPrimitive)?.content,
         expect = check["expect"] ?: JsonNull,
         tolerance = (check["tolerance"] as? JsonPrimitive)?.content?.toDoubleOrNull(),
+        advisory = (check["advisory"] as? JsonPrimitive)?.booleanOrNull ?: false,
       )
     }
 

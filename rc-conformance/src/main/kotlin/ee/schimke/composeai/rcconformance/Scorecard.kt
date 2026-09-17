@@ -37,6 +37,15 @@ public object Scorecard {
           "${results.count { it.status == "ERROR" }} errored — a crash, not a conformance gap."
       )
       appendLine()
+      appendLine(
+        "**${results.sumOf { it.advisoryFailed }} of ${results.sumOf { it.advisoryTotal }} " +
+          "advisory checks disagree**, and none of them fails a gold. The corpus marks them so " +
+          "(§4): they are all `raster`, and an antialiasing-aware pixel walk across two text " +
+          "stacks and two GPU backends disagrees for reasons that are not conformance gaps. " +
+          "Binding checks: ${results.sumOf { it.checksFailed }} of " +
+          "${results.sumOf { it.checksTotal }} failing."
+      )
+      appendLine()
 
       appendLine("## Why the failures fail")
       appendLine()
@@ -79,7 +88,12 @@ public object Scorecard {
 
       appendLine("## By probe")
       appendLine()
-      appendLine("| probe | failing checks | unimplemented |")
+      appendLine(
+        "Counted as **diffs**, not checks: one `particles` check compares a whole emitter and can " +
+          "produce dozens. `raster` is advisory throughout — reported, never binding."
+      )
+      appendLine()
+      appendLine("| probe | diffs | unimplemented |")
       appendLine("| --- | ---: | ---: |")
       diffs
         .groupBy { it.probe }

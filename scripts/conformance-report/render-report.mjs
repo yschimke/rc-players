@@ -124,6 +124,8 @@ function rasterFailures(results) {
  * Suspicious golds are excluded on both sides -- the corpus itself disputes them, and a lane
  * "passing" one says nothing.
  */
+const UNOBSERVED = new Set(["PROBE_NOT_IMPLEMENTED", "STEP_NOT_RUN", "PROBE_ERROR"]);
+
 function goldVerdicts(subjectResults, referenceResults) {
   const reference = new Map(referenceResults.results.map((result) => [result.name, result]));
   const verdicts = { bothPass: 0, subjectOnly: 0, bothFail: 0, referenceOnly: [] };
@@ -139,7 +141,12 @@ function goldVerdicts(subjectResults, referenceResults) {
     else {
       const probes = {};
       for (const diff of result.diffs ?? []) probes[diff.probe] = (probes[diff.probe] ?? 0) + 1;
-      verdicts.referenceOnly.push({ name: result.name, probes });
+      // A gold whose every disagreement is this runner admitting it cannot look is *our* gap, not
+      // the player's. Both belong in the report and they are opposite findings: one is a bug to
+      // fix in the player, the other a probe to implement in the lane. Folding them together is
+      // how a work list stops being a work list.
+      const unobservable = (result.diffs ?? []).every((diff) => UNOBSERVED.has(diff.property));
+      verdicts.referenceOnly.push({ name: result.name, probes, unobservable });
     }
   }
   verdicts.referenceOnly.sort((a, b) => a.name.localeCompare(b.name));
@@ -331,7 +338,7 @@ function renderRun(options, lanes) {
             [
               `only \`${reference.name}\` passes`,
               `**${verdicts.referenceOnly.length}**`,
-              "**The work list.** The reference reproduces the gold and the subject does not.",
+              "**The work list**, split below into the player's gaps and this runner's.",
             ],
             [
               `only \`${subject.name}\` passes`,
@@ -347,15 +354,27 @@ function renderRun(options, lanes) {
         ),
       );
       out.push("");
-      if (verdicts.referenceOnly.length > 0 && verdicts.referenceOnly.length <= 40) {
-        out.push("The work list, in full:");
+      const players = verdicts.referenceOnly.filter((gold) => !gold.unobservable);
+      const lane = verdicts.referenceOnly.filter((gold) => gold.unobservable);
+      const describe = (gold) =>
+        `- \`${gold.name}\` — ` +
+        Object.entries(gold.probes)
+          .map(([probe, count]) => `${probe} ×${count}`)
+          .join(", ");
+      if (players.length > 0 && players.length <= 40) {
+        out.push(`**${players.length} the player: the reference draws or reports it and this one does not.**`);
         out.push("");
-        for (const gold of verdicts.referenceOnly) {
-          const probes = Object.entries(gold.probes)
-            .map(([probe, count]) => `${probe} ×${count}`)
-            .join(", ");
-          out.push(`- \`${gold.name}\` — ${probes}`);
-        }
+        players.forEach((gold) => out.push(describe(gold)));
+        out.push("");
+      }
+      if (lane.length > 0 && lane.length <= 40) {
+        out.push(
+          `**${lane.length} this runner: every disagreement is a probe it cannot observe.** Not a ` +
+            "player finding — the lane has no seam for these channels and says so rather than " +
+            "scoring them as passes.",
+        );
+        out.push("");
+        lane.forEach((gold) => out.push(describe(gold)));
         out.push("");
       }
     }
