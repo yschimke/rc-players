@@ -401,7 +401,7 @@ exclude all six:
 | Opcode | Constant | Why unavailable |
 |---:|---|---|
 | 4 | `LOAD_BITMAP` | No registered reader and no operation implementation in remote-core. |
-| 57 | `DRAW_TEXT_ON_CIRCLE` | A source class exists, but AndroidX deliberately comments its reader out of the default Java operation map. |
+| 57 | `DRAW_TEXT_ON_CIRCLE` | A source class exists, but the released AndroidX comments its reader out of the default Java operation map. Registered upstream in androidx-main `79a5f0ae90c`, which also gives it a `PaintContext.drawTextOnCircle` and an `AndroidPaintContext` implementation; this row flips to available with the first AndroidX release carrying that commit. |
 | 132 | `MATRIX_SET` | Constant only; no registered reader or operation wire class. |
 | 162 | `PARTICLE_PROCESS` | Constant only; particle processing is represented by other registered operations. |
 | 174 | `MODIFIER_DRAW_CONTENT` | Its wire class is readable, but it is not a `PaintOperation`; `ComponentModifiers.paint()` never executes it and `LayoutComponent.inflate()` never attaches the parent required by its stated purpose. |
@@ -458,7 +458,10 @@ Use Compose text measurement/shaping first. Put any direct Skiko metric or text-
 the text backend interface and record expected cross-font-platform tolerances.
 
 `DrawTextOnCircle` is deliberately absent: opcode 57 is not readable by the authoritative
-AndroidX Java profile and therefore cannot appear in either the Java-readable or CMP-Wasm profile.
+AndroidX Java profile of the release this repo resolves, and therefore cannot appear in either the
+Java-readable or CMP-Wasm profile. Upstream registered its reader in androidx-main `79a5f0ae90c`,
+so this is now a version gate rather than a standing gap — and once a release carries it, the
+operation becomes comparable against the AndroidX lanes instead of CMP-only.
 
 Exit: unit tests pin anchors, baselines, alignment, bidi, shaping, fallback, and path placement;
 visual fixtures include Latin, CJK, RTL, emoji, and missing-font behaviour.

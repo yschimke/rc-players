@@ -50,7 +50,7 @@ entries:
 | Status | Rows | Meaning |
 | --- | ---: | --- |
 | `implemented` | 140 | Codec and shared CMP semantics exist |
-| `implemented_upstream_unavailable` | 1 | `DrawTextOnCircle` works in CMP but the Java reader profile cannot read it |
+| `implemented_upstream_unavailable` | 1 | `DrawTextOnCircle` works in CMP but the released Java reader profile cannot read it (registered upstream in androidx-main `79a5f0ae90c`) |
 | `unsupported` | 22 | Known operation and planned implementation work |
 | `unavailable` | 4 | AndroidX exposes a constant but no usable authoritative operation |
 | `reserved` | 5 | Extension markers, not operations |
@@ -97,7 +97,8 @@ top-level macro behavior between AndroidX-backed players and CMP.
 
 `LoadBitmap`, `MatrixSet`, `ParticleProcess`, and `Update` remain unavailable until an upstream
 reader and executable contract exist. `DrawTextOnCircle` stays in the CMP Apple profile but out of
-the AndroidX Java profile. Neither exception may be hidden to make a headline coverage percentage
+the AndroidX Java profile until a release carries androidx-main `79a5f0ae90c`, which registers its
+reader and implements it for the Android paint context. Neither exception may be hidden to make a headline coverage percentage
 look better.
 
 ## Design input: recent AndroidX StateLayout and FitBox animation work

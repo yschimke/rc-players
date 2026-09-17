@@ -227,6 +227,47 @@ public class RcPlayerState(
   public val hasActiveFloatAnimations: Boolean
     get() = floatExpressionRuntimes.values.any { it.isAnimating(frameTimeSeconds) }
 
+  /**
+   * Variables the document itself keeps moving, as opposed to ones a host or an action pokes.
+   *
+   * The distinction exists for the implicit graphics-layer tween (see [RcAnimatableFloat]): easing
+   * towards a value that is already being redrawn every frame would draw the layer a third of a
+   * second behind its own source, so those are followed directly and only genuinely discrete
+   * changes ease. `remote-player-compose` classifies the same way and from the same four facts —
+   * clock reads, component values, expressions carrying a `FloatAnimation`, and anything that
+   * depends on one — with touch expressions added here because a dragged value is the same case:
+   * the finger is the clock.
+   *
+   * Resolved from the document's shape once, not per frame, and deliberately not from observed
+   * cadence: a player only gets frames it asked for, so a value that has not moved yet and a value
+   * that moves every frame look identical until one of them does.
+   */
+  private val continuouslyDrivenIds: Set<Int> by lazy {
+    val expressions = document.operations.filterIsInstance<RcFloatExpression>()
+    val driven = mutableSetOf<Int>()
+    RcSystemVariables.MOVING.forEach { if (it !in claimedSystemIds) driven += it }
+    componentValues.values.flatten().forEach { driven += it.valueId }
+    document.operations.filterIsInstance<RcTouchExpression>().forEach { driven += it.id }
+    expressions.forEach { if (it.animation != null) driven += it.id }
+    // An expression is only as static as what it reads, so close over the dependency graph. The
+    // document is finite and each pass adds at least one id, so this terminates.
+    var growing = true
+    while (growing) {
+      growing = false
+      expressions.forEach { expression ->
+        if (expression.id in driven) return@forEach
+        if (expression.expression.any { word -> word.referencedId?.let { it in driven } == true }) {
+          driven += expression.id
+          growing = true
+        }
+      }
+    }
+    driven
+  }
+
+  /** Whether [id] is one of the document's own moving values — see [continuouslyDrivenIds]. */
+  public fun isContinuouslyDriven(id: Int): Boolean = id in continuouslyDrivenIds
+
   public val rootContentBehavior: RcRootContentBehavior? =
     document.operations.filterIsInstance<RcRootContentBehavior>().lastOrNull()
 

@@ -202,7 +202,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
-import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
 import ee.schimke.composeai.rcplayer.protocol.RcHapticType
@@ -266,6 +265,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
+import ee.schimke.composeai.rcplayer.runtime.RcGraphicsLayerAnimator
 import ee.schimke.composeai.rcplayer.runtime.RcImpulsePhase
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
@@ -503,7 +503,8 @@ private fun RcComposePlayerResolved(
         invalidationVersion += 1
       }
   }
-  val needsContinuousFrames =
+  val frameDemand = remember(document) { RcFrameDemand() }
+  val documentDeclaresAnimation =
     remember(document) {
       document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null } ||
         document.operations.any {
@@ -515,6 +516,9 @@ private fun RcComposePlayerResolved(
         // per-frame variables would be loaded exactly once and the arc would hold its first pose.
         document.referencesMovingSystemVariable()
     }
+  // `frameDemand` is snapshot-backed, so a tween starting or finishing recomposes the player and
+  // starts or stops the loop below with it.
+  val needsContinuousFrames = documentDeclaresAnimation || frameDemand.isActive
   var frameNanos by remember { mutableLongStateOf(0L) }
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
   val recordFrame: (Long) -> Unit = { nanos ->
@@ -526,6 +530,12 @@ private fun RcComposePlayerResolved(
     if (needsContinuousFrames) {
       while (true) {
         withFrameNanos(recordFrame)
+        // A document that animates by drawing does not need this: its draw layers read the state
+        // directly and a new frame time redraws them. An implicit graphics-layer tween is resolved
+        // during *composition* — that is where a modifier chain is built — and the layout subtree
+        // is skipped on a recomposition whose inputs have not changed, so a running tween needs the
+        // layout version to move with the clock. Only while one is running.
+        if (frameDemand.isActive) invalidationVersion += 1
       }
     }
   }
@@ -622,6 +632,7 @@ private fun RcComposePlayerResolved(
         LocalRcTypefaces provides typefaces,
         LocalRcCustomComponents provides customComponents,
         LocalRcInvalidate provides { invalidationVersion += 1 },
+        LocalRcFrameDemand provides frameDemand,
         LocalRcOffscreenTargets provides offscreenTargets,
       ) {
         RenderLayoutNode(
@@ -1468,6 +1479,42 @@ private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap()
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
 private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
+/**
+ * "This subtree owes the document another frame."
+ *
+ * [LocalRcInvalidate] redraws with the clock where it is; this keeps the clock running. A modifier
+ * that is mid-tween needs the second one, and needs it without the document declaring an animation
+ * the player could have detected up front — an implicit graphics-layer tween starts because a
+ * *host* or an action moved a variable. Holding the demand only while a tween runs is what keeps a
+ * document whose layers are idle from holding the frame loop open.
+ */
+private val LocalRcFrameDemand = compositionLocalOf { RcFrameDemand() }
+
+/**
+ * How many things in this document currently need the frame loop running.
+ *
+ * The player decides up front whether a document animates, by looking at its shape — declared
+ * animations, marquees, clock reads. An implicit graphics-layer tween cannot be found that way: it
+ * starts because a *host* or an action moved a variable, at a moment the document's shape says
+ * nothing about. Registering here turns the loop on for as long as one is running, and lets it go
+ * idle again afterwards, rather than choosing between a permanently hot loop and a tween that
+ * advances every other frame.
+ */
+internal class RcFrameDemand {
+  private var count by mutableIntStateOf(0)
+
+  val isActive: Boolean
+    get() = count > 0
+
+  fun acquire() {
+    count += 1
+  }
+
+  fun release() {
+    count -= 1
+  }
+}
+
 private val LocalRcOffscreenTargets =
   compositionLocalOf<RcOffscreenTargetPool> { error("No document-scoped offscreen target pool") }
 
@@ -3034,30 +3081,42 @@ private fun Modifier.applyLayoutComputes(
   layout(width, height) { placeable.placeRelative(x, y) }
 }
 
+/**
+ * AndroidX wraps every graphics-layer float in an `AnimatableValue`, so a variable this modifier
+ * reads eases to its new value instead of jumping there. [RcGraphicsLayerAnimator] holds that state
+ * — per component, because two components can share one identical modifier operation and still be
+ * mid-tween at different points — and the values are resolved here, in composition, where the
+ * player's per-frame recomposition already lands.
+ *
+ * The tween is not something the player can see coming: it starts when a host write or a document
+ * action moves the variable, which is why a running one registers with [LocalRcFrameDemand] rather
+ * than relying on the document-shape check that drives `needsContinuousFrames`. A layer that is not
+ * animating registers nothing.
+ */
+@Composable
 private fun Modifier.applyGraphicsLayer(
   operation: RcGraphicsLayerModifier,
   state: RcPlayerState,
 ): Modifier {
-  val values = operation.attributes.associateBy { it.index }
-  fun float(index: Int, default: Float): Float =
-    (values[index] as? RcGraphicsLayerAttribute.FloatValue)?.let { state.resolve(it.value) }
-      ?: default
+  val animator = remember(state) { RcGraphicsLayerAnimator() }
+  val values = animator.evaluate(operation, state)
+  val frameDemand = LocalRcFrameDemand.current
+  DisposableEffect(frameDemand, values.isAnimating) {
+    if (values.isAnimating) frameDemand.acquire()
+    onDispose { if (values.isAnimating) frameDemand.release() }
+  }
   return graphicsLayer {
-    scaleX = float(RcGraphicsLayerModifier.SCALE_X, 1f)
-    scaleY = float(RcGraphicsLayerModifier.SCALE_Y, 1f)
-    rotationX = float(RcGraphicsLayerModifier.ROTATION_X, 0f)
-    rotationY = float(RcGraphicsLayerModifier.ROTATION_Y, 0f)
-    rotationZ = float(RcGraphicsLayerModifier.ROTATION_Z, 0f)
-    transformOrigin =
-      TransformOrigin(
-        float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X, 0.5f),
-        float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y, 0.5f),
-      )
-    translationX = float(RcGraphicsLayerModifier.TRANSLATION_X, 0f)
-    translationY = float(RcGraphicsLayerModifier.TRANSLATION_Y, 0f)
-    shadowElevation = float(RcGraphicsLayerModifier.SHADOW_ELEVATION, 0f)
-    alpha = float(RcGraphicsLayerModifier.ALPHA, 1f)
-    cameraDistance = float(RcGraphicsLayerModifier.CAMERA_DISTANCE, 8f)
+    scaleX = values.scaleX
+    scaleY = values.scaleY
+    rotationX = values.rotationX
+    rotationY = values.rotationY
+    rotationZ = values.rotationZ
+    transformOrigin = TransformOrigin(values.transformOriginX, values.transformOriginY)
+    translationX = values.translationX
+    translationY = values.translationY
+    shadowElevation = values.shadowElevation
+    alpha = values.alpha
+    cameraDistance = values.cameraDistance
   }
 }
 

@@ -44,6 +44,44 @@ padding, and graphics-layer floats; density-aware constraints and padding; requi
 semantics; fill-parent modes; and explicit fill fractions. The local graphics-layer adapter then
 adds the still-missing transform-origin mapping, which #98 continues to track upstream.
 
+### 2026-09-17 refresh
+
+Two player-side fixes, imported file by file rather than by moving the pin: the commits below also
+carry a new host-facing `RcPlayerState` and a creation-side theme-colour move that this fork has no
+counterpart for yet, so the pin above still names the snapshot the rest of these sources track.
+
+- **`modifier/GraphicsLayerModifier.kt`** — androidx-main `4969cdd96c6`. Upstream resolved the
+  transform-origin mapping the 2026-09-14 entry above recorded as still missing (#98), and added the
+  implicit value-change animation `GraphicsLayerModifierOperation`'s `AnimatableValue` wrappers
+  imply: a 300ms `CUBIC_STANDARD` tween on discrete variable changes, skipped for the first value
+  and for sources that are continuous, component-driven, or already animated. Taken verbatim modulo
+  the package rewrite, plus one adaptation — `expressionDependsOnTime` drops upstream's
+  `expr.mSrcValue ?: return false`, because the `remote-core` this module compiles against declares
+  the field non-null. `state/RcPlayerState.kt`'s `expressionDependsOnAnimation` becomes `internal`
+  to match upstream, which is what the modifier imports.
+
+  One consequence is worth stating rather than discovering from a diff image: upstream's new code
+  reads `TRANSFORM_ORIGIN_X/Y` straight from the attribute's source, so an **absent** origin resolves
+  to `0f` and pivots at the top-left. The `RenderNode`-backed lanes never see an absent attribute at
+  all — `fillInAttributes` omits it and `setGraphicsLayer` applies only the keys it is handed, so the
+  layer keeps its centre pivot — and `rc-player-compose` and `RcNativePlayerUIKit` both centre for
+  that reason. So on documents captured before androidx-main `4969cdd96c6` fixed the writer, this
+  lane now pivots differently from the others. That divergence is upstream's, and this lane's job is
+  to show it.
+- **`RcPlayer.kt` theme initialisation** — androidx-main `6e43f08a938`. Resolved `ColorTheme`
+  operations are now applied into the context during setup rather than only by the effect that runs
+  after the first frame, so the opening frame is themed instead of showing authored defaults; the
+  effect is additionally keyed on the `Context` and re-resolves through it, so a host moving the
+  player to a differently themed context follows. Upstream's half of that commit also moves the
+  `android.R.color` table into `remote-creation-compose` as `AndroidSystemColorMap`; this fork keeps
+  its local `resolveAndroidThemeColors` table, so only the player hunk is imported.
+
+Not imported, and deliberately: `0e26b42f7d0` and `550ad7d3801` (`RcPlayerState`,
+`SnapshotRemoteComposeState`, `floatArrayState`) rework `RcPlayer`'s parameters — `550ad7d3801`
+removes `namedColorOverrides` from `ExperimentalRemoteDocumentPlayer` — and land on top of local
+deltas in the same functions. That is a pin move with caller changes, not a fix port, and it is
+tracked separately.
+
 ### That premise has expired — so the vendored player left upstream's package
 
 `androidx.compose.remote:remote-player-compose:1.0.0-SNAPSHOT` — which this module takes as an
