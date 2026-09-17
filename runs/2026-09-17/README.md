@@ -2,16 +2,16 @@
 
 Every player in this repository, scored against the AndroidX RemoteCompose conformance corpus. The corpus comes from an unmerged AOSP Gerrit change and is held on `vendor/androidx-rc-conformance`; it is deliberately not in the main line.
 
-Measured at `e8bb898d3cbfd593587053baad023555e2ea2d32` on `main`.
+Measured at `72f9e6956265856cd11a524aa62f0bf574e52053` on `main`.
 
 ## Lanes
 
-**A reference lane cannot pass a gold.** No gold in the corpus asserts *only* raster, so a lane that observes only pixels scores zero by construction. Its raster column is the number it exists for.
+**A zero here is not a verdict.** `native-appkit` observes only `raster`, and no gold in the corpus asserts raster alone — so such a lane passes none by construction. Its raster column is the number it exists for.
 
 | lane | core golds | pass rate | extended | raster disagreements | errored |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `cmp` | 167 / 241 | 69.3% | 0 / 8 | 195 | 2 |
-| `androidx-jvm` | 0 / 241 | 0.0% | 0 / 8 | 358 | 1 |
+| `androidx-jvm` | 85 / 241 | 35.3% | 0 / 8 | 358 | 1 |
 | `native-appkit` | 0 / 241 | 0.0% | 0 / 8 | 368 | 0 |
 
 ## Where the subject lane stands alone
@@ -19,6 +19,21 @@ Measured at `e8bb898d3cbfd593587053baad023555e2ea2d32` on `main`.
 Scored above but not compared here: `native-appkit`. A lane only counts as a reference if disagreeing with it is evidence; one that fails nearly every frame would mark every subject failure as shared and leave nothing to act on.
 
 The corpus was generated *by* AndroidX, from its own player. So a gold both lanes fail is most likely the harness failing to observe something, or the reference asserting behaviour no independent player would reproduce — while a gold only the subject lane fails is a finding about the subject lane.
+
+### Golds, against `androidx-jvm`
+
+| outcome | golds | what it means |
+| --- | ---: | --- |
+| both pass | 84 | Settled. Neither lane disagrees. |
+| only `androidx-jvm` passes | **1** | **The work list.** The reference reproduces the gold and the subject does not. |
+| only `cmp` passes | 83 | The subject is ahead here, or the reference cannot drive the timeline. |
+| both fail | 81 | An expectation that survives neither implementation, or a probe neither lane has. |
+
+The work list, in full:
+
+- `modifier_scroll` — tree ×2
+
+### Frames
 
 | compared against | shared failures | unique to `cmp` |
 | --- | ---: | ---: |
