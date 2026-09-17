@@ -88,6 +88,18 @@ tasks.register<JavaExec>("conformance") {
   val filter = providers.gradleProperty("rc.filter").orElse("").get()
   val outDir = layout.buildDirectory.dir("conformance").get().asFile.absolutePath
 
+  // The native-swift lane drives the packaged macOS player as a subprocess. Resolved here, against
+  // the root project, because a relative default would resolve against this task's working
+  // directory rather than the checkout and find nothing.
+  systemProperty(
+    "rc.macosPlayer",
+    rootProject.layout.projectDirectory
+      .dir("build/macos-player/Remote Compose Player.app/Contents/MacOS")
+      .file("RemoteComposePlayer")
+      .asFile
+      .absolutePath,
+  )
+
   // Deliberately not declared as task outputs: a conformance score is a measurement, not a build
   // artifact. Declaring it would make the task UP-TO-DATE on the second run — exactly when a
   // re-measure is what was asked for. `:rc-player-profile` makes the same call for the same reason.

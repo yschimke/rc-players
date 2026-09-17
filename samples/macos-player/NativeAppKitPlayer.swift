@@ -51,10 +51,15 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   static let shared = NativeAppKitWindowController()
   private var windows: [NSWindow] = []
 
+  /// - Parameter viewport: the size to lay the document out in, when that differs from the size the
+  ///   document declares. The conformance corpus needs it: `resize` is its most common step kind,
+  ///   more common than `paint`, and a capture that always uses the document's own size answers a
+  ///   different question from the one the gold asked.
   static func renderPNG(
     data: Data,
     timeSeconds: TimeInterval = 0,
-    downloadedFonts: [String: RemoteComposeDownloadedFont] = [:]
+    downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
+    viewport: CGSize? = nil
   ) throws -> Data {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
@@ -66,7 +71,10 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       snapshot: snapshot, session: session, compatibility: .compatible, report: report,
       fonts: fonts,
       onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
-    let frame = NSRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height)
+    let frame = NSRect(
+      x: 0, y: 0,
+      width: viewport.map { Int($0.width) } ?? snapshot.width,
+      height: viewport.map { Int($0.height) } ?? snapshot.height)
     let window = NSWindow(
       contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
     window.contentView = player
