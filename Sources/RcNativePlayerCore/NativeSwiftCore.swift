@@ -12,6 +12,11 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let root: NativeSwiftNodeSnapshot
   public let images: [NativeSwiftImageResourceSnapshot]
   public let needsContinuousFrames: Bool
+  /// Components whose measured geometry a document binds to a float.
+  ///
+  /// Empty for almost every document, and that is the point: a host only has to measure and feed
+  /// back what is named here, so the refinement costs nothing where nothing depends on it.
+  public let boundComponents: Set<Int>
 }
 
 public struct NativeSwiftImageResourceSnapshot: Sendable {
@@ -86,6 +91,23 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   public var isIdentity: Bool {
     scaleX == 1 && scaleY == 1 && translationX == 0 && translationY == 0 && rotationZ == 0
       && alpha == 1
+  }
+}
+
+/// A component's laid-out size, as the host measured it.
+///
+/// Supplied back to `snapshot(timeSeconds:measuredComponents:)` so a document that binds a
+/// component's geometry to a float resolves against what was actually laid out rather than against
+/// this core's pre-layout estimate. The estimate cannot match: a host applies density scaling and
+/// layout rules the core does not model, and the difference is not small — an icon whose scale is
+/// derived from its own measured width rendered at 454 rather than 48 before this existed.
+public struct NativeSwiftMeasuredSize: Sendable, Equatable {
+  public let width: Float
+  public let height: Float
+
+  public init(width: Float, height: Float) {
+    self.width = width
+    self.height = height
   }
 }
 
@@ -321,8 +343,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if fontScale.isFinite, fontScale > 0 { hostFontScale = fontScale }
   }
 
-  public func snapshot(timeSeconds: TimeInterval = 0) throws -> NativeSwiftDocumentSnapshot {
-    let values = try resolvedFloats(timeSeconds: timeSeconds)
+  /// - Parameter measuredComponents: what the host laid each bound component out at, once it knows.
+  ///   A component named here resolves its width and height bindings from the measurement; one that
+  ///   is absent falls back to this core's own estimate, which is what every caller got before this
+  ///   parameter existed. Pass nothing on the first pass -- there is nothing to measure yet.
+  public func snapshot(
+    timeSeconds: TimeInterval = 0, measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
+  ) throws -> NativeSwiftDocumentSnapshot {
+    let values = try resolvedFloats(
+      timeSeconds: timeSeconds, measuredComponents: measuredComponents)
     for conversion in document.textFromFloats {
       let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
       let precision = min(max(conversion.digitsAfter, 0), 12)
@@ -344,7 +373,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
-      needsContinuousFrames: document.needsContinuousFrames)
+      needsContinuousFrames: document.needsContinuousFrames,
+      boundComponents: Set(document.componentValues.map(\.componentID)))
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -567,7 +597,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return value
   }
 
-  private func resolvedFloats(timeSeconds: TimeInterval) throws -> [Int: Float] {
+  private func resolvedFloats(
+    timeSeconds: TimeInterval, measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
+  ) throws -> [Int: Float] {
     var result = floats
     for attribute in document.colorAttributes {
       result[attribute.outputID] = colorAttribute(
@@ -604,6 +636,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
     }
     for binding in document.componentValues {
+      // A real measurement wins over any estimate. Width and height are the only two types this
+      // player resolves, and they are the two a host can report.
+      if let measured = measuredComponents[binding.componentID],
+        binding.type == 0 || binding.type == 1
+      {
+        result[binding.valueID] = binding.type == 0 ? measured.width : measured.height
+        continue
+      }
       let available = binding.type == 0 ? Float(document.width) : Float(document.height)
       guard let node = document.nodes[binding.componentID] else {
         // Matching the reference player: a width or height binding to a component this document
