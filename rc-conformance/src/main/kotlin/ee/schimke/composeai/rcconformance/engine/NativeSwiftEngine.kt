@@ -19,7 +19,20 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * The native Swift/UIKit player, macOS AppKit cut.
+ * The native Swift stack, **AppKit** cut — the macOS sample player.
+ *
+ * ### What this lane does and does not measure
+ *
+ * It measures `RcNativePlayerCore` — decode, expressions, resolved layout values — plus the macOS
+ * sample's own AppKit drawing. It does **not** measure `RcNativePlayerUIKit`, which is what ships
+ * on iOS. Those are two independent renderers over one core: the UIKit one is ~5200 lines, the
+ * AppKit view inside `samples/macos-player` is ~1500, and neither imports the other.
+ *
+ * That distinction decides how to read the raster column. A decode refusal here is a **core** gap
+ * and is real for both hosts. A pixel disagreement here is an **AppKit** disagreement, and drawing
+ * a conclusion about the iOS player from it — or worse, changing the iOS player because of it —
+ * would be unfounded. An iOS lane is separate work; it needs the simulator this one deliberately
+ * avoids.
  *
  * ### Why this lane is out-of-process
  *
@@ -27,9 +40,8 @@ import kotlinx.serialization.json.put
  * seam is a subprocess — the packaged macOS player, driven through its `--conformance-batch` mode,
  * which takes a document and a list of frames and writes one PNG per frame.
  *
- * It renders through **AppKit on this machine, not an iOS simulator**. The same native renderer
- * backs both hosts, and the simulator costs a boot, an install and a launch per run; a conformance
- * pass over 252 golds cannot afford that and does not need it.
+ * Running on AppKit rather than an iOS simulator is what makes a full pass affordable: the
+ * simulator costs a boot, an install and a launch per run.
  *
  * Batching is per gold rather than per frame for the same reason at a smaller scale: a gold's
  * timeline is short, so one process per gold turns what would be thousands of AppKit startups into
@@ -51,7 +63,7 @@ import kotlinx.serialization.json.put
  * them fail visibly as `STEP_NOT_RUN`.
  */
 public class NativeSwiftEngine(private val playerBinary: File) : ConformanceEngine {
-  override val name: String = "native-swift"
+  override val name: String = "native-appkit"
 
   override val version: String = "appkit"
 
@@ -180,7 +192,7 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       requested.filterNot { File(workingDirectory, "${it.id}.png").isFile }.map(Frame::id)
     if (refused.isNotEmpty()) {
       System.err.println(
-        "native-swift: ${gold.name} produced no frame for ${refused.joinToString(", ")}" +
+        "native-appkit: ${gold.name} produced no frame for ${refused.joinToString(", ")}" +
           (parseErrors(stdout).takeIf { it.isNotEmpty() }?.let { " -- $it" } ?: "")
       )
     }

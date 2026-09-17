@@ -101,7 +101,7 @@ private fun engineFor(player: String, specDir: File): ConformanceEngine =
   when (player) {
     "cmp" -> CmpEngine(specDir)
     "androidx-jvm" -> AndroidxJvmEngine()
-    "native-swift" -> NativeSwiftEngine(NativeSwiftEngine.defaultBinary())
+    "native-appkit" -> NativeSwiftEngine(NativeSwiftEngine.defaultBinary())
     else ->
       error(
         "unknown player '$player'. Known lanes: cmp, androidx-jvm. " +
