@@ -2,7 +2,7 @@
 
 Every player in this repository, scored against the AndroidX RemoteCompose conformance corpus. The corpus comes from an unmerged AOSP Gerrit change and is held on `vendor/androidx-rc-conformance`; it is deliberately not in the main line.
 
-Measured at `70fa6945c45788fa195d2fbdbf137d38377bc49c` on `main`.
+Measured at `693366161ab2f562c0b34741e74e7917696d1ddf` on `main`.
 
 ## Lanes
 
@@ -10,9 +10,10 @@ Measured at `70fa6945c45788fa195d2fbdbf137d38377bc49c` on `main`.
 
 | lane | core golds | pass rate | extended | raster disagreements | errored |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `cmp` | 167 / 241 | 69.3% | 0 / 8 | 195 | 2 |
-| `androidx-jvm` | 85 / 241 | 35.3% | 0 / 8 | 358 | 1 |
+| `cmp` | 182 / 241 | 75.5% | 0 / 8 | 195 | 2 |
+| `androidx-jvm` | 132 / 241 | 54.8% | 0 / 8 | 358 | 1 |
 | `native-appkit` | 0 / 241 | 0.0% | 0 / 8 | 368 | 0 |
+| `typescript` | 199 / 241 | 82.6% | 6 / 8 | 224 | 0 |
 
 ## Where the subject lane stands alone
 
@@ -24,20 +25,79 @@ The corpus was generated *by* AndroidX, from its own player. So a gold both lane
 
 | outcome | golds | what it means |
 | --- | ---: | --- |
-| both pass | 84 | Settled. Neither lane disagrees. |
-| only `androidx-jvm` passes | **1** | **The work list.** The reference reproduces the gold and the subject does not. |
-| only `cmp` passes | 83 | The subject is ahead here, or the reference cannot drive the timeline. |
-| both fail | 81 | An expectation that survives neither implementation, or a probe neither lane has. |
+| both pass | 125 | Settled. Neither lane disagrees. |
+| only `androidx-jvm` passes | **7** | **The work list**, split below into the player's gaps and this runner's. |
+| only `cmp` passes | 57 | The subject is ahead here, or the reference cannot drive the timeline. |
+| both fail | 60 | An expectation that survives neither implementation, or a probe neither lane has. |
 
-The work list, in full:
+**6 the player: the reference draws or reports it and this one does not.**
 
+- `collapsible_column_weights` — tree ×12, raster ×3
+- `collapsible_row_weights` — tree ×12, raster ×3
+- `fitbox_child_visibility` — tree ×18, raster ×3
 - `modifier_scroll` — tree ×2
+- `state_layout_child_visibility` — tree ×18, raster ×3
+- `state_layout_padding_container` — tree ×6, raster ×3
+
+**1 this runner: every disagreement is a probe it cannot observe.** Not a player finding — the lane has no seam for these channels and says so rather than scoring them as passes.
+
+- `image_layout_sizing_options` — tree ×3, raster ×3
+
+### Golds, against `typescript`
+
+| outcome | golds | what it means |
+| --- | ---: | --- |
+| both pass | 171 | Settled. Neither lane disagrees. |
+| only `typescript` passes | **34** | **The work list**, split below into the player's gaps and this runner's. |
+| only `cmp` passes | 11 | The subject is ahead here, or the reference cannot drive the timeline. |
+| both fail | 33 | An expectation that survives neither implementation, or a probe neither lane has. |
+
+**27 the player: the reference draws or reports it and this one does not.**
+
+- `canvas_bitmap_scaled` — raster ×1
+- `canvas_shader_gradient` — raster ×1
+- `collapsible_column_weights` — tree ×12, raster ×3
+- `collapsible_row_weights` — tree ×12, raster ×3
+- `core_text_autosize_min_clamped` — tree ×6, raster ×3
+- `core_text_autosize_multiline` — tree ×3, raster ×3
+- `core_text_multiline_wrap` — tree ×3, raster ×3
+- `core_text_overflow_ellipsis` — raster ×3, tree ×1
+- `core_text_simple` — tree ×3, raster ×3
+- `data_list_float_dynamic_update` — float_array:data ×1
+- `expr_integer_bitwise_ops` — int ×8
+- `interactivity_click_state_mutation` — trace:handled ×3, float ×1
+- `interactivity_click_toggle_state` — float ×1, trace:handled ×2
+- `interactivity_slider_touch_expression` — float ×2
+- `interactivity_touch_coordinate_tracking` — float ×2
+- `loom_id_remapping_tiers` — ops:component_count ×1
+- `modifier_scroll` — tree ×2
+- `particle_boundary_bounce` — particles ×96, raster ×8
+- `particle_deterministic_seeding` — particles ×32, raster ×2
+- `particle_drag_damping` — particles ×140, raster ×7
+- `particle_gravity_fountain` — particles ×112, raster ×8
+- `particle_lifetime_decay` — particles ×96, raster ×2
+- `particle_linear_drift` — particles ×60, raster ×5
+- `particle_radial_burst` — particles ×72, raster ×6
+- `path_create_and_append` — records:paths ×1
+- `text_on_circle_stream_alignment` — records:glyph_runs ×1, ops:present ×1, ops:total_glyphs ×1
+- `text_on_path_glyph_placement` — records:glyph_runs ×1, ops:total_glyphs ×1, raster ×1
+
+**7 this runner: every disagreement is a probe it cannot observe.** Not a player finding — the lane has no seam for these channels and says so rather than scoring them as passes.
+
+- `animation_spec_field_roundtrip` — records:animation_specs ×1
+- `conditional_comparison_operators` — trace:branches ×1
+- `conditional_nested_branches` — trace:branches ×1
+- `image_layout_sizing_options` — tree ×3, raster ×3
+- `interactivity_click_host_action` — trace:handled ×1, trace:host_actions ×1
+- `interactivity_hit_testing_bounds` — trace:handled ×5
+- `path_tween_morph` — records:tweens ×1
 
 ### Frames
 
 | compared against | shared failures | unique to `cmp` |
 | --- | ---: | ---: |
 | `androidx-jvm` | 194 | 1 |
+| `typescript` | 161 | 34 |
 
 Unique to `cmp`, in full:
 
@@ -47,7 +107,7 @@ Unique to `cmp`, in full:
 
 | subsystem |  | passed | pass rate |
 | --- | --- | ---: | ---: |
-| layout | `███████████████·····` | 127 / 171 | 74.3% |
+| layout | `█████████████████···` | 142 / 171 | 83.0% |
 | particles | `····················` | 0 / 8 | 0.0% |
 | interactivity | `····················` | 0 / 7 | 0.0% |
 | canvas | `███████████·········` | 5 / 9 | 55.6% |
