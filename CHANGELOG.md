@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.64.0](https://github.com/yschimke/rc-players/compare/v1.63.0...v1.64.0) (2026-09-17)
+
+
+### Features
+
+* **build:** publish a BOM, and only the players a release changes ([#196](https://github.com/yschimke/rc-players/issues/196)) ([78d94ab](https://github.com/yschimke/rc-players/commit/78d94abe440ac2d9a7392b41496e98e7bc68aa78))
+* gate native density and harden the native Swift core ([#148](https://github.com/yschimke/rc-players/issues/148)) ([57b3779](https://github.com/yschimke/rc-players/commit/57b37795382e2f614e36e942e24725c660a2a803))
+* have the corpus lane say where it is while it runs ([#170](https://github.com/yschimke/rc-players/issues/170)) ([6d11893](https://github.com/yschimke/rc-players/commit/6d118932b7c5d838d4f6ab942100dac87eb322a0))
+* implement COLOR_THEME so theme-systemthemeswatches renders ([#201](https://github.com/yschimke/rc-players/issues/201)) ([21ff6e6](https://github.com/yschimke/rc-players/commit/21ff6e69bd5520d84fbc02b0423760b6cfd711ab))
+* implement MODIFIER_CLIP_RECT so edgebutton renders ([#195](https://github.com/yschimke/rc-players/issues/195)) ([28d7c34](https://github.com/yschimke/rc-players/commit/28d7c34fe6dfc859a7df81f2f779cf3066d80a8e))
+* implement MODIFIER_GRAPHICS_LAYER's 2D attributes ([#200](https://github.com/yschimke/rc-players/issues/200)) ([2ea6b0e](https://github.com/yschimke/rc-players/commit/2ea6b0eeaced0b5d3fd369d98d1f9b9bdbf2cec2))
+* implement the value change actions (opcodes 227 and 212) ([#197](https://github.com/yschimke/rc-players/issues/197)) ([7746770](https://github.com/yschimke/rc-players/commit/7746770cffa7a0b77aea0f3345cde08a6bb92699))
+* make the corpus lane report why it declines and where it stops ([#168](https://github.com/yschimke/rc-players/issues/168)) ([77c047f](https://github.com/yschimke/rc-players/commit/77c047f36347aa52c317e4df8909f8af4952a1b4))
+* observe the player's layout tree and add the AndroidX reference lane ([#181](https://github.com/yschimke/rc-players/issues/181)) ([a6961c4](https://github.com/yschimke/rc-players/commit/a6961c4a19d06351582bc22ce166573791e04ef4))
+* resolve dynamic float words in the native Swift core ([#156](https://github.com/yschimke/rc-players/issues/156)) ([a80591a](https://github.com/yschimke/rc-players/commit/a80591addf6047748e2267ae4777e4bfc879a4f2))
+* score one document per component instead of all 701 ([#171](https://github.com/yschimke/rc-players/issues/171)) ([e0ad65d](https://github.com/yschimke/rc-players/commit/e0ad65d9b9c6e1eb17836c969e1e52892f63bc7f))
+* score the CMP player against the AndroidX conformance corpus ([#173](https://github.com/yschimke/rc-players/issues/173)) ([603c3f4](https://github.com/yschimke/rc-players/commit/603c3f48ed106eb028013d733d298c3f70a7a6c2))
+* score the native player against the catalog corpus ([#161](https://github.com/yschimke/rc-players/issues/161)) ([2d968c4](https://github.com/yschimke/rc-players/commit/2d968c4a3e82c7eb62fd7dfad011ae88a9615df6))
+
+
+### Bug Fixes
+
+* assemble the lane's framework for it, and sweep what the link leaks ([#180](https://github.com/yschimke/rc-players/issues/180)) ([edb051a](https://github.com/yschimke/rc-players/commit/edb051a2ca792ff4104aca6f0f0153265b01ccc9))
+* bound the corpus lane by stalls instead of total runtime ([#166](https://github.com/yschimke/rc-players/issues/166)) ([93c3808](https://github.com/yschimke/rc-players/commit/93c38084c386614bda44ee9c14c573916db960f4))
+* **build:** read the publish baseline from Maven Central, not from git ([#205](https://github.com/yschimke/rc-players/issues/205)) ([42c35b4](https://github.com/yschimke/rc-players/commit/42c35b43ece8015f8da6aa4919a4c352b00f2484))
+* cap the corpus lane's share of the job, not just its stalls ([#169](https://github.com/yschimke/rc-players/issues/169)) ([dc1039e](https://github.com/yschimke/rc-players/commit/dc1039eb03d63ec65d20f5b609ac4a63941384b4))
+* carry paint gradients through to the renderer instead of dropping them ([#187](https://github.com/yschimke/rc-players/issues/187)) ([0d483eb](https://github.com/yschimke/rc-players/commit/0d483ebb1fd6655242de12e73fe09d83e622c1c8))
+* commit the catalog corpus instead of fetching it in CI ([#167](https://github.com/yschimke/rc-players/issues/167)) ([4e17ab4](https://github.com/yschimke/rc-players/commit/4e17ab4327d60f29fcbb4f7896047004adc0f639))
+* let a component value binding fall back instead of rejecting the document ([#189](https://github.com/yschimke/rc-players/issues/189)) ([ca57693](https://github.com/yschimke/rc-players/commit/ca57693924bb7329d040bf8bdb65b56c76a3c794))
+* load the density built-ins in the CMP and Swift players ([#151](https://github.com/yschimke/rc-players/issues/151)) ([c2988fa](https://github.com/yschimke/rc-players/commit/c2988fabe4f3991342d70c54ffbf9a182f65d29a))
+* make the catalog corpus fetch work, and clear two silent script errors ([#165](https://github.com/yschimke/rc-players/issues/165)) ([4d18cef](https://github.com/yschimke/rc-players/commit/4d18cef3b307198446afcd2f8db36c87ed72d77a))
+* make the corpus lane's declines group and read as declines ([#175](https://github.com/yschimke/rc-players/issues/175)) ([56b7ca9](https://github.com/yschimke/rc-players/commit/56b7ca99bd35687025c08439ff1bb5c709dafae1))
+* stop evaluating a float expression's animation words as expression tokens ([#190](https://github.com/yschimke/rc-players/issues/190)) ([7259805](https://github.com/yschimke/rc-players/commit/72598053eedc2c1dca7e6cf3391648b4d45ba30c))
+* stop rejecting whole documents over an unrecognised accessibility role ([#188](https://github.com/yschimke/rc-players/issues/188)) ([20bf075](https://github.com/yschimke/rc-players/commit/20bf0751fd4e3346240111987b10e9da7d85b20c))
+* surface NativeSwiftCoreError's own message through localizedDescription ([#159](https://github.com/yschimke/rc-players/issues/159)) ([d145b89](https://github.com/yschimke/rc-players/commit/d145b892c00991d0f639628e249736c539315a38))
+* unbreak scripts/agent-gradle.sh on macOS ([#174](https://github.com/yschimke/rc-players/issues/174)) ([b99a2f0](https://github.com/yschimke/rc-players/commit/b99a2f04d9b3a06eadad67cf9e946ed982c757a0))
+* use the component's bounds when either dimension of its background is stale ([#186](https://github.com/yschimke/rc-players/issues/186)) ([adb75a5](https://github.com/yschimke/rc-players/commit/adb75a57e2d2a408a460ed4717b34fa31ad074af))
+
+
+### Performance Improvements
+
+* stop paying ten seconds for every document the player declines ([#172](https://github.com/yschimke/rc-players/issues/172)) ([adc10c4](https://github.com/yschimke/rc-players/commit/adc10c432a88abac70e8a4cc2fb213a881321894))
+
 ## [1.63.0](https://github.com/yschimke/rc-players/compare/v1.62.0...v1.63.0) (2026-09-15)
 
 
