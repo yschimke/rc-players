@@ -927,7 +927,7 @@
       return isInside && !node.gestureTypes.isEmpty ? self : nil
     }
 
-    /// MODIFIER_GRAPHICS_LAYER's 2D attributes, applied about a transform origin of (0, 0).
+    /// MODIFIER_GRAPHICS_LAYER's 2D attributes.
     ///
     /// The origin is the contested part, and the choice here is deliberate and costly. No document
     /// on the catalog sheet carries `TRANSFORM_ORIGIN`, so the default decides every transform, and
@@ -948,6 +948,38 @@
     /// transform that behaves as if applied about p is S with a translation of (I - S)(p - A);
     /// with p = (0, 0) that is -(I - S)A. Recomputed from `bounds` on every layout pass, so it
     /// stays correct through resizes and never compounds.
+    /// **Temporary.** The transform origin used when a document does not state one.
+    ///
+    /// `TRANSFORM_ORIGIN` is contested upstream: `remote-core` declares a default of `0f`, while
+    /// `remote-creation-compose` omits the attribute at `0.5f` — see #155 and #153. No document on
+    /// the catalog sheet carries the attribute, so this default decides every transform on the
+    /// sheet, and the two candidates are not close: they differ by the component's whole size.
+    ///
+    /// This follows `remote-creation-compose` and centres, **against** the declared `remote-core`
+    /// default, because the declared one is measurably wrong on every document that exercises it.
+    /// The only attribute any catalog document sets is `SCALE_X = -1`, a horizontal mirror, on the
+    /// 50 `pageindicator-vertical__ideal__left-*` variants:
+    ///
+    /// | origin | those 50 documents |
+    /// | --- | --- |
+    /// | `0` | 0 opaque pixels — content mirrors to negative x, off-canvas |
+    /// | centre | x 10..26, the exact mirror of the untransformed sibling's 359..373 |
+    ///
+    /// Worse than wrong, `0` is *invisible*: those documents score 0.26% different while drawing
+    /// nothing, because the indicator is ~518 pixels on a 384x384 canvas. No lane output flags it.
+    ///
+    /// ### Reverting this
+    ///
+    /// Delete this function and use `.zero` for `origin` in `applyGraphicsLayer`. Do that when an
+    /// AndroidX release settles the default — either `remote-creation-compose` starts writing
+    /// `TRANSFORM_ORIGIN` explicitly, in which case no default is load-bearing, or `remote-core`'s
+    /// `0f` is corrected. Until then this is a deliberate, measured deviation rather than a reading
+    /// of the protocol, which is why it is a named function with the evidence attached instead of a
+    /// `.zero` nobody would question.
+    private static func graphicsLayerTransformOrigin(of size: CGSize) -> CGPoint {
+      CGPoint(x: size.width / 2, y: size.height / 2)
+    }
+
     private func applyGraphicsLayer() {
       guard let graphicsLayer = node.graphicsLayer, !graphicsLayer.isIdentity else { return }
       let anchor = CGPoint(
@@ -955,7 +987,8 @@
       let linear = CGAffineTransform(
         rotationAngle: CGFloat(graphicsLayer.rotationZ) * .pi / 180
       ).scaledBy(x: CGFloat(graphicsLayer.scaleX), y: CGFloat(graphicsLayer.scaleY))
-      let dx = -anchor.x, dy = -anchor.y
+      let origin = Self.graphicsLayerTransformOrigin(of: bounds.size)
+      let dx = origin.x - anchor.x, dy = origin.y - anchor.y
       let originX = dx - (linear.a * dx + linear.c * dy)
       let originY = dy - (linear.b * dx + linear.d * dy)
       layer.transform = CATransform3DMakeAffineTransform(
