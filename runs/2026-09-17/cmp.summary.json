@@ -4,19 +4,17 @@
   "version": "dev"
  },
  "corpus": {
-  "path": "/private/tmp/claude-502/-Users-yschimke-workspace-rc-players--claude-worktrees-player-validation-scorecard-fc645b/ddcf1970-0e9d-4db7-8700-b144d49d40ba/scratchpad/spec-branch/third_party/rc-conformance-spec/compose/remote/specification/conformance/gold",
+  "path": "/home/runner/work/rc-players/rc-players/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance/gold",
   "gold_count": 252
  },
  "summary": {
-  "passed": 183,
-  "failed": 64,
+  "passed": 167,
+  "failed": 80,
   "errored": 2,
   "skipped": 0,
   "suspicious": 3,
-  "checks_total": 910,
-  "checks_failed": 236,
-  "advisory_total": 605,
-  "advisory_failed": 180
+  "checks_total": 1515,
+  "checks_failed": 419
  },
  "results": [
   {
@@ -600,8 +598,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 2,
+   "checks_total": 10,
+   "checks_failed": 5,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 12
@@ -618,8 +616,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 2,
+   "checks_total": 10,
+   "checks_failed": 4,
    "diffs_by_probe": {
     "raster": 2,
     "tree": 6
@@ -635,8 +633,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 5,
+   "checks_total": 10,
+   "checks_failed": 9,
    "diffs_by_probe": {
     "raster": 4,
     "tree": 34
@@ -654,8 +652,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 5,
+   "checks_total": 10,
+   "checks_failed": 9,
    "diffs_by_probe": {
     "raster": 4,
     "tree": 51
@@ -673,8 +671,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 5,
+   "checks_total": 10,
+   "checks_failed": 9,
    "diffs_by_probe": {
     "raster": 4,
     "tree": 20
@@ -692,7 +690,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -703,7 +701,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -714,7 +712,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -725,7 +723,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -736,7 +734,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -747,7 +745,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -758,7 +756,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -769,7 +767,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -780,7 +778,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -791,7 +789,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -802,7 +800,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -813,7 +811,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -824,7 +822,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -835,7 +833,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -844,10 +842,10 @@
    "name": "collapsible_column_child_graphicslayer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -863,7 +861,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -874,7 +872,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -885,7 +883,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -896,7 +894,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -920,7 +918,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -931,7 +929,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -942,7 +940,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -953,8 +951,8 @@
    "profile": "core",
    "status": "SUSPICIOUS",
    "suspicious": true,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 11
@@ -971,8 +969,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 6,
-   "checks_failed": 1,
+   "checks_total": 12,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 2,
     "tree": 4
@@ -988,7 +986,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -999,7 +997,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1010,8 +1008,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 12
@@ -1028,7 +1026,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1039,7 +1037,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1050,7 +1048,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1059,10 +1057,10 @@
    "name": "collapsible_row_child_graphicslayer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -1078,7 +1076,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1089,7 +1087,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1100,7 +1098,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1111,7 +1109,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1135,7 +1133,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1146,7 +1144,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1157,7 +1155,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1168,8 +1166,8 @@
    "profile": "core",
    "status": "SUSPICIOUS",
    "suspicious": true,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 11
@@ -1186,8 +1184,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 6,
-   "checks_failed": 1,
+   "checks_total": 12,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 2,
     "tree": 4
@@ -1203,7 +1201,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1214,7 +1212,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1225,8 +1223,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 12
@@ -1243,7 +1241,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1254,7 +1252,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1265,7 +1263,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1276,7 +1274,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1287,7 +1285,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1298,7 +1296,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1309,7 +1307,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1320,7 +1318,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1331,7 +1329,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1342,7 +1340,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1351,10 +1349,10 @@
    "name": "column_child_graphicslayer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -1370,7 +1368,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1381,7 +1379,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1392,7 +1390,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1403,7 +1401,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1414,7 +1412,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1425,7 +1423,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1436,7 +1434,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1447,7 +1445,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1458,7 +1456,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1469,7 +1467,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1478,10 +1476,10 @@
    "name": "core_text_alignment",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -1497,7 +1495,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1506,10 +1504,10 @@
    "name": "core_text_autosize_height_driven",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -1523,10 +1521,10 @@
    "name": "core_text_autosize_max_clamped",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -1542,8 +1540,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 6
@@ -1560,8 +1558,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 3
@@ -1578,8 +1576,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 3
@@ -1596,8 +1594,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 1,
+   "checks_total": 6,
+   "checks_failed": 4,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 1
@@ -1612,12 +1610,13 @@
    "name": "core_text_simple",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
-    "raster": 3
+    "raster": 3,
+    "tree": 3
    },
    "raster_failures": [
     "initial",
@@ -1631,7 +1630,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1642,7 +1641,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1651,10 +1650,10 @@
    "name": "fitbox_child_graphicslayer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -1670,7 +1669,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1681,7 +1680,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1692,8 +1691,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 18
@@ -1710,7 +1709,7 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 4,
    "checks_failed": 2,
    "diffs_by_probe": {
     "tree": 8
@@ -1723,7 +1722,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1734,7 +1733,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1745,7 +1744,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1756,7 +1755,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1767,7 +1766,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1776,10 +1775,10 @@
    "name": "flow_child_graphicslayer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -1795,7 +1794,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1806,7 +1805,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1817,7 +1816,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1828,7 +1827,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1839,7 +1838,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1850,7 +1849,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1861,7 +1860,7 @@
    "profile": "core",
    "status": "SUSPICIOUS",
    "suspicious": true,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1872,7 +1871,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1883,7 +1882,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1894,7 +1893,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -1905,8 +1904,8 @@
    "profile": "core",
    "status": "ERROR",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "error": "ee.schimke.composeai.rcplayer.runtime.RcLayoutException: RcColumnLayout requires LayoutComponentContent",
    "diffs_by_probe": {
     "raster": 3,
@@ -1924,8 +1923,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 3
@@ -1942,8 +1941,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 4,
-   "checks_failed": 2,
+   "checks_total": 8,
+   "checks_failed": 4,
    "diffs_by_probe": {
     "raster": 2,
     "tree": 10
@@ -1959,8 +1958,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 4,
-   "checks_failed": 2,
+   "checks_total": 8,
+   "checks_failed": 4,
    "diffs_by_probe": {
     "raster": 2,
     "tree": 10
@@ -1976,8 +1975,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 8,
-   "checks_failed": 6,
+   "checks_total": 16,
+   "checks_failed": 12,
    "diffs_by_probe": {
     "raster": 6,
     "tree": 36
@@ -1997,8 +1996,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 3,
+   "checks_total": 10,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 12
@@ -2015,7 +2014,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2026,7 +2025,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2037,7 +2036,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2048,7 +2047,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2059,7 +2058,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2070,7 +2069,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2081,7 +2080,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2090,10 +2089,10 @@
    "name": "modifier_graphics_layer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -2107,10 +2106,10 @@
    "name": "modifier_graphicslayer_scale",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -2126,8 +2125,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 8,
-   "checks_failed": 5,
+   "checks_total": 16,
+   "checks_failed": 13,
    "diffs_by_probe": {
     "raster": 8,
     "tree": 5
@@ -2149,8 +2148,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 7,
-   "checks_failed": 5,
+   "checks_total": 14,
+   "checks_failed": 12,
    "diffs_by_probe": {
     "raster": 7,
     "tree": 33
@@ -2171,7 +2170,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2182,7 +2181,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2193,7 +2192,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2204,7 +2203,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2215,7 +2214,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2226,7 +2225,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 1,
+   "checks_total": 2,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2237,7 +2236,7 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 2,
    "diffs_by_probe": {
     "tree": 2
@@ -2250,7 +2249,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2261,7 +2260,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2272,7 +2271,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2283,7 +2282,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2294,7 +2293,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2305,7 +2304,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2316,7 +2315,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2327,7 +2326,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2336,10 +2335,10 @@
    "name": "resize_collapsible_column",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 0,
+   "checks_total": 10,
+   "checks_failed": 1,
    "diffs_by_probe": {
     "raster": 1
    },
@@ -2351,10 +2350,10 @@
    "name": "resize_collapsible_row",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 0,
+   "checks_total": 10,
+   "checks_failed": 1,
    "diffs_by_probe": {
     "raster": 1
    },
@@ -2368,7 +2367,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 4,
+   "checks_total": 8,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2379,7 +2378,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 5,
+   "checks_total": 10,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2390,7 +2389,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 4,
+   "checks_total": 8,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2401,7 +2400,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2412,7 +2411,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2423,7 +2422,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2434,7 +2433,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2445,7 +2444,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2456,7 +2455,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2467,7 +2466,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2478,7 +2477,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2489,7 +2488,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2500,7 +2499,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2509,10 +2508,10 @@
    "name": "row_child_graphicslayer",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3
    },
@@ -2528,7 +2527,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2539,7 +2538,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2550,7 +2549,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2561,7 +2560,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2572,7 +2571,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2583,7 +2582,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2594,7 +2593,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2605,7 +2604,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2616,7 +2615,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2625,10 +2624,10 @@
    "name": "row_weights",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 0,
+   "checks_total": 6,
+   "checks_failed": 1,
    "diffs_by_probe": {
     "raster": 1
    },
@@ -2642,7 +2641,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2653,7 +2652,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2664,7 +2663,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2675,7 +2674,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2686,7 +2685,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2697,7 +2696,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2719,7 +2718,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2730,7 +2729,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2741,8 +2740,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 18
@@ -2759,8 +2758,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 3,
-   "checks_failed": 3,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "raster": 3,
     "tree": 6
@@ -2777,7 +2776,7 @@
    "profile": "core",
    "status": "PASS",
    "suspicious": false,
-   "checks_total": 3,
+   "checks_total": 6,
    "checks_failed": 0,
    "diffs_by_probe": {},
    "raster_failures": []
@@ -2786,10 +2785,10 @@
    "name": "state_layout_state_switch",
    "category": "layout",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
-   "checks_total": 7,
-   "checks_failed": 0,
+   "checks_total": 14,
+   "checks_failed": 7,
    "diffs_by_probe": {
     "raster": 7
    },
@@ -2922,8 +2921,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 10,
-   "checks_failed": 8,
+   "checks_total": 20,
+   "checks_failed": 16,
    "diffs_by_probe": {
     "particles": 96,
     "raster": 8
@@ -2945,8 +2944,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 4,
-   "checks_failed": 2,
+   "checks_total": 8,
+   "checks_failed": 4,
    "diffs_by_probe": {
     "particles": 32,
     "raster": 2
@@ -2962,8 +2961,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 9,
-   "checks_failed": 7,
+   "checks_total": 18,
+   "checks_failed": 14,
    "diffs_by_probe": {
     "particles": 140,
     "raster": 7
@@ -2984,8 +2983,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 10,
-   "checks_failed": 8,
+   "checks_total": 20,
+   "checks_failed": 16,
    "diffs_by_probe": {
     "particles": 112,
     "raster": 8
@@ -3007,8 +3006,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 8,
-   "checks_failed": 6,
+   "checks_total": 14,
+   "checks_failed": 8,
    "diffs_by_probe": {
     "particles": 96,
     "raster": 2
@@ -3024,8 +3023,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 7,
-   "checks_failed": 5,
+   "checks_total": 14,
+   "checks_failed": 10,
    "diffs_by_probe": {
     "particles": 60,
     "raster": 5
@@ -3044,8 +3043,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 8,
-   "checks_failed": 6,
+   "checks_total": 16,
+   "checks_failed": 12,
    "diffs_by_probe": {
     "particles": 72,
     "raster": 6
@@ -3065,8 +3064,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 10,
-   "checks_failed": 8,
+   "checks_total": 20,
+   "checks_failed": 16,
    "diffs_by_probe": {
     "particles": 52,
     "raster": 8

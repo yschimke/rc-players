@@ -6,7 +6,7 @@ Published by the scheduled `Conformance` workflow. This branch carries **only** 
 
 |  | `cmp` |
 | --- | ---: |
-| Core golds passed | **183 / 241** (75.9%) |
+| Core golds passed | **167 / 241** (69.3%) |
 | Raster disagreements | 195 |
 | …not shared with a reference lane | **1** |
 
@@ -14,9 +14,9 @@ Of 195 frames where `cmp` disagrees with the reference image, 194 are frames a r
 
 ## Trend
 
-| run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
-| --- | ---: | ---: | ---: | ---: | --- |
-| [`2026-09-17`](runs/2026-09-17/README.md) | 133 / 241 | 183 / 241 | 0 / 241 | 199 / 241 | `d5184b7` |
+| run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | commit |
+| --- | ---: | ---: | ---: | --- |
+| [`2026-09-17`](runs/2026-09-17/README.md) | 85 / 241 | 167 / 241 | 0 / 241 | `70fa694` |
 
 `history.csv` holds every row, including runs older than the table above.
 
