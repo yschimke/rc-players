@@ -1880,6 +1880,41 @@ private enum NativeSwiftDocumentDecoder {
         node.verticalPositioning = try input.int("column vertical positioning")
         node.spacingWord = try input.word("column spacing")
         try begin(node)
+      case 230:  // Collapsible row
+        // The row half of the same family as 233, and the same wire shape as the row at 203.
+        let node = ParsedNode(
+          kind: .row, componentID: try input.int("collapsible row component id"))
+        _ = try input.int("collapsible row animation id")
+        node.horizontalPositioning = try input.int("collapsible row horizontal positioning")
+        node.verticalPositioning = try input.int("collapsible row vertical positioning")
+        node.spacingWord = try input.word("collapsible row spacing")
+        try begin(node)
+      case 235:  // Collapsible priority modifier
+        // INT orientation, FLOAT priority. It orders which children a collapsible container drops
+        // first, so it means nothing to a player that does not collapse -- but it still has to be
+        // read, because the buffer has no length prefixes and an unread operation costs the rest of
+        // the document. Upstream's own `apply` is empty for the same reason: it is layout input, not
+        // a drawing instruction.
+        _ = try input.int("collapsible priority orientation")
+        _ = try input.word("collapsible priority")
+      case 233:  // Collapsible column
+        // Same wire shape as the column at 204 -- component id, animation id, both positionings,
+        // then a float spacing -- because upstream's CollapsibleColumnLayout extends ColumnLayout
+        // and inherits its payload.
+        //
+        // What it does NOT inherit is the behaviour: a collapsible column hides the children that do
+        // not fit its height, in the order a CollapsiblePriority modifier gives them. This player
+        // lays it out as an ordinary column, so a document whose children overflow shows all of them
+        // where the reference would drop some. That is a visible difference on exactly the documents
+        // this operation exists for, and it is tracked rather than papered over -- but it renders,
+        // where before the unknown opcode cost the remainder of the document.
+        let node = ParsedNode(
+          kind: .column, componentID: try input.int("collapsible column component id"))
+        _ = try input.int("collapsible column animation id")
+        node.horizontalPositioning = try input.int("collapsible column horizontal positioning")
+        node.verticalPositioning = try input.int("collapsible column vertical positioning")
+        node.spacingWord = try input.word("collapsible column spacing")
+        try begin(node)
       case 205:  // Canvas
         let node = ParsedNode(kind: .canvas, componentID: try input.int("canvas component id"))
         _ = try input.int("canvas animation id")
