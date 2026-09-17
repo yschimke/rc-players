@@ -51,7 +51,7 @@ dependencies {
   // owns a composition, `mainClock` advances animation deterministically, semantics exposes the
   // tree, and `captureToImage` returns real pixels. It resolves from a test configuration, which is
   // why the engines live in the test source set. See docs/design/RC_CONFORMANCE_PLATFORMS.md.
-  testImplementation("org.jetbrains.compose.ui:ui-test-desktop:1.11.1")
+  testImplementation("org.jetbrains.compose.ui:ui-test-desktop:1.12.0")
 }
 
 /**
