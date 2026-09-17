@@ -47,6 +47,11 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let cornerRadius: Float
   public let clipsToBounds: Bool
   public let graphicsLayer: NativeSwiftGraphicsLayerSnapshot?
+  public let offsetX: Float
+  public let offsetY: Float
+  public let zIndex: Float
+  /// 0 gone, 1 visible, 2 invisible — the protocol's own values, after its override bits.
+  public let visibility: Int
   public let backgroundARGB: UInt32?
   public let horizontalPositioning: Int
   public let verticalPositioning: Int
@@ -530,6 +535,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           scaleX: node.graphicsLayer[0] ?? 1, scaleY: node.graphicsLayer[1] ?? 1,
           translationX: node.graphicsLayer[5] ?? 0, translationY: node.graphicsLayer[6] ?? 0,
           rotationZ: node.graphicsLayer[4] ?? 0, alpha: node.graphicsLayer[8] ?? 1),
+      offsetX: node.offsetXWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
+      offsetY: node.offsetYWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
+      zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
+      visibility: node.visibilityID.map { resolvedVisibility(of: $0) } ?? 1,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
@@ -612,6 +621,33 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         expression.words, values: result)
     }
     return result
+  }
+
+  /// Visibility as the protocol encodes it, including its override bits.
+  ///
+  /// Above 15 the value is a mask -- OVERRIDE_GONE 16, OVERRIDE_VISIBLE 32, OVERRIDE_INVISIBLE 64 --
+  /// and the plain 0/1/2 meanings apply only below that. The order matters and is the reference's:
+  /// visible wins over gone, gone over invisible, and anything unrecognised is gone rather than
+  /// visible, so an unknown state hides a component instead of drawing it in an undefined one.
+  private func resolvedVisibility(of id: Int) -> Int {
+    // An unset integer reads 0, and 0 is GONE -- not visible. That is the reference's behaviour and
+    // the corpus asserts it: `column_child_visibility` binds three children to integers the document
+    // never assigns, and expects all three GONE while their unmodified ancestors stay VISIBLE.
+    // Defaulting to visible instead looks safer and is wrong; a component whose visibility nobody
+    // has decided is hidden, not shown.
+    let value = integers[id] ?? 0
+    if value >> 4 > 0 {
+      if value & 32 == 32 { return 1 }
+      if value & 16 == 16 { return 0 }
+      if value & 64 == 64 { return 2 }
+      return 0
+    }
+    switch value {
+    case 1: return 1
+    case 0: return 0
+    case 2: return 2
+    default: return 0
+    }
   }
 
   private func colorAttribute(_ type: Int, of color: UInt32) -> Float {
@@ -1112,6 +1148,10 @@ private final class ParsedNode {
   /// rounded clip: the rounded modifier states radii, this one states nothing at all.
   var clipsToBounds = false
   var graphicsLayer: [Int: Float] = [:]
+  var offsetXWord: UInt32?
+  var offsetYWord: UInt32?
+  var zIndexWord: UInt32?
+  var visibilityID: Int?
   var backgroundARGB: UInt32?
   var backgroundColorID: Int?
   var horizontalPositioning = 1
@@ -1915,15 +1955,15 @@ private enum NativeSwiftDocumentDecoder {
         _ = try input.int("flow maximum lines")
         try begin(node)
       case 223:  // Z-index modifier
-        _ = try currentNode(stack, input: input)
-        _ = try input.word("z-index")
+        try currentNode(stack, input: input).zIndexWord = try input.word("z-index")
       case 221:  // Offset modifier
-        _ = try currentNode(stack, input: input)
-        _ = try input.word("offset x")
-        _ = try input.word("offset y")
+        let node = try currentNode(stack, input: input)
+        node.offsetXWord = try input.word("offset x")
+        node.offsetYWord = try input.word("offset y")
       case 211:  // Visibility modifier
-        _ = try currentNode(stack, input: input)
-        _ = try input.int("visibility id")
+        // An id, not a value: the modifier names an integer the document updates, so visibility
+        // follows that integer rather than being fixed when the document is written.
+        try currentNode(stack, input: input).visibilityID = try input.int("visibility id")
       case 226:  // Scroll modifier
         // INT direction, then position, max and notch max as float words.
         _ = try currentNode(stack, input: input)
