@@ -16,6 +16,25 @@ enum NativeSwiftCoreTests {
         "NativeSwiftCoreError must surface its own description through localizedDescription")
     }
 
+    // Two size modifiers on one component are a Compose modifier *chain*, and AndroidX emits
+    // exactly this pair on a title card: `width(172.dp)` then `fillMaxWidth()`. The outer one fixes
+    // the constraint and the inner fill then fills precisely that, so the outer decides and the
+    // inner is a no-op. Reading the pair as a property and keeping the last value drew the card at
+    // the document's full width instead.
+    let chained = try NativeSwiftDocumentSession.open(data: chainedSizeModifierDocument())
+      .snapshot()
+    guard let chainedColumn = chained.root.children.first?.children.first else {
+      preconditionFailure("the chained-size fixture decoded no child component")
+    }
+    precondition(
+      chainedColumn.widthType == 6 && chainedColumn.widthValue == 172,
+      "expected the outer width(172.dp) to win, got "
+        + "\(chainedColumn.widthType)/\(chainedColumn.widthValue)")
+    precondition(
+      chainedColumn.heightType == 6 && chainedColumn.heightValue == 64,
+      "expected the outer height(64.dp) to win, got "
+        + "\(chainedColumn.heightType)/\(chainedColumn.heightValue)")
+
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {
       let kotlinFixture = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
@@ -330,6 +349,22 @@ enum NativeSwiftCoreTests {
   }
 
 
+
+  /// A root holding one column that carries both an exact size and a fill, in AndroidX's order.
+  private static func chainedSizeModifierDocument() -> Data {
+    let output = Writer()
+    output.header(width: 454, height: 400)
+    output.u8(200).int(-2)
+    output.u8(201).int(-3)
+    output.u8(204).int(-4).int(0).int(1).int(4).float(0)
+    output.u8(16).int(6).float(172)  // width(172.dp)
+    output.u8(16).int(1).float(1)  // .fillMaxWidth()
+    output.u8(67).int(6).float(64)  // height(64.dp)
+    output.u8(67).int(1).float(1)  // .fillMaxHeight()
+    output.u8(201).int(-5)
+    for _ in 0..<4 { output.u8(214) }
+    return output.data
+  }
 
   private static func editableTextDocument() -> Data {
     let output = Writer()
