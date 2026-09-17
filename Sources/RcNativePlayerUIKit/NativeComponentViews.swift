@@ -1063,14 +1063,36 @@
     }
 
     /// The laid-out size of each named component, gathered from this subtree.
+    /// This view's size, when layout actually gave it one.
+    ///
+    /// Empty bounds mean layout never sized this view — a structural view is flattened into its
+    /// parent's arrangement and never given a frame. Real bounds are trusted whether the view is
+    /// structural or not: distrusting them cost twelve exact matches when tried, because plenty of
+    /// structural views are sized perfectly well and only the unsized ones need an ancestor's size.
+    private var laidOutSize: CGSize? {
+      bounds.isEmpty ? nil : bounds.size
+    }
+
     func collectMeasuredSizes(
-      of wanted: Set<Int>, into result: inout [Int: NativeSwiftMeasuredSize]
+      of wanted: Set<Int>, into result: inout [Int: NativeSwiftMeasuredSize],
+      inherited: CGSize? = nil
     ) {
       if wanted.contains(node.componentID) {
-        result[node.componentID] = NativeSwiftMeasuredSize(
-          width: Float(bounds.width), height: Float(bounds.height))
+        // A structural view is transparent to layout: its children are flattened into its parent's
+        // arrangement and it is never given a frame of its own, so its bounds are not a size. The
+        // size such a component *has* is the area it was flattened into, which is the nearest
+        // ancestor that layout did size. Reporting its own empty bounds instead resolves the binding
+        // to zero, and a scale of zero draws exactly as little as the pre-layout estimate did.
+        let measurable = laidOutSize ?? inherited
+        if let measurable {
+          result[node.componentID] = NativeSwiftMeasuredSize(
+            width: Float(measurable.width), height: Float(measurable.height))
+        }
       }
-      for child in componentChildren { child.collectMeasuredSizes(of: wanted, into: &result) }
+      let forChildren = laidOutSize ?? inherited
+      for child in componentChildren {
+        child.collectMeasuredSizes(of: wanted, into: &result, inherited: forChildren)
+      }
     }
 
     override func layoutSubviews() {
