@@ -125,3 +125,76 @@ jobs:
           path: rc-conformance/build/conformance/
           retention-days: 30
           if-no-files-found: warn
+
+  publish:
+    name: Publish the report
+    needs: score
+    # `always()` so a red lane still gets a report — a missing lane is rendered as *not measured*,
+    # which is a different statement from a zero and the one the reader needs.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # The only job here that writes. `reports/conformance` is an orphan branch carrying reports
+      # and nothing else, so this cannot touch source, and the branch is excluded from the release
+      # tooling for the same reason `vendor/androidx-rc-conformance` is.
+      contents: write
+    steps:
+      - name: Check out the report generator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+
+      - name: Check out the report branch
+        run: |
+          set -euo pipefail
+          git fetch origin reports/conformance --depth=1 || true
+          if git rev-parse --verify origin/reports/conformance >/dev/null 2>&1; then
+            git worktree add report origin/reports/conformance
+            git -C report checkout -B reports/conformance
+          else
+            # First run, or someone deleted it. An orphan rather than a branch off main: the report
+            # tree shares no history with the source and must never carry a copy of it.
+            git worktree add --detach report
+            git -C report checkout --orphan reports/conformance
+            git -C report rm -rf --quiet . || true
+          fi
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+          pattern: conformance-*
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Render
+        run: |
+          set -euo pipefail
+          # The subject lane comes first; every lane after it is a reference the subject is compared
+          # against, and that ordering is what the cross-lane split is computed from.
+          node scripts/conformance-report/render-report.mjs \
+            --out report \
+            --run-id "$(date -u +%Y-%m-%d)" \
+            --commit "${{ github.sha }}" \
+            --ref "${{ github.ref_name }}" \
+            cmp=artifacts/conformance-cmp/conformance-results.json \
+            androidx-jvm=artifacts/conformance-androidx-jvm/conformance-results.json
+          cat report/README.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          cd report
+          git add -A
+          # Nothing to say is a normal outcome — a re-run on the same day against the same commit
+          # produces byte-identical output — and must not fail the job.
+          if git diff --cached --quiet; then
+            echo "the report is unchanged; nothing to publish"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "report: conformance run $(date -u +%Y-%m-%d)"
+          git push origin reports/conformance
