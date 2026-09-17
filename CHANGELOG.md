@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.65.0](https://github.com/yschimke/rc-players/compare/v1.64.0...v1.65.0) (2026-09-17)
+
+
+### Features
+
+* take the CMP player to strict parity with the vendored TypeScript player ([#210](https://github.com/yschimke/rc-players/issues/210)) ([655d9db](https://github.com/yschimke/rc-players/commit/655d9dbf5fbff31ecb6eb153859ab48ed585cd42))
+
+
+### Bug Fixes
+
+* **ci:** make the release actually compute its publish plan, and survive macOS bash ([#211](https://github.com/yschimke/rc-players/issues/211)) ([b648b39](https://github.com/yschimke/rc-players/commit/b648b39e0dcfcd770a669c3097e2beb58f8817e7))
+
 ## [1.64.0](https://github.com/yschimke/rc-players/compare/v1.63.0...v1.64.0) (2026-09-17)
 
 
