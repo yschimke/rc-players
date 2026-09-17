@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcconformance.runner.Diff
 import ee.schimke.composeai.rcconformance.runner.GoldResult
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -57,6 +58,34 @@ public object Results {
     put("suspicious", result.gold.isSuspicious)
     result.gold.suspiciousReason?.let { put("suspicious_reason", it) }
     result.error?.let { put("error", it) }
+    // The corpus's own report generators read these names, and nothing else. Publishing the frames
+    // under a name of this runner's invention is what made every image pane in the generated audit
+    // render empty.
+    result.rasterComparisons.firstOrNull()?.let { first ->
+      first.goldImageBase64?.let { put("goldImageBase64", it) }
+      put("renderedCanvasBase64", first.renderedCanvasBase64)
+      put("hasRasterBaseline", first.goldImageBase64 != null)
+    }
+    if (result.rasterComparisons.isNotEmpty()) {
+      put(
+        "rasterComparisons",
+        buildJsonArray {
+          result.rasterComparisons.forEach { comparison ->
+            add(
+              buildJsonObject {
+                put("at", comparison.at)
+                comparison.goldImageBase64?.let { put("goldImageBase64", it) }
+                put("renderedCanvasBase64", comparison.renderedCanvasBase64)
+                put("totalPixels", comparison.totalPixels)
+                put("rasterTolerance", comparison.rasterTolerance)
+                comparison.differingPixels?.let { put("differingPixels", it) }
+              }
+            )
+          }
+        },
+      )
+    }
+    result.componentCount?.let { put("componentCount", it) }
     put("checks_total", result.checksTotal)
     put("checks_failed", result.checksFailed)
     put("advisory_total", result.advisoryTotal)
