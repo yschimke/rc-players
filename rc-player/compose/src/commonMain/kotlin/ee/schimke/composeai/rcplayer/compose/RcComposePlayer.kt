@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -147,6 +148,7 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -283,6 +285,7 @@ import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -456,11 +459,6 @@ private fun RcComposePlayerResolved(
         systemColorLookup = { name -> latestSystemColors(name)?.toRcArgb() },
       )
     }
-  // Hand the live state to an observing host. Keyed on `state` rather than on `document`, so a
-  // rebuild for any other reason still republishes rather than leaving a stale reference behind.
-  val inspectorSink = LocalRcPlayerInspector.current
-  SideEffect { inspectorSink?.state = state }
-
   // Apply host edits to the live state instead of rebuilding it. `setNamedValue` already applied a
   // single value incrementally against `variableNames`, type-checked against the AndroidX variable
   // type; nothing on the public path called it. A removal means "stop overriding this", which needs
@@ -596,10 +594,17 @@ private fun RcComposePlayerResolved(
       documentHeight = document.header.height.coerceAtLeast(1).toFloat(),
       rootContentBehavior = state.rootContentBehavior,
     )
-  val redrawModifier = interactiveModifier.drawWithContent {
-    invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
-    drawContent()
-  }
+  val redrawModifier =
+    interactiveModifier
+      .drawWithContent {
+        invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
+        drawContent()
+      }
+      // Published here rather than on the root layout component, because a canvas-only document has
+      // no layout tree at all — it takes the `Canvas` branch below — and hanging the state off a
+      // component that does not exist made every expression, colour and text probe on such a
+      // document report "not implemented" while the document itself was perfectly observable.
+      .inspectDocument(state, LocalRcInspection.current)
   if (layout != null) {
     // Layout variables (visibility, dimensions, offsets, and constraints) are read during
     // composition/measurement rather than painting, so action mutations must invalidate this
@@ -669,8 +674,6 @@ private fun RenderLayoutNode(
   node: RcLayoutNode,
   modifier: Modifier = Modifier,
   forceGone: Boolean = false,
-  /** Depth in the *reported* tree; see [RcInspectedNode.depth]. Costs nothing unobserved. */
-  depth: Int = 0,
   state: RcPlayerState,
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
@@ -718,19 +721,17 @@ private fun RenderLayoutNode(
       animateRcVisibility(visibility, node.modifiers.animationSpec, boundsModifier)
     }
   val geometryIds = node.geometryComponentIds()
-  val inspector = LocalRcPlayerInspector.current
-  // `Content` is a wrapper, not a level: its layout manager owns the geometry, and AndroidX's own
-  // tree encoding has no entry for it. Counting it would shift every descendant's depth by one
-  // against every other player's report of the same document.
-  val childDepth = if (node is RcLayoutNode.Content) depth else depth + 1
+  val inspecting = LocalRcInspection.current
+  val contentInset =
+    if (inspecting) rcContentInsetPixels(node.modifiers, state, density) else Offset.Zero
   if (!animatedVisibility.shouldRender) {
-    if (geometryIds.any(state::hasComponentValues) || inspector != null) {
+    if (geometryIds.any(state::hasComponentValues) || inspecting) {
       // A gone component still reports, at zero size. Dropping it would make "laid out at nothing"
       // and "not in the tree" the same observation, and they are not: the corpus asserts `isGone`
       // on nodes it still expects to find.
       Layout(
         Modifier.trackComponentGeometry(geometryIds, state)
-          .reportToInspector(node, depth, inspector, visibility, layoutVersion)
+          .inspectComponent(node, visibility, inspecting, contentInset)
       ) { _, _ ->
         layout(0, 0) {}
       }
@@ -740,7 +741,7 @@ private fun RenderLayoutNode(
   val effectiveModifier =
     animatedVisibility.modifier
       .trackComponentGeometry(geometryIds, state)
-      .reportToInspector(node, depth, inspector, visibility, layoutVersion)
+      .inspectComponent(node, visibility, inspecting, contentInset)
   when (node) {
     is RcLayoutNode.Root ->
       Box(
@@ -758,7 +759,6 @@ private fun RenderLayoutNode(
         node.children.forEach {
           RenderLayoutNode(
             it,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -771,7 +771,6 @@ private fun RenderLayoutNode(
         node.children.forEach {
           RenderLayoutNode(
             it,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -818,7 +817,6 @@ private fun RenderLayoutNode(
         node.content?.let {
           RenderLayoutNode(
             it,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -883,7 +881,6 @@ private fun RenderLayoutNode(
         node.content?.let { content ->
           RenderLayoutNode(
             content,
-            depth = childDepth,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -908,7 +905,6 @@ private fun RenderLayoutNode(
         )
       if (node.content.children.any { it.modifiers.alignBy != null }) {
         RcAlignedRow(
-          depth = childDepth,
           children = node.content.children,
           horizontalPositioning = node.operation.horizontalPositioning,
           verticalPositioning = node.operation.verticalPositioning,
@@ -943,7 +939,6 @@ private fun RenderLayoutNode(
           node.content.children.forEach { child ->
             RenderLayoutNode(
               child,
-              depth = childDepth,
               modifier = rowWeightModifier(child, state),
               state = state,
               textMeasurer = textMeasurer,
@@ -974,7 +969,6 @@ private fun RenderLayoutNode(
         node.content.children.forEach { child ->
           RenderLayoutNode(
             child,
-            depth = childDepth,
             modifier = columnWeightModifier(child, state),
             state = state,
             textMeasurer = textMeasurer,
@@ -1008,7 +1002,6 @@ private fun RenderLayoutNode(
       ) {
         RenderLayoutNode(
           node.content,
-          depth = childDepth,
           state = state,
           textMeasurer = textMeasurer,
           images = images,
@@ -1018,13 +1011,19 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.State -> {
       val selected = state.integer(node.operation.indexId) ?: 0
+      // AndroidX sizes a state container to whichever branch is showing and ignores fill modifiers
+      // on it — `state_layout_basic` declares `fillMaxSize` and the reference still reports the
+      // container at its active child's 120x80. Honouring the fill, as Compose naturally does,
+      // stretches the container to the viewport and paints its background across everything the
+      // reference leaves clear: 50,400 differing pixels on a 300x200 canvas.
+      val stateModifiers = node.modifiers.withoutFillDimensions()
       val contentVisibility =
         node.content.modifiers.visibility?.let {
           androidXVisibility(state.integer(it.visibilityId) ?: 0)
         } ?: 1
       Box(
         effectiveModifier.applyComponentModifiers(
-          node.modifiers,
+          stateModifiers,
           state,
           geometryIds,
           fillMissingDimensions = false,
@@ -1044,7 +1043,6 @@ private fun RenderLayoutNode(
             if (index != target || contentVisibility == 0) {
               RenderLayoutNode(
                 child,
-                depth = childDepth,
                 forceGone = true,
                 state = state,
                 textMeasurer = textMeasurer,
@@ -1067,7 +1065,6 @@ private fun RenderLayoutNode(
               key(child.componentId) {
                 RenderLayoutNode(
                   child,
-                  depth = childDepth,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
@@ -1091,7 +1088,6 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.CollapsibleRow -> {
       RcCollapsibleLayout(
-        depth = childDepth,
         children = node.content.children,
         orientation = RcCollapseOrientation.Horizontal,
         mainPositioning = node.operation.horizontalPositioning,
@@ -1116,7 +1112,6 @@ private fun RenderLayoutNode(
     }
     is RcLayoutNode.CollapsibleColumn -> {
       RcCollapsibleLayout(
-        depth = childDepth,
         children = node.content.children,
         orientation = RcCollapseOrientation.Vertical,
         mainPositioning = node.operation.verticalPositioning,
@@ -1328,7 +1323,17 @@ private fun RenderLayoutNode(
             properties.intProperty(11, Int.MAX_VALUE),
           ),
         autoSize =
-          if (autosize)
+          if (autosize && LocalRcAhemTextMetrics.current)
+            RcAhemAutoSize(
+              minPx = resolvedMinFontSize,
+              maxPx = resolvedMaxFontSize,
+              maxLines =
+                androidXMaxLines(
+                  properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP),
+                  properties.intProperty(11, Int.MAX_VALUE),
+                ),
+            )
+          else if (autosize)
             TextAutoSize.StepBased(
               minFontSize = with(density) { resolvedMinFontSize.toSp() },
               maxFontSize = with(density) { resolvedMaxFontSize.toSp() },
@@ -1366,7 +1371,6 @@ private fun RenderLayoutNode(
           key(child.componentId) {
             RenderLayoutNode(
               child,
-              depth = childDepth,
               state = state,
               textMeasurer = textMeasurer,
               images = images,
@@ -1396,7 +1400,6 @@ private fun RenderLayoutNode(
               Box(Modifier.clearAndSetSemantics {}) {
                 RenderLayoutNode(
                   child,
-                  depth = childDepth,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
@@ -1572,11 +1575,10 @@ private fun RcAlignedRow(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
-  depth: Int,
 ) {
   Layout(
     content = {
-      children.forEach { child -> RcLayoutChild(child, state, textMeasurer, images, theme, depth) }
+      children.forEach { child -> RcLayoutChild(child, state, textMeasurer, images, theme) }
     },
     modifier = modifier,
   ) { measurables, constraints ->
@@ -1614,13 +1616,11 @@ private fun RcLayoutChild(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
-  depth: Int,
 ) {
   Layout(
     content = {
       RenderLayoutNode(
         child,
-        depth = depth,
         state = state,
         textMeasurer = textMeasurer,
         images = images,
@@ -1696,13 +1696,12 @@ private fun RcCollapsibleLayout(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
-  depth: Int,
 ) {
   Layout(
     content = {
       children.forEach { child ->
         // Keep one measurable per wire child even when its visibility modifier resolves to gone.
-        RcLayoutChild(child, state, textMeasurer, images, theme, depth)
+        RcLayoutChild(child, state, textMeasurer, images, theme)
       }
     },
     modifier = modifier,
@@ -1880,7 +1879,12 @@ internal fun androidXVisibility(value: Int): Int =
   }
 
 internal fun boxAlignment(horizontal: Int, vertical: Int): Alignment =
-  when (horizontal to vertical) {
+  // 0 is "unset", not a positioning value: AndroidX numbers horizontal 1/2/3 and vertical 4/2/5,
+  // and
+  // writes 0 where a component states no preference — a spacer, or a box a macro expanded. Erroring
+  // on it refused the whole document over a field that simply was not filled in, so it resolves to
+  // the start/top default a Box has when nothing asks otherwise.
+  when ((horizontal.takeIf { it != 0 } ?: 1) to (vertical.takeIf { it != 0 } ?: 4)) {
     1 to 4 -> Alignment.TopStart
     2 to 4 -> Alignment.TopCenter
     3 to 4 -> Alignment.TopEnd
@@ -2747,44 +2751,177 @@ private fun Modifier.trackComponentGeometry(
 }
 
 /**
- * Reports this component's laid-out geometry to an [RcPlayerInspector], when one is observing.
+ * Publishes this component's identity onto the semantics tree, when inspection is on.
  *
- * The sibling of [trackComponentGeometry], and deliberately separate from it. That one exists to
- * feed the *document* — it publishes only the components a `ComponentValue` binds, because that is
- * all a document can read — and widening it to every node would make every document pay for an
- * observation only a harness wants. This one is inert unless a host provides an inspector.
+ * The sibling of [trackComponentGeometry], and deliberately separate from it. That one feeds the
+ * *document* — it publishes only the components a `ComponentValue` binds, because that is all a
+ * document can read — and widening it to every node would make every document pay for an
+ * observation only a harness wants.
  *
- * Position is reported in **root** coordinates; [RcInspectedNode] explains why parent-relative
- * would be ambiguous here.
+ * No geometry is written here, and that is the point: a semantics node already exposes
+ * `positionInRoot`, `size` and `boundsInRoot`, read from the layout node on demand. Pushing
+ * geometry instead would mean an `onGloballyPositioned` per component, firing after every layout
+ * pass of the whole tree, to deliver numbers the reader could have pulled.
+ *
+ * Returns the receiver untouched when inspection is off, so no semantics modifier is added and the
+ * chain is byte-for-byte what it was before this existed.
  */
-private fun Modifier.reportToInspector(
+
+/**
+ * This component's modifiers with any `FILL` width or height dropped, so it wraps its content.
+ *
+ * Only `StateLayout` uses this, and only because AndroidX's own state container does: it takes its
+ * size from the branch it is showing whatever the document asks for. Dropping the modifier from
+ * both `ordered` and the resolved `width`/`height` matters — `applyComponentModifiers` walks the
+ * ordered list to preserve AndroidX's order-sensitive modifier semantics and consults the resolved
+ * fields separately, so removing it from one and not the other would apply half of it.
+ */
+private fun RcLayoutModifiers.withoutFillDimensions(): RcLayoutModifiers {
+  val fillsWidth = width?.type == RcDimensionType.FILL
+  val fillsHeight = height?.type == RcDimensionType.FILL
+  if (!fillsWidth && !fillsHeight) return this
+  return copy(
+    width = width.takeUnless { fillsWidth },
+    height = height.takeUnless { fillsHeight },
+    ordered =
+      ordered.filterNot { operation ->
+        (fillsWidth && operation is RcWidthModifier && operation.type == RcDimensionType.FILL) ||
+          (fillsHeight && operation is RcHeightModifier && operation.type == RcDimensionType.FILL)
+      },
+  )
+}
+
+/**
+ * Greedy word wrap on character counts — the closed-form Ahem model (`CONFORMANCE_FORMAT.md` §2.3).
+ */
+internal fun rcAhemWrap(text: String, availableWidthPx: Float, fontSizePx: Float): List<String> {
+  if (fontSizePx <= 0f || availableWidthPx <= 0f) return listOf(text)
+  val perLine = floor(availableWidthPx / fontSizePx).toInt()
+  if (perLine <= 0) return listOf(text)
+  val lines = mutableListOf<String>()
+  var line = ""
+  text.split(' ').forEach { word ->
+    val candidate = if (line.isEmpty()) word else "$line $word"
+    if (candidate.length <= perLine || line.isEmpty()) line = candidate
+    else {
+      lines += line
+      line = word
+    }
+  }
+  if (line.isNotEmpty()) lines += line
+  return lines
+}
+
+/**
+ * Autosize under the closed-form Ahem model, resolved where Compose resolves it.
+ *
+ * `TextAutoSize.getFontSize` is handed the incoming [Constraints] — the one place the available
+ * space is visible at the moment the size is chosen. Earlier attempts at this tried to obtain that
+ * space by wrapping `CoreText` in a `BoxWithConstraints` or a `SubcomposeLayout`; both reported the
+ * host's size rather than the text run's. No host is needed.
+ *
+ * The predicate is derived from the corpus, and each clause is load-bearing — it reproduces all
+ * four autosize golds exactly, and dropping any one of them breaks at least one:
+ *
+ * * **the search starts strictly below `maxFontSize`.** `core_text_autosize_max_clamped` clamps at
+ *   18 and the reference settles at 17.5 even though 18 fits;
+ * * **width must fit, inclusively** (`widest × size <= availableWidth`). A single unsplittable word
+ *   can overflow the line the wrap computed, which is what `core_text_autosize_basic` turns on: at
+ *   39.5 the one word measures 316 in a 200 box, and only `<= 200` steps it down to 25;
+ * * **height must fit, strictly** (`lines × size < availableHeight`).
+ *   `core_text_autosize_height_driven` has a 24px box where a 24px line fits exactly, and the
+ *   reference still steps to 23.5;
+ * * **`maxLines` caps the line count before the height test**, which is the whole of
+ *   `core_text_autosize_min_clamped`.
+ *
+ * Every line is one em tall (`0.8em` ascent + `0.2em` descent), so a block is `lines × size`.
+ */
+private class RcAhemAutoSize(
+  private val minPx: Float,
+  private val maxPx: Float,
+  private val maxLines: Int,
+  private val stepPx: Float = 0.5f,
+) : TextAutoSize {
+  override fun TextAutoSizeLayoutScope.getFontSize(
+    constraints: Constraints,
+    text: AnnotatedString,
+  ): TextUnit {
+    val width = constraints.maxWidth.toFloat()
+    val height = constraints.maxHeight.toFloat()
+    var size = maxPx - stepPx
+    while (size > minPx) {
+      val lines = rcAhemWrap(text.text, width, size).take(maxLines)
+      val widest = (lines.maxOfOrNull { it.length } ?: 0) * size
+      if (widest <= width && lines.size * size < height) break
+      size -= stepPx
+    }
+    return with(this) { size.coerceAtLeast(minPx).toSp() }
+  }
+
+  override fun equals(other: Any?): Boolean =
+    other is RcAhemAutoSize &&
+      minPx == other.minPx &&
+      maxPx == other.maxPx &&
+      maxLines == other.maxLines &&
+      stepPx == other.stepPx
+
+  override fun hashCode(): Int =
+    ((minPx.hashCode() * 31 + maxPx.hashCode()) * 31 + maxLines) * 31 + stepPx.hashCode()
+}
+
+private fun Modifier.inspectComponent(
   node: RcLayoutNode,
-  depth: Int,
-  inspector: RcPlayerInspector?,
   visibility: Int,
-  layoutVersion: Int,
+  inspecting: Boolean,
+  contentInset: Offset,
 ): Modifier {
-  if (inspector == null) return this
-  val componentId = node.componentId ?: return this
+  if (!inspecting) return this
+  val id = node.componentId ?: return this
   val kind = node.androidXComponentKind() ?: return this
-  return onGloballyPositioned { coordinates ->
-    val position = coordinates.positionInRoot()
-    inspector.record(
-      RcInspectedNode(
-        componentId = componentId,
-        kind = kind,
-        depth = depth,
-        x = position.x,
-        y = position.y,
-        width = coordinates.size.width.toFloat(),
-        height = coordinates.size.height.toFloat(),
-        isGone = visibility == 0,
-        visibility = visibility,
-      ),
-      layoutVersion,
-    )
+  return semantics {
+    rcComponentId = id
+    rcComponentKind = kind
+    rcComponentVisibility = visibility
+    if (contentInset != Offset.Zero) rcContentInset = contentInset
   }
 }
+
+/**
+ * The top-left inset this component's padding modifiers impose on its children, in pixels.
+ *
+ * Summed over every `RcPaddingModifier` in the chain, matching how `applyComponentModifiers`
+ * applies them — AndroidX writes consecutive padding operations and the player accumulates rather
+ * than replaces. Computed here, before the chain is built, because the component's semantics node
+ * sits *outside* the padding: a value published from inside it would land on a different layout
+ * node and never reach the same semantics configuration.
+ */
+@Composable
+private fun rcContentInsetPixels(
+  modifiers: RcLayoutModifiers,
+  state: RcPlayerState,
+  density: Density,
+): Offset {
+  var left = 0f
+  var top = 0f
+  modifiers.ordered.forEach { operation ->
+    if (operation is RcPaddingModifier) {
+      left += state.dpTypedPixels(state.resolve(operation.left), density)
+      top += state.dpTypedPixels(state.resolve(operation.top), density)
+    }
+  }
+  return if (left == 0f && top == 0f) Offset.Zero else Offset(left, top)
+}
+
+/**
+ * Publishes the document's non-visual state — slots, named variables, particles — onto the player's
+ * outermost node.
+ *
+ * It rides the same semantics channel as the tree so a reader needs one traversal and no second
+ * API, and it sits at the player's root rather than the *document's* root component because the two
+ * are not the same thing: a canvas-only document has no layout components whatsoever.
+ */
+private fun Modifier.inspectDocument(state: RcPlayerState, inspecting: Boolean): Modifier =
+  if (!inspecting) this else semantics { rcDocumentState = state }
 
 /**
  * This node's class in AndroidX's vocabulary, or null for a node AndroidX's tree does not name.

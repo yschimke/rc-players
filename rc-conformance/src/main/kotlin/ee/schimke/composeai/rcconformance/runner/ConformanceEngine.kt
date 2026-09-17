@@ -33,14 +33,27 @@ public interface ConformanceEngine {
 /** A player driven through one gold's timeline. */
 public interface ConformanceSession : AutoCloseable {
   /**
-   * Runs one timeline step.
+   * Runs one timeline step, calling [onCapture] at each point the step passes through that checks
+   * may be bound to.
+   *
+   * Most kinds have exactly one such point — the step itself — and never call [onCapture].
+   * `frame_sequence` is the exception that makes this parameter necessary: it paints a run of
+   * frames and takes a snapshot at each frame number in its `capture` list, and the corpus binds
+   * checks to the **synthetic** ids `frame_<n>` rather than to the step's own id (§3). A session
+   * that ignores those captures leaves every one of those checks bound to a step that never
+   * executed, and a `particles` or `raster` assertion at `frame_4` fails as `STEP_NOT_RUN` while
+   * the run looks complete.
+   *
+   * The callback is invoked *at* the capture, not afterwards, because the probes read mutable
+   * state: evaluating them once the sequence has finished would compare every frame against the
+   * last one.
    *
    * Throwing [UnsupportedStepKind] is the correct response to a kind this player cannot drive: the
    * runner then fails that step's checks as `STEP_NOT_RUN`, which is visible. Returning normally
    * without doing the work would turn them into false passes — the failure mode
    * `CONFORMANCE_FORMAT.md` §3 calls out by name.
    */
-  public fun execute(step: Step)
+  public fun execute(step: Step, onCapture: (String) -> Unit = {})
 
   /** Reads one check's observation. Never compares; see [ConformanceEngine]. */
   public fun observe(check: Check): Observation
