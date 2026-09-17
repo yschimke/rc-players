@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcconformance.corpus.Results
 import ee.schimke.composeai.rcconformance.corpus.parseGold
 import ee.schimke.composeai.rcconformance.engine.AndroidxJvmEngine
 import ee.schimke.composeai.rcconformance.engine.CmpEngine
+import ee.schimke.composeai.rcconformance.engine.NativeSwiftEngine
 import ee.schimke.composeai.rcconformance.runner.ConformanceEngine
 import ee.schimke.composeai.rcconformance.runner.ConformanceRunner
 import ee.schimke.composeai.rcconformance.runner.GoldResult
@@ -100,6 +101,7 @@ private fun engineFor(player: String, specDir: File): ConformanceEngine =
   when (player) {
     "cmp" -> CmpEngine(specDir)
     "androidx-jvm" -> AndroidxJvmEngine()
+    "native-swift" -> NativeSwiftEngine(NativeSwiftEngine.defaultBinary())
     else ->
       error(
         "unknown player '$player'. Known lanes: cmp, androidx-jvm. " +

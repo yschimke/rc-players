@@ -6,6 +6,8 @@ import RcComposePlayer
 import SwiftUI
 import UniformTypeIdentifiers
 
+private enum NativeConformanceJobError: Error { case malformed }
+
 enum DesktopRenderer: String, CaseIterable, Identifiable {
   case compose = "cmp"
   case native = "native"
@@ -540,6 +542,53 @@ private final class BlockingResult<Value>: @unchecked Sendable {
 struct RemoteComposeMacApplication {
   @MainActor
   static func main() {
+    // Conformance capture: one process per gold rather than per frame.
+    //
+    // The conformance runner is a JVM process and this player is Swift, so the lane has to be
+    // out-of-process. Launching the app per capture would pay AppKit startup for every frame in a
+    // 252-gold corpus; a gold's timeline is short, so batching by gold turns thousands of launches
+    // into hundreds. The job names its own frames so the runner can bind each PNG back to the step
+    // that asked for it.
+    if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--conformance-batch" {
+      do {
+        _ = NSApplication.shared
+        let job = try JSONSerialization.jsonObject(
+          with: try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2])))
+        guard let job = job as? [String: Any],
+          let documentBase64 = job["document"] as? String,
+          let document = Data(base64Encoded: documentBase64),
+          let outputDirectory = job["output"] as? String,
+          let frames = job["frames"] as? [[String: Any]]
+        else { throw NativeConformanceJobError.malformed }
+        var results: [[String: Any]] = []
+        for frame in frames {
+          guard let id = frame["id"] as? String else { throw NativeConformanceJobError.malformed }
+          let width = (frame["width"] as? NSNumber)?.doubleValue
+          let height = (frame["height"] as? NSNumber)?.doubleValue
+          let time = (frame["time"] as? NSNumber)?.doubleValue ?? 0
+          let viewport = (width != nil && height != nil)
+            ? CGSize(width: width!, height: height!) : nil
+          // A document this player refuses is a result, not a crash: the runner needs to report it
+          // as a failing check for that frame rather than lose the whole gold.
+          do {
+            let png = try NativeAppKitWindowController.renderPNG(
+              data: document, timeSeconds: time, viewport: viewport)
+            let path = URL(fileURLWithPath: outputDirectory).appendingPathComponent("\(id).png")
+            try png.write(to: path, options: .atomic)
+            results.append(["id": id, "png": path.path])
+          } catch {
+            results.append(["id": id, "error": "\(error)"])
+          }
+        }
+        let encoded = try JSONSerialization.data(
+          withJSONObject: ["frames": results], options: [.sortedKeys])
+        FileHandle.standardOutput.write(encoded)
+      } catch {
+        FileHandle.standardError.write(Data("conformance batch failed: \(error)\n".utf8))
+        exit(1)
+      }
+      return
+    }
     if CommandLine.arguments.count == 4,
       ["--render-native-png", "--render-native-google-font-png"].contains(
         CommandLine.arguments[1])
