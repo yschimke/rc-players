@@ -20,6 +20,12 @@
     let rootAlignment: Int
     let frameSchedule: NativeFrameSchedule
     let executionBudget: NativeFrameBudget
+    /// Components whose measured geometry the document binds to a float. Empty for almost every
+    /// document; when it is not, the root view reports their real sizes back for a second pass.
+    let boundComponents: Set<Int>
+    /// Set only when the document binds component geometry. See `refined(measuredComponents:)`.
+    private(set) var refiner: NativeSwiftDocumentSession?
+    private let limits: RemoteComposeNativeExecutionLimits
 
     init(
       frame: NativeSnapshotSessionHandle.Frame, limits: RemoteComposeNativeExecutionLimits,
@@ -27,6 +33,23 @@
     ) throws {
       try self.init(
         swiftSnapshot: frame.snapshot, limits: limits, androidCompatibility: androidCompatibility)
+      refiner = frame.refiner
+    }
+
+    /// This document re-resolved against what the host actually laid its components out at.
+    ///
+    /// Returns nil when there is nothing to re-resolve, or when the refined snapshot fails a budget
+    /// check the first one passed — a refinement is an improvement, never a reason to fail a
+    /// document that already rendered.
+    func refined(measuredComponents: [Int: NativeSwiftMeasuredSize]) -> NativeDocument? {
+      guard let refiner, !measuredComponents.isEmpty else { return nil }
+      guard
+        let snapshot = try? refiner.snapshot(measuredComponents: measuredComponents),
+        var document = try? NativeDocument(
+          swiftSnapshot: snapshot, limits: limits, androidCompatibility: androidCompatibility)
+      else { return nil }
+      document.refiner = refiner
+      return document
     }
 
     private init(
@@ -83,6 +106,8 @@
         pending.append(contentsOf: node.children.map { ($0, depth + 1) })
       }
       executionBudget = budget
+      boundComponents = swiftSnapshot.boundComponents
+      self.limits = limits
       density = CGFloat(swiftSnapshot.density)
       guard density.isFinite, density > 0 else {
         throw RemoteComposeNativePlayerError.decode("Document density must be finite and positive")
@@ -529,6 +554,8 @@
   final class NativeDocumentView: UIView {
     private var document: NativeDocument
     private var resources: NativeResourceStore
+    /// The measurements the current tree was refined from, so a settled layout stops re-resolving.
+    private var appliedMeasurements: [Int: NativeSwiftMeasuredSize] = [:]
     private let customComponents: RemoteComposeNativeCustomComponentRegistry
     private let customComponentsRevision: UInt
     private let componentView: NativeComponentView
@@ -580,6 +607,7 @@
       else { return false }
       self.document = document
       self.resources = resources
+      appliedMeasurements = [:]
       componentView.update(
         node: document.root, images: resources.images, fontNames: resources.fontNames)
       accessibilityElements = componentView.accessibilityOrder
@@ -612,6 +640,39 @@
       componentView.documentScale = 1
       componentView.layoutDirection =
         effectiveUserInterfaceLayoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
+      refineBoundGeometry()
+    }
+
+    /// Re-resolves the document against the geometry its components were just laid out at.
+    ///
+    /// A document may bind a component's measured size to a float and derive geometry from it — an
+    /// icon scaled by `componentWidth / 24`, say. The core has to resolve that binding before layout
+    /// exists, and its estimate cannot match a host that applies density scaling and layout rules
+    /// the core does not model. So the first pass draws from an estimate and this corrects it from
+    /// the real thing.
+    ///
+    /// Once per layout, and only while the sizes keep changing. A refinement can change a size —
+    /// that is the point — so this would otherwise oscillate; comparing against the sizes the
+    /// current tree was built from is what terminates it.
+    private func refineBoundGeometry() {
+      guard !document.boundComponents.isEmpty, document.refiner != nil else { return }
+      var measured: [Int: NativeSwiftMeasuredSize] = [:]
+      componentView.collectMeasuredSizes(of: document.boundComponents, into: &measured)
+      guard measured != appliedMeasurements else { return }
+      guard let refined = document.refined(measuredComponents: measured),
+        componentView.canUpdate(
+          with: refined.root, images: resources.images, fontNames: resources.fontNames)
+      else {
+        // Remember what was measured even when the refinement is refused, so a document whose
+        // refinement cannot be applied is not re-measured on every single layout pass.
+        appliedMeasurements = measured
+        return
+      }
+      appliedMeasurements = measured
+      document = refined
+      componentView.update(
+        node: refined.root, images: resources.images, fontNames: resources.fontNames)
+      setNeedsLayout()
     }
   }
 
@@ -999,6 +1060,17 @@
       if graphicsLayer.alpha != 1, node.visibility != 2 {
         alpha = CGFloat(max(0, min(1, graphicsLayer.alpha)))
       }
+    }
+
+    /// The laid-out size of each named component, gathered from this subtree.
+    func collectMeasuredSizes(
+      of wanted: Set<Int>, into result: inout [Int: NativeSwiftMeasuredSize]
+    ) {
+      if wanted.contains(node.componentID) {
+        result[node.componentID] = NativeSwiftMeasuredSize(
+          width: Float(bounds.width), height: Float(bounds.height))
+      }
+      for child in componentChildren { child.collectMeasuredSizes(of: wanted, into: &result) }
     }
 
     override func layoutSubviews() {

@@ -23,6 +23,18 @@
   actor NativeSnapshotSessionHandle {
     struct Frame: Sendable {
       let snapshot: NativeSwiftDocumentSnapshot
+
+      /// A detached session for re-resolving this frame once the host knows its real geometry.
+      ///
+      /// Carried per frame rather than held once because its state is frozen when taken, and a
+      /// document's state moves — a gesture, a set value, the clock. Nil when the document binds no
+      /// component geometry, which is almost all of them, so the copy is not paid for unnecessarily.
+      let refiner: NativeSwiftDocumentSession?
+
+      init(session: NativeSwiftDocumentSession, snapshot: NativeSwiftDocumentSnapshot) {
+        self.snapshot = snapshot
+        refiner = snapshot.boundComponents.isEmpty ? nil : session.detachedCopy()
+      }
     }
 
     struct Update: Sendable {
@@ -53,7 +65,7 @@
         try Task.checkCancellation()
         let session = try NativeSwiftDocumentSession.open(data: data)
         session.setHostDensity(hostDensity, fontScale: hostFontScale)
-        let frame = Frame(snapshot: try session.snapshot())
+        let frame = Frame(session: session, snapshot: try session.snapshot())
         try Task.checkCancellation()
         return (NativeSnapshotSessionHandle(session: session), frame)
       } catch is CancellationError {
@@ -72,7 +84,7 @@
 
     func frame(at timeSeconds: TimeInterval) async throws -> Frame {
       do {
-        return Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds))
+        return Frame(session: session, snapshot: try session.snapshot(timeSeconds: timeSeconds))
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
@@ -115,7 +127,8 @@
       }
       return Update(
         accepted: true,
-        frame: Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds)), events: events)
+        frame: Frame(session: session, snapshot: try session.snapshot(timeSeconds: timeSeconds)),
+        events: events)
     }
 
     func setFloat(_ value: Float, for name: String, at timeSeconds: TimeInterval) throws -> Update {
@@ -156,7 +169,8 @@
 
     private func update(accepted: Bool, timeSeconds: TimeInterval) throws -> Update {
       Update(
-        accepted: accepted, frame: Frame(snapshot: try session.snapshot(timeSeconds: timeSeconds)),
+        accepted: accepted,
+        frame: Frame(session: session, snapshot: try session.snapshot(timeSeconds: timeSeconds)),
         events: [])
     }
   }
