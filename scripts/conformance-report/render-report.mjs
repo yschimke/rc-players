@@ -113,6 +113,39 @@ function rasterFailures(results) {
   return failures;
 }
 
+/**
+ * How the two lanes divide the corpus at gold granularity.
+ *
+ * `referenceOnly` is the only row that is a work list: the reference reproduces what the gold
+ * asserts and the subject does not, so the disagreement cannot be blamed on the expectation. It
+ * carries each gold's failing probes, because "which gold" without "which probe" is not yet a bug
+ * report.
+ *
+ * Suspicious golds are excluded on both sides -- the corpus itself disputes them, and a lane
+ * "passing" one says nothing.
+ */
+function goldVerdicts(subjectResults, referenceResults) {
+  const reference = new Map(referenceResults.results.map((result) => [result.name, result]));
+  const verdicts = { bothPass: 0, subjectOnly: 0, bothFail: 0, referenceOnly: [] };
+  for (const result of subjectResults.results) {
+    if (result.suspicious) continue;
+    const other = reference.get(result.name);
+    if (!other || other.suspicious) continue;
+    const subjectPassed = result.status === "PASS";
+    const referencePassed = other.status === "PASS";
+    if (subjectPassed && referencePassed) verdicts.bothPass += 1;
+    else if (subjectPassed) verdicts.subjectOnly += 1;
+    else if (!referencePassed) verdicts.bothFail += 1;
+    else {
+      const probes = {};
+      for (const diff of result.diffs ?? []) probes[diff.probe] = (probes[diff.probe] ?? 0) + 1;
+      verdicts.referenceOnly.push({ name: result.name, probes });
+    }
+  }
+  verdicts.referenceOnly.sort((a, b) => a.name.localeCompare(b.name));
+  return verdicts;
+}
+
 function subsystems(results) {
   const rows = new Map();
   for (const result of results.results) {
@@ -210,12 +243,24 @@ function renderRun(options, lanes) {
   // ---- lanes
   out.push("## Lanes");
   out.push("");
-  out.push(
-    "**A reference lane cannot pass a gold.** No gold in the corpus asserts *only* raster, so a " +
-      "lane that observes only pixels scores zero by construction. Its raster column is the number " +
-      "it exists for.",
-  );
-  out.push("");
+  // Named rather than asserted of every reference lane: `androidx-jvm` observes `tree` and does
+  // pass golds, so the old blanket claim is now false for it and would read as a bug in the table.
+  const rasterOnly = present
+    .filter((lane) => {
+      const counts = profiles(lane.results);
+      const [coreTotal, corePassed] = counts.core ?? [0, 0];
+      return coreTotal > 0 && corePassed === 0;
+    })
+    .map((lane) => `\`${lane.name}\``);
+  if (rasterOnly.length > 0) {
+    out.push(
+      `**A zero here is not a verdict.** ${rasterOnly.join(", ")} ` +
+        `${rasterOnly.length === 1 ? "observes" : "observe"} only \`raster\`, and no gold in the ` +
+        "corpus asserts raster alone — so such a lane passes none by construction. Its raster " +
+        "column is the number it exists for.",
+    );
+    out.push("");
+  }
   out.push(
     table(
       ["lane", "core golds", "pass rate", "extended", "raster disagreements", "errored"],
@@ -266,6 +311,56 @@ function renderRun(options, lanes) {
         "no independent player would reproduce — while a gold only the subject lane fails is a " +
         "finding about the subject lane.",
     );
+    out.push("");
+
+    // Golds first, then frames. A gold is the unit the corpus scores and the unit a reader can act
+    // on, and this split is only meaningful once a reference lane can actually pass one -- before
+    // the reference observed `tree` it passed none by construction and every row would have read
+    // "only the subject passes".
+    for (const reference of references) {
+      const verdicts = goldVerdicts(subject.results, reference.results);
+      if (verdicts.referenceOnly.length + verdicts.bothPass === 0) continue;
+      out.push(`### Golds, against \`${reference.name}\``);
+      out.push("");
+      out.push(
+        table(
+          ["outcome", "golds", "what it means"],
+          ["l", "r", "l"],
+          [
+            ["both pass", String(verdicts.bothPass), "Settled. Neither lane disagrees."],
+            [
+              `only \`${reference.name}\` passes`,
+              `**${verdicts.referenceOnly.length}**`,
+              "**The work list.** The reference reproduces the gold and the subject does not.",
+            ],
+            [
+              `only \`${subject.name}\` passes`,
+              String(verdicts.subjectOnly),
+              "The subject is ahead here, or the reference cannot drive the timeline.",
+            ],
+            [
+              "both fail",
+              String(verdicts.bothFail),
+              "An expectation that survives neither implementation, or a probe neither lane has.",
+            ],
+          ],
+        ),
+      );
+      out.push("");
+      if (verdicts.referenceOnly.length > 0 && verdicts.referenceOnly.length <= 40) {
+        out.push("The work list, in full:");
+        out.push("");
+        for (const gold of verdicts.referenceOnly) {
+          const probes = Object.entries(gold.probes)
+            .map(([probe, count]) => `${probe} ×${count}`)
+            .join(", ");
+          out.push(`- \`${gold.name}\` — ${probes}`);
+        }
+        out.push("");
+      }
+    }
+
+    out.push("### Frames");
     out.push("");
     const subjectFailures = rasterFailures(subject.results);
     out.push(
