@@ -161,7 +161,7 @@ maven-publish = "0.37.0"
 # here. This repository consumes them; it no longer owns these coordinates. A change to a contract
 # reaches this build only through a release there — see that repository's docs/VERSIONING.md.
 # A point pin, deliberately: a range would let a contract change arrive without a pull request.
-composeai-contracts = "2.18.0"
+composeai-contracts = "2.20.0"
 
 # compose-preview-daemon, for the two modules this build consumes from it: `data-fonts-google`
 # (the `(family, weight, italic) -> File` downloadable-font cache both vendored players share) and
