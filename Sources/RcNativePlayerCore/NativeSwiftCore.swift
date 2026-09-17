@@ -327,6 +327,30 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     NativeSwiftDocumentSession(document: try NativeSwiftDocumentDecoder.decode(data))
   }
 
+  private init(copying other: NativeSwiftDocumentSession) {
+    document = other.document
+    texts = other.texts
+    floats = other.floats
+    colors = other.colors
+    integers = other.integers
+    hostDensity = other.hostDensity
+    hostFontScale = other.hostFontScale
+  }
+
+  /// A session with this one's state, sharing nothing mutable.
+  ///
+  /// It exists so a host can re-resolve a snapshot **synchronously**, from inside its own layout
+  /// pass, without reaching into the session its frames come from. That matters because `snapshot`
+  /// writes as well as reads -- float-to-text conversions, lookups and merges all populate `texts`
+  /// -- so calling it from another isolation domain would race whatever is producing frames.
+  ///
+  /// The copy holds the parsed document, which is immutable once decoded, and its own copies of
+  /// everything else. Its state is therefore frozen at the moment it was taken: a host should take
+  /// a fresh one with each frame rather than keeping one across document state changes.
+  public func detachedCopy() -> NativeSwiftDocumentSession {
+    NativeSwiftDocumentSession(copying: self)
+  }
+
   /// Tells the document what density it is being played at.
   ///
   /// A `RemoteDensity.Host` capture defers its density instead of folding it in: it writes
