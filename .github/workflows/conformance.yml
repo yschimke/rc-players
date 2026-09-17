@@ -126,9 +126,78 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+  score-apple:
+    name: Score native-appkit
+    # The one lane that cannot share the Linux runner. It drives the packaged macOS player as a
+    # subprocess, which needs a Mac -- but deliberately not a simulator: the AppKit host renders the
+    # same native Swift core, and booting, installing and launching a simulator per gold would cost
+    # more than the whole rest of this workflow.
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.spec_ref || 'vendor/androidx-rc-conformance' }}
+          path: conformance-spec
+          persist-credentials: false
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v5.0.0
+        with:
+          cache-read-only: "true"
+
+      - name: Confirm the corpus is really there
+        id: corpus
+        run: |
+          set -euo pipefail
+          spec="$GITHUB_WORKSPACE/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance"
+          if [ ! -d "$spec/gold" ]; then
+            echo "::error::no gold corpus at $spec/gold — is vendor/androidx-rc-conformance still carrying it?"
+            exit 1
+          fi
+          echo "spec=$spec" >> "$GITHUB_OUTPUT"
+
+      # The lane shells out to this binary. Building it here rather than depending on another job
+      # keeps the lane self-contained, and it is the same script the Apple CI job already runs.
+      - name: Build the macOS player
+        run: scripts/package-macos-player.sh
+
+      - name: Score
+        run: |
+          ./gradlew --no-daemon :rc-conformance:conformance \
+            -Prc.player=native-appkit \
+            -Prc.specDir='${{ steps.corpus.outputs.spec }}' \
+            -Prc.filter='${{ github.event.inputs.filter }}'
+
+      - name: Summarise
+        if: always()
+        run: |
+          set -euo pipefail
+          card=rc-conformance/build/conformance/scorecard.md
+          if [ -f "$card" ]; then
+            cat "$card" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "The run produced no scorecard — see the job log." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: conformance-native-appkit
+          path: rc-conformance/build/conformance/
+          retention-days: 30
+          if-no-files-found: warn
+
   publish:
     name: Publish the report
-    needs: score
+    needs: [score, score-apple]
     # `always()` so a red lane still gets a report — a missing lane is rendered as *not measured*,
     # which is a different statement from a zero and the one the reader needs.
     if: always()
@@ -172,15 +241,19 @@ jobs:
       - name: Render
         run: |
           set -euo pipefail
-          # The subject lane comes first; every lane after it is a reference the subject is compared
-          # against, and that ordering is what the cross-lane split is computed from.
+          # The subject lane comes first, and that ordering is what the cross-lane split is computed
+          # from. `--reference` says which of the others that split may use: `native-appkit` is
+          # scored beside them but is not a credible reference for it, because a lane that fails
+          # nearly every frame marks every subject failure as shared and leaves nothing to act on.
           node scripts/conformance-report/render-report.mjs \
             --out report \
+            --reference androidx-jvm \
             --run-id "$(date -u +%Y-%m-%d)" \
             --commit "${{ github.sha }}" \
             --ref "${{ github.ref_name }}" \
             cmp=artifacts/conformance-cmp/conformance-results.json \
-            androidx-jvm=artifacts/conformance-androidx-jvm/conformance-results.json
+            androidx-jvm=artifacts/conformance-androidx-jvm/conformance-results.json \
+            native-appkit=artifacts/conformance-native-appkit/conformance-results.json
           cat report/README.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish
