@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
@@ -75,6 +76,7 @@ internal class ComposeLocalPaint {
   var colorFilter: ColorFilter? = null
   var blendMode: BlendMode = BlendMode.SrcOver
   var isBlendModeSet: Boolean = false
+  var filterQuality: FilterQuality = FilterQuality.Low
 
   /** Paint alpha in [0,1] from the PaintBundle ALPHA op; multiplies the draw color's own alpha. */
   var alpha: Float = 1f
@@ -364,11 +366,22 @@ internal fun updatePaintFromBundle(
         // ComposeLocalPaint.effectiveColor().
         paintState.alpha = resolvePaintFloat(array[i++], read).coerceIn(0f, 1f)
       }
-      PaintBundle.ANTI_ALIAS,
-      PaintBundle.IMAGE_FILTER_QUALITY,
-      PaintBundle.FILTER_BITMAP -> {
+      PaintBundle.ANTI_ALIAS -> {
         // Value is packed in the high bits of `cmd`; no extra words. Compose's DrawScope is
-        // anti-aliased and manages filtering itself, so these are consumed and ignored.
+        // anti-aliased by default, so this is consumed and ignored.
+      }
+      PaintBundle.FILTER_BITMAP -> {
+        paintState.filterQuality = if ((cmd shr 16) != 0) FilterQuality.Low else FilterQuality.None
+      }
+      PaintBundle.IMAGE_FILTER_QUALITY -> {
+        paintState.filterQuality =
+          when (cmd shr 16) {
+            0 -> FilterQuality.None
+            1 -> FilterQuality.Low
+            2 -> FilterQuality.Medium
+            3 -> FilterQuality.High
+            else -> FilterQuality.Low
+          }
       }
       PaintBundle.SHADER_MATRIX -> {
         // Local matrix on the current shader (1 word: NaN-encoded MatrixAccess id).

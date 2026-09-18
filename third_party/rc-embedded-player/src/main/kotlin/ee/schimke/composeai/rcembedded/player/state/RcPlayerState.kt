@@ -35,13 +35,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import ee.schimke.composeai.rcembedded.player.LocalComponentValueStateMap
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
-import ee.schimke.composeai.rcembedded.player.LocalCurrentTimeMillis
-import ee.schimke.composeai.rcembedded.player.LocalEpochBaseMillis
 import ee.schimke.composeai.rcembedded.player.LocalGraphContext
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.getFloatExpressionsReflection
 import ee.schimke.composeai.rcembedded.player.getRemoteContextReflection
 import ee.schimke.composeai.rcembedded.player.getVariableIdReflection
+import ee.schimke.composeai.rcembedded.player.isTimeVariable
 
 public class DirectUpdateVariableSupport(public val id: Int, public val update: () -> Unit) :
   VariableSupport {
@@ -105,12 +104,17 @@ internal fun rememberMutableRemoteStringAsState(id: Int): MutableState<String> {
 internal fun rememberRemoteIntAsState(id: Int): State<Int> {
   val document = LocalCoreDocument.current
   val context = document.remoteComposeState
+  val graph = LocalGraphContext.current
 
   // Computed integer (IntegerExpression or e.g. TextLength): resolve via the pure-Compose graph.
-  val graph = LocalGraphContext.current
   if (graph != null && graph.isComputed(id)) {
     return remember(graph, id) { derivedStateOf { graph.getInteger(id) } }
   }
+
+  if (id == RemoteContext.ID_EPOCH_SECOND && graph != null) {
+    return graph.epochSecondState
+  }
+
   // Plain variable: reactive read of the snapshot-backed integer store.
   return remember(document, id) { derivedStateOf { context.getInteger(id) } }
 }
@@ -119,37 +123,6 @@ internal fun rememberRemoteIntAsState(id: Int): State<Int> {
 internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
   val document = LocalCoreDocument.current
   val context = document.remoteComposeState
-
-  if (
-    id == RemoteContext.ID_CONTINUOUS_SEC ||
-      id == RemoteContext.ID_TIME_IN_SEC ||
-      id == RemoteContext.ID_TIME_IN_MIN ||
-      id == RemoteContext.ID_TIME_IN_HR ||
-      id == RemoteContext.ID_EPOCH_SECOND ||
-      id == RemoteContext.ID_ANIMATION_TIME
-  ) {
-    val timeMillisState = LocalCurrentTimeMillis.current
-    // Only `ID_EPOCH_SECOND` needs it, and it is the reason that id was frozen: the other four are
-    // relative to the document's start, which is exactly what the frame loop publishes, while this
-    // one is wall clock and had no path here at all. `RcPlayerPreprocess` still counted it as
-    // making the document time-dependent, so the loop ran forever for a value that never moved.
-    val epochBaseMillis = LocalEpochBaseMillis.current
-    return remember(timeMillisState, epochBaseMillis) {
-      derivedStateOf {
-        val timeMillis = timeMillisState.value
-        when (id) {
-          RemoteContext.ID_ANIMATION_TIME -> timeMillis / 1000f
-          RemoteContext.ID_CONTINUOUS_SEC,
-          RemoteContext.ID_TIME_IN_SEC -> timeMillis / 1000f
-          RemoteContext.ID_TIME_IN_MIN -> timeMillis / 60000f
-          RemoteContext.ID_TIME_IN_HR -> timeMillis / 3600000f
-          RemoteContext.ID_EPOCH_SECOND ->
-            (epochBaseMillis + timeMillis.toLong()).floorDiv(1000L).toFloat()
-          else -> 0f
-        }
-      }
-    }
-  }
 
   val componentValueStates = LocalComponentValueStateMap.current
   val compState = componentValueStates[id]
@@ -178,6 +151,11 @@ internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
   if (graph != null && graph.isComputed(id)) {
     return remember(graph, id) { derivedStateOf { graph.getFloat(id) } }
   }
+
+  if (isTimeVariable(id) && graph != null) {
+    return graph.timeFloatState(id)
+  }
+
   // Plain variable: reactive read of the snapshot-backed scalar store (no listener bridge).
   return remember(document, id) { derivedStateOf { context.getFloat(id) } }
 }

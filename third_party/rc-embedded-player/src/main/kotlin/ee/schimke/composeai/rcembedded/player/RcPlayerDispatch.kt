@@ -18,6 +18,7 @@ package ee.schimke.composeai.rcembedded.player
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.remote.core.operations.ComponentValue
 import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.layout.LayoutComponent
@@ -37,10 +38,12 @@ import androidx.compose.remote.core.operations.layout.modifiers.ComponentVisibil
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastForEach
 import ee.schimke.composeai.rcembedded.player.layout.RcPlayerBox
 import ee.schimke.composeai.rcembedded.player.layout.RcPlayerColumn
@@ -103,10 +106,24 @@ internal fun RcPlayerRootLayoutComponent(size: IntSize) {
   val document = LocalCoreDocument.current
   val root: RootLayoutComponent = document.rootLayoutComponent!!
   val remoteContext = LocalRemoteContext.current
+  val graph = LocalGraphContext.current
 
   root.setWidth(size.width.toFloat())
   root.setHeight(size.height.toFloat())
   root.updateVariables(remoteContext)
+
+  val drawOps = remember(root) { root.list.fastFilter { it !is Component } }
+  if (drawOps.isNotEmpty()) {
+    val textMeasurer = rememberTextMeasurer()
+    Canvas(modifier = Modifier.fillMaxSize()) {
+      executeOperations(
+        drawOps,
+        remoteContext,
+        graph = graph,
+        textMeasurer = textMeasurer,
+      )
+    }
+  }
 
   RcPlayerChildren(root)
 }
@@ -121,7 +138,11 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
     val visibilityOp =
       component.componentModifiers.list.find { it is ComponentVisibilityOperation }
         as? ComponentVisibilityOperation
-    if (visibilityOp != null) {
+    // Delegate child visibility to FitBoxLayout and StateLayout, which select visible children
+    // during their own layout pass.
+    if (
+      visibilityOp != null && component.parent !is FitBoxLayout && component.parent !is StateLayout
+    ) {
       val visible by rememberRemoteIntAsState(visibilityOp.getVisibilityIdReflection())
       if (visible == Component.Visibility.GONE) {
         return
@@ -130,6 +151,15 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
 
     var modifier =
       Modifier.sharedElementTransition(component)
+        .then(
+          // Allow StateLayout to adopt its active child's measured dimensions rather than
+          // expanding to incoming minimum parent constraints.
+          if (component is StateLayout) {
+            Modifier.wrapContentSize(Alignment.TopStart)
+          } else {
+            Modifier
+          }
+        )
         .then(
           component.componentModifiers.toModifier(
             component.getDrawContentOperationsListReflection()
@@ -207,7 +237,7 @@ internal fun RcPlayerChildren(
       RcPlayerComponent(child, scopeModifier)
     }
   } else {
-    val children = remember { ArrayList<Component>().apply { layout.getComponents(this) } }
+    val children = remember(layout) { ArrayList<Component>().apply { layout.getComponents(this) } }
     children.fastForEach { op -> RcPlayerComponent(op) }
   }
 }

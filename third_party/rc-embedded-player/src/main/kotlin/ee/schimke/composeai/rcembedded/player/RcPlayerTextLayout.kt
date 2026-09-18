@@ -24,8 +24,11 @@ import androidx.compose.material3.Text
 import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.operations.layout.managers.CoreText
 import androidx.compose.remote.core.operations.layout.managers.TextLayout
+import androidx.compose.remote.player.core.platform.TypefaceResolver
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -50,6 +53,21 @@ import androidx.compose.ui.unit.em
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteColorAsState
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteStringAsState
+
+/**
+ * [TypefaceResolver] for resolving typefaces in the player, provided by [RcPlayer] from the
+ * context's resolver and overridable by a host (e.g. a test harness supplying concrete
+ * `android.graphics.Typeface` instances). Null when the built-in families below apply.
+ *
+ * Declared here rather than in `RcPlayerCompositionLocals.kt` on purpose: that file is shared with
+ * the JVM half of the fork, and `remote-player-core`'s `TypefaceResolver` names
+ * `android.graphics.Typeface`, which a JVM compile cannot see. Upstream declares it there; this
+ * file is Android-only, which is also where the only reader (`resolveFontFamily`) lives.
+ */
+internal val LocalTypefaceResolver: ProvidableCompositionLocal<TypefaceResolver?> =
+  compositionLocalOf {
+    null
+  }
 
 @Composable
 internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
@@ -118,6 +136,7 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
 
   val fontFamilyType = if (paintState.isTypefaceSet) paintState.fontFamily else data.type
   val customFontNameState = rememberCustomFontName(fontFamilyType, remoteContext)
+  val typefaceResolver = LocalTypefaceResolver.current
   val fontFamily =
     resolveFontFamily(
       fontFamilyType,
@@ -127,6 +146,7 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
       data.fontAxis,
       data.fontAxisValues,
       LocalRemoteContext.current,
+      typefaceResolver,
     )
 
   val baseStyle = LocalTextStyle.current
@@ -237,6 +257,7 @@ internal fun RcPlayerText(layout: TextLayout, modifier: Modifier) {
 
   val fontFamilyType = if (paintState.isTypefaceSet) paintState.fontFamily else data.type
   val customFontNameState = rememberCustomFontName(fontFamilyType, LocalRemoteContext.current)
+  val typefaceResolver = LocalTypefaceResolver.current
   val fontFamily =
     resolveFontFamily(
       fontFamilyType,
@@ -246,6 +267,7 @@ internal fun RcPlayerText(layout: TextLayout, modifier: Modifier) {
       null,
       null,
       LocalRemoteContext.current,
+      typefaceResolver,
     )
 
   Text(
@@ -326,7 +348,23 @@ private fun resolveFontFamily(
   fontAxis: IntArray?,
   fontAxisValues: FloatArray?,
   context: RemoteContext,
+  typefaceResolver: TypefaceResolver? = null,
 ): FontFamily {
+  // Built-in EmbeddedPlayerTypefaceResolver relies on Compose's native FontFamily /
+  // GoogleFont.Provider resolution path below (the fork resolves certificates through its local
+  // table rather than upstream's `fontCertsResId`, and has no `GmsFontTypefaceResolver`). When a
+  // caller supplies a custom TypefaceResolver (e.g. host app or test harness providing concrete
+  // android.graphics.Typeface instances), delegate to it directly.
+  if (typefaceResolver != null && typefaceResolver !is EmbeddedPlayerTypefaceResolver) {
+    val italic = fontStyle == FontStyle.Italic
+    val fi =
+      if (fontName != null && fontFamilyType !in 0..3) {
+        typefaceResolver.resolve(fontName, fontWeight.weight, italic, null, 400, false)
+      } else {
+        typefaceResolver.resolve(fontFamilyType, fontWeight.weight, italic, null, 400, false)
+      }
+    return FontFamily(fi.getTypeface())
+  }
   if (fontName != null) {
     when {
       fontName.startsWith("device:") -> {

@@ -102,11 +102,10 @@ private const val MAX_LOOP_ITERATIONS = 100_000
 
 internal fun resolveFloat(value: Float, fallback: Float, context: RemoteContext): Float {
   // A NaN-encoded value is a variable reference. [context] is the draw read context — normally
-  // the
-  // GraphContext, which resolves time ids from the Compose frame clock and computed ids through
-  // their derivedStateOf (so a time/variable-driven value re-runs this draw when it changes), and
-  // a plain leaf id through the shared snapshot store. There is no separate draw-path variable
-  // map.
+  // the GraphContext, which resolves time ids from the Compose frame clock and computed ids
+  // through its per-pass memoized evaluation (so a time/variable-driven value re-runs this draw
+  // when it changes), and a plain leaf id through the shared snapshot store. There is no separate
+  // draw-path variable map.
   return if (value.isNaN()) context.getFloat(Utils.idFromNan(value)) else fallback
 }
 
@@ -119,15 +118,13 @@ internal fun DrawScope.executeOperations(
   graph: GraphContext? = null,
 ) {
   // Reads route through the GraphContext when present: it resolves time ids from the Compose
-  // frame
-  // clock and computed ids through their derivedStateOf (reactive, chains), and a leaf id falls
-  // through to the same shared snapshot store. So reading a time/variable-driven value here
-  // registers this draw as an observer of the relevant Compose state — the draw re-runs when that
-  // state changes, with no per-frame applyOperations refreshing the store. WRITES (op.apply,
-  // overrideFloat, loadFloat, bitmap decode) must NOT go through the graph — it suppresses writes
-  // during its derived evaluation — so they stay on `remoteContext` (the real store).
-  // GraphContext
-  // shares that store, so leaf reads are identical either way.
+  // frame clock and computed ids via per-pass DAG memoization over reactive leaf states, and a
+  // leaf id falls through to the same shared snapshot store. So reading a time/variable-driven
+  // value here registers this draw as an observer of the relevant Compose state — the draw
+  // re-runs when that state changes, with no per-frame applyOperations refreshing the store.
+  // WRITES (op.apply, overrideFloat, loadFloat, bitmap decode) must NOT go through the graph — it
+  // suppresses writes during evaluation — so they stay on `remoteContext` (the real store).
+  // GraphContext shares that store, so leaf reads are identical either way.
   val read: RemoteContext = graph ?: remoteContext
   var canvasLevel = 0
   // For DRAW_TO_BITMAP: the original on-screen canvas, saved the first time the draw target is
@@ -574,6 +571,7 @@ internal fun DrawScope.executeOperations(
               alpha = paintState.alpha,
               colorFilter = paintState.colorFilter,
               blendMode = paintState.blendMode,
+              filterQuality = paintState.filterQuality,
             )
           } else {
             drawImage(
@@ -823,6 +821,7 @@ internal fun DrawScope.executeOperations(
             alpha = paintState.alpha,
             colorFilter = paintState.colorFilter,
             blendMode = paintState.blendMode,
+            filterQuality = paintState.filterQuality,
           )
           drawContext.canvas.restore()
         }
@@ -855,6 +854,7 @@ internal fun DrawScope.executeOperations(
               alpha = paintState.alpha,
               colorFilter = paintState.colorFilter,
               blendMode = paintState.blendMode,
+              filterQuality = paintState.filterQuality,
             )
           }
         }

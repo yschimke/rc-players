@@ -40,7 +40,6 @@ import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.RemoteContext
-import androidx.compose.remote.core.SystemClock
 import androidx.compose.remote.core.operations.Header
 import androidx.compose.remote.core.operations.Theme
 import androidx.compose.remote.creation.compose.action.LambdaAction
@@ -59,6 +58,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalContext
@@ -112,13 +113,7 @@ public fun RcPlayer(
   lambdas: IntObjectMap<() -> Unit> = emptyIntObjectMap(),
   pendingIntents: IntObjectMap<PendingIntent> = emptyIntObjectMap(),
 ) {
-  val clock = remember {
-    if (document.clock is SystemClock) {
-      RemoteClock.SYSTEM
-    } else {
-      document.clock
-    }
-  }
+  val clock = remember(document) { document.clock }
 
   // `SYSTEM` / `UNSPECIFIED` become a concrete mode here, once, before anything branches on them.
   val systemInDarkTheme = isSystemInDarkTheme()
@@ -238,79 +233,26 @@ public fun RcPlayer(
     remoteContext.paintTheme = resolvedTheme
   }
 
-  // Time and animations are driven on demand. A static document — no declared animations and no
-  // time-driven content — ticks for a frame and then the loop suspends, so the player goes fully
-  // idle, like normal Compose. Documents with animations or time-driven variables
-  // (continuous/seconds/minutes) keep the frame loop running. This replaces the previous
-  // always-on rememberInfiniteTransition + unconditional per-frame full-document re-evaluation,
-  // which never let the runtime go idle even for a wholly static document.
+  // Time is driven on demand:
+  // - Documents with continuous time variables (ID_CONTINUOUS_SEC, ID_ANIMATION_TIME), particles,
+  //   or WakeIn run the per-frame loop via withInfiniteAnimationFrameMillis.
+  // - Documents with only discrete wall-clock/calendar variables (ID_TIME_IN_SEC, ID_TIME_IN_MIN,
+  //   ID_CALENDAR_MONTH, etc.) sleep between whole second boundaries via delay().
+  // - Static documents and documents whose animations are driven by Compose's own animation clocks
+  //   (FloatAnimation via Animatable, StateLayout via AnimatedContent) initialize t=0 once and
+  //   settle immediately to idle without a background loop.
   val currentTimeMillisState = remember { mutableFloatStateOf(0f) }
-  // Wall clock at the moment this document started, so `ID_EPOCH_SECOND` can be answered from
-  // the frame clock below rather than by reading the clock inside a resolver. Remembered per
-  // document, which is also what makes it stable across recomposition.
-  val epochBaseMillis = remember(document) { System.currentTimeMillis() }
-  val hasAnimations = preprocessed.hasAnimations
-  val isTimeDependent = preprocessed.isTimeDependent
-  val hasParticles = preprocessed.hasParticles
-  val hasWakeIn = preprocessed.hasWakeIn
-
-  // `withInfiniteAnimationFrameMillis`, not `withFrameMillis`: this loop never terminates for an
-  // animated / time-driven document, which is precisely what Compose means by an *infinite*
-  // animation. Requesting frames through the infinite-animation channel routes them via the
-  // `InfiniteAnimationPolicy` in the coroutine context, so a host that needs the composition to
-  // reach idle can see through it. Under `ComposeTestRule` that is the difference between
-  // `waitForIdle()` returning and hanging forever; under `@Preview` inspection it is what lets
-  // tooling pause the animation instead of spinning. Outside a test the policy is absent and this
-  // degrades to exactly `withFrameMillis`, so production timing is unchanged.
-  val limiter = remember(document) { Limiter() }
-  LaunchedEffect(document, hasAnimations, isTimeDependent, hasParticles, hasWakeIn) {
-    val startMillis = withInfiniteAnimationFrameMillis { it }
-    while (true) {
-      val frameMillis = withInfiniteAnimationFrameMillis { it } - startMillis
-      limiter.recordDrawStart(frameMillis * 1_000_000L)
-      // Pure time ticker. Updating currentTimeMillisState is the *only* per-frame work: every
-      // reactive path keys off it. Expression display flows through the GraphContext
-      // derivedStateOf graph and the float/int/color resolvers (which read this state for
-      // time);
-      // animated floats run on Compose's frame clock via rememberAnimatedRemoteFloat; and the
-      // canvas draw path now reads time/variable values *through* the GraphContext too, so a
-      // time-driven draw observes this state and re-runs when it ticks. No applyOperations,
-      // no
-      // updateVariables(mOperations) — the imperative per-frame recompute is fully gone.
-      // (currentTime is still set for any core code that consults it directly.)
-      currentTimeMillisState.floatValue = frameMillis.toFloat()
-      remoteContext.currentTime = frameMillis
-      // The wall-clock second, seeded the way the CMP player seeds its own
-      // (`RcPlayerState.setInteger(EPOCH_SECOND, frameEpochMillis / 1000)`): an integer, because
-      // epoch seconds do not survive a float mantissa. Written here so a document reading it
-      // through the integer channel moves; the float channel is answered reactively by
-      // `GraphContext.getFloat` and `rememberRemoteFloatAsState` from the same two numbers.
-      remoteContext.loadInteger(
-        RemoteContext.ID_EPOCH_SECOND,
-        (epochBaseMillis + frameMillis).floorDiv(1000L).toInt(),
-      )
-
-      // Settle to idle once the document is static: no declared float animation and no
-      // continuously-changing time variable. Animated / time-driven documents keep looping.
-      // TODO: also idle animated documents between animations and re-arm on host-driven
-      // variable writes (see HISTORY.md, "Plan 1").
-      if (!hasAnimations && !isTimeDependent && !hasParticles && !hasWakeIn) break
-
-      val delayNs = limiter.computeDelay(0L, frameMillis * 1_000_000L)
-      if (delayNs > limiter.minIntervalNs) {
-        kotlinx.coroutines.delay((delayNs - limiter.minIntervalNs) / 1_000_000L)
-      }
-    }
-  }
+  val needsContinuousLoop =
+    preprocessed.hasContinuousTime || preprocessed.hasParticles || preprocessed.hasWakeIn
+  val needsDiscreteLoop = !needsContinuousLoop && preprocessed.hasDiscreteTime
 
   // Pure-Compose evaluation of *derived/computed* operations (color & text expressions,
   // attributes,
-  // lookups). Each computed id resolves to a derivedStateOf that runs the op's existing
-  // updateVariables+apply against this GraphContext, which routes the op's reads to the reactive
-  // store / other computed States and captures its write as the result. No imperative recompute
-  // pass, no dirty flags — changing an input invalidates exactly the dependent States, and chains
-  // compose naturally. (Frame loop above still drives time/animation; plain/expression float/int
-  // and animated floats keep their dedicated resolvers.)
+  // lookups). Each computed id evaluates the op's existing updateVariables+apply against this
+  // GraphContext, memoized within the active evaluation pass, which routes the op's reads to the
+  // reactive store / other computed States and captures its write as the result. No imperative
+  // recompute pass, no dirty flags — changing an input invalidates exactly the dependent States,
+  // and chains compose naturally.
   val graphContext =
     remember(document) {
       (remoteContext.mRemoteComposeState as? SnapshotRemoteComposeState)?.let { snapshotState ->
@@ -322,6 +264,51 @@ public fun RcPlayer(
         )
       }
     }
+
+  val startClockMillis = remember(document, clock) { clock.millis() }
+  val limiter = remember(document) { Limiter() }
+  LaunchedEffect(
+    document,
+    graphContext,
+    needsContinuousLoop,
+    needsDiscreteLoop,
+  ) {
+    val startMillis = withInfiniteAnimationFrameMillis { it }
+    while (true) {
+      val frameMillis = withInfiniteAnimationFrameMillis { it } - startMillis
+      limiter.recordDrawStart(frameMillis * 1_000_000L)
+      val updated =
+        graphContext?.updateTime(
+          frameMillis = frameMillis.toFloat(),
+          updateContinuous = needsContinuousLoop,
+        ) ?: true
+      if (needsContinuousLoop || updated) {
+        currentTimeMillisState.floatValue = frameMillis.toFloat()
+      }
+      remoteContext.currentTime = startClockMillis + frameMillis
+
+      // `withInfiniteAnimationFrameMillis`, not `withFrameMillis`: this loop never terminates for
+      // an animated / time-driven document, which is precisely what Compose means by an *infinite*
+      // animation. Requesting frames through the infinite-animation channel routes them via the
+      // `InfiniteAnimationPolicy` in the coroutine context, so a host that needs the composition to
+      // reach idle can see through it. Under `ComposeTestRule` that is the difference between
+      // `waitForIdle()` returning and hanging forever; under `@Preview` inspection it is what lets
+      // tooling pause the animation instead of spinning. Outside a test the policy is absent and
+      // this degrades to exactly `withFrameMillis`, so production timing is unchanged.
+      if (!needsContinuousLoop && !needsDiscreteLoop) break
+
+      if (needsDiscreteLoop) {
+        val currentMillis = startClockMillis + frameMillis
+        val millisToNextSecond = 1000L - Math.floorMod(currentMillis, 1000L)
+        kotlinx.coroutines.delay(millisToNextSecond)
+      } else {
+        val delayNs = limiter.computeDelay(0L, frameMillis * 1_000_000L)
+        if (delayNs > limiter.minIntervalNs) {
+          kotlinx.coroutines.delay((delayNs - limiter.minIntervalNs) / 1_000_000L)
+        }
+      }
+    }
+  }
 
   // The document's root content description (Header DOC_CONTENT_DESCRIPTION /
   // RootContentDescription
@@ -360,6 +347,20 @@ public fun RcPlayer(
           document.setOrigin(position.x, position.y)
           size = it.size
         }
+        .pointerInput(document, remoteContext) {
+          awaitPointerEventScope {
+            while (true) {
+              val event = awaitPointerEvent()
+              val change = event.changes.firstOrNull() ?: continue
+              val pos = change.position
+              when (event.type) {
+                PointerEventType.Press -> document.touchDown(remoteContext, pos.x, pos.y)
+                PointerEventType.Move -> document.touchDrag(remoteContext, pos.x, pos.y)
+                PointerEventType.Release -> document.touchUp(remoteContext, pos.x, pos.y, 0f, 0f)
+              }
+            }
+          }
+        }
   ) {
     // ColorConstant / IntegerConstant / FloatExpression defaults already live in the
     // snapshot-backed store (applied by applyOperations during setup); the single store is the
@@ -392,14 +393,13 @@ public fun RcPlayer(
     // than the shared store, so an expression over one (a clip radius of min(w, h) / 2, say)
     // evaluates against 0 unless the graph can see them. See GraphContext.componentValues.
     graphContext?.componentValues = componentValueStateMap
-    graphContext?.epochBaseMillis = epochBaseMillis
     CompositionLocalProvider(
       LocalCoreDocument provides document,
       LocalRemoteContext provides remoteContext,
       LocalComponentValueMap provides componentValueMap,
       LocalComponentValueStateMap provides componentValueStateMap,
       LocalCurrentTimeMillis provides currentTimeMillisState,
-      LocalEpochBaseMillis provides epochBaseMillis,
+      LocalTypefaceResolver provides remoteContext.typefaceResolver,
       LocalGraphContext provides graphContext,
       LocalRcImageLoader provides resolvedImageLoader,
       LocalRemoteActionHandler provides onAction,

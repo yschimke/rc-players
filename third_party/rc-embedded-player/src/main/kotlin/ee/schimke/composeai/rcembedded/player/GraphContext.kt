@@ -18,6 +18,8 @@
 
 package ee.schimke.composeai.rcembedded.player
 
+import androidx.collection.MutableIntObjectMap
+import androidx.collection.MutableIntSet
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.PaintOperation
 import androidx.compose.remote.core.RemoteClock
@@ -28,28 +30,27 @@ import androidx.compose.remote.core.operations.ShaderData
 import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.utilities.ArrayAccess
 import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 
 /**
  * A pure-Compose evaluator for *computed* operations (color/text/float/int expressions, attributes,
- * lookups) built out of `derivedStateOf` — no imperative recompute pass, no dirty flags.
+ * lookups) using per-pass DAG memoization over reactive leaf states — no imperative recompute pass,
+ * no dirty flags, and no intermediate `derivedStateOf` nodes.
  *
- * Each computed id resolves to a [derivedStateOf] that runs the op's existing `updateVariables`
- * against **this** context, then runs the op for its value — `apply`, or `paint` against a
- * draw-nothing [GraphPaintContext] for the ops that publish from there instead (see [evaluate]). We
- * intercept the two things an op does:
+ * Each computed id evaluates the op's existing `updateVariables` + `apply` against **this**
+ * context, memoized within the active top-level evaluation pass (`withEvalPass` / top-level
+ * `computedValue`). We intercept the two things an op does:
  * - **reads** (`getFloat`/`getInteger`/`getColor`/`getText`) — for a computed input we recurse into
- *   *its* `State` (so chains compose and only what's read recomputes); for a leaf we read the real
- *   snapshot-backed store via `super`, which records the snapshot dependency. So Compose discovers
- *   each op's dependencies automatically — we never enumerate input ids.
+ *   `computedValue(depId)` (memoized in Θ(1) if already visited in the current pass, so
+ *   reconvergent diamond DAGs evaluate in Θ(V + E) rather than Θ(2^D)); for a leaf we read the real
+ *   snapshot-backed store via `super`, which records the snapshot dependency directly on the
+ *   caller's active Compose observation scope.
  * - **writes** (`loadFloat`/`loadInteger`/`loadColor`/`loadText`) — captured as the op's result
- *   rather than mutated into the store, which makes the op a pure function for the
- *   `derivedStateOf`.
+ *   rather than mutated into the store, keeping evaluation pure.
  *
  * The operations are used verbatim (no core changes). Non-scalar reads
  * (objects/bitmaps/collections/ paths) fall through to the shared store via `super`. The
- * capture/cycle bookkeeping is single-thread (Compose UI read phases); nested chain evaluation is
- * handled by save/restore.
+ * capture/cycle bookkeeping is per-thread; nested chain evaluation is handled by save/restore.
  *
  * Conceptually this is a [androidx.compose.remote.core.RemoteReadContext] (a value view) that
  * captures the one write an op makes as its result. It extends [StoreBackedRemoteContext] — a
@@ -62,18 +63,40 @@ import androidx.compose.runtime.derivedStateOf
 internal class GraphContext(
   private val realState: SnapshotRemoteComposeState,
   private val computedOps: Map<Int, Operation>,
-  private val timeMillis: State<Float>,
-  clock: RemoteClock,
+  timeMillis: State<Float> = mutableFloatStateOf(0f),
+  clock: RemoteClock = RemoteClock.SYSTEM,
 ) : StoreBackedRemoteContext(clock) {
+
+  // NOTE: upstream's `setTypefaceResolver` on GraphContext (2cebbfbd6) is deliberately not ported
+  // here — the JVM half of the fork shares this file, and `remote-player-core`'s
+  // `TypefaceResolver` names `android.graphics.Typeface`, which a JVM compile cannot see. The
+  // resolver seam lives on the Android-only side instead: `LocalTypefaceResolver` (in
+  // RcPlayerTextLayout.kt), provided by `RcPlayer` from the context's resolver.
+
+  private var _timeState: GraphTimeState? = null
 
   init {
     // Share the leaf store so collections/objects/paths and plain variables resolve against the
     // same (snapshot-backed) data the rest of the player uses.
     mRemoteComposeState = realState
+    _timeState = GraphTimeState(clock, timeMillis.value)
   }
 
-  @Suppress("BanConcurrentHashMap")
-  private val states = java.util.concurrent.ConcurrentHashMap<Int, State<Any?>>()
+  internal val timeState: GraphTimeState
+    get() = _timeState!!
+
+  internal val startClockMillis: Long
+    get() = timeState.startClockMillis
+
+  internal val epochSecondState: androidx.compose.runtime.IntState
+    get() = timeState.epochSecondState
+
+  internal fun updateTime(frameMillis: Float, updateContinuous: Boolean = true): Boolean =
+    timeState.updateTime(frameMillis, updateContinuous)
+
+  internal fun timeFloatState(id: Int): State<Float> = timeState.timeFloatState(id)
+
+  override fun getClock(): RemoteClock = _timeState?.reactiveClock ?: super.getClock()
 
   /**
    * Particle loops whose state has been seeded (keyed by op identity). Lives here because the
@@ -106,118 +129,106 @@ internal class GraphContext(
    * height) / 2` over the track's `ComponentValue`s, so the radius came out 0 while the track's own
    * literal-radius clip was fine (compose-ai-tools#3992). Set by [RcPlayer] after construction,
    * like [imageLoader] — the map outlives recomposition, and reading a `State` inside the
-   * `derivedStateOf` records the dependency, so a resize re-evaluates exactly the expressions that
-   * read it.
+   * evaluation records the dependency, so a resize re-evaluates exactly the expressions that read
+   * it.
    */
   internal var componentValues: Map<Int, State<Float>>? = null
 
-  /**
-   * Wall-clock milliseconds at the moment this document started playing, so `ID_EPOCH_SECOND` can
-   * be answered from the frame clock rather than by reading the clock inside an evaluation.
-   *
-   * [timeMillis] is milliseconds *since the document started* — that is what the frame loop writes
-   * — so it can drive the four relative time ids and cannot drive this one. Adding the base back on
-   * makes the epoch reactive against the same state every other time id observes, which is what
-   * makes an expression over it re-evaluate. Set by [RcPlayer] after construction, like
-   * [componentValues].
-   */
-  internal var epochBaseMillis: Long = 0L
+  private class EvalPassState {
+    var depth: Int = 0
+    val memoPass: MutableIntSet = MutableIntSet()
+    val memoValues: MutableIntObjectMap<Any?> = MutableIntObjectMap()
+    val computing: MutableIntSet = MutableIntSet()
+    var captureId: Int = -1
+    var captured: Any? = null
+  }
 
-  // Capture bookkeeping is per-thread: `derivedStateOf` may be evaluated on whichever thread
-  // reads
-  // it (UI phases are main-thread today, but snapshot reads aren't contractually single-thread).
-  // Re-entrancy within a thread (chained ops) is handled by save/restore.
-  private val computing = ThreadLocal.withInitial { HashSet<Int>() }
-  private val captureId = ThreadLocal.withInitial { -1 }
-  private val captured = ThreadLocal<Any?>()
+  // Per-thread evaluation state: UI phases are main-thread today, but snapshot reads aren't
+  // contractually single-thread. Re-entrancy within a thread is handled by save/restore.
+  private val evalState = ThreadLocal.withInitial { EvalPassState() }
 
   /** True if [id] is produced by a computed op (vs a leaf variable). */
   fun isComputed(id: Int): Boolean = computedOps.containsKey(id)
 
   private fun computedValue(id: Int): Any? {
-    if (id in computing.get()!!) return null // cycle: break rather than recurse forever
-    val state =
-      states.getOrPut(id) {
-        derivedStateOf {
-          val op = computedOps[id] ?: return@derivedStateOf null
-          // Fetch per-thread bookkeeping on the thread actually evaluating the block.
-          val active: HashSet<Int> = computing.get()!!
-          val prevId = captureId.get()
-          val prevCaptured = captured.get()
-          captureId.set(id)
-          captured.set(null)
-          active += id
-          try {
-            if (op is VariableSupport) op.updateVariables(this) // reads inputs (tracked)
-            evaluate(op) // writes output -> captured
-            captured.get()
-          } finally {
-            captureId.set(prevId)
-            captured.set(prevCaptured)
-            active -= id
-          }
-        }
-      }
-    return state.value
-  }
+    val state = evalState.get()!!
+    if (state.computing.contains(id)) return null // cycle: break rather than recurse forever
 
-  /**
-   * Run [op] for its value, in whichever of the two channels it publishes through.
-   *
-   * Most computed ops write their result from `apply(RemoteContext)`, and that is all this used to
-   * do. But a value-producing [PaintOperation] (`ColorAttribute` above all) writes from
-   * `paint(PaintContext)` instead, and `PaintOperation.apply` forwards there only in
-   * `ContextMode.PAINT` with a paint context attached — so `apply` alone made those ops evaluate to
-   * nothing, and a colour built on one came out as 0: transparent. That is compose-ai-tools#3936's
-   * dropped tint. [GraphPaintContext] gives them the one thing they actually need — a context to
-   * read and write through — and drops every drawing call, so evaluating a value still cannot
-   * paint.
-   *
-   * Layout components are [PaintOperation]s too, and are deliberately *not* routed here: their
-   * `paint` renders a whole subtree rather than producing a value, and `apply` already does the
-   * right thing for them (it walks their children, which is how a component's contents get
-   * evaluated at all).
-   */
-  private fun evaluate(op: Operation) {
-    if (op is PaintOperation && op !is Component) op.paint(paintContext) else op.apply(this)
+    if (state.memoPass.contains(id)) {
+      return state.memoValues[id]
+    }
+
+    val op = computedOps[id] ?: return null
+    state.depth++
+    val prevId = state.captureId
+    val prevCaptured = state.captured
+    state.captureId = id
+    state.captured = null
+    state.computing.add(id)
+    try {
+      if (op is VariableSupport) {
+        op.updateVariables(this) // reads inputs (tracked)
+      }
+      // Most computed ops write their result from `apply(RemoteContext)`. But a value-producing
+      // [PaintOperation] (`ColorAttribute` above all) writes from `paint(PaintContext)` instead,
+      // and `PaintOperation.apply` forwards there only in `ContextMode.PAINT` with a paint context
+      // attached — so `apply` alone made those ops evaluate to nothing, and a colour built on one
+      // came out as 0: transparent (compose-ai-tools#3936's dropped tint). [GraphPaintContext]
+      // gives them the one thing they actually need — a context to read and write through — and
+      // drops every drawing call, so evaluating a value still cannot paint. Layout components are
+      // [PaintOperation]s too, and are deliberately *not* routed here: their `paint` renders a
+      // whole subtree rather than producing a value, and `apply` already does the right thing for
+      // them (it walks their children, which is how a component's contents get evaluated at all).
+      if (op is PaintOperation && op !is Component) {
+        op.paint(graphPaintContext)
+      } else {
+        op.apply(this) // writes output -> captured
+      }
+      val result = state.captured
+      state.memoPass.add(id)
+      state.memoValues[id] = result
+      return result
+    } finally {
+      state.captureId = prevId
+      state.captured = prevCaptured
+      state.computing.remove(id)
+      state.depth--
+      if (state.depth == 0) {
+        state.memoPass.clear()
+        state.memoValues.clear()
+      }
+    }
   }
 
   /**
    * Shared because it is stateless — it holds a reference to this context and drops everything
    * else, so there is nothing for concurrent or nested evaluations to race over. The capture
-   * bookkeeping that *is* stateful lives in the thread-locals above.
+   * bookkeeping that *is* stateful lives in the thread-local evaluation state above.
    */
-  private val paintContext = GraphPaintContext(this)
+  private val graphPaintContext = GraphPaintContext(this)
 
   override fun getFloat(id: Int): Float {
     // Checked ahead of the store for the same reason `rememberRemoteFloatAsState` checks it
     // first: a measured component size is never in the store, so falling through would read 0.
-    val componentValue = componentValues?.get(id)
+    val compVal = componentValues?.get(id)
     return when {
-      // Time variables come from the Compose frame-clock state (matching the resolver's time
-      // special-case), not the raw store — so a time-driven op reads seconds/minutes/hours.
-      id == RemoteContext.ID_ANIMATION_TIME -> timeMillis.value / 1000f
-      id == RemoteContext.ID_CONTINUOUS_SEC || id == RemoteContext.ID_TIME_IN_SEC ->
-        timeMillis.value / 1000f
-      id == RemoteContext.ID_TIME_IN_MIN -> timeMillis.value / 60000f
-      id == RemoteContext.ID_TIME_IN_HR -> timeMillis.value / 3600000f
-      // Wall clock, not elapsed time — and it belongs here for the same reason the four above do.
-      // `RcPlayerPreprocess` counts a reference to this id as making a document time-dependent, so
-      // the frame loop runs forever for it; without a reactive path it read the store, which
-      // nothing writes, so the expression stayed frozen while still consuming every frame. The CMP
-      // player answers the same variable from its own frame epoch
-      // (`RcPlayerState.setInteger(EPOCH_SECOND, …)`), and this is that value.
-      id == RemoteContext.ID_EPOCH_SECOND ->
-        (epochBaseMillis + timeMillis.value.toLong()).floorDiv(1000L).toFloat()
-      componentValue != null -> componentValue.value
+      compVal != null -> compVal.value
       realState.isFloatOverridden(id) -> super.getFloat(id)
       isComputed(id) -> (computedValue(id) as? Number)?.toFloat() ?: 0f
+      isTimeVariable(id) -> timeFloatState(id).value
       else -> super.getFloat(id)
     }
   }
 
   override fun getInteger(id: Int): Int =
-    if (isComputed(id)) (computedValue(id) as? Number)?.toInt() ?: 0 else super.getInteger(id)
+    when {
+      // The fork's snapshot store tracks float overrides only, so there is no integer-override
+      // branch here yet — see SnapshotRemoteComposeState. Upstream's `isIntegerOverridden`
+      // arrives with the deferred `RcPlayerState` rework.
+      isComputed(id) -> (computedValue(id) as? Number)?.toInt() ?: 0
+      id == RemoteContext.ID_EPOCH_SECOND -> epochSecondState.intValue
+      else -> super.getInteger(id)
+    }
 
   override fun getColor(id: Int): Int =
     if (isComputed(id)) (computedValue(id) as? Number)?.toInt() ?: 0 else super.getColor(id)
@@ -226,28 +237,31 @@ internal class GraphContext(
     if (isComputed(id)) computedValue(id) as? String else super.getText(id)
 
   // GraphContext is a read-only-store *evaluation* context: a computed op's apply must not mutate
-  // the shared store (that would be a snapshot write during a derivedStateOf read, and would let
-  // one op clobber another's value). The scalar writes capture the op's own output; every other
-  // write is a no-op. This makes the model robust even for ops that write more than once or via
-  // non-scalar channels (e.g. MatrixExpression does putObject + loadFloat; Path/Shader/collection
-  // ops write paths/shaders/collections) — those ops aren't read through the scalar resolvers,
-  // but
-  // if one ever is, it degrades to a captured scalar / default instead of corrupting the store.
+  // the shared store (that would be a snapshot write during a snapshot read, and would let one op
+  // clobber another's value). The scalar writes capture the op's own output; every other write is
+  // a no-op. This makes the model robust even for ops that write more than once or via non-scalar
+  // channels (e.g. MatrixExpression does putObject + loadFloat; Path/Shader/collection ops write
+  // paths/shaders/collections) — those ops aren't read through the scalar resolvers, but if one
+  // ever is, it degrades to a captured scalar / default instead of corrupting the store.
 
   override fun loadFloat(id: Int, value: Float) {
-    if (id == captureId.get()) captured.set(value)
+    val state = evalState.get()!!
+    if (id == state.captureId) state.captured = value
   }
 
   override fun loadInteger(id: Int, value: Int) {
-    if (id == captureId.get()) captured.set(value)
+    val state = evalState.get()!!
+    if (id == state.captureId) state.captured = value
   }
 
   override fun loadColor(id: Int, color: Int) {
-    if (id == captureId.get()) captured.set(color)
+    val state = evalState.get()!!
+    if (id == state.captureId) state.captured = color
   }
 
   override fun loadText(id: Int, text: String) {
-    if (id == captureId.get()) captured.set(text)
+    val state = evalState.get()!!
+    if (id == state.captureId) state.captured = text
   }
 
   // Non-scalar / multi-writes during evaluation are suppressed (never reach the real store).

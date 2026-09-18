@@ -121,7 +121,13 @@ internal fun RcPlayerFlowRow(layout: FlowLayout, modifier: Modifier) {
         behavior,
         density,
       ),
-    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Top,
+    verticalArrangement =
+      columnVerticalArrangement(
+        layout.verticalPositioningReflection,
+        0f,
+        behavior,
+        density,
+      ),
     itemVerticalAlignment = rowVerticalAlignment(layout.verticalPositioningReflection),
     maxItemsInEachRow = layout.mMaxItemsInEachRow,
     maxLines = layout.mMaxLines,
