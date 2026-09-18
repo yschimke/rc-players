@@ -10,20 +10,21 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
-/** §2.5: a raster check with no tolerance of its own allows 16 differing pixels. */
-private const val DEFAULT_RASTER_TOLERANCE = 16.0
-
 /**
- * One raster step, with both frames, in the shape the corpus's own report generators read.
+ * One raster step, with both frames and the metric between them, in the shape the corpus's own
+ * report generators read.
  *
  * `generate-audit-report.mjs` draws its gold/actual/overlay views from `rasterComparisons` and the
- * `goldImageBase64` / `renderedCanvasBase64` fields beside it. This runner used to publish the
- * player's frame under a name of its own invention (`attachments["raster_actual@<step>"]`), so the
- * generated audit rendered every image pane empty — the report was structurally correct and
- * visually blank, which is the least useful way for a report to be wrong.
+ * `goldImageBase64` / `renderedCanvasBase64` fields beside it, its diff panel from
+ * `diffHeatmapBase64`, and its pixel badge from `aaPixels` against `rasterTolerance`. This runner
+ * used to publish the player's frame under a name of its own invention
+ * (`attachments["raster_actual@<step>"]`) and no metric fields at all, so the generated audit
+ * rendered every image pane empty and every badge as "?" — structurally correct and visually blank,
+ * which is the least useful way for a report to be wrong.
  *
- * Neither image costs anything to produce here: the gold arrives as a data URI in the check's own
- * `expect`, and the player's frame is already encoded for the attachment.
+ * None of it costs anything extra to produce: the gold arrives as a data URI in the check's own
+ * `expect`, the player's frame is already encoded for the attachment, and the metric numbers are
+ * the comparison walk's own by-products.
  */
 public data class RasterComparison(
   public val at: String,
@@ -31,8 +32,24 @@ public data class RasterComparison(
   public val renderedCanvasBase64: String,
   public val totalPixels: Int,
   public val rasterTolerance: Double,
-  /** Null when the check passed: the comparator only reports a count it is failing on. */
+  /**
+   * Pixels where any RGBA channel differs, before compositing — the count upstream's results file
+   * publishes under this name. A superset of what the verdict measures: sub-threshold noise is
+   * raw-different and scores nothing.
+   */
   public val differingPixels: Int?,
+  /**
+   * The AA-aware differing count — the verdict, the number `rasterTolerance` is applied to. The
+   * generator colours its pixel badge from exactly this, so it has to be the number the PASS/FAIL
+   * verdict used, not a second opinion.
+   */
+  public val aaPixels: Int? = null,
+  /** Root-mean-square per-channel delta. Reported beside the count, never gating (see §2.5). */
+  public val rmse: Double? = null,
+  /** The largest absolute per-channel delta, for the same reason. */
+  public val maxDelta: Int? = null,
+  /** The diff heatmap, or null when no aligned comparison was possible (see §10 on sizes). */
+  public val diffHeatmapBase64: String? = null,
 )
 
 /** One gold's verdict, in the vocabulary of `CONFORMANCE_FORMAT.md` §5. */
@@ -178,19 +195,11 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
       diffs = diffs,
       observed = observed.mapValues { it.value.toMap() },
       attachments = attachments,
-      // The count is only known for a check that failed, so it is folded in from the diffs rather
-      // than measured a second time — a second pixelmatch pass over 633 frames to populate a
-      // display field would be a poor trade.
-      rasterComparisons =
-        rasters.values.map { comparison ->
-          val failure = diffs.firstOrNull {
-            it.at == comparison.at && it.probe == "raster" && it.property == "differing_pixels"
-          }
-          comparison.copy(
-            differingPixels =
-              (failure?.actual as? JsonPrimitive)?.content?.toDoubleOrNull()?.toInt()
-          )
-        },
+      // The comparison carries its own numbers now — count, RMSE, max delta and the heatmap, for
+      // passing checks as much as failing ones. A second pixelmatch pass to populate a display
+      // field would be a poor trade, and leaving the fields null on a pass is what made every
+      // passing raster card read "n/a".
+      rasterComparisons = rasters.values.toList(),
       componentCount =
         observed.values
           .firstNotNullOfOrNull { step -> (step["tree"] as? JsonArray)?.size }
@@ -234,14 +243,21 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
         return true
       }
 
-    val failures = Comparators.compare(check, observation, check.resolveTolerance(gold))
-    diffs += failures
-    record(check, observation, observed, attachments, rasters)
-    return failures.isNotEmpty()
+    val outcome =
+      Comparators.compare(
+        check,
+        observation,
+        check.resolveTolerance(gold),
+        // The frame record() encoded for the attachment — the same bytes the report will render.
+        record(check, observation, observed, attachments),
+      )
+    diffs += outcome.diffs
+    outcome.raster?.let { rasters[it.at] = it }
+    return outcome.diffs.isNotEmpty()
   }
 
   /**
-   * Populates `observed` (and, for rasters, `attachments`).
+   * Populates `observed` (and, for rasters, `attachments`), returning the encoded frame.
    *
    * Nominally optional, and populated anyway: 250 of the 252 golds assert values rather than
    * pixels, and `observed` is the only thing the HTML report has to show for them — the expected
@@ -253,8 +269,7 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
     observation: Observation,
     observed: MutableMap<String, MutableMap<String, JsonElement>>,
     attachments: MutableMap<String, String>,
-    rasters: MutableMap<String, RasterComparison>,
-  ) {
+  ): String? {
     val step = observed.getOrPut(check.at) { mutableMapOf() }
     when (observation) {
       is Observation.Value ->
@@ -272,20 +287,11 @@ public class ConformanceRunner(private val engine: ConformanceEngine) {
       is Observation.Raster -> {
         val rendered = encodeRgbaAsDataUri(observation.width, observation.height, observation.rgba)
         attachments["raster_actual@${check.at}"] = rendered
-        rasters[check.at] =
-          RasterComparison(
-            at = check.at,
-            // Already a data URI in the gold, so the reference frame is free here — no decode, and
-            // no second copy of the corpus's own bytes.
-            goldImageBase64 = check.expect.stringOrNull(),
-            renderedCanvasBase64 = rendered,
-            totalPixels = observation.width * observation.height,
-            rasterTolerance = check.tolerance ?: DEFAULT_RASTER_TOLERANCE,
-            differingPixels = null,
-          )
+        return rendered
       }
       Observation.NotImplemented -> step[check.key] = JsonPrimitive("PROBE_NOT_IMPLEMENTED")
     }
+    return null
   }
 
   private val SCALAR_PROBES = setOf("float", "int", "color", "text", "matrix")

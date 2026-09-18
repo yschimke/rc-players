@@ -60,11 +60,21 @@ public object Results {
     result.error?.let { put("error", it) }
     // The corpus's own report generators read these names, and nothing else. Publishing the frames
     // under a name of this runner's invention is what made every image pane in the generated audit
-    // render empty.
+    // render empty, and publishing the pixel metric only where it failed is what made every badge
+    // read "?" and every passing comparison read "n/a". The first comparison rides at the top level
+    // — that is the one `renderOneComparison` draws for the initial step — and the same numbers
+    // repeat per step under `rasterComparisons`, which is where the resize/animation views read.
     result.rasterComparisons.firstOrNull()?.let { first ->
       first.goldImageBase64?.let { put("goldImageBase64", it) }
       put("renderedCanvasBase64", first.renderedCanvasBase64)
       put("hasRasterBaseline", first.goldImageBase64 != null)
+      first.aaPixels?.let { put("aaPixels", it) }
+      first.differingPixels?.let { put("differingPixels", it) }
+      put("totalPixels", first.totalPixels)
+      put("rasterTolerance", first.rasterTolerance)
+      first.rmse?.let { put("rmse", it) }
+      first.maxDelta?.let { put("maxDelta", it) }
+      first.diffHeatmapBase64?.let { put("diffHeatmapBase64", it) }
     }
     if (result.rasterComparisons.isNotEmpty()) {
       put(
@@ -76,9 +86,13 @@ public object Results {
                 put("at", comparison.at)
                 comparison.goldImageBase64?.let { put("goldImageBase64", it) }
                 put("renderedCanvasBase64", comparison.renderedCanvasBase64)
+                comparison.diffHeatmapBase64?.let { put("diffHeatmapBase64", it) }
                 put("totalPixels", comparison.totalPixels)
                 put("rasterTolerance", comparison.rasterTolerance)
+                comparison.aaPixels?.let { put("aaPixels", it) }
                 comparison.differingPixels?.let { put("differingPixels", it) }
+                comparison.rmse?.let { put("rmse", it) }
+                comparison.maxDelta?.let { put("maxDelta", it) }
               }
             )
           }

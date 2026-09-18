@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcconformance
 
 import ee.schimke.composeai.rcconformance.corpus.Check
 import ee.schimke.composeai.rcconformance.corpus.Gold
+import ee.schimke.composeai.rcconformance.corpus.Results
 import ee.schimke.composeai.rcconformance.corpus.Step
 import ee.schimke.composeai.rcconformance.corpus.parseGold
 import ee.schimke.composeai.rcconformance.runner.ConformanceEngine
@@ -10,10 +11,16 @@ import ee.schimke.composeai.rcconformance.runner.ConformanceSession
 import ee.schimke.composeai.rcconformance.runner.Diff
 import ee.schimke.composeai.rcconformance.runner.Observation
 import ee.schimke.composeai.rcconformance.runner.UnsupportedStepKind
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import javax.imageio.ImageIO
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
@@ -179,5 +186,120 @@ class RunnerAccountingTest {
     assertEquals("SUSPICIOUS", result.status, "a disputed gold must not count against the player")
     assertEquals("FAIL", result.rawStatus, "…but the real verdict is still recorded")
     assertTrue(result.diffs.isNotEmpty())
+  }
+
+  // ---------------------------------------------------------------- raster evidence
+
+  /** An opaque, single-colour frame as a `data:image/png;base64,…` URI, the gold's own format. */
+  private fun solidDataUri(argb: Int): String {
+    val image = BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB)
+    image.setRGB(0, 0, 8, 8, IntArray(64) { argb }, 0, 8)
+    val bytes =
+      ByteArrayOutputStream().use { out ->
+        ImageIO.write(image, "png", out)
+        out.toByteArray()
+      }
+    @OptIn(ExperimentalEncodingApi::class)
+    return "data:image/png;base64," + Base64.encode(bytes)
+  }
+
+  /** A straight-RGBA frame, per pixel. */
+  private fun frame(pixel: (Int) -> Int) =
+    ByteArray(8 * 8 * 4).also { out ->
+      for (p in 0 until 8 * 8) {
+        val argb = pixel(p)
+        out[p * 4] = ((argb shr 16) and 0xFF).toByte()
+        out[p * 4 + 1] = ((argb shr 8) and 0xFF).toByte()
+        out[p * 4 + 2] = (argb and 0xFF).toByte()
+        out[p * 4 + 3] = ((argb shr 24) and 0xFF).toByte()
+      }
+    }
+
+  private fun rasterGold(expect: String, tolerance: Int = 16): Gold =
+    gold(
+      timeline = """[{"id":"initial","kind":"paint"}]""",
+      checks = """[{"at":"initial","probe":"raster","expect":"$expect","tolerance":$tolerance}]""",
+    )
+
+  @Test
+  fun aPassingRasterStillPublishesItsEvidence() {
+    // The old runner published the differing-pixel count only where the check failed, so every
+    // passing card in the generated audit read "Differing px: n/a" under a "?" badge. A check that
+    // passed is exactly where a reader most wants the numbers that say why.
+    val red = 0xFFE53935.toInt() // the corpus's own Material red
+    val nearRed = { p: Int ->
+      // Four pixels one channel-step off: raw-different, sub-threshold, and no verdict input.
+      if (p < 4) 0xFFE43935.toInt() else red
+    }
+    val result =
+      ConformanceRunner(
+          FakeEngine(drivable = setOf("paint")) { Observation.Raster(8, 8, frame(nearRed)) }
+        )
+        .run(rasterGold(solidDataUri(red)))
+
+    assertEquals("PASS", result.status)
+    val comparison = result.rasterComparisons.single()
+    assertEquals(4, comparison.differingPixels, "the raw deltas are still counted")
+    assertEquals(0, comparison.aaPixels, "nothing reached the verdict's threshold")
+    assertEquals(1, comparison.maxDelta)
+    assertEquals(64, comparison.totalPixels)
+    assertTrue(comparison.rmse != null && comparison.rmse > 0.0)
+    assertTrue(comparison.diffHeatmapBase64!!.startsWith("data:image/png;base64,"))
+  }
+
+  @Test
+  fun aFailingRasterReportsTheNumberItFailedOn() {
+    // The pixel badge the audit renders is coloured from `aaPixels` against the tolerance, so it
+    // must be the count the verdict used — the badge and the PASS/FAIL row cannot be allowed to
+    // tell two different stories about the same frames.
+    val result =
+      ConformanceRunner(
+          FakeEngine(drivable = setOf("paint")) {
+            Observation.Raster(8, 8, frame { 0xFF2196F3.toInt() }) // blue where the gold is red
+          }
+        )
+        .run(rasterGold(solidDataUri(0xFFE53935.toInt())))
+
+    assertEquals("FAIL", result.status)
+    val comparison = result.rasterComparisons.single()
+    val counted = comparison.aaPixels
+    checkNotNull(counted)
+    assertEquals(64, counted, "every pixel moved three channels at full strength")
+    assertEquals(196, comparison.maxDelta) // 0xE5 → 0x21 in red, the widest single-channel move
+    val diffRow = result.diffs.single { it.property == "differing_pixels" }
+    assertEquals(counted.toDouble(), (diffRow.actual as JsonPrimitive).content.toDouble())
+  }
+
+  @Test
+  fun theResultsFileCarriesTheFieldsTheAuditGeneratorReads() {
+    val red = 0xFFE53935.toInt()
+    val rendered =
+      ConformanceRunner(
+          FakeEngine(drivable = setOf("paint")) {
+            Observation.Raster(8, 8, frame { 0xFF2196F3.toInt() })
+          }
+        )
+        .run(rasterGold(solidDataUri(red)))
+
+    val file = Results.render("fake", "test", listOf(rendered), "corpus")
+    val entry = (file["results"] as JsonArray).single().jsonObject
+    // Top level: what renderOneComparison draws for the initial step.
+    assertEquals(64, (entry["aaPixels"] as JsonPrimitive).content.toInt())
+    assertEquals(64, (entry["differingPixels"] as JsonPrimitive).content.toInt())
+    assertEquals(64, (entry["totalPixels"] as JsonPrimitive).content.toInt())
+    assertEquals(16.0, (entry["rasterTolerance"] as JsonPrimitive).content.toDouble())
+    assertTrue((entry["rmse"] as JsonPrimitive).content.toDouble() > 0.0)
+    assertEquals(196, (entry["maxDelta"] as JsonPrimitive).content.toInt())
+    assertTrue((entry["diffHeatmapBase64"] as JsonPrimitive).content.startsWith("data:image/png"))
+    assertTrue(
+      (entry["renderedCanvasBase64"] as JsonPrimitive).content.startsWith("data:image/png")
+    )
+    // And per step, which is what the resize/animation views read.
+    val stepComparison = (entry["rasterComparisons"] as JsonArray).single().jsonObject
+    assertEquals("initial", (stepComparison["at"] as JsonPrimitive).content)
+    assertEquals(64, (stepComparison["aaPixels"] as JsonPrimitive).content.toInt())
+    assertTrue(
+      (stepComparison["diffHeatmapBase64"] as JsonPrimitive).content.startsWith("data:image/png")
+    )
   }
 }

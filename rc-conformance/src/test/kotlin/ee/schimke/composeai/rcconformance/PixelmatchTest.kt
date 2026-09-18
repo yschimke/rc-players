@@ -82,4 +82,70 @@ class PixelmatchTest {
       "random noise scored only $differing against a disc; the metric forgives almost anything",
     )
   }
+
+  @Test
+  fun thePublishedEvidenceAgreesWithTheVerdictItExplains() {
+    // One walk feeds both the verdict and the report. If the two ever part ways — the heatmap
+    // disagreeing with the badge beside it — a reader cannot tell which to believe, so the
+    // equality is pinned on every case above rather than trusted.
+    val cases =
+      mapOf(
+        "itself" to (disc() to disc()),
+        "one-pixel shift" to (disc(offsetX = 1) to disc()),
+        "transparent vs white" to
+          (ByteArray(width * height * 4) to ByteArray(width * height * 4) { 255.toByte() }),
+        "noise vs disc" to
+          (run {
+            val random = Random(seed = 1)
+            ByteArray(width * height * 4) {
+              if (it % 4 == 3) 255.toByte() else random.nextInt(256).toByte()
+            }
+          } to disc()),
+      )
+    for ((name, pair) in cases) {
+      val (actual, expected) = pair
+      val walk = Pixelmatch.compare(actual, expected, width, height)
+      assertEquals(
+        Pixelmatch.countDiff(actual, expected, width, height),
+        walk.hardDiffs,
+        "$name: the reported verdict and the published evidence disagree",
+      )
+      assertEquals(
+        walk.hardDiffs + walk.aaExplained,
+        walk.magnitude.count { it.toInt() != 0 },
+        "$name: the heatmap marks a different pixel set than the verdict walked",
+      )
+    }
+  }
+
+  @Test
+  fun theSummaryStatisticsAreTheStraightRgbaDeltas() {
+    // Hand-computable: one pixel's red channel moved by 10, nothing else. The perceptual walk
+    // scores nothing (a 10-step red shift is far inside the guide's threshold), but the published
+    // numbers must still show exactly what moved.
+    val width = 2
+    val height = 2
+    fun solid(red: Int): ByteArray {
+      val out = ByteArray(width * height * 4)
+      for (pixel in 0 until width * height) {
+        out[pixel * 4] = red.toByte()
+        out[pixel * 4 + 1] = 0
+        out[pixel * 4 + 2] = 0
+        out[pixel * 4 + 3] = 255.toByte()
+      }
+      return out
+    }
+
+    val actual = solid(255).also { it[0] = 245.toByte() } // one channel, one pixel
+    val walk = Pixelmatch.compare(actual, solid(255), width, height)
+
+    assertEquals(0, walk.hardDiffs, "a sub-threshold shift is not a verdict difference")
+    assertEquals(0, walk.aaExplained)
+    assertEquals(1, walk.rawDiffs)
+    assertEquals(10, walk.maxDelta)
+    assertEquals(2.5, walk.rmse, 1e-9, "sqrt(10² / (2·2·4 channels))")
+    // And the heatmap marks nothing: painting this pixel would put ink under a green "0 px"
+    // badge, which is the map arguing with its own verdict.
+    assertEquals(0, walk.magnitude.count { it.toInt() != 0 })
+  }
 }
