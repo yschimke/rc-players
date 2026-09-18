@@ -16,6 +16,13 @@ public enum class RcOperationStatus {
    * (yschimke/wear-m3-catalog#321) — so it belongs in the CMP profiles and must stay out of
    * [RcOperationProfiles.ANDROIDX_JAVA_ALPHA18]. Marking it plain `implemented` would advertise it
    * to a producer targeting the Java player, which would then fail to read its own document.
+   *
+   * **This status is a version gate, not a permanent fact.** androidx-main `79a5f0ae90c`
+   * uncommented the `DRAW_TEXT_ON_CIRCLE` reader in `Operations.java`, replaced the operation's
+   * `UnsupportedOperationException` with a `PaintContext.drawTextOnCircle`, and implemented that
+   * for the Android paint context. The row moves to `implemented` — and the operation becomes
+   * comparable against the AndroidX lanes rather than CMP-only — with the first AndroidX release
+   * this repo resolves that carries it. Whoever bumps that version owns this line.
    */
   IMPLEMENTED_UPSTREAM_UNAVAILABLE,
 }

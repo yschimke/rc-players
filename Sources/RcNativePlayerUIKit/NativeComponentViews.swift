@@ -1006,36 +1006,36 @@
 
     /// MODIFIER_GRAPHICS_LAYER's 2D attributes.
     ///
-    /// The origin is the contested part, and the choice here is deliberate and costly. No document
-    /// on the catalog sheet carries `TRANSFORM_ORIGIN`, so the default decides every transform, and
-    /// upstream disagrees with itself: `remote-core` declares 0, `remote-creation-compose` omits
-    /// the attribute at 0.5. This player follows `remote-core` and uses **0**.
-    ///
-    /// What that costs, measured rather than assumed: the only attribute any document on the sheet
-    /// sets is `SCALE_X = -1`, a horizontal mirror, on the 50 `pageindicator-vertical__ideal__left-*`
-    /// variants. About an origin of 0 a mirror maps x to -x, so their content lands entirely off
-    /// the left of the canvas and they render blank -- 0 opaque pixels, against 544 for the
-    /// untransformed sibling. About the centre they land at x 10..26, the exact mirror of that
-    /// sibling's 359..373. So origin 0 is known to draw these 50 documents empty, and they are
-    /// scored as rendered rather than declined while doing it. Changing `dx`/`dy` below to
-    /// `origin - anchor` for an origin of (w/2, h/2) is the whole difference.
+    /// The origin is the part that needed deciding. No document on the catalog sheet carries
+    /// `TRANSFORM_ORIGIN`, so the default decides every transform on it, and the declared
+    /// `remote-core` default -- 0, the top-left -- is not what any AndroidX lane actually draws for
+    /// an absent attribute. This player centres, and `graphicsLayerTransformOrigin` below carries
+    /// the derivation and the measurement.
     ///
     /// CALayer applies `transform` about its own anchor point, so an origin of (0, 0) has to be
     /// folded into the matrix rather than assumed. For a linear part S and an anchor at A, the
     /// transform that behaves as if applied about p is S with a translation of (I - S)(p - A);
     /// with p = (0, 0) that is -(I - S)A. Recomputed from `bounds` on every layout pass, so it
     /// stays correct through resizes and never compounds.
-    /// **Temporary.** The transform origin used when a document does not state one.
+    /// The transform origin used when a document does not state one.
     ///
-    /// `TRANSFORM_ORIGIN` is contested upstream: `remote-core` declares a default of `0f`, while
-    /// `remote-creation-compose` omits the attribute at `0.5f` — see #155 and #153. No document on
-    /// the catalog sheet carries the attribute, so this default decides every transform on the
-    /// sheet, and the two candidates are not close: they differ by the component's whole size.
+    /// `TRANSFORM_ORIGIN` looked contested — `remote-core` declares a default of `0f` while
+    /// `remote-creation-compose` omitted the attribute at `0.5f` (#155, #153) — and this centred
+    /// on measured evidence while the disagreement stood. The disagreement has since resolved, in
+    /// favour of centring, and for a reason rather than a preference:
     ///
-    /// This follows `remote-creation-compose` and centres, **against** the declared `remote-core`
-    /// default, because the declared one is measurably wrong on every document that exercises it.
-    /// The only attribute any catalog document sets is `SCALE_X = -1`, a horizontal mirror, on the
-    /// 50 `pageindicator-vertical__ideal__left-*` variants:
+    /// * `GraphicsLayerModifierOperation.fillInAttributes` records an attribute only when its value
+    ///   differs from the declared default, and `PaintContext.setGraphicsLayer` applies only the
+    ///   keys it is handed. An absent origin therefore never reaches the layer, which keeps its own
+    ///   pivot — its centre. The declared `0f` is what makes the attribute absent; it is not a
+    ///   value any lane applies.
+    /// * androidx-main `4969cdd96c6` then fixed the writer to omit `0f` rather than `0.5f`, so a
+    ///   document that means top-left now says so explicitly and arrives with the attribute
+    ///   present. Nothing is lost by defaulting to the centre.
+    ///
+    /// The measurement that first forced this remains the check on it. The only attribute any
+    /// catalog document sets is `SCALE_X = -1`, a horizontal mirror, on the 50
+    /// `pageindicator-vertical__ideal__left-*` variants:
     ///
     /// | origin | those 50 documents |
     /// | --- | --- |
@@ -1045,14 +1045,14 @@
     /// Worse than wrong, `0` is *invisible*: those documents score 0.26% different while drawing
     /// nothing, because the indicator is ~518 pixels on a 384x384 canvas. No lane output flags it.
     ///
-    /// ### Reverting this
+    /// ### The one thing that would change this
     ///
-    /// Delete this function and use `.zero` for `origin` in `applyGraphicsLayer`. Do that when an
-    /// AndroidX release settles the default — either `remote-creation-compose` starts writing
-    /// `TRANSFORM_ORIGIN` explicitly, in which case no default is load-bearing, or `remote-core`'s
-    /// `0f` is corrected. Until then this is a deliberate, measured deviation rather than a reading
-    /// of the protocol, which is why it is a named function with the evidence attached instead of a
-    /// `.zero` nobody would question.
+    /// An AndroidX lane that pivots an absent origin at the top-left. `remote-player-compose`'s
+    /// embedded player now reads the attribute's source directly and does pivot there — it does
+    /// not consult `needsToWrite` — so it and the `RenderNode` lanes disagree on documents captured
+    /// before `4969cdd96c6`. If that reading becomes the one AndroidX settles on, delete this
+    /// function and use `.zero` for `origin` in `applyGraphicsLayer`; `rc-player-compose` carries
+    /// the same default, in `RcGraphicsLayerValues`, and would move with it.
     private static func graphicsLayerTransformOrigin(of size: CGSize) -> CGPoint {
       CGPoint(x: size.width / 2, y: size.height / 2)
     }

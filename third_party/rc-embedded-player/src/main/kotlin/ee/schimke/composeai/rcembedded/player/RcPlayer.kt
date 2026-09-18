@@ -172,6 +172,14 @@ public fun RcPlayer(
 
       resolveAndroidThemeColors(context, document)
       it.paintTheme = resolvedTheme
+      // Resolving a `ColorTheme` only picks the mode's colour; nothing has written it into the
+      // context yet, and the effect below does not run until after the first frame is composed —
+      // so without this the first frame drew every themed colour at its authored default.
+      // androidx-main `6e43f08a938`.
+      document.themedColors.orEmpty().forEach { themeColor ->
+        themeColor.setTheme(it, resolvedTheme)
+        themeColor.apply(it)
+      }
 
       document.setLayoutCallback {}
 
@@ -216,8 +224,17 @@ public fun RcPlayer(
     }
   }
 
-  LaunchedEffect(remoteContext, resolvedTheme) {
-    document.themedColors.orEmpty().forEach { it.setTheme(remoteContext, resolvedTheme) }
+  // Keyed on `context` as well: a host that moves the player to a different `Context` — a
+  // configuration change, a themed `ContextWrapper` — resolves `android.R.color` to different
+  // values, and re-resolving is what makes the switch visible. `apply` then writes the newly
+  // selected colour into the context, which `setTheme` alone does not do. androidx-main
+  // `6e43f08a938`.
+  LaunchedEffect(remoteContext, resolvedTheme, context) {
+    resolveAndroidThemeColors(context, document)
+    document.themedColors.orEmpty().forEach { themeColor ->
+      themeColor.setTheme(remoteContext, resolvedTheme)
+      themeColor.apply(remoteContext)
+    }
     remoteContext.paintTheme = resolvedTheme
   }
 

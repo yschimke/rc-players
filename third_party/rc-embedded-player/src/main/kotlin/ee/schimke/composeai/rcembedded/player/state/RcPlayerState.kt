@@ -182,7 +182,7 @@ internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
   return remember(document, id) { derivedStateOf { context.getFloat(id) } }
 }
 
-private fun expressionDependsOnAnimation(
+internal fun expressionDependsOnAnimation(
   expressions: Map<Int, androidx.compose.remote.core.operations.FloatExpression>,
   id: Int,
   visiting: MutableSet<Int> = mutableSetOf(),
