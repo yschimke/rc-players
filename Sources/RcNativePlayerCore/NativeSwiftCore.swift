@@ -1703,8 +1703,19 @@ private enum NativeSwiftDocumentDecoder {
         break
       case 16:  // Width
         let node = try currentNode(stack, input: input)
-        node.widthType = try input.dimensionType("width type")
-        node.widthWord = try input.word("width")
+        let widthType = try input.dimensionType("width type")
+        let widthWord = try input.word("width")
+        // First one wins, because these are a Compose modifier *chain*, not a property. AndroidX
+        // emits `width(172.dp)` followed by `fillMaxWidth()` on every title card: the outer
+        // modifier fixes the constraint at 172dp and the inner fill then fills exactly that, so the
+        // outer is the one that decides. Overwriting instead kept the fill and drew the card at the
+        // document's full width — 454 instead of 344, the largest single divergence on the catalog
+        // corpus. `WRAP` is the absence of a size modifier rather than one of its own, so it never
+        // claims the slot and never displaces what an earlier modifier set.
+        if node.widthType == 2 {
+          node.widthType = widthType
+          node.widthWord = widthWord
+        }
       case 55:  // Background
         let node = try currentNode(stack, input: input)
         let flags = try input.int("background flags")
@@ -1733,8 +1744,13 @@ private enum NativeSwiftDocumentDecoder {
           bottom: try input.word("padding bottom"))
       case 67:  // Height
         let node = try currentNode(stack, input: input)
-        node.heightType = try input.dimensionType("height type")
-        node.heightWord = try input.word("height")
+        let heightType = try input.dimensionType("height type")
+        let heightWord = try input.word("height")
+        // See `case 16`: the outer modifier of a chain decides, and `WRAP` is not a modifier.
+        if node.heightType == 2 {
+          node.heightType = heightType
+          node.heightWord = heightWord
+        }
       case 80:  // Float constant
         let floatID = try input.int("float id")
         let constantWord = try input.word("float value")

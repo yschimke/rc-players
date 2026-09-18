@@ -641,6 +641,22 @@
       componentView.layoutDirection =
         effectiveUserInterfaceLayoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
       refineBoundGeometry()
+      if var path = ProcessInfo.processInfo.environment["RC_NATIVE_DUMP_TREE"] {
+        if !path.hasPrefix("/") {
+          let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+          path = documents.first.map { $0.appendingPathComponent(path).path } ?? path
+        }
+        var lines: [String] = []
+        componentView.dumpTree(depth: 0, into: &lines)
+        let text = lines.joined(separator: "\n") + "\n"
+        if let existing = FileHandle(forWritingAtPath: path) {
+          existing.seekToEndOfFile()
+          existing.write(Data(text.utf8))
+          try? existing.close()
+        } else {
+          try? text.write(toFile: path, atomically: true, encoding: .utf8)
+        }
+      }
     }
 
     /// Re-resolves the document against the geometry its components were just laid out at.
@@ -1071,6 +1087,24 @@
     /// structural views are sized perfectly well and only the unsized ones need an ancestor's size.
     private var laidOutSize: CGSize? {
       bounds.isEmpty ? nil : bounds.size
+    }
+
+    /// Prints this subtree's laid-out geometry, for comparing against the reference player's.
+    ///
+    /// Gated on `RC_NATIVE_DUMP_TREE` because it is a diagnostic, not a feature: the reference
+    /// publishes the same information through Compose semantics, and the two dumps side by side are
+    /// how a layout divergence gets localised to one component.
+    func dumpTree(depth: Int, into lines: inout [String]) {
+      let indent = String(repeating: "  ", count: depth)
+      let f = frame
+      lines.append(
+        "\(indent)id=\(node.componentID) \(node.kind) "
+          + "pos=(\(Int(f.minX)),\(Int(f.minY))) size=\(Int(f.width))x\(Int(f.height))"
+          + " w=\(node.widthType)/\(node.widthValue) h=\(node.heightType)/\(node.heightValue)"
+          + " wIn=\(node.minimumWidth)..\(String(describing: node.maximumWidth))"
+          + " hIn=\(node.minimumHeight)..\(String(describing: node.maximumHeight))"
+          + " structural=\(isStructural)")
+      for child in componentChildren { child.dumpTree(depth: depth + 1, into: &lines) }
     }
 
     func collectMeasuredSizes(
