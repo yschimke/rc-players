@@ -126,6 +126,22 @@ enum NativeSwiftCoreTests {
       let imageID = snapshot.root.firstImage?.imageID ?? snapshot.root.firstTextureImageID
       precondition(imageID == snapshot.images[0].id, "image button has no native bitmap draw")
       precondition(snapshot.root.firstTextureCommand?.usesComponentGeometry == true)
+      // The texture's shader matrix maps the 8x8 bitmap over the button — a 21.5x scale and a
+      // -56 vertical offset, both computed by a MATRIX_EXPRESSION. The renderer used to drop it and
+      // tile the bitmap at its natural size.
+      let matrix = snapshot.root.firstTextureCommand?.shaderMatrix
+      precondition(matrix?.count == 9, "texture shader matrix was \(String(describing: matrix))")
+      precondition(
+        abs((matrix?[0] ?? 0) - 21.5) < 0.01 && abs((matrix?[4] ?? 0) - 21.5) < 0.01,
+        "texture matrix scale was \(String(describing: matrix))")
+      precondition(
+        abs((matrix?[5] ?? 0) + 56) < 0.01,
+        "texture matrix translateY was \(String(describing: matrix))")
+      // Setting the scrim's gradient replaces the texture shader. The texture id used to survive
+      // the gradient, and the renderer's texture branch then drew the image a second time.
+      let scrim = snapshot.root.allCommands.first { $0.gradient != nil }
+      precondition(
+        scrim?.textureImageID == nil, "the gradient scrim still carried the texture shader")
       guard let button = snapshot.root.firstClickable else {
         preconditionFailure("image button has no clickable component")
       }
@@ -439,6 +455,10 @@ extension NativeSwiftNodeSnapshot {
   fileprivate var firstTextureCommand: NativeSwiftDrawCommandSnapshot? {
     commands.first(where: { $0.textureImageID != nil })
       ?? children.lazy.compactMap(\.firstTextureCommand).first
+  }
+
+  fileprivate var allCommands: [NativeSwiftDrawCommandSnapshot] {
+    commands + children.flatMap(\.allCommands)
   }
 }
 
