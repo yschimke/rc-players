@@ -114,6 +114,7 @@ public fun RcPlayer(
   pendingIntents: IntObjectMap<PendingIntent> = emptyIntObjectMap(),
 ) {
   val clock = remember(document) { document.clock }
+  val inspector = LocalRcPlayerInspector.current
 
   // `SYSTEM` / `UNSPECIFIED` become a concrete mode here, once, before anything branches on them.
   val systemInDarkTheme = isSystemInDarkTheme()
@@ -346,6 +347,7 @@ public fun RcPlayer(
           val position = it.positionOnScreen()
           document.setOrigin(position.x, position.y)
           size = it.size
+          inspector?.recordRootCoords(it)
         }
         .pointerInput(document, remoteContext) {
           awaitPointerEventScope {
@@ -400,11 +402,13 @@ public fun RcPlayer(
       LocalComponentValueStateMap provides componentValueStateMap,
       LocalCurrentTimeMillis provides currentTimeMillisState,
       LocalTypefaceResolver provides remoteContext.typefaceResolver,
+      LocalRcPlayerInspector provides inspector,
       LocalGraphContext provides graphContext,
       LocalRcImageLoader provides resolvedImageLoader,
       LocalRemoteActionHandler provides onAction,
       LocalRemoteNamedActionHandler provides
         { name, value ->
+          inspector?.recordHostAction(name, value)
           val lambdaId = LambdaAction.parseId(name)
           if (lambdaId != null) {
             lambdas[lambdaId]?.invoke()

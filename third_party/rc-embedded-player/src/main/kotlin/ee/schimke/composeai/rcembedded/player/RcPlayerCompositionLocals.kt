@@ -34,6 +34,12 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
+
+internal val LocalRcPlayerInspector: ProvidableCompositionLocal<RcPlayerInspector?> =
+  staticCompositionLocalOf {
+    null
+  }
 
 internal val LocalCoreDocument: ProvidableCompositionLocal<CoreDocument> = compositionLocalOf {
   throw IllegalStateException("No document")
