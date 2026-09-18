@@ -14,9 +14,9 @@
   "skipped": 0,
   "suspicious": 3,
   "checks_total": 910,
-  "checks_failed": 471,
+  "checks_failed": 467,
   "advisory_total": 605,
-  "advisory_failed": 340
+  "advisory_failed": 255
  },
  "results": [
   {
@@ -79,14 +79,11 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 2,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "draw_log:commands": 1,
-    "raster": 1
+    "draw_log:commands": 1
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "canvas_clip_rect",
@@ -884,14 +881,9 @@
    "checks_total": 3,
    "checks_failed": 2,
    "diffs_by_probe": {
-    "raster": 3,
     "tree": 4
    },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_all_fit",
@@ -901,14 +893,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_background_border",
@@ -918,14 +904,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_child_graphicslayer",
@@ -952,14 +932,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_child_padding",
@@ -969,14 +943,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_child_visibility",
@@ -987,14 +955,9 @@
    "checks_total": 3,
    "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 3,
     "tree": 6
    },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_child_zindex",
@@ -1004,14 +967,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_container_gone",
@@ -1035,12 +992,9 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 1,
     "tree": 2
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_padding_container",
@@ -1050,14 +1004,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_priority_collapse",
@@ -1068,12 +1016,9 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 1,
     "tree": 2
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_scroll",
@@ -1102,16 +1047,12 @@
    "checks_total": 6,
    "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 6,
+    "raster": 2,
     "tree": 14
    },
    "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1",
     "resize_2",
-    "resize_3",
-    "resize_4"
+    "resize_3"
    ]
   },
   {
@@ -1122,14 +1063,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_spacing_collapse",
@@ -1140,12 +1075,9 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 1,
     "tree": 2
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_column_weights",
@@ -1155,14 +1087,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row",
@@ -1173,14 +1099,9 @@
    "checks_total": 3,
    "checks_failed": 2,
    "diffs_by_probe": {
-    "raster": 3,
     "tree": 4
    },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_all_fit",
@@ -1190,14 +1111,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_background_border",
@@ -1207,14 +1122,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_child_graphicslayer",
@@ -1241,14 +1150,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_child_padding",
@@ -1258,14 +1161,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_child_visibility",
@@ -1276,14 +1173,9 @@
    "checks_total": 3,
    "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 3,
     "tree": 6
    },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_child_zindex",
@@ -1293,14 +1185,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_container_gone",
@@ -1324,12 +1210,9 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 1,
     "tree": 2
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_padding_container",
@@ -1339,14 +1222,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_priority_collapse",
@@ -1357,12 +1234,9 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 1,
     "tree": 2
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_scroll",
@@ -1391,16 +1265,12 @@
    "checks_total": 6,
    "checks_failed": 3,
    "diffs_by_probe": {
-    "raster": 6,
+    "raster": 2,
     "tree": 14
    },
    "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1",
     "resize_2",
-    "resize_3",
-    "resize_4"
+    "resize_3"
    ]
   },
   {
@@ -1411,14 +1281,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_spacing_collapse",
@@ -1429,12 +1293,9 @@
    "checks_total": 1,
    "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 1,
     "tree": 2
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "collapsible_row_weights",
@@ -1444,14 +1305,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "column_align_center_mixed_widths",
@@ -2112,14 +1967,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "flow_max_columns",
@@ -2624,15 +2473,11 @@
    "checks_total": 5,
    "checks_failed": 2,
    "diffs_by_probe": {
-    "raster": 5,
+    "raster": 1,
     "tree": 6
    },
    "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1",
-    "resize_2",
-    "resize_3"
+    "resize_2"
    ]
   },
   {
@@ -2644,15 +2489,11 @@
    "checks_total": 5,
    "checks_failed": 2,
    "diffs_by_probe": {
-    "raster": 5,
+    "raster": 1,
     "tree": 6
    },
    "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1",
-    "resize_2",
-    "resize_3"
+    "resize_2"
    ]
   },
   {
@@ -3180,15 +3021,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 2,
    "diffs_by_probe": {
     "ops:count": 1,
-    "raster": 1,
     "records:components": 1
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "loom_macro_multi_instance",
@@ -3197,15 +3035,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 2,
    "diffs_by_probe": {
     "ops:count": 1,
-    "raster": 1,
     "records:components": 1
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "loom_nested_macros",
@@ -3214,15 +3049,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 2,
    "diffs_by_probe": {
     "ops:count": 1,
-    "raster": 1,
     "records:components": 1
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
   },
   {
    "name": "loom_slot_blocks",

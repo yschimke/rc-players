@@ -8,15 +8,15 @@ Published by the scheduled `Conformance` workflow. This branch carries **only** 
 | --- | ---: |
 | Core golds passed | **182 / 241** (75.5%) |
 | Raster disagreements | 195 |
-| …not shared with a reference lane | **1** |
+| …not shared with a reference lane | **8** |
 
-Of 195 frames where `cmp` disagrees with the reference image, 194 are frames a reference lane fails too. 1 is the subject lane's alone — and that is the number worth acting on.
+Of 195 frames where `cmp` disagrees with the reference image, 187 are frames a reference lane fails too. 8 are the subject lane's alone — and that is the number worth acting on.
 
 ## Trend
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
-| [`2026-09-18`](runs/2026-09-18/README.md) | 132 / 241 | 182 / 241 | 0 / 241 | 199 / 241 | `72e92bf` |
+| [`2026-09-18`](runs/2026-09-18/README.md) | 132 / 241 | 182 / 241 | 0 / 241 | 199 / 241 | `cd14467` |
 | [`2026-09-17`](runs/2026-09-17/README.md) | 132 / 241 | 182 / 241 | 0 / 241 | 199 / 241 | `6933661` |
 
 `history.csv` holds every row, including runs older than the table above.

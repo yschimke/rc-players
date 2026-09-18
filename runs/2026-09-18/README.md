@@ -2,7 +2,7 @@
 
 Every player in this repository, scored against the AndroidX RemoteCompose conformance corpus. The corpus comes from an unmerged AOSP Gerrit change and is held on `vendor/androidx-rc-conformance`; it is deliberately not in the main line.
 
-Measured at `72e92bf0a87ad693281432f9711777c0d8689a1a` on `main`.
+Measured at `cd1446789ae5b6ef6196e42bb46fe984ff33ea62` on `main`.
 
 ## Lanes
 
@@ -11,7 +11,7 @@ Measured at `72e92bf0a87ad693281432f9711777c0d8689a1a` on `main`.
 | lane | core golds | pass rate | extended | raster disagreements | errored |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `cmp` | 182 / 241 | 75.5% | 0 / 8 | 195 | 2 |
-| `androidx-jvm` | 132 / 241 | 54.8% | 0 / 8 | 358 | 1 |
+| `androidx-jvm` | 132 / 241 | 54.8% | 0 / 8 | 269 | 1 |
 | `native-appkit` | 0 / 241 | 0.0% | 0 / 8 | 368 | 0 |
 | `typescript` | 199 / 241 | 82.6% | 6 / 8 | 224 | 0 |
 
@@ -96,12 +96,19 @@ The corpus was generated *by* AndroidX, from its own player. So a gold both lane
 
 | compared against | shared failures | unique to `cmp` |
 | --- | ---: | ---: |
-| `androidx-jvm` | 194 | 1 |
+| `androidx-jvm` | 184 | 11 |
 | `typescript` | 161 | 34 |
 
 Unique to `cmp`, in full:
 
+- `canvas_bitmap_scaled` at `initial`
 - `canvas_shader_gradient` at `initial`
+- `collapsible_column_weights` at `initial`
+- `collapsible_column_weights` at `resize_0`
+- `collapsible_column_weights` at `resize_1`
+- `collapsible_row_weights` at `initial`
+- `collapsible_row_weights` at `resize_0`
+- `collapsible_row_weights` at `resize_1`
 
 ## `cmp` by subsystem
 
