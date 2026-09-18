@@ -21,7 +21,6 @@ package ee.schimke.composeai.rcembedded.player
 import androidx.collection.mutableIntObjectMapOf
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.Operation
-import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.VariableProvider
 import androidx.compose.remote.core.VariableSupport
 import androidx.compose.remote.core.operations.BitmapData
@@ -33,6 +32,8 @@ import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.NamedVariable
 import androidx.compose.remote.core.operations.ParticlesCompare
 import androidx.compose.remote.core.operations.ParticlesLoop
+import androidx.compose.remote.core.operations.TextFromFloat
+import androidx.compose.remote.core.operations.TimeAttribute
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.WakeIn
 import androidx.compose.remote.core.operations.layout.Component
@@ -41,6 +42,7 @@ import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.compose.remote.core.operations.layout.LayoutComponentContent
 import androidx.compose.remote.core.operations.utilities.AnimatedFloatExpression
 import androidx.compose.remote.core.operations.utilities.NanMap
+import androidx.compose.ui.util.fastForEach
 
 internal class DocumentPreprocessResult(
   val globalOps: ArrayList<Operation>,
@@ -50,8 +52,8 @@ internal class DocumentPreprocessResult(
   val componentValueMap: Map<Int, List<ComponentValue>>,
   val hasParticles: Boolean,
   val hasWakeIn: Boolean,
-  val hasAnimations: Boolean,
-  val isTimeDependent: Boolean,
+  val hasContinuousTime: Boolean,
+  val hasDiscreteTime: Boolean,
 )
 
 /** Collects every setup index and frame-loop flag in one traversal of the operation tree. */
@@ -75,8 +77,33 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
   val componentsById = mutableIntObjectMapOf<Component>()
   var hasParticles = false
   var hasWakeIn = false
+  var hasContinuousTime = false
+  var hasDiscreteTime = false
 
   fun visit(operation: Operation) {
+    if (operation is TextFromFloat && Utils.isVariable(operation.mValue)) {
+      val id = Utils.idFromNan(operation.mValue)
+      if (isContinuousTimeVariable(id)) {
+        hasContinuousTime = true
+      } else if (isDiscreteTimeVariable(id)) {
+        hasDiscreteTime = true
+      }
+    }
+
+    if (operation is TimeAttribute) {
+      val type = operation.mType.toInt() and 255
+      if (
+        type == TimeAttribute.TIME_FROM_NOW_SEC.toInt() ||
+          type == TimeAttribute.TIME_FROM_NOW_MIN.toInt() ||
+          type == TimeAttribute.TIME_FROM_NOW_HR.toInt() ||
+          type == TimeAttribute.TIME_FROM_LOAD_SEC.toInt()
+      ) {
+        hasContinuousTime = true
+      } else {
+        hasDiscreteTime = true
+      }
+    }
+
     if (
       operation is ColorConstant ||
         operation is FloatConstant ||
@@ -104,6 +131,7 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
       if (content != null && content.componentId !in componentsById) {
         componentsById[content.componentId] = content
       }
+      operation.componentModifiers?.list?.fastForEach(::visit)
       operation.getCanvasOperations()?.let(::visit)
     }
     if (operation is Container) operation.getList().forEach(::visit)
@@ -118,11 +146,9 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
     componentValueMap.getOrPut(targetId) { ArrayList() }.add(operation)
   }
 
-  var hasAnimations = false
-  var isTimeDependent = false
   document.getFloatExpressionsReflection().values.forEach { expression ->
-    if (expression.mFloatAnimation != null) hasAnimations = true
-    if (!isTimeDependent && isExpressionTimeDependent(expression)) isTimeDependent = true
+    if (isExpressionContinuousTimeDependent(expression)) hasContinuousTime = true
+    if (isExpressionDiscreteTimeDependent(expression)) hasDiscreteTime = true
   }
   return DocumentPreprocessResult(
     globalOps,
@@ -132,12 +158,12 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
     componentValueMap,
     hasParticles,
     hasWakeIn,
-    hasAnimations,
-    isTimeDependent,
+    hasContinuousTime,
+    hasDiscreteTime,
   )
 }
 
-internal fun isExpressionTimeDependent(expression: FloatExpression): Boolean =
+internal fun isExpressionContinuousTimeDependent(expression: FloatExpression): Boolean =
   expression.mSrcValue.any { value ->
     if (
       !value.isNaN() ||
@@ -146,14 +172,22 @@ internal fun isExpressionTimeDependent(expression: FloatExpression): Boolean =
     ) {
       false
     } else {
-      when (Utils.idFromNan(value)) {
-        RemoteContext.ID_CONTINUOUS_SEC,
-        RemoteContext.ID_TIME_IN_SEC,
-        RemoteContext.ID_TIME_IN_MIN,
-        RemoteContext.ID_TIME_IN_HR,
-        RemoteContext.ID_EPOCH_SECOND,
-        RemoteContext.ID_ANIMATION_TIME -> true
-        else -> false
-      }
+      isContinuousTimeVariable(Utils.idFromNan(value))
     }
   }
+
+internal fun isExpressionDiscreteTimeDependent(expression: FloatExpression): Boolean =
+  expression.mSrcValue.any { value ->
+    if (
+      !value.isNaN() ||
+        AnimatedFloatExpression.isMathOperator(value) ||
+        NanMap.isDataVariable(value)
+    ) {
+      false
+    } else {
+      isDiscreteTimeVariable(Utils.idFromNan(value))
+    }
+  }
+
+internal fun isExpressionTimeDependent(expression: FloatExpression): Boolean =
+  isExpressionContinuousTimeDependent(expression) || isExpressionDiscreteTimeDependent(expression)

@@ -50,7 +50,6 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
   override fun cacheFloat(id: Int, item: Float) {
     super.cacheFloat(id, item)
     floats[id] = super.getFloat(id)
-    integers[id] = super.getInteger(id)
     colors[id] = super.getColor(id)
   }
 
@@ -60,7 +59,6 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
     val new = super.getFloat(id)
     if (new != old) {
       floats[id] = new
-      integers[id] = super.getInteger(id)
       colors[id] = super.getColor(id)
     }
   }
@@ -72,7 +70,6 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
     overriddenFloats[id] = true
     if (new != old) {
       floats[id] = new
-      integers[id] = super.getInteger(id)
       colors[id] = super.getColor(id)
     }
   }
@@ -82,9 +79,21 @@ internal class SnapshotRemoteComposeState : RemoteComposeState() {
 
   // --- Integer ---
   override fun getInteger(id: Int): Int {
-    if (id !in integers) {
-      integers[id] = super.getInteger(id)
+    if (id in integers) {
+      return integers[id] ?: 0
     }
+    // IDs below START_ID (42) are reserved for built-in system variables and literal enum
+    // constants (e.g. Component.Visibility.VISIBLE = 1). If no integer entry was written at this
+    // ID in RemoteComposeState, return the literal constant value directly.
+    if (id in 0 until RemoteComposeState.START_ID) {
+      val fromSuper = super.getInteger(id)
+      if (fromSuper != 0) {
+        integers[id] = fromSuper
+        return fromSuper
+      }
+      return id
+    }
+    integers[id] = super.getInteger(id)
     return integers[id] ?: 0
   }
 

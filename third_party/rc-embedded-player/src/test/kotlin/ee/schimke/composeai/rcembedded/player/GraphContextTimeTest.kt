@@ -21,87 +21,143 @@ package ee.schimke.composeai.rcembedded.player
 import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteContext
 import androidx.compose.runtime.mutableFloatStateOf
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * The time variables answer the [RemoteClock], not the frame clock.
+ *
+ * `730322a70ba` reworked `ID_TIME_IN_SEC/MIN/HR` and `ID_EPOCH_SECOND` onto `GraphTimeState`: they
+ * are wall-clock readings quantized per second, updated from the frame loop through `updateTime`.
+ * Only `ID_ANIMATION_TIME` / `ID_CONTINUOUS_SEC` are continuous, and even the continuous second is
+ * wall clock (second + fraction), not time *since the document started* — which is what these tests
+ * pin, with a clock whose every reading is a deterministic function of the millis it is asked at.
+ */
+private fun zoned(millis: Long) =
+  ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.UTC)
+
 class GraphContextTimeTest {
-  @Test
-  fun continuousSecondsTracksTheComposeFrameClock() {
-    val frameTimeMillis = mutableFloatStateOf(1_750f)
-    val context =
-      GraphContext(
-        realState = SnapshotRemoteComposeState(),
-        computedOps = emptyMap(),
-        timeMillis = frameTimeMillis,
-        clock = RemoteClock.SYSTEM,
-      )
 
-    assertEquals(1.75f, context.getFloat(RemoteContext.ID_CONTINUOUS_SEC), 0.0001f)
+  /** A [RemoteClock] whose readings are pure UTC arithmetic on [baseMillis]. */
+  private class FakeClock(private val baseMillis: Long) : RemoteClock {
+    override fun millis(): Long = baseMillis
 
-    frameTimeMillis.floatValue = 2_500f
+    override fun nanoTime(): Long = baseMillis * 1_000_000L
 
-    assertEquals(2.5f, context.getFloat(RemoteContext.ID_CONTINUOUS_SEC), 0.0001f)
+    override fun getZoneId(): String = "UTC"
+
+    override fun snapshot(millis: Long?): RemoteClock.TimeSnapshot {
+      val at = zoned(millis ?: baseMillis)
+      return object : RemoteClock.TimeSnapshot {
+        override fun getMillis(): Long = millis ?: baseMillis
+
+        override fun getYear(): Int = at.year
+
+        override fun getMonth(): Int = at.monthValue
+
+        override fun getDayOfMonth(): Int = at.dayOfMonth
+
+        override fun getDayOfYear(): Int = at.dayOfYear
+
+        override fun getHour(): Int = at.hour
+
+        override fun getMinute(): Int = at.minute
+
+        override fun getSecond(): Int = at.second
+
+        override fun getMillisOfSecond(): Int = at.nano / 1_000_000
+
+        override fun getDayOfWeek(): Int = at.dayOfWeek.value % 7
+
+        override fun getOffsetSeconds(): Int = 0
+      }
+    }
   }
 
-  /**
-   * The epoch second advances with the frame clock instead of staying at zero.
-   *
-   * `RcPlayerPreprocess` counts a reference to `ID_EPOCH_SECOND` as making a document
-   * time-dependent — `RcPlayerUpstreamSyncTest` pins that, and it matches upstream — so the frame
-   * loop runs forever for one. But nothing answered the id: it fell through to the store, which
-   * nothing writes, so the expression sat frozen while still costing every frame. The four relative
-   * ids above are milliseconds since the document started, which is what the loop publishes; this
-   * one is wall clock, so it needs the base the document started at added back on.
-   */
-  @Test
-  fun epochSecondAdvancesWithTheFrameClock() {
-    val frameTimeMillis = mutableFloatStateOf(0f)
-    val context = graphContext(frameTimeMillis)
+  /** A fixed wall clock, so an assertion is a number rather than a range. */
+  private val baseMillis = 1_787_243_445_000L
 
-    val start = context.getFloat(RemoteContext.ID_EPOCH_SECOND)
-    // A real epoch second, not zero: the store answer before this was 0f, which is 1970.
-    assertTrue("epoch second should be a wall-clock reading, was $start", start > 1_700_000_000f)
-
-    // Ten minutes of frames later. Ten rather than one because of the resolution below — this
-    // asserts the clock MOVES, and one second cannot show that through a Float.
-    frameTimeMillis.floatValue = 600_000f
-
-    assertEquals(start + 600f, context.getFloat(RemoteContext.ID_EPOCH_SECOND), 0f)
-  }
-
-  /**
-   * The float channel quantises, and documents that need the exact second read the integer one.
-   *
-   * A `Float` carries 24 bits of mantissa, so around 1.79e9 — where epoch seconds are — consecutive
-   * representable values are 256 apart. `RemoteContext.getFloat` is `Float`-typed, so this is a
-   * property of the wire rather than of this player, and it is why the frame loop seeds
-   * `loadInteger(ID_EPOCH_SECOND, …)` as well: the CMP player publishes the same variable as an
-   * integer for the same reason. Pinned so the limit is a documented fact rather than something a
-   * clock face discovers.
-   */
-  @Test
-  fun theFloatEpochSecondCannotResolveASingleSecond() {
-    val frameTimeMillis = mutableFloatStateOf(0f)
-    val context = graphContext(frameTimeMillis)
-
-    val start = context.getFloat(RemoteContext.ID_EPOCH_SECOND)
-    frameTimeMillis.floatValue = 1_000f
-
-    assertEquals(start, context.getFloat(RemoteContext.ID_EPOCH_SECOND), 0f)
-  }
-
-  private fun graphContext(timeMillis: androidx.compose.runtime.State<Float>) =
+  private fun graphContext(clock: RemoteClock) =
     GraphContext(
-        realState = SnapshotRemoteComposeState(),
-        computedOps = emptyMap(),
-        timeMillis = timeMillis,
-        clock = RemoteClock.SYSTEM,
-      )
-      .apply { epochBaseMillis = EPOCH_BASE_MILLIS }
+      realState = SnapshotRemoteComposeState(),
+      computedOps = emptyMap(),
+      timeMillis = mutableFloatStateOf(0f),
+      clock = clock,
+    )
 
-  private companion object {
-    /** A fixed wall clock, so an assertion is a number rather than a range. */
-    const val EPOCH_BASE_MILLIS = 1_787_243_445_250L
+  /** The `timeInSec` reading at [millis] — the same quantity the snapshot's default derives. */
+  private fun expectedTimeInSec(millis: Long): Float {
+    val at = zoned(millis)
+    return (at.minute * 60 + at.second).toFloat()
+  }
+
+  @Test
+  fun continuousSecondsTrackTheWallClockSecond() {
+    val context = graphContext(FakeClock(baseMillis))
+    context.updateTime(0f)
+
+    // Second + fraction: exactly on a boundary the fraction is zero.
+    assertEquals(
+      expectedTimeInSec(baseMillis),
+      context.getFloat(RemoteContext.ID_CONTINUOUS_SEC),
+      0.0001f,
+    )
+
+    // 1.75 s later: a new second (the base is aligned to one), so the continuous second reads the
+    // new boundary's timeInSec plus the 750 ms fraction.
+    context.updateTime(1_750f)
+    assertEquals(
+      expectedTimeInSec(baseMillis + 1_000L) + 0.75f,
+      context.getFloat(RemoteContext.ID_CONTINUOUS_SEC),
+      0.0001f,
+    )
+    assertEquals(
+      zoned(baseMillis + 1_750L).toEpochSecond(),
+      context.getInteger(RemoteContext.ID_EPOCH_SECOND).toLong(),
+    )
+  }
+
+  @Test
+  fun epochSecondIsTheWallClockSecondOnBothChannels() {
+    val context = graphContext(FakeClock(baseMillis))
+    context.updateTime(0f)
+
+    val start = zoned(baseMillis).toEpochSecond()
+    assertEquals(start.toInt(), context.getInteger(RemoteContext.ID_EPOCH_SECOND))
+    assertEquals(start.toFloat(), context.getFloat(RemoteContext.ID_EPOCH_SECOND), 0f)
+
+    // Ten minutes of frames later. The float channel quantizes to the whole second — it updates
+    // when the second changes, so ten whole minutes land exactly on both channels.
+    context.updateTime(600_000f)
+    assertEquals(start + 600, context.getInteger(RemoteContext.ID_EPOCH_SECOND).toLong())
+    assertEquals((start + 600).toFloat(), context.getFloat(RemoteContext.ID_EPOCH_SECOND), 0f)
+  }
+
+  @Test
+  fun discreteTimeDoesNotUpdateWithinASecond() {
+    val context = graphContext(FakeClock(baseMillis))
+    context.updateTime(0f)
+    val secAtStart = context.getFloat(RemoteContext.ID_TIME_IN_SEC)
+
+    // Half a second of frames: no second boundary crossed, so nothing discrete moves and the
+    // update reports false (the frame loop uses that to sleep instead of ticking).
+    val moved = context.updateTime(500f, updateContinuous = false)
+
+    assertFalse("a sub-second frame reported a discrete update", moved)
+    assertEquals(secAtStart, context.getFloat(RemoteContext.ID_TIME_IN_SEC), 0f)
+
+    // One second of frames, which does cross the boundary: the discrete fields move, and say so.
+    val movedAcross = context.updateTime(1_000f, updateContinuous = false)
+    assertTrue("crossing a second boundary reported no update", movedAcross)
+    assertEquals(
+      expectedTimeInSec(baseMillis + 1_000L),
+      context.getFloat(RemoteContext.ID_TIME_IN_SEC),
+      0.0001f,
+    )
   }
 }

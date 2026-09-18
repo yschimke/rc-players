@@ -44,6 +44,54 @@ padding, and graphics-layer floats; density-aware constraints and padding; requi
 semantics; fill-parent modes; and explicit fill fractions. The local graphics-layer adapter then
 adds the still-missing transform-origin mapping, which #98 continues to track upstream.
 
+### 2026-09-18 refresh
+
+Eight upstream commits ported as fix ports (the pin above is unchanged; the deferred `RcPlayerState`
+rework stays deferred — see the 2026-09-17 note):
+
+- `deeace26cf4` — GraphContext's per-operation `derivedStateOf` wrappers replaced by per-evaluation-pass
+  memoization (`EvalPassState`), so reconvergent expression DAGs evaluate in Θ(V+E) instead of
+  O(2^D).
+- `730322a70ba` — wall-clock and calendar time variables answered through a new `GraphTimeState`
+  (vendored verbatim and added to the JVM shared list): `ID_TIME_IN_SEC/MIN/HR` and `ID_EPOCH_SECOND`
+  are wall-clock readings quantized per second, `ID_ANIMATION_TIME`/`ID_CONTINUOUS_SEC` are the only
+  continuous ids and the continuous second is wall clock too. The frame loop distinguishes
+  continuous documents (per-frame loop), discrete-time documents (sleep to the next second) and
+  static ones (settle immediately), and preserves a document's custom `RemoteClock` instead of
+  substituting `RemoteClock.SYSTEM`. The fork's `epochBaseMillis`/`loadInteger(EPOCH_SECOND)` epoch
+  path and its `LocalEpochBaseMillis`/`LocalCurrentTimeMillis` resolver special-case are removed
+  with it. `GraphContextTimeTest` rewritten against the new model with a deterministic `FakeClock`.
+- `866099217` — `MultiClickModifier` support (all gesture types coalesced into one
+  `combinedClickable`) and literal integer ids below `RemoteComposeState.START_ID` answering their
+  constant value through `SnapshotRemoteComposeState`.
+- `2cebbfbd6` — a host-supplied `TypefaceResolver` delegates in `resolveFontFamily`. **Adapted:** the
+  fork's `GraphContext` cannot name `remote-player-core` types (the JVM half shares that file and
+  the artifact carries `android.graphics`), so the resolver seam is `LocalTypefaceResolver` declared
+  in the Android-only `RcPlayerTextLayout.kt` and provided by `RcPlayer` from the context's
+  resolver; the guard excludes this fork's `EmbeddedPlayerTypefaceResolver` (no
+  `GmsFontTypefaceResolver` here). Upstream's `RcPlayerStateImpl`-keyed propagation is likewise not
+  applicable.
+- `da8cde4e8` — root-level draw operations execute via `Canvas` ahead of the children, and
+  `filterQuality` is tracked from the paint bundle (ANTialias consumed; FILTER_BITMAP and
+  IMAGE_FILTER_QUALITY map onto Compose's `FilterQuality` at the rect-overload `drawImage` sites —
+  the `topLeft` overload has no such parameter).
+- `e84a025c9` — root pointer events (press/move/release forwarded to the document) and the
+  `SnapshotRemoteComposeState` integer literal resolution above.
+- `c8456354e` — FitBox probe constraints bound per candidate type (collapsibles get their collapse
+  axis), FitBox and StateLayout write GONE/VISIBLE child visibility for tree inspection, no-fit
+  content measures unclamped, StateLayout adopts its active child's size (`wrapContentSize`), and
+  `RcPlayerComponent`'s visibility gate defers to those two containers. The
+  `LocalRcPlayerInspector` hooks in this commit belong to the harness CL and are imported with it.
+- `ad58914fb` — CollapsibleLayout rewritten (vendored verbatim): weight-carrying children measured
+  once weights are known, explicit GONE skipped, spacing accounted in the collapse walk, Compose
+  `Arrangement` drives placement, container/child visibility written back, collapsed children record
+  the layout cursor. FlowRow's `verticalArrangement` honours the layout's positioning.
+
+Upstream's new test files are **not** vendored: they need upstream's `RcPlayerTestRule` /
+`EnableEmbeddedPlayerRule` and Google Truth, none of which this module carries. `GraphContextTimeTest`
+was rewritten (not ported) for the same reason. `:third-party-rc-embedded-player-jvm`'s shared list
+gains `GraphTimeState.kt`.
+
 ### 2026-09-17 refresh
 
 Two player-side fixes, imported file by file rather than by moving the pin: the commits below also
