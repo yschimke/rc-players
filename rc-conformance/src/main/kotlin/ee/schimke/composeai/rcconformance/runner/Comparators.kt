@@ -37,19 +37,33 @@ public data class Diff(
  * which walks the expectation and applies the tolerance to any number it meets.
  */
 public object Comparators {
-  public fun compare(check: Check, observation: Observation, tolerance: Double): List<Diff> =
+  /** What one check's comparison produced: its diffs and, for rasters, the evidence beside them. */
+  public data class Comparison(
+    public val diffs: List<Diff>,
+    /** Populated only for a `raster` check that produced a comparison at all. */
+    public val raster: RasterComparison? = null,
+  )
+
+  public fun compare(
+    check: Check,
+    observation: Observation,
+    tolerance: Double,
+    renderedCanvas: String? = null,
+  ): Comparison =
     when (observation) {
       is Observation.NotImplemented ->
-        listOf(diff(check, Diff.PROBE_NOT_IMPLEMENTED, check.expect, JsonNull, null))
-      is Observation.Raster -> compareRaster(check, observation, tolerance)
+        Comparison(listOf(diff(check, Diff.PROBE_NOT_IMPLEMENTED, check.expect, JsonNull, null)))
+      is Observation.Raster -> compareRaster(check, observation, tolerance, renderedCanvas)
       is Observation.Value ->
-        when {
-          check.probe == "tree" -> compareTree(check, observation.value, tolerance)
-          check.key == "draw_log:commands" -> compareSubsequence(check, observation.value)
-          check.key == "ops:present" -> comparePresence(check, observation.value, present = true)
-          check.key == "ops:absent" -> comparePresence(check, observation.value, present = false)
-          else -> compareValue(check, "", check.expect, observation.value, tolerance)
-        }
+        Comparison(
+          when {
+            check.probe == "tree" -> compareTree(check, observation.value, tolerance)
+            check.key == "draw_log:commands" -> compareSubsequence(check, observation.value)
+            check.key == "ops:present" -> comparePresence(check, observation.value, present = true)
+            check.key == "ops:absent" -> comparePresence(check, observation.value, present = false)
+            else -> compareValue(check, "", check.expect, observation.value, tolerance)
+          }
+        )
     }
 
   // ---------------------------------------------------------------- tree
@@ -113,48 +127,80 @@ public object Comparators {
 
   // ---------------------------------------------------------------- raster
 
+  /**
+   * The pixel metric (§2.5) and the evidence the report renders beside it, from one comparison.
+   *
+   * The verdict is [Pixelmatch]'s AA-aware count against the check's tolerance, exactly as before.
+   * What is new is that the same walk's numbers are kept: the raw differing-pixel count, RMSE, the
+   * largest channel delta, and the heatmap — so a report shows what a raster check *did* rather
+   * than only what it failed. Publishing the count only when it was a failure is what made every
+   * passing raster card read "n/a" and every badge show "?".
+   */
   private fun compareRaster(
     check: Check,
     observation: Observation.Raster,
     tolerance: Double,
-  ): List<Diff> {
+    renderedCanvas: String?,
+  ): Comparison {
     val reference =
       decodeDataUriPng(check.expect.stringOrNull())
-        ?: return listOf(diff(check, "reference_image", check.expect, JsonNull, null))
+        ?: return Comparison(listOf(diff(check, "reference_image", check.expect, JsonNull, null)))
 
     // A differing size is itself a failure: scaling either image, or cropping both to the
     // document's declared size, scores a resize step's frame against the wrong box and reports zero
-    // while proving nothing (guide §10).
+    // while proving nothing (guide §10). With no aligned pixels there is no comparison to publish
+    // evidence for — the diff row says why.
     if (reference.width != observation.width || reference.height != observation.height) {
-      return listOf(
-        diff(
-          check,
-          "dimensions",
-          JsonPrimitive("${reference.width}x${reference.height}"),
-          JsonPrimitive("${observation.width}x${observation.height}"),
-          null,
+      return Comparison(
+        listOf(
+          diff(
+            check,
+            "dimensions",
+            JsonPrimitive("${reference.width}x${reference.height}"),
+            JsonPrimitive("${observation.width}x${observation.height}"),
+            null,
+          )
         )
       )
     }
 
-    val differing =
-      Pixelmatch.countDiff(observation.rgba, reference.rgba, reference.width, reference.height)
+    val walk =
+      Pixelmatch.compare(observation.rgba, reference.rgba, reference.width, reference.height)
+    val comparison =
+      RasterComparison(
+        at = check.at,
+        // Already a data URI in the gold, so the reference frame is free here — no decode, and
+        // no second copy of the corpus's own bytes.
+        goldImageBase64 = check.expect.stringOrNull(),
+        // Encoded once for the attachment and handed back in, so the frame in the report is the
+        // frame that was scored.
+        renderedCanvasBase64 = renderedCanvas.orEmpty(),
+        totalPixels = reference.width * reference.height,
+        rasterTolerance = check.tolerance ?: DEFAULT_RASTER_PIXELS,
+        differingPixels = walk.rawDiffs,
+        aaPixels = walk.hardDiffs,
+        rmse = walk.rmse,
+        maxDelta = walk.maxDelta,
+        diffHeatmapBase64 = DiffHeatmap.encode(reference.width, reference.height, walk.magnitude),
+      )
     // §2.5: the check's tolerance *is* the maximum differing-pixel count, defaulting to 16.
     val budget = if (check.tolerance != null) tolerance else DEFAULT_RASTER_PIXELS
-    return if (differing <= budget) {
-      emptyList()
-    } else {
-      listOf(
-        diff(
-          check,
-          "differing_pixels",
-          JsonPrimitive(budget),
-          JsonPrimitive(differing),
-          budget,
-          check.target,
+    val diffs =
+      if (walk.hardDiffs <= budget) {
+        emptyList()
+      } else {
+        listOf(
+          diff(
+            check,
+            "differing_pixels",
+            JsonPrimitive(budget),
+            JsonPrimitive(walk.hardDiffs),
+            budget,
+            check.target,
+          )
         )
-      )
-    }
+      }
+    return Comparison(diffs, comparison)
   }
 
   private const val DEFAULT_RASTER_PIXELS = 16.0

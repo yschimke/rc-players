@@ -40,7 +40,10 @@ while developing. Output lands in `rc-conformance/build/conformance/`:
 
 * `conformance-results.json` — the standard results file. The corpus's own player-agnostic report
   generators consume it directly: `node generate-audit-report.mjs --player cmp` turns it into the
-  visual audit and the interactive test inspector.
+  visual audit and the interactive test inspector. Each raster comparison carries its full evidence
+  beside the verdict — the gold frame, the player's frame, the diff heatmap, and the pixel metric
+  (AA-aware count, raw count, RMSE, max channel delta) — so a raster card shows *what* differed,
+  not only that it differed.
 * `scorecard.md` — the summary below.
 
 [`.github/workflows/conformance.yml`](../../.github/workflows/conformance.yml) runs the same thing
