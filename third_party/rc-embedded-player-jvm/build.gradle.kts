@@ -74,6 +74,10 @@ val sharedPlayerSources =
     // Wall-clock / calendar time as per-field Compose state, updated through `updateTime` from the
     // frame loop; referenced by `GraphContext` and the `rememberRemote*AsState` resolvers below.
     "ee/schimke/composeai/rcembedded/player/GraphTimeState.kt",
+    // Optional layout/state/action inspection hook. Compose-native `LayoutCoordinates` and
+    // remote-core types only, so both halves carry it — the composition local that exposes it is
+    // in `RcPlayerCompositionLocals.kt` below.
+    "ee/schimke/composeai/rcembedded/player/RcPlayerInspector.kt",
     // The draw-nothing `PaintContext` the evaluator hands to value-producing paint operations
     // (`ColorAttribute`). Neutral: it subclasses the `remote-core` abstract class and every member
     // is a no-op, so there is no canvas of any kind to name.

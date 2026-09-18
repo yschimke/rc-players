@@ -36,9 +36,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
 import ee.schimke.composeai.rcembedded.player.LocalAnimatedVisibilityScope
+import ee.schimke.composeai.rcembedded.player.LocalRcPlayerInspector
 import ee.schimke.composeai.rcembedded.player.LocalSharedTransitionScope
 import ee.schimke.composeai.rcembedded.player.RcPlayerComponent
 import ee.schimke.composeai.rcembedded.player.animationSpecReflection
@@ -91,8 +93,15 @@ internal fun RcPlayerStateLayout(layout: StateLayout, modifier: Modifier) {
   val duration = spec?.motionDuration?.toInt() ?: 300
   val easing = mapEasing(spec?.motionEasingType ?: 0)
   SharedTransitionLayout(modifier = modifier) {
+    val inspector = LocalRcPlayerInspector.current
     AnimatedContent(
       targetState = targetIndex,
+      modifier =
+        if (inspector != null) {
+          Modifier.onPlaced { inspector.recordContentCoords(layout.getId(), it) }
+        } else {
+          Modifier
+        },
       contentAlignment = Alignment.Center,
       label = "RcPlayerStateLayout",
       transitionSpec = {

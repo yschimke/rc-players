@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
@@ -149,6 +150,7 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
       }
     }
 
+    val inspector = LocalRcPlayerInspector.current
     var modifier =
       Modifier.sharedElementTransition(component)
         .then(
@@ -161,9 +163,23 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
           }
         )
         .then(
+          if (inspector != null) {
+            Modifier.onPlaced { coords -> inspector.recordOuterCoords(component.getId(), coords) }
+          } else {
+            Modifier
+          }
+        )
+        .then(
           component.componentModifiers.toModifier(
             component.getDrawContentOperationsListReflection()
           )
+        )
+        .then(
+          if (inspector != null && component !is StateLayout) {
+            Modifier.onPlaced { coords -> inspector.recordContentCoords(component.getId(), coords) }
+          } else {
+            Modifier
+          }
         )
         .then(modifier)
 
