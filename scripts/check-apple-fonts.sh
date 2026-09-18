@@ -10,6 +10,7 @@ CLANG_MODULE_CACHE_PATH="$work/module-cache" \
 SWIFT_MODULECACHE_PATH="$work/module-cache" \
 xcrun swiftc \
   "$repo_root/Sources/RcPlayerAppleFonts/RemoteComposeDownloadableFonts.swift" \
+  "$repo_root/Sources/RcPlayerAppleFonts/RemoteComposeFontVariation.swift" \
   "$repo_root/Tests/RcPlayerAppleFontsTests/RemoteComposeDownloadableFontsTests.swift" \
   -o "$work/apple-font-tests"
 "$work/apple-font-tests"

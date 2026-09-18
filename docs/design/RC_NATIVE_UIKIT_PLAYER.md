@@ -417,7 +417,7 @@ Graphics-representable blend modes, ordered line/quadratic/cubic paths, path cli
 linear/radial/sweep gradients, and system-font size. Sweep gradients use bounded Core Graphics
 tessellation because `CGContext` has no conic-gradient primitive. Non-clamp gradient tile modes and
 rational conics are approximated with explicit diagnostics. Referenced shaders, color filters, path
-effects, font axes, and textures produce diagnostics or unsupported opcodes.
+effects, document-declared font axes, and textures produce diagnostics or unsupported opcodes.
 
 ### Text
 
@@ -426,6 +426,13 @@ text, native fallback, Dynamic Type, accessibility, wrapping, line limits, ellip
 logical start/end alignment, line height, letter spacing, and decoration. Its intrinsic measurement
 feeds the same frame-based layout pass as other components. The Swift session resolves supported
 `CoreText` properties before UIKit sees them.
+
+A `CoreText` carries its weight on the text run, not on the font resource, so one resolved family is
+asked for several weights inside a document. When a face declares a `wght` variation axis, the run's
+weight is set on that axis; a static instance has no axis to set, so the weight is carried as the
+bold symbolic trait instead. The shared `RemoteComposeGoogleFontsResolver` requests the variable
+face (modern agent, full weight range) so the axis exists to be set, and falls back to the plain
+family and then the legacy TrueType response when a family has no such axis.
 
 Canvas text uses Core Text inside the ordered Core Graphics command stream, preserving the active
 transform, clip, blend state, baseline anchor, and primitive interleaving. Canvas glyphs intentionally

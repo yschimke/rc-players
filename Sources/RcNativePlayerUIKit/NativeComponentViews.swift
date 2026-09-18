@@ -3,6 +3,9 @@
   #if canImport(RcNativePlayerCore)
     import RcNativePlayerCore
   #endif
+  #if canImport(RcPlayerAppleFonts)
+    import RcPlayerAppleFonts
+  #endif
   import UIKit
 
   struct NativeDocument {
@@ -1751,7 +1754,8 @@
       if let postScriptName = fontNames[command.textStyle.fontFamilyID],
         let embedded = UIFont(name: postScriptName, size: size)
       {
-        descriptor = embedded.fontDescriptor
+        descriptor = weightedDescriptor(
+          embedded.fontDescriptor, weight: weightValue, size: size)
       }
       if command.textStyle.fontStyle & 2 != 0 {
         descriptor =
@@ -1759,6 +1763,29 @@
       }
       let resolved = UIFont(descriptor: descriptor, size: size)
       return scalesForDynamicType ? UIFontMetrics.default.scaledFont(for: resolved) : resolved
+    }
+
+    /// A resolved face that keeps the run's weight.
+    ///
+    /// A document carries its weight on the text run, so a family resolved once is asked for several
+    /// weights. Replacing the descriptor with the face wholesale discarded the weight, which made
+    /// every run render at the face's default. A variable face expresses the weight through its
+    /// `wght` axis; a static instance has no axis to set, so the weight is carried as the bold
+    /// symbolic trait instead.
+    private static func weightedDescriptor(
+      _ descriptor: UIFontDescriptor, weight: CGFloat, size: CGFloat
+    ) -> UIFontDescriptor {
+      if let varied = RemoteComposeFontVariation.descriptor(
+        descriptor as CTFontDescriptor, applyingWeight: weight)
+      {
+        return varied as UIFontDescriptor
+      }
+      let existing = CTFontSymbolicTraits(rawValue: descriptor.symbolicTraits.rawValue)
+      let traits = RemoteComposeFontVariation.symbolicTraits(
+        forWeight: weight, existing: existing)
+      guard traits.rawValue != existing.rawValue else { return descriptor }
+      return descriptor.withSymbolicTraits(
+        UIFontDescriptor.SymbolicTraits(rawValue: traits.rawValue)) ?? descriptor
     }
 
     static func string(

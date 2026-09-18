@@ -82,6 +82,27 @@ public actor RemoteComposeGoogleFontsResolver: RemoteComposeDownloadableFontReso
     public static let `default` = Limits()
   }
 
+  /// A browser-shaped agent, so the CSS API serves the modern WOFF2 faces.
+  ///
+  /// CoreText registers WOFF2 directly on the platforms this package supports, and the variable
+  /// face it serves is the only one that can express the per-run weights a document carries. A
+  /// legacy agent returns a static TrueType instance with no `wght` axis at all.
+  static let modernUserAgent =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+  /// The agent the resolver originally used. Kept as the last candidate because it is the only one
+  /// that returns sfnt/TrueType bytes a platform without WOFF2 support can still register.
+  static let legacyUserAgent =
+    "Mozilla/5.0 (Linux; Android 4.0.3; Galaxy Nexus Build/IML74K) "
+    + "AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30"
+
+  /// The full variable weight range, so one registered face can render every run's weight.
+  ///
+  /// A family without a `wght` axis answers the axis syntax with an HTTP 400 rather than a
+  /// stylesheet, which is why the plain family and the legacy agent follow it as candidates.
+  static let variableWeightQuery = "wght@100..1000"
+
   private let session: URLSession
   private let limits: Limits
   private var cache: [String: RemoteComposeDownloadedFont] = [:]
@@ -103,24 +124,44 @@ public actor RemoteComposeGoogleFontsResolver: RemoteComposeDownloadableFontReso
       limits.maximumCachedFonts > 0
     else { throw RemoteComposeDownloadableFontError.invalidResponse }
 
+    var lastError: Error = RemoteComposeDownloadableFontError.noCompatibleFont(family: family)
+    for candidate in Self.candidates(for: family) {
+      do {
+        if let font = try await download(candidate, family: family, key: key) {
+          insert(font, for: key)
+          return font
+        }
+      } catch let error as RemoteComposeDownloadableFontError {
+        lastError = error
+      }
+    }
+    throw lastError
+  }
+
+  /// One stylesheet query and, if it names a registrable face, the face itself.
+  ///
+  /// Returns nil when the candidate is simply not applicable — the axis syntax is rejected, or the
+  /// served bytes are not a font CoreText can register — so the next candidate can be tried. A
+  /// transport or host-validation failure is thrown instead: retrying a network fault against a
+  /// different user agent would hide it rather than fix it.
+  private func download(
+    _ candidate: (query: String, userAgent: String), family: String, key: String
+  ) async throws -> RemoteComposeDownloadedFont? {
     var components = URLComponents(string: "https://fonts.googleapis.com/css2")!
-    components.queryItems = [URLQueryItem(name: "family", value: family)]
+    components.queryItems = [URLQueryItem(name: "family", value: candidate.query)]
     var stylesheetRequest = URLRequest(url: components.url!)
-    // A legacy user agent makes the CSS API return sfnt/TrueType bytes that CoreText can register,
-    // rather than browser-specific WOFF2 subsets.
-    stylesheetRequest.setValue(
-      "Mozilla/5.0 (Linux; Android 4.0.3; Galaxy Nexus Build/IML74K) "
-        + "AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30",
-      forHTTPHeaderField: "User-Agent")
-    let stylesheetData = try await fetch(
-      stylesheetRequest, maximumBytes: limits.maximumStylesheetBytes,
-      allowedHost: "fonts.googleapis.com")
-    guard let stylesheet = String(data: stylesheetData, encoding: .utf8) else {
-      throw RemoteComposeDownloadableFontError.invalidResponse
+    stylesheetRequest.setValue(candidate.userAgent, forHTTPHeaderField: "User-Agent")
+    let stylesheetData: Data
+    do {
+      stylesheetData = try await fetch(
+        stylesheetRequest, maximumBytes: limits.maximumStylesheetBytes,
+        allowedHost: "fonts.googleapis.com")
+    } catch RemoteComposeDownloadableFontError.invalidResponse {
+      return nil
     }
-    guard let fontURL = Self.fontURL(from: stylesheet, relativeTo: components.url!) else {
-      throw RemoteComposeDownloadableFontError.noCompatibleFont(family: family)
-    }
+    guard let stylesheet = String(data: stylesheetData, encoding: .utf8),
+      let fontURL = Self.fontURL(from: stylesheet, relativeTo: components.url!)
+    else { return nil }
     guard fontURL.scheme == "https", fontURL.host?.lowercased() == "fonts.gstatic.com" else {
       throw RemoteComposeDownloadableFontError.untrustedFontURL
     }
@@ -128,13 +169,20 @@ public actor RemoteComposeGoogleFontsResolver: RemoteComposeDownloadableFontReso
       URLRequest(url: fontURL), maximumBytes: limits.maximumFontBytes,
       allowedHost: "fonts.gstatic.com")
     guard let provider = CGDataProvider(data: data as CFData), CGFont(provider) != nil else {
-      throw RemoteComposeDownloadableFontError.corruptFont(family: family)
+      return nil
     }
     let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    let result = RemoteComposeDownloadedFont(
+    return RemoteComposeDownloadedFont(
       family: family, identity: "google:\(key)#sha256:\(digest)", data: data)
-    insert(result, for: key)
-    return result
+  }
+
+  /// The stylesheet queries to try, in order.
+  static func candidates(for family: String) -> [(query: String, userAgent: String)] {
+    [
+      ("\(family):\(variableWeightQuery)", modernUserAgent),
+      (family, modernUserAgent),
+      (family, legacyUserAgent),
+    ]
   }
 
   private func fetch(_ request: URLRequest, maximumBytes: Int, allowedHost: String) async throws
@@ -176,34 +224,29 @@ public actor RemoteComposeGoogleFontsResolver: RemoteComposeDownloadableFontReso
   }
 
   static func fontURL(from stylesheet: String, relativeTo baseURL: URL) -> URL? {
-    let pattern = #"url\((?:['\"])?([^)'\"]+)(?:['\"])?\)\s*format\((?:['\"])?(?:truetype|opentype)(?:['\"])?\)"#
-    guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
-    else { return nil }
-    let range = NSRange(stylesheet.startIndex..<stylesheet.endIndex, in: stylesheet)
-    for match in expression.matches(in: stylesheet, range: range) {
-      guard let valueRange = Range(match.range(at: 1), in: stylesheet) else { continue }
-      let value = String(stylesheet[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
-      if let url = URL(string: value, relativeTo: baseURL)?.absoluteURL { return url }
-    }
-    let fallback = #"url\((?:['\"])?([^)'\"]+\.(?:ttf|otf))(?:['\"])?\)"#
-    guard let expression = try? NSRegularExpression(pattern: fallback, options: [.caseInsensitive])
-    else { return nil }
-    for match in expression.matches(in: stylesheet, range: range) {
-      guard let valueRange = Range(match.range(at: 1), in: stylesheet) else { continue }
-      return URL(
-        string: String(stylesheet[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines),
-        relativeTo: baseURL)?.absoluteURL
-    }
+    // A labelled sfnt face, if the stylesheet carries one. This is the legacy-agent shape and the
+    // one a platform without WOFF2 support can register.
+    let truetype =
+      #"url\((?:['\"])?([^)'\"]+)(?:['\"])?\)\s*format\((?:['\"])?(?:truetype|opentype)(?:['\"])?\)"#
+    if let url = matchURLs(truetype, stylesheet, baseURL).first { return url }
+    // WOFF2, preferring the last block: Google emits one @font-face per unicode range and Latin is
+    // last. The first match is cyrillic-ext, which would render Latin text with fallback glyphs.
+    let woff2 = #"url\((?:['\"])?([^)'\"]+\.woff2)(?:['\"])?\)"#
+    if let url = matchURLs(woff2, stylesheet, baseURL).last { return url }
+    let labelled = #"url\((?:['\"])?([^)'\"]+\.(?:ttf|otf))(?:['\"])?\)"#
+    if let url = matchURLs(labelled, stylesheet, baseURL).first { return url }
     let unlabeled = #"url\((?:['\"])?([^)'\"]+)(?:['\"])?\)\s*;"#
-    guard
-      let expression = try? NSRegularExpression(pattern: unlabeled, options: [.caseInsensitive])
-    else { return nil }
-    for match in expression.matches(in: stylesheet, range: range) {
-      guard let valueRange = Range(match.range(at: 1), in: stylesheet) else { continue }
-      return URL(
-        string: String(stylesheet[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines),
-        relativeTo: baseURL)?.absoluteURL
+    return matchURLs(unlabeled, stylesheet, baseURL).first
+  }
+
+  private static func matchURLs(_ pattern: String, _ stylesheet: String, _ baseURL: URL) -> [URL] {
+    guard let expression = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+    else { return [] }
+    let range = NSRange(stylesheet.startIndex..<stylesheet.endIndex, in: stylesheet)
+    return expression.matches(in: stylesheet, range: range).compactMap { match in
+      guard let valueRange = Range(match.range(at: 1), in: stylesheet) else { return nil }
+      let value = String(stylesheet[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+      return URL(string: value, relativeTo: baseURL)?.absoluteURL
     }
-    return nil
   }
 }
