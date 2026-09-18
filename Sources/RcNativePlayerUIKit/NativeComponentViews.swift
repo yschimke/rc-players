@@ -1161,20 +1161,18 @@
 
     func preferredSize(in available: CGSize) -> CGSize {
       let insets = scaledPadding
-      let widthConstraint: CGFloat
-      switch node.widthType {
-      case 0, 1, 3, 6, 7, 8:
-        widthConstraint =
-          NativeLayoutDimension(
-            type: node.widthType,
-            value: node.widthValue
-              * (node.widthType == 6 ? layoutDensityScale : documentScale),
-            minimum: node.minimumWidth * layoutUnitScale,
-            maximum: node.maximumWidth.map { $0 * layoutUnitScale }
-          ).resolve(intrinsic: available.width, available: available.width)
-      default:
-        widthConstraint = available.width
-      }
+      // Every width type, `WRAP` included. A wrapping component still carries its `widthIn`
+      // bounds, and passing children the full available width instead let an edge button's label
+      // measure 209px wide against a 161px bound. `resolve` with the available width as the
+      // intrinsic degrades to exactly that width when there are no bounds to apply.
+      let widthConstraint =
+        NativeLayoutDimension(
+          type: node.widthType,
+          value: node.widthValue
+            * (node.widthType == 6 ? layoutDensityScale : documentScale),
+          minimum: node.minimumWidth * dimensionConstraintScale,
+          maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
+        ).resolve(intrinsic: available.width, available: available.width)
       let contentAvailable = CGSize(
         width: max(min(available.width, widthConstraint) - insets.left - insets.right, 0),
         height: max(available.height - insets.top - insets.bottom, 0))
@@ -1243,6 +1241,14 @@
 
     private var layoutUnitScale: CGFloat {
       node.densityBehavior == 2 ? layoutDensityScale : documentScale
+    }
+
+    /// What `widthIn`/`heightIn` bounds are measured in — see `NativeDensityPolicy`.
+    private var dimensionConstraintScale: CGFloat {
+      NativeDensityPolicy.dimensionConstraintScale(
+        densityBehavior: node.densityBehavior,
+        layoutDensityScale: layoutDensityScale,
+        documentScale: documentScale)
     }
 
     private var scaledSpacing: CGFloat { node.spacing * layoutUnitScale }
@@ -1377,14 +1383,14 @@
         width: NativeLayoutDimension(
           type: node.widthType,
           value: node.widthValue * (node.widthType == 6 ? layoutDensityScale : documentScale),
-          minimum: node.minimumWidth * layoutUnitScale,
-          maximum: node.maximumWidth.map { $0 * layoutUnitScale }
+          minimum: node.minimumWidth * dimensionConstraintScale,
+          maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: intrinsic.width, available: available.width),
         height: NativeLayoutDimension(
           type: node.heightType,
           value: node.heightValue * (node.heightType == 6 ? layoutDensityScale : documentScale),
-          minimum: node.minimumHeight * layoutUnitScale,
-          maximum: node.maximumHeight.map { $0 * layoutUnitScale }
+          minimum: node.minimumHeight * dimensionConstraintScale,
+          maximum: node.maximumHeight.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: intrinsic.height, available: available.height))
     }
 
