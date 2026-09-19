@@ -1008,17 +1008,34 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
 
   func preferredSize(in available: CGSize) -> CGSize {
     let padding = insets
+    // The container's own bounds, resolved first: a collapsible container's retention decision is
+    // about *its* bound, not the space its parent offered, so a 50-point collapsible column holding
+    // a 60-point child keeps nothing whatever the parent has to spare.
+    let widthConstraint = MacDimension(
+      type: Int(node.widthType), value: CGFloat(node.widthValue),
+      minimum: CGFloat(node.minimumWidth),
+      maximum: node.maximumWidth < 0 ? nil : CGFloat(node.maximumWidth)
+    ).resolve(intrinsic: available.width, available: available.width)
+    let heightConstraint = MacDimension(
+      type: Int(node.heightType), value: CGFloat(node.heightValue),
+      minimum: CGFloat(node.minimumHeight),
+      maximum: node.maximumHeight < 0 ? nil : CGFloat(node.maximumHeight)
+    ).resolve(intrinsic: available.height, available: available.height)
     let content = CGSize(
-      width: max(available.width - padding.left - padding.right, 0),
-      height: max(available.height - padding.top - padding.bottom, 0))
+      width: max(min(available.width, widthConstraint) - padding.left - padding.right, 0),
+      height: max(min(available.height, heightConstraint) - padding.top - padding.bottom, 0))
     let allItems = visibleChildren
-    // A collapsible container wraps to what it keeps, not to everything it holds.
+    // A collapsible container wraps to what it keeps, not to everything it holds — and reports
+    // nothing at all when it keeps nothing, so a parent does not reserve a box the reference treats
+    // as GONE.
     let items: [NativeMacComponentView]
     if node.isCollapsible,
       let kept = collapsibleKeptFlags(
         items: allItems, available: content, axis: node.kind == .column ? .vertical : .horizontal)
     {
-      items = allItems.enumerated().filter { kept[$0.offset] }.map(\.element)
+      let keptItems = allItems.enumerated().filter { kept[$0.offset] }.map(\.element)
+      if keptItems.isEmpty { return .zero }
+      items = keptItems
     } else {
       items = allItems
     }

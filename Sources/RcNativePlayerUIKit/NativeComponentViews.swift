@@ -1205,18 +1205,36 @@
           minimum: node.minimumWidth * dimensionConstraintScale,
           maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: available.width, available: available.width)
+      // The container's own height, resolved the same way, because a collapsible container's
+      // retention decision is about *its* bound and not about the space its parent offered: a
+      // 50-point collapsible column holding a 60-point child keeps nothing, whatever the parent
+      // has to spare.
+      let heightConstraint =
+        NativeLayoutDimension(
+          type: node.heightType,
+          value: node.heightValue
+            * (node.heightType == 6 ? layoutDensityScale : documentScale),
+          minimum: node.minimumHeight * dimensionConstraintScale,
+          maximum: node.maximumHeight.map { $0 * dimensionConstraintScale }
+        ).resolve(intrinsic: available.height, available: available.height)
       let contentAvailable = CGSize(
         width: max(min(available.width, widthConstraint) - insets.left - insets.right, 0),
-        height: max(available.height - insets.top - insets.bottom, 0))
+        height: max(min(available.height, heightConstraint) - insets.top - insets.bottom, 0))
       let allItems = flattenedLayoutItems
-      // A collapsible container wraps to what it keeps, not to everything it holds.
+      // A collapsible container wraps to what it keeps, not to everything it holds — and reports
+      // nothing at all when it keeps nothing, so a parent does not reserve a box the reference
+      // treats as GONE.
       let items: [NativeComponentView]
       if node.isCollapsible,
         let kept = collapsibleKeptFlags(
           items: allItems, available: contentAvailable,
           axis: node.kind == .column ? .vertical : .horizontal)
       {
-        items = allItems.enumerated().filter { kept[$0.offset] }.map(\.element)
+        let keptItems = allItems.enumerated().filter { kept[$0.offset] }.map(\.element)
+        // A collapsible container that keeps nothing is the reference's GONE container: it takes no
+        // space at all, so its parent does not reserve a box for it.
+        if keptItems.isEmpty { return .zero }
+        items = keptItems
       } else {
         items = allItems
       }
