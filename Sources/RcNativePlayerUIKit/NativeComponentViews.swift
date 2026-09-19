@@ -294,10 +294,9 @@
     /// `FitBoxLayout`. Read by the `FitBox` layout, which is the one class that does not behave like
     /// the box it decodes as; empty for a structural content wrapper.
     let componentKind: String
-    /// Set on a component with a scroll modifier: 0 vertical, 1 horizontal. The children of a
-    /// scrolled container are laid out against their content, not against the viewport that clips
-    /// them, so this is what decides a container's layout space.
-    let scrollDirection: Int?
+    /// The children of a scrolled container are laid out against their content, not against the
+    /// viewport that clips them, so this is what decides a container's layout space.
+    let scrollDirection: NativeSwiftScrollDirection?
 
     init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot, densityBehavior: Int) {
       switch snapshot.kind {
@@ -1458,10 +1457,10 @@
       let insets = scaledPadding
       let content = bounds.inset(by: insets)
       let items = flattenedLayoutItems
-      let axis: CollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
+      let axis: CollapsibleAxis = node.scrollDirection == .horizontal ? .horizontal : .vertical
       let extent = scrolledExtent(of: items, in: content.size, axis: axis, stacking: false)
       let space =
-        node.scrollDirection == 1
+        node.scrollDirection == .horizontal
         ? CGRect(
           x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
         : CGRect(
@@ -1630,8 +1629,9 @@
       // centred in the pre-collapse total. The axis that scrolls is the *modifier's*, which need not
       // be the arrangement axis: a horizontally scrolled column still stacks, but each child is
       // measured unbounded in width.
-      let scrollAxis: CollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
-      let extent = node.scrollDirection == 0
+      let scrollAxis: CollapsibleAxis =
+        node.scrollDirection == .horizontal ? .horizontal : .vertical
+      let extent = node.scrollDirection == .vertical
         ? (scrolledExtent(
           of: flattenedLayoutItems, in: content.size, axis: .vertical, stacking: true)
           ?? content.height)
@@ -1791,8 +1791,9 @@
       let items = collapsibleItems(in: content, axis: .horizontal)
       // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport, and the
       // axis that scrolls is the modifier's — a vertically scrolled row still places left to right.
-      let scrollAxis: CollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
-      let extent = node.scrollDirection == 1
+      let scrollAxis: CollapsibleAxis =
+        node.scrollDirection == .horizontal ? .horizontal : .vertical
+      let extent = node.scrollDirection == .horizontal
         ? (scrolledExtent(
           of: flattenedLayoutItems, in: content.size, axis: .horizontal, stacking: true)
           ?? content.width)
