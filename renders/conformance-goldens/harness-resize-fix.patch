@@ -1,0 +1,17 @@
+--- /tmp/opencode/harness-before.kt	2026-09-19 08:18:40.403475433 +0100
++++ /tmp/opencode/harness-after.kt	2026-09-19 08:18:40.413885448 +0100
+@@ -241,7 +241,13 @@
+                     if (useViewPlayer) {
+                         val doc = state?.document
+                         if (doc != null) {
+-                            key(doc) {
++                            // The View player sizes itself to the *document*
++                            // (`RemoteComposeView.onMeasure` measures to
++                            // `mDocument.getWidth()/getHeight()`), so it never grows when the
++                            // host Box does: a resize step keeps painting the initial size and
++                            // the rest of the frame stays white. Re-create the player at each
++                            // viewport so the document is laid out at the step's size.
++                            key(doc, viewportWidthPx, viewportHeightPx) {
+                                 AndroidView(
+                                     modifier = Modifier.requiredSize(wDp, hDp),
+                                     factory = { ctx ->

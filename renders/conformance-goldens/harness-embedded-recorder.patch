@@ -1,0 +1,55 @@
+--- /tmp/opencode/harness-before.kt	2026-09-19 08:18:40.403475433 +0100
++++ /tmp/opencode/harness-embedded-recorder.kt	2026-09-19 09:13:55.813074057 +0100
+@@ -218,7 +218,15 @@
+                 .sortedBy { it.relativeTo(goldRoot).path }
+                 .toList()
+ 
+-        val useViewPlayer = System.getenv("UPDATE_GOLDENS") == "true"
++        // `UPDATE_GOLDENS=true` records with the View player (the reference used to stamp the
++        // corpus); `UPDATE_GOLDENS=embedded` records with the embedded player under test. The
++        // View player sizes itself to the document and does not converge on a host resize in this
++        // Robolectric/native environment, so its resize frames capture the initial size padded
++        // white; the embedded player re-lays out live and matches the reference trees. See the
++        // corpus notes on the 2026-09-18 golden regeneration.
++        val updateGoldens = System.getenv("UPDATE_GOLDENS")
++        val useViewPlayer = updateGoldens == "true"
++        val recordGoldens = updateGoldens == "true" || updateGoldens == "embedded"
+         var activeViewPlayer by mutableStateOf<RemoteComposePlayer?>(null)
+         var activePlayerState by mutableStateOf<RcPlayerState?>(null)
+         var viewportWidthPx by mutableFloatStateOf(400f)
+@@ -465,7 +473,7 @@
+                                 val renderedDataUri = encodeBitmapToPngDataUri(renderedBmp)
+                                 lastRenderedPngBase64 = renderedDataUri
+ 
+-                                if (System.getenv("UPDATE_GOLDENS") == "true") {
++                                if (recordGoldens) {
+                                     check.put("expect", renderedDataUri)
+                                 }
+ 
+@@ -474,7 +482,7 @@
+                                     else defaultRasterTolerance
+ 
+                                 val effectiveGoldBmp =
+-                                    if (System.getenv("UPDATE_GOLDENS") == "true") renderedBmp
++                                    if (recordGoldens) renderedBmp
+                                     else goldBmp
+                                 val metrics = compareRasters(renderedBmp, effectiveGoldBmp)
+                                 val compObj =
+@@ -483,7 +491,7 @@
+                                         put("advisory", isAdvisory)
+                                         put(
+                                             "goldImageBase64",
+-                                            if (System.getenv("UPDATE_GOLDENS") == "true")
++                                            if (recordGoldens)
+                                                 renderedDataUri
+                                             else goldDataUri,
+                                         )
+@@ -1054,7 +1062,7 @@
+                     lastRenderedPngBase64 = encodeBitmapToPngDataUri(bmp)
+                 }
+ 
+-                if (System.getenv("UPDATE_GOLDENS") == "true") {
++                if (recordGoldens) {
+                     goldFile.writeText(goldJson.toString(2) + "\n")
+                 }
+             } catch (t: Throwable) {
