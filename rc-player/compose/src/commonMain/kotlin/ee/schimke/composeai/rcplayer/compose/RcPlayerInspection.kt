@@ -104,6 +104,20 @@ public val RcComponentVisibilityKey: SemanticsPropertyKey<Int> =
 public val RcContentInsetKey: SemanticsPropertyKey<Offset> = SemanticsPropertyKey("RcContentInset")
 
 /**
+ * How far this component has scrolled its content — the translation its children are drawn under.
+ *
+ * The sibling of [RcContentInsetKey] and published for the same reason. A scroll offset is
+ * modifier-induced translation: Compose realises it by moving the children, so a child's
+ * `positionInRoot` carries it, while the corpus's `x`/`y` are the layout manager's assignment only
+ * and the offset belongs in `scroll_x`/`scroll_y` instead (`CONFORMANCE_FORMAT.md` §2.7 and §4.3).
+ * A reader subtracts this from a descendant's position and reports it as the scroll keys.
+ *
+ * Negative in the direction of travel: scrolling down by 40 publishes `(0, -40)`, which is also
+ * what `scroll_y` reports.
+ */
+public val RcScrollOffsetKey: SemanticsPropertyKey<Offset> = SemanticsPropertyKey("RcScrollOffset")
+
+/**
  * The live document state, published once on the player's root.
  *
  * Float, integer, colour, text and matrix slots, named variables and particle arrays — the half of
@@ -140,6 +154,9 @@ public val LocalRcAhemTextMetrics: ProvidableCompositionLocal<Boolean> = staticC
 
 /** Sets [RcContentInsetKey]. */
 public var SemanticsPropertyReceiver.rcContentInset: Offset by RcContentInsetKey
+
+/** Sets [RcScrollOffsetKey]. */
+public var SemanticsPropertyReceiver.rcScrollOffset: Offset by RcScrollOffsetKey
 
 /** Sets [RcDocumentStateKey]. */
 public var SemanticsPropertyReceiver.rcDocumentState: RcPlayerState by RcDocumentStateKey

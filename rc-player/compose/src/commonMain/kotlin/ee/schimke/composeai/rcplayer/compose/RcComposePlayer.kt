@@ -38,6 +38,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -686,6 +687,18 @@ private fun RenderLayoutNode(
   node: RcLayoutNode,
   modifier: Modifier = Modifier,
   forceGone: Boolean = false,
+  /**
+   * Ignore the node's own visibility modifier, for the branch of a layout that owns its children's
+   * visibility — a `FitBox` or a `StateLayout`.
+   *
+   * AndroidX does the same: its inspector resolves a `FitBox`/`StateLayout` child's visibility from
+   * the component itself rather than from the modifier, because the layout is what marks a branch
+   * GONE when it declines to show it. Honouring the modifier there instead made
+   * `fitbox_child_visibility` and `state_layout_child_visibility` report a `visibility: "visible"`
+   * child as gone — the modifier's id names a *text* slot, which resolves to no integer, and the
+   * fallback for an unresolvable id is GONE.
+   */
+  ignoreOwnVisibility: Boolean = false,
   state: RcPlayerState,
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
@@ -704,6 +717,8 @@ private fun RenderLayoutNode(
       0
     } else if (layoutVersion == Int.MIN_VALUE) {
       error("unreachable layout invalidation version")
+    } else if (ignoreOwnVisibility) {
+      1
     } else {
       node.modifiers.visibility?.let { androidXVisibility(state.integer(it.visibilityId) ?: 0) }
         ?: 1
@@ -738,8 +753,15 @@ private fun RenderLayoutNode(
     }
   val geometryIds = node.geometryComponentIds()
   val inspecting = LocalRcInspection.current
+  // The modifiers a `StateLayout` actually applies — it drops its own fill and padding, see its
+  // branch below. Derived here rather than in the branch so the reported content inset describes
+  // the chain that was built: an inset left over from dropped padding subtracts 20 from every
+  // child's position, which is what `state_layout_padding_container` was reporting as `x: -20`.
+  val layoutModifiers =
+    if (node is RcLayoutNode.State) node.modifiers.withoutFillDimensions().withoutPadding()
+    else node.modifiers
   val contentInset =
-    if (inspecting) rcContentInsetPixels(node.modifiers, state, density) else Offset.Zero
+    if (inspecting) rcContentInsetPixels(layoutModifiers, state, density) else Offset.Zero
   if (!animatedVisibility.shouldRender) {
     if (geometryIds.any(state::hasComponentValues) || inspecting) {
       // A gone component still reports, at zero size. Dropping it would make "laid out at nothing"
@@ -1032,7 +1054,11 @@ private fun RenderLayoutNode(
       // container at its active child's 120x80. Honouring the fill, as Compose naturally does,
       // stretches the container to the viewport and paints its background across everything the
       // reference leaves clear: 50,400 differing pixels on a 300x200 canvas.
-      val stateModifiers = node.modifiers.withoutFillDimensions()
+      // The padding goes the same way as the fill: `state_layout_padding_container` declares
+      // `fillMaxSize` + `padding: 20` around an 80x80 child, and the reference reports the
+      // container at the child's own 80x80 with the child at (0, 0) — neither the container's
+      // padding nor the fill reaches its geometry.
+      val stateModifiers = layoutModifiers
       val contentVisibility =
         node.content.modifiers.visibility?.let {
           androidXVisibility(state.integer(it.visibilityId) ?: 0)
@@ -1081,6 +1107,7 @@ private fun RenderLayoutNode(
               key(child.componentId) {
                 RenderLayoutNode(
                   child,
+                  ignoreOwnVisibility = true,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
@@ -1394,6 +1421,7 @@ private fun RenderLayoutNode(
           key(child.componentId) {
             RenderLayoutNode(
               child,
+              ignoreOwnVisibility = true,
               state = state,
               textMeasurer = textMeasurer,
               images = images,
@@ -1423,6 +1451,11 @@ private fun RenderLayoutNode(
               Box(Modifier.clearAndSetSemantics {}) {
                 RenderLayoutNode(
                   child,
+                  // The same override the content pass applies, or the two disagree about what an
+                  // alternative measures: a visibility-decorated child would probe as 0x0, always
+                  // "fit", and be selected — then be rendered visible at its real size, displacing
+                  // a later alternative that actually fits.
+                  ignoreOwnVisibility = true,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
@@ -1437,7 +1470,10 @@ private fun RenderLayoutNode(
               probes[index].maxIntrinsicHeight(maxWidth) <= maxHeight
           }
         // Nothing fits: remote-core hides the box entirely, and showing the smallest alternative is
-        // upstream's answer — a clipped component says more than a blank one.
+        // upstream's answer — a clipped component says more than a blank one. `fitbox_fit` asserts
+        // the other behaviour (box and child both GONE, geometry retained), which is a separate
+        // change: the box's own gone state is a composition-time value while the fit decision is
+        // made here, and forcing only the child leaves the box drawing its background.
         val chosen = fits ?: probes.indices.minByOrNull { probes[it].maxIntrinsicWidth(maxHeight) }
         // Loose, and the FitBox places the result itself: the switcher wraps the winner, and the
         // box aligns that against its own size the way it always has. Letting the switcher fill and
@@ -2851,11 +2887,28 @@ private fun Modifier.applyAndroidXScroll(
       }
   }
 
-  return if (operation.direction == RcScrollModifier.VERTICAL) {
-    verticalScroll(scrollState)
-  } else {
-    horizontalScroll(scrollState)
-  }
+  val scrolled =
+    if (operation.direction == RcScrollModifier.VERTICAL) {
+      verticalScroll(scrollState)
+    } else {
+      horizontalScroll(scrollState)
+    }
+  if (!LocalRcInspection.current) return scrolled
+  // The offset the children are drawn under, published so the tree reader can take it back out of
+  // their positions and report it as `scroll_x`/`scroll_y` instead. Derived rather than read at
+  // composition: a scroll does not recompose, so a plain read here would report the offset the
+  // container had when it was last composed.
+  val scrollOffset by
+    remember(scrollState, operation.direction) {
+      derivedStateOf {
+        if (operation.direction == RcScrollModifier.VERTICAL) {
+          Offset(0f, -scrollState.value.toFloat())
+        } else {
+          Offset(-scrollState.value.toFloat(), 0f)
+        }
+      }
+    }
+  return scrolled.semantics { rcScrollOffset = scrollOffset }
 }
 
 private fun RcLayoutNode.geometryComponentIds(): List<Int> =
@@ -2927,6 +2980,15 @@ private fun Modifier.trackComponentGeometry(
  * ordered list to preserve AndroidX's order-sensitive modifier semantics and consults the resolved
  * fields separately, so removing it from one and not the other would apply half of it.
  */
+/** Drops padding, for the layouts whose reference sizes to their content rather than to a chain. */
+private fun RcLayoutModifiers.withoutPadding(): RcLayoutModifiers {
+  if (padding.isEmpty()) return this
+  return copy(
+    padding = emptyList(),
+    ordered = ordered.filterNot { it is RcPaddingModifier },
+  )
+}
+
 private fun RcLayoutModifiers.withoutFillDimensions(): RcLayoutModifiers {
   val fillsWidth = width?.type == RcDimensionType.FILL
   val fillsHeight = height?.type == RcDimensionType.FILL
