@@ -68,6 +68,13 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let horizontalPositioning: Int
   public let verticalPositioning: Int
   public let spacing: Float
+  /// The child a `StateLayout` is showing, clamped to its children, or nil when this node is not a
+  /// state layout. The inactive children arrive GONE, which is what the reference does.
+  public let stateIndex: Int?
+  /// A `FlowLayout`'s wrap bounds, nil for every other node. Zero or less means unlimited, which is
+  /// how the reference reads them.
+  public let flowMaximumItems: Int?
+  public let flowMaximumLines: Int?
   /// True for the collapsible row/column family: a container that hides the children that do not
   /// fit, in the order their `CollapsiblePriority` modifiers give.
   public let isCollapsible: Bool
@@ -758,7 +765,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   private func resolve(
-    _ node: ParsedNode, values: [Int: Float], colors resolvedColors: [Int: UInt32]
+    _ node: ParsedNode, values: [Int: Float], colors resolvedColors: [Int: UInt32],
+    visibilityOverride: Int? = nil, stateBranchActive: Int? = nil
   ) throws -> NativeSwiftNodeSnapshot {
     let text: NativeSwiftTextSnapshot?
     if let source = node.text {
@@ -823,7 +831,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return NativeSwiftNodeSnapshot(
       kind: node.kind,
       componentID: node.componentID,
-      children: try node.children.map { try resolve($0, values: values, colors: resolvedColors) },
+      children: try resolvedChildren(
+        of: node, values: values, colors: resolvedColors,
+        stateBranchActive: stateBranchActive),
       commands: try node.commands.map {
         try $0.resolve(
           values: values, colors: resolvedColors, texts: texts,
@@ -839,9 +849,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
       },
-      widthType: node.widthType,
+      // A state layout takes the active child's size whatever the document asks for, matching the
+      // reference: a fill modifier on the container itself is dropped rather than honoured, which
+      // is what makes the container's own background and border cover the branch and not the
+      // parent.
+      widthType: stateLayoutDimension(node, isWidth: true),
       widthValue: try resolvedFloat(node.widthWord, "width", values: values),
-      heightType: node.heightType,
+      heightType: stateLayoutDimension(node, isWidth: false),
       heightValue: try resolvedFloat(node.heightWord, "height", values: values),
       padding: NativeSwiftInsets(
         left: try resolvedFloat(node.paddingWords.left, "padding left", values: values),
@@ -863,11 +877,20 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       offsetX: node.offsetXWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       offsetY: node.offsetYWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
-      visibility: node.visibilityID.map { resolvedVisibility(of: $0) } ?? 1,
+      visibility: visibilityOverride ?? node.visibilityID.map { resolvedVisibility(of: $0) } ?? 1,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
       spacing: try resolvedFloat(node.spacingWord, "spacing", values: values),
+      stateIndex: node.stateIndexID.flatMap { indexID in
+        // Clamped against the *branches*, not the wrapper: the normal shape wraps every
+        // alternative in one content node, and clamping against that would always report 0.
+        let branches = stateBranches(of: node)
+        return branches.isEmpty
+          ? nil : min(max(integers[indexID] ?? 0, 0), branches.count - 1)
+      },
+      flowMaximumItems: node.flowMaximumItems,
+      flowMaximumLines: node.flowMaximumLines,
       isCollapsible: node.isCollapsible,
       collapsiblePriority: try node.collapsiblePriorityWord.map {
         try resolvedFloat($0, "collapsible priority", values: values)
@@ -875,6 +898,63 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       collapsiblePriorityOrientation: node.collapsiblePriorityOrientation,
       text: text,
       custom: custom)
+  }
+
+  /// A state layout's branches, unwrapping the bare content node they usually share.
+  private func stateBranches(of node: ParsedNode) -> [ParsedNode] {
+    guard node.children.count == 1, node.children[0].kind == .content,
+      !node.children[0].children.isEmpty
+    else { return node.children }
+    return node.children[0].children
+  }
+
+  /// The width or height type a state layout resolves with; every other node keeps its own.
+  ///
+  /// The reference's `StateLayout` adopts its active child's size, so a `FILL` modifier on the
+  /// container is dropped. Keeping it made the container cover the whole parent — its background
+  /// painted the full frame instead of the branch — and hid the child's own size.
+  private func stateLayoutDimension(_ node: ParsedNode, isWidth: Bool) -> Int {
+    let type = isWidth ? node.widthType : node.heightType
+    guard node.stateIndexID != nil else { return type }
+    return (type == 1 || type == 7 || type == 8) ? 2 : type
+  }
+
+  /// A node's children, with a state layout's inactive branches marked GONE.
+  ///
+  /// A `StateLayout` shows one child — the one its index integer selects — and keeps the others
+  /// GONE so they can take part in a transition. Laid out as a plain box it showed *every* branch
+  /// stacked, which is the single largest remaining raster difference on the native lane.
+  private func resolvedChildren(
+    of node: ParsedNode, values: [Int: Float], colors resolvedColors: [Int: UInt32],
+    stateBranchActive: Int? = nil
+  ) throws -> [NativeSwiftNodeSnapshot] {
+    // A state layout's own index decides which of *its* branches is shown, and the branches are
+    // usually wrapped in the same bare content node every other container uses.
+    if let indexID = node.stateIndexID, !node.children.isEmpty {
+      let wrapper = node.children.count == 1 && node.children[0].kind == .content
+        ? node.children[0] : nil
+      let branches = stateBranches(of: node)
+      guard !branches.isEmpty else {
+        return try node.children.map { try resolve($0, values: values, colors: resolvedColors) }
+      }
+      let active = min(max(integers[indexID] ?? 0, 0), branches.count - 1)
+      if let wrapper {
+        return [
+          try resolve(
+            wrapper, values: values, colors: resolvedColors, stateBranchActive: active)
+        ]
+      }
+      return try node.children.enumerated().map { position, child in
+        try resolve(
+          child, values: values, colors: resolvedColors,
+          visibilityOverride: position == active ? 1 : 0)
+      }
+    }
+    return try node.children.enumerated().map { position, child in
+      try resolve(
+        child, values: values, colors: resolvedColors,
+        visibilityOverride: stateBranchActive.map { position == $0 ? 1 : 0 })
+    }
   }
 
   /// Resolves a float field that a document may either state outright or compute.
@@ -1695,6 +1775,12 @@ private final class ParsedNode {
   var horizontalPositioning = 1
   var verticalPositioning = 4
   var spacingWord: UInt32 = 0
+  /// Set by `StateLayout` (217): the integer holding the index of the child to show.
+  var stateIndexID: Int?
+  /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
+  /// this many lines in total. Both default to unlimited.
+  var flowMaximumItems: Int?
+  var flowMaximumLines: Int?
   /// Set by the collapsible row/column family; see `NativeSwiftCollapsible`.
   var isCollapsible = false
   /// A `CollapsiblePriority` modifier's payload, held as a word so it resolves with the frame's
@@ -2859,18 +2945,19 @@ private enum NativeSwiftDocumentDecoder {
         _ = try input.int("state layout animation id")
         node.horizontalPositioning = try input.int("state layout horizontal positioning")
         node.verticalPositioning = try input.int("state layout vertical positioning")
-        _ = try input.int("state layout index id")
+        node.stateIndexID = try input.int("state layout index id")
         try begin(node)
       case 240:  // Flow layout
         // The row payload plus two ints: the maximum items per row and the maximum number of rows.
-        // Laid out as a plain row, so its children do not wrap onto further lines -- tracked.
+        // Children wrap onto further lines when they do not fit, so this is not the row it decodes
+        // like; `flowMaximumItems`/`flowMaximumLines` bound the wrap.
         let node = ParsedNode(kind: .row, componentID: try input.int("flow component id"))
         _ = try input.int("flow animation id")
         node.horizontalPositioning = try input.int("flow horizontal positioning")
         node.verticalPositioning = try input.int("flow vertical positioning")
         node.spacingWord = try input.word("flow spacing")
-        _ = try input.int("flow maximum items in each row")
-        _ = try input.int("flow maximum lines")
+        node.flowMaximumItems = try input.int("flow maximum items in each row")
+        node.flowMaximumLines = try input.int("flow maximum lines")
         try begin(node)
       case 223:  // Z-index modifier
         try currentNode(stack, input: input).zIndexWord = try input.word("z-index")

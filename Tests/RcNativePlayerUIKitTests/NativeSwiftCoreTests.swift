@@ -377,6 +377,79 @@ enum NativeSwiftCoreTests {
       channelSnapshot.needsWallClockRefresh,
       "a colour channel reading the clock did not ask for a refresh")
 
+    // A StateLayout shows the child its index integer selects and marks the rest GONE. Laid out as
+    // a plain box it showed every branch stacked, which was the largest remaining raster
+    // difference on the native lane.
+    let stateLayout = Writer()
+    stateLayout.header(width: 300, height: 200)
+    stateLayout.u8(140).int(20).int(0)
+    stateLayout.u8(200).int(-2)
+    stateLayout.u8(217).int(-3).int(0).int(1).int(4).int(20)
+    stateLayout.u8(202).int(-5).int(0).int(1).int(4)
+    stateLayout.u8(16).int(6).float(120)
+    stateLayout.u8(67).int(6).float(80)
+    stateLayout.u8(214)
+    stateLayout.u8(202).int(-6).int(0).int(1).int(4)
+    stateLayout.u8(16).int(6).float(200)
+    stateLayout.u8(67).int(6).float(150)
+    stateLayout.u8(214).u8(214).u8(214)
+    let stateSnapshot = try NativeSwiftDocumentSession.open(data: stateLayout.data).snapshot()
+    guard let stateNode = stateSnapshot.root.children.first else {
+      preconditionFailure("the state-layout fixture decoded no state layout")
+    }
+    precondition(stateNode.stateIndex == 0, "state index resolved to \(String(describing: stateNode.stateIndex))")
+    // The container takes the active child's size whatever the document asks for: a fill modifier
+    // on the state layout itself is dropped, or its background paints the whole parent.
+    precondition(
+      stateNode.widthType == 2 && stateNode.heightType == 2,
+      "a filling state layout kept its fill: \(stateNode.widthType)/\(stateNode.heightType)")
+    precondition(
+      stateNode.children.map(\.visibility) == [1, 0],
+      "state layout children were \(stateNode.children.map(\.visibility)), expected only the first")
+    // The same document with the index set to the second branch.
+    let secondBranch = Writer()
+    secondBranch.header(width: 300, height: 200)
+    secondBranch.u8(140).int(20).int(1)
+    secondBranch.u8(200).int(-2)
+    secondBranch.u8(217).int(-3).int(0).int(1).int(4).int(20)
+    secondBranch.u8(202).int(-5).int(0).int(1).int(4)
+    secondBranch.u8(16).int(6).float(120)
+    secondBranch.u8(67).int(6).float(80)
+    secondBranch.u8(214)
+    secondBranch.u8(202).int(-6).int(0).int(1).int(4)
+    secondBranch.u8(16).int(6).float(200)
+    secondBranch.u8(67).int(6).float(150)
+    secondBranch.u8(214).u8(214).u8(214)
+    let secondSnapshot = try NativeSwiftDocumentSession.open(data: secondBranch.data).snapshot()
+    precondition(
+      secondSnapshot.root.children.first?.children.map(\.visibility) == [0, 1],
+      "the second state branch was not the visible one")
+    // The reported index counts the *branches*, not the wrapper they sit in, so it agrees with the
+    // branch that is actually visible.
+    precondition(
+      secondSnapshot.root.children.first?.stateIndex == 1,
+      "the second branch reported index "
+        + "\(String(describing: secondSnapshot.root.children.first?.stateIndex))")
+
+    // A flow container's wrap bounds reach the snapshot, so a renderer can wrap rather than lay
+    // every child out on one line.
+    let flow = Writer()
+    flow.header(width: 300, height: 300)
+    flow.u8(200).int(-2)
+    flow.u8(240).int(-3).int(0).int(1).int(4).float(12).int(2).int(3)
+    flow.u8(202).int(-5).int(0).int(1).int(4)
+    flow.u8(16).int(6).float(100)
+    flow.u8(67).int(6).float(50)
+    flow.u8(214).u8(214).u8(214)
+    let flowSnapshot = try NativeSwiftDocumentSession.open(data: flow.data).snapshot()
+    guard let flowNode = flowSnapshot.root.children.first else {
+      preconditionFailure("the flow fixture decoded no flow container")
+    }
+    precondition(
+      flowNode.flowMaximumItems == 2 && flowNode.flowMaximumLines == 3,
+      "flow bounds resolved to \(String(describing: flowNode.flowMaximumItems)) / "
+        + "\(String(describing: flowNode.flowMaximumLines))")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)
