@@ -6,14 +6,18 @@ Measured at `9acfa3906f8e97b3c94c08da44395f74f1a13aef` on `main`.
 
 ## Lanes
 
+**A zero here is not a verdict.** `native-appkit` observes only `raster`, and no gold in the corpus asserts raster alone — so such a lane passes none by construction. Its raster column is the number it exists for.
+
 | lane | core golds | pass rate | extended | raster disagreements | errored |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `cmp` | 190 / 241 | 78.8% | 0 / 8 | 191 | 0 |
-| `androidx-jvm` | 132 / 241 | 54.8% | 0 / 8 | 269 | 1 |
-| `native-appkit` | — | — | — | — | *not measured* |
+| `cmp` | 190 / 241 | 78.8% | 0 / 8 | 207 | 0 |
+| `androidx-jvm` | 132 / 241 | 54.8% | 0 / 8 | 272 | 1 |
+| `native-appkit` | 0 / 241 | 0.0% | 0 / 8 | 364 | 0 |
 | `typescript` | 199 / 241 | 82.6% | 6 / 8 | 224 | 0 |
 
 ## Where the subject lane stands alone
+
+Scored above but not compared here: `native-appkit`. A lane only counts as a reference if disagreeing with it is evidence; one that fails nearly every frame would mark every subject failure as shared and leave nothing to act on.
 
 The corpus was generated *by* AndroidX, from its own player. So a gold both lanes fail is most likely the harness failing to observe something, or the reference asserting behaviour no independent player would reproduce — while a gold only the subject lane fails is a finding about the subject lane.
 
@@ -61,13 +65,13 @@ The corpus was generated *by* AndroidX, from its own player. So a gold both lane
 - `interactivity_slider_touch_expression` — float ×2
 - `interactivity_touch_coordinate_tracking` — float ×2
 - `modifier_scroll` — tree ×2
-- `particle_boundary_bounce` — particles ×96, raster ×8
-- `particle_deterministic_seeding` — particles ×32, raster ×2
-- `particle_drag_damping` — particles ×140, raster ×7
-- `particle_gravity_fountain` — particles ×112, raster ×8
-- `particle_lifetime_decay` — particles ×96, raster ×2
-- `particle_linear_drift` — particles ×60, raster ×5
-- `particle_radial_burst` — particles ×72, raster ×6
+- `particle_boundary_bounce` — raster ×9, particles ×96
+- `particle_deterministic_seeding` — raster ×3, particles ×32
+- `particle_drag_damping` — raster ×8, particles ×140
+- `particle_gravity_fountain` — raster ×9, particles ×112
+- `particle_lifetime_decay` — raster ×5, particles ×96
+- `particle_linear_drift` — raster ×6, particles ×60
+- `particle_radial_burst` — raster ×7, particles ×72
 - `text_on_circle_stream_alignment` — records:glyph_runs ×1, ops:present ×1, ops:total_glyphs ×1
 - `text_on_path_glyph_placement` — records:glyph_runs ×1, ops:total_glyphs ×1, raster ×1
 
@@ -83,8 +87,8 @@ The corpus was generated *by* AndroidX, from its own player. So a gold both lane
 
 | compared against | shared failures | unique to `cmp` |
 | --- | ---: | ---: |
-| `androidx-jvm` | 184 | 7 |
-| `typescript` | 158 | 33 |
+| `androidx-jvm` | 200 | 7 |
+| `typescript` | 173 | 34 |
 
 Unique to `cmp`, in full:
 
@@ -127,7 +131,7 @@ Counted as **diffs**, not checks: one `particles` check compares a whole emitter
 | --- | ---: | ---: |
 | `particles` | 660 | — |
 | `tree` | 362 | — |
-| `raster` | 191 | — |
+| `raster` | 207 | — |
 | `float` | 40 | 5 |
 | `trace:handled` | 14 | 14 |
 | `int` | 8 | — |

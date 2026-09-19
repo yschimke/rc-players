@@ -14,9 +14,9 @@
   "skipped": 0,
   "suspicious": 3,
   "checks_total": 910,
-  "checks_failed": 467,
+  "checks_failed": 468,
   "advisory_total": 605,
-  "advisory_failed": 255
+  "advisory_failed": 257
  },
  "results": [
   {
@@ -301,13 +301,16 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 3,
+   "checks_failed": 4,
    "diffs_by_probe": {
     "ops:absent": 1,
     "ops:counts": 1,
-    "ops:present": 1
+    "ops:present": 1,
+    "raster": 1
    },
-   "raster_failures": []
+   "raster_failures": [
+    "initial"
+   ]
   },
   {
    "name": "data_dynamic_float_list",
@@ -2439,8 +2442,12 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
   },
   {
    "name": "modifier_zindex_reorder",
@@ -2450,8 +2457,12 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "diffs_by_probe": {
+    "raster": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
   },
   {
    "name": "nested_complex_layout",
