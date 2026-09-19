@@ -319,6 +319,26 @@ enum NativeSwiftCoreTests {
       animatedSnapshot.needsContinuousFrames,
       "an animation-only document did not ask for continuous frames")
 
+    // A clock display that converts a system variable straight to text names it in the
+    // text-from-float operation, not in an expression or a draw command. That store has to be
+    // scanned too, or the display freezes after the first frame.
+    let clockText = Writer()
+    clockText.header(width: 100, height: 100)
+    clockText.u8(135).int(40).int(Writer.nanReference(2)).int(0).int(0)
+    clockText.u8(200).int(1).u8(214).u8(214)
+    let clockTextSnapshot = try NativeSwiftDocumentSession.open(data: clockText.data).snapshot()
+    precondition(
+      clockTextSnapshot.needsWallClockRefresh,
+      "a clock-to-text conversion did not ask for a wall-clock refresh")
+    let plainText = Writer()
+    plainText.header(width: 100, height: 100)
+    plainText.u8(135).int(40).float(1.5).int(0).int(0)
+    plainText.u8(200).int(1).u8(214).u8(214)
+    let plainTextSnapshot = try NativeSwiftDocumentSession.open(data: plainText.data).snapshot()
+    precondition(
+      !plainTextSnapshot.needsWallClockRefresh,
+      "a constant text-from-float conversion asked for a wall-clock refresh")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)
