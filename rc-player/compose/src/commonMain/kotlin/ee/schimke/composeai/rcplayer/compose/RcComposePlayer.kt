@@ -2163,6 +2163,25 @@ private fun Modifier.applyComponentModifiers(
   var appliedWidth = false
   var appliedHeight = false
   var appliedCanvasOperations = false
+  var graphicsLayerApplied = false
+
+  /**
+   * Appends the component's graphics layer the first time something that draws asks for it.
+   *
+   * Wire order puts the layer after the component's size and background modifiers, and a layer
+   * appended there composites nothing: the background's `drawBehind` has already painted to the
+   * parent canvas. Deferring it to just before the first drawing modifier puts the background, the
+   * border and the canvas stream *inside* the layer, which is what the reference does — its layer
+   * covers the component as a whole.
+   */
+  @Composable
+  fun applyPendingGraphicsLayer(modifier: Modifier): Modifier {
+    val layer = modifiers.graphicsLayer ?: return modifier
+    if (graphicsLayerApplied) return modifier
+    graphicsLayerApplied = true
+    return modifier.applyGraphicsLayer(layer, state)
+  }
+
   fun applyCanvasOperations(modifier: Modifier): Modifier {
     val operations = canvasOperations ?: return modifier
     appliedCanvasOperations = true
@@ -2198,7 +2217,7 @@ private fun Modifier.applyComponentModifiers(
     // content-padding inset. Put the Compose draw wrapper outside the first padding modifier even
     // when the wire DrawContent marker follows it.
     if (operation is RcPaddingModifier && !appliedCanvasOperations) {
-      result = applyCanvasOperations(result)
+      result = applyCanvasOperations(applyPendingGraphicsLayer(result))
     }
     result =
       when (operation) {
@@ -2244,10 +2263,9 @@ private fun Modifier.applyComponentModifiers(
         is RcBorderModifier,
         is RcClipRectModifier,
         is RcRoundedClipRectModifier,
-        is RcRippleModifier -> result.applyPaintDecorator(operation, state)
-        is RcGraphicsLayerModifier ->
-          if (operation == modifiers.graphicsLayer) result.applyGraphicsLayer(operation, state)
-          else result
+        is RcRippleModifier ->
+          applyPendingGraphicsLayer(result).applyPaintDecorator(operation, state)
+        is RcGraphicsLayerModifier -> result
         is RcMarqueeModifier -> result.applyAndroidXMarquee(operation, state)
         is RcNoArg ->
           if (
@@ -2255,7 +2273,7 @@ private fun Modifier.applyComponentModifiers(
               !appliedCanvasOperations &&
               modifiers.ordered.drop(operationIndex + 1).none { it is RcPaddingModifier }
           ) {
-            applyCanvasOperations(result)
+            applyCanvasOperations(applyPendingGraphicsLayer(result))
           } else result
         else -> result
       }
@@ -2265,7 +2283,11 @@ private fun Modifier.applyComponentModifiers(
     modifiers.scroll?.let { result = result.applyAndroidXScroll(it, state, geometryComponentIds) }
   }
   if (!appliedCanvasOperations) {
-    result = applyCanvasOperations(result)
+    // The layer goes on first so the canvas stream is drawn *inside* it: a component whose paint
+    // arrives as canvas operations — `modifier_graphics_layer`'s scaled rect, the translation
+    // tween's block — has nothing else for the layer to transform, and a layer applied after the
+    // stream leaves the drawing untransformed.
+    result = applyCanvasOperations(applyPendingGraphicsLayer(result))
   }
   if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
     result = result.applyAndroidXMultiClick(modifiers.clicks, state)
