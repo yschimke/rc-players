@@ -110,17 +110,39 @@ nothing. No gold in the corpus asserts raster alone.
 
 ### Scores
 
-Measured against patch set 1 of the Gerrit change, with the corpus's advisory flag honoured:
+Measured against the corpus as vendored on `vendor/androidx-rc-conformance`, with the advisory flag
+honoured — the 2026-09-19 published run at `9acfa39`:
 
 | | `cmp` | `androidx-jvm` | `native-appkit` | `typescript` |
 | --- | ---: | ---: | ---: | ---: |
-| Golds passed (core profile) | **183 / 241** | 133 / 241 | 0 / 241 | 199 / 241 |
-| Binding checks failing | 236 / 910 | 468 / 910 | 904 / 910 | — |
-| Advisory (raster) disagreeing | 180 / 605 | 340 / 605 | 346 / 605 | 214 / 605 |
+| Golds passed (core profile) | **190 / 241** | 132 / 241 | 0 / 241 | 199 / 241 |
+| Binding checks failing | 230 / 910 | 468 / 910 | 902 / 910 | — |
+| Advisory (raster) disagreeing | 195 / 605 | 257 / 605 | 344 / 605 | 214 / 605 |
 
 The published run is on
 [`reports/conformance`](https://github.com/yschimke/rc-players/tree/reports/conformance), and the
 per-player visual audits the corpus's own generators produce are published to GitHub Pages.
+
+### The raster baselines, and the recorder that stamps them
+
+A gold's `tree` and scalar checks come from the reference engine; its **per-step rasters are
+recorded** — a harness plays the timeline through a player and writes the frames back. Which player
+records therefore decides what every lane is measured against, and on 2026-09-18 it went wrong: the
+regeneration rendered through the View player (`remote-player-view`), whose `RemoteComposeView.onMeasure`
+sizes itself to the document rather than to its parent, so a `resize` step keeps painting the initial
+size and the newly exposed area stays white. Measured over the whole corpus, every independent
+rendering — CMP, the embedded player, the TypeScript player, the previous software recordings —
+agrees with every other on resize at **0.89–0.98**, and that recording was the only outlier at
+**0.56–0.64**. A View player *constructed* at the target viewport renders the old gold
+pixel-identically, and the embedded player resized live does too.
+
+`vendor/androidx-rc-conformance` therefore carries a **documented correction**: 178 frames (175
+resize-affected, 3 animation regressions) restored to the previous recordings, 144 native-recorded
+frames kept because they fix genuinely stale baselines (missing children, blank particle frames).
+The recorder analysis, the corrected-corpus build script and the upstream patches — record with the
+embedded player (`UPDATE_GOLDENS=embedded`), or re-create the View player per viewport — live under
+[`renders/conformance-goldens/`](../../renders/conformance-goldens/). It is a temporary local
+correction: when a fixed patch set lands upstream, `refresh.sh` replaces it and the note goes.
 
 ### Two work lists, not one
 
@@ -299,7 +321,12 @@ filed issue carrying the evidence:
 | Four document shapes crash it — LOOM linking, box alignment `0/0`, `LayoutComponentContent`, a missing tween path | 9 (+202 downstream checks) | #182 |
 | Collapsible layouts do not collapse to `GONE` when nothing fits | ~18 | #198 |
 | ~~`StateLayout` honours fill modifiers~~ — **fixed**, +7 golds | — | #202 |
+| A weighted child of a collapsible layout measures to zero — tree and raster | 2 | #281 |
 | `canvas_shader_gradient` — the one raster difference attributable to this player alone | 1 | #183 |
+
+The reference lane has its own tracked gaps, and they belong upstream because that player *is*
+upstream's code: the `graphicsLayer` transform is not applied in either Compose port — the child
+alpha in particular — tracked in #207 for both ports and #98 for the vendored/upstream side.
 
 **In the runner.**
 
