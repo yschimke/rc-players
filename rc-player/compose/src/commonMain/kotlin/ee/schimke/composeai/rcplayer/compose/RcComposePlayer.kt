@@ -226,6 +226,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
@@ -2980,27 +2981,43 @@ private fun Modifier.trackComponentGeometry(
  * ordered list to preserve AndroidX's order-sensitive modifier semantics and consults the resolved
  * fields separately, so removing it from one and not the other would apply half of it.
  */
-/** Drops padding, for the layouts whose reference sizes to their content rather than to a chain. */
-private fun RcLayoutModifiers.withoutPadding(): RcLayoutModifiers {
+/** Drops padding, for the layouts whose reference sizes to its content rather than to a chain. */
+internal fun RcLayoutModifiers.withoutPadding(): RcLayoutModifiers {
   if (padding.isEmpty()) return this
-  return copy(
-    padding = emptyList(),
-    ordered = ordered.filterNot { it is RcPaddingModifier },
-  )
+  return removingOrdered { it is RcPaddingModifier }.copy(padding = emptyList())
 }
 
-private fun RcLayoutModifiers.withoutFillDimensions(): RcLayoutModifiers {
+internal fun RcLayoutModifiers.withoutFillDimensions(): RcLayoutModifiers {
   val fillsWidth = width?.type == RcDimensionType.FILL
   val fillsHeight = height?.type == RcDimensionType.FILL
   if (!fillsWidth && !fillsHeight) return this
+  return removingOrdered { operation ->
+      (fillsWidth && operation is RcWidthModifier && operation.type == RcDimensionType.FILL) ||
+        (fillsHeight && operation is RcHeightModifier && operation.type == RcDimensionType.FILL)
+    }
+    .copy(
+      width = width.takeUnless { fillsWidth },
+      height = height.takeUnless { fillsHeight },
+    )
+}
+
+/**
+ * Drops the operations [predicate] selects from `ordered`, moving
+ * [RcLayoutModifiers.scrollPosition] with them.
+ *
+ * `scrollPosition` counts the operations that precede the scroll in wire order, so it is an index
+ * into `ordered` — filtering an operation out from in front of it leaves the index pointing at the
+ * wrong place. `padding -> scroll -> offset` became `[offset]` with the position still at 1, and
+ * `applyComponentModifiers` then never matched it and appended scrolling *after* the offset,
+ * reversing the two.
+ */
+internal fun RcLayoutModifiers.removingOrdered(
+  predicate: (RcOperation) -> Boolean
+): RcLayoutModifiers {
+  val position = scrollPosition
   return copy(
-    width = width.takeUnless { fillsWidth },
-    height = height.takeUnless { fillsHeight },
-    ordered =
-      ordered.filterNot { operation ->
-        (fillsWidth && operation is RcWidthModifier && operation.type == RcDimensionType.FILL) ||
-          (fillsHeight && operation is RcHeightModifier && operation.type == RcDimensionType.FILL)
-      },
+    ordered = ordered.filterNot(predicate),
+    scrollPosition = position?.minus(ordered.take(position).count(predicate)),
   )
 }
 
