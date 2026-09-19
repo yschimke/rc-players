@@ -161,6 +161,9 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   /// `[scaleX, skewX, translateX, skewY, scaleY, translateY, persp0, persp1, persp2]` — or nil
   /// when the paint never named one. A texture drawn without it tiles at its natural size.
   public let shaderMatrix: [Float]?
+  /// How the paint samples an image or texture: 0 none, 1 low, 2 medium, 3 high. Nil when the
+  /// paint never said, which leaves the renderer's own default in place.
+  public let filterQuality: Int?
   public let usesComponentGeometry: Bool
   public let gradient: NativeSwiftGradientSnapshot?
 }
@@ -1148,6 +1151,7 @@ private struct ParsedDrawCommand {
       shaderMatrix: paint.shaderMatrixID.flatMap { matrices[$0] }.flatMap {
         NativeSwiftMatrixExpression.evaluate($0, values: values)
       },
+      filterQuality: paint.filterQuality,
       usesComponentGeometry: usesComponentGeometry,
       gradient: paint.gradient.map { gradient in
         NativeSwiftGradientSnapshot(
@@ -1280,6 +1284,9 @@ private struct ParsedPaint {
   /// The `MatrixAccess` id a `SHADER_MATRIX` field named, or nil when the field was cleared or
   /// never set. Applies to whichever shader the paint currently carries.
   var shaderMatrixID: Int?
+  /// How an image or texture is sampled: 0 none, 1 low, 2 medium, 3 high. Nil when the paint never
+  /// said, which leaves the renderer's default in place.
+  var filterQuality: Int?
 }
 
 /// The word for a literal `-1`, which is how a node says "no maximum". Spelled once so the default
@@ -2784,6 +2791,13 @@ private enum NativeSwiftDocumentDecoder {
         paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
       case 15: paint.strokeJoin = highBits
       case 18: paint.blendMode = highBits
+      case 10:
+        // Image filter quality: 0 none, 1 low, 2 medium, 3 high. Anything else is the reference's
+        // low fallback.
+        paint.filterQuality = (0...3).contains(highBits) ? highBits : 1
+      case 17:
+        // The legacy filter-bitmap flag: non-zero asks for filtering, which is low quality.
+        paint.filterQuality = highBits != 0 ? 1 : 0
       case 19:
         paint.colorID = words[index]
       case 24:

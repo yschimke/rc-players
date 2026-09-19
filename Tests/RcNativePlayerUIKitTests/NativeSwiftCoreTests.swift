@@ -307,6 +307,28 @@ enum NativeSwiftCoreTests {
     precondition(drawingCommands.map(\.kind) == [6, 2, 3, 5, 10, 12, 13, 14, 16, 11, 7])
     precondition(drawingCommands.last?.path.count == 2)
 
+    // Filter quality is paint state: an IMAGE_FILTER_QUALITY field (10) names a quality, the
+    // legacy FILTER_BITMAP flag (17) names two, and a command that never saw either leaves it unset
+    // so the renderer's own default stands.
+    let filterQuality = Writer()
+    filterQuality.header(width: 100, height: 100)
+    filterQuality.u8(200).int(1)
+    filterQuality.u8(42).int(0).int(0).int(10).int(10)
+    filterQuality.u8(40).int(1).int((3 << 16) | 10)
+    filterQuality.u8(42).int(0).int(10).int(10).int(20)
+    filterQuality.u8(40).int(1).int(17)
+    filterQuality.u8(42).int(0).int(20).int(10).int(30)
+    filterQuality.u8(40).int(1).int((1 << 16) | 17)
+    filterQuality.u8(42).int(0).int(30).int(10).int(40)
+    filterQuality.u8(40).int(1).int((9 << 16) | 10)
+    filterQuality.u8(42).int(0).int(40).int(10).int(50)
+    filterQuality.u8(214).u8(214)
+    let filterCommands =
+      try NativeSwiftDocumentSession.open(data: filterQuality.data).snapshot().root.commands
+    precondition(
+      filterCommands.map(\.filterQuality) == [nil, 3, 0, 1, 1],
+      "paint filter quality resolved to \(filterCommands.map { String(describing: $0.filterQuality) })")
+
     let semantics = Writer()
     semantics.header(width: 100, height: 100)
     semantics.text(id: 10, "activate")

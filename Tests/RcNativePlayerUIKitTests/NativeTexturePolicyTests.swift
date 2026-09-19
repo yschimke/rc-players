@@ -33,6 +33,15 @@ enum NativeTexturePolicyTests {
     precondition(!NativeTexturePolicy.isDecal(1))
     precondition(!NativeTexturePolicy.isDecal(2))
 
+    // Filter quality: AndroidX's 0..3, and nil for a paint that never named one so the renderer's
+    // own default stands.
+    precondition(NativeTexturePolicy.interpolationQuality(forFilterQuality: 0) == CGInterpolationQuality.none)
+    precondition(NativeTexturePolicy.interpolationQuality(forFilterQuality: 1) == .low)
+    precondition(NativeTexturePolicy.interpolationQuality(forFilterQuality: 2) == .medium)
+    precondition(NativeTexturePolicy.interpolationQuality(forFilterQuality: 3) == .high)
+    precondition(NativeTexturePolicy.interpolationQuality(forFilterQuality: nil) == nil)
+    precondition(NativeTexturePolicy.interpolationQuality(forFilterQuality: 9) == nil)
+
     testPatternLandsInUserSpace()
 
     print("native UIKit texture policy tests: ok")

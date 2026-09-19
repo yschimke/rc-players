@@ -26,6 +26,21 @@ public enum NativeTexturePolicy {
     tileMode == 3
   }
 
+  /// The Core Graphics interpolation for a paint's filter quality.
+  ///
+  /// AndroidX: 0 none, 1 low, 2 medium, 3 high, anything else low. Nil when the paint never said,
+  /// so the context's own default stands rather than this player inventing a preference.
+  public static func interpolationQuality(forFilterQuality quality: Int?) -> CGInterpolationQuality?
+  {
+    switch quality {
+    case 0: return CGInterpolationQuality.none
+    case 1: return .low
+    case 2: return .medium
+    case 3: return .high
+    default: return nil
+    }
+  }
+
   /// The most tiles one fill will draw before falling back to the bitmap's own rect.
   ///
   /// A texture mapped far smaller than the shape it fills is the pathological case — a 1-point

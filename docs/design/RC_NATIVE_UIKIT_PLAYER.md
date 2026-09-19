@@ -429,6 +429,11 @@ clamps where the reference does when the shape lies inside the mapped bitmap; ou
 repeats rather than extending the edge pixels. Setting a texture or a gradient replaces the paint's
 previous shader.
 
+How an image or texture is sampled is paint state too. `IMAGE_FILTER_QUALITY` (0 none, 1 low,
+2 medium, 3 high) and the legacy `FILTER_BITMAP` flag map onto Core Graphics'
+`interpolationQuality`; a paint that names neither leaves the context's own default in place, and a
+command that names neither takes the default back rather than inheriting the previous command's.
+
 ### Text
 
 Layout text uses real `UILabel`s and attributed strings. UIKit owns Unicode shaping, bidirectional
