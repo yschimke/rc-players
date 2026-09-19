@@ -191,8 +191,10 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
    * to it so far", which is what a check bound to that step asserts.
    */
   private fun gesture(step: Step) {
-    // The corpus observes the repaint after this delay. Recording that instant on the input also
-    // gives the player a stable origin for a fling that later `advance_time` steps continue.
+    val eventTime = clock
+    // Input is dispatched before this delay; the corpus observes the repaint after it. Keep both
+    // instants so actions read the event clock while layout/animation refreshes at the capture
+    // clock.
     clock += step.int("advance_millis", 0) / MILLIS_PER_SECOND
     driven += buildJsonObject {
       put("kind", step.kind)
@@ -200,7 +202,8 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       step.float("y")?.let { put("y", it) }
       step.float("dx")?.let { put("dx", it) }
       step.float("dy")?.let { put("dy", it) }
-      put("at", clock)
+      put("at", eventTime)
+      put("capture_at", clock)
     }
     request(step.id)
   }

@@ -69,6 +69,8 @@ struct NativeMacInputStep {
   var dy: Double?
   /// The clock the step happens at, in seconds.
   var at: TimeInterval
+  /// The clock after the step's requested delay, when its repaint is observed.
+  var captureAt: TimeInterval
 }
 
 /// The scroll a touch sequence picked up. Its starting offset and point stay fixed for the whole
@@ -184,7 +186,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       // A later input must hit-test the state left by the one before it. This matters when a click
       // switches a StateLayout before the next gesture, and also keeps the scroll tree current while
       // a multi-sample drag is replayed.
-      try player.refresh(timeSeconds: step.at, wallClock: wallClock)
+      try player.refresh(timeSeconds: step.captureAt, wallClock: wallClock)
       player.layoutSubtreeIfNeeded()
     }
     if let fling = scrollFling {
@@ -259,7 +261,9 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         if fingerVelocity != 0 {
           scrollFling = NativeMacScrollFling(
             positionID: drag.positionID, startOffset: drag.currentOffset,
-            velocity: -fingerVelocity, maximum: drag.maximum, startedAt: step.at)
+            // The reference establishes a fling on the first post-release repaint; later
+            // `advance_time` steps decay from that observed frame.
+            velocity: -fingerVelocity, maximum: drag.maximum, startedAt: step.captureAt)
         }
       }
       scrollDrag = nil
@@ -1348,12 +1352,14 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     // The modifier's maximum is an output slot the reference player fills from measurement; a fresh
     // document therefore resolves it to zero. Derive the same travel from the laid-out content so a
     // first drag can move, while still respecting a non-zero maximum the document already holds.
-    let viewport = direction == 1 ? contentRect.width : contentRect.height
     let contentEnd = flattenedLayoutItems.reduce(CGFloat.zero) { result, child in
       let frame = child.convert(child.bounds, to: self)
       return max(result, direction == 1 ? frame.maxX : frame.maxY)
     }
-    let measuredMaximum = Float(max(contentEnd - viewport, 0))
+    // `contentEnd` and the trailing edge are in this component's coordinates. Subtracting only the
+    // content size would count leading padding as overflow and let exactly-fitting content scroll.
+    let viewportEnd = direction == 1 ? contentRect.maxX : contentRect.maxY
+    let measuredMaximum = Float(max(contentEnd - viewportEnd, 0))
     return NativeMacScrollTarget(
       positionID: positionID, direction: direction, offset: node.scrollOffset,
       maximum: max(node.scrollMaximum, measuredMaximum))

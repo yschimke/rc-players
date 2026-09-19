@@ -604,7 +604,9 @@ struct RemoteComposeMacApplication {
               y: (raw["y"] as? NSNumber)?.doubleValue,
               dx: (raw["dx"] as? NSNumber)?.doubleValue,
               dy: (raw["dy"] as? NSNumber)?.doubleValue,
-              at: (raw["at"] as? NSNumber)?.doubleValue ?? 0)
+              at: (raw["at"] as? NSNumber)?.doubleValue ?? 0,
+              captureAt: (raw["capture_at"] as? NSNumber)?.doubleValue
+                ?? (raw["at"] as? NSNumber)?.doubleValue ?? 0)
           }
           let requested = frame["values"] as? [String: Any] ?? [:]
           let valueRequest = NativeMacValueRequest(
