@@ -128,7 +128,8 @@ private enum NativePlayerEvidence {
       started = ProcessInfo.processInfo.systemUptime
       let snapshot = try session.snapshot()
       let document = try NativeDocument(
-        frame: NativeSnapshotSessionHandle.Frame(session: session, snapshot: snapshot),
+        frame: NativeSnapshotSessionHandle.Frame(
+          session: session, snapshot: snapshot, wallClock: nil),
         timeSeconds: 0, limits: .default)
       let cache = NativeImageCache(
         countLimit: RemoteComposeNativeResourceLimits.default.maximumResourceCount,
@@ -150,7 +151,8 @@ private enum NativePlayerEvidence {
       started = ProcessInfo.processInfo.systemUptime
       let updated = try session.snapshot()
       let updatedDocument = try NativeDocument(
-        frame: NativeSnapshotSessionHandle.Frame(session: session, snapshot: updated),
+        frame: NativeSnapshotSessionHandle.Frame(
+          session: session, snapshot: updated, wallClock: nil),
         timeSeconds: 0, limits: .default)
       _ = view.update(
         document: updatedDocument, resources: resources, customComponents: customComponents)

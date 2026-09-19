@@ -240,6 +240,48 @@ enum NativeSwiftCoreTests {
       abs((fillScale ?? 0) - 26.0 / 24.0) < 0.001,
       "a fill inside a fixed box measured the document, got scale \(String(describing: fillScale))")
 
+    // The wall clock a document's calendar and time-of-day variables read. The reference publishes
+    // these from its clock every frame; this core leaves them unset unless a host supplies an
+    // absolute instant, so a test and a corpus capture stay deterministic.
+    let calendar = Writer()
+    calendar.header(width: 100, height: 100)
+    calendar.u8(200).int(1)
+    for id in [35, 9, 12, 11, 34, 2, 3, 4, 10] {
+      calendar.u8(42).int(Writer.nanReference(id)).int(0).int(0).int(0)
+    }
+    calendar.u8(214)
+    let calendarSession = try NativeSwiftDocumentSession.open(data: calendar.data)
+    let unset = try calendarSession.snapshot()
+    precondition(
+      unset.root.commands[0].values[0] == 0,
+      "an unsupplied calendar field resolved to \(unset.root.commands[0].values[0])")
+    // 2026-09-19T12:34:56.789Z.
+    let wallClock = NativeSwiftWallClock(epochMillis: 1_789_821_296_789, offsetSeconds: 0)
+    let fields = try calendarSession.snapshot(wallClock: wallClock).root.commands
+      .map { $0.values[0] }
+    precondition(
+      fields == [2026, 9, 19, 6, 262, 2096, 754, 12, 0],
+      "calendar fields resolved to \(fields)")
+    // A zone offset moves the local fields but not the instant.
+    let shifted = try calendarSession.snapshot(
+      wallClock: NativeSwiftWallClock(epochMillis: 1_789_821_296_789, offsetSeconds: 3600)
+    ).root.commands.map { $0.values[0] }
+    precondition(
+      shifted == [2026, 9, 19, 6, 262, 2096, 814, 13, 3600],
+      "offset calendar fields resolved to \(shifted)")
+
+    // A document that declares one of the ids itself keeps it, matching the reference's
+    // claimed-id rule.
+    let claimed = Writer()
+    claimed.header(width: 100, height: 100)
+    claimed.u8(80).int(35).float(1999)
+    claimed.u8(200).int(1)
+    claimed.u8(42).int(Writer.nanReference(35)).int(0).int(0).int(0)
+    claimed.u8(214)
+    let claimedYear = try NativeSwiftDocumentSession.open(data: claimed.data)
+      .snapshot(wallClock: wallClock).root.commands[0].values[0]
+    precondition(claimedYear == 1999, "a claimed calendar id resolved to \(claimedYear)")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)

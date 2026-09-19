@@ -35,6 +35,9 @@
     /// snaps back to zero, and a player that refines after every layout pass then alternates
     /// between the animated frame and a static one.
     let timeSeconds: TimeInterval
+    /// The host's absolute time at that instant, for the same reason: a calendar field must not
+    /// jump when the refinement re-resolves.
+    let wallClock: NativeSwiftWallClock?
     private let limits: RemoteComposeNativeExecutionLimits
 
     init(
@@ -43,8 +46,8 @@
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled
     ) throws {
       try self.init(
-        swiftSnapshot: frame.snapshot, timeSeconds: timeSeconds, limits: limits,
-        androidCompatibility: androidCompatibility)
+        swiftSnapshot: frame.snapshot, timeSeconds: timeSeconds, wallClock: frame.wallClock,
+        limits: limits, androidCompatibility: androidCompatibility)
       refiner = frame.refiner
     }
 
@@ -57,9 +60,9 @@
       guard let refiner, !measuredComponents.isEmpty else { return nil }
       guard
         let snapshot = try? refiner.snapshot(
-          timeSeconds: timeSeconds, measuredComponents: measuredComponents),
+          timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents),
         var document = try? NativeDocument(
-          swiftSnapshot: snapshot, timeSeconds: timeSeconds, limits: limits,
+          swiftSnapshot: snapshot, timeSeconds: timeSeconds, wallClock: wallClock, limits: limits,
           androidCompatibility: androidCompatibility)
       else { return nil }
       document.refiner = refiner
@@ -68,10 +71,11 @@
 
     private init(
       swiftSnapshot: NativeSwiftDocumentSnapshot, timeSeconds: TimeInterval,
-      limits: RemoteComposeNativeExecutionLimits,
+      wallClock: NativeSwiftWallClock?, limits: RemoteComposeNativeExecutionLimits,
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility
     ) throws {
       self.timeSeconds = timeSeconds
+      self.wallClock = wallClock
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
       var downloadableByID: [Int: NativeDownloadableFont] = [:]
