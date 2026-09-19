@@ -1387,6 +1387,59 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun graphicsLayerAlphaCompositesTheComponentsOwnBackground() {
+    // `collapsible_column_child_graphicslayer` and its siblings: the layer's alpha has to reach
+    // the fill the component paints for itself. A layer at its wire position lands after the
+    // background's `drawBehind`, which has already painted to the parent canvas, so the alpha
+    // never applied and every one of those golds drew its child fully opaque.
+    val navy = 0xff1e293b.toInt()
+    val expected = 0xff7ba5d6.toInt() // #93c5fd at 80% over #1e293b
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 40, modern = false),
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcCanvasLayout(3, 30),
+          width(40f),
+          height(40f),
+          solidBackground(red = 0.11764706f, green = 0.16078432f, blue = 0.23137255f),
+          RcLayoutContent(4),
+          RcCanvasLayout(5, 50),
+          width(20f),
+          height(20f),
+          solidBackground(red = 0.5764706f, green = 0.77254903f, blue = 0.99215686f),
+          RcGraphicsLayerModifier(
+            listOf(
+              RcGraphicsLayerAttribute.FloatValue(
+                RcGraphicsLayerModifier.ALPHA,
+                RcFloatWord.literal(0.8f),
+              )
+            )
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 40, height = 40, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 40) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(navy, bitmap.getColor(35, 35), "outside the layered child")
+      assertEquals(expected, bitmap.getColor(10, 10), "the child's own fill at 80%")
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun graphicsLayerUsesTheComposeCenterPivotWhenOriginIsAbsent() {
     val red = 0xffff0000.toInt()
     val document = centerPivotDocument()
