@@ -882,9 +882,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     let dimensionValue = float(type == 0 ? node.widthWord : node.heightWord)
     if dimensionType == 0 || dimensionType == 6 { return max(dimensionValue, 0) }
     if dimensionType == 1 || dimensionType == 7 || dimensionType == 8 {
-      return available * (dimensionValue.isNaN ? 1 : max(dimensionValue, 0))
+      let fraction = dimensionValue.isNaN ? 1 : max(dimensionValue, 0)
+      return ancestorDimension(of: node, type: type, available: available, values: values)
+        * fraction
     }
-    let children = flattenedChildren(of: node, values: values)
+    // A fill child contributes nothing to a wrapping parent's intrinsic size: the parent decides
+    // the child's size, not the other way round. Including one used to make a wrap box that
+    // contains a fill canvas measure the whole document, because the fill's own estimate resolved
+    // to `available`.
+    let children = flattenedChildren(of: node, values: values).filter {
+      !isFillDimension(type == 0 ? $0.widthType : $0.heightType)
+    }
     let childDimensions = children.map {
       estimatedDimension(of: $0, type: type, available: available, values: values)
     }
@@ -910,6 +918,40 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       : float(node.paddingWords.top) + float(node.paddingWords.bottom)
     let minimum = type == 1 ? float(node.minimumHeightWord) : 0
     return max(intrinsic + padding, minimum)
+  }
+
+  /// The size a fill resolves to: the nearest ancestor that has one, not the document.
+  ///
+  /// A fill's size is its parent's, so a chain of transparent wrappers and fills has to be walked
+  /// up until something determinate is found. Returning `available` at the first fill is what made
+  /// an icon inside a 52-unit button measure the 454-unit canvas; the reference measures the
+  /// component the layout actually gave it. Falls back to the document when no ancestor decides.
+  private func ancestorDimension(
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float]
+  ) -> Float {
+    func float(_ word: UInt32) -> Float {
+      let value = NativeSwiftFloatExpression.resolve(word, values: values)
+      return value.isFinite ? value : 0
+    }
+    var current = node.parent
+    var depth = 0
+    while let candidate = current, depth < 64 {
+      let dimensionType = type == 0 ? candidate.widthType : candidate.heightType
+      let dimensionValue = float(type == 0 ? candidate.widthWord : candidate.heightWord)
+      if dimensionType == 0 || dimensionType == 6 { return max(dimensionValue, 0) }
+      if !isFillDimension(dimensionType) {
+        let intrinsic = estimatedDimension(
+          of: candidate, type: type, available: available, values: values)
+        if intrinsic > 0 { return intrinsic }
+      }
+      current = candidate.parent
+      depth += 1
+    }
+    return available
+  }
+
+  private func isFillDimension(_ dimensionType: Int) -> Bool {
+    dimensionType == 1 || dimensionType == 7 || dimensionType == 8
   }
 
   /// Flattens a bare content wrapper into its parent for measurement.

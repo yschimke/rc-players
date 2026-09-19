@@ -211,6 +211,35 @@ enum NativeSwiftCoreTests {
         "expected the failure to name the text size, got \(error.description)")
     }
 
+    // A component-value binding on a structural content node inside a fill canvas inside a fixed
+    // box. The pre-layout estimate used to resolve the fill to the whole document, so an icon's
+    // scale derived from its own measured width was 454/24 rather than 26/24 and the glyph was
+    // transformed off-canvas. The estimate now walks up to the ancestor that decides.
+    let fillBinding = Writer()
+    fillBinding.header(width: 454, height: 400)
+    fillBinding.u8(200).int(-2)
+    fillBinding.u8(201).int(-3)
+    fillBinding.u8(202).int(-4).int(0).int(1).int(4)
+    fillBinding.u8(16).int(6).float(26)
+    fillBinding.u8(67).int(6).float(26)
+    fillBinding.u8(205).int(-5).int(0)
+    fillBinding.u8(16).int(1).float(1)
+    fillBinding.u8(67).int(1).float(1)
+    fillBinding.u8(201).int(-6)
+    fillBinding.u8(150).int(0).int(-6).int(101)
+    fillBinding.u8(150).int(1).int(-6).int(102)
+    fillBinding.u8(81).int(103).int(3)
+      .int(Writer.nanReference(101)).float(24).int(Writer.floatOperator(4))
+    fillBinding.u8(126).int(Writer.nanReference(103)).int(Writer.nanReference(103))
+      .int(Int(Int32(bitPattern: Float.nan.bitPattern)))
+      .int(Int(Int32(bitPattern: Float.nan.bitPattern)))
+    fillBinding.u8(214).u8(214).u8(214).u8(214).u8(214)
+    let fillSnapshot = try NativeSwiftDocumentSession.open(data: fillBinding.data).snapshot()
+    let fillScale = fillSnapshot.root.allCommands.first(where: { $0.kind == 3 })?.values.first
+    precondition(
+      abs((fillScale ?? 0) - 26.0 / 24.0) < 0.001,
+      "a fill inside a fixed box measured the document, got scale \(String(describing: fillScale))")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)
