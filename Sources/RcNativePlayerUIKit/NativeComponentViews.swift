@@ -1378,7 +1378,9 @@
       let items = collapsibleItems(in: content, axis: .vertical)
       let sizes = items.map { $0.preferredSize(in: content.size) }
       let weightedHeights = NativeLinearLayout.allocateWeighted(
-        available: content.height,
+        available: NativeLinearLayout.collapsibleWeightSpace(
+          extent: content.height, count: items.count,
+          spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: sizes.map(\.height),
         weights: items.map { child in
           guard child.node.heightType == 3 else { return nil }
@@ -1409,7 +1411,9 @@
       let items = collapsibleItems(in: content, axis: .horizontal)
       let natural = items.map { $0.preferredSize(in: content.size) }
       let allocatedWidths = NativeLinearLayout.allocateWeighted(
-        available: content.width,
+        available: NativeLinearLayout.collapsibleWeightSpace(
+          extent: content.width, count: items.count,
+          spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: natural.map(\.width),
         weights: items.map { child in
           guard child.node.widthType == 3 else { return nil }

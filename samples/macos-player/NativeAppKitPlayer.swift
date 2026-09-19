@@ -404,6 +404,19 @@ private struct MacDimension {
 }
 
 private enum MacLinearLayout {
+  /// The space a **collapsible** container's weights divide: its own axis less the gaps that
+  /// placement then adds between the children it kept.
+  ///
+  /// The collapsible family is the exception to the additive-spacing rule `allocate` follows. Its
+  /// reference implementation charges `neededSpacing` into the running total before dividing the
+  /// remainder, so a 60-point column with a 10-point gap and 1:2 weights allocates 16 and 33 rather
+  /// than 20 and 40 — otherwise the shares fill the whole axis, the layout constrains the result,
+  /// and the last child is clipped by exactly the total gap.
+  static func collapsibleWeightSpace(extent: CGFloat, count: Int, spacing: CGFloat) -> CGFloat {
+    guard count > 1 else { return extent }
+    return max(extent - spacing * CGFloat(count - 1), 0)
+  }
+
   static func allocate(available: CGFloat, natural: [CGFloat], weights: [CGFloat?]) -> [CGFloat] {
     let fixed = zip(natural, weights).reduce(CGFloat.zero) { $0 + ($1.1 == nil ? $1.0 : 0) }
     let total = weights.compactMap { $0 }.reduce(0, +)
@@ -1143,7 +1156,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let items = collapsibleItems(in: content.size, axis: .vertical)
     let natural = items.map { $0.preferredSize(in: content.size) }
     let allocated = MacLinearLayout.allocate(
-      available: content.height, natural: natural.map(\.height),
+      available: MacLinearLayout.collapsibleWeightSpace(
+        extent: content.height, count: items.count,
+        spacing: node.isCollapsible ? spacing : 0),
+      natural: natural.map(\.height),
       weights: items.map {
         $0.node.heightType == 3 ? max(CGFloat($0.node.heightValue), .leastNonzeroMagnitude) : nil
       })
@@ -1167,7 +1183,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let items = collapsibleItems(in: content.size, axis: .horizontal)
     let natural = items.map { $0.preferredSize(in: content.size) }
     let widths = MacLinearLayout.allocate(
-      available: content.width, natural: natural.map(\.width),
+      available: MacLinearLayout.collapsibleWeightSpace(
+        extent: content.width, count: items.count,
+        spacing: node.isCollapsible ? spacing : 0),
+      natural: natural.map(\.width),
       weights: items.map {
         $0.node.widthType == 3 ? max(CGFloat($0.node.widthValue), .leastNonzeroMagnitude) : nil
       })
