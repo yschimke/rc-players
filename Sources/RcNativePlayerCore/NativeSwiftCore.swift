@@ -111,6 +111,26 @@ public struct NativeSwiftMeasuredSize: Sendable, Equatable {
   }
 }
 
+/// One operation's byte extent in a decoded document, as the decoder itself walked it.
+///
+/// Exposed so a mutation fuzzer can edit the operation stream as a structure — perturbing operands,
+/// duplicating and dropping whole operations — rather than as flat bytes. The spans come from the
+/// same walk that validates the document, so a mutator and the decoder cannot disagree about
+/// framing: `endOffset` is exactly where the decoder stopped reading the operation.
+public struct NativeSwiftOperationSpan: Sendable, Equatable {
+  public let opcode: Int
+  public let offset: Int
+  public let endOffset: Int
+
+  public init(opcode: Int, offset: Int, endOffset: Int) {
+    self.opcode = opcode
+    self.offset = offset
+    self.endOffset = endOffset
+  }
+
+  public var byteCount: Int { endOffset - offset }
+}
+
 public struct NativeSwiftAccessibilitySnapshot: Sendable {
   public let role: Int
   public let mode: Int
@@ -325,6 +345,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   public static func open(data: Data) throws -> NativeSwiftDocumentSession {
     NativeSwiftDocumentSession(document: try NativeSwiftDocumentDecoder.decode(data))
+  }
+
+  /// The operation spans of a document the decoder accepts, for structure-aware mutation.
+  ///
+  /// Decoding is still fail-closed: a document the player would refuse has no spans to hand back.
+  public static func operationSpans(in data: Data) throws -> [NativeSwiftOperationSpan] {
+    var spans: [NativeSwiftOperationSpan] = []
+    _ = try NativeSwiftDocumentDecoder.decode(data, spans: &spans)
+    return spans
   }
 
   private init(copying other: NativeSwiftDocumentSession) {
@@ -782,26 +811,43 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       powf(Float((color >> shift) & 0xff) / 255, 2.2)
     }
     func encoded(_ value: Float) -> UInt32 {
-      UInt32(min(max(Int(powf(value, 1 / 2.2) * 255), 0), 255))
+      let encoded = powf(max(value, 0), 1 / 2.2)
+      guard encoded.isFinite else { return value > 0 ? 255 : 0 }
+      return UInt32((min(max(encoded, 0), 1) * 255).rounded())
     }
     let alpha = Float((first >> 24) & 0xff) + tween * Float(Int((second >> 24) & 0xff) - Int((first >> 24) & 0xff))
     let red = channel(first, shift: 16) + tween * (channel(second, shift: 16) - channel(first, shift: 16))
     let green = channel(first, shift: 8) + tween * (channel(second, shift: 8) - channel(first, shift: 8))
     let blue = channel(first, shift: 0) + tween * (channel(second, shift: 0) - channel(first, shift: 0))
-    return UInt32(min(max(Int(alpha), 0), 255)) << 24 | encoded(red) << 16 | encoded(green) << 8
-      | encoded(blue)
+    let clampedAlpha = min(max(alpha, 0), 255)
+    return UInt32(clampedAlpha.isFinite ? clampedAlpha.rounded() : 0) << 24
+      | encoded(red) << 16 | encoded(green) << 8 | encoded(blue)
   }
 
+  /// A colour byte, clamped rather than converted.
+  ///
+  /// `Int(value)` traps for a non-finite or out-of-range float, and a document is free to compute a
+  /// channel from expressions this player cannot bound — a structure-aware mutant found exactly
+  /// that. A colour is not worth failing a frame over, so a non-finite channel saturates instead.
   private func argbColor(alpha: Float, red: Float, green: Float, blue: Float) -> UInt32 {
-    func byte(_ value: Float) -> UInt32 { UInt32(min(max(Int(value * 255 + 0.5), 0), 255)) }
+    func byte(_ value: Float) -> UInt32 {
+      guard value.isFinite else { return value > 0 ? 255 : 0 }
+      return UInt32((min(max(value, 0), 1) * 255).rounded())
+    }
     return byte(alpha) << 24 | byte(red) << 16 | byte(green) << 8 | byte(blue)
   }
 
   private func hsvColor(
     alpha: Float, hue: Float, saturation: Float, brightness: Float
   ) -> UInt32 {
-    let section = Int(hue * 6)
-    let fraction = hue * 6 - Float(section)
+    guard hue.isFinite, saturation.isFinite, brightness.isFinite else {
+      return argbColor(alpha: alpha, red: 0, green: 0, blue: 0)
+    }
+    // Wrapped into [0, 1) before the sector is taken, because `Int(hue * 6)` traps on a hue a
+    // document computed beyond Float's integral range.
+    let wrapped = hue - floorf(hue)
+    let section = Int(wrapped * 6)
+    let fraction = wrapped * 6 - Float(section)
     let p = brightness * (1 - saturation)
     let q = brightness * (1 - fraction * saturation)
     let t = brightness * (1 - (1 - fraction) * saturation)
@@ -1371,7 +1417,12 @@ private enum NativeSwiftFloatExpression {
         case 45: stack.append(value * value)
         case 51: stack.append(log2f(value))
         case 52: stack.append(1 / value)
-        case 53: stack.append(value - Float(Int(value)))
+        case 53:
+          // FRACT, and the reference's own definition: the fraction above the floor, wrapped
+          // positive. `value - Float(Int(value))` trapped on a non-finite or out-of-range operand
+          // and was wrong for negatives anyway.
+          let fraction = value - floorf(value)
+          stack.append(fraction < 0 ? fraction + 1 : fraction)
         default: stack.append(-value)
         }
       case 12, 24, 43, 44, 47, 54:
@@ -1473,6 +1524,16 @@ private enum NativeSwiftDocumentDecoder {
   private static let maximumNestingDepth = 256
 
   static func decode(_ data: Data) throws -> ParsedDocument {
+    var spans: [NativeSwiftOperationSpan] = []
+    return try decode(data, spans: &spans)
+  }
+
+  /// Decodes a document and records each top-level operation's byte extent in `spans`.
+  ///
+  /// The recording is unconditional because it is three assignments per operation and the array is
+  /// discarded by the ordinary entry point; a second, span-collecting walk would be a second
+  /// decoder that could drift from this one.
+  static func decode(_ data: Data, spans: inout [NativeSwiftOperationSpan]) throws -> ParsedDocument {
     var input = WireReader(data)
     guard try input.u8("header opcode") == 0 else {
       throw input.malformed("Document must begin with a header")
@@ -2365,6 +2426,9 @@ private enum NativeSwiftDocumentDecoder {
         throw NativeSwiftCoreError.unsupported(
           opcode: opcode, offset: opcodeOffset, reason: "operation family not migrated")
       }
+      spans.append(
+        NativeSwiftOperationSpan(
+          opcode: opcode, offset: opcodeOffset, endOffset: input.offset))
     }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     guard let root, root.kind == .root else { throw input.malformed("Missing root component") }
