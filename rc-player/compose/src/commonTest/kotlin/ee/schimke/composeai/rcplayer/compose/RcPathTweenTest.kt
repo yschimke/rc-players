@@ -11,6 +11,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class RcPathTweenTest {
   @Test
@@ -22,12 +23,19 @@ class RcPathTweenTest {
       RcPathData(2, listOf(move, RcFloatWord.literal(20f), RcFloatWord.literal(30f), done))
     val state = RcPlayerState(RcDocument(RcHeader(RcVersion(0, 1, 0)), listOf(first, second)))
 
-    val result = tweenPathData(3, 1, 2, 0.25f, state)
+    val result = requireNotNull(tweenPathData(3, 1, 2, 0.25f, state))
 
     assertEquals(move.bits, result.words[0].bits)
     assertEquals(5f, result.words[1].value)
     assertEquals(15f, result.words[2].value)
     assertEquals(done.bits, result.words[3].bits)
+  }
+
+  @Test
+  fun aTweenWithMissingSourcesResolvesToNothingRatherThanThrowing() {
+    val state = RcPlayerState(RcDocument(RcHeader(RcVersion(0, 1, 0)), emptyList()))
+
+    assertNull(tweenPathData(3, 10, 11, 0.5f, state))
   }
 
   @Test

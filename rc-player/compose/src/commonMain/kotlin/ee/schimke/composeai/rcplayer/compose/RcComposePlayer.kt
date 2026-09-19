@@ -3782,16 +3782,14 @@ private fun DrawScope.drawOperationsRouted(
       is RcTransform2 -> transform2(operation, state)
       is RcIdOperation -> drawIdOperation(operation, paint, state, computedPaths)
       is RcPathTween ->
-        state.setPath(
-          operation.outId,
-          tweenPathData(
+        tweenPathData(
             operation.outId,
             operation.path1Id,
             operation.path2Id,
             state.resolve(operation.tween),
             state,
-          ),
-        )
+          )
+          ?.let { state.setPath(operation.outId, it) }
       is RcPathCreate ->
         state.setPath(
           operation.id,
@@ -4696,6 +4694,7 @@ private fun DrawScope.drawTweenPath(
 ) {
   val data =
     tweenPathData(-1, operation.path1Id, operation.path2Id, state.resolve(operation.tween), state)
+      ?: return
   val path = buildPath(data, state)
   val start = state.resolve(operation.start)
   val stop = state.resolve(operation.stop)
@@ -4703,15 +4702,24 @@ private fun DrawScope.drawTweenPath(
   drawRcPath(trimmed, paint)
 }
 
+/**
+ * The interpolated path, or null when either source path is not in the cache.
+ *
+ * A missing source is not an error: `path_tween_morph` ships a `PATH_TWEEN` that references two
+ * paths the document never declares, and both reference implementations record the tween without
+ * morphing anything — the vendored TypeScript player stubs `PathTween` outright. Throwing here took
+ * the rest of the document with it, so the tween is skipped instead, exactly as a `DrawPath` with
+ * no path draws nothing.
+ */
 internal fun tweenPathData(
   outId: Int,
   path1Id: Int,
   path2Id: Int,
   tween: Float,
   state: RcPlayerState,
-): RcPathData {
-  val first = requireNotNull(state.path(path1Id)) { "Missing path $path1Id" }
-  val second = requireNotNull(state.path(path2Id)) { "Missing path $path2Id" }
+): RcPathData? {
+  val first = state.path(path1Id) ?: return null
+  val second = state.path(path2Id) ?: return null
   if (tween == 0f) return first.copy(idAndWinding = outId)
   if (tween == 1f) return second.copy(idAndWinding = outId)
   require(first.words.size >= second.words.size) {

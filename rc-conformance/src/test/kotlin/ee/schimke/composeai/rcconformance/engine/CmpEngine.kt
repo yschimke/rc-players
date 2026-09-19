@@ -45,6 +45,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
+import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
+import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
@@ -498,7 +500,20 @@ private class CmpSession(
       // The guide files these among the long tail, and describes them accurately: they are
       // decoded-operation field reads, not observations of a running player. Nothing here needs the
       // renderer, so nothing here needs a hook in it.
-      "records:paths" -> Observation.Value(presenceMap<RcPathData> { it.id })
+      // A path reaches the cache three ways on the wire: as a `DATA_PATH` resource, and as the
+      // `PATH_CREATE` / `PATH_APPEND` pair `path_create_and_append` declares its path with. The
+      // probe is a decoded-document read, so it has to know all three carriers; reading only
+      // `RcPathData` reported an empty cache for a document that plainly declares path 10.
+      "records:paths" ->
+        Observation.Value(
+          presenceObject(
+            buildSet {
+              document.operations.filterIsInstance<RcPathData>().forEach { add(it.id) }
+              document.operations.filterIsInstance<RcPathCreate>().forEach { add(it.id) }
+              document.operations.filterIsInstance<RcPathAppend>().forEach { add(it.id) }
+            }
+          )
+        )
       "records:tweens" -> Observation.Value(presenceMap<RcPathTween> { it.outId })
       "records:impulses" ->
         Observation.Value(
@@ -769,6 +784,15 @@ private class CmpSession(
   private inline fun <reified T : Any> presenceMap(id: (T) -> Int): JsonObject = buildJsonObject {
     document.operations.filterIsInstance<T>().forEach { operation ->
       put(id(operation).toString(), buildJsonObject { put("present", JsonPrimitive(true)) })
+    }
+  }
+
+  /**
+   * The same `{"<id>": {"present": true}}` shape for a set of ids gathered from several carriers.
+   */
+  private fun presenceObject(ids: Set<Int>): JsonObject = buildJsonObject {
+    ids.forEach { id ->
+      put(id.toString(), buildJsonObject { put("present", JsonPrimitive(true)) })
     }
   }
 
