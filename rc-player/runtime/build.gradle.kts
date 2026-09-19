@@ -1,5 +1,6 @@
 plugins {
   id("composeai.base-conventions")
+  id("composeai.jvm-conventions")
   id("org.jetbrains.kotlin.multiplatform")
   id("composeai.maven-publishing")
 }

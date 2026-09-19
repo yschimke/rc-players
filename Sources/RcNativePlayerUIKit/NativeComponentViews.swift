@@ -3,6 +3,9 @@
   #if canImport(RcNativePlayerCore)
     import RcNativePlayerCore
   #endif
+  #if canImport(RcPlayerAppleFonts)
+    import RcPlayerAppleFonts
+  #endif
   import UIKit
 
   struct NativeDocument {
@@ -25,14 +28,23 @@
     let boundComponents: Set<Int>
     /// Set only when the document binds component geometry. See `refined(measuredComponents:)`.
     private(set) var refiner: NativeSwiftDocumentSession?
+    /// The frame time this document was resolved at.
+    ///
+    /// A refinement re-resolves the session against real geometry, and it must do so at the same
+    /// instant the frame it is refining was taken at — otherwise an animated document's refinement
+    /// snaps back to zero, and a player that refines after every layout pass then alternates
+    /// between the animated frame and a static one.
+    let timeSeconds: TimeInterval
     private let limits: RemoteComposeNativeExecutionLimits
 
     init(
-      frame: NativeSnapshotSessionHandle.Frame, limits: RemoteComposeNativeExecutionLimits,
+      frame: NativeSnapshotSessionHandle.Frame, timeSeconds: TimeInterval,
+      limits: RemoteComposeNativeExecutionLimits,
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled
     ) throws {
       try self.init(
-        swiftSnapshot: frame.snapshot, limits: limits, androidCompatibility: androidCompatibility)
+        swiftSnapshot: frame.snapshot, timeSeconds: timeSeconds, limits: limits,
+        androidCompatibility: androidCompatibility)
       refiner = frame.refiner
     }
 
@@ -44,18 +56,22 @@
     func refined(measuredComponents: [Int: NativeSwiftMeasuredSize]) -> NativeDocument? {
       guard let refiner, !measuredComponents.isEmpty else { return nil }
       guard
-        let snapshot = try? refiner.snapshot(measuredComponents: measuredComponents),
+        let snapshot = try? refiner.snapshot(
+          timeSeconds: timeSeconds, measuredComponents: measuredComponents),
         var document = try? NativeDocument(
-          swiftSnapshot: snapshot, limits: limits, androidCompatibility: androidCompatibility)
+          swiftSnapshot: snapshot, timeSeconds: timeSeconds, limits: limits,
+          androidCompatibility: androidCompatibility)
       else { return nil }
       document.refiner = refiner
       return document
     }
 
     private init(
-      swiftSnapshot: NativeSwiftDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits,
+      swiftSnapshot: NativeSwiftDocumentSnapshot, timeSeconds: TimeInterval,
+      limits: RemoteComposeNativeExecutionLimits,
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility
     ) throws {
+      self.timeSeconds = timeSeconds
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
       var downloadableByID: [Int: NativeDownloadableFont] = [:]
@@ -429,6 +445,7 @@
     let textureImageID: Int?
     let textureTileModeX: Int
     let textureTileModeY: Int
+    let shaderMatrix: [Float]?
     let usesComponentGeometry: Bool
 
     init(_ snapshot: NativeSwiftDrawCommandSnapshot) {
@@ -474,6 +491,7 @@
       textureImageID = snapshot.textureImageID
       textureTileModeX = snapshot.textureTileModeX
       textureTileModeY = snapshot.textureTileModeY
+      shaderMatrix = snapshot.shaderMatrix
       usesComponentGeometry = snapshot.usesComponentGeometry
     }
 
@@ -498,7 +516,14 @@
       textureImageID = nil
       textureTileModeX = 0
       textureTileModeY = 0
+      shaderMatrix = nil
       usesComponentGeometry = false
+    }
+
+    /// The shader's local matrix as a Core Graphics affine transform, or identity when the paint
+    /// never named one.
+    var textureTransform: CGAffineTransform {
+      NativeTexturePolicy.transform(shaderMatrix)
     }
   }
 
@@ -1751,7 +1776,8 @@
       if let postScriptName = fontNames[command.textStyle.fontFamilyID],
         let embedded = UIFont(name: postScriptName, size: size)
       {
-        descriptor = embedded.fontDescriptor
+        descriptor = weightedDescriptor(
+          embedded.fontDescriptor, weight: weightValue, size: size)
       }
       if command.textStyle.fontStyle & 2 != 0 {
         descriptor =
@@ -1759,6 +1785,29 @@
       }
       let resolved = UIFont(descriptor: descriptor, size: size)
       return scalesForDynamicType ? UIFontMetrics.default.scaledFont(for: resolved) : resolved
+    }
+
+    /// A resolved face that keeps the run's weight.
+    ///
+    /// A document carries its weight on the text run, so a family resolved once is asked for several
+    /// weights. Replacing the descriptor with the face wholesale discarded the weight, which made
+    /// every run render at the face's default. A variable face expresses the weight through its
+    /// `wght` axis; a static instance has no axis to set, so the weight is carried as the bold
+    /// symbolic trait instead.
+    private static func weightedDescriptor(
+      _ descriptor: UIFontDescriptor, weight: CGFloat, size: CGFloat
+    ) -> UIFontDescriptor {
+      if let varied = RemoteComposeFontVariation.descriptor(
+        descriptor as CTFontDescriptor, applyingWeight: weight)
+      {
+        return varied as UIFontDescriptor
+      }
+      let existing = CTFontSymbolicTraits(rawValue: descriptor.symbolicTraits.rawValue)
+      let traits = RemoteComposeFontVariation.symbolicTraits(
+        forWeight: weight, existing: existing)
+      guard traits.rawValue != existing.rawValue else { return descriptor }
+      return descriptor.withSymbolicTraits(
+        UIFontDescriptor.SymbolicTraits(rawValue: traits.rawValue)) ?? descriptor
     }
 
     static func string(
@@ -1921,6 +1970,9 @@
           hasher.combine(image.scaleFactor)
         }
         hasher.combine(command.textureImageID)
+        hasher.combine(command.textureTileModeX)
+        hasher.combine(command.textureTileModeY)
+        command.shaderMatrix?.forEach { hasher.combine($0) }
       }
       for id in commands.compactMap({ $0.image?.imageID ?? $0.textureImageID }).sorted() {
         hasher.combine(id)
@@ -2044,12 +2096,16 @@
         isDeferredComponentBackground || isDeferredShaderBackground
         ? CGPath(rect: bounds, transform: nil) : path
       context.addPath(effectivePath)
-      if let textureImageID = command.textureImageID, let image = images[textureImageID] {
+      if let textureImageID = command.textureImageID, let image = images[textureImageID]?.cgImage {
         context.saveGState()
         if command.isStroke { context.replacePathWithStrokedPath() }
         context.clip(using: command.isStroke ? .winding : fillRule)
-        UIColor(patternImage: image).setFill()
-        context.fill(context.boundingBoxOfClipPath)
+        NativeTexturePolicy.paint(
+          image: image,
+          transform: command.textureTransform,
+          tileModeX: command.textureTileModeX,
+          tileModeY: command.textureTileModeY,
+          in: context)
         context.restoreGState()
         return
       }
