@@ -290,6 +290,14 @@
     let visibility: Int
     let custom: NativeCustomComponent?
     let densityBehavior: Int
+    /// The AndroidX class name of the operation that produced this node — `BoxLayout`, `CoreText`,
+    /// `FitBoxLayout`. Read by the `FitBox` layout, which is the one class that does not behave like
+    /// the box it decodes as; empty for a structural content wrapper.
+    let componentKind: String
+    /// Set on a component with a scroll modifier: 0 vertical, 1 horizontal. The children of a
+    /// scrolled container are laid out against their content, not against the viewport that clips
+    /// them, so this is what decides a container's layout space.
+    let scrollDirection: Int?
 
     init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot, densityBehavior: Int) {
       switch snapshot.kind {
@@ -304,6 +312,8 @@
       case .custom: kind = .custom
       }
       componentID = snapshot.componentID
+      componentKind = snapshot.componentKind
+      scrollDirection = snapshot.scrollDirection
       commands =
         snapshot.commands.map(NativeDrawCommand.init)
         + (snapshot.text.map { [NativeDrawCommand(text: $0)] } ?? [])
@@ -1208,7 +1218,14 @@
       case .row: node.flowMaximumItems == nil ? layoutRow() : layoutFlow()
       // The root arranges its children the way a box does: a child that fills still covers the
       // canvas, and a child that wraps takes its own size instead of being stretched to the frame.
-      case .box, .root: layoutOverlay(aligned: true)
+      case .box, .root:
+        // A FitBox is the one box that does not stack what it holds: it shows the first alternative
+        // whose natural size fits, and nothing at all when none does.
+        if isFitBox {
+          layoutFitBox()
+        } else {
+          layoutOverlay(aligned: true)
+        }
       case .text:
         textLabels.forEach {
           $0.layoutInComponent(
@@ -1251,6 +1268,21 @@
       let contentAvailable = CGSize(
         width: max(min(available.width, widthConstraint) - insets.left - insets.right, 0),
         height: max(min(available.height, heightConstraint) - insets.top - insets.bottom, 0))
+      // A FitBox wraps to the alternative it shows, not to the largest of everything it holds.
+      if isFitBox {
+        let fitting = fitBoxAlternativesAndSizes(in: contentAvailable).first {
+          $0.size.width <= contentAvailable.width + 0.5
+            && $0.size.height <= contentAvailable.height + 0.5
+        }
+        // Nothing fits: the box is GONE and takes no space, the way a collapsible container that
+        // keeps nothing does, so its parent does not reserve a box the reference hides.
+        let intrinsic = fitting?.size ?? .zero
+        return applyDimensions(
+          to: CGSize(
+            width: intrinsic.width + insets.left + insets.right,
+            height: intrinsic.height + insets.top + insets.bottom),
+          available: available)
+      }
       let allItems = flattenedLayoutItems
       // A collapsible container wraps to what it keeps, not to everything it holds — and reports
       // nothing at all when it keeps nothing, so a parent does not reserve a box the reference
@@ -1371,16 +1403,140 @@
       semanticView.frame = clippedBounds.isNull ? .zero : clippedBounds
     }
 
+    /// The size a child contributes to its container.
+    ///
+    /// Inside a **scrolled** container the axis that scrolls is measured unbounded: the viewport
+    /// clips the content, it does not size it. A child that fills that axis is the exception — it has
+    /// no natural size, so it keeps the viewport's bound.
+    private func measuredSize(
+      of child: NativeComponentView, in available: CGSize, axis: CollapsibleAxis
+    ) -> CGSize {
+      guard node.scrollDirection != nil else { return child.preferredSize(in: available) }
+      let type = axis == .vertical ? child.node.heightType : child.node.widthType
+      guard NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(type)) else {
+        return child.preferredSize(in: available)
+      }
+      let space =
+        axis == .vertical
+        ? CGSize(width: available.width, height: .greatestFiniteMagnitude)
+        : CGSize(width: .greatestFiniteMagnitude, height: available.height)
+      return child.preferredSize(in: space)
+    }
+
+    /// The extent a scrolled container arranges its children in along one axis, or nil when it does
+    /// not scroll.
+    ///
+    /// A scrolled container's children are laid out against the content they make, not against the
+    /// viewport that clips them: the corpus's `collapsible_column_scroll` records its survivors
+    /// centred in the pre-collapse 240 points even though the viewport is 200 — the collapse frees no
+    /// space, it only moves the content — and `box_child_scroll` records a 250-point child in a
+    /// 150-point viewport. The viewport decides what is *visible*; the content decides where things
+    /// sit. Every child counts towards it, including the ones a collapse dropped.
+    private func scrolledExtent(
+      of items: [NativeComponentView], in viewport: CGSize, axis: CollapsibleAxis
+    ) -> CGFloat? {
+      guard node.scrollDirection != nil else { return nil }
+      let sizes = items.map { measuredSize(of: $0, in: viewport, axis: axis) }
+      let extent = sizes.reduce(0) { $0 + (axis == .vertical ? $1.height : $1.width) }
+      return extent + scaledSpacing * CGFloat(max(sizes.count - 1, 0))
+    }
+
     private func layoutOverlay(aligned: Bool) {
       let insets = scaledPadding
       let content = bounds.inset(by: insets)
-      flattenedLayoutItems.forEach { child in
-        let size = child.preferredSize(in: content.size)
+      let items = flattenedLayoutItems
+      let axis: CollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
+      let extent = scrolledExtent(of: items, in: content.size, axis: axis)
+      let space =
+        node.scrollDirection == 1
+        ? CGRect(
+          x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
+        : CGRect(
+          x: content.minX, y: content.minY, width: content.width, height: extent ?? content.height)
+      items.forEach { child in
+        let size = measuredSize(of: child, in: content.size, axis: axis)
         child.frame = child.offsetFrame(
           aligned
-            ? alignedFrame(size: size, in: content)
+            ? alignedFrame(size: size, in: space)
             : CGRect(origin: content.origin, size: content.size))
       }
+    }
+
+    /// A `FitBox`: it shows the first alternative whose natural size fits, and shows nothing at all
+    /// when none does.
+    private var isFitBox: Bool { node.componentKind == "FitBoxLayout" }
+
+    /// A `FitBox`'s alternatives, in document order.
+    ///
+    /// Unlike every other container this does **not** drop the children whose own visibility
+    /// modifier hides them: a document switches between alternatives with that modifier, and the
+    /// reference ignores it — the fit test sees the alternative's real size and the winner is drawn.
+    /// Taking the modifier at face value measured a hidden child as 0x0, so it "fitted" and displaced
+    /// the alternative that actually fits (`fitbox_child_visibility`).
+    private var fitBoxAlternatives: [NativeComponentView] {
+      componentChildren.flatMap { child in child.isStructural ? child.fitBoxAlternatives : [child] }
+    }
+
+    /// Whether the box's *content* is switched on. An alternative's own modifier is ignored, but the
+    /// content's is the box's own switch: a GONE content shows nothing.
+    private var fitBoxContentVisible: Bool {
+      !componentChildren.contains { $0.isStructural && $0.node.visibility == 0 }
+    }
+
+    /// An alternative's natural size: the size it asks for when nothing forces it to fill.
+    private func fitBoxNaturalSize(_ child: NativeComponentView, in available: CGSize) -> CGSize {
+      // The rule the collapsible fit test also uses: a dimension that fills has no natural size, so
+      // it keeps the box's bound rather than resolving to infinity.
+      child.preferredSize(
+        in: CGSize(
+          width: NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(child.node.widthType))
+            ? .greatestFiniteMagnitude : available.width,
+          height: NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(child.node.heightType))
+            ? .greatestFiniteMagnitude : available.height))
+    }
+
+    private func fitBoxAlternativesAndSizes(in available: CGSize) -> [(
+      view: NativeComponentView, size: CGSize
+    )] {
+      fitBoxAlternatives.map { ($0, fitBoxNaturalSize($0, in: available)) }
+    }
+
+    /// Lays a `FitBox` out: the first alternative whose natural size fits is drawn, aligned inside
+    /// the box; the others are hidden. When none fits the box shows nothing at all — the box itself
+    /// is GONE, which is what the reference does and what `fitbox_fit` asserts.
+    private func layoutFitBox() {
+      let insets = scaledPadding
+      let content = bounds.inset(by: insets)
+      isHidden = node.visibility == 0
+      let measured = fitBoxAlternativesAndSizes(in: content.size)
+      for (alternative, _) in measured {
+        // The reference ignores an alternative's own visibility modifier: it is the document's
+        // switch between alternatives, not something the box obeys.
+        alternative.isHidden = true
+        if alternative.node.visibility != 0 { alternative.alpha = 1 }
+      }
+      let fitting = measured.first {
+        $0.size.width <= content.width + 0.5 && $0.size.height <= content.height + 0.5
+      }
+      // A content that is switched off is the box's own switch: the box stays, its content does not.
+      guard fitBoxContentVisible, let (winner, size) = fitting else {
+        // Nothing fits: the reference hides the box, background included. The alternative keeps the
+        // geometry it would have had, which the corpus does not compare for a gone node.
+        if let (first, size) = measured.first {
+          placeFitBoxAlternative(first, size: size, in: content)
+        }
+        if fitting == nil { isHidden = true }
+        return
+      }
+      winner.isHidden = false
+      winner.alpha = 1
+      placeFitBoxAlternative(winner, size: size, in: content)
+    }
+
+    private func placeFitBoxAlternative(
+      _ view: NativeComponentView, size: CGSize, in content: CGRect
+    ) {
+      view.frame = view.offsetFrame(alignedFrame(size: size, in: content))
     }
 
     /// The children this container lays out.
@@ -1444,10 +1600,15 @@
     private func layoutColumn() {
       let content = bounds.inset(by: scaledPadding)
       let items = collapsibleItems(in: content, axis: .vertical)
-      let sizes = items.map { $0.preferredSize(in: content.size) }
+      // A scrolled column arranges against its content rather than its viewport, and the extent
+      // counts every child — including the ones a collapse dropped, which is why the survivors are
+      // centred in the pre-collapse total.
+      let extent = scrolledExtent(of: flattenedLayoutItems, in: content.size, axis: .vertical)
+        ?? content.height
+      let sizes = items.map { measuredSize(of: $0, in: content.size, axis: .vertical) }
       let weightedHeights = NativeLinearLayout.allocateWeighted(
         available: NativeLinearLayout.collapsibleWeightSpace(
-          extent: content.height, count: items.count,
+          extent: extent, count: items.count,
           spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: sizes.map(\.height),
         weights: items.map { child in
@@ -1461,7 +1622,7 @@
         ).height
       }
       let positions = NativeLinearLayout.positions(
-        total: content.height,
+        total: extent,
         sizes: heights,
         positioning: node.verticalPositioning,
         spacing: scaledSpacing)
@@ -1597,10 +1758,13 @@
     private func layoutRow() {
       let content = bounds.inset(by: scaledPadding)
       let items = collapsibleItems(in: content, axis: .horizontal)
-      let natural = items.map { $0.preferredSize(in: content.size) }
+      // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport.
+      let extent = scrolledExtent(of: flattenedLayoutItems, in: content.size, axis: .horizontal)
+        ?? content.width
+      let natural = items.map { measuredSize(of: $0, in: content.size, axis: .horizontal) }
       let allocatedWidths = NativeLinearLayout.allocateWeighted(
         available: NativeLinearLayout.collapsibleWeightSpace(
-          extent: content.width, count: items.count,
+          extent: extent, count: items.count,
           spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: natural.map(\.width),
         weights: items.map { child in
@@ -1614,7 +1778,7 @@
         ).width
       }
       let positions = NativeLinearLayout.positions(
-        total: content.width,
+        total: extent,
         sizes: widths,
         positioning: node.horizontalPositioning,
         spacing: scaledSpacing,
