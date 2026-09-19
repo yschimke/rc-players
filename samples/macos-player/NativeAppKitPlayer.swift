@@ -1289,63 +1289,59 @@ private typealias MacFlowLine = (
   items: [(view: NativeMacComponentView, size: CGSize)], width: CGFloat, height: CGFloat
 )
 
-/// Wraps `items` into lines, measuring weighted children against their row's leftover space.
-private func wrappedFlow(
-  items: [NativeMacComponentView], in available: CGSize, maximumItems: Int, maximumLines: Int
-) -> (lines: [MacFlowLine], discarded: [NativeMacComponentView]) {
-  var lines: [MacFlowLine] = [(items: [], width: 0, height: 0)]
-  var discarded: [NativeMacComponentView] = []
-  for child in items {
-    let weight = child.node.widthType == 3 ? max(child.node.widthValue, 0) : 0
-    let size = weight > 0 ? .zero : child.preferredSize(in: available)
-    let current = lines[lines.count - 1]
-    let wraps =
-      !current.items.isEmpty
-      && (current.items.count >= maximumItems
-        || current.width + spacing + size.width > available.width + 0.001)
-    if wraps {
-      guard lines.count < maximumLines else {
-        discarded.append(child)
-        continue
+  /// Wraps `items` into lines, measuring weighted children against their row's leftover space.
+  ///
+  /// The line breaks come from `NativeSwiftFlow`, which reserves a weighted child's `widthIn`
+  /// minimum; a weighted child is then measured at its share of what the row left, never below
+  /// that minimum.
+  private func wrappedFlow(
+    items: [NativeMacComponentView], in available: CGSize, maximumItems: Int, maximumLines: Int
+  ) -> (lines: [MacFlowLine], discarded: [NativeMacComponentView]) {
+    let children = items.map { child in
+      NativeSwiftFlow.Child(
+        measuredWidth: Float(child.preferredSize(in: available).width),
+        weight: child.node.widthType == 3 ? Float(max(child.node.widthValue, 0)) : 0,
+        minimumWidth: Float(child.node.minimumWidth))
+    }
+    let segmented = NativeSwiftFlow.segment(
+      children, available: Float(available.width), spacing: Float(spacing),
+      maximumItems: maximumItems, maximumLines: maximumLines)
+    var lines: [MacFlowLine] = []
+    for indices in segmented.lines {
+      var lineItems: [(view: NativeMacComponentView, size: CGSize)] = []
+      let gaps = spacing * CGFloat(max(indices.count - 1, 0))
+      let weights = indices.map { index -> CGFloat? in
+        children[index].weight > 0
+          ? max(CGFloat(children[index].weight), .leastNonzeroMagnitude) : nil
       }
-      lines.append((items: [], width: 0, height: 0))
+      let allocated = MacLinearLayout.allocate(
+        available: max(available.width - gaps, 0),
+        natural: indices.map { CGFloat(children[$0].measuredWidth) }, weights: weights)
+      var width = gaps
+      for (position, index) in indices.enumerated() {
+        let child = items[index]
+        let size: CGSize
+        if let weight = weights[position] {
+          // The allocator splits the leftover; the child's own minimum still bounds it, because a
+          // weighted child that cannot reach its minimum has to overflow its row rather than be
+          // drawn narrower than the document allows.
+          let minimum = CGFloat(children[index].minimumWidth)
+          let share = max(max(allocated[position], minimum), 0)
+          let measured = child.preferredSize(
+            in: CGSize(width: share, height: available.height))
+          size = CGSize(width: max(share, weight * 0), height: measured.height)
+        } else {
+          size = child.preferredSize(in: available)
+        }
+        child.isHidden = false
+        lineItems.append((child, size))
+        width += size.width
+      }
+      let height = lineItems.map(\.size.height).max() ?? 0
+      lines.append((items: lineItems, width: width, height: height))
     }
-    if !lines[lines.count - 1].items.isEmpty {
-      lines[lines.count - 1].width += spacing
-    }
-    lines[lines.count - 1].items.append((child, size))
-    lines[lines.count - 1].width += size.width
+    return (lines, segmented.discarded.map { items[$0] })
   }
-  // A weighted child takes its row's leftover, split by weight.
-  for index in lines.indices {
-    let lineItems = lines[index].items
-    guard lineItems.contains(where: { $0.view.node.widthType == 3 }) else { continue }
-    let gaps = spacing * CGFloat(max(lineItems.count - 1, 0))
-    let weights = lineItems.map { item -> CGFloat? in
-      item.view.node.widthType == 3
-        ? max(CGFloat(item.view.node.widthValue), .leastNonzeroMagnitude) : nil
-    }
-    let allocated = MacLinearLayout.allocate(
-      available: max(available.width - gaps, 0),
-      natural: lineItems.map(\.size.width), weights: weights)
-    var width = gaps
-    lines[index].items = lineItems.enumerated().map { position, item in
-      let measured =
-        weights[position] == nil
-        ? item.size
-        : item.view.preferredSize(
-          in: CGSize(width: allocated[position], height: available.height))
-      let size = CGSize(width: allocated[position], height: measured.height)
-      width += size.width
-      return (item.view, size)
-    }
-    lines[index].width = width
-  }
-  for index in lines.indices {
-    lines[index].height = lines[index].items.map(\.size.height).max() ?? 0
-  }
-  return (lines, discarded)
-}
 
   private func layoutRow() {
     let content = contentRect
