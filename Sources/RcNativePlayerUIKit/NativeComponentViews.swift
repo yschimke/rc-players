@@ -1200,7 +1200,9 @@
       switch node.kind {
       case .column: layoutColumn()
       case .row: layoutRow()
-      case .box: layoutOverlay(aligned: true)
+      // The root arranges its children the way a box does: a child that fills still covers the
+      // canvas, and a child that wraps takes its own size instead of being stretched to the frame.
+      case .box, .root: layoutOverlay(aligned: true)
       case .text:
         textLabels.forEach {
           $0.layoutInComponent(

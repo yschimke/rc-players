@@ -1021,7 +1021,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     switch node.kind {
     case .row: layoutRow()
     case .column: layoutColumn()
-    case .box: layoutOverlay(aligned: true)
+    // The root arranges its children the way a box does: a child that fills still covers the
+    // canvas, and a child that wraps takes its own size instead of being stretched to the frame.
+    case .box, .root: layoutOverlay(aligned: true)
     default: layoutOverlay(aligned: false)
     }
   }
