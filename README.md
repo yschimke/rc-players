@@ -16,7 +16,7 @@ Of 207 frames where `cmp` disagrees with the reference image, 200 are frames a r
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
-| [`2026-09-19`](runs/2026-09-19/README.md) | 132 / 241 | 190 / 241 | 0 / 241 | 199 / 241 | `9acfa39` |
+| [`2026-09-19`](runs/2026-09-19/README.md) | 132 / 241 | 190 / 241 | 0 / 241 | 199 / 241 | `4e2988c` |
 | [`2026-09-18`](runs/2026-09-18/README.md) | 132 / 241 | 182 / 241 | 0 / 241 | 199 / 241 | `cd14467` |
 | [`2026-09-17`](runs/2026-09-17/README.md) | 132 / 241 | 182 / 241 | 0 / 241 | 199 / 241 | `6933661` |
 
