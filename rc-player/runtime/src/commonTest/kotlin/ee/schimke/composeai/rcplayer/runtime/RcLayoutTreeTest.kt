@@ -7,6 +7,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcCollapsiblePriorityModifier
 import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
@@ -18,6 +19,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHostAction
+import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutCompute
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
@@ -489,6 +491,35 @@ class RcLayoutTreeTest {
         .opcode,
     )
     assertEquals(operations, linked.source.operations)
+  }
+
+  @Test
+  fun laysOutDirectLayoutChildrenAsAContainersContent() {
+    val root =
+      requireNotNull(
+        treeOf(
+          RcRootLayout(1),
+          RcColumnLayout(2, 20, 0, 0, RcFloatWord.literal(0f)),
+          RcImageLayout(3, 30, 42, 4, RcFloatWord.literal(1f)),
+          ends = 3,
+        )
+      )
+    val column = assertIs<RcLayoutNode.Column>(root.children.single())
+
+    assertEquals(3, column.content.children.single().componentId)
+    assertEquals(2, column.content.componentId)
+  }
+
+  @Test
+  fun treatsDirectOperationsAsCanvasContentWithoutACanvasOperationsWrapper() {
+    val root = requireNotNull(treeOf(RcRootLayout(1), RcNoArg(RcOpcodes.MATRIX_SAVE), ends = 1))
+
+    assertEquals(
+      listOf(RcOpcodes.MATRIX_SAVE, RcOpcodes.DRAW_CONTENT),
+      requireNotNull(root.canvasOperations).map {
+        assertIs<RcLinkedNode.Operation>(it).operation.opcode
+      },
+    )
   }
 
   @Test

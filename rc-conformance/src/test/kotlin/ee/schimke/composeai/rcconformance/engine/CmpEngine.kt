@@ -488,7 +488,11 @@ private class CmpSession(
             names().groupingBy { it }.eachCount().forEach { (n, c) -> put(n, JsonPrimitive(c)) }
           }
         )
-      "ops:component_count" -> Observation.Value(JsonPrimitive(components().size))
+      // The document root is the container, not one of the components in it: the reference counts
+      // `loom_id_remapping_tiers`' four macro-expanded boxes and not the `RootLayoutComponent` they
+      // sit in, while the tree probe does report the root.
+      "ops:component_count" ->
+        Observation.Value(JsonPrimitive(components().count { it.kind != ROOT_COMPONENT_KIND }))
       "ops:distinct_ids" -> {
         val ids = components().map { it.id }
         Observation.Value(JsonPrimitive(ids.distinct().size == ids.size))
@@ -591,7 +595,8 @@ private class CmpSession(
     fun walk(node: SemanticsNode, depth: Int, parent: Offset?) {
       val id = node.config.getOrElseNullable(RcComponentIdKey) { null }
       if (id != null) {
-        out += Component(node, id, depth, parent ?: Offset.Zero)
+        val kind = node.config.getOrElseNullable(RcComponentKindKey) { "" } ?: ""
+        out += Component(node, id, kind, depth, parent ?: Offset.Zero)
       }
       val childDepth = if (id == null) depth else depth + 1
       // Children are reported relative to their parent's *content* origin, not its outer box.
@@ -624,10 +629,14 @@ private class CmpSession(
       }
   }
 
-  /** One published component: the semantics node, its id, its depth, and its parent's origin. */
+  /**
+   * One published component: the semantics node, its id, its kind, its depth, and its parent's
+   * origin.
+   */
   private class Component(
     val node: SemanticsNode,
     val id: Int,
+    val kind: String,
     val depth: Int,
     val parentOrigin: Offset,
   )
@@ -866,6 +875,7 @@ private class CmpSession(
     const val FRAMES_PER_SECOND = 60L
     const val MILLIS_PER_SECOND = 1_000.0
     const val LIGHT_THEME = -3
+    const val ROOT_COMPONENT_KIND = "RootLayoutComponent"
 
     /** The NaN payload that marks a float word as a reference to a slot rather than a literal. */
     const val NAN_SLOT_REFERENCE = 0x7fc00000

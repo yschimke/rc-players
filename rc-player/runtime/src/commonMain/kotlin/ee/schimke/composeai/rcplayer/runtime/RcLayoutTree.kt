@@ -29,6 +29,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMarqueeModifier
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcMultiClickType
+import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
@@ -472,15 +473,52 @@ public object RcLayoutTree {
     return content
   }
 
+  /**
+   * A container's content wrapper is optional on the wire. `image_layout_sizing_options` is a
+   * column whose children are `ImageLayout` components directly, and AndroidX lays them out as the
+   * column's content — the gold's tree has the images at the column's child depth, with no
+   * `LayoutComponentContent` between them.
+   *
+   * The synthetic wrapper carries the container's own component id and publishes no component of
+   * its own: `RcLayoutNode.Content` maps to no AndroidX kind, so `inspectComponent` skips it and
+   * the reported tree is unchanged.
+   */
   private fun requiredContent(
     container: RcLinkedNode.Container,
     seenIds: MutableSet<Int>,
     styles: Map<Int, RcTextStyle>,
   ): RcLayoutNode.Content =
     optionalContent(container, seenIds, styles)
+      ?: directContent(container, seenIds, styles)
       ?: throw RcLayoutException(
         "${container.operation::class.simpleName} requires LayoutComponentContent"
       )
+
+  private fun directContent(
+    container: RcLinkedNode.Container,
+    seenIds: MutableSet<Int>,
+    styles: Map<Int, RcTextStyle>,
+  ): RcLayoutNode.Content? {
+    val componentId =
+      when (val operation = container.operation) {
+        is RcRowLayout -> operation.componentId
+        is RcColumnLayout -> operation.componentId
+        is RcFlowLayout -> operation.componentId
+        is RcStateLayout -> operation.componentId
+        is RcCollapsibleRowLayout -> operation.componentId
+        is RcCollapsibleColumnLayout -> operation.componentId
+        is RcFitBoxLayout -> operation.componentId
+        else -> return null
+      }
+    val children = childComponents(container, seenIds, styles)
+    if (children.isEmpty()) return null
+    return RcLayoutNode.Content(
+      componentId = componentId,
+      modifiers = RcLayoutModifiers(),
+      children = children,
+      operations = emptyList(),
+    )
+  }
 
   /** Leaf components own an optional LayoutContent child whose bounds equal the leaf bounds. */
   private fun leafContentComponentId(
@@ -619,15 +657,31 @@ public object RcLayoutTree {
     )
   }
 
-  /** CoreDocument assigns the last CanvasOperations container to its enclosing component. */
-  private fun canvasOperations(container: RcLinkedNode.Container): List<RcLinkedNode>? =
-    (container.children.filterIsInstance<RcLinkedNode.Container>() +
-        container.children
-          .filterIsInstance<RcLinkedNode.Container>()
-          .filter { it.operation is RcLayoutContent }
-          .flatMap { it.children.filterIsInstance<RcLinkedNode.Container>() })
-      .lastOrNull { it.operation.opcode == RcOpcodes.CANVAS_OPERATIONS }
-      ?.children
+  /**
+   * CoreDocument assigns the last CanvasOperations container to its enclosing component.
+   *
+   * A macro call expands to its body's operations directly under the calling component, with no
+   * CanvasOperations wrapper — the wire form AndroidX's own player paints from the component's own
+   * list. When no wrapper is present those direct operations are the component's canvas content.
+   * Containers stay out of the fallback: the draw pass routes only the wrapper kinds it knows and
+   * errors on any other, and a layout container is not canvas content.
+   */
+  private fun canvasOperations(container: RcLinkedNode.Container): List<RcLinkedNode>? {
+    val canvas =
+      (container.children.filterIsInstance<RcLinkedNode.Container>() +
+          container.children
+            .filterIsInstance<RcLinkedNode.Container>()
+            .filter { it.operation is RcLayoutContent }
+            .flatMap { it.children.filterIsInstance<RcLinkedNode.Container>() })
+        .lastOrNull { it.operation.opcode == RcOpcodes.CANVAS_OPERATIONS }
+    if (canvas != null) return canvas.children
+    val direct = container.children.filterIsInstance<RcLinkedNode.Operation>()
+    if (direct.isEmpty()) return null
+    // AndroidX paints a component's own operations and then its content. The stream has no
+    // `DRAW_CONTENT` marker to say where the content goes — that marker is what the wrapper the
+    // player builds around `canvasOperations` looks for — so the fallback supplies one at the end.
+    return direct + RcLinkedNode.Operation(RcNoArg(RcOpcodes.DRAW_CONTENT))
+  }
 
   private inline fun <reified T : RcOperation> List<RcOperation>.singleModifier(
     component: RcOperation
