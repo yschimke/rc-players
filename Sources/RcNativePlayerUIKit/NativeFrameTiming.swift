@@ -1,14 +1,37 @@
 import Foundation
 
+#if canImport(RcNativePlayerCore)
+  import RcNativePlayerCore
+#endif
+
 /// Injectable monotonic time source used by the native player's animation timeline.
 public protocol RemoteComposeNativePlayerClock: Sendable {
   func now() -> TimeInterval
+
+  /// The host's absolute time, for a document that reads a calendar or time-of-day variable.
+  ///
+  /// Defaulted to nil so a test clock stays a test clock: a document that never reads those
+  /// variables is unaffected, and a test that wants them supplies a fixed instant rather than
+  /// inheriting the wall clock and becoming time-dependent.
+  func wallClock() -> NativeSwiftWallClock?
+}
+
+extension RemoteComposeNativePlayerClock {
+  public func wallClock() -> NativeSwiftWallClock? { nil }
 }
 
 public struct RemoteComposeNativeSystemClock: RemoteComposeNativePlayerClock, Sendable {
   public init() {}
 
   public func now() -> TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+  public func wallClock() -> NativeSwiftWallClock? {
+    let date = Date()
+    let instant = Int64((date.timeIntervalSince1970 * 1000).rounded())
+    return NativeSwiftWallClock(
+      epochMillis: instant,
+      offsetSeconds: TimeZone.current.secondsFromGMT(for: date))
+  }
 }
 
 enum NativeFrameDriverMode: Equatable, Sendable {

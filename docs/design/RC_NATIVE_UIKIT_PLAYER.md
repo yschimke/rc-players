@@ -207,6 +207,19 @@ semantic node.
 `NativeDrawCommand` is a private, resolved Core Graphics-friendly value. Its flat payload is an
 internal implementation detail and can evolve without exposing wire operations through the API.
 
+### Clocks
+
+Two clocks feed a document's system variables, matching AndroidX's `TimeVariables`. The animation
+clock (`ANIMATION_TIME`, and `CONTINUOUS_SEC` when no wall clock is supplied) is the host's logical
+timeline: the player advances it and a test or capture can hold it still. The wall clock
+(`TIME_IN_SEC`, `TIME_IN_MIN`, `TIME_IN_HR`, `CALENDAR_MONTH`, `OFFSET_TO_UTC`, `WEEK_DAY`,
+`DAY_OF_MONTH`, `DAY_OF_YEAR`, `YEAR`) needs an absolute instant, so a host supplies a
+`NativeSwiftWallClock` with the frame; omitted, those variables stay unset rather than silently
+resolving to the 1970 epoch. The UIKit player and the AppKit sample publish the system clock; a
+test or a corpus capture supplies a fixed instant. A document that declares its own value at one of
+these ids keeps it, matching the reference's claimed-id rule. `ANIMATION_DELTA_TIME` and the
+integer `EPOCH_SECOND` are deliberately not loaded yet — see `NativeSwiftSystemVariables`.
+
 ### Public API
 
 The primary API is a view because UIKit containers compose views:

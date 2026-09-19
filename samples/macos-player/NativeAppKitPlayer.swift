@@ -26,6 +26,16 @@ private extension NativeSwiftActionValue {
   }
 }
 
+extension NativeSwiftWallClock {
+  /// The instant a capture renders against, so a corpus run is reproducible.
+  ///
+  /// A document that reads a calendar or time-of-day variable would otherwise render differently
+  /// depending on when the lane ran, and two frames of one gold could straddle a second boundary.
+  /// 2026-01-01T00:00:00Z, chosen because it is a round instant rather than because anything
+  /// depends on the date.
+  static let capture = NativeSwiftWallClock(epochMillis: 1_767_225_600_000)
+}
+
 enum NativeMacFrameDriverMode: Equatable {
   case idle
   case displayLink
@@ -58,12 +68,14 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   static func renderPNG(
     data: Data,
     timeSeconds: TimeInterval = 0,
+    wallClock: NativeSwiftWallClock = .capture,
     downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
     viewport: CGSize? = nil
   ) throws -> Data {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
-    let snapshot = try session.snapshot(timeSeconds: timeSeconds)
+    let snapshot = try session.snapshot(
+      timeSeconds: timeSeconds, wallClock: nativeSystemWallClock())
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
     let fonts = try NativeMacFontRegistry.register(
       snapshot: snapshot, downloadedFonts: downloadedFonts)
@@ -110,7 +122,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       var started = ProcessInfo.processInfo.systemUptime
       try NativeMacPolicy.validateDocument(data)
       let session = try NativeSwiftDocumentSession.open(data: data)
-      let snapshot = try session.snapshot(timeSeconds: 0)
+      let snapshot = try session.snapshot(timeSeconds: 0, wallClock: .capture)
       decodeSamples.append(nativeAppKitMilliseconds(since: started))
 
       started = ProcessInfo.processInfo.systemUptime
@@ -147,7 +159,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     // Steady state: the frame a display link drives, end to end, on one retained view — resolve,
     // reconcile the native tree, lay out, draw.
     let session = try NativeSwiftDocumentSession.open(data: data)
-    let snapshot = try session.snapshot(timeSeconds: 0)
+    let snapshot = try session.snapshot(timeSeconds: 0, wallClock: .capture)
     let steadyPlayer = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: .compatible,
       report: try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible),
@@ -191,7 +203,9 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   static func downloadableFontFamilies(data: Data) throws -> [String] {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
-    return NativeMacFontRegistry.requests(in: try session.snapshot(timeSeconds: 0).root).map(\.family)
+    return NativeMacFontRegistry.requests(
+      in: try session.snapshot(timeSeconds: 0, wallClock: nativeSystemWallClock()).root
+    ).map(\.family)
   }
 
   func open(
@@ -206,7 +220,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   ) async throws {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
-    let snapshot = try session.snapshot(timeSeconds: 0)
+    let snapshot = try session.snapshot(timeSeconds: 0, wallClock: nativeSystemWallClock())
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: compatibility)
     let fonts: NativeMacFontRegistry
     do {
@@ -562,7 +576,9 @@ private final class NativeMacDocumentView: NSView {
       self?.gesture(gesture, componentID: componentID, sample: sample)
     }
     addSubview(component)
-    remainingWake = nil
+    // A document that reads a discrete wall-clock field has to be re-resolved at least once a
+    // second, or its clock freezes on the first frame; the driver re-arms this after each wake.
+    remainingWake = snapshot.needsWallClockRefresh ? 1 : nil
     wakeStartedAt = nil
     needsLayout = true
     updateFrameDriver()
@@ -575,7 +591,7 @@ private final class NativeMacDocumentView: NSView {
   fileprivate func renderEvidenceFrame(
     at timeSeconds: TimeInterval, into bitmap: NSBitmapImageRep
   ) throws {
-    try install(try session.snapshot(timeSeconds: timeSeconds))
+    try install(try session.snapshot(timeSeconds: timeSeconds, wallClock: .capture))
     layoutSubtreeIfNeeded()
     cacheDisplay(in: bounds, to: bitmap)
   }
@@ -588,7 +604,9 @@ private final class NativeMacDocumentView: NSView {
         let events = try session.gesture(
           gesture, componentID: componentID, sample: sample, timeSeconds: sampleTime())
       else { return }
-      try install(try session.snapshot(timeSeconds: sampleTime()), events: events)
+      try install(
+        try session.snapshot(timeSeconds: sampleTime(), wallClock: nativeSystemWallClock()),
+        events: events)
       for event in events { onEvent(nativeEventSummary(event)) }
     } catch {
       onError("Native input failed: \(error.localizedDescription)")
@@ -662,7 +680,8 @@ private final class NativeMacDocumentView: NSView {
     fallbackFrameTimer = nil
     delayedWakeTimer = nil
     do {
-      try install(try session.snapshot(timeSeconds: sampleTime()))
+      try install(
+        try session.snapshot(timeSeconds: sampleTime(), wallClock: nativeSystemWallClock()))
     } catch {
       stopDisplayFrames()
       onError("Native scheduled frame failed: \(error.localizedDescription)")
@@ -677,7 +696,8 @@ private final class NativeMacDocumentView: NSView {
     }
     do {
       let targetTime = sampleTime(at: targetTimestamp)
-      try install(try session.snapshot(timeSeconds: targetTime))
+      try install(
+        try session.snapshot(timeSeconds: targetTime, wallClock: nativeSystemWallClock()))
     } catch {
       stopDisplayFrames()
       onError("Native display frame failed: \(error.localizedDescription)")
@@ -1562,4 +1582,16 @@ private func nativeAppKitResidentBytes() -> UInt64 {
     }
   }
   return result == KERN_SUCCESS ? UInt64(information.phys_footprint) : 0
+}
+
+
+/// The system wall clock for a document that reads a calendar or time-of-day variable.
+///
+/// The AppKit host plays in real time, so it publishes the real instant; a test or a capture that
+/// needs a frozen clock supplies its own `NativeSwiftWallClock` instead.
+private func nativeSystemWallClock() -> NativeSwiftWallClock {
+  let date = Date()
+  return NativeSwiftWallClock(
+    epochMillis: Int64((date.timeIntervalSince1970 * 1000).rounded()),
+    offsetSeconds: TimeZone.current.secondsFromGMT(for: date))
 }

@@ -406,11 +406,13 @@
       let resourceResolver = resourceResolver
       let downloadableFontResolver = downloadableFontResolver
       let resourceCache = resourceCache
+      let wallClock = clock.wallClock()
       loadTask = Task { [weak self] in
         do {
           let (session, frame) = try await NativeSnapshotSessionHandle.open(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes,
-            hostDensity: hostDensity, hostFontScale: hostFontScale)
+            hostDensity: hostDensity, hostFontScale: hostFontScale,
+            wallClock: wallClock)
           try Task.checkCancellation()
           let model = try NativeDocument(
             frame: frame, timeSeconds: 0, limits: executionLimits,
@@ -457,13 +459,15 @@
       }
       guard let retainedSession, let retainedResources else { return }
       let frameTime = animationTimeline.advance(to: timeSeconds, at: clock.now())
+      let wallClock = clock.wallClock()
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
       pendingWork = .frame
       loadTask = Task { [weak self] in
         do {
-          let frame = try await retainedSession.frame(at: frameTime)
+          let frame = try await retainedSession.frame(
+            at: frameTime, wallClock: wallClock)
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
           let model = try NativeDocument(

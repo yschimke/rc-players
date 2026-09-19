@@ -23,6 +23,9 @@
   actor NativeSnapshotSessionHandle {
     struct Frame: Sendable {
       let snapshot: NativeSwiftDocumentSnapshot
+      /// The host's absolute time at the instant this frame was resolved, so a refinement of the
+      /// frame resolves its calendar fields against the same instant rather than a later one.
+      let wallClock: NativeSwiftWallClock?
 
       /// A detached session for re-resolving this frame once the host knows its real geometry.
       ///
@@ -31,8 +34,12 @@
       /// component geometry, which is almost all of them, so the copy is not paid for unnecessarily.
       let refiner: NativeSwiftDocumentSession?
 
-      init(session: NativeSwiftDocumentSession, snapshot: NativeSwiftDocumentSnapshot) {
+      init(
+        session: NativeSwiftDocumentSession, snapshot: NativeSwiftDocumentSnapshot,
+        wallClock: NativeSwiftWallClock?
+      ) {
         self.snapshot = snapshot
+        self.wallClock = wallClock
         refiner = snapshot.boundComponents.isEmpty ? nil : session.detachedCopy()
       }
     }
@@ -44,9 +51,13 @@
     }
 
     private let session: NativeSwiftDocumentSession
+    /// The host's wall clock, as of the last frame. Input updates re-resolve the document, and a
+    /// geometry that reads a calendar field has to resolve against the same instant a frame did.
+    private var wallClock: NativeSwiftWallClock?
 
-    private init(session: NativeSwiftDocumentSession) {
+    private init(session: NativeSwiftDocumentSession, wallClock: NativeSwiftWallClock?) {
       self.session = session
+      self.wallClock = wallClock
     }
 
     /// - Parameters:
@@ -54,8 +65,10 @@
     ///     than set afterwards because the first frame is produced here, and a document that reads
     ///     `ID_DENSITY` would otherwise resolve its very first geometry against the wrong value and
     ///     only correct itself on the next frame.
+    ///   - wallClock: the host's absolute time, for the first frame. See `NativeSwiftWallClock`.
     static func open(
-      data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1
+      data: Data, maximumDocumentBytes: Int, hostDensity: Float = 1, hostFontScale: Float = 1,
+      wallClock: NativeSwiftWallClock? = nil
     ) async throws -> (NativeSnapshotSessionHandle, Frame) {
       guard data.count <= maximumDocumentBytes, data.count <= Int(Int32.max) else {
         throw RemoteComposeNativeLimitError.documentTooLarge(
@@ -65,9 +78,13 @@
         try Task.checkCancellation()
         let session = try NativeSwiftDocumentSession.open(data: data)
         session.setHostDensity(hostDensity, fontScale: hostFontScale)
-        let frame = Frame(session: session, snapshot: try session.snapshot())
+        let frame = Frame(
+          session: session,
+          snapshot: try session.snapshot(wallClock: wallClock), wallClock: wallClock)
         try Task.checkCancellation()
-        return (NativeSnapshotSessionHandle(session: session), frame)
+        return (
+          NativeSnapshotSessionHandle(session: session, wallClock: wallClock), frame
+        )
       } catch is CancellationError {
         throw CancellationError()
       } catch let error as NativeSwiftCoreError {
@@ -82,9 +99,15 @@
       session.setHostDensity(density, fontScale: fontScale)
     }
 
-    func frame(at timeSeconds: TimeInterval) async throws -> Frame {
+    func frame(at timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock?) async throws
+      -> Frame
+    {
       do {
-        return Frame(session: session, snapshot: try session.snapshot(timeSeconds: timeSeconds))
+        self.wallClock = wallClock
+        return Frame(
+          session: session,
+          snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+          wallClock: wallClock)
       } catch {
         throw RemoteComposeNativePlayerError.decode(error.localizedDescription)
       }
@@ -127,7 +150,10 @@
       }
       return Update(
         accepted: true,
-        frame: Frame(session: session, snapshot: try session.snapshot(timeSeconds: timeSeconds)),
+        frame: Frame(
+          session: session,
+          snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+          wallClock: wallClock),
         events: events)
     }
 
@@ -170,7 +196,10 @@
     private func update(accepted: Bool, timeSeconds: TimeInterval) throws -> Update {
       Update(
         accepted: accepted,
-        frame: Frame(session: session, snapshot: try session.snapshot(timeSeconds: timeSeconds)),
+        frame: Frame(
+          session: session,
+          snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+          wallClock: wallClock),
         events: [])
     }
   }

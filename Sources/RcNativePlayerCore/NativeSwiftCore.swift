@@ -12,6 +12,13 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let root: NativeSwiftNodeSnapshot
   public let images: [NativeSwiftImageResourceSnapshot]
   public let needsContinuousFrames: Bool
+  /// Whether the document reads a wall-clock variable that only changes on a second boundary.
+  ///
+  /// The discrete fields — `TIME_IN_SEC`, `TIME_IN_MIN`, `TIME_IN_HR`, `CALENDAR_MONTH`,
+  /// `OFFSET_TO_UTC`, `WEEK_DAY`, `DAY_OF_MONTH`, `DAY_OF_YEAR`, `YEAR` — are constant within a
+  /// second, so a host that idles after the first frame shows a frozen clock. A host that supplies
+  /// a wall clock should re-resolve at least once a second while this is true.
+  public let needsWallClockRefresh: Bool
   /// Components whose measured geometry a document binds to a float.
   ///
   /// Empty for almost every document, and that is the point: a host only has to measure and feed
@@ -326,6 +333,11 @@ public enum NativeSwiftCoreError: Error, CustomStringConvertible, LocalizedError
 /// Only the ones this core actually loads are named, matching `RcSystemVariables` on the Kotlin
 /// side. A reference to an id the player does not load resolves to 0 and poisons the arithmetic
 /// downstream, so naming one here without loading it would be worse than leaving it out.
+///
+/// `ANIMATION_DELTA_TIME` (31) and `EPOCH_SECOND` (32) are deliberately absent: a delta needs the
+/// previous frame, which this core's stateless snapshot does not keep, and the epoch second is an
+/// *integer* variable whose expressions are evaluated at decode time, before a host clock can be
+/// supplied.
 public enum NativeSwiftSystemVariables {
   /// Device pixels per dp, as the player is playing the document.
   public static let density = 27
@@ -336,6 +348,127 @@ public enum NativeSwiftSystemVariables {
   /// The `sp` behind `fontSize`, before density and font scale. Every player has to agree on it:
   /// a capture divides its text size by this id to recover the `sp` it authored.
   public static let defaultFontSizeSp: Float = 14
+
+  /// Wall-clock seconds within the current hour, including the fractional second.
+  public static let continuousSeconds = 1
+
+  /// Wall-clock seconds within the current hour, whole seconds.
+  public static let timeInSeconds = 2
+
+  /// Wall-clock minutes within the current day.
+  public static let timeInMinutes = 3
+
+  /// Wall-clock hours within the current day.
+  public static let timeInHours = 4
+
+  /// Calendar month, 1...12.
+  public static let calendarMonth = 9
+
+  /// The local zone's offset from UTC in seconds.
+  public static let offsetToUTC = 10
+
+  /// ISO day of the week, Monday 1 ... Sunday 7.
+  public static let weekDay = 11
+
+  /// Day of the month, 1...31.
+  public static let dayOfMonth = 12
+
+  /// Seconds since the document's first frame, the animation clock a host advances.
+  public static let animationTime = 30
+
+  /// Day of the year, 1...366.
+  public static let dayOfYear = 34
+
+  /// Calendar year.
+  public static let year = 35
+}
+
+/// The host's wall clock, which is what a document's calendar and time-of-day variables read.
+///
+/// `snapshot(timeSeconds:)` is deliberately pure: it advances only by the elapsed time the host
+/// hands it, so a test or a corpus capture can hold it still. A document that reads `YEAR` or
+/// `TIME_IN_SEC` needs an absolute instant, which the elapsed clock cannot provide, so a host that
+/// wants those fields supplies one here — and a host that does not leaves them unset rather than
+/// getting the 1970 epoch silently.
+public struct NativeSwiftWallClock: Sendable, Equatable {
+  public let epochMillis: Int64
+  /// The local zone's offset from UTC at that instant. The reference reads the system zone; a
+  /// corpus capture freezes both the instant and the zone it was rendered in.
+  public let offsetSeconds: Int
+
+  public init(epochMillis: Int64, offsetSeconds: Int = 0) {
+    self.epochMillis = epochMillis
+    self.offsetSeconds = offsetSeconds
+  }
+
+  /// The calendar fields AndroidX's `TimeVariables` publishes, in the local zone.
+  struct Fields {
+    let year: Int
+    let month: Int
+    let dayOfMonth: Int
+    let dayOfYear: Int
+    let hour: Int
+    let minute: Int
+    let second: Int
+    let isoDayOfWeek: Int
+    let millisOfSecond: Int
+
+    /// Seconds within the current hour, whole seconds.
+    var secondOfHour: Int { minute * 60 + second }
+  }
+
+  var fields: Fields {
+    // Floor division, not truncation: `-1 ms` is the last millisecond of 1969, and truncating would
+    // read it as 1970-01-01T00:00:00.999.
+    let localSeconds = Self.floorDiv(epochMillis, 1000) + Int64(offsetSeconds)
+    let millis = Int(((epochMillis % 1000) + 1000) % 1000)
+    let days = Self.floorDiv(localSeconds, 86400)
+    let secondOfDay = Int(localSeconds - days * 86400)
+    let civil = Self.civilFromDays(days)
+    let dayOfYear = Int(days - Self.daysFromCivil(civil.year, 1, 1)) + 1
+    // 1970-01-01 was a Thursday, and ISO numbers Monday as 1. The remainder is normalized because
+    // Swift keeps the dividend's sign, which would put a pre-epoch date outside 1...7.
+    let isoDayOfWeek = Int(((days + 3) % 7 + 7) % 7) + 1
+    return Fields(
+      year: Int(civil.year),
+      month: Int(civil.month),
+      dayOfMonth: Int(civil.day),
+      dayOfYear: dayOfYear,
+      hour: secondOfDay / 3600,
+      minute: (secondOfDay % 3600) / 60,
+      second: secondOfDay % 60,
+      isoDayOfWeek: isoDayOfWeek,
+      millisOfSecond: millis)
+  }
+
+  private static func floorDiv(_ value: Int64, _ divisor: Int64) -> Int64 {
+    let quotient = value / divisor
+    return value % divisor < 0 ? quotient - 1 : quotient
+  }
+
+  /// Howard Hinnant's civil-from-days, the inverse of `daysFromCivil`.
+  private static func civilFromDays(_ days: Int64) -> (year: Int64, month: Int64, day: Int64) {
+    let shifted = days + 719468
+    let era = (shifted >= 0 ? shifted : shifted - 146096) / 146097
+    let dayOfEra = shifted - era * 146097
+    let yearOfEra = (dayOfEra - dayOfEra / 1460 + dayOfEra / 36524 - dayOfEra / 146096) / 365
+    let year = yearOfEra + era * 400
+    let dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100)
+    let monthPrime = (5 * dayOfYear + 2) / 153
+    let day = dayOfYear - (153 * monthPrime + 2) / 5 + 1
+    let month = monthPrime + (monthPrime < 10 ? 3 : -9)
+    return (year + (month <= 2 ? 1 : 0), month, day)
+  }
+
+  private static func daysFromCivil(_ year: Int64, _ month: Int64, _ day: Int64) -> Int64 {
+    let adjustedYear = year - (month <= 2 ? 1 : 0)
+    let era = (adjustedYear >= 0 ? adjustedYear : adjustedYear - 399) / 400
+    let yearOfEra = adjustedYear - era * 400
+    let dayOfYear =
+      (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1
+    let dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
+    return era * 146097 + dayOfEra - 719468
+  }
 }
 
 /// Which children a collapsible container keeps.
@@ -500,11 +633,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ///   A component named here resolves its width and height bindings from the measurement; one that
   ///   is absent falls back to this core's own estimate, which is what every caller got before this
   ///   parameter existed. Pass nothing on the first pass -- there is nothing to measure yet.
+  /// - Parameter wallClock: the host's absolute time, for a document that reads a calendar or
+  ///   time-of-day variable. Omitted, those variables are left unset and the elapsed clock is the
+  ///   only one a document can animate off.
   public func snapshot(
-    timeSeconds: TimeInterval = 0, measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
+    timeSeconds: TimeInterval = 0, wallClock: NativeSwiftWallClock? = nil,
+    measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
   ) throws -> NativeSwiftDocumentSnapshot {
     let values = try resolvedFloats(
-      timeSeconds: timeSeconds, measuredComponents: measuredComponents)
+      timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
     for conversion in document.textFromFloats {
       let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
       let precision = min(max(conversion.digitsAfter, 0), 12)
@@ -527,6 +664,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
       needsContinuousFrames: document.needsContinuousFrames,
+      needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)))
   }
 
@@ -757,17 +895,62 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   private func resolvedFloats(
-    timeSeconds: TimeInterval, measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
+    timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil,
+    measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
   ) throws -> [Int: Float] {
     var result = floats
     for attribute in document.colorAttributes {
       result[attribute.outputID] = colorAttribute(
         attribute.type, of: colors[attribute.colorID] ?? 0)
     }
-    // Player-supplied monotonic animation time. This fixture family uses both ids interchangeably
-    // as moving clocks; keeping them tied to the injected logical timeline makes captures stable.
-    result[1] = Float(timeSeconds)
-    result[30] = Float(timeSeconds)
+    // Player-supplied clocks. A document that declares its own value at one of these ids keeps it,
+    // matching the reference player's claimed-id rule — `floats` seeds `result`.
+    //
+    // The animation clock is the host's logical timeline, not the wall clock: it is what a capture
+    // can hold still. `CONTINUOUS_SEC` is the wall clock's seconds within the current hour when a
+    // host supplies one; without one the elapsed time is the only clock this core has, and a
+    // document that animates off it still moves rather than standing at the 1970 epoch.
+    let animationTime = Float(timeSeconds)
+    if result[NativeSwiftSystemVariables.animationTime] == nil {
+      result[NativeSwiftSystemVariables.animationTime] = animationTime
+    }
+    if let wallClock {
+      let fields = wallClock.fields
+      if result[NativeSwiftSystemVariables.continuousSeconds] == nil {
+        result[NativeSwiftSystemVariables.continuousSeconds] =
+          Float(fields.secondOfHour) + Float(fields.millisOfSecond) * 0.001
+      }
+      if result[NativeSwiftSystemVariables.timeInSeconds] == nil {
+        result[NativeSwiftSystemVariables.timeInSeconds] = Float(fields.secondOfHour)
+      }
+      if result[NativeSwiftSystemVariables.timeInMinutes] == nil {
+        result[NativeSwiftSystemVariables.timeInMinutes] =
+          Float(fields.hour * 60 + fields.minute)
+      }
+      if result[NativeSwiftSystemVariables.timeInHours] == nil {
+        result[NativeSwiftSystemVariables.timeInHours] = Float(fields.hour)
+      }
+      if result[NativeSwiftSystemVariables.calendarMonth] == nil {
+        result[NativeSwiftSystemVariables.calendarMonth] = Float(fields.month)
+      }
+      if result[NativeSwiftSystemVariables.offsetToUTC] == nil {
+        result[NativeSwiftSystemVariables.offsetToUTC] = Float(wallClock.offsetSeconds)
+      }
+      if result[NativeSwiftSystemVariables.weekDay] == nil {
+        result[NativeSwiftSystemVariables.weekDay] = Float(fields.isoDayOfWeek)
+      }
+      if result[NativeSwiftSystemVariables.dayOfMonth] == nil {
+        result[NativeSwiftSystemVariables.dayOfMonth] = Float(fields.dayOfMonth)
+      }
+      if result[NativeSwiftSystemVariables.dayOfYear] == nil {
+        result[NativeSwiftSystemVariables.dayOfYear] = Float(fields.dayOfYear)
+      }
+      if result[NativeSwiftSystemVariables.year] == nil {
+        result[NativeSwiftSystemVariables.year] = Float(fields.year)
+      }
+    } else if result[NativeSwiftSystemVariables.continuousSeconds] == nil {
+      result[NativeSwiftSystemVariables.continuousSeconds] = animationTime
+    }
     // Not clocks, but owed by the player for the same reason and with the same failure: an
     // unsupplied reference resolves to 0 here, so a `RemoteDensity.Host` capture's
     // `([33] 14.0 / [27] / 15.0 *)` divides by zero and every size built from it becomes NaN.
@@ -1101,6 +1284,8 @@ private struct ParsedDocument {
   let textLookups: [ParsedTextLookupInt]
   let matrixExpressions: [Int: ParsedMatrixExpression]
   let needsContinuousFrames: Bool
+  /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
+  let needsWallClockRefresh: Bool
 }
 
 private struct ParsedImageResource {
@@ -1295,6 +1480,53 @@ private struct ParsedPath {
   let winding: Int
   let words: [UInt32]
 
+  /// Whether any of this path's *argument* words references one of `ids`.
+  ///
+  /// The walk is structural on purpose. A path's command tokens are NaN-boxed ids 10...16, which
+  /// collide with the system-variable ids in that range, so a flat scan over the words would report
+  /// `OFFSET_TO_UTC` (10) on any document that draws a path at all.
+  func references(anyOf ids: Set<Int>) -> Bool {
+    func matches(_ word: UInt32) -> Bool {
+      NativeSwiftFloatExpression.referenceID(word).map(ids.contains) ?? false
+    }
+    var index = 0
+    while index < words.count {
+      guard let command = NativeSwiftFloatExpression.referenceID(words[index]) else { return false }
+      index += 1
+      let padding: Int
+      let argumentCount: Int
+      switch command {
+      case 10:
+        padding = 0
+        argumentCount = 2
+      case 11:
+        padding = 2
+        argumentCount = 2
+      case 12:
+        padding = 2
+        argumentCount = 4
+      case 13:
+        padding = 2
+        argumentCount = 5
+      case 14:
+        padding = 2
+        argumentCount = 6
+      case 15:
+        padding = 0
+        argumentCount = 0
+      case 16:
+        return false
+      default:
+        return false
+      }
+      index += padding
+      guard index + argumentCount <= words.count else { return false }
+      for offset in 0..<argumentCount where matches(words[index + offset]) { return true }
+      index += argumentCount
+    }
+    return false
+  }
+
   func resolve(values: [Int: Float]) throws -> [NativeSwiftPathElementSnapshot] {
     var result: [NativeSwiftPathElementSnapshot] = []
     var index = 0
@@ -1442,6 +1674,50 @@ private final class ParsedNode {
   init(kind: NativeSwiftNodeSnapshot.Kind, componentID: Int) {
     self.kind = kind
     self.componentID = componentID
+  }
+
+  /// Whether any word in this subtree references one of `ids`.
+  ///
+  /// A player that publishes a value the document reads has to refresh it: a frame that resolves a
+  /// calendar field once and then idles shows a frozen clock. This is the scan that decides it, and
+  /// it covers every word a node can carry — geometry, padding, spacing, corner radii, text, and
+  /// each draw command's own words, path, gradient and image fields.
+  func references(anyOf ids: Set<Int>) -> Bool {
+    func matches(_ word: UInt32) -> Bool {
+      NativeSwiftFloatExpression.referenceID(word).map(ids.contains) ?? false
+    }
+    if matches(widthWord) || matches(heightWord) || matches(spacingWord) { return true }
+    if matches(paddingWords.left) || matches(paddingWords.top) || matches(paddingWords.right)
+      || matches(paddingWords.bottom)
+    {
+      return true
+    }
+    if matches(minimumWidthWord) || matches(maximumWidthWord) || matches(minimumHeightWord)
+      || matches(maximumHeightWord)
+    {
+      return true
+    }
+    if cornerRadiusWords.contains(where: matches) { return true }
+    if let offsetXWord, matches(offsetXWord) { return true }
+    if let offsetYWord, matches(offsetYWord) { return true }
+    if let zIndexWord, matches(zIndexWord) { return true }
+    if let text, matches(text.sizeWord) || matches(text.weightWord) { return true }
+    for command in commands {
+      if command.words.contains(where: matches) { return true }
+      if let path = command.path, path.references(anyOf: ids) { return true }
+      if let gradient = command.paint.gradient {
+        if gradient.coordinateWords.contains(where: matches) { return true }
+        if gradient.stopWords.contains(where: matches) { return true }
+      }
+      if let image = command.image {
+        if image.source.contains(where: matches) || image.destination.contains(where: matches) {
+          return true
+        }
+        if matches(image.scaleFactor) { return true }
+      }
+      if matches(command.paint.strokeWidth) { return true }
+    }
+    return children.contains { $0.references(anyOf: ids) }
   }
 }
 
@@ -2829,11 +3105,36 @@ private enum NativeSwiftDocumentDecoder {
     }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     guard let root, root.kind == .root else { throw input.malformed("Missing root component") }
-    let needsContinuousFrames = expressions.contains { expression in
-      expression.words.contains { word in
-        NativeSwiftFloatExpression.referenceID(word).map { $0 == 1 || $0 == 30 } ?? false
+    // A moving clock can be named by an expression or by a draw command's own words, and either one
+    // means the frame has to be re-resolved continuously.
+    let continuousClockIDs: Set<Int> = [
+      NativeSwiftSystemVariables.continuousSeconds, NativeSwiftSystemVariables.animationTime,
+    ]
+    let needsContinuousFrames =
+      root.references(anyOf: continuousClockIDs)
+      || expressions.contains { expression in
+        expression.words.contains { word in
+          NativeSwiftFloatExpression.referenceID(word).map(continuousClockIDs.contains) ?? false
+        }
       }
-    }
+    // The discrete wall-clock fields are constant within a second, so a document that reads one has
+    // to be re-resolved at least once a second or its clock freezes on the first frame. Scanned over
+    // every word the document kept, not just its expressions: a draw command or a dimension can name
+    // one directly.
+    let discreteWallClockIDs: Set<Int> = [
+      NativeSwiftSystemVariables.timeInSeconds, NativeSwiftSystemVariables.timeInMinutes,
+      NativeSwiftSystemVariables.timeInHours, NativeSwiftSystemVariables.calendarMonth,
+      NativeSwiftSystemVariables.offsetToUTC, NativeSwiftSystemVariables.weekDay,
+      NativeSwiftSystemVariables.dayOfMonth, NativeSwiftSystemVariables.dayOfYear,
+      NativeSwiftSystemVariables.year,
+    ]
+    let needsWallClockRefresh =
+      root.references(anyOf: discreteWallClockIDs)
+      || expressions.contains { expression in
+        expression.words.contains { word in
+          NativeSwiftFloatExpression.referenceID(word).map(discreteWallClockIDs.contains) ?? false
+        }
+      }
     return ParsedDocument(
       width: width, height: height, density: density, densityBehavior: densityBehavior,
       root: root, nodes: nodes, texts: texts, floats: floats,
@@ -2843,7 +3144,8 @@ private enum NativeSwiftDocumentDecoder {
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
       textMerges: textMerges, idLists: idLists, textLookups: textLookups,
       matrixExpressions: matrixExpressions,
-      needsContinuousFrames: needsContinuousFrames)
+      needsContinuousFrames: needsContinuousFrames,
+      needsWallClockRefresh: needsWallClockRefresh)
   }
 
   private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)
