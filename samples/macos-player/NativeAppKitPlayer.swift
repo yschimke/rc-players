@@ -998,7 +998,18 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let content = CGSize(
       width: max(available.width - padding.left - padding.right, 0),
       height: max(available.height - padding.top - padding.bottom, 0))
-    let sizes = visibleChildren.map { $0.preferredSize(in: content) }
+    let allItems = visibleChildren
+    // A collapsible container wraps to what it keeps, not to everything it holds.
+    let items: [NativeMacComponentView]
+    if node.isCollapsible,
+      let kept = collapsibleKeptFlags(
+        items: allItems, available: content, axis: node.kind == .column ? .vertical : .horizontal)
+    {
+      items = allItems.enumerated().filter { kept[$0.offset] }.map(\.element)
+    } else {
+      items = allItems
+    }
+    let sizes = items.map { $0.preferredSize(in: content) }
     let intrinsic: CGSize
     switch node.kind {
     case .text:
@@ -1062,8 +1073,52 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       height: max(bounds.height - insets.top - insets.bottom, 0))
   }
 
-  private func layoutOverlay(aligned: Bool) {
-    let content = contentRect
+  /// The children this container lays out.
+  ///
+  /// A collapsible container hides the children that do not fit, in the order their
+  /// `CollapsiblePriority` modifiers give, and is itself hidden when nothing fits — the
+  /// reference's container GONE. Every other container returns its children unchanged.
+  private func collapsibleItems(
+    in content: CGSize, axis: NativeCollapsibleAxis
+  ) -> [NativeMacComponentView] {
+    let items = visibleChildren
+    guard let kept = collapsibleKeptFlags(items: items, available: content, axis: axis) else {
+      return items
+    }
+    for (index, child) in items.enumerated() { child.isHidden = !kept[index] }
+    let visible = items.enumerated().filter { kept[$0.offset] }.map(\.element)
+    isHidden = node.visibility == 0 || visible.isEmpty
+    return visible
+  }
+
+  /// Which of `items` a collapsible container keeps, or nil when it is not collapsible.
+  private func collapsibleKeptFlags(
+    items: [NativeMacComponentView], available: CGSize, axis: NativeCollapsibleAxis
+  ) -> [Bool]? {
+    guard node.isCollapsible else { return nil }
+    let orientation = axis == .vertical ? 1 : 0
+    let children = items.map { child -> NativeSwiftCollapsible.Child in
+      let size = child.preferredSize(in: available)
+      let weightType = axis == .vertical ? child.node.heightType : child.node.widthType
+      let weightValue = axis == .vertical ? child.node.heightValue : child.node.widthValue
+      let priority =
+        child.node.collapsiblePriorityOrientation == orientation
+        ? child.node.collapsiblePriority : nil
+      return NativeSwiftCollapsible.Child(
+        mainSize: Float(axis == .vertical ? size.height : size.width),
+        weight: weightType == 3 ? Float(max(weightValue, 0)) : 0,
+        priority: priority)
+    }
+    let extent = axis == .vertical ? available.height : available.width
+    return NativeSwiftCollapsible.keptChildren(
+      children, available: Float(extent), spacing: Float(spacing))
+  }
+
+  private enum NativeCollapsibleAxis {
+    case horizontal, vertical
+  }
+
+  private func layoutOverlay(aligned: Bool) {    let content = contentRect
     for child in visibleChildren {
       let size = child.preferredSize(in: content.size)
       let x: CGFloat = aligned ? alignedX(size.width, in: content) : content.minX
@@ -1085,7 +1140,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
 
   private func layoutColumn() {
     let content = contentRect
-    let items = visibleChildren
+    let items = collapsibleItems(in: content.size, axis: .vertical)
     let natural = items.map { $0.preferredSize(in: content.size) }
     let allocated = MacLinearLayout.allocate(
       available: content.height, natural: natural.map(\.height),
@@ -1109,7 +1164,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
 
   private func layoutRow() {
     let content = contentRect
-    let items = visibleChildren
+    let items = collapsibleItems(in: content.size, axis: .horizontal)
     let natural = items.map { $0.preferredSize(in: content.size) }
     let widths = MacLinearLayout.allocate(
       available: content.width, natural: natural.map(\.width),
