@@ -605,6 +605,16 @@ public enum NativeSwiftCollapsible {
     }
   }
 
+  /// Whether a child's main axis is measured unbounded when the fit test asks for its natural size.
+  ///
+  /// A fixed or wrapping child has a natural size worth measuring; a **fill** child does not — it
+  /// takes whatever it is given, so measuring it unbounded resolves it to infinity and the fit test
+  /// then drops it even when it is the container's only child. Fill dimensions keep the container's
+  /// own bound instead.
+  public static func measuresUnbounded(mainAxisType: Int) -> Bool {
+    !(mainAxisType == 1 || mainAxisType == 7 || mainAxisType == 8)
+  }
+
   /// One flag per child, in the order they were given.
   ///
   /// - Parameters:
