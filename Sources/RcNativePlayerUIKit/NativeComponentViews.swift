@@ -28,14 +28,23 @@
     let boundComponents: Set<Int>
     /// Set only when the document binds component geometry. See `refined(measuredComponents:)`.
     private(set) var refiner: NativeSwiftDocumentSession?
+    /// The frame time this document was resolved at.
+    ///
+    /// A refinement re-resolves the session against real geometry, and it must do so at the same
+    /// instant the frame it is refining was taken at — otherwise an animated document's refinement
+    /// snaps back to zero, and a player that refines after every layout pass then alternates
+    /// between the animated frame and a static one.
+    let timeSeconds: TimeInterval
     private let limits: RemoteComposeNativeExecutionLimits
 
     init(
-      frame: NativeSnapshotSessionHandle.Frame, limits: RemoteComposeNativeExecutionLimits,
+      frame: NativeSnapshotSessionHandle.Frame, timeSeconds: TimeInterval,
+      limits: RemoteComposeNativeExecutionLimits,
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled
     ) throws {
       try self.init(
-        swiftSnapshot: frame.snapshot, limits: limits, androidCompatibility: androidCompatibility)
+        swiftSnapshot: frame.snapshot, timeSeconds: timeSeconds, limits: limits,
+        androidCompatibility: androidCompatibility)
       refiner = frame.refiner
     }
 
@@ -47,18 +56,22 @@
     func refined(measuredComponents: [Int: NativeSwiftMeasuredSize]) -> NativeDocument? {
       guard let refiner, !measuredComponents.isEmpty else { return nil }
       guard
-        let snapshot = try? refiner.snapshot(measuredComponents: measuredComponents),
+        let snapshot = try? refiner.snapshot(
+          timeSeconds: timeSeconds, measuredComponents: measuredComponents),
         var document = try? NativeDocument(
-          swiftSnapshot: snapshot, limits: limits, androidCompatibility: androidCompatibility)
+          swiftSnapshot: snapshot, timeSeconds: timeSeconds, limits: limits,
+          androidCompatibility: androidCompatibility)
       else { return nil }
       document.refiner = refiner
       return document
     }
 
     private init(
-      swiftSnapshot: NativeSwiftDocumentSnapshot, limits: RemoteComposeNativeExecutionLimits,
+      swiftSnapshot: NativeSwiftDocumentSnapshot, timeSeconds: TimeInterval,
+      limits: RemoteComposeNativeExecutionLimits,
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility
     ) throws {
+      self.timeSeconds = timeSeconds
       try NativeFrameBudget.validate(limits)
       var budget = NativeFrameBudget()
       var downloadableByID: [Int: NativeDownloadableFont] = [:]

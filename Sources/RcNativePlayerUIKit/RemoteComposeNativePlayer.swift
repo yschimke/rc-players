@@ -413,7 +413,8 @@
             hostDensity: hostDensity, hostFontScale: hostFontScale)
           try Task.checkCancellation()
           let model = try NativeDocument(
-            frame: frame, limits: executionLimits, androidCompatibility: androidCompatibility)
+            frame: frame, timeSeconds: 0, limits: executionLimits,
+            androidCompatibility: androidCompatibility)
           guard generation == self?.loadGeneration else { return }
           let diagnostics = model.diagnostics(
             availableCustomComponents: availableCustomComponents)
@@ -466,7 +467,7 @@
           try Task.checkCancellation()
           guard let self, generation == self.loadGeneration else { return }
           let model = try NativeDocument(
-            frame: frame, limits: self.executionLimits,
+            frame: frame, timeSeconds: frameTime, limits: self.executionLimits,
             androidCompatibility: self.androidCompatibility)
           try self.validate(model)
           try Task.checkCancellation()
@@ -535,7 +536,7 @@
         else { return update.accepted }
         do {
           let model = try NativeDocument(
-            frame: update.frame, limits: executionLimits,
+            frame: update.frame, timeSeconds: time, limits: executionLimits,
             androidCompatibility: androidCompatibility)
           try validateExecution(model, events: update.events)
           guard
