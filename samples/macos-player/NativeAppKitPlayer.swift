@@ -1225,103 +1225,127 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     }
   }
 
-  /// A flow container's children: left to right, wrapping onto a further line when the next one
-  /// does not fit, bounded by the layout's maximum items per line and maximum lines.
-  ///
-  /// Two passes, because an item is aligned within *its line* and the block of lines is aligned
-  /// within the container: the first measures the lines, the second places each item at the line's
-  /// top, centre or bottom according to the container's vertical positioning.
-  private func layoutFlow() {
-    let content = contentRect
-    let items = visibleChildren
-    let maximumItems = node.flowMaximumItems.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-    let maximumLines = node.flowMaximumLines.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-    var lines: [[(view: NativeMacComponentView, size: CGSize)]] = [[]]
-    var lineWidth: CGFloat = 0
-    for child in items {
-      let size = child.preferredSize(in: content.size)
-      let current = lines[lines.count - 1]
-      let wraps =
-        !current.isEmpty
-        && (current.count >= maximumItems
-          || lineWidth + spacing + size.width > content.width + 0.001)
-      if wraps {
-        guard lines.count < maximumLines else { break }
-        lines.append([])
-        lineWidth = 0
-      }
-      let line = lines.count
-      child.isHidden = line > maximumLines
-      guard line <= maximumLines else { continue }
-      if !lines[lines.count - 1].isEmpty { lineWidth += spacing }
-      lines[lines.count - 1].append((child, size))
-      lineWidth += size.width
-    }
-    // Lines are stacked without a gap, matching the reference's `FlowRow`, which passes 0 as its
-    // vertical arrangement spacing while the horizontal `spacedBy` separates items on a line.
-    let blockHeight = lines.map { $0.map(\.size.height).max() ?? 0 }.reduce(0, +)
-    var y = content.minY
-    switch node.verticalPositioning {
-    case 2: y += (content.height - blockHeight) / 2
-    case 5: y += content.height - blockHeight
-    default: break
-    }
-    for line in lines {
-      let lineHeight = line.map(\.size.height).max() ?? 0
-      let widthOfLine =
-        line.reduce(CGFloat.zero) { $0 + $1.size.width }
-        + spacing * CGFloat(max(line.count - 1, 0))
-      var x = content.minX
-      switch node.horizontalPositioning {
-      case 2: x += (content.width - widthOfLine) / 2
-      case 3: x += content.width - widthOfLine
-      default: break
-      }
-      for item in line {
-        let offset: CGFloat
-        switch node.verticalPositioning {
-        case 2: offset = (lineHeight - item.size.height) / 2
-        case 5: offset = lineHeight - item.size.height
-        default: offset = 0
-        }
-        item.view.frame = CGRect(
-          x: x + CGFloat(item.view.node.offsetX), y: y + offset + CGFloat(item.view.node.offsetY),
-          width: item.size.width, height: item.size.height)
-        x += item.size.width + spacing
-      }
-      y += lineHeight
-    }
+/// A flow container's children: left to right, wrapping onto a further line when the next one
+/// does not fit, bounded by the layout's maximum items per line and maximum lines.
+///
+/// Two passes, because an item is aligned within *its line* and the block of lines is aligned
+/// within the container: the first measures the lines, the second places each item at the
+/// line's top, centre or bottom according to the container's vertical positioning.
+///
+/// A weighted child does not force a wrap — its main-axis size is the row's leftover, not the
+/// whole container — so it is measured with its siblings and allocated a share of the space
+/// they left, exactly as the reference's `FlowRow` does.
+private func layoutFlow() {
+  let content = contentRect
+  let maximumItems = node.flowMaximumItems.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
+  let maximumLines = node.flowMaximumLines.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
+  let wrapped = wrappedFlow(
+    items: visibleChildren, in: content.size, maximumItems: maximumItems,
+    maximumLines: maximumLines)
+  for child in wrapped.discarded { child.isHidden = true }
+  // Lines are stacked without a gap, matching the reference's `FlowRow`, which passes 0 as its
+  // vertical arrangement spacing while the horizontal `spacedBy` separates items on a line.
+  let blockHeight = wrapped.lines.map(\.height).reduce(0, +)
+  var y = content.minY
+  switch node.verticalPositioning {
+  case 2: y += (content.height - blockHeight) / 2
+  case 5: y += content.height - blockHeight
+  default: break
   }
+  for line in wrapped.lines {
+    let positions = MacLinearLayout.positions(
+      total: content.width, sizes: line.items.map(\.size.width),
+      positioning: node.horizontalPositioning, spacing: spacing)
+    for (index, item) in line.items.enumerated() {
+      let offset: CGFloat
+      switch node.verticalPositioning {
+      case 2: offset = (line.height - item.size.height) / 2
+      case 5: offset = line.height - item.size.height
+      default: offset = 0
+      }
+      item.view.isHidden = false
+      item.view.frame = CGRect(
+        x: content.minX + positions[index] + CGFloat(item.view.node.offsetX),
+        y: y + offset + CGFloat(item.view.node.offsetY), width: item.size.width,
+        height: item.size.height)
+    }
+    y += line.height
+  }
+}
 
-  /// The block a flow's children occupy when wrapped within `available`.
-  private func wrappedFlowSize(_ items: [NativeMacComponentView], in available: CGSize) -> CGSize {
-    let maximumItems = node.flowMaximumItems.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-    let maximumLines = node.flowMaximumLines.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-    var x: CGFloat = 0
-    var y: CGFloat = 0
-    var lineHeight: CGFloat = 0
-    var itemsInLine = 0
-    var lines = 1
-    var widest: CGFloat = 0
-    for child in items {
-      let size = child.preferredSize(in: available)
-      if itemsInLine > 0,
-        itemsInLine >= maximumItems || x + size.width > available.width + 0.001
-      {
-        x = 0
-        y += lineHeight + spacing
-        lineHeight = 0
-        itemsInLine = 0
-        lines += 1
+/// The block a flow's children occupy when wrapped within `available`, for wrap sizing.
+private func wrappedFlowSize(_ items: [NativeMacComponentView], in available: CGSize) -> CGSize {
+  let maximumItems = node.flowMaximumItems.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
+  let maximumLines = node.flowMaximumLines.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
+  let wrapped = wrappedFlow(
+    items: items, in: available, maximumItems: maximumItems, maximumLines: maximumLines)
+  // No vertical gap between lines: the horizontal `spacedBy` is not a line height.
+  return CGSize(
+    width: wrapped.lines.map(\.width).max() ?? 0,
+    height: wrapped.lines.map(\.height).reduce(0, +))
+}
+
+private typealias MacFlowLine = (
+  items: [(view: NativeMacComponentView, size: CGSize)], width: CGFloat, height: CGFloat
+)
+
+/// Wraps `items` into lines, measuring weighted children against their row's leftover space.
+private func wrappedFlow(
+  items: [NativeMacComponentView], in available: CGSize, maximumItems: Int, maximumLines: Int
+) -> (lines: [MacFlowLine], discarded: [NativeMacComponentView]) {
+  var lines: [MacFlowLine] = [(items: [], width: 0, height: 0)]
+  var discarded: [NativeMacComponentView] = []
+  for child in items {
+    let weight = child.node.widthType == 3 ? max(child.node.widthValue, 0) : 0
+    let size = weight > 0 ? .zero : child.preferredSize(in: available)
+    let current = lines[lines.count - 1]
+    let wraps =
+      !current.items.isEmpty
+      && (current.items.count >= maximumItems
+        || current.width + spacing + size.width > available.width + 0.001)
+    if wraps {
+      guard lines.count < maximumLines else {
+        discarded.append(child)
+        continue
       }
-      guard lines <= maximumLines else { break }
-      x += size.width + spacing
-      widest = max(widest, x - spacing)
-      lineHeight = max(lineHeight, size.height)
-      itemsInLine += 1
+      lines.append((items: [], width: 0, height: 0))
     }
-    return CGSize(width: widest, height: y + lineHeight)
+    if !lines[lines.count - 1].items.isEmpty {
+      lines[lines.count - 1].width += spacing
+    }
+    lines[lines.count - 1].items.append((child, size))
+    lines[lines.count - 1].width += size.width
   }
+  // A weighted child takes its row's leftover, split by weight.
+  for index in lines.indices {
+    let lineItems = lines[index].items
+    guard lineItems.contains(where: { $0.view.node.widthType == 3 }) else { continue }
+    let gaps = spacing * CGFloat(max(lineItems.count - 1, 0))
+    let weights = lineItems.map { item -> CGFloat? in
+      item.view.node.widthType == 3
+        ? max(CGFloat(item.view.node.widthValue), .leastNonzeroMagnitude) : nil
+    }
+    let allocated = MacLinearLayout.allocate(
+      available: max(available.width - gaps, 0),
+      natural: lineItems.map(\.size.width), weights: weights)
+    var width = gaps
+    lines[index].items = lineItems.enumerated().map { position, item in
+      let measured =
+        weights[position] == nil
+        ? item.size
+        : item.view.preferredSize(
+          in: CGSize(width: allocated[position], height: available.height))
+      let size = CGSize(width: allocated[position], height: measured.height)
+      width += size.width
+      return (item.view, size)
+    }
+    lines[index].width = width
+  }
+  for index in lines.indices {
+    lines[index].height = lines[index].items.map(\.size.height).max() ?? 0
+  }
+  return (lines, discarded)
+}
 
   private func layoutRow() {
     let content = contentRect

@@ -424,6 +424,12 @@ enum NativeSwiftCoreTests {
     precondition(
       secondSnapshot.root.children.first?.children.map(\.visibility) == [0, 1],
       "the second state branch was not the visible one")
+    // The reported index counts the *branches*, not the wrapper they sit in, so it agrees with the
+    // branch that is actually visible.
+    precondition(
+      secondSnapshot.root.children.first?.stateIndex == 1,
+      "the second branch reported index "
+        + "\(String(describing: secondSnapshot.root.children.first?.stateIndex))")
 
     // A flow container's wrap bounds reach the snapshot, so a renderer can wrap rather than lay
     // every child out on one line.

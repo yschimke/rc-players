@@ -883,8 +883,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       verticalPositioning: node.verticalPositioning,
       spacing: try resolvedFloat(node.spacingWord, "spacing", values: values),
       stateIndex: node.stateIndexID.flatMap { indexID in
-        node.children.isEmpty
-          ? nil : min(max(integers[indexID] ?? 0, 0), node.children.count - 1)
+        // Clamped against the *branches*, not the wrapper: the normal shape wraps every
+        // alternative in one content node, and clamping against that would always report 0.
+        let branches = stateBranches(of: node)
+        return branches.isEmpty
+          ? nil : min(max(integers[indexID] ?? 0, 0), branches.count - 1)
       },
       flowMaximumItems: node.flowMaximumItems,
       flowMaximumLines: node.flowMaximumLines,
@@ -895,6 +898,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       collapsiblePriorityOrientation: node.collapsiblePriorityOrientation,
       text: text,
       custom: custom)
+  }
+
+  /// A state layout's branches, unwrapping the bare content node they usually share.
+  private func stateBranches(of node: ParsedNode) -> [ParsedNode] {
+    guard node.children.count == 1, node.children[0].kind == .content,
+      !node.children[0].children.isEmpty
+    else { return node.children }
+    return node.children[0].children
   }
 
   /// The width or height type a state layout resolves with; every other node keeps its own.
@@ -922,7 +933,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if let indexID = node.stateIndexID, !node.children.isEmpty {
       let wrapper = node.children.count == 1 && node.children[0].kind == .content
         ? node.children[0] : nil
-      let branches = wrapper.map(\.children) ?? node.children
+      let branches = stateBranches(of: node)
       guard !branches.isEmpty else {
         return try node.children.map { try resolve($0, values: values, colors: resolvedColors) }
       }
