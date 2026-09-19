@@ -41,6 +41,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   }
 
   public let kind: Kind
+  /// The AndroidX class name of the operation that produced this node — `BoxLayout`, `CoreText`,
+  /// `StateLayout` — as the conformance corpus's `tree` probe spells it. Empty for a structural
+  /// content wrapper, which the corpus never names.
+  public let componentKind: String
   public let componentID: Int
   public let children: [NativeSwiftNodeSnapshot]
   public let commands: [NativeSwiftDrawCommandSnapshot]
@@ -913,6 +917,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
     return NativeSwiftNodeSnapshot(
       kind: node.kind,
+      componentKind: node.componentKind,
       componentID: node.componentID,
       children: try resolvedChildren(
         of: node, values: values, colors: resolvedColors,
@@ -940,11 +945,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       widthValue: try resolvedFloat(node.widthWord, "width", values: values),
       heightType: stateLayoutDimension(node, isWidth: false),
       heightValue: try resolvedFloat(node.heightWord, "height", values: values),
-      padding: NativeSwiftInsets(
-        left: try resolvedFloat(node.paddingWords.left, "padding left", values: values),
-        top: try resolvedFloat(node.paddingWords.top, "padding top", values: values),
-        right: try resolvedFloat(node.paddingWords.right, "padding right", values: values),
-        bottom: try resolvedFloat(node.paddingWords.bottom, "padding bottom", values: values)),
+      // A state layout takes the active child's size, so its own padding is dropped with its fill:
+      // the reference reports an 80x80 container for an 80x80 child behind a 20pt padding modifier,
+      // not 120x120, and the child sits at the container's origin. Keeping the padding made the
+      // container's background and border cover 40 points more than the branch.
+      padding: node.stateIndexID != nil
+        ? NativeSwiftInsets()
+        : NativeSwiftInsets(
+          left: try resolvedFloat(node.paddingWords.left, "padding left", values: values),
+          top: try resolvedFloat(node.paddingWords.top, "padding top", values: values),
+          right: try resolvedFloat(node.paddingWords.right, "padding right", values: values),
+          bottom: try resolvedFloat(node.paddingWords.bottom, "padding bottom", values: values)),
       minimumWidth: try resolvedFloat(node.minimumWidthWord, "minimum width", values: values),
       maximumWidth: maximumWidth > 1_000_000 ? -1 : maximumWidth,
       minimumHeight: try resolvedFloat(node.minimumHeightWord, "minimum height", values: values),
@@ -1858,6 +1869,9 @@ private final class ParsedNode {
   var horizontalPositioning = 1
   var verticalPositioning = 4
   var spacingWord: UInt32 = 0
+  /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
+  /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
+  var componentKind = ""
   /// Set by `StateLayout` (217): the integer holding the index of the child to show.
   var stateIndexID: Int?
   /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
@@ -2767,6 +2781,7 @@ private enum NativeSwiftDocumentDecoder {
               type: type, dataType: dataType, valueBits: valueBits))
         }
         let node = ParsedNode(kind: .custom, componentID: id)
+        node.componentKind = "CustomLayout"
         node.custom = ParsedCustom(configID: configID, properties: properties)
         try begin(node)
       case 102:  // Text data
@@ -2914,17 +2929,21 @@ private enum NativeSwiftDocumentDecoder {
         }
         floats[outputID] = Float(type == 0 ? image.width : image.height)
       case 200:  // Root
-        try begin(ParsedNode(kind: .root, componentID: try input.int("root component id")))
+        let root = ParsedNode(kind: .root, componentID: try input.int("root component id"))
+        root.componentKind = "RootLayoutComponent"
+        try begin(root)
       case 201:  // Content
         try begin(ParsedNode(kind: .content, componentID: try input.int("content component id")))
       case 202:  // Box
         let node = ParsedNode(kind: .box, componentID: try input.int("box component id"))
+        node.componentKind = "BoxLayout"
         _ = try input.int("box animation id")
         node.horizontalPositioning = try input.int("box horizontal positioning")
         node.verticalPositioning = try input.int("box vertical positioning")
         try begin(node)
       case 203:  // Row
         let node = ParsedNode(kind: .row, componentID: try input.int("row component id"))
+        node.componentKind = "RowLayout"
         _ = try input.int("row animation id")
         node.horizontalPositioning = try input.int("row horizontal positioning")
         node.verticalPositioning = try input.int("row vertical positioning")
@@ -2932,6 +2951,7 @@ private enum NativeSwiftDocumentDecoder {
         try begin(node)
       case 204:  // Column
         let node = ParsedNode(kind: .column, componentID: try input.int("column component id"))
+        node.componentKind = "ColumnLayout"
         _ = try input.int("column animation id")
         node.horizontalPositioning = try input.int("column horizontal positioning")
         node.verticalPositioning = try input.int("column vertical positioning")
@@ -3016,6 +3036,7 @@ private enum NativeSwiftDocumentDecoder {
         // Component id, animation id, both positionings. A fit box scales its content to fit rather
         // than clipping it; laid out here as an ordinary box, so the content keeps its own size.
         let node = ParsedNode(kind: .box, componentID: try input.int("fit box component id"))
+        node.componentKind = "FitBoxLayout"
         _ = try input.int("fit box animation id")
         node.horizontalPositioning = try input.int("fit box horizontal positioning")
         node.verticalPositioning = try input.int("fit box vertical positioning")
@@ -3025,6 +3046,7 @@ private enum NativeSwiftDocumentDecoder {
         // of the child to show. Laid out as a box, which shows every child stacked rather than the
         // one the index selects -- a real difference, tracked rather than implied.
         let node = ParsedNode(kind: .box, componentID: try input.int("state layout component id"))
+        node.componentKind = "StateLayout"
         _ = try input.int("state layout animation id")
         node.horizontalPositioning = try input.int("state layout horizontal positioning")
         node.verticalPositioning = try input.int("state layout vertical positioning")
@@ -3035,6 +3057,7 @@ private enum NativeSwiftDocumentDecoder {
         // Children wrap onto further lines when they do not fit, so this is not the row it decodes
         // like; `flowMaximumItems`/`flowMaximumLines` bound the wrap.
         let node = ParsedNode(kind: .row, componentID: try input.int("flow component id"))
+        node.componentKind = "FlowLayout"
         _ = try input.int("flow animation id")
         node.horizontalPositioning = try input.int("flow horizontal positioning")
         node.verticalPositioning = try input.int("flow vertical positioning")
@@ -3075,6 +3098,7 @@ private enum NativeSwiftDocumentDecoder {
         // The row half of the same family as 233, and the same wire shape as the row at 203.
         let node = ParsedNode(
           kind: .row, componentID: try input.int("collapsible row component id"))
+        node.componentKind = "CollapsibleRowLayout"
         _ = try input.int("collapsible row animation id")
         node.horizontalPositioning = try input.int("collapsible row horizontal positioning")
         node.verticalPositioning = try input.int("collapsible row vertical positioning")
@@ -3100,6 +3124,7 @@ private enum NativeSwiftDocumentDecoder {
         // lives in `NativeSwiftCollapsible` and both renderers apply it.
         let node = ParsedNode(
           kind: .column, componentID: try input.int("collapsible column component id"))
+        node.componentKind = "CollapsibleColumnLayout"
         _ = try input.int("collapsible column animation id")
         node.horizontalPositioning = try input.int("collapsible column horizontal positioning")
         node.verticalPositioning = try input.int("collapsible column vertical positioning")
@@ -3108,6 +3133,7 @@ private enum NativeSwiftDocumentDecoder {
         try begin(node)
       case 205:  // Canvas
         let node = ParsedNode(kind: .canvas, componentID: try input.int("canvas component id"))
+        node.componentKind = "CanvasLayout"
         _ = try input.int("canvas animation id")
         try begin(node)
       case 129:  // Matrix rotate
@@ -3128,6 +3154,7 @@ private enum NativeSwiftDocumentDecoder {
           ParsedDrawCommand(kind: 5, words: words, paint: paint))
       case 208:  // Text layout
         let node = ParsedNode(kind: .text, componentID: try input.int("text component id"))
+        node.componentKind = "TextLayout"
         _ = try input.int("text animation id")
         let textID = try input.int("text id")
         let color = UInt32(bitPattern: Int32(try input.int("text color")))
@@ -3156,6 +3183,7 @@ private enum NativeSwiftDocumentDecoder {
         try begin(node)
       case 234:  // Image layout
         let node = ParsedNode(kind: .image, componentID: try input.int("image component id"))
+        node.componentKind = "ImageLayout"
         _ = try input.int("image animation id")
         let imageID = try input.int("image bitmap id")
         let scaleType = try input.int("image scale type")
@@ -3262,6 +3290,7 @@ private enum NativeSwiftDocumentDecoder {
         }
         let componentID = integers[1] ?? -(textID + 1)
         let node = ParsedNode(kind: .text, componentID: componentID)
+        node.componentKind = "CoreText"
         let color =
           integers[4].flatMap { colors[$0] }
           ?? UInt32(bitPattern: Int32(integers[3] ?? -16_777_216))

@@ -397,6 +397,9 @@ enum NativeSwiftCoreTests {
     guard let stateNode = stateSnapshot.root.children.first else {
       preconditionFailure("the state-layout fixture decoded no state layout")
     }
+    precondition(
+      stateNode.componentKind == "StateLayout",
+      "a state layout reported kind \(stateNode.componentKind)")
     precondition(stateNode.stateIndex == 0, "state index resolved to \(String(describing: stateNode.stateIndex))")
     // The container takes the active child's size whatever the document asks for: a fill modifier
     // on the state layout itself is dropped, or its background paints the whole parent.
@@ -445,6 +448,9 @@ enum NativeSwiftCoreTests {
     guard let flowNode = flowSnapshot.root.children.first else {
       preconditionFailure("the flow fixture decoded no flow container")
     }
+    precondition(
+      flowNode.componentKind == "FlowLayout",
+      "a flow container reported kind \(flowNode.componentKind)")
     precondition(
       flowNode.flowMaximumItems == 2 && flowNode.flowMaximumLines == 3,
       "flow bounds resolved to \(String(describing: flowNode.flowMaximumItems)) / "
@@ -650,6 +656,9 @@ enum NativeSwiftCoreTests {
     guard let column = collapsibleSnapshot.root.children.first else {
       preconditionFailure("the collapsible fixture decoded no column")
     }
+    precondition(
+      column.componentKind == "CollapsibleColumnLayout",
+      "a collapsible column reported kind \(column.componentKind)")
     precondition(column.isCollapsible, "a collapsible column did not report itself as one")
     precondition(column.spacing == 20, "collapsible spacing resolved to \(column.spacing)")
     guard let child = column.children.first else {
