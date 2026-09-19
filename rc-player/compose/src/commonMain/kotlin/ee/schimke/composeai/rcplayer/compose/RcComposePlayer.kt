@@ -1163,10 +1163,17 @@ private fun RenderLayoutNode(
           images,
           theme,
         )
-      if (image != null && node.modifiers.width == null) {
+      // A wrap-content image sizes to its bitmap's intrinsic dimensions. `applyWidth` treats WRAP
+      // as the absence of a size modifier — Compose would size the Canvas to its (empty) content,
+      // which is 0×0 — so the intrinsic size has to be applied here, as it is when no dimension is
+      // declared at all. `image_layout_sizing_options` asserts exactly that: its wrap-content
+      // ImageLayout is 60×40, the bitmap's own size.
+      val wrapsWidth = node.modifiers.width?.type == RcDimensionType.WRAP
+      val wrapsHeight = node.modifiers.height?.type == RcDimensionType.WRAP
+      if (image != null && (node.modifiers.width == null || wrapsWidth)) {
         imageModifier = imageModifier.width(with(density) { image.width.toDp() })
       }
-      if (image != null && node.modifiers.height == null) {
+      if (image != null && (node.modifiers.height == null || wrapsHeight)) {
         imageModifier = imageModifier.height(with(density) { image.height.toDp() })
       }
       Canvas(imageModifier) {
@@ -1950,6 +1957,10 @@ internal fun boxAlignment(horizontal: Int, vertical: Int): Alignment =
 
 internal fun rowAlignment(vertical: Int): Alignment.Vertical =
   when (vertical) {
+    // 0 is "unset", not a positioning value — see [boxAlignment]. AndroidX lays an unpositioned
+    // row's children out from the top, which is what this player does for a document that states
+    // nothing at all.
+    0,
     4 -> Alignment.Top
     2 -> Alignment.CenterVertically
     5 -> Alignment.Bottom
@@ -1958,6 +1969,7 @@ internal fun rowAlignment(vertical: Int): Alignment.Vertical =
 
 internal fun columnAlignment(horizontal: Int): Alignment.Horizontal =
   when (horizontal) {
+    0,
     1 -> Alignment.Start
     2 -> Alignment.CenterHorizontally
     3 -> Alignment.End
@@ -2030,6 +2042,9 @@ internal fun arrangeLinear(
   var distributedGap = 0f
   var current =
     when (positioning) {
+      // 0 is "unset": a container that states no positioning preference arranges from the start,
+      // the same as the explicit start value (1 horizontally, 4 vertically).
+      0,
       1,
       4 -> 0f
       2 -> (totalSize - contentSize) / 2f
