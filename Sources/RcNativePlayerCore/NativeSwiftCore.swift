@@ -540,10 +540,18 @@ public enum NativeSwiftFlow {
     var lines: [[Int]] = [[]]
     var discarded: [Int] = []
     var width: Float = 0
+    var capped = false
     let gap = spacing.isFinite && spacing > 0 ? spacing : 0
     let itemCap = maximumItems > 0 ? maximumItems : Int.max
     let lineCap = maximumLines > 0 ? maximumLines : Int.max
     for (index, child) in children.enumerated() {
+      // A GONE child is in neither the line nor its spacing or item count: it is not drawn, so
+      // letting it occupy a slot would push a visible sibling onto a line of its own.
+      if child.isGone { continue }
+      if capped {
+        discarded.append(index)
+        continue
+      }
       let provisional = child.provisionalWidth
       let current = lines[lines.count - 1]
       let wraps =
@@ -552,6 +560,9 @@ public enum NativeSwiftFlow {
           || width + gap + provisional > available)
       if wraps {
         guard lines.count < lineCap else {
+          // No further line may be created, so this child and every child after it is discarded.
+          // Letting a later, smaller one land on the current line would reorder the document.
+          capped = true
           discarded.append(index)
           continue
         }

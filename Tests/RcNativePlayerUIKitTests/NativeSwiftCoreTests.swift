@@ -477,12 +477,25 @@ enum NativeSwiftCoreTests {
     precondition(
       capped.lines == [[0, 1]] && capped.discarded == [2],
       "flow caps produced \(capped.lines) / \(capped.discarded)")
-    // A GONE child consumes nothing.
+    // Once the line cap is reached, everything from that child on is discarded — a later, smaller
+    // child must not land on the still-open line and come out ahead of the one that was dropped.
+    let cappedSuffix = NativeSwiftFlow.segment(
+      [NativeSwiftFlow.Child(measuredWidth: 80),
+       NativeSwiftFlow.Child(measuredWidth: 0, weight: 1, minimumWidth: 30),
+       NativeSwiftFlow.Child(measuredWidth: 20)],
+      available: 100, spacing: 0, maximumLines: 1)
+    precondition(
+      cappedSuffix.lines == [[0]] && cappedSuffix.discarded == [1, 2],
+      "a capped suffix produced \(cappedSuffix.lines) / \(cappedSuffix.discarded)")
+    // A GONE child is in neither the line, its spacing, nor its item count.
     let goneFlow = NativeSwiftFlow.segment(
       [NativeSwiftFlow.Child(measuredWidth: 100, isGone: true),
+       NativeSwiftFlow.Child(measuredWidth: 100),
        NativeSwiftFlow.Child(measuredWidth: 100)],
-      available: 100, spacing: 0)
-    precondition(goneFlow.lines == [[0, 1]], "a GONE child consumed space: \(goneFlow.lines)")
+      available: 100, spacing: 10, maximumItems: 2)
+    precondition(
+      goneFlow.lines == [[1], [2]],
+      "a GONE child consumed a slot or a gap: \(goneFlow.lines)")
 
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
