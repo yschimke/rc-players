@@ -40,7 +40,8 @@
 		100000000000000000000020 /* NativeSwiftCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* NativeSwiftCore.swift */; };
 		100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */; };
 		100000000000000000000022 /* NativeDensityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* NativeDensityPolicy.swift */; };
-		100000000000000000000023 /* RemoteComposeFontVariation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* RemoteComposeFontVariation.swift */; };
+		100000000000000000000023 /* NativeTexturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* NativeTexturePolicy.swift */; };
+		100000000000000000000024 /* RemoteComposeFontVariation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000027 /* RemoteComposeFontVariation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeNativePlayerRepresentable.swift; path = "../../Sources/RcNativePlayerUIKit/RemoteComposeNativePlayerRepresentable.swift"; sourceTree = "<group>"; };
 		200000000000000000000012 /* NativeCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeCompatibility.swift; path = "../../Sources/RcNativePlayerUIKit/NativeCompatibility.swift"; sourceTree = "<group>"; };
 		200000000000000000000025 /* NativeDensityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeDensityPolicy.swift; path = "../../Sources/RcNativePlayerUIKit/NativeDensityPolicy.swift"; sourceTree = "<group>"; };
+		200000000000000000000026 /* NativeTexturePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeTexturePolicy.swift; path = "../../Sources/RcNativePlayerUIKit/NativeTexturePolicy.swift"; sourceTree = "<group>"; };
 		200000000000000000000013 /* NativeLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeLayout.swift; path = "../../Sources/RcNativePlayerUIKit/NativeLayout.swift"; sourceTree = "<group>"; };
 		200000000000000000000014 /* NativeGraphicsState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeGraphicsState.swift; path = "../../Sources/RcNativePlayerUIKit/NativeGraphicsState.swift"; sourceTree = "<group>"; };
 		200000000000000000000015 /* NativePath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativePath.swift; path = "../../Sources/RcNativePlayerUIKit/NativePath.swift"; sourceTree = "<group>"; };
@@ -91,7 +93,7 @@
 		200000000000000000000022 /* NativeCustomComponentSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCustomComponentSamples.swift; sourceTree = "<group>"; };
 		200000000000000000000023 /* NativeSwiftCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCore.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftCore.swift"; sourceTree = "<group>"; };
 		200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeDownloadableFonts.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeDownloadableFonts.swift"; sourceTree = "<group>"; };
-		200000000000000000000026 /* RemoteComposeFontVariation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeFontVariation.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeFontVariation.swift"; sourceTree = "<group>"; };
+		200000000000000000000027 /* RemoteComposeFontVariation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeFontVariation.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeFontVariation.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -118,7 +120,7 @@
 				400000000000000000000005 /* RcComposePlayerSwiftUI */,
 				400000000000000000000006 /* RcNativePlayerUIKit */,
 				200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */,
-				200000000000000000000026 /* RemoteComposeFontVariation.swift */,
+				200000000000000000000027 /* RemoteComposeFontVariation.swift */,
 				20000000000000000000000E /* RcComposePlayer.xcframework */,
 				400000000000000000000003 /* Fixtures */,
 				400000000000000000000004 /* Products */,
@@ -176,6 +178,7 @@
 			children = (
 				200000000000000000000012 /* NativeCompatibility.swift */,
 				200000000000000000000025 /* NativeDensityPolicy.swift */,
+				200000000000000000000026 /* NativeTexturePolicy.swift */,
 				200000000000000000000013 /* NativeLayout.swift */,
 				200000000000000000000014 /* NativeGraphicsState.swift */,
 				200000000000000000000015 /* NativePath.swift */,
@@ -297,6 +300,7 @@
 				10000000000000000000000F /* RemoteComposeNativePlayerRepresentable.swift in Sources */,
 				100000000000000000000010 /* NativeCompatibility.swift in Sources */,
 				100000000000000000000022 /* NativeDensityPolicy.swift in Sources */,
+				100000000000000000000023 /* NativeTexturePolicy.swift in Sources */,
 				100000000000000000000011 /* NativeLayout.swift in Sources */,
 				100000000000000000000012 /* NativeGraphicsState.swift in Sources */,
 				100000000000000000000013 /* NativePath.swift in Sources */,
@@ -305,7 +309,7 @@
 				100000000000000000000016 /* NativeSession.swift in Sources */,
 				100000000000000000000020 /* NativeSwiftCore.swift in Sources */,
 				100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */,
-				100000000000000000000023 /* RemoteComposeFontVariation.swift in Sources */,
+				100000000000000000000024 /* RemoteComposeFontVariation.swift in Sources */,
 				100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */,
 				100000000000000000000018 /* NativeFrameTiming.swift in Sources */,
 				100000000000000000000019 /* NativeExecutionLimits.swift in Sources */,

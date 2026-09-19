@@ -111,6 +111,7 @@ jobs:
               scripts/check-native-uikit-profile.sh \
               scripts/check-native-uikit-resources.sh \
               scripts/check-native-uikit-text.sh \
+              scripts/check-native-uikit-texture.sh \
               scripts/check-swift-sample.sh \
               scripts/package-apple-player.sh \
               scripts/package-macos-player.sh \
@@ -416,6 +417,10 @@ jobs:
       - name: Test native UIKit text policy
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-text.sh
+
+      - name: Test native UIKit texture policy
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-uikit-texture.sh
 
       - name: Test native UIKit resource policy
         if: needs.apple-changes.outputs.required == 'true'

@@ -417,7 +417,15 @@ Graphics-representable blend modes, ordered line/quadratic/cubic paths, path cli
 linear/radial/sweep gradients, and system-font size. Sweep gradients use bounded Core Graphics
 tessellation because `CGContext` has no conic-gradient primitive. Non-clamp gradient tile modes and
 rational conics are approximated with explicit diagnostics. Referenced shaders, color filters, path
-effects, document-declared font axes, and textures produce diagnostics or unsupported opcodes.
+effects, and document-declared font axes produce diagnostics or unsupported opcodes.
+
+A bitmap texture paint carries a `SHADER_MATRIX` — an RPN `MATRIX_EXPRESSION` over the document's
+floats — that maps the bitmap onto the shape, and a tile mode per axis. Both are applied: the
+matrix through a `CGPattern` premultiplied by the context's CTM (a pattern matrix is device-space),
+clamp and repeat through the pattern, mirror through a 2x2 super-tile of flipped copies, and decal
+by clipping the fill to the bitmap's own area. Clamp only clamps where the reference does when the
+shape lies inside the mapped bitmap; outside it this player repeats rather than extending the edge
+pixels. Setting a texture or a gradient replaces the paint's previous shader.
 
 ### Text
 
@@ -610,6 +618,18 @@ instead of drifting from it. Each case is run through the whole retained surface
 several times including negative and far-future ones, host float/string/color updates under hostile
 names, every gesture kind against real and impossible component ids, custom return channels, and a
 determinism check that the same time resolves the same tree twice.
+
+A second, **structure-aware** family reaches the code byte-level corruption cannot. The core hands
+back the operation spans it walked (`NativeSwiftDocumentSession.operationSpans`), so the mutator and
+the decoder cannot disagree about framing; it then perturbs operand words toward boundary values,
+duplicates, drops and swaps whole operations, and unbalances container begin/end pairs by exactly
+one. Those inputs stay walkable, so a rejection means the decoder judged the *content* — expression
+evaluation, layout modifiers, resource metadata — rather than the framing. The two families
+complement each other and the run prints both counts: at the default width roughly a fifth of cases
+now decode, against about a sixteenth with byte-level mutations alone, and the gate is a proportion
+of cases rather than a bare seed count. The first soak with the new family found a genuine trap —
+a colour channel computed to infinity reached `Int(value)` in the ARGB packer — which is fixed by
+saturating a non-finite channel instead of converting it.
 
 Failures are reproducible and self-reporting. `RC_NATIVE_FUZZ_SEED` and `RC_NATIVE_FUZZ_ITERATIONS`
 replay the same case sequence on any host, a failing case writes its bytes to

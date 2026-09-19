@@ -432,6 +432,7 @@
     let textureImageID: Int?
     let textureTileModeX: Int
     let textureTileModeY: Int
+    let shaderMatrix: [Float]?
     let usesComponentGeometry: Bool
 
     init(_ snapshot: NativeSwiftDrawCommandSnapshot) {
@@ -477,6 +478,7 @@
       textureImageID = snapshot.textureImageID
       textureTileModeX = snapshot.textureTileModeX
       textureTileModeY = snapshot.textureTileModeY
+      shaderMatrix = snapshot.shaderMatrix
       usesComponentGeometry = snapshot.usesComponentGeometry
     }
 
@@ -501,7 +503,14 @@
       textureImageID = nil
       textureTileModeX = 0
       textureTileModeY = 0
+      shaderMatrix = nil
       usesComponentGeometry = false
+    }
+
+    /// The shader's local matrix as a Core Graphics affine transform, or identity when the paint
+    /// never named one.
+    var textureTransform: CGAffineTransform {
+      NativeTexturePolicy.transform(shaderMatrix)
     }
   }
 
@@ -1948,6 +1957,9 @@
           hasher.combine(image.scaleFactor)
         }
         hasher.combine(command.textureImageID)
+        hasher.combine(command.textureTileModeX)
+        hasher.combine(command.textureTileModeY)
+        command.shaderMatrix?.forEach { hasher.combine($0) }
       }
       for id in commands.compactMap({ $0.image?.imageID ?? $0.textureImageID }).sorted() {
         hasher.combine(id)
@@ -2071,12 +2083,16 @@
         isDeferredComponentBackground || isDeferredShaderBackground
         ? CGPath(rect: bounds, transform: nil) : path
       context.addPath(effectivePath)
-      if let textureImageID = command.textureImageID, let image = images[textureImageID] {
+      if let textureImageID = command.textureImageID, let image = images[textureImageID]?.cgImage {
         context.saveGState()
         if command.isStroke { context.replacePathWithStrokedPath() }
         context.clip(using: command.isStroke ? .winding : fillRule)
-        UIColor(patternImage: image).setFill()
-        context.fill(context.boundingBoxOfClipPath)
+        NativeTexturePolicy.paint(
+          image: image,
+          transform: command.textureTransform,
+          tileModeX: command.textureTileModeX,
+          tileModeY: command.textureTileModeY,
+          in: context)
         context.restoreGState()
         return
       }

@@ -10,6 +10,16 @@ import Foundation
 /// corrupted, spliced, and extreme-valued variants, so the corpus follows the fixture set rather
 /// than drifting from it.
 ///
+/// Two mutation families, because they reach different code. Byte-level edits cover truncation and
+/// arbitrary corruption, and are overwhelmingly rejected at the header or the first bad opcode —
+/// which is the property "malformed input fails closed", already well covered. Structure-aware
+/// edits walk the seed with the decoder's own operation spans, then perturb operands, duplicate,
+/// drop and swap whole operations, and unbalance container begin/end pairs by one. Those stay
+/// walkable, so they reach expression evaluation, layout and resource metadata with hostile
+/// content rather than hostile framing. The run prints how many cases decoded so shallow coverage
+/// is visible rather than implied, and the gate is a proportion of cases rather than a bare seed
+/// count so a corpus that stops reaching the stream fails the run.
+///
 /// Reproduction is deterministic. `RC_NATIVE_FUZZ_SEED` and `RC_NATIVE_FUZZ_ITERATIONS` select the
 /// same case sequence on any host, and a failure writes the offending bytes to
 /// `RC_NATIVE_FUZZ_CORPUS_OUT` (default: a temporary directory, printed) before exiting.
@@ -17,6 +27,12 @@ import Foundation
 enum NativeSwiftFuzzTests {
   private static let defaultIterations = 96
   private static let caseTimeoutSeconds = 10.0
+  /// The proportion of cases that must decode for the run to pass.
+  ///
+  /// Measured rather than guessed: with structure-aware edits in the mix the corpus decodes around
+  /// 20% of cases, so the floor sits below that to leave room for host and fixture drift while
+  /// still failing a corpus that dies at the header.
+  private static let minimumDecodedRatio = 0.12
 
   static func main() {
     let arguments = Array(CommandLine.arguments.dropFirst())
@@ -43,6 +59,7 @@ enum NativeSwiftFuzzTests {
     var decoded = 0
     var rejected = 0
     var cases = 0
+    var structuralCases = 0
     let started = ProcessInfo.processInfo.systemUptime
 
     for (index, seed) in seeds.enumerated() {
@@ -52,10 +69,19 @@ enum NativeSwiftFuzzTests {
       exercise(seed.data, label: "\(seed.name)#pristine", decoded: &decoded, rejected: &rejected)
       cases += 1
 
+      // The operation spans the decoder itself walked, so the mutator and the decoder cannot
+      // disagree about framing. A seed the decoder refuses has none, and stays byte-level only.
+      let spans = (try? NativeSwiftDocumentSession.operationSpans(in: seed.data)) ?? []
       var random = SplitMix64(seed: seedValue &+ UInt64(index) &* 0x9E37_79B9_7F4A_7C15)
       for iteration in 0..<iterations {
         let label = "\(seed.name)#\(iteration)"
-        let mutant = mutate(seed.data, using: &random)
+        let mutant: Data
+        if !spans.isEmpty, random.next(upperBound: 2) == 1 {
+          mutant = structuralMutation(seed.data, spans: spans, using: &random)
+          structuralCases += 1
+        } else {
+          mutant = mutate(seed.data, using: &random)
+        }
         watchdog.begin(label: label, data: mutant)
         exercise(mutant, label: label, decoded: &decoded, rejected: &rejected)
         cases += 1
@@ -70,13 +96,14 @@ enum NativeSwiftFuzzTests {
       elapsed < budget,
       "fuzzing \(cases) cases took \(elapsed)s, over the \(budget)s bounded-work budget")
     precondition(
-      decoded >= seeds.count,
+      Double(decoded) >= Double(cases) * minimumDecodedRatio,
       "only \(decoded) of \(cases) cases decoded; the corpus is dying at the header instead of "
         + "reaching the operation stream")
     precondition(rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
     print(
-      "native Swift fuzz: ok (\(cases) cases, \(decoded) decoded, \(rejected) typed rejections, "
-        + "\(String(format: "%.2f", elapsed))s, seed=\(seedValue))")
+      "native Swift fuzz: ok (\(cases) cases, \(structuralCases) structure-aware, \(decoded) "
+        + "decoded, \(rejected) typed rejections, \(String(format: "%.2f", elapsed))s, "
+        + "seed=\(seedValue))")
   }
 
   /// Run one input through the whole retained-session surface and assert the typed contract.
@@ -298,6 +325,95 @@ enum NativeSwiftFuzzTests {
     return Data(bytes)
   }
 
+  // MARK: - Structure-aware corpus
+
+  /// Where a structure-aware edit can land.
+  ///
+  /// The point of each is that the result stays walkable: an operation is self-delimiting, so
+  /// duplicating, dropping or reordering whole operations leaves the framing intact and makes the
+  /// decoder judge the *content*. Only the container pair is deliberately unbalanced.
+  private enum StructuralMutation: CaseIterable {
+    case perturbOperand, duplicateOperation, dropOperation, swapOperations, unbalanceContainers
+  }
+
+  /// The words an operand is perturbed toward: counts, lengths, ids and floats all read one of
+  /// these as hostile rather than as a typo.
+  private static let boundaryWords: [[UInt8]] = [
+    [0x00, 0x00, 0x00, 0x00],  // zero / empty
+    [0xFF, 0xFF, 0xFF, 0xFF],  // -1, or Int32.max as an unsigned count
+    [0x7F, 0xFF, 0xFF, 0xFF],  // Int32.max
+    [0x80, 0x00, 0x00, 0x00],  // Int32.min / -0
+    [0x7F, 0x80, 0x00, 0x00],  // +infinity
+    [0xFF, 0x80, 0x00, 0x00],  // -infinity
+    [0x7F, 0xC0, 0x00, 0x00],  // NaN
+    [0x00, 0x00, 0x00, 0x01],  // one
+    [0x00, 0x01, 0x00, 0x00],  // 65536
+    [0x00, 0x00, 0xFF, 0xFF],  // 65535
+  ]
+
+  private static let containerEndOpcode = 214
+  private static let containerStartOpcodes: Set<Int> = [
+    176, 200, 201, 202, 203, 204, 205, 207, 208, 217, 230, 233, 234, 239, 240,
+  ]
+
+  private static func structuralMutation(
+    _ seed: Data, spans: [NativeSwiftOperationSpan], using random: inout SplitMix64
+  ) -> Data {
+    var bytes = [UInt8](seed)
+    guard !spans.isEmpty else { return Data(bytes) }
+    let mutation = StructuralMutation.allCases[
+      Int(random.next(upperBound: UInt64(StructuralMutation.allCases.count)))]
+    switch mutation {
+    case .perturbOperand:
+      // An operand word, never the opcode byte, and only inside an operation that has one.
+      let candidates = spans.filter { $0.byteCount >= 5 }
+      guard let span = candidates.randomElement(using: &random) else { return Data(bytes) }
+      let operandStart = span.offset + 1
+      let wordCount = (span.endOffset - operandStart) / 4
+      guard wordCount > 0 else { return Data(bytes) }
+      let start = operandStart + Int(random.next(upperBound: UInt64(wordCount))) * 4
+      let word = boundaryWords[Int(random.next(upperBound: UInt64(boundaryWords.count)))]
+      bytes.replaceSubrange(start..<(start + 4), with: word)
+    case .duplicateOperation:
+      let span = spans[Int(random.next(upperBound: UInt64(spans.count)))]
+      bytes.insert(contentsOf: bytes[span.offset..<span.endOffset], at: span.endOffset)
+    case .dropOperation:
+      let span = spans[Int(random.next(upperBound: UInt64(spans.count)))]
+      bytes.removeSubrange(span.offset..<span.endOffset)
+    case .swapOperations:
+      guard spans.count >= 2 else { return Data(bytes) }
+      let first = Int(random.next(upperBound: UInt64(spans.count)))
+      var second = Int(random.next(upperBound: UInt64(spans.count)))
+      if second == first { second = (second + 1) % spans.count }
+      let low = min(first, second)
+      let high = max(first, second)
+      let lowRange = spans[low].offset..<spans[low].endOffset
+      let highRange = spans[high].offset..<spans[high].endOffset
+      let firstBytes = Array(bytes[lowRange])
+      let secondBytes = Array(bytes[highRange])
+      var swapped = Array(bytes[..<lowRange.lowerBound])
+      swapped += secondBytes
+      swapped += bytes[lowRange.upperBound..<highRange.lowerBound]
+      swapped += firstBytes
+      swapped += bytes[highRange.upperBound...]
+      bytes = swapped
+    case .unbalanceContainers:
+      // Drop one end, or duplicate one begin: a pair that is exactly one out of balance is the
+      // shape a stack-based decoder is most likely to mishandle.
+      if random.next(upperBound: 2) == 0,
+        let end = spans.filter({ $0.opcode == containerEndOpcode })
+          .randomElement(using: &random)
+      {
+        bytes.removeSubrange(end.offset..<end.endOffset)
+      } else if let start = spans.filter({ containerStartOpcodes.contains($0.opcode) })
+        .randomElement(using: &random)
+      {
+        bytes.insert(contentsOf: bytes[start.offset..<start.endOffset], at: start.endOffset)
+      }
+    }
+    return Data(bytes)
+  }
+
   // MARK: - Failure reporting
 
   private static func report(_ data: Data, label: String, reason: String) -> Never {
@@ -330,7 +446,7 @@ enum NativeSwiftFuzzTests {
 }
 
 /// Deterministic PRNG: the same seed replays the same corpus on any host.
-private struct SplitMix64 {
+private struct SplitMix64: RandomNumberGenerator {
   private var state: UInt64
 
   init(seed: UInt64) { state = seed }
