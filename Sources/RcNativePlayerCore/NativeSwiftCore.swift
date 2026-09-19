@@ -256,6 +256,20 @@ public enum NativeSwiftGestureKind: Int, CaseIterable, Equatable, Sendable {
   case touchCancel
 }
 
+/// The values a document holds at one instant, for the conformance corpus's value probes.
+///
+/// The corpus's `float`, `int`, `text` and `color` probes read a document's *state* rather than its
+/// rendering: an expression's result, a variable a gesture wrote, a colour an expression built. A
+/// target is either a numeric slot or the name of a variable the document declared.
+public struct NativeSwiftProbeValues: Sendable {
+  public let floats: [Int: Float]
+  public let integers: [Int: Int]
+  public let texts: [Int: String]
+  /// ARGB, as the corpus spells it: an unsigned 32-bit integer, so opaque red is 4294901760 rather
+  /// than the negative Int the same bits mean here.
+  public let colors: [Int: UInt32]
+}
+
 public struct NativeSwiftPointerSample: Equatable, Sendable {
   public let x: Float
   public let y: Float
@@ -693,8 +707,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     integers = document.integers
   }
 
-  public static func open(data: Data) throws -> NativeSwiftDocumentSession {
-    NativeSwiftDocumentSession(document: try NativeSwiftDocumentDecoder.decode(data))
+  /// Opens a document.
+  ///
+  /// - Parameter toleratingRootlessData: decode a *data-only* document — one that declares values
+  ///   and nothing to draw — instead of refusing it. The conformance lane asks for this so its value
+  ///   probes can be answered; a host that is about to render keeps the default and is told the
+  ///   document has nothing to paint.
+  public static func open(
+    data: Data, toleratingRootlessData: Bool = false
+  ) throws -> NativeSwiftDocumentSession {
+    NativeSwiftDocumentSession(
+      document: try NativeSwiftDocumentDecoder.decode(
+        data, toleratingRootlessData: toleratingRootlessData))
   }
 
   /// The operation spans of a document the decoder accepts, for structure-aware mutation.
@@ -826,6 +850,39 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     return events
   }
+
+  /// Every value the document holds at `timeSeconds`, resolved the way `snapshot` resolves them.
+  ///
+  /// Called after `snapshot` so the text-from-float conversions and merges it performs are visible
+  /// here too; the two reads then describe one instant rather than two.
+  public func probeValues(
+    timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil
+  ) throws -> NativeSwiftProbeValues {
+    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    // Integer expressions are part of the state, not only of an action's result: the reference
+    // evaluates them as it resolves, so a probe reads what an expression computed rather than the
+    // empty slot it started in. Order matters, and the document's own declaration order is what it
+    // declares.
+    var resolvedIntegers = integers
+    for id in document.integerExpressionOrder {
+      guard let expression = document.integerExpressions[id] else { continue }
+      if let value = try? NativeSwiftIntegerExpression.evaluate(
+        mask: expression.mask, tokens: expression.tokens, values: resolvedIntegers)
+      {
+        resolvedIntegers[id] = value
+      }
+    }
+    return NativeSwiftProbeValues(
+      floats: values, integers: resolvedIntegers, texts: texts,
+      colors: resolveColors(values: values))
+  }
+
+  /// The slot a document's named variable occupies, or nil when it declared no such name.
+  ///
+  /// A probe that names a variable the document never declared is genuinely unobservable; one that
+  /// addresses a numeric slot the document left empty is an observation, and the caller has to keep
+  /// the two apart.
+  public func namedVariableID(_ name: String) -> Int? { document.namedVariables[name]?.id }
 
   public func setFloat(_ value: Float, for name: String) -> Bool {
     guard value.isFinite, let variable = document.namedVariables[name], variable.type == 1 else {
@@ -1473,6 +1530,9 @@ private struct ParsedDocument {
   let colors: [Int: UInt32]
   let integers: [Int: Int]
   let integerExpressions: [Int: ParsedIntegerExpression]
+  /// The same expressions in the order the document declared them: one may read another's result,
+  /// so evaluation follows the wire rather than a dictionary's iteration order.
+  let integerExpressionOrder: [Int]
   let namedVariables: [String: ParsedNamedVariable]
   let expressions: [ParsedFloatExpression]
   let componentValues: [ParsedComponentValue]
@@ -2138,9 +2198,27 @@ private enum NativeSwiftFloatExpression {
       case 27:
         let value = try pop(3)
         stack.append(min(max(value[0], value[2]), value[1]))
+      case 48:
+        // SWAP: the reference's expression language can exchange its top two operands, which is how
+        // a formula written for a stack machine reads `a` and `b` in the order it wants.
+        let value = try pop(2)
+        stack.append(value[1])
+        stack.append(value[0])
       case 49:
         let value = try pop(3)
         stack.append(value[0] + (value[1] - value[0]) * value[2])
+      case 50:
+        // SMOOTH_STEP: 0 below the first edge, 1 above the second, and the Hermite curve between
+        // them. `expr_interpolation` is the gold that names it.
+        let value = try pop(3)
+        if value[0] < value[2] {
+          stack.append(0)
+        } else if value[0] > value[1] {
+          stack.append(1)
+        } else {
+          let t = (value[0] - value[2]) / (value[1] - value[2])
+          stack.append(t * t * (3 - 2 * t))
+        }
       case 74:
         let value = try pop(5)
         stack.append(cubicEasing(value[0], value[1], value[2], value[3], value[4]))
@@ -2439,9 +2517,9 @@ private enum NativeSwiftDocumentDecoder {
   private static let maximumNodes = 20_000
   private static let maximumNestingDepth = 256
 
-  static func decode(_ data: Data) throws -> ParsedDocument {
+  static func decode(_ data: Data, toleratingRootlessData: Bool = false) throws -> ParsedDocument {
     var spans: [NativeSwiftOperationSpan] = []
-    return try decode(data, spans: &spans)
+    return try decode(data, spans: &spans, toleratingRootlessData: toleratingRootlessData)
   }
 
   /// Decodes a document and records each top-level operation's byte extent in `spans`.
@@ -2449,7 +2527,9 @@ private enum NativeSwiftDocumentDecoder {
   /// The recording is unconditional because it is three assignments per operation and the array is
   /// discarded by the ordinary entry point; a second, span-collecting walk would be a second
   /// decoder that could drift from this one.
-  static func decode(_ data: Data, spans: inout [NativeSwiftOperationSpan]) throws -> ParsedDocument {
+  static func decode(
+    _ data: Data, spans: inout [NativeSwiftOperationSpan], toleratingRootlessData: Bool = false
+  ) throws -> ParsedDocument {
     var input = WireReader(data)
     guard try input.u8("header opcode") == 0 else {
       throw input.malformed("Document must begin with a header")
@@ -2522,6 +2602,7 @@ private enum NativeSwiftDocumentDecoder {
     var colors: [Int: UInt32] = [:]
     var integers: [Int: Int] = [:]
     var integerExpressions: [Int: ParsedIntegerExpression] = [:]
+    var integerExpressionOrder: [Int] = []
     var namedVariables: [String: ParsedNamedVariable] = [:]
     var expressions: [ParsedFloatExpression] = []
     var componentValues: [ParsedComponentValue] = []
@@ -3373,7 +3454,22 @@ private enum NativeSwiftDocumentDecoder {
           opcode: opcode, offset: opcodeOffset, endOffset: input.offset))
     }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
-    guard let root, root.kind == .root else { throw input.malformed("Missing root component") }
+    // A *data-only* document declares expressions, colours and text with nothing to draw, so it
+    // carries no root component at all. A renderer handed one has been given something it cannot
+    // paint and refusing it is right — but a conformance run still has to answer the scalar probes
+    // those documents assert, so it asks for this mode and gets an empty root of the document's own
+    // size. The strict path is the default and stays that way.
+    let decodedRoot: ParsedNode?
+    if let root {
+      decodedRoot = root
+    } else if toleratingRootlessData {
+      decodedRoot = ParsedNode(kind: NativeSwiftNodeSnapshot.Kind.root, componentID: 0)
+    } else {
+      decodedRoot = nil
+    }
+    guard let root = decodedRoot, root.kind == .root else {
+      throw input.malformed("Missing root component")
+    }
     // A clock reference can hide in a float expression, in a text-from-float conversion, in a colour
     // expression's channels, or in any word a node kept — a draw command, a dimension, a path
     // argument. Scanning only the expressions left a document whose clock display converted
@@ -3406,6 +3502,7 @@ private enum NativeSwiftDocumentDecoder {
       width: width, height: height, density: density, densityBehavior: densityBehavior,
       root: root, nodes: nodes, texts: texts, floats: floats,
       colors: colors, integers: integers, integerExpressions: integerExpressions,
+      integerExpressionOrder: integerExpressionOrder,
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,

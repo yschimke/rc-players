@@ -58,6 +58,29 @@ enum NativeSwiftCoreTests {
       scrolledContent.children.first?.componentID == -5,
       "the scrolled row's child landed at "
         + "\(String(describing: scrolledContent.children.first?.componentID))")
+    // A *data-only* document declares values and nothing to draw, so it carries no root component at
+    // all. Refusing it is right for a renderer and wrong for a conformance run, which still has to
+    // answer the scalar probes those documents assert — so the mode is asked for explicitly and the
+    // strict path stays the default. `expr_color_blending` and `expr_integer_bitwise_ops` are the
+    // golds that need it.
+    let rootless = rootlessValuesDocument()
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: rootless)
+      preconditionFailure("a document with no root component was accepted without the mode")
+    } catch let error as NativeSwiftCoreError {
+      precondition(error.description.contains("Missing root component"))
+    }
+    let dataOnly = try NativeSwiftDocumentSession.open(
+      data: rootless, toleratingRootlessData: true)
+    let dataOnlySnapshot = try dataOnly.snapshot()
+    precondition(
+      dataOnlySnapshot.root.children.isEmpty,
+      "a data-only document's synthetic root grew children")
+    let dataOnlyValues = try dataOnly.probeValues(timeSeconds: 0)
+    precondition(
+      dataOnly.namedVariableID("answer") == 5 && dataOnlyValues.floats[5] == 42,
+      "a data-only document's own values did not resolve: "
+        + "\(String(describing: dataOnlyValues.floats[5]))")
 
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {
@@ -822,6 +845,15 @@ enum NativeSwiftCoreTests {
     output.u8(201).int(-4)
     output.u8(202).int(-5).int(0).int(2).int(2)
     for _ in 0..<4 { output.u8(214) }
+    return output.data
+  }
+
+  /// A document with values and no components: one float expression and the name it answers to.
+  private static func rootlessValuesDocument() -> Data {
+    let output = Writer()
+    output.header(width: 300, height: 200)
+    output.u8(81).int(5).int(1).float(42)
+    output.namedVariable(id: 5, type: 1, name: "answer")
     return output.data
   }
 
