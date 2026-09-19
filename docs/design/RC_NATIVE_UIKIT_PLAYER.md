@@ -612,6 +612,18 @@ several times including negative and far-future ones, host float/string/color up
 names, every gesture kind against real and impossible component ids, custom return channels, and a
 determinism check that the same time resolves the same tree twice.
 
+A second, **structure-aware** family reaches the code byte-level corruption cannot. The core hands
+back the operation spans it walked (`NativeSwiftDocumentSession.operationSpans`), so the mutator and
+the decoder cannot disagree about framing; it then perturbs operand words toward boundary values,
+duplicates, drops and swaps whole operations, and unbalances container begin/end pairs by exactly
+one. Those inputs stay walkable, so a rejection means the decoder judged the *content* — expression
+evaluation, layout modifiers, resource metadata — rather than the framing. The two families
+complement each other and the run prints both counts: at the default width roughly a fifth of cases
+now decode, against about a sixteenth with byte-level mutations alone, and the gate is a proportion
+of cases rather than a bare seed count. The first soak with the new family found a genuine trap —
+a colour channel computed to infinity reached `Int(value)` in the ARGB packer — which is fixed by
+saturating a non-finite channel instead of converting it.
+
 Failures are reproducible and self-reporting. `RC_NATIVE_FUZZ_SEED` and `RC_NATIVE_FUZZ_ITERATIONS`
 replay the same case sequence on any host, a failing case writes its bytes to
 `RC_NATIVE_FUZZ_CORPUS_OUT` (uploaded by CI), and a watchdog thread turns a hang into a named
