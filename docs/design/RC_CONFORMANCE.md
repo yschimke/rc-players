@@ -112,7 +112,7 @@ layout manager assigned — padding and offset are modifier translation and are 
 §2.7 — with the AndroidX class name of each component, its effective visibility and its depth.
 
 Before that channel existed this lane's gold count was zero *by construction*: no gold in the corpus
-asserts raster alone. It is 163 of 249 at the 2026-09-19 measurement, and the tree and value channels
+asserts raster alone. It is 168 of 249 at the 2026-09-19 measurement, and the tree and value channels
 are where those passes come from.
 
 The **value probes** read a document's own state rather than its rendering, so the batch protocol
@@ -123,6 +123,13 @@ declared is unobservable — the player leaves the key out so the runner can rep
 than a wrong value. A *data-only* document (one that declares values and nothing to draw) is decoded
 for a conformance run through an explicit mode, because refusing to paint it is right for a host and
 wrong for a probe.
+
+The batch also replays the timeline before each capture. It supports elapsed- and wall-clock steps,
+frame sequences, resize/click triggers, click variants, raw touch sequences and deterministic scroll
+drag/decay. Input is cumulative because every requested frame opens the document afresh; after each
+step the view is rebuilt before the next hit test. That reduced `STEP_NOT_RUN` from 305 binding checks
+to the six checks behind explicit light/dark theme switching. Scroll offsets are observable through
+`scroll_x`/`scroll_y`; translating the AppKit paint subtree by that offset remains raster work.
 
 The remaining diffs are a work list rather than noise: the Ahem text metrics the golds assert, the
 `ops`/`records`/`draw_log` operation-census probes, particles, and the decode refusals behind 21

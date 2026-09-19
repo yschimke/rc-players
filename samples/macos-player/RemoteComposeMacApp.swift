@@ -566,10 +566,48 @@ struct RemoteComposeMacApplication {
           let width = (frame["width"] as? NSNumber)?.doubleValue
           let height = (frame["height"] as? NSNumber)?.doubleValue
           let time = (frame["time"] as? NSNumber)?.doubleValue ?? 0
+          let wallClock: NativeSwiftWallClock = {
+            guard let raw = frame["wall_clock"] as? [String: Any] else { return .capture }
+            if let timestamp = (raw["timestamp_millis"] as? NSNumber)?.int64Value {
+              return NativeSwiftWallClock(epochMillis: timestamp)
+            }
+            if let continuous = (raw["continuous_seconds"] as? NSNumber)?.doubleValue {
+              return NativeSwiftWallClock(epochMillis: Int64(continuous * 1000))
+            }
+            // Time-only snapshots use a stable UTC date; calendar snapshots send an epoch above.
+            // Constructing this in UTC also keeps a developer machine's locale out of the corpus.
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+            var components = DateComponents()
+            components.calendar = calendar
+            components.timeZone = calendar.timeZone
+            components.year = (raw["year"] as? NSNumber)?.intValue ?? 1970
+            components.month = (raw["month"] as? NSNumber)?.intValue ?? 1
+            components.day = (raw["day"] as? NSNumber)?.intValue ?? 1
+            components.hour = (raw["hour"] as? NSNumber)?.intValue ?? 0
+            components.minute = (raw["minute"] as? NSNumber)?.intValue ?? 0
+            components.second = (raw["second"] as? NSNumber)?.intValue ?? 0
+            let epochMillis = Int64((calendar.date(from: components)?.timeIntervalSince1970 ?? 0) * 1000)
+            return NativeSwiftWallClock(epochMillis: epochMillis)
+          }()
           let viewport = (width != nil && height != nil)
             ? CGSize(width: width!, height: height!) : nil
           // The values this frame's checks assert. A gold asks for the handful it names rather than
           // for a whole dump, and the player resolves them at the frame's own instant.
+          // The input the lane drove before this capture: the whole sequence, because the player
+          // opens the document fresh and replays it.
+          let steps = (frame["steps"] as? [[String: Any]] ?? []).compactMap { raw -> NativeMacInputStep? in
+            guard let kind = raw["kind"] as? String else { return nil }
+            return NativeMacInputStep(
+              kind: kind,
+              x: (raw["x"] as? NSNumber)?.doubleValue,
+              y: (raw["y"] as? NSNumber)?.doubleValue,
+              dx: (raw["dx"] as? NSNumber)?.doubleValue,
+              dy: (raw["dy"] as? NSNumber)?.doubleValue,
+              at: (raw["at"] as? NSNumber)?.doubleValue ?? 0,
+              captureAt: (raw["capture_at"] as? NSNumber)?.doubleValue
+                ?? (raw["at"] as? NSNumber)?.doubleValue ?? 0)
+          }
           let requested = frame["values"] as? [String: Any] ?? [:]
           let valueRequest = NativeMacValueRequest(
             floats: requested["floats"] as? [String] ?? [],
@@ -580,7 +618,8 @@ struct RemoteComposeMacApplication {
           // as a failing check for that frame rather than lose the whole gold.
           do {
             let frame = try NativeAppKitWindowController.renderFrame(
-              data: document, timeSeconds: time, viewport: viewport, values: valueRequest)
+              data: document, timeSeconds: time, wallClock: wallClock, viewport: viewport,
+              values: valueRequest, steps: steps)
             let path = URL(fileURLWithPath: outputDirectory).appendingPathComponent("\(id).png")
             try frame.png.write(to: path, options: .atomic)
             // The laid-out tree travels with the frame: the corpus's `tree` probe reads it, and

@@ -95,9 +95,15 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// corpus keeps it out of a node's `x`/`y` and reports it as `scroll_x`/`scroll_y` instead. What
   /// a renderer needs from the document is where the scroll currently is.
   public let scrollDirection: Int?
+  /// The slot the scroll's position lives in, so a gesture can move it: a scroll is a modifier
+  /// *translation* the layout never sees, and the document's own float is its state.
+  public let scrollPositionID: Int?
   /// The scroll offset, resolved from the document's float at snapshot time. Zero until the document
   /// or a gesture moves it.
   public let scrollOffset: Float
+  /// How far the scroll may travel, from the modifier's own maximum. Zero means the document
+  /// has not had its measured travel written yet; a renderer can derive it from content measurement.
+  public let scrollMaximum: Float
   public let text: NativeSwiftTextSnapshot?
   public let custom: NativeSwiftCustomSnapshot?
 }
@@ -254,6 +260,23 @@ public enum NativeSwiftGestureKind: Int, CaseIterable, Equatable, Sendable {
   case touchDown
   case touchUp
   case touchCancel
+}
+
+/// How a scroll moves under a drag.
+///
+/// A scroll is a modifier *translation*, so the layout never sees it: the content follows the finger
+/// and the offset is what the paint and the corpus's `scroll_x`/`scroll_y` read. Shared here so both
+/// renderers move a scroll the same way — the corpus asserts the arithmetic through
+/// `interaction_scroll_row`, whose 40-point drag reports `scroll_x: -40`.
+public enum NativeSwiftScrollGesture {
+  /// The offset after dragging by `delta` points along the scroll's axis.
+  ///
+  /// Dragging *towards* the start of the content (a negative delta on a horizontal scroll) moves the
+  /// content with the finger, which *increases* the offset; the travel clamps at both ends.
+  public static func offset(afterDragging current: Float, delta: Float, maximum: Float) -> Float {
+    guard maximum > 0 else { return 0 }
+    return min(max(current - delta, 0), maximum)
+  }
 }
 
 /// The values a document holds at one instant, for the conformance corpus's value probes.
@@ -884,6 +907,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// the two apart.
   public func namedVariableID(_ name: String) -> Int? { document.namedVariables[name]?.id }
 
+  /// Writes one float slot by id, for a gesture that moves a document's own value — a scroll's
+  /// offset is addressed by id rather than by name.
+  @discardableResult
+  public func setFloatValue(_ value: Float, id: Int) -> Bool {
+    guard value.isFinite else { return false }
+    floats[id] = value
+    return true
+  }
+
   public func setFloat(_ value: Float, for name: String) -> Bool {
     guard value.isFinite, let variable = document.namedVariables[name], variable.type == 1 else {
       return false
@@ -1068,7 +1100,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       },
       collapsiblePriorityOrientation: node.collapsiblePriorityOrientation,
       scrollDirection: node.scrollDirection,
+      scrollPositionID: node.scrollPositionWord.flatMap {
+        NativeSwiftFloatExpression.referenceID($0)
+      },
       scrollOffset: node.scrollPositionWord.map {
+        NativeSwiftFloatExpression.resolve($0, values: values)
+      } ?? 0,
+      scrollMaximum: node.scrollMaximumWord.map {
         NativeSwiftFloatExpression.resolve($0, values: values)
       } ?? 0,
       text: text,
@@ -1085,13 +1123,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// The width or height type a state layout resolves with; every other node keeps its own.
   ///
-  /// The reference's `StateLayout` adopts its active child's size, so a `FILL` modifier on the
-  /// container is dropped. Keeping it made the container cover the whole parent — its background
-  /// painted the full frame instead of the branch — and hid the child's own size.
+  /// The reference's `StateLayout` adopts its active child's size, so **its own dimension is
+  /// dropped whatever kind it is** — a `FILL` modifier made the container cover the whole parent and
+  /// paint its background over the branch, and a fixed one held the container at a size the branch
+  /// never had. `interaction_click_button` declares `height(100)` on a container whose branches are
+  /// 40 and 80 tall, and the reference reports 40 and then 80. Bounds (`widthIn`/`heightIn`) still
+  /// apply: they constrain the child's size rather than replacing it.
   private func stateLayoutDimension(_ node: ParsedNode, isWidth: Bool) -> Int {
-    let type = isWidth ? node.widthType : node.heightType
-    guard node.stateIndexID != nil else { return type }
-    return (type == 1 || type == 7 || type == 8) ? 2 : type
+    guard node.stateIndexID != nil else { return isWidth ? node.widthType : node.heightType }
+    return 2
   }
 
   /// A node's children, with a state layout's inactive branches marked GONE.
@@ -1958,9 +1998,10 @@ private final class ParsedNode {
   var componentKind = ""
   /// Set by the scroll modifier (226): 0 vertical, 1 horizontal.
   var scrollDirection: Int?
-  /// The float word holding the scroll position. The maximum and notch maximum are consumed by the
-  /// decoder and dropped: nothing in this player clamps a scroll yet.
+  /// The float word holding the scroll position, and the one holding how far it may travel. The
+  /// notch maximum is consumed by the decoder and dropped: nothing here snaps a scroll yet.
   var scrollPositionWord: UInt32?
+  var scrollMaximumWord: UInt32?
   /// Set by `StateLayout` (217): the integer holding the index of the child to show.
   var stateIndexID: Int?
   /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
@@ -3201,7 +3242,7 @@ private enum NativeSwiftDocumentDecoder {
         let node = try currentNode(stack, input: input)
         node.scrollDirection = try input.int("scroll direction")
         node.scrollPositionWord = try input.word("scroll position")
-        _ = try input.word("scroll maximum")
+        node.scrollMaximumWord = try input.word("scroll maximum")
         _ = try input.word("scroll notch maximum")
         modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
       case 107:  // Border modifier

@@ -97,10 +97,20 @@ public class NativeSwiftEngine(private val playerBinary: File) : ConformanceEngi
   }
 }
 
+private const val MILLIS_PER_SECOND = 1000.0
+
+/** The corpus's frame rate for `frame_sequence` (§3): one frame per sixtieth of a second. */
+private const val FRAMES_PER_SECOND = 60.0
+
 private class NativeSwiftSession(private val gold: Gold, private val playerBinary: File) :
   ConformanceSession, AutoCloseable {
   private var width = gold.parameters.intOrDefault("width", 400)
   private var height = gold.parameters.intOrDefault("height", 400)
+
+  /** The logical clock a frame is captured at, in seconds, and the input driven before it. */
+  private var clock = 0.0
+  private var wallClock: JsonObject? = null
+  private val driven = mutableListOf<JsonObject>()
 
   private val workingDirectory: File = Files.createTempDirectory("rc-conformance-swift").toFile()
 
@@ -124,11 +134,24 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
   /** Each frame's document values, as the player resolved them. */
   private var capturedValues: Map<String, JsonObject>? = null
 
-  private class Frame(val id: String, val width: Int, val height: Int, val time: Double)
+  private class Frame(
+    val id: String,
+    val width: Int,
+    val height: Int,
+    val time: Double,
+    val wallClock: JsonObject?,
+    /**
+     * The input driven before this frame, replayed by the player: it opens a document per frame.
+     */
+    val steps: List<JsonObject>,
+  )
 
   override fun execute(step: Step, onCapture: (String) -> Unit) {
     when (step.kind) {
-      "paint" -> request(step.id)
+      "paint" -> {
+        step.float("animation_time_seconds")?.let { clock = it.toDouble() }
+        request(step.id)
+      }
       "resize" -> {
         width = step.int("width", width)
         height = step.int("height", height)
@@ -136,16 +159,110 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       }
       // Nothing to settle in a still capture, and saying "unsupported" would fail checks this lane
       // can in fact answer at that point.
-      "settle" -> Unit
-      // A gesture to dispatch, a clock to move, a frame to advance — all need the player driven
-      // rather than captured. The batch protocol renders one still frame per request, so these are
-      // refused rather than silently treated as a repaint.
+      "settle" -> request(step.id)
+      "advance_time" -> {
+        clock += step.int("advance_millis", 0) / MILLIS_PER_SECOND
+        request(step.id)
+      }
+      "time" -> {
+        step.float("seconds")?.let { clock = it.toDouble() }
+        request(step.id)
+      }
+      "frame_sequence" -> frameSequence(step, onCapture)
+      "clock_snapshot" -> clockSnapshot(step)
+      "click",
+      "longPress",
+      "doubleClick",
+      "touch_down",
+      "touch_drag",
+      "touch_up" -> gesture(step)
+      "trigger" -> trigger(step)
+      // A theme this player does not model, and a clock it does not carry: refused rather than
+      // silently treated as a repaint, which would turn the step's checks into false passes.
       else -> throw UnsupportedStepKind(step.kind)
     }
   }
 
+  /**
+   * A gesture the lane drives, recorded with the clock it happens at.
+   *
+   * The list accumulates and travels with every later frame, because the player opens the document
+   * fresh for each capture: a frame is always "the document after everything the timeline has done
+   * to it so far", which is what a check bound to that step asserts.
+   */
+  private fun gesture(step: Step) {
+    val eventTime = clock
+    // Input is dispatched before this delay; the corpus observes the repaint after it. Keep both
+    // instants so actions read the event clock while layout/animation refreshes at the capture
+    // clock.
+    clock += step.int("advance_millis", 0) / MILLIS_PER_SECOND
+    driven += buildJsonObject {
+      put("kind", step.kind)
+      step.float("x")?.let { put("x", it) }
+      step.float("y")?.let { put("y", it) }
+      step.float("dx")?.let { put("dx", it) }
+      step.float("dy")?.let { put("dy", it) }
+      put("at", eventTime)
+      put("capture_at", clock)
+    }
+    request(step.id)
+  }
+
+  /**
+   * A `trigger` is a one-shot stimulus followed by a single measure/paint (§3).
+   *
+   * Only `resize` and `click` triggers appear in the corpus; anything else is refused rather than
+   * silently treated as a no-op.
+   */
+  private fun trigger(step: Step) {
+    val trigger = step.obj("trigger") ?: throw UnsupportedStepKind("trigger(no payload)")
+    fun number(key: String): Double? = (trigger[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
+    when ((trigger["type"] as? JsonPrimitive)?.content) {
+      "resize" -> {
+        width = number("width")?.toInt() ?: width
+        height = number("height")?.toInt() ?: height
+        request(step.id)
+      }
+      "click" -> {
+        driven += buildJsonObject {
+          put("kind", "click")
+          number("x")?.let { put("x", it) }
+          number("y")?.let { put("y", it) }
+          put("at", clock)
+        }
+        request(step.id)
+      }
+      else -> throw UnsupportedStepKind("trigger(${trigger["type"]})")
+    }
+  }
+
+  /**
+   * Paints frames `0…total_frames`, walking the clock a frame at a time and capturing the ones the
+   * step names. A check binds to `frame_<n>`, the frame's *number* rather than its index in the
+   * capture list.
+   */
+  private fun frameSequence(step: Step, onCapture: (String) -> Unit) {
+    val base = step.int("base_time_millis", 0) / MILLIS_PER_SECOND
+    val captures = step.ints("capture").toSet()
+    for (frame in 0..step.int("total_frames", 0)) {
+      if (captures.isNotEmpty() && frame !in captures) continue
+      clock = base + frame / FRAMES_PER_SECOND
+      request("frame_$frame")
+      onCapture("frame_$frame")
+    }
+  }
+
+  /** Freezes both elapsed and calendar time for the clock corpus. */
+  private fun clockSnapshot(step: Step) {
+    wallClock = step.obj("clock")
+    (wallClock?.get("continuous_seconds") as? JsonPrimitive)?.content?.toDoubleOrNull()?.let {
+      clock = it
+    }
+    request(step.id)
+  }
+
   private fun request(id: String) {
-    requested += Frame(id, width, height, 0.0)
+    requested += Frame(id, width, height, clock, wallClock, driven.toList())
     // The captures are taken lazily, in one subprocess, the first time a probe asks for one. A
     // check bound to an earlier step still reads that step's own frame, because each is captured at
     // the viewport recorded when the step ran.
@@ -231,6 +348,10 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
                 put("width", frame.width)
                 put("height", frame.height)
                 put("time", frame.time)
+                frame.wallClock?.let { put("wall_clock", it) }
+                if (frame.steps.isNotEmpty()) {
+                  put("steps", buildJsonArray { frame.steps.forEach { add(it) } })
+                }
                 if (valueTargets.isNotEmpty()) {
                   put(
                     "values",
