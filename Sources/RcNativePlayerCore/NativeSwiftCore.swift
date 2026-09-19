@@ -1723,6 +1723,7 @@ private final class ParsedNode {
         if matches(image.scaleFactor) { return true }
       }
       if matches(command.paint.strokeWidth) { return true }
+      if let alphaWord = command.alphaWord, matches(alphaWord) { return true }
     }
     return children.contains { $0.references(anyOf: ids) }
   }
@@ -3112,22 +3113,32 @@ private enum NativeSwiftDocumentDecoder {
     }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     guard let root, root.kind == .root else { throw input.malformed("Missing root component") }
-    // A moving clock can be named by an expression or by a draw command's own words, and either one
-    // means the frame has to be re-resolved continuously.
+    // A clock reference can hide in a float expression, in a text-from-float conversion, in a colour
+    // expression's channels, or in any word a node kept — a draw command, a dimension, a path
+    // argument. Scanning only the expressions left a document whose clock display converted
+    // `TIME_IN_SEC` straight to text without ever asking for another frame.
+    func references(_ ids: Set<Int>, in words: [UInt32]) -> Bool {
+      words.contains { NativeSwiftFloatExpression.referenceID($0).map(ids.contains) ?? false }
+    }
+    func references(_ ids: Set<Int>) -> Bool {
+      if root.references(anyOf: ids) { return true }
+      if expressions.contains(where: { references(ids, in: $0.words) }) { return true }
+      if textFromFloats.contains(where: { references(ids, in: [$0.value]) }) { return true }
+      return colorExpressions.contains { expression in
+        references(
+          ids,
+          in: [expression.first, expression.second, expression.third].map {
+            UInt32(bitPattern: Int32(truncatingIfNeeded: $0))
+          })
+      }
+    }
+    // A moving clock means the frame has to be re-resolved continuously.
     let continuousClockIDs: Set<Int> = [
       NativeSwiftSystemVariables.continuousSeconds, NativeSwiftSystemVariables.animationTime,
     ]
-    let needsContinuousFrames =
-      root.references(anyOf: continuousClockIDs)
-      || expressions.contains { expression in
-        expression.words.contains { word in
-          NativeSwiftFloatExpression.referenceID(word).map(continuousClockIDs.contains) ?? false
-        }
-      }
+    let needsContinuousFrames = references(continuousClockIDs)
     // The discrete wall-clock fields are constant within a second, so a document that reads one has
-    // to be re-resolved at least once a second or its clock freezes on the first frame. Scanned over
-    // every word the document kept, not just its expressions: a draw command or a dimension can name
-    // one directly.
+    // to be re-resolved at least once a second or its clock freezes on the first frame.
     let discreteWallClockIDs: Set<Int> = [
       NativeSwiftSystemVariables.timeInSeconds, NativeSwiftSystemVariables.timeInMinutes,
       NativeSwiftSystemVariables.timeInHours, NativeSwiftSystemVariables.calendarMonth,
@@ -3135,13 +3146,7 @@ private enum NativeSwiftDocumentDecoder {
       NativeSwiftSystemVariables.dayOfMonth, NativeSwiftSystemVariables.dayOfYear,
       NativeSwiftSystemVariables.year,
     ]
-    let needsWallClockRefresh =
-      root.references(anyOf: discreteWallClockIDs)
-      || expressions.contains { expression in
-        expression.words.contains { word in
-          NativeSwiftFloatExpression.referenceID(word).map(discreteWallClockIDs.contains) ?? false
-        }
-      }
+    let needsWallClockRefresh = references(discreteWallClockIDs)
     return ParsedDocument(
       width: width, height: height, density: density, densityBehavior: densityBehavior,
       root: root, nodes: nodes, texts: texts, floats: floats,
