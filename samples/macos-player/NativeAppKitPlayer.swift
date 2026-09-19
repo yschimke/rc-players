@@ -1080,9 +1080,13 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         width: sizes.map(\.width).max() ?? 0,
         height: sizes.reduce(0) { $0 + $1.height } + spacing * CGFloat(max(sizes.count - 1, 0)))
     default:
+      // Zero, not the available space: a wrapping box with nothing visible in it — a weighted
+      // spacer whose only child is a structural content wrapper, say — has no size of its own, and
+      // falling back to `available` stretched it across the container and painted its background
+      // over the row. A fill box still resolves to the available space through its own dimension.
       intrinsic = CGSize(
-        width: sizes.map(\.width).max() ?? available.width,
-        height: sizes.map(\.height).max() ?? available.height)
+        width: sizes.map(\.width).max() ?? 0,
+        height: sizes.map(\.height).max() ?? 0)
     }
     return applyDimensions(
       CGSize(
