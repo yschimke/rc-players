@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.68.0](https://github.com/yschimke/rc-players/compare/v1.67.0...v1.68.0) (2026-09-19)
+
+
+### Features
+
+* answer the conformance corpus's scalar value probes natively ([#300](https://github.com/yschimke/rc-players/issues/300)) ([048302c](https://github.com/yschimke/rc-players/commit/048302cf404f6567ba81bf89656d1e30b1e4f835))
+* collapse the children that do not fit in a collapsible container ([#288](https://github.com/yschimke/rc-players/issues/288)) ([52e8025](https://github.com/yschimke/rc-players/commit/52e8025e2aad89df763ae3f6db1d3263dd3b692a))
+* drive native conformance timelines ([#302](https://github.com/yschimke/rc-players/issues/302)) ([f698111](https://github.com/yschimke/rc-players/commit/f6981117eebfbde549b666fc89a7c953b20b7cf3))
+* honour a paint's image filter quality ([#287](https://github.com/yschimke/rc-players/issues/287)) ([ca54076](https://github.com/yschimke/rc-players/commit/ca54076a9e33a66f68c7d275935dedb2ae8bfa5e))
+* load a document's calendar and time-of-day variables from the host clock ([#286](https://github.com/yschimke/rc-players/issues/286)) ([5c5b532](https://github.com/yschimke/rc-players/commit/5c5b5326506cfc99f99292a162d4bd0a61d3d1d5))
+* report the native lane's laid-out tree to the conformance corpus ([#297](https://github.com/yschimke/rc-players/issues/297)) ([e5db57b](https://github.com/yschimke/rc-players/commit/e5db57bc887987a6e1b53bf44f69ba682e184c47))
+
+
+### Bug Fixes
+
+* a FitBox and a StateLayout own their children's geometry, and a scroll reports its offset ([#293](https://github.com/yschimke/rc-players/issues/293)) ([2b00fa2](https://github.com/yschimke/rc-players/commit/2b00fa2c00b845fcfaa335552cef2d1b63c1bf4f))
+* apply a graphics layer to the component's whole rendering ([#289](https://github.com/yschimke/rc-players/issues/289)) ([463262c](https://github.com/yschimke/rc-players/commit/463262c854fa30bf73cbcf98af25fa2a195bf567))
+* charge the retained gaps before distributing collapsible weights ([#290](https://github.com/yschimke/rc-players/issues/290)) ([ee7c55b](https://github.com/yschimke/rc-players/commit/ee7c55b303d4490479f2a58a37723c03d8773c5f))
+* clip scroll content, and five more review findings on the layout changes ([#301](https://github.com/yschimke/rc-players/issues/301)) ([c5b7922](https://github.com/yschimke/rc-players/commit/c5b7922a3160ddc1796a51b398db5933d917cba9))
+* distribute weight among collapsible layout children ([#285](https://github.com/yschimke/rc-players/issues/285)) ([353095e](https://github.com/yschimke/rc-players/commit/353095e75cb9ad38b7d9ab2c8942cd4308fb46ab))
+* draw texture tiles through the CTM instead of a CGPattern ([#276](https://github.com/yschimke/rc-players/issues/276)) ([319d17b](https://github.com/yschimke/rc-players/commit/319d17bf5cd55ae113e48f984996b35b3dcda280))
+* honour a text run's weight, and refine component geometry at the frame's time ([#270](https://github.com/yschimke/rc-players/issues/270)) ([4f18869](https://github.com/yschimke/rc-players/commit/4f188694f19680e675ea74d78f24f15813c3712b))
+* keep a fill child's measurement bounded in the collapsible fit test ([#298](https://github.com/yschimke/rc-players/issues/298)) ([f32b4ae](https://github.com/yschimke/rc-players/commit/f32b4ae3a81d902b2f1d1834d4546d1a05391a74))
+* lay out FitBox alternatives and scrolled containers ([#299](https://github.com/yschimke/rc-players/issues/299)) ([1d8a5b1](https://github.com/yschimke/rc-players/commit/1d8a5b18691b9a8e05d0b88d4f73bd25a6d76947))
+* move the scroll position when a modifier is filtered out of the chain ([#296](https://github.com/yschimke/rc-players/issues/296)) ([3bd3c69](https://github.com/yschimke/rc-players/commit/3bd3c69f02b1a4de2d6a29d977022014af79d296))
+* render the macro wire form and direct-child layout containers ([#279](https://github.com/yschimke/rc-players/issues/279)) ([9acfa39](https://github.com/yschimke/rc-players/commit/9acfa3906f8e97b3c94c08da44395f74f1a13aef))
+* reserve a weighted flow child's minimum width while segmenting ([#295](https://github.com/yschimke/rc-players/issues/295)) ([7cd0a46](https://github.com/yschimke/rc-players/commit/7cd0a46d5694914680c3b46c7aa29e4dd06aebb9))
+* scan a colour expression's words according to its mode ([#292](https://github.com/yschimke/rc-players/issues/292)) ([08f41e0](https://github.com/yschimke/rc-players/commit/08f41e012c97ce5684106fa67461a991c7cde3a8))
+* scan every clock reference, including text-from-float conversions ([#291](https://github.com/yschimke/rc-players/issues/291)) ([e92bb0f](https://github.com/yschimke/rc-players/commit/e92bb0f66d9c48bfbdcebf7fb8fee007219af549))
+* settle a fill's pre-layout estimate on its ancestor, and report coverage ([#277](https://github.com/yschimke/rc-players/issues/277)) ([6a43297](https://github.com/yschimke/rc-players/commit/6a43297ebbda9d8ac6eb7a253531eab0c056e2f1))
+* StateLayout branches, weighted spacers and FlowLayout wrapping ([#294](https://github.com/yschimke/rc-players/issues/294)) ([4907793](https://github.com/yschimke/rc-players/commit/490779383cb1dd6a7621ba2cbad0b552b25ac139))
+* tolerate a path tween whose sources are absent ([#280](https://github.com/yschimke/rc-players/issues/280)) ([ce21826](https://github.com/yschimke/rc-players/commit/ce21826dd75fc083e8552c6b185a91b8937ef4ea))
+
 ## [1.67.0](https://github.com/yschimke/rc-players/compare/v1.66.0...v1.67.0) (2026-09-19)
 
 
