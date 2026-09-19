@@ -282,6 +282,43 @@ enum NativeSwiftCoreTests {
       .snapshot(wallClock: wallClock).root.commands[0].values[0]
     precondition(claimedYear == 1999, "a claimed calendar id resolved to \(claimedYear)")
 
+    // Pre-epoch instants: `-1 ms` is the last millisecond of 1969, and the fields have to describe
+    // that rather than 1970-01-01T00:00:00.999. A week earlier is a Sunday, ISO 7, which a negative
+    // remainder would put at 0.
+    let preEpoch = try calendarSession.snapshot(
+      wallClock: NativeSwiftWallClock(epochMillis: -1)
+    ).root.commands.map { $0.values[0] }
+    precondition(
+      preEpoch == [1969, 12, 31, 3, 365, 3599, 1439, 23, 0],
+      "pre-epoch calendar fields resolved to \(preEpoch)")
+    let sunday = try calendarSession.snapshot(
+      wallClock: NativeSwiftWallClock(epochMillis: -345_600_000)
+    ).root.commands.map { $0.values[0] }
+    precondition(
+      sunday[3] == 7 && sunday[4] == 362,
+      "a pre-epoch weekday resolved to \(sunday[3]) / day-of-year \(sunday[4])")
+
+    // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
+    // second; one that only reads the animation clock does not.
+    let refreshed = try calendarSession.snapshot(wallClock: wallClock)
+    precondition(
+      refreshed.needsWallClockRefresh,
+      "a document reading calendar fields did not ask for a refresh")
+    let animated = Writer()
+    animated.header(width: 100, height: 100)
+    animated.u8(81).int(41).int(3)
+      .int(Writer.nanReference(30)).float(1).int(Writer.floatOperator(3))
+    animated.u8(200).int(1)
+    animated.u8(42).int(Writer.nanReference(41)).int(0).int(0).int(0)
+    animated.u8(214)
+    let animatedSnapshot = try NativeSwiftDocumentSession.open(data: animated.data).snapshot()
+    precondition(
+      !animatedSnapshot.needsWallClockRefresh,
+      "an animation-only document asked for a wall-clock refresh")
+    precondition(
+      animatedSnapshot.needsContinuousFrames,
+      "an animation-only document did not ask for continuous frames")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)

@@ -727,7 +727,7 @@ struct RemoteComposeMacApplication {
       do {
         let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
         let session = try NativeSwiftDocumentSession.open(data: data)
-        let snapshot = try session.snapshot(timeSeconds: 0)
+        let snapshot = try session.snapshot(timeSeconds: 0, wallClock: .capture)
         switch CommandLine.arguments[1] {
         case "--validate-native-policy":
           let compatible = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
@@ -748,7 +748,7 @@ struct RemoteComposeMacApplication {
           guard
             snapshot.needsContinuousFrames
           else { throw DesktopValidationError("document does not request scheduled frames") }
-          _ = try session.snapshot(timeSeconds: 0.25)
+          _ = try session.snapshot(timeSeconds: 0.25, wallClock: .capture)
           print(
             "native animation schedule continuous=\(snapshot.needsContinuousFrames)"
           )

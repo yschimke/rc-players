@@ -157,7 +157,10 @@
       rootAlignment = 34
       frameSchedule = NativeFrameSchedule(
         needsContinuousFrames: swiftSnapshot.needsContinuousFrames,
-        requestsNextFrame: false, wakeAfter: nil)
+        requestsNextFrame: false,
+        // A document that reads a discrete wall-clock field has to be re-resolved at least once a
+        // second, or its clock freezes on the first frame; the driver re-arms this after each wake.
+        wakeAfter: swiftSnapshot.needsWallClockRefresh ? 1 : nil)
     }
 
     func diagnostics(availableCustomComponents: Set<String>)

@@ -12,6 +12,13 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let root: NativeSwiftNodeSnapshot
   public let images: [NativeSwiftImageResourceSnapshot]
   public let needsContinuousFrames: Bool
+  /// Whether the document reads a wall-clock variable that only changes on a second boundary.
+  ///
+  /// The discrete fields — `TIME_IN_SEC`, `TIME_IN_MIN`, `TIME_IN_HR`, `CALENDAR_MONTH`,
+  /// `OFFSET_TO_UTC`, `WEEK_DAY`, `DAY_OF_MONTH`, `DAY_OF_YEAR`, `YEAR` — are constant within a
+  /// second, so a host that idles after the first frame shows a frozen clock. A host that supplies
+  /// a wall clock should re-resolve at least once a second while this is true.
+  public let needsWallClockRefresh: Bool
   /// Components whose measured geometry a document binds to a float.
   ///
   /// Empty for almost every document, and that is the point: a host only has to measure and feed
@@ -402,14 +409,17 @@ public struct NativeSwiftWallClock: Sendable, Equatable {
   }
 
   var fields: Fields {
-    let localSeconds = epochMillis / 1000 + Int64(offsetSeconds)
+    // Floor division, not truncation: `-1 ms` is the last millisecond of 1969, and truncating would
+    // read it as 1970-01-01T00:00:00.999.
+    let localSeconds = Self.floorDiv(epochMillis, 1000) + Int64(offsetSeconds)
     let millis = Int(((epochMillis % 1000) + 1000) % 1000)
     let days = Self.floorDiv(localSeconds, 86400)
     let secondOfDay = Int(localSeconds - days * 86400)
     let civil = Self.civilFromDays(days)
     let dayOfYear = Int(days - Self.daysFromCivil(civil.year, 1, 1)) + 1
-    // 1970-01-01 was a Thursday, and ISO numbers Monday as 1.
-    let isoDayOfWeek = Int((days + 3) % 7) + 1
+    // 1970-01-01 was a Thursday, and ISO numbers Monday as 1. The remainder is normalized because
+    // Swift keeps the dividend's sign, which would put a pre-epoch date outside 1...7.
+    let isoDayOfWeek = Int(((days + 3) % 7 + 7) % 7) + 1
     return Fields(
       year: Int(civil.year),
       month: Int(civil.month),
@@ -558,6 +568,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
       needsContinuousFrames: document.needsContinuousFrames,
+      needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)))
   }
 
@@ -1172,6 +1183,8 @@ private struct ParsedDocument {
   let textLookups: [ParsedTextLookupInt]
   let matrixExpressions: [Int: ParsedMatrixExpression]
   let needsContinuousFrames: Bool
+  /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
+  let needsWallClockRefresh: Bool
 }
 
 private struct ParsedImageResource {
@@ -1366,6 +1379,53 @@ private struct ParsedPath {
   let winding: Int
   let words: [UInt32]
 
+  /// Whether any of this path's *argument* words references one of `ids`.
+  ///
+  /// The walk is structural on purpose. A path's command tokens are NaN-boxed ids 10...16, which
+  /// collide with the system-variable ids in that range, so a flat scan over the words would report
+  /// `OFFSET_TO_UTC` (10) on any document that draws a path at all.
+  func references(anyOf ids: Set<Int>) -> Bool {
+    func matches(_ word: UInt32) -> Bool {
+      NativeSwiftFloatExpression.referenceID(word).map(ids.contains) ?? false
+    }
+    var index = 0
+    while index < words.count {
+      guard let command = NativeSwiftFloatExpression.referenceID(words[index]) else { return false }
+      index += 1
+      let padding: Int
+      let argumentCount: Int
+      switch command {
+      case 10:
+        padding = 0
+        argumentCount = 2
+      case 11:
+        padding = 2
+        argumentCount = 2
+      case 12:
+        padding = 2
+        argumentCount = 4
+      case 13:
+        padding = 2
+        argumentCount = 5
+      case 14:
+        padding = 2
+        argumentCount = 6
+      case 15:
+        padding = 0
+        argumentCount = 0
+      case 16:
+        return false
+      default:
+        return false
+      }
+      index += padding
+      guard index + argumentCount <= words.count else { return false }
+      for offset in 0..<argumentCount where matches(words[index + offset]) { return true }
+      index += argumentCount
+    }
+    return false
+  }
+
   func resolve(values: [Int: Float]) throws -> [NativeSwiftPathElementSnapshot] {
     var result: [NativeSwiftPathElementSnapshot] = []
     var index = 0
@@ -1507,6 +1567,50 @@ private final class ParsedNode {
   init(kind: NativeSwiftNodeSnapshot.Kind, componentID: Int) {
     self.kind = kind
     self.componentID = componentID
+  }
+
+  /// Whether any word in this subtree references one of `ids`.
+  ///
+  /// A player that publishes a value the document reads has to refresh it: a frame that resolves a
+  /// calendar field once and then idles shows a frozen clock. This is the scan that decides it, and
+  /// it covers every word a node can carry — geometry, padding, spacing, corner radii, text, and
+  /// each draw command's own words, path, gradient and image fields.
+  func references(anyOf ids: Set<Int>) -> Bool {
+    func matches(_ word: UInt32) -> Bool {
+      NativeSwiftFloatExpression.referenceID(word).map(ids.contains) ?? false
+    }
+    if matches(widthWord) || matches(heightWord) || matches(spacingWord) { return true }
+    if matches(paddingWords.left) || matches(paddingWords.top) || matches(paddingWords.right)
+      || matches(paddingWords.bottom)
+    {
+      return true
+    }
+    if matches(minimumWidthWord) || matches(maximumWidthWord) || matches(minimumHeightWord)
+      || matches(maximumHeightWord)
+    {
+      return true
+    }
+    if cornerRadiusWords.contains(where: matches) { return true }
+    if let offsetXWord, matches(offsetXWord) { return true }
+    if let offsetYWord, matches(offsetYWord) { return true }
+    if let zIndexWord, matches(zIndexWord) { return true }
+    if let text, matches(text.sizeWord) || matches(text.weightWord) { return true }
+    for command in commands {
+      if command.words.contains(where: matches) { return true }
+      if let path = command.path, path.references(anyOf: ids) { return true }
+      if let gradient = command.paint.gradient {
+        if gradient.coordinateWords.contains(where: matches) { return true }
+        if gradient.stopWords.contains(where: matches) { return true }
+      }
+      if let image = command.image {
+        if image.source.contains(where: matches) || image.destination.contains(where: matches) {
+          return true
+        }
+        if matches(image.scaleFactor) { return true }
+      }
+      if matches(command.paint.strokeWidth) { return true }
+    }
+    return children.contains { $0.references(anyOf: ids) }
   }
 }
 
@@ -2894,11 +2998,36 @@ private enum NativeSwiftDocumentDecoder {
     }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     guard let root, root.kind == .root else { throw input.malformed("Missing root component") }
-    let needsContinuousFrames = expressions.contains { expression in
-      expression.words.contains { word in
-        NativeSwiftFloatExpression.referenceID(word).map { $0 == 1 || $0 == 30 } ?? false
+    // A moving clock can be named by an expression or by a draw command's own words, and either one
+    // means the frame has to be re-resolved continuously.
+    let continuousClockIDs: Set<Int> = [
+      NativeSwiftSystemVariables.continuousSeconds, NativeSwiftSystemVariables.animationTime,
+    ]
+    let needsContinuousFrames =
+      root.references(anyOf: continuousClockIDs)
+      || expressions.contains { expression in
+        expression.words.contains { word in
+          NativeSwiftFloatExpression.referenceID(word).map(continuousClockIDs.contains) ?? false
+        }
       }
-    }
+    // The discrete wall-clock fields are constant within a second, so a document that reads one has
+    // to be re-resolved at least once a second or its clock freezes on the first frame. Scanned over
+    // every word the document kept, not just its expressions: a draw command or a dimension can name
+    // one directly.
+    let discreteWallClockIDs: Set<Int> = [
+      NativeSwiftSystemVariables.timeInSeconds, NativeSwiftSystemVariables.timeInMinutes,
+      NativeSwiftSystemVariables.timeInHours, NativeSwiftSystemVariables.calendarMonth,
+      NativeSwiftSystemVariables.offsetToUTC, NativeSwiftSystemVariables.weekDay,
+      NativeSwiftSystemVariables.dayOfMonth, NativeSwiftSystemVariables.dayOfYear,
+      NativeSwiftSystemVariables.year,
+    ]
+    let needsWallClockRefresh =
+      root.references(anyOf: discreteWallClockIDs)
+      || expressions.contains { expression in
+        expression.words.contains { word in
+          NativeSwiftFloatExpression.referenceID(word).map(discreteWallClockIDs.contains) ?? false
+        }
+      }
     return ParsedDocument(
       width: width, height: height, density: density, densityBehavior: densityBehavior,
       root: root, nodes: nodes, texts: texts, floats: floats,
@@ -2908,7 +3037,8 @@ private enum NativeSwiftDocumentDecoder {
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
       textMerges: textMerges, idLists: idLists, textLookups: textLookups,
       matrixExpressions: matrixExpressions,
-      needsContinuousFrames: needsContinuousFrames)
+      needsContinuousFrames: needsContinuousFrames,
+      needsWallClockRefresh: needsWallClockRefresh)
   }
 
   private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)
