@@ -106,6 +106,7 @@ import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LookaheadScope
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -1686,8 +1687,11 @@ private fun RcLayoutChild(
       )
     }
   ) { measurables, constraints ->
-    val placeable =
-      measurables.singleOrNull()?.measure(constraints.copy(minWidth = 0, minHeight = 0))
+    // Measured with the incoming constraints rather than a relaxed copy: the collapsible layout's
+    // weight pass hands a weighted child exact constraints on the main axis, and the child's own
+    // measure is what turns those into its painted size. Callers that want a preferred-size
+    // measurement already pass relaxed constraints (`loose` / `childConstraints`).
+    val placeable = measurables.singleOrNull()?.measure(constraints)
     val alignmentLines =
       buildMap<AlignmentLine, Int> {
         placeable
@@ -1765,9 +1769,28 @@ private fun RcCollapsibleLayout(
     modifier = modifier,
   ) { measurables, constraints ->
     val childConstraints = constraints.copy(minWidth = 0, minHeight = 0)
-    val placeables = measurables.map { it.measure(childConstraints) }
+    val weights = children.map { child ->
+      val weightWord =
+        if (orientation == RcCollapseOrientation.Horizontal) {
+          child.modifiers.width?.takeIf { it.type == RcDimensionType.WEIGHT }?.value
+        } else {
+          child.modifiers.height?.takeIf { it.type == RcDimensionType.WEIGHT }?.value
+        }
+      weightWord?.let { state.resolve(it).coerceAtLeast(0f) } ?: 0f
+    }
+    // AndroidX measures an unweighted child before the fit test and leaves a weighted one
+    // unmeasured — zero on the main axis — until the leftover space is distributed, so a weight
+    // can never push an unweighted sibling out of the container.
+    val placeables = arrayOfNulls<Placeable>(measurables.size)
+    measurables.forEachIndexed { index, measurable ->
+      if (weights[index] <= 0f) placeables[index] = measurable.measure(childConstraints)
+    }
     val mainSizes = placeables.map {
-      if (orientation == RcCollapseOrientation.Horizontal) it.width else it.height
+      when {
+        it == null -> 0
+        orientation == RcCollapseOrientation.Horizontal -> it.width
+        else -> it.height
+      }
     }
     val priorities = children.map { child ->
       val priority = child.modifiers.collapsiblePriority
@@ -1785,11 +1808,47 @@ private fun RcCollapsibleLayout(
       else constraints.maxHeight
     val retained = selectCollapsibleChildren(mainSizes, priorities, maximumMain)
     val retainedIndices = retained.indices.filter { retained[it] }
-    val retainedMainSizes = retainedIndices.map { mainSizes[it] }.toIntArray()
+    // Distribute the main-axis space the retained unweighted children left, in proportion to each
+    // retained weighted child's weight, and measure those children at their share.
+    val totalWeight =
+      retainedIndices.fold(0f) { total, index ->
+        if (weights[index] > 0f) total + weights[index] else total
+      }
+    if (totalWeight > 0f) {
+      // The gaps are laid out between the retained children, so they come out of the space the
+      // weights divide — the vendored reference charges `neededSpacing` into `usedUnweighted` the
+      // same way. Without this the shares fill the whole axis, the container constrains the result,
+      // and the last child is clipped by exactly the total gap.
+      val gaps = spacing * (retainedIndices.size - 1).coerceAtLeast(0)
+      val usedUnweighted =
+        retainedIndices.fold(gaps) { used, index ->
+          if (weights[index] <= 0f) used + mainSizes[index] else used
+        }
+      val remaining = (maximumMain - usedUnweighted).coerceAtLeast(0)
+      retainedIndices.forEach { index ->
+        if (weights[index] <= 0f) return@forEach
+        val share = (remaining * (weights[index] / totalWeight)).toInt().coerceAtLeast(0)
+        placeables[index] =
+          measurables[index].measure(
+            if (orientation == RcCollapseOrientation.Horizontal) {
+              childConstraints.copy(minWidth = share, maxWidth = share)
+            } else {
+              childConstraints.copy(minHeight = share, maxHeight = share)
+            }
+          )
+      }
+    }
+    val retainedMainSizes =
+      retainedIndices
+        .map { index ->
+          val placeable = requireNotNull(placeables[index])
+          if (orientation == RcCollapseOrientation.Horizontal) placeable.width else placeable.height
+        }
+        .toIntArray()
     val retainedCrossSize =
-      retainedIndices.maxOfOrNull {
-        if (orientation == RcCollapseOrientation.Horizontal) placeables[it].height
-        else placeables[it].width
+      retainedIndices.maxOfOrNull { index ->
+        val placeable = requireNotNull(placeables[index])
+        if (orientation == RcCollapseOrientation.Horizontal) placeable.height else placeable.width
       } ?: 0
     val naturalMain =
       retainedMainSizes.sum() + spacing * (retainedMainSizes.size - 1).coerceAtLeast(0)
@@ -1817,7 +1876,11 @@ private fun RcCollapsibleLayout(
           retainedIndices.any { children[it].modifiers.alignBy != null }
       ) {
         val retainedAnchors = retainedIndices.map { index ->
-          resolveAlignByAnchor(children[index].modifiers.alignBy, placeables[index], state)
+          resolveAlignByAnchor(
+            children[index].modifiers.alignBy,
+            requireNotNull(placeables[index]),
+            state,
+          )
         }
         alignByCrossPositions(height, retainedCrossSize, crossPositioning, retainedAnchors)
       } else {
@@ -1825,7 +1888,7 @@ private fun RcCollapsibleLayout(
       }
     layout(width, height) {
       retainedIndices.forEachIndexed { retainedIndex, childIndex ->
-        val placeable = placeables[childIndex]
+        val placeable = requireNotNull(placeables[childIndex])
         val crossAvailable = if (orientation == RcCollapseOrientation.Horizontal) height else width
         val crossSize =
           if (orientation == RcCollapseOrientation.Horizontal) placeable.height else placeable.width
@@ -2105,6 +2168,25 @@ private fun Modifier.applyComponentModifiers(
   var appliedWidth = false
   var appliedHeight = false
   var appliedCanvasOperations = false
+  var graphicsLayerApplied = false
+
+  /**
+   * Appends the component's graphics layer the first time something that draws asks for it.
+   *
+   * Wire order puts the layer after the component's size and background modifiers, and a layer
+   * appended there composites nothing: the background's `drawBehind` has already painted to the
+   * parent canvas. Deferring it to just before the first drawing modifier puts the background, the
+   * border and the canvas stream *inside* the layer, which is what the reference does — its layer
+   * covers the component as a whole.
+   */
+  @Composable
+  fun applyPendingGraphicsLayer(modifier: Modifier): Modifier {
+    val layer = modifiers.graphicsLayer ?: return modifier
+    if (graphicsLayerApplied) return modifier
+    graphicsLayerApplied = true
+    return modifier.applyGraphicsLayer(layer, state)
+  }
+
   fun applyCanvasOperations(modifier: Modifier): Modifier {
     val operations = canvasOperations ?: return modifier
     appliedCanvasOperations = true
@@ -2140,7 +2222,7 @@ private fun Modifier.applyComponentModifiers(
     // content-padding inset. Put the Compose draw wrapper outside the first padding modifier even
     // when the wire DrawContent marker follows it.
     if (operation is RcPaddingModifier && !appliedCanvasOperations) {
-      result = applyCanvasOperations(result)
+      result = applyCanvasOperations(applyPendingGraphicsLayer(result))
     }
     result =
       when (operation) {
@@ -2186,10 +2268,9 @@ private fun Modifier.applyComponentModifiers(
         is RcBorderModifier,
         is RcClipRectModifier,
         is RcRoundedClipRectModifier,
-        is RcRippleModifier -> result.applyPaintDecorator(operation, state)
-        is RcGraphicsLayerModifier ->
-          if (operation == modifiers.graphicsLayer) result.applyGraphicsLayer(operation, state)
-          else result
+        is RcRippleModifier ->
+          applyPendingGraphicsLayer(result).applyPaintDecorator(operation, state)
+        is RcGraphicsLayerModifier -> result
         is RcMarqueeModifier -> result.applyAndroidXMarquee(operation, state)
         is RcNoArg ->
           if (
@@ -2197,7 +2278,7 @@ private fun Modifier.applyComponentModifiers(
               !appliedCanvasOperations &&
               modifiers.ordered.drop(operationIndex + 1).none { it is RcPaddingModifier }
           ) {
-            applyCanvasOperations(result)
+            applyCanvasOperations(applyPendingGraphicsLayer(result))
           } else result
         else -> result
       }
@@ -2207,7 +2288,11 @@ private fun Modifier.applyComponentModifiers(
     modifiers.scroll?.let { result = result.applyAndroidXScroll(it, state, geometryComponentIds) }
   }
   if (!appliedCanvasOperations) {
-    result = applyCanvasOperations(result)
+    // The layer goes on first so the canvas stream is drawn *inside* it: a component whose paint
+    // arrives as canvas operations — `modifier_graphics_layer`'s scaled rect, the translation
+    // tween's block — has nothing else for the layer to transform, and a layer applied after the
+    // stream leaves the drawing untransformed.
+    result = applyCanvasOperations(applyPendingGraphicsLayer(result))
   }
   if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
     result = result.applyAndroidXMultiClick(modifiers.clicks, state)

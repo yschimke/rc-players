@@ -99,6 +99,20 @@ enum NativeLinearLayout {
       weight.map { remaining * $0 / totalWeight } ?? natural
     }
   }
+
+  /// The space a **collapsible** container's weights divide: its own axis less the gaps that
+  /// placement then adds between the children it kept.
+  ///
+  /// The collapsible family is the exception to the additive-spacing rule above. Its reference
+  /// implementation charges `neededSpacing` into the running total before dividing the remainder,
+  /// so a 60-point column with a 10-point gap and 1:2 weights allocates 16 and 33 rather than 20 and
+  /// 40 — otherwise the shares fill the whole axis, the layout constrains the result, and the last
+  /// child is clipped by exactly the total gap. An ordinary row or column keeps the additive
+  /// behaviour, which is what Compose's own arrangement does.
+  static func collapsibleWeightSpace(extent: CGFloat, count: Int, spacing: CGFloat) -> CGFloat {
+    guard count > 1 else { return extent }
+    return max(extent - spacing * CGFloat(count - 1), 0)
+  }
 }
 
 struct NativeRootTransform: Equatable {

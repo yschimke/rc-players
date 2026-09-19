@@ -327,13 +327,19 @@ explicit and respond to host resizing. Scroll remains unsupported.
 
 The static profile implements Box, Row, Column, and time-zero StateLayout selection, including
 structural content flattening, proportional row/column weights, range constraints, visibility,
-offset, z-order, and RTL row order. Hidden StateLayout alternatives are not rendered or reported as
-reachable compatibility failures. Flow, intrinsic sizing, layout compute, and scroll remain
-unsupported; required constraints are clamped to the native parent and remain diagnosed because
-UIKit does not yet reproduce their overflow behavior. Layout stays deterministic and frame-based;
-Auto Layout would introduce solver behavior not in the Remote Compose contract. Remote Compose has
-no general component margin modifier; external spacing is expressed by parent arrangement and
-`spacedBy`.
+offset, z-order, and RTL row order. A collapsible row or column (`CollapsibleRowLayout`,
+`CollapsibleColumnLayout`) also collapses: children are measured, the ones that do not fit the
+container's axis are hidden in the order their `CollapsiblePriority` modifiers give, and the
+container itself is hidden when nothing fits. `NativeSwiftCollapsible` holds that decision so the
+UIKit and AppKit renderers cannot disagree about it — including the two rules that are easy to get
+backwards, that a child with no priority modifier is kept ahead of one that has a priority, and that
+a weighted child never consumes the space that would drop another. Hidden StateLayout alternatives
+are not rendered or reported as reachable compatibility failures. Flow, intrinsic sizing, layout
+compute, and scroll remain unsupported; required constraints are clamped to the native parent and
+remain diagnosed because UIKit does not yet reproduce their overflow behavior. Layout stays
+deterministic and frame-based; Auto Layout would introduce solver behavior not in the Remote Compose
+contract. Remote Compose has no general component margin modifier; external spacing is expressed by
+parent arrangement and `spacedBy`.
 
 ### Density and Android compatibility
 

@@ -23,6 +23,30 @@ enum NativeLayoutTests {
       weights: [nil, 1, 2])
     assertEqual(weighted, [30, 56.666_667, 113.333_333])
 
+    // A collapsible container's weights divide its axis less the gaps placement adds, so a 60-point
+    // column with a 10-point gap and 1:2 weights allocates 16.67 and 33.33 rather than 20 and 40 —
+    // otherwise the shares fill the axis and the last child is clipped by the total gap.
+    assertClose(
+      NativeLinearLayout.collapsibleWeightSpace(extent: 60, count: 2, spacing: 10), 50)
+    assertClose(
+      NativeLinearLayout.collapsibleWeightSpace(extent: 60, count: 1, spacing: 10), 60)
+    assertClose(
+      NativeLinearLayout.collapsibleWeightSpace(extent: 60, count: 3, spacing: 10), 40)
+    assertClose(
+      NativeLinearLayout.collapsibleWeightSpace(extent: 8, count: 2, spacing: 10), 0)
+    let collapsibleWeights = NativeLinearLayout.allocateWeighted(
+      available: NativeLinearLayout.collapsibleWeightSpace(extent: 60, count: 2, spacing: 10),
+      naturalSizes: [0, 0],
+      weights: [1, 2])
+    assertEqual(collapsibleWeights, [16.666_667, 33.333_333])
+    // An ordinary row or column keeps the additive rule, where the gaps do not reduce the shares.
+    let ordinaryWeights = NativeLinearLayout.allocateWeighted(
+      available: NativeLinearLayout.collapsibleWeightSpace(
+        extent: 60, count: 2, spacing: 0),
+      naturalSizes: [0, 0],
+      weights: [1, 2])
+    assertEqual(ordinaryWeights, [20, 40])
+
     let centered = NativeLinearLayout.positions(
       total: 100, sizes: [10, 20], positioning: 2, spacing: 10)
     assertEqual(centered, [30, 50])

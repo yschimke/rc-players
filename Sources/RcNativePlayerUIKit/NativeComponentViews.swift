@@ -270,6 +270,10 @@
     let horizontalPositioning: Int
     let verticalPositioning: Int
     let spacing: CGFloat
+    /// Set on the collapsible row/column family; see `NativeSwiftCollapsible`.
+    let isCollapsible: Bool
+    let collapsiblePriority: CGFloat?
+    let collapsiblePriorityOrientation: Int?
     let offset: CGPoint
     let zIndex: CGFloat
     let visibility: Int
@@ -324,6 +328,9 @@
       horizontalPositioning = snapshot.horizontalPositioning
       verticalPositioning = snapshot.verticalPositioning
       spacing = CGFloat(snapshot.spacing)
+      isCollapsible = snapshot.isCollapsible
+      collapsiblePriority = snapshot.collapsiblePriority.map(CGFloat.init)
+      collapsiblePriorityOrientation = snapshot.collapsiblePriorityOrientation
       offset = CGPoint(x: CGFloat(snapshot.offsetX), y: CGFloat(snapshot.offsetY))
       zIndex = CGFloat(snapshot.zIndex)
       visibility = snapshot.visibility
@@ -1214,10 +1221,39 @@
           minimum: node.minimumWidth * dimensionConstraintScale,
           maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: available.width, available: available.width)
+      // The container's own height, resolved the same way, because a collapsible container's
+      // retention decision is about *its* bound and not about the space its parent offered: a
+      // 50-point collapsible column holding a 60-point child keeps nothing, whatever the parent
+      // has to spare.
+      let heightConstraint =
+        NativeLayoutDimension(
+          type: node.heightType,
+          value: node.heightValue
+            * (node.heightType == 6 ? layoutDensityScale : documentScale),
+          minimum: node.minimumHeight * dimensionConstraintScale,
+          maximum: node.maximumHeight.map { $0 * dimensionConstraintScale }
+        ).resolve(intrinsic: available.height, available: available.height)
       let contentAvailable = CGSize(
         width: max(min(available.width, widthConstraint) - insets.left - insets.right, 0),
-        height: max(available.height - insets.top - insets.bottom, 0))
-      let items = flattenedLayoutItems
+        height: max(min(available.height, heightConstraint) - insets.top - insets.bottom, 0))
+      let allItems = flattenedLayoutItems
+      // A collapsible container wraps to what it keeps, not to everything it holds — and reports
+      // nothing at all when it keeps nothing, so a parent does not reserve a box the reference
+      // treats as GONE.
+      let items: [NativeComponentView]
+      if node.isCollapsible,
+        let kept = collapsibleKeptFlags(
+          items: allItems, available: contentAvailable,
+          axis: node.kind == .column ? .vertical : .horizontal)
+      {
+        let keptItems = allItems.enumerated().filter { kept[$0.offset] }.map(\.element)
+        // A collapsible container that keeps nothing is the reference's GONE container: it takes no
+        // space at all, so its parent does not reserve a box for it.
+        if keptItems.isEmpty { return .zero }
+        items = keptItems
+      } else {
+        items = allItems
+      }
       let intrinsic: CGSize
       switch node.kind {
       case .text:
@@ -1328,12 +1364,57 @@
       }
     }
 
+    /// The children this container lays out.
+    ///
+    /// A collapsible container hides the children that do not fit, in the order their
+    /// `CollapsiblePriority` modifiers give, and is itself hidden when nothing fits — the
+    /// reference's container GONE. Every other container returns its children unchanged.
+    private func collapsibleItems(in content: CGRect, axis: CollapsibleAxis) -> [NativeComponentView]
+    {
+      let items = flattenedLayoutItems
+      guard let kept = collapsibleKeptFlags(items: items, available: content.size, axis: axis)
+      else { return items }
+      for (index, child) in items.enumerated() { child.isHidden = !kept[index] }
+      let visible = items.enumerated().filter { kept[$0.offset] }.map(\.element)
+      isHidden = node.visibility == 0 || visible.isEmpty
+      return visible
+    }
+
+    /// Which of `items` a collapsible container keeps, or nil when it is not collapsible.
+    private func collapsibleKeptFlags(
+      items: [NativeComponentView], available: CGSize, axis: CollapsibleAxis
+    ) -> [Bool]? {
+      guard node.isCollapsible else { return nil }
+      let orientation = axis == .vertical ? 1 : 0
+      let children = items.map { child -> NativeSwiftCollapsible.Child in
+        let size = child.preferredSize(in: available)
+        let weightType = axis == .vertical ? child.node.heightType : child.node.widthType
+        let weightValue = axis == .vertical ? child.node.heightValue : child.node.widthValue
+        let priority =
+          child.node.collapsiblePriorityOrientation == orientation
+          ? child.node.collapsiblePriority.map(Float.init) : nil
+        return NativeSwiftCollapsible.Child(
+          mainSize: Float(axis == .vertical ? size.height : size.width),
+          weight: weightType == 3 ? Float(max(weightValue, 0)) : 0,
+          priority: priority)
+      }
+      let extent = axis == .vertical ? available.height : available.width
+      return NativeSwiftCollapsible.keptChildren(
+        children, available: Float(extent), spacing: Float(scaledSpacing))
+    }
+
+    private enum CollapsibleAxis {
+      case horizontal, vertical
+    }
+
     private func layoutColumn() {
       let content = bounds.inset(by: scaledPadding)
-      let items = flattenedLayoutItems
+      let items = collapsibleItems(in: content, axis: .vertical)
       let sizes = items.map { $0.preferredSize(in: content.size) }
       let weightedHeights = NativeLinearLayout.allocateWeighted(
-        available: content.height,
+        available: NativeLinearLayout.collapsibleWeightSpace(
+          extent: content.height, count: items.count,
+          spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: sizes.map(\.height),
         weights: items.map { child in
           guard child.node.heightType == 3 else { return nil }
@@ -1361,10 +1442,12 @@
 
     private func layoutRow() {
       let content = bounds.inset(by: scaledPadding)
-      let items = flattenedLayoutItems
+      let items = collapsibleItems(in: content, axis: .horizontal)
       let natural = items.map { $0.preferredSize(in: content.size) }
       let allocatedWidths = NativeLinearLayout.allocateWeighted(
-        available: content.width,
+        available: NativeLinearLayout.collapsibleWeightSpace(
+          extent: content.width, count: items.count,
+          spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: natural.map(\.width),
         weights: items.map { child in
           guard child.node.widthType == 3 else { return nil }
