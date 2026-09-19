@@ -2934,6 +2934,11 @@ private enum NativeSwiftDocumentDecoder {
         tokens.reserveCapacity(count)
         for _ in 0..<count { tokens.append(try input.int("integer expression value")) }
         integerExpressions[outputID] = ParsedIntegerExpression(mask: mask, tokens: tokens)
+        // The order is what `probeValues` re-evaluates in: an expression may read another's result,
+        // so the wire's own declaration order is the one that converges. Without this the refresh
+        // pass had nothing to iterate and a probe kept reporting the decode-time value however a
+        // gesture had moved its inputs.
+        integerExpressionOrder.append(outputID)
         integers[outputID] = try NativeSwiftIntegerExpression.evaluate(
           mask: mask, tokens: tokens, values: integers)
       case 146:  // List of resource ids
