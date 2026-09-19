@@ -460,6 +460,7 @@
     let textureTileModeX: Int
     let textureTileModeY: Int
     let shaderMatrix: [Float]?
+    let filterQuality: Int?
     let usesComponentGeometry: Bool
 
     init(_ snapshot: NativeSwiftDrawCommandSnapshot) {
@@ -506,6 +507,7 @@
       textureTileModeX = snapshot.textureTileModeX
       textureTileModeY = snapshot.textureTileModeY
       shaderMatrix = snapshot.shaderMatrix
+      filterQuality = snapshot.filterQuality
       usesComponentGeometry = snapshot.usesComponentGeometry
     }
 
@@ -531,6 +533,7 @@
       textureTileModeX = 0
       textureTileModeY = 0
       shaderMatrix = nil
+      filterQuality = nil
       usesComponentGeometry = false
     }
 
@@ -538,6 +541,14 @@
     /// never named one.
     var textureTransform: CGAffineTransform {
       NativeTexturePolicy.transform(shaderMatrix)
+    }
+
+    /// How Core Graphics should sample this paint's image or texture.
+    ///
+    /// Nil when the paint never said, which leaves the context's own default in place rather than
+    /// this renderer inventing a preference.
+    var interpolationQuality: CGInterpolationQuality? {
+      NativeTexturePolicy.interpolationQuality(forFilterQuality: filterQuality)
     }
   }
 
@@ -799,7 +810,9 @@
           else {
             return nil
           }
-          return NativeImageView(image: image, draw: draw, alpha: command.alpha)
+          return NativeImageView(
+            image: image, draw: draw, alpha: command.alpha,
+            filterQuality: command.filterQuality)
         } : []
       customView = node.custom.flatMap {
         NativeCustomComponentView(
@@ -945,7 +958,9 @@
         label.update(command: command, fontNames: fontNames)
       }
       zip(imageViews, local.images).forEach { imageView, item in
-        imageView.update(image: item.image, draw: item.draw, alpha: item.alpha)
+        imageView.update(
+          image: item.image, draw: item.draw, alpha: item.alpha,
+          filterQuality: item.filterQuality)
       }
       if let custom = next.custom { customView?.update(custom) }
       zip(componentChildren, next.children).forEach { child, childNode in
@@ -965,7 +980,7 @@
       images: [Int: UIImage]
     ) -> (
       drawing: [NativeDrawCommand], text: [NativeDrawCommand],
-      images: [(image: UIImage, draw: NativeImageDraw, alpha: CGFloat)]
+      images: [(image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int?)]
     ) {
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
@@ -975,10 +990,11 @@
       let text = promotesText ? node.commands.filter { $0.kind == 17 } : []
       let imageItems =
         promotesImage
-        ? node.commands.compactMap { command -> (UIImage, NativeImageDraw, CGFloat)? in
+        ? node.commands.compactMap {
+          command -> (UIImage, NativeImageDraw, CGFloat, Int?)? in
           guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
           else { return nil }
-          return (image, draw, command.alpha)
+          return (image, draw, command.alpha, command.filterQuality)
         } : []
       return (drawing, text, imageItems)
     }
@@ -1709,9 +1725,11 @@
 
   final class NativeImageView: UIImageView {
     private var drawCommand: NativeImageDraw
+    private var filterQuality: Int?
 
-    init(image: UIImage, draw: NativeImageDraw, alpha: CGFloat) {
+    init(image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int?) {
       drawCommand = draw
+      self.filterQuality = filterQuality
       super.init(image: image)
       self.alpha = alpha
       clipsToBounds = true
@@ -1726,9 +1744,12 @@
       fatalError("init(coder:) is not supported")
     }
 
-    func update(image: UIImage, draw: NativeImageDraw, alpha: CGFloat) {
+    func update(
+      image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int?
+    ) {
       self.image = image
       drawCommand = draw
+      self.filterQuality = filterQuality
       self.alpha = alpha
       isAccessibilityElement = draw.contentDescription != nil
       accessibilityLabel = draw.contentDescription
@@ -1744,6 +1765,11 @@
         destination: bounds,
         scaleType: drawCommand.scaleType,
         scaleFactor: drawCommand.scaleFactor)
+      if let quality = NativeTexturePolicy.interpolationQuality(forFilterQuality: filterQuality),
+        let context = UIGraphicsGetCurrentContext()
+      {
+        context.interpolationQuality = quality
+      }
       image.draw(in: destination)
     }
   }
@@ -2063,6 +2089,7 @@
         hasher.combine(command.textureTileModeX)
         hasher.combine(command.textureTileModeY)
         command.shaderMatrix?.forEach { hasher.combine($0) }
+        hasher.combine(command.filterQuality)
       }
       for id in commands.compactMap({ $0.image?.imageID ?? $0.textureImageID }).sorted() {
         hasher.combine(id)
@@ -2078,8 +2105,12 @@
     override func draw(_ rect: CGRect) {
       guard let context = UIGraphicsGetCurrentContext() else { return }
       context.scaleBy(x: documentScale, y: documentScale)
+      defaultInterpolationQuality = context.interpolationQuality
       commands.forEach { draw($0, in: context) }
     }
+
+    /// The context's own interpolation, captured before any command changes it.
+    private var defaultInterpolationQuality: CGInterpolationQuality = .default
 
     private func draw(_ command: NativeDrawCommand, in context: CGContext) {
       let v = command.values
@@ -2092,6 +2123,9 @@
         strokeCap: command.strokeCap,
         strokeJoin: command.strokeJoin,
         blendMode: command.blendMode)
+      // Filter quality is paint state, so a command that does not name one takes the context's
+      // default rather than whatever the previous command left behind.
+      context.interpolationQuality = command.interpolationQuality ?? defaultInterpolationQuality
 
       switch command.kind {
       case 0: context.saveGState()
