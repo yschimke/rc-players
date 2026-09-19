@@ -425,6 +425,25 @@ enum NativeSwiftCoreTests {
       secondSnapshot.root.children.first?.children.map(\.visibility) == [0, 1],
       "the second state branch was not the visible one")
 
+    // A flow container's wrap bounds reach the snapshot, so a renderer can wrap rather than lay
+    // every child out on one line.
+    let flow = Writer()
+    flow.header(width: 300, height: 300)
+    flow.u8(200).int(-2)
+    flow.u8(240).int(-3).int(0).int(1).int(4).float(12).int(2).int(3)
+    flow.u8(202).int(-5).int(0).int(1).int(4)
+    flow.u8(16).int(6).float(100)
+    flow.u8(67).int(6).float(50)
+    flow.u8(214).u8(214).u8(214)
+    let flowSnapshot = try NativeSwiftDocumentSession.open(data: flow.data).snapshot()
+    guard let flowNode = flowSnapshot.root.children.first else {
+      preconditionFailure("the flow fixture decoded no flow container")
+    }
+    precondition(
+      flowNode.flowMaximumItems == 2 && flowNode.flowMaximumLines == 3,
+      "flow bounds resolved to \(String(describing: flowNode.flowMaximumItems)) / "
+        + "\(String(describing: flowNode.flowMaximumLines))")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)

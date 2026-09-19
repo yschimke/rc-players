@@ -71,6 +71,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// The child a `StateLayout` is showing, clamped to its children, or nil when this node is not a
   /// state layout. The inactive children arrive GONE, which is what the reference does.
   public let stateIndex: Int?
+  /// A `FlowLayout`'s wrap bounds, nil for every other node. Zero or less means unlimited, which is
+  /// how the reference reads them.
+  public let flowMaximumItems: Int?
+  public let flowMaximumLines: Int?
   /// True for the collapsible row/column family: a container that hides the children that do not
   /// fit, in the order their `CollapsiblePriority` modifiers give.
   public let isCollapsible: Bool
@@ -882,6 +886,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         node.children.isEmpty
           ? nil : min(max(integers[indexID] ?? 0, 0), node.children.count - 1)
       },
+      flowMaximumItems: node.flowMaximumItems,
+      flowMaximumLines: node.flowMaximumLines,
       isCollapsible: node.isCollapsible,
       collapsiblePriority: try node.collapsiblePriorityWord.map {
         try resolvedFloat($0, "collapsible priority", values: values)
@@ -1760,6 +1766,10 @@ private final class ParsedNode {
   var spacingWord: UInt32 = 0
   /// Set by `StateLayout` (217): the integer holding the index of the child to show.
   var stateIndexID: Int?
+  /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
+  /// this many lines in total. Both default to unlimited.
+  var flowMaximumItems: Int?
+  var flowMaximumLines: Int?
   /// Set by the collapsible row/column family; see `NativeSwiftCollapsible`.
   var isCollapsible = false
   /// A `CollapsiblePriority` modifier's payload, held as a word so it resolves with the frame's
@@ -2928,14 +2938,15 @@ private enum NativeSwiftDocumentDecoder {
         try begin(node)
       case 240:  // Flow layout
         // The row payload plus two ints: the maximum items per row and the maximum number of rows.
-        // Laid out as a plain row, so its children do not wrap onto further lines -- tracked.
+        // Children wrap onto further lines when they do not fit, so this is not the row it decodes
+        // like; `flowMaximumItems`/`flowMaximumLines` bound the wrap.
         let node = ParsedNode(kind: .row, componentID: try input.int("flow component id"))
         _ = try input.int("flow animation id")
         node.horizontalPositioning = try input.int("flow horizontal positioning")
         node.verticalPositioning = try input.int("flow vertical positioning")
         node.spacingWord = try input.word("flow spacing")
-        _ = try input.int("flow maximum items in each row")
-        _ = try input.int("flow maximum lines")
+        node.flowMaximumItems = try input.int("flow maximum items in each row")
+        node.flowMaximumLines = try input.int("flow maximum lines")
         try begin(node)
       case 223:  // Z-index modifier
         try currentNode(stack, input: input).zIndexWord = try input.word("z-index")
