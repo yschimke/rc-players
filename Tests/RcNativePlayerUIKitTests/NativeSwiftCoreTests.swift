@@ -307,6 +307,80 @@ enum NativeSwiftCoreTests {
     precondition(drawingCommands.map(\.kind) == [6, 2, 3, 5, 10, 12, 13, 14, 16, 11, 7])
     precondition(drawingCommands.last?.path.count == 2)
 
+    // A collapsible container keeps the children that fit and drops the rest, in priority order.
+    // The decision is a pure function so both renderers and this test share it.
+    func kept(_ sizes: [Float], available: Float, spacing: Float = 0) -> [Bool] {
+      NativeSwiftCollapsible.keptChildren(
+        sizes.map { NativeSwiftCollapsible.Child(mainSize: $0) },
+        available: available, spacing: spacing)
+    }
+    precondition(
+      kept([70, 70, 70], available: 250, spacing: 20) == [true, true, true],
+      "a container with room for every child dropped one")
+    precondition(
+      kept([70, 70, 70], available: 180, spacing: 20) == [true, true, false],
+      "the child that did not fit was not the one dropped")
+    precondition(
+      kept([70, 70, 70], available: 89, spacing: 20) == [true, false, false],
+      "overflow did not stop at the first child that did not fit")
+    // A priority sorts a child ahead of another: the reference keeps absent priorities first, then
+    // the highest value, and drops from there.
+    let prioritised = [
+      NativeSwiftCollapsible.Child(mainSize: 100, priority: 1),
+      NativeSwiftCollapsible.Child(mainSize: 100, priority: 5),
+      NativeSwiftCollapsible.Child(mainSize: 100),
+    ]
+    precondition(
+      NativeSwiftCollapsible.keptChildren(prioritised, available: 200, spacing: 0)
+        == [false, true, true],
+      "priority order did not decide which child was dropped")
+    // A weighted child never counts against the available space, so it is never the reason another
+    // child is dropped.
+    let weighted = [
+      NativeSwiftCollapsible.Child(mainSize: 100, weight: 1),
+      NativeSwiftCollapsible.Child(mainSize: 200),
+    ]
+    precondition(
+      NativeSwiftCollapsible.keptChildren(weighted, available: 150, spacing: 0)
+        == [true, false],
+      "a weighted child consumed space in the fit test")
+    // A child the document marked GONE is never kept and never consumes space.
+    let gone = [
+      NativeSwiftCollapsible.Child(mainSize: 100, isGone: true),
+      NativeSwiftCollapsible.Child(mainSize: 100),
+    ]
+    precondition(
+      NativeSwiftCollapsible.keptChildren(gone, available: 100, spacing: 0) == [false, true],
+      "a GONE child was kept or consumed space")
+    // Unbounded space keeps everything the document did not hide.
+    precondition(
+      kept([10, 10], available: .infinity) == [true, true],
+      "an unbounded container dropped a child")
+
+    // The wire side: a collapsible column and a priority modifier reach the snapshot as such.
+    let collapsible = Writer()
+    collapsible.header(width: 200, height: 180)
+    collapsible.u8(200).int(-2)
+    collapsible.u8(233).int(-3).int(0).int(1).int(4).float(20)
+    collapsible.u8(202).int(-4).int(0).int(1).int(4)
+    collapsible.u8(16).int(6).float(100)
+    collapsible.u8(67).int(6).float(70)
+    collapsible.u8(235).int(1).float(2)
+    collapsible.u8(214).u8(214).u8(214)
+    let collapsibleSnapshot = try NativeSwiftDocumentSession.open(data: collapsible.data).snapshot()
+    guard let column = collapsibleSnapshot.root.children.first else {
+      preconditionFailure("the collapsible fixture decoded no column")
+    }
+    precondition(column.isCollapsible, "a collapsible column did not report itself as one")
+    precondition(column.spacing == 20, "collapsible spacing resolved to \(column.spacing)")
+    guard let child = column.children.first else {
+      preconditionFailure("the collapsible fixture decoded no child")
+    }
+    precondition(
+      child.collapsiblePriority == 2 && child.collapsiblePriorityOrientation == 1,
+      "the priority modifier resolved to \(String(describing: child.collapsiblePriority)) / "
+        + "\(String(describing: child.collapsiblePriorityOrientation))")
+
     let semantics = Writer()
     semantics.header(width: 100, height: 100)
     semantics.text(id: 10, "activate")

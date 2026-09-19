@@ -61,6 +61,15 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let horizontalPositioning: Int
   public let verticalPositioning: Int
   public let spacing: Float
+  /// True for the collapsible row/column family: a container that hides the children that do not
+  /// fit, in the order their `CollapsiblePriority` modifiers give.
+  public let isCollapsible: Bool
+  /// The priority this component's own `CollapsiblePriority` modifier declared, when it carries one
+  /// for the container's axis. Nil means the component sorts as "no priority", which the reference
+  /// keeps ahead of every explicit one.
+  public let collapsiblePriority: Float?
+  /// The axis that priority applies to: 0 horizontal, 1 vertical.
+  public let collapsiblePriorityOrientation: Int?
   public let text: NativeSwiftTextSnapshot?
   public let custom: NativeSwiftCustomSnapshot?
 }
@@ -327,6 +336,93 @@ public enum NativeSwiftSystemVariables {
   /// The `sp` behind `fontSize`, before density and font scale. Every player has to agree on it:
   /// a capture divides its text size by this id to recover the `sp` it authored.
   public static let defaultFontSizeSp: Float = 14
+}
+
+/// Which children a collapsible container keeps.
+///
+/// A `CollapsibleColumnLayout` (233) or `CollapsibleRowLayout` (230) measures its children and hides
+/// the ones that do not fit, dropping them in the order their `CollapsiblePriority` modifiers give.
+/// This is the decision, separated from either renderer so it can be tested without a view hierarchy
+/// — and so the UIKit and AppKit paths cannot disagree about it.
+///
+/// The rules are the reference's, including the two that are easy to get backwards:
+///
+/// * a child with **no** priority modifier sorts ahead of every child that has one, because upstream
+///   orders by descending priority with `Float.greatestFiniteMagnitude` as the absent value;
+/// * a child with a **weight** on the container's axis does not count against the available space,
+///   so it is never the reason another child is dropped.
+public enum NativeSwiftCollapsible {
+  /// One child as the container sees it.
+  public struct Child: Sendable, Equatable {
+    /// The child's size along the container's axis, as measured. Ignored when `weight` is positive,
+    /// matching the reference, which does not measure a weighted child until the kept set is known.
+    public let mainSize: Float
+    /// The child's weight on the container's axis, 0 when unweighted.
+    public let weight: Float
+    /// The priority the child declared for this axis, or nil when it declared none.
+    public let priority: Float?
+    /// True when the document itself marked the child GONE. Such a child is never kept and never
+    /// consumes space.
+    public let isGone: Bool
+
+    public init(
+      mainSize: Float, weight: Float = 0, priority: Float? = nil, isGone: Bool = false
+    ) {
+      self.mainSize = mainSize
+      self.weight = weight
+      self.priority = priority
+      self.isGone = isGone
+    }
+  }
+
+  /// One flag per child, in the order they were given.
+  ///
+  /// - Parameters:
+  ///   - available: the container's space along its axis. A non-finite value is unbounded, which
+  ///     keeps every child the document did not mark GONE.
+  ///   - spacing: the gap between kept children, counted the way the container lays them out.
+  public static func keptChildren(
+    _ children: [Child], available: Float, spacing: Float
+  ) -> [Bool] {
+    var kept = [Bool](repeating: false, count: children.count)
+    guard !children.isEmpty else { return kept }
+    let gap = spacing.isFinite && spacing > 0 ? spacing : 0
+    guard available.isFinite else {
+      for (index, child) in children.enumerated() where !child.isGone { kept[index] = true }
+      return kept
+    }
+    // Descending priority. An absent priority sorts first, and document order breaks ties, which is
+    // what the reference's list sort does for equal priorities.
+    let hasPriorities = children.contains { $0.priority != nil }
+    let order: [Int]
+    if hasPriorities {
+      order = children.indices.sorted { first, second in
+        let left = children[first].priority ?? Float.greatestFiniteMagnitude
+        let right = children[second].priority ?? Float.greatestFiniteMagnitude
+        if left == right { return first < second }
+        return left > right
+      }
+    } else {
+      order = Array(children.indices)
+    }
+    var used: Float = 0
+    var keptCount = 0
+    var overflow = false
+    for index in order {
+      let child = children[index]
+      if child.isGone { continue }
+      let size = child.weight > 0 ? 0 : max(child.mainSize, 0)
+      let neededSpacing = keptCount > 0 ? gap : 0
+      if overflow || used + neededSpacing + size > available {
+        overflow = true
+        continue
+      }
+      used += neededSpacing + size
+      keptCount += 1
+      kept[index] = true
+    }
+    return kept
+  }
 }
 
 /// Retained document state for the first pure-Swift operation family.
@@ -631,6 +727,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
       spacing: try resolvedFloat(node.spacingWord, "spacing", values: values),
+      isCollapsible: node.isCollapsible,
+      collapsiblePriority: try node.collapsiblePriorityWord.map {
+        try resolvedFloat($0, "collapsible priority", values: values)
+      },
+      collapsiblePriorityOrientation: node.collapsiblePriorityOrientation,
       text: text,
       custom: custom)
   }
@@ -1329,6 +1430,12 @@ private final class ParsedNode {
   var horizontalPositioning = 1
   var verticalPositioning = 4
   var spacingWord: UInt32 = 0
+  /// Set by the collapsible row/column family; see `NativeSwiftCollapsible`.
+  var isCollapsible = false
+  /// A `CollapsiblePriority` modifier's payload, held as a word so it resolves with the frame's
+  /// values like every other float field.
+  var collapsiblePriorityWord: UInt32?
+  var collapsiblePriorityOrientation: Int?
   var text: ParsedText?
   var custom: ParsedCustom?
 
@@ -2492,32 +2599,32 @@ private enum NativeSwiftDocumentDecoder {
         node.horizontalPositioning = try input.int("collapsible row horizontal positioning")
         node.verticalPositioning = try input.int("collapsible row vertical positioning")
         node.spacingWord = try input.word("collapsible row spacing")
+        node.isCollapsible = true
         try begin(node)
       case 235:  // Collapsible priority modifier
         // INT orientation, FLOAT priority. It orders which children a collapsible container drops
-        // first, so it means nothing to a player that does not collapse -- but it still has to be
-        // read, because the buffer has no length prefixes and an unread operation costs the rest of
-        // the document. Upstream's own `apply` is empty for the same reason: it is layout input, not
-        // a drawing instruction.
-        _ = try input.int("collapsible priority orientation")
-        _ = try input.word("collapsible priority")
+        // first. Upstream's own `apply` is empty because it is layout input rather than a drawing
+        // instruction — but it is not inert: it decides the order the container hides children in.
+        let orientation = try input.int("collapsible priority orientation")
+        let priority = try input.word("collapsible priority")
+        let node = try currentNode(stack, input: input)
+        node.collapsiblePriorityOrientation = orientation
+        node.collapsiblePriorityWord = priority
       case 233:  // Collapsible column
         // Same wire shape as the column at 204 -- component id, animation id, both positionings,
         // then a float spacing -- because upstream's CollapsibleColumnLayout extends ColumnLayout
         // and inherits its payload.
         //
         // What it does NOT inherit is the behaviour: a collapsible column hides the children that do
-        // not fit its height, in the order a CollapsiblePriority modifier gives them. This player
-        // lays it out as an ordinary column, so a document whose children overflow shows all of them
-        // where the reference would drop some. That is a visible difference on exactly the documents
-        // this operation exists for, and it is tracked rather than papered over -- but it renders,
-        // where before the unknown opcode cost the remainder of the document.
+        // not fit its height, in the order a CollapsiblePriority modifier gives them. The decision
+        // lives in `NativeSwiftCollapsible` and both renderers apply it.
         let node = ParsedNode(
           kind: .column, componentID: try input.int("collapsible column component id"))
         _ = try input.int("collapsible column animation id")
         node.horizontalPositioning = try input.int("collapsible column horizontal positioning")
         node.verticalPositioning = try input.int("collapsible column vertical positioning")
         node.spacingWord = try input.word("collapsible column spacing")
+        node.isCollapsible = true
         try begin(node)
       case 205:  // Canvas
         let node = ParsedNode(kind: .canvas, componentID: try input.int("canvas component id"))
