@@ -1016,6 +1016,60 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun fitBoxProbesAlternativesAtTheSizeTheyWillBeRendered() {
+    // A visibility-decorated alternative must probe at the size it will be *rendered* at. Resolving
+    // its modifier during the probe measures it as 0x0, so it always "fits", is selected, and then
+    // renders at full size — displacing the alternative that actually fits.
+    val red = 0xffff0000.toInt()
+    val green = 0xff00ff00.toInt()
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 120, legacyHeight = 120, modern = false),
+        listOf<RcOperation>(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcFitBoxLayout(3, 30, horizontalPositioning = 2, verticalPositioning = 2),
+          width(120f),
+          height(120f),
+          RcLayoutContent(4),
+          RcTextData(42, "visible"),
+          // The oversized alternative, carrying the visibility modifier the probe must see through.
+          RcCanvasLayout(5, 50),
+          width(200f),
+          height(200f),
+          solidBackground(1f, 0f, 0f),
+          RcVisibilityModifier(42),
+          RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+          RcPaintData(listOf(4, red)),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(200f),
+            RcFloatWord.literal(200f),
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ) +
+          canvas(componentId = 6, size = 20f, color = green) +
+          List(4) { RcNoArg(RcOpcodes.CONTAINER_END) },
+      )
+    val scene =
+      ImageComposeScene(width = 120, height = 120, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(120, 120) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(green, bitmap.getColor(60, 60), "the alternative that fits was not chosen")
+      assertEquals(0, bitmap.getColor(5, 5), "the oversized alternative was drawn anyway")
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun fitBoxPaintsOnlyTheFirstChildWhoseIntrinsicSizeFits() {
     val red = 0xffff0000.toInt()
     val green = 0xff00ff00.toInt()

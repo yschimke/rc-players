@@ -1451,6 +1451,11 @@ private fun RenderLayoutNode(
               Box(Modifier.clearAndSetSemantics {}) {
                 RenderLayoutNode(
                   child,
+                  // The same override the content pass applies, or the two disagree about what an
+                  // alternative measures: a visibility-decorated child would probe as 0x0, always
+                  // "fit", and be selected — then be rendered visible at its real size, displacing
+                  // a later alternative that actually fits.
+                  ignoreOwnVisibility = true,
                   state = state,
                   textMeasurer = textMeasurer,
                   images = images,
