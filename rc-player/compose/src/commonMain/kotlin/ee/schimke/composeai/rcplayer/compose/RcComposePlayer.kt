@@ -1815,8 +1815,13 @@ private fun RcCollapsibleLayout(
         if (weights[index] > 0f) total + weights[index] else total
       }
     if (totalWeight > 0f) {
+      // The gaps are laid out between the retained children, so they come out of the space the
+      // weights divide — the vendored reference charges `neededSpacing` into `usedUnweighted` the
+      // same way. Without this the shares fill the whole axis, the container constrains the result,
+      // and the last child is clipped by exactly the total gap.
+      val gaps = spacing * (retainedIndices.size - 1).coerceAtLeast(0)
       val usedUnweighted =
-        retainedIndices.fold(0) { used, index ->
+        retainedIndices.fold(gaps) { used, index ->
           if (weights[index] <= 0f) used + mainSizes[index] else used
         }
       val remaining = (maximumMain - usedUnweighted).coerceAtLeast(0)
