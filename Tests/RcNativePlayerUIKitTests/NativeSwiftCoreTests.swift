@@ -450,6 +450,53 @@ enum NativeSwiftCoreTests {
       "flow bounds resolved to \(String(describing: flowNode.flowMaximumItems)) / "
         + "\(String(describing: flowNode.flowMaximumLines))")
 
+    // A weighted flow child reserves its `widthIn` minimum while the line is segmented, so its
+    // siblings are not placed beside it when that minimum cannot fit; without it the weight is
+    // zero-width, everything lands on one line, and the allocator then shrinks the child below its
+    // own minimum.
+    let weightedFlow = [
+      NativeSwiftFlow.Child(measuredWidth: 0, weight: 1, minimumWidth: 120),
+      NativeSwiftFlow.Child(measuredWidth: 100),
+      NativeSwiftFlow.Child(measuredWidth: 100),
+    ]
+    let segmented = NativeSwiftFlow.segment(weightedFlow, available: 300, spacing: 0)
+    precondition(
+      segmented.lines == [[0, 1], [2]],
+      "weighted flow segmentation produced \(segmented.lines)")
+    let withoutMinimum = NativeSwiftFlow.segment(
+      [NativeSwiftFlow.Child(measuredWidth: 0, weight: 1), weightedFlow[1], weightedFlow[2]],
+      available: 300, spacing: 0)
+    precondition(
+      withoutMinimum.lines == [[0, 1, 2]],
+      "an unconstrained weighted child should not force a wrap: \(withoutMinimum.lines)")
+    // The caps still apply: items per line, and lines before the rest are discarded.
+    let capped = NativeSwiftFlow.segment(
+      [NativeSwiftFlow.Child(measuredWidth: 10), NativeSwiftFlow.Child(measuredWidth: 10),
+       NativeSwiftFlow.Child(measuredWidth: 10)],
+      available: 1000, spacing: 0, maximumItems: 2, maximumLines: 1)
+    precondition(
+      capped.lines == [[0, 1]] && capped.discarded == [2],
+      "flow caps produced \(capped.lines) / \(capped.discarded)")
+    // Once the line cap is reached, everything from that child on is discarded — a later, smaller
+    // child must not land on the still-open line and come out ahead of the one that was dropped.
+    let cappedSuffix = NativeSwiftFlow.segment(
+      [NativeSwiftFlow.Child(measuredWidth: 80),
+       NativeSwiftFlow.Child(measuredWidth: 0, weight: 1, minimumWidth: 30),
+       NativeSwiftFlow.Child(measuredWidth: 20)],
+      available: 100, spacing: 0, maximumLines: 1)
+    precondition(
+      cappedSuffix.lines == [[0]] && cappedSuffix.discarded == [1, 2],
+      "a capped suffix produced \(cappedSuffix.lines) / \(cappedSuffix.discarded)")
+    // A GONE child is in neither the line, its spacing, nor its item count.
+    let goneFlow = NativeSwiftFlow.segment(
+      [NativeSwiftFlow.Child(measuredWidth: 100, isGone: true),
+       NativeSwiftFlow.Child(measuredWidth: 100),
+       NativeSwiftFlow.Child(measuredWidth: 100)],
+      available: 100, spacing: 10, maximumItems: 2)
+    precondition(
+      goneFlow.lines == [[1], [2]],
+      "a GONE child consumed a slot or a gap: \(goneFlow.lines)")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)
