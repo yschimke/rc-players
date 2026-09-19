@@ -796,7 +796,9 @@
           else {
             return nil
           }
-          return NativeImageView(image: image, draw: draw, alpha: command.alpha)
+          return NativeImageView(
+            image: image, draw: draw, alpha: command.alpha,
+            filterQuality: command.filterQuality)
         } : []
       customView = node.custom.flatMap {
         NativeCustomComponentView(
@@ -1635,7 +1637,7 @@
     private var drawCommand: NativeImageDraw
     private var filterQuality: Int?
 
-    init(image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int? = nil) {
+    init(image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int?) {
       drawCommand = draw
       self.filterQuality = filterQuality
       super.init(image: image)
@@ -1653,7 +1655,7 @@
     }
 
     func update(
-      image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int? = nil
+      image: UIImage, draw: NativeImageDraw, alpha: CGFloat, filterQuality: Int?
     ) {
       self.image = image
       drawCommand = draw
