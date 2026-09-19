@@ -121,6 +121,15 @@ becomes history.
 
 ## Local modifications
 
-**None.** This is a verbatim copy of the patch set. Keep it that way: an edit here becomes a
-difference between the score this repository reports and the score anyone else would measure, which
-is the one property the corpus exists to provide.
+**None in the corpus data.** It is a verbatim copy of the patch set, apart from the documented
+correction above. Keep it that way: an edit to a gold becomes a difference between the score this
+repository reports and the score anyone else would measure, which is the one property the corpus
+exists to provide.
+
+One **presentation-only** patch is carried in `generate-audit-report.mjs`: a *Differences Only*
+filter on every subsystem tab, showing the tests whose comparison has something to look at (a
+recorded diff, or a raster comparison disagreeing beyond its tolerance — advisory ones included,
+because a test can pass its binding checks and still draw something different). It reads a
+`data-diffs` attribute stamped on each card, so it works on every tab, not only layout. It changes
+what the report shows, never a score; it is offered upstream and can be dropped with the next
+refresh.

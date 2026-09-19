@@ -1229,6 +1229,21 @@ function renderSvg(expectedTree, actualTree, mode = 'overlay', width = 360, heig
     return buildSvg(expectedTree, actualTree, mode, width, height);
 }
 
+/**
+ * Whether a result has anything to look at: a recorded diff (tree, state, ops) or a raster
+ * comparison that disagrees beyond its tolerance. Advisory raster disagreements count here on
+ * purpose -- a test can pass its binding checks and still draw something different, which is
+ * exactly what a reviewer wants to find.
+ */
+function resultHasDifferences(res) {
+    if ((res.diffs || []).length > 0) return true;
+    return (res.rasterComparisons || []).some((rc) => {
+        const aa = typeof rc.aaPixels === "number" ? rc.aaPixels : null;
+        const tol = typeof rc.rasterTolerance === "number" ? rc.rasterTolerance : 16;
+        return aa !== null && aa > tol;
+    });
+}
+
 // Client dataset for live animation scrubbing, side-by-side switching, and inspector
 const clientTestRecordMap = {};
 for (const r of activeResults) {
@@ -1256,7 +1271,9 @@ for (const r of activeResults) {
         diffHeatmapBase64: r.diffHeatmapBase64 || null,
         rmse: r.rmse,
         maxDelta: r.maxDelta,
-        maxRmse: r.maxRmse
+        maxRmse: r.maxRmse,
+        // Drives the "Differences Only" filter: same rule as the server-side count above.
+        hasDifferences: resultHasDifferences(r)
     };
 }
 
@@ -1289,6 +1306,7 @@ function renderSubsystemFilterBar(tabKey, results) {
     const passedList = results.filter(r => r.status === "PASS");
     const failed = failedList.length;
     const passed = passedList.length;
+    const withDiffs = results.filter(resultHasDifferences).length;
 
     const failJumpHtml = failed > 0 ? `
       <div class="failing-jump-bar" id="failing-jump-${tabKey}">
@@ -1305,6 +1323,7 @@ function renderSubsystemFilterBar(tabKey, results) {
           <button type="button" class="filter-btn active" id="subfilter-${tabKey}-all" onclick="filterSubsystem('${tabKey}', 'all')">All Tests (${total})</button>
           <button type="button" class="filter-btn" id="subfilter-${tabKey}-fail" onclick="filterSubsystem('${tabKey}', 'fail')" style="color: ${failed > 0 ? '#f87171' : '#64748b'};" ${failed === 0 ? 'disabled title="No failing tests in this subsystem"' : ''}>Failing Only (${failed})</button>
           <button type="button" class="filter-btn" id="subfilter-${tabKey}-pass" onclick="filterSubsystem('${tabKey}', 'pass')" style="color: #4ade80;">Passing Only (${passed})</button>
+          <button type="button" class="filter-btn" id="subfilter-${tabKey}-diffs" onclick="filterSubsystem('${tabKey}', 'diffs')" style="color: ${withDiffs > 0 ? '#f59e0b' : '#64748b'};" ${withDiffs === 0 ? 'disabled title="No tests with differences in this subsystem"' : ''}>Differences Only (${withDiffs})</button>
         </div>
         <input type="text" id="subsearch-${tabKey}" class="search-input" placeholder="Search ${tabKey} tests by name or description..." oninput="searchSubsystem('${tabKey}', this.value)">
       </div>
@@ -1327,7 +1346,7 @@ function generateExpressionCardsHtml(tests) {
         const docJsonStr = JSON.stringify(docObj, null, 2);
 
         return `
-        <div class="test-detail-card" data-status="${res.status}" data-category="expressions" id="test-${res.name}">
+        <div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" data-category="expressions" id="test-${res.name}">
           <div class="test-header">
             <div class="test-header-left">
               <span class="test-name">${res.name}</span>
@@ -1373,7 +1392,7 @@ function generateParticleCardsHtml(tests) {
         const physicsPass = ((res.diffs || []).filter((d) => d.probe !== "raster")).length === 0;
 
         return `
-        <div class="test-detail-card" data-status="${res.status}" data-category="particles" id="test-${res.name}">
+        <div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" data-category="particles" id="test-${res.name}">
           <div class="test-header">
             <div class="test-header-left">
               <span class="test-name">${res.name}</span>
@@ -1450,7 +1469,7 @@ function generateWireCardsHtml(tests) {
         const docJsonStr = JSON.stringify(docObj, null, 2);
 
         return `
-        <div class="test-detail-card" data-status="${res.status}" data-category="wire" id="test-${res.name}">
+        <div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" data-category="wire" id="test-${res.name}">
           <div class="test-header">
             <div class="test-header-left">
               <span class="test-name">${res.name}</span>
@@ -1495,7 +1514,7 @@ function generateLoomCardsHtml(tests) {
         const docJsonStr = JSON.stringify(docObj, null, 2);
 
         return `
-        <div class="test-detail-card" data-status="${res.status}" data-category="loom" id="test-${res.name}">
+        <div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" data-category="loom" id="test-${res.name}">
           <div class="test-header">
             <div class="test-header-left">
               <span class="test-name">${res.name}</span>
@@ -2256,7 +2275,7 @@ function generateCanvasCardsHtml(tests) {
         const badgeBorder = isClock ? 'rgba(245, 158, 11, 0.3)' : isShaders ? 'rgba(192, 132, 252, 0.3)' : isTextPath ? 'rgba(167, 139, 250, 0.3)' : 'rgba(56, 189, 248, 0.3)';
         const badgeLabel = isClock ? 'Clock &amp; Time' : isShaders ? 'Shaders &amp; AGSL' : isTextPath ? 'Text on Path &amp; Anchoring' : '2D Canvas';
         return `
-        <div class="test-detail-card" data-status="${res.status}" data-category="${res.category || 'canvas'}" id="test-${res.name}">
+        <div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" data-category="${res.category || 'canvas'}" id="test-${res.name}">
           <div class="test-header">
             <div class="test-header-left">
               <span class="test-name">${res.name}</span>
@@ -2306,7 +2325,7 @@ function generateSubsystemGenericCardsHtml(tests, categoryKey, title, badgeColor
         const docJsonStr = JSON.stringify(docObj, null, 2);
 
         return `
-        <div class="test-detail-card" data-status="${res.status}" data-category="${categoryKey}" id="test-${res.name}">
+        <div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" data-category="${categoryKey}" id="test-${res.name}">
           <div class="test-header">
             <div class="test-header-left">
               <span class="test-name">${res.name}</span>
@@ -2351,7 +2370,7 @@ function generateInteractivityCardsHtml(tests) {
         const docJsonStr = JSON.stringify(docObj, null, 2);
 
         return `
-        <div class="test-detail-card" data-status="${res.status}" data-category="interactivity" id="test-${res.name}">
+        <div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" data-category="interactivity" id="test-${res.name}">
           <div class="test-header">
             <div class="test-header-left">
               <span class="test-name">${res.name}</span>
@@ -4495,7 +4514,7 @@ const html = `<!DOCTYPE html>
             // See generateCanvasCardsHtml / rasterBadgeHtml: on layout cards the tree is the gate
             // and the raster is advisory.
 
-            return `<div class="test-detail-card" data-status="${res.status}" id="test-${res.name}">
+            return `<div class="test-detail-card" data-diffs="${resultHasDifferences(res) ? '1' : '0'}" data-status="${res.status}" id="test-${res.name}">
               <div class="test-header">
                 <div class="test-header-left">
                   <span class="test-name">${res.name}</span>
@@ -5330,6 +5349,7 @@ const html = `<!DOCTYPE html>
           if (currentFilter.allowedSet && !currentFilter.allowedSet.has(name)) match = false;
           if (match && currentFilter.status === 'pass' && status !== 'PASS') match = false;
           if (match && currentFilter.status === 'fail' && status === 'PASS') match = false;
+          if (match && currentFilter.status === 'diffs' && card.dataset.diffs !== '1') match = false;
           if (match && query && !text.includes(query)) match = false;
 
           if (match) {
@@ -5360,7 +5380,7 @@ const html = `<!DOCTYPE html>
       function filterStatus(status) {
         openDetails();
         currentFilter.status = status;
-        ['all', 'fail', 'pass'].forEach(s => {
+        ['all', 'fail', 'pass', 'diffs'].forEach(s => {
           const btn = document.getElementById('subfilter-layout-' + s);
           if (btn) btn.classList.toggle('active', s === status);
         });
@@ -5387,6 +5407,7 @@ const html = `<!DOCTYPE html>
           let match = true;
           if (st.status === 'pass' && cardStatus !== 'PASS') match = false;
           if (st.status === 'fail' && cardStatus === 'PASS') match = false;
+          if (st.status === 'diffs' && card.dataset.diffs !== '1') match = false;
           if (match && q && !text.includes(q)) match = false;
           card.style.display = match ? 'block' : 'none';
         });
@@ -5399,7 +5420,7 @@ const html = `<!DOCTYPE html>
         }
         if (!subFilterState[tabKey]) subFilterState[tabKey] = { status: 'all', query: '' };
         subFilterState[tabKey].status = status;
-        ['all', 'fail', 'pass'].forEach(s => {
+        ['all', 'fail', 'pass', 'diffs'].forEach(s => {
           const btn = document.getElementById('subfilter-' + tabKey + '-' + s);
           if (btn) btn.classList.toggle('active', s === status);
         });
