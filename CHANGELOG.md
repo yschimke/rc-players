@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.67.0](https://github.com/yschimke/rc-players/compare/v1.66.0...v1.67.0) (2026-09-19)
+
+
+### Features
+
+* ease graphics-layer values, as AndroidX's AnimatableValue does ([#266](https://github.com/yschimke/rc-players/issues/266)) ([93e6b65](https://github.com/yschimke/rc-players/commit/93e6b65e1f5cdb6af4da991bd89e54a2c94c0d88))
+* honour the corpus's advisory checks, and score four players ([#258](https://github.com/yschimke/rc-players/issues/258)) ([935d416](https://github.com/yschimke/rc-players/commit/935d4163c6ddd9b1192cbf7e12f810ba92e00f78))
+* let a host resolve component-value bindings from real geometry ([#254](https://github.com/yschimke/rc-players/issues/254)) ([5b5d8d2](https://github.com/yschimke/rc-players/commit/5b5d8d2ee9dfe10b98e539cf9c3dcfcbed9513c6))
+* publish a per-player conformance site to GitHub Pages ([#252](https://github.com/yschimke/rc-players/issues/252)) ([72f9e69](https://github.com/yschimke/rc-players/commit/72f9e6956265856cd11a524aa62f0bf574e52053))
+* refine component-value bindings from the geometry the host laid out ([#257](https://github.com/yschimke/rc-players/issues/257)) ([70fa694](https://github.com/yschimke/rc-players/commit/70fa6945c45788fa195d2fbdbf137d38377bc49c))
+* score golds on the AndroidX reference lane ([#255](https://github.com/yschimke/rc-players/issues/255)) ([039c2b2](https://github.com/yschimke/rc-players/commit/039c2b2231dbf8f217d097c7ecea069dfbaaaf29))
+* vendor RcPlayerInspector and its composition-local seam ([#269](https://github.com/yschimke/rc-players/issues/269)) ([cd14467](https://github.com/yschimke/rc-players/commit/cd1446789ae5b6ef6196e42bb46fe984ff33ea62))
+
+
+### Bug Fixes
+
+* apply a texture shader's matrix and tile modes ([#271](https://github.com/yschimke/rc-players/issues/271)) ([2346399](https://github.com/yschimke/rc-players/commit/2346399afc929bad8fe45070690221bddc4c7c70))
+* let the outer size modifier of a chain decide a component's size ([#262](https://github.com/yschimke/rc-players/issues/262)) ([40374ad](https://github.com/yschimke/rc-players/commit/40374ad66b07dc432ddca1f32c359d1862703b5b))
+* measure a component layout never sized from the area it was flattened into ([#259](https://github.com/yschimke/rc-players/issues/259)) ([6933661](https://github.com/yschimke/rc-players/commit/693366161ab2f562c0b34741e74e7917696d1ddf))
+* pin the KMP player modules to a Java 17 toolchain ([#272](https://github.com/yschimke/rc-players/issues/272)) ([206a634](https://github.com/yschimke/rc-players/commit/206a63452a306dffc672bdd7cffbbe3f2ad8b81d))
+* publish the raster evidence the audit report was missing ([#267](https://github.com/yschimke/rc-players/issues/267)) ([72e92bf](https://github.com/yschimke/rc-players/commit/72e92bf0a87ad693281432f9711777c0d8689a1a))
+* publish the raster frames under the names the audit generator reads ([#261](https://github.com/yschimke/rc-players/issues/261)) ([cf240e3](https://github.com/yschimke/rc-players/commit/cf240e301725daa69a33670d2d259085ab877e4d))
+* record the CMP player's real version in a conformance run ([#260](https://github.com/yschimke/rc-players/issues/260)) ([3a8aa03](https://github.com/yschimke/rc-players/commit/3a8aa030b417a4a3c9f68f7b7e72047ad015a40b))
+* resolve widthIn/heightIn bounds as dp, and apply them while measuring ([#264](https://github.com/yschimke/rc-players/issues/264)) ([0d7d661](https://github.com/yschimke/rc-players/commit/0d7d66134c464cad6df8cfca459301eff7c7f5bf))
+* vendor the androidx embedded player's correctness fixes through ad58914fb ([#268](https://github.com/yschimke/rc-players/issues/268)) ([b8292b9](https://github.com/yschimke/rc-players/commit/b8292b93b13409c5449864eb0531becd15f358fb))
+
 ## [1.66.0](https://github.com/yschimke/rc-players/compare/v1.65.0...v1.66.0) (2026-09-17)
 
 
