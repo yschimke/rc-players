@@ -494,6 +494,78 @@ public struct NativeSwiftWallClock: Sendable, Equatable {
 ///   orders by descending priority with `Float.greatestFiniteMagnitude` as the absent value;
 /// * a child with a **weight** on the container's axis does not count against the available space,
 ///   so it is never the reason another child is dropped.
+/// How a flow container's children divide into lines.
+///
+/// The reference segments a `FlowLayout` by walking its children and starting a new line when the
+/// next one no longer fits. A child with a **weight** has no measured width yet — it takes its
+/// line's leftover — so it contributes its `widthIn` *minimum* instead, which is what stops a
+/// weighted child's minimum from being quietly ignored when its siblings are placed beside it.
+/// A child the document marked GONE contributes nothing.
+///
+/// Kept here rather than in either renderer so the two cannot disagree about where a line breaks,
+/// and so the rule is testable without a view hierarchy.
+public enum NativeSwiftFlow {
+  public struct Child: Sendable, Equatable {
+    /// The child's measured width. Ignored when `weight` is positive.
+    public let measuredWidth: Float
+    /// The child's width weight, 0 when unweighted.
+    public let weight: Float
+    /// The child's `widthIn` minimum, 0 when it declares none.
+    public let minimumWidth: Float
+    public let isGone: Bool
+
+    public init(
+      measuredWidth: Float, weight: Float = 0, minimumWidth: Float = 0, isGone: Bool = false
+    ) {
+      self.measuredWidth = measuredWidth
+      self.weight = weight
+      self.minimumWidth = minimumWidth
+      self.isGone = isGone
+    }
+
+    /// What this child contributes to the line it is placed on.
+    var provisionalWidth: Float {
+      if isGone { return 0 }
+      if weight > 0 { return max(minimumWidth, 0) }
+      return max(measuredWidth, 0)
+    }
+  }
+
+  /// The line each child lands on, in document order, plus the children a maximum-line cap
+  /// discarded.
+  public static func segment(
+    _ children: [Child], available: Float, spacing: Float = 0, maximumItems: Int = 0,
+    maximumLines: Int = 0
+  ) -> (lines: [[Int]], discarded: [Int]) {
+    var lines: [[Int]] = [[]]
+    var discarded: [Int] = []
+    var width: Float = 0
+    let gap = spacing.isFinite && spacing > 0 ? spacing : 0
+    let itemCap = maximumItems > 0 ? maximumItems : Int.max
+    let lineCap = maximumLines > 0 ? maximumLines : Int.max
+    for (index, child) in children.enumerated() {
+      let provisional = child.provisionalWidth
+      let current = lines[lines.count - 1]
+      let wraps =
+        !current.isEmpty
+        && (current.count >= itemCap
+          || width + gap + provisional > available)
+      if wraps {
+        guard lines.count < lineCap else {
+          discarded.append(index)
+          continue
+        }
+        lines.append([])
+        width = 0
+      }
+      if !lines[lines.count - 1].isEmpty { width += gap }
+      lines[lines.count - 1].append(index)
+      width += provisional
+    }
+    return (lines, discarded)
+  }
+}
+
 public enum NativeSwiftCollapsible {
   /// One child as the container sees it.
   public struct Child: Sendable, Equatable {
