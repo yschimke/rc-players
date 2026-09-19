@@ -523,7 +523,8 @@ private final class NativeMacDocumentView: NSView {
         // that as GONE. Taking the document's own field reported a dropped child as VISIBLE while
         // its pixels were absent, which is exactly the disagreement the tree channel exists to
         // catch.
-        let gone = view.isHidden || view.node.visibility == 0
+        let gone =
+          view.isHidden || (view.node.visibility == 0 && !view.ignoresOwnVisibility)
         nodes.append([
           "id": view.node.componentID,
           "kind": kind,
@@ -533,7 +534,9 @@ private final class NativeMacDocumentView: NSView {
           "height": Double(frame.size.height),
           "depth": depth,
           "isGone": gone,
-          "visibility": gone ? "GONE" : (view.node.visibility == 2 ? "INVISIBLE" : "VISIBLE"),
+          "visibility": gone
+            ? "GONE"
+            : (view.node.visibility == 2 && !view.ignoresOwnVisibility ? "INVISIBLE" : "VISIBLE"),
         ])
         childDepth = depth + 1
       }
@@ -900,6 +903,11 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// The resolved component this view draws. Read by the document view's tree dump, which the
   /// conformance corpus's `tree` probe reads.
   let node: NativeMacNode
+
+  /// Set by a `FitBox` on its alternatives. The reference ignores an alternative's own visibility
+  /// modifier — a document switches alternatives with it — so the tree reports the box's choice
+  /// rather than the modifier's, and the fit test sees the alternative's real size.
+  var ignoresOwnVisibility = false
   let componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
@@ -1092,7 +1100,14 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     case .column: layoutColumn()
     // The root arranges its children the way a box does: a child that fills still covers the
     // canvas, and a child that wraps takes its own size instead of being stretched to the frame.
-    case .box, .root: layoutOverlay(aligned: true)
+    case .box, .root:
+      // A FitBox is the one box that does not stack what it holds: it shows the first alternative
+      // whose natural size fits, and nothing at all when none does.
+      if isFitBox {
+        layoutFitBox()
+      } else {
+        layoutOverlay(aligned: true)
+      }
     default: layoutOverlay(aligned: false)
     }
   }
@@ -1115,6 +1130,19 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let content = CGSize(
       width: max(min(available.width, widthConstraint) - padding.left - padding.right, 0),
       height: max(min(available.height, heightConstraint) - padding.top - padding.bottom, 0))
+    // A FitBox wraps to the alternative it shows, not to the largest of everything it holds.
+    if isFitBox {
+      let fitting = fitBoxAlternativesAndSizes(in: content).first {
+        $0.size.width <= content.width + 0.5 && $0.size.height <= content.height + 0.5
+      }
+      // Nothing fits: the box is GONE and takes no space, the way a collapsible container that keeps
+      // nothing does, so its parent does not reserve a box the reference hides.
+      let intrinsic = fitting?.size ?? .zero
+      return applyDimensions(
+        CGSize(
+          width: intrinsic.width + padding.left + padding.right,
+          height: intrinsic.height + padding.top + padding.bottom), available: available)
+    }
     let allItems = visibleChildren
     // A collapsible container wraps to what it keeps, not to everything it holds — and reports
     // nothing at all when it keeps nothing, so a parent does not reserve a box the reference treats
@@ -1264,16 +1292,64 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     case horizontal, vertical
   }
 
-  private func layoutOverlay(aligned: Bool) {    let content = contentRect
-    for child in visibleChildren {
-      let size = child.preferredSize(in: content.size)
-      let x: CGFloat = aligned ? alignedX(size.width, in: content) : content.minX
+  /// The size a child contributes to its container.
+  ///
+  /// Inside a **scrolled** container the axis that scrolls is measured unbounded: the viewport clips
+  /// the content, it does not size it. A child that fills that axis is the exception — it has no
+  /// natural size, so it keeps the viewport's bound.
+  private func measuredSize(
+    of child: NativeMacComponentView, in available: CGSize, axis: NativeCollapsibleAxis
+  ) -> CGSize {
+    guard node.scrollDirection != nil else { return child.preferredSize(in: available) }
+    let type = axis == .vertical ? child.node.heightType : child.node.widthType
+    guard NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(type)) else {
+      return child.preferredSize(in: available)
+    }
+    let space =
+      axis == .vertical
+      ? CGSize(width: available.width, height: .greatestFiniteMagnitude)
+      : CGSize(width: .greatestFiniteMagnitude, height: available.height)
+    return child.preferredSize(in: space)
+  }
+
+  /// The extent a scrolled container arranges its children in along one axis, or nil when it does
+  /// not scroll.
+  ///
+  /// A scrolled container's children are laid out against the content they make, not against the
+  /// viewport that clips them: the corpus's `collapsible_column_scroll` records its survivors
+  /// centred in the pre-collapse 240 points even though the viewport is 200 — the collapse frees no
+  /// space, it only moves the content — and `box_child_scroll` records a 250-point child in a
+  /// 150-point viewport. The viewport decides what is *visible*; the content decides where things
+  /// sit. Every child counts towards it, including the ones a collapse dropped.
+  private func scrolledExtent(
+    of items: [NativeMacComponentView], in viewport: CGSize, axis: NativeCollapsibleAxis
+  ) -> CGFloat? {
+    guard node.scrollDirection != nil else { return nil }
+    let sizes = items.map { measuredSize(of: $0, in: viewport, axis: axis) }
+    let extent = sizes.reduce(0) { $0 + (axis == .vertical ? $1.height : $1.width) }
+    return extent + spacing * CGFloat(max(sizes.count - 1, 0))
+  }
+
+  private func layoutOverlay(aligned: Bool) {
+    let content = contentRect
+    let items = visibleChildren
+    let axis: NativeCollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
+    let extent = scrolledExtent(of: items, in: content.size, axis: axis)
+    let space =
+      node.scrollDirection == 1
+      ? CGRect(
+        x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
+      : CGRect(
+        x: content.minX, y: content.minY, width: content.width, height: extent ?? content.height)
+    for child in items {
+      let size = measuredSize(of: child, in: content.size, axis: axis)
+      let x: CGFloat = aligned ? alignedX(size.width, in: space) : content.minX
       let y: CGFloat
       if aligned {
         switch node.verticalPositioning {
-        case 2: y = content.midY - size.height / 2
-        case 5: y = content.maxY - size.height
-        default: y = content.minY
+        case 2: y = space.midY - size.height / 2
+        case 5: y = space.maxY - size.height
+        default: y = space.minY
         }
       } else {
         y = content.minY
@@ -1284,13 +1360,101 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     }
   }
 
+  /// A `FitBox`: it shows the first alternative whose natural size fits, and shows nothing at all
+  /// when none does.
+  private var isFitBox: Bool { node.componentKind == "FitBoxLayout" }
+
+  /// A `FitBox`'s alternatives, in document order.
+  ///
+  /// Unlike every other container this does **not** drop the children whose own visibility modifier
+  /// hides them: a document switches between alternatives with that modifier, and the reference
+  /// ignores it — the fit test sees the alternative's real size and the winner is drawn. Taking the
+  /// modifier at face value measured a hidden child as 0x0, so it "fitted" and displaced the
+  /// alternative that actually fits (`fitbox_child_visibility`).
+  private var fitBoxAlternatives: [NativeMacComponentView] {
+    componentChildren.flatMap { child in child.isStructural ? child.fitBoxAlternatives : [child] }
+  }
+
+  /// Whether the box's *content* is switched on. An alternative's own modifier is ignored, but the
+  /// content's is the box's own switch: a GONE content shows nothing.
+  private var fitBoxContentVisible: Bool {
+    !componentChildren.contains { $0.isStructural && $0.node.visibility == 0 }
+  }
+
+  /// An alternative's natural size: the size it asks for when nothing forces it to fill.
+  private func fitBoxNaturalSize(_ child: NativeMacComponentView, in available: CGSize) -> CGSize {
+    // The rule the collapsible fit test also uses: a dimension that fills has no natural size, so
+    // it keeps the box's bound rather than resolving to infinity.
+    child.preferredSize(
+      in: CGSize(
+        width: NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(child.node.widthType))
+          ? .greatestFiniteMagnitude : available.width,
+        height: NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(child.node.heightType))
+          ? .greatestFiniteMagnitude : available.height))
+  }
+
+  private func fitBoxAlternativesAndSizes(in available: CGSize) -> [(
+    view: NativeMacComponentView, size: CGSize
+  )] {
+    fitBoxAlternatives.map { ($0, fitBoxNaturalSize($0, in: available)) }
+  }
+
+  /// Lays a `FitBox` out: the first alternative whose natural size fits is drawn, aligned inside the
+  /// box; the others are hidden. When none fits the box shows nothing at all — the box itself is
+  /// GONE, which is what the reference does and what `fitbox_fit` asserts.
+  private func layoutFitBox() {
+    let content = contentRect
+    isHidden = node.visibility == 0
+    let measured = fitBoxAlternativesAndSizes(in: content.size)
+    for (alternative, _) in measured {
+      // The reference ignores an alternative's own visibility modifier: it is the document's switch
+      // between alternatives, not something the box obeys.
+      alternative.ignoresOwnVisibility = true
+      alternative.isHidden = true
+    }
+    let fitting = measured.first {
+      $0.size.width <= content.width + 0.5 && $0.size.height <= content.height + 0.5
+    }
+    // A content that is switched off is the box's own switch: the box stays, its content does not.
+    guard fitBoxContentVisible, let (winner, size) = fitting else {
+      // Nothing fits: the reference hides the box, background included. The alternative keeps the
+      // geometry it would have had, which the corpus does not compare for a gone node.
+      if let (first, size) = measured.first {
+        placeFitBoxAlternative(first, size: size, in: content)
+      }
+      if fitting == nil { isHidden = true }
+      return
+    }
+    winner.isHidden = false
+    placeFitBoxAlternative(winner, size: size, in: content)
+  }
+
+  private func placeFitBoxAlternative(
+    _ view: NativeMacComponentView, size: CGSize, in content: CGRect
+  ) {
+    let y: CGFloat
+    switch node.verticalPositioning {
+    case 2: y = content.midY - size.height / 2
+    case 5: y = content.maxY - size.height
+    default: y = content.minY
+    }
+    view.frame = CGRect(
+      x: alignedX(size.width, in: content) + CGFloat(view.node.offsetX),
+      y: y + CGFloat(view.node.offsetY), width: size.width, height: size.height)
+  }
+
   private func layoutColumn() {
     let content = contentRect
     let items = collapsibleItems(in: content.size, axis: .vertical)
-    let natural = items.map { $0.preferredSize(in: content.size) }
+    // A scrolled column arranges against its content rather than its viewport, and the extent counts
+    // every child — including the ones a collapse dropped, which is why the survivors are centred in
+    // the pre-collapse total.
+    let extent = scrolledExtent(of: visibleChildren, in: content.size, axis: .vertical)
+      ?? content.height
+    let natural = items.map { measuredSize(of: $0, in: content.size, axis: .vertical) }
     let allocated = MacLinearLayout.allocate(
       available: MacLinearLayout.collapsibleWeightSpace(
-        extent: content.height, count: items.count,
+        extent: extent, count: items.count,
         spacing: node.isCollapsible ? spacing : 0),
       natural: natural.map(\.height),
       weights: items.map {
@@ -1300,7 +1464,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       $0.applyDimensions($1.0, available: CGSize(width: content.width, height: $1.1)).height
     }
     let positions = MacLinearLayout.positions(
-      total: content.height, sizes: heights, positioning: Int(node.verticalPositioning),
+      total: extent, sizes: heights, positioning: Int(node.verticalPositioning),
       spacing: spacing)
     for index in items.indices {
       let width = natural[index].width
@@ -1432,17 +1596,20 @@ private typealias MacFlowLine = (
   private func layoutRow() {
     let content = contentRect
     let items = collapsibleItems(in: content.size, axis: .horizontal)
-    let natural = items.map { $0.preferredSize(in: content.size) }
+    // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport.
+    let extent = scrolledExtent(of: visibleChildren, in: content.size, axis: .horizontal)
+      ?? content.width
+    let natural = items.map { measuredSize(of: $0, in: content.size, axis: .horizontal) }
     let widths = MacLinearLayout.allocate(
       available: MacLinearLayout.collapsibleWeightSpace(
-        extent: content.width, count: items.count,
+        extent: extent, count: items.count,
         spacing: node.isCollapsible ? spacing : 0),
       natural: natural.map(\.width),
       weights: items.map {
         $0.node.widthType == 3 ? max(CGFloat($0.node.widthValue), .leastNonzeroMagnitude) : nil
       })
     let positions = MacLinearLayout.positions(
-      total: content.width, sizes: widths, positioning: Int(node.horizontalPositioning),
+      total: extent, sizes: widths, positioning: Int(node.horizontalPositioning),
       spacing: spacing)
     for index in items.indices {
       let size = items[index].preferredSize(

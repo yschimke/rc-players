@@ -88,6 +88,16 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let collapsiblePriority: Float?
   /// The axis that priority applies to: 0 horizontal, 1 vertical.
   public let collapsiblePriorityOrientation: Int?
+  /// The scroll modifier's direction — 0 vertical, 1 horizontal — or nil when this component is
+  /// not scrollable.
+  ///
+  /// A scroll does not move the layout: its translation is applied at paint time, which is why the
+  /// corpus keeps it out of a node's `x`/`y` and reports it as `scroll_x`/`scroll_y` instead. What
+  /// a renderer needs from the document is where the scroll currently is.
+  public let scrollDirection: Int?
+  /// The scroll offset, resolved from the document's float at snapshot time. Zero until the document
+  /// or a gesture moves it.
+  public let scrollOffset: Float
   public let text: NativeSwiftTextSnapshot?
   public let custom: NativeSwiftCustomSnapshot?
 }
@@ -1000,6 +1010,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         try resolvedFloat($0, "collapsible priority", values: values)
       },
       collapsiblePriorityOrientation: node.collapsiblePriorityOrientation,
+      scrollDirection: node.scrollDirection,
+      scrollOffset: node.scrollPositionWord.map {
+        NativeSwiftFloatExpression.resolve($0, values: values)
+      } ?? 0,
       text: text,
       custom: custom)
   }
@@ -1882,6 +1896,11 @@ private final class ParsedNode {
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
   /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
   var componentKind = ""
+  /// Set by the scroll modifier (226): 0 vertical, 1 horizontal.
+  var scrollDirection: Int?
+  /// The float word holding the scroll position. The maximum and notch maximum are consumed by the
+  /// decoder and dropped: nothing in this player clamps a scroll yet.
+  var scrollPositionWord: UInt32?
   /// Set by `StateLayout` (217): the integer holding the index of the child to show.
   var stateIndexID: Int?
   /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
@@ -3087,11 +3106,18 @@ private enum NativeSwiftDocumentDecoder {
         try currentNode(stack, input: input).visibilityID = try input.int("visibility id")
       case 226:  // Scroll modifier
         // INT direction, then position, max and notch max as float words.
-        _ = try currentNode(stack, input: input)
-        _ = try input.int("scroll direction")
-        _ = try input.word("scroll position")
+        //
+        // A *container* modifier: the opcode opens a list the matching 214 closes, so it has to be
+        // pushed as one. Not doing that made the 214 pop the component the modifier belongs to, and
+        // the component's own content was then attached to its *parent* — a scrolled row's children
+        // arrived as siblings of the row, laid out by nobody. `row_scroll_basic` is the gold that
+        // caught it.
+        let node = try currentNode(stack, input: input)
+        node.scrollDirection = try input.int("scroll direction")
+        node.scrollPositionWord = try input.word("scroll position")
         _ = try input.word("scroll maximum")
         _ = try input.word("scroll notch maximum")
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
       case 107:  // Border modifier
         // INT flags, INT color id, two reserved ints, then width, corner radius and r/g/b/a as
         // float words, then INT shape type.

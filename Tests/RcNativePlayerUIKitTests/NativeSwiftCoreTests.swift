@@ -35,6 +35,30 @@ enum NativeSwiftCoreTests {
       "expected the outer height(64.dp) to win, got "
         + "\(chainedColumn.heightType)/\(chainedColumn.heightValue)")
 
+    // A scroll modifier opens a container of its own, and the opcode stream closes it with the same
+    // 214 that closes every other container. Reading 226 as a plain modifier left that 214 to pop the
+    // *component*, so the component's content was attached to its parent: a scrolled row's children
+    // arrived as siblings of the row, laid out by nobody. `row_scroll_basic` is the gold that caught
+    // it, and this fixture is that shape.
+    let scrolled = try NativeSwiftDocumentSession.open(data: scrolledRowDocument()).snapshot()
+    guard let scrolledRow = scrolled.root.children.first else {
+      preconditionFailure("the scrolled-row fixture decoded no row")
+    }
+    precondition(
+      scrolledRow.componentKind == "RowLayout",
+      "expected the scrolled component to be a row, got \(scrolledRow.componentKind)")
+    precondition(
+      scrolledRow.scrollDirection == 1 && scrolledRow.scrollOffset == 40,
+      "expected a horizontal scroll at 40, got "
+        + "\(String(describing: scrolledRow.scrollDirection))/\(scrolledRow.scrollOffset)")
+    guard let scrolledContent = scrolledRow.children.first, scrolledContent.children.count == 1 else {
+      preconditionFailure("the scrolled row's content did not stay under the row")
+    }
+    precondition(
+      scrolledContent.children.first?.componentID == -5,
+      "the scrolled row's child landed at "
+        + "\(String(describing: scrolledContent.children.first?.componentID))")
+
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {
       let kotlinFixture = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
@@ -782,6 +806,21 @@ enum NativeSwiftCoreTests {
     output.u8(67).int(6).float(64)  // height(64.dp)
     output.u8(67).int(1).float(1)  // .fillMaxHeight()
     output.u8(201).int(-5)
+    for _ in 0..<4 { output.u8(214) }
+    return output.data
+  }
+
+  /// A root holding one row with a horizontal scroll modifier, in AndroidX's order: the row, the
+  /// container the scroll modifier opens, its 214, and only then the row's content.
+  private static func scrolledRowDocument() -> Data {
+    let output = Writer()
+    output.header(width: 200, height: 100)
+    output.u8(200).int(-2)
+    output.u8(203).int(-3).int(0).int(1).int(4).float(0)
+    output.u8(226).int(1).float(40).float(240).float(0)
+    output.u8(214)
+    output.u8(201).int(-4)
+    output.u8(202).int(-5).int(0).int(2).int(2)
     for _ in 0..<4 { output.u8(214) }
     return output.data
   }

@@ -347,8 +347,16 @@ container itself is hidden when nothing fits. `NativeSwiftCollapsible` holds tha
 UIKit and AppKit renderers cannot disagree about it — including the two rules that are easy to get
 backwards, that a child with no priority modifier is kept ahead of one that has a priority, and that
 a weighted child never consumes the space that would drop another. Hidden StateLayout alternatives
-are not rendered or reported as reachable compatibility failures. Flow, intrinsic sizing, layout
-compute, and scroll remain unsupported; required constraints are clamped to the native parent and
+are not rendered or reported as reachable compatibility failures. Flow, FitBox and scroll are laid
+out. A `FitBoxLayout` shows the first alternative whose natural size fits and nothing at all when
+none does — the box included, background and all — and an alternative's own visibility modifier is
+ignored while it is being chosen, because a document switches alternatives with it. A scrolled
+container measures and arranges its children against the *content* they make rather than the viewport
+that clips them: the viewport decides what is visible, the content decides where things sit. That
+second half is a reference quirk worth stating — `collapsible_column_scroll` centres its survivors in
+the pre-collapse total, so a collapse frees no space, it only moves the content — and the scroll
+offset itself is read from the document but not yet applied to the paint. Intrinsic sizing and layout
+compute remain unsupported; required constraints are clamped to the native parent and
 remain diagnosed because UIKit does not yet reproduce their overflow behavior. Layout stays
 deterministic and frame-based; Auto Layout would introduce solver behavior not in the Remote Compose
 contract. Remote Compose has no general component margin modifier; external spacing is expressed by
@@ -571,7 +579,7 @@ Remote Compose z-index, then insertion order. Hidden, clipped, or disabled contr
 The winning component id enters the retained session; its ordinary and single-click action blocks
 execute in wire order and emit typed Swift action values exactly once. Generation and session
 identity checks prevent a replaced document from delivering an old callback. Long press,
-double-click, drag, scroll, and raw touch expressions remain explicit compatibility gaps.
+double-click, drag, scroll gestures, and raw touch expressions remain explicit compatibility gaps.
 Haptics should use UIKit feedback generators. Sound remains host-owned. External URLs remain host
 events and must never trigger automatic network loads.
 
