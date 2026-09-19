@@ -417,7 +417,15 @@ Graphics-representable blend modes, ordered line/quadratic/cubic paths, path cli
 linear/radial/sweep gradients, and system-font size. Sweep gradients use bounded Core Graphics
 tessellation because `CGContext` has no conic-gradient primitive. Non-clamp gradient tile modes and
 rational conics are approximated with explicit diagnostics. Referenced shaders, color filters, path
-effects, font axes, and textures produce diagnostics or unsupported opcodes.
+effects, and font axes produce diagnostics or unsupported opcodes.
+
+A bitmap texture paint carries a `SHADER_MATRIX` — an RPN `MATRIX_EXPRESSION` over the document's
+floats — that maps the bitmap onto the shape, and a tile mode per axis. Both are applied: the
+matrix through a `CGPattern` premultiplied by the context's CTM (a pattern matrix is device-space),
+clamp and repeat through the pattern, mirror through a 2x2 super-tile of flipped copies, and decal
+by clipping the fill to the bitmap's own area. Clamp only clamps where the reference does when the
+shape lies inside the mapped bitmap; outside it this player repeats rather than extending the edge
+pixels. Setting a texture or a gradient replaces the paint's previous shader.
 
 ### Text
 

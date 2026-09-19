@@ -137,6 +137,10 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let textureImageID: Int?
   public let textureTileModeX: Int
   public let textureTileModeY: Int
+  /// The shader's local matrix as AndroidX's `MatrixAccess` 3x3 layout —
+  /// `[scaleX, skewX, translateX, skewY, scaleY, translateY, persp0, persp1, persp2]` — or nil
+  /// when the paint never named one. A texture drawn without it tiles at its natural size.
+  public let shaderMatrix: [Float]?
   public let usesComponentGeometry: Bool
   public let gradient: NativeSwiftGradientSnapshot?
 }
@@ -557,7 +561,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       commands: try node.commands.map {
         try $0.resolve(
           values: values, colors: resolvedColors, texts: texts,
-          componentValueIDs: Set(document.componentValues.map(\.valueID)))
+          componentValueIDs: Set(document.componentValues.map(\.valueID)),
+          matrices: document.matrixExpressions)
       },
       isClickable: node.isClickable,
       supportedGestures: node.actions.keys.sorted { $0.rawValue < $1.rawValue },
@@ -905,6 +910,7 @@ private struct ParsedDocument {
   let textMerges: [ParsedTextMerge]
   let idLists: [Int: [Int]]
   let textLookups: [ParsedTextLookupInt]
+  let matrixExpressions: [Int: ParsedMatrixExpression]
   let needsContinuousFrames: Bool
 }
 
@@ -1025,7 +1031,7 @@ private struct ParsedDrawCommand {
 
   func resolve(
     values: [Int: Float], colors: [Int: UInt32], texts: [Int: String],
-    componentValueIDs: Set<Int>
+    componentValueIDs: Set<Int>, matrices: [Int: ParsedMatrixExpression]
   ) throws
     -> NativeSwiftDrawCommandSnapshot
   {
@@ -1051,6 +1057,9 @@ private struct ParsedDrawCommand {
       textureImageID: paint.textureImageID,
       textureTileModeX: paint.textureTileModeX,
       textureTileModeY: paint.textureTileModeY,
+      shaderMatrix: paint.shaderMatrixID.flatMap { matrices[$0] }.flatMap {
+        NativeSwiftMatrixExpression.evaluate($0, values: values)
+      },
       usesComponentGeometry: usesComponentGeometry,
       gradient: paint.gradient.map { gradient in
         NativeSwiftGradientSnapshot(
@@ -1148,7 +1157,7 @@ private struct ParsedPath {
 }
 
 /// A paint gradient held as it arrived on the wire, so its colours and coordinates resolve at the
-/// same point as every other draw value. Colour words are literal ARGB unless their bit is set in
+/// same point as every other draw value. Colour words are literal ARGB unless its bit is set in
 /// `colorRegister`, in which case they are colour IDs to look up.
 private struct ParsedGradient {
   var kind: Int
@@ -1157,6 +1166,14 @@ private struct ParsedGradient {
   var stopWords: [UInt32]
   var coordinateWords: [UInt32]
   var tileMode: Int
+}
+
+/// A `MATRIX_EXPRESSION` held as it arrived on the wire. The expression is RPN over a small matrix
+/// stack and is evaluated at snapshot time, once the floats its operands name have resolved.
+private struct ParsedMatrixExpression {
+  let id: Int
+  let type: Int
+  let words: [UInt32]
 }
 
 private struct ParsedPaint {
@@ -1172,6 +1189,9 @@ private struct ParsedPaint {
   var textureImageID: Int?
   var textureTileModeX = 0
   var textureTileModeY = 0
+  /// The `MatrixAccess` id a `SHADER_MATRIX` field named, or nil when the field was cleared or
+  /// never set. Applies to whichever shader the paint currently carries.
+  var shaderMatrixID: Int?
 }
 
 /// The word for a literal `-1`, which is how a node says "no maximum". Spelled once so the default
@@ -1441,6 +1461,231 @@ private enum NativeSwiftFloatExpression {
   }
 }
 
+/// Evaluates a `MATRIX_EXPRESSION` into the 3x3 layout AndroidX's `MatrixAccess` exposes.
+///
+/// The expression is an RPN stream over a small matrix stack: literals are operands, and a
+/// NaN-boxed operator token acts on the operand slots immediately before it. This is the same
+/// evaluator `MatrixOperations` runs, kept here because a paint's `SHADER_MATRIX` field names one
+/// and a texture shader is meaningless without it.
+///
+/// A token sequence this evaluator cannot complete resolves to nil rather than failing the
+/// document: the matrix used to be dropped outright, so dropping it again is not a regression, and
+/// the shader still draws at its natural scale.
+private enum NativeSwiftMatrixExpression {
+  static let operatorOffset = 0x0032_0000
+  static let lastOperator = operatorOffset + 54
+
+  /// The NaN-encoded id a `SHADER_MATRIX` paint field carries, or nil when the field is zero.
+  static func referenceID(word: UInt32) -> Int? {
+    guard word & 0x7f80_0000 == 0x7f80_0000 else { return nil }
+    let payload = Int(word & 0x003f_ffff)
+    guard payload == 0 || payload <= operatorOffset || payload > lastOperator else { return nil }
+    return payload
+  }
+
+  static func evaluate(_ expression: ParsedMatrixExpression, values: [Int: Float]) -> [Float]? {
+    var matrices = [[Float]](repeating: identity, count: 10)
+    var index = 0
+    matrices[0] = identity
+    func operand(_ position: Int) -> Float? {
+      guard position >= 0, position < expression.words.count else { return nil }
+      let value = NativeSwiftFloatExpression.resolve(expression.words[position], values: values)
+      return value.isFinite ? value : nil
+    }
+    for (position, word) in expression.words.enumerated() {
+      let payload = Int(word & 0x003f_ffff)
+      guard word & 0x7f80_0000 == 0x7f80_0000, payload > operatorOffset,
+        payload <= lastOperator
+      else { continue }
+      let operation = payload - operatorOffset
+      switch operation {
+      case 1:  // IDENTITY pushes a new matrix for a following scale or rotation.
+        index += 1
+        guard index < matrices.count else { return nil }
+        matrices[index] = identity
+      case 2, 3, 4:
+        guard let degrees = operand(position - 1) else { return nil }
+        matrices[index] = multiply(matrices[index], rotation(axis: operation, degrees: degrees))
+      case 5, 6, 7:
+        guard let value = operand(position - 1) else { return nil }
+        matrices[index] = multiply(
+          matrices[index],
+          translation(
+            x: operation == 5 ? value : 0, y: operation == 6 ? value : 0,
+            z: operation == 7 ? value : 0))
+      case 8, 9:
+        let first = operand(position - 2)
+        let second = operand(position - 1)
+        guard let first, let second else { return nil }
+        matrices[index] = multiply(
+          matrices[index], translation(x: first, y: second, z: 0))
+      case 10, 11, 12:
+        guard let value = operand(position - 1) else { return nil }
+        scale(
+          &matrices[index],
+          x: operation == 10 ? value : 1, y: operation == 11 ? value : 1,
+          z: operation == 12 ? value : 1)
+      case 13:
+        let first = operand(position - 2)
+        let second = operand(position - 1)
+        guard let first, let second else { return nil }
+        scale(&matrices[index], x: first, y: second, z: 0)
+      case 14:
+        let first = operand(position - 3)
+        let second = operand(position - 2)
+        let third = operand(position - 1)
+        guard let first, let second, let third else { return nil }
+        scale(&matrices[index], x: first, y: second, z: third)
+      case 15:  // MUL merges the top two matrices.
+        guard index > 0 else { return nil }
+        matrices[index - 1] = multiply(matrices[index - 1], matrices[index])
+        index -= 1
+      case 16:  // ROT_PZ: angle, pivot x, pivot y.
+        let pivotX = operand(position - 2)
+        let pivotY = operand(position - 1)
+        let degrees = operand(position - 3)
+        guard let pivotX, let pivotY, let degrees else { return nil }
+        matrices[index] = multiply(
+          rotationWithPivot(pivotX: pivotX, pivotY: pivotY, degrees: degrees), matrices[index])
+      case 17:  // ROT_AXIS: angle, x, y, z.
+        let x = operand(position - 3)
+        let y = operand(position - 2)
+        let z = operand(position - 1)
+        let degrees = operand(position - 4)
+        guard let x, let y, let z, let degrees else { return nil }
+        matrices[index] = multiply(rotationAroundAxis(x: x, y: y, z: z, degrees: degrees), matrices[index])
+      case 18:  // PROJECTION: fov degrees, aspect ratio, near, far.
+        let fov = operand(position - 4)
+        let aspect = operand(position - 3)
+        let near = operand(position - 2)
+        let far = operand(position - 1)
+        guard let fov, let aspect, let near, let far else { return nil }
+        matrices[index] = multiply(matrices[index], projection(fov: fov, aspect: aspect, near: near, far: far))
+      default:
+        return nil
+      }
+    }
+    // `MatrixAccess.to3x3`: a 4x4 collapses to the Android 3x3 layout, which is
+    // [scaleX, skewX, translateX, skewY, scaleY, translateY, persp0, persp1, persp2].
+    let matrix = matrices[0]
+    return [
+      matrix[0], matrix[1], matrix[3],
+      matrix[4], matrix[5], matrix[7],
+      matrix[8], matrix[9], matrix[15],
+    ]
+  }
+
+  private static let identity: [Float] = [
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1,
+  ]
+
+  private static func multiply(_ first: [Float], _ second: [Float]) -> [Float] {
+    var result = [Float](repeating: 0, count: 16)
+    for row in 0..<4 {
+      for column in 0..<4 {
+        var sum: Float = 0
+        for k in 0..<4 { sum += first[row * 4 + k] * second[k * 4 + column] }
+        result[row * 4 + column] = sum
+      }
+    }
+    return result
+  }
+
+  private static func translation(x: Float, y: Float, z: Float) -> [Float] {
+    var matrix = identity
+    matrix[3] = x
+    matrix[7] = y
+    matrix[11] = z
+    return matrix
+  }
+
+  private static func scale(_ matrix: inout [Float], x: Float, y: Float, z: Float) {
+    matrix[0] *= x
+    matrix[5] *= y
+    matrix[10] *= z
+  }
+
+  private static func rotation(axis: Int, degrees: Float) -> [Float] {
+    let radians = degrees * .pi / 180
+    let cosine = cosf(radians)
+    let sine = sinf(radians)
+    var matrix = identity
+    switch axis {
+    case 2:
+      matrix[5] = cosine
+      matrix[6] = -sine
+      matrix[9] = sine
+      matrix[10] = cosine
+    case 3:
+      matrix[0] = cosine
+      matrix[2] = sine
+      matrix[8] = -sine
+      matrix[10] = cosine
+    default:
+      matrix[0] = cosine
+      matrix[1] = -sine
+      matrix[4] = sine
+      matrix[5] = cosine
+    }
+    return matrix
+  }
+
+  private static func rotationWithPivot(pivotX: Float, pivotY: Float, degrees: Float) -> [Float] {
+    let radians = degrees * .pi / 180
+    let cosine = cosf(radians)
+    let sine = sinf(radians)
+    var matrix = identity
+    matrix[0] = cosine
+    matrix[1] = -sine
+    matrix[3] = pivotX * (1 - cosine) + pivotY * sine
+    matrix[4] = sine
+    matrix[5] = cosine
+    matrix[7] = pivotY * (1 - cosine) - pivotX * sine
+    return matrix
+  }
+
+  private static func rotationAroundAxis(x: Float, y: Float, z: Float, degrees: Float) -> [Float] {
+    let lengthSquared = x * x + y * y + z * z
+    guard lengthSquared > 0 else { return identity }
+    let length = sqrtf(lengthSquared)
+    let ux = x / length
+    let uy = y / length
+    let uz = z / length
+    let radians = degrees * .pi / 180
+    let cosine = cosf(radians)
+    let sine = sinf(radians)
+    let oneMinusCosine = 1 - cosine
+    var matrix = identity
+    matrix[0] = cosine + ux * ux * oneMinusCosine
+    matrix[1] = ux * uy * oneMinusCosine - uz * sine
+    matrix[2] = ux * uz * oneMinusCosine + uy * sine
+    matrix[4] = uy * ux * oneMinusCosine + uz * sine
+    matrix[5] = cosine + uy * uy * oneMinusCosine
+    matrix[6] = uy * uz * oneMinusCosine - ux * sine
+    matrix[8] = uz * ux * oneMinusCosine - uy * sine
+    matrix[9] = uz * uy * oneMinusCosine + ux * sine
+    matrix[10] = cosine + uz * uz * oneMinusCosine
+    return matrix
+  }
+
+  private static func projection(fov: Float, aspect: Float, near: Float, far: Float) -> [Float] {
+    let radians = fov * .pi / 180
+    let f = 1 / tanf(radians / 2)
+    let range = 1 / (near - far)
+    var matrix = identity
+    matrix[0] = f / aspect
+    matrix[5] = f
+    matrix[10] = (far + near) * range
+    matrix[11] = -1
+    matrix[14] = 2 * far * near * range
+    matrix[15] = 0
+    return matrix
+  }
+}
+
 private struct ParsedText {
   let textID: Int
   let colorARGB: UInt32
@@ -1556,6 +1801,7 @@ private enum NativeSwiftDocumentDecoder {
     var textMerges: [ParsedTextMerge] = []
     var idLists: [Int: [Int]] = [:]
     var textLookups: [ParsedTextLookupInt] = []
+    var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -1956,11 +2202,13 @@ private enum NativeSwiftDocumentDecoder {
           throw input.malformed("Unknown color attribute type \(attribute.type)")
         }
         colorAttributes.append(attribute)
-      case 187:  // Matrix expression; retained shader transforms are approximated by native scaling.
-        _ = try input.int("matrix expression id")
-        _ = try input.int("matrix expression type")
+      case 187:  // Matrix expression, named by a paint's SHADER_MATRIX field.
+        let matrixID = try input.int("matrix expression id")
+        let matrixType = try input.int("matrix expression type")
         let count = try input.count("matrix expression value count", maximum: 32)
-        for _ in 0..<count { _ = try input.word("matrix expression value") }
+        let matrixWords = try (0..<count).map { _ in try input.word("matrix expression value") }
+        matrixExpressions[matrixID] = ParsedMatrixExpression(
+          id: matrixID, type: matrixType, words: matrixWords)
       case 171:  // Image dimension attribute
         let outputID = try input.int("image attribute output id")
         let imageID = try input.int("image attribute image id")
@@ -2381,6 +2629,7 @@ private enum NativeSwiftDocumentDecoder {
       componentValues: componentValues, colorAttributes: colorAttributes,
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
       textMerges: textMerges, idLists: idLists, textLookups: textLookups,
+      matrixExpressions: matrixExpressions,
       needsContinuousFrames: needsContinuousFrames)
   }
 
@@ -2432,9 +2681,18 @@ private enum NativeSwiftDocumentDecoder {
       case 19:
         paint.colorID = words[index]
       case 24:
+        // A texture shader replaces whatever shader the paint carried, exactly as setting a
+        // gradient does; both fields used to persist together, and the renderer's texture branch
+        // then drew the texture a second time where the document asked for a gradient scrim.
         paint.textureImageID = words[index]
         paint.textureTileModeX = words[index + 1] & 0xf
         paint.textureTileModeY = (words[index + 1] >> 16) & 0xf
+        paint.gradient = nil
+      case 22:
+        // The local matrix of the shader currently installed: a NaN-encoded MatrixAccess id, or 0
+        // to clear it.
+        paint.shaderMatrixID = NativeSwiftMatrixExpression.referenceID(
+          word: UInt32(bitPattern: Int32(words[index])))
       case 11:
         // Layout, matching the reference player: a meta word carrying the colour count and the
         // colour-ID register, that many colour words, a stop count, that many stop words, and then
@@ -2454,6 +2712,9 @@ private enum NativeSwiftDocumentDecoder {
           stopWords: (0..<stopCount).map { word(index + 2 + colorCount + $0) },
           coordinateWords: (0..<coordinateCount).map { word(coordinateStart + $0) },
           tileMode: highBits == 2 ? 0 : words[coordinateStart + coordinateCount])
+        paint.textureImageID = nil
+        paint.textureTileModeX = 0
+        paint.textureTileModeY = 0
       default: break
       }
       index += argumentCount
