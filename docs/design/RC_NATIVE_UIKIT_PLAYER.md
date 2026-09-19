@@ -420,12 +420,14 @@ rational conics are approximated with explicit diagnostics. Referenced shaders, 
 effects, and document-declared font axes produce diagnostics or unsupported opcodes.
 
 A bitmap texture paint carries a `SHADER_MATRIX` — an RPN `MATRIX_EXPRESSION` over the document's
-floats — that maps the bitmap onto the shape, and a tile mode per axis. Both are applied: the
-matrix through a `CGPattern` premultiplied by the context's CTM (a pattern matrix is device-space),
-clamp and repeat through the pattern, mirror through a 2x2 super-tile of flipped copies, and decal
-by clipping the fill to the bitmap's own area. Clamp only clamps where the reference does when the
-shape lies inside the mapped bitmap; outside it this player repeats rather than extending the edge
-pixels. Setting a texture or a gradient replaces the paint's previous shader.
+floats — that maps the bitmap onto the shape, and a tile mode per axis. Both are applied: the matrix
+transforms each tile draw in the same user space as the clipped path, clamp and repeat tile it,
+mirror flips alternate tiles, and decal paints only the bitmap's own area. A `CGPattern` was tried
+first and painted nothing on a UIKit layer context — a pattern matrix is device-space and ignores
+the CTM — so the fill draws transformed images instead, capped at a bounded tile count. Clamp only
+clamps where the reference does when the shape lies inside the mapped bitmap; outside it this player
+repeats rather than extending the edge pixels. Setting a texture or a gradient replaces the paint's
+previous shader.
 
 ### Text
 
