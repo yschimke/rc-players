@@ -121,6 +121,9 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
    */
   private var capturedTrees: Map<String, JsonElement>? = null
 
+  /** Each frame's document values, as the player resolved them. */
+  private var capturedValues: Map<String, JsonObject>? = null
+
   private class Frame(val id: String, val width: Int, val height: Int, val time: Double)
 
   override fun execute(step: Step, onCapture: (String) -> Unit) {
@@ -148,6 +151,7 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
     // the viewport recorded when the step ran.
     captured = null
     capturedTrees = null
+    capturedValues = null
     batch = null
   }
 
@@ -155,7 +159,37 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
     when (check.key) {
       "raster" -> raster(check.at)
       "tree" -> tree(check.at)
+      "float",
+      "int",
+      "text",
+      "color" -> scalar(check)
       else -> Observation.NotImplemented
+    }
+
+  /**
+   * A document's own value, as the corpus's `float`, `int`, `text` and `color` probes read it.
+   *
+   * The player resolves the slots this gold asserts at each frame's instant, so the value and the
+   * pixels describe one moment. Two absences are kept apart: a *numeric* target the document left
+   * empty is an observation and reports null, while a *named* one the document never declared is
+   * unobservable — the player leaves the key out, and this lane reports its own gap rather than a
+   * wrong value.
+   */
+  private fun scalar(check: Check): Observation {
+    val target = check.target ?: return Observation.NotImplemented
+    val frames = capturedValues ?: captureValues().also { capturedValues = it }
+    val values = frames[check.at] ?: return Observation.NotImplemented
+    val bucket = values[bucketName(check.key)] as? JsonObject ?: return Observation.NotImplemented
+    val value = bucket[target] ?: return Observation.NotImplemented
+    return Observation.Value(value)
+  }
+
+  private fun bucketName(probe: String): String =
+    when (probe) {
+      "float" -> "floats"
+      "int" -> "integers"
+      "text" -> "texts"
+      else -> "colors"
     }
 
   private fun tree(stepId: String): Observation {
@@ -197,6 +231,19 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
                 put("width", frame.width)
                 put("height", frame.height)
                 put("time", frame.time)
+                if (valueTargets.isNotEmpty()) {
+                  put(
+                    "values",
+                    buildJsonObject {
+                      valueTargets.forEach { (bucket, targets) ->
+                        put(
+                          bucket,
+                          buildJsonArray { targets.forEach { add(JsonPrimitive(it)) } },
+                        )
+                      }
+                    },
+                  )
+                }
               }
             )
           }
@@ -245,6 +292,29 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
         if (png.isFile) frame.id to png.readBytes() else null
       }
       .toMap()
+  }
+
+  /** The document values the player reported for each frame, keyed by step id. */
+  private fun captureValues(): Map<String, JsonObject> {
+    if (valueTargets.isEmpty()) return emptyMap()
+    val frames = runBatch()["frames"]?.jsonArray ?: return emptyMap()
+    return frames
+      .mapNotNull { it as? JsonObject }
+      .mapNotNull { entry ->
+        val id = (entry["id"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+        val values = entry["values"] as? JsonObject ?: return@mapNotNull null
+        id to values
+      }
+      .toMap()
+  }
+
+  /** The targets this gold's value probes assert, one list per slot kind. */
+  private val valueTargets: Map<String, List<String>> by lazy {
+    gold.checks
+      .filter { it.key in setOf("float", "int", "text", "color") }
+      .mapNotNull { check -> check.target?.let { bucketName(check.key) to it } }
+      .groupBy({ it.first }, { it.second })
+      .mapValues { (_, targets) -> targets.distinct() }
   }
 
   /** The laid-out tree the player reported for each frame, keyed by step id. */

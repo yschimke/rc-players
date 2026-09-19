@@ -568,16 +568,27 @@ struct RemoteComposeMacApplication {
           let time = (frame["time"] as? NSNumber)?.doubleValue ?? 0
           let viewport = (width != nil && height != nil)
             ? CGSize(width: width!, height: height!) : nil
+          // The values this frame's checks assert. A gold asks for the handful it names rather than
+          // for a whole dump, and the player resolves them at the frame's own instant.
+          let requested = frame["values"] as? [String: Any] ?? [:]
+          let valueRequest = NativeMacValueRequest(
+            floats: requested["floats"] as? [String] ?? [],
+            integers: requested["integers"] as? [String] ?? [],
+            texts: requested["texts"] as? [String] ?? [],
+            colors: requested["colors"] as? [String] ?? [])
           // A document this player refuses is a result, not a crash: the runner needs to report it
           // as a failing check for that frame rather than lose the whole gold.
           do {
             let frame = try NativeAppKitWindowController.renderFrame(
-              data: document, timeSeconds: time, viewport: viewport)
+              data: document, timeSeconds: time, viewport: viewport, values: valueRequest)
             let path = URL(fileURLWithPath: outputDirectory).appendingPathComponent("\(id).png")
             try frame.png.write(to: path, options: .atomic)
             // The laid-out tree travels with the frame: the corpus's `tree` probe reads it, and
             // taking it from the same view the pixels came from keeps the two channels consistent.
-            results.append(["id": id, "png": path.path, "tree": frame.tree])
+            // The document's own values travel with it too, resolved at the same instant.
+            var result: [String: Any] = ["id": id, "png": path.path, "tree": frame.tree]
+            if let values = frame.values { result["values"] = values }
+            results.append(result)
           } catch {
             results.append(["id": id, "error": "\(error)"])
           }

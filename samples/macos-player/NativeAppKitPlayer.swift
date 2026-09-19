@@ -56,6 +56,22 @@ enum NativeMacFrameDriverMode: Equatable {
   }
 }
 
+/// A request for the document's own values, for the conformance corpus's value probes.
+///
+/// The corpus's `float`, `int`, `text` and `color` probes read a document's state rather than its
+/// rendering, so the runner asks for the slots it asserts rather than for a whole dump: a gold
+/// asserts a handful, and a document can hold hundreds.
+struct NativeMacValueRequest {
+  var floats: [String] = []
+  var integers: [String] = []
+  var texts: [String] = []
+  var colors: [String] = []
+
+  var isEmpty: Bool {
+    floats.isEmpty && integers.isEmpty && texts.isEmpty && colors.isEmpty
+  }
+}
+
 @MainActor
 final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   static let shared = NativeAppKitWindowController()
@@ -88,10 +104,15 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     timeSeconds: TimeInterval = 0,
     wallClock: NativeSwiftWallClock = .capture,
     downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
-    viewport: CGSize? = nil
-  ) throws -> (png: Data, tree: [[String: Any]]) {
+    viewport: CGSize? = nil,
+    values: NativeMacValueRequest = NativeMacValueRequest()
+  ) throws -> (png: Data, tree: [[String: Any]], values: [String: Any]?) {
     try NativeMacPolicy.validateDocument(data)
-    let session = try NativeSwiftDocumentSession.open(data: data)
+    // A *data-only* document declares values and nothing to draw. A conformance capture still has to
+    // answer the probes those documents assert, so the batch tolerates one; the window path below
+    // does not, and a host that is about to show a document is still told it has nothing to paint.
+    let session = try NativeSwiftDocumentSession.open(
+      data: data, toleratingRootlessData: true)
     let snapshot = try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
     let fonts = try NativeMacFontRegistry.register(
@@ -116,7 +137,51 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     guard let png = bitmap.representation(using: .png, properties: [:]) else {
       throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
     }
-    return (png, player.layoutTree())
+    return (
+      png, player.layoutTree(),
+      values.isEmpty
+        ? nil
+        : try reportedValues(
+          session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values)
+    )
+  }
+
+  /// The values a probe asked for, each resolved at the frame's own instant.
+  ///
+  /// A named target addresses a variable the document declared; a numeric one addresses a slot
+  /// directly. A slot the document left empty reports null rather than being omitted — that is an
+  /// observation, and the runner distinguishes it from a probe this player cannot answer.
+  private static func reportedValues(
+    session: NativeSwiftDocumentSession, timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock,
+    request: NativeMacValueRequest
+  ) throws -> [String: Any] {
+    let resolved = try session.probeValues(timeSeconds: timeSeconds, wallClock: wallClock)
+    func report(_ targets: [String], _ read: (Int) -> Any?) -> [String: Any] {
+      var result: [String: Any] = [:]
+      for target in targets {
+        // A name the document never declared is left out, and that absence is what tells the runner
+        // the probe is unobservable; a slot that exists and holds nothing reports null instead,
+        // which is an observation.
+        guard let slot = Int(target) ?? session.namedVariableID(target) else { continue }
+        result[target] = read(slot) ?? NSNull()
+      }
+      return result
+    }
+    // A *numeric* slot the document never wrote reads 0, which is what the reference's own state
+    // arrays do — `expr_color_blending` and `expr_integer_bitwise_ops` assert exactly that for the
+    // ids their (value-only, nothing-to-draw) documents never reach. Text is the exception: it has
+    // no such zero, and a slot the document never wrote stays unobservable rather than reporting an
+    // empty string the corpus never asserted.
+    return [
+      "floats": report(request.floats) { id in
+        resolved.floats[id].map { Double($0) } ?? 0
+      },
+      "integers": report(request.integers) { resolved.integers[$0] ?? 0 },
+      "texts": report(request.texts) { resolved.texts[$0] },
+      "colors": report(request.colors) { id in
+        resolved.colors[id].map { NSNumber(value: $0) } ?? NSNumber(value: UInt32(0))
+      },
+    ]
   }
 
   /// Machine-readable AppKit performance evidence for one document.

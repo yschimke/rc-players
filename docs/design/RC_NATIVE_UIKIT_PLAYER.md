@@ -338,6 +338,11 @@ UIKit lays out components in document coordinates and applies `RootContentBehavi
 root view transform. Inside, fit, fill-width, fill-height, crop, fill-bounds, and alignment modes are
 explicit and respond to host resizing. Scroll remains unsupported.
 
+A *data-only* document — one that declares expressions, colours or text and nothing to draw — is
+refused by the ordinary open path, because a host about to render it has been handed something it
+cannot paint. The conformance lane asks for `toleratingRootlessData` explicitly so its value probes
+can still be answered; the mode produces an empty root of the document's own size and nothing else.
+
 The static profile implements Box, Row, Column, and time-zero StateLayout selection, including
 structural content flattening, proportional row/column weights, range constraints, visibility,
 offset, z-order, and RTL row order. A collapsible row or column (`CollapsibleRowLayout`,
