@@ -571,11 +571,13 @@ struct RemoteComposeMacApplication {
           // A document this player refuses is a result, not a crash: the runner needs to report it
           // as a failing check for that frame rather than lose the whole gold.
           do {
-            let png = try NativeAppKitWindowController.renderPNG(
+            let frame = try NativeAppKitWindowController.renderFrame(
               data: document, timeSeconds: time, viewport: viewport)
             let path = URL(fileURLWithPath: outputDirectory).appendingPathComponent("\(id).png")
-            try png.write(to: path, options: .atomic)
-            results.append(["id": id, "png": path.path])
+            try frame.png.write(to: path, options: .atomic)
+            // The laid-out tree travels with the frame: the corpus's `tree` probe reads it, and
+            // taking it from the same view the pixels came from keeps the two channels consistent.
+            results.append(["id": id, "png": path.path, "tree": frame.tree])
           } catch {
             results.append(["id": id, "error": "\(error)"])
           }

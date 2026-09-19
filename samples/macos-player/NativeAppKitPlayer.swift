@@ -72,10 +72,27 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
     viewport: CGSize? = nil
   ) throws -> Data {
+    try renderFrame(
+      data: data, timeSeconds: timeSeconds, wallClock: wallClock,
+      downloadedFonts: downloadedFonts, viewport: viewport
+    ).png
+  }
+
+  /// One captured frame and the tree it was laid out as.
+  ///
+  /// The tree is what the conformance corpus's `tree` probe reads: the laid-out geometry of every
+  /// component, in the vocabulary the golds use. It comes from the same view the pixels do, so the
+  /// two channels cannot disagree about what was rendered.
+  static func renderFrame(
+    data: Data,
+    timeSeconds: TimeInterval = 0,
+    wallClock: NativeSwiftWallClock = .capture,
+    downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
+    viewport: CGSize? = nil
+  ) throws -> (png: Data, tree: [[String: Any]]) {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
-    let snapshot = try session.snapshot(
-      timeSeconds: timeSeconds, wallClock: nativeSystemWallClock())
+    let snapshot = try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
     let fonts = try NativeMacFontRegistry.register(
       snapshot: snapshot, downloadedFonts: downloadedFonts)
@@ -99,7 +116,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     guard let png = bitmap.representation(using: .png, properties: [:]) else {
       throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
     }
-    return png
+    return (png, player.layoutTree())
   }
 
   /// Machine-readable AppKit performance evidence for one document.
@@ -480,6 +497,56 @@ private final class NativeMacDocumentView: NSView {
   private let fonts: NativeMacFontRegistry
   private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
   private var component: NativeMacComponentView!
+
+  /// The laid-out component tree, for the conformance corpus's `tree` probe.
+  ///
+  /// One entry per component the corpus names — a structural content wrapper has no class in the
+  /// vocabulary and is skipped, though its children are not — with the geometry its parent's layout
+  /// assigned it. `depth` counts those named ancestors, so it matches the golds' numbering rather
+  /// than this view hierarchy's.
+  ///
+  /// §2.7: a node's x/y is only what the layout manager assigned. Padding and offset are modifier
+  /// translation, applied at paint time, and are *not* in them — a padded child reports x: 0 and
+  /// the padding shows up as the parent being larger. This renderer places children inside the
+  /// parent's padded content rect and adds the child's own offset when it frames them, so both are
+  /// taken back out here; the parent's reported size already carries the padding.
+  func layoutTree() -> [[String: Any]] {
+    var nodes: [[String: Any]] = []
+    func walk(_ view: NativeMacComponentView, depth: Int, parentPadding: MacInsets) {
+      let kind = view.node.componentKind
+      let named = !kind.isEmpty
+      var childDepth = depth
+      if named {
+        let frame = view.frame
+        // The effective visibility, not the document's: a container that collapsed this child away
+        // — or a state layout that is showing another branch — has hidden it, and the corpus reads
+        // that as GONE. Taking the document's own field reported a dropped child as VISIBLE while
+        // its pixels were absent, which is exactly the disagreement the tree channel exists to
+        // catch.
+        let gone = view.isHidden || view.node.visibility == 0
+        nodes.append([
+          "id": view.node.componentID,
+          "kind": kind,
+          "x": Double(frame.origin.x - parentPadding.left - CGFloat(view.node.offsetX)),
+          "y": Double(frame.origin.y - parentPadding.top - CGFloat(view.node.offsetY)),
+          "width": Double(frame.size.width),
+          "height": Double(frame.size.height),
+          "depth": depth,
+          "isGone": gone,
+          "visibility": gone ? "GONE" : (view.node.visibility == 2 ? "INVISIBLE" : "VISIBLE"),
+        ])
+        childDepth = depth + 1
+      }
+      // A structural wrapper is transparent to layout: it sits at its parent's origin and carries no
+      // padding of its own, so the inset its children were placed against is the nearest named
+      // ancestor's.
+      let padding = named ? view.insets : parentPadding
+      for child in view.componentChildren { walk(child, depth: childDepth, parentPadding: padding) }
+    }
+    walk(component, depth: 0, parentPadding: MacInsets.zero)
+    // §4.3: nodes are sorted by component id ascending, which puts a node after all its descendants.
+    return nodes.sorted { ($0["id"] as? Int ?? 0) < ($1["id"] as? Int ?? 0) }
+  }
   private var displayLinkDriver: AnyObject?
   private var fallbackFrameTimer: Timer?
   private var delayedWakeTimer: Timer?
@@ -830,8 +897,10 @@ private extension Collection {
 }
 
 private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate {
-  private let node: NativeMacNode
-  private let componentChildren: [NativeMacComponentView]
+  /// The resolved component this view draws. Read by the document view's tree dump, which the
+  /// conformance corpus's `tree` probe reads.
+  let node: NativeMacNode
+  let componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
   private let imageViews: [NSImageView]
@@ -1122,7 +1191,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     }
   }
   private var spacing: CGFloat { CGFloat(node.spacing) }
-  private var insets: MacInsets {
+  /// This component's padding, which the tree dump takes back out of its children's positions
+  /// (§2.7: padding is modifier translation, not the layout manager's assignment).
+  var insets: MacInsets {
     MacInsets(
       top: CGFloat(node.paddingTop), left: CGFloat(node.paddingLeft),
       bottom: CGFloat(node.paddingBottom), right: CGFloat(node.paddingRight))
@@ -1157,8 +1228,15 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   ) -> [Bool]? {
     guard node.isCollapsible else { return nil }
     let orientation = axis == .vertical ? 1 : 0
+    // The fit test measures each child with its *main* axis unbounded: the reference measures with
+    // the constraints the container received from its parent, so a child taller than the container
+    // is measured at its natural size and then dropped, rather than clamped to fit and kept.
+    let measuring =
+      axis == .vertical
+      ? CGSize(width: available.width, height: .greatestFiniteMagnitude)
+      : CGSize(width: .greatestFiniteMagnitude, height: available.height)
     let children = items.map { child -> NativeSwiftCollapsible.Child in
-      let size = child.preferredSize(in: available)
+      let size = child.preferredSize(in: measuring)
       let weightType = axis == .vertical ? child.node.heightType : child.node.widthType
       let weightValue = axis == .vertical ? child.node.heightValue : child.node.widthValue
       let priority =

@@ -12,10 +12,14 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.nio.file.Files
 import javax.imageio.ImageIO
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 /**
@@ -105,6 +109,18 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
 
   private var captured: Map<String, ByteArray>? = null
 
+  /** The batch's own JSON, so the two probes share one subprocess rather than starting two. */
+  private var batch: JsonObject? = null
+
+  /**
+   * Each frame's laid-out tree, as the player reported it.
+   *
+   * The corpus's `tree` probe reads this: one node per named component with its laid-out geometry,
+   * visibility and depth. The player emits it beside the PNG from the same view, so the two
+   * channels cannot disagree about what was rendered.
+   */
+  private var capturedTrees: Map<String, JsonElement>? = null
+
   private class Frame(val id: String, val width: Int, val height: Int, val time: Double)
 
   override fun execute(step: Step, onCapture: (String) -> Unit) {
@@ -131,13 +147,22 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
     // check bound to an earlier step still reads that step's own frame, because each is captured at
     // the viewport recorded when the step ran.
     captured = null
+    capturedTrees = null
+    batch = null
   }
 
   override fun observe(check: Check): Observation =
     when (check.key) {
       "raster" -> raster(check.at)
+      "tree" -> tree(check.at)
       else -> Observation.NotImplemented
     }
+
+  private fun tree(stepId: String): Observation {
+    val trees = capturedTrees ?: captureTrees().also { capturedTrees = it }
+    val nodes = trees[stepId] ?: return Observation.NotImplemented
+    return Observation.Value(nodes)
+  }
 
   private fun raster(stepId: String): Observation {
     val frames = captured ?: capture().also { captured = it }
@@ -149,8 +174,16 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
     return Observation.Raster(rgba.width, rgba.height, rgba.rgba)
   }
 
-  private fun capture(): Map<String, ByteArray> {
-    if (requested.isEmpty()) return emptyMap()
+  /**
+   * Runs the batch once, on the first probe that asks for a frame.
+   *
+   * Both channels come out of the same subprocess: the PNGs land on disk and the trees come back in
+   * its JSON, so a gold whose checks are all `tree` or all `raster` pays for one player start.
+   */
+  private fun runBatch(): JsonObject {
+    batch?.let {
+      return it
+    }
     val job = buildJsonObject {
       put("document", gold.documentBase64)
       put("output", workingDirectory.absolutePath)
@@ -197,10 +230,33 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
           (parseErrors(stdout).takeIf { it.isNotEmpty() }?.let { " -- $it" } ?: "")
       )
     }
+    val parsed = Json.parseToJsonElement(stdout).jsonObject
+    batch = parsed
+    return parsed
+  }
+
+  /** The frame the player rendered, keyed by step id. */
+  private fun capture(): Map<String, ByteArray> {
+    if (requested.isEmpty()) return emptyMap()
+    runBatch()
     return requested
       .mapNotNull { frame ->
         val png = File(workingDirectory, "${frame.id}.png")
         if (png.isFile) frame.id to png.readBytes() else null
+      }
+      .toMap()
+  }
+
+  /** The laid-out tree the player reported for each frame, keyed by step id. */
+  private fun captureTrees(): Map<String, JsonElement> {
+    if (requested.isEmpty()) return emptyMap()
+    val frames = runBatch()["frames"]?.jsonArray ?: return emptyMap()
+    return frames
+      .mapNotNull { it as? JsonObject }
+      .mapNotNull { entry ->
+        val id = (entry["id"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+        val tree = entry["tree"] ?: return@mapNotNull null
+        id to tree
       }
       .toMap()
   }
