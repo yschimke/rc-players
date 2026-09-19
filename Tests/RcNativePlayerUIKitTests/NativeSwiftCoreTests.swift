@@ -637,6 +637,19 @@ enum NativeSwiftCoreTests {
     precondition(
       NativeSwiftCollapsible.keptChildren(gone, available: 100, spacing: 0) == [false, true],
       "a GONE child was kept or consumed space")
+    // A fill child has no natural size, so it is not measured unbounded — an unbounded fill
+    // resolves to infinity and the fit test then drops it from any container.
+    precondition(
+      !NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 1)
+        && !NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 7)
+        && !NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 8),
+      "a fill dimension was measured unbounded")
+    precondition(
+      NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 2)
+        && NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 6)
+        && NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 3),
+      "a fixed, wrapping or weighted dimension was not measured unbounded")
+
     // Unbounded space keeps everything the document did not hide.
     precondition(
       kept([10, 10], available: .infinity) == [true, true],
