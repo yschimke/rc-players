@@ -51,6 +51,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
+import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
@@ -925,6 +926,90 @@ class RcLayoutRenderTest {
 
       assertEquals(0, bitmap.getColor(10, 10))
       assertEquals(red, bitmap.getColor(90, 90))
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
+  fun aFitBoxChildsOwnVisibilityModifierDoesNotHideIt() {
+    // `fitbox_child_visibility`: the modifier's id names a *text* slot ("visible"), which resolves
+    // to no integer, and the fallback for an unresolvable id is GONE. A FitBox owns its children's
+    // visibility — it is what marks a branch GONE when nothing fits — so the modifier is ignored
+    // there, as AndroidX's own inspector does.
+    val red = 0xffff0000.toInt()
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 120, legacyHeight = 120, modern = false),
+        listOf<RcOperation>(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcFitBoxLayout(3, 30, horizontalPositioning = 2, verticalPositioning = 2),
+          width(120f),
+          height(120f),
+          RcLayoutContent(4),
+          RcTextData(42, "visible"),
+          RcBoxLayout(5, 50, 2, 2),
+          width(80f),
+          height(80f),
+          solidBackground(1f, 0f, 0f),
+          RcVisibilityModifier(42),
+        ) + List(5) { RcNoArg(RcOpcodes.CONTAINER_END) },
+      )
+    val scene =
+      ImageComposeScene(width = 120, height = 120, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(120, 120) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(red, bitmap.getColor(25, 25), "the FitBox child is visible")
+      assertEquals(0, bitmap.getColor(5, 5), "and the FitBox paints nothing around it")
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
+  fun aStateLayoutSizesToItsBranchWithoutItsOwnPadding() {
+    // `state_layout_padding_container`: the reference reports the container at the active child's
+    // 80x80 with the child at (0, 0) — neither the `fillMaxSize` nor the `padding: 20` reaches its
+    // geometry, so the child starts at the origin rather than inset by the padding.
+    val red = 0xffff0000.toInt()
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 200, legacyHeight = 200, modern = false),
+        listOf<RcOperation>(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcStateLayout(3, 30, 0, 0, 0),
+          RcWidthModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+          RcHeightModifier(RcDimensionType.FILL, RcFloatWord.literal(1f)),
+          solidBackground(0.11764706f, 0.16078432f, 0.23137255f),
+          RcPaddingModifier(
+            RcFloatWord.literal(20f),
+            RcFloatWord.literal(20f),
+            RcFloatWord.literal(20f),
+            RcFloatWord.literal(20f),
+          ),
+          RcLayoutContent(4),
+          RcBoxLayout(5, 50, 2, 2),
+          width(80f),
+          height(80f),
+          solidBackground(1f, 0f, 0f),
+        ) + List(5) { RcNoArg(RcOpcodes.CONTAINER_END) },
+      )
+    val scene =
+      ImageComposeScene(width = 200, height = 200, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(200, 200) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(red, bitmap.getColor(5, 5), "the branch starts at the container's origin")
+      assertEquals(0, bitmap.getColor(150, 150), "the container is its branch's size, not the fill")
     } finally {
       scene.close()
     }
