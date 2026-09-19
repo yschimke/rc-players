@@ -1020,7 +1020,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     }
     super.init(frame: .zero)
     wantsLayer = true
-    layer?.masksToBounds = node.cornerRadius > 0
+    // A scrolled container's children are laid out against their content, which is larger than the
+    // viewport by design, so the viewport has to clip them or the overflow paints outside it.
+    layer?.masksToBounds = node.cornerRadius > 0 || node.scrollDirection != nil
     layer?.cornerRadius = CGFloat(node.cornerRadius)
     if node.hasBackground { layer?.backgroundColor = Self.color(node.backgroundColor).cgColor }
     isHidden = node.visibility == 0
@@ -1386,20 +1388,28 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// space, it only moves the content — and `box_child_scroll` records a 250-point child in a
   /// 150-point viewport. The viewport decides what is *visible*; the content decides where things
   /// sit. Every child counts towards it, including the ones a collapse dropped.
+  ///
+  /// A row or column **stacks** its children, so the content is their sum; a box overlays them, so
+  /// it is the largest. Summing an overlay's children inflated the extent and misaligned every
+  /// centred or end-aligned child in it.
   private func scrolledExtent(
-    of items: [NativeMacComponentView], in viewport: CGSize, axis: NativeCollapsibleAxis
+    of items: [NativeMacComponentView], in viewport: CGSize, axis: NativeCollapsibleAxis,
+    stacking: Bool
   ) -> CGFloat? {
     guard node.scrollDirection != nil else { return nil }
-    let sizes = items.map { measuredSize(of: $0, in: viewport, axis: axis) }
-    let extent = sizes.reduce(0) { $0 + (axis == .vertical ? $1.height : $1.width) }
-    return extent + spacing * CGFloat(max(sizes.count - 1, 0))
+    let extents = items.map { child -> CGFloat in
+      let size = measuredSize(of: child, in: viewport, axis: axis)
+      return axis == .vertical ? size.height : size.width
+    }
+    guard stacking else { return extents.max() ?? 0 }
+    return extents.reduce(0, +) + spacing * CGFloat(max(extents.count - 1, 0))
   }
 
   private func layoutOverlay(aligned: Bool) {
     let content = contentRect
     let items = visibleChildren
     let axis: NativeCollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
-    let extent = scrolledExtent(of: items, in: content.size, axis: axis)
+    let extent = scrolledExtent(of: items, in: content.size, axis: axis, stacking: false)
     let space =
       node.scrollDirection == 1
       ? CGRect(
@@ -1429,6 +1439,16 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// when none does.
   private var isFitBox: Bool { node.componentKind == "FitBoxLayout" }
 
+  /// Whether this view is a `FitBox`'s own content node — the wrapper the box looks through.
+  ///
+  /// `isStructural` is a *layout* classification and it requires the wrapper to be visible, so a
+  /// content switched off is not structural by that test. A FitBox has to recognise its content by
+  /// kind instead: otherwise a GONE wrapper is treated as an alternative, selected, and unhidden,
+  /// and content that is meant to switch the whole box off is rendered.
+  private var isFitBoxContent: Bool {
+    node.kind == .content || (node.kind == .canvas && node.commands.isEmpty)
+  }
+
   /// A `FitBox`'s alternatives, in document order.
   ///
   /// Unlike every other container this does **not** drop the children whose own visibility modifier
@@ -1437,13 +1457,13 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// modifier at face value measured a hidden child as 0x0, so it "fitted" and displaced the
   /// alternative that actually fits (`fitbox_child_visibility`).
   private var fitBoxAlternatives: [NativeMacComponentView] {
-    componentChildren.flatMap { child in child.isStructural ? child.fitBoxAlternatives : [child] }
+    componentChildren.flatMap { child in child.isFitBoxContent ? child.fitBoxAlternatives : [child] }
   }
 
   /// Whether the box's *content* is switched on. An alternative's own modifier is ignored, but the
   /// content's is the box's own switch: a GONE content shows nothing.
   private var fitBoxContentVisible: Bool {
-    !componentChildren.contains { $0.isStructural && $0.node.visibility == 0 }
+    !componentChildren.contains { $0.isFitBoxContent && $0.node.visibility == 0 }
   }
 
   /// An alternative's natural size: the size it asks for when nothing forces it to fill.
@@ -1490,7 +1510,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       if fitting == nil { isHidden = true }
       return
     }
+    // `INVISIBLE` (2) starts at alpha 0, and the FitBox ignores an alternative's own visibility —
+    // unhiding alone left the winner drawn at zero alpha, which looks exactly like a bug in the fit.
     winner.isHidden = false
+    winner.alphaValue = 1
     placeFitBoxAlternative(winner, size: size, in: content)
   }
 
@@ -1513,10 +1536,16 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let items = collapsibleItems(in: content.size, axis: .vertical)
     // A scrolled column arranges against its content rather than its viewport, and the extent counts
     // every child — including the ones a collapse dropped, which is why the survivors are centred in
-    // the pre-collapse total.
-    let extent = scrolledExtent(of: visibleChildren, in: content.size, axis: .vertical)
-      ?? content.height
-    let natural = items.map { measuredSize(of: $0, in: content.size, axis: .vertical) }
+    // the pre-collapse total. The axis that scrolls is the *modifier's*, which need not be the
+    // arrangement axis: a horizontally scrolled column still stacks, but each child is measured
+    // unbounded in width.
+    let scrollAxis: NativeCollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
+    let extent = node.scrollDirection == 0
+      ? (scrolledExtent(
+        of: visibleChildren, in: content.size, axis: .vertical, stacking: true)
+        ?? content.height)
+      : content.height
+    let natural = items.map { measuredSize(of: $0, in: content.size, axis: scrollAxis) }
     let allocated = MacLinearLayout.allocate(
       available: MacLinearLayout.collapsibleWeightSpace(
         extent: extent, count: items.count,
@@ -1661,10 +1690,15 @@ private typealias MacFlowLine = (
   private func layoutRow() {
     let content = contentRect
     let items = collapsibleItems(in: content.size, axis: .horizontal)
-    // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport.
-    let extent = scrolledExtent(of: visibleChildren, in: content.size, axis: .horizontal)
-      ?? content.width
-    let natural = items.map { measuredSize(of: $0, in: content.size, axis: .horizontal) }
+    // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport, and the
+    // axis that scrolls is the modifier's — a vertically scrolled row still places left to right.
+    let scrollAxis: NativeCollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
+    let extent = node.scrollDirection == 1
+      ? (scrolledExtent(
+        of: visibleChildren, in: content.size, axis: .horizontal, stacking: true)
+        ?? content.width)
+      : content.width
+    let natural = items.map { measuredSize(of: $0, in: content.size, axis: scrollAxis) }
     let widths = MacLinearLayout.allocate(
       available: MacLinearLayout.collapsibleWeightSpace(
         extent: extent, count: items.count,
