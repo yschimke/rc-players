@@ -1405,14 +1405,22 @@
     ) -> [Bool]? {
       guard node.isCollapsible else { return nil }
       let orientation = axis == .vertical ? 1 : 0
-      // The fit test measures each child with its *main* axis unbounded: the reference measures with
-      // the constraints the container received from its parent, so a child taller than the container
-      // is measured at its natural size and then dropped, rather than clamped to fit and kept.
-      let measuring =
-        axis == .vertical
-        ? CGSize(width: available.width, height: .greatestFiniteMagnitude)
-        : CGSize(width: .greatestFiniteMagnitude, height: available.height)
       let children = items.map { child -> NativeSwiftCollapsible.Child in
+        // The fit test measures each child with its *main* axis unbounded: the reference measures
+        // with the constraints the container received from its parent, so a child taller than the
+        // container is measured at its natural size and then dropped, rather than clamped to fit and
+        // kept. A child that *fills* that axis is the exception — it has no natural size, so an
+        // unbounded measurement resolves it to infinity and it would be dropped from any container.
+        let mainAxisType = axis == .vertical ? child.node.heightType : child.node.widthType
+        let measuring: CGSize
+        if NativeSwiftCollapsible.measuresUnbounded(mainAxisType: mainAxisType) {
+          measuring =
+            axis == .vertical
+            ? CGSize(width: available.width, height: .greatestFiniteMagnitude)
+            : CGSize(width: .greatestFiniteMagnitude, height: available.height)
+        } else {
+          measuring = available
+        }
         let size = child.preferredSize(in: measuring)
         let weightType = axis == .vertical ? child.node.heightType : child.node.widthType
         let weightValue = axis == .vertical ? child.node.heightValue : child.node.widthValue
