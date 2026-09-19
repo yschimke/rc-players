@@ -569,6 +569,42 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun collapsibleColumnDistributesWeightedChildrenProportionally() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 30, legacyHeight = 60, modern = false),
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcCollapsibleColumnLayout(3, 30, 1, 4, RcFloatWord.literal(0f)),
+          width(30f),
+          height(60f),
+          RcLayoutContent(4),
+        ) +
+          weightedCollapsibleBox(5, 30f, 1f, 0f, 0f, 1f) +
+          weightedCollapsibleBox(6, 30f, 0f, 0f, 1f, 2f) +
+          List(4) { RcNoArg(RcOpcodes.CONTAINER_END) },
+      )
+    val scene =
+      ImageComposeScene(width = 30, height = 60, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val image = scene.render()
+      val bitmap = Bitmap().apply { allocN32Pixels(30, 60) }
+      check(image.readPixels(bitmap))
+
+      // 60px of main axis split 1:2 — the red child takes 20, the blue one 40.
+      assertEquals(0xffff0000.toInt(), bitmap.getColor(5, 5))
+      assertEquals(0xffff0000.toInt(), bitmap.getColor(5, 19))
+      assertEquals(0xff0000ff.toInt(), bitmap.getColor(5, 20))
+      assertEquals(0xff0000ff.toInt(), bitmap.getColor(5, 55))
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun flowWrapsAndHonorsMaximumItemsAndLines() {
     val green = 0xff00ff00.toInt()
     val red = 0xffff0000.toInt()
@@ -1542,6 +1578,27 @@ class RcLayoutRenderTest {
       scene.close()
     }
   }
+
+  /** A collapsible child whose main-axis size is a weight rather than a fixed dimension. */
+  private fun weightedCollapsibleBox(
+    componentId: Int,
+    crossSize: Float,
+    red: Float,
+    green: Float,
+    blue: Float,
+    weight: Float,
+  ): List<RcOperation> =
+    listOf(
+      RcBoxLayout(componentId, componentId * 10, 1, 4),
+      width(crossSize),
+      RcHeightModifier(RcDimensionType.WEIGHT, RcFloatWord.literal(weight)),
+      RcCollapsiblePriorityModifier(
+        RcCollapsiblePriorityModifier.VERTICAL,
+        RcFloatWord.literal(weight),
+      ),
+      solidBackground(red = red, green = green, blue = blue),
+      RcNoArg(RcOpcodes.CONTAINER_END),
+    )
 
   private fun collapsibleCanvas(
     componentId: Int,
