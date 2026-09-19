@@ -48,9 +48,15 @@ enum NativeSwiftCoreTests {
       scrolledRow.componentKind == "RowLayout",
       "expected the scrolled component to be a row, got \(scrolledRow.componentKind)")
     precondition(
-      scrolledRow.scrollDirection == 1 && scrolledRow.scrollOffset == 40,
-      "expected a horizontal scroll at 40, got "
-        + "\(String(describing: scrolledRow.scrollDirection))/\(scrolledRow.scrollOffset)")
+      scrolledRow.scrollDirection == 1 && scrolledRow.scrollOffset == 40
+        && scrolledRow.scrollMaximum == 240,
+      "expected a horizontal scroll at 40/240, got "
+        + "\(String(describing: scrolledRow.scrollDirection))/\(scrolledRow.scrollOffset)"
+        + "/\(scrolledRow.scrollMaximum)")
+    precondition(
+      NativeSwiftScrollGesture.offset(afterDragging: 40, delta: -30, maximum: 60) == 60
+        && NativeSwiftScrollGesture.offset(afterDragging: 40, delta: 60, maximum: 60) == 0,
+      "scroll drag arithmetic did not clamp at both ends")
     guard let scrolledContent = scrolledRow.children.first, scrolledContent.children.count == 1 else {
       preconditionFailure("the scrolled row's content did not stay under the row")
     }
@@ -81,6 +87,13 @@ enum NativeSwiftCoreTests {
       dataOnly.namedVariableID("answer") == 5 && dataOnlyValues.floats[5] == 42,
       "a data-only document's own values did not resolve: "
         + "\(String(describing: dataOnlyValues.floats[5]))")
+    precondition(dataOnly.setFloatValue(24, id: 99), "a finite float slot update was refused")
+    let updatedDataOnlyValues = try dataOnly.probeValues(timeSeconds: 0)
+    precondition(
+      updatedDataOnlyValues.floats[99] == 24,
+      "a float slot update did not survive resolution")
+    precondition(
+      !dataOnly.setFloatValue(.nan, id: 99), "a non-finite float slot update was accepted")
 
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {
@@ -432,6 +445,7 @@ enum NativeSwiftCoreTests {
     stateLayout.u8(140).int(20).int(0)
     stateLayout.u8(200).int(-2)
     stateLayout.u8(217).int(-3).int(0).int(1).int(4).int(20)
+    stateLayout.u8(67).int(6).float(100)
     stateLayout.u8(202).int(-5).int(0).int(1).int(4)
     stateLayout.u8(16).int(6).float(120)
     stateLayout.u8(67).int(6).float(80)
@@ -448,11 +462,11 @@ enum NativeSwiftCoreTests {
       stateNode.componentKind == "StateLayout",
       "a state layout reported kind \(stateNode.componentKind)")
     precondition(stateNode.stateIndex == 0, "state index resolved to \(String(describing: stateNode.stateIndex))")
-    // The container takes the active child's size whatever the document asks for: a fill modifier
-    // on the state layout itself is dropped, or its background paints the whole parent.
+    // The container takes the active child's size whatever the document asks for: both its fill
+    // width and fixed 100-point height are dropped.
     precondition(
       stateNode.widthType == 2 && stateNode.heightType == 2,
-      "a filling state layout kept its fill: \(stateNode.widthType)/\(stateNode.heightType)")
+      "a dimensioned state layout kept its own size: \(stateNode.widthType)/\(stateNode.heightType)")
     precondition(
       stateNode.children.map(\.visibility) == [1, 0],
       "state layout children were \(stateNode.children.map(\.visibility)), expected only the first")

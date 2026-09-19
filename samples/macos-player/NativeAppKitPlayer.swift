@@ -56,6 +56,47 @@ enum NativeMacFrameDriverMode: Equatable {
   }
 }
 
+/// One input step the conformance lane drove before a capture.
+///
+/// The corpus's timeline is a sequence of gestures and clock moves, and a check bound to a step
+/// asserts the document *after* everything up to it. The player opens a document fresh per frame, so
+/// the lane sends the whole sequence with each frame and the player replays it.
+struct NativeMacInputStep {
+  var kind: String
+  var x: Double?
+  var y: Double?
+  var dx: Double?
+  var dy: Double?
+  /// The clock the step happens at, in seconds.
+  var at: TimeInterval
+}
+
+/// The scroll a touch sequence picked up. Its starting offset and point stay fixed for the whole
+/// sequence, so two move samples at -40 and -80 produce offsets 40 and 80 rather than 40 and 120.
+private struct NativeMacScrollDrag {
+  let positionID: Int
+  let direction: Int
+  let startPoint: CGPoint
+  let startOffset: Float
+  var currentOffset: Float
+  let maximum: Float
+}
+
+private struct NativeMacScrollFling {
+  let positionID: Int
+  let startOffset: Float
+  let velocity: Float
+  let maximum: Float
+  let startedAt: TimeInterval
+}
+
+private struct NativeMacScrollTarget {
+  let positionID: Int
+  let direction: Int
+  let offset: Float
+  let maximum: Float
+}
+
 /// A request for the document's own values, for the conformance corpus's value probes.
 ///
 /// The corpus's `float`, `int`, `text` and `color` probes read a document's state rather than its
@@ -105,7 +146,8 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     wallClock: NativeSwiftWallClock = .capture,
     downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
     viewport: CGSize? = nil,
-    values: NativeMacValueRequest = NativeMacValueRequest()
+    values: NativeMacValueRequest = NativeMacValueRequest(),
+    steps: [NativeMacInputStep] = []
   ) throws -> (png: Data, tree: [[String: Any]], values: [String: Any]?) {
     try NativeMacPolicy.validateDocument(data)
     // A *data-only* document declares values and nothing to draw. A conformance capture still has to
@@ -113,7 +155,11 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     // does not, and a host that is about to show a document is still told it has nothing to paint.
     let session = try NativeSwiftDocumentSession.open(
       data: data, toleratingRootlessData: true)
-    let snapshot = try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)
+    // A gesture needs a laid-out view to hit-test against, and the document as it stood when the
+    // first gesture arrived — not as it stands at the capture. The frame's own instant is the start
+    // only when nothing was driven.
+    let start = steps.first?.at ?? timeSeconds
+    let snapshot = try session.snapshot(timeSeconds: start, wallClock: wallClock)
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
     let fonts = try NativeMacFontRegistry.register(
       snapshot: snapshot, downloadedFonts: downloadedFonts)
@@ -130,6 +176,33 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     window.contentView = player
     player.frame = frame
     player.layoutSubtreeIfNeeded()
+    var scrollDrag: NativeMacScrollDrag?
+    var scrollFling: NativeMacScrollFling?
+    for step in steps {
+      try apply(
+        step, to: session, view: player, scrollDrag: &scrollDrag, scrollFling: &scrollFling)
+      // A later input must hit-test the state left by the one before it. This matters when a click
+      // switches a StateLayout before the next gesture, and also keeps the scroll tree current while
+      // a multi-sample drag is replayed.
+      try player.refresh(timeSeconds: step.at, wallClock: wallClock)
+      player.layoutSubtreeIfNeeded()
+    }
+    if let fling = scrollFling {
+      let elapsed = Float(max(timeSeconds - fling.startedAt, 0))
+      // The reference's decay loses the supplied velocity linearly over one second: a 1200 pt/s
+      // release travels 114 points in 100 ms, 306 in 300 ms and 600 in one second. Integrating that
+      // velocity gives v*t - v*t²/2, clamped when the second has elapsed and at the content bounds.
+      let duration = min(elapsed, 1)
+      let displacement = fling.velocity * (duration - duration * duration / 2)
+      session.setFloatValue(
+        min(max(fling.startOffset + displacement, 0), fling.maximum), id: fling.positionID)
+    }
+    if !steps.isEmpty {
+      // Re-resolve after the gestures and lay out again: a gesture changes the document's state, and
+      // the frame a check is bound to has to show the result rather than the state it started in.
+      try player.refresh(timeSeconds: timeSeconds, wallClock: wallClock)
+      player.layoutSubtreeIfNeeded()
+    }
     guard let bitmap = player.bitmapImageRepForCachingDisplay(in: player.bounds) else {
       throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not allocate AppKit capture")
     }
@@ -144,6 +217,63 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         : try reportedValues(
           session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values)
     )
+  }
+
+  /// Replays one input step against a laid-out view.
+  ///
+  /// The gesture goes to whatever component the point hits *and* accepts that gesture, which is what
+  /// the reference dispatches to; a point that lands on nothing is not an error, it is a gesture the
+  /// document never sees.
+  private static func apply(
+    _ step: NativeMacInputStep, to session: NativeSwiftDocumentSession, view: NativeMacDocumentView,
+    scrollDrag: inout NativeMacScrollDrag?, scrollFling: inout NativeMacScrollFling?
+  ) throws {
+    let kind: NativeSwiftGestureKind
+    switch step.kind {
+    case "click": kind = .tap
+    case "longPress": kind = .longPress
+    case "doubleClick": kind = .doubleTap
+    case "touch_down":
+      let point = CGPoint(x: step.x ?? 0, y: step.y ?? 0)
+      scrollDrag = view.scrollTarget(at: point).map {
+        NativeMacScrollDrag(
+          positionID: $0.positionID, direction: $0.direction, startPoint: point,
+          startOffset: $0.offset, currentOffset: $0.offset, maximum: $0.maximum)
+      }
+      scrollFling = nil
+      kind = .touchDown
+    case "touch_drag":
+      guard var drag = scrollDrag else { return }
+      let point = CGPoint(x: step.x ?? 0, y: step.y ?? 0)
+      let delta =
+        drag.direction == 1
+        ? Float(point.x - drag.startPoint.x) : Float(point.y - drag.startPoint.y)
+      drag.currentOffset = NativeSwiftScrollGesture.offset(
+        afterDragging: drag.startOffset, delta: delta, maximum: drag.maximum)
+      scrollDrag = drag
+      session.setFloatValue(drag.currentOffset, id: drag.positionID)
+      return
+    case "touch_up":
+      if let drag = scrollDrag {
+        let fingerVelocity = drag.direction == 1 ? Float(step.dx ?? 0) : Float(step.dy ?? 0)
+        if fingerVelocity != 0 {
+          scrollFling = NativeMacScrollFling(
+            positionID: drag.positionID, startOffset: drag.currentOffset,
+            velocity: -fingerVelocity, maximum: drag.maximum, startedAt: step.at)
+        }
+      }
+      scrollDrag = nil
+      kind = .touchUp
+    default: return
+    }
+    let point = CGPoint(x: step.x ?? 0, y: step.y ?? 0)
+    guard let componentID = view.gestureTarget(at: point, for: kind) else { return }
+    _ = try session.gesture(
+      kind, componentID: componentID,
+      sample: NativeSwiftPointerSample(
+        x: Float(step.x ?? 0), y: Float(step.y ?? 0),
+        velocityX: Float(step.dx ?? 0), velocityY: Float(step.dy ?? 0)),
+      timeSeconds: step.at)
   }
 
   /// The values a probe asked for, each resolved at the frame's own instant.
@@ -590,7 +720,7 @@ private final class NativeMacDocumentView: NSView {
         // catch.
         let gone =
           view.isHidden || (view.node.visibility == 0 && !view.ignoresOwnVisibility)
-        nodes.append([
+        var entry: [String: Any] = [
           "id": view.node.componentID,
           "kind": kind,
           "x": Double(frame.origin.x - parentPadding.left - CGFloat(view.node.offsetX)),
@@ -600,9 +730,19 @@ private final class NativeMacDocumentView: NSView {
           "depth": depth,
           "isGone": gone,
           "visibility": gone
-            ? "GONE"
-            : (view.node.visibility == 2 && !view.ignoresOwnVisibility ? "INVISIBLE" : "VISIBLE"),
-        ])
+             ? "GONE"
+             : (view.node.visibility == 2 && !view.ignoresOwnVisibility ? "INVISIBLE" : "VISIBLE"),
+        ]
+        // §4.3 reports the paint translation on the scrolled component, while its children keep
+        // their layout positions. Zero is omitted rather than serialized as a meaningless field.
+        if abs(view.node.scrollOffset) > Float.ulpOfOne {
+          if view.node.scrollDirection == 1 {
+            entry["scroll_x"] = Double(-view.node.scrollOffset)
+          } else if view.node.scrollDirection == 0 {
+            entry["scroll_y"] = Double(-view.node.scrollOffset)
+          }
+        }
+        nodes.append(entry)
         childDepth = depth + 1
       }
       // A structural wrapper is transparent to layout: it sits at its parent's origin and carries no
@@ -684,6 +824,44 @@ private final class NativeMacDocumentView: NSView {
     delayedWakeTimer?.invalidate()
     NotificationCenter.default.removeObserver(self)
     NSWorkspace.shared.notificationCenter.removeObserver(self)
+  }
+
+  /// Re-resolves the document at a later instant and lays it out again.
+  ///
+  /// The conformance lane drives gestures between the frame it hit-tested against and the frame it
+  /// captures, and this is the step between them: the document's own state has changed, so the view
+  /// has to be rebuilt from a fresh snapshot rather than redrawn.
+  func refresh(timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock) throws {
+    try install(try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock))
+    layoutSubtreeIfNeeded()
+  }
+
+  /// The component a point lands on, for the conformance lane's input steps.
+  ///
+  /// Walks outwards from the deepest view under the point: the first component that *accepts* this
+  /// gesture is the one the reference would have delivered to, and one that merely contains the point
+  /// is not.
+  func gestureTarget(at point: CGPoint, for kind: NativeSwiftGestureKind) -> Int? {
+    // `point` is in this view's (document) coordinates; `hitTest` wants its superview's, and the
+    // flip between them is the difference between a click landing and missing by a mirrored y.
+    let hitPoint = superview.map { convert(point, to: $0) } ?? point
+    var view: NSView? = hitTest(hitPoint)
+    while let current = view {
+      if let component = current as? NativeMacComponentView,
+        component.node.supportedGestures.contains(kind)
+      {
+        return component.node.componentID
+      }
+      view = current.superview
+    }
+    return nil
+  }
+
+  /// The innermost scrolled component under a document-space point. Scroll handling belongs to the
+  /// modifier itself, so this geometric lookup must not require the component to declare a document
+  /// gesture action.
+  func scrollTarget(at point: CGPoint) -> NativeMacScrollTarget? {
+    component.scrollTarget(at: point)
   }
 
   private func install(
@@ -1142,11 +1320,43 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
-    guard !isHidden, alphaValue > 0.01, bounds.contains(point) else { return nil }
+    // `hitTest` is handed a point in the **superview's** coordinates, and the superview is not
+    // always this view's own origin — the document view is flipped while the window's content view
+    // is not, so an unconverted point lands mirrored, and a child at a non-zero frame origin lands
+    // offset. Convert once, here, and hand the children a point in *this* view's coordinates, which
+    // is what their own hit test expects.
+    let local = superview.map { convert(point, from: $0) } ?? point
+    guard !isHidden, alphaValue > 0.01, bounds.contains(local) else { return nil }
     for child in componentChildren.reversed() {
-      if let hit = child.hitTest(convert(point, to: child)) { return hit }
+      if let hit = child.hitTest(local) { return hit }
     }
     return node.supportedGestures.isEmpty ? nil : self
+  }
+
+  /// Finds a scroll modifier geometrically. `point` is in the superview's coordinates, matching
+  /// AppKit's hit-test convention; children receive this view's local point because this view is
+  /// their superview.
+  func scrollTarget(at point: CGPoint) -> NativeMacScrollTarget? {
+    let local = superview.map { convert(point, from: $0) } ?? point
+    guard !isHidden, alphaValue > 0.01, bounds.contains(local) else { return nil }
+    for child in componentChildren.reversed() {
+      if let target = child.scrollTarget(at: local) { return target }
+    }
+    guard let positionID = node.scrollPositionID, let direction = node.scrollDirection else {
+      return nil
+    }
+    // The modifier's maximum is an output slot the reference player fills from measurement; a fresh
+    // document therefore resolves it to zero. Derive the same travel from the laid-out content so a
+    // first drag can move, while still respecting a non-zero maximum the document already holds.
+    let viewport = direction == 1 ? contentRect.width : contentRect.height
+    let contentEnd = flattenedLayoutItems.reduce(CGFloat.zero) { result, child in
+      let frame = child.convert(child.bounds, to: self)
+      return max(result, direction == 1 ? frame.maxX : frame.maxY)
+    }
+    let measuredMaximum = Float(max(contentEnd - viewport, 0))
+    return NativeMacScrollTarget(
+      positionID: positionID, direction: direction, offset: node.scrollOffset,
+      maximum: max(node.scrollMaximum, measuredMaximum))
   }
 
   override func layout() {
