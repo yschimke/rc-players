@@ -43,7 +43,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQigAAAAr//wAAigAAAAv/AAD/igAAAAz/AP8A",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQigAAAAr\/\/wAAigAAAAv\/AAD\/igAAAAz\/AP8A",
   "expected_colors": {
     "10": 4294901760,
     "11": 4278190335,

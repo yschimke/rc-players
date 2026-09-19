@@ -79,7 +79,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgHEAAAACgAAAAEAAAAA/x46iv84vfjEAAAACwAAAAEAAAAA//////8PFyrEAAAADAAAAAEAAAAA//H1+f8eKTs=",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgHEAAAACgAAAAEAAAAA\/x46iv84vfjEAAAACwAAAAEAAAAA\/\/\/\/\/\/8PFyrEAAAADAAAAAEAAAAA\/\/H1+f8eKTs=",
   "expected_theme_colors": {
     "dark": {
       "10": 4281908728,

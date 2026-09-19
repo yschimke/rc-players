@@ -1,7 +1,7 @@
 {
   "name": "interactivity_touch_coordinate_tracking",
   "category": "interactivity",
-  "description": "Multi-step touch gesture tracking touchX, touchY, and touchDown/touchDrag/touchUp sequence",
+  "description": "Multi-step touch gesture tracking touchX, touchY, and touchDown\/touchDrag\/touchUp sequence",
   "format_version": 2,
   "profile": "core",
   "parameters": {
@@ -77,7 +77,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAAAyAAGAAQAAADIyP////7K/////f////8AAAACAAAAAhAAAAABf8AAAEMAAAABf8AAANbW",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAAAyAAGAAQAAADIyP\/\/\/\/7K\/\/\/\/\/f\/\/\/\/8AAAACAAAAAhAAAAABf8AAAEMAAAABf8AAANbW",
   "expected_touch_coords": {
     "touchX": 160,
     "touchY": 110

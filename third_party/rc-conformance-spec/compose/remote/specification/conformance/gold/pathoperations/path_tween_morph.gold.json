@@ -32,7 +32,7 @@
   ],
   "unasserted": [
     {
-      "key": "expected_tweens[*].fromPath/toPath/tweenFactor",
+      "key": "expected_tweens[*].fromPath\/toPath\/tweenFactor",
       "reason": "PathTween exposes no decoded fields; only presence is observable"
     }
   ],

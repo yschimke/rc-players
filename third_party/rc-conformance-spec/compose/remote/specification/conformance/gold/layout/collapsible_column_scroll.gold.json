@@ -5,14 +5,14 @@
   "tags": [
     "suspicious"
   ],
-  "suspicious_reason": "CollapsibleColumn decides which child to collapse by measuring against the viewport (CollapsibleColumnLayout.java:302-319), but ColumnLayout then positions the survivors against the virtual scroll dimension (ColumnLayout.java:316-325) and centres against it (ColumnLayout.java:412-414). That dimension is the pre-collapse 240px, so the two surviving 80px children are centred with a (240-160)/2 = 40px top offset: the collapse frees no space, it only moves the content down. The collapsed child is recorded at the end cursor (y=200). No children overlap.",
+  "suspicious_reason": "CollapsibleColumn decides which child to collapse by measuring against the viewport (CollapsibleColumnLayout.java:302-319), but ColumnLayout then positions the survivors against the virtual scroll dimension (ColumnLayout.java:316-325) and centres against it (ColumnLayout.java:412-414). That dimension is the pre-collapse 240px, so the two surviving 80px children are centred with a (240-160)\/2 = 40px top offset: the collapse frees no space, it only moves the content down. The collapsed child is recorded at the end cursor (y=200). No children overlap.",
   "format_version": 2,
   "profile": "core",
   "parameters": {
     "tags": [
       "suspicious"
     ],
-    "suspicious_reason": "CollapsibleColumn decides which child to collapse by measuring against the viewport (CollapsibleColumnLayout.java:302-319), but ColumnLayout then positions the survivors against the virtual scroll dimension (ColumnLayout.java:316-325) and centres against it (ColumnLayout.java:412-414). That dimension is the pre-collapse 240px, so the two surviving 80px children are centred with a (240-160)/2 = 40px top offset: the collapse frees no space, it only moves the content down. The collapsed child is recorded at the end cursor (y=200). No children overlap.",
+    "suspicious_reason": "CollapsibleColumn decides which child to collapse by measuring against the viewport (CollapsibleColumnLayout.java:302-319), but ColumnLayout then positions the survivors against the virtual scroll dimension (ColumnLayout.java:316-325) and centres against it (ColumnLayout.java:412-414). That dimension is the pre-collapse 240px, so the two surviving 80px children are centred with a (240-160)\/2 = 40px top offset: the collapse frees no space, it only moves the content down. The collapsed child is recorded at the end cursor (y=200). No children overlap.",
     "width": 150,
     "height": 200,
     "frames": 2,
@@ -252,14 +252,14 @@
     {
       "at": "initial",
       "probe": "raster",
-      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAADICAYAAAAKhRhlAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJDSURBVHic7dQxDcJQAEVRIE1wwcCGBhwgBQ2MnRCAPKyAhjbc/oSco+ANN29/ulw/O/ixw+gB/CdhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWiWn0gDXej/voCZs6z6/RExbzWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSm0QPWeN6Ooydsax49YDmPRUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSEReILXlEHdETMJtwAAAAASUVORK5CYII=",
+      "expect": "data:image\/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAADICAYAAAAKhRhlAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJDSURBVHic7dQxDcJQAEVRIE1wwcCGBhwgBQ2MnRCAPKyAhjbc\/oSco+ANN29\/ulw\/O\/ixw+gB\/CdhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWiWn0gDXej\/voCZs6z6\/RExbzWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSm0QPWeN6Ooydsax49YDmPRUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSEReILXlEHdETMJtwAAAAASUVORK5CYII=",
       "tolerance": 16,
       "advisory": true
     },
     {
       "at": "resize_0",
       "probe": "raster",
-      "expect": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAADICAYAAAAKhRhlAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJDSURBVHic7dQxDcJQAEVRIE1wwcCGBhwgBQ2MnRCAPKyAhjbc/oSco+ANN29/ulw/O/ixw+gB/CdhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWiWn0gDXej/voCZs6z6/RExbzWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSm0QPWeN6Ooydsax49YDmPRUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSEReILXlEHdETMJtwAAAAASUVORK5CYII=",
+      "expect": "data:image\/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAADICAYAAAAKhRhlAAAAAXNSR0IArs4c6QAAAARzQklUCAgICHwIZIgAAAJDSURBVHic7dQxDcJQAEVRIE1wwcCGBhwgBQ2MnRCAPKyAhjbc\/oSco+ANN29\/ulw\/O\/ixw+gB\/CdhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWCWGREBYJYZEQFglhkRAWiWn0gDXej\/voCZs6z6\/RExbzWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSm0QPWeN6Ooydsax49YDmPRUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSERUJYJIRFQlgkhEVCWCSEReILXlEHdETMJtwAAAAASUVORK5CYII=",
       "tolerance": 16,
       "advisory": true
     },
@@ -271,5 +271,5 @@
       "advisory": true
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAlgAGAAQAAADIDAkAHQAAABljb2xsYXBzaWJsZV9jb2x1bW5fc2Nyb2xsAA4ABAAAAgHI/////un////9/////wAAAAIAAAACAAAAABAAAAABP4AAAEMAAAABP4AAADcAAAAAAAAAAAAAAAAAAAAAPfDw8T4kpKU+bOztP4AAAAAAAABsUAAAACoAAAAA4gAAAAD/gAAq/4AAK/+AACydAAAAKgAAAAAAAAAA/4AAKwAAAAAAAAADAAAAA/+AAA6/gAAA/7EAAwAAAAAAAAAA1sn////8yv////v/////AAAAAgAAAAIQAAAAAEJwAABDAAAAAEKgAAA3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q/RcXGP339/j+AAAAAAAAA6wAAAAE/gAAA1sr////6/////wAAAAIAAAACEAAAAABCcAAAQwAAAABCoAAANwAAAAAAAAAAAAAAAAAAAAA/fPz9PyWlpj8lpaY/gAAAAAAAAOsAAAABQAAAANbK////+f////8AAAACAAAAAhAAAAAAQnAAAEMAAAAAQqAAADcAAAAAAAAAAAAAAAAAAAAAPwaGhz9v7/A/LKytP4AAAAAAAADrAAAAAUBAAADW1tbW"
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAlgAGAAQAAADIDAkAHQAAABljb2xsYXBzaWJsZV9jb2x1bW5fc2Nyb2xsAA4ABAAAAgHI\/\/\/\/\/un\/\/\/\/9\/\/\/\/\/wAAAAIAAAACAAAAABAAAAABP4AAAEMAAAABP4AAADcAAAAAAAAAAAAAAAAAAAAAPfDw8T4kpKU+bOztP4AAAAAAAABsUAAAACoAAAAA4gAAAAD\/gAAq\/4AAK\/+AACydAAAAKgAAAAAAAAAA\/4AAKwAAAAAAAAADAAAAA\/+AAA6\/gAAA\/7EAAwAAAAAAAAAA1sn\/\/\/\/8yv\/\/\/\/v\/\/\/\/\/AAAAAgAAAAIQAAAAAEJwAABDAAAAAEKgAAA3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q\/RcXGP339\/j+AAAAAAAAA6wAAAAE\/gAAA1sr\/\/\/\/6\/\/\/\/\/wAAAAIAAAACEAAAAABCcAAAQwAAAABCoAAANwAAAAAAAAAAAAAAAAAAAAA\/fPz9PyWlpj8lpaY\/gAAAAAAAAOsAAAABQAAAANbK\/\/\/\/+f\/\/\/\/8AAAACAAAAAhAAAAAAQnAAAEMAAAAAQqAAADcAAAAAAAAAAAAAAAAAAAAAPwaGhz9v7\/A\/LKytP4AAAAAAAADrAAAAAUBAAADW1tbW"
 }

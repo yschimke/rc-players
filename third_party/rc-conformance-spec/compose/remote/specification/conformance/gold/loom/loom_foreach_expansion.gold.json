@@ -44,7 +44,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAMAAAAEAAABLAAAAAQAAAEsAA4ABAAAAgGSAAAAMgAAAAMAAAAKAAAAFAAAAB7I/////vQAAAAyAAAB9C7/gAH0QkgAAEFAAADW1g==",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAMAAAAEAAABLAAAAAQAAAEsAA4ABAAAAgGSAAAAMgAAAAMAAAAKAAAAFAAAAB7I\/\/\/\/\/vQAAAAyAAAB9C7\/gAH0QkgAAEFAAADW1g==",
   "expected_components": [
     "_DrawCircle",
     "_DrawCircle",

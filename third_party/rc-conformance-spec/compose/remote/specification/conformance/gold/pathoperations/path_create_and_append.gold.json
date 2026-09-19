@@ -32,7 +32,7 @@
   ],
   "unasserted": [
     {
-      "key": "expected_paths[*].pointCount/closed",
+      "key": "expected_paths[*].pointCount\/closed",
       "reason": "path geometry is not exposed by the path cache; only presence is observable"
     },
     {
