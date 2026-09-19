@@ -35,6 +35,7 @@ import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcContentInsetKey
 import ee.schimke.composeai.rcplayer.compose.RcDocumentStateKey
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
+import ee.schimke.composeai.rcplayer.compose.RcScrollOffsetKey
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -603,11 +604,15 @@ private class CmpSession(
       // §2.7: `x`/`y` carry only the layout manager's assignment, so a padded child reports 0 and
       // the padding shows up as the parent being larger — which it already is, because the
       // component's semantics node sits outside the padding.
+      // A scrolled container draws its children under a translation, and §2.7 keeps that out of
+      // `x`/`y` — the offset is reported as `scroll_x`/`scroll_y` instead. Adding it to the parent
+      // origin is what takes it back out of every descendant's position.
       val childParent =
         if (id == null) parent
         else
           node.positionInRoot +
-            (node.config.getOrElseNullable(RcContentInsetKey) { null } ?: Offset.Zero)
+            (node.config.getOrElseNullable(RcContentInsetKey) { null } ?: Offset.Zero) +
+            (node.config.getOrElseNullable(RcScrollOffsetKey) { null } ?: Offset.Zero)
       node.children.forEach { walk(it, childDepth, childParent) }
     }
 
@@ -695,6 +700,13 @@ private class CmpSession(
     // wrong.
     val declared = node.config.getOrElseNullable(RcComponentVisibilityKey) { 1 } ?: 1
     val visibility = if (!node.layoutInfo.isPlaced) 0 else declared
+    // §4.3: emitted only when non-zero, which is how the corpus encodes an unscrolled container.
+    node.config
+      .getOrElseNullable(RcScrollOffsetKey) { null }
+      ?.let { offset ->
+        if (offset.x != 0f) put("scroll_x", JsonPrimitive(offset.x))
+        if (offset.y != 0f) put("scroll_y", JsonPrimitive(offset.y))
+      }
     put("id", JsonPrimitive(id))
     put("kind", JsonPrimitive(node.config.getOrElseNullable(RcComponentKindKey) { "" }))
     put("depth", JsonPrimitive(depth))

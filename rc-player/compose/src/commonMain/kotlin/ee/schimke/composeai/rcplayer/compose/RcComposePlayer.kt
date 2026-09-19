@@ -38,6 +38,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -2881,11 +2882,28 @@ private fun Modifier.applyAndroidXScroll(
       }
   }
 
-  return if (operation.direction == RcScrollModifier.VERTICAL) {
-    verticalScroll(scrollState)
-  } else {
-    horizontalScroll(scrollState)
-  }
+  val scrolled =
+    if (operation.direction == RcScrollModifier.VERTICAL) {
+      verticalScroll(scrollState)
+    } else {
+      horizontalScroll(scrollState)
+    }
+  if (!LocalRcInspection.current) return scrolled
+  // The offset the children are drawn under, published so the tree reader can take it back out of
+  // their positions and report it as `scroll_x`/`scroll_y` instead. Derived rather than read at
+  // composition: a scroll does not recompose, so a plain read here would report the offset the
+  // container had when it was last composed.
+  val scrollOffset by
+    remember(scrollState, operation.direction) {
+      derivedStateOf {
+        if (operation.direction == RcScrollModifier.VERTICAL) {
+          Offset(0f, -scrollState.value.toFloat())
+        } else {
+          Offset(-scrollState.value.toFloat(), 0f)
+        }
+      }
+    }
+  return scrolled.semantics { rcScrollOffset = scrollOffset }
 }
 
 private fun RcLayoutNode.geometryComponentIds(): List<Int> =
