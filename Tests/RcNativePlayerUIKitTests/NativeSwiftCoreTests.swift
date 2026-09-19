@@ -339,6 +339,44 @@ enum NativeSwiftCoreTests {
       !plainTextSnapshot.needsWallClockRefresh,
       "a constant text-from-float conversion asked for a wall-clock refresh")
 
+    // A colour expression's first two fields are colours, not float words, in modes 0...3. Their
+    // bit patterns can look exactly like clock references — 0xff800001 is ARGB but reads as id 1 —
+    // and a static document must not end up on a display link because of a colour.
+    let staticColor = Writer()
+    staticColor.header(width: 100, height: 100)
+    staticColor.u8(134).int(40).int(0)
+      .int(Int(Int32(bitPattern: 0xff80_0001)))
+      .int(Int(Int32(bitPattern: 0xff80_0002)))
+      .float(0.5)
+    staticColor.u8(200).int(1).u8(214).u8(214)
+    let staticColorSnapshot = try NativeSwiftDocumentSession.open(data: staticColor.data).snapshot()
+    precondition(
+      !staticColorSnapshot.needsContinuousFrames && !staticColorSnapshot.needsWallClockRefresh,
+      "a static colour expression asked for frames: continuous="
+        + "\(staticColorSnapshot.needsContinuousFrames) wallClock="
+        + "\(staticColorSnapshot.needsWallClockRefresh)")
+    // The tween of the same mode *is* a float word, so a clock there is still found.
+    let tweenedColor = Writer()
+    tweenedColor.header(width: 100, height: 100)
+    tweenedColor.u8(134).int(40).int(0)
+      .int(Int(Int32(bitPattern: 0xff00_0000)))
+      .int(Int(Int32(bitPattern: 0xff00_00ff)))
+      .int(Writer.nanReference(2))
+    tweenedColor.u8(200).int(1).u8(214).u8(214)
+    let tweenedSnapshot = try NativeSwiftDocumentSession.open(data: tweenedColor.data).snapshot()
+    precondition(
+      tweenedSnapshot.needsWallClockRefresh,
+      "a colour tween reading the clock did not ask for a refresh")
+    // Modes 4...6 build a colour from float channels, so all three are words.
+    let channelColor = Writer()
+    channelColor.header(width: 100, height: 100)
+    channelColor.u8(134).int(40).int(4).int(Writer.nanReference(2)).int(0).int(0)
+    channelColor.u8(200).int(1).u8(214).u8(214)
+    let channelSnapshot = try NativeSwiftDocumentSession.open(data: channelColor.data).snapshot()
+    precondition(
+      channelSnapshot.needsWallClockRefresh,
+      "a colour channel reading the clock did not ask for a refresh")
+
     let modern = Writer()
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)

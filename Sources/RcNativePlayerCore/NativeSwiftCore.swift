@@ -1323,6 +1323,32 @@ private struct ParsedColorExpression {
   let first: Int
   let second: Int
   let third: Int
+
+  /// The float words this expression reads, which depend on its mode.
+  ///
+  /// Modes 0...3 blend two **colours**: their first two fields are literal ARGB or colour ids, not
+  /// float references, and only the third is the tween. Reading all three as references makes a
+  /// static document look like it reads a clock — `0xff800001` as ARGB has the bit pattern of a
+  /// NaN-boxed reference to `CONTINUOUS_SEC`, and `0xff800002` to `TIME_IN_SEC` — and the host then
+  /// keeps a display link or a one-second wakeup alive for a document that never changes.
+  /// Modes 4...6 build a colour from float channels, so all three are words, and mode 6 carries its
+  /// alpha as a reference in the high half of `modeAndAlpha`.
+  var floatWords: [UInt32] {
+    func word(_ value: Int) -> UInt32 { UInt32(bitPattern: Int32(truncatingIfNeeded: value)) }
+    switch modeAndAlpha & 0xff {
+    case 0...3:
+      return [word(third)]
+    case 4, 5:
+      return [word(first), word(second), word(third)]
+    case 6:
+      return [
+        word(first), word(second), word(third),
+        0x7fc0_0000 | (UInt32(truncatingIfNeeded: modeAndAlpha >> 16) & 0xffff),
+      ]
+    default:
+      return []
+    }
+  }
 }
 
 private struct ParsedNamedVariable {
@@ -3124,13 +3150,7 @@ private enum NativeSwiftDocumentDecoder {
       if root.references(anyOf: ids) { return true }
       if expressions.contains(where: { references(ids, in: $0.words) }) { return true }
       if textFromFloats.contains(where: { references(ids, in: [$0.value]) }) { return true }
-      return colorExpressions.contains { expression in
-        references(
-          ids,
-          in: [expression.first, expression.second, expression.third].map {
-            UInt32(bitPattern: Int32(truncatingIfNeeded: $0))
-          })
-      }
+      return colorExpressions.contains { references(ids, in: $0.floatWords) }
     }
     // A moving clock means the frame has to be re-resolved continuously.
     let continuousClockIDs: Set<Int> = [
