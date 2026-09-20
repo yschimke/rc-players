@@ -833,6 +833,11 @@ class RcComposeSupportTest {
         .composeSupportReport(availableFontFamilies = setOf("apple:system"))
         .fullyRenderable
     )
+    assertTrue(
+      document(emptyList(), family = "apple:Any Local Family")
+        .composeSupportReport(availableFontFamilies = setOf("apple:*"))
+        .fullyRenderable
+    )
   }
 
   @Test

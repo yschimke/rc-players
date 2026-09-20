@@ -27,6 +27,9 @@ public interface RcTypefaceLoader {
    * supply fails loudly at load rather than rendering silently in a fallback face. A loader that
    * cannot enumerate its families up front would break that check — see #4061, where that is a
    * design question rather than an implementation detail.
+   *
+   * The Apple loader additionally exposes `apple:*`: that prefix is a platform contract whose
+   * specified fallback is the Apple system face when a requested local family is absent.
    */
   public val families: Set<String>
 

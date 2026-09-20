@@ -1589,9 +1589,11 @@ private fun fontFamilyIssue(
   val family = texts[fontFamilyId] ?: return "font family name id $fontFamilyId is not declared"
   val normalized = family.lowercase().removePrefix("google:")
   val available = availableFontFamilies.mapTo(mutableSetOf()) { it.lowercase() }
+  val availableByPrefix = normalized.startsWith("apple:") && "apple:*" in available
   if (
     normalized !in setOf("default", "sans-serif", "serif", "monospace") &&
       normalized !in available &&
+      !availableByPrefix &&
       fontFamilyId !in embeddedFontIds
   ) {
     return "custom font family $family ($fontFamilyId) has no DataFont"

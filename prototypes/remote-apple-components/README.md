@@ -13,6 +13,22 @@ reject the family during their support check. It is not a downloadable-font name
 not provide a Google-Fonts-style redistribution registry for SF Pro, New York, or SF Mono, and this
 repository does not copy those font files onto Linux or Android.
 
+Typography is configured once on `RemoteAppleTheme`, and components consume semantic styles such
+as `bodyLarge`, `bodySmall`, and `labelLarge` rather than repeating a family and size. The entire
+component set can target another font installed on the Apple host without editing each component:
+
+```kotlin
+RemoteAppleTheme(
+  typography = RemoteAppleTypography(RemoteFontFamily.Named("apple:Helvetica Neue"))
+) {
+  RemoteAppleLabel("Uses the local family".rs)
+}
+```
+
+The default remains `apple:system`. The Apple players enumerate local families for flexible
+`apple:<family name>` lookup; a missing name uses the Apple system default rather than triggering a
+download. Non-Apple players still reject the prefix.
+
 The first vertical slice includes:
 
 - `RemoteAppleButton` — bordered, prominent, destructive, and borderless treatments;

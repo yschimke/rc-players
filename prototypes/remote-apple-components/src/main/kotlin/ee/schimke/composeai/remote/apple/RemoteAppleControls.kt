@@ -27,10 +27,8 @@ import androidx.compose.remote.creation.compose.state.clamp
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.ri
 import androidx.compose.remote.creation.compose.state.rs
-import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 public fun RemoteAppleSegmentedPicker(
@@ -40,6 +38,7 @@ public fun RemoteAppleSegmentedPicker(
 ) {
   require(options.isNotEmpty()) { "RemoteAppleSegmentedPicker requires at least one option" }
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteRow(
     modifier =
       modifier
@@ -69,9 +68,7 @@ public fun RemoteAppleSegmentedPicker(
         RemoteText(
           text = label,
           color = selected.select(colors.label, colors.secondaryLabel),
-          fontSize = 13.rsp,
-          fontWeight = FontWeight.Medium,
-          fontFamily = RemoteAppleTheme.fontFamily,
+          style = typography.labelMedium,
         )
       }
     }
@@ -87,6 +84,7 @@ public fun RemoteAppleStepper(
 ) {
   require(!range.isEmpty()) { "RemoteAppleStepper range must not be empty" }
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   val canDecrement = value.isGreaterThan(range.first.ri)
   val canIncrement = value.isLessThan(range.last.ri)
   RemoteRow(
@@ -101,15 +99,13 @@ public fun RemoteAppleStepper(
       text = title,
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
-      fontSize = 17.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyLarge,
     )
     RemoteText(
       text = value.toRemoteString(),
       modifier = RemoteModifier.padding(8.rdp, 0.rdp),
       color = colors.secondaryLabel,
-      fontSize = 17.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyLarge,
     )
     StepperButton(
       symbol = "−".rs,
@@ -127,6 +123,7 @@ public fun RemoteAppleStepper(
 @Composable
 private fun StepperButton(symbol: RemoteString, action: Action, enabled: RemoteBoolean) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteBox(
     modifier =
       RemoteModifier.size(32.rdp)
@@ -143,9 +140,7 @@ private fun StepperButton(symbol: RemoteString, action: Action, enabled: RemoteB
     RemoteText(
       text = symbol,
       color = enabled.select(colors.accent, colors.secondaryLabel),
-      fontSize = 20.rsp,
-      fontWeight = FontWeight.Medium,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.titleLarge,
     )
   }
 }
@@ -156,6 +151,7 @@ public fun RemoteAppleBadge(
   modifier: RemoteModifier = RemoteModifier,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteBox(
     modifier =
       modifier
@@ -168,9 +164,7 @@ public fun RemoteAppleBadge(
     RemoteText(
       text = text,
       color = colors.secondaryBackground,
-      fontSize = 13.rsp,
-      fontWeight = FontWeight.SemiBold,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.labelSmall,
     )
   }
 }
@@ -182,6 +176,7 @@ public fun RemoteAppleBadgeRow(
   modifier: RemoteModifier = RemoteModifier,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteRow(
     modifier = modifier.fillMaxWidth().height(44.rdp),
     verticalAlignment = RemoteAlignment.CenterVertically,
@@ -190,8 +185,7 @@ public fun RemoteAppleBadgeRow(
       text = title,
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
-      fontSize = 17.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyLarge,
     )
     RemoteAppleBadge(badge)
   }
@@ -205,6 +199,7 @@ public fun RemoteAppleDisclosureRow(
   detail: RemoteString? = null,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteRow(
     modifier =
       modifier.fillMaxWidth().height(48.rdp).clickable(action, true, Role.Button).semantics {
@@ -217,23 +212,20 @@ public fun RemoteAppleDisclosureRow(
       text = title,
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
-      fontSize = 17.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyLarge,
     )
     if (detail != null) {
       RemoteText(
         text = detail,
         modifier = RemoteModifier.padding(8.rdp, 0.rdp),
         color = colors.secondaryLabel,
-        fontSize = 15.rsp,
-        fontFamily = RemoteAppleTheme.fontFamily,
+        style = typography.bodyMedium,
       )
     }
     RemoteText(
       text = "›".rs,
       color = colors.secondaryLabel,
-      fontSize = 24.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.headlineMedium,
     )
   }
 }
@@ -246,6 +238,7 @@ public fun RemoteAppleStatusRow(
   modifier: RemoteModifier = RemoteModifier,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteRow(
     modifier =
       modifier.fillMaxWidth().height(44.rdp).semantics {
@@ -264,14 +257,12 @@ public fun RemoteAppleStatusRow(
       text = title,
       modifier = RemoteModifier.weight(1f).padding(10.rdp, 0.rdp),
       color = colors.label,
-      fontSize = 17.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyLarge,
     )
     RemoteText(
       text = status,
       color = colors.secondaryLabel,
-      fontSize = 15.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyMedium,
     )
   }
 }
