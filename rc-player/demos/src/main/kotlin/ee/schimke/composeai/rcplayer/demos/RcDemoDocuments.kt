@@ -8,6 +8,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCustomProperty
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
@@ -43,6 +44,15 @@ public object RcDemoDocuments {
 
   /** The deferred-density document is one label. */
   public const val HOST_DENSITY_HEIGHT: Int = 80
+
+  /** Native SwiftUI controls bound in both directions through custom-component properties. */
+  public const val SWIFT_CONTROLS_HEIGHT: Int = 220
+
+  /** A document-configured SwiftUI PhaseAnimator. */
+  public const val SWIFT_PULSE_HEIGHT: Int = 212
+
+  /** An interactive Swift Charts component with its selection returned to the document. */
+  public const val SWIFT_CHART_HEIGHT: Int = 252
 
   /** The text id the editable-text demo both reads and writes; see [RcEditableText]. */
   public const val EDITED_TEXT_ID: Int = 60
@@ -142,6 +152,131 @@ public object RcDemoDocuments {
       header(EDITABLE_HEIGHT),
       listOf(RcColorConstant(TEXT_COLOR_ID, 0xff202124.toInt())) + operations,
     )
+  }
+
+  /** A native SwiftUI text field and slider that both write their edits back to this document. */
+  public fun swiftControls(): RcDocument {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val operations =
+      listOf<RcOperation>(
+        RcTextData(CONFIG_ID, "demo:SwiftControls"),
+        RcTextData(SWIFT_NAME_ID, "Ada"),
+        RcTextData(LABEL_ID, "The document sees:"),
+        RcFloatConstant(SWIFT_LEVEL_ID, RcFloatWord.literal(0.68f)),
+        RcColorConstant(TEXT_COLOR_ID, 0xff6750a4.toInt()),
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcColumnLayout(3, 0, 1, 4, RcFloatWord.literal(8f)),
+        background(0.97f, 0.97f, 0.99f),
+        padding(16f),
+        width(WIDTH.toFloat()),
+        height(SWIFT_CONTROLS_HEIGHT.toFloat()),
+        RcLayoutContent(4),
+        RcCustomLayout(
+          componentId = 5,
+          animationId = 0,
+          configId = CONFIG_ID,
+          properties =
+            listOf(
+              RcCustomProperty.string(1, SWIFT_NAME_ID),
+              RcCustomProperty.textReturn(2, SWIFT_NAME_ID),
+              RcCustomProperty.float(3, reference(SWIFT_LEVEL_ID)),
+              RcCustomProperty.floatReturn(4, reference(SWIFT_LEVEL_ID)),
+              RcCustomProperty.colorId(5, TEXT_COLOR_ID),
+            ),
+        ),
+        width(WIDTH - 32f),
+        height(130f),
+        end,
+      ) +
+        label(componentId = 6, textId = LABEL_ID, size = 12f, color = 0xff6f6f78.toInt()) +
+        label(componentId = 7, textId = SWIFT_NAME_ID, size = 16f, color = 0xff202124.toInt()) +
+        List(4) { end }
+    return RcDocument(header(SWIFT_CONTROLS_HEIGHT), operations)
+  }
+
+  /** A SwiftUI PhaseAnimator whose title, tint, pace and amplitude come from the document. */
+  public fun swiftPulse(): RcDocument {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    return RcDocument(
+      header(SWIFT_PULSE_HEIGHT),
+      listOf(
+        RcTextData(CONFIG_ID, "demo:SwiftPulse"),
+        RcTextData(SWIFT_TITLE_ID, "Remote heartbeat"),
+        RcColorConstant(TEXT_COLOR_ID, 0xffff4f87.toInt()),
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcCustomLayout(
+          componentId = 3,
+          animationId = 0,
+          configId = CONFIG_ID,
+          properties =
+            listOf(
+              RcCustomProperty.string(1, SWIFT_TITLE_ID),
+              RcCustomProperty.colorId(2, TEXT_COLOR_ID),
+              RcCustomProperty.float(3, RcFloatWord.literal(0.72f)),
+              RcCustomProperty.float(4, RcFloatWord.literal(0.18f)),
+            ),
+        ),
+        background(0.05f, 0.05f, 0.08f),
+        padding(16f),
+        width(WIDTH.toFloat()),
+        height(SWIFT_PULSE_HEIGHT.toFloat()),
+        end,
+        end,
+        end,
+      ),
+    )
+  }
+
+  /** A native Swift Chart whose drag selection is returned to ordinary document text. */
+  public fun swiftChart(): RcDocument {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    val samples = listOf(18f, 27f, 22f, 36f, 31f, 44f, 39f)
+    val values = samples.mapIndexed { index, value ->
+      RcFloatConstant(SWIFT_CHART_BASE_ID + index, RcFloatWord.literal(value))
+    }
+    val properties =
+      listOf(
+        RcCustomProperty.string(1, SWIFT_TITLE_ID),
+        RcCustomProperty.textReturn(2, SWIFT_SELECTION_ID),
+        RcCustomProperty.colorId(3, TEXT_COLOR_ID),
+      ) +
+        samples.indices.map { index ->
+          RcCustomProperty.float(10 + index, reference(SWIFT_CHART_BASE_ID + index))
+        }
+    val operations =
+      listOf<RcOperation>(
+        RcTextData(CONFIG_ID, "demo:SwiftChart"),
+        RcTextData(SWIFT_TITLE_ID, "A week of momentum"),
+        RcTextData(SWIFT_SELECTION_ID, "Drag across the chart"),
+        RcTextData(LABEL_ID, "Selection returned to the document:"),
+        RcColorConstant(TEXT_COLOR_ID, 0xff5b5bd6.toInt()),
+      ) +
+        values +
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcColumnLayout(3, 0, 1, 4, RcFloatWord.literal(6f)),
+          background(0.97f, 0.97f, 0.99f),
+          padding(16f),
+          width(WIDTH.toFloat()),
+          height(SWIFT_CHART_HEIGHT.toFloat()),
+          RcLayoutContent(4),
+          RcCustomLayout(5, 0, CONFIG_ID, properties),
+          width(WIDTH - 32f),
+          height(174f),
+          end,
+        ) +
+        label(componentId = 6, textId = LABEL_ID, size = 11f, color = 0xff6f6f78.toInt()) +
+        label(
+          componentId = 7,
+          textId = SWIFT_SELECTION_ID,
+          size = 14f,
+          color = 0xff202124.toInt(),
+        ) +
+        List(4) { end }
+    return RcDocument(header(SWIFT_CHART_HEIGHT), operations)
   }
 
   /**
@@ -286,6 +421,11 @@ public object RcDemoDocuments {
   private const val LABEL_ID = 44
   private const val TEXT_COLOR_ID = 50
   private const val HOST_TEXT_SIZE_ID = 70
+  private const val SWIFT_NAME_ID = 80
+  private const val SWIFT_LEVEL_ID = 81
+  private const val SWIFT_TITLE_ID = 82
+  private const val SWIFT_SELECTION_ID = 83
+  private const val SWIFT_CHART_BASE_ID = 90
 
   /** The document's authored text size, in `sp`. */
   private const val HOST_TEXT_SIZE_SP = 15f

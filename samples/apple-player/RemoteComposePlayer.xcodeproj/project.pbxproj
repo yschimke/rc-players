@@ -42,6 +42,9 @@
 		100000000000000000000022 /* NativeDensityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* NativeDensityPolicy.swift */; };
 		100000000000000000000023 /* NativeTexturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* NativeTexturePolicy.swift */; };
 		100000000000000000000024 /* RemoteComposeFontVariation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000027 /* RemoteComposeFontVariation.swift */; };
+		100000000000000000000025 /* SwiftControls.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000028 /* SwiftControls.rc */; };
+		100000000000000000000026 /* SwiftPulse.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000029 /* SwiftPulse.rc */; };
+		100000000000000000000027 /* SwiftChart.rc in Resources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002A /* SwiftChart.rc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,6 +97,9 @@
 		200000000000000000000023 /* NativeSwiftCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCore.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftCore.swift"; sourceTree = "<group>"; };
 		200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeDownloadableFonts.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeDownloadableFonts.swift"; sourceTree = "<group>"; };
 		200000000000000000000027 /* RemoteComposeFontVariation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeFontVariation.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeFontVariation.swift"; sourceTree = "<group>"; };
+		200000000000000000000028 /* SwiftControls.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftControls.rc; path = Fixtures/SwiftControls.rc; sourceTree = "<group>"; };
+		200000000000000000000029 /* SwiftPulse.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftPulse.rc; path = Fixtures/SwiftPulse.rc; sourceTree = "<group>"; };
+		20000000000000000000002A /* SwiftChart.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftChart.rc; path = Fixtures/SwiftChart.rc; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -145,6 +151,9 @@
 		400000000000000000000003 /* Fixtures */ = {
 			isa = PBXGroup;
 			children = (
+				200000000000000000000028 /* SwiftControls.rc */,
+				200000000000000000000029 /* SwiftPulse.rc */,
+				20000000000000000000002A /* SwiftChart.rc */,
 				200000000000000000000006 /* TitleCardRemote-640x480.rc */,
 				200000000000000000000007 /* IndeterminateCircularProgress-400x400.rc */,
 				200000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc */,
@@ -273,6 +282,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				100000000000000000000025 /* SwiftControls.rc in Resources */,
+				100000000000000000000026 /* SwiftPulse.rc in Resources */,
+				100000000000000000000027 /* SwiftChart.rc in Resources */,
 				100000000000000000000006 /* TitleCardRemote-640x480.rc in Resources */,
 				100000000000000000000007 /* IndeterminateCircularProgress-400x400.rc in Resources */,
 				100000000000000000000008 /* ImageBackgroundRemoteButton-454x200.rc in Resources */,

@@ -957,13 +957,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   public func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) throws -> Bool {
     guard value.isFinite, let node = document.nodes[componentID], node.kind == .custom,
-      node.custom?.properties.contains(where: {
+      let property = node.custom?.properties.first(where: {
         $0.type == propertyID && $0.dataType == 3
-      }) == true
+      }),
+      let targetID = NativeSwiftFloatExpression.referenceID(
+        UInt32(bitPattern: Int32(property.valueBits)))
     else { return false }
-    // Float return storage lands in a later operation-family slice. Rejecting it is safer than
-    // claiming an update whose dependent expressions cannot yet be resolved by this runtime.
-    return false
+    floats[targetID] = value
+    return true
   }
 
   private func resolve(
@@ -1000,7 +1001,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let properties = source.properties.map { property in
         let floatValue =
           property.dataType == 1
-          ? Float(bitPattern: UInt32(bitPattern: Int32(property.valueBits))) : 0
+          ? NativeSwiftFloatExpression.resolve(
+            UInt32(bitPattern: Int32(property.valueBits)), values: values)
+          : 0
         let integerValue: Int
         let textValue: String?
         switch property.dataType {
@@ -2924,14 +2927,15 @@ private enum NativeSwiftDocumentDecoder {
             throw input.malformed("Unknown custom property data type \(dataType)")
           }
           let valueBits = try input.int("custom property \(index) value")
-          if [3, 5, 6, 9].contains(dataType) {
+          if [5, 6, 9].contains(dataType) {
             throw NativeSwiftCoreError.unsupported(
               opcode: opcode, offset: opcodeOffset,
               reason: "custom property data type \(dataType) is not migrated")
           }
-          if dataType == 1, Float(bitPattern: UInt32(bitPattern: Int32(valueBits))).isNaN {
-            throw NativeSwiftCoreError.unsupported(
-              opcode: opcode, offset: opcodeOffset, reason: "dynamic custom float property")
+          if dataType == 3,
+            NativeSwiftFloatExpression.referenceID(UInt32(bitPattern: Int32(valueBits))) == nil
+          {
+            throw input.malformed("Custom float return property has no target")
           }
           properties.append(
             ParsedCustomProperty(

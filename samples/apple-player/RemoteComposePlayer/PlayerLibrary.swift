@@ -25,15 +25,18 @@ struct PlayerDocument: Identifiable, Hashable {
   let subtitle: String
   let data: Data
   let sourceURL: URL?
+  let preferredRenderer: PlayerRenderer?
 
   init(
-    id: UUID = UUID(), title: String, subtitle: String, data: Data, sourceURL: URL? = nil
+    id: UUID = UUID(), title: String, subtitle: String, data: Data, sourceURL: URL? = nil,
+    preferredRenderer: PlayerRenderer? = nil
   ) {
     self.id = id
     self.title = title
     self.subtitle = subtitle
     self.data = data
     self.sourceURL = sourceURL
+    self.preferredRenderer = preferredRenderer
   }
 }
 
@@ -41,7 +44,11 @@ struct PlayerDocument: Identifiable, Hashable {
 @MainActor
 final class PlayerLibrary {
   var documents: [PlayerDocument] = []
-  var selection: PlayerDocument.ID?
+  var selection: PlayerDocument.ID? {
+    didSet {
+      if let preferred = selectedDocument?.preferredRenderer { renderer = preferred }
+    }
+  }
   var theme: PlayerAppearance = .system
   var renderer: PlayerRenderer = .compose
   var background: RemoteComposePlayerBackground = .opaque
@@ -54,19 +61,23 @@ final class PlayerLibrary {
     if ProcessInfo.processInfo.arguments.contains("--native-player") {
       renderer = .native
     }
-    let fixtures = [
-      ("Title card", "Typography and card layout", "TitleCardRemote-640x480"),
-      ("Progress", "Animated circular progress", "IndeterminateCircularProgress-400x400"),
-      ("Image button", "Bitmap-backed component", "ImageBackgroundRemoteButton-454x200"),
-      ("Circular progress", "Material progress fixture", "CircularProgressRemote-384x384"),
-      ("Arc progress", "Curved progress fixture", "ArcProgressRemote-454x400"),
+    let fixtures: [(String, String, String, PlayerRenderer?)] = [
+      ("Swift controls", "Text field + slider document bindings", "SwiftControls", .native),
+      ("Swift pulse", "Document-driven PhaseAnimator", "SwiftPulse", .native),
+      ("Swift chart", "Interactive Swift Charts selection", "SwiftChart", .native),
+      ("Title card", "Typography and card layout", "TitleCardRemote-640x480", nil),
+      ("Progress", "Animated circular progress", "IndeterminateCircularProgress-400x400", nil),
+      ("Image button", "Bitmap-backed component", "ImageBackgroundRemoteButton-454x200", nil),
+      ("Circular progress", "Material progress fixture", "CircularProgressRemote-384x384", nil),
+      ("Arc progress", "Curved progress fixture", "ArcProgressRemote-454x400", nil),
     ]
 
-    documents = fixtures.compactMap { title, subtitle, resource in
+    documents = fixtures.compactMap { title, subtitle, resource, preferredRenderer in
       guard let url = Bundle.main.url(forResource: resource, withExtension: "rc"),
         let data = try? Data(contentsOf: url)
       else { return nil }
-      return PlayerDocument(title: title, subtitle: subtitle, data: data)
+      return PlayerDocument(
+        title: title, subtitle: subtitle, data: data, preferredRenderer: preferredRenderer)
     }
     let fixtureTitle = ProcessInfo.processInfo.arguments
       .first { $0.hasPrefix("--fixture=") }?
@@ -75,6 +86,7 @@ final class PlayerLibrary {
       fixtureTitle.flatMap { requested in
         documents.first { $0.title.caseInsensitiveCompare(String(requested)) == .orderedSame }?.id
       } ?? documents.first?.id
+    if let preferred = selectedDocument?.preferredRenderer { renderer = preferred }
   }
 
   var selectedDocument: PlayerDocument? {

@@ -51,6 +51,25 @@ The **Native POC** selection builds a recursive `UIView` component hierarchy and
 Compose controller. It is incomplete by design and shows a diagnostic badge for unsupported
 operations. See [`RC_NATIVE_UIKIT_PLAYER.md`](../../docs/design/RC_NATIVE_UIKIT_PLAYER.md).
 
+The first three library entries are custom-component examples backed by native SwiftUI:
+
+- **Swift controls** binds a `TextField` and `Slider` back into document-owned text and float slots.
+- **Swift pulse** reads its title, colour, duration and amplitude from the document and renders them
+  with `PhaseAnimator`.
+- **Swift chart** renders document values with Swift Charts and returns its drag selection to a
+  normal document text node.
+
+They deliberately use the same `.rc` custom-property protocol an adopter receives over the wire.
+The host side is in `RemoteComposePlayer/NativeCustomComponentSamples.swift`; the document side is
+in `RcDemoDocuments.kt`. Regenerate their checked-in fixtures with:
+
+```bash
+./gradlew :rc-player-demos:writeSwiftCustomComponentFixtures \
+  -Prc.demo.swift-controls.output="$PWD/samples/apple-player/Fixtures/SwiftControls.rc" \
+  -Prc.demo.swift-pulse.output="$PWD/samples/apple-player/Fixtures/SwiftPulse.rc" \
+  -Prc.demo.swift-chart.output="$PWD/samples/apple-player/Fixtures/SwiftChart.rc"
+```
+
 ![Remote Compose player rendered through the Swift overlay](../../renders/apple-player/swift-api-player.png)
 
 With the background toggle enabled, the Compose Metal surface preserves alpha and the app's aurora

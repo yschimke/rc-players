@@ -236,6 +236,16 @@ enum NativeSwiftCoreTests {
     let rejected = try session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
     precondition(!rejected)
 
+    let floatSession = try NativeSwiftDocumentSession.open(data: dynamicCustomFloatDocument())
+    let initialFloat = try floatSession.snapshot().root.children[0].children[0]
+    precondition(initialFloat.custom?.properties[0].floatValue == 0.4)
+    let acceptedFloat = try floatSession.returnCustomFloat(0.85, componentID: 3, propertyID: 2)
+    precondition(acceptedFloat, "declared float return should be accepted")
+    let returnedFloat = try floatSession.snapshot().root.children[0].children[0]
+    precondition(abs((returnedFloat.custom?.properties[0].floatValue ?? 0) - 0.85) < 0.001)
+    let rejectedFloat = try floatSession.returnCustomFloat(0.5, componentID: 3, propertyID: 99)
+    precondition(!rejectedFloat, "an undeclared return channel should be rejected")
+
     // A Row whose spacing is computed rather than stated. Before float words were carried to
     // resolution time this stored the reference's raw NaN bits into a plain `Float` and laid the
     // row out at NaN — silently, while the Column one opcode later refused the identical word.
@@ -898,6 +908,20 @@ enum NativeSwiftCoreTests {
     output.textLayout(id: 6, textID: 44, color: 0xff5f_6368, size: 12)
     output.textLayout(id: 7, textID: 60, color: 0xff20_2124, size: 15)
     for _ in 0..<4 { output.u8(214) }
+    return output.data
+  }
+
+  private static func dynamicCustomFloatDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(80).int(70).float(0.4)
+    output.text(id: 40, "demo:SwiftControls")
+    output.u8(200).int(1)
+    output.u8(201).int(2)
+    output.u8(93).int(3).int(0).int(40).int(2)
+      .u16(1).u16(1).int(Writer.nanReference(70))
+      .u16(2).u16(3).int(Writer.nanReference(70))
+    output.u8(214).u8(214).u8(214)
     return output.data
   }
 }
