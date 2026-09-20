@@ -54,7 +54,7 @@ if (options.lanes.length === 0) usage("at least one lane is required");
 const CHANNELS = {
   cmp: "every probe",
   "androidx-jvm": "tree + raster",
-  "native-appkit": "raster only",
+  "native-appkit": "tree + scalar values + raster",
   typescript: "reported by upstream",
 };
 
