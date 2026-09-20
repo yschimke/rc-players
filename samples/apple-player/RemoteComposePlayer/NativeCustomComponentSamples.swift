@@ -218,6 +218,25 @@ private struct NativeMomentumChart: View {
         }
       }
       .chartXSelection(value: $selection)
+      // Charts' built-in selection recognizer did not consistently receive XCUITest's press-drag
+      // on the iOS 26 simulator. Keep the native chart selection API for ordinary input, while this
+      // overlay makes the custom component's return-channel gesture explicit and deterministic.
+      .chartOverlay { proxy in
+        GeometryReader { geometry in
+          let plotArea = geometry[proxy.plotAreaFrame]
+          Rectangle()
+            .fill(.clear)
+            .contentShape(Rectangle())
+            .gesture(
+              DragGesture(minimumDistance: 0)
+                .onChanged { gesture in
+                  let x = gesture.location.x - plotArea.origin.x
+                  if let value = proxy.value(atX: x, as: Int.self), points.indices.contains(value) {
+                    selection = value
+                  }
+                })
+        }
+      }
       .accessibilityIdentifier("swift-demo-chart")
     }
     .padding(12)
