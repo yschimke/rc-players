@@ -28,6 +28,10 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let animationSpecs: [Int: NativeSwiftAnimationSpec]
   /// Animation ids in declaration order, for truthful operation-record observations.
   public let animationSpecOrder: [Int]
+  /// Path resource ids declared by the document, including procedural path construction.
+  public let pathIDs: Set<Int>
+  /// Output ids declared by `PATH_TWEEN` operations.
+  public let pathTweenIDs: Set<Int>
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
@@ -861,7 +865,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       needsContinuousFrames: document.needsContinuousFrames,
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)),
-      animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder)
+      animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
+      pathIDs: document.pathIDs, pathTweenIDs: document.pathTweenIDs)
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -1628,6 +1633,8 @@ private struct ParsedDocument {
   let matrixExpressions: [Int: ParsedMatrixExpression]
   let animationSpecs: [Int: NativeSwiftAnimationSpec]
   let animationSpecOrder: [Int]
+  let pathIDs: Set<Int>
+  let pathTweenIDs: Set<Int>
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
@@ -2703,6 +2710,8 @@ private enum NativeSwiftDocumentDecoder {
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
     var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
     var animationSpecOrder: [Int] = []
+    var pathIDs: Set<Int> = []
+    var pathTweenIDs: Set<Int> = []
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -3074,6 +3083,23 @@ private enum NativeSwiftDocumentDecoder {
         for _ in 0..<count { words.append(try input.word("path word")) }
         paths[idAndWinding & 0x00ff_ffff] = ParsedPath(
           winding: idAndWinding >> 24, words: words)
+        pathIDs.insert(idAndWinding & 0x00ff_ffff)
+      case 158:  // Path tween; retained for the decoded-operation record probe.
+        let outID = try input.int("path tween output id")
+        _ = try input.int("path tween first path id")
+        _ = try input.int("path tween second path id")
+        _ = try input.word("path tween factor")
+        pathTweenIDs.insert(outID)
+      case 159:  // Procedural path start; rendering it is separate from reporting its presence.
+        let id = try input.int("path create id")
+        _ = try input.word("path create x")
+        _ = try input.word("path create y")
+        pathIDs.insert(id)
+      case 160:  // Procedural path append.
+        let id = try input.int("path append id")
+        let count = try input.count("path append word count", maximum: 2_000)
+        for _ in 0..<count { _ = try input.word("path append word") }
+        pathIDs.insert(id)
       case 124:
         let id = try input.int("path id")
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
@@ -3617,6 +3643,7 @@ private enum NativeSwiftDocumentDecoder {
       textMerges: textMerges, idLists: idLists, textLookups: textLookups,
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
+      pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh)
   }
