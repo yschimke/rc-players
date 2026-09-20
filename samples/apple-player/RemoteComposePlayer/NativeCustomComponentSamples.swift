@@ -81,6 +81,7 @@ private struct NativeBoundControls: View {
         Text(level, format: .percent.precision(.fractionLength(0)))
           .font(.caption.monospacedDigit())
           .frame(width: 42, alignment: .trailing)
+          .accessibilityIdentifier("swift-demo-level-value")
       }
     }
     .padding(12)
