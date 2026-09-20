@@ -64,3 +64,36 @@ tasks.register<JavaExec>("writeEditableTextFixture") {
     org.gradle.process.CommandLineArgumentProvider { listOf(output.get(), hostDensityOutput.get()) }
   )
 }
+
+tasks.register<JavaExec>("writeSwiftCustomComponentFixtures") {
+  description = "Write the native Swift custom-component showcase documents."
+  group = "verification"
+  classpath = sourceSets.main.get().runtimeClasspath
+  mainClass.set("ee.schimke.composeai.rcplayer.demos.RcDemoFixtureMainKt")
+  val fixtureDirectory = layout.buildDirectory.dir("fixtures")
+  val editableOutput = fixtureDirectory.map { it.file("editable-text.rc").asFile.absolutePath }
+  val densityOutput = fixtureDirectory.map { it.file("host-density.rc").asFile.absolutePath }
+  val controlsOutput =
+    providers
+      .gradleProperty("rc.demo.swift-controls.output")
+      .orElse(fixtureDirectory.map { it.file("swift-controls.rc").asFile.absolutePath })
+  val pulseOutput =
+    providers
+      .gradleProperty("rc.demo.swift-pulse.output")
+      .orElse(fixtureDirectory.map { it.file("swift-pulse.rc").asFile.absolutePath })
+  val chartOutput =
+    providers
+      .gradleProperty("rc.demo.swift-chart.output")
+      .orElse(fixtureDirectory.map { it.file("swift-chart.rc").asFile.absolutePath })
+  argumentProviders.add(
+    org.gradle.process.CommandLineArgumentProvider {
+      listOf(
+        editableOutput.get(),
+        densityOutput.get(),
+        controlsOutput.get(),
+        pulseOutput.get(),
+        chartOutput.get(),
+      )
+    }
+  )
+}

@@ -2,6 +2,45 @@ import XCTest
 
 @MainActor
 final class NativeAccessibilityUITests: XCTestCase {
+  func testSwiftControlsWriteTextBackToTheDocument() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--native-player", "--fixture=Swift controls"]
+    app.launch()
+
+    let name = app.textFields["swift-demo-name"]
+    XCTAssertTrue(name.waitForExistence(timeout: 10), app.debugDescription)
+    name.tap()
+    name.typeText(" Lovelace")
+
+    XCTAssertTrue(
+      app.staticTexts["Ada Lovelace"].waitForExistence(timeout: 5),
+      "The ordinary document text node did not receive the SwiftUI field edit")
+
+    let level = app.sliders["swift-demo-level"]
+    XCTAssertTrue(level.exists)
+    level.adjust(toNormalizedSliderPosition: 0.25)
+    XCTAssertEqual(level.normalizedSliderPosition, 0.25, accuracy: 0.05)
+  }
+
+  func testSwiftChartWritesItsSelectionBackToTheDocument() throws {
+    let app = XCUIApplication()
+    app.launchArguments = ["--native-player", "--fixture=Swift chart"]
+    app.launch()
+
+    let chart = app.otherElements.matching(identifier: "swift-demo-chart").firstMatch
+    XCTAssertTrue(chart.waitForExistence(timeout: 10), app.debugDescription)
+    chart.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).press(
+      forDuration: 0.1,
+      thenDragTo: chart.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
+
+    let returnedSelection = app.staticTexts.matching(
+      NSPredicate(format: "label CONTAINS %@ AND label ENDSWITH %@", " · ", " momentum")
+    ).firstMatch
+    XCTAssertTrue(
+      returnedSelection.waitForExistence(timeout: 5),
+      "The ordinary document text node did not receive the Swift Charts selection")
+  }
+
   func testTitleCardExposesNativeAssistiveTechnologyTargets() throws {
     let app = XCUIApplication()
     app.launchArguments = ["--native-accessibility-ui-test"]
