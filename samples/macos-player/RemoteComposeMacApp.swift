@@ -8,6 +8,86 @@ import UniformTypeIdentifiers
 
 private enum NativeConformanceJobError: Error { case malformed }
 
+private struct NativeConformanceJob: Decodable {
+  let document: String
+  let output: String
+  let frames: [NativeConformanceFrameRequest]
+}
+
+private struct NativeConformanceClock: Decodable {
+  let timestampMillis: Int64?
+  let continuousSeconds: Double?
+  let year: Int?
+  let month: Int?
+  let day: Int?
+  let hour: Int?
+  let minute: Int?
+  let second: Int?
+
+  private enum CodingKeys: String, CodingKey {
+    case year, month, day, hour, minute, second
+    case timestampMillis = "timestamp_millis"
+    case continuousSeconds = "continuous_seconds"
+  }
+
+  var value: NativeSwiftWallClock {
+    if let timestampMillis { return NativeSwiftWallClock(epochMillis: timestampMillis) }
+    if let continuousSeconds {
+      return NativeSwiftWallClock(epochMillis: Int64(continuousSeconds * 1000))
+    }
+
+    // Time-only snapshots use a stable UTC date; calendar snapshots send an epoch above.
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    var components = DateComponents()
+    components.calendar = calendar
+    components.timeZone = calendar.timeZone
+    components.year = year ?? 1970
+    components.month = month ?? 1
+    components.day = day ?? 1
+    components.hour = hour ?? 0
+    components.minute = minute ?? 0
+    components.second = second ?? 0
+    let epochMillis = Int64((calendar.date(from: components)?.timeIntervalSince1970 ?? 0) * 1000)
+    return NativeSwiftWallClock(epochMillis: epochMillis)
+  }
+}
+
+private struct NativeConformanceFrameRequest: Decodable {
+  let id: String
+  let time: TimeInterval
+  let width: CGFloat?
+  let height: CGFloat?
+  let clock: NativeConformanceClock?
+  let steps: [NativeMacInputStep]
+  let values: NativeMacValueRequest
+
+  private enum CodingKeys: String, CodingKey {
+    case id, time, width, height, steps, values
+    case clock = "wall_clock"
+  }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    id = try values.decode(String.self, forKey: .id)
+    time = try values.decodeIfPresent(TimeInterval.self, forKey: .time) ?? 0
+    width = try values.decodeIfPresent(CGFloat.self, forKey: .width)
+    height = try values.decodeIfPresent(CGFloat.self, forKey: .height)
+    clock = try values.decodeIfPresent(NativeConformanceClock.self, forKey: .clock)
+    steps = try values.decodeIfPresent([NativeMacInputStep].self, forKey: .steps) ?? []
+    self.values =
+      try values.decodeIfPresent(NativeMacValueRequest.self, forKey: .values)
+      ?? NativeMacValueRequest()
+  }
+
+  var viewport: CGSize? {
+    guard let width, let height else { return nil }
+    return CGSize(width: width, height: height)
+  }
+
+  var wallClock: NativeSwiftWallClock { clock?.value ?? .capture }
+}
+
 enum DesktopRenderer: String, CaseIterable, Identifiable {
   case compose = "cmp"
   case native = "native"
@@ -552,84 +632,37 @@ struct RemoteComposeMacApplication {
     if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--conformance-batch" {
       do {
         _ = NSApplication.shared
-        let job = try JSONSerialization.jsonObject(
-          with: try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2])))
-        guard let job = job as? [String: Any],
-          let documentBase64 = job["document"] as? String,
-          let document = Data(base64Encoded: documentBase64),
-          let outputDirectory = job["output"] as? String,
-          let frames = job["frames"] as? [[String: Any]]
-        else { throw NativeConformanceJobError.malformed }
+        let job = try JSONDecoder().decode(
+          NativeConformanceJob.self,
+          from: try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2])))
+        guard let document = Data(base64Encoded: job.document) else {
+          throw NativeConformanceJobError.malformed
+        }
         var results: [[String: Any]] = []
-        for frame in frames {
-          guard let id = frame["id"] as? String else { throw NativeConformanceJobError.malformed }
-          let width = (frame["width"] as? NSNumber)?.doubleValue
-          let height = (frame["height"] as? NSNumber)?.doubleValue
-          let time = (frame["time"] as? NSNumber)?.doubleValue ?? 0
-          let wallClock: NativeSwiftWallClock = {
-            guard let raw = frame["wall_clock"] as? [String: Any] else { return .capture }
-            if let timestamp = (raw["timestamp_millis"] as? NSNumber)?.int64Value {
-              return NativeSwiftWallClock(epochMillis: timestamp)
-            }
-            if let continuous = (raw["continuous_seconds"] as? NSNumber)?.doubleValue {
-              return NativeSwiftWallClock(epochMillis: Int64(continuous * 1000))
-            }
-            // Time-only snapshots use a stable UTC date; calendar snapshots send an epoch above.
-            // Constructing this in UTC also keeps a developer machine's locale out of the corpus.
-            var calendar = Calendar(identifier: .gregorian)
-            calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-            var components = DateComponents()
-            components.calendar = calendar
-            components.timeZone = calendar.timeZone
-            components.year = (raw["year"] as? NSNumber)?.intValue ?? 1970
-            components.month = (raw["month"] as? NSNumber)?.intValue ?? 1
-            components.day = (raw["day"] as? NSNumber)?.intValue ?? 1
-            components.hour = (raw["hour"] as? NSNumber)?.intValue ?? 0
-            components.minute = (raw["minute"] as? NSNumber)?.intValue ?? 0
-            components.second = (raw["second"] as? NSNumber)?.intValue ?? 0
-            let epochMillis = Int64((calendar.date(from: components)?.timeIntervalSince1970 ?? 0) * 1000)
-            return NativeSwiftWallClock(epochMillis: epochMillis)
-          }()
-          let viewport = (width != nil && height != nil)
-            ? CGSize(width: width!, height: height!) : nil
+        for request in job.frames {
           // The values this frame's checks assert. A gold asks for the handful it names rather than
           // for a whole dump, and the player resolves them at the frame's own instant.
           // The input the lane drove before this capture: the whole sequence, because the player
           // opens the document fresh and replays it.
-          let steps = (frame["steps"] as? [[String: Any]] ?? []).compactMap { raw -> NativeMacInputStep? in
-            guard let kind = raw["kind"] as? String else { return nil }
-            return NativeMacInputStep(
-              kind: kind,
-              x: (raw["x"] as? NSNumber)?.doubleValue,
-              y: (raw["y"] as? NSNumber)?.doubleValue,
-              dx: (raw["dx"] as? NSNumber)?.doubleValue,
-              dy: (raw["dy"] as? NSNumber)?.doubleValue,
-              at: (raw["at"] as? NSNumber)?.doubleValue ?? 0,
-              captureAt: (raw["capture_at"] as? NSNumber)?.doubleValue
-                ?? (raw["at"] as? NSNumber)?.doubleValue ?? 0)
-          }
-          let requested = frame["values"] as? [String: Any] ?? [:]
-          let valueRequest = NativeMacValueRequest(
-            floats: requested["floats"] as? [String] ?? [],
-            integers: requested["integers"] as? [String] ?? [],
-            texts: requested["texts"] as? [String] ?? [],
-            colors: requested["colors"] as? [String] ?? [])
           // A document this player refuses is a result, not a crash: the runner needs to report it
           // as a failing check for that frame rather than lose the whole gold.
           do {
             let frame = try NativeAppKitWindowController.renderFrame(
-              data: document, timeSeconds: time, wallClock: wallClock, viewport: viewport,
-              values: valueRequest, steps: steps)
-            let path = URL(fileURLWithPath: outputDirectory).appendingPathComponent("\(id).png")
+              data: document, timeSeconds: request.time, wallClock: request.wallClock,
+              viewport: request.viewport, values: request.values, steps: request.steps)
+            let path = URL(fileURLWithPath: job.output).appendingPathComponent(
+              "\(request.id).png")
             try frame.png.write(to: path, options: .atomic)
             // The laid-out tree travels with the frame: the corpus's `tree` probe reads it, and
             // taking it from the same view the pixels came from keeps the two channels consistent.
             // The document's own values travel with it too, resolved at the same instant.
-            var result: [String: Any] = ["id": id, "png": path.path, "tree": frame.tree]
+            var result: [String: Any] = [
+              "id": request.id, "png": path.path, "tree": frame.tree,
+            ]
             if let values = frame.values { result["values"] = values }
             results.append(result)
           } catch {
-            results.append(["id": id, "error": "\(error)"])
+            results.append(["id": request.id, "error": "\(error)"])
           }
         }
         let encoded = try JSONSerialization.data(

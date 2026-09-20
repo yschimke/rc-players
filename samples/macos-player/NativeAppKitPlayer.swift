@@ -61,23 +61,55 @@ enum NativeMacFrameDriverMode: Equatable {
 /// The corpus's timeline is a sequence of gestures and clock moves, and a check bound to a step
 /// asserts the document *after* everything up to it. The player opens a document fresh per frame, so
 /// the lane sends the whole sequence with each frame and the player replays it.
-struct NativeMacInputStep {
-  var kind: String
-  var x: Double?
-  var y: Double?
-  var dx: Double?
-  var dy: Double?
+struct NativeMacInputStep: Decodable {
+  enum Kind: String, Decodable {
+    case click, longPress, doubleClick
+    case touchDown = "touch_down"
+    case touchDrag = "touch_drag"
+    case touchUp = "touch_up"
+  }
+
+  let kind: Kind
+  let point: CGPoint
+  let velocity: CGVector
   /// The clock the step happens at, in seconds.
-  var at: TimeInterval
+  let at: TimeInterval
   /// The clock after the step's requested delay, when its repaint is observed.
-  var captureAt: TimeInterval
+  let captureAt: TimeInterval
+  /// The viewport in force when this input was dispatched.
+  let viewport: CGSize?
+
+  private enum CodingKeys: String, CodingKey {
+    case kind, x, y, dx, dy, at, width, height
+    case captureAt = "capture_at"
+  }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    kind = try values.decode(Kind.self, forKey: .kind)
+    point = CGPoint(
+      x: try values.decodeIfPresent(Double.self, forKey: .x) ?? 0,
+      y: try values.decodeIfPresent(Double.self, forKey: .y) ?? 0)
+    velocity = CGVector(
+      dx: try values.decodeIfPresent(Double.self, forKey: .dx) ?? 0,
+      dy: try values.decodeIfPresent(Double.self, forKey: .dy) ?? 0)
+    at = try values.decodeIfPresent(TimeInterval.self, forKey: .at) ?? 0
+    captureAt = try values.decodeIfPresent(TimeInterval.self, forKey: .captureAt) ?? at
+    if let width = try values.decodeIfPresent(CGFloat.self, forKey: .width),
+      let height = try values.decodeIfPresent(CGFloat.self, forKey: .height)
+    {
+      viewport = CGSize(width: width, height: height)
+    } else {
+      viewport = nil
+    }
+  }
 }
 
 /// The scroll a touch sequence picked up. Its starting offset and point stay fixed for the whole
 /// sequence, so two move samples at -40 and -80 produce offsets 40 and 80 rather than 40 and 120.
 private struct NativeMacScrollDrag {
   let positionID: Int
-  let direction: Int
+  let direction: NativeSwiftScrollDirection
   let startPoint: CGPoint
   let startOffset: Float
   var currentOffset: Float
@@ -94,9 +126,92 @@ private struct NativeMacScrollFling {
 
 private struct NativeMacScrollTarget {
   let positionID: Int
-  let direction: Int
+  let direction: NativeSwiftScrollDirection
   let offset: Float
   let maximum: Float
+}
+
+private enum NativeMacScrollMotion {
+  case idle
+  case dragging(NativeMacScrollDrag)
+  case flinging(NativeMacScrollFling)
+}
+
+/// Stateful replay of one frame's input history.
+///
+/// Keeping the drag and fling here makes illegal combinations unrepresentable to the renderer: the
+/// window controller asks this value to consume an input; it does not coordinate two optional
+/// `inout` parameters and a string switch itself.
+private struct NativeMacInputReplay {
+  private var scroll: NativeMacScrollMotion = .idle
+
+  mutating func consume(
+    _ step: NativeMacInputStep, session: NativeSwiftDocumentSession, view: NativeMacDocumentView
+  ) throws {
+    let gesture: NativeSwiftGestureKind
+    switch step.kind {
+    case .click: gesture = .tap
+    case .longPress: gesture = .longPress
+    case .doubleClick: gesture = .doubleTap
+    case .touchDown:
+      if let target = view.scrollTarget(at: step.point) {
+        scroll = .dragging(
+          NativeMacScrollDrag(
+            positionID: target.positionID, direction: target.direction, startPoint: step.point,
+            startOffset: target.offset, currentOffset: target.offset, maximum: target.maximum))
+      } else {
+        scroll = .idle
+      }
+      gesture = .touchDown
+    case .touchDrag:
+      guard case .dragging(var activeDrag) = scroll else { return }
+      let delta = Float(
+        activeDrag.direction == .horizontal
+          ? step.point.x - activeDrag.startPoint.x : step.point.y - activeDrag.startPoint.y)
+      activeDrag.currentOffset = NativeSwiftScrollGesture.offset(
+        afterDragging: activeDrag.startOffset, delta: delta, maximum: activeDrag.maximum)
+      scroll = .dragging(activeDrag)
+      session.setFloat(activeDrag.currentOffset, forID: activeDrag.positionID)
+      return
+    case .touchUp:
+      if case .dragging(let activeDrag) = scroll {
+        let fingerVelocity = Float(
+          activeDrag.direction == .horizontal ? step.velocity.dx : step.velocity.dy)
+        if fingerVelocity != 0 {
+          scroll = .flinging(
+            NativeMacScrollFling(
+              positionID: activeDrag.positionID, startOffset: activeDrag.currentOffset,
+              // The reference establishes a fling on the first post-release repaint; later
+              // `advance_time` steps decay from that observed frame.
+              velocity: -fingerVelocity, maximum: activeDrag.maximum, startedAt: step.captureAt))
+        } else {
+          scroll = .idle
+        }
+      } else {
+        scroll = .idle
+      }
+      gesture = .touchUp
+    }
+
+    guard let componentID = view.gestureTarget(at: step.point, for: gesture) else { return }
+    _ = try session.gesture(
+      gesture, componentID: componentID,
+      sample: NativeSwiftPointerSample(
+        x: Float(step.point.x), y: Float(step.point.y),
+        velocityX: Float(step.velocity.dx), velocityY: Float(step.velocity.dy)),
+      timeSeconds: step.at)
+  }
+
+  func finish(at time: TimeInterval, session: NativeSwiftDocumentSession) {
+    guard case .flinging(let fling) = scroll else { return }
+    let elapsed = Float(max(time - fling.startedAt, 0))
+    // The reference's decay loses the supplied velocity linearly over one second: a 1200 pt/s
+    // release travels 114 points in 100 ms, 306 in 300 ms and 600 in one second.
+    let duration = min(elapsed, 1)
+    let displacement = fling.velocity * (duration - duration * duration / 2)
+    session.setFloat(
+      min(max(fling.startOffset + displacement, 0), fling.maximum), forID: fling.positionID)
+  }
 }
 
 /// A request for the document's own values, for the conformance corpus's value probes.
@@ -104,15 +219,41 @@ private struct NativeMacScrollTarget {
 /// The corpus's `float`, `int`, `text` and `color` probes read a document's state rather than its
 /// rendering, so the runner asks for the slots it asserts rather than for a whole dump: a gold
 /// asserts a handful, and a document can hold hundreds.
-struct NativeMacValueRequest {
-  var floats: [String] = []
-  var integers: [String] = []
-  var texts: [String] = []
-  var colors: [String] = []
+struct NativeMacValueRequest: Decodable {
+  let floats: [String]
+  let integers: [String]
+  let texts: [String]
+  let colors: [String]
+
+  init(
+    floats: [String] = [], integers: [String] = [], texts: [String] = [], colors: [String] = []
+  ) {
+    self.floats = floats
+    self.integers = integers
+    self.texts = texts
+    self.colors = colors
+  }
+
+  private enum CodingKeys: String, CodingKey { case floats, integers, texts, colors }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    self.init(
+      floats: try values.decodeIfPresent([String].self, forKey: .floats) ?? [],
+      integers: try values.decodeIfPresent([String].self, forKey: .integers) ?? [],
+      texts: try values.decodeIfPresent([String].self, forKey: .texts) ?? [],
+      colors: try values.decodeIfPresent([String].self, forKey: .colors) ?? [])
+  }
 
   var isEmpty: Bool {
     floats.isEmpty && integers.isEmpty && texts.isEmpty && colors.isEmpty
   }
+}
+
+struct NativeMacRenderedFrame {
+  let png: Data
+  let tree: [[String: Any]]
+  let values: [String: Any]?
 }
 
 @MainActor
@@ -150,7 +291,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     viewport: CGSize? = nil,
     values: NativeMacValueRequest = NativeMacValueRequest(),
     steps: [NativeMacInputStep] = []
-  ) throws -> (png: Data, tree: [[String: Any]], values: [String: Any]?) {
+  ) throws -> NativeMacRenderedFrame {
     try NativeMacPolicy.validateDocument(data)
     // A *data-only* document declares values and nothing to draw. A conformance capture still has to
     // answer the probes those documents assert, so the batch tolerates one; the window path below
@@ -169,35 +310,32 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       snapshot: snapshot, session: session, compatibility: .compatible, report: report,
       fonts: fonts,
       onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
-    let frame = NSRect(
-      x: 0, y: 0,
-      width: viewport.map { Int($0.width) } ?? snapshot.width,
-      height: viewport.map { Int($0.height) } ?? snapshot.height)
+    let captureSize = viewport ?? CGSize(width: snapshot.width, height: snapshot.height)
+    let initialSize = steps.first?.viewport ?? captureSize
+    let frame = NSRect(origin: .zero, size: initialSize)
     let window = NSWindow(
       contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
     window.contentView = player
     player.frame = frame
     player.layoutSubtreeIfNeeded()
-    var scrollDrag: NativeMacScrollDrag?
-    var scrollFling: NativeMacScrollFling?
+    var replay = NativeMacInputReplay()
     for step in steps {
-      try apply(
-        step, to: session, view: player, scrollDrag: &scrollDrag, scrollFling: &scrollFling)
+      if let viewport = step.viewport, player.frame.size != viewport {
+        window.setContentSize(viewport)
+        player.frame = NSRect(origin: .zero, size: viewport)
+        player.layoutSubtreeIfNeeded()
+      }
+      try replay.consume(step, session: session, view: player)
       // A later input must hit-test the state left by the one before it. This matters when a click
       // switches a StateLayout before the next gesture, and also keeps the scroll tree current while
       // a multi-sample drag is replayed.
       try player.refresh(timeSeconds: step.captureAt, wallClock: wallClock)
       player.layoutSubtreeIfNeeded()
     }
-    if let fling = scrollFling {
-      let elapsed = Float(max(timeSeconds - fling.startedAt, 0))
-      // The reference's decay loses the supplied velocity linearly over one second: a 1200 pt/s
-      // release travels 114 points in 100 ms, 306 in 300 ms and 600 in one second. Integrating that
-      // velocity gives v*t - v*t²/2, clamped when the second has elapsed and at the content bounds.
-      let duration = min(elapsed, 1)
-      let displacement = fling.velocity * (duration - duration * duration / 2)
-      session.setFloatValue(
-        min(max(fling.startOffset + displacement, 0), fling.maximum), id: fling.positionID)
+    replay.finish(at: timeSeconds, session: session)
+    if player.frame.size != captureSize {
+      window.setContentSize(captureSize)
+      player.frame = NSRect(origin: .zero, size: captureSize)
     }
     if !steps.isEmpty {
       // Re-resolve after the gestures and lay out again: a gesture changes the document's state, and
@@ -212,72 +350,12 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     guard let png = bitmap.representation(using: .png, properties: [:]) else {
       throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
     }
-    return (
-      png, player.layoutTree(),
-      values.isEmpty
+    return NativeMacRenderedFrame(
+      png: png, tree: player.layoutTree(),
+      values: values.isEmpty
         ? nil
         : try reportedValues(
-          session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values)
-    )
-  }
-
-  /// Replays one input step against a laid-out view.
-  ///
-  /// The gesture goes to whatever component the point hits *and* accepts that gesture, which is what
-  /// the reference dispatches to; a point that lands on nothing is not an error, it is a gesture the
-  /// document never sees.
-  private static func apply(
-    _ step: NativeMacInputStep, to session: NativeSwiftDocumentSession, view: NativeMacDocumentView,
-    scrollDrag: inout NativeMacScrollDrag?, scrollFling: inout NativeMacScrollFling?
-  ) throws {
-    let kind: NativeSwiftGestureKind
-    switch step.kind {
-    case "click": kind = .tap
-    case "longPress": kind = .longPress
-    case "doubleClick": kind = .doubleTap
-    case "touch_down":
-      let point = CGPoint(x: step.x ?? 0, y: step.y ?? 0)
-      scrollDrag = view.scrollTarget(at: point).map {
-        NativeMacScrollDrag(
-          positionID: $0.positionID, direction: $0.direction, startPoint: point,
-          startOffset: $0.offset, currentOffset: $0.offset, maximum: $0.maximum)
-      }
-      scrollFling = nil
-      kind = .touchDown
-    case "touch_drag":
-      guard var drag = scrollDrag else { return }
-      let point = CGPoint(x: step.x ?? 0, y: step.y ?? 0)
-      let delta =
-        drag.direction == 1
-        ? Float(point.x - drag.startPoint.x) : Float(point.y - drag.startPoint.y)
-      drag.currentOffset = NativeSwiftScrollGesture.offset(
-        afterDragging: drag.startOffset, delta: delta, maximum: drag.maximum)
-      scrollDrag = drag
-      session.setFloatValue(drag.currentOffset, id: drag.positionID)
-      return
-    case "touch_up":
-      if let drag = scrollDrag {
-        let fingerVelocity = drag.direction == 1 ? Float(step.dx ?? 0) : Float(step.dy ?? 0)
-        if fingerVelocity != 0 {
-          scrollFling = NativeMacScrollFling(
-            positionID: drag.positionID, startOffset: drag.currentOffset,
-            // The reference establishes a fling on the first post-release repaint; later
-            // `advance_time` steps decay from that observed frame.
-            velocity: -fingerVelocity, maximum: drag.maximum, startedAt: step.captureAt)
-        }
-      }
-      scrollDrag = nil
-      kind = .touchUp
-    default: return
-    }
-    let point = CGPoint(x: step.x ?? 0, y: step.y ?? 0)
-    guard let componentID = view.gestureTarget(at: point, for: kind) else { return }
-    _ = try session.gesture(
-      kind, componentID: componentID,
-      sample: NativeSwiftPointerSample(
-        x: Float(step.x ?? 0), y: Float(step.y ?? 0),
-        velocityX: Float(step.dx ?? 0), velocityY: Float(step.dy ?? 0)),
-      timeSeconds: step.at)
+          session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values))
   }
 
   /// The values a probe asked for, each resolved at the frame's own instant.
@@ -740,9 +818,9 @@ private final class NativeMacDocumentView: NSView {
         // §4.3 reports the paint translation on the scrolled component, while its children keep
         // their layout positions. Zero is omitted rather than serialized as a meaningless field.
         if abs(view.node.scrollOffset) > Float.ulpOfOne {
-          if view.node.scrollDirection == 1 {
+          if view.node.scrollDirection == .horizontal {
             entry["scroll_x"] = Double(-view.node.scrollOffset)
-          } else if view.node.scrollDirection == 0 {
+          } else if view.node.scrollDirection == .vertical {
             entry["scroll_y"] = Double(-view.node.scrollOffset)
           }
         }
@@ -1354,11 +1432,11 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     // first drag can move, while still respecting a non-zero maximum the document already holds.
     let contentEnd = flattenedLayoutItems.reduce(CGFloat.zero) { result, child in
       let frame = child.convert(child.bounds, to: self)
-      return max(result, direction == 1 ? frame.maxX : frame.maxY)
+      return max(result, direction == .horizontal ? frame.maxX : frame.maxY)
     }
     // `contentEnd` and the trailing edge are in this component's coordinates. Subtracting only the
     // content size would count leading padding as overflow and let exactly-fitting content scroll.
-    let viewportEnd = direction == 1 ? contentRect.maxX : contentRect.maxY
+    let viewportEnd = direction == .horizontal ? contentRect.maxX : contentRect.maxY
     let measuredMaximum = Float(max(contentEnd - viewportEnd, 0))
     return NativeMacScrollTarget(
       positionID: positionID, direction: direction, offset: node.scrollOffset,
@@ -1624,10 +1702,11 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   private func layoutOverlay(aligned: Bool) {
     let content = contentRect
     let items = visibleChildren
-    let axis: NativeCollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
+    let axis: NativeCollapsibleAxis =
+      node.scrollDirection == .horizontal ? .horizontal : .vertical
     let extent = scrolledExtent(of: items, in: content.size, axis: axis, stacking: false)
     let space =
-      node.scrollDirection == 1
+      node.scrollDirection == .horizontal
       ? CGRect(
         x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
       : CGRect(
@@ -1755,8 +1834,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     // the pre-collapse total. The axis that scrolls is the *modifier's*, which need not be the
     // arrangement axis: a horizontally scrolled column still stacks, but each child is measured
     // unbounded in width.
-    let scrollAxis: NativeCollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
-    let extent = node.scrollDirection == 0
+    let scrollAxis: NativeCollapsibleAxis =
+      node.scrollDirection == .horizontal ? .horizontal : .vertical
+    let extent = node.scrollDirection == .vertical
       ? (scrolledExtent(
         of: visibleChildren, in: content.size, axis: .vertical, stacking: true)
         ?? content.height)
@@ -1908,8 +1988,9 @@ private typealias MacFlowLine = (
     let items = collapsibleItems(in: content.size, axis: .horizontal)
     // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport, and the
     // axis that scrolls is the modifier's — a vertically scrolled row still places left to right.
-    let scrollAxis: NativeCollapsibleAxis = node.scrollDirection == 1 ? .horizontal : .vertical
-    let extent = node.scrollDirection == 1
+    let scrollAxis: NativeCollapsibleAxis =
+      node.scrollDirection == .horizontal ? .horizontal : .vertical
+    let extent = node.scrollDirection == .horizontal
       ? (scrolledExtent(
         of: visibleChildren, in: content.size, axis: .horizontal, stacking: true)
         ?? content.width)

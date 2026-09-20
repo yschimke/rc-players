@@ -94,7 +94,7 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// A scroll does not move the layout: its translation is applied at paint time, which is why the
   /// corpus keeps it out of a node's `x`/`y` and reports it as `scroll_x`/`scroll_y` instead. What
   /// a renderer needs from the document is where the scroll currently is.
-  public let scrollDirection: Int?
+  public let scrollDirection: NativeSwiftScrollDirection?
   /// The slot the scroll's position lives in, so a gesture can move it: a scroll is a modifier
   /// *translation* the layout never sees, and the document's own float is its state.
   public let scrollPositionID: Int?
@@ -260,6 +260,12 @@ public enum NativeSwiftGestureKind: Int, CaseIterable, Equatable, Sendable {
   case touchDown
   case touchUp
   case touchCancel
+}
+
+/// The axis a scroll modifier moves along.
+public enum NativeSwiftScrollDirection: Int, Sendable {
+  case vertical = 0
+  case horizontal = 1
 }
 
 /// How a scroll moves under a drag.
@@ -910,7 +916,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// Writes one float slot by id, for a gesture that moves a document's own value — a scroll's
   /// offset is addressed by id rather than by name.
   @discardableResult
-  public func setFloatValue(_ value: Float, id: Int) -> Bool {
+  public func setFloat(_ value: Float, forID id: Int) -> Bool {
     guard value.isFinite else { return false }
     floats[id] = value
     return true
@@ -1996,8 +2002,8 @@ private final class ParsedNode {
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
   /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
   var componentKind = ""
-  /// Set by the scroll modifier (226): 0 vertical, 1 horizontal.
-  var scrollDirection: Int?
+  /// Set by the scroll modifier (226).
+  var scrollDirection: NativeSwiftScrollDirection?
   /// The float word holding the scroll position, and the one holding how far it may travel. The
   /// notch maximum is consumed by the decoder and dropped: nothing here snaps a scroll yet.
   var scrollPositionWord: UInt32?
@@ -3240,7 +3246,12 @@ private enum NativeSwiftDocumentDecoder {
         // arrived as siblings of the row, laid out by nobody. `row_scroll_basic` is the gold that
         // caught it.
         let node = try currentNode(stack, input: input)
-        node.scrollDirection = try input.int("scroll direction")
+        let rawDirection = try input.int("scroll direction")
+        guard let direction = NativeSwiftScrollDirection(rawValue: rawDirection) else {
+          throw NativeSwiftCoreError.malformed(
+            offset: opcodeOffset, reason: "Unknown scroll direction \(rawDirection)")
+        }
+        node.scrollDirection = direction
         node.scrollPositionWord = try input.word("scroll position")
         node.scrollMaximumWord = try input.word("scroll maximum")
         _ = try input.word("scroll notch maximum")

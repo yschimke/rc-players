@@ -48,7 +48,7 @@ enum NativeSwiftCoreTests {
       scrolledRow.componentKind == "RowLayout",
       "expected the scrolled component to be a row, got \(scrolledRow.componentKind)")
     precondition(
-      scrolledRow.scrollDirection == 1 && scrolledRow.scrollOffset == 40
+      scrolledRow.scrollDirection == .horizontal && scrolledRow.scrollOffset == 40
         && scrolledRow.scrollMaximum == 240,
       "expected a horizontal scroll at 40/240, got "
         + "\(String(describing: scrolledRow.scrollDirection))/\(scrolledRow.scrollOffset)"
@@ -87,13 +87,13 @@ enum NativeSwiftCoreTests {
       dataOnly.namedVariableID("answer") == 5 && dataOnlyValues.floats[5] == 42,
       "a data-only document's own values did not resolve: "
         + "\(String(describing: dataOnlyValues.floats[5]))")
-    precondition(dataOnly.setFloatValue(24, id: 99), "a finite float slot update was refused")
+    precondition(dataOnly.setFloat(24, forID: 99), "a finite float slot update was refused")
     let updatedDataOnlyValues = try dataOnly.probeValues(timeSeconds: 0)
     precondition(
       updatedDataOnlyValues.floats[99] == 24,
       "a float slot update did not survive resolution")
     precondition(
-      !dataOnly.setFloatValue(.nan, id: 99), "a non-finite float slot update was accepted")
+      !dataOnly.setFloat(.nan, forID: 99), "a non-finite float slot update was accepted")
 
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {

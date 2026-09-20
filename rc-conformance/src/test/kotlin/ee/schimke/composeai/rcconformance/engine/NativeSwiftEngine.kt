@@ -204,6 +204,8 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       step.float("dy")?.let { put("dy", it) }
       put("at", eventTime)
       put("capture_at", clock)
+      put("width", width)
+      put("height", height)
     }
     request(step.id)
   }
@@ -229,6 +231,9 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
           number("x")?.let { put("x", it) }
           number("y")?.let { put("y", it) }
           put("at", clock)
+          put("capture_at", clock)
+          put("width", width)
+          put("height", height)
         }
         request(step.id)
       }
