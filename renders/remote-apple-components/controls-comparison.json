@@ -1,0 +1,8 @@
+{
+  "candidate" : "after-controls-set.png",
+  "changed_pixel_ratio_at_16" : 0.027646815550041358,
+  "height" : 620,
+  "mean_absolute_channel_error" : 2.7510973256134545,
+  "reference" : "swiftui-controls-reference.png",
+  "width" : 390
+}
