@@ -1,0 +1,8 @@
+{
+  "candidate" : "after-component-set.png",
+  "changed_pixel_ratio_at_16" : 0.039234904880066174,
+  "height" : 620,
+  "mean_absolute_channel_error" : 3.957870140612076,
+  "reference" : "swiftui-reference.png",
+  "width" : 390
+}
