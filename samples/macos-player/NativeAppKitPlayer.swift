@@ -465,6 +465,9 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         uniqueKeysWithValues: snapshot.pathTweenIDs.sorted().map {
           (String($0), ["present": true])
         }),
+      "uniforms": Dictionary(uniqueKeysWithValues: snapshot.shaderUniformNames.map { id, names in
+        (String(id), Dictionary(uniqueKeysWithValues: names.map { ($0, true) }))
+      }),
     ]
   }
 

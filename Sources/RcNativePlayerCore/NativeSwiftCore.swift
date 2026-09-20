@@ -34,6 +34,8 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let pathTweenIDs: Set<Int>
   /// Every declared accessibility operation, including root-attached and repeated modifiers.
   public let accessibilityRecords: [NativeSwiftAccessibilitySnapshot]
+  /// Runtime shader uniform names keyed by shader id. Values remain unobserved by design.
+  public let shaderUniformNames: [Int: Set<String>]
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
@@ -876,7 +878,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
-      })
+      }, shaderUniformNames: document.shaderUniformNames)
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -1646,6 +1648,7 @@ private struct ParsedDocument {
   let pathIDs: Set<Int>
   let pathTweenIDs: Set<Int>
   let accessibilityRecords: [ParsedAccessibility]
+  let shaderUniformNames: [Int: Set<String>]
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
@@ -2724,6 +2727,7 @@ private enum NativeSwiftDocumentDecoder {
     var pathIDs: Set<Int> = []
     var pathTweenIDs: Set<Int> = []
     var accessibilityRecords: [ParsedAccessibility] = []
+    var shaderUniformNames: [Int: Set<String>] = [:]
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -2768,6 +2772,27 @@ private enum NativeSwiftDocumentDecoder {
         words.reserveCapacity(count)
         for _ in 0..<count { words.append(try input.int("paint word")) }
         try applyPaint(words, to: &paint, input: input)
+      case 45:  // Runtime shader resource; retain names for decoded-operation records.
+        let shaderID = try input.int("shader id")
+        _ = try input.int("shader text id")
+        let sizes = UInt32(bitPattern: Int32(try input.int("shader uniform sizes")))
+        guard sizes >> 24 == 0 else { throw input.malformed("Invalid shader uniform sizes") }
+        var names: Set<String> = []
+        for _ in 0..<(sizes & 0xff) {
+          names.insert(try input.utf8("shader float uniform name", maximum: maximumStringBytes))
+          let count = try input.count("shader float uniform value count", maximum: 1_024)
+          for _ in 0..<count { _ = try input.word("shader float uniform value") }
+        }
+        for _ in 0..<((sizes >> 8) & 0xff) {
+          names.insert(try input.utf8("shader int uniform name", maximum: maximumStringBytes))
+          let count = try input.count("shader int uniform value count", maximum: 1_024)
+          for _ in 0..<count { _ = try input.int("shader int uniform value") }
+        }
+        for _ in 0..<((sizes >> 16) & 0xff) {
+          names.insert(try input.utf8("shader bitmap uniform name", maximum: maximumStringBytes))
+          _ = try input.int("shader bitmap uniform id")
+        }
+        shaderUniformNames[shaderID] = names
       case 38:  // Clip path
         let id = try input.int("clip path id")
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
@@ -3659,6 +3684,7 @@ private enum NativeSwiftDocumentDecoder {
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
+      shaderUniformNames: shaderUniformNames,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh)
   }
