@@ -2434,6 +2434,7 @@ private final class NativeMacCanvasView: NSView {
     context.setLineCap(command.strokeCap == 1 ? .round : (command.strokeCap == 2 ? .square : .butt))
     context.setLineJoin(
       command.strokeJoin == 1 ? .round : (command.strokeJoin == 2 ? .bevel : .miter))
+    context.setBlendMode(blendMode(command.blendMode))
     switch command.kind {
     case 0: context.saveGState()
     case 1: context.restoreGState()
@@ -2506,6 +2507,38 @@ private final class NativeMacCanvasView: NSView {
     }
     context.addPath(path)
     context.drawPath(using: command.stroke ? .stroke : (command.pathWinding == 1 ? .eoFill : .fill))
+  }
+
+  private func blendMode(_ value: Int) -> CGBlendMode {
+    switch value {
+    case 0: .clear
+    case 1: .copy
+    case 4: .destinationOver
+    case 5: .sourceIn
+    case 6: .destinationIn
+    case 7: .sourceOut
+    case 8: .destinationOut
+    case 9: .sourceAtop
+    case 10: .destinationAtop
+    case 11: .xor
+    case 12: .plusLighter
+    case 13, 24: .multiply
+    case 14: .screen
+    case 15: .overlay
+    case 16: .darken
+    case 17: .lighten
+    case 18: .colorDodge
+    case 19: .colorBurn
+    case 20: .hardLight
+    case 21: .softLight
+    case 22: .difference
+    case 23: .exclusion
+    case 25: .hue
+    case 26: .saturation
+    case 27: .color
+    case 28: .luminosity
+    default: .normal
+    }
   }
 
   private func drawImage(_ command: NativeMacDrawCommand) {
