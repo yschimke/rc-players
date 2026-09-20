@@ -2,20 +2,21 @@
 
 Published by the scheduled `Conformance` workflow. This branch carries **only** reports — no source, no corpus — so a score can be linked to and compared over time without the run artifacts, which expire.
 
-**Latest run: [`2026-09-19`](runs/2026-09-19/README.md)**
+**Latest run: [`2026-09-20`](runs/2026-09-20/README.md)**
 
 |  | `cmp` |
 | --- | ---: |
-| Core golds passed | **190 / 241** (78.8%) |
-| Raster disagreements | 207 |
-| …not shared with a reference lane | **7** |
+| Core golds passed | **196 / 241** (81.3%) |
+| Raster disagreements | 184 |
+| …not shared with a reference lane | **1** |
 
-Of 207 frames where `cmp` disagrees with the reference image, 200 are frames a reference lane fails too. 7 are the subject lane's alone — and that is the number worth acting on.
+Of 184 frames where `cmp` disagrees with the reference image, 183 are frames a reference lane fails too. 1 is the subject lane's alone — and that is the number worth acting on.
 
 ## Trend
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [`2026-09-20`](runs/2026-09-20/README.md) | 132 / 241 | 196 / 241 | 170 / 241 | 199 / 241 | `49a245a` |
 | [`2026-09-19`](runs/2026-09-19/README.md) | 132 / 241 | 190 / 241 | 0 / 241 | 199 / 241 | `4e2988c` |
 | [`2026-09-18`](runs/2026-09-18/README.md) | 132 / 241 | 182 / 241 | 0 / 241 | 199 / 241 | `cd14467` |
 | [`2026-09-17`](runs/2026-09-17/README.md) | 132 / 241 | 182 / 241 | 0 / 241 | 199 / 241 | `6933661` |
