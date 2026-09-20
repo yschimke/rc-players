@@ -90,6 +90,7 @@ jobs:
               scripts/build-apple-player.sh \
               scripts/build-macos-player.sh \
               scripts/check-apple-player-screenshot.sh \
+              scripts/check-apple-player-benchmark-interaction-ui.sh \
               scripts/check-native-uikit-accessibility.sh \
               scripts/check-native-uikit-accessibility-ui.sh \
               scripts/check-native-uikit-accessibility-simulator.sh \
@@ -106,6 +107,7 @@ jobs:
               scripts/measure-native-swift-core.sh \
               scripts/check-native-swift-fuzz.sh \
               scripts/measure-native-uikit-simulator.sh \
+              scripts/measure-apple-players-simulator.sh \
               scripts/native-uikit-comparison \
               scripts/check-native-uikit-package.sh \
               scripts/check-native-uikit-profile.sh \
@@ -446,6 +448,13 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-uikit-simulator.sh
 
+      # This is intentionally an evidence lane rather than a timing gate. Both implementations run
+      # in the same packaged Release app and simulator session; the JSON is useful for relative
+      # regressions while the native renderer matures, but simulator scheduling is not a device SLA.
+      - name: Compare Apple player simulator benchmarks
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/measure-apple-players-simulator.sh
+
       - name: Measure native AppKit performance and footprint
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-appkit.sh
@@ -491,6 +500,7 @@ jobs:
           path: |
             build/native-swift-core-benchmark.json
             build/native-uikit-evidence.json
+            build/apple-player-benchmark.json
             build/native-appkit-evidence.json
             build/native-fuzz-failures
             build/native-uikit-comparison
@@ -511,6 +521,10 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-accessibility-ui.sh
 
+      - name: Validate Apple player benchmark interaction UI
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-apple-player-benchmark-interaction-ui.sh
+
       - name: Validate native UIKit animation pacing
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-uikit-animation-simulator.sh
@@ -524,6 +538,7 @@ jobs:
             build/apple-player-screenshot.png
             build/native-uikit-accessibility.png
             build/native-uikit-accessibility-ui.xcresult
+            build/apple-player-benchmark-interaction-ui.xcresult
             build/native-uikit-animation-a.png
             build/native-uikit-animation-b.png
             build/native-uikit-evidence.json
