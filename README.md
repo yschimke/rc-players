@@ -125,6 +125,9 @@ text-metrics set. Committed visual evidence is under `renders/`.
 tested against documents it did not produce. `rc-player/profile` and `rc-player/metrics` are the
 profiling and text-metric harnesses. None of the three publishes anything.
 
+For an Apple-only, simulator-oriented CMP/UIKit comparison, see
+[`docs/design/APPLE_PLAYER_BENCHMARKS.md`](docs/design/APPLE_PLAYER_BENCHMARKS.md).
+
 `rc-conformance` scores a player against AndroidX's own **conformance corpus** — 252 golds over 18
 subsystems, each carrying its own compiled document — and writes `conformance-results.json` plus a
 scorecard. It is how *"how conformant is this player?"* gets a number attached to it, against one
