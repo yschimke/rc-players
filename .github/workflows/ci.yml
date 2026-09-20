@@ -533,6 +533,7 @@ jobs:
             build/apple-player-screenshot.png
             build/native-uikit-accessibility.png
             build/native-uikit-accessibility-ui.xcresult
+            build/native-uikit-accessibility-ui-first-attempt.xcresult
             build/native-uikit-animation-a.png
             build/native-uikit-animation-b.png
             build/native-uikit-evidence.json
