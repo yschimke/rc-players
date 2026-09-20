@@ -7,6 +7,7 @@ project="$repo_root/samples/apple-player/RemoteComposePlayer.xcodeproj"
 framework="$repo_root/rc-player/compose/build/XCFrameworks/release/RcComposePlayer.xcframework"
 derived_data="$repo_root/build/apple-player-ui-tests"
 result="$repo_root/build/native-uikit-accessibility-ui.xcresult"
+first_attempt_result="$repo_root/build/native-uikit-accessibility-ui-first-attempt.xcresult"
 . "$repo_root/scripts/simulator-boot.sh"
 
 if [ ! -d "$framework" ]; then
@@ -36,21 +37,40 @@ fi
 
 cleanup() {
   if [ "$started" = true ]; then
-    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+    rc_run_bounded 120 xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
 
 rc_await_boot "$udid"
 
-rm -rf "$result"
-xcodebuild test -quiet \
-  -project "$project" \
-  -scheme RemoteComposePlayer \
-  -destination "platform=iOS Simulator,id=$udid" \
-  -derivedDataPath "$derived_data" \
-  -resultBundlePath "$result" \
-  -parallel-testing-enabled NO \
-  -only-testing:RemoteComposePlayerUITests/NativeAccessibilityUITests
+run_tests() {
+  local output="$1"
+  rm -rf "$output"
+  xcodebuild test -quiet \
+    -project "$project" \
+    -scheme RemoteComposePlayer \
+    -destination "platform=iOS Simulator,id=$udid" \
+    -derivedDataPath "$derived_data" \
+    -resultBundlePath "$output" \
+    -parallel-testing-enabled NO \
+    -only-testing:RemoteComposePlayerUITests/NativeAccessibilityUITests
+}
+
+rm -rf "$first_attempt_result"
+if ! run_tests "$result"; then
+  if [ -d "$result" ]; then
+    mv "$result" "$first_attempt_result"
+    echo "native UIKit accessibility UI tests failed; first-attempt summary:" >&2
+    xcrun xcresulttool get test-results summary --path "$first_attempt_result" >&2 || true
+  fi
+  echo "resetting simulator and retrying once" >&2
+  rc_run_bounded 120 xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+  rc_run_bounded 120 xcrun simctl erase "$udid"
+  rc_run_bounded 300 xcrun simctl boot "$udid"
+  started=true
+  rc_await_boot "$udid"
+  run_tests "$result"
+fi
 
 echo "native UIKit accessibility UI tests: ok ($result)"
