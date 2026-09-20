@@ -52,6 +52,26 @@ class RemoteAppleComponentGalleryTest {
     assertTrue(document.operations.any { it is RcValueIntegerExpressionChangeAction })
     assertTrue(document.operations.any { it is RcHostNamedAction })
   }
+
+  @Test
+  fun controlsGalleryCapturesInteractiveComponents() = runBlocking {
+    val context: Context = RuntimeEnvironment.getApplication()
+    val bytes =
+      captureSingleRemoteDocument(context = context) { RemoteAppleControlsGallery() }.bytes
+    System.getProperty("remote.apple.fixtureDir")?.let { fixtureDir ->
+      File(fixtureDir).mkdirs()
+      File(fixtureDir, "controls-gallery.rc").writeBytes(bytes)
+    }
+    val document = RcDocumentCodec.decode(bytes)
+    val strings = document.operations.filterIsInstance<RcTextData>().map { it.text }.toSet()
+
+    assertTrue("Daily" in strings)
+    assertTrue("Reminders" in strings)
+    assertTrue("Connected" in strings)
+    assertTrue("Privacy" in strings)
+    assertTrue(document.operations.any { it is RcValueIntegerExpressionChangeAction })
+    assertTrue(document.operations.any { it is RcHostNamedAction })
+  }
 }
 
 @Composable

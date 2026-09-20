@@ -134,6 +134,144 @@ struct RemoteAppleSwiftUIReference: View {
   }
 }
 
+struct RemoteAppleControlsSwiftUIReference: View {
+  @State private var schedule = 1
+  @State private var reminders = 3
+  private let schedules = ["Daily", "Weekly", "Monthly"]
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 24) {
+      ReferenceSection(title: "Schedule") {
+        HStack(spacing: 0) {
+          ForEach(schedules.indices, id: \.self) { index in
+            Button {
+              schedule = index
+            } label: {
+              Text(schedules[index])
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(
+                  schedule == index ? ApplePalette.label : ApplePalette.secondaryLabel)
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
+                .background(schedule == index ? ApplePalette.secondaryBackground : .clear)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+            }
+            .buttonStyle(.plain)
+          }
+        }
+        .padding(2)
+        .frame(height: 36)
+        .background(ApplePalette.toggleOff)
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .padding(.vertical, 8)
+
+        HStack(spacing: 0) {
+          Text("Reminders")
+            .font(.system(size: 17))
+            .foregroundStyle(ApplePalette.label)
+          Spacer()
+          Text("\(reminders)")
+            .font(.system(size: 17))
+            .foregroundStyle(ApplePalette.secondaryLabel)
+            .padding(.horizontal, 8)
+          StepperCircle(symbol: "−", enabled: reminders > 0) {
+            reminders = max(0, reminders - 1)
+          }
+          StepperCircle(symbol: "+", enabled: reminders < 9) {
+            reminders = min(9, reminders + 1)
+          }
+        }
+        .frame(height: 52)
+      }
+
+      ReferenceSection(title: "Account") {
+        HStack(spacing: 10) {
+          Circle().fill(ApplePalette.toggleOn).frame(width: 10, height: 10)
+          Text("Cloud Sync")
+            .font(.system(size: 17))
+            .foregroundStyle(ApplePalette.label)
+          Spacer()
+          Text("Connected")
+            .font(.system(size: 15))
+            .foregroundStyle(ApplePalette.secondaryLabel)
+        }
+        .frame(height: 44)
+
+        HStack {
+          Text("Updates")
+            .font(.system(size: 17))
+            .foregroundStyle(ApplePalette.label)
+          Spacer()
+          Text("3")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(ApplePalette.accent)
+            .clipShape(Capsule())
+        }
+        .frame(height: 44)
+
+        Button {} label: {
+          HStack(spacing: 8) {
+            Text("Privacy")
+              .font(.system(size: 17))
+              .foregroundStyle(ApplePalette.label)
+            Spacer()
+            Text("2 permissions")
+              .font(.system(size: 15))
+              .foregroundStyle(ApplePalette.secondaryLabel)
+            Text("›")
+              .font(.system(size: 24))
+              .foregroundStyle(ApplePalette.secondaryLabel)
+          }
+          .frame(height: 48)
+        }
+        .buttonStyle(.plain)
+      }
+    }
+    .padding(20)
+    .frame(width: canvasSize.width, height: canvasSize.height, alignment: .topLeading)
+    .background(ApplePalette.background)
+    .environment(\.colorScheme, .light)
+  }
+}
+
+private struct StepperCircle: View {
+  let symbol: String
+  let enabled: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Text(symbol)
+        .font(.system(size: 20, weight: .medium))
+        .foregroundStyle(enabled ? ApplePalette.accent : ApplePalette.secondaryLabel)
+        .frame(width: 32, height: 32)
+        .background(ApplePalette.toggleOff)
+        .clipShape(Circle())
+    }
+    .buttonStyle(.plain)
+    .disabled(!enabled)
+  }
+}
+
+private enum ComparisonDemo: String, CaseIterable, Identifiable {
+  case essentials
+  case controls
+
+  var id: Self { self }
+  var title: String { self == .essentials ? "Essentials" : "Controls" }
+  var resource: String { self == .essentials ? "after-component-set" : "after-controls-set" }
+
+  @ViewBuilder var reference: some View {
+    switch self {
+    case .essentials: RemoteAppleSwiftUIReference()
+    case .controls: RemoteAppleControlsSwiftUIReference()
+    }
+  }
+}
+
 private struct ComparisonPane<Content: View>: View {
   let title: String
   let subtitle: String
@@ -160,7 +298,8 @@ private struct ComparisonPane<Content: View>: View {
 }
 
 private struct ComparisonView: View {
-  let remoteImage: NSImage
+  let remoteImages: [ComparisonDemo: NSImage]
+  @State private var demo = ComparisonDemo.essentials
 
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
@@ -170,14 +309,19 @@ private struct ComparisonView: View {
         Text("One specification expressed in SwiftUI and remote-creation-compose")
           .foregroundStyle(.secondary)
       }
+      Picker("Demo", selection: $demo) {
+        ForEach(ComparisonDemo.allCases) { demo in Text(demo.title).tag(demo) }
+      }
+      .pickerStyle(.segmented)
+      .frame(width: 260)
       HStack(alignment: .top, spacing: 24) {
         ComparisonPane(title: "SwiftUI reference", subtitle: "Live reference implementation") {
-          RemoteAppleSwiftUIReference()
+          demo.reference
         }
         ComparisonPane(
           title: "Remote Compose", subtitle: "Captured document rendered by the CMP player"
         ) {
-          Image(nsImage: remoteImage)
+          Image(nsImage: remoteImages[demo]!)
             .resizable()
             .interpolation(.none)
         }
@@ -206,9 +350,9 @@ private enum ComparisonError: Error, CustomStringConvertible {
 }
 
 @MainActor
-private func renderReference(to url: URL) throws {
+private func renderReference(_ demo: ComparisonDemo, to url: URL) throws {
   _ = NSApplication.shared
-  let view = NSHostingView(rootView: RemoteAppleSwiftUIReference())
+  let view = NSHostingView(rootView: demo.reference)
   view.frame = NSRect(origin: .zero, size: canvasSize)
   view.layoutSubtreeIfNeeded()
   guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
@@ -296,7 +440,13 @@ private struct RemoteAppleComparisonMain {
   static func main() throws {
     let arguments = CommandLine.arguments
     if arguments.count == 3, arguments[1] == "--render-reference" {
-      try renderReference(to: URL(fileURLWithPath: arguments[2]))
+      try renderReference(.essentials, to: URL(fileURLWithPath: arguments[2]))
+      return
+    }
+    if arguments.count == 4, arguments[1] == "--render-reference",
+      let demo = ComparisonDemo(rawValue: arguments[2])
+    {
+      try renderReference(demo, to: URL(fileURLWithPath: arguments[3]))
       return
     }
     if arguments.count == 6, arguments[1] == "--compare" {
@@ -309,11 +459,14 @@ private struct RemoteAppleComparisonMain {
     }
     if arguments.count != 1 { throw ComparisonError.usage }
 
-    guard
-      let resource = Bundle.main.url(
-        forResource: "after-component-set", withExtension: "png"),
-      let remoteImage = NSImage(contentsOf: resource)
-    else { throw ComparisonError.missingResource("after-component-set.png") }
+    var remoteImages: [ComparisonDemo: NSImage] = [:]
+    for demo in ComparisonDemo.allCases {
+      guard
+        let resource = Bundle.main.url(forResource: demo.resource, withExtension: "png"),
+        let image = NSImage(contentsOf: resource)
+      else { throw ComparisonError.missingResource("\(demo.resource).png") }
+      remoteImages[demo] = image
+    }
     let application = NSApplication.shared
     application.setActivationPolicy(.regular)
     let window = NSWindow(
@@ -322,7 +475,8 @@ private struct RemoteAppleComparisonMain {
       backing: .buffered,
       defer: false)
     window.title = "Remote Apple Comparison"
-    window.contentViewController = NSHostingController(rootView: ComparisonView(remoteImage: remoteImage))
+    window.contentViewController = NSHostingController(
+      rootView: ComparisonView(remoteImages: remoteImages))
     window.center()
     window.makeKeyAndOrderFront(nil)
     application.activate(ignoringOtherApps: true)

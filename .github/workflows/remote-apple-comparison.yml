@@ -32,11 +32,20 @@ jobs:
           "$executable" \
             --render-reference build/remote-apple-reference/swiftui-reference.png
           "$executable" \
+            --render-reference controls \
+            build/remote-apple-reference/swiftui-controls-reference.png
+          "$executable" \
             --compare \
             build/remote-apple-reference/swiftui-reference.png \
             renders/remote-apple-components/after-component-set.png \
             build/remote-apple-reference/swiftui-vs-remote-diff.png \
             build/remote-apple-reference/comparison.json
+          "$executable" \
+            --compare \
+            build/remote-apple-reference/swiftui-controls-reference.png \
+            renders/remote-apple-components/after-controls-set.png \
+            build/remote-apple-reference/swiftui-controls-vs-remote-diff.png \
+            build/remote-apple-reference/controls-comparison.json
       - name: Upload the comparison app and rendered evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

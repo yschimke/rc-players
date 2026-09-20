@@ -18,6 +18,7 @@ mkdir -p "$app/Contents/MacOS" "$resources" "$build_root/module-cache"
 cp "$repo_root/prototypes/remote-apple-components/swiftui/Info.plist" \
   "$app/Contents/Info.plist"
 cp "$repo_root/renders/remote-apple-components/after-component-set.png" "$resources/"
+cp "$repo_root/renders/remote-apple-components/after-controls-set.png" "$resources/"
 
 CLANG_MODULE_CACHE_PATH="$build_root/module-cache" \
 SWIFT_MODULECACHE_PATH="$build_root/module-cache" \
