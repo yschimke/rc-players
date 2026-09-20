@@ -66,7 +66,8 @@ import kotlinx.serialization.json.put
  * Every other step kind throws [UnsupportedStepKind] rather than no-opping, so the checks behind
  * them fail visibly as `STEP_NOT_RUN`.
  */
-public class NativeSwiftEngine(private val playerBinary: File) : ConformanceEngine {
+public class NativeSwiftEngine(private val playerBinary: File, private val specDir: File) :
+  ConformanceEngine {
   override val name: String = "native-appkit"
 
   override val version: String = "appkit"
@@ -79,7 +80,7 @@ public class NativeSwiftEngine(private val playerBinary: File) : ConformanceEngi
   }
 
   override fun <T> withSession(gold: Gold, block: (ConformanceSession) -> T): T =
-    NativeSwiftSession(gold, playerBinary).use { block(it) }
+    NativeSwiftSession(gold, playerBinary, specDir).use { block(it) }
 
   public companion object {
     /**
@@ -102,8 +103,11 @@ private const val MILLIS_PER_SECOND = 1000.0
 /** The corpus's frame rate for `frame_sequence` (§3): one frame per sixtieth of a second. */
 private const val FRAMES_PER_SECOND = 60.0
 
-private class NativeSwiftSession(private val gold: Gold, private val playerBinary: File) :
-  ConformanceSession, AutoCloseable {
+private class NativeSwiftSession(
+  private val gold: Gold,
+  private val playerBinary: File,
+  private val specDir: File,
+) : ConformanceSession, AutoCloseable {
   private var width = gold.parameters.intOrDefault("width", 400)
   private var height = gold.parameters.intOrDefault("height", 400)
 
@@ -367,6 +371,7 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
     val job = buildJsonObject {
       put("document", gold.documentBase64)
       put("output", workingDirectory.absolutePath)
+      put("fontPath", File(specDir, "fonts/Ahem.ttf").absolutePath)
       put(
         "frames",
         buildJsonArray {

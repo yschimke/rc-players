@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import RcComposePlayer
 #if canImport(RcPlayerAppleFonts)
   import RcPlayerAppleFonts
@@ -11,6 +12,7 @@ private enum NativeConformanceJobError: Error { case malformed }
 private struct NativeConformanceJob: Decodable {
   let document: String
   let output: String
+  let fontPath: String?
   let frames: [NativeConformanceFrameRequest]
 }
 
@@ -638,6 +640,16 @@ struct RemoteComposeMacApplication {
         guard let document = Data(base64Encoded: job.document) else {
           throw NativeConformanceJobError.malformed
         }
+        let conformanceFontName: String?
+        if let fontPath = job.fontPath {
+          let fontURL = URL(fileURLWithPath: fontPath)
+          guard CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, nil),
+            NSFont(name: "Ahem", size: 12) != nil
+          else { throw NativeConformanceJobError.malformed }
+          conformanceFontName = "Ahem"
+        } else {
+          conformanceFontName = nil
+        }
         var results: [[String: Any]] = []
         for request in job.frames {
           // The values this frame's checks assert. A gold asks for the handful it names rather than
@@ -649,7 +661,8 @@ struct RemoteComposeMacApplication {
           do {
             let frame = try NativeAppKitWindowController.renderFrame(
               data: document, timeSeconds: request.time, wallClock: request.wallClock,
-              viewport: request.viewport, values: request.values, steps: request.steps)
+              viewport: request.viewport, values: request.values, steps: request.steps,
+              conformanceFontName: conformanceFontName)
             let path = URL(fileURLWithPath: job.output).appendingPathComponent(
               "\(request.id).png")
             try frame.png.write(to: path, options: .atomic)
