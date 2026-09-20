@@ -45,6 +45,8 @@
 		100000000000000000000025 /* SwiftControls.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000028 /* SwiftControls.rc */; };
 		100000000000000000000026 /* SwiftPulse.rc in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000029 /* SwiftPulse.rc */; };
 		100000000000000000000027 /* SwiftChart.rc in Resources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002A /* SwiftChart.rc */; };
+		100000000000000000000028 /* ApplePlayerBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002B /* ApplePlayerBenchmark.swift */; };
+		100000000000000000000029 /* ApplePlayerBenchmarkInteractionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002C /* ApplePlayerBenchmarkInteractionUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -100,6 +102,8 @@
 		200000000000000000000028 /* SwiftControls.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftControls.rc; path = Fixtures/SwiftControls.rc; sourceTree = "<group>"; };
 		200000000000000000000029 /* SwiftPulse.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftPulse.rc; path = Fixtures/SwiftPulse.rc; sourceTree = "<group>"; };
 		20000000000000000000002A /* SwiftChart.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftChart.rc; path = Fixtures/SwiftChart.rc; sourceTree = "<group>"; };
+		20000000000000000000002B /* ApplePlayerBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlayerBenchmark.swift; sourceTree = "<group>"; };
+		20000000000000000000002C /* ApplePlayerBenchmarkInteractionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlayerBenchmarkInteractionUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -143,6 +147,7 @@
 				20000000000000000000001C /* NativePlayerEvidence.swift */,
 				20000000000000000000001D /* NativeAccessibilityTestHost.swift */,
 				200000000000000000000020 /* NativeComparisonHarness.swift */,
+				20000000000000000000002B /* ApplePlayerBenchmark.swift */,
 				200000000000000000000005 /* Info.plist */,
 			);
 			path = RemoteComposePlayer;
@@ -208,7 +213,10 @@
 		};
 		400000000000000000000007 /* RemoteComposePlayerUITests */ = {
 			isa = PBXGroup;
-			children = (20000000000000000000001E /* NativeAccessibilityUITests.swift */);
+			children = (
+				20000000000000000000001E /* NativeAccessibilityUITests.swift */,
+				20000000000000000000002C /* ApplePlayerBenchmarkInteractionUITests.swift */,
+			);
 			path = RemoteComposePlayerUITests;
 			sourceTree = "<group>";
 		};
@@ -329,13 +337,17 @@
 				10000000000000000000001A /* NativePlayerEvidence.swift in Sources */,
 				10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */,
 				10000000000000000000001D /* NativeComparisonHarness.swift in Sources */,
+				100000000000000000000028 /* ApplePlayerBenchmark.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		700000000000000000000003 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (10000000000000000000001C /* NativeAccessibilityUITests.swift in Sources */);
+			files = (
+				10000000000000000000001C /* NativeAccessibilityUITests.swift in Sources */,
+				100000000000000000000029 /* ApplePlayerBenchmarkInteractionUITests.swift in Sources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
