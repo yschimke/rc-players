@@ -7,12 +7,13 @@ first with `scripts/package-macos-player.sh`.
 
 The first version records per player:
 
-* CMP player window startup and first visible content;
+* **headline, one-to-one:** CMP and native AppKit window startup and first visible content;
 * native AppKit decode, view-tree build, Core Graphics capture, retained-frame cost, and memory.
 
-This is a macOS-only baseline, not a simulator result. The two renderers do not yet expose the same
-per-frame callback, so the report keeps native retained-frame measurements separate from CMP window
-startup rather than pretending those values are directly comparable.
+The JSON keeps the matched pair under `headline.cmp` and `headline.nativeAppKit`; all additional
+native-only measurements are under `nativeAppKitDiagnostics`. This is a macOS-only baseline, not a
+simulator result. The two renderers do not yet expose the same per-frame callback, so retained-frame
+measurements remain diagnostics rather than falsely comparable headline numbers.
 
 macOS results are regression evidence, not device performance claims. The harness does not set
 pass/fail timing budgets because host load and window-server scheduling make absolute thresholds

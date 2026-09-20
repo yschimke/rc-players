@@ -9,12 +9,12 @@ import UniformTypeIdentifiers
 
 private enum NativeConformanceJobError: Error { case malformed }
 
-/// The CMP side of the initial macOS comparison. AppKit does not expose Compose's internal frame
-/// scheduler, so this measures the host boundary we can observe consistently: creating a Compose
-/// window and the first visible content view. Native AppKit's retained-frame timings remain in its
-/// dedicated evidence report until CMP exposes an equivalent frame callback.
-private struct CmpMacStartupEvidence: Codable {
+/// The shared headline contract for both macOS renderers. AppKit does not expose Compose's internal
+/// frame scheduler, so this measures the host boundary both paths share: creating a player window
+/// and observing its first visible content view. Renderer-specific frame diagnostics stay separate.
+private struct MacWindowStartupEvidence: Codable {
   let schemaVersion: Int
+  let renderer: String
   let fixture: String
   let sourceRevision: String
   let iterations: Int
@@ -23,7 +23,7 @@ private struct CmpMacStartupEvidence: Codable {
 }
 
 @MainActor
-private func measureCmpMacStartup(data: Data, fixture: String) throws -> CmpMacStartupEvidence {
+private func measureCmpMacStartup(data: Data, fixture: String) throws -> MacWindowStartupEvidence {
   let iterations = 7
   var startupSamples: [Double] = []
   var presentationSamples: [Double] = []
@@ -51,8 +51,57 @@ private func measureCmpMacStartup(data: Data, fixture: String) throws -> CmpMacS
     if iteration + 1 < iterations { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05)) }
   }
   func median(_ samples: [Double]) -> Double { samples.sorted()[samples.count / 2] }
-  return CmpMacStartupEvidence(
-    schemaVersion: 1, fixture: fixture,
+  return MacWindowStartupEvidence(
+    schemaVersion: 1, renderer: "cmp", fixture: fixture,
+    sourceRevision: ProcessInfo.processInfo.environment["RC_SOURCE_REVISION"] ?? "unknown",
+    iterations: iterations, medianWindowStartupMilliseconds: median(startupSamples),
+    medianFirstPresentationMilliseconds: median(presentationSamples))
+}
+
+@MainActor
+private func measureNativeMacStartup(data: Data, fixture: String) throws -> MacWindowStartupEvidence {
+  let iterations = 7
+  var startupSamples: [Double] = []
+  var presentationSamples: [Double] = []
+  for iteration in 0..<iterations {
+    let title = "Remote Compose benchmark \(UUID().uuidString)"
+    let started = ProcessInfo.processInfo.systemUptime
+    var result: Result<Void, Error>?
+    Task { @MainActor in
+      do {
+        try await NativeAppKitWindowController.shared.open(
+          data: data, title: title, compatibility: .compatible,
+          onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
+        result = .success(())
+      } catch {
+        result = .failure(error)
+      }
+    }
+    let deadline = ProcessInfo.processInfo.systemUptime + 5
+    while result == nil, ProcessInfo.processInfo.systemUptime < deadline {
+      RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
+    }
+    guard let result else {
+      throw DesktopValidationError("Native AppKit window did not open within five seconds")
+    }
+    try result.get()
+    startupSamples.append((ProcessInfo.processInfo.systemUptime - started) * 1_000)
+
+    while NSApp.windows.first(where: { $0.title.hasPrefix(title) && $0.isVisible && $0.contentView != nil }) == nil,
+      ProcessInfo.processInfo.systemUptime < deadline
+    {
+      RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
+    }
+    guard let window = NSApp.windows.first(where: { $0.title.hasPrefix(title) && $0.isVisible }) else {
+      throw DesktopValidationError("Native AppKit window did not become visible within five seconds")
+    }
+    presentationSamples.append((ProcessInfo.processInfo.systemUptime - started) * 1_000)
+    window.close()
+    if iteration + 1 < iterations { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05)) }
+  }
+  func median(_ samples: [Double]) -> Double { samples.sorted()[samples.count / 2] }
+  return MacWindowStartupEvidence(
+    schemaVersion: 1, renderer: "nativeAppKit", fixture: fixture,
     sourceRevision: ProcessInfo.processInfo.environment["RC_SOURCE_REVISION"] ?? "unknown",
     iterations: iterations, medianWindowStartupMilliseconds: median(startupSamples),
     medianFirstPresentationMilliseconds: median(presentationSamples))
@@ -815,6 +864,25 @@ struct RemoteComposeMacApplication {
         print(output.path)
       } catch {
         FileHandle.standardError.write(Data("CMP macOS startup evidence failed: \(error)\n".utf8))
+        exit(1)
+      }
+      return
+    }
+    if CommandLine.arguments.count == 4,
+      CommandLine.arguments[1] == "--measure-native-startup-evidence"
+    {
+      do {
+        _ = NSApplication.shared
+        let input = URL(fileURLWithPath: CommandLine.arguments[2])
+        let output = URL(fileURLWithPath: CommandLine.arguments[3])
+        let report = try measureNativeMacStartup(
+          data: Data(contentsOf: input), fixture: input.deletingPathExtension().lastPathComponent)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(report).write(to: output, options: .atomic)
+        print(output.path)
+      } catch {
+        FileHandle.standardError.write(Data("Native AppKit startup evidence failed: \(error)\n".utf8))
         exit(1)
       }
       return
