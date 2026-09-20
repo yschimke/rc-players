@@ -148,6 +148,13 @@ include(":rc-player-demos")
 
 project(":rc-player-demos").projectDir = file("rc-player/demos")
 
+// Incubating Apple-styled authoring components built on AndroidX's Remote Compose creation API.
+// This intentionally lives outside the published player stack while its API and ownership settle.
+include(":prototype-remote-apple-components")
+
+project(":prototype-remote-apple-components").projectDir =
+  file("prototypes/remote-apple-components")
+
 // The vendored, locally patched AndroidX embedded player — the Android comparison lane the CMP
 // player above is measured against. Provenance and the patch log are in
 // `third_party/rc-embedded-player/PROVENANCE.md`.
