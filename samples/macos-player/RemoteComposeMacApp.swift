@@ -659,8 +659,9 @@ struct RemoteComposeMacApplication {
             var result: [String: Any] = [
               "id": request.id, "png": path.path, "tree": frame.tree,
             ]
-            if let values = frame.values { result["values"] = values }
-            if let inputHandled = frame.inputHandled { result["input_handled"] = inputHandled }
+             if let values = frame.values { result["values"] = values }
+             if !frame.records.isEmpty { result["records"] = frame.records }
+             if let inputHandled = frame.inputHandled { result["input_handled"] = inputHandled }
             results.append(result)
           } catch {
             results.append(["id": request.id, "error": "\(error)"])

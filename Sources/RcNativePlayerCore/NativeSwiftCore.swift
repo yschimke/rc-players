@@ -26,12 +26,18 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let boundComponents: Set<Int>
   /// Layout transition specifications declared by the document, keyed by animation id.
   public let animationSpecs: [Int: NativeSwiftAnimationSpec]
+  /// Animation ids in declaration order, for truthful operation-record observations.
+  public let animationSpecOrder: [Int]
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
 public struct NativeSwiftAnimationSpec: Sendable {
   public let motionDuration: Float
   public let motionEasingType: Int
+  public let visibilityDuration: Float
+  public let visibilityEasingType: Int
+  public let enterAnimation: Int
+  public let exitAnimation: Int
 }
 
 public struct NativeSwiftImageResourceSnapshot: Sendable {
@@ -852,7 +858,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       needsContinuousFrames: document.needsContinuousFrames,
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)),
-      animationSpecs: document.animationSpecs)
+      animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder)
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -1617,6 +1623,7 @@ private struct ParsedDocument {
   let textLookups: [ParsedTextLookupInt]
   let matrixExpressions: [Int: ParsedMatrixExpression]
   let animationSpecs: [Int: NativeSwiftAnimationSpec]
+  let animationSpecOrder: [Int]
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
@@ -2691,6 +2698,7 @@ private enum NativeSwiftDocumentDecoder {
     var textLookups: [ParsedTextLookupInt] = []
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
     var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
+    var animationSpecOrder: [Int] = []
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -3158,15 +3166,21 @@ private enum NativeSwiftDocumentDecoder {
         let motionDuration = try input.floatWord(
           "animation spec motion duration", requireLiteral: true)
         let motionEasingType = try input.int("animation spec motion easing")
-        _ = try input.word("animation spec visibility duration")
-        _ = try input.int("animation spec visibility easing")
-        _ = try input.int("animation spec enter animation")
-        _ = try input.int("animation spec exit animation")
-        guard motionDuration.isFinite, motionDuration >= 0 else {
+        let visibilityDuration = try input.floatWord(
+          "animation spec visibility duration", requireLiteral: true)
+        let visibilityEasingType = try input.int("animation spec visibility easing")
+        let enterAnimation = try input.int("animation spec enter animation")
+        let exitAnimation = try input.int("animation spec exit animation")
+        guard motionDuration.isFinite, motionDuration >= 0, visibilityDuration.isFinite,
+          visibilityDuration >= 0
+        else {
           throw input.malformed("Invalid animation spec duration")
         }
         animationSpecs[id] = NativeSwiftAnimationSpec(
-          motionDuration: motionDuration, motionEasingType: motionEasingType)
+          motionDuration: motionDuration, motionEasingType: motionEasingType,
+          visibilityDuration: visibilityDuration, visibilityEasingType: visibilityEasingType,
+          enterAnimation: enterAnimation, exitAnimation: exitAnimation)
+        animationSpecOrder.append(id)
       case 157:  // Touch expression
         // An id, four float words (start value, minimum, maximum, velocity id), the touch effects,
         // then three length-prefixed float arrays. Each length is the low 16 bits of its word --
@@ -3598,6 +3612,7 @@ private enum NativeSwiftDocumentDecoder {
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
       textMerges: textMerges, idLists: idLists, textLookups: textLookups,
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
+      animationSpecOrder: animationSpecOrder,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh)
   }
