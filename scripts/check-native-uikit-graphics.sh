@@ -6,6 +6,7 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/rc-native-graphics.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
 xcrun swiftc \
+  "$repo_root/Sources/RcNativePlayerCore/NativeSwiftCore.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeGraphicsState.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativePath.swift" \
   "$repo_root/Tests/RcNativePlayerUIKitTests/NativeGraphicsStateTests.swift" \

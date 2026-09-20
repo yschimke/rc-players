@@ -66,6 +66,13 @@ first unformatted file. Before each commit touching `*.kt` / `*.kts`, run `./gra
 build until the dumps in each module's `api/` are regenerated with `./gradlew updateKotlinAbi` and
 committed — so the diff is reviewed rather than discovered after release.
 
+### Name native wire constants completely
+
+Do not leave wire-format magic numbers in Swift decoders or renderers. When introducing a native
+Swift enum or constant namespace for a protocol field, list every known value from the authoritative
+wire implementation and replace that field's literals throughout the native Swift core and hosts.
+Keep any unknown-value fallback explicit where the wire contract requires one.
+
 ### Never hand-edit `Package.swift`'s `url` or `checksum`
 
 The release job writes both, and they must describe an asset that already exists — SPM verifies the
