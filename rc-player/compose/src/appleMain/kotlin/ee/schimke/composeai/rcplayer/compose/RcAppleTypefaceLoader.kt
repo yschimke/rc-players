@@ -17,10 +17,14 @@ internal object RcAppleTypefaceLoader : RcTypefaceLoader {
       "apple:sf pro",
       "apple:sf pro text",
       "apple:sf pro display",
+      "default",
+      "sans-serif",
       "apple:serif",
       "apple:new york",
+      "serif",
       "apple:monospaced",
       "apple:sf mono",
+      "monospace",
     )
 
   override fun typeface(family: String, variations: RcFontVariations?): FontFamily? =
@@ -28,11 +32,15 @@ internal object RcAppleTypefaceLoader : RcTypefaceLoader {
       "apple:system",
       "apple:sf pro",
       "apple:sf pro text",
-      "apple:sf pro display" -> FontFamily.Default
+      "apple:sf pro display",
+      "default",
+      "sans-serif" -> FontFamily.Default
       "apple:serif",
-      "apple:new york" -> FontFamily.Serif
+      "apple:new york",
+      "serif" -> FontFamily.Serif
       "apple:monospaced",
-      "apple:sf mono" -> FontFamily.Monospace
+      "apple:sf mono",
+      "monospace" -> FontFamily.Monospace
       else -> null
     }
 }
@@ -40,8 +48,9 @@ internal object RcAppleTypefaceLoader : RcTypefaceLoader {
 /**
  * Adds the Apple system families to an existing [additional] loader.
  *
- * Swift hosts use this when they also resolve `google:` families: downloaded faces retain priority,
- * while `apple:` remains available without copying any Apple font bytes into the application.
+ * Swift hosts use this when they also resolve `google:` families: the supplied loader retains
+ * priority, so it can override the default/sans/serif/monospace roles, while Apple system families
+ * remain available without copying any Apple font bytes into the application.
  */
 public fun rcAppleTypefaceLoader(additional: RcTypefaceLoader): RcTypefaceLoader =
   object : RcTypefaceLoader {

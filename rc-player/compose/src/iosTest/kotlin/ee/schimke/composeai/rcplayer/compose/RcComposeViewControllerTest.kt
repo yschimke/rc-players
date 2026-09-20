@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import androidx.compose.ui.text.font.FontFamily
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
@@ -15,6 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class RcComposeViewControllerTest {
@@ -65,6 +67,25 @@ class RcComposeViewControllerTest {
 
     assertTrue(errors.isEmpty(), errors.joinToString())
     assertTrue("apple:system" in RcAppleTypefaceLoader.families)
+  }
+
+  @Test
+  fun appleLoaderMapsBuiltInTypefaceIdsToSystemDesignsAndAllowsOverrides() {
+    assertSame(FontFamily.Default, RcAppleTypefaceLoader.typeface("default"))
+    assertSame(FontFamily.Default, RcAppleTypefaceLoader.typeface("sans-serif"))
+    assertSame(FontFamily.Serif, RcAppleTypefaceLoader.typeface("serif"))
+    assertSame(FontFamily.Monospace, RcAppleTypefaceLoader.typeface("monospace"))
+
+    val overriding =
+      object : RcTypefaceLoader {
+        override val families: Set<String> = setOf("serif")
+
+        override fun typeface(
+          family: String,
+          variations: RcFontVariations?,
+        ): FontFamily? = if (family == "serif") FontFamily.Cursive else null
+      }
+    assertSame(FontFamily.Cursive, rcAppleTypefaceLoader(overriding).typeface("serif"))
   }
 
   @Test

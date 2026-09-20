@@ -384,6 +384,11 @@ equivalent to Google Fonts, and the licenses for Apple's font downloads do not p
 to redistribute them to Linux or Android. A non-Apple host therefore does not advertise these
 families: its strict support check rejects the document instead of substituting another face.
 
+The same Apple loader supplies the protocol's built-in family ids: `0` (default) and `1`
+(sans-serif) use the Apple system sans design, `2` (serif) uses the system serif design, and `3`
+(monospace) uses the system monospaced design. A host-provided loader is consulted first, so an
+embedder can override any generic role without disabling the remaining Apple defaults.
+
 ## Where the export sits
 
 The `compose/figma-svg` export is downstream of all of this: it reads the captured family name, not
