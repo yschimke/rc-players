@@ -48,29 +48,29 @@ struct ApplePlayerBenchmarkInteractionView: UIViewControllerRepresentable {
 }
 
 @MainActor
-private enum ApplePlayerBenchmark {
+fileprivate enum ApplePlayerBenchmark {
   fileprivate enum Player: String, CaseIterable, Codable { case cmp, nativeUIKit }
 
-  private struct Timing: Codable {
+  fileprivate struct Timing: Codable {
     let medianPlayerStartupMilliseconds: Double
     let medianFirstPresentationMilliseconds: Double
     let animation: Animation
     let scroll: Scroll
   }
 
-  private struct Animation: Codable {
+  fileprivate struct Animation: Codable {
     let samples: Int
     let medianFrameIntervalMilliseconds: Double
     let p95FrameIntervalMilliseconds: Double
     let missedFrames: Int
   }
 
-  private struct Scroll: Codable {
+  fileprivate struct Scroll: Codable {
     let medianCompletionMilliseconds: Double
     let samples: Int
   }
 
-  private struct Report: Codable {
+  fileprivate struct Report: Codable {
     let schemaVersion: Int
     let sourceRevision: String
     let device: String
@@ -83,7 +83,7 @@ private enum ApplePlayerBenchmark {
   private static let iterations = 7
   private static let playerSize = CGSize(width: 640, height: 480)
 
-  static func run() async throws -> Report {
+  fileprivate static func run() async throws -> Report {
     guard
       let startupURL = Bundle.main.url(forResource: "TitleCardRemote-640x480", withExtension: "rc"),
       let animationURL = Bundle.main.url(
@@ -140,7 +140,7 @@ private enum ApplePlayerBenchmark {
     try await waitForPlayer(player, view: view)
     let intervals = await DisplayLinkSampler.intervals(count: 120)
     view.removeFromSuperview()
-    let nominal = 1_000 / max(UIScreen.main.maximumFramesPerSecond, 1)
+    let nominal = 1_000.0 / Double(max(UIScreen.main.maximumFramesPerSecond, 1))
     return Animation(
       samples: intervals.count,
       medianFrameIntervalMilliseconds: median(intervals),
@@ -302,7 +302,7 @@ final class BenchmarkInteractionController: UIViewController, UIScrollViewDelega
   private let player: ApplePlayerBenchmark.Player
   private let offsetLabel = UILabel()
 
-  init(player: ApplePlayerBenchmark.Player) {
+  fileprivate init(player: ApplePlayerBenchmark.Player) {
     self.player = player
     super.init(nibName: nil, bundle: nil)
   }
