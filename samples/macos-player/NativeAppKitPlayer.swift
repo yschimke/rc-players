@@ -461,9 +461,11 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       "component_bindings": bindings,
       "semantics": semantics,
       "paths": Dictionary(
-        uniqueKeysWithValues: snapshot.pathIDs.sorted().map { ($0, ["present": true]) }),
+        uniqueKeysWithValues: snapshot.pathIDs.sorted().map { (String($0), ["present": true]) }),
       "tweens": Dictionary(
-        uniqueKeysWithValues: snapshot.pathTweenIDs.sorted().map { ($0, ["present": true]) }),
+        uniqueKeysWithValues: snapshot.pathTweenIDs.sorted().map {
+          (String($0), ["present": true])
+        }),
     ]
   }
 
