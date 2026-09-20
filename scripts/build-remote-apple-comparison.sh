@@ -6,6 +6,12 @@ build_root="${RC_REMOTE_APPLE_BUILD_DIR:-$repo_root/build/remote-apple-compariso
 app="$build_root/Remote Apple Comparison.app"
 executable="$app/Contents/MacOS/RemoteAppleComparison"
 resources="$app/Contents/Resources"
+architecture="$(uname -m)"
+
+case "$architecture" in
+  arm64 | x86_64) ;;
+  *) echo "unsupported macOS architecture: $architecture" >&2; exit 1 ;;
+esac
 
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$resources" "$build_root/module-cache"
@@ -17,7 +23,7 @@ CLANG_MODULE_CACHE_PATH="$build_root/module-cache" \
 SWIFT_MODULECACHE_PATH="$build_root/module-cache" \
 xcrun swiftc \
   -parse-as-library \
-  -target arm64-apple-macos13.0 \
+  -target "$architecture-apple-macos13.0" \
   -O \
   -framework AppKit \
   -framework SwiftUI \
