@@ -1090,6 +1090,9 @@ final val ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_co
 final fun ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter(): kotlin/Int // ee.schimke.composeai.rcplayer.compose/ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter|ee_schimke_composeai_rcplayer_compose_RcAppleSoundHost$stableprop_getter(){}[0]
 
 // Targets: [apple]
+final fun ee.schimke.composeai.rcplayer.compose/rcAppleTypefaceLoader(ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader): ee.schimke.composeai.rcplayer.compose/RcTypefaceLoader // ee.schimke.composeai.rcplayer.compose/rcAppleTypefaceLoader|rcAppleTypefaceLoader(ee.schimke.composeai.rcplayer.compose.RcTypefaceLoader){}[0]
+
+// Targets: [apple]
 final fun ee.schimke.composeai.rcplayer.compose/rcByteArray(platform.Foundation/NSData): kotlin/ByteArray // ee.schimke.composeai.rcplayer.compose/rcByteArray|rcByteArray(platform.Foundation.NSData){}[0]
 
 // Targets: [apple]

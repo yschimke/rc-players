@@ -41,6 +41,13 @@ class RcTypefaceLoaderTest {
   }
 
   @Test
+  fun theApplePrefixIsKeptForAnExplicitAppleHost() {
+    val loader = RecordingLoader(setOf("apple:system"))
+    assertSame(FontFamily.Cursive, resolve("apple:System", loader))
+    assertEquals(listOf("apple:system"), loader.asked)
+  }
+
+  @Test
   fun genericFamiliesTryTheHostThenFallBackToComposesBuiltIns() {
     val empty = RecordingLoader(emptySet())
     assertSame(FontFamily.SansSerif, resolve("sans-serif", empty))

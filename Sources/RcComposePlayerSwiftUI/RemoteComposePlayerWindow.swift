@@ -23,7 +23,9 @@
         guard !requests.isEmpty else {
           openWindow(
             bytes: bytes, title: title, width: width, height: height,
-            configuration: configuration, typefaces: RcTypefaceLoaderCompanion.shared.Default,
+            configuration: configuration,
+            typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
+              additional: RcTypefaceLoaderCompanion.shared.Default),
             onEvent: onEvent, onError: onError)
           return
         }
@@ -31,8 +33,9 @@
           openWindow(
             bytes: bytes, title: title, width: width, height: height,
             configuration: configuration,
-            typefaces: RcDownloadableFontsKt.rcDownloadableFontFallback(
-              families: requests.map(\.family)),
+            typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
+              additional: RcDownloadableFontsKt.rcDownloadableFontFallback(
+                families: requests.map(\.family))),
             onEvent: onEvent, onError: onError)
           return
         }
@@ -55,7 +58,8 @@
             openWindow(
               bytes: bytes, title: title, width: width, height: height,
               configuration: configuration,
-              typefaces: RcDownloadableFontsKt.rcDownloadedTypefaceLoader(fonts: fonts),
+              typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
+                additional: RcDownloadableFontsKt.rcDownloadedTypefaceLoader(fonts: fonts)),
               onEvent: onEvent, onError: onError)
           } catch {
             onError(.playback("Downloadable font loading failed: \(error.localizedDescription)"))

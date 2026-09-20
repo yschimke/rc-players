@@ -2,6 +2,7 @@ package ee.schimke.composeai.remote.apple
 
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.rc
+import androidx.compose.remote.creation.compose.text.RemoteFontFamily
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -40,6 +41,9 @@ private val LocalRemoteAppleColors = staticCompositionLocalOf { RemoteAppleColor
 public object RemoteAppleTheme {
   public val colors: RemoteAppleColors
     @Composable get() = LocalRemoteAppleColors.current
+
+  /** The Apple system face. `apple:` is resolved only by the iOS and macOS player hosts. */
+  public val fontFamily: RemoteFontFamily = RemoteFontFamily.Named("apple:system")
 }
 
 @Composable

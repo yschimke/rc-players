@@ -7,6 +7,12 @@ The important boundary is **style, not platform widgets**: these functions emit 
 Compose operations, so the existing CMP player renders the same document on Android, iOS, macOS,
 JVM, and Wasm. They do not embed UIKit or SwiftUI controls in the document.
 
+The prototype deliberately names `RemoteFontFamily.Named("apple:system")`. That prefix declares an
+Apple-only document: the iOS and macOS hosts resolve the installed system face, while other hosts
+reject the family during their support check. It is not a downloadable-font namespace. Apple does
+not provide a Google-Fonts-style redistribution registry for SF Pro, New York, or SF Mono, and this
+repository does not copy those font files onto Linux or Android.
+
 The first vertical slice includes:
 
 - `RemoteAppleButton` — bordered, prominent, destructive, and borderless treatments;

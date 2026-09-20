@@ -101,15 +101,18 @@
       let requests = RcDownloadableFontsKt.rcDownloadableFontRequests(bytes: bytes)
       guard !requests.isEmpty else {
         buildContent(
-          bytes: bytes, typefaces: RcTypefaceLoaderCompanion.shared.Default,
+          bytes: bytes,
+          typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
+            additional: RcTypefaceLoaderCompanion.shared.Default),
           activeGeneration: activeGeneration)
         return
       }
       guard let downloadableFontResolver else {
         buildContent(
           bytes: bytes,
-          typefaces: RcDownloadableFontsKt.rcDownloadableFontFallback(
-            families: requests.map(\.family)),
+          typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
+            additional: RcDownloadableFontsKt.rcDownloadableFontFallback(
+              families: requests.map(\.family))),
           activeGeneration: activeGeneration)
         return
       }
@@ -134,7 +137,8 @@
           guard let self, self.generation == activeGeneration else { return }
           self.buildContent(
             bytes: bytes,
-            typefaces: RcDownloadableFontsKt.rcDownloadedTypefaceLoader(fonts: fonts),
+            typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
+              additional: RcDownloadableFontsKt.rcDownloadedTypefaceLoader(fonts: fonts)),
             activeGeneration: activeGeneration)
         } catch is CancellationError {
           return

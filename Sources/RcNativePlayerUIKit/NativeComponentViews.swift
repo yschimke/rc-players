@@ -2232,9 +2232,13 @@
       var descriptor = base.fontDescriptor
       let familyName = command.textStyle.fontFamilyName
       switch familyName?.lowercased() {
-      case "serif": descriptor = descriptor.withDesign(.serif) ?? descriptor
-      case "monospace": descriptor = descriptor.withDesign(.monospaced) ?? descriptor
-      case "sans-serif", "default", nil: break
+      case "serif", "apple:serif", "apple:new york":
+        descriptor = descriptor.withDesign(.serif) ?? descriptor
+      case "monospace", "apple:monospaced", "apple:sf mono":
+        descriptor = descriptor.withDesign(.monospaced) ?? descriptor
+      case "sans-serif", "default", "apple:system", "apple:sf pro", "apple:sf pro text",
+        "apple:sf pro display", nil:
+        break
       default: break
       }
       if let postScriptName = fontNames[command.textStyle.fontFamilyID],

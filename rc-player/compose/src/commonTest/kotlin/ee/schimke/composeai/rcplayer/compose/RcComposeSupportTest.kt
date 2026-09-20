@@ -822,6 +822,17 @@ class RcComposeSupportTest {
         .composeSupportReport(availableFontFamilies = setOf("Roboto Flex"))
         .fullyRenderable
     )
+    val unsupportedApple =
+      document(emptyList(), family = "apple:system").composeSupportReport().issues.single()
+    assertEquals(
+      "custom font family apple:system (42) has no DataFont",
+      unsupportedApple.detail,
+    )
+    assertTrue(
+      document(emptyList(), family = "apple:system")
+        .composeSupportReport(availableFontFamilies = setOf("apple:system"))
+        .fullyRenderable
+    )
   }
 
   @Test

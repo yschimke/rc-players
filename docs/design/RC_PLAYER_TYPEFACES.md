@@ -370,6 +370,25 @@ the default face. A substitution, never a failure. Beyond fonts, the ±1px text 
 documented parity limit of this lane (its `PROVENANCE.md` § "text"): Skia's shaping is reachable
 from both targets, Android's font stack is not.
 
+### Apple-only system families
+
+An Apple-targeted document can explicitly name `apple:system`. The default iOS and macOS CMP hosts
+advertise that family and resolve it to the system face already installed by the OS; the native
+UIKit player resolves the same name through `UIFont.systemFont`. The aliases `apple:SF Pro`,
+`apple:SF Pro Text`, and `apple:SF Pro Display` have the same system meaning. `apple:serif` /
+`apple:New York` and `apple:monospaced` / `apple:SF Mono` select the corresponding Apple system
+design.
+
+`apple:` is intentionally not a download source. Apple has no public, cross-platform font registry
+equivalent to Google Fonts, and the licenses for Apple's font downloads do not permit this project
+to redistribute them to Linux or Android. A non-Apple host therefore does not advertise these
+families: its strict support check rejects the document instead of substituting another face.
+
+The same Apple loader supplies the protocol's built-in family ids: `0` (default) and `1`
+(sans-serif) use the Apple system sans design, `2` (serif) uses the system serif design, and `3`
+(monospace) uses the system monospaced design. A host-provided loader is consulted first, so an
+embedder can override any generic role without disabling the remaining Apple defaults.
+
 ## Where the export sits
 
 The `compose/figma-svg` export is downstream of all of this: it reads the captured family name, not

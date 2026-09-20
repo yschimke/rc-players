@@ -153,6 +153,14 @@ pure-Swift AppKit renderers. Users can disable network font loading in Settings.
 download or registration errors as non-fatal and shows the document with its default system face,
 because release-player inspection must remain useful when offline or when a font host is blocked.
 
+### Apple system fonts
+
+Apple-targeted documents may use `apple:system` (with `apple:SF Pro`, `apple:serif` /
+`apple:New York`, and `apple:monospaced` / `apple:SF Mono` aliases). The SwiftUI wrappers install
+this support automatically and resolve through the system fonts already on iOS or macOS. There is
+no network request or redistributed font file, and non-Apple players reject these names rather than
+substitute a different platform face.
+
 ### Raw interop
 
 The underlying binary product remains public and source-compatible. Its direct iOS call is:
@@ -166,7 +174,8 @@ let controller = RcComposeViewControllerKt.RcComposeViewController(
   bytes: RcDataBridgeKt.rcByteArray(data: documentData),
   theme: .system,
   onEvent: { event in handle(event) },
-  typefaces: RcTypefaceLoaderCompanion.shared.Default,
+  typefaces: RcAppleTypefaceLoaderKt.rcAppleTypefaceLoader(
+    additional: RcTypefaceLoaderCompanion.shared.Default),
   onError: { message in show(message) }
 )
 ```

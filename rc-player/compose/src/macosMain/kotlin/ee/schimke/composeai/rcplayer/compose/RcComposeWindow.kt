@@ -22,7 +22,7 @@ public fun RcComposeWindow(
   height: Float = 600f,
   theme: RcPlayerTheme = RcPlayerTheme.System,
   onEvent: (RcPlayerEvent) -> Unit = {},
-  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  typefaces: RcTypefaceLoader = RcAppleTypefaceLoader,
   onError: (String) -> Unit = {},
   lenient: Boolean = false,
 ): Unit {
