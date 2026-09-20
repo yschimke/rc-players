@@ -1557,6 +1557,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     layer?.masksToBounds = node.cornerRadius > 0 || node.scrollDirection != nil
     layer?.cornerRadius = CGFloat(node.cornerRadius)
     if node.hasBackground { layer?.backgroundColor = Self.color(node.backgroundColor).cgColor }
+    if let border = node.borderARGB, node.borderWidth > 0 {
+      layer?.borderColor = Self.color(Int32(bitPattern: border)).cgColor
+      layer?.borderWidth = CGFloat(node.borderWidth)
+    }
     isHidden = node.visibility == NativeMacVisibility.gone
     alphaValue = node.visibility == NativeMacVisibility.invisible ? 0 : 1
     setAccessibilityIdentifier("rc-native-component-\(node.componentId)")

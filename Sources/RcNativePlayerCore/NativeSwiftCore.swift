@@ -89,6 +89,8 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// 0 gone, 1 visible, 2 invisible — the protocol's own values, after its override bits.
   public let visibility: Int
   public let backgroundARGB: UInt32?
+  public let borderARGB: UInt32?
+  public let borderWidth: Float
   public let horizontalPositioning: Int
   public let verticalPositioning: Int
   /// The animation specification this component names, if it has one.
@@ -1133,6 +1135,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       visibility: visibilityOverride ?? node.visibilityID.map { resolvedVisibility(of: $0) } ?? 1,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
+      borderARGB: node.borderColorID.flatMap { resolvedColors[$0] } ?? node.borderARGB,
+      borderWidth: try resolvedFloat(node.borderWidthWord, "border width", values: values),
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
       animationID: node.animationID,
@@ -2052,6 +2056,9 @@ private final class ParsedNode {
   var visibilityID: Int?
   var backgroundARGB: UInt32?
   var backgroundColorID: Int?
+  var borderARGB: UInt32?
+  var borderColorID: Int?
+  var borderWidthWord: UInt32 = 0
   var horizontalPositioning = 1
   var verticalPositioning = 4
   var animationID: Int?
@@ -3348,15 +3355,22 @@ private enum NativeSwiftDocumentDecoder {
       case 107:  // Border modifier
         // INT flags, INT color id, two reserved ints, then width, corner radius and r/g/b/a as
         // float words, then INT shape type.
-        _ = try currentNode(stack, input: input)
-        _ = try input.int("border flags")
-        _ = try input.int("border color id")
+        let node = try currentNode(stack, input: input)
+        let flags = try input.int("border flags")
+        let colorID = try input.int("border color id")
         _ = try input.int("border reserved 1")
         _ = try input.int("border reserved 2")
-        for field in ["width", "corner", "red", "green", "blue", "alpha"] {
-          _ = try input.word("border \(field)")
-        }
+        let width = try input.word("border width")
+        _ = try input.word("border corner")
+        let usesColorID = flags & 2 != 0
+        let red = try input.floatWord("border red", requireLiteral: !usesColorID)
+        let green = try input.floatWord("border green", requireLiteral: !usesColorID)
+        let blue = try input.floatWord("border blue", requireLiteral: !usesColorID)
+        let alpha = try input.floatWord("border alpha", requireLiteral: !usesColorID)
         _ = try input.int("border shape type")
+        node.borderARGB = !usesColorID ? argb(red: red, green: green, blue: blue, alpha: alpha) : nil
+        node.borderColorID = usesColorID ? colorID : nil
+        node.borderWidthWord = width
       case 230:  // Collapsible row
         // The row half of the same family as 233, and the same wire shape as the row at 203.
         let node = ParsedNode(
