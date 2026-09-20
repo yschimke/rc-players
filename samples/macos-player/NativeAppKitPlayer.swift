@@ -445,11 +445,21 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       record["usesDefaultSpec"] = usesDefaultSpec
       return record
     }
+    let semantics: [[String: Any]] = components.compactMap { node in
+      guard let accessibility = node.accessibility else { return nil }
+      return [
+        "contentDescriptionId": accessibility.contentDescriptionID,
+        "role": accessibility.role, "textId": accessibility.textID,
+        "stateDescriptionId": accessibility.stateDescriptionID, "mode": accessibility.mode,
+        "enabled": accessibility.isEnabled, "clickable": accessibility.isClickable,
+      ]
+    }
     return [
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
         snapshot.animationSpecs[id].map { specRecord(id, $0) }
       },
       "component_bindings": bindings,
+      "semantics": semantics,
     ]
   }
 

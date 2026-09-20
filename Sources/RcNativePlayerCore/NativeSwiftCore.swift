@@ -191,7 +191,10 @@ public struct NativeSwiftOperationSpan: Sendable, Equatable {
 }
 
 public struct NativeSwiftAccessibilitySnapshot: Sendable {
+  public let contentDescriptionID: Int
   public let role: Int
+  public let textID: Int
+  public let stateDescriptionID: Int
   public let mode: Int
   public let contentDescription: String?
   public let text: String?
@@ -1073,7 +1076,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       supportedGestures: node.actions.keys.sorted { $0.rawValue < $1.rawValue },
       accessibility: node.accessibility.map {
         NativeSwiftAccessibilitySnapshot(
-          role: $0.role, mode: $0.mode,
+          contentDescriptionID: $0.contentDescriptionID, role: $0.role, textID: $0.textID,
+          stateDescriptionID: $0.stateDescriptionID, mode: $0.mode,
           contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
