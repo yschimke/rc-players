@@ -294,7 +294,9 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       "trace:handled" -> inputHandled(check.at)
       "records:animation_specs",
       "records:component_bindings",
-      "records:semantics" -> records(check)
+      "records:semantics",
+      "records:paths",
+      "records:tweens" -> records(check)
       else -> Observation.NotImplemented
     }
 
