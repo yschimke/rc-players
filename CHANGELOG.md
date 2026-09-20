@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.69.0](https://github.com/yschimke/rc-players/compare/v1.68.0...v1.69.0) (2026-09-20)
+
+
+### Features
+
+* add second Remote Apple component tranche ([#325](https://github.com/yschimke/rc-players/issues/325)) ([c0dff78](https://github.com/yschimke/rc-players/commit/c0dff78151015e8bc58e75e61705748a467aa544))
+* add SwiftUI comparison app ([#317](https://github.com/yschimke/rc-players/issues/317)) ([c80857b](https://github.com/yschimke/rc-players/commit/c80857bf81bdbc1e3bb728e82e1131fa3e03fe61))
+* prototype Apple-styled Remote Compose components ([#313](https://github.com/yschimke/rc-players/issues/313)) ([b86264a](https://github.com/yschimke/rc-players/commit/b86264a4c1045267eed9f73b637fb29fce6b32fe))
+* report native animation spec records ([#309](https://github.com/yschimke/rc-players/issues/309)) ([8ad1ce6](https://github.com/yschimke/rc-players/commit/8ad1ce69250e7fdc963833f972bfcf3f69ff95ca))
+* report native path records ([#312](https://github.com/yschimke/rc-players/issues/312)) ([96d709b](https://github.com/yschimke/rc-players/commit/96d709b80025d46f8a3e9a8a36546c35ae540e54))
+* report native semantics records ([#311](https://github.com/yschimke/rc-players/issues/311)) ([db2d0aa](https://github.com/yschimke/rc-players/commit/db2d0aa10cc9900fbb63203febe938ce6c9437bd))
+* report native shader uniform records ([#316](https://github.com/yschimke/rc-players/issues/316)) ([0618862](https://github.com/yschimke/rc-players/commit/0618862f605007fc8116505747bd285ac9d43b82))
+* showcase native Swift custom components ([#304](https://github.com/yschimke/rc-players/issues/304)) ([49a245a](https://github.com/yschimke/rc-players/commit/49a245afbd0b97e33dc11ad7c80fd54894cc48f6))
+
+
+### Bug Fixes
+
+* apply blend modes in native AppKit canvas ([#326](https://github.com/yschimke/rc-players/issues/326)) ([59eb5c0](https://github.com/yschimke/rc-players/commit/59eb5c03cbb186e62759a5de614f648e747640b9))
+* compile Apple player benchmark harness ([#324](https://github.com/yschimke/rc-players/issues/324)) ([1b044d3](https://github.com/yschimke/rc-players/commit/1b044d3decff40a3eb0a964708ebeadeb8c60f2e))
+* improve native interaction conformance ([#308](https://github.com/yschimke/rc-players/issues/308)) ([f0770e5](https://github.com/yschimke/rc-players/commit/f0770e5baa7dfd12a11aeeef48442ab26c2c6289))
+* label native conformance channels ([#307](https://github.com/yschimke/rc-players/issues/307)) ([9ef7328](https://github.com/yschimke/rc-players/commit/9ef7328f13c2d188890fbf8eb23c62952f8276c1))
+* preserve native float return overrides ([#306](https://github.com/yschimke/rc-players/issues/306)) ([7436b3a](https://github.com/yschimke/rc-players/commit/7436b3a1744d68339ea9878fe57f8252848db68b))
+* preserve native semantics records ([#315](https://github.com/yschimke/rc-players/issues/315)) ([3fa9149](https://github.com/yschimke/rc-players/commit/3fa9149a5482dd3ea7471766ff3b5aa292547d51))
+* render native border modifiers ([#320](https://github.com/yschimke/rc-players/issues/320)) ([fcdcef5](https://github.com/yschimke/rc-players/commit/fcdcef575097105ac8178db79d8c8e04edcafc11))
+* stringify native path record keys ([#314](https://github.com/yschimke/rc-players/issues/314)) ([a3042ef](https://github.com/yschimke/rc-players/commit/a3042ef7cd3def11a366b168a4a3fd406cb3f437))
+
 ## [1.68.0](https://github.com/yschimke/rc-players/compare/v1.67.0...v1.68.0) (2026-09-19)
 
 
