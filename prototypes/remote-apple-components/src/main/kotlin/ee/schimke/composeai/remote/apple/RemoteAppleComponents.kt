@@ -33,10 +33,8 @@ import androidx.compose.remote.creation.compose.state.RemoteString
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
-import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 
 public enum class RemoteAppleButtonStyle {
   Prominent,
@@ -54,6 +52,7 @@ public fun RemoteAppleButton(
   enabled: Boolean = true,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   val prominent = style == RemoteAppleButtonStyle.Prominent
   val foreground =
     when (style) {
@@ -86,9 +85,7 @@ public fun RemoteAppleButton(
     RemoteText(
       text = title,
       color = foreground,
-      fontSize = 17.rsp,
-      fontWeight = FontWeight.SemiBold,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.labelLarge,
     )
   }
 }
@@ -101,6 +98,7 @@ public fun RemoteAppleToggle(
   enabled: Boolean = true,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   val action = valueChange(isOn, isOn.not())
   RemoteRow(
     modifier =
@@ -121,8 +119,7 @@ public fun RemoteAppleToggle(
       text = title,
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
-      fontSize = 17.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyLarge,
     )
     RemoteBox(
       modifier =
@@ -149,13 +146,13 @@ public fun RemoteAppleProgressView(
   label: RemoteString? = null,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteColumn(modifier = modifier, verticalArrangement = RemoteArrangement.spacedBy(8.rdp)) {
     if (label != null) {
       RemoteText(
         text = label,
         color = colors.secondaryLabel,
-        fontSize = 13.rsp,
-        fontFamily = RemoteAppleTheme.fontFamily,
+        style = typography.bodySmall,
       )
     }
     RemoteBox(
@@ -180,6 +177,7 @@ public fun RemoteAppleLabel(
   detail: RemoteString? = null,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteRow(
     modifier = modifier.fillMaxWidth().height(44.rdp),
     verticalAlignment = RemoteAlignment.CenterVertically,
@@ -188,15 +186,13 @@ public fun RemoteAppleLabel(
       text = title,
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
-      fontSize = 17.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodyLarge,
     )
     if (detail != null) {
       RemoteText(
         text = detail,
         color = colors.secondaryLabel,
-        fontSize = 17.rsp,
-        fontFamily = RemoteAppleTheme.fontFamily,
+        style = typography.bodyLarge,
       )
     }
   }
@@ -209,13 +205,13 @@ public fun RemoteAppleSection(
   content: @Composable RemoteColumnScope.() -> Unit,
 ) {
   val colors = RemoteAppleTheme.colors
+  val typography = RemoteAppleTheme.typography
   RemoteColumn(modifier = modifier, verticalArrangement = RemoteArrangement.spacedBy(7.rdp)) {
     RemoteText(
       text = title,
       modifier = RemoteModifier.padding(16.rdp, 0.rdp),
       color = colors.secondaryLabel,
-      fontSize = 13.rsp,
-      fontFamily = RemoteAppleTheme.fontFamily,
+      style = typography.bodySmall,
     )
     RemoteColumn(
       modifier =

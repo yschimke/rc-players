@@ -2239,7 +2239,14 @@
       case "sans-serif", "default", "apple:system", "apple:sf pro", "apple:sf pro text",
         "apple:sf pro display", nil:
         break
-      default: break
+      default:
+        if let familyName,
+          familyName.lowercased().hasPrefix("apple:"),
+          let local = localFontDescriptor(
+            familyName: String(familyName.dropFirst("apple:".count)), size: size)
+        {
+          descriptor = weightedDescriptor(local, weight: weightValue, size: size)
+        }
       }
       if let postScriptName = fontNames[command.textStyle.fontFamilyID],
         let embedded = UIFont(name: postScriptName, size: size)
@@ -2253,6 +2260,23 @@
       }
       let resolved = UIFont(descriptor: descriptor, size: size)
       return scalesForDynamicType ? UIFontMetrics.default.scaledFont(for: resolved) : resolved
+    }
+
+    /// Resolves an installed Apple font by family or PostScript name without falling back.
+    private static func localFontDescriptor(
+      familyName: String, size: CGFloat
+    ) -> UIFontDescriptor? {
+      if let installedFamily = UIFont.familyNames.first(where: {
+        $0.caseInsensitiveCompare(familyName) == .orderedSame
+      }) {
+        return UIFontDescriptor(fontAttributes: [.family: installedFamily])
+      }
+      let postScriptName = UIFont.familyNames.lazy.compactMap { family in
+        UIFont.fontNames(forFamilyName: family).first {
+          $0.caseInsensitiveCompare(familyName) == .orderedSame
+        }
+      }.first
+      return postScriptName.flatMap { UIFont(name: $0, size: size)?.fontDescriptor }
     }
 
     /// A resolved face that keeps the run's weight.

@@ -2,11 +2,14 @@ package ee.schimke.composeai.remote.apple
 
 import androidx.compose.remote.creation.compose.state.RemoteColor
 import androidx.compose.remote.creation.compose.state.rc
+import androidx.compose.remote.creation.compose.state.rsp
 import androidx.compose.remote.creation.compose.text.RemoteFontFamily
+import androidx.compose.remote.creation.compose.text.RemoteTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 
 @Immutable
 public data class RemoteAppleColors(
@@ -38,18 +41,70 @@ public data class RemoteAppleColors(
 
 private val LocalRemoteAppleColors = staticCompositionLocalOf { RemoteAppleColors.Light }
 
+@Immutable
+public data class RemoteAppleTypography(
+  public val bodyLarge: RemoteTextStyle,
+  public val bodyMedium: RemoteTextStyle,
+  public val bodySmall: RemoteTextStyle,
+  public val labelLarge: RemoteTextStyle,
+  public val labelMedium: RemoteTextStyle,
+  public val labelSmall: RemoteTextStyle,
+  public val titleLarge: RemoteTextStyle,
+  public val headlineMedium: RemoteTextStyle,
+)
+
+/** Creates the Apple text scale with one family shared by every style. */
+public fun RemoteAppleTypography(
+  fontFamily: RemoteFontFamily = RemoteFontFamily.Named("apple:system")
+): RemoteAppleTypography {
+  val base = RemoteTextStyle(fontFamily = fontFamily)
+  return RemoteAppleTypography(
+    bodyLarge = base.copy(fontSize = 17.rsp),
+    bodyMedium = base.copy(fontSize = 15.rsp),
+    bodySmall = base.copy(fontSize = 13.rsp),
+    labelLarge =
+      base.copy(
+        fontSize = 17.rsp,
+        fontWeight = FontWeight.SemiBold,
+      ),
+    labelMedium =
+      base.copy(
+        fontSize = 13.rsp,
+        fontWeight = FontWeight.Medium,
+      ),
+    labelSmall =
+      base.copy(
+        fontSize = 13.rsp,
+        fontWeight = FontWeight.SemiBold,
+      ),
+    titleLarge =
+      base.copy(
+        fontSize = 20.rsp,
+        fontWeight = FontWeight.Medium,
+      ),
+    headlineMedium = base.copy(fontSize = 24.rsp),
+  )
+}
+
+private val LocalRemoteAppleTypography = staticCompositionLocalOf { RemoteAppleTypography() }
+
 public object RemoteAppleTheme {
   public val colors: RemoteAppleColors
     @Composable get() = LocalRemoteAppleColors.current
 
-  /** The Apple system face. `apple:` is resolved only by the iOS and macOS player hosts. */
-  public val fontFamily: RemoteFontFamily = RemoteFontFamily.Named("apple:system")
+  public val typography: RemoteAppleTypography
+    @Composable get() = LocalRemoteAppleTypography.current
 }
 
 @Composable
 public fun RemoteAppleTheme(
   colors: RemoteAppleColors = RemoteAppleColors.Light,
+  typography: RemoteAppleTypography = RemoteAppleTypography(),
   content: @Composable () -> Unit,
 ) {
-  androidx.compose.runtime.CompositionLocalProvider(LocalRemoteAppleColors provides colors, content)
+  androidx.compose.runtime.CompositionLocalProvider(
+    LocalRemoteAppleColors provides colors,
+    LocalRemoteAppleTypography provides typography,
+    content = content,
+  )
 }

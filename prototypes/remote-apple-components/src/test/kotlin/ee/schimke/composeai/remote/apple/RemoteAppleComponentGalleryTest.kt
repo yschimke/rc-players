@@ -13,6 +13,7 @@ import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.remote.creation.compose.state.rsp
+import androidx.compose.remote.creation.compose.text.RemoteFontFamily
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -73,6 +74,29 @@ class RemoteAppleComponentGalleryTest {
     assertTrue("Privacy" in strings)
     assertTrue(document.operations.any { it is RcValueIntegerExpressionChangeAction })
     assertTrue(document.operations.any { it is RcHostNamedAction })
+  }
+
+  @Test
+  fun themeCanOverrideTheSharedFontFamily() = runBlocking {
+    val context: Context = RuntimeEnvironment.getApplication()
+    val bytes =
+      captureSingleRemoteDocument(context = context) {
+          RemoteAppleTheme(
+            typography = RemoteAppleTypography(RemoteFontFamily.Named("apple:Helvetica Neue"))
+          ) {
+            RemoteAppleLabel("Local family".rs)
+          }
+        }
+        .bytes
+    val strings =
+      RcDocumentCodec.decode(bytes)
+        .operations
+        .filterIsInstance<RcTextData>()
+        .map { it.text }
+        .toSet()
+
+    assertTrue("apple:Helvetica Neue" in strings)
+    assertTrue("apple:system" !in strings)
   }
 }
 

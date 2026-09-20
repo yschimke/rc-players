@@ -89,6 +89,30 @@ class RcComposeViewControllerTest {
   }
 
   @Test
+  fun appleLoaderAdvertisesAndResolvesInstalledFamiliesByName() {
+    val semanticFamilies =
+      setOf(
+        "apple:system",
+        "apple:sf pro",
+        "apple:sf pro text",
+        "apple:sf pro display",
+        "apple:serif",
+        "apple:new york",
+        "apple:monospaced",
+        "apple:sf mono",
+        "apple:*",
+      )
+    val installed =
+      RcAppleTypefaceLoader.families.first { it.startsWith("apple:") && it !in semanticFamilies }
+
+    assertNotNull(RcAppleTypefaceLoader.typeface(installed))
+    assertSame(
+      FontFamily.Default,
+      RcAppleTypefaceLoader.typeface("apple:not an installed font"),
+    )
+  }
+
+  @Test
   fun downloadableFontBridgeFindsGoogleFamiliesAndBuildsLoader() {
     val document =
       RcDocument(

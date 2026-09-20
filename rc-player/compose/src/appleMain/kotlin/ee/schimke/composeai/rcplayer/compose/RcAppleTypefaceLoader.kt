@@ -1,6 +1,9 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.platform.Typeface
+import org.jetbrains.skia.FontMgr
+import org.jetbrains.skia.FontStyle
 
 /**
  * Apple system-font names understood by the iOS and macOS hosts.
@@ -8,9 +11,20 @@ import androidx.compose.ui.text.font.FontFamily
  * These are platform requests, not font files. Nothing is downloaded or redistributed: Compose asks
  * CoreText for the system sans, serif, or monospaced design already present on the device. Keeping
  * this loader in `appleMain` is deliberate — another target must reject an `apple:` family unless
- * its host explicitly provides one, rather than silently substituting a non-Apple face.
+ * its host explicitly provides one, rather than silently substituting a non-Apple face. Installed
+ * names are resolved locally; an absent Apple name uses the Apple system default.
  */
 internal object RcAppleTypefaceLoader : RcTypefaceLoader {
+  private val installedFamilies: Map<String, String> = buildMap {
+    val fonts = FontMgr.default
+    repeat(fonts.familiesCount) { index ->
+      val name = fonts.getFamilyName(index)
+      if (name.lowercase() !in this) put(name.lowercase(), name)
+    }
+  }
+
+  private val installedTypefaces = mutableMapOf<String, FontFamily>()
+
   override val families: Set<String> =
     setOf(
       "apple:system",
@@ -24,8 +38,9 @@ internal object RcAppleTypefaceLoader : RcTypefaceLoader {
       "serif",
       "apple:monospaced",
       "apple:sf mono",
+      "apple:*",
       "monospace",
-    )
+    ) + installedFamilies.keys.mapTo(mutableSetOf()) { "apple:$it" }
 
   override fun typeface(family: String, variations: RcFontVariations?): FontFamily? =
     when (family) {
@@ -41,8 +56,21 @@ internal object RcAppleTypefaceLoader : RcTypefaceLoader {
       "apple:monospaced",
       "apple:sf mono",
       "monospace" -> FontFamily.Monospace
-      else -> null
+      else -> installedFamily(family)
     }
+
+  private fun installedFamily(family: String): FontFamily? {
+    val requested =
+      family.removePrefix("apple:").takeIf { family.startsWith("apple:") } ?: return null
+    val installed = installedFamilies[requested] ?: return FontFamily.Default
+    installedTypefaces[installed]?.let {
+      return it
+    }
+    val typeface = FontMgr.default.matchFamilyStyle(installed, FontStyle.NORMAL) ?: return null
+    return FontFamily(Typeface(typeface, alias = installed)).also {
+      installedTypefaces[installed] = it
+    }
+  }
 }
 
 /**
