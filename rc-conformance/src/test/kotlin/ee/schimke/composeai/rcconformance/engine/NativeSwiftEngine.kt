@@ -296,7 +296,8 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       "records:component_bindings",
       "records:semantics",
       "records:paths",
-      "records:tweens" -> records(check)
+      "records:tweens",
+      "records:uniforms" -> records(check)
       else -> Observation.NotImplemented
     }
 
