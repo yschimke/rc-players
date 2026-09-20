@@ -24,6 +24,14 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   /// Empty for almost every document, and that is the point: a host only has to measure and feed
   /// back what is named here, so the refinement costs nothing where nothing depends on it.
   public let boundComponents: Set<Int>
+  /// Layout transition specifications declared by the document, keyed by animation id.
+  public let animationSpecs: [Int: NativeSwiftAnimationSpec]
+}
+
+/// The native timing metadata a layout component names on the Remote Compose wire.
+public struct NativeSwiftAnimationSpec: Sendable {
+  public let motionDuration: Float
+  public let motionEasingType: Int
 }
 
 public struct NativeSwiftImageResourceSnapshot: Sendable {
@@ -71,6 +79,8 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let backgroundARGB: UInt32?
   public let horizontalPositioning: Int
   public let verticalPositioning: Int
+  /// The animation specification this component names, if it has one.
+  public let animationID: Int?
   public let spacing: Float
   /// The child a `StateLayout` is showing, clamped to its children, or nil when this node is not a
   /// state layout. The inactive children arrive GONE, which is what the reference does.
@@ -439,6 +449,10 @@ public enum NativeSwiftSystemVariables {
 
   /// Day of the month, 1...31.
   public static let dayOfMonth = 12
+
+  /// The last pointer coordinate the host delivered to the document.
+  public static let touchX = 13
+  public static let touchY = 14
 
   /// Seconds since the document's first frame, the animation clock a host advances.
   public static let animationTime = 30
@@ -837,7 +851,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
       needsContinuousFrames: document.needsContinuousFrames,
       needsWallClockRefresh: document.needsWallClockRefresh,
-      boundComponents: Set(document.componentValues.map(\.componentID)))
+      boundComponents: Set(document.componentValues.map(\.componentID)),
+      animationSpecs: document.animationSpecs)
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -1095,6 +1110,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       horizontalPositioning: node.horizontalPositioning,
       verticalPositioning: node.verticalPositioning,
+      animationID: node.animationID,
       spacing: try resolvedFloat(node.spacingWord, "spacing", values: values),
       stateIndex: node.stateIndexID.flatMap { indexID in
         // Clamped against the *branches*, not the wrapper: the normal shape wraps every
@@ -1600,6 +1616,7 @@ private struct ParsedDocument {
   let idLists: [Int: [Int]]
   let textLookups: [ParsedTextLookupInt]
   let matrixExpressions: [Int: ParsedMatrixExpression]
+  let animationSpecs: [Int: NativeSwiftAnimationSpec]
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
@@ -2008,6 +2025,7 @@ private final class ParsedNode {
   var backgroundColorID: Int?
   var horizontalPositioning = 1
   var verticalPositioning = 4
+  var animationID: Int?
   var spacingWord: UInt32 = 0
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
   /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
@@ -2672,6 +2690,7 @@ private enum NativeSwiftDocumentDecoder {
     var idLists: [Int: [Int]] = [:]
     var textLookups: [ParsedTextLookupInt] = []
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
+    var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -3110,14 +3129,14 @@ private enum NativeSwiftDocumentDecoder {
       case 202:  // Box
         let node = ParsedNode(kind: .box, componentID: try input.int("box component id"))
         node.componentKind = "BoxLayout"
-        _ = try input.int("box animation id")
+        node.animationID = try input.int("box animation id")
         node.horizontalPositioning = try input.int("box horizontal positioning")
         node.verticalPositioning = try input.int("box vertical positioning")
         try begin(node)
       case 203:  // Row
         let node = ParsedNode(kind: .row, componentID: try input.int("row component id"))
         node.componentKind = "RowLayout"
-        _ = try input.int("row animation id")
+        node.animationID = try input.int("row animation id")
         node.horizontalPositioning = try input.int("row horizontal positioning")
         node.verticalPositioning = try input.int("row vertical positioning")
         node.spacingWord = try input.word("row spacing")
@@ -3125,7 +3144,7 @@ private enum NativeSwiftDocumentDecoder {
       case 204:  // Column
         let node = ParsedNode(kind: .column, componentID: try input.int("column component id"))
         node.componentKind = "ColumnLayout"
-        _ = try input.int("column animation id")
+        node.animationID = try input.int("column animation id")
         node.horizontalPositioning = try input.int("column horizontal positioning")
         node.verticalPositioning = try input.int("column vertical positioning")
         node.spacingWord = try input.word("column spacing")
@@ -3135,16 +3154,19 @@ private enum NativeSwiftDocumentDecoder {
         // duration as a float, its easing as an int, the visibility duration as a float, its easing,
         // then the enter and exit animation kinds. Seven words.
         //
-        // Read and dropped: this player resolves a document at a point in time rather than animating
-        // between states, so a spec describing how a component should transition has nothing to act
-        // on. It still has to be consumed to keep the stream in sync.
-        _ = try input.int("animation spec id")
-        _ = try input.word("animation spec motion duration")
-        _ = try input.int("animation spec motion easing")
+        let id = try input.int("animation spec id")
+        let motionDuration = try input.floatWord(
+          "animation spec motion duration", requireLiteral: true)
+        let motionEasingType = try input.int("animation spec motion easing")
         _ = try input.word("animation spec visibility duration")
         _ = try input.int("animation spec visibility easing")
         _ = try input.int("animation spec enter animation")
         _ = try input.int("animation spec exit animation")
+        guard motionDuration.isFinite, motionDuration >= 0 else {
+          throw input.malformed("Invalid animation spec duration")
+        }
+        animationSpecs[id] = NativeSwiftAnimationSpec(
+          motionDuration: motionDuration, motionEasingType: motionEasingType)
       case 157:  // Touch expression
         // An id, four float words (start value, minimum, maximum, velocity id), the touch effects,
         // then three length-prefixed float arrays. Each length is the low 16 bits of its word --
@@ -3210,7 +3232,7 @@ private enum NativeSwiftDocumentDecoder {
         // than clipping it; laid out here as an ordinary box, so the content keeps its own size.
         let node = ParsedNode(kind: .box, componentID: try input.int("fit box component id"))
         node.componentKind = "FitBoxLayout"
-        _ = try input.int("fit box animation id")
+        node.animationID = try input.int("fit box animation id")
         node.horizontalPositioning = try input.int("fit box horizontal positioning")
         node.verticalPositioning = try input.int("fit box vertical positioning")
         try begin(node)
@@ -3220,7 +3242,7 @@ private enum NativeSwiftDocumentDecoder {
         // one the index selects -- a real difference, tracked rather than implied.
         let node = ParsedNode(kind: .box, componentID: try input.int("state layout component id"))
         node.componentKind = "StateLayout"
-        _ = try input.int("state layout animation id")
+        node.animationID = try input.int("state layout animation id")
         node.horizontalPositioning = try input.int("state layout horizontal positioning")
         node.verticalPositioning = try input.int("state layout vertical positioning")
         node.stateIndexID = try input.int("state layout index id")
@@ -3231,7 +3253,7 @@ private enum NativeSwiftDocumentDecoder {
         // like; `flowMaximumItems`/`flowMaximumLines` bound the wrap.
         let node = ParsedNode(kind: .row, componentID: try input.int("flow component id"))
         node.componentKind = "FlowLayout"
-        _ = try input.int("flow animation id")
+        node.animationID = try input.int("flow animation id")
         node.horizontalPositioning = try input.int("flow horizontal positioning")
         node.verticalPositioning = try input.int("flow vertical positioning")
         node.spacingWord = try input.word("flow spacing")
@@ -3284,7 +3306,7 @@ private enum NativeSwiftDocumentDecoder {
         let node = ParsedNode(
           kind: .row, componentID: try input.int("collapsible row component id"))
         node.componentKind = "CollapsibleRowLayout"
-        _ = try input.int("collapsible row animation id")
+        node.animationID = try input.int("collapsible row animation id")
         node.horizontalPositioning = try input.int("collapsible row horizontal positioning")
         node.verticalPositioning = try input.int("collapsible row vertical positioning")
         node.spacingWord = try input.word("collapsible row spacing")
@@ -3310,7 +3332,7 @@ private enum NativeSwiftDocumentDecoder {
         let node = ParsedNode(
           kind: .column, componentID: try input.int("collapsible column component id"))
         node.componentKind = "CollapsibleColumnLayout"
-        _ = try input.int("collapsible column animation id")
+        node.animationID = try input.int("collapsible column animation id")
         node.horizontalPositioning = try input.int("collapsible column horizontal positioning")
         node.verticalPositioning = try input.int("collapsible column vertical positioning")
         node.spacingWord = try input.word("collapsible column spacing")
@@ -3319,7 +3341,7 @@ private enum NativeSwiftDocumentDecoder {
       case 205:  // Canvas
         let node = ParsedNode(kind: .canvas, componentID: try input.int("canvas component id"))
         node.componentKind = "CanvasLayout"
-        _ = try input.int("canvas animation id")
+        node.animationID = try input.int("canvas animation id")
         try begin(node)
       case 129:  // Matrix rotate
         let words = try (0..<3).map { _ in try input.word("matrix rotate value") }
@@ -3340,7 +3362,7 @@ private enum NativeSwiftDocumentDecoder {
       case 208:  // Text layout
         let node = ParsedNode(kind: .text, componentID: try input.int("text component id"))
         node.componentKind = "TextLayout"
-        _ = try input.int("text animation id")
+        node.animationID = try input.int("text animation id")
         let textID = try input.int("text id")
         let color = UInt32(bitPattern: Int32(try input.int("text color")))
         let size = try input.word("text size")
@@ -3369,7 +3391,7 @@ private enum NativeSwiftDocumentDecoder {
       case 234:  // Image layout
         let node = ParsedNode(kind: .image, componentID: try input.int("image component id"))
         node.componentKind = "ImageLayout"
-        _ = try input.int("image animation id")
+        node.animationID = try input.int("image animation id")
         let imageID = try input.int("image bitmap id")
         let scaleType = try input.int("image scale type")
         let alpha = try input.word("image alpha")
@@ -3575,7 +3597,7 @@ private enum NativeSwiftDocumentDecoder {
       componentValues: componentValues, colorAttributes: colorAttributes,
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
       textMerges: textMerges, idLists: idLists, textLookups: textLookups,
-      matrixExpressions: matrixExpressions,
+      matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh)
   }

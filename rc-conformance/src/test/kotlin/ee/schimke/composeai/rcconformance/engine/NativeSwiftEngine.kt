@@ -134,6 +134,9 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
   /** Each frame's document values, as the player resolved them. */
   private var capturedValues: Map<String, JsonObject>? = null
 
+  /** Whether the final input replayed before each frame was delivered to the document. */
+  private var capturedInputHandled: Map<String, JsonPrimitive>? = null
+
   private class Frame(
     val id: String,
     val width: Int,
@@ -274,6 +277,7 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
     captured = null
     capturedTrees = null
     capturedValues = null
+    capturedInputHandled = null
     batch = null
   }
 
@@ -285,6 +289,7 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       "int",
       "text",
       "color" -> scalar(check)
+      "trace:handled" -> inputHandled(check.at)
       else -> Observation.NotImplemented
     }
 
@@ -328,6 +333,11 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
         ?: error("could not decode the ${gold.name} frame for $stepId")
     val rgba = decoded.toRgba()
     return Observation.Raster(rgba.width, rgba.height, rgba.rgba)
+  }
+
+  private fun inputHandled(stepId: String): Observation {
+    val handled = capturedInputHandled ?: captureInputHandled().also { capturedInputHandled = it }
+    return handled[stepId]?.let(Observation::Value) ?: Observation.NotImplemented
   }
 
   /**
@@ -453,6 +463,19 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
         val id = (entry["id"] as? JsonPrimitive)?.content ?: return@mapNotNull null
         val tree = entry["tree"] ?: return@mapNotNull null
         id to tree
+      }
+      .toMap()
+  }
+
+  private fun captureInputHandled(): Map<String, JsonPrimitive> {
+    if (requested.isEmpty()) return emptyMap()
+    val frames = runBatch()["frames"]?.jsonArray ?: return emptyMap()
+    return frames
+      .mapNotNull { it as? JsonObject }
+      .mapNotNull { entry ->
+        val id = (entry["id"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+        val handled = entry["input_handled"] as? JsonPrimitive ?: return@mapNotNull null
+        id to handled
       }
       .toMap()
   }
