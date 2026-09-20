@@ -341,7 +341,8 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
     viewport: CGSize? = nil,
     values: NativeMacValueRequest = NativeMacValueRequest(),
-    steps: [NativeMacInputStep] = []
+    steps: [NativeMacInputStep] = [],
+    conformanceFontName: String? = nil
   ) throws -> NativeMacRenderedFrame {
     try NativeMacPolicy.validateDocument(data)
     // A *data-only* document declares values and nothing to draw. A conformance capture still has to
@@ -359,7 +360,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       snapshot: snapshot, downloadedFonts: downloadedFonts)
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: .compatible, report: report,
-      fonts: fonts,
+      fonts: fonts, conformanceFontName: conformanceFontName,
       onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
     let captureSize = viewport ?? CGSize(width: snapshot.width, height: snapshot.height)
     let initialSize = steps.first?.viewport ?? captureSize
@@ -925,6 +926,7 @@ private final class NativeMacDocumentView: NSView {
   private var snapshot: NativeSwiftDocumentSnapshot
   private let images: [Int: NSImage]
   private let fonts: NativeMacFontRegistry
+  private let conformanceFontName: String?
   private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
   private var component: NativeMacComponentView!
   /// The outgoing StateLayout branch during a native transition. AppKit owns the interpolation here
@@ -1014,12 +1016,14 @@ private final class NativeMacDocumentView: NSView {
     compatibility: NativeMacCompatibility,
     report: NativeMacPolicyReport,
     fonts: NativeMacFontRegistry,
+    conformanceFontName: String? = nil,
     onEvent: @escaping (String) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
   ) throws {
     self.snapshot = snapshot
     self.fonts = fonts
+    self.conformanceFontName = conformanceFontName
     images = try Dictionary(
       uniqueKeysWithValues: snapshot.images.map { resource in
         guard resource.encoding == 0, let image = NSImage(data: resource.data) else {
@@ -1132,7 +1136,8 @@ private final class NativeMacDocumentView: NSView {
       outgoing?.component(withID: transition.stateLayoutID)?.layer?.presentation()?.opacity
     }
     component = NativeMacComponentView(
-      node: snapshot.root, images: images, fontNames: fonts.namesByID
+      node: snapshot.root, images: images, fontNames: fonts.namesByID,
+      conformanceFontName: conformanceFontName
     ) {
       [weak self] componentID, gesture, sample in
       self?.gesture(gesture, componentID: componentID, sample: sample)
@@ -1523,20 +1528,26 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     node: NativeMacNode,
     images: [Int: NSImage],
     fontNames: [Int: String],
+    conformanceFontName: String?,
     onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
   ) {
     self.node = node
     self.onGesture = onGesture
     componentChildren = node.children.map {
       NativeMacComponentView(
-        node: $0, images: images, fontNames: fontNames, onGesture: onGesture)
+        node: $0, images: images, fontNames: fontNames, conformanceFontName: conformanceFontName,
+        onGesture: onGesture)
     }
     let promotesText = node.kind == .text
     let promotesImage = node.kind == .image
     let drawCommands = node.commands.filter { !(promotesImage && $0.kind == 19) }
     canvas =
       drawCommands.isEmpty ? nil : NativeMacCanvasView(commands: drawCommands, images: images)
-    labels = promotesText ? node.text.map { [Self.makeLabel($0, fontNames: fontNames)] } ?? [] : []
+    labels =
+      promotesText
+      ? node.text.map {
+        [Self.makeLabel($0, fontNames: fontNames, conformanceFontName: conformanceFontName)]
+      } ?? [] : []
     imageViews =
       promotesImage
       ? node.commands.compactMap { command in
@@ -2336,13 +2347,15 @@ private typealias MacFlowLine = (
   }
 
   private static func makeLabel(
-    _ text: NativeSwiftTextSnapshot, fontNames: [Int: String]
+    _ text: NativeSwiftTextSnapshot, fontNames: [Int: String], conformanceFontName: String?
   ) -> NSTextField {
     let label = NSTextField(labelWithString: text.value)
     let size = max(CGFloat(text.size), 1)
     let weight = NSFont.Weight(rawValue: min(max(CGFloat(text.weight - 400) / 500, -1), 1))
     var font = NSFont.systemFont(ofSize: size, weight: weight)
-    if let name = fontNames[text.familyID], let downloaded = NSFont(name: name, size: size) {
+    if let name = conformanceFontName ?? fontNames[text.familyID],
+      let downloaded = NSFont(name: name, size: size)
+    {
       font = downloaded
     }
     if (text.style & 2) != 0,
