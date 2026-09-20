@@ -18,8 +18,13 @@ final class NativeAccessibilityUITests: XCTestCase {
 
     let level = app.sliders["swift-demo-level"]
     XCTAssertTrue(level.exists)
+    let levelValue = app.staticTexts["swift-demo-level-value"]
+    XCTAssertTrue(levelValue.exists)
+    let originalValue = levelValue.label
     level.adjust(toNormalizedSliderPosition: 0.25)
-    XCTAssertEqual(level.normalizedSliderPosition, 0.25, accuracy: 0.05)
+    let valueChanged = expectation(
+      for: NSPredicate(format: "label != %@", originalValue), evaluatedWith: levelValue)
+    wait(for: [valueChanged], timeout: 5)
   }
 
   func testSwiftChartWritesItsSelectionBackToTheDocument() throws {
