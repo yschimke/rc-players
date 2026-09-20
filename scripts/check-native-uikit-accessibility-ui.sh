@@ -37,7 +37,7 @@ fi
 
 cleanup() {
   if [ "$started" = true ]; then
-    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+    rc_run_bounded 120 xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
@@ -65,9 +65,9 @@ if ! run_tests "$result"; then
     xcrun xcresulttool get test-results summary --path "$first_attempt_result" >&2 || true
   fi
   echo "resetting simulator and retrying once" >&2
-  xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
-  xcrun simctl erase "$udid"
-  xcrun simctl boot "$udid"
+  rc_run_bounded 120 xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+  rc_run_bounded 120 xcrun simctl erase "$udid"
+  rc_run_bounded 300 xcrun simctl boot "$udid"
   started=true
   rc_await_boot "$udid"
   run_tests "$result"
