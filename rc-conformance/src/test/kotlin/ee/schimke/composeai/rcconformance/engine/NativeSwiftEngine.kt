@@ -136,6 +136,7 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
 
   /** Whether the final input replayed before each frame was delivered to the document. */
   private var capturedInputHandled: Map<String, JsonPrimitive>? = null
+  private var capturedRecords: Map<String, JsonObject>? = null
 
   private class Frame(
     val id: String,
@@ -278,6 +279,7 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
     capturedTrees = null
     capturedValues = null
     capturedInputHandled = null
+    capturedRecords = null
     batch = null
   }
 
@@ -290,6 +292,8 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
       "text",
       "color" -> scalar(check)
       "trace:handled" -> inputHandled(check.at)
+      "records:animation_specs",
+      "records:component_bindings" -> records(check)
       else -> Observation.NotImplemented
     }
 
@@ -338,6 +342,12 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
   private fun inputHandled(stepId: String): Observation {
     val handled = capturedInputHandled ?: captureInputHandled().also { capturedInputHandled = it }
     return handled[stepId]?.let(Observation::Value) ?: Observation.NotImplemented
+  }
+
+  private fun records(check: Check): Observation {
+    val channel = check.channel ?: return Observation.NotImplemented
+    val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
+    return frames[check.at]?.get(channel)?.let(Observation::Value) ?: Observation.NotImplemented
   }
 
   /**
@@ -440,6 +450,19 @@ private class NativeSwiftSession(private val gold: Gold, private val playerBinar
         val id = (entry["id"] as? JsonPrimitive)?.content ?: return@mapNotNull null
         val values = entry["values"] as? JsonObject ?: return@mapNotNull null
         id to values
+      }
+      .toMap()
+  }
+
+  /** Decoded operation records emitted beside each captured frame. */
+  private fun captureRecords(): Map<String, JsonObject> {
+    val frames = runBatch()["frames"]?.jsonArray ?: return emptyMap()
+    return frames
+      .mapNotNull { it as? JsonObject }
+      .mapNotNull { entry ->
+        val id = (entry["id"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+        val records = entry["records"] as? JsonObject ?: return@mapNotNull null
+        id to records
       }
       .toMap()
   }

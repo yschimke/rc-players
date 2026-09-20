@@ -301,6 +301,8 @@ struct NativeMacRenderedFrame {
   let png: Data
   let tree: [[String: Any]]
   let values: [String: Any]?
+  /// Decoded-document observations that do not depend on a transient presentation layer.
+  let records: [String: Any]
   /// Whether the final replayed input was delivered to a document component.
   let inputHandled: Bool?
 }
@@ -405,8 +407,50 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       values: values.isEmpty
         ? nil
         : try reportedValues(
-          session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
+           session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
+      records: operationRecords(
+        try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)),
       inputHandled: inputHandled)
+  }
+
+  /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
+  /// are document facts, not reconstructed AppKit animation state.
+  private static func operationRecords(_ snapshot: NativeSwiftDocumentSnapshot) -> [String: Any] {
+    func specRecord(_ id: Int, _ spec: NativeSwiftAnimationSpec) -> [String: Any] {
+      [
+        "animationId": id, "animationEnabled": id != 0,
+        "enterAnimation": spec.enterAnimation, "exitAnimation": spec.exitAnimation,
+        "motionDuration": spec.motionDuration, "motionEasingType": spec.motionEasingType,
+        "visibilityDuration": spec.visibilityDuration,
+        "visibilityEasingType": spec.visibilityEasingType,
+      ]
+    }
+    let defaultSpec = NativeSwiftAnimationSpec(
+      motionDuration: 300, motionEasingType: 1, visibilityDuration: 300,
+      visibilityEasingType: 1, enterAnimation: 0, exitAnimation: 1)
+    var components: [NativeSwiftNodeSnapshot] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      if node.componentKind != "", node.kind != .root { components.append(node) }
+      node.children.forEach(collect)
+    }
+    collect(snapshot.root)
+    let bindings: [[String: Any]] = components.enumerated().map { index, node in
+      let id = node.animationID ?? -1
+      let usesDefaultSpec = node.animationID == nil
+      let spec = snapshot.animationSpecs[id] ?? defaultSpec
+      var record = specRecord(id, spec)
+      record["componentAnimationId"] = id
+      record["componentIndex"] = index
+      record["componentType"] = node.componentKind
+      record["usesDefaultSpec"] = usesDefaultSpec
+      return record
+    }
+    return [
+      "animation_specs": snapshot.animationSpecOrder.compactMap { id in
+        snapshot.animationSpecs[id].map { specRecord(id, $0) }
+      },
+      "component_bindings": bindings,
+    ]
   }
 
   /// The values a probe asked for, each resolved at the frame's own instant.
