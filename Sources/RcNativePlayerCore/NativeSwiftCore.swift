@@ -32,6 +32,8 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let pathIDs: Set<Int>
   /// Output ids declared by `PATH_TWEEN` operations.
   public let pathTweenIDs: Set<Int>
+  /// Every declared accessibility operation, including root-attached and repeated modifiers.
+  public let accessibilityRecords: [NativeSwiftAccessibilitySnapshot]
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
@@ -866,7 +868,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)),
       animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
-      pathIDs: document.pathIDs, pathTweenIDs: document.pathTweenIDs)
+      pathIDs: document.pathIDs, pathTweenIDs: document.pathTweenIDs,
+      accessibilityRecords: document.accessibilityRecords.map {
+        NativeSwiftAccessibilitySnapshot(
+          contentDescriptionID: $0.contentDescriptionID, role: $0.role, textID: $0.textID,
+          stateDescriptionID: $0.stateDescriptionID, mode: $0.mode,
+          contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
+          stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
+          isClickable: $0.isClickable)
+      })
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -1635,6 +1645,7 @@ private struct ParsedDocument {
   let animationSpecOrder: [Int]
   let pathIDs: Set<Int>
   let pathTweenIDs: Set<Int>
+  let accessibilityRecords: [ParsedAccessibility]
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
@@ -2712,6 +2723,7 @@ private enum NativeSwiftDocumentDecoder {
     var animationSpecOrder: [Int] = []
     var pathIDs: Set<Int> = []
     var pathTweenIDs: Set<Int> = []
+    var accessibilityRecords: [ParsedAccessibility] = []
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -3571,10 +3583,12 @@ private enum NativeSwiftDocumentDecoder {
         // with it the whole document, including everything it draws. `icon`, `button-compact` and
         // `button-loading` were refused on that alone. -1 is the unspecified role the UIKit side
         // already falls back to, so an unrecognised one resolves there too.
-        node.accessibility = ParsedAccessibility(
+        let semantics = ParsedAccessibility(
           contentDescriptionID: contentDescriptionID, role: role <= 9 ? role : -1, textID: textID,
           stateDescriptionID: stateDescriptionID, mode: mode <= 2 ? mode : 0,
           isEnabled: enabled != 0, isClickable: clickable != 0)
+        node.accessibility = semantics
+        accessibilityRecords.append(semantics)
       case 152:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
         try currentNode(stack, input: input).commands.append(
@@ -3644,6 +3658,7 @@ private enum NativeSwiftDocumentDecoder {
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
+      accessibilityRecords: accessibilityRecords,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh)
   }

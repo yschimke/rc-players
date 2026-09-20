@@ -445,8 +445,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       record["usesDefaultSpec"] = usesDefaultSpec
       return record
     }
-    let semantics: [[String: Any]] = components.compactMap { node in
-      guard let accessibility = node.accessibility else { return nil }
+    let semantics: [[String: Any]] = snapshot.accessibilityRecords.map { accessibility in
       return [
         "contentDescriptionId": accessibility.contentDescriptionID,
         "role": accessibility.role, "textId": accessibility.textID,
