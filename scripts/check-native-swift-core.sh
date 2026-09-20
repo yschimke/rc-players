@@ -20,6 +20,7 @@ arc_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fix
 image_fixture="$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc"
 # The only fixture here that defers its density instead of folding it in; see RcDemoDocuments.
 host_density_fixture="$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/host-density.rc"
+tile_fixture="$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/demo-tile.rc"
 "$work/native-swift-core-tests" \
   "$fixture" "$title_fixture" "$progress_fixture" "$circular_fixture" "$arc_fixture" \
-  "$image_fixture" "$host_density_fixture"
+  "$image_fixture" "$host_density_fixture" "$tile_fixture"

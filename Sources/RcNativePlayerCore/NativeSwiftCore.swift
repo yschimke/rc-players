@@ -956,7 +956,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// A probe that names a variable the document never declared is genuinely unobservable; one that
   /// addresses a numeric slot the document left empty is an observation, and the caller has to keep
   /// the two apart.
-  public func namedVariableID(_ name: String) -> Int? { document.namedVariables[name]?.id }
+  public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
+
+  /// The authoring API addresses user values without the wire format's `USER:` prefix. Keep the
+  /// wire spelling available too, so hosts can use either form when a document names it explicitly.
+  private func namedVariable(for name: String) -> ParsedNamedVariable? {
+    document.namedVariables[name] ?? document.namedVariables["USER:\(name)"]
+  }
 
   /// Writes one float slot by id, for a gesture that moves a document's own value — a scroll's
   /// offset is addressed by id rather than by name.
@@ -968,7 +974,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   public func setFloat(_ value: Float, for name: String) -> Bool {
-    guard value.isFinite, let variable = document.namedVariables[name], variable.type == 1 else {
+    guard value.isFinite, let variable = namedVariable(for: name), variable.type == 1 else {
       return false
     }
     floatOverrides[variable.id] = value
@@ -977,15 +983,23 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   public func setString(_ value: String, for name: String) -> Bool {
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
-      let variable = document.namedVariables[name], variable.type == 0
+      let variable = namedVariable(for: name), variable.type == 0
     else { return false }
     texts[variable.id] = value
     return true
   }
 
   public func setColor(_ value: UInt32, for name: String) -> Bool {
-    guard let variable = document.namedVariables[name], variable.type == 2 else { return false }
+    guard let variable = namedVariable(for: name), variable.type == 2 else { return false }
     colors[variable.id] = value
+    return true
+  }
+
+  /// Updates a named RemoteInt. RemoteBoolean uses this same wire type, with `0` and `1` standing
+  /// for false and true respectively.
+  public func setInteger(_ value: Int, for name: String) -> Bool {
+    guard let variable = namedVariable(for: name), variable.type == 4 else { return false }
+    integers[variable.id] = value
     return true
   }
 
@@ -1256,10 +1270,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> [Int: Float] {
     var result = floats
     result.merge(floatOverrides) { _, override in override }
+    // RemoteBoolean is encoded as a named RemoteInt, then projected into float/color expressions by
+    // RemoteInt.toRemoteFloat(). Expose integer slots to the float evaluator without overriding a
+    // real float that deliberately shares an id.
+    for (id, value) in integers where result[id] == nil { result[id] = Float(value) }
+    // A copied dynamic colour is encoded as colour expression → channel attributes → colour
+    // expression. Resolve the source colours before extracting their channels so the final colour
+    // pass can preserve copies such as a selected tint with reduced alpha.
+    let preliminaryColors = resolveColors(values: result)
     for attribute in document.colorAttributes {
       guard floatOverrides[attribute.outputID] == nil else { continue }
       result[attribute.outputID] = colorAttribute(
-        attribute.type, of: colors[attribute.colorID] ?? 0)
+        attribute.type, of: preliminaryColors[attribute.colorID] ?? 0)
     }
     // Player-supplied clocks. A document that declares its own value at one of these ids keeps it,
     // matching the reference player's claimed-id rule — `floats` seeds `result`.
@@ -1814,7 +1836,12 @@ private struct ParsedDrawCommand {
     return NativeSwiftDrawCommandSnapshot(
       kind: kind,
       values: words.map { NativeSwiftFloatExpression.resolve($0, values: values) },
-      colorARGB: paint.colorID.flatMap { colors[$0] } ?? paint.colorARGB,
+      // SRC_IN is the vector-tint path emitted by Remote Compose. Its source is the filter colour,
+      // while the glyph alpha remains in the path rasterization performed by Core Graphics.
+      colorARGB:
+        paint.colorFilterMode == 5
+        ? (paint.colorFilterID.flatMap { colors[$0] } ?? paint.colorFilterARGB ?? paint.colorARGB)
+        : (paint.colorID.flatMap { colors[$0] } ?? paint.colorARGB),
       alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? paint.alpha,
       strokeWidth: NativeSwiftFloatExpression.resolve(paint.strokeWidth, values: values),
       isStroke: paint.isStroke,
@@ -1997,6 +2024,9 @@ private struct ParsedMatrixExpression {
 private struct ParsedPaint {
   var colorARGB: UInt32 = 0xff00_0000
   var colorID: Int?
+  var colorFilterARGB: UInt32?
+  var colorFilterID: Int?
+  var colorFilterMode: Int?
   var gradient: ParsedGradient?
   var alpha: Float = 1
   var strokeWidth: UInt32 = Float(1).bitPattern
@@ -3757,6 +3787,18 @@ private enum NativeSwiftDocumentDecoder {
         paint.filterQuality = highBits != 0 ? 1 : 0
       case 19:
         paint.colorID = words[index]
+      case 13:
+        paint.colorFilterARGB = UInt32(bitPattern: Int32(words[index]))
+        paint.colorFilterID = nil
+        paint.colorFilterMode = highBits
+      case 20:
+        paint.colorFilterID = words[index]
+        paint.colorFilterARGB = nil
+        paint.colorFilterMode = highBits
+      case 21:
+        paint.colorFilterARGB = nil
+        paint.colorFilterID = nil
+        paint.colorFilterMode = nil
       case 24:
         // A texture shader replaces whatever shader the paint carried, exactly as setting a
         // gradient does; both fields used to persist together, and the renderer's texture branch

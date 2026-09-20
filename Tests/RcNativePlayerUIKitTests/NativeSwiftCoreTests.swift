@@ -208,6 +208,19 @@ enum NativeSwiftCoreTests {
       let events = try session.click(componentID: button.componentID, timeSeconds: 0)
       precondition(events == [])
     }
+
+    if CommandLine.arguments.count >= 9 {
+      let tileData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[8]))
+      let tileSession = try NativeSwiftDocumentSession.open(data: tileData)
+      let activeColors = try tileSession.snapshot().root.allColors
+      precondition(tileSession.namedVariableID("light.kitchen.is_on") == 51)
+      precondition(activeColors.contains(0xffff_be3e))
+      precondition(activeColors.contains(0x33ff_be3e))
+      precondition(tileSession.setInteger(0, for: "light.kitchen.is_on"))
+      let inactiveColors = try tileSession.snapshot().root.allColors
+      precondition(inactiveColors.contains(0xffb0_b0b0))
+      precondition(inactiveColors.contains(0x33b0_b0b0))
+    }
     let session = try NativeSwiftDocumentSession.open(data: wire)
     let initial = try session.snapshot()
     precondition(initial.width == 360 && initial.height == 150)
@@ -954,6 +967,14 @@ extension NativeSwiftNodeSnapshot {
 
   fileprivate var allCommandKinds: [Int] {
     commands.map(\.kind) + children.flatMap(\.allCommandKinds)
+  }
+
+  fileprivate var allColors: Set<UInt32> {
+    var result = Set(commands.map(\.colorARGB))
+    if let backgroundARGB { result.insert(backgroundARGB) }
+    if let text { result.insert(text.colorARGB) }
+    for child in children { result.formUnion(child.allColors) }
+    return result
   }
 
   fileprivate var firstImage: NativeSwiftImageDrawSnapshot? {
