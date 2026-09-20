@@ -1839,7 +1839,7 @@ private struct ParsedDrawCommand {
       // SRC_IN is the vector-tint path emitted by Remote Compose. Its source is the filter colour,
       // while the glyph alpha remains in the path rasterization performed by Core Graphics.
       colorARGB:
-        paint.colorFilterMode == 5
+        paint.colorFilterMode == NativeSwiftPaintBlendMode.sourceIn
         ? (paint.colorFilterID.flatMap { colors[$0] } ?? paint.colorFilterARGB ?? paint.colorARGB)
         : (paint.colorID.flatMap { colors[$0] } ?? paint.colorARGB),
       alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? paint.alpha,
@@ -2011,6 +2011,18 @@ private struct ParsedGradient {
   var stopWords: [UInt32]
   var coordinateWords: [UInt32]
   var tileMode: Int
+}
+
+/// Command types in a `PAINT_DATA` bundle, which are separate from document operation opcodes.
+private enum NativeSwiftPaintCommand {
+  static let colorFilter = 13
+  static let colorFilterID = 20
+  static let clearColorFilter = 21
+}
+
+/// Blend-mode ids encoded in a paint command's high word.
+private enum NativeSwiftPaintBlendMode {
+  static let sourceIn = 5
 }
 
 /// A `MATRIX_EXPRESSION` held as it arrived on the wire. The expression is RPN over a small matrix
@@ -3757,9 +3769,12 @@ private enum NativeSwiftDocumentDecoder {
         argumentCount = 1 + colorCount + 1 + stopCount + (highBits == 0 ? 5 : (highBits == 1 ? 4 : 2))
       } else {
         switch type {
-      case 1, 4, 5, 9, 12, 13, 16, 19, 20, 22: argumentCount = 1
+      case 1, 4, 5, 9, 12, NativeSwiftPaintCommand.colorFilter, 16, 19,
+        NativeSwiftPaintCommand.colorFilterID, 22:
+        argumentCount = 1
       case 24: argumentCount = 3
-      case 7, 8, 10, 14, 15, 17, 18, 21: argumentCount = 0
+      case 7, 8, 10, 14, 15, 17, 18, NativeSwiftPaintCommand.clearColorFilter:
+        argumentCount = 0
       case 23: argumentCount = highBits * 2
       default:
         throw NativeSwiftCoreError.unsupported(
@@ -3787,15 +3802,15 @@ private enum NativeSwiftDocumentDecoder {
         paint.filterQuality = highBits != 0 ? 1 : 0
       case 19:
         paint.colorID = words[index]
-      case 13:
+      case NativeSwiftPaintCommand.colorFilter:
         paint.colorFilterARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorFilterID = nil
         paint.colorFilterMode = highBits
-      case 20:
+      case NativeSwiftPaintCommand.colorFilterID:
         paint.colorFilterID = words[index]
         paint.colorFilterARGB = nil
         paint.colorFilterMode = highBits
-      case 21:
+      case NativeSwiftPaintCommand.clearColorFilter:
         paint.colorFilterARGB = nil
         paint.colorFilterID = nil
         paint.colorFilterMode = nil
