@@ -9,6 +9,55 @@ import UniformTypeIdentifiers
 
 private enum NativeConformanceJobError: Error { case malformed }
 
+/// The CMP side of the initial macOS comparison. AppKit does not expose Compose's internal frame
+/// scheduler, so this measures the host boundary we can observe consistently: creating a Compose
+/// window and the first visible content view. Native AppKit's retained-frame timings remain in its
+/// dedicated evidence report until CMP exposes an equivalent frame callback.
+private struct CmpMacStartupEvidence: Codable {
+  let schemaVersion: Int
+  let fixture: String
+  let sourceRevision: String
+  let iterations: Int
+  let medianWindowStartupMilliseconds: Double
+  let medianFirstPresentationMilliseconds: Double
+}
+
+@MainActor
+private func measureCmpMacStartup(data: Data, fixture: String) throws -> CmpMacStartupEvidence {
+  let iterations = 7
+  var startupSamples: [Double] = []
+  var presentationSamples: [Double] = []
+  for iteration in 0..<iterations {
+    let title = "Remote Compose benchmark \(UUID().uuidString)"
+    let started = ProcessInfo.processInfo.systemUptime
+    RcComposeWindowKt.RcComposeWindow(
+      bytes: RcDataBridgeKt.rcByteArray(data: data), title: title, width: 640, height: 480,
+      theme: RcPlayerTheme.light, onEvent: { _ in }, typefaces: RcTypefaceLoaderCompanion.shared.Default,
+      onError: { _ in }, lenient: true)
+    startupSamples.append((ProcessInfo.processInfo.systemUptime - started) * 1_000)
+
+    let deadline = ProcessInfo.processInfo.systemUptime + 5
+    while NSApp.windows.first(where: { $0.title == title && $0.isVisible && $0.contentView != nil }) == nil,
+      ProcessInfo.processInfo.systemUptime < deadline
+    {
+      RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
+    }
+    guard let window = NSApp.windows.first(where: { $0.title == title && $0.isVisible }) else {
+      throw DesktopValidationError("CMP window did not become visible within five seconds")
+    }
+    presentationSamples.append((ProcessInfo.processInfo.systemUptime - started) * 1_000)
+    window.close()
+    // Let Compose release the closed window before the next cold window sample.
+    if iteration + 1 < iterations { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05)) }
+  }
+  func median(_ samples: [Double]) -> Double { samples.sorted()[samples.count / 2] }
+  return CmpMacStartupEvidence(
+    schemaVersion: 1, fixture: fixture,
+    sourceRevision: ProcessInfo.processInfo.environment["RC_SOURCE_REVISION"] ?? "unknown",
+    iterations: iterations, medianWindowStartupMilliseconds: median(startupSamples),
+    medianFirstPresentationMilliseconds: median(presentationSamples))
+}
+
 private struct NativeConformanceJob: Decodable {
   let document: String
   let output: String
@@ -747,6 +796,25 @@ struct RemoteComposeMacApplication {
         print(output.path)
       } catch {
         FileHandle.standardError.write(Data("native AppKit evidence failed: \(error)\n".utf8))
+        exit(1)
+      }
+      return
+    }
+    if CommandLine.arguments.count == 4,
+      CommandLine.arguments[1] == "--measure-cmp-startup-evidence"
+    {
+      do {
+        _ = NSApplication.shared
+        let input = URL(fileURLWithPath: CommandLine.arguments[2])
+        let output = URL(fileURLWithPath: CommandLine.arguments[3])
+        let report = try measureCmpMacStartup(
+          data: Data(contentsOf: input), fixture: input.deletingPathExtension().lastPathComponent)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(report).write(to: output, options: .atomic)
+        print(output.path)
+      } catch {
+        FileHandle.standardError.write(Data("CMP macOS startup evidence failed: \(error)\n".utf8))
         exit(1)
       }
       return
