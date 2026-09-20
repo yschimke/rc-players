@@ -1839,7 +1839,7 @@ private struct ParsedDrawCommand {
       // SRC_IN is the vector-tint path emitted by Remote Compose. Its source is the filter colour,
       // while the glyph alpha remains in the path rasterization performed by Core Graphics.
       colorARGB:
-        paint.colorFilterMode == 5
+        paint.colorFilterMode == NativeSwiftPaintBlendMode.sourceIn
         ? (paint.colorFilterID.flatMap { colors[$0] } ?? paint.colorFilterARGB ?? paint.colorARGB)
         : (paint.colorID.flatMap { colors[$0] } ?? paint.colorARGB),
       alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? paint.alpha,
@@ -2013,6 +2013,86 @@ private struct ParsedGradient {
   var tileMode: Int
 }
 
+/// Command types in a `PAINT_DATA` bundle, which are separate from document operation opcodes.
+private enum NativeSwiftPaintCommand {
+  static let textSize = 1
+  static let color = 4
+  static let strokeWidth = 5
+  static let strokeMiter = 6
+  static let strokeCap = 7
+  static let style = 8
+  static let shader = 9
+  static let imageFilterQuality = 10
+  static let gradient = 11
+  static let alpha = 12
+  static let colorFilter = 13
+  static let antiAlias = 14
+  static let strokeJoin = 15
+  static let typeface = 16
+  static let filterBitmap = 17
+  static let blendMode = 18
+  static let colorID = 19
+  static let colorFilterID = 20
+  static let clearColorFilter = 21
+  static let shaderMatrix = 22
+  static let fontAxis = 23
+  static let texture = 24
+  static let pathEffect = 25
+  static let fallbackTypeface = 26
+}
+
+private enum NativeSwiftPaintStyle {
+  static let fill = 0
+  static let stroke = 1
+  static let fillAndStroke = 2
+}
+
+private enum NativeSwiftPaintGradientKind {
+  static let linear = 0
+  static let radial = 1
+  static let sweep = 2
+}
+
+private enum NativeSwiftPaintFilterQuality {
+  static let none = 0
+  static let low = 1
+  static let medium = 2
+  static let high = 3
+}
+
+/// Blend-mode ids encoded in a paint command's high word.
+public enum NativeSwiftPaintBlendMode {
+  public static let clear = 0
+  public static let source = 1
+  public static let destination = 2
+  public static let sourceOver = 3
+  public static let destinationOver = 4
+  public static let sourceIn = 5
+  public static let destinationIn = 6
+  public static let sourceOut = 7
+  public static let destinationOut = 8
+  public static let sourceAtop = 9
+  public static let destinationAtop = 10
+  public static let xor = 11
+  public static let plus = 12
+  public static let modulate = 13
+  public static let screen = 14
+  public static let overlay = 15
+  public static let darken = 16
+  public static let lighten = 17
+  public static let colorDodge = 18
+  public static let colorBurn = 19
+  public static let hardLight = 20
+  public static let softLight = 21
+  public static let difference = 22
+  public static let exclusion = 23
+  public static let multiply = 24
+  public static let hue = 25
+  public static let saturation = 26
+  public static let color = 27
+  public static let luminosity = 28
+}
+
 /// A `MATRIX_EXPRESSION` held as it arrived on the wire. The expression is RPN over a small matrix
 /// stack and is evaluated at snapshot time, once the floats its operands name have resolved.
 private struct ParsedMatrixExpression {
@@ -2033,7 +2113,7 @@ private struct ParsedPaint {
   var isStroke = false
   var strokeCap = 0
   var strokeJoin = 0
-  var blendMode = 3
+  var blendMode = NativeSwiftPaintBlendMode.sourceOver
   var textureImageID: Int?
   var textureTileModeX = 0
   var textureTileModeY = 0
@@ -3744,7 +3824,7 @@ private enum NativeSwiftDocumentDecoder {
       let type = Int(encodedCommand & 0xffff)
       let highBits = Int(encodedCommand >> 16)
       let argumentCount: Int
-      if type == 11 {
+      if type == NativeSwiftPaintCommand.gradient {
         guard index < words.count else { throw input.malformed("Truncated paint gradient") }
         let colorCount = words[index] & 0xff
         guard (1...16).contains(colorCount), index + 1 + colorCount < words.count else {
@@ -3754,13 +3834,28 @@ private enum NativeSwiftDocumentDecoder {
         guard stopCount == 0 || stopCount == colorCount else {
           throw input.malformed("Invalid paint gradient stops")
         }
-        argumentCount = 1 + colorCount + 1 + stopCount + (highBits == 0 ? 5 : (highBits == 1 ? 4 : 2))
+        argumentCount =
+          1 + colorCount + 1 + stopCount
+            + (highBits == NativeSwiftPaintGradientKind.linear
+              ? 5
+              : (highBits == NativeSwiftPaintGradientKind.radial ? 4 : 2))
       } else {
         switch type {
-      case 1, 4, 5, 9, 12, 13, 16, 19, 20, 22: argumentCount = 1
-      case 24: argumentCount = 3
-      case 7, 8, 10, 14, 15, 17, 18, 21: argumentCount = 0
-      case 23: argumentCount = highBits * 2
+      case NativeSwiftPaintCommand.textSize, NativeSwiftPaintCommand.color,
+        NativeSwiftPaintCommand.strokeWidth, NativeSwiftPaintCommand.shader,
+        NativeSwiftPaintCommand.alpha, NativeSwiftPaintCommand.colorFilter,
+        NativeSwiftPaintCommand.typeface, NativeSwiftPaintCommand.colorID,
+        NativeSwiftPaintCommand.colorFilterID, NativeSwiftPaintCommand.shaderMatrix,
+        NativeSwiftPaintCommand.strokeMiter, NativeSwiftPaintCommand.fallbackTypeface:
+        argumentCount = 1
+      case NativeSwiftPaintCommand.texture: argumentCount = 3
+      case NativeSwiftPaintCommand.strokeCap, NativeSwiftPaintCommand.style,
+        NativeSwiftPaintCommand.imageFilterQuality, NativeSwiftPaintCommand.antiAlias,
+        NativeSwiftPaintCommand.strokeJoin, NativeSwiftPaintCommand.filterBitmap,
+        NativeSwiftPaintCommand.blendMode, NativeSwiftPaintCommand.clearColorFilter:
+        argumentCount = 0
+      case NativeSwiftPaintCommand.fontAxis: argumentCount = highBits * 2
+      case NativeSwiftPaintCommand.pathEffect: argumentCount = highBits
       default:
         throw NativeSwiftCoreError.unsupported(
           opcode: 40, offset: input.offset, reason: "paint command \(type)")
@@ -3768,38 +3863,43 @@ private enum NativeSwiftDocumentDecoder {
       }
       guard index + argumentCount <= words.count else { throw input.malformed("Truncated paint") }
       switch type {
-      case 4:
+      case NativeSwiftPaintCommand.color:
         paint.colorARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorID = nil
-      case 5: paint.strokeWidth = UInt32(bitPattern: Int32(words[index]))
-      case 7: paint.strokeCap = highBits
-      case 8: paint.isStroke = highBits == 1
-      case 12:
+      case NativeSwiftPaintCommand.strokeWidth:
+        paint.strokeWidth = UInt32(bitPattern: Int32(words[index]))
+      case NativeSwiftPaintCommand.strokeCap: paint.strokeCap = highBits
+      case NativeSwiftPaintCommand.style:
+        paint.isStroke = highBits == NativeSwiftPaintStyle.stroke
+      case NativeSwiftPaintCommand.alpha:
         paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
-      case 15: paint.strokeJoin = highBits
-      case 18: paint.blendMode = highBits
-      case 10:
+      case NativeSwiftPaintCommand.strokeJoin: paint.strokeJoin = highBits
+      case NativeSwiftPaintCommand.blendMode: paint.blendMode = highBits
+      case NativeSwiftPaintCommand.imageFilterQuality:
         // Image filter quality: 0 none, 1 low, 2 medium, 3 high. Anything else is the reference's
         // low fallback.
-        paint.filterQuality = (0...3).contains(highBits) ? highBits : 1
-      case 17:
+        paint.filterQuality =
+          (NativeSwiftPaintFilterQuality.none...NativeSwiftPaintFilterQuality.high).contains(highBits)
+          ? highBits : NativeSwiftPaintFilterQuality.low
+      case NativeSwiftPaintCommand.filterBitmap:
         // The legacy filter-bitmap flag: non-zero asks for filtering, which is low quality.
-        paint.filterQuality = highBits != 0 ? 1 : 0
-      case 19:
+        paint.filterQuality =
+          highBits != 0 ? NativeSwiftPaintFilterQuality.low : NativeSwiftPaintFilterQuality.none
+      case NativeSwiftPaintCommand.colorID:
         paint.colorID = words[index]
-      case 13:
+      case NativeSwiftPaintCommand.colorFilter:
         paint.colorFilterARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorFilterID = nil
         paint.colorFilterMode = highBits
-      case 20:
+      case NativeSwiftPaintCommand.colorFilterID:
         paint.colorFilterID = words[index]
         paint.colorFilterARGB = nil
         paint.colorFilterMode = highBits
-      case 21:
+      case NativeSwiftPaintCommand.clearColorFilter:
         paint.colorFilterARGB = nil
         paint.colorFilterID = nil
         paint.colorFilterMode = nil
-      case 24:
+      case NativeSwiftPaintCommand.texture:
         // A texture shader replaces whatever shader the paint carried, exactly as setting a
         // gradient does; both fields used to persist together, and the renderer's texture branch
         // then drew the texture a second time where the document asked for a gradient scrim.
@@ -3807,12 +3907,12 @@ private enum NativeSwiftDocumentDecoder {
         paint.textureTileModeX = words[index + 1] & 0xf
         paint.textureTileModeY = (words[index + 1] >> 16) & 0xf
         paint.gradient = nil
-      case 22:
+      case NativeSwiftPaintCommand.shaderMatrix:
         // The local matrix of the shader currently installed: a NaN-encoded MatrixAccess id, or 0
         // to clear it.
         paint.shaderMatrixID = NativeSwiftMatrixExpression.referenceID(
           word: UInt32(bitPattern: Int32(words[index])))
-      case 11:
+      case NativeSwiftPaintCommand.gradient:
         // Layout, matching the reference player: a meta word carrying the colour count and the
         // colour-ID register, that many colour words, a stop count, that many stop words, and then
         // the coordinates the gradient kind calls for — linear four and a tile mode, radial three
@@ -3822,7 +3922,10 @@ private enum NativeSwiftDocumentDecoder {
         let colorCount = meta & 0xff
         let stopCount = words[index + 1 + colorCount]
         let coordinateStart = index + 2 + colorCount + stopCount
-        let coordinateCount = highBits == 0 ? 4 : (highBits == 1 ? 3 : 2)
+        let coordinateCount =
+          highBits == NativeSwiftPaintGradientKind.linear
+          ? 4
+          : (highBits == NativeSwiftPaintGradientKind.radial ? 3 : 2)
         let word = { (offset: Int) in UInt32(bitPattern: Int32(words[offset])) }
         paint.gradient = ParsedGradient(
           kind: highBits,
@@ -3830,7 +3933,9 @@ private enum NativeSwiftDocumentDecoder {
           colorRegister: (meta >> 16) & 0xffff,
           stopWords: (0..<stopCount).map { word(index + 2 + colorCount + $0) },
           coordinateWords: (0..<coordinateCount).map { word(coordinateStart + $0) },
-          tileMode: highBits == 2 ? 0 : words[coordinateStart + coordinateCount])
+          tileMode:
+            highBits == NativeSwiftPaintGradientKind.sweep
+            ? 0 : words[coordinateStart + coordinateCount])
         paint.textureImageID = nil
         paint.textureTileModeX = 0
         paint.textureTileModeY = 0

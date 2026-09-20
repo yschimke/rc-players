@@ -2511,32 +2511,33 @@ private final class NativeMacCanvasView: NSView {
 
   private func blendMode(_ value: Int) -> CGBlendMode {
     switch value {
-    case 0: .clear
-    case 1: .copy
-    case 4: .destinationOver
-    case 5: .sourceIn
-    case 6: .destinationIn
-    case 7: .sourceOut
-    case 8: .destinationOut
-    case 9: .sourceAtop
-    case 10: .destinationAtop
-    case 11: .xor
-    case 12: .plusLighter
-    case 13, 24: .multiply
-    case 14: .screen
-    case 15: .overlay
-    case 16: .darken
-    case 17: .lighten
-    case 18: .colorDodge
-    case 19: .colorBurn
-    case 20: .hardLight
-    case 21: .softLight
-    case 22: .difference
-    case 23: .exclusion
-    case 25: .hue
-    case 26: .saturation
-    case 27: .color
-    case 28: .luminosity
+    case NativeSwiftPaintBlendMode.clear: .clear
+    case NativeSwiftPaintBlendMode.source: .copy
+    case NativeSwiftPaintBlendMode.destination, NativeSwiftPaintBlendMode.sourceOver: .normal
+    case NativeSwiftPaintBlendMode.destinationOver: .destinationOver
+    case NativeSwiftPaintBlendMode.sourceIn: .sourceIn
+    case NativeSwiftPaintBlendMode.destinationIn: .destinationIn
+    case NativeSwiftPaintBlendMode.sourceOut: .sourceOut
+    case NativeSwiftPaintBlendMode.destinationOut: .destinationOut
+    case NativeSwiftPaintBlendMode.sourceAtop: .sourceAtop
+    case NativeSwiftPaintBlendMode.destinationAtop: .destinationAtop
+    case NativeSwiftPaintBlendMode.xor: .xor
+    case NativeSwiftPaintBlendMode.plus: .plusLighter
+    case NativeSwiftPaintBlendMode.modulate, NativeSwiftPaintBlendMode.multiply: .multiply
+    case NativeSwiftPaintBlendMode.screen: .screen
+    case NativeSwiftPaintBlendMode.overlay: .overlay
+    case NativeSwiftPaintBlendMode.darken: .darken
+    case NativeSwiftPaintBlendMode.lighten: .lighten
+    case NativeSwiftPaintBlendMode.colorDodge: .colorDodge
+    case NativeSwiftPaintBlendMode.colorBurn: .colorBurn
+    case NativeSwiftPaintBlendMode.hardLight: .hardLight
+    case NativeSwiftPaintBlendMode.softLight: .softLight
+    case NativeSwiftPaintBlendMode.difference: .difference
+    case NativeSwiftPaintBlendMode.exclusion: .exclusion
+    case NativeSwiftPaintBlendMode.hue: .hue
+    case NativeSwiftPaintBlendMode.saturation: .saturation
+    case NativeSwiftPaintBlendMode.color: .color
+    case NativeSwiftPaintBlendMode.luminosity: .luminosity
     default: .normal
     }
   }

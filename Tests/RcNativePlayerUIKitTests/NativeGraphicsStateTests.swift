@@ -11,13 +11,13 @@ enum NativeGraphicsStateTests {
     precondition(NativeGraphicsState.lineJoin(1) == .round)
     precondition(NativeGraphicsState.lineJoin(2) == .bevel)
 
-    precondition(NativeGraphicsState.blendMode(0) == .clear)
-    precondition(NativeGraphicsState.blendMode(1) == .copy)
-    precondition(NativeGraphicsState.blendMode(3) == .normal)
-    precondition(NativeGraphicsState.blendMode(12) == .plusLighter)
-    precondition(NativeGraphicsState.blendMode(14) == .screen)
-    precondition(NativeGraphicsState.blendMode(24) == .multiply)
-    precondition(NativeGraphicsState.blendMode(28) == .luminosity)
+    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.clear) == .clear)
+    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.source) == .copy)
+    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.sourceOver) == .normal)
+    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.plus) == .plusLighter)
+    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.screen) == .screen)
+    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.multiply) == .multiply)
+    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.luminosity) == .luminosity)
 
     let path = NativePathBuilder.make([
       NativePathElement(kind: 10, values: [2, 3]),

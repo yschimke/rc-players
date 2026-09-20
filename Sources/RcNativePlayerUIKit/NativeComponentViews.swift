@@ -535,7 +535,7 @@
       isStroke = false
       strokeCap = 0
       strokeJoin = 0
-      blendMode = 3
+      blendMode = NativeSwiftPaintBlendMode.sourceOver
       textSize = CGFloat(snapshot.size)
       textWeight = CGFloat(snapshot.weight)
       text = snapshot.value
@@ -2544,7 +2544,7 @@
     ) {
       // Destination leaves the existing buffer unchanged, but must not suppress ordered
       // transforms, clipping, or save/restore commands around the draw.
-      guard command.blendMode != 2 else { return }
+      guard command.blendMode != NativeSwiftPaintBlendMode.destination else { return }
       // Component-value expressions are resolved before UIKit performs its intrinsic-size pass, so
       // a background path built from them is stale in whichever dimension layout later decided.
       // The owning component has the final bounds now; use them for this background case and let
@@ -2613,7 +2613,7 @@
     }
 
     private func drawText(_ command: NativeDrawCommand) {
-      guard command.blendMode != 2 else { return }
+      guard command.blendMode != NativeSwiftPaintBlendMode.destination else { return }
       guard command.text != nil, let context = UIGraphicsGetCurrentContext() else { return }
       let font = NativeTextAttributes.font(for: command, scale: 1, fontNames: fontNames)
       let attributed = NativeTextAttributes.string(
@@ -2641,7 +2641,7 @@
 
     private func drawImage(_ command: NativeDrawCommand, _ context: CGContext) {
       guard
-        command.blendMode != 2,
+        command.blendMode != NativeSwiftPaintBlendMode.destination,
         let draw = command.image,
         let source = images[draw.imageID]?.cgImage,
         let cropped = source.cropping(to: draw.source)
