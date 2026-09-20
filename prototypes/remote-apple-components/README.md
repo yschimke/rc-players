@@ -47,6 +47,25 @@ This preserves one wire document and one renderer contract. A future native Swif
 could wrap a document writer, but it should not be coupled to the SwiftUI player view or duplicate
 the component implementation before this vocabulary has settled.
 
+## Side-by-side macOS comparison
+
+`swiftui/RemoteAppleComparisonApp.swift` is a small SwiftUI reference app. It displays the live
+SwiftUI implementation beside the gallery captured from `remote-creation-compose` and rendered by
+the CMP player. The same executable has headless commands for rendering the SwiftUI side and
+producing a pixel diff, so the visual reference and the app cannot quietly diverge.
+
+On macOS:
+
+```bash
+scripts/build-remote-apple-comparison.sh
+open "build/remote-apple-comparison/Remote Apple Comparison.app"
+```
+
+The Remote Compose pane is a committed CMP render rather than a live embedded player. Compose
+Multiplatform's current macOS API exposes a player-owned `Window`, not the `NSView` needed to place
+it inside a SwiftUI `HStack`. The app says this explicitly; interaction and live-document comparison
+can move in-process when CMP publishes an embeddable macOS view.
+
 ## Deliberate prototype limits
 
 - The palette is fixed to the light Apple system colors; mapping dynamic light/dark system colors
