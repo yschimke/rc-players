@@ -1,0 +1,47 @@
+name: Remote Apple comparison
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/remote-apple-comparison.yml"
+      - "prototypes/remote-apple-components/**"
+      - "renders/remote-apple-components/**"
+      - "scripts/build-remote-apple-comparison.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: SwiftUI / Remote Compose
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the comparison app and render the SwiftUI reference
+        run: |
+          scripts/build-remote-apple-comparison.sh
+          executable="build/remote-apple-comparison/Remote Apple Comparison.app/Contents/MacOS/RemoteAppleComparison"
+          mkdir -p build/remote-apple-reference
+          "$executable" \
+            --render-reference build/remote-apple-reference/swiftui-reference.png
+          "$executable" \
+            --compare \
+            build/remote-apple-reference/swiftui-reference.png \
+            renders/remote-apple-components/after-component-set.png \
+            build/remote-apple-reference/swiftui-vs-remote-diff.png \
+            build/remote-apple-reference/comparison.json
+      - name: Upload the comparison app and rendered evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: remote-apple-comparison
+          path: |
+            build/remote-apple-comparison/Remote Apple Comparison.app
+            build/remote-apple-reference
+          retention-days: 7
