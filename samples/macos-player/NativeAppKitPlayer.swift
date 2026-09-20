@@ -124,6 +124,35 @@ private struct NativeMacScrollFling {
   let startedAt: TimeInterval
 }
 
+private struct NativeMacStateTransition {
+  let stateLayoutID: Int
+  let duration: TimeInterval
+  let timingFunction: CAMediaTimingFunction
+  let startedAt: TimeInterval
+
+  /// AndroidX `GeneralEasing` values supported by native Core Animation timing functions.
+  private enum EasingType {
+    static let standard = 1
+    static let accelerate = 2
+    static let decelerate = 3
+    static let linear = 4
+    static let anticipate = 5
+    static let overshoot = 6
+  }
+
+  static func timingFunction(for easingType: Int?) -> CAMediaTimingFunction {
+    switch easingType {
+    case EasingType.standard: return CAMediaTimingFunction(controlPoints: 0.4, 0, 0.2, 1)
+    case EasingType.accelerate: return CAMediaTimingFunction(controlPoints: 0.4, 0.05, 0.8, 0.7)
+    case EasingType.decelerate: return CAMediaTimingFunction(controlPoints: 0, 0, 0.2, 0.95)
+    case EasingType.linear: return CAMediaTimingFunction(name: .linear)
+    case EasingType.anticipate: return CAMediaTimingFunction(controlPoints: 0.36, 0, 0.66, -0.56)
+    case EasingType.overshoot: return CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1)
+    default: return CAMediaTimingFunction(controlPoints: 0.4, 0, 0.2, 1)
+    }
+  }
+}
+
 private struct NativeMacScrollTarget {
   let positionID: Int
   let direction: NativeSwiftScrollDirection
@@ -155,9 +184,15 @@ private struct NativeMacInputReplay {
     var handledByScroll = false
     let gesture: NativeSwiftGestureKind
     switch step.kind {
-    case .click: gesture = .tap
-    case .longPress: gesture = .longPress
-    case .doubleClick: gesture = .doubleTap
+    case .click:
+      publishPointer()
+      gesture = .tap
+    case .longPress:
+      publishPointer()
+      gesture = .longPress
+    case .doubleClick:
+      publishPointer()
+      gesture = .doubleTap
     case .touchDown:
       publishPointer()
       if let target = view.scrollTarget(at: step.point) {
@@ -707,23 +742,56 @@ private struct MacInsets: Equatable {
   static let zero = MacInsets(top: 0, left: 0, bottom: 0, right: 0)
 }
 
+/// `RcDimensionType` mirrored locally so the AppKit host never has to infer wire meanings from
+/// numeric literals. Keep these values in step with `rc-player-protocol`'s public model.
+private enum NativeMacDimensionType {
+  static let exact = 0
+  static let fill = 1
+  static let wrap = 2
+  static let weight = 3
+  static let exactDp = 6
+  static let fillParentMaxWidth = 7
+  static let fillParentMaxHeight = 8
+}
+
+/// AndroidX `LayoutComponentContent` positioning values used by linear layout placement.
+private enum NativeMacPositioning {
+  static let center = 2
+  static let end = 3
+  static let bottom = 5
+  static let spaceBetween = 6
+  static let spaceEvenly = 7
+  static let spaceAround = 8
+}
+
+/// AndroidX visibility values after modifier override bits are stripped by the native core.
+private enum NativeMacVisibility {
+  static let gone = 0
+  static let invisible = 2
+}
+
 private struct MacDimension {
   let type: Int
   let value: CGFloat
   let minimum: CGFloat
   let maximum: CGFloat?
 
-  var weight: CGFloat? { type == 3 ? max(value, .leastNonzeroMagnitude) : nil }
+  var weight: CGFloat? {
+    type == NativeMacDimensionType.weight ? max(value, .leastNonzeroMagnitude) : nil
+  }
 
   func resolve(intrinsic: CGFloat, available: CGFloat) -> CGFloat {
     let proposed: CGFloat
     switch type {
-    case 0, 6: proposed = max(value, 0)
+    case NativeMacDimensionType.exact, NativeMacDimensionType.exactDp:
+      proposed = max(value, 0)
     // `FILL` uses a zero payload on the wire: it is a request for all available space, not a zero
     // fraction. The fractional forms (7 and 8) retain their explicit factor, including zero.
-    case 1: proposed = available * (value.isNaN || value == 0 ? 1 : max(value, 0))
-    case 7, 8: proposed = available * (value.isNaN ? 1 : max(value, 0))
-    case 3: proposed = available
+    case NativeMacDimensionType.fill:
+      proposed = available * (value.isNaN || value == 0 ? 1 : max(value, 0))
+    case NativeMacDimensionType.fillParentMaxWidth, NativeMacDimensionType.fillParentMaxHeight:
+      proposed = available * (value.isNaN ? 1 : max(value, 0))
+    case NativeMacDimensionType.weight: proposed = available
     default: proposed = intrinsic
     }
     return min(max(proposed, minimum), max(maximum.map { min($0, available) } ?? available, 0))
@@ -762,21 +830,25 @@ private enum MacLinearLayout {
     var distributed: CGFloat = 0
     var current: CGFloat
     switch positioning {
-    case 2: current = (total - contentSize) / 2
-    case 3, 5: current = total - contentSize
-    case 6:
+    case NativeMacPositioning.center: current = (total - contentSize) / 2
+    case NativeMacPositioning.end, NativeMacPositioning.bottom: current = total - contentSize
+    case NativeMacPositioning.spaceBetween:
       distributed = sizes.count > 1 ? (total - childSize) / CGFloat(sizes.count - 1) : 0
       current = sizes.count > 1 ? 0 : (total - contentSize) / 2
-    case 7:
+    case NativeMacPositioning.spaceEvenly:
       distributed = (total - childSize) / CGFloat(sizes.count + 1)
       current = distributed
-    case 8:
+    case NativeMacPositioning.spaceAround:
       distributed = (total - childSize) / CGFloat(sizes.count)
       current = distributed / 2
     default: current = 0
     }
     return sizes.map { size in
-      defer { current += size + spacing + ((6...8).contains(positioning) ? distributed : 0) }
+      defer {
+        current += size + spacing
+          + ((NativeMacPositioning.spaceBetween...NativeMacPositioning.spaceAround).contains(positioning)
+            ? distributed : 0)
+      }
       return current.rounded()
     }
   }
@@ -797,6 +869,7 @@ private final class NativeMacDocumentView: NSView {
   /// — this is intentionally a view transition, not a second implementation of Android's layout
   /// animator.
   private var outgoingStateComponent: NativeMacComponentView?
+  private var stateTransition: NativeMacStateTransition?
 
   /// The active document component tree, for the conformance corpus's `tree` probe.
   ///
@@ -825,7 +898,8 @@ private final class NativeMacDocumentView: NSView {
         // its pixels were absent, which is exactly the disagreement the tree channel exists to
         // catch.
         let gone =
-          view.isHidden || (view.node.visibility == 0 && !view.ignoresOwnVisibility)
+           view.isHidden
+             || (view.node.visibility == NativeMacVisibility.gone && !view.ignoresOwnVisibility)
         var entry: [String: Any] = [
           "id": view.node.componentID,
           "kind": kind,
@@ -837,7 +911,8 @@ private final class NativeMacDocumentView: NSView {
           "isGone": gone,
           "visibility": gone
              ? "GONE"
-             : (view.node.visibility == 2 && !view.ignoresOwnVisibility ? "INVISIBLE" : "VISIBLE"),
+              : (view.node.visibility == NativeMacVisibility.invisible && !view.ignoresOwnVisibility
+                ? "INVISIBLE" : "VISIBLE"),
         ]
         // §4.3 reports the paint translation on the scrolled component, while its children keep
         // their layout positions. Zero is omitted rather than serialized as a meaningless field.
@@ -990,14 +1065,9 @@ private final class NativeMacDocumentView: NSView {
       reportedDiagnostics = report.diagnostics
       onDiagnostics(report.diagnostics)
     }
-    // Keep AppKit's presentation tree in place until its native transition completion handler
-    // removes the outgoing branch. Replacing it on a display-link refresh would make a cross-fade
-    // last only one frame.
-    if outgoingStateComponent != nil, changedStateLayoutID == nil {
-      remainingWake = snapshot.needsWallClockRefresh ? 1 : nil
-      wakeStartedAt = nil
-      updateFrameDriver()
-      return
+    let refreshingTransition = changedStateLayoutID == nil ? stateTransition : nil
+    let presentationAlpha = refreshingTransition.flatMap { transition in
+      outgoing?.component(withID: transition.stateLayoutID)?.layer?.presentation()?.opacity
     }
     component = NativeMacComponentView(
       node: snapshot.root, images: images, fontNames: fonts.namesByID
@@ -1010,6 +1080,7 @@ private final class NativeMacDocumentView: NSView {
       let outgoingParent = outgoingState.superview,
       let incomingState = component.component(withID: changedStateLayoutID)
     {
+      let transition = stateTransition(for: changedStateLayoutID, in: snapshot)
       let outgoingFrame = outgoingParent.convert(outgoingState.frame, to: self)
       outgoingState.removeFromSuperview()
       outgoing.removeFromSuperview()
@@ -1020,12 +1091,22 @@ private final class NativeMacDocumentView: NSView {
       incomingState.alphaValue = 0
       addSubview(component)
       addSubview(outgoingState, positioned: .below, relativeTo: component)
-      animateStateLayoutTransition(from: outgoingState, to: incomingState)
+      stateTransition = transition
+      animateStateLayoutTransition(from: outgoingState, to: incomingState, transition: transition)
     } else {
       outgoingStateComponent?.removeFromSuperview()
       outgoingStateComponent = nil
       outgoing?.removeFromSuperview()
-      addSubview(component)
+      if let transition = refreshingTransition,
+        let incomingState = component.component(withID: transition.stateLayoutID)
+      {
+        incomingState.alphaValue = CGFloat(presentationAlpha ?? 1)
+        addSubview(component)
+        animateIncomingState(incomingState, transition: transition)
+      } else {
+        stateTransition = nil
+        addSubview(component)
+      }
     }
     // A document that reads a discrete wall-clock field has to be re-resolved at least once a
     // second, or its clock freezes on the first frame; the driver re-arms this after each wake.
@@ -1083,18 +1164,49 @@ private final class NativeMacDocumentView: NSView {
   /// StateLayout branch changes are native AppKit cross-fades. The timing curve is provided by Core
   /// Animation; no Android interpolation or frame sampler is duplicated in this player.
   private func animateStateLayoutTransition(
-    from outgoing: NativeMacComponentView, to incoming: NativeMacComponentView
+    from outgoing: NativeMacComponentView, to incoming: NativeMacComponentView,
+    transition: NativeMacStateTransition
   ) {
     NSAnimationContext.runAnimationGroup { context in
-      context.duration = 0.3
-      context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+      context.duration = transition.duration
+      context.timingFunction = transition.timingFunction
       outgoing.animator().alphaValue = 0
       incoming.animator().alphaValue = 1
     } completionHandler: { [weak self, weak outgoing] in
       guard let self, let outgoing, self.outgoingStateComponent === outgoing else { return }
       outgoing.removeFromSuperview()
       self.outgoingStateComponent = nil
+      self.stateTransition = nil
     }
+  }
+
+  private func animateIncomingState(
+    _ incoming: NativeMacComponentView, transition: NativeMacStateTransition
+  ) {
+    let elapsed = ProcessInfo.processInfo.systemUptime - transition.startedAt
+    let remaining = max(transition.duration - elapsed, 0)
+    guard remaining > 0 else {
+      incoming.alphaValue = 1
+      return
+    }
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = remaining
+      context.timingFunction = transition.timingFunction
+      incoming.animator().alphaValue = 1
+    }
+  }
+
+  private func stateTransition(
+    for stateLayoutID: Int, in snapshot: NativeSwiftDocumentSnapshot
+  ) -> NativeMacStateTransition {
+    let spec = snapshot.root.component(withID: stateLayoutID).flatMap { node in
+      node.animationID.flatMap { snapshot.animationSpecs[$0] }
+    }
+    let duration = TimeInterval(spec?.motionDuration ?? 300) / 1_000
+    return NativeMacStateTransition(
+      stateLayoutID: stateLayoutID, duration: duration,
+      timingFunction: NativeMacStateTransition.timingFunction(for: spec?.motionEasingType),
+      startedAt: ProcessInfo.processInfo.systemUptime)
   }
 
   private func snapshotStateLayoutIndices(_ node: NativeSwiftNodeSnapshot) -> [Int: Int] {
@@ -1273,6 +1385,16 @@ private final class NativeMacDisplayLinkDriver: NSObject {
 }
 
 private typealias NativeMacNode = NativeSwiftNodeSnapshot
+
+private extension NativeSwiftNodeSnapshot {
+  func component(withID id: Int) -> NativeSwiftNodeSnapshot? {
+    if componentID == id { return self }
+    for child in children {
+      if let match = child.component(withID: id) { return match }
+    }
+    return nil
+  }
+}
 private typealias NativeMacDrawCommand = NativeSwiftDrawCommandSnapshot
 private typealias NativeMacPathCommand = NativeSwiftPathElementSnapshot
 
@@ -1376,8 +1498,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     layer?.masksToBounds = node.cornerRadius > 0 || node.scrollDirection != nil
     layer?.cornerRadius = CGFloat(node.cornerRadius)
     if node.hasBackground { layer?.backgroundColor = Self.color(node.backgroundColor).cgColor }
-    isHidden = node.visibility == 0
-    alphaValue = node.visibility == 2 ? 0 : 1
+    isHidden = node.visibility == NativeMacVisibility.gone
+    alphaValue = node.visibility == NativeMacVisibility.invisible ? 0 : 1
     setAccessibilityIdentifier("rc-native-component-\(node.componentId)")
     if let canvas { addSubview(canvas) }
     labels.forEach(addSubview)
@@ -1663,12 +1785,13 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   private var isStructural: Bool {
     (node.kind == .content || (node.kind == .canvas && node.commands.isEmpty))
       && node.text == nil && node.custom == nil && !node.clickable && !node.hasBackground
-      && node.widthType == 2 && node.heightType == 2 && node.minimumHeight == 0
+      && node.widthType == NativeMacDimensionType.wrap
+      && node.heightType == NativeMacDimensionType.wrap && node.minimumHeight == 0
       && node.paddingTop == 0 && node.paddingLeft == 0 && node.paddingBottom == 0
       && node.paddingRight == 0
   }
   private var flattenedLayoutItems: [NativeMacComponentView] {
-    componentChildren.filter { $0.node.visibility != 0 }.flatMap { child in
+    componentChildren.filter { $0.node.visibility != NativeMacVisibility.gone }.flatMap { child in
       child.isStructural ? child.flattenedLayoutItems : [child]
     }
   }
@@ -1708,7 +1831,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     }
     for (index, child) in items.enumerated() { child.isHidden = !kept[index] }
     let visible = items.enumerated().filter { kept[$0.offset] }.map(\.element)
-    isHidden = node.visibility == 0 || visible.isEmpty
+    isHidden = node.visibility == NativeMacVisibility.gone || visible.isEmpty
     return visible
   }
 
@@ -1742,7 +1865,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         ? child.node.collapsiblePriority : nil
       return NativeSwiftCollapsible.Child(
         mainSize: Float(axis == .vertical ? size.height : size.width),
-        weight: weightType == 3 ? Float(max(weightValue, 0)) : 0,
+        weight: weightType == NativeMacDimensionType.weight ? Float(max(weightValue, 0)) : 0,
         priority: priority)
     }
     let extent = axis == .vertical ? available.height : available.width
@@ -1818,8 +1941,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       let y: CGFloat
       if aligned {
         switch node.verticalPositioning {
-        case 2: y = space.midY - size.height / 2
-        case 5: y = space.maxY - size.height
+        case NativeMacPositioning.center: y = space.midY - size.height / 2
+        case NativeMacPositioning.bottom: y = space.maxY - size.height
         default: y = space.minY
         }
       } else {
@@ -1859,7 +1982,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// Whether the box's *content* is switched on. An alternative's own modifier is ignored, but the
   /// content's is the box's own switch: a GONE content shows nothing.
   private var fitBoxContentVisible: Bool {
-    !componentChildren.contains { $0.isFitBoxContent && $0.node.visibility == 0 }
+    !componentChildren.contains {
+      $0.isFitBoxContent && $0.node.visibility == NativeMacVisibility.gone
+    }
   }
 
   /// An alternative's natural size: the size it asks for when nothing forces it to fill.
@@ -1885,7 +2010,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// GONE, which is what the reference does and what `fitbox_fit` asserts.
   private func layoutFitBox() {
     let content = contentRect
-    isHidden = node.visibility == 0
+    isHidden = node.visibility == NativeMacVisibility.gone
     let measured = fitBoxAlternativesAndSizes(in: content.size)
     for (alternative, _) in measured {
       // The reference ignores an alternative's own visibility modifier: it is the document's switch
@@ -1918,8 +2043,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   ) {
     let y: CGFloat
     switch node.verticalPositioning {
-    case 2: y = content.midY - size.height / 2
-    case 5: y = content.maxY - size.height
+    case NativeMacPositioning.center: y = content.midY - size.height / 2
+    case NativeMacPositioning.bottom: y = content.maxY - size.height
     default: y = content.minY
     }
     view.frame = CGRect(
@@ -1949,7 +2074,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         spacing: node.isCollapsible ? spacing : 0),
       natural: natural.map(\.height),
       weights: items.map {
-        $0.node.heightType == 3 ? max(CGFloat($0.node.heightValue), .leastNonzeroMagnitude) : nil
+        $0.node.heightType == NativeMacDimensionType.weight
+          ? max(CGFloat($0.node.heightValue), .leastNonzeroMagnitude) : nil
       })
     let heights = zip(items, zip(natural, allocated)).map {
       $0.applyDimensions($1.0, available: CGSize(width: content.width, height: $1.1)).height
@@ -1989,8 +2115,8 @@ private func layoutFlow() {
   let blockHeight = wrapped.lines.map(\.height).reduce(0, +)
   var y = content.minY
   switch node.verticalPositioning {
-  case 2: y += (content.height - blockHeight) / 2
-  case 5: y += content.height - blockHeight
+  case NativeMacPositioning.center: y += (content.height - blockHeight) / 2
+  case NativeMacPositioning.bottom: y += content.height - blockHeight
   default: break
   }
   for line in wrapped.lines {
@@ -2000,8 +2126,8 @@ private func layoutFlow() {
     for (index, item) in line.items.enumerated() {
       let offset: CGFloat
       switch node.verticalPositioning {
-      case 2: offset = (line.height - item.size.height) / 2
-      case 5: offset = line.height - item.size.height
+      case NativeMacPositioning.center: offset = (line.height - item.size.height) / 2
+      case NativeMacPositioning.bottom: offset = line.height - item.size.height
       default: offset = 0
       }
       item.view.isHidden = false
@@ -2041,7 +2167,8 @@ private typealias MacFlowLine = (
     let children = items.map { child in
       NativeSwiftFlow.Child(
         measuredWidth: Float(child.preferredSize(in: available).width),
-        weight: child.node.widthType == 3 ? Float(max(child.node.widthValue, 0)) : 0,
+        weight: child.node.widthType == NativeMacDimensionType.weight
+          ? Float(max(child.node.widthValue, 0)) : 0,
         minimumWidth: Float(child.node.minimumWidth))
     }
     let segmented = NativeSwiftFlow.segment(
@@ -2103,7 +2230,8 @@ private typealias MacFlowLine = (
         spacing: node.isCollapsible ? spacing : 0),
       natural: natural.map(\.width),
       weights: items.map {
-        $0.node.widthType == 3 ? max(CGFloat($0.node.widthValue), .leastNonzeroMagnitude) : nil
+        $0.node.widthType == NativeMacDimensionType.weight
+          ? max(CGFloat($0.node.widthValue), .leastNonzeroMagnitude) : nil
       })
     let positions = MacLinearLayout.positions(
       total: extent, sizes: widths, positioning: Int(node.horizontalPositioning),
@@ -2113,8 +2241,8 @@ private typealias MacFlowLine = (
         in: CGSize(width: widths[index], height: content.height))
       let y: CGFloat
       switch node.verticalPositioning {
-      case 2: y = content.midY - size.height / 2
-      case 5: y = content.maxY - size.height
+      case NativeMacPositioning.center: y = content.midY - size.height / 2
+      case NativeMacPositioning.bottom: y = content.maxY - size.height
       default: y = content.minY
       }
       items[index].frame = CGRect(
@@ -2125,8 +2253,8 @@ private typealias MacFlowLine = (
 
   private func alignedX(_ width: CGFloat, in rect: CGRect) -> CGFloat {
     switch node.horizontalPositioning {
-    case 2: rect.midX - width / 2
-    case 3: rect.maxX - width
+    case NativeMacPositioning.center: rect.midX - width / 2
+    case NativeMacPositioning.end: rect.maxX - width
     default: rect.minX
     }
   }
