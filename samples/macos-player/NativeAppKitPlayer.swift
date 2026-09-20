@@ -172,7 +172,7 @@ private struct NativeMacInputReplay {
       gesture = .touchDown
     case .touchDrag:
       publishPointer()
-      guard case .dragging(var activeDrag) = scroll else { return true }
+      guard case .dragging(var activeDrag) = scroll else { return false }
       let delta = Float(
         activeDrag.direction == .horizontal
           ? step.point.x - activeDrag.startPoint.x : step.point.y - activeDrag.startPoint.y)
@@ -184,6 +184,7 @@ private struct NativeMacInputReplay {
     case .touchUp:
       publishPointer()
       if case .dragging(let activeDrag) = scroll {
+        handledByScroll = true
         let fingerVelocity = Float(
           activeDrag.direction == .horizontal ? step.velocity.dx : step.velocity.dy)
         if fingerVelocity != 0 {
@@ -988,6 +989,15 @@ private final class NativeMacDocumentView: NSView {
     if reportedDiagnostics != report.diagnostics {
       reportedDiagnostics = report.diagnostics
       onDiagnostics(report.diagnostics)
+    }
+    // Keep AppKit's presentation tree in place until its native transition completion handler
+    // removes the outgoing branch. Replacing it on a display-link refresh would make a cross-fade
+    // last only one frame.
+    if outgoingStateComponent != nil, changedStateLayoutID == nil {
+      remainingWake = snapshot.needsWallClockRefresh ? 1 : nil
+      wakeStartedAt = nil
+      updateFrameDriver()
+      return
     }
     component = NativeMacComponentView(
       node: snapshot.root, images: images, fontNames: fonts.namesByID
