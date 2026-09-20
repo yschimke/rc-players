@@ -440,6 +440,10 @@ public enum NativeSwiftSystemVariables {
   /// Day of the month, 1...31.
   public static let dayOfMonth = 12
 
+  /// The last pointer coordinate the host delivered to the document.
+  public static let touchX = 13
+  public static let touchY = 14
+
   /// Seconds since the document's first frame, the animation clock a host advances.
   public static let animationTime = 30
 

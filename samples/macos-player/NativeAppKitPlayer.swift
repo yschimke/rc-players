@@ -147,14 +147,21 @@ private struct NativeMacInputReplay {
 
   mutating func consume(
     _ step: NativeMacInputStep, session: NativeSwiftDocumentSession, view: NativeMacDocumentView
-  ) throws {
+  ) throws -> Bool {
+    func publishPointer() {
+      _ = session.setFloat(Float(step.point.x), forID: NativeSwiftSystemVariables.touchX)
+      _ = session.setFloat(Float(step.point.y), forID: NativeSwiftSystemVariables.touchY)
+    }
+    var handledByScroll = false
     let gesture: NativeSwiftGestureKind
     switch step.kind {
     case .click: gesture = .tap
     case .longPress: gesture = .longPress
     case .doubleClick: gesture = .doubleTap
     case .touchDown:
+      publishPointer()
       if let target = view.scrollTarget(at: step.point) {
+        handledByScroll = true
         scroll = .dragging(
           NativeMacScrollDrag(
             positionID: target.positionID, direction: target.direction, startPoint: step.point,
@@ -164,7 +171,8 @@ private struct NativeMacInputReplay {
       }
       gesture = .touchDown
     case .touchDrag:
-      guard case .dragging(var activeDrag) = scroll else { return }
+      publishPointer()
+      guard case .dragging(var activeDrag) = scroll else { return true }
       let delta = Float(
         activeDrag.direction == .horizontal
           ? step.point.x - activeDrag.startPoint.x : step.point.y - activeDrag.startPoint.y)
@@ -172,8 +180,9 @@ private struct NativeMacInputReplay {
         afterDragging: activeDrag.startOffset, delta: delta, maximum: activeDrag.maximum)
       scroll = .dragging(activeDrag)
       session.setFloat(activeDrag.currentOffset, forID: activeDrag.positionID)
-      return
+      return true
     case .touchUp:
+      publishPointer()
       if case .dragging(let activeDrag) = scroll {
         let fingerVelocity = Float(
           activeDrag.direction == .horizontal ? step.velocity.dx : step.velocity.dy)
@@ -193,13 +202,15 @@ private struct NativeMacInputReplay {
       gesture = .touchUp
     }
 
-    guard let componentID = view.gestureTarget(at: step.point, for: gesture) else { return }
-    _ = try session.gesture(
+    guard let componentID = view.gestureTarget(at: step.point, for: gesture) else {
+      return handledByScroll
+    }
+    return (try session.gesture(
       gesture, componentID: componentID,
       sample: NativeSwiftPointerSample(
         x: Float(step.point.x), y: Float(step.point.y),
         velocityX: Float(step.velocity.dx), velocityY: Float(step.velocity.dy)),
-      timeSeconds: step.at)
+      timeSeconds: step.at) != nil) || handledByScroll
   }
 
   func finish(at time: TimeInterval, session: NativeSwiftDocumentSession) {
@@ -254,6 +265,8 @@ struct NativeMacRenderedFrame {
   let png: Data
   let tree: [[String: Any]]
   let values: [String: Any]?
+  /// Whether the final replayed input was delivered to a document component.
+  let inputHandled: Bool?
 }
 
 @MainActor
@@ -319,13 +332,14 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     player.frame = frame
     player.layoutSubtreeIfNeeded()
     var replay = NativeMacInputReplay()
+    var inputHandled: Bool?
     for step in steps {
       if let viewport = step.viewport, player.frame.size != viewport {
         window.setContentSize(viewport)
         player.frame = NSRect(origin: .zero, size: viewport)
         player.layoutSubtreeIfNeeded()
       }
-      try replay.consume(step, session: session, view: player)
+      inputHandled = try replay.consume(step, session: session, view: player)
       // A later input must hit-test the state left by the one before it. This matters when a click
       // switches a StateLayout before the next gesture, and also keeps the scroll tree current while
       // a multi-sample drag is replayed.
@@ -355,7 +369,8 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       values: values.isEmpty
         ? nil
         : try reportedValues(
-          session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values))
+          session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
+      inputHandled: inputHandled)
   }
 
   /// The values a probe asked for, each resolved at the frame's own instant.
@@ -703,7 +718,10 @@ private struct MacDimension {
     let proposed: CGFloat
     switch type {
     case 0, 6: proposed = max(value, 0)
-    case 1, 7, 8: proposed = available * (value.isNaN ? 1 : max(value, 0))
+    // `FILL` uses a zero payload on the wire: it is a request for all available space, not a zero
+    // fraction. The fractional forms (7 and 8) retain their explicit factor, including zero.
+    case 1: proposed = available * (value.isNaN || value == 0 ? 1 : max(value, 0))
+    case 7, 8: proposed = available * (value.isNaN ? 1 : max(value, 0))
     case 3: proposed = available
     default: proposed = intrinsic
     }
@@ -774,13 +792,18 @@ private final class NativeMacDocumentView: NSView {
   private let fonts: NativeMacFontRegistry
   private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
   private var component: NativeMacComponentView!
+  /// The outgoing StateLayout branch during a native transition. AppKit owns the interpolation here
+  /// — this is intentionally a view transition, not a second implementation of Android's layout
+  /// animator.
+  private var outgoingStateComponent: NativeMacComponentView?
 
-  /// The laid-out component tree, for the conformance corpus's `tree` probe.
+  /// The active document component tree, for the conformance corpus's `tree` probe.
   ///
   /// One entry per component the corpus names — a structural content wrapper has no class in the
   /// vocabulary and is skipped, though its children are not — with the geometry its parent's layout
   /// assigned it. `depth` counts those named ancestors, so it matches the golds' numbering rather
-  /// than this view hierarchy's.
+  /// than this view hierarchy's. An outgoing StateLayout branch is a transient AppKit presentation
+  /// view and deliberately stays out of this logical-state observation.
   ///
   /// §2.7: a node's x/y is only what the layout manager assigned. Padding and offset are modifier
   /// translation, applied at paint time, and are *not* in them — a padded child reports x: 0 and
@@ -958,19 +981,42 @@ private final class NativeMacDocumentView: NSView {
       report = try NativeMacPolicy.evaluate(next, compatibility: compatibility)
     }
     try NativeMacPolicy.validate(events: events, against: report)
+    let outgoing = component
+    let changedStateLayoutID = changedStateLayout(
+      from: snapshot.root, to: next.root)
     snapshot = next
     if reportedDiagnostics != report.diagnostics {
       reportedDiagnostics = report.diagnostics
       onDiagnostics(report.diagnostics)
     }
-    component?.removeFromSuperview()
     component = NativeMacComponentView(
       node: snapshot.root, images: images, fontNames: fonts.namesByID
     ) {
       [weak self] componentID, gesture, sample in
       self?.gesture(gesture, componentID: componentID, sample: sample)
     }
-    addSubview(component)
+    if let changedStateLayoutID, let outgoing,
+      let outgoingState = outgoing.component(withID: changedStateLayoutID),
+      let outgoingParent = outgoingState.superview,
+      let incomingState = component.component(withID: changedStateLayoutID)
+    {
+      let outgoingFrame = outgoingParent.convert(outgoingState.frame, to: self)
+      outgoingState.removeFromSuperview()
+      outgoing.removeFromSuperview()
+      outgoingStateComponent?.removeFromSuperview()
+      outgoingStateComponent = outgoingState
+      outgoingState.frame = outgoingFrame
+      outgoingState.alphaValue = 1
+      incomingState.alphaValue = 0
+      addSubview(component)
+      addSubview(outgoingState, positioned: .below, relativeTo: component)
+      animateStateLayoutTransition(from: outgoingState, to: incomingState)
+    } else {
+      outgoingStateComponent?.removeFromSuperview()
+      outgoingStateComponent = nil
+      outgoing?.removeFromSuperview()
+      addSubview(component)
+    }
     // A document that reads a discrete wall-clock field has to be re-resolved at least once a
     // second, or its clock freezes on the first frame; the driver re-arms this after each wake.
     remainingWake = snapshot.needsWallClockRefresh ? 1 : nil
@@ -1022,6 +1068,41 @@ private final class NativeMacDocumentView: NSView {
   override func layout() {
     super.layout()
     component.frame = bounds
+  }
+
+  /// StateLayout branch changes are native AppKit cross-fades. The timing curve is provided by Core
+  /// Animation; no Android interpolation or frame sampler is duplicated in this player.
+  private func animateStateLayoutTransition(
+    from outgoing: NativeMacComponentView, to incoming: NativeMacComponentView
+  ) {
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0.3
+      context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+      outgoing.animator().alphaValue = 0
+      incoming.animator().alphaValue = 1
+    } completionHandler: { [weak self, weak outgoing] in
+      guard let self, let outgoing, self.outgoingStateComponent === outgoing else { return }
+      outgoing.removeFromSuperview()
+      self.outgoingStateComponent = nil
+    }
+  }
+
+  private func snapshotStateLayoutIndices(_ node: NativeSwiftNodeSnapshot) -> [Int: Int] {
+    var indices: [Int: Int] = [:]
+    func collect(_ current: NativeSwiftNodeSnapshot) {
+      if let index = current.stateIndex { indices[current.componentID] = index }
+      current.children.forEach(collect)
+    }
+    collect(node)
+    return indices
+  }
+
+  private func changedStateLayout(
+    from oldRoot: NativeSwiftNodeSnapshot, to newRoot: NativeSwiftNodeSnapshot
+  ) -> Int? {
+    let oldIndices = snapshotStateLayoutIndices(oldRoot)
+    let newIndices = snapshotStateLayoutIndices(newRoot)
+    return newIndices.keys.sorted().first { oldIndices[$0] != newIndices[$0] }
   }
 
   private func updateFrameDriver() {
@@ -1301,6 +1382,16 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   }
 
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+
+  /// Finds a document component without depending on the AppKit subview order, which also contains
+  /// text, image, canvas and accessibility helper views.
+  func component(withID id: Int) -> NativeMacComponentView? {
+    if node.componentId == id { return self }
+    for child in componentChildren {
+      if let match = child.component(withID: id) { return match }
+    }
+    return nil
+  }
 
   @objc private func activate(_ sender: Any?) {
     onGesture(Int(node.componentId), .tap, nil)
