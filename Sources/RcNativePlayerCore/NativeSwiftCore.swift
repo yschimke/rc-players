@@ -723,6 +723,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private let document: ParsedDocument
   private var texts: [Int: String]
   private var floats: [Int: Float]
+  private var floatOverrides: [Int: Float] = [:]
   private var hostDensity: Float = 1
   private var hostFontScale: Float = 1
   private var colors: [Int: UInt32]
@@ -763,6 +764,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     document = other.document
     texts = other.texts
     floats = other.floats
+    floatOverrides = other.floatOverrides
     colors = other.colors
     integers = other.integers
     hostDensity = other.hostDensity
@@ -860,7 +862,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case .floatExpression(let targetID, let expressionID):
         guard let expression = document.expressions.first(where: { $0.id == expressionID })
         else { continue }
-        floats[targetID] = try NativeSwiftFloatExpression.evaluate(
+        floatOverrides[targetID] = try NativeSwiftFloatExpression.evaluate(
           expression.words, values: values)
       case .integerValue(let targetID, let value):
         integers[targetID] = value
@@ -918,7 +920,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   @discardableResult
   public func setFloat(_ value: Float, forID id: Int) -> Bool {
     guard value.isFinite else { return false }
-    floats[id] = value
+    floatOverrides[id] = value
     return true
   }
 
@@ -926,7 +928,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     guard value.isFinite, let variable = document.namedVariables[name], variable.type == 1 else {
       return false
     }
-    floats[variable.id] = value
+    floatOverrides[variable.id] = value
     return true
   }
 
@@ -963,7 +965,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let targetID = NativeSwiftFloatExpression.referenceID(
         UInt32(bitPattern: Int32(property.valueBits)))
     else { return false }
-    floats[targetID] = value
+    floatOverrides[targetID] = value
     return true
   }
 
@@ -1206,7 +1208,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
   ) throws -> [Int: Float] {
     var result = floats
+    result.merge(floatOverrides) { _, override in override }
     for attribute in document.colorAttributes {
+      guard floatOverrides[attribute.outputID] == nil else { continue }
       result[attribute.outputID] = colorAttribute(
         attribute.type, of: colors[attribute.colorID] ?? 0)
     }
@@ -1280,11 +1284,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // unset, exactly as it was before this pass existed; the authoritative pass after the
     // measurement evaluates it for real and throws if it is still bad.
     for expression in document.expressions {
+      guard floatOverrides[expression.id] == nil else { continue }
       if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
         result[expression.id] = value
       }
     }
     for binding in document.componentValues {
+      guard floatOverrides[binding.valueID] == nil else { continue }
       // A real measurement wins over any estimate. Width and height are the only two types this
       // player resolves, and they are the two a host can report.
       if let measured = measuredComponents[binding.componentID],
@@ -1306,6 +1312,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         of: measuredNode, type: binding.type, available: available, values: result)
     }
     for expression in document.expressions {
+      guard floatOverrides[expression.id] == nil else { continue }
       result[expression.id] = try NativeSwiftFloatExpression.evaluate(
         expression.words, values: result)
     }

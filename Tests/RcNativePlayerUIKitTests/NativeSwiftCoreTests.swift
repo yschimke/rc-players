@@ -914,7 +914,7 @@ enum NativeSwiftCoreTests {
   private static func dynamicCustomFloatDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
-    output.u8(80).int(70).float(0.4)
+    output.u8(81).int(70).int(1).float(0.4)
     output.text(id: 40, "demo:SwiftControls")
     output.u8(200).int(1)
     output.u8(201).int(2)
