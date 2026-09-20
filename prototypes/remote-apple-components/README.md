@@ -15,6 +15,16 @@ The first vertical slice includes:
 - `RemoteAppleSection` and `RemoteAppleLabel` — settings-style grouping and typography; and
 - `RemoteAppleComponentGallery` — one capture-ready document exercising the set.
 
+The second tranche adds:
+
+- `RemoteAppleSegmentedPicker` — document-owned integer selection;
+- `RemoteAppleStepper` — bounded increment/decrement actions and a live value label;
+- `RemoteAppleBadge` / `RemoteAppleBadgeRow` — compact counts and status tokens;
+- `RemoteAppleDisclosureRow` — host-routed navigation rows; and
+- `RemoteAppleStatusRow` — semantic status text with a state-derived indicator.
+
+`RemoteAppleControlsGallery` is the matching capture-ready second sheet.
+
 ```kotlin
 val enabled = rememberMutableRemoteBoolean(true)
 
