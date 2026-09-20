@@ -47,6 +47,7 @@ class RemoteAppleComponentGalleryTest {
 
     assertTrue(bytes.isNotEmpty())
     assertTrue("Wi-Fi" in strings)
+    assertTrue("apple:system" in strings)
     assertTrue("Play" in strings)
     assertTrue("Remove Download" in strings)
     assertTrue(document.operations.any { it is RcValueIntegerExpressionChangeAction })
@@ -66,6 +67,7 @@ class RemoteAppleComponentGalleryTest {
     val strings = document.operations.filterIsInstance<RcTextData>().map { it.text }.toSet()
 
     assertTrue("Daily" in strings)
+    assertTrue("apple:system" in strings)
     assertTrue("Reminders" in strings)
     assertTrue("Connected" in strings)
     assertTrue("Privacy" in strings)

@@ -98,7 +98,7 @@ public fun RcComposeViewController(
   bytes: ByteArray,
   theme: RcPlayerTheme = RcPlayerTheme.System,
   onEvent: (RcPlayerEvent) -> Unit = {},
-  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  typefaces: RcTypefaceLoader = RcAppleTypefaceLoader,
   onError: (String) -> Unit = {},
 ): UIViewController = RcComposeViewController(bytes, theme, onEvent, typefaces, onError, false)
 

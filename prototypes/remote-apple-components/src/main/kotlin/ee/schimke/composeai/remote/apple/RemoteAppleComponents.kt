@@ -88,6 +88,7 @@ public fun RemoteAppleButton(
       color = foreground,
       fontSize = 17.rsp,
       fontWeight = FontWeight.SemiBold,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
   }
 }
@@ -121,6 +122,7 @@ public fun RemoteAppleToggle(
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
       fontSize = 17.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
     RemoteBox(
       modifier =
@@ -149,7 +151,12 @@ public fun RemoteAppleProgressView(
   val colors = RemoteAppleTheme.colors
   RemoteColumn(modifier = modifier, verticalArrangement = RemoteArrangement.spacedBy(8.rdp)) {
     if (label != null) {
-      RemoteText(text = label, color = colors.secondaryLabel, fontSize = 13.rsp)
+      RemoteText(
+        text = label,
+        color = colors.secondaryLabel,
+        fontSize = 13.rsp,
+        fontFamily = RemoteAppleTheme.fontFamily,
+      )
     }
     RemoteBox(
       modifier =
@@ -182,9 +189,15 @@ public fun RemoteAppleLabel(
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
       fontSize = 17.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
     if (detail != null) {
-      RemoteText(text = detail, color = colors.secondaryLabel, fontSize = 17.rsp)
+      RemoteText(
+        text = detail,
+        color = colors.secondaryLabel,
+        fontSize = 17.rsp,
+        fontFamily = RemoteAppleTheme.fontFamily,
+      )
     }
   }
 }
@@ -202,6 +215,7 @@ public fun RemoteAppleSection(
       modifier = RemoteModifier.padding(16.rdp, 0.rdp),
       color = colors.secondaryLabel,
       fontSize = 13.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
     RemoteColumn(
       modifier =

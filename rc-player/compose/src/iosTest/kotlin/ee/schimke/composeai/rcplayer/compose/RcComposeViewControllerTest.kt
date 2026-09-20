@@ -48,6 +48,26 @@ class RcComposeViewControllerTest {
   }
 
   @Test
+  fun defaultAppleControllerAcceptsAppleSystemFont() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(
+          RcTextData(42, "apple:system"),
+          RcTextStyle(
+            listOf(RcTextStyleProperty.IntValue(1, 100), RcTextStyleProperty.IntValue(8, 42))
+          ),
+        ),
+      )
+    val errors = mutableListOf<String>()
+
+    RcComposeViewController(RcDocumentCodec.encode(document), onError = errors::add)
+
+    assertTrue(errors.isEmpty(), errors.joinToString())
+    assertTrue("apple:system" in RcAppleTypefaceLoader.families)
+  }
+
+  @Test
   fun downloadableFontBridgeFindsGoogleFamiliesAndBuildsLoader() {
     val document =
       RcDocument(

@@ -71,6 +71,7 @@ public fun RemoteAppleSegmentedPicker(
           color = selected.select(colors.label, colors.secondaryLabel),
           fontSize = 13.rsp,
           fontWeight = FontWeight.Medium,
+          fontFamily = RemoteAppleTheme.fontFamily,
         )
       }
     }
@@ -101,12 +102,14 @@ public fun RemoteAppleStepper(
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
       fontSize = 17.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
     RemoteText(
       text = value.toRemoteString(),
       modifier = RemoteModifier.padding(8.rdp, 0.rdp),
       color = colors.secondaryLabel,
       fontSize = 17.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
     StepperButton(
       symbol = "−".rs,
@@ -142,6 +145,7 @@ private fun StepperButton(symbol: RemoteString, action: Action, enabled: RemoteB
       color = enabled.select(colors.accent, colors.secondaryLabel),
       fontSize = 20.rsp,
       fontWeight = FontWeight.Medium,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
   }
 }
@@ -166,6 +170,7 @@ public fun RemoteAppleBadge(
       color = colors.secondaryBackground,
       fontSize = 13.rsp,
       fontWeight = FontWeight.SemiBold,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
   }
 }
@@ -186,6 +191,7 @@ public fun RemoteAppleBadgeRow(
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
       fontSize = 17.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
     RemoteAppleBadge(badge)
   }
@@ -212,6 +218,7 @@ public fun RemoteAppleDisclosureRow(
       modifier = RemoteModifier.weight(1f),
       color = colors.label,
       fontSize = 17.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
     if (detail != null) {
       RemoteText(
@@ -219,9 +226,15 @@ public fun RemoteAppleDisclosureRow(
         modifier = RemoteModifier.padding(8.rdp, 0.rdp),
         color = colors.secondaryLabel,
         fontSize = 15.rsp,
+        fontFamily = RemoteAppleTheme.fontFamily,
       )
     }
-    RemoteText(text = "›".rs, color = colors.secondaryLabel, fontSize = 24.rsp)
+    RemoteText(
+      text = "›".rs,
+      color = colors.secondaryLabel,
+      fontSize = 24.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
+    )
   }
 }
 
@@ -252,7 +265,13 @@ public fun RemoteAppleStatusRow(
       modifier = RemoteModifier.weight(1f).padding(10.rdp, 0.rdp),
       color = colors.label,
       fontSize = 17.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
     )
-    RemoteText(text = status, color = colors.secondaryLabel, fontSize = 15.rsp)
+    RemoteText(
+      text = status,
+      color = colors.secondaryLabel,
+      fontSize = 15.rsp,
+      fontFamily = RemoteAppleTheme.fontFamily,
+    )
   }
 }
