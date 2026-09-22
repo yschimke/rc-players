@@ -460,6 +460,9 @@ private class NativeSwiftSession(
       )
     }
     val parsed = Json.parseToJsonElement(stdout).jsonObject
+    parseErrors(stdout)
+      .takeIf { it.isNotEmpty() }
+      ?.let { System.err.println("native-appkit: ${gold.name} frame error -- $it") }
     batch = parsed
     return parsed
   }

@@ -919,9 +919,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
       texts[lookup.outputID] = texts[ids[index]] ?? ""
     }
+    for lookup in document.textFloatLookups {
+      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
+      let index = min(max(Int(NativeSwiftFloatExpression.resolve(lookup.index, values: values)), 0), ids.count - 1)
+      texts[lookup.outputID] = texts[ids[index]] ?? ""
+    }
     for merge in document.textMerges {
       texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
     }
+    resolveTextTransforms(values: values)
     // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
     // preceding TextFromFloat/TextLookup/TextMerge, so resolve it only after those text producers
     // have run for this frame.
@@ -1064,9 +1070,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
       texts[lookup.outputID] = texts[ids[index]] ?? ""
     }
+    for lookup in document.textFloatLookups {
+      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
+      let index = min(max(Int(NativeSwiftFloatExpression.resolve(lookup.index, values: values)), 0), ids.count - 1)
+      texts[lookup.outputID] = texts[ids[index]] ?? ""
+    }
     for merge in document.textMerges {
       texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
     }
+    resolveTextTransforms(values: values)
     for lookup in document.dataMapLookups {
       guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
       else { continue }
@@ -1642,6 +1654,37 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     staticSnapshotCache = nil
   }
 
+  /// Applies the wire's text slicing and transform operations after their source producers have
+  /// resolved for this frame. The protocol indexes UTF-16 text; Swift's `String` indices preserve
+  /// character boundaries, which is the safe equivalent for a native host when malformed ranges
+  /// are clamped at the document boundary.
+  private func resolveTextTransforms(values: [Int: Float]) {
+    for transform in document.textTransforms {
+      let source = texts[transform.textID] ?? ""
+      let start = max(0, Int(NativeSwiftFloatExpression.resolve(transform.start, values: values)))
+      let requestedLength = Int(NativeSwiftFloatExpression.resolve(transform.length, values: values))
+      let startIndex = source.index(source.startIndex, offsetBy: min(start, source.count))
+      let remaining = source.distance(from: startIndex, to: source.endIndex)
+      // AndroidX uses a negative length as the "through the end" sentinel. Keeping it distinct
+      // from zero matters: `TextTransform(..., -1, upper)` transforms the whole selected string.
+      let length = requestedLength < 0 ? remaining : min(requestedLength, remaining)
+      let endIndex = source.index(startIndex, offsetBy: length)
+      let selected = String(source[startIndex..<endIndex])
+      switch transform.operation {
+      case 1: texts[transform.outputID] = selected.lowercased()
+      case 2: texts[transform.outputID] = selected.uppercased()
+      case 3: texts[transform.outputID] = selected.trimmingCharacters(in: .whitespacesAndNewlines)
+      case 4:
+        texts[transform.outputID] = selected.split(separator: " ").map {
+          $0.prefix(1).uppercased() + $0.dropFirst().lowercased()
+        }.joined(separator: " ")
+      case 5:
+        texts[transform.outputID] = selected.prefix(1).uppercased() + selected.dropFirst()
+      default: texts[transform.outputID] = selected
+      }
+    }
+  }
+
   /// Visibility as the protocol encodes it, including its override bits.
   ///
   /// Above 15 the value is a mask -- OVERRIDE_GONE 16, OVERRIDE_VISIBLE 32, OVERRIDE_INVISIBLE 64 --
@@ -1920,11 +1963,13 @@ private struct ParsedDocument {
   let images: [Int: ParsedImageResource]
   let textFromFloats: [ParsedTextFromFloat]
   let textMerges: [ParsedTextMerge]
+  let textTransforms: [ParsedTextTransform]
   let idLists: [Int: [Int]]
   let floatLists: [Int: [UInt32]]
   let floatListUpdates: [Int: [(index: UInt32, value: UInt32)]]
   let dynamicFloatLists: [Int: ParsedDynamicFloatList]
   let textLookups: [ParsedTextLookupInt]
+  let textFloatLookups: [ParsedTextLookup]
   let dataMaps: [Int: [String: (type: Int, valueID: Int)]]
   let dataMapLookups: [ParsedDataMapLookup]
   let matrixExpressions: [Int: ParsedMatrixExpression]
@@ -2573,6 +2618,20 @@ private struct ParsedTextLookupInt {
   let outputID: Int
   let listID: Int
   let indexID: Int
+}
+
+private struct ParsedTextLookup {
+  let outputID: Int
+  let listID: Int
+  let index: UInt32
+}
+
+private struct ParsedTextTransform {
+  let outputID: Int
+  let textID: Int
+  let start: UInt32
+  let length: UInt32
+  let operation: Int
 }
 
 private struct ParsedDataMapLookup {
@@ -3657,6 +3716,7 @@ private enum NativeSwiftDocumentDecoder {
     var images: [Int: ParsedImageResource] = [:]
     var textFromFloats: [ParsedTextFromFloat] = []
     var textMerges: [ParsedTextMerge] = []
+    var textTransforms: [ParsedTextTransform] = []
     var idLists: [Int: [Int]] = [:]
     var floatLists: [Int: [UInt32]] = [:]
     var floatListUpdates: [Int: [(index: UInt32, value: UInt32)]] = [:]
@@ -3664,6 +3724,7 @@ private enum NativeSwiftDocumentDecoder {
     var dataMaps: [Int: [String: (type: Int, valueID: Int)]] = [:]
     var dataMapLookups: [ParsedDataMapLookup] = []
     var textLookups: [ParsedTextLookupInt] = []
+    var textFloatLookups: [ParsedTextLookup] = []
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
     var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
     var animationSpecOrder: [Int] = []
@@ -4462,6 +4523,25 @@ private enum NativeSwiftDocumentDecoder {
             outputID: try input.int("text lookup output id"),
             listID: try input.int("text lookup list id"),
             indexID: try input.int("text lookup index id")))
+      case 151:  // Text lookup using a literal or float expression index.
+        textFloatLookups.append(
+          ParsedTextLookup(
+            outputID: try input.int("text lookup output id"),
+            listID: try input.int("text lookup list id"),
+            index: try input.word("text lookup index")))
+      case 199:  // Text slice and transform.
+        let transform = ParsedTextTransform(
+          outputID: try input.int("text transform output id"),
+          textID: try input.int("text transform source id"),
+          start: try input.word("text transform start"),
+          length: try input.word("text transform length"),
+          operation: try input.int("text transform operation"))
+        // Zero is the protocol's identity transform: it still slices its source, but applies no
+        // case or whitespace rewrite. The remaining values are the five AndroidX transforms.
+        guard (0...5).contains(transform.operation) else {
+          throw input.malformed("Unknown text transform operation")
+        }
+        textTransforms.append(transform)
       case 123:  // Path data; bounded now, drawing support is a separate operation family.
         let idAndWinding = try input.int("path id and winding")
         let count = try input.count("path word count", maximum: 20_000)
@@ -5074,9 +5154,10 @@ private enum NativeSwiftDocumentDecoder {
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
-      textMerges: textMerges, idLists: idLists, floatLists: floatLists,
+      textMerges: textMerges, textTransforms: textTransforms, idLists: idLists, floatLists: floatLists,
       floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,
-      textLookups: textLookups, dataMaps: dataMaps, dataMapLookups: dataMapLookups,
+      textLookups: textLookups, textFloatLookups: textFloatLookups,
+      dataMaps: dataMaps, dataMapLookups: dataMapLookups,
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
