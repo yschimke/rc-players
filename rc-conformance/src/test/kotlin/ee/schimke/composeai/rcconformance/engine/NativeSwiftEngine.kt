@@ -301,6 +301,7 @@ private class NativeSwiftSession(
       "trace:handled" -> inputHandled(check.at)
       "records:animation_specs",
       "records:component_bindings",
+      "records:components",
       "records:semantics",
       "records:paths",
       "records:tweens",

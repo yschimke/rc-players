@@ -471,12 +471,24 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         "enabled": accessibility.isEnabled, "clickable": accessibility.isClickable,
       ]
     }
+    let drawNames: [Int: String] = [
+      3: "DrawRect", 4: "DrawRoundRect", 5: "DrawOval", 6: "DrawLine", 7: "DrawPath",
+      10: "DrawBitmap", 11: "DrawArc", 12: "DrawCircle", 13: "DrawOval", 14: "DrawRoundRect",
+      15: "DrawArc", 16: "DrawLine", 18: "DrawPath", 19: "DrawBitmap",
+    ]
+    var drawComponents: [String] = []
+    func collectDrawComponents(_ node: NativeSwiftNodeSnapshot) {
+      drawComponents.append(contentsOf: node.commands.compactMap { drawNames[$0.kind] })
+      node.children.forEach(collectDrawComponents)
+    }
+    collectDrawComponents(snapshot.root)
     return [
       "ops_count": operationCount,
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
         snapshot.animationSpecs[id].map { specRecord(id, $0) }
       },
       "component_bindings": bindings,
+      "components": drawComponents,
       "semantics": semantics,
       "paths": Dictionary(
         uniqueKeysWithValues: snapshot.pathIDs.sorted().map { (String($0), ["present": true]) }),
