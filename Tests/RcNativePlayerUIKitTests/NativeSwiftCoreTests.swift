@@ -849,10 +849,100 @@ enum NativeSwiftCoreTests {
       precondition(error.isUnsupported)
     }
 
+    let tweenSession = try NativeSwiftDocumentSession.open(data: animatedFloatDocument())
+    let firstTween = try tweenSession.snapshot(timeSeconds: 0)
+    precondition(firstTween.root.commands[0].values[0] == 0)
+    precondition(!firstTween.needsContinuousFrames, "an unchanged initial target should be idle")
+    precondition(tweenSession.setFloat(10, for: "target"))
+    let tweenStart = try tweenSession.snapshot(timeSeconds: 0)
+    let tweenMiddle = try tweenSession.snapshot(timeSeconds: 0.5)
+    let tweenEnd = try tweenSession.snapshot(timeSeconds: 1)
+    precondition(tweenStart.root.commands[0].values[0] == 0)
+    precondition(abs(tweenMiddle.root.commands[0].values[0] - 5) < 0.01)
+    precondition(tweenEnd.root.commands[0].values[0] == 10)
+    precondition(tweenStart.needsContinuousFrames && tweenMiddle.needsContinuousFrames)
+    precondition(!tweenEnd.needsContinuousFrames, "a completed tween kept requesting frames")
+
+    let staticSession = try NativeSwiftDocumentSession.open(
+      data: animatedFloatDocument(includeAnimation: false))
+    _ = try staticSession.snapshot(timeSeconds: 0)
+    precondition(staticSession.setFloat(10, for: "target"))
+    let staticUpdate = try staticSession.snapshot(timeSeconds: 0.5)
+    precondition(staticUpdate.root.commands[0].values[0] == 10)
+    precondition(!staticUpdate.needsContinuousFrames)
+
+    // These samples are from the Kotlin RcFloatAnimation reference at 250ms intervals, scaled from
+    // 0 to 10. They exercise the descriptor's packed type/parameter fields as well as each curve.
+    let easingCases: [(type: Int, parameters: [Float], values: [Float])] = [
+      (1, [], [2.366626, 7.75385, 9.592315]),
+      (2, [], [1.020607, 3.217343, 6.313163]),
+      (3, [], [5.569931, 8.179307, 9.507004]),
+      (4, [], [2.5, 5, 7.5]),
+      (5, [], [-0.596345, -0.872611, 1.837701]),
+      (6, [], [8.162299, 10.872611, 10.596345]),
+      (11, [0.1, 0.2, 0.8, 0.9], [3.158111, 5.74734, 8.091467]),
+      (12, [0, 0.15, 0.7, 1], [0.886719, 4.15625, 7.960938]),
+      (13, [], [5.299479, 7.65625, 9.726562]),
+      (14, [], [9.116117, 10.15625, 10.055243]),
+    ]
+    for easing in easingCases {
+      let session = try NativeSwiftDocumentSession.open(
+        data: animatedFloatDocument(easingType: easing.type, parameters: easing.parameters))
+      _ = try session.snapshot(timeSeconds: 0)
+      precondition(session.setFloat(10, for: "target"))
+      _ = try session.snapshot(timeSeconds: 0)
+      for (time, expected) in zip([0.25, 0.5, 0.75], easing.values) {
+        let actual = try session.snapshot(timeSeconds: time).root.commands[0].values[0]
+        precondition(
+          abs(actual - expected) < 0.01,
+          "easing \(easing.type) at \(time)s: expected \(expected), got \(actual)")
+      }
+      let endpoint = try session.snapshot(timeSeconds: 1).root.commands[0].values[0]
+      precondition(abs(endpoint - 10) < 0.01, "easing \(easing.type) did not reach its target")
+    }
+
+    let springSession = try NativeSwiftDocumentSession.open(data: springFloatDocument())
+    let springStart = try springSession.snapshot(timeSeconds: 0)
+    let springMoving = try springSession.snapshot(timeSeconds: 0.016)
+    var springSettled = springMoving
+    for frame in 2...600 {
+      springSettled = try springSession.snapshot(timeSeconds: Double(frame) * 0.016)
+    }
+    precondition(springStart.root.commands[0].values[0] == 0)
+    precondition(abs(springMoving.root.commands[0].values[0] - 0.004904) < 0.0001)
+    precondition(springStart.needsContinuousFrames && springMoving.needsContinuousFrames)
+    precondition(abs(springSettled.root.commands[0].values[0] - 1) < 0.001)
+    precondition(!springSettled.needsContinuousFrames, "a settled spring kept requesting frames")
+
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: unsupportedFloatAnimationDocument())
+      preconditionFailure("an unknown easing mode was silently accepted")
+    } catch let error as NativeSwiftCoreError {
+      precondition(error.isUnsupported, "unknown easing should be an explicit unsupported error")
+    }
+
+    let concurrentSession = try NativeSwiftDocumentSession.open(data: concurrentStringDocument())
+    DispatchQueue.concurrentPerform(iterations: 1_000) { index in
+      switch index % 3 {
+      case 0:
+        precondition(concurrentSession.setString("value-\(index)", for: "message"))
+      case 1:
+        do {
+          _ = try concurrentSession.snapshot()
+        } catch {
+          preconditionFailure("concurrent snapshot failed: \(error)")
+        }
+      default:
+        do {
+          _ = try concurrentSession.detachedCopy().snapshot()
+        } catch {
+          preconditionFailure("concurrent detached snapshot failed: \(error)")
+        }
+      }
+    }
+
     print("native pure Swift core tests: ok")
   }
-
-
 
   /// A root holding one column that carries both an exact size and a fill, in AndroidX's order.
   private static func chainedSizeModifierDocument() -> Data {
@@ -935,6 +1025,55 @@ enum NativeSwiftCoreTests {
       .u16(1).u16(1).int(Writer.nanReference(70))
       .u16(2).u16(3).int(Writer.nanReference(70))
     output.u8(214).u8(214).u8(214)
+    return output.data
+  }
+
+  private static func animatedFloatDocument(
+    easingType: Int = 4, parameters: [Float] = [], includeAnimation: Bool = true
+  ) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(80).int(50).float(0)
+    output.namedVariable(id: 50, type: 1, name: "target")
+    let animationWordCount = includeAnimation ? parameters.count + 2 : 0
+    let metadata = (parameters.count << 16) | easingType
+    output.u8(81).int(51).int((animationWordCount << 16) | 1)
+      .int(Writer.nanReference(50))
+    if includeAnimation {
+      output.float(1).int(metadata)
+      for parameter in parameters {
+        output.float(parameter)
+      }
+    }
+    output.u8(200).int(1).u8(42).int(Writer.nanReference(51)).int(0).int(0).int(0).u8(214)
+    return output.data
+  }
+
+  private static func springFloatDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(81).int(51).int((5 << 16) | 1)
+      .float(1).float(0).float(40).float(8).float(0.001).int(0)
+    output.u8(200).int(1).u8(42).int(Writer.nanReference(51)).int(0).int(0).int(0).u8(214)
+    return output.data
+  }
+
+  private static func unsupportedFloatAnimationDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(81).int(51).int((2 << 16) | 1)
+      .float(1).float(1).int(15)
+    output.u8(200).int(1).u8(42).int(Writer.nanReference(51)).int(0).int(0).int(0).u8(214)
+    return output.data
+  }
+
+  private static func concurrentStringDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.namedVariable(id: 55, type: 0, name: "message")
+    output.text(id: 56, " suffix")
+    output.u8(136).int(57).int(55).int(56)
+    output.u8(200).int(1).u8(214)
     return output.data
   }
 }
