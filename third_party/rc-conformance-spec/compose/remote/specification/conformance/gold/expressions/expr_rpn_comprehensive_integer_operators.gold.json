@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "expr_rpn_comprehensive_integer_operators",
+  "description": "Validates IntegerExpression (opcode 144) across arithmetic, bitwise (SHL, SHR, USHR, OR, AND, XOR, NOT), and conditional RPN operators.",
+  "category": "expressions",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEskAAAANMAAA1UAAAADAAAAAoAAAAUAAEAAQAAAAIAAQAGAAAAAQABAAcAAAAPAAEACQAAAB8AAQAKAAEAEQ==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "IntegerExpression"
+      ]
+    },
+    {
+      "id": "int_val",
+      "at": "initial",
+      "probe": "int",
+      "target": 211,
+      "expect": 32
+    }
+  ]
+}

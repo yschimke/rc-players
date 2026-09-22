@@ -19,8 +19,10 @@ package androidx.compose.remote.creation.json;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import androidx.compose.remote.core.CompanionOperation;
 import androidx.compose.remote.core.CoreDocument;
 import androidx.compose.remote.core.Operation;
+import androidx.compose.remote.core.Operations;
 import androidx.compose.remote.core.PaintContext;
 import androidx.compose.remote.core.RcPlatformServices;
 import androidx.compose.remote.core.RemoteClock;
@@ -764,6 +766,18 @@ public class ConformanceGoldGeneratorTest {
 
                     RemoteComposeBuffer buffer =
                             RemoteComposeBuffer.fromInputStream(new ByteArrayInputStream(rcBytes));
+                    Operations.UniqueIntMap<CompanionOperation> fullMap =
+                            Operations.getOperations(CoreDocument.DOCUMENT_API_LEVEL,
+                                    androidx.compose.remote.core.RcProfiles.PROFILE_ANDROIDX
+                                            | androidx.compose.remote.core.RcProfiles.PROFILE_EXPERIMENTAL
+                                            | androidx.compose.remote.core.RcProfiles.PROFILE_DEPRECATED);
+                    if (fullMap != null) {
+                        buffer.setVersion(CoreDocument.DOCUMENT_API_LEVEL,
+                                androidx.compose.remote.core.RcProfiles.PROFILE_ANDROIDX
+                                        | androidx.compose.remote.core.RcProfiles.PROFILE_EXPERIMENTAL
+                                        | androidx.compose.remote.core.RcProfiles.PROFILE_DEPRECATED,
+                                fullMap);
+                    }
                     CoreDocument doc = new CoreDocument();
                     doc.initFromBuffer(buffer);
 
@@ -781,6 +795,95 @@ public class ConformanceGoldGeneratorTest {
                         remote.loadFloat(RemoteContext.ID_ANIMATION_TIME, f / 60.0f);
                         doc.measure(remote, 0, width, 0, height);
                         doc.paint(remote, Theme.UNSPECIFIED);
+                    }
+
+                    // Replay interactions if the gold defines a timeline or interactions array
+                    JSONArray timeline = gold.optJSONArray("timeline");
+                    if (timeline != null) {
+                        for (int i = 0; i < timeline.length(); i++) {
+                            JSONObject step = timeline.getJSONObject(i);
+                            String kind = step.optString("kind", "").toLowerCase(Locale.US);
+                            float x = (float) step.optDouble("x", 0.0);
+                            float y = (float) step.optDouble("y", 0.0);
+                            switch (kind) {
+                                case "click":
+                                    doc.onClick(remote, x, y);
+                                    break;
+                                case "touch_down":
+                                    doc.touchDown(remote, x, y);
+                                    break;
+                                case "touch_up":
+                                    float dx = (float) step.optDouble("dx", 0.0);
+                                    float dy = (float) step.optDouble("dy", 0.0);
+                                    doc.touchUp(remote, x, y, dx, dy);
+                                    break;
+                                case "touch_drag":
+                                    doc.touchDrag(remote, x, y);
+                                    break;
+                                case "longpress":
+                                    doc.onLongPress(remote, x, y);
+                                    break;
+                                case "doubleclick":
+                                    doc.onDoubleClick(remote, x, y);
+                                    break;
+                                case "advance_time":
+                                    long delta = step.optLong("advance_millis", step.optLong("delta_millis", 0));
+                                    remote.currentTime += delta;
+                                    remote.setAnimationTime(remote.currentTime / 1000f);
+                                    remote.loadFloat(RemoteContext.ID_ANIMATION_TIME, remote.currentTime / 1000f);
+                                    break;
+                                default:
+                                    break;
+                            }
+                            doc.paint(remote, Theme.UNSPECIFIED);
+                            doc.measure(remote, 0, width, 0, height);
+                        }
+                    } else {
+                        JSONObject p = gold.optJSONObject("parameters");
+                        JSONArray interactions = p != null ? p.optJSONArray("interactions") : gold.optJSONArray("interactions");
+                        if (interactions != null) {
+                            for (int i = 0; i < interactions.length(); i++) {
+                                JSONObject act = interactions.getJSONObject(i);
+                                String type = act.optString("type", "").toLowerCase(Locale.US);
+                                float ax = (float) act.optDouble("x", 0.0);
+                                float ay = (float) act.optDouble("y", 0.0);
+                                switch (type) {
+                                    case "click":
+                                        doc.onClick(remote, ax, ay);
+                                        break;
+                                    case "touch_down":
+                                    case "touchdown":
+                                        doc.touchDown(remote, ax, ay);
+                                        break;
+                                    case "touch_up":
+                                    case "touchup":
+                                        float dx = (float) act.optDouble("dx", 0.0);
+                                        float dy = (float) act.optDouble("dy", 0.0);
+                                        doc.touchUp(remote, ax, ay, dx, dy);
+                                        break;
+                                    case "touch_drag":
+                                    case "touchdrag":
+                                        doc.touchDrag(remote, ax, ay);
+                                        break;
+                                    case "longpress":
+                                        doc.onLongPress(remote, ax, ay);
+                                        break;
+                                    case "doubleclick":
+                                        doc.onDoubleClick(remote, ax, ay);
+                                        break;
+                                    case "advance_time":
+                                        long delta = act.optLong("delta_millis", 0);
+                                        remote.currentTime += delta;
+                                        remote.setAnimationTime(remote.currentTime / 1000f);
+                                        remote.loadFloat(RemoteContext.ID_ANIMATION_TIME, remote.currentTime / 1000f);
+                                        break;
+                                    default:
+                                        break;
+                                }
+                                doc.paint(remote, Theme.UNSPECIFIED);
+                                doc.measure(remote, 0, width, 0, height);
+                            }
+                        }
                     }
                     played++;
                 } catch (Throwable t) {
@@ -1523,7 +1626,11 @@ public class ConformanceGoldGeneratorTest {
             int frames = params.optInt("frames", 2);
             double tolerance = params.optDouble("tolerance", 0.5);
 
-            JSONObject docObj = testJson.getJSONObject("document");
+            JSONObject docObj = testJson.optJSONObject("document");
+            if (docObj == null) {
+                unsupported.add(name + " :: no \"document\" block");
+                continue;
+            }
 
             // Compile to binary using RemoteComposeWriter + RemoteComposeJsonParser
             RemoteComposeWriter writer = new RemoteComposeWriter(
@@ -2065,7 +2172,11 @@ public class ConformanceGoldGeneratorTest {
             String description = testJson.optString("description", "");
             JSONObject params = testJson.optJSONObject("parameters");
             if (params == null) params = new JSONObject();
-            JSONObject docObj = testJson.getJSONObject("document");
+            JSONObject docObj = testJson.optJSONObject("document");
+            if (docObj == null) {
+                unsupported.add(name + " :: no \"document\" block");
+                continue;
+            }
             JSONObject header = docObj.optJSONObject("header");
             int width = header != null ? header.optInt("width", 100) : 100;
             int height = header != null ? header.optInt("height", 100) : 100;
@@ -2222,7 +2333,10 @@ public class ConformanceGoldGeneratorTest {
             JSONObject params = testJson.optJSONObject("parameters");
             if (params == null) params = new JSONObject();
             int frames = params.optInt("frames", 5);
-            JSONObject docObj = testJson.getJSONObject("document");
+            JSONObject docObj = testJson.optJSONObject("document");
+            if (docObj == null) {
+                continue;
+            }
             JSONObject header = docObj.optJSONObject("header");
             int width = header != null ? header.optInt("width", 200) : 200;
             int height = header != null ? header.optInt("height", 200) : 200;

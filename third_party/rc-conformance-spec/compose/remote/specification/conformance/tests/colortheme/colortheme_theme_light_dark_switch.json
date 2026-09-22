@@ -1,0 +1,13 @@
+{
+  "name": "colortheme_theme_light_dark_switch",
+  "description": "Validates THEME (opcode 63) switching active theme token state.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "Theme",
+    "ColorConstant"
+  ]
+}

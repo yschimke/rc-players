@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "scheduling_wake_in_dynamic_interval",
+  "description": "Validates WakeIn (opcode 191) with custom interval scheduling.",
+  "category": "scheduling",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAHJAgAAApECAAAA+TMzNKgAAAAAAAAAAQaAAAEGgAAClKkAAAABAAAAAQSAAAEEgAADWpSpAoAAAQKAAAEFwAABBcAAA1ta/P0AAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ImpulseOperation",
+        "ImpulseProcess",
+        "WakeIn"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 114,
+      "expect": 4
+    }
+  ]
+}

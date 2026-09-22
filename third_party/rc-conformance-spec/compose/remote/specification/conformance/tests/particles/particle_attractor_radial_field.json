@@ -1,0 +1,12 @@
+{
+  "name": "particle_attractor_radial_field",
+  "description": "Validates particle state progression and radial field damping.",
+  "category": "particles",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ParticlesCompareOp"
+  ]
+}

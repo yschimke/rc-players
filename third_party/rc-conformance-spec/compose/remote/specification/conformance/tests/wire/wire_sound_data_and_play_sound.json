@@ -1,0 +1,14 @@
+{
+  "name": "wire_sound_data_and_play_sound",
+  "description": "Validates DATA_SOUND (169), PLAY_SOUND (141), and SOUND_EXPRESSION (206).",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "SoundData",
+    "PlaySound",
+    "SoundExpression"
+  ]
+}

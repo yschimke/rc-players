@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "canvas_draw_text_run_and_content",
+  "description": "Validates DRAW_TEXT_RUN (43), DRAW_CONTENT (139), and CANVAS_OPERATIONS (173).",
+  "category": "canvas",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAAJQ2FudmFzUnVuKAAAAAIAAAAB//WeCysAAAABAAAAAAAAAAkAAAAAAAAACUGgAABCSAAAAIutKkEgAABCcAAAQsgAAELwAADWUAAAAA1CLAAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "DrawText",
+        "DrawContent",
+        "CanvasOperationsOp"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 13,
+      "expect": 43
+    }
+  ]
+}

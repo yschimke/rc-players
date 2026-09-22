@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "wire_header_version_and_dimensions",
+  "description": "Validates HEADER (opcode 0) version, viewport dimensions, and capabilities map.",
+  "category": "wire",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAJZDlgAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "Header"
+      ]
+    },
+    {
+      "id": "dim_val",
+      "at": "initial",
+      "probe": "float",
+      "target": 150,
+      "expect": 300
+    }
+  ]
+}

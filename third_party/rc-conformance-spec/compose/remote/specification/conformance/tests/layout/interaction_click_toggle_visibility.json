@@ -1,0 +1,160 @@
+{
+  "name": "interaction_click_toggle_visibility",
+  "category": "layout",
+  "description": "Click interaction toggling component visibility via valueIntegerChange action. Toggling an element between VISIBLE (1) and GONE (0) dynamically updates parent layout, collapsing and restoring sibling positions.",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "click",
+        "x": 60,
+        "y": 20,
+        "label": "click_hide_panel"
+      },
+      {
+        "step": 1,
+        "type": "advance_time",
+        "delta_millis": 1000,
+        "label": "settled_after_hide"
+      },
+      {
+        "step": 2,
+        "type": "click",
+        "x": 180,
+        "y": 20,
+        "label": "click_show_panel"
+      },
+      {
+        "step": 3,
+        "type": "advance_time",
+        "delta_millis": 1000,
+        "label": "settled_after_show"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": {
+        "panelVisibility": {
+          "type": "integer",
+          "value": 1
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#0f172a"
+        }
+      ],
+      "children": [
+        {
+          "type": "row",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#1e293b"
+            }
+          ],
+          "children": [
+            {
+              "type": "box",
+              "name": "hide_button",
+              "modifiers": [
+                {
+                  "width": 120
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#ef4444"
+                },
+                {
+                  "onClick": {
+                    "type": "valueIntegerChange",
+                    "target": "panelVisibility",
+                    "value": 0
+                  }
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "name": "show_button",
+              "modifiers": [
+                {
+                  "width": 120
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#22c55e"
+                },
+                {
+                  "onClick": {
+                    "type": "valueIntegerChange",
+                    "target": "panelVisibility",
+                    "value": 1
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "name": "toggleable_content",
+          "modifiers": [
+            {
+              "width": 240
+            },
+            {
+              "height": 100
+            },
+            {
+              "background": "#3b82f6"
+            },
+            {
+              "visibility": "$panelVisibility"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "name": "footer_box",
+          "modifiers": [
+            {
+              "width": 240
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#94a3b8"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

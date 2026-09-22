@@ -1,0 +1,12 @@
+{
+  "name": "matrix_from_path_tangent_frame",
+  "description": "Validates MATRIX_FROM_PATH (opcode 181) computing tangent frame matrix along a path.",
+  "category": "matrixmath",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "MatrixFromPath"
+  ]
+}

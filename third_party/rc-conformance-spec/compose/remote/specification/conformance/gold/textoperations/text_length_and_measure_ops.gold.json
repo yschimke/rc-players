@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "text_length_and_measure_ops",
+  "description": "Validates TEXT_LENGTH (156) and TEXT_MEASURE (155) measuring string character count and bounds.",
+  "category": "textoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAANUmVtb3RlQ29tcG9zZZwAAACMAAAAAZsAAACNAAAAAQAAAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "TextLength",
+        "TextMeasure"
+      ]
+    },
+    {
+      "id": "len_val",
+      "at": "initial",
+      "probe": "float",
+      "target": 140,
+      "expect": 13
+    }
+  ]
+}

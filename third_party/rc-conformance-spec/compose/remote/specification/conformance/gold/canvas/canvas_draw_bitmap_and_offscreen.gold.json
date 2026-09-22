@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "canvas_draw_bitmap_and_offscreen",
+  "description": "Validates DRAW_BITMAP (44), DRAW_BITMAP_INT (66), and DRAW_TO_BITMAP (190) operations.",
+  "category": "canvas",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsvgAAAAEAAABAAAAAQCwAAAABQSAAAEEgAABClAAAQpQAAAAAAABCAAAAAQAAAAAAAAAAAAAAIAAAACAAAABQAAAACgAAAJAAAABKAAAAAFAAAAAMQoAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "DrawToBitmap",
+        "DrawBitmap",
+        "DrawBitmapInt"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 12,
+      "expect": 64
+    }
+  ]
+}

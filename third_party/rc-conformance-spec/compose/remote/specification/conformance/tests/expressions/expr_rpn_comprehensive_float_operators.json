@@ -1,0 +1,12 @@
+{
+  "name": "expr_rpn_comprehensive_float_operators",
+  "description": "Validates FloatExpression (opcode 81) across 40+ RPN math operators (trigonometry, rounding, clamping, registers R0..R3, cubic easing).",
+  "category": "expressions",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "FloatExpression"
+  ]
+}

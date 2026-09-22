@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "text_style_and_layout_text",
+  "description": "Validates TEXT_STYLE (opcode 242 with all property tags) and LAYOUT_TEXT (opcode 208).",
+  "category": "textoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAANU3R5bGVkSGVhZGluZ/IAEgEAAAAKAgAAAAAD/////wQAAAAABUGQAAAGAAAAAAdELwAACAAAAAAJAAAAAQoAAAAACwAAAAIMPwAAAA1AAAAADj+ZmZoPAAAAABAAAAAAEgETANAAAAAUAAAAAAAAAAH/////QZAAAAAAAAAAAAK8AAAAAAAAAAEAAAAAAAAAAtZQAAAAj0GQAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "TextStyle",
+        "TextLayout"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 143,
+      "expect": 18
+    }
+  ]
+}

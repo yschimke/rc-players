@@ -1,0 +1,14 @@
+{
+  "name": "scheduling_animation_settle_boundary",
+  "description": "Validates scheduling settle state boundary.",
+  "category": "scheduling",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ImpulseOperation",
+    "ImpulseProcess",
+    "WakeIn"
+  ]
+}

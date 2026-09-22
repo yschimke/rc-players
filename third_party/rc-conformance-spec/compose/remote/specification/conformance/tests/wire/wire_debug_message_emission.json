@@ -1,0 +1,12 @@
+{
+  "name": "wire_debug_message_emission",
+  "description": "Validates DEBUG_MESSAGE (DebugMessage, opcode 179) wire payload.",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "DebugMessage"
+  ]
+}

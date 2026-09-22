@@ -1,0 +1,44 @@
+{
+  "format_version": 2,
+  "name": "matrix_3d_pipeline_operations",
+  "description": "Validates DefineMesh3D (110), SetCamera3D (111), Matrix3DOp (112), DrawMesh3D (113), Paint3DState (114), SetLights3D (115), and VectorExpression (116).",
+  "category": "matrixmath",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsbgAAAAEAAAADAAAAAAAAAAEAAAACAAAACb+AAAC/gAAAAAAAAD+AAAC/gAAAAAAAAAAAAAA/gAAAAAAAAAAAAAkAAAAAAAAAAD+AAAAAAAAAAAAAAD+AAAAAAAAAAAAAAD+AAAAAAAAGAAAAAAAAAAA/gAAAAAAAAD8AAAA/gAAAbwAAAAEAAAAQP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAAAABA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAcAAAAAAAAAAQP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAAAAAAAAAAAAAAAAAAAAAAAP4AAAHIAAAAAAAAACD+AAAA/gAAAP4AAAD+AAAA/gAAAP4AAAD+AAAA/gAAAcwAAAAEAAAAB/////wAAABA/gAAAP4AAAD+AAAA/gAAAP4AAAD+AAAA/gAAAP4AAAD+AAAA/gAAAP4AAAD+AAAA/gAAAP4AAAD+AAAA/gAAAcQAAAAEAAAAAdAAAAFkDAAADP4AAAEAAAABAQAAAUAAAAFhC4gAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "DefineMesh3D",
+        "SetCamera3D",
+        "Matrix3DOp",
+        "DrawMesh3D",
+        "Paint3DState",
+        "SetLights3D",
+        "VectorExpression"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 88,
+      "expect": 113
+    }
+  ]
+}

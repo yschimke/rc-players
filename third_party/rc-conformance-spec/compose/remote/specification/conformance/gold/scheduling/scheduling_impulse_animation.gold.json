@@ -37,7 +37,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQpEAgAAA\/AAAA1g==",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQpEAgAAA/AAAA1g==",
   "expected_impulses": [
     {
       "duration": 2.5,

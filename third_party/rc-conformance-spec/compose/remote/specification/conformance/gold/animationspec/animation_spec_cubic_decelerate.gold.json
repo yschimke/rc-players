@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "animation_spec_cubic_decelerate",
+  "description": "Validates CUBIC_DECELERATE (2) motion easing and 250ms duration.",
+  "category": "animationspec",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAApDegAADgAAAS5DegAAAAAAAkN6AAAAAAACAAAAAAAAAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "float_dur",
+      "at": "initial",
+      "probe": "float",
+      "target": 10,
+      "expect": 250
+    },
+    {
+      "id": "present_spec",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "AnimationSpec"
+      ]
+    }
+  ]
+}

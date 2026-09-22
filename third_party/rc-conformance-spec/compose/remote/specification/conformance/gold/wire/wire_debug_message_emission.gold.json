@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "wire_debug_message_emission",
+  "description": "Validates DEBUG_MESSAGE (DebugMessage, opcode 179) wire payload.",
+  "category": "wire",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAAPRGVidWdMb2dNZXNzYWdlswAAAAFASPXDAAAAAFAAAACbQzMAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "DebugMessage"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 155,
+      "expect": 179
+    }
+  ]
+}

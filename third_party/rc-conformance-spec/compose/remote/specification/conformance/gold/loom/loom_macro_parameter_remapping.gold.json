@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "name": "loom_macro_parameter_remapping",
+  "description": "Validates MACRO_DEFINE (246) and MACRO_CALL (247) parameter ID remapping.",
+  "category": "loom",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAEdCsAAA9gAAAAEAAAABAAAARwAAAAAqAAAAAAAAAABCSAAAQkgAANb3AAAAAQAAAAEAAABH",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 71,
+      "expect": 88
+    }
+  ]
+}

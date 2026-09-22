@@ -1,0 +1,13 @@
+{
+  "name": "text_length_and_measure_ops",
+  "description": "Validates TEXT_LENGTH (156) and TEXT_MEASURE (155) measuring string character count and bounds.",
+  "category": "textoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TextLength",
+    "TextMeasure"
+  ]
+}

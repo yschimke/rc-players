@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "canvas_clip_path_and_skew",
+  "description": "Validates CLIP_PATH (opcode 38) combined with MATRIX_SKEW (opcode 128) and DRAW_RECT.",
+  "category": "canvas",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsewAAAAEAAAAKAAAAAEEgAABBIAAAAAAAAUNIAABBIAAAAAAAAUNIAABDSAAAAAAABYImAQAAAYA+gAAAPczMzSgAAAACAAAAAf8QuYEqQaAAAEGgAABDDAAAQwwAAINQAAAAC0MAAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ClipPath",
+        "MatrixSkew",
+        "DrawRect"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 11,
+      "expect": 128
+    }
+  ]
+}

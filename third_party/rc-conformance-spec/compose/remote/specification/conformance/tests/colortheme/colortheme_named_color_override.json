@@ -1,0 +1,13 @@
+{
+  "name": "colortheme_named_color_override",
+  "description": "Validates NAMED_VARIABLE (opcode 137) binding a named color constant.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ColorConstant",
+    "NamedVariable"
+  ]
+}

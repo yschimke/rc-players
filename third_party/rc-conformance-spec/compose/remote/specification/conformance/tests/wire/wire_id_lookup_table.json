@@ -1,0 +1,12 @@
+{
+  "name": "wire_id_lookup_table",
+  "description": "Validates ID_LOOKUP (IdLookup, opcode 192) wire table mapping.",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "IdLookup"
+  ]
+}

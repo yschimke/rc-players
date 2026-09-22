@@ -1,0 +1,14 @@
+{
+  "name": "scheduling_impulse_duration_expiry",
+  "description": "Validates ImpulseOperation duration window expiration.",
+  "category": "scheduling",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ImpulseOperation",
+    "ImpulseProcess",
+    "WakeIn"
+  ]
+}

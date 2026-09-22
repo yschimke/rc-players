@@ -1,0 +1,12 @@
+{
+  "name": "loom_loop_operation_iteration",
+  "description": "Validates LOOP_START (LoopOperation, opcode 215) repeating child drawing commands.",
+  "category": "loom",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "LoopOperation"
+  ]
+}

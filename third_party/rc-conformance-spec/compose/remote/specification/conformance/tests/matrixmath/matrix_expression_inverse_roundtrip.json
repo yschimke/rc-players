@@ -1,0 +1,12 @@
+{
+  "name": "matrix_expression_inverse_roundtrip",
+  "description": "Validates MATRIX_EXPRESSION matrix inversion roundtrip identity.",
+  "category": "matrixmath",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "MatrixConstant"
+  ]
+}

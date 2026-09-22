@@ -1,0 +1,12 @@
+{
+  "name": "clock_time_attribute_from_now",
+  "description": "Validates TimeAttribute (172) extracting calendar year (TIME_YEAR = 12).",
+  "category": "clock",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TimeAttribute"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "interactivity_host_metadata_action",
+  "description": "Validates HOST_METADATA_ACTION (HostActionMetadataOperation, opcode 216).",
+  "category": "interactivity",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "HostActionMetadataOperation"
+  ]
+}

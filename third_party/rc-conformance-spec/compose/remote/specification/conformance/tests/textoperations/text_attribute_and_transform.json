@@ -1,0 +1,12 @@
+{
+  "name": "text_attribute_and_transform",
+  "description": "Validates ATTRIBUTE_TEXT (opcode 170) extracting text attribute metadata.",
+  "category": "textoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TextAttribute"
+  ]
+}

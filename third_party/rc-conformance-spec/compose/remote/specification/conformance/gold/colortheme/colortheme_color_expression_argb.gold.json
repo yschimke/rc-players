@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "colortheme_color_expression_argb",
+  "description": "Validates COLOR_EXPRESSIONS (opcode 134) computing dynamic color via ARGB mode.",
+  "category": "colortheme",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEshgAAACMAAAAA/xEiM/9EVWYAAAAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ColorExpression"
+      ]
+    },
+    {
+      "id": "col_val",
+      "at": "initial",
+      "probe": "color",
+      "target": 35,
+      "expect": 4279312947
+    }
+  ]
+}

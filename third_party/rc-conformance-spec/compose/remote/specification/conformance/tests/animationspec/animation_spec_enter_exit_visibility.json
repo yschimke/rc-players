@@ -1,0 +1,12 @@
+{
+  "name": "animation_spec_enter_exit_visibility",
+  "description": "Validates explicit enter (1) and exit (2) visibility animation types.",
+  "category": "animationspec",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "AnimationSpec"
+  ]
+}

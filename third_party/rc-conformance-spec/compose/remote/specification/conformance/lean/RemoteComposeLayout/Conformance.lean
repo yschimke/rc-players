@@ -27,7 +27,7 @@ specification and compares the result against the bounds the Android engine
 recorded in `compose/remote/specification/conformance/gold/layout/`, at every
 viewport size the gold file covers.
 
-99 documents are in scope, covering 294 viewport configurations.
+109 documents are in scope, covering 325 viewport configurations.
 -/
 
 namespace RemoteCompose.Conformance
@@ -422,6 +422,78 @@ def column_weights : Node :=
 #guard conformsVis column_weights (200 : S) (500 : S) [⟨(0 : S), (0 : S), (200 : S), (500 : S)⟩, ⟨(0 : S), (0 : S), (100 : S), (100 : S)⟩, ⟨(0 : S), (100 : S), (100 : S), (100 : S)⟩, ⟨(0 : S), (200 : S), (100 : S), (300 : S)⟩] [false, false, false, false]
 #guard conformsVis column_weights (400 : S) (1000 : S) [⟨(0 : S), (0 : S), (400 : S), (1000 : S)⟩, ⟨(0 : S), (0 : S), (100 : S), (100 : S)⟩, ⟨(0 : S), (100 : S), (100 : S), (225 : S)⟩, ⟨(0 : S), (325 : S), (100 : S), (675 : S)⟩] [false, false, false, false]
 
+/-- `core_text_alignment` — CoreText text alignment across start, center, and end alignments -/
+def core_text_alignment : Node :=
+  Node.column [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Start Arrangement.Start (0 : S) [Node.text [Modifier.width (Dim.fill (some (1 : S))) none] (TextSpec.fixed (144 : S) (16 : S)), Node.text [Modifier.width (Dim.fill (some (1 : S))) none] (TextSpec.fixed (176 : S) (16 : S)), Node.text [Modifier.width (Dim.fill (some (1 : S))) none] (TextSpec.fixed (160 : S) (16 : S))]
+
+#guard conformsVis core_text_alignment (300 : S) (150 : S) [⟨(0 : S), (0 : S), (300 : S), (150 : S)⟩, ⟨(0 : S), (0 : S), (300 : S), (16 : S)⟩, ⟨(0 : S), (16 : S), (300 : S), (16 : S)⟩, ⟨(0 : S), (32 : S), (300 : S), (16 : S)⟩] [false, false, false, false]
+#guard conformsVis core_text_alignment (300 : S) (150 : S) [⟨(0 : S), (0 : S), (300 : S), (150 : S)⟩, ⟨(0 : S), (0 : S), (300 : S), (16 : S)⟩, ⟨(0 : S), (16 : S), (300 : S), (16 : S)⟩, ⟨(0 : S), (32 : S), (300 : S), (16 : S)⟩] [false, false, false, false]
+#guard conformsVis core_text_alignment (600 : S) (300 : S) [⟨(0 : S), (0 : S), (600 : S), (300 : S)⟩, ⟨(0 : S), (0 : S), (600 : S), (16 : S)⟩, ⟨(0 : S), (16 : S), (600 : S), (16 : S)⟩, ⟨(0 : S), (32 : S), (600 : S), (16 : S)⟩] [false, false, false, false]
+
+/-- `core_text_autosize_basic` — CoreText autosize dynamically scaling single word up to container bounds -/
+def core_text_autosize_basic : Node :=
+  Node.box [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Start VAlign.Top [Node.text [] (TextSpec.autosized (112 : S) (14 : S) (10 : S) (100 : S) (14 : S))]
+
+#guard conformsVis core_text_autosize_basic (200 : S) (40 : S) [⟨(0 : S), (0 : S), (200 : S), (40 : S)⟩, ⟨(0 : S), (0 : S), (200 : S), (25 : S)⟩] [false, false]
+#guard conformsVis core_text_autosize_basic (200 : S) (40 : S) [⟨(0 : S), (0 : S), (200 : S), (40 : S)⟩, ⟨(0 : S), (0 : S), (200 : S), (25 : S)⟩] [false, false]
+#guard conformsVis core_text_autosize_basic (400 : S) (80 : S) [⟨(0 : S), (0 : S), (400 : S), (80 : S)⟩, ⟨(0 : S), (0 : S), (400 : S), (50 : S)⟩] [false, false]
+
+/-- `core_text_simple` — Simple text layout measuring single line text component -/
+def core_text_simple : Node :=
+  Node.row [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] Arrangement.Start VAlign.Top (0 : S) [Node.text [] (TextSpec.fixed (228 : S) (12 : S))]
+
+#guard conformsVis core_text_simple (300 : S) (100 : S) [⟨(0 : S), (0 : S), (300 : S), (100 : S)⟩, ⟨(0 : S), (0 : S), (228 : S), (12 : S)⟩] [false, false]
+#guard conformsVis core_text_simple (300 : S) (100 : S) [⟨(0 : S), (0 : S), (300 : S), (100 : S)⟩, ⟨(0 : S), (0 : S), (228 : S), (12 : S)⟩] [false, false]
+#guard conformsVis core_text_simple (600 : S) (200 : S) [⟨(0 : S), (0 : S), (600 : S), (200 : S)⟩, ⟨(0 : S), (0 : S), (228 : S), (12 : S)⟩] [false, false]
+
+/-- `fitbox_background_border` — FitBox container with background and border styling -/
+def fitbox_background_border : Node :=
+  Node.fitBox [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Center VAlign.Center [Node.box [Modifier.width (Dim.exact (60 : S)) none, Modifier.height (Dim.exact (60 : S)) none] HAlign.Center VAlign.Center []]
+
+#guard conformsVis fitbox_background_border (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(70 : S), (45 : S), (60 : S), (60 : S)⟩] [false, false]
+#guard conformsVis fitbox_background_border (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(70 : S), (45 : S), (60 : S), (60 : S)⟩] [false, false]
+#guard conformsVis fitbox_background_border (400 : S) (300 : S) [⟨(0 : S), (0 : S), (400 : S), (300 : S)⟩, ⟨(170 : S), (120 : S), (60 : S), (60 : S)⟩] [false, false]
+
+/-- `fitbox_child_graphicslayer` — FitBox child with graphicsLayer alpha and scale -/
+def fitbox_child_graphicslayer : Node :=
+  Node.fitBox [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Center VAlign.Center [Node.box [Modifier.width (Dim.exact (80 : S)) none, Modifier.height (Dim.exact (80 : S)) none] HAlign.Center VAlign.Center []]
+
+#guard conformsVis fitbox_child_graphicslayer (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(60 : S), (35 : S), (80 : S), (80 : S)⟩] [false, false]
+#guard conformsVis fitbox_child_graphicslayer (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(60 : S), (35 : S), (80 : S), (80 : S)⟩] [false, false]
+#guard conformsVis fitbox_child_graphicslayer (400 : S) (300 : S) [⟨(0 : S), (0 : S), (400 : S), (300 : S)⟩, ⟨(160 : S), (110 : S), (80 : S), (80 : S)⟩] [false, false]
+
+/-- `fitbox_child_padding` — FitBox child with inner padding modifier -/
+def fitbox_child_padding : Node :=
+  Node.fitBox [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Center VAlign.Center [Node.box [Modifier.width (Dim.exact (100 : S)) none, Modifier.height (Dim.exact (100 : S)) none, Modifier.padding ⟨(12 : S), (12 : S), (12 : S), (12 : S)⟩] HAlign.Center VAlign.Center []]
+
+#guard conformsVis fitbox_child_padding (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(50 : S), (25 : S), (100 : S), (100 : S)⟩] [false, false]
+#guard conformsVis fitbox_child_padding (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(50 : S), (25 : S), (100 : S), (100 : S)⟩] [false, false]
+#guard conformsVis fitbox_child_padding (400 : S) (300 : S) [⟨(0 : S), (0 : S), (400 : S), (300 : S)⟩, ⟨(150 : S), (100 : S), (100 : S), (100 : S)⟩] [false, false]
+
+/-- `fitbox_fit` — FitBox whose only candidate is larger than the container: no child fits, so nothing is displayed -/
+def fitbox_fit : Node :=
+  Node.fitBox [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Center VAlign.Center [Node.box [Modifier.width (Dim.exact (400 : S)) none, Modifier.height (Dim.exact (200 : S)) none] HAlign.Center VAlign.Center []]
+
+#guard conformsVis fitbox_fit (300 : S) (300 : S) [⟨(0 : S), (0 : S), (300 : S), (300 : S)⟩, ⟨(-50 : S), (50 : S), (400 : S), (200 : S)⟩] [true, true]
+#guard conformsVis fitbox_fit (300 : S) (300 : S) [⟨(0 : S), (0 : S), (300 : S), (300 : S)⟩, ⟨(-50 : S), (50 : S), (400 : S), (200 : S)⟩] [true, true]
+#guard conformsVis fitbox_fit (600 : S) (600 : S) [⟨(0 : S), (0 : S), (600 : S), (600 : S)⟩, ⟨(100 : S), (200 : S), (400 : S), (200 : S)⟩] [false, false]
+
+/-- `fitbox_padding_container` — FitBox container with outer padding modifier -/
+def fitbox_padding_container : Node :=
+  Node.fitBox [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none, Modifier.padding ⟨(16 : S), (16 : S), (16 : S), (16 : S)⟩] HAlign.Center VAlign.Center [Node.box [Modifier.width (Dim.exact (80 : S)) none, Modifier.height (Dim.exact (80 : S)) none] HAlign.Center VAlign.Center []]
+
+#guard conformsVis fitbox_padding_container (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(44 : S), (19 : S), (80 : S), (80 : S)⟩] [false, false]
+#guard conformsVis fitbox_padding_container (200 : S) (150 : S) [⟨(0 : S), (0 : S), (200 : S), (150 : S)⟩, ⟨(44 : S), (19 : S), (80 : S), (80 : S)⟩] [false, false]
+#guard conformsVis fitbox_padding_container (400 : S) (300 : S) [⟨(0 : S), (0 : S), (400 : S), (300 : S)⟩, ⟨(144 : S), (94 : S), (80 : S), (80 : S)⟩] [false, false]
+
+/-- `fitbox_scale_fit` — FitBox container with aspect-ratio fitted child box -/
+def fitbox_scale_fit : Node :=
+  Node.fitBox [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Center VAlign.Center [Node.box [Modifier.width (Dim.exact (100 : S)) none, Modifier.height (Dim.exact (100 : S)) none] HAlign.Center VAlign.Center []]
+
+#guard conformsVis fitbox_scale_fit (200 : S) (100 : S) [⟨(0 : S), (0 : S), (200 : S), (100 : S)⟩, ⟨(50 : S), (0 : S), (100 : S), (100 : S)⟩] [false, false]
+#guard conformsVis fitbox_scale_fit (200 : S) (100 : S) [⟨(0 : S), (0 : S), (200 : S), (100 : S)⟩, ⟨(50 : S), (0 : S), (100 : S), (100 : S)⟩] [false, false]
+#guard conformsVis fitbox_scale_fit (400 : S) (200 : S) [⟨(0 : S), (0 : S), (400 : S), (200 : S)⟩, ⟨(150 : S), (50 : S), (100 : S), (100 : S)⟩] [false, false]
+
 /-- `flow_basic` — Flow layout wrapping items across multiple horizontal lines -/
 def flow_basic : Node :=
   Node.flow [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] Arrangement.Start VAlign.Top (0 : S) 2147483647 2147483647 [Node.box [Modifier.width (Dim.exact (80 : S)) none, Modifier.height (Dim.exact (40 : S)) none] HAlign.Center VAlign.Center [], Node.box [Modifier.width (Dim.exact (100 : S)) none, Modifier.height (Dim.exact (40 : S)) none] HAlign.Center VAlign.Center [], Node.box [Modifier.width (Dim.exact (90 : S)) none, Modifier.height (Dim.exact (40 : S)) none] HAlign.Center VAlign.Center [], Node.box [Modifier.width (Dim.exact (70 : S)) none, Modifier.height (Dim.exact (40 : S)) none] HAlign.Center VAlign.Center []]
@@ -649,6 +721,15 @@ def resize_collapsible_row : Node :=
 #guard conformsVis resize_collapsible_row (190 : S) (100 : S) [⟨(0 : S), (0 : S), (190 : S), (100 : S)⟩, ⟨(15 : S), (20 : S), (80 : S), (60 : S)⟩, ⟨(95 : S), (20 : S), (80 : S), (60 : S)⟩, ⟨(175 : S), (20 : S), (80 : S), (60 : S)⟩] [false, false, false, true]
 #guard conformsVis resize_collapsible_row (100 : S) (100 : S) [⟨(0 : S), (0 : S), (100 : S), (100 : S)⟩, ⟨(10 : S), (20 : S), (80 : S), (60 : S)⟩, ⟨(90 : S), (20 : S), (80 : S), (60 : S)⟩, ⟨(90 : S), (20 : S), (80 : S), (60 : S)⟩] [false, false, true, true]
 #guard conformsVis resize_collapsible_row (300 : S) (100 : S) [⟨(0 : S), (0 : S), (300 : S), (100 : S)⟩, ⟨(30 : S), (20 : S), (80 : S), (60 : S)⟩, ⟨(110 : S), (20 : S), (80 : S), (60 : S)⟩, ⟨(190 : S), (20 : S), (80 : S), (60 : S)⟩] [false, false, false, false]
+
+/-- `resize_fitbox` — FitBox uniform aspect ratio preservation and scaling across viewport dimension changes -/
+def resize_fitbox : Node :=
+  Node.fitBox [Modifier.width (Dim.fill (some (1 : S))) none, Modifier.height (Dim.fill (some (1 : S))) none] HAlign.Center VAlign.Center [Node.box [Modifier.width (Dim.exact (100 : S)) none, Modifier.height (Dim.exact (100 : S)) none] HAlign.Center VAlign.Center []]
+
+#guard conformsVis resize_fitbox (200 : S) (200 : S) [⟨(0 : S), (0 : S), (200 : S), (200 : S)⟩, ⟨(50 : S), (50 : S), (100 : S), (100 : S)⟩] [false, false]
+#guard conformsVis resize_fitbox (200 : S) (200 : S) [⟨(0 : S), (0 : S), (200 : S), (200 : S)⟩, ⟨(50 : S), (50 : S), (100 : S), (100 : S)⟩] [false, false]
+#guard conformsVis resize_fitbox (400 : S) (200 : S) [⟨(0 : S), (0 : S), (400 : S), (200 : S)⟩, ⟨(150 : S), (50 : S), (100 : S), (100 : S)⟩] [false, false]
+#guard conformsVis resize_fitbox (100 : S) (300 : S) [⟨(0 : S), (0 : S), (100 : S), (300 : S)⟩, ⟨(0 : S), (100 : S), (100 : S), (100 : S)⟩] [false, false]
 
 /-- `resize_flow_wrap` — Flow layout responsive line-wrapping reflow across dynamic viewport resizes -/
 def resize_flow_wrap : Node :=

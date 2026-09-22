@@ -1,0 +1,12 @@
+{
+  "name": "animation_spec_float_expression_easing_curves",
+  "description": "Validates FloatExpression (opcode 81) animated transitions across BounceCurve (13), ElasticOutCurve (14), StepCurve (12), Custom Cubic (11), and SpringStopEngine physics.",
+  "category": "animationspec",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "FloatExpression"
+  ]
+}

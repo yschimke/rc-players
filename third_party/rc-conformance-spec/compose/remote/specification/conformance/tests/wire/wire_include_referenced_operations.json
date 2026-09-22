@@ -1,0 +1,13 @@
+{
+  "name": "wire_include_referenced_operations",
+  "description": "Validates INCLUDE_REFERENCED_OPERATIONS (245) and REFERENCED_OPERATIONS (142).",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ReferencedOperations",
+    "DrawRect"
+  ]
+}

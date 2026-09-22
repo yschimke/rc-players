@@ -97,6 +97,8 @@ def Node.withChildren : Node → List Node → Node
   | .collapsibleRow m arr va sp _, cs => .collapsibleRow m arr va sp cs
   | .collapsibleColumn m ha arr sp _, cs => .collapsibleColumn m ha arr sp cs
   | .flow m arr va sp mi ml _, cs => .flow m arr va sp mi ml cs
+  | .fitBox m ha va _, cs => .fitBox m ha va cs
+  | .stateLayout m st _, cs => .stateLayout m st cs
 
 def Node.getAt? : Node → List Nat → Option Node
   | n, [] => some n

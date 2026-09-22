@@ -1,0 +1,12 @@
+{
+  "name": "matrix_expression_perspective_projection",
+  "description": "Validates MATRIX_EXPRESSION perspective projection matrix.",
+  "category": "matrixmath",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "MatrixConstant"
+  ]
+}

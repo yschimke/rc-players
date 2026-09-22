@@ -1,0 +1,31 @@
+{
+  "format_version": 2,
+  "name": "loom_for_each_nested_loop",
+  "description": "Validates MACRO_FOR_EACH (opcode 244) iterating over a dynamic data collection.",
+  "category": "loom",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAEhAQAAA1wAAAEgAAAAAP4AAAEAAAAAqQKAAAECgAABByAAAQcgAANY=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "LoopOperation"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "clock_time_attribute_from_arg",
+  "description": "Validates TimeAttribute (172) with argument timestamp parameter (TIME_FROM_ARG_SEC = 3).",
+  "category": "clock",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEslAAAAAEAAAGLz+VoAJQAAAACAAABi8/WJcCsAAAAGQAAAAEAAwABAAAAAg==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "TimeAttribute"
+      ]
+    },
+    {
+      "id": "time_val",
+      "at": "initial",
+      "probe": "float",
+      "target": 25,
+      "expect": 1000,
+      "tolerance": 0.01
+    }
+  ]
+}

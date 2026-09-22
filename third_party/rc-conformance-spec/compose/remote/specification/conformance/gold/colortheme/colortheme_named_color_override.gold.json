@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "colortheme_named_color_override",
+  "description": "Validates NAMED_VARIABLE (opcode 137) binding a named color constant.",
+  "category": "colortheme",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsigAAACb/4R1IiQAAACYAAAACAAAADXByaW1hcnlBY2NlbnQ=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ColorConstant",
+        "NamedVariable"
+      ]
+    },
+    {
+      "id": "col_val",
+      "at": "initial",
+      "probe": "color",
+      "target": 38,
+      "expect": 4292943176
+    }
+  ]
+}

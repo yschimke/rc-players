@@ -1,0 +1,12 @@
+{
+  "name": "animation_spec_anticipate_overshoot",
+  "description": "Validates ANTICIPATE (4) and OVERSHOOT (5) easing curves.",
+  "category": "animationspec",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "AnimationSpec"
+  ]
+}

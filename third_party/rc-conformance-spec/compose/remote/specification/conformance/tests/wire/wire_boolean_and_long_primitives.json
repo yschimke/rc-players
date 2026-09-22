@@ -1,0 +1,13 @@
+{
+  "name": "wire_boolean_and_long_primitives",
+  "description": "Validates wire deserialization of DATA_BOOLEAN (143) and DATA_LONG (148) primitives.",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "BooleanConstant",
+    "LongConstant"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "matrix_expression_euler_rotations",
+  "description": "Validates MATRIX_EXPRESSION (187) with 3D Euler rotation operators.",
+  "category": "matrixmath",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "MatrixConstant"
+  ]
+}

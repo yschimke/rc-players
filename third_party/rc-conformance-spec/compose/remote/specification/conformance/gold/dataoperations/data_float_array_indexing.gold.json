@@ -1,0 +1,33 @@
+{
+  "format_version": 2,
+  "name": "data_float_array_indexing",
+  "description": "Validates DYNAMIC_FLOAT_LIST array allocation and UpdateDynamicFloatList population.",
+  "category": "dataoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsxQAAADlAQAAAxgAAADkAAAAAQLAAAMYAAAA5P4AAAEF4AADGAAAAOUAAAABBzAAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "arr_check",
+      "at": "initial",
+      "probe": "float_array",
+      "target": 57,
+      "expect": [
+        5.5,
+        15.5,
+        25.5
+      ]
+    }
+  ]
+}

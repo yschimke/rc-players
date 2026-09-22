@@ -1,0 +1,18 @@
+{
+  "name": "matrix_3d_pipeline_operations",
+  "description": "Validates DefineMesh3D (110), SetCamera3D (111), Matrix3DOp (112), DrawMesh3D (113), Paint3DState (114), SetLights3D (115), and VectorExpression (116).",
+  "category": "matrixmath",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "DefineMesh3D",
+    "SetCamera3D",
+    "Matrix3DOp",
+    "DrawMesh3D",
+    "Paint3DState",
+    "SetLights3D",
+    "VectorExpression"
+  ]
+}

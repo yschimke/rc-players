@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "semantics_role_slider_range_value",
+  "description": "Validates AccessibilitySemantics with SLIDER role (3).",
+  "category": "semantics",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAAPQWNjZXNzaWJsZUxhYmVsZgAAAAIAAAALQWN0aXZlU3RhdGVnAAAAAUEAAAABAAAAAAAAAAEAAAAA+gAAAAEDAAAAAQAAAAIBAQFQAAAAe0BAAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "RootContentDescription",
+        "RootContentBehavior",
+        "AccessibilitySemantics"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 123,
+      "expect": 3
+    }
+  ]
+}

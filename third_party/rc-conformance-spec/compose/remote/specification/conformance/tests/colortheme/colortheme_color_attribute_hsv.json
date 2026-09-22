@@ -1,0 +1,12 @@
+{
+  "name": "colortheme_color_attribute_hsv",
+  "description": "Validates ATTRIBUTE_COLOR (opcode 180) extracting Hue channel (type 4) from an ARGB color.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ColorAttribute"
+  ]
+}

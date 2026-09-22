@@ -1,0 +1,14 @@
+{
+  "name": "semantics_clear_and_set_override",
+  "description": "Validates AccessibilitySemantics override semantics.",
+  "category": "semantics",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "RootContentDescription",
+    "RootContentBehavior",
+    "AccessibilitySemantics"
+  ]
+}

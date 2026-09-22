@@ -1,0 +1,12 @@
+{
+  "name": "clock_time_attribute_day_of_week",
+  "description": "Validates TimeAttribute (172) extracting day of week (TIME_DAY_OF_WEEK = 11).",
+  "category": "clock",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TimeAttribute"
+  ]
+}

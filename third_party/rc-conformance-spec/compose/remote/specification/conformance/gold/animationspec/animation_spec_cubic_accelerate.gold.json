@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "animation_spec_cubic_accelerate",
+  "description": "Validates CUBIC_ACCELERATE (1) motion easing and 450ms motion duration.",
+  "category": "animationspec",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAApD4QAADgAAAS1D4QAAAAAAAUOWAAAAAAABAAAAAAAAAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "float_dur",
+      "at": "initial",
+      "probe": "float",
+      "target": 10,
+      "expect": 450
+    },
+    {
+      "id": "present_spec",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "AnimationSpec"
+      ]
+    }
+  ]
+}

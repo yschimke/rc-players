@@ -1,0 +1,14 @@
+{
+  "name": "scheduling_wake_in_dynamic_interval",
+  "description": "Validates WakeIn (opcode 191) with custom interval scheduling.",
+  "category": "scheduling",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ImpulseOperation",
+    "ImpulseProcess",
+    "WakeIn"
+  ]
+}

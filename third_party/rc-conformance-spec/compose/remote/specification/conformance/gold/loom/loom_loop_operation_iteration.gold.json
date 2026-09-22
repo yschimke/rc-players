@@ -1,0 +1,31 @@
+{
+  "format_version": 2,
+  "name": "loom_loop_operation_iteration",
+  "description": "Validates LOOP_START (LoopOperation, opcode 215) repeating child drawing commands.",
+  "category": "loom",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAEYAAAAA1wAAAEYAAAAAP4AAAEBAAAAqQSAAAEEgAABCIAAAQiAAANY=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "LoopOperation"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "particle_compare_conditional_respawn",
+  "description": "Validates PARTICLE_COMPARE (ParticlesCompareOp, opcode 194) particle condition branch.",
+  "category": "particles",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ParticlesCompareOp"
+  ]
+}

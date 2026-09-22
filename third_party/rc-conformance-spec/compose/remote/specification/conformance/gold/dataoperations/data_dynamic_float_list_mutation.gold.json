@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "data_dynamic_float_list_mutation",
+  "description": "Validates DYNAMIC_FLOAT_LIST (197) and UPDATE_DYNAMIC_FLOAT_LIST (198).",
+  "category": "dataoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsxQAAADhAgAAAxgAAADg/gAAAQscAAFAAAAA7QscAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "DataDynamicListFloat",
+        "UpdateDynamicFloatList"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 59,
+      "expect": 99.5
+    }
+  ]
+}

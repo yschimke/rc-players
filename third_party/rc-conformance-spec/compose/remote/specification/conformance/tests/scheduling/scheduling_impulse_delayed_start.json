@@ -1,0 +1,14 @@
+{
+  "name": "scheduling_impulse_delayed_start",
+  "description": "Validates ImpulseOperation with delayed startAt = 1.0s activation.",
+  "category": "scheduling",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ImpulseOperation",
+    "ImpulseProcess",
+    "WakeIn"
+  ]
+}

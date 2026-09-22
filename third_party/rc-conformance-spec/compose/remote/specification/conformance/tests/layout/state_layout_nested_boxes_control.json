@@ -1,0 +1,150 @@
+{
+  "name": "state_layout_nested_boxes_control",
+  "category": "layout",
+  "description": "Control for state_layout_shared_element_nested_ids: byte-for-byte the same document with every animationId removed, so no shared-element recopy can run. Three concentric centered boxes must lay out as 120x120 at (0,0), 60x60 at (30,30) and 24x24 at (18,18). Any difference between this gold and the shared-element variant is attributable solely to the shared-element measure recopy.",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "click",
+        "x": 100,
+        "y": 20,
+        "label": "switch_to_state_1"
+      },
+      {
+        "step": 1,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_on_state_1"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "resources": {
+      "variables": {
+        "nestedState": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#020617"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "name": "toggle_button",
+          "modifiers": [
+            {
+              "width": 200
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#475569"
+            },
+            {
+              "onClick": {
+                "type": "valueIntegerChange",
+                "target": "nestedState",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$nestedState",
+          "children": [
+            {
+              "type": "box",
+              "name": "outer_120",
+              "horizontalAlignment": "center",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "width": 120
+                },
+                {
+                  "height": 120
+                },
+                {
+                  "background": "#1e293b"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "name": "middle_60",
+                  "horizontalAlignment": "center",
+                  "verticalAlignment": "center",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#334155"
+                    }
+                  ],
+                  "children": [
+                    {
+                      "type": "box",
+                      "name": "inner_24",
+                      "modifiers": [
+                        {
+                          "width": 24
+                        },
+                        {
+                          "height": 24
+                        },
+                        {
+                          "background": "#93c5fd"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "name": "state1_40",
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#f59e0b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

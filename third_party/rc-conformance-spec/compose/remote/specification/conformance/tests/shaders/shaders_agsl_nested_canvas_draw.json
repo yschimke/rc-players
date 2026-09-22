@@ -1,0 +1,13 @@
+{
+  "name": "shaders_agsl_nested_canvas_draw",
+  "description": "Validates custom ShaderData applied to canvas round rect drawing.",
+  "category": "shaders",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ShaderData",
+    "DrawRect"
+  ]
+}

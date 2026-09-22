@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "wire_include_referenced_operations",
+  "description": "Validates INCLUDE_REFERENCED_OPERATIONS (245) and REFERENCED_OPERATIONS (142).",
+  "category": "wire",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsjgAAAAEqAAAAAAAAAABB8AAAQfAAANb1AAAAAVAAAACdQ3UAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ReferencedOperations",
+        "DrawRect"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 157,
+      "expect": 245
+    }
+  ]
+}

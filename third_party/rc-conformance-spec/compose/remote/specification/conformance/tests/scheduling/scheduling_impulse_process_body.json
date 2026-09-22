@@ -1,0 +1,14 @@
+{
+  "name": "scheduling_impulse_process_body",
+  "description": "Validates IMPULSE_START (164) and IMPULSE_PROCESS (165) repeating body execution.",
+  "category": "scheduling",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ImpulseOperation",
+    "ImpulseProcess",
+    "WakeIn"
+  ]
+}

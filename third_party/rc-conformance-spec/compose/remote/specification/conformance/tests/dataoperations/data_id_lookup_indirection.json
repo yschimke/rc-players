@@ -1,0 +1,12 @@
+{
+  "name": "data_id_lookup_indirection",
+  "description": "Validates ID_LOOKUP (opcode 192) indirect resource table lookup.",
+  "category": "dataoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "IdLookup"
+  ]
+}

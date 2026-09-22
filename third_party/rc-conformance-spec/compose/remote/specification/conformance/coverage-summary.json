@@ -1,0 +1,725 @@
+{
+  "generatedAt": "2026-09-16T20:06:45.159Z",
+  "corpusSize": 356,
+  "subsystemsCount": 18,
+  "minTestsPerSubsystem": 10,
+  "conformanceRuntime": {
+    "functionsCovered": 1574,
+    "functionsTotal": 1924,
+    "functionCoveragePct": 81.81,
+    "branchesCovered": 2990,
+    "branchesTotal": 4302,
+    "branchCoveragePct": 69.5
+  },
+  "coreRuntimeAll": {
+    "functionsCovered": 1599,
+    "functionsTotal": 2014,
+    "functionCoveragePct": 79.39,
+    "branchesCovered": 3027,
+    "branchesTotal": 4459,
+    "branchCoveragePct": 67.89
+  },
+  "opcodeCoverage": {
+    "activeAndroidOpcodes": 149,
+    "testedOpcodes": 149,
+    "opcodeCoveragePct": 100
+  },
+  "breakdownByModuleGroup": {
+    "src/core/operations/Utils.ts": {
+      "funcs": 15,
+      "covFuncs": 12,
+      "branches": 21,
+      "covBranches": 15,
+      "funcPct": 80,
+      "branchPct": 71.4
+    },
+    "src/core/operations/utilities": {
+      "funcs": 166,
+      "covFuncs": 109,
+      "branches": 573,
+      "covBranches": 330,
+      "funcPct": 65.7,
+      "branchPct": 57.6
+    },
+    "src/core/RemoteComposeState.ts": {
+      "funcs": 55,
+      "covFuncs": 41,
+      "branches": 96,
+      "covBranches": 67,
+      "funcPct": 74.5,
+      "branchPct": 69.8
+    },
+    "src/core/RemoteClock.ts": {
+      "funcs": 18,
+      "covFuncs": 17,
+      "branches": 19,
+      "covBranches": 17,
+      "funcPct": 94.4,
+      "branchPct": 89.5
+    },
+    "src/core/OperationMeasurement.ts": {
+      "funcs": 7,
+      "covFuncs": 4,
+      "branches": 9,
+      "covBranches": 4,
+      "funcPct": 57.1,
+      "branchPct": 44.4
+    },
+    "src/core/RemoteContext.ts": {
+      "funcs": 48,
+      "covFuncs": 37,
+      "branches": 55,
+      "covBranches": 38,
+      "funcPct": 77.1,
+      "branchPct": 69.1
+    },
+    "src/core/Operation.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 7,
+      "covBranches": 6,
+      "funcPct": 100,
+      "branchPct": 85.7
+    },
+    "src/core/operations/Header.ts": {
+      "funcs": 11,
+      "covFuncs": 9,
+      "branches": 27,
+      "covBranches": 18,
+      "funcPct": 81.8,
+      "branchPct": 66.7
+    },
+    "src/core/operations/layout": {
+      "funcs": 595,
+      "covFuncs": 510,
+      "branches": 1437,
+      "covBranches": 1061,
+      "funcPct": 85.7,
+      "branchPct": 73.8
+    },
+    "src/core/PaintOperation.ts": {
+      "funcs": 5,
+      "covFuncs": 4,
+      "branches": 10,
+      "covBranches": 7,
+      "funcPct": 80,
+      "branchPct": 70
+    },
+    "src/core/operations/FloatExpression.ts": {
+      "funcs": 15,
+      "covFuncs": 14,
+      "branches": 159,
+      "covBranches": 117,
+      "funcPct": 93.3,
+      "branchPct": 73.6
+    },
+    "src/core/operations/TouchExpression.ts": {
+      "funcs": 17,
+      "covFuncs": 16,
+      "branches": 116,
+      "covBranches": 81,
+      "funcPct": 94.1,
+      "branchPct": 69.8
+    },
+    "src/core/operations/paint": {
+      "funcs": 22,
+      "covFuncs": 20,
+      "branches": 100,
+      "covBranches": 69,
+      "funcPct": 90.9,
+      "branchPct": 69
+    },
+    "src/core/TimeVariables.ts": {
+      "funcs": 4,
+      "covFuncs": 3,
+      "branches": 6,
+      "covBranches": 5,
+      "funcPct": 75,
+      "branchPct": 83.3
+    },
+    "src/core/operations/DataOperations.ts": {
+      "funcs": 67,
+      "covFuncs": 64,
+      "branches": 99,
+      "covBranches": 76,
+      "funcPct": 95.5,
+      "branchPct": 76.8
+    },
+    "src/core/operations/loom": {
+      "funcs": 152,
+      "covFuncs": 108,
+      "branches": 223,
+      "covBranches": 149,
+      "funcPct": 71.1,
+      "branchPct": 66.8
+    },
+    "src/core/WireBuffer.ts": {
+      "funcs": 45,
+      "covFuncs": 44,
+      "branches": 53,
+      "covBranches": 49,
+      "funcPct": 97.8,
+      "branchPct": 92.5
+    },
+    "src/core/operations/DrawBase4.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 23,
+      "covBranches": 20,
+      "funcPct": 100,
+      "branchPct": 87
+    },
+    "src/core/operations/DrawRect.ts": {
+      "funcs": 3,
+      "covFuncs": 3,
+      "branches": 3,
+      "covBranches": 3,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawBase3.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 20,
+      "covBranches": 20,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawCircle.ts": {
+      "funcs": 3,
+      "covFuncs": 3,
+      "branches": 3,
+      "covBranches": 3,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawOval.ts": {
+      "funcs": 3,
+      "covFuncs": 3,
+      "branches": 3,
+      "covBranches": 3,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawBase6.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 23,
+      "covBranches": 5,
+      "funcPct": 100,
+      "branchPct": 21.7
+    },
+    "src/core/operations/DrawRoundRect.ts": {
+      "funcs": 3,
+      "covFuncs": 3,
+      "branches": 3,
+      "covBranches": 3,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawArc.ts": {
+      "funcs": 3,
+      "covFuncs": 3,
+      "branches": 3,
+      "covBranches": 3,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawSector.ts": {
+      "funcs": 3,
+      "covFuncs": 3,
+      "branches": 3,
+      "covBranches": 3,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawPath.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 5,
+      "covBranches": 5,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawTweenPath.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 16,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 43.8
+    },
+    "src/core/operations/DrawContent.ts": {
+      "funcs": 6,
+      "covFuncs": 5,
+      "branches": 7,
+      "covBranches": 5,
+      "funcPct": 83.3,
+      "branchPct": 71.4
+    },
+    "src/core/operations/DrawBitmap.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 19,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 36.8
+    },
+    "src/core/operations/DrawBitmapInt.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 5,
+      "covBranches": 5,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawBitmapScaled.ts": {
+      "funcs": 10,
+      "covFuncs": 10,
+      "branches": 14,
+      "covBranches": 10,
+      "funcPct": 100,
+      "branchPct": 71.4
+    },
+    "src/core/operations/DrawText.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 13,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 53.8
+    },
+    "src/core/operations/DrawTextOnPath.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 13,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 53.8
+    },
+    "src/core/operations/DrawToBitmap.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 5,
+      "covBranches": 5,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DrawLine.ts": {
+      "funcs": 3,
+      "covFuncs": 3,
+      "branches": 3,
+      "covBranches": 3,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/PaintContext.ts": {
+      "funcs": 21,
+      "covFuncs": 12,
+      "branches": 21,
+      "covBranches": 12,
+      "funcPct": 57.1,
+      "branchPct": 57.1
+    },
+    "src/core/operations/DrawTextAnchored.ts": {
+      "funcs": 9,
+      "covFuncs": 9,
+      "branches": 27,
+      "covBranches": 13,
+      "funcPct": 100,
+      "branchPct": 48.1
+    },
+    "src/core/operations/MatrixOperations.ts": {
+      "funcs": 51,
+      "covFuncs": 51,
+      "branches": 68,
+      "covBranches": 68,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/d3/Paint3DContext.ts": {
+      "funcs": 1,
+      "covFuncs": 1,
+      "branches": 1,
+      "covBranches": 1,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/d3/MonotonicCurveFit.ts": {
+      "funcs": 7,
+      "covFuncs": 0,
+      "branches": 7,
+      "covBranches": 0,
+      "funcPct": 0,
+      "branchPct": 0
+    },
+    "src/core/d3/Primitive3D.ts": {
+      "funcs": 51,
+      "covFuncs": 0,
+      "branches": 51,
+      "covBranches": 0,
+      "funcPct": 0,
+      "branchPct": 0
+    },
+    "src/core/operations/d3": {
+      "funcs": 78,
+      "covFuncs": 43,
+      "branches": 101,
+      "covBranches": 53,
+      "funcPct": 55.1,
+      "branchPct": 52.5
+    },
+    "src/core/operations/VectorExpression.ts": {
+      "funcs": 10,
+      "covFuncs": 9,
+      "branches": 25,
+      "covBranches": 16,
+      "funcPct": 90,
+      "branchPct": 64
+    },
+    "src/core/operations/ColorExpression.ts": {
+      "funcs": 8,
+      "covFuncs": 8,
+      "branches": 27,
+      "covBranches": 12,
+      "funcPct": 100,
+      "branchPct": 44.4
+    },
+    "src/core/operations/IntegerExpression.ts": {
+      "funcs": 9,
+      "covFuncs": 9,
+      "branches": 52,
+      "covBranches": 45,
+      "funcPct": 100,
+      "branchPct": 86.5
+    },
+    "src/core/operations/IntegerConstant.ts": {
+      "funcs": 6,
+      "covFuncs": 5,
+      "branches": 6,
+      "covBranches": 5,
+      "funcPct": 83.3,
+      "branchPct": 83.3
+    },
+    "src/core/operations/BooleanConstant.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 5,
+      "covBranches": 5,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/LongConstant.ts": {
+      "funcs": 7,
+      "covFuncs": 6,
+      "branches": 7,
+      "covBranches": 6,
+      "funcPct": 85.7,
+      "branchPct": 85.7
+    },
+    "src/core/operations/ShaderData.ts": {
+      "funcs": 16,
+      "covFuncs": 12,
+      "branches": 35,
+      "covBranches": 23,
+      "funcPct": 75,
+      "branchPct": 65.7
+    },
+    "src/core/operations/TextFromFloat.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 26,
+      "covBranches": 13,
+      "funcPct": 100,
+      "branchPct": 50
+    },
+    "src/core/operations/TextMerge.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 9,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 77.8
+    },
+    "src/core/operations/ComponentValue.ts": {
+      "funcs": 8,
+      "covFuncs": 6,
+      "branches": 19,
+      "covBranches": 6,
+      "funcPct": 75,
+      "branchPct": 31.6
+    },
+    "src/core/operations/DataMapIds.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 8,
+      "covBranches": 8,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/DataListIds.ts": {
+      "funcs": 11,
+      "covFuncs": 9,
+      "branches": 12,
+      "covBranches": 10,
+      "funcPct": 81.8,
+      "branchPct": 83.3
+    },
+    "src/core/operations/DataListFloat.ts": {
+      "funcs": 14,
+      "covFuncs": 7,
+      "branches": 18,
+      "covBranches": 10,
+      "funcPct": 50,
+      "branchPct": 55.6
+    },
+    "src/core/operations/DataDynamicListFloat.ts": {
+      "funcs": 11,
+      "covFuncs": 8,
+      "branches": 19,
+      "covBranches": 8,
+      "funcPct": 72.7,
+      "branchPct": 42.1
+    },
+    "src/core/operations/Skip.ts": {
+      "funcs": 6,
+      "covFuncs": 2,
+      "branches": 14,
+      "covBranches": 7,
+      "funcPct": 33.3,
+      "branchPct": 50
+    },
+    "src/core/operations/ConditionalOperations.ts": {
+      "funcs": 8,
+      "covFuncs": 8,
+      "branches": 28,
+      "covBranches": 20,
+      "funcPct": 100,
+      "branchPct": 71.4
+    },
+    "src/core/operations/PathCreate.ts": {
+      "funcs": 8,
+      "covFuncs": 8,
+      "branches": 17,
+      "covBranches": 15,
+      "funcPct": 100,
+      "branchPct": 88.2
+    },
+    "src/core/operations/PathAppend.ts": {
+      "funcs": 9,
+      "covFuncs": 9,
+      "branches": 25,
+      "covBranches": 20,
+      "funcPct": 100,
+      "branchPct": 80
+    },
+    "src/core/operations/PathExpression.ts": {
+      "funcs": 11,
+      "covFuncs": 8,
+      "branches": 20,
+      "covBranches": 8,
+      "funcPct": 72.7,
+      "branchPct": 40
+    },
+    "src/core/operations/MatrixExpression.ts": {
+      "funcs": 8,
+      "covFuncs": 8,
+      "branches": 17,
+      "covBranches": 13,
+      "funcPct": 100,
+      "branchPct": 76.5
+    },
+    "src/core/operations/MatrixConstant.ts": {
+      "funcs": 6,
+      "covFuncs": 6,
+      "branches": 8,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 87.5
+    },
+    "src/core/operations/MatrixVectorMath.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 21,
+      "covBranches": 14,
+      "funcPct": 100,
+      "branchPct": 66.7
+    },
+    "src/core/operations/TextTransform.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 17,
+      "covBranches": 13,
+      "funcPct": 100,
+      "branchPct": 76.5
+    },
+    "src/core/operations/TextLookup.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 11,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 63.6
+    },
+    "src/core/operations/ColorTheme.ts": {
+      "funcs": 6,
+      "covFuncs": 6,
+      "branches": 8,
+      "covBranches": 8,
+      "funcPct": 100,
+      "branchPct": 100
+    },
+    "src/core/operations/ColorAttribute.ts": {
+      "funcs": 6,
+      "covFuncs": 6,
+      "branches": 16,
+      "covBranches": 9,
+      "funcPct": 100,
+      "branchPct": 56.3
+    },
+    "src/core/operations/DataMapLookup.ts": {
+      "funcs": 5,
+      "covFuncs": 5,
+      "branches": 13,
+      "covBranches": 8,
+      "funcPct": 100,
+      "branchPct": 61.5
+    },
+    "src/core/operations/TextMeasure.ts": {
+      "funcs": 4,
+      "covFuncs": 4,
+      "branches": 9,
+      "covBranches": 4,
+      "funcPct": 100,
+      "branchPct": 44.4
+    },
+    "src/core/operations/TextAttribute.ts": {
+      "funcs": 4,
+      "covFuncs": 4,
+      "branches": 10,
+      "covBranches": 4,
+      "funcPct": 100,
+      "branchPct": 40
+    },
+    "src/core/operations/TextLength.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 8,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 87.5
+    },
+    "src/core/operations/TextSubtext.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 15,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 46.7
+    },
+    "src/core/operations/ParticleOperations.ts": {
+      "funcs": 35,
+      "covFuncs": 32,
+      "branches": 86,
+      "covBranches": 71,
+      "funcPct": 91.4,
+      "branchPct": 82.6
+    },
+    "src/core/operations/IdLookup.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 10,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 70
+    },
+    "src/core/operations/UpdateDynamicFloatList.ts": {
+      "funcs": 7,
+      "covFuncs": 7,
+      "branches": 13,
+      "covBranches": 7,
+      "funcPct": 100,
+      "branchPct": 53.8
+    },
+    "src/core/operations/SoundOperations.ts": {
+      "funcs": 15,
+      "covFuncs": 15,
+      "branches": 20,
+      "covBranches": 16,
+      "funcPct": 100,
+      "branchPct": 80
+    },
+    "src/core/Operations.ts": {
+      "funcs": 4,
+      "covFuncs": 2,
+      "branches": 6,
+      "covBranches": 4,
+      "funcPct": 50,
+      "branchPct": 66.7
+    },
+    "src/core/RemoteComposeBuffer.ts": {
+      "funcs": 4,
+      "covFuncs": 4,
+      "branches": 9,
+      "covBranches": 8,
+      "funcPct": 100,
+      "branchPct": 88.9
+    },
+    "src/core/CoreDocument.ts": {
+      "funcs": 81,
+      "covFuncs": 60,
+      "branches": 190,
+      "covBranches": 142,
+      "funcPct": 74.1,
+      "branchPct": 74.7
+    },
+    "src/core/d3/Matrix4.ts": {
+      "funcs": 14,
+      "covFuncs": 6,
+      "branches": 16,
+      "covBranches": 8,
+      "funcPct": 42.9,
+      "branchPct": 50
+    },
+    "src/core/d3/Rasterizer.ts": {
+      "funcs": 11,
+      "covFuncs": 6,
+      "branches": 36,
+      "covBranches": 14,
+      "funcPct": 54.5,
+      "branchPct": 38.9
+    },
+    "src/core/d3/SoftwarePaint3DContext.ts": {
+      "funcs": 28,
+      "covFuncs": 19,
+      "branches": 70,
+      "covBranches": 23,
+      "funcPct": 67.9,
+      "branchPct": 32.9
+    },
+    "src/core/shader/AgslTokenizer.ts": {
+      "funcs": 1,
+      "covFuncs": 0,
+      "branches": 1,
+      "covBranches": 0,
+      "funcPct": 0,
+      "branchPct": 0
+    },
+    "src/core/shader/AgslTranspiler.ts": {
+      "funcs": 5,
+      "covFuncs": 0,
+      "branches": 5,
+      "covBranches": 0,
+      "funcPct": 0,
+      "branchPct": 0
+    },
+    "src/core/DefaultSystemColors.ts": {
+      "funcs": 2,
+      "covFuncs": 2,
+      "branches": 2,
+      "covBranches": 2,
+      "funcPct": 100,
+      "branchPct": 100
+    }
+  }
+}

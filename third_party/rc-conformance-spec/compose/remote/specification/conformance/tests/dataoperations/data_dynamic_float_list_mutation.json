@@ -1,0 +1,13 @@
+{
+  "name": "data_dynamic_float_list_mutation",
+  "description": "Validates DYNAMIC_FLOAT_LIST (197) and UPDATE_DYNAMIC_FLOAT_LIST (198).",
+  "category": "dataoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "DataDynamicListFloat",
+    "UpdateDynamicFloatList"
+  ]
+}

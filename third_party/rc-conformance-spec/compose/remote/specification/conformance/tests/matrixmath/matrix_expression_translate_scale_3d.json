@@ -1,0 +1,12 @@
+{
+  "name": "matrix_expression_translate_scale_3d",
+  "description": "Validates MATRIX_EXPRESSION (187) combining 3D translation and scaling.",
+  "category": "matrixmath",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "MatrixConstant"
+  ]
+}

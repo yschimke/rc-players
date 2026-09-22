@@ -1,0 +1,43 @@
+{
+  "format_version": 2,
+  "name": "wire_component_value_and_custom_layout",
+  "description": "Validates COMPONENT_VALUE (150), LAYOUT_COMPUTE (238), LAYOUT_CUSTOM (93), MODIFIER_DRAW_CONTENT (174), MODIFIER_RIPPLE (229), and MODIFIER_DIMENSION_CONSTRAINTS (243).",
+  "category": "wire",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEslgAAAAAAAAABAAAAoO4AAAAAAAAAoQDWXQAAAB4AAAAAAAAAAQAAAAEAAQABQUgAAK7l8wFBIAAAQ0gAANZQAAAAoEMWAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ComponentValue",
+        "LayoutComputeOperation",
+        "Custom",
+        "DrawContentModifier",
+        "RippleModifier",
+        "DimensionConstraintsModifier"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 160,
+      "expect": 150
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "data_float_array_indexing",
+  "description": "Validates DYNAMIC_FLOAT_LIST array allocation and UpdateDynamicFloatList population.",
+  "category": "dataoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "Header"
+  ]
+}

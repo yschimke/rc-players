@@ -1,0 +1,12 @@
+{
+  "name": "clock_time_attribute_from_load",
+  "description": "Validates TimeAttribute (172) extracting zero-based month index (TIME_MONTH_VALUE = 10).",
+  "category": "clock",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TimeAttribute"
+  ]
+}

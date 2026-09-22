@@ -1,0 +1,154 @@
+{
+  "name": "state_layout_shared_element_across_states",
+  "category": "layout",
+  "description": "A shared element paired across two StateLayout states. The 50x50 badge carries animationId 900 in both states: state 0 places it at the start of a row, state 1 at the end. This is the case the shared-element measure recopy in StateLayout exists to serve - statePaintedComponents holds a populated slot for id 900 in both states, so the active state's measure is propagated onto its counterpart in the inactive state. The tree probe records the geometry of both the visible and the GONE instance, so the propagation is directly observable.",
+  "parameters": {
+    "width": 300,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "click",
+        "x": 150,
+        "y": 24,
+        "label": "move_badge_to_end"
+      },
+      {
+        "step": 1,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_badge_at_end"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 200
+    },
+    "resources": {
+      "variables": {
+        "badgeState": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#1e293b"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "name": "toggle_button",
+          "modifiers": [
+            {
+              "width": 300
+            },
+            {
+              "height": 48
+            },
+            {
+              "background": "#475569"
+            },
+            {
+              "onClick": {
+                "type": "valueIntegerChange",
+                "target": "badgeState",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$badgeState",
+          "modifiers": [
+            {
+              "fillMaxWidth": 1.0
+            },
+            {
+              "height": 100
+            }
+          ],
+          "children": [
+            {
+              "type": "row",
+              "name": "badge_at_start",
+              "horizontalArrangement": "start",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "fillMaxWidth": 1.0
+                },
+                {
+                  "height": 100
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "name": "badge_start",
+                  "animationId": 900,
+                  "modifiers": [
+                    {
+                      "width": 50
+                    },
+                    {
+                      "height": 50
+                    },
+                    {
+                      "background": "#93c5fd"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "name": "badge_at_end",
+              "horizontalArrangement": "end",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "fillMaxWidth": 1.0
+                },
+                {
+                  "height": 100
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "name": "badge_end",
+                  "animationId": 900,
+                  "modifiers": [
+                    {
+                      "width": 50
+                    },
+                    {
+                      "height": 50
+                    },
+                    {
+                      "background": "#93c5fd"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

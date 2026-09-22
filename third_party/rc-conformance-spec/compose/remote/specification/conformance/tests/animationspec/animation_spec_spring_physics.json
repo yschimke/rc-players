@@ -1,0 +1,12 @@
+{
+  "name": "animation_spec_spring_physics",
+  "description": "Validates SPRING (6) physics-driven motion easing specification.",
+  "category": "animationspec",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "AnimationSpec"
+  ]
+}

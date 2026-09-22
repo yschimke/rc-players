@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "clock_continuous_sec_progress",
+  "description": "Validates TimeAttribute (172) minutes extraction (TIME_IN_MIN = 7).",
+  "category": "clock",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEslAAAAAEAAAGLz+VoAJQAAAACAAABi8/WJcCsAAAAGgAAAAEABwAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "TimeAttribute"
+      ]
+    },
+    {
+      "id": "time_val",
+      "at": "initial",
+      "probe": "float",
+      "target": 26,
+      "expect": 13,
+      "tolerance": 0.01
+    }
+  ]
+}

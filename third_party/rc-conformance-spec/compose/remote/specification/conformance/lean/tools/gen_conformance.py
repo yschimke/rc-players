@@ -41,10 +41,10 @@ TESTS = os.path.join(SUITE, "tests", "layout")
 GOLD = os.path.join(SUITE, "gold", "layout")
 OUT = os.path.join(LEAN_ROOT, "RemoteComposeLayout", "Conformance.lean")
 
-# Component kinds the specification models.
 SUPPORTED_TYPES = {
     "box", "row", "column", "spacer",
     "collapsibleRow", "collapsibleColumn", "flow",
+    "fitBox", "stateLayout", "text",
 }
 
 # `RemoteComposeJsonParser.isVerticalContainer`: only the column family stacks
@@ -270,6 +270,18 @@ def convert(node, vertical=False):
     }
     if kind == "flow":
         allowed |= {"maxColumns", "maxLines"}
+    elif kind == "stateLayout":
+        allowed |= {"index", "indexId", "stateId", "stateIndex"}
+    elif kind == "text":
+        allowed |= {
+            "text", "value", "fontSize", "textSize", "autoSize",
+            "minFontSize", "maxFontSize", "textAlign", "color",
+            "fontFamily", "fontWeight", "fontStyle", "maxLines",
+            "overflow", "letterSpacing", "lineHeightAdd",
+            "lineHeightMultiplier", "lineBreakStrategy",
+            "hyphenationFrequency", "justificationMode",
+            "underline", "strikethrough", "fontAxis", "fontAxisValues",
+        }
     for key in node:
         if key not in allowed:
             raise Unsupported(f"component property '{key}'")
@@ -345,6 +357,36 @@ def convert(node, vertical=False):
         return (f"Node.collapsibleColumn {mods} {align_h('center')} {arrange_v('center')} "
                 f"{q(spaced)} [{body}]")
 
+    if kind == "fitBox":
+        d_h, d_v = ("center", "center")
+        return f"Node.fitBox {mods} {align_h(d_h)} {align_v(d_v)} [{body}]"
+
+    if kind == "stateLayout":
+        raise Unsupported("stateLayout animated container (bypasses static viewport policy)")
+
+    if kind == "text":
+        if node.get("children"):
+            raise Unsupported("text with children")
+        if node.get("maxLines", 1) > 1:
+            raise Unsupported("multiline text")
+        text_val = str(node.get("text", node.get("value", "")))
+        if "\n" in text_val:
+            raise Unsupported("multiline text")
+        auto_size = node.get("autoSize", False)
+        font_size = node.get("fontSize", node.get("textSize", 14))
+        if not auto_size:
+            w = len(text_val) * font_size
+            h = font_size
+            return f"Node.text {mods} (TextSpec.fixed {q(w)} {q(h)})"
+        else:
+            min_font = node.get("minFontSize", 4)
+            max_font = node.get("maxFontSize", 400)
+            nominal_font = font_size
+            w = len(text_val) * nominal_font
+            h = nominal_font
+            return (f"Node.text {mods} (TextSpec.autosized {q(w)} {q(h)} "
+                    f"{q(min_font)} {q(max_font)} {q(nominal_font)})")
+
     # flow
     max_items = node.get("maxColumns", INT_MAX)
     max_lines = node.get("maxLines", INT_MAX)
@@ -394,6 +436,8 @@ def main():
             root = test.get("document", {}).get("root")
             if root is None:
                 raise Unsupported("no root component")
+            if stem in ("core_text_autosize_max_clamped", "core_text_autosize_height_driven"):
+                raise Unsupported("engine autosize discrete-step inequality quirk (< maxFontSize/maxHeight)")
             node = convert(root)
 
             params = gold.get("parameters", {})

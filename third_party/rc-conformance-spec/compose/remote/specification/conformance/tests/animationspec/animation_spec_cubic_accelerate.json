@@ -1,0 +1,12 @@
+{
+  "name": "animation_spec_cubic_accelerate",
+  "description": "Validates CUBIC_ACCELERATE (1) motion easing and 450ms motion duration.",
+  "category": "animationspec",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "AnimationSpec"
+  ]
+}

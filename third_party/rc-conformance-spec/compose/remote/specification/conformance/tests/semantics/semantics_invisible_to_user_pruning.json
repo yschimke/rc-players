@@ -1,0 +1,14 @@
+{
+  "name": "semantics_invisible_to_user_pruning",
+  "description": "Validates AccessibilitySemantics visibility pruning metadata.",
+  "category": "semantics",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "RootContentDescription",
+    "RootContentBehavior",
+    "AccessibilitySemantics"
+  ]
+}

@@ -43,7 +43,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQUAAAAApC9unVhwAAABR\/gAAKAAMAAgAAAACHAAAAFX+AAAoAAwAAAAAAAIcAAAAWf4AACgAFAAEAAAAM",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQUAAAAApC9unVhwAAABR/gAAKAAMAAgAAAACHAAAAFX+AAAoAAwAAAAAAAIcAAAAWf4AACgAFAAEAAAAM",
   "expected_texts": {
     "20": "123.46",
     "21": "123",

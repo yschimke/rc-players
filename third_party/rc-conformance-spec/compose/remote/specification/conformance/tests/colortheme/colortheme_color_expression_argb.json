@@ -1,0 +1,12 @@
+{
+  "name": "colortheme_color_expression_argb",
+  "description": "Validates COLOR_EXPRESSIONS (opcode 134) computing dynamic color via ARGB mode.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ColorExpression"
+  ]
+}

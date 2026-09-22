@@ -1,0 +1,13 @@
+{
+  "name": "text_style_and_layout_text",
+  "description": "Validates TEXT_STYLE (opcode 242 with all property tags) and LAYOUT_TEXT (opcode 208).",
+  "category": "textoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TextStyle",
+    "TextLayout"
+  ]
+}
