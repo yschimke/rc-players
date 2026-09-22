@@ -50,6 +50,27 @@ enum NativeResourcePolicyTests {
         limits: RemoteComposeNativeResourceLimits(maximumDecodedImageBytes: 0))
     }
 
+    let repoRoot = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+    let fontURL =
+      repoRoot.appendingPathComponent("rc-player/wasm/dist-assets/fonts/Roboto-Regular.ttf")
+    let originalFont = try Data(contentsOf: fontURL)
+    // A trailing padding byte preserves the valid font and PostScript name while making the
+    // registration data differ, exercising replacement after the previous registry is gone.
+    let replacementFont = originalFont + Data([0])
+    func registerAndRelease(_ data: Data) throws {
+      let registry = NativeFontRegistry(countLimit: 1)
+      let name = try registry.register(data: data, id: 1)
+      precondition(name == "Roboto-Regular")
+    }
+    try registerAndRelease(originalFont)
+    let replacementRegistry = NativeFontRegistry(countLimit: 1)
+    let replacementName = try replacementRegistry.register(data: replacementFont, id: 2)
+    precondition(replacementName == "Roboto-Regular")
+    replacementRegistry.reset()
+
     let fit = NativeImageGeometry.destination(
       source: CGRect(x: 0, y: 0, width: 200, height: 100),
       destination: CGRect(x: 10, y: 20, width: 100, height: 100),

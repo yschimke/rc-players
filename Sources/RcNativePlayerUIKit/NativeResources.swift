@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import Foundation
 
 /// Resource limits applied before UIKit or Core Graphics decodes document-controlled bytes.
@@ -245,8 +246,109 @@ enum NativeImageGeometry {
   }
 }
 
+/// Process-wide ownership of fonts registered for native document resources.
+///
+/// CoreText registration and the corresponding owner table are updated under one lock so teardown
+/// is synchronous even though a registry may be released outside UIKit's main actor.
+final class NativeFontRegistry {
+  private struct Registration {
+    let data: Data
+    let url: URL
+    var ownerCount: Int
+  }
+
+  private final class ProcessState: @unchecked Sendable {
+    let lock = NSRecursiveLock()
+    // The font ownership table is only accessed while holding `lock`.
+    var registrations: [String: Registration] = [:]
+  }
+
+  private static let processState = ProcessState()
+  private let countLimit: Int
+  private var ownedNames = Set<String>()
+
+  init(countLimit: Int) {
+    self.countLimit = countLimit
+  }
+
+  func register(data: Data, id: Int) throws -> String {
+    try Self.withProcessLock {
+      guard
+        let provider = CGDataProvider(data: data as CFData),
+        let cgFont = CGFont(provider),
+        let postScriptName = cgFont.postScriptName as String?
+      else { throw RemoteComposeNativeResourceError.corruptFont(id: id) }
+      if ownedNames.contains(postScriptName) {
+        guard Self.processState.registrations[postScriptName]?.data == data else {
+          throw RemoteComposeNativeResourceError.corruptFont(id: id)
+        }
+        return postScriptName
+      }
+      guard ownedNames.count < countLimit else {
+        throw RemoteComposeNativeResourceError.tooManyResources(
+          actual: ownedNames.count + 1, maximum: countLimit)
+      }
+      if var existing = Self.processState.registrations[postScriptName] {
+        guard existing.data == data else {
+          throw RemoteComposeNativeResourceError.corruptFont(id: id)
+        }
+        existing.ownerCount += 1
+        Self.processState.registrations[postScriptName] = existing
+        ownedNames.insert(postScriptName)
+        return postScriptName
+      }
+      let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("rc-native-font-\(UUID().uuidString)")
+        .appendingPathExtension("font")
+      try data.write(to: url, options: [.atomic])
+      var registrationError: Unmanaged<CFError>?
+      if CTFontManagerRegisterFontsForURL(url as CFURL, .process, &registrationError) {
+        Self.processState.registrations[postScriptName] = Registration(
+          data: data, url: url, ownerCount: 1)
+        ownedNames.insert(postScriptName)
+      } else {
+        try? FileManager.default.removeItem(at: url)
+        throw RemoteComposeNativeResourceError.corruptFont(id: id)
+      }
+      return postScriptName
+    }
+  }
+
+  func reset() {
+    Self.withProcessLock {
+      Self.release(ownedNames)
+      ownedNames.removeAll()
+    }
+  }
+
+  deinit {
+    // Keep CoreText and the owner table in sync before another registry can register this name.
+    Self.withProcessLock { Self.release(ownedNames) }
+  }
+
+  private static func withProcessLock<T>(_ operation: () throws -> T) rethrows -> T {
+    processState.lock.lock()
+    defer { processState.lock.unlock() }
+    return try operation()
+  }
+
+  private static func release(_ names: Set<String>) {
+    for name in names {
+      guard var registration = processState.registrations[name] else { continue }
+      registration.ownerCount -= 1
+      if registration.ownerCount == 0 {
+        var error: Unmanaged<CFError>?
+        CTFontManagerUnregisterFontsForURL(registration.url as CFURL, .process, &error)
+        try? FileManager.default.removeItem(at: registration.url)
+        processState.registrations.removeValue(forKey: name)
+      } else {
+        processState.registrations[name] = registration
+      }
+    }
+  }
+}
+
 #if canImport(UIKit)
-  import CoreText
   import UIKit
 
   @MainActor
@@ -275,89 +377,6 @@ enum NativeImageGeometry {
       guard let cgImage = image.cgImage else { return 0 }
       let (cost, overflowed) = cgImage.bytesPerRow.multipliedReportingOverflow(by: cgImage.height)
       return overflowed ? Int.max : cost
-    }
-  }
-
-  @MainActor
-  final class NativeFontRegistry {
-    private struct Registration {
-      let data: Data
-      let url: URL
-      var ownerCount: Int
-    }
-
-    private static var processRegistrations: [String: Registration] = [:]
-    private let countLimit: Int
-    private var ownedNames = Set<String>()
-
-    init(countLimit: Int) {
-      self.countLimit = countLimit
-    }
-
-    func register(data: Data, id: Int) throws -> String {
-      guard
-        let provider = CGDataProvider(data: data as CFData),
-        let cgFont = CGFont(provider),
-        let postScriptName = cgFont.postScriptName as String?
-      else { throw RemoteComposeNativeResourceError.corruptFont(id: id) }
-      if ownedNames.contains(postScriptName) {
-        guard Self.processRegistrations[postScriptName]?.data == data else {
-          throw RemoteComposeNativeResourceError.corruptFont(id: id)
-        }
-        return postScriptName
-      }
-      guard ownedNames.count < countLimit else {
-        throw RemoteComposeNativeResourceError.tooManyResources(
-          actual: ownedNames.count + 1, maximum: countLimit)
-      }
-      if var existing = Self.processRegistrations[postScriptName] {
-        guard existing.data == data else {
-          throw RemoteComposeNativeResourceError.corruptFont(id: id)
-        }
-        existing.ownerCount += 1
-        Self.processRegistrations[postScriptName] = existing
-        ownedNames.insert(postScriptName)
-        return postScriptName
-      }
-      let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent("rc-native-font-\(UUID().uuidString)")
-        .appendingPathExtension("font")
-      try data.write(to: url, options: [.atomic])
-      var registrationError: Unmanaged<CFError>?
-      if CTFontManagerRegisterFontsForURL(url as CFURL, .process, &registrationError) {
-        Self.processRegistrations[postScriptName] = Registration(
-          data: data, url: url, ownerCount: 1)
-        ownedNames.insert(postScriptName)
-      } else {
-        try? FileManager.default.removeItem(at: url)
-        throw RemoteComposeNativeResourceError.corruptFont(id: id)
-      }
-      return postScriptName
-    }
-
-    func reset() {
-      Self.release(ownedNames)
-      ownedNames.removeAll()
-    }
-
-    deinit {
-      let names = ownedNames
-      Task { @MainActor in Self.release(names) }
-    }
-
-    private static func release(_ names: Set<String>) {
-      for name in names {
-        guard var registration = Self.processRegistrations[name] else { continue }
-        registration.ownerCount -= 1
-        if registration.ownerCount == 0 {
-          var error: Unmanaged<CFError>?
-          CTFontManagerUnregisterFontsForURL(registration.url as CFURL, .process, &error)
-          try? FileManager.default.removeItem(at: registration.url)
-          Self.processRegistrations.removeValue(forKey: name)
-        } else {
-          Self.processRegistrations[name] = registration
-        }
-      }
     }
   }
 

@@ -751,8 +751,11 @@ public enum NativeSwiftCollapsible {
   }
 }
 
-/// Retained document state for the first pure-Swift operation family.
+/// Retained document state with synchronous, internally serialized access across tasks.
 public final class NativeSwiftDocumentSession: @unchecked Sendable {
+  // Preserve the synchronous API while serializing its mutable session and snapshot cache. A
+  // recursive lock is required because click() forwards to gesture().
+  private let stateLock = NSRecursiveLock()
   private let document: ParsedDocument
   private var texts: [Int: String]
   private var floats: [Int: Float]
@@ -761,6 +764,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var hostFontScale: Float = 1
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
+  private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
 
   private init(document: ParsedDocument) {
     self.document = document
@@ -802,6 +806,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     integers = other.integers
     hostDensity = other.hostDensity
     hostFontScale = other.hostFontScale
+    floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
   }
 
   /// A session with this one's state, sharing nothing mutable.
@@ -815,7 +820,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// everything else. Its state is therefore frozen at the moment it was taken: a host should take
   /// a fresh one with each frame rather than keeping one across document state changes.
   public func detachedCopy() -> NativeSwiftDocumentSession {
-    NativeSwiftDocumentSession(copying: self)
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    return NativeSwiftDocumentSession(copying: self)
   }
 
   /// Tells the document what density it is being played at.
@@ -830,6 +837,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// divisor, and a host that reports a zero density mid-layout should not turn the frame's
   /// geometry into NaN.
   public func setHostDensity(_ density: Float, fontScale: Float = 1) {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     if density.isFinite, density > 0 { hostDensity = density }
     if fontScale.isFinite, fontScale > 0 { hostFontScale = fontScale }
   }
@@ -845,6 +854,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     timeSeconds: TimeInterval = 0, wallClock: NativeSwiftWallClock? = nil,
     measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
   ) throws -> NativeSwiftDocumentSnapshot {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     let values = try resolvedFloats(
       timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
     for conversion in document.textFromFloats {
@@ -868,7 +879,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
-      needsContinuousFrames: document.needsContinuousFrames,
+      needsContinuousFrames: document.needsContinuousFrames
+        || floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) },
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)),
       animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
@@ -884,13 +896,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
-    try gesture(.tap, componentID: componentID, sample: nil, timeSeconds: timeSeconds)
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    return try gesture(.tap, componentID: componentID, sample: nil, timeSeconds: timeSeconds)
   }
 
   public func gesture(
     _ kind: NativeSwiftGestureKind, componentID: Int,
     sample: NativeSwiftPointerSample? = nil, timeSeconds: TimeInterval
   ) throws -> [NativeSwiftEvent]? {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard let node = document.nodes[componentID], node.isClickable,
       node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
@@ -932,6 +948,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func probeValues(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil
   ) throws -> NativeSwiftProbeValues {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
     // Integer expressions are part of the state, not only of an action's result: the reference
     // evaluates them as it resolves, so a probe reads what an expression computed rather than the
@@ -968,12 +986,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// offset is addressed by id rather than by name.
   @discardableResult
   public func setFloat(_ value: Float, forID id: Int) -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard value.isFinite else { return false }
     floatOverrides[id] = value
     return true
   }
 
   public func setFloat(_ value: Float, for name: String) -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard value.isFinite, let variable = namedVariable(for: name), variable.type == 1 else {
       return false
     }
@@ -982,6 +1004,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   public func setString(_ value: String, for name: String) -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
       let variable = namedVariable(for: name), variable.type == 0
     else { return false }
@@ -990,6 +1014,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   public func setColor(_ value: UInt32, for name: String) -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard let variable = namedVariable(for: name), variable.type == 2 else { return false }
     colors[variable.id] = value
     return true
@@ -998,12 +1024,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// Updates a named RemoteInt. RemoteBoolean uses this same wire type, with `0` and `1` standing
   /// for false and true respectively.
   public func setInteger(_ value: Int, for name: String) -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard let variable = namedVariable(for: name), variable.type == 4 else { return false }
     integers[variable.id] = value
     return true
   }
 
   public func returnCustomText(_ value: String, componentID: Int, propertyID: Int) throws -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
       let node = document.nodes[componentID], node.kind == .custom,
       let property = node.custom?.properties.first(where: {
@@ -1015,6 +1045,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   public func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) throws -> Bool {
+    stateLock.lock()
+    defer { stateLock.unlock() }
     guard value.isFinite, let node = document.nodes[componentID], node.kind == .custom,
       let property = node.custom?.properties.first(where: {
         $0.type == propertyID && $0.dataType == 3
@@ -1382,8 +1414,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     for expression in document.expressions {
       guard floatOverrides[expression.id] == nil else { continue }
-      result[expression.id] = try NativeSwiftFloatExpression.evaluate(
-        expression.words, values: result)
+      let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
+      if let animationWords = expression.animationWords {
+        let runtime: NativeSwiftFloatAnimationRuntime
+        if let existing = floatAnimationRuntimes[expression.id] {
+          runtime = existing
+        } else {
+          runtime = try NativeSwiftFloatAnimationRuntime(animationWords: animationWords)
+          floatAnimationRuntimes[expression.id] = runtime
+        }
+        result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
+      } else {
+        result[expression.id] = target
+      }
     }
     return result
   }
@@ -1748,6 +1791,458 @@ private struct ParsedNamedVariable {
 private struct ParsedFloatExpression {
   let id: Int
   let words: [UInt32]
+  let animationWords: [UInt32]?
+}
+
+/// AndroidX `FloatAnimation` easing ids, from the authoritative Easing wire implementation.
+private enum NativeSwiftFloatEasingType: UInt32 {
+  case cubicStandard = 1
+  case cubicAccelerate = 2
+  case cubicDecelerate = 3
+  case cubicLinear = 4
+  case cubicAnticipate = 5
+  case cubicOvershoot = 6
+  case cubicCustom = 11
+  case splineCustom = 12
+  case easeOutBounce = 13
+  case easeOutElastic = 14
+
+  var acceptsParameters: Bool {
+    self == .cubicCustom || self == .splineCustom
+  }
+}
+
+private enum NativeSwiftFloatDirectionalSnap: Int {
+  case none = 0
+  case snapOnDecrease = 1
+  case snapOnIncrease = 2
+}
+
+/// Known spring boundary modes are the two independent edge flags and their combination.
+private enum NativeSwiftSpringBoundaryMode: Int {
+  case none = 0
+  case lower = 1
+  case upper = 2
+  case lowerAndUpper = 3
+
+  var includesLower: Bool { self == .lower || self == .lowerAndUpper }
+  var includesUpper: Bool { self == .upper || self == .lowerAndUpper }
+}
+
+private enum NativeSwiftFloatAnimationMetadata {
+  static let springMarker: Float = 0
+  static let springDescriptorWordCount = 5
+  static let easingTypeMask: UInt32 = 0xff
+  static let wrapFlag: UInt32 = 1 << 8
+  static let initialValueFlag: UInt32 = 1 << 9
+  static let directionalSnapShift = 10
+  static let directionalSnapMask: UInt32 = 0x3
+  static let parameterCountShift = 16
+}
+
+/// Stateful evaluator for AndroidX's optional animation payload on a float expression.
+private final class NativeSwiftFloatAnimationRuntime {
+  private enum Curve {
+    case cubic(Float, Float, Float, Float)
+    case bounce
+    case elastic
+    case spline(NativeSwiftMonotonicCurve)
+
+    func value(at x: Float) -> Float {
+      switch self {
+      case .cubic(let x1, let y1, let x2, let y2):
+        return Self.cubic(x, x1: x1, y1: y1, x2: x2, y2: y2)
+      case .bounce:
+        let n: Float = 7.5625
+        let d: Float = 2.75
+        if x < 0 { return 0 }
+        if x < 1 / d { return (n * x * x + x) / (1 + 1 / d) }
+        if x < 2 / d {
+          let t = x - 1.5 / d
+          return n * t * t + 0.75
+        }
+        if x < 2.5 / d {
+          let t = x - 2.25 / d
+          return n * t * t + 0.9375
+        }
+        if x <= 1 {
+          let t = x - 2.625 / d
+          return n * t * t + 0.984375
+        }
+        return 1
+      case .elastic:
+        if x <= 0 { return 0 }
+        if x >= 1 { return 1 }
+        return powf(2, -10 * x) * sinf((x * 10 - 0.75) * (2 * .pi / 3)) + 1
+      case .spline(let curve):
+        return x < 0 ? 0 : (x > 1 ? 1 : curve.value(at: Double(x)))
+      }
+    }
+
+    private static func cubic(
+      _ x: Float, x1: Float, y1: Float, x2: Float, y2: Float
+    ) -> Float {
+      if x <= 0 { return 0 }
+      if x >= 1 { return 1 }
+      func coordinate(_ t: Float, _ first: Float, _ second: Float) -> Float {
+        let inverse = 1 - t
+        return first * 3 * inverse * inverse * t
+          + second * 3 * inverse * t * t + t * t * t
+      }
+      var t: Float = 0.5
+      var range: Float = 0.5
+      while range > 0.01 {
+        let tx = coordinate(t, x1, x2)
+        range *= 0.5
+        if tx < x { t += range } else { t -= range }
+      }
+      let lowerX = coordinate(t - range, x1, x2)
+      let upperX = coordinate(t + range, x1, x2)
+      let lowerY = coordinate(t - range, y1, y2)
+      let upperY = coordinate(t + range, y1, y2)
+      guard upperX != lowerX else { return lowerY }
+      return (upperY - lowerY) * (x - lowerX) / (upperX - lowerX) + lowerY
+    }
+  }
+
+  private let duration: Float
+  private let curve: Curve?
+  private let wrap: Float?
+  private let directionalSnap: NativeSwiftFloatDirectionalSnap
+  private var initialValue: Float
+  private var targetValue = Float.nan
+  private var lastTarget = Float.nan
+  private var lastChange = Float.nan
+
+  private let springStiffness: Double?
+  private let springDamping: Double
+  private let springStopThreshold: Double
+  private let springBoundaryMode: NativeSwiftSpringBoundaryMode
+  private var springTarget = 0.0
+  private var springPosition: Float = 0
+  private var springVelocity: Float = 0
+  private var springLastTime: Float = 0
+
+  init(animationWords words: [UInt32], offset: Int = 0) throws {
+    func malformed(_ reason: String) -> NativeSwiftCoreError {
+      .malformed(offset: offset, reason: "invalid float animation: \(reason)")
+    }
+
+    guard words.count >= 2 else { throw malformed("missing animation metadata") }
+    let first = Float(bitPattern: words[0])
+    let isSpring =
+      words.count >= NativeSwiftFloatAnimationMetadata.springDescriptorWordCount
+      && first == NativeSwiftFloatAnimationMetadata.springMarker
+    if isSpring {
+      let stiffness = Double(Float(bitPattern: words[1]))
+      let damping = Double(Float(bitPattern: words[2]))
+      let threshold = Double(Float(bitPattern: words[3]))
+      let boundaryModeValue = Int(Int32(bitPattern: words[4]))
+      guard words.count == NativeSwiftFloatAnimationMetadata.springDescriptorWordCount else {
+        throw malformed("spring descriptor must have five words")
+      }
+      guard let boundaryMode = NativeSwiftSpringBoundaryMode(rawValue: boundaryModeValue) else {
+        throw malformed("unknown spring boundary mode \(boundaryModeValue)")
+      }
+      guard stiffness.isFinite, stiffness > 0, damping.isFinite, damping >= 0,
+        threshold.isFinite, threshold > 0
+      else { throw malformed("invalid spring parameters") }
+      duration = 0
+      curve = nil
+      wrap = nil
+      directionalSnap = .none
+      initialValue = .nan
+      springStiffness = stiffness
+      springDamping = damping
+      springStopThreshold = threshold
+      springBoundaryMode = boundaryMode
+      return
+    }
+
+    guard first.isFinite, first > 0 else { throw malformed("duration must be finite and positive") }
+    let metadata = words[1]
+    let easingTypeValue = metadata & NativeSwiftFloatAnimationMetadata.easingTypeMask
+    guard let easingType = NativeSwiftFloatEasingType(rawValue: easingTypeValue) else {
+      throw NativeSwiftCoreError.unsupported(
+        opcode: 81, offset: offset,
+        reason: "float animation easing type \(easingTypeValue) is not supported")
+    }
+    let hasWrap = metadata & NativeSwiftFloatAnimationMetadata.wrapFlag != 0
+    let hasInitial = metadata & NativeSwiftFloatAnimationMetadata.initialValueFlag != 0
+    let directionalValue =
+      Int(
+        (metadata >> NativeSwiftFloatAnimationMetadata.directionalSnapShift)
+          & NativeSwiftFloatAnimationMetadata.directionalSnapMask)
+    guard let directional = NativeSwiftFloatDirectionalSnap(rawValue: directionalValue) else {
+      throw malformed("unknown directional snap mode \(directionalValue)")
+    }
+    let parameterCount = Int(metadata >> NativeSwiftFloatAnimationMetadata.parameterCountShift)
+    let tail = 2 + parameterCount
+    let expectedCount = tail + (hasInitial ? 1 : 0) + (hasWrap ? 1 : 0)
+    guard words.count == expectedCount else {
+      throw malformed("metadata requires \(expectedCount) words, found \(words.count)")
+    }
+    let parameters = words[2..<tail].map { Float(bitPattern: $0) }
+    guard parameters.allSatisfy(\.isFinite) else { throw malformed("non-finite curve parameter") }
+    let parsedCurve: Curve
+    switch easingType {
+    case .cubicStandard: parsedCurve = .cubic(0.4, 0, 0.2, 1)
+    case .cubicAccelerate: parsedCurve = .cubic(0.4, 0.05, 0.8, 0.7)
+    case .cubicDecelerate: parsedCurve = .cubic(0, 0, 0.2, 0.95)
+    case .cubicLinear: parsedCurve = .cubic(1, 1, 0, 0)
+    case .cubicAnticipate: parsedCurve = .cubic(0.36, 0, 0.66, -0.56)
+    case .cubicOvershoot: parsedCurve = .cubic(0.34, 1.56, 0.64, 1)
+    case .cubicCustom:
+      guard parameters.count == 4 else {
+        throw malformed("custom cubic easing needs four parameters")
+      }
+      parsedCurve = .cubic(parameters[0], parameters[1], parameters[2], parameters[3])
+    case .splineCustom:
+      guard parameters.count >= 2 else {
+        throw malformed("spline easing needs at least two points")
+      }
+      parsedCurve = .spline(NativeSwiftMonotonicCurve(points: parameters))
+    case .easeOutBounce:
+      guard parameters.isEmpty else { throw malformed("bounce easing takes no parameters") }
+      parsedCurve = .bounce
+    case .easeOutElastic:
+      guard parameters.isEmpty else { throw malformed("elastic easing takes no parameters") }
+      parsedCurve = .elastic
+    }
+    if !easingType.acceptsParameters, !parameters.isEmpty {
+      throw malformed("preset easing type \(easingType.rawValue) takes no parameters")
+    }
+    let initialIndex = tail
+    let wrapIndex = tail + (hasInitial ? 1 : 0)
+    let configuredInitial = hasInitial ? Float(bitPattern: words[initialIndex]) : .nan
+    let configuredWrap = hasWrap ? Float(bitPattern: words[wrapIndex]) : .nan
+    guard !hasInitial || configuredInitial.isFinite,
+      !hasWrap || (configuredWrap.isFinite && configuredWrap > 0)
+    else { throw malformed("invalid initial or wrap value") }
+
+    duration = first
+    curve = parsedCurve
+    wrap = hasWrap ? configuredWrap : nil
+    directionalSnap = directional
+    initialValue = configuredInitial
+    springStiffness = nil
+    springDamping = 0
+    springStopThreshold = 0
+    springBoundaryMode = .none
+  }
+
+  private init(copying other: NativeSwiftFloatAnimationRuntime) {
+    duration = other.duration
+    curve = other.curve
+    wrap = other.wrap
+    directionalSnap = other.directionalSnap
+    initialValue = other.initialValue
+    targetValue = other.targetValue
+    lastTarget = other.lastTarget
+    lastChange = other.lastChange
+    springStiffness = other.springStiffness
+    springDamping = other.springDamping
+    springStopThreshold = other.springStopThreshold
+    springBoundaryMode = other.springBoundaryMode
+    springTarget = other.springTarget
+    springPosition = other.springPosition
+    springVelocity = other.springVelocity
+    springLastTime = other.springLastTime
+  }
+
+  func detachedCopy() -> NativeSwiftFloatAnimationRuntime {
+    NativeSwiftFloatAnimationRuntime(copying: self)
+  }
+
+  func evaluate(target: Float, at time: Float) -> Float {
+    if let springStiffness {
+      if target != lastTarget {
+        springTarget = Double(target)
+        lastTarget = target
+        lastChange = time
+      }
+      if lastChange.isNaN { lastChange = time }
+      integrateSpring(to: time, stiffness: springStiffness)
+      if springIsStopped(stiffness: springStiffness) { springPosition = Float(springTarget) }
+      return springPosition
+    }
+
+    if target != lastTarget {
+      if lastTarget.isNaN {
+        setTarget(target)
+        if initialValue.isNaN { setInitial(target) }
+      } else {
+        setInitial(targetValue)
+        setTarget(target)
+      }
+      lastTarget = target
+      lastChange = time
+    }
+    if lastChange.isNaN { lastChange = time }
+    let progress = (time - lastChange) / duration
+    if directionalSnap == .snapOnDecrease, targetValue < initialValue {
+      initialValue = targetValue
+      return targetValue
+    }
+    if directionalSnap == .snapOnIncrease, targetValue > initialValue {
+      initialValue = targetValue
+      return targetValue
+    }
+    return curve!.value(at: progress) * (targetValue - initialValue) + initialValue
+  }
+
+  func isAnimating(at time: Float) -> Bool {
+    if let springStiffness { return !springIsStopped(stiffness: springStiffness) }
+    return !initialValue.isNaN && !targetValue.isNaN && initialValue != targetValue
+      && time - lastChange < duration
+  }
+
+  private func setInitial(_ value: Float) {
+    initialValue = wrap.map { value.truncatingRemainder(dividingBy: $0) } ?? value
+  }
+
+  private func setTarget(_ value: Float) {
+    targetValue = value
+    guard let wrap else { return }
+    initialValue = positiveWrap(initialValue, by: wrap)
+    targetValue = positiveWrap(targetValue, by: wrap)
+    if initialValue.isNaN { initialValue = targetValue }
+    let distance = wrapDistance(from: initialValue, to: targetValue, wrap: wrap)
+    if distance > 0, targetValue < initialValue {
+      targetValue += wrap
+    } else if distance < 0, directionalSnap != .none {
+      if directionalSnap == .snapOnDecrease, targetValue > initialValue {
+        initialValue = targetValue
+      }
+      if directionalSnap == .snapOnIncrease, targetValue < initialValue {
+        initialValue = targetValue
+      }
+      targetValue -= wrap
+    }
+  }
+
+  private func positiveWrap(_ value: Float, by wrap: Float) -> Float {
+    let remainder = value.truncatingRemainder(dividingBy: wrap)
+    return remainder < 0 ? remainder + wrap : remainder
+  }
+
+  private func wrapDistance(from: Float, to: Float, wrap: Float) -> Float {
+    var delta = (to - from).truncatingRemainder(dividingBy: 360)
+    if delta < -wrap / 2 { delta += wrap } else if delta > wrap / 2 { delta -= wrap }
+    return delta
+  }
+
+  private func springIsStopped(stiffness: Double) -> Bool {
+    let displacement = Double(springPosition) - springTarget
+    let velocity = Double(springVelocity)
+    let energy = velocity * velocity + stiffness * displacement * displacement
+    return sqrt(energy / stiffness) <= springStopThreshold
+  }
+
+  private func integrateSpring(to time: Float, stiffness: Double) {
+    let delta = Double(time - springLastTime)
+    springLastTime = time
+    guard delta > 0 else { return }
+    let requestedSteps = 1 + 9 / (sqrt(stiffness) * delta * 4)
+    let steps =
+      requestedSteps >= 1_000 || !requestedSteps.isFinite
+      ? 1_000 : max(Int(requestedSteps), 1)
+    let dt = delta / Double(steps)
+    for _ in 0..<steps {
+      let position = Double(springPosition)
+      let velocity = Double(springVelocity)
+      let displacement = position - springTarget
+      let acceleration = -stiffness * displacement - springDamping * velocity
+      let averageVelocity = velocity + acceleration * dt / 2
+      let averageDisplacement = position + dt * averageVelocity / 2 - springTarget
+      let adjustedAcceleration = -stiffness * averageDisplacement - springDamping * averageVelocity
+      let velocityDelta = adjustedAcceleration * dt
+      let adjustedAverageVelocity = velocity + velocityDelta / 2
+      springVelocity += Float(velocityDelta)
+      springPosition += Float(adjustedAverageVelocity * dt)
+      if springBoundaryMode.includesLower, springPosition < 0 {
+        springPosition = -springPosition
+        springVelocity = -springVelocity
+      }
+      if springBoundaryMode.includesUpper, springPosition > 1 {
+        springPosition = 2 - springPosition
+        springVelocity = -springVelocity
+      }
+    }
+  }
+}
+
+/// AndroidX's monotonic spline fit used by custom spline easing descriptors.
+private struct NativeSwiftMonotonicCurve {
+  private let times: [Double]
+  private let values: [Double]
+  private let tangents: [Double]
+
+  init(points: [Float]) {
+    let sourceCount = points.count
+    let offset = sourceCount - 1
+    let pointCount = sourceCount * 3 - 2
+    let gap = 1.0 / Double(offset)
+    var times = Array(repeating: 0.0, count: pointCount)
+    var values = Array(repeating: 0.0, count: pointCount)
+    for (index, point) in points.enumerated() {
+      let value = Double(point)
+      values[index + offset] = value
+      times[index + offset] = Double(index) * gap
+      if index > 0 {
+        values[index + offset * 2] = value + 1
+        times[index + offset * 2] = Double(index) * gap + 1
+        values[index - 1] = value - 1 - gap
+        times[index - 1] = Double(index) * gap - 1 - gap
+      }
+    }
+    var slopes = Array(repeating: 0.0, count: pointCount - 1)
+    var tangents = Array(repeating: 0.0, count: pointCount)
+    for index in slopes.indices {
+      slopes[index] = (values[index + 1] - values[index]) / (times[index + 1] - times[index])
+      tangents[index] = index == 0 ? slopes[index] : (slopes[index - 1] + slopes[index]) * 0.5
+    }
+    tangents[tangents.count - 1] = slopes[slopes.count - 1]
+    for index in slopes.indices {
+      if slopes[index] == 0 {
+        tangents[index] = 0
+        tangents[index + 1] = 0
+      } else {
+        let a = tangents[index] / slopes[index]
+        let b = tangents[index + 1] / slopes[index]
+        let magnitude = hypot(a, b)
+        if magnitude > 9 {
+          let scale = 3 / magnitude
+          tangents[index] = scale * a * slopes[index]
+          tangents[index + 1] = scale * b * slopes[index]
+        }
+      }
+    }
+    self.times = times
+    self.values = values
+    self.tangents = tangents
+  }
+
+  func value(at position: Double) -> Float {
+    if position <= times[0] { return Float(values[0] + (position - times[0]) * tangents[0]) }
+    if position >= times[times.count - 1] {
+      return Float(
+        values[values.count - 1] + (position - times[times.count - 1])
+          * tangents[tangents.count - 1])
+    }
+    let index = times.indices.dropLast().first { position < times[$0 + 1] }!
+    let h = times[index + 1] - times[index]
+    let x = (position - times[index]) / h
+    let x2 = x * x
+    let x3 = x2 * x
+    let value =
+      -2 * x3 * values[index + 1] + 3 * x2 * values[index + 1]
+      + 2 * x3 * values[index] - 3 * x2 * values[index] + values[index]
+      + h * tangents[index + 1] * x3 + h * tangents[index] * x3
+      - h * tangents[index + 1] * x2 - 2 * h * tangents[index] * x2
+      + h * tangents[index] * x
+    return Float(value)
+  }
 }
 
 private struct ParsedIntegerExpression {
@@ -3068,7 +3563,8 @@ private enum NativeSwiftDocumentDecoder {
           // A constant that names another value is an alias, not a number. Expressing it as a
           // one-word expression runs it through the same ordered evaluation as any other computed
           // value, instead of freezing a reference's raw NaN bits into the seed map.
-          expressions.append(ParsedFloatExpression(id: floatID, words: [constantWord]))
+          expressions.append(
+            ParsedFloatExpression(id: floatID, words: [constantWord], animationWords: nil))
         } else {
           let value = Float(bitPattern: constantWord)
           guard value.isFinite else { throw input.malformed("float value must be finite") }
@@ -3092,15 +3588,10 @@ private enum NativeSwiftDocumentDecoder {
           data: try input.data("bitmap data", maximum: 8 * 1_024 * 1_024))
       case 81:  // Float expression
         let id = try input.int("float expression id")
-        // The length word packs two counts: the expression's own tokens in the low half, and an
-        // optional trailing animation description in the high half. Both have to be consumed to
-        // keep the stream in sync -- the buffer has no length prefixes -- but only the first half
-        // is the expression. Reading all of them as tokens left the animation's parameters on the
-        // evaluation stack, so a one-token expression with a spring or duration after it finished
-        // holding two values and was rejected as malformed, taking the document with it.
-        //
-        // The animation itself is read and dropped: this player resolves a float expression to its
-        // current value and does not animate it.
+        // The length word packs the expression token count in its low half and an optional packed
+        // FloatAnimation descriptor count in its high half. Keep their raw words separate: NaN
+        // operator/reference payloads belong to the RPN expression, while the animation metadata
+        // is interpreted as Float32 bit patterns by the animation runtime.
         let lengths = try input.int("float expression lengths")
         let valueCount = lengths & 0xffff
         let animationCount = (lengths >> 16) & 0xffff
@@ -3113,7 +3604,14 @@ private enum NativeSwiftDocumentDecoder {
         var words: [UInt32] = []
         words.reserveCapacity(count)
         for _ in 0..<count { words.append(try input.word("float expression word")) }
-        expressions.append(ParsedFloatExpression(id: id, words: Array(words.prefix(valueCount))))
+        let animationWords = animationCount == 0 ? nil : Array(words.suffix(animationCount))
+        if let animationWords {
+          _ = try NativeSwiftFloatAnimationRuntime(
+            animationWords: animationWords, offset: opcodeOffset)
+        }
+        expressions.append(
+          ParsedFloatExpression(
+            id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords))
       case 93:  // Custom
         let id = try input.int("custom component id")
         _ = try input.int("custom animation id")
