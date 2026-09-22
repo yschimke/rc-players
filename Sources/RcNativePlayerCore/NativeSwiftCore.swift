@@ -3682,21 +3682,26 @@ private enum NativeSwiftDocumentDecoder {
       }
     }
 
-    func remappedMacroBody(_ definition: MacroDefinition, arguments: [Int]) throws -> Data {
-      guard definition.parameterIDs.count == arguments.count else {
-        throw input.malformed(
-          "Macro expects \(definition.parameterIDs.count) arguments, got \(arguments.count)")
-      }
-      let mappings = Dictionary(uniqueKeysWithValues: zip(definition.parameterIDs, arguments))
-      guard !mappings.isEmpty else { return definition.body }
-      var reader = WireReader(definition.body)
-      var output = [UInt8](definition.body)
-      func replaceID(at offset: Int, with value: Int) {
-        let word = UInt32(bitPattern: Int32(value))
+    func remappedMacroBody(_ body: Data, mappings: [Int: Int]) throws -> Data {
+      guard !mappings.isEmpty else { return body }
+      var reader = WireReader(body)
+      var output = [UInt8](body)
+      func replaceWord(at offset: Int, with word: UInt32) {
         output[offset] = UInt8(truncatingIfNeeded: word >> 24)
         output[offset + 1] = UInt8(truncatingIfNeeded: word >> 16)
         output[offset + 2] = UInt8(truncatingIfNeeded: word >> 8)
         output[offset + 3] = UInt8(truncatingIfNeeded: word)
+      }
+      func replaceID(at offset: Int, with value: Int) {
+        replaceWord(at: offset, with: UInt32(bitPattern: Int32(value)))
+      }
+      func remapFloatReference(at offset: Int) throws {
+        let word = try reader.word("macro drawing value")
+        if let id = NativeSwiftFloatExpression.referenceID(word), let replacement = mappings[id] {
+          replaceWord(
+            at: offset,
+            with: (word & ~UInt32(0x003f_ffff)) | UInt32(truncatingIfNeeded: replacement))
+        }
       }
       while !reader.isAtEnd {
         let opcodeOffset = reader.offset
@@ -3710,15 +3715,15 @@ private enum NativeSwiftDocumentDecoder {
           let count = try reader.count("macro paint word count", maximum: 1_024)
           for _ in 0..<count { _ = try reader.int("macro paint word") }
         case 39, 42, 47, 56:
-          for _ in 0..<4 { _ = try reader.word("macro drawing value") }
+          for _ in 0..<4 { let offset = reader.offset; try remapFloatReference(at: offset) }
         case 44:
           _ = try reader.int("macro bitmap id")
-          for _ in 0..<4 { _ = try reader.word("macro bitmap destination") }
+          for _ in 0..<4 { let offset = reader.offset; try remapFloatReference(at: offset) }
           _ = try reader.int("macro bitmap description id")
         case 46:
-          for _ in 0..<3 { _ = try reader.word("macro circle value") }
+          for _ in 0..<3 { let offset = reader.offset; try remapFloatReference(at: offset) }
         case 51, 52, 152:
-          for _ in 0..<6 { _ = try reader.word("macro drawing value") }
+          for _ in 0..<6 { let offset = reader.offset; try remapFloatReference(at: offset) }
         case 130, 131:
           break
         default:
@@ -3728,6 +3733,15 @@ private enum NativeSwiftDocumentDecoder {
         }
       }
       return Data(output)
+    }
+
+    func remappedMacroBody(_ definition: MacroDefinition, arguments: [Int]) throws -> Data {
+      guard definition.parameterIDs.count == arguments.count else {
+        throw input.malformed(
+          "Macro expects \(definition.parameterIDs.count) arguments, got \(arguments.count)")
+      }
+      let mappings = Dictionary(uniqueKeysWithValues: zip(definition.parameterIDs, arguments))
+      return try remappedMacroBody(definition.body, mappings: mappings)
     }
 
     while true {
@@ -3783,6 +3797,22 @@ private enum NativeSwiftDocumentDecoder {
         }
         suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
         input = WireReader(body)
+      case 244:  // Expand a template body once for each ID in a DataListIds collection.
+        let collectionID = try input.int("pattern foreach collection id")
+        let localItemID = try input.int("pattern foreach local item id")
+        let body = try captureMacroBody()
+        guard let ids = idLists[collectionID] else {
+          throw input.malformed("Missing pattern foreach collection \(collectionID)")
+        }
+        var expanded = Data()
+        for id in ids {
+          expanded.append(try remappedMacroBody(body, mappings: [localItemID: id]))
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(expanded)
       case 248:  // Insert the block supplied to the enclosing MacroCall.
         let index = try input.int("macro argument index")
         guard let block = macroBlocks[index] else {
