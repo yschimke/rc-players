@@ -271,17 +271,26 @@ struct NativeMacValueRequest: Decodable {
   let integers: [String]
   let texts: [String]
   let colors: [String]
+  let dynamicFloatArrays: [String]
+  let dataFloatArrays: [String]
 
   init(
-    floats: [String] = [], integers: [String] = [], texts: [String] = [], colors: [String] = []
+    floats: [String] = [], integers: [String] = [], texts: [String] = [], colors: [String] = [],
+    dynamicFloatArrays: [String] = [], dataFloatArrays: [String] = []
   ) {
     self.floats = floats
     self.integers = integers
     self.texts = texts
     self.colors = colors
+    self.dynamicFloatArrays = dynamicFloatArrays
+    self.dataFloatArrays = dataFloatArrays
   }
 
-  private enum CodingKeys: String, CodingKey { case floats, integers, texts, colors }
+  private enum CodingKeys: String, CodingKey {
+    case floats, integers, texts, colors
+    case dynamicFloatArrays = "float_arrays_dynamic"
+    case dataFloatArrays = "float_arrays_data"
+  }
 
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -289,11 +298,15 @@ struct NativeMacValueRequest: Decodable {
       floats: try values.decodeIfPresent([String].self, forKey: .floats) ?? [],
       integers: try values.decodeIfPresent([String].self, forKey: .integers) ?? [],
       texts: try values.decodeIfPresent([String].self, forKey: .texts) ?? [],
-      colors: try values.decodeIfPresent([String].self, forKey: .colors) ?? [])
+      colors: try values.decodeIfPresent([String].self, forKey: .colors) ?? [],
+      dynamicFloatArrays: try values.decodeIfPresent([String].self, forKey: .dynamicFloatArrays)
+        ?? [],
+      dataFloatArrays: try values.decodeIfPresent([String].self, forKey: .dataFloatArrays) ?? [])
   }
 
   var isEmpty: Bool {
     floats.isEmpty && integers.isEmpty && texts.isEmpty && colors.isEmpty
+      && dynamicFloatArrays.isEmpty && dataFloatArrays.isEmpty
   }
 }
 
@@ -410,13 +423,16 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         : try reportedValues(
            session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
       records: operationRecords(
-        try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)),
+        try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+        operationCount: session.linkedOperationCount),
       inputHandled: inputHandled)
   }
 
   /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
   /// are document facts, not reconstructed AppKit animation state.
-  private static func operationRecords(_ snapshot: NativeSwiftDocumentSnapshot) -> [String: Any] {
+  private static func operationRecords(
+    _ snapshot: NativeSwiftDocumentSnapshot, operationCount: Int
+  ) -> [String: Any] {
     func specRecord(_ id: Int, _ spec: NativeSwiftAnimationSpec) -> [String: Any] {
       [
         "animationId": id, "animationEnabled": id != 0,
@@ -435,6 +451,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       node.children.forEach(collect)
     }
     collect(snapshot.root)
+    let componentIDs = components.map(\.componentID)
     let bindings: [[String: Any]] = components.enumerated().map { index, node in
       let id = node.animationID ?? -1
       let usesDefaultSpec = node.animationID == nil
@@ -454,11 +471,26 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         "enabled": accessibility.isEnabled, "clickable": accessibility.isClickable,
       ]
     }
+    let drawNames: [Int: String] = [
+      3: "DrawRect", 4: "DrawRoundRect", 5: "DrawOval", 6: "DrawLine", 7: "DrawPath",
+      10: "DrawRect", 11: "DrawOval", 12: "DrawCircle", 13: "DrawLine", 14: "DrawRoundRect",
+      15: "DrawArc", 16: "DrawLine", 18: "DrawPath", 19: "DrawBitmap",
+    ]
+    var drawComponents: [String] = []
+    func collectDrawComponents(_ node: NativeSwiftNodeSnapshot) {
+      drawComponents.append(contentsOf: node.commands.compactMap { drawNames[$0.kind] })
+      node.children.forEach(collectDrawComponents)
+    }
+    collectDrawComponents(snapshot.root)
     return [
+      "ops_count": operationCount,
+      "component_count": components.count,
+      "distinct_ids": Set(componentIDs).count == componentIDs.count,
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
         snapshot.animationSpecs[id].map { specRecord(id, $0) }
       },
       "component_bindings": bindings,
+      "components": drawComponents,
       "semantics": semantics,
       "paths": Dictionary(
         uniqueKeysWithValues: snapshot.pathIDs.sorted().map { (String($0), ["present": true]) }),
@@ -482,14 +514,14 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     request: NativeMacValueRequest
   ) throws -> [String: Any] {
     let resolved = try session.probeValues(timeSeconds: timeSeconds, wallClock: wallClock)
-    func report(_ targets: [String], _ read: (Int) -> Any?) -> [String: Any] {
+    func report(_ targets: [String], _ read: (Int) throws -> Any?) throws -> [String: Any] {
       var result: [String: Any] = [:]
       for target in targets {
         // A name the document never declared is left out, and that absence is what tells the runner
         // the probe is unobservable; a slot that exists and holds nothing reports null instead,
         // which is an observation.
         guard let slot = Int(target) ?? session.namedVariableID(target) else { continue }
-        result[target] = read(slot) ?? NSNull()
+        result[target] = try read(slot) ?? NSNull()
       }
       return result
     }
@@ -499,13 +531,21 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     // no such zero, and a slot the document never wrote stays unobservable rather than reporting an
     // empty string the corpus never asserted.
     return [
-      "floats": report(request.floats) { id in
+      "floats": try report(request.floats) { id in
         resolved.floats[id].map { Double($0) } ?? 0
       },
-      "integers": report(request.integers) { resolved.integers[$0] ?? 0 },
-      "texts": report(request.texts) { resolved.texts[$0] },
-      "colors": report(request.colors) { id in
+      "integers": try report(request.integers) { resolved.integers[$0] ?? 0 },
+      "texts": try report(request.texts) { resolved.texts[$0] },
+      "colors": try report(request.colors) { id in
         resolved.colors[id].map { NSNumber(value: $0) } ?? NSNumber(value: UInt32(0))
+      },
+      "float_arrays_dynamic": try report(request.dynamicFloatArrays) { id in
+        try session.probeFloatList(id: id, dynamic: true, timeSeconds: timeSeconds)?
+          .map(Double.init)
+      },
+      "float_arrays_data": try report(request.dataFloatArrays) { id in
+        try session.probeFloatList(id: id, dynamic: false, timeSeconds: timeSeconds)?
+          .map(Double.init)
       },
     ]
   }

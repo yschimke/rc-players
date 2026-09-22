@@ -95,6 +95,19 @@ enum NativeSwiftCoreTests {
     precondition(
       !dataOnly.setFloat(.nan, forID: 99), "a non-finite float slot update was accepted")
 
+    // AndroidX data maps resolve a key text through a typed resource-id table. This is a rootless
+    // conformance document, so it also proves that scalar-only captures do not need a draw root.
+    let dataMap = Data(
+      base64Encoded:
+        "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgFmAAAACgAAAAl0aXRsZV9rZXlmAAAACwAAABJSZW1vdGVDb21wb3NlIFNEVUlQAAAADEIoAABmAAAADQAAAAdhZ2Vfa2V5kQAAABQAAAACAAAACXRpdGxlX2tleQAAAAALAAAAB2FnZV9rZXkCAAAADJoAAAAeAAAAFAAAAAqaAAAAHwAAABQAAAAN"
+    )!
+    let dataMapValues = try NativeSwiftDocumentSession.open(
+      data: dataMap, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0)
+    precondition(
+      dataMapValues.floats[31] == 42 && dataMapValues.texts[30] == "RemoteCompose SDUI",
+      "data-map lookup did not expose its typed values: \(dataMapValues)")
+
     // Particle definitions used to be consumed and discarded, so every frame silently saw no
     // particle state. A retained session now initialises the system once and applies the loop's
     // equations on each logical frame.
@@ -632,6 +645,100 @@ enum NativeSwiftCoreTests {
     canvasOperations.u8(214).u8(214).u8(214)
     let canvasSnapshot = try NativeSwiftDocumentSession.open(data: canvasOperations.data).snapshot()
     precondition(canvasSnapshot.root.children[0].children[0].commands.count == 2)
+
+    // AndroidX LOOM streams are also allowed to paint directly into the document canvas before
+    // any structural definition.  That is a real drawable document, unlike a rootless data-only
+    // stream, and must therefore gain an implicit canvas root at the first draw operation.
+    let standaloneCanvas = Writer()
+    standaloneCanvas.header(width: 100, height: 100)
+    standaloneCanvas.u8(42).float(0).float(0).float(40).float(30).u8(214)
+    let standaloneCanvasSnapshot = try NativeSwiftDocumentSession.open(data: standaloneCanvas.data)
+      .snapshot()
+    precondition(
+      standaloneCanvasSnapshot.root.componentKind == "Canvas"
+        && standaloneCanvasSnapshot.root.commands.count == 1
+        && standaloneCanvasSnapshot.root.commands[0].kind == 10,
+      "a standalone canvas draw did not produce an implicit root")
+
+    // A standalone canvas is not a layout container. AndroidX can finish the wire stream directly
+    // after a transform/draw command, so those commands must create the same implicit root as a
+    // primitive draw and EOF must not require an artificial ContainerEnd.
+    let standaloneTransform = Writer()
+    standaloneTransform.header(width: 100, height: 100)
+    standaloneTransform.u8(127).float(8).float(12)
+    standaloneTransform.u8(42).float(0).float(0).float(20).float(20)
+    let standaloneTransformSnapshot = try NativeSwiftDocumentSession.open(
+      data: standaloneTransform.data
+    ).snapshot()
+    precondition(
+      standaloneTransformSnapshot.root.componentKind == "Canvas"
+        && standaloneTransformSnapshot.root.commands.map(\.kind) == [2, 10],
+      "standalone transform commands did not share the implicit canvas root")
+
+    // AndroidX writes a MacroDefine as an empty byte body followed by its container contents. The
+    // body must be retained and executed only by MacroCall: decoding it where it is defined makes
+    // definitions draw even when never called, and loses the caller's state.
+    let loomMacro = Writer()
+    loomMacro.header(width: 100, height: 100)
+    loomMacro.u8(42).float(0).float(0).float(20).float(20)
+    loomMacro.u8(246).int(30).int(0).int(0)
+    loomMacro.u8(42).float(20).float(10).float(76).float(50).u8(214)
+    loomMacro.u8(247).int(30).int(0).u8(214)
+    let loomMacroSnapshot = try NativeSwiftDocumentSession.open(data: loomMacro.data).snapshot()
+    precondition(
+      loomMacroSnapshot.root.commands.count == 2,
+      "a container-form LOOM macro was not expanded at its call site")
+
+    // Parameters name caller-owned IDs. The macro body must therefore be rewritten while it is
+    // decoded, not when the definition is captured: its template path id 100 has no resource, but
+    // its call-site argument 200 does.
+    let parameterizedLoomMacro = Writer()
+    parameterizedLoomMacro.header(width: 100, height: 100)
+    parameterizedLoomMacro.u8(200).int(1).u8(205).int(2).int(-1)
+    parameterizedLoomMacro.u8(123).int(200).int(5)
+      .int(Writer.nanReference(10)).float(0).float(0)
+      .int(Writer.nanReference(15)).int(Writer.nanReference(16))
+    parameterizedLoomMacro.u8(246).int(31).int(1).int(100).int(0)
+    parameterizedLoomMacro.u8(124).int(100).u8(214)
+    parameterizedLoomMacro.u8(247).int(31).int(1).int(200).u8(214)
+    parameterizedLoomMacro.u8(214).u8(214)
+    let parameterizedLoomSnapshot = try NativeSwiftDocumentSession.open(
+      data: parameterizedLoomMacro.data
+    ).snapshot()
+    precondition(
+      parameterizedLoomSnapshot.root.children[0].commands.first?.kind == 18,
+      "a LOOM parameter id was not remapped to the call-site path")
+
+    // A MacroArgument is an insertion point for a named MacroBlock under the call. The block is
+    // captured structurally and decoded in the template's place, rather than being drawn as part
+    // of the call container itself.
+    let blockLoomMacro = Writer()
+    blockLoomMacro.header(width: 100, height: 100)
+    blockLoomMacro.u8(246).int(32).int(0).int(0)
+    blockLoomMacro.u8(248).int(0).u8(214)
+    blockLoomMacro.u8(247).int(32).int(0)
+    blockLoomMacro.u8(249).int(0)
+    blockLoomMacro.u8(42).float(10).float(10).float(40).float(40).u8(214)
+    blockLoomMacro.u8(214)
+    let blockLoomSnapshot = try NativeSwiftDocumentSession.open(data: blockLoomMacro.data).snapshot()
+    precondition(
+      blockLoomSnapshot.root.commands.count == 1,
+      "a LOOM macro argument did not expand its supplied block")
+
+    // ReferencedOperations is the sibling structural container used by AndroidX generated
+    // documents. Its definition is inert until IncludeReferencedOperations injects it.
+    let structuralReference = Writer()
+    structuralReference.header(width: 100, height: 100)
+    structuralReference.u8(42).float(0).float(0).float(20).float(20)
+    structuralReference.u8(142).int(20)
+    structuralReference.u8(42).float(20).float(10).float(76).float(50).u8(214)
+    structuralReference.u8(245).int(20)
+    let structuralReferenceSnapshot = try NativeSwiftDocumentSession.open(
+      data: structuralReference.data
+    ).snapshot()
+    precondition(
+      structuralReferenceSnapshot.root.commands.count == 2,
+      "referenced operations were not expanded at their include site")
 
     let drawPath = Writer()
     drawPath.header(width: 100, height: 100)

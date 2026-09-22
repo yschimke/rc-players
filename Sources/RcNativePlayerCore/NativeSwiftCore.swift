@@ -816,12 +816,20 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// The operation spans of a document the decoder accepts, for structure-aware mutation.
   ///
-  /// Decoding is still fail-closed: a document the player would refuse has no spans to hand back.
-  public static func operationSpans(in data: Data) throws -> [NativeSwiftOperationSpan] {
+  /// Data-only documents remain strict by default. The conformance value lane can deliberately
+  /// opt into the same rootless mode as ``open(data:toleratingRootlessData:)``.
+  public static func operationSpans(
+    in data: Data, toleratingRootlessData: Bool = false
+  ) throws -> [NativeSwiftOperationSpan] {
     var spans: [NativeSwiftOperationSpan] = []
-    _ = try NativeSwiftDocumentDecoder.decode(data, spans: &spans)
+    _ = try NativeSwiftDocumentDecoder.decode(
+      data, spans: &spans, toleratingRootlessData: toleratingRootlessData)
     return spans
   }
+
+  /// The linked document's top-level operation census, with the header included. This is the
+  /// operation model conformance exposes; it intentionally differs from raw wire spans.
+  public var linkedOperationCount: Int { document.linkedOperationCount }
 
   private init(copying other: NativeSwiftDocumentSession) {
     document = other.document
@@ -891,9 +899,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     {
       return cached.snapshot
     }
-    let values = try resolvedFloats(
+    var values = try resolvedFloats(
       timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
     advanceParticles(values: values, timeSeconds: timeSeconds)
+    // Particle advancement publishes the current particle registers into the session. Resolve one
+    // more time before turning commands, colours and text into a snapshot so this frame observes
+    // the state it just advanced rather than the previous frame's registers.
+    if !document.particleLoops.isEmpty {
+      values = try resolvedFloats(
+        timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
+    }
     for conversion in document.textFromFloats {
       let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
       let precision = min(max(conversion.digitsAfter, 0), 12)
@@ -907,6 +922,23 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for merge in document.textMerges {
       texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
     }
+    // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
+    // preceding TextFromFloat/TextLookup/TextMerge, so resolve it only after those text producers
+    // have run for this frame.
+    for lookup in document.dataMapLookups {
+      guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
+      else { continue }
+      switch entry.type {
+      case 0:
+        if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
+      case 1, 3, 4:
+        integers[lookup.outputID] = integers[entry.valueID] ?? 0
+      case 2:
+        values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
+      default:
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+      }
+    }
     let resolvedColors = resolveColors(values: values)
     let snapshot = NativeSwiftDocumentSnapshot(
       width: document.width,
@@ -916,7 +948,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
       needsContinuousFrames: document.needsContinuousFrames || !document.particleLoops.isEmpty
-        || floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) },
+        || floatAnimationRuntimes.contains {
+          floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
+        },
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)),
       animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
@@ -1005,7 +1039,33 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftProbeValues {
     stateLock.lock()
     defer { stateLock.unlock() }
-    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    var values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    for conversion in document.textFromFloats {
+      let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
+      texts[conversion.outputID] = String(format: "%.*f", min(max(conversion.digitsAfter, 0), 12), value)
+    }
+    for lookup in document.textLookups {
+      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
+      let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
+      texts[lookup.outputID] = texts[ids[index]] ?? ""
+    }
+    for merge in document.textMerges {
+      texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
+    }
+    for lookup in document.dataMapLookups {
+      guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
+      else { continue }
+      switch entry.type {
+      case 0:
+        if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
+      case 1, 3, 4:
+        integers[lookup.outputID] = integers[entry.valueID] ?? 0
+      case 2:
+        values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
+      default:
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+      }
+    }
     // Integer expressions are part of the state, not only of an action's result: the reference
     // evaluates them as it resolves, so a probe reads what an expression computed rather than the
     // empty slot it started in. Order matters, and the document's own declaration order is what it
@@ -1022,6 +1082,39 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return NativeSwiftProbeValues(
       floats: values, integers: resolvedIntegers, texts: texts,
       colors: resolveColors(values: values))
+  }
+
+  /// Resolves a static or dynamic float list for conformance state probes.
+  public func probeFloatList(id: Int, dynamic: Bool, timeSeconds: TimeInterval) throws -> [Float]? {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
+    if !dynamic {
+      if var result = document.floatLists[id]?.map({
+        NativeSwiftFloatExpression.resolve($0, values: values)
+      }) {
+        for update in document.floatListUpdates[id] ?? [] {
+          let index = Int(NativeSwiftFloatExpression.resolve(update.index, values: values))
+          if result.indices.contains(index) {
+            result[index] = NativeSwiftFloatExpression.resolve(update.value, values: values)
+          }
+        }
+        return result
+      }
+      // The corpus calls both backing forms "data" lists. Fall through to the dynamic allocation
+      // form when no literal DataListFloat with this id exists.
+    }
+    guard let list = document.dynamicFloatLists[id] else { return nil }
+    let length = Int(NativeSwiftFloatExpression.resolve(list.lengthWord, values: values))
+    guard (0...2_000).contains(length) else { return nil }
+    var result = Array(repeating: Float(0), count: length)
+    for update in list.updates {
+      let index = Int(NativeSwiftFloatExpression.resolve(update.index, values: values))
+      if result.indices.contains(index) {
+        result[index] = NativeSwiftFloatExpression.resolve(update.value, values: values)
+      }
+    }
+    return result
   }
 
   /// The slot a document's named variable occupies, or nil when it declared no such name.
@@ -1126,7 +1219,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     wallClock == nil
       && !document.needsContinuousFrames
       && document.particleLoops.isEmpty
-      && !floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) }
+      && !floatAnimationRuntimes.contains {
+        floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
+      }
   }
 
   private func resolve(
@@ -1458,7 +1553,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for expression in document.expressions {
       guard floatOverrides[expression.id] == nil else { continue }
       if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
-        result[expression.id] = value
+        if let animationWords = expression.animationWords,
+          let runtime = try? animationRuntime(for: expression.id, animationWords: animationWords)
+        {
+          // Geometry bindings are measured immediately below. They must see the same animated
+          // value the final resolver will draw, not the expression's raw target.
+          result[expression.id] = runtime.evaluate(target: value, at: Float(timeSeconds))
+        } else {
+          result[expression.id] = value
+        }
       }
     }
     for binding in document.componentValues {
@@ -1487,19 +1590,22 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       guard floatOverrides[expression.id] == nil else { continue }
       let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
       if let animationWords = expression.animationWords {
-        let runtime: NativeSwiftFloatAnimationRuntime
-        if let existing = floatAnimationRuntimes[expression.id] {
-          runtime = existing
-        } else {
-          runtime = try NativeSwiftFloatAnimationRuntime(animationWords: animationWords)
-          floatAnimationRuntimes[expression.id] = runtime
-        }
+        let runtime = try animationRuntime(for: expression.id, animationWords: animationWords)
         result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
       } else {
         result[expression.id] = target
       }
     }
     return result
+  }
+
+  private func animationRuntime(
+    for id: Int, animationWords: [UInt32]
+  ) throws -> NativeSwiftFloatAnimationRuntime {
+    if let existing = floatAnimationRuntimes[id] { return existing }
+    let runtime = try NativeSwiftFloatAnimationRuntime(animationWords: animationWords)
+    floatAnimationRuntimes[id] = runtime
+    return runtime
   }
 
   private func advanceParticles(values: [Int: Float], timeSeconds: TimeInterval) {
@@ -1800,7 +1906,12 @@ private struct ParsedDocument {
   let textFromFloats: [ParsedTextFromFloat]
   let textMerges: [ParsedTextMerge]
   let idLists: [Int: [Int]]
+  let floatLists: [Int: [UInt32]]
+  let floatListUpdates: [Int: [(index: UInt32, value: UInt32)]]
+  let dynamicFloatLists: [Int: ParsedDynamicFloatList]
   let textLookups: [ParsedTextLookupInt]
+  let dataMaps: [Int: [String: (type: Int, valueID: Int)]]
+  let dataMapLookups: [ParsedDataMapLookup]
   let matrixExpressions: [Int: ParsedMatrixExpression]
   let animationSpecs: [Int: NativeSwiftAnimationSpec]
   let animationSpecOrder: [Int]
@@ -1813,6 +1924,12 @@ private struct ParsedDocument {
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
+  let linkedOperationCount: Int
+}
+
+private struct ParsedDynamicFloatList {
+  let lengthWord: UInt32
+  let updates: [(index: UInt32, value: UInt32)]
 }
 
 private struct ParsedParticleDefinition {
@@ -1861,10 +1978,16 @@ private final class NativeSwiftParticleSystemRuntime {
       let previous = particles[index]
       var values = baseValues
       for (variableIndex, variableID) in variableIDs.enumerated() { values[variableID] = previous[variableIndex] }
-      let updated = loop.updateEquations.map { (try? NativeSwiftFloatExpression.evaluate($0, values: values)) ?? 0 }
+      let variables = [Float(index), 0, 0]
+      let updated = loop.updateEquations.map {
+        (try? NativeSwiftFloatExpression.evaluate($0, values: values, variables: variables)) ?? 0
+      }
       particles[index] = updated
       for (variableIndex, variableID) in variableIDs.enumerated() { values[variableID] = updated[variableIndex] }
-      if ((try? NativeSwiftFloatExpression.evaluate(loop.restartEquation, values: values)) ?? 0) > 0 {
+      if (
+        (try? NativeSwiftFloatExpression.evaluate(
+          loop.restartEquation, values: values, variables: variables)) ?? 0
+      ) > 0 {
         initialize(index: index, baseValues: baseValues)
       }
     }
@@ -1872,10 +1995,12 @@ private final class NativeSwiftParticleSystemRuntime {
 
   private func initialize(index: Int, baseValues: [Int: Float]) {
     var values = baseValues
-    values[-1] = Float(index)
+    let variables = [Float(index), 0, 0]
     var initialized = Array(repeating: Float(0), count: variableIDs.count)
     for (variableIndex, equation) in initializationEquations.enumerated() {
-      let value = (try? NativeSwiftFloatExpression.evaluate(equation, values: values)) ?? 0
+      let value =
+        (try? NativeSwiftFloatExpression.evaluate(
+          equation, values: values, variables: variables)) ?? 0
       initialized[variableIndex] = value
       values[variableIDs[variableIndex]] = value
     }
@@ -1997,6 +2122,7 @@ private enum NativeSwiftFloatAnimationMetadata {
   static let initialValueFlag: UInt32 = 1 << 9
   static let directionalSnapShift = 10
   static let directionalSnapMask: UInt32 = 0x3
+  static let propagationFlag: UInt32 = 1 << 12
   static let parameterCountShift = 16
 }
 
@@ -2432,6 +2558,12 @@ private struct ParsedTextLookupInt {
   let outputID: Int
   let listID: Int
   let indexID: Int
+}
+
+private struct ParsedDataMapLookup {
+  let outputID: Int
+  let mapID: Int
+  let keyTextID: Int
 }
 
 private struct ParsedNamedAction {
@@ -3001,7 +3133,9 @@ private enum NativeSwiftFloatExpression {
     return Int(word & referenceMask)
   }
 
-  static func evaluate(_ words: [UInt32], values: [Int: Float]) throws -> Float {
+  static func evaluate(
+    _ words: [UInt32], values: [Int: Float], variables: [Float] = []
+  ) throws -> Float {
     var stack: [Float] = []
     stack.reserveCapacity(min(words.count, 128))
     func pop(_ count: Int) throws -> [Float] {
@@ -3023,6 +3157,9 @@ private enum NativeSwiftFloatExpression {
       }
       let operation = payload - operatorOffset
       switch operation {
+      case 70...72:
+        let index = operation - 70
+        stack.append(variables.indices.contains(index) ? variables[index] : 0)
       case 1...8:
         let value = try pop(2)
         switch operation {
@@ -3478,11 +3615,11 @@ private enum NativeSwiftDocumentDecoder {
         default: throw input.malformed("Unknown header property type \(type)")
         }
       }
-      guard let modernWidth, let modernHeight else {
-        throw input.malformed("Modern header has no document dimensions")
-      }
-      width = modernWidth
-      height = modernHeight
+      // LOOM templates deliberately carry no intrinsic canvas: their caller supplies the capture
+      // viewport after macro expansion. Keep a positive neutral size for the shared snapshot; the
+      // host still uses the requested viewport when it paints the expanded document.
+      width = modernWidth ?? 1
+      height = modernHeight ?? 1
     }
     guard major >= 0, width > 0, height > 0, density.isFinite, density > 0,
       (0...2).contains(densityBehavior)
@@ -3506,6 +3643,11 @@ private enum NativeSwiftDocumentDecoder {
     var textFromFloats: [ParsedTextFromFloat] = []
     var textMerges: [ParsedTextMerge] = []
     var idLists: [Int: [Int]] = [:]
+    var floatLists: [Int: [UInt32]] = [:]
+    var floatListUpdates: [Int: [(index: UInt32, value: UInt32)]] = [:]
+    var dynamicFloatLists: [Int: ParsedDynamicFloatList] = [:]
+    var dataMaps: [Int: [String: (type: Int, valueID: Int)]] = [:]
+    var dataMapLookups: [ParsedDataMapLookup] = []
     var textLookups: [ParsedTextLookupInt] = []
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
     var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
@@ -3519,10 +3661,34 @@ private enum NativeSwiftDocumentDecoder {
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
+    var implicitCanvasRoot: ParsedNode?
     var operationCount = 0
+    var linkedTopLevelOperationCount = 0
+    var syntheticRootWasAdded = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
     var paint = ParsedPaint()
+    // AndroidX has two wire forms for MacroDefine: an inline byte body and a container body
+    // terminated by ContainerEnd.  Retaining raw bytes lets a call execute its body with the
+    // caller's current paint and layout state, rather than treating a definition as drawing work.
+    struct MacroDefinition {
+      let parameterIDs: [Int]
+      let body: Data
+    }
+    struct MacroExpansionFrame {
+      let input: WireReader
+      let blocks: [Int: Data]
+    }
+    var macroDefinitions: [Int: MacroDefinition] = [:]
+    var referencedOperations: [Int: Data] = [:]
+    var suspendedInputs: [MacroExpansionFrame] = []
+    var macroBlocks: [Int: Data] = [:]
+    // Tier-two LOOM IDs (0x4000...0x4fff) are local declarations.  A macro call must
+    // materialise a fresh ID for each one, or two otherwise independent calls try to add the
+    // same ParsedNode to `nodes`.  Keep generated IDs outside the local tier: they remain valid
+    // 22-bit NaN-reference payloads and cannot be mistaken for a template-local declaration on a
+    // later nested expansion.
+    var nextMacroGeneratedID = 0x5000
 
     func begin(_ node: ParsedNode) throws {
       guard nodes.count < maximumNodes else {
@@ -3537,8 +3703,24 @@ private enum NativeSwiftDocumentDecoder {
       if let parent = stack.last {
         node.parent = parent
         parent.children.append(node)
+      } else if let implicitCanvasRoot {
+        node.parent = implicitCanvasRoot
+        implicitCanvasRoot.children.append(node)
       } else if root == nil {
         root = node
+      } else if toleratingRootlessData, let existingRoot = root {
+        // Conformance-only data/LOOM documents may materialise several top-level layout nodes
+        // without a RootLayoutComponent. Preserve their tree under a synthetic root rather than
+        // treating that valid structural probe as a malformed render document.
+        let syntheticRoot = ParsedNode(kind: .root, componentID: 0)
+        syntheticRoot.componentKind = "RootLayoutComponent"
+        existingRoot.parent = syntheticRoot
+        syntheticRoot.children.append(existingRoot)
+        node.parent = syntheticRoot
+        syntheticRoot.children.append(node)
+        root = syntheticRoot
+        nodes[syntheticRoot.componentID] = syntheticRoot
+        syntheticRootWasAdded = true
       } else {
         throw input.malformed("Document has more than one root component")
       }
@@ -3546,14 +3728,330 @@ private enum NativeSwiftDocumentDecoder {
       stack.append(node)
     }
 
-    while !input.isAtEnd {
+    // AndroidX permits a document to begin with canvas commands.  LOOM fixtures use this form to
+    // paint a base layer before defining and inflating a pattern, so it is not equivalent to a
+    // rootless data document.  Create the implicit canvas only at the first drawing operation:
+    // doing it eagerly would hide a genuinely missing layout root in an otherwise data-only file.
+    func drawingNode() throws -> ParsedNode {
+      if stack.isEmpty {
+        if let implicitCanvasRoot { return implicitCanvasRoot }
+        guard root == nil, nodes.count < maximumNodes else {
+          throw input.malformed("Drawing operation has no active canvas")
+        }
+        let canvas = ParsedNode(kind: .root, componentID: 0)
+        canvas.componentKind = "Canvas"
+        root = canvas
+        nodes[canvas.componentID] = canvas
+        implicitCanvasRoot = canvas
+        return canvas
+      }
+      return try currentNode(stack, input: input)
+    }
+
+    func captureMacroBody() throws -> Data {
+      let start = input.offset
+      var nesting = 0
+      while true {
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("macro body opcode")
+        switch opcode {
+        case 214:
+          if nesting == 0 { return input.rawBytes(from: start, to: opcodeOffset) }
+          nesting -= 1
+        case 40:
+          let count = try input.count("macro paint word count", maximum: 1_024)
+          for _ in 0..<count { _ = try input.int("macro paint word") }
+        case 38, 124, 248:
+          _ = try input.int("macro clip path id")
+        case 247:
+          _ = try input.int("nested macro id")
+          let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
+          for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
+          // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
+          // matching end so the surrounding definition's end remains the capture terminator.
+          while true {
+            let childOpcode = try input.u8("nested macro call operation")
+            if childOpcode == 214 { break }
+            guard childOpcode == 249 else {
+              throw NativeSwiftCoreError.unsupported(
+                opcode: childOpcode, offset: input.offset - 1,
+                reason: "LOOM nested macro calls only support MacroBlock children")
+            }
+            _ = try input.int("nested macro block index")
+            _ = try captureMacroBody()
+          }
+        case 39, 42, 47, 56:
+          for _ in 0..<4 { _ = try input.word("macro drawing value") }
+        case 44:
+          _ = try input.int("macro bitmap id")
+          for _ in 0..<4 { _ = try input.word("macro bitmap destination") }
+          _ = try input.int("macro bitmap description id")
+        case 46:
+          for _ in 0..<3 { _ = try input.word("macro circle value") }
+        case 51, 52, 152:
+          for _ in 0..<6 { _ = try input.word("macro drawing value") }
+        case 202:
+          // BoxLayout declares both its component and animation IDs; positioning is plain data.
+          for _ in 0..<4 { _ = try input.int("macro box value") }
+          nesting += 1
+        case 130, 131:
+          break
+        case 173:
+          nesting += 1
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro body operation is not yet structurally migrated")
+        }
+      }
+    }
+
+    func captureMacroCallBlocks() throws -> [Int: Data] {
+      var blocks: [Int: Data] = [:]
+      while true {
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("macro call operation")
+        if opcode == 214 { return blocks }
+        guard opcode == 249 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro calls only support MacroBlock children")
+        }
+        let index = try input.int("macro block index")
+        guard blocks[index] == nil else { throw input.malformed("Duplicate macro block \(index)") }
+        blocks[index] = try captureMacroBody()
+      }
+    }
+
+    func remappedMacroBody(_ body: Data, mappings initialMappings: [Int: Int]) throws -> Data {
+      var reader = WireReader(body)
+      var output = [UInt8](body)
+      var mappings = initialMappings
+      func replaceWord(at offset: Int, with word: UInt32) {
+        output[offset] = UInt8(truncatingIfNeeded: word >> 24)
+        output[offset + 1] = UInt8(truncatingIfNeeded: word >> 16)
+        output[offset + 2] = UInt8(truncatingIfNeeded: word >> 8)
+        output[offset + 3] = UInt8(truncatingIfNeeded: word)
+      }
+      func replaceID(at offset: Int, with value: Int) {
+        replaceWord(at: offset, with: UInt32(bitPattern: Int32(value)))
+      }
+      func remapFloatReference(at offset: Int) throws {
+        let word = try reader.word("macro drawing value")
+        if let id = NativeSwiftFloatExpression.referenceID(word), let replacement = mappings[id] {
+          replaceWord(
+            at: offset,
+            with: (word & ~UInt32(0x003f_ffff)) | UInt32(truncatingIfNeeded: replacement))
+        }
+      }
+      func declaredID(at offset: Int, name: String) throws {
+        let id = try reader.int(name)
+        if let replacement = mappings[id] {
+          replaceID(at: offset, with: replacement)
+          return
+        }
+        // `declareId` in the canonical LOOM reader preserves system globals, then allocates a
+        // distinct ID for every declaration read while expanding a macro (including regular IDs).
+        guard id > 41, id != -1 else { return }
+        guard nextMacroGeneratedID <= 0x003f_ffff else {
+          throw input.malformed("LOOM macro generated-id range is exhausted")
+        }
+        let replacement = nextMacroGeneratedID
+        nextMacroGeneratedID += 1
+        mappings[id] = replacement
+        replaceID(at: offset, with: replacement)
+      }
+      while !reader.isAtEnd {
+        let opcodeOffset = reader.offset
+        let opcode = try reader.u8("macro body opcode")
+        switch opcode {
+        case 38, 124:
+          let idOffset = reader.offset
+          let id = try reader.int("macro path id")
+          if let replacement = mappings[id] { replaceID(at: idOffset, with: replacement) }
+        case 247:
+          _ = try reader.int("nested macro id")
+          let argumentCount = try reader.count("nested macro argument count", maximum: maximumProperties)
+          for _ in 0..<argumentCount {
+            let argumentOffset = reader.offset
+            let argument = try reader.int("nested macro argument")
+            if let replacement = mappings[argument] {
+              replaceID(at: argumentOffset, with: replacement)
+            }
+          }
+          // The nested call has no blocks in the forwarding form. Its own expansion performs the
+          // next level of parameter rewrite after this parent body is resumed.
+          guard try reader.u8("nested macro call end") == 214 else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "LOOM nested macro-call blocks are not migrated for parameter remapping")
+          }
+        case 40:
+          let count = try reader.count("macro paint word count", maximum: 1_024)
+          for _ in 0..<count { _ = try reader.int("macro paint word") }
+        case 248:
+          _ = try reader.int("macro argument index")
+        case 39, 42, 47, 56:
+          for _ in 0..<4 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case 44:
+          _ = try reader.int("macro bitmap id")
+          for _ in 0..<4 { let offset = reader.offset; try remapFloatReference(at: offset) }
+          _ = try reader.int("macro bitmap description id")
+        case 46:
+          for _ in 0..<3 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case 51, 52, 152:
+          for _ in 0..<6 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case 202:
+          let componentOffset = reader.offset
+          try declaredID(at: componentOffset, name: "macro box component id")
+          let animationOffset = reader.offset
+          try declaredID(at: animationOffset, name: "macro box animation id")
+          _ = try reader.int("macro box horizontal positioning")
+          _ = try reader.int("macro box vertical positioning")
+        case 130, 131:
+          break
+        case 214:
+          // Container ends carry no IDs. Component containers inside a macro body retain their
+          // own terminator after capture, so the expanded stream must preserve it verbatim.
+          break
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro parameter remapping is not migrated for this operation")
+        }
+      }
+      return Data(output)
+    }
+
+    func remappedMacroBody(_ definition: MacroDefinition, arguments: [Int]) throws -> Data {
+      guard definition.parameterIDs.count == arguments.count else {
+        throw input.malformed(
+          "Macro expects \(definition.parameterIDs.count) arguments, got \(arguments.count)")
+      }
+      let mappings = Dictionary(uniqueKeysWithValues: zip(definition.parameterIDs, arguments))
+      return try remappedMacroBody(definition.body, mappings: mappings)
+    }
+
+    while true {
+      if input.isAtEnd {
+        guard let suspended = suspendedInputs.popLast() else { break }
+        input = suspended.input
+        macroBlocks = suspended.blocks
+        continue
+      }
       operationCount += 1
       guard operationCount <= maximumOperations else {
         throw input.malformed("Operation count exceeds \(maximumOperations)")
       }
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
+      // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
+      // own their children; macro definitions and calls expand into those children; neither is an
+      // independent top-level operation. Template bytes execute through `suspendedInputs` and are
+      // likewise excluded from the source document's top-level census.
+      if stack.isEmpty, modifierContainers.isEmpty, suspendedInputs.isEmpty {
+        switch opcode {
+        case 200:
+          linkedTopLevelOperationCount += 1
+        case 201...205, 207, 208, 217, 233, 240, 246, 247, 249, 214:
+          break
+        default:
+          linkedTopLevelOperationCount += 1
+        }
+      }
       switch opcode {
+      case 2:  // Legacy ComponentStart. Retain its structure; modern documents use 200...205.
+        let kind = try input.int("legacy component kind")
+        let componentID = try input.int("legacy component id")
+        _ = try input.word("legacy component width")
+        _ = try input.word("legacy component height")
+        let node = ParsedNode(kind: .box, componentID: componentID)
+        node.componentKind = "LegacyComponent\(kind)"
+        try begin(node)
+      case 241:  // Parse-time conditional section skip.
+        let condition = try input.int("skip condition")
+        let value = try input.int("skip value")
+        let length = try input.count("skip length", maximum: maximumStringBytes)
+        let shouldSkip: Bool
+        switch condition {
+        case 1: shouldSkip = 7 < value  // AndroidX's current player API baseline.
+        case 2: shouldSkip = 7 > value
+        case 3: shouldSkip = 7 == value
+        case 4: shouldSkip = 7 != value
+        case 5: shouldSkip = (0 & value) != 0
+        case 6: shouldSkip = (0 & value) == 0
+        default: shouldSkip = false
+        }
+        if shouldSkip { _ = try input.rawData("skipped operation section", length: length) }
+      case 142:  // ReferencedOperations definition container.
+        let referenceID = try input.int("referenced operations id")
+        guard referencedOperations[referenceID] == nil else {
+          throw input.malformed("Duplicate referenced operations \(referenceID)")
+        }
+        referencedOperations[referenceID] = try captureMacroBody()
+      case 245:  // Inline a previously captured ReferencedOperations body.
+        let referenceID = try input.int("referenced operations id")
+        guard let body = referencedOperations[referenceID] else {
+          throw input.malformed("Missing referenced operations \(referenceID)")
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("Structural expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(body)
+      case 244:  // Expand a template body once for each ID in a DataListIds collection.
+        let collectionID = try input.int("pattern foreach collection id")
+        let localItemID = try input.int("pattern foreach local item id")
+        let body = try captureMacroBody()
+        guard let ids = idLists[collectionID] else {
+          throw input.malformed("Missing pattern foreach collection \(collectionID)")
+        }
+        var expanded = Data()
+        for id in ids {
+          expanded.append(try remappedMacroBody(body, mappings: [localItemID: id]))
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(expanded)
+      case 248:  // Insert the block supplied to the enclosing MacroCall.
+        let index = try input.int("macro argument index")
+        guard let block = macroBlocks[index] else {
+          throw input.malformed("Missing macro block \(index)")
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(block)
+      case 246:  // Macro definition. Definitions are structural and do not execute their body.
+        let macroID = try input.int("macro id")
+        let parameterCount = try input.count("macro parameter count", maximum: maximumProperties)
+        let parameterIDs = try (0..<parameterCount).map { _ in try input.int("macro parameter id") }
+        let bodySize = try input.count("macro body size", maximum: maximumStringBytes)
+        let body =
+          bodySize == 0
+          ? try captureMacroBody()
+          : try input.rawData("macro body", length: bodySize)
+        guard macroDefinitions[macroID] == nil else {
+          throw input.malformed("Duplicate macro definition \(macroID)")
+        }
+        macroDefinitions[macroID] = MacroDefinition(parameterIDs: parameterIDs, body: body)
+      case 247:  // Macro call container.
+        let macroID = try input.int("macro id")
+        let argumentCount = try input.count("macro argument count", maximum: maximumProperties)
+        let arguments = try (0..<argumentCount).map { _ in try input.int("macro argument id") }
+        guard let definition = macroDefinitions[macroID] else {
+          throw input.malformed("Missing macro definition \(macroID)")
+        }
+        let callBlocks = try captureMacroCallBlocks()
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(try remappedMacroBody(definition, arguments: arguments))
+        macroBlocks = callBlocks
       case 40:  // Paint data
         let count = try input.count("paint word count", maximum: 1_024)
         var words: [Int] = []
@@ -3584,22 +4082,22 @@ private enum NativeSwiftDocumentDecoder {
       case 38:  // Clip path
         let id = try input.int("clip path id")
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 7, words: [], paint: paint, path: path))
       case 39:  // Clip rectangle
         let words = try (0..<4).map { _ in try input.word("clip rectangle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 6, words: words, paint: paint))
       case 42:  // Draw rectangle
         let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
       case 44:  // Draw bitmap
         let imageID = try input.int("draw bitmap image id")
         guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
         let destination = try (0..<4).map { _ in try input.word("draw bitmap destination") }
         let descriptionID = try input.int("draw bitmap content description id")
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(
             kind: 19, words: [], paint: paint,
             image: ParsedImageDraw(
@@ -3609,23 +4107,23 @@ private enum NativeSwiftDocumentDecoder {
               contentDescriptionID: descriptionID)))
       case 46:  // Draw circle
         let words = try (0..<3).map { _ in try input.word("draw circle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 12, words: words, paint: paint))
       case 47:  // Draw line
         let words = try (0..<4).map { _ in try input.word("draw line value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 13, words: words, paint: paint))
       case 51:  // Draw rounded rectangle
         let words = try (0..<6).map { _ in try input.word("draw rounded rectangle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 14, words: words, paint: paint))
       case 52:  // Draw sector
         let words = try (0..<6).map { _ in try input.word("draw sector value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 16, words: words, paint: paint))
       case 56:  // Draw oval
         let words = try (0..<4).map { _ in try input.word("draw oval value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 11, words: words, paint: paint))
       case 108:  // Clip to the component's bounds
         // No payload. The reference clips to the component's laid-out width and height at paint
@@ -3673,10 +4171,10 @@ private enum NativeSwiftDocumentDecoder {
         node.isClickable = true
         modifierContainers.append(ParsedModifierContainer(node: node, gesture: gesture))
       case 130:  // Matrix save
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 0, words: [], paint: paint))
       case 131:  // Matrix restore
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 1, words: [], paint: paint))
       case 173:  // Canvas operations container
         modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
@@ -3871,6 +4369,52 @@ private enum NativeSwiftDocumentDecoder {
         let id = try input.int("id list id")
         let count = try input.count("id list count", maximum: maximumProperties)
         idLists[id] = try (0..<count).map { _ in try input.int("id list value") }
+      case 147:  // Static float list.
+        let id = try input.int("float list id")
+        let count = try input.count("float list count", maximum: maximumProperties)
+        guard floatLists[id] == nil else { throw input.malformed("Duplicate float list \(id)") }
+        floatLists[id] = try (0..<count).map { _ in try input.word("float list value") }
+      case 197:  // Zero-filled float list with a dynamic length.
+        let id = try input.int("dynamic float list id")
+        let length = try input.word("dynamic float list length")
+        guard dynamicFloatLists[id] == nil else {
+          throw input.malformed("Duplicate dynamic float list \(id)")
+        }
+        dynamicFloatLists[id] = ParsedDynamicFloatList(lengthWord: length, updates: [])
+      case 198:  // Update one dynamic float-list element; invalid indices are ignored at resolve.
+        let id = try input.int("dynamic float list id")
+        let update = (
+          index: try input.word("dynamic float list index"),
+          value: try input.word("dynamic float list value"))
+        if var list = dynamicFloatLists[id] {
+          list = ParsedDynamicFloatList(lengthWord: list.lengthWord, updates: list.updates + [update])
+          dynamicFloatLists[id] = list
+        } else if floatLists[id] != nil {
+          floatListUpdates[id, default: []].append(update)
+        } else {
+          throw input.malformed("Missing float list \(id)")
+        }
+      case 145:  // Data map of typed resource IDs, addressed by a text key at lookup time.
+        let mapID = try input.int("data map id")
+        let count = try input.count("data map entry count", maximum: maximumProperties)
+        var entries: [String: (type: Int, valueID: Int)] = [:]
+        for index in 0..<count {
+          let key = try input.utf8("data map entry \(index) key", maximum: maximumStringBytes)
+          let type = try input.u8("data map entry \(index) type")
+          guard (0...4).contains(type) else {
+            throw input.malformed("Unknown data map type \(type)")
+          }
+          guard entries[key] == nil else { throw input.malformed("Duplicate data map key \(key)") }
+          entries[key] = (type, try input.int("data map entry \(index) value id"))
+        }
+        guard dataMaps[mapID] == nil else { throw input.malformed("Duplicate data map \(mapID)") }
+        dataMaps[mapID] = entries
+      case 154:  // Resolve one typed value from a DataMap by a text resource key.
+        let outputID = try input.int("data map lookup output id")
+        let mapID = try input.int("data map lookup map id")
+        let keyTextID = try input.int("data map lookup key text id")
+        dataMapLookups.append(
+          ParsedDataMapLookup(outputID: outputID, mapID: mapID, keyTextID: keyTextID))
       case 134:  // Dynamic color expression
         let expression = ParsedColorExpression(
           outputID: try input.int("color expression output id"),
@@ -3931,7 +4475,7 @@ private enum NativeSwiftDocumentDecoder {
       case 124:
         let id = try input.int("path id")
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 18, words: [], paint: paint, path: path))
       case 137:  // Named variable
         let id = try input.int("named variable id")
@@ -4072,6 +4616,9 @@ private enum NativeSwiftDocumentDecoder {
         guard (0...2000).contains(variableCount) else {
           throw input.malformed("Too many particle variables")
         }
+        guard Int64(particleCount) * Int64(variableCount) <= 20_000 else {
+          throw input.malformed("Particle definition exceeds 20000 units of runtime state")
+        }
         var variableIDs: [Int] = []
         var initializationEquations: [[UInt32]] = []
         variableIDs.reserveCapacity(variableCount)
@@ -4116,6 +4663,13 @@ private enum NativeSwiftDocumentDecoder {
           }
           updateEquations.append(
             try (0..<length).map { _ in try input.word("particle loop variable word") })
+        }
+        if let definition = particleDefinitions.first(where: { $0.id == particleID }) {
+          let work = Int64(definition.particleCount)
+            * Int64(1 + updateEquations.reduce(0) { $0 + $1.count })
+          guard work <= 20_000 else {
+            throw input.malformed("Particle loop exceeds 20000 units of work per frame")
+          }
         }
         particleLoops.append(
           ParsedParticleLoop(
@@ -4252,19 +4806,19 @@ private enum NativeSwiftDocumentDecoder {
         try begin(node)
       case 129:  // Matrix rotate
         let words = try (0..<3).map { _ in try input.word("matrix rotate value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 4, words: words, paint: paint))
       case 126:  // Matrix scale
         let words = try (0..<4).map { _ in try input.word("matrix scale value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 3, words: words, paint: paint))
       case 127:  // Matrix translate
         let words = try (0..<2).map { _ in try input.word("matrix translate value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 2, words: words, paint: paint))
       case 128:  // Matrix skew
         let words = try (0..<2).map { _ in try input.word("matrix skew value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 5, words: words, paint: paint))
       case 208:  // Text layout
         let node = ParsedNode(kind: .text, componentID: try input.int("text component id"))
@@ -4442,7 +4996,7 @@ private enum NativeSwiftDocumentDecoder {
         accessibilityRecords.append(semantics)
       case 152:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 15, words: words, paint: paint))
       default:
         throw NativeSwiftCoreError.unsupported(
@@ -4505,7 +5059,9 @@ private enum NativeSwiftDocumentDecoder {
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
-      textMerges: textMerges, idLists: idLists, textLookups: textLookups,
+      textMerges: textMerges, idLists: idLists, floatLists: floatLists,
+      floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,
+      textLookups: textLookups, dataMaps: dataMaps, dataMapLookups: dataMapLookups,
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
@@ -4513,7 +5069,8 @@ private enum NativeSwiftDocumentDecoder {
       shaderUniformNames: shaderUniformNames,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
-      needsWallClockRefresh: needsWallClockRefresh)
+      needsWallClockRefresh: needsWallClockRefresh,
+      linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0))
   }
 
   private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)
