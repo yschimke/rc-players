@@ -426,6 +426,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     records["particles"] = try (particleSession ?? session).particleSnapshots(timeSeconds: timeSeconds)
       .first?.particles
       .map { $0.map(Double.init) } ?? []
+    records["draw_log_commands"] = try drawLog(in: data)
     return NativeMacRenderedFrame(
       png: png, tree: player.layoutTree(),
       values: values.isEmpty
@@ -434,6 +435,22 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
            session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
       records: records,
       inputHandled: inputHandled)
+  }
+
+  /// The conformance draw log is the decoded canvas stream in wire order. Its checks are ordered
+  /// subsequences, so reporting supported canvas commands here is faithful without pretending to
+  /// record host-only work that an AppKit view might perform while painting.
+  private static func drawLog(in data: Data) throws -> [String] {
+    let names: [Int: String] = [
+      38: "clipPath", 39: "clipRect", 40: "paint", 42: "drawRect", 44: "drawBitmap",
+      46: "drawCircle", 47: "drawLine", 51: "drawRoundRect", 52: "drawSector",
+      56: "drawOval", 124: "drawPath", 125: "drawTweenPath", 126: "scale",
+      127: "translate", 128: "skew", 129: "rotate", 130: "save", 131: "restore",
+      149: "drawBitmapScaled", 152: "drawArc",
+    ]
+    return try NativeSwiftDocumentSession.operationSpans(
+      in: data, toleratingRootlessData: true
+    ).compactMap { names[$0.opcode] }
   }
 
   /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
