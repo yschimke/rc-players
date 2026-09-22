@@ -692,6 +692,21 @@ enum NativeSwiftCoreTests {
       blockLoomSnapshot.root.commands.count == 1,
       "a LOOM macro argument did not expand its supplied block")
 
+    // ReferencedOperations is the sibling structural container used by AndroidX generated
+    // documents. Its definition is inert until IncludeReferencedOperations injects it.
+    let structuralReference = Writer()
+    structuralReference.header(width: 100, height: 100)
+    structuralReference.u8(42).float(0).float(0).float(20).float(20)
+    structuralReference.u8(142).int(20)
+    structuralReference.u8(42).float(20).float(10).float(76).float(50).u8(214)
+    structuralReference.u8(245).int(20)
+    let structuralReferenceSnapshot = try NativeSwiftDocumentSession.open(
+      data: structuralReference.data
+    ).snapshot()
+    precondition(
+      structuralReferenceSnapshot.root.commands.count == 2,
+      "referenced operations were not expanded at their include site")
+
     let drawPath = Writer()
     drawPath.header(width: 100, height: 100)
     drawPath.u8(200).int(1).u8(201).int(2).u8(205).int(3).int(-1)

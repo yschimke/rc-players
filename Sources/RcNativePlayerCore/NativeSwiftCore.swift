@@ -3530,6 +3530,7 @@ private enum NativeSwiftDocumentDecoder {
       let blocks: [Int: Data]
     }
     var macroDefinitions: [Int: MacroDefinition] = [:]
+    var referencedOperations: [Int: Data] = [:]
     var suspendedInputs: [MacroExpansionFrame] = []
     var macroBlocks: [Int: Data] = [:]
 
@@ -3546,6 +3547,9 @@ private enum NativeSwiftDocumentDecoder {
       if let parent = stack.last {
         node.parent = parent
         parent.children.append(node)
+      } else if let implicitCanvasRoot {
+        node.parent = implicitCanvasRoot
+        implicitCanvasRoot.children.append(node)
       } else if root == nil {
         root = node
       } else {
@@ -3691,6 +3695,45 @@ private enum NativeSwiftDocumentDecoder {
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
       switch opcode {
+      case 2:  // Legacy ComponentStart. Retain its structure; modern documents use 200...205.
+        let kind = try input.int("legacy component kind")
+        let componentID = try input.int("legacy component id")
+        _ = try input.word("legacy component width")
+        _ = try input.word("legacy component height")
+        let node = ParsedNode(kind: .box, componentID: componentID)
+        node.componentKind = "LegacyComponent\(kind)"
+        try begin(node)
+      case 241:  // Parse-time conditional section skip.
+        let condition = try input.int("skip condition")
+        let value = try input.int("skip value")
+        let length = try input.count("skip length", maximum: maximumStringBytes)
+        let shouldSkip: Bool
+        switch condition {
+        case 1: shouldSkip = 7 < value  // AndroidX's current player API baseline.
+        case 2: shouldSkip = 7 > value
+        case 3: shouldSkip = 7 == value
+        case 4: shouldSkip = 7 != value
+        case 5: shouldSkip = (0 & value) != 0
+        case 6: shouldSkip = (0 & value) == 0
+        default: shouldSkip = false
+        }
+        if shouldSkip { _ = try input.rawData("skipped operation section", length: length) }
+      case 142:  // ReferencedOperations definition container.
+        let referenceID = try input.int("referenced operations id")
+        guard referencedOperations[referenceID] == nil else {
+          throw input.malformed("Duplicate referenced operations \(referenceID)")
+        }
+        referencedOperations[referenceID] = try captureMacroBody()
+      case 245:  // Inline a previously captured ReferencedOperations body.
+        let referenceID = try input.int("referenced operations id")
+        guard let body = referencedOperations[referenceID] else {
+          throw input.malformed("Missing referenced operations \(referenceID)")
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("Structural expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(body)
       case 248:  // Insert the block supplied to the enclosing MacroCall.
         let index = try input.int("macro argument index")
         guard let block = macroBlocks[index] else {
