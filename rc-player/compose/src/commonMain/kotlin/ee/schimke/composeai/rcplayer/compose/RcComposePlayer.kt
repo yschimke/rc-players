@@ -730,7 +730,7 @@ private fun RenderLayoutNode(
   // node fight each other. Outside a switcher this is null and nothing changes.
   val sharedElementModifier =
     if (node is RcLayoutNode.Content) null
-    else rcSharedElementModifier(node.animationId, node.modifiers.animationSpec)
+    else rcSharedElementModifier(node.componentId, node.animationId, node.modifiers.animationSpec)
   val boundsModifier =
     if (sharedElementModifier != null) {
       modifier.then(sharedElementModifier)
@@ -1103,6 +1103,7 @@ private fun RenderLayoutNode(
               spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
               alignment = Alignment.TopStart,
               label = "RcStateLayout",
+              sharedElements = { index -> children[index].sharedElementComponents() },
             ) { index ->
               val child = children[index]
               key(child.componentId) {
@@ -1417,6 +1418,7 @@ private fun RenderLayoutNode(
           spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec,
           alignment = alignment,
           label = "RcFitBox",
+          sharedElements = { index -> children[index].sharedElementComponents() },
         ) { index ->
           val child = children[index]
           key(child.componentId) {
