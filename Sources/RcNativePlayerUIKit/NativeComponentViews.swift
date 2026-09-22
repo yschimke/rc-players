@@ -2129,6 +2129,13 @@
     private var fontNames: [Int: String]
     private var documentScale: CGFloat = 1
     private var layoutDirection: NativeLayoutDirection = .leftToRight
+    // Text labels are measured while determining their parent's natural size and again after row
+    // and flow layouts assign their final width. Keep the TextKit result only for an identical
+    // width and invalidate it whenever the attributed string's inputs can change.
+    private var measurementCache: [CGFloat: CGSize] = [:]
+    private var configuredTextScale: CGFloat?
+    private var configuredInterfaceDirection: UIUserInterfaceLayoutDirection?
+    private var configuredParagraph = false
 
     init(
       componentID: Int, commandIndex: Int, command: NativeDrawCommand,
@@ -2156,6 +2163,7 @@
       self.fontNames = fontNames
       text = command.text
       textColor = command.color.withAlphaComponent(command.alpha)
+      invalidateTextLayout()
       configureParagraph(layoutDirection: layoutDirection)
       configureFont(documentScale: documentScale)
       setNeedsLayout()
@@ -2165,6 +2173,7 @@
       self.documentScale = documentScale
       configureFont(documentScale: documentScale)
       guard let attributedText, maximumWidth > 0 else { return .zero }
+      if let cached = measurementCache[maximumWidth] { return cached }
       let storage = NSTextStorage(attributedString: attributedText)
       let manager = NSLayoutManager()
       let container = NSTextContainer(
@@ -2176,9 +2185,11 @@
       storage.addLayoutManager(manager)
       manager.ensureLayout(for: container)
       let measured = manager.usedRect(for: container)
-      return CGSize(
+      let size = CGSize(
         width: min(ceil(measured.width), maximumWidth),
         height: ceil(measured.height))
+      measurementCache[maximumWidth] = size
+      return size
     }
 
     func layoutInComponent(
@@ -2192,14 +2203,23 @@
     }
 
     private func configureFont(documentScale: CGFloat) {
+      let interfaceDirection = effectiveUserInterfaceLayoutDirection
+      guard
+        configuredTextScale != documentScale
+          || configuredInterfaceDirection != interfaceDirection
+      else { return }
       font = NativeTextAttributes.font(
         for: command, scale: documentScale, fontNames: fontNames, scalesForDynamicType: true)
       attributedText = NativeTextAttributes.string(
         for: command, font: font, scale: documentScale,
-        layoutDirection: effectiveUserInterfaceLayoutDirection)
+        layoutDirection: interfaceDirection)
+      configuredTextScale = documentScale
+      configuredInterfaceDirection = interfaceDirection
+      measurementCache.removeAll(keepingCapacity: true)
     }
 
     private func configureParagraph(layoutDirection: NativeLayoutDirection) {
+      let changed = !configuredParagraph || self.layoutDirection != layoutDirection
       self.layoutDirection = layoutDirection
       let style = command.textStyle
       numberOfLines = NativeTextPolicy.numberOfLines(
@@ -2214,6 +2234,23 @@
       clipsToBounds = style.overflow != 2
       semanticContentAttribute =
         layoutDirection == .rightToLeft ? .forceRightToLeft : .forceLeftToRight
+      configuredParagraph = true
+      if changed { invalidateTextLayout() }
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+      super.traitCollectionDidChange(previousTraitCollection)
+      guard traitCollection.preferredContentSizeCategory
+        != previousTraitCollection?.preferredContentSizeCategory
+      else { return }
+      invalidateTextLayout()
+      setNeedsLayout()
+    }
+
+    private func invalidateTextLayout() {
+      configuredTextScale = nil
+      configuredInterfaceDirection = nil
+      measurementCache.removeAll(keepingCapacity: true)
     }
   }
 

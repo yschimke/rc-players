@@ -22,6 +22,7 @@ SWIFT_MODULECACHE_PATH="$work/module-cache" \
 xcrun swiftc \
   -O -whole-module-optimization \
   "$repo_root/Sources/RcNativePlayerCore/NativeSwiftCore.swift" \
+  "$repo_root/Sources/RcNativePlayerCore/NativeSwiftWireReader.swift" \
   "$repo_root/Tests/RcNativePlayerUIKitTests/NativeSwiftBenchmark.swift" \
   -o "$work/native-swift-benchmark"
 
