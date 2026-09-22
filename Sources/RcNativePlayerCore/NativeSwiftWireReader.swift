@@ -9,6 +9,10 @@ struct WireReader {
   init(_ data: Data) { bytes = Array(data) }
   var isAtEnd: Bool { offset == bytes.count }
 
+  func rawBytes(from start: Int, to end: Int) -> Data {
+    Data(bytes[start..<end])
+  }
+
   mutating func u8(_ field: String) throws -> Int {
     guard offset < bytes.count else { throw malformed("Unexpected end while reading \(field)") }
     defer { offset += 1 }
@@ -60,7 +64,13 @@ struct WireReader {
 
   mutating func data(_ field: String, maximum: Int) throws -> Data {
     let length = try count("\(field) length", maximum: maximum)
-    guard bytes.count - offset >= length else {
+    return try rawData(field, length: length)
+  }
+
+  mutating func rawData(_ field: String, length: Int) throws -> Data {
+    guard length >= 0, length <= nativeSwiftMaximumStringBytes,
+      bytes.count - offset >= length
+    else {
       throw malformed("Unexpected end while reading \(field)")
     }
     defer { offset += length }

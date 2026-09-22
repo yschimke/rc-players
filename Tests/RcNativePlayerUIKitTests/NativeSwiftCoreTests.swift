@@ -642,6 +642,20 @@ enum NativeSwiftCoreTests {
         && standaloneCanvasSnapshot.root.commands[0].kind == 10,
       "a standalone canvas draw did not produce an implicit root")
 
+    // AndroidX writes a MacroDefine as an empty byte body followed by its container contents. The
+    // body must be retained and executed only by MacroCall: decoding it where it is defined makes
+    // definitions draw even when never called, and loses the caller's state.
+    let loomMacro = Writer()
+    loomMacro.header(width: 100, height: 100)
+    loomMacro.u8(42).float(0).float(0).float(20).float(20)
+    loomMacro.u8(246).int(30).int(0).int(0)
+    loomMacro.u8(42).float(20).float(10).float(76).float(50).u8(214)
+    loomMacro.u8(247).int(30).int(0).u8(214)
+    let loomMacroSnapshot = try NativeSwiftDocumentSession.open(data: loomMacro.data).snapshot()
+    precondition(
+      loomMacroSnapshot.root.commands.count == 2,
+      "a container-form LOOM macro was not expanded at its call site")
+
     let drawPath = Writer()
     drawPath.header(width: 100, height: 100)
     drawPath.u8(200).int(1).u8(201).int(2).u8(205).int(3).int(-1)

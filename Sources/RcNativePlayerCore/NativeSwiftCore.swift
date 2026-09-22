@@ -3513,10 +3513,20 @@ private enum NativeSwiftDocumentDecoder {
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
+    var implicitCanvasRoot: ParsedNode?
     var operationCount = 0
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
     var paint = ParsedPaint()
+    // AndroidX has two wire forms for MacroDefine: an inline byte body and a container body
+    // terminated by ContainerEnd.  Retaining raw bytes lets a call execute its body with the
+    // caller's current paint and layout state, rather than treating a definition as drawing work.
+    struct MacroDefinition {
+      let parameterIDs: [Int]
+      let body: Data
+    }
+    var macroDefinitions: [Int: MacroDefinition] = [:]
+    var suspendedInputs: [WireReader] = []
 
     func begin(_ node: ParsedNode) throws {
       guard nodes.count < maximumNodes else {
@@ -3546,14 +3556,63 @@ private enum NativeSwiftDocumentDecoder {
     // doing it eagerly would hide a genuinely missing layout root in an otherwise data-only file.
     func drawingNode() throws -> ParsedNode {
       if stack.isEmpty {
-        let node = ParsedNode(kind: .root, componentID: 0)
-        node.componentKind = "Canvas"
-        try begin(node)
+        if let implicitCanvasRoot { return implicitCanvasRoot }
+        guard root == nil, nodes.count < maximumNodes else {
+          throw input.malformed("Drawing operation has no active canvas")
+        }
+        let canvas = ParsedNode(kind: .root, componentID: 0)
+        canvas.componentKind = "Canvas"
+        root = canvas
+        nodes[canvas.componentID] = canvas
+        implicitCanvasRoot = canvas
+        return canvas
       }
       return try currentNode(stack, input: input)
     }
 
-    while !input.isAtEnd {
+    func captureMacroBody() throws -> Data {
+      let start = input.offset
+      var nesting = 0
+      while true {
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("macro body opcode")
+        switch opcode {
+        case 214:
+          if nesting == 0 { return input.rawBytes(from: start, to: opcodeOffset) }
+          nesting -= 1
+        case 40:
+          let count = try input.count("macro paint word count", maximum: 1_024)
+          for _ in 0..<count { _ = try input.int("macro paint word") }
+        case 38:
+          _ = try input.int("macro clip path id")
+        case 39, 42, 47, 56:
+          for _ in 0..<4 { _ = try input.word("macro drawing value") }
+        case 44:
+          _ = try input.int("macro bitmap id")
+          for _ in 0..<4 { _ = try input.word("macro bitmap destination") }
+          _ = try input.int("macro bitmap description id")
+        case 46:
+          for _ in 0..<3 { _ = try input.word("macro circle value") }
+        case 51, 52, 152:
+          for _ in 0..<6 { _ = try input.word("macro drawing value") }
+        case 130, 131:
+          break
+        case 173:
+          nesting += 1
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro body operation is not yet structurally migrated")
+        }
+      }
+    }
+
+    while true {
+      if input.isAtEnd {
+        guard let suspended = suspendedInputs.popLast() else { break }
+        input = suspended
+        continue
+      }
       operationCount += 1
       guard operationCount <= maximumOperations else {
         throw input.malformed("Operation count exceeds \(maximumOperations)")
@@ -3561,6 +3620,39 @@ private enum NativeSwiftDocumentDecoder {
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
       switch opcode {
+      case 246:  // Macro definition. Definitions are structural and do not execute their body.
+        let macroID = try input.int("macro id")
+        let parameterCount = try input.count("macro parameter count", maximum: maximumProperties)
+        let parameterIDs = try (0..<parameterCount).map { _ in try input.int("macro parameter id") }
+        let bodySize = try input.count("macro body size", maximum: maximumStringBytes)
+        let body =
+          bodySize == 0
+          ? try captureMacroBody()
+          : try input.rawData("macro body", length: bodySize)
+        guard macroDefinitions[macroID] == nil else {
+          throw input.malformed("Duplicate macro definition \(macroID)")
+        }
+        macroDefinitions[macroID] = MacroDefinition(parameterIDs: parameterIDs, body: body)
+      case 247:  // Macro call container.
+        let macroID = try input.int("macro id")
+        let argumentCount = try input.count("macro argument count", maximum: maximumProperties)
+        let arguments = try (0..<argumentCount).map { _ in try input.int("macro argument id") }
+        guard let definition = macroDefinitions[macroID] else {
+          throw input.malformed("Missing macro definition \(macroID)")
+        }
+        guard definition.parameterIDs.isEmpty, arguments.isEmpty else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro parameters require ID remapping")
+        }
+        guard try input.u8("macro call container end") == 214 else {
+          throw input.malformed("Macro call blocks require structural expansion")
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(input)
+        input = WireReader(definition.body)
       case 40:  // Paint data
         let count = try input.count("paint word count", maximum: 1_024)
         var words: [Int] = []
