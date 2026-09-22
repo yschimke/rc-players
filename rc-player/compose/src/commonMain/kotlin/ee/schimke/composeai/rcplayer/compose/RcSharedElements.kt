@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
+import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
 
 /**
  * Shared-element transitions between the alternatives of a `StateLayout`.
@@ -50,6 +51,17 @@ internal val LocalRcSharedTransitionScope = compositionLocalOf<SharedTransitionS
 internal val LocalRcAnimatedVisibilityScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 
 /**
+ * The component selected for each shared-element animation id in the branch being composed.
+ *
+ * AndroidX's `findAnimatedComponents` stores components by animation id while walking a state, so a
+ * later component replaces an earlier one with the same id. That is observable for nested
+ * components: only the innermost/last component participates in the transition. Passing the same
+ * key to `sharedBounds` more than once in one branch is not merely a different interpretation --
+ * Compose repeatedly relocates the nested layout nodes and never finishes measurement.
+ */
+internal val LocalRcSharedElementComponents = compositionLocalOf<Map<Int, Int>?> { null }
+
+/**
  * Cross-fades between [target]'s alternatives, morphing the shared elements inside them.
  *
  * [content] is composed for the incoming index, and — while the transition runs — for the outgoing
@@ -62,6 +74,7 @@ internal fun RcAnimatedAlternatives(
   spec: RcAnimationSpec,
   alignment: Alignment,
   label: String,
+  sharedElements: (Int) -> Map<Int, Int>,
   content: @Composable (Int) -> Unit,
 ) {
   val duration = spec.rcMotionDurationMillis()
@@ -79,6 +92,7 @@ internal fun RcAnimatedAlternatives(
       CompositionLocalProvider(
         LocalRcSharedTransitionScope provides this@SharedTransitionLayout,
         LocalRcAnimatedVisibilityScope provides this@AnimatedContent,
+        LocalRcSharedElementComponents provides sharedElements(index),
       ) {
         content(index)
       }
@@ -101,11 +115,17 @@ internal fun RcAnimatedAlternatives(
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-internal fun rcSharedElementModifier(animationId: Int?, spec: RcAnimationSpec?): Modifier? {
+internal fun rcSharedElementModifier(
+  componentId: Int,
+  animationId: Int?,
+  spec: RcAnimationSpec?,
+): Modifier? {
   val sharedTransitionScope = LocalRcSharedTransitionScope.current ?: return null
   val animatedVisibilityScope = LocalRcAnimatedVisibilityScope.current ?: return null
+  val selectedComponents = LocalRcSharedElementComponents.current ?: return null
   // 0 is "no animation" on the wire and -1 is the unset default; neither identifies a component.
   if (animationId == null || animationId == 0 || animationId == -1) return null
+  if (selectedComponents[animationId] != componentId) return null
   val resolved = spec ?: DefaultRcAnimationSpec
   val duration = resolved.rcMotionDurationMillis()
   val easing = resolved.rcMotionEasing()
@@ -124,3 +144,44 @@ internal fun rcSharedElementModifier(animationId: Int?, spec: RcAnimationSpec?):
     )
   }
 }
+
+/**
+ * Reproduces AndroidX's last-component-wins collection for one StateLayout alternative.
+ *
+ * The linked tree preserves wire order. A depth-first walk therefore encounters an enclosing
+ * component before the nested component that supersedes it for the same animation id.
+ */
+internal fun RcLayoutNode.sharedElementComponents(): Map<Int, Int> {
+  val components = mutableMapOf<Int, Int>()
+
+  fun collect(node: RcLayoutNode) {
+    val animationId = node.animationId
+    if (animationId != null && animationId != 0 && animationId != -1) {
+      components[animationId] = node.componentId
+    }
+    node.sharedElementChildren().forEach(::collect)
+  }
+
+  collect(this)
+  return components
+}
+
+private fun RcLayoutNode.sharedElementChildren(): List<RcLayoutNode> =
+  when (this) {
+    is RcLayoutNode.Root -> children
+    is RcLayoutNode.Content -> children
+    is RcLayoutNode.Canvas -> listOfNotNull(content)
+    is RcLayoutNode.Box -> listOfNotNull(content)
+    is RcLayoutNode.Row -> listOf(content)
+    is RcLayoutNode.Column -> listOf(content)
+    is RcLayoutNode.Flow -> listOf(content)
+    is RcLayoutNode.State -> listOf(content)
+    is RcLayoutNode.CollapsibleRow -> listOf(content)
+    is RcLayoutNode.CollapsibleColumn -> listOf(content)
+    is RcLayoutNode.FitBox -> listOf(content)
+    is RcLayoutNode.CanvasContent,
+    is RcLayoutNode.Custom,
+    is RcLayoutNode.Image,
+    is RcLayoutNode.Text,
+    is RcLayoutNode.CoreText -> emptyList()
+  }

@@ -34,6 +34,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
+import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -51,6 +53,25 @@ import kotlin.test.assertTrue
 class RcStateLayoutTransitionTest {
   private val end = RcNoArg(RcOpcodes.CONTAINER_END)
   private val indexId = 20
+
+  @Test
+  fun nestedDuplicateAnimationIdsSelectOnlyTheLastComponent() {
+    val inner = boxNode(componentId = 13, animationId = SHARED_ID)
+    val middle =
+      boxNode(
+        componentId = 12,
+        animationId = SHARED_ID,
+        children = listOf(inner),
+      )
+    val outer =
+      boxNode(
+        componentId = 10,
+        animationId = SHARED_ID,
+        children = listOf(middle),
+      )
+
+    assertEquals(mapOf(SHARED_ID to inner.componentId), outer.sharedElementComponents())
+  }
 
   @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
   @Test
@@ -154,6 +175,34 @@ class RcStateLayoutTransitionTest {
       operations,
     )
   }
+
+  private fun boxNode(
+    componentId: Int,
+    animationId: Int,
+    children: List<RcLayoutNode> = emptyList(),
+  ): RcLayoutNode.Box =
+    RcLayoutNode.Box(
+      operation =
+        RcBoxLayout(
+          componentId = componentId,
+          animationId = animationId,
+          horizontalPositioning = 1,
+          verticalPositioning = 4,
+        ),
+      modifiers = RcLayoutModifiers(),
+      content =
+        if (children.isNotEmpty()) {
+          RcLayoutNode.Content(
+            componentId = componentId * 100,
+            modifiers = RcLayoutModifiers(),
+            children = children,
+            operations = emptyList(),
+          )
+        } else {
+          null
+        },
+      canvasOperations = null,
+    )
 
   /** One branch: a box carrying [animationId], around a canvas of [size] that fills it. */
   private fun canvas(
