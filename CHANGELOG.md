@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.70.0](https://github.com/yschimke/rc-players/compare/v1.69.0...v1.70.0) (2026-09-22)
+
+
+### Features
+
+* support Apple system font families ([#328](https://github.com/yschimke/rc-players/issues/328)) ([5ad5112](https://github.com/yschimke/rc-players/commit/5ad51128cc5e1f390cc0d1ba64631ad4769a0178))
+* support flexible Apple typography ([#335](https://github.com/yschimke/rc-players/issues/335)) ([c18b399](https://github.com/yschimke/rc-players/commit/c18b399450f763fbe96d991df00d714f62e2a192))
+
+
+### Bug Fixes
+
+* **deps:** update compose-preview-daemon to v3.8.3 ([#339](https://github.com/yschimke/rc-players/issues/339)) ([4c79350](https://github.com/yschimke/rc-players/commit/4c79350d3f201de61a3debd3e2b6bc915877bef0))
+* **deps:** update dependency org.robolectric:robolectric to v4.17 ([#341](https://github.com/yschimke/rc-players/issues/341)) ([e25cf90](https://github.com/yschimke/rc-players/commit/e25cf90d9c0e435a8a968ab8215ced886bd50f50))
+* make chart selection gesture reliable ([#330](https://github.com/yschimke/rc-players/issues/330)) ([d10e094](https://github.com/yschimke/rc-players/commit/d10e094eb2f73840c3207bdb711753ed1595419f))
+* restore native UIKit boolean tints ([#332](https://github.com/yschimke/rc-players/issues/332)) ([a2e4d17](https://github.com/yschimke/rc-players/commit/a2e4d174182599a0680cd22c2b4336d9cc6412de))
+* **swift:** synchronize sessions, fonts, and float animations ([#362](https://github.com/yschimke/rc-players/issues/362)) ([3cdbccc](https://github.com/yschimke/rc-players/commit/3cdbcccd90aa659172409cb9702e8da322052fdd))
+
 ## [1.69.0](https://github.com/yschimke/rc-players/compare/v1.68.0...v1.69.0) (2026-09-20)
 
 
