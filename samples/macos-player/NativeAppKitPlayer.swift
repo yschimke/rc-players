@@ -424,7 +424,8 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
            session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
       records: operationRecords(
         try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-        operationCount: try NativeSwiftDocumentSession.operationSpans(in: data).count + 1),
+        operationCount: try NativeSwiftDocumentSession.operationSpans(
+          in: data, toleratingRootlessData: true).count + 1),
       inputHandled: inputHandled)
   }
 
@@ -499,14 +500,14 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     request: NativeMacValueRequest
   ) throws -> [String: Any] {
     let resolved = try session.probeValues(timeSeconds: timeSeconds, wallClock: wallClock)
-    func report(_ targets: [String], _ read: (Int) -> Any?) -> [String: Any] {
+    func report(_ targets: [String], _ read: (Int) throws -> Any?) throws -> [String: Any] {
       var result: [String: Any] = [:]
       for target in targets {
         // A name the document never declared is left out, and that absence is what tells the runner
         // the probe is unobservable; a slot that exists and holds nothing reports null instead,
         // which is an observation.
         guard let slot = Int(target) ?? session.namedVariableID(target) else { continue }
-        result[target] = read(slot) ?? NSNull()
+        result[target] = try read(slot) ?? NSNull()
       }
       return result
     }
@@ -516,20 +517,20 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     // no such zero, and a slot the document never wrote stays unobservable rather than reporting an
     // empty string the corpus never asserted.
     return [
-      "floats": report(request.floats) { id in
+      "floats": try report(request.floats) { id in
         resolved.floats[id].map { Double($0) } ?? 0
       },
-      "integers": report(request.integers) { resolved.integers[$0] ?? 0 },
-      "texts": report(request.texts) { resolved.texts[$0] },
-      "colors": report(request.colors) { id in
+      "integers": try report(request.integers) { resolved.integers[$0] ?? 0 },
+      "texts": try report(request.texts) { resolved.texts[$0] },
+      "colors": try report(request.colors) { id in
         resolved.colors[id].map { NSNumber(value: $0) } ?? NSNumber(value: UInt32(0))
       },
-      "float_arrays_dynamic": report(request.dynamicFloatArrays) { id in
-        try? session.probeFloatList(id: id, dynamic: true, timeSeconds: timeSeconds)?
+      "float_arrays_dynamic": try report(request.dynamicFloatArrays) { id in
+        try session.probeFloatList(id: id, dynamic: true, timeSeconds: timeSeconds)?
           .map(Double.init)
       },
-      "float_arrays_data": report(request.dataFloatArrays) { id in
-        try? session.probeFloatList(id: id, dynamic: false, timeSeconds: timeSeconds)?
+      "float_arrays_data": try report(request.dataFloatArrays) { id in
+        try session.probeFloatList(id: id, dynamic: false, timeSeconds: timeSeconds)?
           .map(Double.init)
       },
     ]

@@ -816,10 +816,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// The operation spans of a document the decoder accepts, for structure-aware mutation.
   ///
-  /// Decoding is still fail-closed: a document the player would refuse has no spans to hand back.
-  public static func operationSpans(in data: Data) throws -> [NativeSwiftOperationSpan] {
+  /// Data-only documents remain strict by default. The conformance value lane can deliberately
+  /// opt into the same rootless mode as ``open(data:toleratingRootlessData:)``.
+  public static func operationSpans(
+    in data: Data, toleratingRootlessData: Bool = false
+  ) throws -> [NativeSwiftOperationSpan] {
     var spans: [NativeSwiftOperationSpan] = []
-    _ = try NativeSwiftDocumentDecoder.decode(data, spans: &spans)
+    _ = try NativeSwiftDocumentDecoder.decode(
+      data, spans: &spans, toleratingRootlessData: toleratingRootlessData)
     return spans
   }
 
@@ -1030,7 +1034,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
     if !dynamic {
-      return document.floatLists[id]?.map { NativeSwiftFloatExpression.resolve($0, values: values) }
+      if var result = document.floatLists[id]?.map({
+        NativeSwiftFloatExpression.resolve($0, values: values)
+      }) {
+        for update in document.floatListUpdates[id] ?? [] {
+          let index = Int(NativeSwiftFloatExpression.resolve(update.index, values: values))
+          if result.indices.contains(index) {
+            result[index] = NativeSwiftFloatExpression.resolve(update.value, values: values)
+          }
+        }
+        return result
+      }
+      // The corpus calls both backing forms "data" lists. Fall through to the dynamic allocation
+      // form when no literal DataListFloat with this id exists.
     }
     guard let list = document.dynamicFloatLists[id] else { return nil }
     let length = Int(NativeSwiftFloatExpression.resolve(list.lengthWord, values: values))
@@ -1822,6 +1838,7 @@ private struct ParsedDocument {
   let textMerges: [ParsedTextMerge]
   let idLists: [Int: [Int]]
   let floatLists: [Int: [UInt32]]
+  let floatListUpdates: [Int: [(index: UInt32, value: UInt32)]]
   let dynamicFloatLists: [Int: ParsedDynamicFloatList]
   let textLookups: [ParsedTextLookupInt]
   let matrixExpressions: [Int: ParsedMatrixExpression]
@@ -3529,6 +3546,7 @@ private enum NativeSwiftDocumentDecoder {
     var textMerges: [ParsedTextMerge] = []
     var idLists: [Int: [Int]] = [:]
     var floatLists: [Int: [UInt32]] = [:]
+    var floatListUpdates: [Int: [(index: UInt32, value: UInt32)]] = [:]
     var dynamicFloatLists: [Int: ParsedDynamicFloatList] = [:]
     var dataMaps: [Int: [String: (type: Int, valueID: Int)]] = [:]
     var textLookups: [ParsedTextLookupInt] = []
@@ -4133,16 +4151,17 @@ private enum NativeSwiftDocumentDecoder {
         dynamicFloatLists[id] = ParsedDynamicFloatList(lengthWord: length, updates: [])
       case 198:  // Update one dynamic float-list element; invalid indices are ignored at resolve.
         let id = try input.int("dynamic float list id")
-        guard var list = dynamicFloatLists[id] else {
-          throw input.malformed("Missing dynamic float list \(id)")
+        let update = (
+          index: try input.word("dynamic float list index"),
+          value: try input.word("dynamic float list value"))
+        if var list = dynamicFloatLists[id] {
+          list = ParsedDynamicFloatList(lengthWord: list.lengthWord, updates: list.updates + [update])
+          dynamicFloatLists[id] = list
+        } else if floatLists[id] != nil {
+          floatListUpdates[id, default: []].append(update)
+        } else {
+          throw input.malformed("Missing float list \(id)")
         }
-        list = ParsedDynamicFloatList(
-          lengthWord: list.lengthWord,
-          updates: list.updates + [
-            (index: try input.word("dynamic float list index"),
-             value: try input.word("dynamic float list value"))
-          ])
-        dynamicFloatLists[id] = list
       case 145:  // Data map of typed resource IDs, addressed by a text key at lookup time.
         let mapID = try input.int("data map id")
         let count = try input.count("data map entry count", maximum: maximumProperties)
@@ -4808,7 +4827,8 @@ private enum NativeSwiftDocumentDecoder {
       componentValues: componentValues, colorAttributes: colorAttributes,
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
       textMerges: textMerges, idLists: idLists, floatLists: floatLists,
-      dynamicFloatLists: dynamicFloatLists, textLookups: textLookups,
+      floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,
+      textLookups: textLookups,
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
