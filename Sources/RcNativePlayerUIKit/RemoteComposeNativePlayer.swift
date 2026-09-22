@@ -148,6 +148,15 @@
       case frame
     }
 
+    /// A retained session can cross several asynchronous boundaries: awaiting a frame, queued
+    /// input, validation, installation, and event delivery. A context is current only while the
+    /// same session remains installed in the same document epoch and app lifecycle.
+    private struct SessionOperationContext {
+      let session: NativeSnapshotSessionHandle
+      let epoch: UInt64
+      let lifecycle: UInt64
+    }
+
     public var playerBackground: RemoteComposeNativePlayerBackground {
       didSet { applyBackground() }
     }
@@ -533,64 +542,57 @@
       serializedInputCount += 1
       defer { finishSerializedInput() }
       if let pendingFrame = loadTask { await pendingFrame.value }
+      let context = SessionOperationContext(
+        session: retainedSession, epoch: sessionEpoch, lifecycle: lifecycleGeneration)
       guard
-        isApplicationActive, retainedSessionEpoch == sessionEpoch,
-        self.retainedSession === retainedSession, let retainedResources
+        isCurrent(context), let retainedResources
       else { return false }
-      let epoch = sessionEpoch
-      let lifecycle = lifecycleGeneration
       let time = currentFrameTime
-      let (input, task) = enqueueInput(lifecycle: lifecycle) {
+      let (input, task) = enqueueInput(lifecycle: context.lifecycle) {
         try await operation(retainedSession, time)
       }
       switch await task.value {
       case .success(let update):
-        guard
-          isApplicationActive, lifecycle == lifecycleGeneration,
-          epoch == sessionEpoch, retainedSessionEpoch == epoch,
-          self.retainedSession === retainedSession
-        else { return update.accepted }
+        guard isCurrent(context) else { return update.accepted }
         do {
           let model = try NativeDocument(
             frame: update.frame, timeSeconds: time, limits: executionLimits,
             androidCompatibility: androidCompatibility)
           try validateExecution(model, events: update.events)
-          guard
-            isApplicationActive, lifecycle == lifecycleGeneration,
-            epoch == sessionEpoch, retainedSessionEpoch == epoch,
-            self.retainedSession === retainedSession
-          else { return update.accepted }
+          guard isCurrent(context) else { return update.accepted }
           guard input == inputGeneration else {
-            dispatch(
-              update.events, from: retainedSession, epoch: epoch, lifecycle: lifecycle)
+            dispatch(update.events, for: context)
             return update.accepted
           }
           try validate(model)
           guard
-            input == inputGeneration, epoch == sessionEpoch, retainedSessionEpoch == epoch,
-            lifecycle == lifecycleGeneration, isApplicationActive,
-            self.retainedSession === retainedSession
+            input == inputGeneration, isCurrent(context)
           else { return update.accepted }
           try install(model, resources: retainedResources)
-          dispatch(
-            update.events, from: retainedSession, epoch: epoch, lifecycle: lifecycle)
+          dispatch(update.events, for: context)
           return update.accepted
         } catch {
-          guard
-            isApplicationActive, lifecycle == lifecycleGeneration,
-            epoch == sessionEpoch, retainedSessionEpoch == epoch,
-            self.retainedSession === retainedSession
-          else { return false }
+          guard isCurrent(context) else { return false }
           show(error: error)
           return false
         }
       case .failure(let error):
-        guard
-          isApplicationActive, lifecycle == lifecycleGeneration, epoch == sessionEpoch
-        else { return false }
+        guard isLifecycleCurrent(context) else { return false }
         if !(error is CancellationError) { show(error: error) }
         return false
       }
+    }
+
+    private func isCurrent(_ context: SessionOperationContext) -> Bool {
+      isLifecycleCurrent(context)
+        && retainedSessionEpoch == context.epoch
+        && retainedSession === context.session
+    }
+
+    private func isLifecycleCurrent(_ context: SessionOperationContext) -> Bool {
+      isApplicationActive
+        && lifecycleGeneration == context.lifecycle
+        && sessionEpoch == context.epoch
     }
 
     private func finishSerializedInput() {
@@ -627,18 +629,9 @@
       return (input, task)
     }
 
-    private func dispatch(
-      _ events: [RemoteComposeNativePlayerEvent],
-      from session: NativeSnapshotSessionHandle,
-      epoch: UInt64,
-      lifecycle: UInt64
-    ) {
+    private func dispatch(_ events: [RemoteComposeNativePlayerEvent], for context: SessionOperationContext) {
       for event in events {
-        guard
-          isApplicationActive, lifecycle == lifecycleGeneration,
-          epoch == sessionEpoch, retainedSessionEpoch == epoch,
-          retainedSession === session
-        else { return }
+        guard isCurrent(context) else { return }
         onEvent(event)
       }
     }
