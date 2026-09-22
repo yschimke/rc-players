@@ -134,7 +134,7 @@ private fun engineFor(player: String, specDir: File): ConformanceEngine =
     "native-appkit" -> NativeSwiftEngine(NativeSwiftEngine.defaultBinary(), specDir)
     else ->
       error(
-        "unknown player '$player'. Known lanes: cmp, androidx-jvm. " +
+        "unknown player '$player'. Known lanes: cmp, androidx-jvm, native-appkit. " +
           "A new lane is a new ConformanceEngine in the engine package."
       )
   }
