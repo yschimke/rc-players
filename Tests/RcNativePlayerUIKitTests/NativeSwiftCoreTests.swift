@@ -628,6 +628,20 @@ enum NativeSwiftCoreTests {
     let canvasSnapshot = try NativeSwiftDocumentSession.open(data: canvasOperations.data).snapshot()
     precondition(canvasSnapshot.root.children[0].children[0].commands.count == 2)
 
+    // AndroidX LOOM streams are also allowed to paint directly into the document canvas before
+    // any structural definition.  That is a real drawable document, unlike a rootless data-only
+    // stream, and must therefore gain an implicit canvas root at the first draw operation.
+    let standaloneCanvas = Writer()
+    standaloneCanvas.header(width: 100, height: 100)
+    standaloneCanvas.u8(42).float(0).float(0).float(40).float(30).u8(214)
+    let standaloneCanvasSnapshot = try NativeSwiftDocumentSession.open(data: standaloneCanvas.data)
+      .snapshot()
+    precondition(
+      standaloneCanvasSnapshot.root.componentKind == "Canvas"
+        && standaloneCanvasSnapshot.root.commands.count == 1
+        && standaloneCanvasSnapshot.root.commands[0].kind == 10,
+      "a standalone canvas draw did not produce an implicit root")
+
     let drawPath = Writer()
     drawPath.header(width: 100, height: 100)
     drawPath.u8(200).int(1).u8(201).int(2).u8(205).int(3).int(-1)

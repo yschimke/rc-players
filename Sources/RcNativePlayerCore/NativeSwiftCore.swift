@@ -3540,6 +3540,19 @@ private enum NativeSwiftDocumentDecoder {
       stack.append(node)
     }
 
+    // AndroidX permits a document to begin with canvas commands.  LOOM fixtures use this form to
+    // paint a base layer before defining and inflating a pattern, so it is not equivalent to a
+    // rootless data document.  Create the implicit canvas only at the first drawing operation:
+    // doing it eagerly would hide a genuinely missing layout root in an otherwise data-only file.
+    func drawingNode() throws -> ParsedNode {
+      if stack.isEmpty {
+        let node = ParsedNode(kind: .root, componentID: 0)
+        node.componentKind = "Canvas"
+        try begin(node)
+      }
+      return try currentNode(stack, input: input)
+    }
+
     while !input.isAtEnd {
       operationCount += 1
       guard operationCount <= maximumOperations else {
@@ -3578,22 +3591,22 @@ private enum NativeSwiftDocumentDecoder {
       case 38:  // Clip path
         let id = try input.int("clip path id")
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 7, words: [], paint: paint, path: path))
       case 39:  // Clip rectangle
         let words = try (0..<4).map { _ in try input.word("clip rectangle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 6, words: words, paint: paint))
       case 42:  // Draw rectangle
         let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
       case 44:  // Draw bitmap
         let imageID = try input.int("draw bitmap image id")
         guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
         let destination = try (0..<4).map { _ in try input.word("draw bitmap destination") }
         let descriptionID = try input.int("draw bitmap content description id")
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(
             kind: 19, words: [], paint: paint,
             image: ParsedImageDraw(
@@ -3603,23 +3616,23 @@ private enum NativeSwiftDocumentDecoder {
               contentDescriptionID: descriptionID)))
       case 46:  // Draw circle
         let words = try (0..<3).map { _ in try input.word("draw circle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 12, words: words, paint: paint))
       case 47:  // Draw line
         let words = try (0..<4).map { _ in try input.word("draw line value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 13, words: words, paint: paint))
       case 51:  // Draw rounded rectangle
         let words = try (0..<6).map { _ in try input.word("draw rounded rectangle value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 14, words: words, paint: paint))
       case 52:  // Draw sector
         let words = try (0..<6).map { _ in try input.word("draw sector value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 16, words: words, paint: paint))
       case 56:  // Draw oval
         let words = try (0..<4).map { _ in try input.word("draw oval value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 11, words: words, paint: paint))
       case 108:  // Clip to the component's bounds
         // No payload. The reference clips to the component's laid-out width and height at paint
