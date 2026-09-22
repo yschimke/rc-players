@@ -761,6 +761,11 @@
   /// of Box, Row, and Column. Structural content wrappers remain visible in the UIKit hierarchy but
   /// are transparent to layout.
   final class NativeComponentView: UIView, UIGestureRecognizerDelegate {
+    private struct PreferredSizeKey: Hashable {
+      let width: CGFloat
+      let height: CGFloat
+    }
+
     private var node: NativeNode
     private var canvasView: NativeCanvasView?
     private var textLabels: [NativeTextLabel]
@@ -768,10 +773,15 @@
     private var customView: NativeCustomComponentView?
     private var componentChildren: [NativeComponentView]
     private var semanticView: UIView?
+    // Repeated requests with the same constraint occur while rows and flows first determine
+    // natural sizes and then place siblings. This cache deliberately keys only identical
+    // constraints; a weighted child's final width remains a separate measurement.
+    private var preferredSizeCache: [PreferredSizeKey: CGSize] = [:]
     private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
     var documentScale: CGFloat = 1 {
       didSet {
         guard documentScale != oldValue else { return }
+        invalidatePreferredSizes()
         canvasView?.documentScale = documentScale
         componentChildren.forEach { $0.documentScale = documentScale }
         setNeedsLayout()
@@ -780,6 +790,7 @@
     var layoutDensityScale: CGFloat = 1 {
       didSet {
         guard layoutDensityScale != oldValue else { return }
+        invalidatePreferredSizes()
         componentChildren.forEach { $0.layoutDensityScale = layoutDensityScale }
         setNeedsLayout()
       }
@@ -787,6 +798,7 @@
     var layoutDirection: NativeLayoutDirection = .leftToRight {
       didSet {
         guard layoutDirection != oldValue else { return }
+        invalidatePreferredSizes()
         componentChildren.forEach { $0.layoutDirection = layoutDirection }
         setNeedsLayout()
       }
@@ -970,6 +982,7 @@
       precondition(canUpdate(with: next, images: images, fontNames: fontNames))
       let local = Self.localContent(for: next, images: images)
       node = next
+      invalidatePreferredSizes()
       canvasView?.update(commands: local.drawing, images: images, fontNames: fontNames)
       zip(textLabels, local.text).forEach { label, command in
         label.update(command: command, fontNames: fontNames)
@@ -1245,6 +1258,14 @@
     }
 
     func preferredSize(in available: CGSize) -> CGSize {
+      let key = PreferredSizeKey(width: available.width, height: available.height)
+      if let cached = preferredSizeCache[key] { return cached }
+      let size = preferredSizeUncached(in: available)
+      preferredSizeCache[key] = size
+      return size
+    }
+
+    private func preferredSizeUncached(in available: CGSize) -> CGSize {
       let insets = scaledPadding
       // Every width type, `WRAP` included. A wrapping component still carries its `widthIn`
       // bounds, and passing children the full available width instead let an edge button's label
@@ -1343,6 +1364,17 @@
           width: intrinsic.width + insets.left + insets.right,
           height: intrinsic.height + insets.top + insets.bottom),
         available: available)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+      super.traitCollectionDidChange(previousTraitCollection)
+      guard traitCollection != previousTraitCollection else { return }
+      invalidatePreferredSizes()
+      setNeedsLayout()
+    }
+
+    private func invalidatePreferredSizes() {
+      preferredSizeCache.removeAll(keepingCapacity: true)
     }
 
     private var isStructural: Bool {
