@@ -355,7 +355,8 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     viewport: CGSize? = nil,
     values: NativeMacValueRequest = NativeMacValueRequest(),
     steps: [NativeMacInputStep] = [],
-    conformanceFontName: String? = nil
+    conformanceFontName: String? = nil,
+    particleSession: NativeSwiftDocumentSession? = nil
   ) throws -> NativeMacRenderedFrame {
     try NativeMacPolicy.validateDocument(data)
     // A *data-only* document declares values and nothing to draw. A conformance capture still has to
@@ -416,15 +417,22 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     guard let png = bitmap.representation(using: .png, properties: [:]) else {
       throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
     }
+    var records = operationRecords(
+      try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+      operationCount: session.linkedOperationCount)
+    // The particle probe observes one system's particle rows. A document with no system reports an
+    // empty matrix; multiple systems are deliberately not flattened, as that would lose the wire
+    // declaration boundary needed by a future targeted probe.
+    records["particles"] = try (particleSession ?? session).particleSnapshots(timeSeconds: timeSeconds)
+      .first?.particles
+      .map { $0.map(Double.init) } ?? []
     return NativeMacRenderedFrame(
       png: png, tree: player.layoutTree(),
       values: values.isEmpty
         ? nil
         : try reportedValues(
            session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
-      records: operationRecords(
-        try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-        operationCount: session.linkedOperationCount),
+      records: records,
       inputHandled: inputHandled)
   }
 

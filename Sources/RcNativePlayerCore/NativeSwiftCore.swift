@@ -983,6 +983,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return particleSystems[id]?.snapshot
   }
 
+  /// Advances retained particle systems to this frame and returns every decoded system in stable
+  /// wire order. Conformance documents can declare more than one system, so callers that observe
+  /// particle state must not depend on dictionary iteration order.
+  public func particleSnapshots(timeSeconds: TimeInterval = 0) throws
+    -> [NativeSwiftParticleSystemSnapshot]
+  {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
+    advanceParticles(values: values, timeSeconds: timeSeconds)
+    return document.particleDefinitions.compactMap { particleSystems[$0.id]?.snapshot }
+  }
+
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
     stateLock.lock()
     defer { stateLock.unlock() }

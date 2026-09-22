@@ -297,6 +297,7 @@ private class NativeSwiftSession(
       "color",
       "float_array:dynamic",
       "float_array:data" -> scalar(check)
+      "particles" -> particles(check.at)
       "ops:count" -> operationCount(check.at)
       "ops:component_count" -> operationMetric(check.at, "component_count")
       "ops:distinct_ids" -> operationMetric(check.at, "distinct_ids")
@@ -349,6 +350,12 @@ private class NativeSwiftSession(
   private fun operationMetric(stepId: String, metric: String): Observation {
     val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
     return frames[stepId]?.get(metric)?.let(Observation::Value) ?: Observation.NotImplemented
+  }
+
+  /** The AppKit host publishes particle rows from the first declared system in wire order. */
+  private fun particles(stepId: String): Observation {
+    val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
+    return frames[stepId]?.get("particles")?.let(Observation::Value) ?: Observation.NotImplemented
   }
 
   private fun tree(stepId: String): Observation {
