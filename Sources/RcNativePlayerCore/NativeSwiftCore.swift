@@ -200,6 +200,20 @@ public struct NativeSwiftOperationSpan: Sendable, Equatable {
   public var byteCount: Int { endOffset - offset }
 }
 
+/// The current values of one decoded particle system. The outer array is ordered by particle index;
+/// values within each particle use the definition's declared variable order.
+public struct NativeSwiftParticleSystemSnapshot: Sendable, Equatable {
+  public let id: Int
+  public let variableIDs: [Int]
+  public let particles: [[Float]]
+
+  public init(id: Int, variableIDs: [Int], particles: [[Float]]) {
+    self.id = id
+    self.variableIDs = variableIDs
+    self.particles = particles
+  }
+}
+
 public struct NativeSwiftAccessibilitySnapshot: Sendable {
   public let contentDescriptionID: Int
   public let role: Int
@@ -770,6 +784,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
+  private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
+  private var lastParticleFrameTime: TimeInterval?
   // A host may request another frame for a document that has no clock-driven state. Preserve the
   // public value snapshot while sharing its copy-on-write storage instead of re-resolving the
   // complete parsed tree each time. Measurements remain part of the cache key because they are the
@@ -817,6 +833,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     hostDensity = other.hostDensity
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
+    particleSystems = other.particleSystems.mapValues { $0.detachedCopy() }
+    lastParticleFrameTime = other.lastParticleFrameTime
     staticSnapshotCache = other.staticSnapshotCache
   }
 
@@ -875,6 +893,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     let values = try resolvedFloats(
       timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
+    advanceParticles(values: values, timeSeconds: timeSeconds)
     for conversion in document.textFromFloats {
       let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
       let precision = min(max(conversion.digitsAfter, 0), 12)
@@ -896,7 +915,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
-      needsContinuousFrames: document.needsContinuousFrames
+      needsContinuousFrames: document.needsContinuousFrames || !document.particleLoops.isEmpty
         || floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) },
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)),
@@ -915,6 +934,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         measuredComponents: measuredComponents, snapshot: snapshot)
     }
     return snapshot
+  }
+
+  /// Advances retained particle systems to this frame and returns one system's current state.
+  /// Rendering a particle loop uses the same retained state; this accessor additionally makes the
+  /// behaviour observable to the native conformance host without exposing decoder internals.
+  public func particleSnapshot(id: Int, timeSeconds: TimeInterval = 0) throws
+    -> NativeSwiftParticleSystemSnapshot?
+  {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
+    advanceParticles(values: values, timeSeconds: timeSeconds)
+    return particleSystems[id]?.snapshot
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -1093,6 +1125,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) -> Bool {
     wallClock == nil
       && !document.needsContinuousFrames
+      && document.particleLoops.isEmpty
       && !floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) }
   }
 
@@ -1469,6 +1502,25 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return result
   }
 
+  private func advanceParticles(values: [Int: Float], timeSeconds: TimeInterval) {
+    guard !document.particleLoops.isEmpty, lastParticleFrameTime != timeSeconds else { return }
+    lastParticleFrameTime = timeSeconds
+    for definition in document.particleDefinitions where particleSystems[definition.id] == nil {
+      particleSystems[definition.id] = NativeSwiftParticleSystemRuntime(definition: definition, values: values)
+    }
+    for loop in document.particleLoops {
+      guard let system = particleSystems[loop.id] else { continue }
+      system.advance(loop: loop, baseValues: values)
+      // The ordinary resolver sees the latest particle while drawing a loop body. UIKit's loop
+      // renderer replaces these for each child; publishing the last value is still the reference's
+      // externally observable register state when no loop child is painted.
+      for (index, variableID) in system.variableIDs.enumerated() {
+        floats[variableID] = system.particles.last?[index] ?? 0
+      }
+    }
+    staticSnapshotCache = nil
+  }
+
   /// Visibility as the protocol encodes it, including its override bits.
   ///
   /// Above 15 the value is a mask -- OVERRIDE_GONE 16, OVERRIDE_VISIBLE 32, OVERRIDE_INVISIBLE 64 --
@@ -1756,9 +1808,79 @@ private struct ParsedDocument {
   let pathTweenIDs: Set<Int>
   let accessibilityRecords: [ParsedAccessibility]
   let shaderUniformNames: [Int: Set<String>]
+  let particleDefinitions: [ParsedParticleDefinition]
+  let particleLoops: [ParsedParticleLoop]
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
+}
+
+private struct ParsedParticleDefinition {
+  let id: Int
+  let particleCount: Int
+  let variableIDs: [Int]
+  let initializationEquations: [[UInt32]]
+}
+
+private struct ParsedParticleLoop {
+  let id: Int
+  let restartEquation: [UInt32]
+  let updateEquations: [[UInt32]]
+}
+
+private final class NativeSwiftParticleSystemRuntime {
+  let id: Int
+  let variableIDs: [Int]
+  let initializationEquations: [[UInt32]]
+  var particles: [[Float]]
+
+  init(definition: ParsedParticleDefinition, values: [Int: Float]) {
+    id = definition.id
+    variableIDs = definition.variableIDs
+    initializationEquations = definition.initializationEquations
+    particles = Array(repeating: Array(repeating: 0, count: definition.variableIDs.count), count: definition.particleCount)
+    for index in particles.indices { initialize(index: index, baseValues: values) }
+  }
+
+  private init(copying other: NativeSwiftParticleSystemRuntime) {
+    id = other.id
+    variableIDs = other.variableIDs
+    initializationEquations = other.initializationEquations
+    particles = other.particles
+  }
+
+  func detachedCopy() -> NativeSwiftParticleSystemRuntime { NativeSwiftParticleSystemRuntime(copying: self) }
+
+  var snapshot: NativeSwiftParticleSystemSnapshot {
+    NativeSwiftParticleSystemSnapshot(id: id, variableIDs: variableIDs, particles: particles)
+  }
+
+  func advance(loop: ParsedParticleLoop, baseValues: [Int: Float]) {
+    guard loop.updateEquations.count == variableIDs.count else { return }
+    for index in particles.indices {
+      let previous = particles[index]
+      var values = baseValues
+      for (variableIndex, variableID) in variableIDs.enumerated() { values[variableID] = previous[variableIndex] }
+      let updated = loop.updateEquations.map { (try? NativeSwiftFloatExpression.evaluate($0, values: values)) ?? 0 }
+      particles[index] = updated
+      for (variableIndex, variableID) in variableIDs.enumerated() { values[variableID] = updated[variableIndex] }
+      if ((try? NativeSwiftFloatExpression.evaluate(loop.restartEquation, values: values)) ?? 0) > 0 {
+        initialize(index: index, baseValues: baseValues)
+      }
+    }
+  }
+
+  private func initialize(index: Int, baseValues: [Int: Float]) {
+    var values = baseValues
+    values[-1] = Float(index)
+    var initialized = Array(repeating: Float(0), count: variableIDs.count)
+    for (variableIndex, equation) in initializationEquations.enumerated() {
+      let value = (try? NativeSwiftFloatExpression.evaluate(equation, values: values)) ?? 0
+      initialized[variableIndex] = value
+      values[variableIDs[variableIndex]] = value
+    }
+    particles[index] = initialized
+  }
 }
 
 private struct ParsedImageResource {
@@ -3386,6 +3508,8 @@ private enum NativeSwiftDocumentDecoder {
     var pathTweenIDs: Set<Int> = []
     var accessibilityRecords: [ParsedAccessibility] = []
     var shaderUniformNames: [Int: Set<String>] = [:]
+    var particleDefinitions: [ParsedParticleDefinition] = []
+    var particleLoops: [ParsedParticleLoop] = []
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -3933,35 +4057,63 @@ private enum NativeSwiftDocumentDecoder {
         // the reader's own -- fewer than 8000 particles, at most 2000 variables, at most 32 words
         // per expression -- and they are kept because they are what stops a malformed length from
         // allocating the document's remainder.
-        _ = try input.int("particle id")
+        let particleID = try input.int("particle id")
         let particleCount = try input.int("particle count")
-        guard particleCount < 8000 else { throw input.malformed("Too many particles") }
-        let variableCount = try input.int("particle variable count")
-        guard variableCount <= 2000 else { throw input.malformed("Too many particle variables") }
-        for _ in 0..<max(variableCount, 0) {
-          _ = try input.int("particle variable id")
-          let length = try input.int("particle expression length")
-          guard length <= 32 else { throw input.malformed("Particle expression is too long") }
-          for _ in 0..<max(length, 0) { _ = try input.word("particle expression word") }
+        guard (0..<8000).contains(particleCount) else {
+          throw input.malformed("Particle count is outside 0..<8000")
         }
+        let variableCount = try input.int("particle variable count")
+        guard (0...2000).contains(variableCount) else {
+          throw input.malformed("Too many particle variables")
+        }
+        var variableIDs: [Int] = []
+        var initializationEquations: [[UInt32]] = []
+        variableIDs.reserveCapacity(variableCount)
+        initializationEquations.reserveCapacity(variableCount)
+        for _ in 0..<variableCount {
+          variableIDs.append(try input.int("particle variable id"))
+          let length = try input.int("particle expression length")
+          guard (0...32).contains(length) else {
+            throw input.malformed("Particle expression is too long")
+          }
+          initializationEquations.append(
+            try (0..<length).map { _ in try input.word("particle expression word") })
+        }
+        guard !particleDefinitions.contains(where: { $0.id == particleID }) else {
+          throw input.malformed("Duplicate particle system \(particleID)")
+        }
+        particleDefinitions.append(
+          ParsedParticleDefinition(
+            id: particleID, particleCount: particleCount, variableIDs: variableIDs,
+            initializationEquations: initializationEquations))
       case 163:  // Particle loop
         // ParticlesLoop.read: an id, one length-prefixed expression for the loop itself, then a
         // variable count and a length-prefixed expression per variable. Same bounds as above.
-        _ = try input.int("particle loop id")
+        let particleID = try input.int("particle loop id")
         let loopLength = try input.int("particle loop expression length")
-        guard loopLength <= 32 else { throw input.malformed("Particle loop expression is too long") }
-        for _ in 0..<max(loopLength, 0) { _ = try input.word("particle loop expression word") }
+        guard (0...32).contains(loopLength) else {
+          throw input.malformed("Particle loop expression is too long")
+        }
+        let restartEquation = try (0..<loopLength).map {
+          _ in try input.word("particle loop expression word")
+        }
         let loopVariables = try input.int("particle loop variable count")
-        guard loopVariables <= 2000 else {
+        guard (0...2000).contains(loopVariables) else {
           throw input.malformed("Too many particle loop variables")
         }
-        for _ in 0..<max(loopVariables, 0) {
+        var updateEquations: [[UInt32]] = []
+        updateEquations.reserveCapacity(loopVariables)
+        for _ in 0..<loopVariables {
           let length = try input.int("particle loop variable expression length")
-          guard length <= 32 else {
+          guard (0...32).contains(length) else {
             throw input.malformed("Particle loop variable expression is too long")
           }
-          for _ in 0..<max(length, 0) { _ = try input.word("particle loop variable word") }
+          updateEquations.append(
+            try (0..<length).map { _ in try input.word("particle loop variable word") })
         }
+        particleLoops.append(
+          ParsedParticleLoop(
+            id: particleID, restartEquation: restartEquation, updateEquations: updateEquations))
       case 103:  // Root content description
         _ = try input.int("root content description id")
       case 207:  // Canvas content
@@ -4353,6 +4505,7 @@ private enum NativeSwiftDocumentDecoder {
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
       shaderUniformNames: shaderUniformNames,
+      particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh)
   }

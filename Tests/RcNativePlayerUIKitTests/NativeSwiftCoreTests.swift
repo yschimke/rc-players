@@ -95,6 +95,20 @@ enum NativeSwiftCoreTests {
     precondition(
       !dataOnly.setFloat(.nan, forID: 99), "a non-finite float slot update was accepted")
 
+    // Particle definitions used to be consumed and discarded, so every frame silently saw no
+    // particle state. A retained session now initialises the system once and applies the loop's
+    // equations on each logical frame.
+    let particleSession = try NativeSwiftDocumentSession.open(data: particleDocument())
+    let firstParticles = try particleSession.particleSnapshot(id: 9, timeSeconds: 0)
+    let secondParticles = try particleSession.particleSnapshot(id: 9, timeSeconds: 1)
+    precondition(
+      firstParticles?.variableIDs == [70] && firstParticles?.particles == [[3]],
+      "particle definition did not initialise and simulate its first frame: "
+        + "\(String(describing: firstParticles))")
+    precondition(
+      secondParticles?.particles == [[4]],
+      "particle loop did not retain state between frames: \(String(describing: secondParticles))")
+
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {
       let kotlinFixture = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
@@ -981,6 +995,18 @@ enum NativeSwiftCoreTests {
     output.header(width: 300, height: 200)
     output.u8(81).int(5).int(1).float(42)
     output.namedVariable(id: 5, type: 1, name: "answer")
+    return output.data
+  }
+
+  private static func particleDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    // ParticleDefine(id, count, variable count, [variable id, initial equation]).
+    output.u8(161).int(9).int(1).int(1).int(70).int(1).float(2)
+    // ParticleLoop(id, restart equation, variable equations): `value + 1`.
+    output.u8(163).int(9).int(1).float(0).int(1).int(3)
+      .int(Writer.nanReference(70)).float(1).int(Writer.floatOperator(1))
+    output.u8(200).int(1).u8(214)
     return output.data
   }
 
