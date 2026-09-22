@@ -68,9 +68,7 @@ struct WireReader {
   }
 
   mutating func rawData(_ field: String, length: Int) throws -> Data {
-    guard length >= 0, length <= nativeSwiftMaximumStringBytes,
-      bytes.count - offset >= length
-    else {
+    guard length >= 0, bytes.count - offset >= length else {
       throw malformed("Unexpected end while reading \(field)")
     }
     defer { offset += length }
