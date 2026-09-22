@@ -473,7 +473,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     }
     let drawNames: [Int: String] = [
       3: "DrawRect", 4: "DrawRoundRect", 5: "DrawOval", 6: "DrawLine", 7: "DrawPath",
-      10: "DrawBitmap", 11: "DrawArc", 12: "DrawCircle", 13: "DrawOval", 14: "DrawRoundRect",
+      10: "DrawRect", 11: "DrawOval", 12: "DrawCircle", 13: "DrawLine", 14: "DrawRoundRect",
       15: "DrawArc", 16: "DrawLine", 18: "DrawPath", 19: "DrawBitmap",
     ]
     var drawComponents: [String] = []

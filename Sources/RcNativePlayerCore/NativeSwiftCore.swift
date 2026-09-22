@@ -3643,6 +3643,23 @@ private enum NativeSwiftDocumentDecoder {
           for _ in 0..<count { _ = try input.int("macro paint word") }
         case 38, 124, 248:
           _ = try input.int("macro clip path id")
+        case 247:
+          _ = try input.int("nested macro id")
+          let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
+          for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
+          // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
+          // matching end so the surrounding definition's end remains the capture terminator.
+          while true {
+            let childOpcode = try input.u8("nested macro call operation")
+            if childOpcode == 214 { break }
+            guard childOpcode == 249 else {
+              throw NativeSwiftCoreError.unsupported(
+                opcode: childOpcode, offset: input.offset - 1,
+                reason: "LOOM nested macro calls only support MacroBlock children")
+            }
+            _ = try input.int("nested macro block index")
+            _ = try captureMacroBody()
+          }
         case 39, 42, 47, 56:
           for _ in 0..<4 { _ = try input.word("macro drawing value") }
         case 44:
@@ -3711,6 +3728,23 @@ private enum NativeSwiftDocumentDecoder {
           let idOffset = reader.offset
           let id = try reader.int("macro path id")
           if let replacement = mappings[id] { replaceID(at: idOffset, with: replacement) }
+        case 247:
+          _ = try reader.int("nested macro id")
+          let argumentCount = try reader.count("nested macro argument count", maximum: maximumProperties)
+          for _ in 0..<argumentCount {
+            let argumentOffset = reader.offset
+            let argument = try reader.int("nested macro argument")
+            if let replacement = mappings[argument] {
+              replaceID(at: argumentOffset, with: replacement)
+            }
+          }
+          // The nested call has no blocks in the forwarding form. Its own expansion performs the
+          // next level of parameter rewrite after this parent body is resumed.
+          guard try reader.u8("nested macro call end") == 214 else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "LOOM nested macro-call blocks are not migrated for parameter remapping")
+          }
         case 40:
           let count = try reader.count("macro paint word count", maximum: 1_024)
           for _ in 0..<count { _ = try reader.int("macro paint word") }
