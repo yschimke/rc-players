@@ -5,20 +5,34 @@
  },
  "corpus": {
   "path": "/home/runner/work/rc-players/rc-players/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance/gold",
-  "gold_count": 252
+  "gold_count": 364
  },
  "summary": {
   "passed": 132,
-  "failed": 116,
-  "errored": 1,
+  "failed": 186,
+  "errored": 43,
   "skipped": 0,
   "suspicious": 3,
-  "checks_total": 910,
-  "checks_failed": 468,
-  "advisory_total": 605,
-  "advisory_failed": 257
+  "checks_total": 1140,
+  "checks_failed": 690,
+  "advisory_total": 612,
+  "advisory_failed": 261
  },
  "results": [
+  {
+   "name": "animation_spec_anticipate_overshoot",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
   {
    "name": "animation_spec_component_binding",
    "category": "animationspec",
@@ -30,6 +44,48 @@
    "diffs_by_probe": {
     "records:animation_specs": 1,
     "records:component_bindings": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_cubic_accelerate",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_cubic_decelerate",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_cubic_linear",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -47,6 +103,34 @@
    "raster_failures": []
   },
   {
+   "name": "animation_spec_disabled_flag",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_enter_exit_visibility",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "animation_spec_field_roundtrip",
    "category": "animationspec",
    "profile": "core",
@@ -56,6 +140,34 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "records:animation_specs": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_float_expression_easing_curves",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "animation_spec_spring_physics",
+   "category": "animationspec",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -86,6 +198,20 @@
    "raster_failures": []
   },
   {
+   "name": "canvas_clip_path_and_skew",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "canvas_clip_rect",
    "category": "canvas",
    "profile": "core",
@@ -99,6 +225,21 @@
    "raster_failures": []
   },
   {
+   "name": "canvas_draw_bitmap_and_offscreen",
+   "category": "canvas",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 190",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "canvas_draw_primitives",
    "category": "canvas",
    "profile": "core",
@@ -108,6 +249,20 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "draw_log:commands": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "canvas_draw_text_run_and_content",
+   "category": "canvas",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -143,8 +298,8 @@
    "profile": "extended",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 4,
-   "checks_failed": 4,
+   "checks_total": 3,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "ops:present": 1,
     "raster": 1,
@@ -195,8 +350,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 9,
-   "checks_failed": 9,
+   "checks_total": 8,
+   "checks_failed": 8,
    "diffs_by_probe": {
     "float": 6,
     "raster": 3
@@ -208,13 +363,27 @@
    ]
   },
   {
+   "name": "clock_continuous_sec_progress",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "clock_continuous_sweep",
    "category": "clock",
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 5,
-   "checks_failed": 5,
+   "checks_total": 2,
+   "checks_failed": 2,
    "diffs_by_probe": {
     "float": 2,
     "raster": 3
@@ -231,8 +400,8 @@
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 7,
-   "checks_failed": 7,
+   "checks_total": 6,
+   "checks_failed": 6,
    "diffs_by_probe": {
     "float": 5,
     "raster": 2
@@ -241,6 +410,90 @@
     "initial",
     "snap_0"
    ]
+  },
+  {
+   "name": "clock_time_attribute_calendar_date",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "clock_time_attribute_day_of_week",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "clock_time_attribute_from_arg",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "clock_time_attribute_from_load",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "clock_time_attribute_from_now",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "clock_time_attribute_hms",
+   "category": "clock",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
   },
   {
    "name": "color_expression_dynamic",
@@ -265,6 +518,201 @@
    "checks_failed": 6,
    "diffs_by_probe": {
     "color": 6
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_color_attribute_alpha_rgb",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_color_attribute_hsv",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_color_expression_argb",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "color": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_color_expression_hsv",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "color": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_color_tween_interpolation",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "color": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_named_color_override",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "color": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_semantic_palette_tokens",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "color": 2
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "colortheme_theme_light_dark_switch",
+   "category": "colortheme",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "color": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "conditional_branch_eq",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "conditional_branch_gt",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "conditional_branch_gte",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "conditional_branch_lt",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "conditional_branch_lte",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "conditional_branch_neq",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -295,22 +743,47 @@
    "raster_failures": []
   },
   {
+   "name": "conditional_nested_if_else",
+   "category": "conditionals",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "conditional_skip_api_gate",
    "category": "conditionals",
    "profile": "core",
    "status": "FAIL",
    "suspicious": false,
-   "checks_total": 4,
-   "checks_failed": 4,
+   "checks_total": 3,
+   "checks_failed": 3,
    "diffs_by_probe": {
     "ops:absent": 1,
     "ops:counts": 1,
-    "ops:present": 1,
-    "raster": 1
+    "ops:present": 1
    },
-   "raster_failures": [
-    "initial"
-   ]
+   "raster_failures": []
+  },
+  {
+   "name": "data_boolean_constant_and_lookup",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
   },
   {
    "name": "data_dynamic_float_list",
@@ -327,6 +800,50 @@
    "raster_failures": []
   },
   {
+   "name": "data_dynamic_float_list_mutation",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 197",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "data_float_array_indexing",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 197",
+   "diffs_by_probe": {
+    "float_array": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "data_id_lookup_indirection",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 192",
+   "diffs_by_probe": {
+    "ops:present": 1,
+    "text": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "data_list_float_dynamic_update",
    "category": "dataoperations",
    "profile": "core",
@@ -336,6 +853,20 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "float_array:data": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "data_long_constant_and_lookup",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -366,6 +897,20 @@
     "int": 1,
     "ops:count": 1,
     "text": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "data_named_variable_registry",
+   "category": "dataoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -526,6 +1071,35 @@
    "raster_failures": []
   },
   {
+   "name": "expr_rpn_comprehensive_float_operators",
+   "category": "expressions",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Float expression too long",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "expr_rpn_comprehensive_integer_operators",
+   "category": "expressions",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "int": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "expr_trigonometry",
    "category": "expressions",
    "profile": "core",
@@ -548,6 +1122,20 @@
    "checks_failed": 6,
    "diffs_by_probe": {
     "float": 6
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_click_area_and_haptic",
+   "category": "interactivity",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -608,6 +1196,20 @@
    "raster_failures": []
   },
   {
+   "name": "interactivity_host_metadata_action",
+   "category": "interactivity",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "interactivity_multi_click_types",
    "category": "interactivity",
    "profile": "extended",
@@ -650,6 +1252,48 @@
    "checks_failed": 2,
    "diffs_by_probe": {
     "float": 2
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_touch_down_up_cancel",
+   "category": "interactivity",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_touch_expression_velocity_decay",
+   "category": "interactivity",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "interactivity_value_string_and_int_actions",
+   "category": "interactivity",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "ops:present": 1,
+    "text": 1
    },
    "raster_failures": []
   },
@@ -2064,6 +2708,19 @@
    ]
   },
   {
+   "name": "interaction_click_toggle_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "tree": 4
+   },
+   "raster_failures": []
+  },
+  {
    "name": "interaction_scroll_column",
    "category": "layout",
    "profile": "core",
@@ -2120,6 +2777,19 @@
     "step_5",
     "step_6"
    ]
+  },
+  {
+   "name": "interaction_touch_down_up_press",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "tree": 4
+   },
+   "raster_failures": []
   },
   {
    "name": "interaction_touch_drag_sequence",
@@ -2442,12 +3112,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 1
-   },
-   "raster_failures": [
-    "initial"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "modifier_zindex_reorder",
@@ -2457,12 +3123,8 @@
    "suspicious": false,
    "checks_total": 3,
    "checks_failed": 0,
-   "diffs_by_probe": {
-    "raster": 1
-   },
-   "raster_failures": [
-    "initial"
-   ]
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "nested_complex_layout",
@@ -2941,6 +3603,32 @@
    ]
   },
   {
+   "name": "state_layout_expandable_card",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "tree": 4
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "state_layout_nested_boxes_control",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "tree": 2
+   },
+   "raster_failures": []
+  },
+  {
    "name": "state_layout_padding_container",
    "category": "layout",
    "profile": "core",
@@ -2975,6 +3663,45 @@
    ]
   },
   {
+   "name": "state_layout_row_to_column",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "tree": 4
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "state_layout_shared_element_across_states",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "tree": 2
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "state_layout_shared_element_nested_ids",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 3,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "tree": 2
+   },
+   "raster_failures": []
+  },
+  {
    "name": "state_layout_state_switch",
    "category": "layout",
    "profile": "core",
@@ -2995,6 +3722,32 @@
     "step_4",
     "step_5"
    ]
+  },
+  {
+   "name": "state_layout_switch_visibility",
+   "category": "layout",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 5,
+   "checks_failed": 4,
+   "diffs_by_probe": {
+    "tree": 4
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "loom_for_each_nested_loop",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "ops:present": 1
+   },
+   "raster_failures": []
   },
   {
    "name": "loom_foreach_expansion",
@@ -3022,6 +3775,33 @@
     "ops:component_count": 1,
     "ops:count": 1,
     "ops:distinct_ids": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "loom_loop_operation_iteration",
+   "category": "loom",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "loom_macro_block_slot_injection",
+   "category": "loom",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 249",
+   "diffs_by_probe": {
+    "float": 1
    },
    "raster_failures": []
   },
@@ -3054,6 +3834,20 @@
    "raster_failures": []
   },
   {
+   "name": "loom_macro_parameter_remapping",
+   "category": "loom",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 1,
+   "checks_failed": 1,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 246",
+   "diffs_by_probe": {
+    "float": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "loom_nested_macros",
    "category": "loom",
    "profile": "core",
@@ -3078,6 +3872,21 @@
    "diffs_by_probe": {
     "ops:count": 1,
     "records:components": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_3d_pipeline_operations",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 110",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -3111,6 +3920,77 @@
    "raster_failures": []
   },
   {
+   "name": "matrix_expression_euler_rotations",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_expression_inverse_roundtrip",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_expression_perspective_projection",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_expression_translate_scale_3d",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_from_path_tangent_frame",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 181",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "matrix_vector_math_affine_and_perspective",
    "category": "matrixmath",
    "profile": "core",
@@ -3120,6 +4000,49 @@
    "checks_failed": 10,
    "diffs_by_probe": {
     "float": 9,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_vector_math_homogeneous_transform",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "matrix_vector_math_normal_transform",
+   "category": "matrixmath",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "particle_attractor_radial_field",
+   "category": "particles",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 194",
+   "diffs_by_probe": {
+    "float": 1,
     "ops:present": 1
    },
    "raster_failures": []
@@ -3148,6 +4071,21 @@
     "frame_7",
     "frame_8"
    ]
+  },
+  {
+   "name": "particle_compare_conditional_respawn",
+   "category": "particles",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 194",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
   },
   {
    "name": "particle_deterministic_seeding",
@@ -3309,6 +4247,20 @@
    ]
   },
   {
+   "name": "path_conic_weighted_arcs",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "path_create_and_append",
    "category": "pathoperations",
    "profile": "core",
@@ -3318,6 +4270,78 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "records:paths": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "path_cubic_bezier_curves",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "path_draw_tween_path_render",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "path_expression_polar_parametric",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 193",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "path_expression_wave_oscillator",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 193",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "path_quadratic_bezier_segments",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -3335,6 +4359,64 @@
    "raster_failures": []
   },
   {
+   "name": "path_tween_morph_interpolation",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "path_winding_and_subpaths",
+   "category": "pathoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_animation_settle_boundary",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_frame_sequence_autonomous",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "scheduling_impulse_animation",
    "category": "scheduling",
    "profile": "core",
@@ -3344,6 +4426,81 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "records:impulses": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_impulse_delayed_start",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_impulse_duration_expiry",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_impulse_process_body",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_multi_impulse_cascade",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "scheduling_wake_in_dynamic_interval",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -3361,6 +4518,21 @@
    "raster_failures": []
   },
   {
+   "name": "scheduling_wake_in_periodic_timer",
+   "category": "scheduling",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 191",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "semantics_accessibility_tree",
    "category": "semantics",
    "profile": "core",
@@ -3374,6 +4546,111 @@
    "raster_failures": []
   },
   {
+   "name": "semantics_clear_and_set_override",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_invisible_to_user_pruning",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_merge_descendants",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_role_button_and_click_label",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_role_checkbox_checked_state",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_role_header_heading_level",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_role_slider_range_value",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "semantics_roles_and_descriptions",
    "category": "semantics",
    "profile": "core",
@@ -3383,6 +4660,21 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "records:semantics": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "semantics_root_content_description",
+   "category": "semantics",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 65",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -3426,6 +4718,125 @@
    "raster_failures": []
   },
   {
+   "name": "shaders_agsl_color_and_resolution_uniforms",
+   "category": "shaders",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 45",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "shaders_agsl_float_uniforms",
+   "category": "shaders",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 45",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "shaders_agsl_nested_canvas_draw",
+   "category": "shaders",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 45",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "shaders_agsl_time_animated_uniform",
+   "category": "shaders",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 45",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "shaders_linear_gradient_stops",
+   "category": "shaders",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 45",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "shaders_radial_gradient_center_radius",
+   "category": "shaders",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 45",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "shaders_sweep_gradient_angles",
+   "category": "shaders",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 45",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_attribute_and_transform",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "text_formatting_from_float",
    "category": "textoperations",
    "profile": "core",
@@ -3435,6 +4846,20 @@
    "checks_failed": 3,
    "diffs_by_probe": {
     "text": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_from_float_formatting_modes",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "ops:present": 1,
+    "text": 1
    },
    "raster_failures": []
   },
@@ -3449,6 +4874,20 @@
    "diffs_by_probe": {
     "ops:count": 1,
     "text": 3
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_length_and_measure_ops",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   },
@@ -3494,6 +4933,50 @@
    "raster_failures": []
   },
   {
+   "name": "text_style_and_layout_text",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 242",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "text_subtext_slice_extraction",
+   "category": "textoperations",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 182",
+   "diffs_by_probe": {
+    "ops:present": 1,
+    "text": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_boolean_and_long_primitives",
+   "category": "wire",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
    "name": "wire_buffer_types",
    "category": "wire",
    "profile": "core",
@@ -3503,6 +4986,93 @@
    "checks_failed": 1,
    "diffs_by_probe": {
     "ops:count": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_component_value_and_custom_layout",
+   "category": "wire",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 238",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_debug_message_emission",
+   "category": "wire",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_header_version_and_dimensions",
+   "category": "wire",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_id_lookup_table",
+   "category": "wire",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 192",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_include_referenced_operations",
+   "category": "wire",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 142",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_nan_boxed_float_variables",
+   "category": "wire",
+   "profile": "core",
+   "status": "FAIL",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "diffs_by_probe": {
+    "float": 1,
+    "int": 1
    },
    "raster_failures": []
   },
@@ -3517,6 +5087,21 @@
    "diffs_by_probe": {
     "ops:count": 1,
     "records:components": 1
+   },
+   "raster_failures": []
+  },
+  {
+   "name": "wire_sound_data_and_play_sound",
+   "category": "wire",
+   "profile": "core",
+   "status": "ERROR",
+   "suspicious": false,
+   "checks_total": 2,
+   "checks_failed": 2,
+   "error": "java.lang.RuntimeException: Unknown operation encountered 169",
+   "diffs_by_probe": {
+    "float": 1,
+    "ops:present": 1
    },
    "raster_failures": []
   }
