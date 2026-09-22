@@ -812,6 +812,7 @@
     }
 
     private func configureErrorLabel() {
+      errorLabel.accessibilityIdentifier = "rc-native-error"
       errorLabel.numberOfLines = 0
       errorLabel.textAlignment = .center
       errorLabel.textColor = .secondaryLabel

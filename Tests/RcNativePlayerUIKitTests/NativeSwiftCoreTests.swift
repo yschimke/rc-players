@@ -109,6 +109,11 @@ enum NativeSwiftCoreTests {
       secondParticles?.particles == [[4]],
       "particle loop did not retain state between frames: \(String(describing: secondParticles))")
 
+    // AndroidX permits a compact FloatAnimation descriptor with its duration alone; it implies
+    // CUBIC_STANDARD. Several Wear catalog components use it for transition values.
+    let compactAnimation = try NativeSwiftDocumentSession.open(data: compactAnimationDocument())
+    _ = try compactAnimation.snapshot()
+
     let wire = editableTextDocument()
     if CommandLine.arguments.count == 2 {
       let kotlinFixture = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
@@ -1071,6 +1076,14 @@ enum NativeSwiftCoreTests {
         output.float(parameter)
       }
     }
+    output.u8(200).int(1).u8(42).int(Writer.nanReference(51)).int(0).int(0).int(0).u8(214)
+    return output.data
+  }
+
+  private static func compactAnimationDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(81).int(51).int((1 << 16) | 1).float(1).float(0.25)
     output.u8(200).int(1).u8(42).int(Writer.nanReference(51)).int(0).int(0).int(0).u8(214)
     return output.data
   }
