@@ -38,6 +38,7 @@
 		10000000000000000000001E /* NativeCustomComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000021 /* NativeCustomComponents.swift */; };
 		10000000000000000000001F /* NativeCustomComponentSamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000022 /* NativeCustomComponentSamples.swift */; };
 		100000000000000000000020 /* NativeSwiftCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* NativeSwiftCore.swift */; };
+		10000000000000000000002D /* NativeSwiftWireReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002E /* NativeSwiftWireReader.swift */; };
 		100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */; };
 		100000000000000000000022 /* NativeDensityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* NativeDensityPolicy.swift */; };
 		100000000000000000000023 /* NativeTexturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* NativeTexturePolicy.swift */; };
@@ -97,6 +98,7 @@
 		200000000000000000000021 /* NativeCustomComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeCustomComponents.swift; path = "../../Sources/RcNativePlayerUIKit/NativeCustomComponents.swift"; sourceTree = "<group>"; };
 		200000000000000000000022 /* NativeCustomComponentSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCustomComponentSamples.swift; sourceTree = "<group>"; };
 		200000000000000000000023 /* NativeSwiftCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCore.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftCore.swift"; sourceTree = "<group>"; };
+		20000000000000000000002E /* NativeSwiftWireReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftWireReader.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftWireReader.swift"; sourceTree = "<group>"; };
 		200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeDownloadableFonts.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeDownloadableFonts.swift"; sourceTree = "<group>"; };
 		200000000000000000000027 /* RemoteComposeFontVariation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeFontVariation.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeFontVariation.swift"; sourceTree = "<group>"; };
 		200000000000000000000028 /* SwiftControls.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftControls.rc; path = Fixtures/SwiftControls.rc; sourceTree = "<group>"; };
@@ -200,6 +202,7 @@
 				200000000000000000000017 /* NativeResources.swift */,
 				200000000000000000000018 /* NativeSession.swift */,
 				200000000000000000000023 /* NativeSwiftCore.swift */,
+				20000000000000000000002E /* NativeSwiftWireReader.swift */,
 				200000000000000000000019 /* NativeAccessibilityPolicy.swift */,
 				20000000000000000000001A /* NativeFrameTiming.swift */,
 				20000000000000000000001B /* NativeExecutionLimits.swift */,
@@ -328,6 +331,7 @@
 				100000000000000000000015 /* NativeResources.swift in Sources */,
 				100000000000000000000016 /* NativeSession.swift in Sources */,
 				100000000000000000000020 /* NativeSwiftCore.swift in Sources */,
+				10000000000000000000002D /* NativeSwiftWireReader.swift in Sources */,
 				100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */,
 				100000000000000000000024 /* RemoteComposeFontVariation.swift in Sources */,
 				100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */,
