@@ -294,7 +294,10 @@ private class NativeSwiftSession(
       "float",
       "int",
       "text",
-      "color" -> scalar(check)
+      "color",
+      "float_array:dynamic",
+      "float_array:data" -> scalar(check)
+      "ops:count" -> operationCount(check.at)
       "trace:handled" -> inputHandled(check.at)
       "records:animation_specs",
       "records:component_bindings",
@@ -306,7 +309,7 @@ private class NativeSwiftSession(
     }
 
   /**
-   * A document's own value, as the corpus's `float`, `int`, `text` and `color` probes read it.
+   * A document's own value, as the corpus's scalar and float-array probes read it.
    *
    * The player resolves the slots this gold asserts at each frame's instant, so the value and the
    * pixels describe one moment. Two absences are kept apart: a *numeric* target the document left
@@ -328,8 +331,16 @@ private class NativeSwiftSession(
       "float" -> "floats"
       "int" -> "integers"
       "text" -> "texts"
-      else -> "colors"
+      "color" -> "colors"
+      "float_array:dynamic" -> "float_arrays_dynamic"
+      "float_array:data" -> "float_arrays_data"
+      else -> error("Not a native Swift value probe: $probe")
     }
+
+  private fun operationCount(stepId: String): Observation {
+    val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
+    return frames[stepId]?.get("ops_count")?.let(Observation::Value) ?: Observation.NotImplemented
+  }
 
   private fun tree(stepId: String): Observation {
     val trees = capturedTrees ?: captureTrees().also { capturedTrees = it }
@@ -479,7 +490,9 @@ private class NativeSwiftSession(
   /** The targets this gold's value probes assert, one list per slot kind. */
   private val valueTargets: Map<String, List<String>> by lazy {
     gold.checks
-      .filter { it.key in setOf("float", "int", "text", "color") }
+      .filter {
+        it.key in setOf("float", "int", "text", "color", "float_array:dynamic", "float_array:data")
+      }
       .mapNotNull { check -> check.target?.let { bucketName(check.key) to it } }
       .groupBy({ it.first }, { it.second })
       .mapValues { (_, targets) -> targets.distinct() }

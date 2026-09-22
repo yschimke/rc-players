@@ -95,6 +95,19 @@ enum NativeSwiftCoreTests {
     precondition(
       !dataOnly.setFloat(.nan, forID: 99), "a non-finite float slot update was accepted")
 
+    // AndroidX data maps resolve a key text through a typed resource-id table. This is a rootless
+    // conformance document, so it also proves that scalar-only captures do not need a draw root.
+    let dataMap = Data(
+      base64Encoded:
+        "AASMAAEAAAABAAAAAAAAAAMABQAEAAABkAAGAAQAAAGQAA4ABAAAAgFmAAAACgAAAAl0aXRsZV9rZXlmAAAACwAAABJSZW1vdGVDb21wb3NlIFNEVUlQAAAADEIoAABmAAAADQAAAAdhZ2Vfa2V5kQAAABQAAAACAAAACXRpdGxlX2tleQAAAAALAAAAB2FnZV9rZXkCAAAADJoAAAAeAAAAFAAAAAqaAAAAHwAAABQAAAAN"
+    )!
+    let dataMapValues = try NativeSwiftDocumentSession.open(
+      data: dataMap, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0)
+    precondition(
+      dataMapValues.floats[31] == 42 && dataMapValues.texts[30] == "RemoteCompose SDUI",
+      "data-map lookup did not expose its typed values: \(dataMapValues)")
+
     // Particle definitions used to be consumed and discarded, so every frame silently saw no
     // particle state. A retained session now initialises the system once and applies the loop's
     // equations on each logical frame.

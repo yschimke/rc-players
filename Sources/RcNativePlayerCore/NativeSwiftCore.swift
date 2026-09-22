@@ -1024,6 +1024,27 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       colors: resolveColors(values: values))
   }
 
+  /// Resolves a static or dynamic float list for conformance state probes.
+  public func probeFloatList(id: Int, dynamic: Bool, timeSeconds: TimeInterval) throws -> [Float]? {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
+    if !dynamic {
+      return document.floatLists[id]?.map { NativeSwiftFloatExpression.resolve($0, values: values) }
+    }
+    guard let list = document.dynamicFloatLists[id] else { return nil }
+    let length = Int(NativeSwiftFloatExpression.resolve(list.lengthWord, values: values))
+    guard (0...2_000).contains(length) else { return nil }
+    var result = Array(repeating: Float(0), count: length)
+    for update in list.updates {
+      let index = Int(NativeSwiftFloatExpression.resolve(update.index, values: values))
+      if result.indices.contains(index) {
+        result[index] = NativeSwiftFloatExpression.resolve(update.value, values: values)
+      }
+    }
+    return result
+  }
+
   /// The slot a document's named variable occupies, or nil when it declared no such name.
   ///
   /// A probe that names a variable the document never declared is genuinely unobservable; one that
@@ -1800,6 +1821,8 @@ private struct ParsedDocument {
   let textFromFloats: [ParsedTextFromFloat]
   let textMerges: [ParsedTextMerge]
   let idLists: [Int: [Int]]
+  let floatLists: [Int: [UInt32]]
+  let dynamicFloatLists: [Int: ParsedDynamicFloatList]
   let textLookups: [ParsedTextLookupInt]
   let matrixExpressions: [Int: ParsedMatrixExpression]
   let animationSpecs: [Int: NativeSwiftAnimationSpec]
@@ -1813,6 +1836,11 @@ private struct ParsedDocument {
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
+}
+
+private struct ParsedDynamicFloatList {
+  let lengthWord: UInt32
+  let updates: [(index: UInt32, value: UInt32)]
 }
 
 private struct ParsedParticleDefinition {
@@ -3500,6 +3528,9 @@ private enum NativeSwiftDocumentDecoder {
     var textFromFloats: [ParsedTextFromFloat] = []
     var textMerges: [ParsedTextMerge] = []
     var idLists: [Int: [Int]] = [:]
+    var floatLists: [Int: [UInt32]] = [:]
+    var dynamicFloatLists: [Int: ParsedDynamicFloatList] = [:]
+    var dataMaps: [Int: [String: (type: Int, valueID: Int)]] = [:]
     var textLookups: [ParsedTextLookupInt] = []
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
     var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
@@ -4088,6 +4119,60 @@ private enum NativeSwiftDocumentDecoder {
         let id = try input.int("id list id")
         let count = try input.count("id list count", maximum: maximumProperties)
         idLists[id] = try (0..<count).map { _ in try input.int("id list value") }
+      case 147:  // Static float list.
+        let id = try input.int("float list id")
+        let count = try input.count("float list count", maximum: maximumProperties)
+        guard floatLists[id] == nil else { throw input.malformed("Duplicate float list \(id)") }
+        floatLists[id] = try (0..<count).map { _ in try input.word("float list value") }
+      case 197:  // Zero-filled float list with a dynamic length.
+        let id = try input.int("dynamic float list id")
+        let length = try input.word("dynamic float list length")
+        guard dynamicFloatLists[id] == nil else {
+          throw input.malformed("Duplicate dynamic float list \(id)")
+        }
+        dynamicFloatLists[id] = ParsedDynamicFloatList(lengthWord: length, updates: [])
+      case 198:  // Update one dynamic float-list element; invalid indices are ignored at resolve.
+        let id = try input.int("dynamic float list id")
+        guard var list = dynamicFloatLists[id] else {
+          throw input.malformed("Missing dynamic float list \(id)")
+        }
+        list = ParsedDynamicFloatList(
+          lengthWord: list.lengthWord,
+          updates: list.updates + [
+            (index: try input.word("dynamic float list index"),
+             value: try input.word("dynamic float list value"))
+          ])
+        dynamicFloatLists[id] = list
+      case 145:  // Data map of typed resource IDs, addressed by a text key at lookup time.
+        let mapID = try input.int("data map id")
+        let count = try input.count("data map entry count", maximum: maximumProperties)
+        var entries: [String: (type: Int, valueID: Int)] = [:]
+        for index in 0..<count {
+          let key = try input.utf8("data map entry \(index) key", maximum: maximumStringBytes)
+          let type = try input.u8("data map entry \(index) type")
+          guard (0...4).contains(type) else {
+            throw input.malformed("Unknown data map type \(type)")
+          }
+          guard entries[key] == nil else { throw input.malformed("Duplicate data map key \(key)") }
+          entries[key] = (type, try input.int("data map entry \(index) value id"))
+        }
+        guard dataMaps[mapID] == nil else { throw input.malformed("Duplicate data map \(mapID)") }
+        dataMaps[mapID] = entries
+      case 154:  // Resolve one typed value from a DataMap by a text resource key.
+        let outputID = try input.int("data map lookup output id")
+        let mapID = try input.int("data map lookup map id")
+        let keyTextID = try input.int("data map lookup key text id")
+        guard let key = texts[keyTextID], let entry = dataMaps[mapID]?[key] else { break }
+        switch entry.type {
+        case 0:
+          if let value = texts[entry.valueID] { texts[outputID] = value }
+        case 1, 3, 4:
+          integers[outputID] = integers[entry.valueID] ?? 0
+        case 2:
+          floats[outputID] = floats[entry.valueID] ?? 0
+        default:
+          throw input.malformed("Unknown data map type \(entry.type)")
+        }
       case 134:  // Dynamic color expression
         let expression = ParsedColorExpression(
           outputID: try input.int("color expression output id"),
@@ -4722,7 +4807,8 @@ private enum NativeSwiftDocumentDecoder {
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
-      textMerges: textMerges, idLists: idLists, textLookups: textLookups,
+      textMerges: textMerges, idLists: idLists, floatLists: floatLists,
+      dynamicFloatLists: dynamicFloatLists, textLookups: textLookups,
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,

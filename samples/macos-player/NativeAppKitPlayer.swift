@@ -271,17 +271,26 @@ struct NativeMacValueRequest: Decodable {
   let integers: [String]
   let texts: [String]
   let colors: [String]
+  let dynamicFloatArrays: [String]
+  let dataFloatArrays: [String]
 
   init(
-    floats: [String] = [], integers: [String] = [], texts: [String] = [], colors: [String] = []
+    floats: [String] = [], integers: [String] = [], texts: [String] = [], colors: [String] = [],
+    dynamicFloatArrays: [String] = [], dataFloatArrays: [String] = []
   ) {
     self.floats = floats
     self.integers = integers
     self.texts = texts
     self.colors = colors
+    self.dynamicFloatArrays = dynamicFloatArrays
+    self.dataFloatArrays = dataFloatArrays
   }
 
-  private enum CodingKeys: String, CodingKey { case floats, integers, texts, colors }
+  private enum CodingKeys: String, CodingKey {
+    case floats, integers, texts, colors
+    case dynamicFloatArrays = "float_arrays_dynamic"
+    case dataFloatArrays = "float_arrays_data"
+  }
 
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -289,11 +298,15 @@ struct NativeMacValueRequest: Decodable {
       floats: try values.decodeIfPresent([String].self, forKey: .floats) ?? [],
       integers: try values.decodeIfPresent([String].self, forKey: .integers) ?? [],
       texts: try values.decodeIfPresent([String].self, forKey: .texts) ?? [],
-      colors: try values.decodeIfPresent([String].self, forKey: .colors) ?? [])
+      colors: try values.decodeIfPresent([String].self, forKey: .colors) ?? [],
+      dynamicFloatArrays: try values.decodeIfPresent([String].self, forKey: .dynamicFloatArrays)
+        ?? [],
+      dataFloatArrays: try values.decodeIfPresent([String].self, forKey: .dataFloatArrays) ?? [])
   }
 
   var isEmpty: Bool {
     floats.isEmpty && integers.isEmpty && texts.isEmpty && colors.isEmpty
+      && dynamicFloatArrays.isEmpty && dataFloatArrays.isEmpty
   }
 }
 
@@ -410,13 +423,16 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         : try reportedValues(
            session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
       records: operationRecords(
-        try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)),
+        try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+        operationCount: try NativeSwiftDocumentSession.operationSpans(in: data).count + 1),
       inputHandled: inputHandled)
   }
 
   /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
   /// are document facts, not reconstructed AppKit animation state.
-  private static func operationRecords(_ snapshot: NativeSwiftDocumentSnapshot) -> [String: Any] {
+  private static func operationRecords(
+    _ snapshot: NativeSwiftDocumentSnapshot, operationCount: Int
+  ) -> [String: Any] {
     func specRecord(_ id: Int, _ spec: NativeSwiftAnimationSpec) -> [String: Any] {
       [
         "animationId": id, "animationEnabled": id != 0,
@@ -455,6 +471,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       ]
     }
     return [
+      "ops_count": operationCount,
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
         snapshot.animationSpecs[id].map { specRecord(id, $0) }
       },
@@ -506,6 +523,14 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       "texts": report(request.texts) { resolved.texts[$0] },
       "colors": report(request.colors) { id in
         resolved.colors[id].map { NSNumber(value: $0) } ?? NSNumber(value: UInt32(0))
+      },
+      "float_arrays_dynamic": report(request.dynamicFloatArrays) { id in
+        try? session.probeFloatList(id: id, dynamic: true, timeSeconds: timeSeconds)?
+          .map(Double.init)
+      },
+      "float_arrays_data": report(request.dataFloatArrays) { id in
+        try? session.probeFloatList(id: id, dynamic: false, timeSeconds: timeSeconds)?
+          .map(Double.init)
       },
     ]
   }
