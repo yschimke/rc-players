@@ -753,6 +753,11 @@ public enum NativeSwiftCollapsible {
 
 /// Retained document state with synchronous, internally serialized access across tasks.
 public final class NativeSwiftDocumentSession: @unchecked Sendable {
+  private struct StaticSnapshotCache {
+    let measuredComponents: [Int: NativeSwiftMeasuredSize]
+    let snapshot: NativeSwiftDocumentSnapshot
+  }
+
   // Preserve the synchronous API while serializing its mutable session and snapshot cache. A
   // recursive lock is required because click() forwards to gesture().
   private let stateLock = NSRecursiveLock()
@@ -765,6 +770,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
+  // A host may request another frame for a document that has no clock-driven state. Preserve the
+  // public value snapshot while sharing its copy-on-write storage instead of re-resolving the
+  // complete parsed tree each time. Measurements remain part of the cache key because they are the
+  // deliberate second pass of the layout contract.
+  private var staticSnapshotCache: StaticSnapshotCache?
 
   private init(document: ParsedDocument) {
     self.document = document
@@ -807,6 +817,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     hostDensity = other.hostDensity
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
+    staticSnapshotCache = other.staticSnapshotCache
   }
 
   /// A session with this one's state, sharing nothing mutable.
@@ -841,6 +852,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     if density.isFinite, density > 0 { hostDensity = density }
     if fontScale.isFinite, fontScale > 0 { hostFontScale = fontScale }
+    staticSnapshotCache = nil
   }
 
   /// - Parameter measuredComponents: what the host laid each bound component out at, once it knows.
@@ -856,6 +868,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftDocumentSnapshot {
     stateLock.lock()
     defer { stateLock.unlock() }
+    if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+      let cached = staticSnapshotCache, cached.measuredComponents == measuredComponents
+    {
+      return cached.snapshot
+    }
     let values = try resolvedFloats(
       timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
     for conversion in document.textFromFloats {
@@ -872,7 +889,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
     }
     let resolvedColors = resolveColors(values: values)
-    return NativeSwiftDocumentSnapshot(
+    let snapshot = NativeSwiftDocumentSnapshot(
       width: document.width,
       height: document.height,
       density: document.density,
@@ -893,6 +910,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
       }, shaderUniformNames: document.shaderUniformNames)
+    if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
+      staticSnapshotCache = StaticSnapshotCache(
+        measuredComponents: measuredComponents, snapshot: snapshot)
+    }
+    return snapshot
   }
 
   public func click(componentID: Int, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
@@ -938,6 +960,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         events.append(.namedAction(name: name, value: value))
       }
     }
+    staticSnapshotCache = nil
     return events
   }
 
@@ -990,6 +1013,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     guard value.isFinite else { return false }
     floatOverrides[id] = value
+    staticSnapshotCache = nil
     return true
   }
 
@@ -1000,6 +1024,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return false
     }
     floatOverrides[variable.id] = value
+    staticSnapshotCache = nil
     return true
   }
 
@@ -1010,6 +1035,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let variable = namedVariable(for: name), variable.type == 0
     else { return false }
     texts[variable.id] = value
+    staticSnapshotCache = nil
     return true
   }
 
@@ -1018,6 +1044,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     guard let variable = namedVariable(for: name), variable.type == 2 else { return false }
     colors[variable.id] = value
+    staticSnapshotCache = nil
     return true
   }
 
@@ -1028,6 +1055,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     guard let variable = namedVariable(for: name), variable.type == 4 else { return false }
     integers[variable.id] = value
+    staticSnapshotCache = nil
     return true
   }
 
@@ -1041,6 +1069,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       })
     else { return false }
     texts[property.valueBits] = value
+    staticSnapshotCache = nil
     return true
   }
 
@@ -1055,7 +1084,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         UInt32(bitPattern: Int32(property.valueBits)))
     else { return false }
     floatOverrides[targetID] = value
+    staticSnapshotCache = nil
     return true
+  }
+
+  private func canReuseStaticSnapshot(
+    timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock?
+  ) -> Bool {
+    wallClock == nil
+      && !document.needsContinuousFrames
+      && !floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) }
   }
 
   private func resolve(
@@ -2299,6 +2337,10 @@ private struct ParsedAccessibility {
 private struct ParsedDrawCommand {
   let kind: Int
   let words: [UInt32]
+  /// Literal geometry never depends on a frame's expression table. Keeping the decoded floats
+  /// here lets each immutable snapshot share the array's copy-on-write storage instead of mapping
+  /// the same words again for every frame.
+  let staticValues: [Float]?
   let paint: ParsedPaint
   let path: ParsedPath?
   let image: ParsedImageDraw?
@@ -2310,6 +2352,8 @@ private struct ParsedDrawCommand {
   ) {
     self.kind = kind
     self.words = words
+    staticValues = words.contains { NativeSwiftFloatExpression.referenceID($0) != nil }
+      ? nil : words.map(Float.init(bitPattern:))
     self.paint = paint
     self.path = path
     self.image = image
@@ -2330,7 +2374,7 @@ private struct ParsedDrawCommand {
     }
     return NativeSwiftDrawCommandSnapshot(
       kind: kind,
-      values: words.map { NativeSwiftFloatExpression.resolve($0, values: values) },
+      values: staticValues ?? words.map { NativeSwiftFloatExpression.resolve($0, values: values) },
       // SRC_IN is the vector-tint path emitted by Remote Compose. Its source is the filter colour,
       // while the glyph alpha remains in the path rasterization performed by Core Graphics.
       colorARGB:
