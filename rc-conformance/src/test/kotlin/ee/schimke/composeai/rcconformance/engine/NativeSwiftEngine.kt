@@ -258,10 +258,12 @@ private class NativeSwiftSession(
     val base = step.int("base_time_millis", 0) / MILLIS_PER_SECOND
     val captures = step.ints("capture").toSet()
     for (frame in 0..step.int("total_frames", 0)) {
-      if (captures.isNotEmpty() && frame !in captures) continue
       clock = base + frame / FRAMES_PER_SECOND
       request("frame_$frame")
-      onCapture("frame_$frame")
+      // Particle systems advance once per rendered frame. Keep uncaptured frames in the native
+      // batch so retained state reaches frame N exactly as the reference does; only bind checks to
+      // the captures the gold requested.
+      if (captures.isEmpty() || frame in captures) onCapture("frame_$frame")
     }
   }
 
