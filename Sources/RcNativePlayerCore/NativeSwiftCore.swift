@@ -4181,6 +4181,30 @@ private enum NativeSwiftDocumentDecoder {
               source: [0, 0, Float(bitmap.width).bitPattern, Float(bitmap.height).bitPattern],
               destination: destination, scaleType: 0, scaleFactor: Float(1).bitPattern,
               contentDescriptionID: descriptionID)))
+      case 149:  // Draw bitmap with explicit source, destination and scale mode.
+        let imageID = try input.int("scaled bitmap image id")
+        guard let bitmap = images[imageID] else {
+          throw input.malformed("Missing bitmap \(imageID)")
+        }
+        let source = try (0..<4).map { _ in try input.word("scaled bitmap source") }
+        let destination = try (0..<4).map { _ in try input.word("scaled bitmap destination") }
+        let scaleType = try input.int("scaled bitmap scale type")
+        guard (0...7).contains(scaleType) else {
+          throw input.malformed("Invalid bitmap scale type")
+        }
+        let scaleFactor = try input.word("scaled bitmap scale factor")
+        let descriptionID = try input.int("scaled bitmap content description id")
+        // Keep the resource validation aligned with DrawBitmap even though this operation carries
+        // its source rectangle explicitly.
+        guard bitmap.width > 0, bitmap.height > 0 else {
+          throw input.malformed("Invalid bitmap dimensions")
+        }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(
+            kind: 19, words: [], paint: paint,
+            image: ParsedImageDraw(
+              imageID: imageID, source: source, destination: destination, scaleType: scaleType,
+              scaleFactor: scaleFactor, contentDescriptionID: descriptionID)))
       case 46:  // Draw circle
         let words = try (0..<3).map { _ in try input.word("draw circle value") }
         try drawingNode().commands.append(
