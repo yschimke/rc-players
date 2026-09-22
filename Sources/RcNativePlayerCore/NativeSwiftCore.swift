@@ -3583,7 +3583,7 @@ private enum NativeSwiftDocumentDecoder {
         case 40:
           let count = try input.count("macro paint word count", maximum: 1_024)
           for _ in 0..<count { _ = try input.int("macro paint word") }
-        case 38:
+        case 38, 124:
           _ = try input.int("macro clip path id")
         case 39, 42, 47, 56:
           for _ in 0..<4 { _ = try input.word("macro drawing value") }
@@ -3605,6 +3605,54 @@ private enum NativeSwiftDocumentDecoder {
             reason: "LOOM macro body operation is not yet structurally migrated")
         }
       }
+    }
+
+    func remappedMacroBody(_ definition: MacroDefinition, arguments: [Int]) throws -> Data {
+      guard definition.parameterIDs.count == arguments.count else {
+        throw input.malformed(
+          "Macro expects \(definition.parameterIDs.count) arguments, got \(arguments.count)")
+      }
+      let mappings = Dictionary(uniqueKeysWithValues: zip(definition.parameterIDs, arguments))
+      guard !mappings.isEmpty else { return definition.body }
+      var reader = WireReader(definition.body)
+      var output = [UInt8](definition.body)
+      func replaceID(at offset: Int, with value: Int) {
+        let word = UInt32(bitPattern: Int32(value))
+        output[offset] = UInt8(truncatingIfNeeded: word >> 24)
+        output[offset + 1] = UInt8(truncatingIfNeeded: word >> 16)
+        output[offset + 2] = UInt8(truncatingIfNeeded: word >> 8)
+        output[offset + 3] = UInt8(truncatingIfNeeded: word)
+      }
+      while !reader.isAtEnd {
+        let opcodeOffset = reader.offset
+        let opcode = try reader.u8("macro body opcode")
+        switch opcode {
+        case 38, 124:
+          let idOffset = reader.offset
+          let id = try reader.int("macro path id")
+          if let replacement = mappings[id] { replaceID(at: idOffset, with: replacement) }
+        case 40:
+          let count = try reader.count("macro paint word count", maximum: 1_024)
+          for _ in 0..<count { _ = try reader.int("macro paint word") }
+        case 39, 42, 47, 56:
+          for _ in 0..<4 { _ = try reader.word("macro drawing value") }
+        case 44:
+          _ = try reader.int("macro bitmap id")
+          for _ in 0..<4 { _ = try reader.word("macro bitmap destination") }
+          _ = try reader.int("macro bitmap description id")
+        case 46:
+          for _ in 0..<3 { _ = try reader.word("macro circle value") }
+        case 51, 52, 152:
+          for _ in 0..<6 { _ = try reader.word("macro drawing value") }
+        case 130, 131:
+          break
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro parameter remapping is not migrated for this operation")
+        }
+      }
+      return Data(output)
     }
 
     while true {
@@ -3640,11 +3688,6 @@ private enum NativeSwiftDocumentDecoder {
         guard let definition = macroDefinitions[macroID] else {
           throw input.malformed("Missing macro definition \(macroID)")
         }
-        guard definition.parameterIDs.isEmpty, arguments.isEmpty else {
-          throw NativeSwiftCoreError.unsupported(
-            opcode: opcode, offset: opcodeOffset,
-            reason: "LOOM macro parameters require ID remapping")
-        }
         guard try input.u8("macro call container end") == 214 else {
           throw input.malformed("Macro call blocks require structural expansion")
         }
@@ -3652,7 +3695,7 @@ private enum NativeSwiftDocumentDecoder {
           throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
         }
         suspendedInputs.append(input)
-        input = WireReader(definition.body)
+        input = WireReader(try remappedMacroBody(definition, arguments: arguments))
       case 40:  // Paint data
         let count = try input.count("paint word count", maximum: 1_024)
         var words: [Int] = []

@@ -656,6 +656,26 @@ enum NativeSwiftCoreTests {
       loomMacroSnapshot.root.commands.count == 2,
       "a container-form LOOM macro was not expanded at its call site")
 
+    // Parameters name caller-owned IDs. The macro body must therefore be rewritten while it is
+    // decoded, not when the definition is captured: its template path id 100 has no resource, but
+    // its call-site argument 200 does.
+    let parameterizedLoomMacro = Writer()
+    parameterizedLoomMacro.header(width: 100, height: 100)
+    parameterizedLoomMacro.u8(200).int(1).u8(205).int(2).int(-1)
+    parameterizedLoomMacro.u8(123).int(200).int(5)
+      .int(Writer.nanReference(10)).float(0).float(0)
+      .int(Writer.nanReference(15)).int(Writer.nanReference(16))
+    parameterizedLoomMacro.u8(246).int(31).int(1).int(100).int(0)
+    parameterizedLoomMacro.u8(124).int(100).u8(214)
+    parameterizedLoomMacro.u8(247).int(31).int(1).int(200).u8(214)
+    parameterizedLoomMacro.u8(214).u8(214)
+    let parameterizedLoomSnapshot = try NativeSwiftDocumentSession.open(
+      data: parameterizedLoomMacro.data
+    ).snapshot()
+    precondition(
+      parameterizedLoomSnapshot.root.children[0].commands.first?.kind == 18,
+      "a LOOM parameter id was not remapped to the call-site path")
+
     let drawPath = Writer()
     drawPath.header(width: 100, height: 100)
     drawPath.u8(200).int(1).u8(201).int(2).u8(205).int(3).int(-1)
