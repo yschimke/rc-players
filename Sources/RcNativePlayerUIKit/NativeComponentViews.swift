@@ -1258,6 +1258,11 @@
     }
 
     func preferredSize(in available: CGSize) -> CGSize {
+      // A registered custom view can change its fitting size independently of the decoded node
+      // (asynchronous content and internal state are both normal). Do not retain an ancestor's
+      // measurement either: its WRAP size depends on that mutable descendant and there is no
+      // document update through which it could otherwise invalidate this cache.
+      if hasMutableCustomContent { return preferredSizeUncached(in: available) }
       let key = PreferredSizeKey(width: available.width, height: available.height)
       if let cached = preferredSizeCache[key] { return cached }
       let size = preferredSizeUncached(in: available)
@@ -1375,6 +1380,10 @@
 
     private func invalidatePreferredSizes() {
       preferredSizeCache.removeAll(keepingCapacity: true)
+    }
+
+    private var hasMutableCustomContent: Bool {
+      node.kind == .custom || componentChildren.contains { $0.hasMutableCustomContent }
     }
 
     private var isStructural: Bool {

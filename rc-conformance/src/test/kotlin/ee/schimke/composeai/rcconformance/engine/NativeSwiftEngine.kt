@@ -298,6 +298,8 @@ private class NativeSwiftSession(
       "float_array:dynamic",
       "float_array:data" -> scalar(check)
       "ops:count" -> operationCount(check.at)
+      "ops:component_count" -> operationMetric(check.at, "component_count")
+      "ops:distinct_ids" -> operationMetric(check.at, "distinct_ids")
       "trace:handled" -> inputHandled(check.at)
       "records:animation_specs",
       "records:component_bindings",
@@ -341,6 +343,12 @@ private class NativeSwiftSession(
   private fun operationCount(stepId: String): Observation {
     val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
     return frames[stepId]?.get("ops_count")?.let(Observation::Value) ?: Observation.NotImplemented
+  }
+
+  /** Structural LOOM probes: materialised component count and ID uniqueness. */
+  private fun operationMetric(stepId: String, metric: String): Observation {
+    val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
+    return frames[stepId]?.get(metric)?.let(Observation::Value) ?: Observation.NotImplemented
   }
 
   private fun tree(stepId: String): Observation {

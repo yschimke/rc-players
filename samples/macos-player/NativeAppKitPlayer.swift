@@ -424,8 +424,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
            session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
       records: operationRecords(
         try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-        operationCount: try NativeSwiftDocumentSession.operationSpans(
-          in: data, toleratingRootlessData: true).count + 1),
+        operationCount: session.linkedOperationCount),
       inputHandled: inputHandled)
   }
 
@@ -452,6 +451,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       node.children.forEach(collect)
     }
     collect(snapshot.root)
+    let componentIDs = components.map(\.componentID)
     let bindings: [[String: Any]] = components.enumerated().map { index, node in
       let id = node.animationID ?? -1
       let usesDefaultSpec = node.animationID == nil
@@ -484,6 +484,8 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     collectDrawComponents(snapshot.root)
     return [
       "ops_count": operationCount,
+      "component_count": components.count,
+      "distinct_ids": Set(componentIDs).count == componentIDs.count,
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
         snapshot.animationSpecs[id].map { specRecord(id, $0) }
       },

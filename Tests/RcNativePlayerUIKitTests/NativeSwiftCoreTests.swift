@@ -655,6 +655,21 @@ enum NativeSwiftCoreTests {
         && standaloneCanvasSnapshot.root.commands[0].kind == 10,
       "a standalone canvas draw did not produce an implicit root")
 
+    // A standalone canvas is not a layout container. AndroidX can finish the wire stream directly
+    // after a transform/draw command, so those commands must create the same implicit root as a
+    // primitive draw and EOF must not require an artificial ContainerEnd.
+    let standaloneTransform = Writer()
+    standaloneTransform.header(width: 100, height: 100)
+    standaloneTransform.u8(127).float(8).float(12)
+    standaloneTransform.u8(42).float(0).float(0).float(20).float(20)
+    let standaloneTransformSnapshot = try NativeSwiftDocumentSession.open(
+      data: standaloneTransform.data
+    ).snapshot()
+    precondition(
+      standaloneTransformSnapshot.root.componentKind == "Canvas"
+        && standaloneTransformSnapshot.root.commands.map(\.kind) == [2, 10],
+      "standalone transform commands did not share the implicit canvas root")
+
     // AndroidX writes a MacroDefine as an empty byte body followed by its container contents. The
     // body must be retained and executed only by MacroCall: decoding it where it is defined makes
     // definitions draw even when never called, and loses the caller's state.

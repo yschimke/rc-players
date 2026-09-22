@@ -827,6 +827,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return spans
   }
 
+  /// The linked document's top-level operation census, with the header included. This is the
+  /// operation model conformance exposes; it intentionally differs from raw wire spans.
+  public var linkedOperationCount: Int { document.linkedOperationCount }
+
   private init(copying other: NativeSwiftDocumentSession) {
     document = other.document
     texts = other.texts
@@ -895,9 +899,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     {
       return cached.snapshot
     }
-    let values = try resolvedFloats(
+    var values = try resolvedFloats(
       timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
     advanceParticles(values: values, timeSeconds: timeSeconds)
+    // Particle advancement publishes the current particle registers into the session. Resolve one
+    // more time before turning commands, colours and text into a snapshot so this frame observes
+    // the state it just advanced rather than the previous frame's registers.
+    if !document.particleLoops.isEmpty {
+      values = try resolvedFloats(
+        timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
+    }
     for conversion in document.textFromFloats {
       let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
       let precision = min(max(conversion.digitsAfter, 0), 12)
@@ -911,6 +922,23 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for merge in document.textMerges {
       texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
     }
+    // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
+    // preceding TextFromFloat/TextLookup/TextMerge, so resolve it only after those text producers
+    // have run for this frame.
+    for lookup in document.dataMapLookups {
+      guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
+      else { continue }
+      switch entry.type {
+      case 0:
+        if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
+      case 1, 3, 4:
+        integers[lookup.outputID] = integers[entry.valueID] ?? 0
+      case 2:
+        values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
+      default:
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+      }
+    }
     let resolvedColors = resolveColors(values: values)
     let snapshot = NativeSwiftDocumentSnapshot(
       width: document.width,
@@ -920,7 +948,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
       needsContinuousFrames: document.needsContinuousFrames || !document.particleLoops.isEmpty
-        || floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) },
+        || floatAnimationRuntimes.contains {
+          floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
+        },
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: Set(document.componentValues.map(\.componentID)),
       animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
@@ -1009,7 +1039,33 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftProbeValues {
     stateLock.lock()
     defer { stateLock.unlock() }
-    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    var values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    for conversion in document.textFromFloats {
+      let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
+      texts[conversion.outputID] = String(format: "%.*f", min(max(conversion.digitsAfter, 0), 12), value)
+    }
+    for lookup in document.textLookups {
+      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
+      let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
+      texts[lookup.outputID] = texts[ids[index]] ?? ""
+    }
+    for merge in document.textMerges {
+      texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
+    }
+    for lookup in document.dataMapLookups {
+      guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
+      else { continue }
+      switch entry.type {
+      case 0:
+        if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
+      case 1, 3, 4:
+        integers[lookup.outputID] = integers[entry.valueID] ?? 0
+      case 2:
+        values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
+      default:
+        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+      }
+    }
     // Integer expressions are part of the state, not only of an action's result: the reference
     // evaluates them as it resolves, so a probe reads what an expression computed rather than the
     // empty slot it started in. Order matters, and the document's own declaration order is what it
@@ -1163,7 +1219,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     wallClock == nil
       && !document.needsContinuousFrames
       && document.particleLoops.isEmpty
-      && !floatAnimationRuntimes.values.contains { $0.isAnimating(at: Float(timeSeconds)) }
+      && !floatAnimationRuntimes.contains {
+        floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
+      }
   }
 
   private func resolve(
@@ -1495,7 +1553,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for expression in document.expressions {
       guard floatOverrides[expression.id] == nil else { continue }
       if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
-        result[expression.id] = value
+        if let animationWords = expression.animationWords,
+          let runtime = try? animationRuntime(for: expression.id, animationWords: animationWords)
+        {
+          // Geometry bindings are measured immediately below. They must see the same animated
+          // value the final resolver will draw, not the expression's raw target.
+          result[expression.id] = runtime.evaluate(target: value, at: Float(timeSeconds))
+        } else {
+          result[expression.id] = value
+        }
       }
     }
     for binding in document.componentValues {
@@ -1524,19 +1590,22 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       guard floatOverrides[expression.id] == nil else { continue }
       let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
       if let animationWords = expression.animationWords {
-        let runtime: NativeSwiftFloatAnimationRuntime
-        if let existing = floatAnimationRuntimes[expression.id] {
-          runtime = existing
-        } else {
-          runtime = try NativeSwiftFloatAnimationRuntime(animationWords: animationWords)
-          floatAnimationRuntimes[expression.id] = runtime
-        }
+        let runtime = try animationRuntime(for: expression.id, animationWords: animationWords)
         result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
       } else {
         result[expression.id] = target
       }
     }
     return result
+  }
+
+  private func animationRuntime(
+    for id: Int, animationWords: [UInt32]
+  ) throws -> NativeSwiftFloatAnimationRuntime {
+    if let existing = floatAnimationRuntimes[id] { return existing }
+    let runtime = try NativeSwiftFloatAnimationRuntime(animationWords: animationWords)
+    floatAnimationRuntimes[id] = runtime
+    return runtime
   }
 
   private func advanceParticles(values: [Int: Float], timeSeconds: TimeInterval) {
@@ -1841,6 +1910,8 @@ private struct ParsedDocument {
   let floatListUpdates: [Int: [(index: UInt32, value: UInt32)]]
   let dynamicFloatLists: [Int: ParsedDynamicFloatList]
   let textLookups: [ParsedTextLookupInt]
+  let dataMaps: [Int: [String: (type: Int, valueID: Int)]]
+  let dataMapLookups: [ParsedDataMapLookup]
   let matrixExpressions: [Int: ParsedMatrixExpression]
   let animationSpecs: [Int: NativeSwiftAnimationSpec]
   let animationSpecOrder: [Int]
@@ -1853,6 +1924,7 @@ private struct ParsedDocument {
   let needsContinuousFrames: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
+  let linkedOperationCount: Int
 }
 
 private struct ParsedDynamicFloatList {
@@ -1906,10 +1978,16 @@ private final class NativeSwiftParticleSystemRuntime {
       let previous = particles[index]
       var values = baseValues
       for (variableIndex, variableID) in variableIDs.enumerated() { values[variableID] = previous[variableIndex] }
-      let updated = loop.updateEquations.map { (try? NativeSwiftFloatExpression.evaluate($0, values: values)) ?? 0 }
+      let variables = [Float(index), 0, 0]
+      let updated = loop.updateEquations.map {
+        (try? NativeSwiftFloatExpression.evaluate($0, values: values, variables: variables)) ?? 0
+      }
       particles[index] = updated
       for (variableIndex, variableID) in variableIDs.enumerated() { values[variableID] = updated[variableIndex] }
-      if ((try? NativeSwiftFloatExpression.evaluate(loop.restartEquation, values: values)) ?? 0) > 0 {
+      if (
+        (try? NativeSwiftFloatExpression.evaluate(
+          loop.restartEquation, values: values, variables: variables)) ?? 0
+      ) > 0 {
         initialize(index: index, baseValues: baseValues)
       }
     }
@@ -1917,10 +1995,12 @@ private final class NativeSwiftParticleSystemRuntime {
 
   private func initialize(index: Int, baseValues: [Int: Float]) {
     var values = baseValues
-    values[-1] = Float(index)
+    let variables = [Float(index), 0, 0]
     var initialized = Array(repeating: Float(0), count: variableIDs.count)
     for (variableIndex, equation) in initializationEquations.enumerated() {
-      let value = (try? NativeSwiftFloatExpression.evaluate(equation, values: values)) ?? 0
+      let value =
+        (try? NativeSwiftFloatExpression.evaluate(
+          equation, values: values, variables: variables)) ?? 0
       initialized[variableIndex] = value
       values[variableIDs[variableIndex]] = value
     }
@@ -2042,6 +2122,7 @@ private enum NativeSwiftFloatAnimationMetadata {
   static let initialValueFlag: UInt32 = 1 << 9
   static let directionalSnapShift = 10
   static let directionalSnapMask: UInt32 = 0x3
+  static let propagationFlag: UInt32 = 1 << 12
   static let parameterCountShift = 16
 }
 
@@ -2471,6 +2552,12 @@ private struct ParsedTextLookupInt {
   let outputID: Int
   let listID: Int
   let indexID: Int
+}
+
+private struct ParsedDataMapLookup {
+  let outputID: Int
+  let mapID: Int
+  let keyTextID: Int
 }
 
 private struct ParsedNamedAction {
@@ -3040,7 +3127,9 @@ private enum NativeSwiftFloatExpression {
     return Int(word & referenceMask)
   }
 
-  static func evaluate(_ words: [UInt32], values: [Int: Float]) throws -> Float {
+  static func evaluate(
+    _ words: [UInt32], values: [Int: Float], variables: [Float] = []
+  ) throws -> Float {
     var stack: [Float] = []
     stack.reserveCapacity(min(words.count, 128))
     func pop(_ count: Int) throws -> [Float] {
@@ -3062,6 +3151,9 @@ private enum NativeSwiftFloatExpression {
       }
       let operation = payload - operatorOffset
       switch operation {
+      case 70...72:
+        let index = operation - 70
+        stack.append(variables.indices.contains(index) ? variables[index] : 0)
       case 1...8:
         let value = try pop(2)
         switch operation {
@@ -3549,6 +3641,7 @@ private enum NativeSwiftDocumentDecoder {
     var floatListUpdates: [Int: [(index: UInt32, value: UInt32)]] = [:]
     var dynamicFloatLists: [Int: ParsedDynamicFloatList] = [:]
     var dataMaps: [Int: [String: (type: Int, valueID: Int)]] = [:]
+    var dataMapLookups: [ParsedDataMapLookup] = []
     var textLookups: [ParsedTextLookupInt] = []
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
     var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
@@ -3564,6 +3657,8 @@ private enum NativeSwiftDocumentDecoder {
     var root: ParsedNode?
     var implicitCanvasRoot: ParsedNode?
     var operationCount = 0
+    var linkedTopLevelOperationCount = 0
+    var syntheticRootWasAdded = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
     var paint = ParsedPaint()
@@ -3582,6 +3677,12 @@ private enum NativeSwiftDocumentDecoder {
     var referencedOperations: [Int: Data] = [:]
     var suspendedInputs: [MacroExpansionFrame] = []
     var macroBlocks: [Int: Data] = [:]
+    // Tier-two LOOM IDs (0x4000...0x4fff) are local declarations.  A macro call must
+    // materialise a fresh ID for each one, or two otherwise independent calls try to add the
+    // same ParsedNode to `nodes`.  Keep generated IDs outside the local tier: they remain valid
+    // 22-bit NaN-reference payloads and cannot be mistaken for a template-local declaration on a
+    // later nested expansion.
+    var nextMacroGeneratedID = 0x5000
 
     func begin(_ node: ParsedNode) throws {
       guard nodes.count < maximumNodes else {
@@ -3601,6 +3702,19 @@ private enum NativeSwiftDocumentDecoder {
         implicitCanvasRoot.children.append(node)
       } else if root == nil {
         root = node
+      } else if toleratingRootlessData, let existingRoot = root {
+        // Conformance-only data/LOOM documents may materialise several top-level layout nodes
+        // without a RootLayoutComponent. Preserve their tree under a synthetic root rather than
+        // treating that valid structural probe as a malformed render document.
+        let syntheticRoot = ParsedNode(kind: .root, componentID: 0)
+        syntheticRoot.componentKind = "RootLayoutComponent"
+        existingRoot.parent = syntheticRoot
+        syntheticRoot.children.append(existingRoot)
+        node.parent = syntheticRoot
+        syntheticRoot.children.append(node)
+        root = syntheticRoot
+        nodes[syntheticRoot.componentID] = syntheticRoot
+        syntheticRootWasAdded = true
       } else {
         throw input.malformed("Document has more than one root component")
       }
@@ -3670,6 +3784,10 @@ private enum NativeSwiftDocumentDecoder {
           for _ in 0..<3 { _ = try input.word("macro circle value") }
         case 51, 52, 152:
           for _ in 0..<6 { _ = try input.word("macro drawing value") }
+        case 202:
+          // BoxLayout declares both its component and animation IDs; positioning is plain data.
+          for _ in 0..<4 { _ = try input.int("macro box value") }
+          nesting += 1
         case 130, 131:
           break
         case 173:
@@ -3699,10 +3817,10 @@ private enum NativeSwiftDocumentDecoder {
       }
     }
 
-    func remappedMacroBody(_ body: Data, mappings: [Int: Int]) throws -> Data {
-      guard !mappings.isEmpty else { return body }
+    func remappedMacroBody(_ body: Data, mappings initialMappings: [Int: Int]) throws -> Data {
       var reader = WireReader(body)
       var output = [UInt8](body)
+      var mappings = initialMappings
       func replaceWord(at offset: Int, with word: UInt32) {
         output[offset] = UInt8(truncatingIfNeeded: word >> 24)
         output[offset + 1] = UInt8(truncatingIfNeeded: word >> 16)
@@ -3719,6 +3837,23 @@ private enum NativeSwiftDocumentDecoder {
             at: offset,
             with: (word & ~UInt32(0x003f_ffff)) | UInt32(truncatingIfNeeded: replacement))
         }
+      }
+      func declaredID(at offset: Int, name: String) throws {
+        let id = try reader.int(name)
+        if let replacement = mappings[id] {
+          replaceID(at: offset, with: replacement)
+          return
+        }
+        // `declareId` in the canonical LOOM reader preserves system globals, then allocates a
+        // distinct ID for every declaration read while expanding a macro (including regular IDs).
+        guard id > 41, id != -1 else { return }
+        guard nextMacroGeneratedID <= 0x003f_ffff else {
+          throw input.malformed("LOOM macro generated-id range is exhausted")
+        }
+        let replacement = nextMacroGeneratedID
+        nextMacroGeneratedID += 1
+        mappings[id] = replacement
+        replaceID(at: offset, with: replacement)
       }
       while !reader.isAtEnd {
         let opcodeOffset = reader.offset
@@ -3748,6 +3883,8 @@ private enum NativeSwiftDocumentDecoder {
         case 40:
           let count = try reader.count("macro paint word count", maximum: 1_024)
           for _ in 0..<count { _ = try reader.int("macro paint word") }
+        case 248:
+          _ = try reader.int("macro argument index")
         case 39, 42, 47, 56:
           for _ in 0..<4 { let offset = reader.offset; try remapFloatReference(at: offset) }
         case 44:
@@ -3758,7 +3895,18 @@ private enum NativeSwiftDocumentDecoder {
           for _ in 0..<3 { let offset = reader.offset; try remapFloatReference(at: offset) }
         case 51, 52, 152:
           for _ in 0..<6 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case 202:
+          let componentOffset = reader.offset
+          try declaredID(at: componentOffset, name: "macro box component id")
+          let animationOffset = reader.offset
+          try declaredID(at: animationOffset, name: "macro box animation id")
+          _ = try reader.int("macro box horizontal positioning")
+          _ = try reader.int("macro box vertical positioning")
         case 130, 131:
+          break
+        case 214:
+          // Container ends carry no IDs. Component containers inside a macro body retain their
+          // own terminator after capture, so the expanded stream must preserve it verbatim.
           break
         default:
           throw NativeSwiftCoreError.unsupported(
@@ -3791,6 +3939,20 @@ private enum NativeSwiftDocumentDecoder {
       }
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
+      // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
+      // own their children; macro definitions and calls expand into those children; neither is an
+      // independent top-level operation. Template bytes execute through `suspendedInputs` and are
+      // likewise excluded from the source document's top-level census.
+      if stack.isEmpty, modifierContainers.isEmpty, suspendedInputs.isEmpty {
+        switch opcode {
+        case 200:
+          linkedTopLevelOperationCount += 1
+        case 201...205, 207, 208, 217, 233, 240, 246, 247, 249, 214:
+          break
+        default:
+          linkedTopLevelOperationCount += 1
+        }
+      }
       switch opcode {
       case 2:  // Legacy ComponentStart. Retain its structure; modern documents use 200...205.
         let kind = try input.int("legacy component kind")
@@ -4003,10 +4165,10 @@ private enum NativeSwiftDocumentDecoder {
         node.isClickable = true
         modifierContainers.append(ParsedModifierContainer(node: node, gesture: gesture))
       case 130:  // Matrix save
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 0, words: [], paint: paint))
       case 131:  // Matrix restore
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 1, words: [], paint: paint))
       case 173:  // Canvas operations container
         modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
@@ -4245,17 +4407,8 @@ private enum NativeSwiftDocumentDecoder {
         let outputID = try input.int("data map lookup output id")
         let mapID = try input.int("data map lookup map id")
         let keyTextID = try input.int("data map lookup key text id")
-        guard let key = texts[keyTextID], let entry = dataMaps[mapID]?[key] else { break }
-        switch entry.type {
-        case 0:
-          if let value = texts[entry.valueID] { texts[outputID] = value }
-        case 1, 3, 4:
-          integers[outputID] = integers[entry.valueID] ?? 0
-        case 2:
-          floats[outputID] = floats[entry.valueID] ?? 0
-        default:
-          throw input.malformed("Unknown data map type \(entry.type)")
-        }
+        dataMapLookups.append(
+          ParsedDataMapLookup(outputID: outputID, mapID: mapID, keyTextID: keyTextID))
       case 134:  // Dynamic color expression
         let expression = ParsedColorExpression(
           outputID: try input.int("color expression output id"),
@@ -4316,7 +4469,7 @@ private enum NativeSwiftDocumentDecoder {
       case 124:
         let id = try input.int("path id")
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 18, words: [], paint: paint, path: path))
       case 137:  // Named variable
         let id = try input.int("named variable id")
@@ -4457,6 +4610,9 @@ private enum NativeSwiftDocumentDecoder {
         guard (0...2000).contains(variableCount) else {
           throw input.malformed("Too many particle variables")
         }
+        guard Int64(particleCount) * Int64(variableCount) <= 20_000 else {
+          throw input.malformed("Particle definition exceeds 20000 units of runtime state")
+        }
         var variableIDs: [Int] = []
         var initializationEquations: [[UInt32]] = []
         variableIDs.reserveCapacity(variableCount)
@@ -4501,6 +4657,13 @@ private enum NativeSwiftDocumentDecoder {
           }
           updateEquations.append(
             try (0..<length).map { _ in try input.word("particle loop variable word") })
+        }
+        if let definition = particleDefinitions.first(where: { $0.id == particleID }) {
+          let work = Int64(definition.particleCount)
+            * Int64(1 + updateEquations.reduce(0) { $0 + $1.count })
+          guard work <= 20_000 else {
+            throw input.malformed("Particle loop exceeds 20000 units of work per frame")
+          }
         }
         particleLoops.append(
           ParsedParticleLoop(
@@ -4637,19 +4800,19 @@ private enum NativeSwiftDocumentDecoder {
         try begin(node)
       case 129:  // Matrix rotate
         let words = try (0..<3).map { _ in try input.word("matrix rotate value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 4, words: words, paint: paint))
       case 126:  // Matrix scale
         let words = try (0..<4).map { _ in try input.word("matrix scale value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 3, words: words, paint: paint))
       case 127:  // Matrix translate
         let words = try (0..<2).map { _ in try input.word("matrix translate value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 2, words: words, paint: paint))
       case 128:  // Matrix skew
         let words = try (0..<2).map { _ in try input.word("matrix skew value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 5, words: words, paint: paint))
       case 208:  // Text layout
         let node = ParsedNode(kind: .text, componentID: try input.int("text component id"))
@@ -4827,7 +4990,7 @@ private enum NativeSwiftDocumentDecoder {
         accessibilityRecords.append(semantics)
       case 152:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
-        try currentNode(stack, input: input).commands.append(
+        try drawingNode().commands.append(
           ParsedDrawCommand(kind: 15, words: words, paint: paint))
       default:
         throw NativeSwiftCoreError.unsupported(
@@ -4892,7 +5055,7 @@ private enum NativeSwiftDocumentDecoder {
       colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
       textMerges: textMerges, idLists: idLists, floatLists: floatLists,
       floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,
-      textLookups: textLookups,
+      textLookups: textLookups, dataMaps: dataMaps, dataMapLookups: dataMapLookups,
       matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
@@ -4900,7 +5063,8 @@ private enum NativeSwiftDocumentDecoder {
       shaderUniformNames: shaderUniformNames,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
-      needsWallClockRefresh: needsWallClockRefresh)
+      needsWallClockRefresh: needsWallClockRefresh,
+      linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0))
   }
 
   private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)
