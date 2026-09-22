@@ -3525,8 +3525,13 @@ private enum NativeSwiftDocumentDecoder {
       let parameterIDs: [Int]
       let body: Data
     }
+    struct MacroExpansionFrame {
+      let input: WireReader
+      let blocks: [Int: Data]
+    }
     var macroDefinitions: [Int: MacroDefinition] = [:]
-    var suspendedInputs: [WireReader] = []
+    var suspendedInputs: [MacroExpansionFrame] = []
+    var macroBlocks: [Int: Data] = [:]
 
     func begin(_ node: ParsedNode) throws {
       guard nodes.count < maximumNodes else {
@@ -3583,7 +3588,7 @@ private enum NativeSwiftDocumentDecoder {
         case 40:
           let count = try input.count("macro paint word count", maximum: 1_024)
           for _ in 0..<count { _ = try input.int("macro paint word") }
-        case 38, 124:
+        case 38, 124, 248:
           _ = try input.int("macro clip path id")
         case 39, 42, 47, 56:
           for _ in 0..<4 { _ = try input.word("macro drawing value") }
@@ -3604,6 +3609,23 @@ private enum NativeSwiftDocumentDecoder {
             opcode: opcode, offset: opcodeOffset,
             reason: "LOOM macro body operation is not yet structurally migrated")
         }
+      }
+    }
+
+    func captureMacroCallBlocks() throws -> [Int: Data] {
+      var blocks: [Int: Data] = [:]
+      while true {
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("macro call operation")
+        if opcode == 214 { return blocks }
+        guard opcode == 249 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro calls only support MacroBlock children")
+        }
+        let index = try input.int("macro block index")
+        guard blocks[index] == nil else { throw input.malformed("Duplicate macro block \(index)") }
+        blocks[index] = try captureMacroBody()
       }
     }
 
@@ -3658,7 +3680,8 @@ private enum NativeSwiftDocumentDecoder {
     while true {
       if input.isAtEnd {
         guard let suspended = suspendedInputs.popLast() else { break }
-        input = suspended
+        input = suspended.input
+        macroBlocks = suspended.blocks
         continue
       }
       operationCount += 1
@@ -3668,6 +3691,16 @@ private enum NativeSwiftDocumentDecoder {
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
       switch opcode {
+      case 248:  // Insert the block supplied to the enclosing MacroCall.
+        let index = try input.int("macro argument index")
+        guard let block = macroBlocks[index] else {
+          throw input.malformed("Missing macro block \(index)")
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(block)
       case 246:  // Macro definition. Definitions are structural and do not execute their body.
         let macroID = try input.int("macro id")
         let parameterCount = try input.count("macro parameter count", maximum: maximumProperties)
@@ -3688,14 +3721,13 @@ private enum NativeSwiftDocumentDecoder {
         guard let definition = macroDefinitions[macroID] else {
           throw input.malformed("Missing macro definition \(macroID)")
         }
-        guard try input.u8("macro call container end") == 214 else {
-          throw input.malformed("Macro call blocks require structural expansion")
-        }
+        let callBlocks = try captureMacroCallBlocks()
         guard suspendedInputs.count < maximumNestingDepth else {
           throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
         }
-        suspendedInputs.append(input)
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
         input = WireReader(try remappedMacroBody(definition, arguments: arguments))
+        macroBlocks = callBlocks
       case 40:  // Paint data
         let count = try input.count("paint word count", maximum: 1_024)
         var words: [Int] = []

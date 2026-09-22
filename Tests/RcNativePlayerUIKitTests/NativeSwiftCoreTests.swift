@@ -676,6 +676,22 @@ enum NativeSwiftCoreTests {
       parameterizedLoomSnapshot.root.children[0].commands.first?.kind == 18,
       "a LOOM parameter id was not remapped to the call-site path")
 
+    // A MacroArgument is an insertion point for a named MacroBlock under the call. The block is
+    // captured structurally and decoded in the template's place, rather than being drawn as part
+    // of the call container itself.
+    let blockLoomMacro = Writer()
+    blockLoomMacro.header(width: 100, height: 100)
+    blockLoomMacro.u8(246).int(32).int(0).int(0)
+    blockLoomMacro.u8(248).int(0).u8(214)
+    blockLoomMacro.u8(247).int(32).int(0)
+    blockLoomMacro.u8(249).int(0)
+    blockLoomMacro.u8(42).float(10).float(10).float(40).float(40).u8(214)
+    blockLoomMacro.u8(214)
+    let blockLoomSnapshot = try NativeSwiftDocumentSession.open(data: blockLoomMacro.data).snapshot()
+    precondition(
+      blockLoomSnapshot.root.commands.count == 1,
+      "a LOOM macro argument did not expand its supplied block")
+
     let drawPath = Writer()
     drawPath.header(width: 100, height: 100)
     drawPath.u8(200).int(1).u8(201).int(2).u8(205).int(3).int(-1)
