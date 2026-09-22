@@ -999,6 +999,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
     let values = try resolvedFloats(timeSeconds: timeSeconds)
+    // A sequence can mutate state before a later expression fails. Invalidate before executing the
+    // first action so an error cannot leave a stale static snapshot cached over that mutation.
+    staticSnapshotCache = nil
     var events: [NativeSwiftEvent] = []
     for action in actions {
       switch action {
@@ -1026,7 +1029,6 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         events.append(.namedAction(name: name, value: value))
       }
     }
-    staticSnapshotCache = nil
     return events
   }
 
