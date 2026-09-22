@@ -3517,11 +3517,11 @@ private enum NativeSwiftDocumentDecoder {
         default: throw input.malformed("Unknown header property type \(type)")
         }
       }
-      guard let modernWidth, let modernHeight else {
-        throw input.malformed("Modern header has no document dimensions")
-      }
-      width = modernWidth
-      height = modernHeight
+      // LOOM templates deliberately carry no intrinsic canvas: their caller supplies the capture
+      // viewport after macro expansion. Keep a positive neutral size for the shared snapshot; the
+      // host still uses the requested viewport when it paints the expanded document.
+      width = modernWidth ?? 1
+      height = modernHeight ?? 1
     }
     guard major >= 0, width > 0, height > 0, density.isFinite, density > 0,
       (0...2).contains(densityBehavior)
