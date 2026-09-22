@@ -2618,8 +2618,45 @@ private final class NativeMacCanvasView: NSView {
       width: CGFloat(draw.destinationRight - draw.destinationLeft),
       height: CGFloat(draw.destinationBottom - draw.destinationTop))
     image.draw(
-      in: destination, from: source, operation: .sourceOver,
+      in: scaledImageDestination(
+        source: source, destination: destination, scaleType: draw.scaleType,
+        scaleFactor: CGFloat(draw.scaleFactor)), from: source, operation: .sourceOver,
       fraction: CGFloat(min(max(command.alpha, 0), 1)), respectFlipped: true, hints: nil)
+  }
+
+  private func scaledImageDestination(
+    source: NSRect, destination: NSRect, scaleType: Int, scaleFactor: CGFloat
+  ) -> NSRect {
+    guard source.width > 0, source.height > 0, destination.width >= 0, destination.height >= 0,
+      scaleFactor.isFinite
+    else { return .zero }
+    var width = destination.width
+    var height = destination.height
+    switch scaleType {
+    case 0: width = source.width; height = source.height
+    case 1:
+      if !(destination.height > source.height && destination.width > source.width) {
+        if source.width * destination.height > destination.width * source.height {
+          height = destination.width * source.height / source.width
+        } else { width = destination.height * source.width / source.height }
+      } else { width = source.width; height = source.height }
+    case 2: height = destination.width * source.height / source.width
+    case 3: width = destination.height * source.width / source.height
+    case 4:
+      if source.width * destination.height > destination.width * source.height {
+        height = destination.width * source.height / source.width
+      } else { width = destination.height * source.width / source.height }
+    case 5:
+      if source.width * destination.height < destination.width * source.height {
+        height = destination.width * source.height / source.width
+      } else { width = destination.height * source.width / source.height }
+    case 6: break
+    case 7: width = source.width * scaleFactor; height = source.height * scaleFactor
+    default: return .zero
+    }
+    return NSRect(
+      x: destination.minX + (destination.width - width) / 2,
+      y: destination.minY + (destination.height - height) / 2, width: width, height: height)
   }
 
   private func path(_ commands: [NativeMacPathCommand]) -> CGPath {
