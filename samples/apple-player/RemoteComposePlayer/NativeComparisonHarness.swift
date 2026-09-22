@@ -15,6 +15,7 @@ private enum NativeComparisonError: LocalizedError {
   case invalidIdentifier(String)
   case invalidSize(String)
   case renderTimeout(String)
+  case playerError(String, String)
   case pngEncoding(String)
 
   var errorDescription: String? {
@@ -26,6 +27,7 @@ private enum NativeComparisonError: LocalizedError {
     // does not implement — rather than a slow render. Calling it a timeout sent one investigation
     // after lane performance for five CI cycles when the finding was an unimplemented-opcode backlog.
     case .renderTimeout(let id): "Native UIKit player drew nothing for \(id) within the render deadline"
+    case .playerError(let id, let message): "Native UIKit player refused \(id): \(message)"
     case .pngEncoding(let id): "UIKit could not encode \(id) as PNG"
     }
   }
@@ -180,6 +182,9 @@ private enum NativeComparisonHarness {
       try await Task.sleep(nanoseconds: 10_000_000)
     }
     guard findRenderedDocument(in: player) != nil else {
+      if let message = findPlayerError(in: player), !message.isEmpty {
+        throw NativeComparisonError.playerError(entry.id, message)
+      }
       throw NativeComparisonError.renderTimeout(entry.id)
     }
 
@@ -198,6 +203,16 @@ private enum NativeComparisonHarness {
     if view.accessibilityIdentifier == "rc-native-document" { return view }
     for child in view.subviews {
       if let result = findRenderedDocument(in: child) { return result }
+    }
+    return nil
+  }
+
+  private static func findPlayerError(in view: UIView) -> String? {
+    if view.accessibilityIdentifier == "rc-native-error", let label = view as? UILabel {
+      return label.text
+    }
+    for child in view.subviews {
+      if let result = findPlayerError(in: child) { return result }
     }
     return nil
   }

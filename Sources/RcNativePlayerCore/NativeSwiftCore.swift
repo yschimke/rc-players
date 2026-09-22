@@ -2088,7 +2088,7 @@ private final class NativeSwiftFloatAnimationRuntime {
       .malformed(offset: offset, reason: "invalid float animation: \(reason)")
     }
 
-    guard words.count >= 2 else { throw malformed("missing animation metadata") }
+    guard !words.isEmpty else { throw malformed("missing animation duration") }
     let first = Float(bitPattern: words[0])
     let isSpring =
       words.count >= NativeSwiftFloatAnimationMetadata.springDescriptorWordCount
@@ -2120,7 +2120,12 @@ private final class NativeSwiftFloatAnimationRuntime {
     }
 
     guard first.isFinite, first > 0 else { throw malformed("duration must be finite and positive") }
-    let metadata = words[1]
+    // AndroidX accepts a one-word description as the compact default animation: duration followed
+    // by implicit CUBIC_STANDARD metadata. Catalog exports use this form for otherwise-static
+    // values that participate in a component transition. Requiring the optional metadata word
+    // rejected those documents before UIKit could install a view.
+    let hasExplicitMetadata = words.count > 1
+    let metadata = hasExplicitMetadata ? words[1] : NativeSwiftFloatEasingType.cubicStandard.rawValue
     let easingTypeValue = metadata & NativeSwiftFloatAnimationMetadata.easingTypeMask
     guard let easingType = NativeSwiftFloatEasingType(rawValue: easingTypeValue) else {
       throw NativeSwiftCoreError.unsupported(
@@ -2137,12 +2142,13 @@ private final class NativeSwiftFloatAnimationRuntime {
       throw malformed("unknown directional snap mode \(directionalValue)")
     }
     let parameterCount = Int(metadata >> NativeSwiftFloatAnimationMetadata.parameterCountShift)
-    let tail = 2 + parameterCount
+    let parameterStart = hasExplicitMetadata ? 2 : 1
+    let tail = parameterStart + parameterCount
     let expectedCount = tail + (hasInitial ? 1 : 0) + (hasWrap ? 1 : 0)
     guard words.count == expectedCount else {
       throw malformed("metadata requires \(expectedCount) words, found \(words.count)")
     }
-    let parameters = words[2..<tail].map { Float(bitPattern: $0) }
+    let parameters = words[parameterStart..<tail].map { Float(bitPattern: $0) }
     guard parameters.allSatisfy(\.isFinite) else { throw malformed("non-finite curve parameter") }
     let parsedCurve: Curve
     switch easingType {
