@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "colortheme_theme_light_dark_switch",
+  "description": "Validates THEME (opcode 63) switching active theme token state.",
+  "category": "colortheme",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsPwAAAAGKAAAAHv8ixV4=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "Theme",
+        "ColorConstant"
+      ]
+    },
+    {
+      "id": "color_val",
+      "at": "initial",
+      "probe": "color",
+      "target": 30,
+      "expect": 4280468830
+    }
+  ]
+}

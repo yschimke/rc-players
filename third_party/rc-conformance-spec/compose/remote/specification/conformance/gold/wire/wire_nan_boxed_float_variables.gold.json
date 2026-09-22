@@ -1,0 +1,36 @@
+{
+  "format_version": 2,
+  "name": "wire_nan_boxed_float_variables",
+  "description": "Validates NaN-boxed variable ID references across float and integer slots.",
+  "category": "wire",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAJ5CmwAAjAAAAJ8AAAAq",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "flt_val",
+      "at": "initial",
+      "probe": "float",
+      "target": 158,
+      "expect": 77.5
+    },
+    {
+      "id": "int_val",
+      "at": "initial",
+      "probe": "int",
+      "target": 159,
+      "expect": 42
+    }
+  ]
+}

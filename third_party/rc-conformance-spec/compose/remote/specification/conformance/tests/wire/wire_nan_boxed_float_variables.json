@@ -1,0 +1,12 @@
+{
+  "name": "wire_nan_boxed_float_variables",
+  "description": "Validates NaN-boxed variable ID references across float and integer slots.",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "Header"
+  ]
+}

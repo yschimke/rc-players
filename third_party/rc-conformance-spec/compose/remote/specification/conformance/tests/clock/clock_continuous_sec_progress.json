@@ -1,0 +1,12 @@
+{
+  "name": "clock_continuous_sec_progress",
+  "description": "Validates TimeAttribute (172) minutes extraction (TIME_IN_MIN = 7).",
+  "category": "clock",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TimeAttribute"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "semantics_role_checkbox_checked_state",
+  "description": "Validates AccessibilitySemantics with CHECKBOX role (2) and state description.",
+  "category": "semantics",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "RootContentDescription",
+    "RootContentBehavior",
+    "AccessibilitySemantics"
+  ]
+}

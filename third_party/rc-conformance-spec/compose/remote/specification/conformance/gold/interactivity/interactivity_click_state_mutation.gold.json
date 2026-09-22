@@ -86,7 +86,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAAAyAAGAAQAAADIiQAAACoAAAABAAAAB2NvdW50ZXJQAAAAKgAAAADI\/\/\/\/\/lEAAAArAAAAA\/+AACo\/gAAA\/7EAAcr\/\/\/\/9\/\/\/\/\/wAAAAIAAAACEAAAAAF\/wAAAQwAAAAF\/wAAAO+MAAAAqAAAAK9bW1g==",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAAAyAAGAAQAAADIiQAAACoAAAABAAAAB2NvdW50ZXJQAAAAKgAAAADI/////lEAAAArAAAAA/+AACo/gAAA/7EAAcr////9/////wAAAAIAAAACEAAAAAF/wAAAQwAAAAF/wAAAO+MAAAAqAAAAK9bW1g==",
   "expected_final_variables": {
     "counter": 3
   },

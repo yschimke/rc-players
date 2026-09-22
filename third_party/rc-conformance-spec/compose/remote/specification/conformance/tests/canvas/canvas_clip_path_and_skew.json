@@ -1,0 +1,14 @@
+{
+  "name": "canvas_clip_path_and_skew",
+  "description": "Validates CLIP_PATH (opcode 38) combined with MATRIX_SKEW (opcode 128) and DRAW_RECT.",
+  "category": "canvas",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ClipPath",
+    "MatrixSkew",
+    "DrawRect"
+  ]
+}

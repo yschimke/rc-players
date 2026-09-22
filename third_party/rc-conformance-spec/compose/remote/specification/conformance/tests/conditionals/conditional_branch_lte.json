@@ -1,0 +1,12 @@
+{
+  "name": "conditional_branch_lte",
+  "description": "Validates CONDITIONAL_OPERATIONS TYPE_LTE (3) inclusive boundary varA <= varB.",
+  "category": "conditionals",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ConditionalOperations"
+  ]
+}

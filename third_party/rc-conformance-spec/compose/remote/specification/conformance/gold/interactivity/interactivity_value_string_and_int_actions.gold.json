@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "interactivity_value_string_and_int_actions",
+  "description": "Validates VALUE_STRING_CHANGE_ACTION (213), VALUE_INTEGER_EXPRESSION_CHANGE_ACTION (218), and RUN_ACTION (236).",
+  "category": "interactivity",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAD4AAAALSW5pdGlhbFRleHTs1QAAAD4AAAA/2gAAAAAAAABAAAAAAAAAAEHW",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "RunActionOperation",
+        "ValueStringChangeAction",
+        "ValueIntegerExpressionChangeAction"
+      ]
+    },
+    {
+      "id": "txt_check",
+      "at": "initial",
+      "probe": "text",
+      "target": 62,
+      "expect": "InitialText"
+    }
+  ]
+}

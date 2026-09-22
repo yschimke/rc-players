@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "path_cubic_bezier_curves",
+  "description": "Validates PathData (123) with CUBIC_TO smooth spline control points.",
+  "category": "pathoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsewAAAAsAAAAKAAAAAAAAAAAAAAAAAAAABEHIAABCoAAAQpYAAEKgAABCyAAAAAAAAFAAAABlQIAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "PathData"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 101,
+      "expect": 4,
+      "tolerance": 0.01
+    }
+  ]
+}

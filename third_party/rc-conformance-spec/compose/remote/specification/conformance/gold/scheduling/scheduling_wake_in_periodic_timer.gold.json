@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "scheduling_wake_in_periodic_timer",
+  "description": "Validates WAKE_IN (WakeIn, opcode 191) periodic timer scheduling.",
+  "category": "scheduling",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAHFAQAAApEBAAAAAAAAAKgAAAAAAAAAAQaAAAEGgAAClKkAAAABAAAAAQSAAAEEgAADWpSpAoAAAQKAAAEFwAABBcAAA1ta/PwAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ImpulseOperation",
+        "ImpulseProcess",
+        "WakeIn"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 113,
+      "expect": 3
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "path_tween_morph_interpolation",
+  "description": "Validates PATH_TWEEN (PathTween, opcode 158) interpolating two PathData geometries.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "PathTween"
+  ]
+}

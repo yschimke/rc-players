@@ -1,0 +1,12 @@
+{
+  "name": "colortheme_color_attribute_alpha_rgb",
+  "description": "Validates ATTRIBUTE_COLOR (opcode 180) extracting Red channel (type 1) from a color constant.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ColorAttribute"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "shaders_sweep_gradient_angles",
+  "description": "Validates sweep gradient shader angular color interpolation.",
+  "category": "shaders",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ShaderData",
+    "DrawRect"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "clock_time_attribute_from_arg",
+  "description": "Validates TimeAttribute (172) with argument timestamp parameter (TIME_FROM_ARG_SEC = 3).",
+  "category": "clock",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TimeAttribute"
+  ]
+}

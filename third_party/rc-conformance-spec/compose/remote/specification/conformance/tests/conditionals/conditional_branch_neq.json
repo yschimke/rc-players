@@ -1,0 +1,12 @@
+{
+  "name": "conditional_branch_neq",
+  "description": "Validates CONDITIONAL_OPERATIONS TYPE_NEQ (1) executing body when varA != varB.",
+  "category": "conditionals",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ConditionalOperations"
+  ]
+}

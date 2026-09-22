@@ -1,0 +1,12 @@
+{
+  "name": "text_from_float_formatting_modes",
+  "description": "Validates TEXT_FROM_FLOAT (opcode 135) formatting a float number with precision flags.",
+  "category": "textoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TextFromFloat"
+  ]
+}

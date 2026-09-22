@@ -1,0 +1,12 @@
+{
+  "name": "path_conic_weighted_arcs",
+  "description": "Validates PathData (123) with CONIC_TO rational quadratic weighted arcs.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "PathData"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "scheduling_impulse_process_body",
+  "description": "Validates IMPULSE_START (164) and IMPULSE_PROCESS (165) repeating body execution.",
+  "category": "scheduling",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAG5AAAAApEAAAAAAAAAAKgAAAAAAAAAAQaAAAEGgAAClKkAAAABAAAAAQSAAAEEgAADWpSpAoAAAQKAAAEFwAABBcAAA1ta/PwAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ImpulseOperation",
+        "ImpulseProcess",
+        "WakeIn"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 110,
+      "expect": 2
+    }
+  ]
+}

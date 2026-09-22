@@ -1,0 +1,15 @@
+{
+  "name": "interactivity_touch_down_up_cancel",
+  "description": "Validates MODIFIER_TOUCH_DOWN (219), MODIFIER_TOUCH_UP (220), MODIFIER_TOUCH_CANCEL (225), and VALUE_FLOAT_CHANGE_ACTION (222).",
+  "category": "interactivity",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TouchDownModifier",
+    "TouchUpModifier",
+    "TouchCancelModifier",
+    "ValueFloatChangeAction"
+  ]
+}

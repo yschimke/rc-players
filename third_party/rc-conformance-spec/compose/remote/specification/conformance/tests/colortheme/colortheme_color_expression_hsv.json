@@ -1,0 +1,12 @@
+{
+  "name": "colortheme_color_expression_hsv",
+  "description": "Validates COLOR_EXPRESSIONS (opcode 134) HSV color synthesis mode.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ColorExpression"
+  ]
+}

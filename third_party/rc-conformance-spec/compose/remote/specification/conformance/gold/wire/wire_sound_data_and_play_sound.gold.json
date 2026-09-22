@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "wire_sound_data_and_play_sound",
+  "description": "Validates DATA_SOUND (169), PLAY_SOUND (141), and SOUND_EXPRESSION (206).",
+  "category": "wire",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsqQAAAAEAAAAEAQIDBI0AAAABzgAAAAE/gAAAP4AAAD+AAAAAAAACQ9wAAD8AAABQAAAAmkPcAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "SoundData",
+        "PlaySound",
+        "SoundExpression"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 154,
+      "expect": 440
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "name": "loom_macro_block_slot_injection",
+  "description": "Validates MACRO_ARGUMENT (248) and MACRO_BLOCK (249) slot container structure.",
+  "category": "loom",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAElDEAAA+QAAAAEqQSAAAEEgAABCtAAAQrQAANY=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 73,
+      "expect": 144
+    }
+  ]
+}

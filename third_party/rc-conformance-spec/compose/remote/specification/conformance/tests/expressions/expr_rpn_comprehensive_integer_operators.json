@@ -1,0 +1,12 @@
+{
+  "name": "expr_rpn_comprehensive_integer_operators",
+  "description": "Validates IntegerExpression (opcode 144) across arithmetic, bitwise (SHL, SHR, USHR, OR, AND, XOR, NOT), and conditional RPN operators.",
+  "category": "expressions",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "IntegerExpression"
+  ]
+}

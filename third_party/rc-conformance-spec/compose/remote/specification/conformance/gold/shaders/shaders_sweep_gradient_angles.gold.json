@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "shaders_sweep_gradient_angles",
+  "description": "Validates sweep gradient shader angular color interpolation.",
+  "category": "shaders",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAIRAQAAAZgAAAAEAAAA+aGFsZjQgbWFpbihmbG9hdDIgY29vcmQpIHsgcmV0dXJuIGhhbGY0KDEuMCwgMC41LCAwLjAsIDEuMCk7IH0tAAAAhAAAAAEAAAABAAAABXVUaW1lAAAAAUBAAAAoAAAAAgAAAAH/OL34KkEgAABBIAAAQxYAAEMWAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ShaderData",
+        "DrawRect"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 132,
+      "expect": 3
+    }
+  ]
+}

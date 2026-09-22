@@ -1,0 +1,14 @@
+{
+  "name": "semantics_merge_descendants",
+  "description": "Validates AccessibilitySemantics container merging child descriptions.",
+  "category": "semantics",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "RootContentDescription",
+    "RootContentBehavior",
+    "AccessibilitySemantics"
+  ]
+}

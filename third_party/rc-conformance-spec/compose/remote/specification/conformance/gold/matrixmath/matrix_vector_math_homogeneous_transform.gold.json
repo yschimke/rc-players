@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "matrix_vector_math_homogeneous_transform",
+  "description": "Validates MATRIX_VECTOR_MATH (188) homogeneous 4D vector transformation.",
+  "category": "matrixmath",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAFZAgAAAugAAAFYAAAAAAAAAED+AAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "MatrixConstant"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 86,
+      "expect": 4
+    }
+  ]
+}

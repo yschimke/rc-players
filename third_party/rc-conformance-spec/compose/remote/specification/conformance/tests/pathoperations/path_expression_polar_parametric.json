@@ -1,0 +1,12 @@
+{
+  "name": "path_expression_polar_parametric",
+  "description": "Validates PATH_EXPRESSION (PathExpression, opcode 193) parametric RPN path generation.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "PathExpression"
+  ]
+}

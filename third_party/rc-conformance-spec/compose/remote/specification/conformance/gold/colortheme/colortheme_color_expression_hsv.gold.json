@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "colortheme_color_expression_hsv",
+  "description": "Validates COLOR_EXPRESSIONS (opcode 134) HSV color synthesis mode.",
+  "category": "colortheme",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEshgAAACQAAAABPwAAAD9MzM0/gAAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ColorExpression"
+      ]
+    },
+    {
+      "id": "col_val",
+      "at": "initial",
+      "probe": "color",
+      "target": 36,
+      "expect": 1061997773
+    }
+  ]
+}

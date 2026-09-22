@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "interactivity_click_area_and_haptic",
+  "description": "Validates CLICK_AREA (64), HAPTIC_FEEDBACK (177), and HOST_ACTION (209).",
+  "category": "interactivity",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsQAAAAAEAAAAAAAAAAAAAAABCyAAAQsgAAAAAAGWxAAAAAdEAAABlUAAAADxCygAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ClickArea",
+        "HapticFeedback",
+        "HostActionOperation"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 60,
+      "expect": 101
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "conditional_branch_lt",
+  "description": "Validates CONDITIONAL_OPERATIONS TYPE_LT (2) executing body when varA < varB.",
+  "category": "conditionals",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ConditionalOperations"
+  ]
+}

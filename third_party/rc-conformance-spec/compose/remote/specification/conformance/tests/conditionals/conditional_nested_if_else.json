@@ -1,0 +1,12 @@
+{
+  "name": "conditional_nested_if_else",
+  "description": "Validates nested CONDITIONAL_OPERATIONS blocks evaluating multi-tier conditions.",
+  "category": "conditionals",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ConditionalOperations"
+  ]
+}

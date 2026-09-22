@@ -1,0 +1,14 @@
+{
+  "name": "scheduling_multi_impulse_cascade",
+  "description": "Validates sequential multi-impulse cascade handoff.",
+  "category": "scheduling",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ImpulseOperation",
+    "ImpulseProcess",
+    "WakeIn"
+  ]
+}

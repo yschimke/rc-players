@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "wire_boolean_and_long_primitives",
+  "description": "Validates wire deserialization of DATA_BOOLEAN (143) and DATA_LONG (148) primitives.",
+  "category": "wire",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsjwAAAJcAlAAAAJgAAAAAOt5osVAAAACZQAAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "BooleanConstant",
+        "LongConstant"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 153,
+      "expect": 2
+    }
+  ]
+}

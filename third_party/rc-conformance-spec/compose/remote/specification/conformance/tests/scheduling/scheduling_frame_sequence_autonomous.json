@@ -1,0 +1,14 @@
+{
+  "name": "scheduling_frame_sequence_autonomous",
+  "description": "Validates autonomous frame scheduling without user input.",
+  "category": "scheduling",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ImpulseOperation",
+    "ImpulseProcess",
+    "WakeIn"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "clock_time_attribute_calendar_date",
+  "description": "Validates TimeAttribute (172) extracting calendar day of month (TIME_DAY_OF_MONTH = 9).",
+  "category": "clock",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TimeAttribute"
+  ]
+}

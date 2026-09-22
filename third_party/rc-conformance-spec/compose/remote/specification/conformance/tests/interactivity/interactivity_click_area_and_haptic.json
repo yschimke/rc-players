@@ -1,0 +1,14 @@
+{
+  "name": "interactivity_click_area_and_haptic",
+  "description": "Validates CLICK_AREA (64), HAPTIC_FEEDBACK (177), and HOST_ACTION (209).",
+  "category": "interactivity",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ClickArea",
+    "HapticFeedback",
+    "HostActionOperation"
+  ]
+}

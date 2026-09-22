@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "path_quadratic_bezier_segments",
+  "description": "Validates PathData (123) with MOVE_TO, QUAD_TO, and CLOSE bezier segments.",
+  "category": "pathoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsewAAAAoAAAAJAAAAAAAAAAAAAAAAAAAAAkJIAABCyAAAQsgAAAAAAAAAAAAFUAAAAGRAAAAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "PathData"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 100,
+      "expect": 2,
+      "tolerance": 0.01
+    }
+  ]
+}

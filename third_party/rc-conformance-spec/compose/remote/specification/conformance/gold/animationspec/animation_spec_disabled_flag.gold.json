@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "animation_spec_disabled_flag",
+  "description": "Validates zero-duration instant transition specification.",
+  "category": "animationspec",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAAoAAAAADgAAATMAAAAAAAAAAwAAAAAAAAADAAAAAAAAAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "float_dur",
+      "at": "initial",
+      "probe": "float",
+      "target": 10,
+      "expect": 0
+    },
+    {
+      "id": "present_spec",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "AnimationSpec"
+      ]
+    }
+  ]
+}

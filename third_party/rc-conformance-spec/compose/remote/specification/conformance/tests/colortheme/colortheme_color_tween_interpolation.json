@@ -1,0 +1,12 @@
+{
+  "name": "colortheme_color_tween_interpolation",
+  "description": "Validates COLOR_EXPRESSIONS (opcode 134) interpolating midpoint between two ARGB colors.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ColorExpression"
+  ]
+}

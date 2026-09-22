@@ -1,0 +1,12 @@
+{
+  "name": "colortheme_semantic_palette_tokens",
+  "description": "Validates multiple semantic ColorConstant tokens applied to PaintData.",
+  "category": "colortheme",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "Header"
+  ]
+}

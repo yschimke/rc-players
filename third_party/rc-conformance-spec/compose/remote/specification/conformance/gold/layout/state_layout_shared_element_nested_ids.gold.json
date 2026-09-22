@@ -1,0 +1,341 @@
+{
+  "name": "state_layout_shared_element_nested_ids",
+  "category": "layout",
+  "description": "A StateLayout state whose nested components all declare the same shared-element animationId. State 0 is three concentric centered boxes (120x120, 60x60, 24x24) that every carry animationId 700; state 1 is a single 40x40 box with the same id. findAnimatedComponents keeps only the last component it sees per state, so the slot for id 700 in state 0 is the innermost box - a descendant of the other two. The shared-element measure recopy must not stamp an ancestor's position onto it: the inner boxes stay centered at (30,30) and (18,18) rather than inheriting their parent's offset.",
+  "format_version": 2,
+  "profile": "core",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "frames": 2,
+    "tolerance": 0.5,
+    "density": 1,
+    "interactions": [
+      {
+        "label": "switch_to_state_1",
+        "step": 0,
+        "x": 100,
+        "y": 20,
+        "type": "click"
+      },
+      {
+        "label": "settled_on_state_1",
+        "step": 1,
+        "delta_millis": 2000,
+        "type": "advance_time"
+      }
+    ]
+  },
+  "harness": {
+    "text_metrics": "ahem"
+  },
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "animation_time_seconds": 10
+    },
+    {
+      "id": "step_0",
+      "kind": "click",
+      "label": "switch_to_state_1",
+      "x": 100,
+      "y": 20
+    },
+    {
+      "id": "step_1",
+      "kind": "advance_time",
+      "label": "settled_on_state_1",
+      "advance_millis": 2000
+    }
+  ],
+  "checks": [
+    {
+      "at": "step_0",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 60,
+          "height": 60,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 60,
+          "height": 60,
+          "depth": 5,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 60,
+          "height": 60,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 60,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 40,
+          "width": 60,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 40,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "step_1",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 40,
+          "height": 40,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 40,
+          "height": 40,
+          "depth": 5,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 60,
+          "height": 60,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 60,
+          "depth": 3,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -6,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 40,
+          "width": 40,
+          "height": 40,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 40,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    },
+    {
+      "at": "initial",
+      "probe": "tree",
+      "expect": [
+        {
+          "id": -13,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 40,
+          "height": 40,
+          "depth": 3,
+          "isGone": true,
+          "visibility": "GONE"
+        },
+        {
+          "id": -12,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 60,
+          "height": 60,
+          "depth": 5,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -10,
+          "kind": "BoxLayout",
+          "x": 30,
+          "y": 30,
+          "width": 60,
+          "height": 60,
+          "depth": 4,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -8,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 60,
+          "depth": 3,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -6,
+          "kind": "StateLayout",
+          "x": 0,
+          "y": 40,
+          "width": 60,
+          "height": 60,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -5,
+          "kind": "BoxLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 40,
+          "depth": 2,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -3,
+          "kind": "ColumnLayout",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 1,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        },
+        {
+          "id": -2,
+          "kind": "RootLayoutComponent",
+          "x": 0,
+          "y": 0,
+          "width": 200,
+          "height": 200,
+          "depth": 0,
+          "isGone": false,
+          "visibility": "VISIBLE"
+        }
+      ],
+      "tolerance": 0.5
+    }
+  ],
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAyAAGAAQAAADIDAkAKgAAACZzdGF0ZV9sYXlvdXRfc2hhcmVkX2VsZW1lbnRfbmVzdGVkX2lkcwAOAAQAAAIBjAAAACoAAAAAyP////7M/////f////8AAAABAAAABAAAAAAQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAADwAgIE8wMDBPbi4uT+AAAAAAAAAyf////xmAAAAKwAAAAtuZXN0ZWRTdGF0Zcr////7/////wAAAAIAAAACEAAAAABDSAAAQwAAAABCIAAANwAAAAAAAAAAAAAAAAAAAAA+jo6PPqqqqz7S0tM/gAAAAAAAADvUAAAAKgAAAAHW1tn////6/////wAAAAAAAAAAAAAAKsn////5yv////gAAAK8AAAAAgAAAAIQAAAAAELwAABDAAAAAELwAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////fK////9gAAArwAAAACAAAAAhAAAAAAQnAAAEMAAAAAQnAAADcAAAAAAAAAAAAAAAAAAAAAPkzMzT6CgoM+qqqrP4AAAAAAAADJ////9cr////0AAACvAAAAAIAAAACEAAAAABBwAAAQwAAAABBwAAANwAAAAAAAAAAAAAAAAAAAAA/E5OUP0XFxj99/f4/gAAAAAAAANbW1tbWyv////MAAAK8AAAAAgAAAAIQAAAAAEIgAABDAAAAAEIgAAA3AAAAAAAAAAAAAAAAAAAAAD919fY/Hp6fPTCwsT+AAAAAAAAA1tbW1tbW"
+}

@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "matrix_from_path_tangent_frame",
+  "description": "Validates MATRIX_FROM_PATH (opcode 181) computing tangent frame matrix along a path.",
+  "category": "matrixmath",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsewAAAAEAAAAGAAAAAAAAAAAAAAAAAAAAAULIAAAAAAAAtQAAAFAAAAABPwAAAAAAAAFQAAAAUT8AAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "MatrixFromPath"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 81,
+      "expect": 0.5
+    }
+  ]
+}

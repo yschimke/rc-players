@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "scheduling_animation_settle_boundary",
+  "description": "Validates scheduling settle state boundary.",
+  "category": "scheduling",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAHU+gAAApD6AAAAAAAAAKgAAAAAAAAAAQaAAAEGgAAClKkAAAABAAAAAQSAAAEEgAADWpSpAoAAAQKAAAEFwAABBcAAA1ta/P4AAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ImpulseOperation",
+        "ImpulseProcess",
+        "WakeIn"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 117,
+      "expect": 0.25
+    }
+  ]
+}

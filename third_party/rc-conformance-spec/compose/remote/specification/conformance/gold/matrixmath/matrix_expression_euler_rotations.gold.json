@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "matrix_expression_euler_rotations",
+  "description": "Validates MATRIX_EXPRESSION (187) with 3D Euler rotation operators.",
+  "category": "matrixmath",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAFJCNAAAugAAAFIAAAAAAAAAED+AAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "MatrixConstant"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 82,
+      "expect": 45
+    }
+  ]
+}

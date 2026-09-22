@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "semantics_clear_and_set_override",
+  "description": "Validates AccessibilitySemantics override semantics.",
+  "category": "semantics",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAAPQWNjZXNzaWJsZUxhYmVsZgAAAAIAAAALQWN0aXZlU3RhdGVnAAAAAUEAAAABAAAAAAAAAAEAAAAA+gAAAAEFAAAAAQAAAAIBAQFQAAAAfkCgAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "RootContentDescription",
+        "RootContentBehavior",
+        "AccessibilitySemantics"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 126,
+      "expect": 5
+    }
+  ]
+}

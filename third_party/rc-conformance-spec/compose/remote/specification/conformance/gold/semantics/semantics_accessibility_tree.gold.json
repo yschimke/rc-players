@@ -1,7 +1,7 @@
 {
   "name": "semantics_accessibility_tree",
   "category": "semantics",
-  "description": "AccessibilitySemantics component annotations with button\/heading roles and clickable flags",
+  "description": "AccessibilitySemantics component annotations with button/heading roles and clickable flags",
   "format_version": 2,
   "profile": "core",
   "parameters": {},
@@ -45,7 +45,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQZgAAAAoAAAANU3VibWl0IEJ1dHRvbmYAAAALAAAADE1haW4gSGVhZGluZ\/oAAAAKAQAAAAAAAAAAAAEB+gAAAAsCAAAAAAAAAAAAAQA=",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABkAAGAAQAAAGQZgAAAAoAAAANU3VibWl0IEJ1dHRvbmYAAAALAAAADE1haW4gSGVhZGluZ/oAAAAKAQAAAAAAAAAAAAEB+gAAAAsCAAAAAAAAAAAAAQA=",
   "expected_semantics": [
     {
       "clickable": true,

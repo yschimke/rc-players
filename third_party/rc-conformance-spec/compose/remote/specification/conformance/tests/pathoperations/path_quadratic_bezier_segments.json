@@ -1,0 +1,12 @@
+{
+  "name": "path_quadratic_bezier_segments",
+  "description": "Validates PathData (123) with MOVE_TO, QUAD_TO, and CLOSE bezier segments.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "PathData"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "matrix_expression_translate_scale_3d",
+  "description": "Validates MATRIX_EXPRESSION (187) combining 3D translation and scaling.",
+  "category": "matrixmath",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAFNAAAAAugAAAFMAAAAAAAAAED+AAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAD+AAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "MatrixConstant"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 83,
+      "expect": 2
+    }
+  ]
+}

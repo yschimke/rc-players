@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "text_subtext_slice_extraction",
+  "description": "Validates TEXT_SUBTEXT (opcode 182) extracting a substring slice.",
+  "category": "textoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAAZSGVsbG8gUmVtb3RlQ29tcG9zZSBXb3JsZLYAAAACAAAAAUDAAABBUAAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "TextSubtext"
+      ]
+    },
+    {
+      "id": "sub_txt",
+      "at": "initial",
+      "probe": "text",
+      "target": 2,
+      "expect": "RemoteCompose"
+    }
+  ]
+}

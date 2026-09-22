@@ -1,7 +1,7 @@
 {
   "name": "animation_spec_defaults_and_disable",
   "category": "animationspec",
-  "description": "A component with no ANIMATION_SPEC must fall back to the default spec (id −1, 300 ms, CUBIC_STANDARD, FADE_IN\/FADE_OUT) and stay animation-enabled, while animationId 0 is the one and only value that disables animation",
+  "description": "A component with no ANIMATION_SPEC must fall back to the default spec (id −1, 300 ms, CUBIC_STANDARD, FADE_IN/FADE_OUT) and stay animation-enabled, while animationId 0 is the one and only value that disables animation",
   "format_version": 2,
   "profile": "core",
   "parameters": {
@@ -69,5 +69,5 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAJwAAACNhbmltYXRpb25fc3BlY19kZWZhdWx0c19hbmRfZGlzYWJsZQAOAAQAAAIByP\/\/\/\/7M\/\/\/\/\/f\/\/\/\/8AAAABAAAABAAAAAAQAAAAAX\/AAABDAAAAAX\/AAADJ\/\/\/\/\/Mr\/\/\/\/7\/\/\/\/\/wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAA1sr\/\/\/\/6\/\/\/\/\/wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAADgAAAABD+gAAAAAABEOWAAAAAAABAAAAAAAAAAHWyv\/\/\/\/n\/\/\/\/\/AAAAAgAAAAIQAAAAAELIAABDAAAAAEJIAAAO\/\/\/\/\/0P6AAAAAAAEQ5YAAAAAAAEAAAAAAAAAAdbW1tY="
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAJwAAACNhbmltYXRpb25fc3BlY19kZWZhdWx0c19hbmRfZGlzYWJsZQAOAAQAAAIByP////7M/////f////8AAAABAAAABAAAAAAQAAAAAX/AAABDAAAAAX/AAADJ/////Mr////7/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAA1sr////6/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAADgAAAABD+gAAAAAABEOWAAAAAAABAAAAAAAAAAHWyv////n/////AAAAAgAAAAIQAAAAAELIAABDAAAAAEJIAAAO/////0P6AAAAAAAEQ5YAAAAAAAEAAAAAAAAAAdbW1tY="
 }

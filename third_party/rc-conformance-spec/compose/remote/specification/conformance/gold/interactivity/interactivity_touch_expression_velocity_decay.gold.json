@@ -1,0 +1,58 @@
+{
+  "format_version": 2,
+  "name": "interactivity_touch_expression_velocity_decay",
+  "description": "Validates TOUCH_EXPRESSION (opcode 189) with touchDown, touchDrag, touchUp, and VelocityEasing stop curve physics.",
+  "category": "interactivity",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsnQAAAENCyAAAAAAAAEP6AAAAAABEAAAAAAAAAAE/gAAAAAAAAUN6AAAAAAAEAAAAAD+AAABAoAAAQOAAAFAAAABFQz0AAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    },
+    {
+      "id": "t_down",
+      "kind": "touch_down",
+      "x": 50,
+      "y": 50
+    },
+    {
+      "id": "t_drag",
+      "kind": "touch_drag",
+      "x": 100,
+      "y": 100
+    },
+    {
+      "id": "t_up",
+      "kind": "touch_up",
+      "x": 100,
+      "y": 100,
+      "dx": 15,
+      "dy": 15
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "TouchExpression"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 69,
+      "expect": 189
+    }
+  ]
+}

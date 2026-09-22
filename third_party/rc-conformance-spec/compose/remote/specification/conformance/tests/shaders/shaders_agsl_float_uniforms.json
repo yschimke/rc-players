@@ -1,0 +1,13 @@
+{
+  "name": "shaders_agsl_float_uniforms",
+  "description": "Validates AGSL ShaderData (opcode 45) float uniform bindings.",
+  "category": "shaders",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ShaderData",
+    "DrawRect"
+  ]
+}

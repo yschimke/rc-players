@@ -1,0 +1,12 @@
+{
+  "name": "data_long_constant_and_lookup",
+  "description": "Validates DATA_LONG (opcode 148) 64-bit integer constant serialization.",
+  "category": "dataoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "LongConstant"
+  ]
+}

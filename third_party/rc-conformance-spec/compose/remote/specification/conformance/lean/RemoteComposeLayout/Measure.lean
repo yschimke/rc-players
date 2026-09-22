@@ -194,6 +194,36 @@ def boxPlace (ts : List LayoutTree) (ha : HAlign) (va : VAlign) (selfW selfH : S
     List LayoutTree :=
   ts.map fun t => t.withPos (crossX ha selfW t.w) (crossY va selfH t.h)
 
+/-- `FitBoxLayout.internalLayoutMeasure`: positions the admitted child using alignment,
+marking all other children as gone. If no child fits, the container itself is marked gone. -/
+def fitBoxPlace (ts : List LayoutTree) (ha : HAlign) (va : VAlign)
+    (selfW selfH maxW maxH : S) : Bool × List LayoutTree :=
+  let rec markFirst (found : Bool) : List LayoutTree → List LayoutTree
+    | [] => []
+    | t :: rest =>
+      let x := crossX ha selfW t.w
+      let y := crossY va selfH t.h
+      if !found && t.w ≤ maxW && t.h ≤ maxH then
+        t.withPos x y :: markFirst true rest
+      else
+        (t.withPos x y).withGone true :: markFirst found rest
+  let placed := markFirst false ts
+  let anyVisible := placed.any (!·.gone)
+  (!anyVisible, placed)
+
+/-- `StateLayout.internalLayoutMeasure`: places all states at (0, 0), marking inactive states gone. -/
+def statePlace (ts : List LayoutTree) (st : Nat) : Bool × List LayoutTree :=
+  let rec loop (idx : Nat) : List LayoutTree → List LayoutTree
+    | [] => []
+    | t :: rest =>
+      let gone := idx != st || t.gone
+      (t.withPos 0 0).withGone gone :: loop (idx + 1) rest
+  let placed := loop 0 ts
+  let selfGone := match ts[st]? with
+    | some t => t.gone
+    | none => true
+  (selfGone, placed)
+
 /-! ## Collapsing
 
 The second phase of `CollapsibleRowLayout.computeVisibleChildren`, lines
@@ -287,6 +317,8 @@ def minIntrinsicWidth : Node → S
     m.definedWidth true + (lastStandingIW .horizontal cs).getD 0
   | .collapsibleColumn m _ _ _ cs =>
     m.definedWidth true + (lastStandingIW .vertical cs).getD 0
+  | .fitBox m _ _ cs => max (m.definedWidth true) (maxMinIW cs)
+  | .stateLayout m _ cs => max (m.definedWidth true) (maxMinIW cs)
 
 /-- `minIntrinsicHeight`. `ColumnLayout` sums; everything else takes a maximum,
 except the collapsible managers, which again add a single child. -/
@@ -301,6 +333,8 @@ def minIntrinsicHeight : Node → S
     m.definedHeight true + (lastStandingIH .horizontal cs).getD 0
   | .collapsibleColumn m _ _ _ cs =>
     m.definedHeight true + (lastStandingIH .vertical cs).getD 0
+  | .fitBox m _ _ cs => max (m.definedHeight true) (maxMinIH cs)
+  | .stateLayout m _ cs => max (m.definedHeight true) (maxMinIH cs)
 
 /-- `Σ c.minIntrinsicWidth`. -/
 def sumMinIW : List Node → S
@@ -487,6 +521,7 @@ Everything below is mutually recursive with `measure`. The kind-specific hooks
 take the child list rather than the node itself, which is what makes the
 recursion structural. -/
 
+set_option maxHeartbeats 1000000
 
 mutual
 
@@ -546,6 +581,8 @@ def measure (n : Node) (c : Constraints) : LayoutTree :=
         | .collapsibleRow _ _ _ sb cs => cRowWrapPass cs sb wc wrapsW
         | .collapsibleColumn _ _ _ sb cs => cColWrapPass cs sb wc wrapsH
         | .flow _ _ _ sb mi ml cs => flowWrapPass cs sb mi ml wc
+        | .fitBox _ _ _ cs => fitBoxWrapPass cs wc
+        | .stateLayout _ st cs => stateWrapPass cs st wc
       let mw := if wrapsW then max (ws.w + p.horizontal) minW' else mw2
       let mh := if wrapsH then max (ws.h + p.vertical) minH' else mh2
       (mw, mh, kids)
@@ -563,6 +600,8 @@ def measure (n : Node) (c : Constraints) : LayoutTree :=
         | .collapsibleRow _ _ _ _ cs => cRowSizePass cs sc
         | .collapsibleColumn _ _ _ _ cs => cColSizePass cs sc
         | .flow _ _ _ sb mi ml cs => flowSizePass cs sb mi ml sc
+        | .fitBox _ _ _ cs => fitBoxSizePass cs sc
+        | .stateLayout _ _ cs => stateSizePass cs sc
       (mw2, mh2, kids)
 
   -- Lines 349–357: final clamp, then the `widthIn` / `heightIn` constraints.
@@ -587,6 +626,8 @@ def measure (n : Node) (c : Constraints) : LayoutTree :=
       cColPlaceAll cs kids ha arr sb mh selfW selfH
     | .flow _ arr va sb mi ml cs =>
       (false, flowPlaceAll cs kids arr va sb mi ml selfW selfH (m.definedHeight true))
+    | .fitBox _ ha va _ => fitBoxPlace kids ha va selfW selfH mw mh
+    | .stateLayout _ st _ => statePlace kids st
 
   .node { x := 0, y := 0, w := mw, h := mh } p selfGone placed
 termination_by (sizeOf n, 0, 0)
@@ -614,6 +655,38 @@ def measureEach (cs : List Node) (c : Constraints) : List LayoutTree :=
   | [] => []
   | ch :: rest => measure ch c :: measureEach rest c
 termination_by (sizeOf cs, 0, 0)
+
+-- ### `FitBoxLayout`
+
+/-- `FitBoxLayout.computeWrapSize`: measures children against loose constraints and picks the first that fits. -/
+def fitBoxWrapPass (cs : List Node) (c : Constraints) : Size × List LayoutTree :=
+  let ts : List LayoutTree := measureEach cs ⟨0, c.maxW, 0, c.maxH⟩
+  let sz : Size := match ts.find? (fun (t : LayoutTree) => t.w ≤ c.maxW ∧ t.h ≤ c.maxH) with
+    | some (t : LayoutTree) => (⟨t.w, t.h⟩ : Size)
+    | none => (⟨0, 0⟩ : Size)
+  (sz, ts)
+termination_by (sizeOf cs, 1, 0)
+
+/-- `FitBoxLayout.computeSize`: every child is measured against unconstrained limits to discover its natural size. -/
+def fitBoxSizePass (cs : List Node) (_ : Constraints) : List LayoutTree :=
+  measureEach cs ⟨0, fltMax, 0, fltMax⟩
+termination_by (sizeOf cs, 1, 0)
+
+-- ### `StateLayout`
+
+/-- `StateLayout.computeWrapSize`: measures children against loose constraints and takes the active state size. -/
+def stateWrapPass (cs : List Node) (st : Nat) (c : Constraints) : Size × List LayoutTree :=
+  let ts : List LayoutTree := measureEach cs ⟨0, c.maxW, 0, c.maxH⟩
+  let sz : Size := match ts[st]? with
+    | some (t : LayoutTree) => (⟨t.w, t.h⟩ : Size)
+    | none => (⟨0, 0⟩ : Size)
+  (sz, ts)
+termination_by (sizeOf cs, 1, 0)
+
+/-- `StateLayout.computeSize`: every child sees the same constraints. -/
+def stateSizePass (cs : List Node) (c : Constraints) : List LayoutTree :=
+  measureEach cs c
+termination_by (sizeOf cs, 1, 0)
 
 -- ### `RowLayout`
 

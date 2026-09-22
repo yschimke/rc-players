@@ -1,0 +1,12 @@
+{
+  "name": "clock_time_attribute_hms",
+  "description": "Validates TimeAttribute (172) extracting seconds (TIME_IN_SEC = 6).",
+  "category": "clock",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TimeAttribute"
+  ]
+}

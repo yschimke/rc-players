@@ -1,0 +1,12 @@
+{
+  "name": "matrix_vector_math_normal_transform",
+  "description": "Validates MATRIX_VECTOR_MATH (188) directional normal transformation.",
+  "category": "matrixmath",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "MatrixConstant"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "shaders_radial_gradient_center_radius",
+  "description": "Validates radial gradient shader center and radius parameters.",
+  "category": "shaders",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ShaderData",
+    "DrawRect"
+  ]
+}

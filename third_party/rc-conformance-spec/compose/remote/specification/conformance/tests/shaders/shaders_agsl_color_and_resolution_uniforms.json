@@ -1,0 +1,13 @@
+{
+  "name": "shaders_agsl_color_and_resolution_uniforms",
+  "description": "Validates AGSL ShaderData binding resolution and color uniforms.",
+  "category": "shaders",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ShaderData",
+    "DrawRect"
+  ]
+}

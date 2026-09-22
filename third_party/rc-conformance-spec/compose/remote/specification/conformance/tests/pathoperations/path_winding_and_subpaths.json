@@ -1,0 +1,12 @@
+{
+  "name": "path_winding_and_subpaths",
+  "description": "Validates multi-contour PathData with multiple MOVE_TO and CLOSE subpaths.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "PathData"
+  ]
+}

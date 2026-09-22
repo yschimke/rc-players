@@ -1,0 +1,12 @@
+{
+  "name": "path_draw_tween_path_render",
+  "description": "Validates DRAW_TWEEN_PATH (opcode 125) drawing interpolated paths on canvas.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "DrawTweenPath"
+  ]
+}

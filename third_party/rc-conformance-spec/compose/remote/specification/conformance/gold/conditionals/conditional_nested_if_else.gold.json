@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "conditional_nested_if_else",
+  "description": "Validates nested CONDITIONAL_OPERATIONS blocks evaluating multi-tier conditions.",
+  "category": "conditionals",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAC9ELwAAsgBCKAAAQigAACpBIAAAQSAAAEJIAABCSAAA1g==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ConditionalOperations"
+      ]
+    },
+    {
+      "id": "val_out",
+      "at": "initial",
+      "probe": "float",
+      "target": 47,
+      "expect": 700
+    }
+  ]
+}

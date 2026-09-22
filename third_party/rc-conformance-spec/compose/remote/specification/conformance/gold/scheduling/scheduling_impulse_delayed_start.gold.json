@@ -1,0 +1,40 @@
+{
+  "format_version": 2,
+  "name": "scheduling_impulse_delayed_start",
+  "description": "Validates ImpulseOperation with delayed startAt = 1.0s activation.",
+  "category": "scheduling",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAG8/wAAApD/AAAA/gAAAKgAAAAAAAAAAQaAAAEGgAAClKkAAAABAAAAAQSAAAEEgAADWpSpAoAAAQKAAAEFwAABBcAAA1ta/PoAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ImpulseOperation",
+        "ImpulseProcess",
+        "WakeIn"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 111,
+      "expect": 1.5
+    }
+  ]
+}

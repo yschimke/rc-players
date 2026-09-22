@@ -1,0 +1,13 @@
+{
+  "name": "shaders_agsl_time_animated_uniform",
+  "description": "Validates AGSL ShaderData with time-animated uniform float expression.",
+  "category": "shaders",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ShaderData",
+    "DrawRect"
+  ]
+}

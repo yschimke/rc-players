@@ -2419,11 +2419,11 @@ rather than approximated, so that a passing run means what it says.
 \begin{center}
 \begin{tabular}{@{}lr@{}}
 \toprule
-Documents in scope & \textbf{99} \\
-Viewport configurations checked & \textbf{294} \\
+Documents in scope & \textbf{109} \\
+Viewport configurations checked & \textbf{325} \\
 Geometry failures & \textbf{0} \\
 Visibility failures & \textbf{0} \\
-Documents skipped as out of scope & 75 \\
+Documents skipped as out of scope & 65 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2435,24 +2435,22 @@ Documents skipped as out of scope & 75 \\
 \toprule
 \multicolumn{2}{c}{\textbf{Reason}} & \multicolumn{2}{c}{\textbf{Reason}} \\
 \midrule
-14 & \jv{stateLayout}             &  2 & modifier \jv{animationSpec} \\
-10 & \jv{text}                    &  2 & \jv{widthIn} without a width modifier \\
-10 & \jv{fitBox}                  &  2 & malformed component \\
- 8 & modifier \jv{offset}         &  1 & \jv{canvas} \\
- 8 & modifier \jv{visibility}     &  1 & \jv{image} \\
- 7 & modifier \jv{verticalScroll} &  1 & \jv{heightIn} without a height modifier \\
- 3 & modifier \jv{horizontalScroll} & 1 & modifier \jv{alignByBaseline} \\
- 3 & column alignment             &  1 & modifier \jv{fillParentMaxWidth} \\
-   &                              &  1 & modifier \jv{wrapContentSize} \\
+10 & modifier \jv{offset}             &  3 & column alignment \\
+10 & modifier \jv{visibility}         &  2 & autosize step inequality quirk \\
+ 8 & \jv{stateLayout} anim. container &  1 & \jv{canvas} \\
+ 7 & modifier \jv{verticalScroll}     &  1 & \jv{image} \\
+ 5 & modifier \jv{animationSpec}      &  1 & \jv{heightIn} without height modifier \\
+ 4 & multiline text                   &  1 & modifier \jv{alignByBaseline} \\
+ 4 & \jv{widthIn} without width mod.  &  1 & modifier \jv{fillParentMaxWidth} \\
+ 3 & modifier \jv{horizontalScroll}   &  1 & modifier \jv{marquee} \\
+   &                                  &  1 & modifier \jv{multiClick} \\
+   &                                  &  1 & malformed component \\
+   &                                  &  1 & modifier \jv{wrapContentSize} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The three collapsible and flow entries that dominated this table in the
-Box/Row/Column-only edition --- 18 \jv{collapsibleColumn}, 18
-\jv{collapsibleRow}, 15 \jv{flow}, together with the \jv{spacedBy} and
-\jv{collapsiblePriority} modifier skips --- are gone: those 52 documents are now
-in scope, which is where most of the growth from 54 to 99 comes from.
+The test suite now incorporates the newly introduced container and text operations: all \jv{fitBox} documents in the gold suite are fully supported (8 in scope, 2 skipped solely due to unmodelled decorative \jv{offset}/\jv{visibility} child modifiers), along with single-line fixed and autosizing \jv{text} components. This expands automated machine-checked conformance coverage from 99 to 109 documents and from 294 to 325 checked viewport configurations.
 
 \subsection{Discrepancies found}
 \label{sec:discrepancies}
@@ -2733,10 +2731,10 @@ Inside a wrapping parent container, the column collapses to height $0$.
 \textbf{File} & \textbf{Contents} & \textbf{Lines} \\
 \midrule
 \file{Basic.lean} & Sections 2--4: scalars, geometry, modifiers & 382 \\
-\file{Node.lean} & Sections 3.3, 6.1, 8.4: trees, weights, priorities & 415 \\
-\file{Measure.lean} & Sections 5--9: the algorithm & 1134 \\
+\file{Node.lean} & Sections 3.3, 6.1, 8.4: trees, weights, priorities & 423 \\
+\file{Measure.lean} & Sections 5--9: the algorithm & 1207 \\
 \file{Theorems.lean} & Section 10: structural properties & 509 \\
-\file{Optimizations.lean} & Section 11: optimization passes and invariants & 362 \\
+\file{Optimizations.lean} & Section 11: optimization passes and invariants & 364 \\
 \file{ExtendedModifiers.lean} & Section 12: visibility, baseline, offset, scroll, graphics & 201 \\
 \file{ExtendedContainers.lean} & Section 13: FitBox, StateLayout, ImageLayout & 180 \\
 \file{WindowAndHitTest.lean} & Section 14: ancestor coordinates, hit testing & 145 \\
@@ -2744,9 +2742,9 @@ Inside a wrapping parent container, the column collapses to height $0$.
 \file{DynamicExpressions.lean} & Section 16: expression AST, evaluation, invariants & 145 \\
 \file{AutosizeRepaintLoop.lean} & Section 17: Autosize text, false collapse, repaint loop & 266 \\
 \file{Conform.lean} & Section 18: traversal and tolerance & 99 \\
-\file{Conformance.lean} & Generated: 99 documents, 294 checks & 824 \\
+\file{Conformance.lean} & Generated: 109 documents, 325 checks & 905 \\
 \file{RemoteComposeLayout.lean} & Root module aggregation & 14 \\
-\file{tools/gen\_conformance.py} & The corpus translator & 486 \\
+\file{tools/gen\_conformance.py} & The corpus translator & 548 \\
 \bottomrule
 \end{tabular}
 \end{center}

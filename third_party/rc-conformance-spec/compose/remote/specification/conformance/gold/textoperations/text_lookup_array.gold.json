@@ -46,7 +46,7 @@
       "reason": "the document draws nothing at this step, so there is no reference image to compare against"
     }
   ],
-  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAGUAAAAFQWxwaGFmAAAAZgAAAARCZXRhZgAAAGcAAAAFR2FtbWGSAAAAMgAAAAMAAABlAAAAZgAAAGeXAAAAyAAAADI\/gAAAlwAAAMkAAAAyQAAAAA==",
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAGUAAAAFQWxwaGFmAAAAZgAAAARCZXRhZgAAAGcAAAAFR2FtbWGSAAAAMgAAAAMAAABlAAAAZgAAAGeXAAAAyAAAADI/gAAAlwAAAMkAAAAyQAAAAA==",
   "expected_operations_count": 7,
   "expected_texts": {
     "200": "Beta",

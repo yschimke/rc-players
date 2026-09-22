@@ -1,0 +1,12 @@
+{
+  "name": "path_cubic_bezier_curves",
+  "description": "Validates PathData (123) with CUBIC_TO smooth spline control points.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "PathData"
+  ]
+}

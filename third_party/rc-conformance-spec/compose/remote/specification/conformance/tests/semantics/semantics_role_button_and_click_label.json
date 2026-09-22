@@ -1,0 +1,14 @@
+{
+  "name": "semantics_role_button_and_click_label",
+  "description": "Validates AccessibilitySemantics (250) with BUTTON role (1).",
+  "category": "semantics",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "RootContentDescription",
+    "RootContentBehavior",
+    "AccessibilitySemantics"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "data_long_constant_and_lookup",
+  "description": "Validates DATA_LONG (opcode 148) 64-bit integer constant serialization.",
+  "category": "dataoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEslAAAADQAAAAAB1vNFVAAAAA1QoAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "LongConstant"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 53,
+      "expect": 64
+    }
+  ]
+}

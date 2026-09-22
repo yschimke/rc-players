@@ -102,6 +102,10 @@ inductive Node where
   `maxItems` and `maxLines` default to `Integer.MAX_VALUE` on the wire. -/
   | flow (m : Modifiers) (arr : Arrangement) (va : VAlign) (spacedBy : S)
       (maxItems : Nat) (maxLines : Nat) (children : List Node)
+  /-- `managers.FitBoxLayout`, only displays the first child fitting in the available space. -/
+  | fitBox (m : Modifiers) (ha : HAlign) (va : VAlign) (children : List Node)
+  /-- `managers.StateLayout`, displays child state `children[activeState]`, collapsing others. -/
+  | stateLayout (m : Modifiers) (activeState : Nat) (children : List Node)
   deriving Repr, Inhabited
 
 /-- The modifiers attached to a node. -/
@@ -114,6 +118,8 @@ def Node.modifiers : Node → Modifiers
   | .collapsibleRow m _ _ _ _ => m
   | .collapsibleColumn m _ _ _ _ => m
   | .flow m _ _ _ _ _ _ => m
+  | .fitBox m _ _ _ => m
+  | .stateLayout _ _ _ => []
 
 /-- `LayoutComponent.getWidthModifier()`. -/
 def Node.widthDim (n : Node) : Dim := n.modifiers.widthDim
@@ -131,6 +137,8 @@ def Node.children : Node → List Node
   | .collapsibleRow _ _ _ _ cs => cs
   | .collapsibleColumn _ _ _ _ cs => cs
   | .flow _ _ _ _ _ _ cs => cs
+  | .fitBox _ _ _ cs => cs
+  | .stateLayout _ _ cs => cs
 
 /-- Whether this node is a `CollapsibleRowLayout`.
 

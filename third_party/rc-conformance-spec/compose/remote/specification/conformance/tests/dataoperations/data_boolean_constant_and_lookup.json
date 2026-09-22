@@ -1,0 +1,12 @@
+{
+  "name": "data_boolean_constant_and_lookup",
+  "description": "Validates DATA_BOOLEAN (opcode 143) storing boolean constants in RemoteContext.",
+  "category": "dataoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "BooleanConstant"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "text_subtext_slice_extraction",
+  "description": "Validates TEXT_SUBTEXT (opcode 182) extracting a substring slice.",
+  "category": "textoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "TextSubtext"
+  ]
+}

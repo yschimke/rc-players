@@ -1,0 +1,12 @@
+{
+  "name": "animation_spec_disabled_flag",
+  "description": "Validates zero-duration instant transition specification.",
+  "category": "animationspec",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "AnimationSpec"
+  ]
+}

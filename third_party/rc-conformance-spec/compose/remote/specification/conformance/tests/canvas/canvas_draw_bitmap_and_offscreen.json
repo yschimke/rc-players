@@ -1,0 +1,14 @@
+{
+  "name": "canvas_draw_bitmap_and_offscreen",
+  "description": "Validates DRAW_BITMAP (44), DRAW_BITMAP_INT (66), and DRAW_TO_BITMAP (190) operations.",
+  "category": "canvas",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "DrawToBitmap",
+    "DrawBitmap",
+    "DrawBitmapInt"
+  ]
+}

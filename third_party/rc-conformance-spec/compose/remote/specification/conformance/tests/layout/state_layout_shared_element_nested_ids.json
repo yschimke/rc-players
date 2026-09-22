@@ -1,0 +1,154 @@
+{
+  "name": "state_layout_shared_element_nested_ids",
+  "category": "layout",
+  "description": "A StateLayout state whose nested components all declare the same shared-element animationId. State 0 is three concentric centered boxes (120x120, 60x60, 24x24) that every carry animationId 700; state 1 is a single 40x40 box with the same id. findAnimatedComponents keeps only the last component it sees per state, so the slot for id 700 in state 0 is the innermost box - a descendant of the other two. The shared-element measure recopy must not stamp an ancestor's position onto it: the inner boxes stay centered at (30,30) and (18,18) rather than inheriting their parent's offset.",
+  "parameters": {
+    "width": 200,
+    "height": 200,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "click",
+        "x": 100,
+        "y": 20,
+        "label": "switch_to_state_1"
+      },
+      {
+        "step": 1,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_on_state_1"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 200,
+      "height": 200
+    },
+    "resources": {
+      "variables": {
+        "nestedState": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#020617"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "name": "toggle_button",
+          "modifiers": [
+            {
+              "width": 200
+            },
+            {
+              "height": 40
+            },
+            {
+              "background": "#475569"
+            },
+            {
+              "onClick": {
+                "type": "valueIntegerChange",
+                "target": "nestedState",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$nestedState",
+          "children": [
+            {
+              "type": "box",
+              "name": "outer_120",
+              "animationId": 700,
+              "horizontalAlignment": "center",
+              "verticalAlignment": "center",
+              "modifiers": [
+                {
+                  "width": 120
+                },
+                {
+                  "height": 120
+                },
+                {
+                  "background": "#1e293b"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "name": "middle_60",
+                  "animationId": 700,
+                  "horizontalAlignment": "center",
+                  "verticalAlignment": "center",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 60
+                    },
+                    {
+                      "background": "#334155"
+                    }
+                  ],
+                  "children": [
+                    {
+                      "type": "box",
+                      "name": "inner_24",
+                      "animationId": 700,
+                      "modifiers": [
+                        {
+                          "width": 24
+                        },
+                        {
+                          "height": 24
+                        },
+                        {
+                          "background": "#93c5fd"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "name": "state1_40",
+              "animationId": 700,
+              "modifiers": [
+                {
+                  "width": 40
+                },
+                {
+                  "height": 40
+                },
+                {
+                  "background": "#f59e0b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

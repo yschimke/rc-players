@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "shaders_radial_gradient_center_radius",
+  "description": "Validates radial gradient shader center and radius parameters.",
+  "category": "shaders",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsUAAAAINAAAAAZgAAAAEAAAA+aGFsZjQgbWFpbihmbG9hdDIgY29vcmQpIHsgcmV0dXJuIGhhbGY0KDEuMCwgMC41LCAwLjAsIDEuMCk7IH0tAAAAgwAAAAEAAAABAAAABXVUaW1lAAAAAUAAAAAoAAAAAgAAAAH/OL34KkEgAABBIAAAQxYAAEMWAAA=",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ShaderData",
+        "DrawRect"
+      ]
+    },
+    {
+      "id": "val_check",
+      "at": "initial",
+      "probe": "float",
+      "target": 131,
+      "expect": 2
+    }
+  ]
+}

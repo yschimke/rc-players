@@ -1,0 +1,228 @@
+{
+  "name": "state_layout_row_to_column",
+  "category": "layout",
+  "description": "StateLayout switching children arrangement between Row and Column via click (pattern from RcStateLayoutRowToColumnDemo). State 0 arranges 3 boxes horizontally in a Row (height 60); State 1 arranges 3 boxes vertically in a Column (height 160).",
+  "parameters": {
+    "width": 300,
+    "height": 300,
+    "density": 1.0,
+    "frames": 2,
+    "tolerance": 0.5,
+    "interactions": [
+      {
+        "step": 0,
+        "type": "click",
+        "x": 60,
+        "y": 18,
+        "label": "click_switch_to_column"
+      },
+      {
+        "step": 1,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_on_column_layout"
+      },
+      {
+        "step": 2,
+        "type": "click",
+        "x": 60,
+        "y": 18,
+        "label": "click_switch_to_row"
+      },
+      {
+        "step": 3,
+        "type": "advance_time",
+        "delta_millis": 2000,
+        "label": "settled_on_row_layout"
+      }
+    ]
+  },
+  "document": {
+    "header": {
+      "width": 300,
+      "height": 300
+    },
+    "resources": {
+      "variables": {
+        "layoutMode": {
+          "type": "integer",
+          "value": 0
+        }
+      }
+    },
+    "root": {
+      "type": "column",
+      "modifiers": [
+        {
+          "fillMaxSize": 1.0
+        },
+        {
+          "background": "#0f172a"
+        }
+      ],
+      "children": [
+        {
+          "type": "box",
+          "name": "toggle_mode_button",
+          "modifiers": [
+            {
+              "width": 120
+            },
+            {
+              "height": 36
+            },
+            {
+              "background": "#3b82f6"
+            },
+            {
+              "onClick": {
+                "type": "valueIntegerExpressionChange",
+                "target": "layoutMode",
+                "expression": "1 - layoutMode"
+              }
+            }
+          ]
+        },
+        {
+          "type": "stateLayout",
+          "stateId": "$layoutMode",
+          "children": [
+            {
+              "type": "row",
+              "name": "row_state",
+              "modifiers": [
+                {
+                  "width": 240
+                },
+                {
+                  "height": 60
+                },
+                {
+                  "background": "#1e293b"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 40
+                    },
+                    {
+                      "background": "#ef4444"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 40
+                    },
+                    {
+                      "background": "#22c55e"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 60
+                    },
+                    {
+                      "height": 40
+                    },
+                    {
+                      "background": "#3b82f6"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "column",
+              "name": "column_state",
+              "modifiers": [
+                {
+                  "width": 100
+                },
+                {
+                  "height": 160
+                },
+                {
+                  "background": "#0f172a"
+                }
+              ],
+              "children": [
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 80
+                    },
+                    {
+                      "height": 40
+                    },
+                    {
+                      "background": "#ef4444"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 80
+                    },
+                    {
+                      "height": 40
+                    },
+                    {
+                      "background": "#22c55e"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "modifiers": [
+                    {
+                      "width": 80
+                    },
+                    {
+                      "height": 40
+                    },
+                    {
+                      "background": "#3b82f6"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "name": "footer_marker",
+          "modifiers": [
+            {
+              "width": 240
+            },
+            {
+              "height": 30
+            },
+            {
+              "background": "#64748b"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "shaders_linear_gradient_stops",
+  "description": "Validates linear gradient shader stops and ShaderData registration.",
+  "category": "shaders",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ShaderData",
+    "DrawRect"
+  ]
+}

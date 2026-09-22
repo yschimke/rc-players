@@ -1,0 +1,17 @@
+{
+  "name": "wire_component_value_and_custom_layout",
+  "description": "Validates COMPONENT_VALUE (150), LAYOUT_COMPUTE (238), LAYOUT_CUSTOM (93), MODIFIER_DRAW_CONTENT (174), MODIFIER_RIPPLE (229), and MODIFIER_DIMENSION_CONSTRAINTS (243).",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "ComponentValue",
+    "LayoutComputeOperation",
+    "Custom",
+    "DrawContentModifier",
+    "RippleModifier",
+    "DimensionConstraintsModifier"
+  ]
+}

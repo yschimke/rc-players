@@ -1,0 +1,12 @@
+{
+  "name": "wire_header_version_and_dimensions",
+  "description": "Validates HEADER (opcode 0) version, viewport dimensions, and capabilities map.",
+  "category": "wire",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "Header"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "canvas_draw_text_run_and_content",
+  "description": "Validates DRAW_TEXT_RUN (43), DRAW_CONTENT (139), and CANVAS_OPERATIONS (173).",
+  "category": "canvas",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "DrawText",
+    "DrawContent",
+    "CanvasOperationsOp"
+  ]
+}

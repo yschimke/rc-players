@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "name": "text_attribute_and_transform",
+  "description": "Validates ATTRIBUTE_TEXT (opcode 170) extracting text attribute metadata.",
+  "category": "textoperations",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEsZgAAAAEAAAAPVHJhbnNmb3JtU2FtcGxlqgAAAI4AAAABAAAAAA==",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "TextAttribute"
+      ]
+    },
+    {
+      "id": "attr_val",
+      "at": "initial",
+      "probe": "float",
+      "target": 142,
+      "expect": 110.7421875,
+      "tolerance": 1000
+    }
+  ]
+}

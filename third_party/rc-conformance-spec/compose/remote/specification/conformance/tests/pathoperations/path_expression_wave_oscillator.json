@@ -1,0 +1,12 @@
+{
+  "name": "path_expression_wave_oscillator",
+  "description": "Validates PATH_EXPRESSION (opcode 193) generating a multi-segment wave oscillator.",
+  "category": "pathoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "PathExpression"
+  ]
+}

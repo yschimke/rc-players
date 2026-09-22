@@ -1,0 +1,38 @@
+{
+  "format_version": 2,
+  "name": "colortheme_color_tween_interpolation",
+  "description": "Validates COLOR_EXPRESSIONS (opcode 134) interpolating midpoint between two ARGB colors.",
+  "category": "colortheme",
+  "profile": "core",
+  "harness": {
+    "width": 300,
+    "height": 300
+  },
+  "document_base64": "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEshgAAACUAAAAA/wAAAP////8/AAAA",
+  "timeline": [
+    {
+      "id": "initial",
+      "kind": "paint",
+      "frames": 2,
+      "measure": false
+    }
+  ],
+  "checks": [
+    {
+      "id": "ops_present",
+      "at": "initial",
+      "probe": "ops",
+      "channel": "present",
+      "expect": [
+        "ColorExpression"
+      ]
+    },
+    {
+      "id": "col_val",
+      "at": "initial",
+      "probe": "color",
+      "target": 37,
+      "expect": 4290427578
+    }
+  ]
+}

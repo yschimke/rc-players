@@ -1,0 +1,12 @@
+{
+  "name": "data_named_variable_registry",
+  "description": "Validates NAMED_VARIABLE (opcode 137) float variable naming and lookup.",
+  "category": "dataoperations",
+  "parameters": {
+    "width": 300,
+    "height": 300
+  },
+  "operations": [
+    "NamedVariable"
+  ]
+}
