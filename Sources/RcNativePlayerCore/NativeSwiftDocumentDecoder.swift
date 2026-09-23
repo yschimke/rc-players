@@ -458,16 +458,38 @@ enum NativeSwiftDocumentDecoder {
     /// Walks a conditional's captured body without running it: counts its direct child
     /// operations, and when `tracePath` is given, traces each nested conditional under it as not
     /// executed, as the reference records every conditional in a branch that did not run.
+    ///
+    /// Nested skipped bodies are walked with an explicit stack of the bodies they interrupt rather
+    /// than by recursion, and no deeper than `maximumNestingDepth`, the bound an executed chain of
+    /// conditionals already has: a malformed document can nest them as deep as its length allows,
+    /// and recursing once per level overflows a 512 KiB secondary-thread stack. Traces are emitted
+    /// in the same depth-first order the recursive walk produced.
     func walkConditionalBody(_ body: Data, tracePath: String?) throws -> Int {
+      /// A body whose walk is suspended while a nested conditional's body is walked.
+      struct SuspendedBody {
+        let input: WireReader
+        let path: String
+        let nestedIndex: Int
+      }
       let saved = input
-      input = WireReader(body)
       defer { input = saved }
-      var children = 0
+      input = WireReader(body)
+      var suspended: [SuspendedBody] = []
+      var path = tracePath
       var nestedIndex = 0
-      while !input.isAtEnd {
+      var children = 0
+      while true {
+        if input.isAtEnd {
+          guard let outer = suspended.popLast() else { break }
+          input = outer.input
+          path = outer.path
+          nestedIndex = outer.nestedIndex
+          continue
+        }
         let opcodeOffset = input.offset
         let opcode = try input.u8("conditional body opcode")
-        children += 1
+        // Only the outermost body's direct children are counted, as the recursive walk returned.
+        if suspended.isEmpty { children += 1 }
         if opcode == NativeSwiftWireOpcode.conditionalOperations {
           let type = try input.u8("conditional type")
           let left = NativeSwiftFloatExpression.resolve(
@@ -475,13 +497,19 @@ enum NativeSwiftDocumentDecoder {
           let right = NativeSwiftFloatExpression.resolve(
             try input.word("conditional right"), values: floats)
           let inner = try captureMacroBody()
-          guard let tracePath else { continue }
-          let path = "\(tracePath).\(nestedIndex)"
+          guard let parentPath = path else { continue }
+          let innerPath = "\(parentPath).\(nestedIndex)"
           nestedIndex += 1
           conditionalTraces.append(NativeSwiftConditionalTraceSnapshot(
             type: type, left: left, right: right, executed: false, executedChildOps: 0,
-            path: path))
-          _ = try walkConditionalBody(inner, tracePath: path)
+            path: innerPath))
+          guard suspended.count < maximumNestingDepth else {
+            throw input.malformed("Conditional nesting exceeds \(maximumNestingDepth)")
+          }
+          suspended.append(SuspendedBody(input: input, path: parentPath, nestedIndex: nestedIndex))
+          input = WireReader(inner)
+          path = innerPath
+          nestedIndex = 0
         } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: 0) {
           _ = try captureMacroBody()
         }

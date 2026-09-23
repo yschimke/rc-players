@@ -1587,6 +1587,16 @@ import Testing
       "an unbounded nested macro-call chain")
   }
 
+  /// A conditional that does not run still traces the conditionals nested in its body, and that
+  /// walk recursed once per level with no bound: a debug build overflows swift-testing's 512 KiB
+  /// worker stack long before a document this size runs out of bytes. It is now iterative and
+  /// bounded like an executed chain, so the document is refused rather than crashing the host.
+  @Test func unboundedNestedSkippedConditionalIsMalformed() {
+    expectMalformed(
+      nestedSkippedConditionalDocument(depth: 300), containing: "Conditional nesting",
+      "an unbounded chain of conditionals inside one that does not run")
+  }
+
   private func expectMalformed(
     _ data: Data, containing reason: String, _ label: String,
     sourceLocation: SourceLocation = #_sourceLocation
@@ -1670,6 +1680,19 @@ import Testing
     output.header(width: 100, height: 100)
     output.u8(246).int(1).int(0).int(0)
     for _ in 0..<depth { output.u8(247).int(2).int(0).u8(249).int(0) }
+    return output.data
+  }
+
+  /// A top-level conditional that does not run (0 == 1), wrapping `depth` nested conditionals.
+  private func nestedSkippedConditionalDocument(depth: Int) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    let conditional = NativeSwiftWireOpcode.conditionalOperations
+    output.u8(conditional).u8(NativeSwiftConditionalType.equal).float(0).float(1)
+    for _ in 0..<depth {
+      output.u8(conditional).u8(NativeSwiftConditionalType.equal).float(0).float(0)
+    }
+    for _ in 0...depth { output.u8(NativeSwiftWireOpcode.containerEnd) }
     return output.data
   }
 
