@@ -28,13 +28,6 @@ the player decides whether they are *recorded* — that is the embedding process
 There is also an `rc:operations` counter carrying the document's operation count, so a timeline shows
 document size next to the phases it drives.
 
-The vendored JVM embedded player ([`:third-party-rc-embedded-player-jvm`](../../third_party/rc-embedded-player-jvm))
-writes to the *same* tracer under `rc-embedded.document` / `rc-embedded.frame`
-(`rcEmbedded:parseDocument`, `rcEmbedded:initContext`, `rcEmbedded:renderFrame`,
-`rcEmbedded:encodePng`), so one capture can hold both render lanes side by side. It calls
-`androidx.tracing` directly rather than through our facade — it renders AndroidX's player, so it
-should not acquire a dependency on ours.
-
 ## Why there is a facade rather than direct `androidx.tracing` calls
 
 `androidx.tracing:tracing:2.x` is a Kotlin Multiplatform library, but as of `2.0.0-rc01` it publishes

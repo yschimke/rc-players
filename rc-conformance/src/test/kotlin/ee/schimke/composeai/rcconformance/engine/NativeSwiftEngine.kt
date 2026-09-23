@@ -54,7 +54,7 @@ import kotlinx.serialization.json.put
  * ### What it observes, and what it does not
  *
  * `raster` only, for now, driving `paint` and `resize`. That is deliberately the same scope as the
- * `androidx-jvm` reference lane, and it carries the same consequence: **no gold in the corpus is
+ * original reference lane, and it carries the same consequence: **no gold in the corpus is
  * raster-only**, so this lane's gold count is zero by construction and its raster column is the
  * number it exists for. It answers one question — where this player's pixels disagree with the
  * corpus, and whether the CMP player disagrees in the same places.

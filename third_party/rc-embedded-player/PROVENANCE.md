@@ -32,6 +32,15 @@ array overrides, reset-to-authored-default support, and the state-based `RcPlaye
 The bootstrap is adapted to the fork's snapshot-backed store and lazy bitmap path; the pre-existing
 document and captured-document entry points remain source compatible.
 
+### Pending AndroidX fix port: 4317866
+
+Ported [AndroidX Gerrit 4317866](https://android-review.googlesource.com/c/platform/frameworks/support/+/4317866),
+`Support dynamic path building and PathCombine in embedded RcPlayer` (patch set 1). It keeps
+path-producing operations out of scalar graph evaluation, preserves top-level dynamic `PathData`,
+and executes `PathCreate`, `PathAppend`, `PathExpression`, `PathTween`, and `PathCombine` in the
+draw stream. The published alpha exposes `PathCombine.mOperation` privately, so this fork reads that
+wire field through the existing guarded reflection accessor.
+
 ### 2026-09-08 refresh
 
 This refresh imports the player changes through the pin above, adapted across the Android/JVM seam:

@@ -50,7 +50,6 @@ The corpus's `tree` checks come from the reference engine, not from any player. 
 | player | resize trees matched |
 | --- | ---: |
 | cmp | **287 / 316 = 90.8%** |
-| androidx-jvm (embedded) | 279 / 316 = 88.3% |
 
 Both players lay out resized documents essentially as the reference expects — the reference itself
 asserts the resized geometry, which is exactly what the CL3 resize rasters contradict.

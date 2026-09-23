@@ -39,6 +39,7 @@ import androidx.compose.remote.core.operations.DrawTweenPath
 import androidx.compose.remote.core.operations.FloatFunctionCall
 import androidx.compose.remote.core.operations.ParticlesCreate
 import androidx.compose.remote.core.operations.ParticlesLoop
+import androidx.compose.remote.core.operations.PathCombine
 import androidx.compose.remote.core.operations.TouchExpression
 import androidx.compose.remote.core.operations.layout.Component
 import androidx.compose.remote.core.operations.layout.Container
@@ -75,6 +76,8 @@ internal fun ClipPath.readData(): ClipPathData {
     regionOp = clipPathRegionOpField.getInt(this),
   )
 }
+
+internal fun PathCombine.operationReflection(): Byte = pathCombineOperationField.getByte(this)
 
 internal fun DrawTextOnPath.readData(): DrawTextOnPathData {
   return DrawTextOnPathData(
@@ -223,6 +226,9 @@ internal fun Custom.readData(): CustomData {
 }
 
 // --- Private Reflective Fields ---
+
+private val pathCombineOperationField =
+  PathCombine::class.java.getDeclaredField("mOperation").apply { isAccessible = true }
 
 private val clipPathIdField =
   ClipPath::class.java.getDeclaredField("mId").apply { isAccessible = true }

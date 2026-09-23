@@ -29,10 +29,6 @@ plugins {
 
 dependencies {
   implementation(project(":rc-player-compose"))
-  // The reference lane: AndroidX's own player, desktop cut. `remote-core` comes with it as an `api`
-  // dependency, which is what lets `AndroidxJvmEngine` read the laid-out `Component` graph directly
-  // rather than through a translation this repository would own.
-  implementation(project(":third-party-rc-embedded-player-jvm"))
   implementation(project(":rc-player-protocol"))
   implementation(project(":rc-player-runtime"))
 

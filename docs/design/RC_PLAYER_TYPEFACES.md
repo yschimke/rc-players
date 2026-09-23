@@ -334,15 +334,6 @@ Built-in ids map to the multiplatform `FontFamily.SansSerif`/`Serif`/`Monospace`
 a list of host family candidates skiko can match (canvas ops — skia has no notion of a generic
 family, so `sans-serif`/`Helvetica`/`DejaVu Sans`/… are tried in order).
 
-A `google:` family is **downloaded**. There is no font *provider* off Android — which is why
-substituting a local face is the obvious wrong answer here — but there is a downloader: `GoogleFontTypefaceResolver` (in
-`:third-party-rc-embedded-player-jvm`) resolves the family through `:data-fonts-google` — the same
-`(family, weight, italic) -> File` machine-local cache the Robolectric downloadable-font shadow and
-the figma-svg embed path use — and serves both jvm text seams from that one file: a Compose
-`FontFamily` for the layout ops (`RcPlayerTextLayoutJvm`), a skiko `Typeface` for the canvas ops
-(`RcPlayerTextPlatformJvm`). Sharing the cache is the point: `Orbitron` at 400 is the *same file*
-here as in every other lane, not a second face that merely shares a name.
-
 **Font-variation axes** reach the layout seam: a `CoreText` op's axis arrays become a Compose
 `FontVariation.Settings`, and a request carrying any is served from the family's **variable** file
 (`loadVariable`) rather than the static instance the unvaried path resolves — see

@@ -14,7 +14,7 @@
       "allowedVersions": "!/(-compat|-SNAPSHOT)$/"
     },
     {
-      "description": "compose-multiplatform: pin to the 1.11.x line. This repository is where the skiko seams actually live: `rc-player/compose/src/{jvm,wasmJs,ios,macos}Main/kotlin/…/PathConic.*.kt` and the vendored `third_party/rc-embedded-player-jvm/…/FloatsToPath.kt` call the mutating `org.jetbrains.skia.Path` API (`Path.conicTo`) that skiko 0.150.1 — what compose-multiplatform 1.12.0 resolves — DELETES; m144 had only deprecated it at `DeprecationLevel.ERROR`. The replacement (`PathBuilder`) is build-then-`snapshot()`, so those four `actual`s have to be restructured before the line can move. The ref is also a floor for consumers, since `:rc-player-compose` exposes `org.jetbrains.compose.{runtime,ui}` as `api` on a published artifact. Raising it is a manual, coordinated decision — see gradle/libs.versions.toml.",
+      "description": "compose-multiplatform: pin to the 1.11.x line. The `rc-player/compose/src/{jvm,wasmJs,ios,macos}Main/kotlin/…/PathConic.*.kt` seams call the mutating `org.jetbrains.skia.Path` API (`Path.conicTo`) that skiko 0.150.1 — what compose-multiplatform 1.12.0 resolves — DELETES; m144 had only deprecated it at `DeprecationLevel.ERROR`. The replacement (`PathBuilder`) is build-then-`snapshot()`, so those four `actual`s have to be restructured before the line can move. The ref is also a floor for consumers, since `:rc-player-compose` exposes `org.jetbrains.compose.{runtime,ui}` as `api` on a published artifact. Raising it is a manual, coordinated decision — see gradle/libs.versions.toml.",
       "matchManagers": ["gradle"],
       "matchPackageNames": ["org.jetbrains.compose", "org.jetbrains.compose{/,}**"],
       "matchCurrentValue": "/^1\\.11\\./",

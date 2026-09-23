@@ -191,7 +191,6 @@ jobs:
             :rc-player-metrics:test \
             :rc-player-profile:test \
             :third-party-rc-embedded-player:testDebugUnitTest \
-            :third-party-rc-embedded-player-jvm:check
 
       # A test task that resolves to nothing still goes green. See the script's header.
       - name: Assert the JVM and Android suites executed
@@ -205,7 +204,6 @@ jobs:
             rc-player/metrics:test \
             rc-player/profile:test \
             third_party/rc-embedded-player:testDebugUnitTest \
-            third_party/rc-embedded-player-jvm:test
 
       # The Wasm distribution and its size ratchet. `wasmPlayerTestDist` also stages the AndroidX
       # generated fixtures next to the bundle, so the browser smoke input is built from the real

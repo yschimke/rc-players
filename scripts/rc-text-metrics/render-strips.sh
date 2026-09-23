@@ -51,7 +51,7 @@ rm -rf "$fixtures_dir"
 # starts. A harness that skips — Skiko natives failing to load is the realistic case — leaves the old
 # files in place, and a check that only counts PNGs would accept them and recompose the tracked
 # strips from the *previous* run while reporting success.
-rm -rf "$lanes_dir/java" "$lanes_dir/cmp-android" "$lanes_dir/cmp-jvm"
+rm -rf "$lanes_dir/java" "$lanes_dir/cmp-android"
 
 echo "==> java + cmp-android lanes"
 ./gradlew --quiet :third-party-rc-embedded-player:testDebugUnitTest --rerun \
@@ -60,18 +60,12 @@ echo "==> java + cmp-android lanes"
   "-Prc.view.output=$lanes_dir/java" \
   "-Prc.embedded.output=$lanes_dir/cmp-android"
 
-echo "==> cmp-jvm lane"
-./gradlew --quiet :third-party-rc-embedded-player-jvm:test --rerun \
-  --tests '*RcJvmRenderHarness*' \
-  "-Prc.jvm.input=$fixtures_dir" \
-  "-Prc.jvm.output=$lanes_dir/cmp-jvm"
-
 # A lane that rendered nothing — or rendered only some of the set — is the failure this script
 # exists to make loud, because the composed strip would otherwise come out narrower, or built from
 # whatever the last run left behind, and still look like a picture of three lanes. Compare against
 # the fixture count rather than against zero, so a partial lane fails too.
 expected=$(find "$fixtures_dir" -name '*.rc' | wc -l | tr -d ' ')
-for lane in java cmp-android cmp-jvm; do
+for lane in java cmp-android; do
   count=$(find "$lanes_dir/$lane" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
   errors=$(find "$lanes_dir/$lane" -name '*.error' 2>/dev/null | wc -l | tr -d ' ')
   echo "    $lane: $count/$expected png, $errors error"

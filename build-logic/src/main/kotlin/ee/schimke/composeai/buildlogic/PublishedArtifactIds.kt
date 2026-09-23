@@ -23,7 +23,6 @@ object PublishedArtifactIds {
       ":rc-player-compose" to "rc-player-compose",
       ":rc-player-wasm-dist" to "rc-player-wasm-dist",
       ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
-      ":third-party-rc-embedded-player-jvm" to "third-party-rc-embedded-player-jvm",
       // The vendored TypeScript player's bundle. Named for what it contains rather than for the
       // project that wraps it, and published under that name since 1.53.x — a coordinate cannot be
       // renamed without stranding every consumer that resolves it.

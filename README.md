@@ -20,13 +20,12 @@ questions. The supported renderer remains CMP; UIKit is an explicitly experiment
 | **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Pure Swift + UIKit/Core Graphics/Core Text | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **macOS player app** (`samples/macos-player`) | Apple-silicon macOS | SwiftUI host + CMP or experimental AppKit-native rendering | **Release utility** | Opens local `.rc` files and persists a renderer preference, so both Apple desktop paths can be exercised from one downloadable app. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
-| **Vendored AndroidX player, JVM cut** (`third_party/rc-embedded-player-jvm`) | Desktop JVM (Skia) | The platform-neutral subset of the above, against Compose Desktop | **No** — testing/tooling only | Runs the same comparison headlessly, without Robolectric — and, by compiling the shared files against a non-Android target, makes "platform-neutral" a compiled fact rather than a claim. AndroidX publishes no desktop cut, so this one has no upstream to switch to. |
 | **Vendored TypeScript player** (`third_party/remote-compose-player`) | Browser · Node · VS Code webview | TypeScript → Canvas2D, WebGL for shader ops | **No** — vendored, upstream elsewhere | A client-side lane that needs no Kotlin at all, so a viewer can render a captured `.rc` without a server-side daemon. Upstream is [yschimke/remotecompose-experiments](https://github.com/yschimke/remotecompose-experiments); changes are filed there. |
 
 The shape of the whole thing: **one supported implementation, one experimental renderer, two CMP
-hosts, and three references.** The CMP player is the product; the Wasm bundle and XCFramework are it
-in different wrappers. The native UIKit POC sits beside it, while the two AndroidX cuts and the
-TypeScript player remain comparison lanes.
+hosts, and two references.** The CMP player is the product; the Wasm bundle and XCFramework are it
+in different wrappers. The native UIKit POC sits beside it, while the AndroidX and TypeScript
+players remain comparison lanes.
 
 ## What is here
 
@@ -313,7 +312,7 @@ equivalent.
 repository's manifest starts at `1.54.0` and the first release cut here is `1.55.0`. Restarting at
 `0.1.0` would have published a version *below* what consumers already resolve — a downgrade to
 anything using a range or a BOM, and silently invisible to everything else. `rc-player-wasm-dist`,
-`third-party-rc-embedded-player-jvm` and `remote-compose-player-js-dist` are new coordinates and
+`remote-compose-player-js-dist` is a new coordinate and
 first appear at that release. The version comes from `PLUGIN_VERSION` in the environment, or from
 `.release-please-manifest.json` bumped to the next patch `-SNAPSHOT` for local builds. The npm bundle
 and the XCFramework are assembled by the release workflow, which is the only thing that should write

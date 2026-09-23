@@ -61,7 +61,12 @@ import androidx.compose.remote.core.operations.NamedVariable
 import androidx.compose.remote.core.operations.PaintData
 import androidx.compose.remote.core.operations.ParticlesCompare
 import androidx.compose.remote.core.operations.ParticlesLoop
+import androidx.compose.remote.core.operations.PathAppend
+import androidx.compose.remote.core.operations.PathCombine
+import androidx.compose.remote.core.operations.PathCreate
 import androidx.compose.remote.core.operations.PathData
+import androidx.compose.remote.core.operations.PathExpression
+import androidx.compose.remote.core.operations.PathTween
 import androidx.compose.remote.core.operations.TextMeasure
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.Container
@@ -78,6 +83,7 @@ import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path as ComposePath
 import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -126,6 +132,8 @@ internal fun DrawScope.executeOperations(
   // suppresses writes during evaluation — so they stay on `remoteContext` (the real store).
   // GraphContext shares that store, so leaf reads are identical either way.
   val read: RemoteContext = graph ?: remoteContext
+  remoteContext.clearLastOpCount()
+  graph?.clearLastOpCount()
   var canvasLevel = 0
   // For DRAW_TO_BITMAP: the original on-screen canvas, saved the first time the draw target is
   // redirected to an offscreen bitmap so it can be restored (on a `bitmapId == 0` reset, and
@@ -1263,6 +1271,49 @@ internal fun DrawScope.executeOperations(
       }
       is PathData -> {
         op.apply(remoteContext)
+      }
+      is PathCreate,
+      is PathAppend,
+      is PathExpression -> {
+        op.apply(remoteContext)
+      }
+      is PathTween -> {
+        val state = remoteContext.mRemoteComposeState
+        val path1Id = derefId(op.mPathId1, read)
+        val path2Id = derefId(op.mPathId2, read)
+        val outId = derefId(op.mOutId, read)
+        val tween = op.mTweenOut
+        val data1 = state.getPathData(path1Id)
+        val data2 = state.getPathData(path2Id)
+        val result =
+          when {
+            tween <= 0f || data2 == null -> data1
+            tween >= 1f || data1 == null -> data2
+            else ->
+              FloatArray(data2.size) { index ->
+                if (data1[index].isNaN() || data2[index].isNaN()) data1[index]
+                else (data2[index] - data1[index]) * tween + data1[index]
+              }
+          }
+        if (result != null) state.putPathData(outId, result)
+      }
+      is PathCombine -> {
+        val state = remoteContext.mRemoteComposeState
+        val path1Id = derefId(op.mPathId1, read)
+        val path2Id = derefId(op.mPathId2, read)
+        val outId = derefId(op.mOutId, read)
+        val path1 = state.getPath(path1Id, 0f, 1f)
+        val path2 = state.getPath(path2Id, 0f, 1f)
+        val operation =
+          when (op.operationReflection()) {
+            PathCombine.OP_DIFFERENCE -> PathOperation.Difference
+            PathCombine.OP_INTERSECT -> PathOperation.Intersect
+            PathCombine.OP_REVERSE_DIFFERENCE -> PathOperation.ReverseDifference
+            PathCombine.OP_UNION -> PathOperation.Union
+            PathCombine.OP_XOR -> PathOperation.Xor
+            else -> PathOperation.Union
+          }
+        state.putPath(outId, ComposePath.combine(operation, path1, path2))
       }
       is ComponentValue -> {
         val w = this.size.width

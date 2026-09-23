@@ -159,6 +159,7 @@ internal class GraphContext(
     }
 
     val op = computedOps[id] ?: return null
+    if (state.depth == 0) clearLastOpCount()
     state.depth++
     val prevId = state.captureId
     val prevCaptured = state.captured
@@ -267,7 +268,11 @@ internal class GraphContext(
   // Non-scalar / multi-writes during evaluation are suppressed (never reach the real store).
   override fun putObject(id: Int, value: Any) {}
 
-  override fun loadPathData(instanceId: Int, winding: Int, floatPath: FloatArray) {}
+  override fun loadPathData(instanceId: Int, winding: Int, floatPath: FloatArray) {
+    if (evalState.get()!!.captureId == -1) {
+      super.loadPathData(instanceId, winding, floatPath)
+    }
+  }
 
   override fun addCollection(id: Int, collection: ArrayAccess) {}
 
