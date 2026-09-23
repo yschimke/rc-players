@@ -123,7 +123,7 @@
 
   @MainActor
   public final class NativeMacRepresentableHost: NSView {
-    private var player: NativeMacDocumentView?
+    private var player: NSView?
     private var onEvent: (RemoteComposeNativePlayerEvent) -> Void = { _ in }
     private var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
 
@@ -139,22 +139,11 @@
 
     func load(data: Data, policy: RemoteComposeNativePlayerCompatibilityPolicy) {
       do {
-        let session = try NativeSwiftDocumentSession.open(data: data)
-        let snapshot = try session.snapshot(timeSeconds: 0, wallClock: .capture)
         let compatibility: NativeMacCompatibility = policy == .strict ? .strict : .compatible
-        let report = try NativeMacPolicy.evaluate(snapshot, compatibility: compatibility)
-        onDiagnostics(report.diagnostics)
-        guard RemoteComposeNativeCompatibilityDecision.shouldRender(
-          policy: policy, diagnostics: report.diagnostics)
-        else { return }
-        let fonts = try NativeMacFontRegistry.register(snapshot: snapshot, downloadedFonts: [:])
-        let view = try NativeMacDocumentView(
-          snapshot: snapshot, session: session, compatibility: compatibility, report: report,
-          fonts: fonts,
-          onEvent: { [weak self] summary in
-            self?.onEvent(.debug(message: summary, value: 0, flags: 0))
-          }, onDiagnostics: { [weak self] diagnostics in self?.onDiagnostics(diagnostics) },
-          onError: { _ in })
+        let view = try NativeAppKitWindowController.makeView(
+          data: data, compatibility: compatibility,
+          onEvent: { [weak self] event in self?.onEvent(event) },
+          onDiagnostics: { [weak self] diagnostics in self?.onDiagnostics(diagnostics) })
         player?.removeFromSuperview()
         player = view
         addSubview(view)
