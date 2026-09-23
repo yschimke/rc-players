@@ -307,6 +307,7 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let gradient: NativeSwiftGradientSnapshot?
   public let text: String?
   public let textSize: Float
+  public let textFlags: Int
 }
 
 /// A resolved paint gradient: colours as ARGB, stops and coordinates as floats, ready to draw.
@@ -2802,10 +2803,14 @@ private struct ParsedDrawCommand {
   let image: ParsedImageDraw?
   let alphaWord: UInt32?
   let textID: Int?
+  let textStart: Int?
+  let textEnd: Int?
+  let textFlags: Int
 
   init(
     kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
-    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil
+    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil,
+    textStart: Int? = nil, textEnd: Int? = nil, textFlags: Int = 0
   ) {
     self.kind = kind
     self.words = words
@@ -2816,6 +2821,9 @@ private struct ParsedDrawCommand {
     self.image = image
     self.alphaWord = alphaWord
     self.textID = textID
+    self.textStart = textStart
+    self.textEnd = textEnd
+    self.textFlags = textFlags
   }
 
   func resolve(
@@ -2872,8 +2880,13 @@ private struct ParsedDrawCommand {
             NativeSwiftFloatExpression.resolve($0, values: values)
           },
           tileMode: gradient.tileMode)
-      }, text: textID.flatMap { texts[$0] },
-      textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values))
+      }, text: textID.flatMap { id in
+        guard let text = texts[id], let start = textStart, let end = textEnd else { return texts[id] }
+        let lower = text.index(text.startIndex, offsetBy: min(max(start, 0), text.count))
+        let upper = text.index(text.startIndex, offsetBy: min(max(end, start), text.count))
+        return String(text[lower..<upper])
+      }, textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values),
+      textFlags: textFlags)
   }
 }
 
@@ -4347,22 +4360,22 @@ private enum NativeSwiftDocumentDecoder {
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
       case NativeSwiftWireOpcode.drawText:
         let textID = try input.int("draw text id")
-        _ = try input.int("draw text start")
-        _ = try input.int("draw text end")
+        let start = try input.int("draw text start")
+        let end = try input.int("draw text end")
         _ = try input.int("draw text context start")
         _ = try input.int("draw text context end")
         let x = try input.word("draw text x")
         let y = try input.word("draw text y")
-        _ = try input.u8("draw text rtl")
+        let rtl = Int(try input.u8("draw text rtl"))
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: 17, words: [x, y, Float(-1).bitPattern, Float(-1).bitPattern],
-            paint: paint, textID: textID))
+            paint: paint, textID: textID, textStart: start, textEnd: end, textFlags: rtl))
       case NativeSwiftWireOpcode.drawTextAnchored:
         let textID = try input.int("draw anchored text id")
         let words = try (0..<4).map { _ in try input.word("draw anchored text value") }
-        _ = try input.int("draw anchored text flags")
+        let flags = try input.int("draw anchored text flags")
         try drawingNode().commands.append(
-          ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID))
+          ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID, textFlags: flags))
       case NativeSwiftWireOpcode.drawTextOnPath:
         let textID = try input.int("draw text path text id")
         _ = try input.int("draw text path id")
