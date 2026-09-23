@@ -1280,7 +1280,7 @@
         NativeLayoutDimension(
           type: node.widthType,
           value: node.widthValue
-            * (node.widthType == 6 ? layoutDensityScale : documentScale),
+            * (node.widthType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
           minimum: node.minimumWidth * dimensionConstraintScale,
           maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: available.width, available: available.width)
@@ -1292,7 +1292,7 @@
         NativeLayoutDimension(
           type: node.heightType,
           value: node.heightValue
-            * (node.heightType == 6 ? layoutDensityScale : documentScale),
+            * (node.heightType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
           minimum: node.minimumHeight * dimensionConstraintScale,
           maximum: node.maximumHeight.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: available.height, available: available.height)
@@ -1393,7 +1393,7 @@
         && customView == nil
         && node.semanticBehavior?.acceptsPointerAction != true
         && node.backgroundColor == nil
-        && node.visibility == 1 && node.widthType == 2 && node.heightType == 2
+        && node.visibility == 1 && node.widthType == NativeSwiftDimensionType.wrap && node.heightType == NativeSwiftDimensionType.wrap
         && node.minimumWidth == 0 && node.minimumHeight == 0
         && node.maximumWidth == nil && node.maximumHeight == nil
         && node.padding == .zero && node.offset == .zero && node.zIndex == 0
@@ -1650,7 +1650,7 @@
           ? child.node.collapsiblePriority.map(Float.init) : nil
         return NativeSwiftCollapsible.Child(
           mainSize: Float(axis == .vertical ? size.height : size.width),
-          weight: weightType == 3 ? Float(max(weightValue, 0)) : 0,
+          weight: weightType == NativeSwiftDimensionType.weight ? Float(max(weightValue, 0)) : 0,
           priority: priority)
       }
       let extent = axis == .vertical ? available.height : available.width
@@ -1684,7 +1684,7 @@
           spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: sizes.map(\.height),
         weights: items.map { child in
-          guard child.node.heightType == 3 else { return nil }
+          guard child.node.heightType == NativeSwiftDimensionType.weight else { return nil }
           return max(child.node.heightValue, .leastNonzeroMagnitude)
         })
       let heights = zip(items, zip(sizes, weightedHeights)).map { child, values in
@@ -1783,7 +1783,7 @@
       let children = items.map { child in
         NativeSwiftFlow.Child(
           measuredWidth: Float(child.preferredSize(in: available).width),
-          weight: child.node.widthType == 3 ? Float(max(child.node.widthValue, 0)) : 0,
+          weight: child.node.widthType == NativeSwiftDimensionType.weight ? Float(max(child.node.widthValue, 0)) : 0,
           minimumWidth: Float(child.node.minimumWidth * child.dimensionConstraintScale))
       }
       let segmented = NativeSwiftFlow.segment(
@@ -1805,7 +1805,7 @@
         for (position, index) in indices.enumerated() {
           let child = items[index]
           let size: CGSize
-          if let weight = weights[position] {
+          if weights[position] != nil {
             // The allocator splits the leftover; the child's own minimum still bounds it, because a
             // weighted child that cannot reach its minimum has to overflow its row rather than be
             // drawn narrower than the document allows.
@@ -1813,7 +1813,7 @@
             let share = max(max(allocated[position], minimum), 0)
             let measured = child.preferredSize(
               in: CGSize(width: share, height: available.height))
-            size = CGSize(width: max(share, weight * 0), height: measured.height)
+            size = CGSize(width: share, height: measured.height)
           } else {
             size = child.preferredSize(in: available)
           }
@@ -1846,7 +1846,7 @@
           spacing: node.isCollapsible ? scaledSpacing : 0),
         naturalSizes: natural.map(\.width),
         weights: items.map { child in
-          guard child.node.widthType == 3 else { return nil }
+          guard child.node.widthType == NativeSwiftDimensionType.weight else { return nil }
           return max(child.node.widthValue, .leastNonzeroMagnitude)
         })
       let widths = zip(items, zip(natural, allocatedWidths)).map { child, values in
@@ -1902,13 +1902,13 @@
       return CGSize(
         width: NativeLayoutDimension(
           type: node.widthType,
-          value: node.widthValue * (node.widthType == 6 ? layoutDensityScale : documentScale),
+          value: node.widthValue * (node.widthType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
           minimum: node.minimumWidth * dimensionConstraintScale,
           maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: intrinsic.width, available: available.width),
         height: NativeLayoutDimension(
           type: node.heightType,
-          value: node.heightValue * (node.heightType == 6 ? layoutDensityScale : documentScale),
+          value: node.heightValue * (node.heightType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
           minimum: node.minimumHeight * dimensionConstraintScale,
           maximum: node.maximumHeight.map { $0 * dimensionConstraintScale }
         ).resolve(intrinsic: intrinsic.height, available: available.height))

@@ -570,6 +570,43 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun aFillWrittenWithAPlainNaNFillsItsParent() {
+    // AndroidX writes FILL with the quiet NaN 0x7fc00000 when there is no fraction. Its payload is
+    // 0, which `Utils.isVariable` rejects as a reference; reading it as slot 0 gave a fraction of 0
+    // and a 0 x 0 box, so neither its background nor its click target existed.
+    val plainNaN = RcFloatWord(0x7fc00000)
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 30, modern = false),
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcBoxLayout(3, 30, 1, 4),
+          RcWidthModifier(RcDimensionType.FILL, plainNaN),
+          RcHeightModifier(RcDimensionType.FILL, plainNaN),
+          solidBackground(red = 1f, green = 0f, blue = 0f),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 40, height = 30, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val image = scene.render()
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 30) }
+      check(image.readPixels(bitmap))
+
+      assertEquals(0xffff0000.toInt(), bitmap.getColor(1, 1))
+      assertEquals(0xffff0000.toInt(), bitmap.getColor(38, 28))
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun collapsibleRowDropsAChildWiderThanItselfInsteadOfSqueezingIt() {
     // AndroidX's fit test measures each child with the main axis unbounded, so a 100px child is
     // 100px and does not fit a 60px row. Measuring within the row clamped it to 60 — exactly the

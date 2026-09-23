@@ -204,6 +204,7 @@ public object Comparators {
   }
 
   private const val DEFAULT_RASTER_PIXELS = 16.0
+  private const val LABEL = "label"
 
   // ---------------------------------------------------------------- sequences and sets
 
@@ -269,9 +270,14 @@ public object Comparators {
         if (observed == null) {
           listOf(diff(check, path.ifEmpty { "shape" }, expected, actual, tolerance))
         } else {
-          expected.flatMap { (key, value) ->
-            compareValue(check, join(path, key), value, observed[key] ?: JsonNull, tolerance)
-          }
+          expected
+            // `label` is the corpus's human-readable annotation (§3), not an observation — the
+            // record golds name each entry ("first box spec") for the reader. It is compared only
+            // where the player reports one, as `records:glyph_runs` does.
+            .filterKeys { key -> key != LABEL || LABEL in observed }
+            .flatMap { (key, value) ->
+              compareValue(check, join(path, key), value, observed[key] ?: JsonNull, tolerance)
+            }
         }
       }
       is JsonArray -> {

@@ -10,7 +10,11 @@ import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SkikoComposeUiTest
 import androidx.compose.ui.test.TouchInjectionScope
@@ -38,13 +42,17 @@ import ee.schimke.composeai.rcplayer.compose.RcDocumentStateKey
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.compose.RcScrollOffsetKey
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
+import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcImpulseStart
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
@@ -53,7 +61,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
+import ee.schimke.composeai.rcplayer.runtime.RcHostActionValue
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerEvent
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import ee.schimke.composeai.rcplayer.runtime.RcTimeSnapshot
 import ee.schimke.composeai.rcplayer.runtime.RcTimeSource
@@ -212,6 +222,15 @@ private class CmpSession(
    * The wall clock the player reads. The system clock until a `clock_snapshot` freezes it; kept
    * frozen afterwards, because later steps are measured against the same snapshot.
    */
+  /** Whether each gesture step landed on something that handles it, by step id. */
+  private val handled = mutableMapOf<String, Boolean>()
+
+  /** Host actions the document dispatched, in order — what the host's action callback received. */
+  private val hostActions = mutableListOf<JsonObject>()
+
+  /** The gesture timeouts the player itself uses, read from the composition. */
+  private lateinit var viewConfiguration: ViewConfiguration
+
   private var timeSource: RcTimeSource = RcTimeSource.System
   private val clock = FrozenOrSystem { timeSource }
 
@@ -238,13 +257,20 @@ private class CmpSession(
         LocalRcAhemTextMetrics provides (gold.textMetrics == "ahem"),
         LocalRcTimeSource provides clock,
       ) {
+        viewConfiguration = LocalViewConfiguration.current
         key(generation) {
           // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
           // sized by the modifier the host supplies; with the default `Modifier` that canvas
           // measures 0x0, and anything sized *from* the `DrawScope` — canvas-drawn text especially
           // — lays out into nothing while explicitly positioned draws still land. The result looks
           // like a partial render rather than a misconfigured harness.
-          RcComposePlayer(document, Modifier.fillMaxSize(), theme = theme, typefaces = typefaces)
+          RcComposePlayer(
+            document,
+            Modifier.fillMaxSize(),
+            theme = theme,
+            typefaces = typefaces,
+            onEvent = ::recordEvent,
+          )
         }
       }
     }
@@ -270,10 +296,21 @@ private class CmpSession(
       "frame_sequence" -> frameSequence(step, onCapture)
       "trigger" -> trigger(step)
       "click",
-      "longPress",
       "doubleClick" -> {
         val point = Offset(step.float("x") ?: 0f, step.float("y") ?: 0f)
+        handled[step.id] = handlesAt(point, SemanticsActions.OnClick)
         repeat(if (step.kind == "doubleClick") 2 else 1) { press(point, release = true) }
+        afterGesture(step)
+      }
+      // A long press is a press *held* past the long-press timeout; releasing at once, as this
+      // used to, is a click.
+      "longPress" -> {
+        val point = Offset(step.float("x") ?: 0f, step.float("y") ?: 0f)
+        handled[step.id] = handlesAt(point, SemanticsActions.OnLongClick)
+        press(point, release = false)
+        advanceBy(viewConfiguration.longPressTimeoutMillis + FRAME_MILLIS)
+        test.waitForIdle()
+        touch { up() }
         afterGesture(step)
       }
       "touch_down" -> {
@@ -398,7 +435,50 @@ private class CmpSession(
    * touch-coordinate slots (13 = x, 14 = y) that the interactivity checks read — repainting anyway
    * makes those checks compare against cleared values (§3).
    */
+  /**
+   * Whether a gesture at [point] lands on something that handles it (§4.2 `trace:handled`).
+   *
+   * Read, like the tree, from the unmerged semantics: a component that reacts to a click publishes
+   * the click action, and the one under the pointer is the one a hit test reaches. Taken before the
+   * gesture, because what the gesture does can move or remove the very node it hit.
+   */
+  private fun handlesAt(point: Offset, action: SemanticsPropertyKey<*>): Boolean {
+    fun hit(node: SemanticsNode): Boolean =
+      (node.layoutInfo.isPlaced && action in node.config && node.boundsInRoot.contains(point)) ||
+        node.children.any(::hit)
+    return semanticsRoot()?.let(::hit) ?: false
+  }
+
+  private fun recordEvent(event: RcPlayerEvent) {
+    val (name, value) =
+      when (event) {
+        is RcPlayerEvent.HostNamedAction -> event.name to event.value.toJson()
+        is RcPlayerEvent.HostAction -> event.actionId.toString() to JsonNull
+        is RcPlayerEvent.HostActionMetadata ->
+          event.actionId.toString() to JsonPrimitive(event.metadata)
+        else -> return
+      }
+    hostActions += buildJsonObject {
+      put("name", JsonPrimitive(name))
+      put("value", value)
+    }
+  }
+
+  private fun RcHostActionValue.toJson(): JsonElement =
+    when (this) {
+      RcHostActionValue.None -> JsonNull
+      is RcHostActionValue.FloatValue -> JsonPrimitive(value)
+      is RcHostActionValue.IntegerValue -> JsonPrimitive(value)
+      is RcHostActionValue.TextValue -> JsonPrimitive(value)
+      is RcHostActionValue.FloatListValue -> value.toFloatArray().toJsonArray()
+    }
+
   private fun afterGesture(step: Step) {
+    // Delivery first, whatever the step says about repainting: Compose hands a tap to its gesture
+    // detector's coroutine, so `clickable`'s `onClick` has not run when the injection returns.
+    // Settling runs it without moving the clock — `repaint: false` declines a paint, not the
+    // click.
+    test.waitForIdle()
     val advance = step.int("advance_millis", 0)
     if (advance > 0) advanceBy(advance.toLong())
     if (step.bool("repaint", true)) paint(frames = 1)
@@ -488,6 +568,8 @@ private class CmpSession(
             ?.toFloatArray()
             ?.toJsonArray() ?: state()?.matrixValues(id)?.toJsonArray()
         }
+      // A bare `float_array` is the list's current contents, the same as `:dynamic`.
+      "float_array",
       "float_array:dynamic" -> scalar(check) { id -> state()?.floatValues(id)?.toJsonArray() }
       // The *stored* list, as written, against `float_array:dynamic`'s *computed* one (§4.2).
       "float_array:data" ->
@@ -499,6 +581,12 @@ private class CmpSession(
             ?.map { it.value }
             ?.toFloatArray()
             ?.toJsonArray()
+            // A `DynamicFloatList` stores nothing on the wire; its storage is what the document's
+            // `UpdateDynamicFloatList` writes left in it.
+            ?: document.operations
+              .filterIsInstance<RcDynamicFloatList>()
+              .firstOrNull { it.id == id }
+              ?.let { state()?.floatValues(id)?.toJsonArray() }
         }
       "particles" -> particles(check)
       // The header is `HEADER`, opcode 0 — an operation on the wire like any other. This player's
@@ -562,6 +650,17 @@ private class CmpSession(
           )
         )
       "records:tweens" -> Observation.Value(presenceMap<RcPathTween> { it.outId })
+      "trace:handled" ->
+        handled[check.at]?.let { Observation.Value(JsonPrimitive(it)) }
+          ?: Observation.NotImplemented
+      "trace:host_actions" -> Observation.Value(JsonArray(hostActions.toList()))
+      "records:animation_specs" ->
+        Observation.Value(
+          buildJsonArray {
+            document.operations.filterIsInstance<RcAnimationSpec>().forEach { add(it.toRecord()) }
+          }
+        )
+      "records:component_bindings" -> Observation.Value(componentBindings())
       "records:impulses" ->
         Observation.Value(
           buildJsonArray {
@@ -907,11 +1006,80 @@ private class CmpSession(
    * and are left to fail.
    */
   private fun censusNames(): List<List<String>> =
-    document.operations.mapNotNull { operation ->
-      RcOperationInventory.byOpcode[operation.opcode]?.let {
-        listOfNotNull(it.androidxClassName, it.stableName).distinct()
+    // The header is opcode 0 on the wire, like any other operation; this model keeps it in
+    // `RcDocument.header` instead of the operation list, which is also why `ops:count` adds one.
+    listOf(listOf(HEADER_CLASS_NAME)) +
+      document.operations.mapNotNull { operation ->
+        RcOperationInventory.byOpcode[operation.opcode]?.let {
+          listOfNotNull(it.androidxClassName, it.stableName).distinct()
+        }
+      }
+
+  /** An [RcAnimationSpec] in the corpus's record shape (§4.2). */
+  private fun RcAnimationSpec.toRecord(): JsonObject = buildJsonObject {
+    put("animationId", JsonPrimitive(animationId))
+    put("animationEnabled", JsonPrimitive(isEnabled))
+    put("motionDuration", JsonPrimitive(resolveWord(motionDurationMillis)))
+    put("motionEasingType", JsonPrimitive(motionEasingType))
+    put("visibilityDuration", JsonPrimitive(resolveWord(visibilityDurationMillis)))
+    put("visibilityEasingType", JsonPrimitive(visibilityEasingType))
+    put("enterAnimation", JsonPrimitive(enterAnimation.androidXValue))
+    put("exitAnimation", JsonPrimitive(exitAnimation.androidXValue))
+  }
+
+  private fun resolveWord(word: RcFloatWord): Float = state()?.resolve(word) ?: word.value
+
+  /**
+   * Each layout component joined to the animation spec it adopts (§4.2).
+   *
+   * A component adopts the `AnimationSpec` in its own operation run — a direct child of its
+   * container, which is where `RcLayoutTree` looks — and one without falls back to AndroidX's
+   * default: id −1, 300 ms, `CUBIC_STANDARD`, fade in and out. Only the leaves are listed: the
+   * corpus's bindings name the boxes in a column and not the column that holds them.
+   */
+  private fun componentBindings(): JsonArray {
+    val bindings = mutableListOf<JsonObject>()
+    fun isComponent(node: RcLinkedNode): Boolean =
+      node is RcLinkedNode.Container && node.operation.opcode in COMPONENT_OPCODES
+    fun hasComponentBelow(node: RcLinkedNode.Container): Boolean =
+      node.children.any {
+        isComponent(it) || (it is RcLinkedNode.Container && hasComponentBelow(it))
+      }
+    fun walk(nodes: List<RcLinkedNode>) {
+      nodes.forEach { node ->
+        if (node !is RcLinkedNode.Container) return@forEach
+        if (isComponent(node) && !hasComponentBelow(node)) {
+          val spec =
+            node.children
+              .filterIsInstance<RcLinkedNode.Operation>()
+              .map { it.operation }
+              .filterIsInstance<RcAnimationSpec>()
+              .lastOrNull()
+          bindings += buildJsonObject {
+            put("componentIndex", JsonPrimitive(bindings.size))
+            put("componentType", JsonPrimitive(className(node.operation.opcode)))
+            put("usesDefaultSpec", JsonPrimitive(spec == null))
+            if (spec == null) {
+              put("animationId", JsonPrimitive(-1))
+              put("animationEnabled", JsonPrimitive(true))
+              put("motionDuration", JsonPrimitive(DEFAULT_ANIMATION_MILLIS))
+              put("motionEasingType", JsonPrimitive(CUBIC_STANDARD))
+              put("visibilityDuration", JsonPrimitive(DEFAULT_ANIMATION_MILLIS))
+              put("visibilityEasingType", JsonPrimitive(CUBIC_STANDARD))
+              put("enterAnimation", JsonPrimitive(RcLayoutAnimation.FadeIn.wireValue))
+              put("exitAnimation", JsonPrimitive(RcLayoutAnimation.FadeOut.wireValue))
+            } else {
+              spec.toRecord().forEach { (key, value) -> put(key, value) }
+              put("componentAnimationId", JsonPrimitive(spec.animationId))
+            }
+          }
+        }
+        walk(node.children)
       }
     }
+    linked?.operations?.let(::walk)
+    return JsonArray(bindings)
+  }
 
   private fun classNames(): List<String> = censusNames().flatten()
 
@@ -949,6 +1117,30 @@ private class CmpSession(
 
   private companion object {
     const val MILLIS_PER_SECOND = 1_000.0
+    /** One frame of the test clock, which advances in whole 16 ms frames. */
+    const val FRAME_MILLIS = 16L
+    const val HEADER_CLASS_NAME = "Header"
+    const val DEFAULT_ANIMATION_MILLIS = 300
+    /** AndroidX `Easing.CUBIC_STANDARD`, the easing of the default animation spec. */
+    const val CUBIC_STANDARD = 1
+
+    /** Opcodes of the layout components a document lays out — not the root or content slots. */
+    val COMPONENT_OPCODES =
+      setOf(
+        RcOpcodes.LAYOUT_BOX,
+        RcOpcodes.LAYOUT_ROW,
+        RcOpcodes.LAYOUT_COLUMN,
+        RcOpcodes.LAYOUT_CANVAS,
+        RcOpcodes.LAYOUT_TEXT,
+        RcOpcodes.LAYOUT_STATE,
+        RcOpcodes.LAYOUT_FLOW,
+        RcOpcodes.LAYOUT_FIT_BOX,
+        RcOpcodes.LAYOUT_COLLAPSIBLE_ROW,
+        RcOpcodes.LAYOUT_COLLAPSIBLE_COLUMN,
+        RcOpcodes.LAYOUT_IMAGE,
+        RcOpcodes.LAYOUT_CUSTOM,
+        RcOpcodes.CORE_TEXT,
+      )
     const val LIGHT_THEME = -3
     const val ROOT_COMPONENT_KIND = "RootLayoutComponent"
 

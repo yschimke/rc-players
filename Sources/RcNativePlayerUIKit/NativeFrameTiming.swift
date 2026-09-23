@@ -92,6 +92,9 @@ struct NativeAnimationTimeline: Equatable, Sendable {
   private var lastActiveTime: TimeInterval?
   private var lastPausedTime: TimeInterval?
 
+  /// Whether active time is currently accumulating, i.e. the timeline is not paused.
+  var isRunning: Bool { lastActiveTime != nil }
+
   mutating func reset(at now: TimeInterval, active: Bool) {
     elapsed = 0
     lastActiveTime = active ? now : nil
