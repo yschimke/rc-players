@@ -176,7 +176,7 @@ final class NativeSwiftFloatAnimationRuntime {
     let easingTypeValue = metadata & NativeSwiftFloatAnimationMetadata.easingTypeMask
     guard let easingType = NativeSwiftFloatEasingType(rawValue: easingTypeValue) else {
       throw NativeSwiftCoreError.unsupported(
-        opcode: 81, offset: offset,
+        opcode: NativeSwiftWireOpcode.animatedFloat, offset: offset,
         reason: "float animation easing type \(easingTypeValue) is not supported")
     }
     let hasWrap = metadata & NativeSwiftFloatAnimationMetadata.wrapFlag != 0

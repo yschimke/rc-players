@@ -1,5 +1,8 @@
 #if canImport(UIKit)
   import Combine
+  #if canImport(RcNativePlayerCore)
+    import RcNativePlayerCore
+  #endif
   import UIKit
   #if canImport(SwiftUI)
     import SwiftUI
@@ -114,21 +117,30 @@
     }
 
     public func float(_ key: RemoteComposeNativeFloatProperty) -> Float {
-      property(key.id).flatMap { $0.dataType == 1 ? $0.floatValue : nil } ?? key.defaultValue
+      property(key.id).flatMap {
+        $0.dataType == NativeSwiftCustomPropertyType.floatProperty ? $0.floatValue : nil
+      } ?? key.defaultValue
     }
 
     public func integer(_ key: RemoteComposeNativeIntegerProperty) -> Int {
-      property(key.id).flatMap { [0, 9].contains($0.dataType) ? $0.integerValue : nil }
+      property(key.id).flatMap {
+        [NativeSwiftCustomPropertyType.intProperty, NativeSwiftCustomPropertyType.intIDProperty].contains($0.dataType)
+          ? $0.integerValue : nil
+      }
         ?? key.defaultValue
     }
 
     public func text(_ key: RemoteComposeNativeTextProperty) -> String {
-      property(key.id).flatMap { $0.dataType == 2 ? $0.textValue : nil } ?? key.defaultValue
+      property(key.id).flatMap {
+        $0.dataType == NativeSwiftCustomPropertyType.stringProperty ? $0.textValue : nil
+      } ?? key.defaultValue
     }
 
     public func color(_ key: RemoteComposeNativeColorProperty) -> UInt32 {
       property(key.id).flatMap {
-        [0, 7, 8].contains($0.dataType) ? UInt32(bitPattern: Int32($0.integerValue)) : nil
+        [NativeSwiftCustomPropertyType.intProperty, NativeSwiftCustomPropertyType.colorIDProperty, NativeSwiftCustomPropertyType.colorProperty]
+          .contains($0.dataType)
+          ? UInt32(bitPattern: Int32($0.integerValue)) : nil
       }
         ?? key.defaultValue
     }
@@ -136,7 +148,9 @@
     /// Enqueue a value for a declared float return channel.
     @discardableResult
     public func send(_ value: Float, to key: RemoteComposeNativeFloatReturnProperty) -> Bool {
-      guard value.isFinite, property(key.id)?.dataType == 3 else { return false }
+      guard value.isFinite, property(key.id)?.dataType == NativeSwiftCustomPropertyType.floatReturn else {
+        return false
+      }
       returnValue(key.id, .float(value))
       return true
     }
@@ -144,7 +158,7 @@
     /// Enqueue a value for a declared text return channel.
     @discardableResult
     public func send(_ value: String, to key: RemoteComposeNativeTextReturnProperty) -> Bool {
-      guard property(key.id)?.dataType == 4 else { return false }
+      guard property(key.id)?.dataType == NativeSwiftCustomPropertyType.textReturn else { return false }
       returnValue(key.id, .text(value))
       return true
     }

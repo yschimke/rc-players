@@ -14,7 +14,7 @@ struct NativeLayoutDimension: Equatable {
   let maximum: CGFloat?
 
   var weight: CGFloat? {
-    type == 3 ? max(value, .leastNonzeroMagnitude) : nil
+    type == NativeSwiftDimensionType.weight ? max(value, .leastNonzeroMagnitude) : nil
   }
 
   func resolve(intrinsic: CGFloat, available: CGFloat) -> CGFloat {
@@ -22,7 +22,8 @@ struct NativeLayoutDimension: Equatable {
     switch type {
     case NativeSwiftDimensionType.exact, NativeSwiftDimensionType.exactDp:
       proposed = max(value, 0)
-    case NativeSwiftDimensionType.fill, NativeSwiftDimensionType.fillParentMaxWidth, NativeSwiftDimensionType.fillParentMaxHeight:
+    case NativeSwiftDimensionType.fill, NativeSwiftDimensionType.fillParentMaxWidth,
+      NativeSwiftDimensionType.fillParentMaxHeight:
       // The core hands a bare `fillMaxWidth()` over as 1; an explicit zero fraction stays zero.
       let fraction = value.isNaN ? 1 : max(value, 0)
       proposed = available * fraction
