@@ -41,6 +41,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -530,6 +531,7 @@ private fun RcComposePlayerResolved(
   // starts or stops the loop below with it.
   val needsContinuousFrames = documentDeclaresAnimation || frameDemand.isActive
   var frameNanos by remember { mutableLongStateOf(0L) }
+  val animationClock = LocalRcAnimationClock.current
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
   val recordFrame: (Long) -> Unit = { nanos ->
     if (frameOriginNanos == Long.MIN_VALUE) frameOriginNanos = nanos
@@ -640,7 +642,7 @@ private fun RcComposePlayerResolved(
     // composition/measurement rather than painting, so action mutations must invalidate this
     // branch as well as the draw layer.
     invalidationVersion
-    state.beginFrame(frameNanos / 1_000_000_000f)
+    state.beginFrame(animationClock?.seconds() ?: (frameNanos / 1_000_000_000f))
     // beginFrame resets derived text to the document's literals, so the ids the layout's own data
     // operations publish must be recomputed before this same composition measures and draws.
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
@@ -681,7 +683,7 @@ private fun RcComposePlayerResolved(
         translate(rootTransform.translateX, rootTransform.translateY)
         scale(rootTransform.scaleX, rootTransform.scaleY, Offset.Zero)
       }) {
-        state.beginFrame(frameNanos / 1_000_000_000f)
+        state.beginFrame(animationClock?.seconds() ?: (frameNanos / 1_000_000_000f))
         rcTrace(RcTraceCategory.FRAME, "rc:drawRoot") {
           drawOperations(
             linkedDocument.operations,
@@ -2935,8 +2937,39 @@ private fun Modifier.applyAndroidXMarquee(
 ): Modifier {
   val localDensity = androidx.compose.ui.platform.LocalDensity.current
   val density = localDensity.density
-  val timeSeconds = state.animationTimeSeconds
-  return clipToBounds().layout { measurable, constraints ->
+  // AndroidX times the marquee off the wall clock from the frame it was first painted in, not off
+  // the document's animation time.
+  val nowMillis = state.frameWallClockMillis
+  val firstPaintMillis = remember { longArrayOf(nowMillis) }
+  val timeSeconds = (nowMillis - firstPaintMillis[0]) / 1_000f
+  // How far the content overflows is only known once it has been measured, so the layout reports
+  // it back. It moves only when the content or the viewport does.
+  var overflowDistance by remember { mutableFloatStateOf(0f) }
+  fun offsetFor(distance: Float): Float =
+    androidXMarqueeOffset(
+      overflowDistance = distance,
+      density = density,
+      velocity = operation.velocity.value,
+      initialDelayMillis = operation.initialDelayMillis.value,
+      timeSeconds = timeSeconds,
+    )
+  // The offset is placed in layout, which only a recomposition re-runs, so a marquee that has
+  // somewhere to scroll keeps the frames coming — as AndroidX's asks for a repaint every paint.
+  val frameDemand = LocalRcFrameDemand.current
+  val scrolling = overflowDistance > 0f
+  DisposableEffect(frameDemand, scrolling) {
+    if (scrolling) frameDemand.acquire()
+    onDispose { if (scrolling) frameDemand.release() }
+  }
+  // The offset the content is drawn under, for the tree reader's `scroll_x` (§4.3): a marquee is
+  // a scroll the clock drives. Computed here rather than published from the layout, which would
+  // leave it a frame behind the pixels.
+  val marquee =
+    if (LocalRcInspection.current) {
+      val scrollOffset = Offset(offsetFor(overflowDistance), 0f)
+      semantics { rcScrollOffset = scrollOffset }
+    } else this
+  return marquee.clipToBounds().layout { measurable, constraints ->
     val placeable =
       measurable.measure(
         constraints.copy(minWidth = 0, maxWidth = androidx.compose.ui.unit.Constraints.Infinity)
@@ -2948,14 +2981,8 @@ private fun Modifier.applyAndroidXMarquee(
     val height = constraints.constrainHeight(placeable.height)
     val contentWidth = placeable.width + state.dpTypedPixels(operation.spacing.value, localDensity)
     val distance = (contentWidth - width).coerceAtLeast(0f)
-    val offset =
-      androidXMarqueeOffset(
-        overflowDistance = distance,
-        density = density,
-        velocity = operation.velocity.value,
-        initialDelayMillis = operation.initialDelayMillis.value,
-        timeSeconds = timeSeconds,
-      )
+    overflowDistance = distance
+    val offset = offsetFor(distance)
     layout(width, height) { placeable.placeWithLayer(0, 0) { translationX = offset } }
   }
 }

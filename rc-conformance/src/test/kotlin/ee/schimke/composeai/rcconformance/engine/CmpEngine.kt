@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.InternalComposeUiApi
@@ -31,6 +32,7 @@ import ee.schimke.composeai.rcconformance.runner.Observation
 import ee.schimke.composeai.rcconformance.runner.UnsupportedStepKind
 import ee.schimke.composeai.rcconformance.runner.toRgba
 import ee.schimke.composeai.rcplayer.compose.LocalRcAhemTextMetrics
+import ee.schimke.composeai.rcplayer.compose.LocalRcAnimationClock
 import ee.schimke.composeai.rcplayer.compose.LocalRcDrawObserver
 import ee.schimke.composeai.rcplayer.compose.LocalRcInspection
 import ee.schimke.composeai.rcplayer.compose.LocalRcTimeSource
@@ -78,6 +80,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import javax.imageio.ImageIO
 import kotlin.math.abs
+import kotlin.math.roundToLong
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -247,7 +250,16 @@ private class CmpSession(
   /** The gesture timeouts the player itself uses, read from the composition. */
   private lateinit var viewConfiguration: ViewConfiguration
 
-  private var timeSource: RcTimeSource = RcTimeSource.System
+  /**
+   * The reference harness's wall clock, in epoch milliseconds (§3). It is not the machine's: the
+   * generator binds `RemoteClock` to its own timeline, holding it at one second before
+   * `base_time_millis` through the warm-up paints and walking it from `base_time_millis` through a
+   * frame sequence. Anything that latches a wall-clock instant — the marquee's first paint — only
+   * lines up with the corpus on that same axis.
+   */
+  private var harnessMillis = WARM_UP_MILLIS
+
+  private var timeSource: RcTimeSource = HarnessClock { harnessMillis }
   private val clock = FrozenOrSystem { timeSource }
 
   /**
@@ -259,6 +271,15 @@ private class CmpSession(
    * with [generation] rather than tracking the clock.
    */
   private var elapsedMillis = 0L
+
+  /**
+   * The document's animation time, in seconds, set the way the reference harness sets it: one
+   * sixtieth of a second per frame, a step's `advance_millis` exactly, and a paint's
+   * `animation_time_seconds` as given. The test clock cannot carry it — its frame is 16 ms, and it
+   * rounds every advance up to whole frames — so it reaches the player through
+   * `LocalRcAnimationClock`, while layout transitions keep running on the test clock.
+   */
+  private var animationSeconds by mutableDoubleStateOf(0.0)
 
   init {
     // Deterministic from the first frame: nothing may advance the clock except this engine.
@@ -272,6 +293,7 @@ private class CmpSession(
         // replayed through the model.
         LocalRcAhemTextMetrics provides (gold.textMetrics == "ahem"),
         LocalRcTimeSource provides clock,
+        LocalRcAnimationClock provides { animationSeconds.toFloat() },
         LocalRcDrawObserver provides drawObserver,
       ) {
         viewConfiguration = LocalViewConfiguration.current
@@ -306,10 +328,7 @@ private class CmpSession(
         advanceBy(step.int("advance_millis", 0).toLong())
         paint(step.frames)
       }
-      "time" -> {
-        step.float("seconds")?.let { advanceTo((it * MILLIS_PER_SECOND).toLong()) }
-        paint(step.frames, measure = step.bool("measure", true))
-      }
+      "time" -> paintAt(step.float("seconds"), step.frames, step.bool("measure", true))
       "frame_sequence" -> frameSequence(step, onCapture)
       "trigger" -> trigger(step)
       "click",
@@ -355,8 +374,25 @@ private class CmpSession(
   }
 
   private fun paintStep(step: Step) {
-    step.float("animation_time_seconds")?.let { advanceTo((it * MILLIS_PER_SECOND).toLong()) }
-    paint(step.frames, measure = step.bool("measure", true))
+    paintAt(step.float("animation_time_seconds"), step.frames, step.bool("measure", true))
+  }
+
+  /**
+   * Paints with the document's animation time pinned to [seconds], when the step names one.
+   *
+   * The reference harness sets the time and then draws, so every frame of the step reads exactly
+   * that value — and a step that names a time draws even when it declines a measure, since the time
+   * is the point of it.
+   */
+  private fun paintAt(seconds: Float?, frames: Int, measure: Boolean) {
+    if (seconds == null) return paint(frames, measure)
+    advanceTo((seconds * MILLIS_PER_SECOND).toLong())
+    repeat(frames.coerceAtLeast(1)) {
+      test.waitForIdle()
+      advanceFrame()
+      animationSeconds = seconds.toDouble()
+    }
+    test.waitForIdle()
   }
 
   private fun themeStep(step: Step) {
@@ -416,8 +452,17 @@ private class CmpSession(
    */
   private fun frameSequence(step: Step, onCapture: (String) -> Unit) {
     val capture = step.ints("capture")
+    val baseMillis = step.float("base_time_millis")?.toLong()
     for (frame in 0..step.int("total_frames", 0)) {
+      // The reference restarts the sequence's animation time at zero and walks its wall clock from
+      // the base, both a sixtieth of a second a frame — set before the frame is drawn, since the
+      // frame is what reads them.
+      if (baseMillis != null) {
+        animationSeconds = frame / FRAMES_PER_SECOND
+        harnessMillis = baseMillis + (frame * MILLIS_PER_SECOND / FRAMES_PER_SECOND).roundToLong()
+      }
       if (frame > 0) advanceFrame()
+      if (baseMillis != null) animationSeconds = frame / FRAMES_PER_SECOND
       test.waitForIdle()
       if (frame in capture) onCapture("frame_$frame")
     }
@@ -536,6 +581,7 @@ private class CmpSession(
     generation += 1
     test.waitForIdle()
     elapsedMillis = 0L
+    animationSeconds = 0.0
   }
 
   /** Paints [frames] frames, advancing the clock by one frame each (§3). */
@@ -553,6 +599,7 @@ private class CmpSession(
     val before = test.mainClock.currentTime
     test.mainClock.advanceTimeByFrame()
     elapsedMillis += test.mainClock.currentTime - before
+    animationSeconds += 1.0 / FRAMES_PER_SECOND
   }
 
   /** Advances to [targetMillis] since this composition's first frame, if it is still ahead. */
@@ -565,6 +612,7 @@ private class CmpSession(
     frameStamp += 1
     test.mainClock.advanceTimeBy(millis)
     elapsedMillis += millis
+    animationSeconds += millis / MILLIS_PER_SECOND
   }
 
   // ------------------------------------------------------------------ probes
@@ -1265,8 +1313,15 @@ private class CmpSession(
 
   private companion object {
     const val MILLIS_PER_SECOND = 1_000.0
+    /**
+     * The reference harness's frame rate: its animation time moves one sixtieth of a second a
+     * frame.
+     */
+    const val FRAMES_PER_SECOND = 60.0
     /** One frame of the test clock, which advances in whole 16 ms frames. */
     const val FRAME_MILLIS = 16L
+    /** The reference harness's wall clock through the warm-up paints: a second before its base. */
+    const val WARM_UP_MILLIS = 9_000L
     const val HEADER_CLASS_NAME = "Header"
     /** Device pixels within which two glyph coordinates count as the same. */
     const val GLYPH_EPSILON = 0.01f
@@ -1340,6 +1395,14 @@ private class FrozenUtcClock(private val epochMillis: Long) : RcTimeSource {
  * Forwards to the session's current clock, so a `clock_snapshot` changes what the next rebuilt
  * document reads without re-providing the composition local.
  */
+/** The harness's timeline as a wall clock, read in the machine's zone as the reference reads it. */
+private class HarnessClock(private val millis: () -> Long) : RcTimeSource {
+  override fun currentTimeMillis(): Long = millis()
+
+  override fun snapshot(epochMillis: Long): RcTimeSnapshot =
+    RcTimeSource.System.snapshot(epochMillis)
+}
+
 private class FrozenOrSystem(private val current: () -> RcTimeSource) : RcTimeSource {
   override fun currentTimeMillis(): Long = current().currentTimeMillis()
 

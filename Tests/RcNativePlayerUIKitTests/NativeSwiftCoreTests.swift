@@ -1395,6 +1395,24 @@ import Testing
       Comment(rawValue: "float 60: \(String(describing: values.floats[60]))"))
   }
 
+  /// `conditional_nested_branches`: paths number conditionals within their own nesting, one in a
+  /// branch that did not run is still traced as not executed, and `executedChildOps` counts the
+  /// direct children of a branch that ran.
+  @Test func nestedConditionalTracePaths() throws {
+    let document = try #require(
+      Data(
+        base64Encoded:
+          "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAHwAAABtjb25kaXRpb25hbF9uZXN0ZWRfYnJhbmNo"
+          + "ZXMADgAEAAACAcj////+zf////3/////EAAAAAF/wAAAQwAAAAF/wAAAyf////zP////+7IEP4AAAEAAAACyAE"
+          + "BAAABAQAAALkGgAABBoAAAQIAAANbWsgI/gAAAQAAAALIAQEAAAEBAAAAuQiAAAEGgAABAgAAA1rIBQEAAAEBA"
+          + "AAA4QnAAAEEgAABCtAAAQiAAANbW1tbW1g=="))
+    let traces = try NativeSwiftDocumentSession.open(data: document).snapshot().conditionalTraces
+    let actual = traces.map { "\($0.path):\($0.executed):\($0.executedChildOps)" }
+    #expect(
+      actual == ["0:false:0", "0.0:false:0", "1:true:2", "1.0:true:1", "1.1:false:0"],
+      Comment(rawValue: "conditional traces: \(actual)"))
+  }
+
   // MARK: - Graphics-layer attribute ids (#423)
   //
   // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:
