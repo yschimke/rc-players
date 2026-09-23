@@ -866,6 +866,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       result[NativeSwiftSystemVariables.fontSize] =
         NativeSwiftSystemVariables.defaultFontSizeSp * hostFontScale * hostDensity
     }
+    // A length reads the text as the session last resolved it. Text operations resolve after
+    // floats, so the length of a *derived* text follows it by one resolution; a declared text's
+    // is exact.
+    for length in document.textLengths where floatOverrides[length.outputID] == nil {
+      guard let text = texts[length.textID] else { continue }
+      result[length.outputID] = Float(text.utf16.count)
+    }
     for attribute in document.timeAttributes {
       guard floatOverrides[attribute.outputID] == nil,
         let value = timeAttribute(attribute, timeSeconds: timeSeconds, wallClock: wallClock)
@@ -927,6 +934,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       } else {
         result[expression.id] = target
       }
+    }
+    // `ID_LOOKUP` publishes an integer, and integers are visible to float expressions. A list that
+    // does not exist, or an index outside it, leaves the slot as it was.
+    for lookup in document.idLookups {
+      guard let ids = document.idLists[lookup.listID] else { continue }
+      let index = Int(NativeSwiftFloatExpression.resolve(lookup.index, values: result))
+      guard ids.indices.contains(index) else { continue }
+      integers[lookup.outputID] = ids[index]
+      if floatOverrides[lookup.outputID] == nil { result[lookup.outputID] = Float(ids[index]) }
     }
     for operation in document.matrixVectorMath {
       guard let matrix = resolvedMatrix(operation.matrixID, values: result) else { continue }
@@ -1015,6 +1031,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         texts[lookup.outputID] = texts[ids[index]] ?? ""
       case .transform(let transform):
         resolveTextTransform(transform, values: values)
+      case .subtext(let subtext):
+        let units = Array((texts[subtext.textID] ?? "").utf16)
+        let start = min(
+          max(Int(NativeSwiftFloatExpression.resolve(subtext.start, values: values)), 0),
+          units.count)
+        let length = Int(NativeSwiftFloatExpression.resolve(subtext.length, values: values))
+        let end = length == -1 ? units.count : min(start + max(length, 0), units.count)
+        texts[subtext.outputID] = String(decoding: units[start..<end], as: UTF16.self)
       }
     }
   }

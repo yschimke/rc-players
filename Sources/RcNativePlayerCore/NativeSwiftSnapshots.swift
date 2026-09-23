@@ -1,5 +1,16 @@
 import Foundation
 
+/// `ATTRIBUTE_TEXT`'s selector: every value AndroidX's `TextAttribute` defines.
+public enum NativeSwiftTextAttributeType {
+  public static let measureWidth = 0
+  public static let measureHeight = 1
+  public static let measureLeft = 2
+  public static let measureRight = 3
+  public static let measureTop = 4
+  public static let measureBottom = 5
+  public static let length = 6
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int

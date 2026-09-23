@@ -296,6 +296,60 @@ import Testing
       sunday[3] == 7 && sunday[4] == 362,
       "a pre-epoch weekday resolved to \(sunday[3]) / day-of-year \(sunday[4])")
 
+    // Data and text operations that used to refuse the document: an id lookup into a list, a
+    // text's length (directly and as a text attribute), a slice, a theme marker and a text
+    // measurement, which needs host metrics and so leaves its slot as it was.
+    let texty = Writer()
+    texty.header(width: 100, height: 100)
+    texty.text(id: 1, "Hello RemoteCompose")
+    texty.u8(146).int(2).int(3).int(7).int(8).int(9)
+    texty.u8(192).int(40).int(2).float(1)
+    texty.u8(192).int(41).int(2).float(5)
+    texty.u8(156).int(42).int(1)
+    texty.u8(170).int(43).int(1).u16(6).u16(0)
+    texty.u8(182).int(44).int(1).float(6).float(6)
+    texty.u8(182).int(45).int(1).float(6).float(-1)
+    texty.u8(63).int(-2)
+    texty.u8(155).int(46).int(1).int(0)
+    let textyValues = try NativeSwiftDocumentSession.open(
+      data: texty.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0)
+    precondition(
+      textyValues.integers[40] == 8 && textyValues.floats[40] == 8,
+      "an id lookup resolved to \(String(describing: textyValues.integers[40]))")
+    precondition(
+      textyValues.integers[41] == nil, "an out-of-range id lookup wrote its slot")
+    precondition(
+      textyValues.floats[42] == 19 && textyValues.floats[43] == 19,
+      "text lengths resolved to \(String(describing: textyValues.floats[42])), "
+        + "\(String(describing: textyValues.floats[43]))")
+    precondition(
+      textyValues.texts[44] == "Remote" && textyValues.texts[45] == "RemoteCompose",
+      "subtexts resolved to \(String(describing: textyValues.texts[44])), "
+        + "\(String(describing: textyValues.texts[45]))")
+    precondition(textyValues.floats[46] == nil, "a text measurement invented a value")
+
+    // A CoreText that names a TextStyle inherits what it does not set itself, through the style's
+    // own parent. A TextLayout overflow outside AndroidX's five renders as clip.
+    let styled = Writer()
+    styled.header(width: 200, height: 100)
+    styled.text(id: 1, "Styled")
+    styled.u8(242).u16(2).u8(1).int(10).u8(5).float(20)
+    styled.u8(242).u16(3).u8(1).int(11).u8(24).int(10).u8(7).float(700)
+    styled.u8(200).int(1)
+    styled.u8(239).int(1).u16(2).u8(1).int(5).u8(24).int(11)
+    styled.u8(214)
+    styled.u8(208).int(6).int(0).int(1).int(-1).float(12).int(0).float(400).int(-1).int(1)
+      .int(0).int(1)
+    styled.u8(214)
+    styled.u8(214)
+    let styledTexts = try NativeSwiftDocumentSession.open(data: styled.data).snapshot().root
+      .children.flatMap { [$0] + $0.children }.compactMap(\.text)
+    precondition(
+      styledTexts.count == 2 && styledTexts[0].size == 20 && styledTexts[0].weight == 700
+        && styledTexts[1].overflow == 1,
+      "styled text resolved to \(styledTexts.map { ($0.size, $0.weight, $0.overflow) })")
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)

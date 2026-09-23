@@ -24,6 +24,8 @@ struct ParsedDocument {
   /// `BooleanConstant` values; retained as the reference retains them, read by nothing yet.
   let booleanConstants: [Int: Bool]
   let timeAttributes: [ParsedTimeAttribute]
+  let idLookups: [ParsedIdLookup]
+  let textLengths: [ParsedTextLength]
   let colorExpressions: [ParsedColorExpression]
   let images: [Int: ParsedImageResource]
   /// Text producers in exactly the order the wire declared them. A later operation may consume an

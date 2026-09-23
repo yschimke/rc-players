@@ -108,6 +108,10 @@ enum NativeSwiftDocumentDecoder {
     var booleanConstants: [Int: Bool] = [:]
     var timeAttributes: [ParsedTimeAttribute] = []
     var documentAccessibility: ParsedAccessibility?
+    var idLookups: [ParsedIdLookup] = []
+    var textLengths: [ParsedTextLength] = []
+    /// Declared text styles by id, for `CoreText` to inherit from.
+    var textStyles: [Int: ParsedTextProperties] = [:]
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var images: [Int: ParsedImageResource] = [:]
@@ -210,6 +214,56 @@ enum NativeSwiftDocumentDecoder {
     // paint a base layer before defining and inflating a pattern, so it is not equivalent to a
     // rootless data document.  Create the implicit canvas only at the first drawing operation:
     // doing it eagerly would hide a genuinely missing layout root in an otherwise data-only file.
+    /// The sparse property list `TEXT_STYLE` and `CoreText` share. Booleans and font-axis arrays
+    /// are read past; nothing in this core renders them yet.
+    func textProperties(_ label: String) throws -> ParsedTextProperties {
+      let count = Int(try input.u16("\(label) property count"))
+      guard count <= 26 else { throw input.malformed("Too many \(label) properties") }
+      var properties = ParsedTextProperties()
+      for _ in 0..<count {
+        let id = try input.u8("\(label) property id")
+        if [1, 2, 3, 4, 6, 8, 9, 10, 11, 15, 16, 17, 23, 24].contains(id) {
+          properties.integers[id] = try input.int("\(label) integer")
+        } else if [5, 7, 12, 13, 14, 25, 26].contains(id) {
+          properties.floats[id] = try input.word("\(label) float")
+        } else if [18, 19, 22].contains(id) {
+          _ = try input.u8("\(label) boolean")
+        } else if id == 20 || id == 21 {
+          let count = Int(try input.u16("\(label) array count"))
+          guard count <= maximumProperties else {
+            throw input.malformed("\(label) array is too long")
+          }
+          for _ in 0..<count { _ = try input.int("\(label) array value") }
+        } else {
+          throw input.malformed("Unknown \(label) property \(id)")
+        }
+      }
+      return properties
+    }
+
+    /// A style's properties with its parent chain folded in, nearest last. The identity fields —
+    /// component, animation, style and parent ids — describe the declaration, not the text, and
+    /// are not inherited.
+    func inheritedTextProperties(
+      _ styleID: Int, visiting: Set<Int> = []
+    ) throws -> ParsedTextProperties {
+      guard !visiting.contains(styleID) else {
+        throw input.malformed("Cyclic TextStyle parent at id \(styleID)")
+      }
+      guard let style = textStyles[styleID] else {
+        throw input.malformed("Missing TextStyle id \(styleID)")
+      }
+      var merged = ParsedTextProperties()
+      if let parent = style.integers[24], parent != -1 {
+        merged = try inheritedTextProperties(parent, visiting: visiting.union([styleID]))
+      }
+      for (id, value) in style.integers where ![1, 2, 23, 24].contains(id) {
+        merged.integers[id] = value
+      }
+      merged.floats.merge(style.floats) { _, own in own }
+      return merged
+    }
+
     func drawingNode() throws -> ParsedNode {
       if stack.isEmpty {
         if let implicitCanvasRoot { return implicitCanvasRoot }
@@ -1471,12 +1525,15 @@ enum NativeSwiftDocumentDecoder {
           throw NativeSwiftCoreError.unsupported(
             opcode: opcode, offset: opcodeOffset, reason: "dynamic text colors")
         }
-        let overflow = try input.int("text overflow")
+        // An overflow outside the five AndroidX defines renders as clip there, rather than refusing
+        // the document; `text_style_and_layout_text` writes 0.
+        let wireOverflow = try input.int("text overflow")
+        let overflow = (1...5).contains(wireOverflow) ? wireOverflow : 1
         let maximumLines = try input.int("text maximum lines")
         // `size` is no longer checked here: it may be a reference, and `resolvedFloat` applies the
         // same `> 0` rule once there is a number to apply it to.
         guard (0...3).contains(style), (1...6).contains(alignmentAndFlags & 0xffff),
-          (1...5).contains(overflow), maximumLines > 0
+          maximumLines > 0
         else { throw input.malformed("Invalid text layout values") }
         node.text = ParsedText(
           textID: textID, colorARGB: color, colorID: nil, sizeWord: size, style: style,
@@ -1569,28 +1626,16 @@ enum NativeSwiftDocumentDecoder {
         node.maximumHeightWord = try input.word("maximum height")
       case 239:  // CoreText
         let textID = try input.int("core text id")
-        let propertyCount = Int(try input.u16("core text property count"))
-        guard propertyCount <= 26 else { throw input.malformed("Too many CoreText properties") }
-        var integers: [Int: Int] = [:]
-        var floats: [Int: UInt32] = [:]
-        for _ in 0..<propertyCount {
-          let id = try input.u8("core text property id")
-          if [1, 2, 3, 4, 6, 8, 9, 10, 11, 15, 16, 17, 23, 24].contains(id) {
-            integers[id] = try input.int("core text integer")
-          } else if [5, 7, 12, 13, 14, 25, 26].contains(id) {
-            floats[id] = try input.word("core text float")
-          } else if [18, 19, 22].contains(id) {
-            _ = try input.u8("core text boolean")
-          } else if id == 20 || id == 21 {
-            let count = Int(try input.u16("core text array count"))
-            guard count <= maximumProperties else {
-              throw input.malformed("CoreText array is too long")
-            }
-            for _ in 0..<count { _ = try input.int("core text array value") }
-          } else {
-            throw input.malformed("Unknown CoreText property \(id)")
-          }
+        let own = try textProperties("CoreText")
+        // A named style supplies defaults; the text's own properties override them.
+        var properties = ParsedTextProperties()
+        if let styleID = own.integers[24], styleID != -1 {
+          properties = try inheritedTextProperties(styleID)
         }
+        properties.integers.merge(own.integers) { _, own in own }
+        properties.floats.merge(own.floats) { _, own in own }
+        let integers = properties.integers
+        let floats = properties.floats
         let componentID = integers[1] ?? -(textID + 1)
         let node = ParsedNode(kind: .text, componentID: componentID)
         node.componentKind = "CoreText"
@@ -1683,6 +1728,54 @@ enum NativeSwiftDocumentDecoder {
         let count = try input.count(
           "sound expression parameter count", maximum: maximumSoundParameters)
         for _ in 0..<count { _ = try input.word("sound expression parameter") }
+      case NativeSwiftWireOpcode.textStyle:
+        let style = try textProperties("TextStyle")
+        guard let styleID = style.integers[1] else {
+          throw input.malformed("TextStyle declares no style id")
+        }
+        textStyles[styleID] = style
+      case NativeSwiftWireOpcode.idLookup:
+        idLookups.append(ParsedIdLookup(
+          outputID: try input.int("id lookup output id"),
+          listID: try input.int("id lookup list id"),
+          index: try input.word("id lookup index")))
+      case NativeSwiftWireOpcode.textLength:
+        textLengths.append(ParsedTextLength(
+          outputID: try input.int("text length output id"),
+          textID: try input.int("text length text id")))
+      case NativeSwiftWireOpcode.textSubtext:
+        let subtext = ParsedTextTransform(
+          outputID: try input.int("text subtext output id"),
+          textID: try input.int("text subtext source id"),
+          start: try input.word("text subtext start"),
+          length: try input.word("text subtext length"),
+          operation: NativeSwiftTextTransformOperation.identity)
+        textOperations.append(.subtext(subtext))
+      case NativeSwiftWireOpcode.attributeText:
+        let outputID = try input.int("text attribute output id")
+        let textID = try input.int("text attribute text id")
+        let type = try input.signedU16("text attribute type")
+        _ = try input.u16("text attribute reserved")
+        // Selectors 0-5 read the text's bounds under the current paint, which is host metrics
+        // this core does not have yet, and leave the output as it was; 6 is its length.
+        if type & 0xff == NativeSwiftTextAttributeType.length {
+          textLengths.append(ParsedTextLength(outputID: outputID, textID: textID))
+        }
+      case NativeSwiftWireOpcode.textMeasure:
+        // Bounds under the current paint are host text metrics, which this core does not have yet.
+        // The operation is read and its output left as it was, which is what the reference does
+        // for a selector it cannot serve, rather than refusing everything else the document draws.
+        _ = try input.int("text measure output id")
+        _ = try input.int("text measure text id")
+        let type = try input.int("text measure type")
+        guard (NativeSwiftTextAttributeType.measureWidth...NativeSwiftTextAttributeType.measureBottom)
+          .contains(type & 0xff)
+        else { throw input.malformed("Unknown text measurement \(type & 0xff)") }
+      case NativeSwiftWireOpcode.theme:
+        // Operations after a THEME belong to that theme until the next one. A host that requests
+        // no theme — the only kind this player is today — shows every theme's operations, as the
+        // reference does for THEME_UNSPECIFIED, so the marker is read and scopes nothing yet.
+        _ = try input.int("theme")
       case 152:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
         try drawingNode().commands.append(
@@ -1759,7 +1852,7 @@ enum NativeSwiftDocumentDecoder {
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
       longConstants: longConstants, booleanConstants: booleanConstants,
-      timeAttributes: timeAttributes,
+      timeAttributes: timeAttributes, idLookups: idLookups, textLengths: textLengths,
       colorExpressions: colorExpressions, images: images, textOperations: textOperations,
       textFromFloats: textFromFloats,
       textMerges: textMerges, textTransforms: textTransforms, idLists: idLists, floatLists: floatLists,
