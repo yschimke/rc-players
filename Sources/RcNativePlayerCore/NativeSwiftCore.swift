@@ -307,6 +307,7 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let gradient: NativeSwiftGradientSnapshot?
   public let text: String?
   public let textSize: Float
+  public let textFlags: Int
 }
 
 /// A resolved paint gradient: colours as ARGB, stops and coordinates as floats, ready to draw.
@@ -502,8 +503,8 @@ public enum NativeSwiftCoreError: Error, CustomStringConvertible, LocalizedError
 
 /// The ids AndroidX's `RemoteContext` reserves for values the player supplies, not the document.
 ///
-/// Only the ones this core actually loads are named, matching `RcSystemVariables` on the Kotlin
-/// side. A reference to an id the player does not load resolves to 0 and poisons the arithmetic
+/// Only the ones this core actually loads are named, matching the upstream `RcSystemVariables`
+/// contract. A reference to an id the player does not load resolves to 0 and poisons the arithmetic
 /// downstream, so naming one here without loading it would be worse than leaving it out.
 ///
 /// `ANIMATION_DELTA_TIME` (31) and `EPOCH_SECOND` (32) are deliberately absent: a delta needs the
@@ -2815,10 +2816,14 @@ private struct ParsedDrawCommand {
   let image: ParsedImageDraw?
   let alphaWord: UInt32?
   let textID: Int?
+  let textStart: Int?
+  let textEnd: Int?
+  let textFlags: Int
 
   init(
     kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
-    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil
+    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil,
+    textStart: Int? = nil, textEnd: Int? = nil, textFlags: Int = 0
   ) {
     self.kind = kind
     self.words = words
@@ -2829,6 +2834,9 @@ private struct ParsedDrawCommand {
     self.image = image
     self.alphaWord = alphaWord
     self.textID = textID
+    self.textStart = textStart
+    self.textEnd = textEnd
+    self.textFlags = textFlags
   }
 
   func resolve(
@@ -2885,8 +2893,13 @@ private struct ParsedDrawCommand {
             NativeSwiftFloatExpression.resolve($0, values: values)
           },
           tileMode: gradient.tileMode)
-      }, text: textID.flatMap { texts[$0] },
-      textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values))
+      }, text: textID.flatMap { id in
+        guard let text = texts[id], let start = textStart, let end = textEnd else { return texts[id] }
+        let lower = text.index(text.startIndex, offsetBy: min(max(start, 0), text.count))
+        let upper = text.index(text.startIndex, offsetBy: min(max(end, start), text.count))
+        return String(text[lower..<upper])
+      }, textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values),
+      textFlags: textFlags)
   }
 }
 
@@ -4360,29 +4373,31 @@ private enum NativeSwiftDocumentDecoder {
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
       case NativeSwiftWireOpcode.drawText:
         let textID = try input.int("draw text id")
-        _ = try input.int("draw text start")
-        _ = try input.int("draw text end")
+        let start = try input.int("draw text start")
+        let end = try input.int("draw text end")
         _ = try input.int("draw text context start")
         _ = try input.int("draw text context end")
         let x = try input.word("draw text x")
         let y = try input.word("draw text y")
-        _ = try input.u8("draw text rtl")
+        let rtl = Int(try input.u8("draw text rtl"))
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: 17, words: [x, y, Float(-1).bitPattern, Float(-1).bitPattern],
-            paint: paint, textID: textID))
+            paint: paint, textID: textID, textStart: start, textEnd: end, textFlags: rtl))
       case NativeSwiftWireOpcode.drawTextAnchored:
         let textID = try input.int("draw anchored text id")
         let words = try (0..<4).map { _ in try input.word("draw anchored text value") }
-        _ = try input.int("draw anchored text flags")
+        let flags = try input.int("draw anchored text flags")
         try drawingNode().commands.append(
-          ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID))
+          ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID, textFlags: flags))
       case NativeSwiftWireOpcode.drawTextOnPath:
         let textID = try input.int("draw text path text id")
-        _ = try input.int("draw text path id")
+        let pathID = try input.int("draw text path id")
+        guard let path = paths[pathID] else { throw input.malformed("Missing text path \(pathID)") }
         let vertical = try input.word("draw text path vertical offset")
         let horizontal = try input.word("draw text path horizontal offset")
         try drawingNode().commands.append(
-          ParsedDrawCommand(kind: 20, words: [horizontal, vertical], paint: paint, textID: textID))
+          ParsedDrawCommand(
+            kind: 20, words: [horizontal, vertical], paint: paint, path: path, textID: textID))
       case NativeSwiftWireOpcode.drawTextOnCircle:
         let textID = try input.int("draw text circle text id")
         let words = try (0..<5).map { _ in try input.word("draw text circle value") }
@@ -4656,7 +4671,7 @@ private enum NativeSwiftDocumentDecoder {
         // Light is the one taken, and that is measured rather than reasoned. The TypeScript
         // reference resolves light only for THEME_LIGHT (-3) and falls to dark for everything else
         // including THEME_UNSPECIFIED, which is what a player with no theme concept is -- so
-        // following it would mean dark. Against the CMP JVM lane, which is what this player is
+        // following it would mean dark. Against the reference JVM lane, which is what this player is
         // scored on, dark renders theme-systemthemeswatches 25.59% wrong and light renders it
         // pixel-exact. The catalog publishes a light-theme sheet, so light is what its reference
         // pixels are.
