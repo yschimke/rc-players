@@ -292,7 +292,7 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 | Issue | Delta |
 | --- | --- |
 | [#3](https://github.com/yschimke/rc-players/issues/3) | **Resolved upstream; retire on the next pin.** `Rc.AndroidColors` was wrong for 21 of 196 indices — upstream's data, not its rendering |
-| [#5](https://github.com/yschimke/rc-players/issues/5) | Published `ui-text-google-fonts` AAR ships no GMS font-provider certificates |
+| [#5](https://github.com/yschimke/rc-players/issues/5) | **Working as intended.** The published `ui-text-google-fonts` AAR does not expose GMS font-provider certificates; retain the direct-certificate adaptation |
 | [#54](https://github.com/yschimke/rc-players/issues/54) | `findBitmaps` never walks a component's canvas stream, so a `BitmapData` declared there is unregistered — costing both the texture and the `ImageAttribute` dimensions; `ImageAttribute` also needs an explicit draw case, being neither `VariableSupport` nor `VariableProvider` |
 | [#98](https://github.com/yschimke/rc-players/issues/98) | The embedded graphics-layer adapter still ignores authored transform origins and bypasses core's implicit value-change animation |
 
