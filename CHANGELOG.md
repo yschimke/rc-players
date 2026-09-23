@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.71.0](https://github.com/yschimke/rc-players/compare/v1.70.0...v1.71.0) (2026-09-23)
+
+
+### Features
+
+* **swift:** expand basic LOOM macros ([#370](https://github.com/yschimke/rc-players/issues/370)) ([a38ba3e](https://github.com/yschimke/rc-players/commit/a38ba3ed191c98df6005b252cb90c5c7c9e3e375))
+
+
+### Bug Fixes
+
+* deduplicate nested shared elements ([#366](https://github.com/yschimke/rc-players/issues/366)) ([76194f1](https://github.com/yschimke/rc-players/commit/76194f128fe43300db22ffce2e74f3a46a539744))
+* **swift:** accept compact float animation descriptors ([#369](https://github.com/yschimke/rc-players/issues/369)) ([c05f82f](https://github.com/yschimke/rc-players/commit/c05f82f3d1b731d3b334e23300f05ec2b05419e0))
+* **swift:** execute conditional and canvas text operations ([#373](https://github.com/yschimke/rc-players/issues/373)) ([c8feadf](https://github.com/yschimke/rc-players/commit/c8feadf25d7cd3b87a4919f9585fa52b2f6f29a4))
+* **swift:** expose animation spec initializer ([#379](https://github.com/yschimke/rc-players/issues/379)) ([897c702](https://github.com/yschimke/rc-players/commit/897c7022b044acf808bf4d3ab1d15f75c88ef158))
+* **swift:** expose native host conformance probes ([#377](https://github.com/yschimke/rc-players/issues/377)) ([ec487ba](https://github.com/yschimke/rc-players/commit/ec487ba29cfdac70a397b3b3c3ce814f0a979746))
+* **swift:** expose retained particle state to conformance ([#372](https://github.com/yschimke/rc-players/issues/372)) ([bbf793d](https://github.com/yschimke/rc-players/commit/bbf793dc20f3adbe03ec761ca26e4926ff6de774))
+* **swift:** include split wire reader in Apple sample ([#367](https://github.com/yschimke/rc-players/issues/367)) ([5cc635a](https://github.com/yschimke/rc-players/commit/5cc635aa22f10d6bb37a23291c8ddb250afa7d10))
+* **swift:** invalidate frames before gestures ([#371](https://github.com/yschimke/rc-players/issues/371)) ([a3af989](https://github.com/yschimke/rc-players/commit/a3af98950996c5903ffceec1352a33acbedee340))
+* **swift:** preserve native text conformance semantics ([#374](https://github.com/yschimke/rc-players/issues/374)) ([ee18643](https://github.com/yschimke/rc-players/commit/ee1864392326d3d7c7a21112bc1dd8a83cc1dcf8))
+* **swift:** render canvas lines and corner radii ([#380](https://github.com/yschimke/rc-players/issues/380)) ([80d47a6](https://github.com/yschimke/rc-players/commit/80d47a68d624f7799dd8762ed2fa55d3e948c236))
+* **swift:** reuse UIKit text measurements ([#363](https://github.com/yschimke/rc-players/issues/363)) ([a9c59de](https://github.com/yschimke/rc-players/commit/a9c59de4d17f1204a99aa320a9e5d3292e67edc2))
+* **swift:** simulate retained particle systems ([#368](https://github.com/yschimke/rc-players/issues/368)) ([36a7502](https://github.com/yschimke/rc-players/commit/36a750266284f17b2b3b3670e871c47a8600a4f6))
+* **swift:** stabilize native frame resolution ([#376](https://github.com/yschimke/rc-players/issues/376)) ([9772556](https://github.com/yschimke/rc-players/commit/97725560ee2f4dae17351e81dda7e81d88c4465c))
+
+
+### Performance Improvements
+
+* **swift:** reuse static native frame work ([#365](https://github.com/yschimke/rc-players/issues/365)) ([317fad1](https://github.com/yschimke/rc-players/commit/317fad1cef97b958522508c8bf2f75a5d27827cc))
+
 ## [1.70.0](https://github.com/yschimke/rc-players/compare/v1.69.0...v1.70.0) (2026-09-22)
 
 
