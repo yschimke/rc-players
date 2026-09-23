@@ -561,10 +561,9 @@ public enum NativeSwiftDrawTextAnchoredFlag {
 
 /// `RcBitmapData`'s encodings, from AndroidX `BitmapData`. Only inline data is decodable offline.
 public enum NativeSwiftBitmapEncoding {
+  // `ENCODING_INLINE` is the only encoding the authoritative wire implementations in this
+  // repository name (`RcModel.kt`, the vendored players); add others from those sources only.
   public static let inline = 0
-  public static let url = 1
-  public static let file = 2
-  public static let empty = 3
 }
 
 /// `RcTextLayout`'s text alignment values.
