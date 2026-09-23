@@ -137,6 +137,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -288,6 +289,7 @@ import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
@@ -604,13 +606,22 @@ private fun RcComposePlayerResolved(
       modifier.semantics { contentDescription = description }
     } ?: modifier
   val interactiveModifier =
-    semanticsModifier.applyAndroidXClickAreas(
-      areas = state.clickAreas,
-      state = state,
-      documentWidth = document.header.width.coerceAtLeast(1).toFloat(),
-      documentHeight = document.header.height.coerceAtLeast(1).toFloat(),
-      rootContentBehavior = state.rootContentBehavior,
-    )
+    semanticsModifier
+      .then(
+        RcTouchPositionElement(
+          state = state,
+          documentWidth = document.header.width.coerceAtLeast(1).toFloat(),
+          documentHeight = document.header.height.coerceAtLeast(1).toFloat(),
+          onRepaint = { invalidationVersion += 1 },
+        )
+      )
+      .applyAndroidXClickAreas(
+        areas = state.clickAreas,
+        state = state,
+        documentWidth = document.header.width.coerceAtLeast(1).toFloat(),
+        documentHeight = document.header.height.coerceAtLeast(1).toFloat(),
+        rootContentBehavior = state.rootContentBehavior,
+      )
   val redrawModifier =
     interactiveModifier
       .drawWithContent {
@@ -763,7 +774,7 @@ private fun RenderLayoutNode(
   // the chain that was built: an inset left over from dropped padding subtracts 20 from every
   // child's position, which is what `state_layout_padding_container` was reporting as `x: -20`.
   val layoutModifiers =
-    if (node is RcLayoutNode.State) node.modifiers.withoutFillDimensions().withoutPadding()
+    if (node is RcLayoutNode.State) node.modifiers.withoutDimensions().withoutPadding()
     else node.modifiers
   val contentInset =
     if (inspecting) rcContentInsetPixels(layoutModifiers, state, density) else Offset.Zero
@@ -1307,19 +1318,23 @@ private fun RenderLayoutNode(
           axisValues =
             properties.floatArrayProperty(CORE_TEXT_FONT_AXIS_VALUES).map { state.resolve(it) },
         )
+      val lines = remember { RcTextLines() }
       BasicText(
         text = state.text(node.operation.textId).orEmpty(),
         modifier =
-          effectiveModifier.applyComponentModifiers(
-            node.modifiers,
-            state,
-            geometryIds,
-            fillMissingDimensions = false,
-            canvasOperations = null,
-            textMeasurer,
-            images,
-            theme,
-          ),
+          effectiveModifier
+            .applyComponentModifiers(
+              node.modifiers,
+              state,
+              geometryIds,
+              fillMissingDimensions = false,
+              canvasOperations = null,
+              textMeasurer,
+              images,
+              theme,
+            )
+            .fitToLines(lines),
+        onTextLayout = { lines.result = it },
         style =
           TextStyle(
             color =
@@ -2393,6 +2408,58 @@ private fun Modifier.rcPaddingPixels(
 internal fun rcCombinedPaddingPixels(first: Float, second: Float): Int =
   (first.coerceAtLeast(0f) + second.coerceAtLeast(0f)).roundToInt()
 
+/** Publishes the pointer position to the document, as AndroidX does on every touch event. */
+private data class RcTouchPositionElement(
+  val state: RcPlayerState,
+  val documentWidth: Float,
+  val documentHeight: Float,
+  val onRepaint: () -> Unit,
+) : ModifierNodeElement<RcTouchPositionNode>() {
+  override fun create(): RcTouchPositionNode =
+    RcTouchPositionNode(state, documentWidth, documentHeight, onRepaint)
+
+  override fun update(node: RcTouchPositionNode) {
+    node.state = state
+    node.documentWidth = documentWidth
+    node.documentHeight = documentHeight
+    node.onRepaint = onRepaint
+  }
+
+  override fun InspectorInfo.inspectableProperties() {
+    name = "androidXTouchPosition"
+  }
+}
+
+/**
+ * Observes, and never consumes: runs on the initial pass so a component that handles the same
+ * pointer still sees it, and the position is already published when its actions read it.
+ */
+private class RcTouchPositionNode(
+  var state: RcPlayerState,
+  var documentWidth: Float,
+  var documentHeight: Float,
+  var onRepaint: () -> Unit,
+) : Modifier.Node(), PointerInputModifierNode {
+  override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
+    if (pass != PointerEventPass.Initial) return
+    val change =
+      pointerEvent.changes.firstOrNull { it.pressed || it.changedToUpIgnoreConsumed() } ?: return
+    val transform =
+      computeRootTransform(
+        documentWidth = documentWidth,
+        documentHeight = documentHeight,
+        viewportWidth = bounds.width.toFloat(),
+        viewportHeight = bounds.height.toFloat(),
+        behavior = state.rootContentBehavior,
+      )
+    val x = (change.position.x - transform.translateX) / transform.scaleX
+    val y = (change.position.y - transform.translateY) / transform.scaleY
+    if (state.publishTouchPosition(x, y)) onRepaint()
+  }
+
+  override fun onCancelPointerInput() = Unit
+}
+
 private fun Modifier.applyAndroidXClickAreas(
   areas: List<RcClickArea>,
   state: RcPlayerState,
@@ -2990,33 +3057,28 @@ private fun Modifier.trackComponentGeometry(
  * chain is byte-for-byte what it was before this existed.
  */
 
-/**
- * This component's modifiers with any `FILL` width or height dropped, so it wraps its content.
- *
- * Only `StateLayout` uses this, and only because AndroidX's own state container does: it takes its
- * size from the branch it is showing whatever the document asks for. Dropping the modifier from
- * both `ordered` and the resolved `width`/`height` matters — `applyComponentModifiers` walks the
- * ordered list to preserve AndroidX's order-sensitive modifier semantics and consults the resolved
- * fields separately, so removing it from one and not the other would apply half of it.
- */
 /** Drops padding, for the layouts whose reference sizes to its content rather than to a chain. */
 internal fun RcLayoutModifiers.withoutPadding(): RcLayoutModifiers {
   if (padding.isEmpty()) return this
   return removingOrdered { it is RcPaddingModifier }.copy(padding = emptyList())
 }
 
-internal fun RcLayoutModifiers.withoutFillDimensions(): RcLayoutModifiers {
-  val fillsWidth = width?.type == RcDimensionType.FILL
-  val fillsHeight = height?.type == RcDimensionType.FILL
-  if (!fillsWidth && !fillsHeight) return this
-  return removingOrdered { operation ->
-      (fillsWidth && operation is RcWidthModifier && operation.type == RcDimensionType.FILL) ||
-        (fillsHeight && operation is RcHeightModifier && operation.type == RcDimensionType.FILL)
-    }
-    .copy(
-      width = width.takeUnless { fillsWidth },
-      height = height.takeUnless { fillsHeight },
-    )
+/**
+ * This component's modifiers with every width and height dropped, so it wraps its content.
+ *
+ * Only `StateLayout` uses this, and only because AndroidX's own state container does: its `measure`
+ * is overridden to measure the branch it is showing and take that branch's size, and never applies
+ * its own dimension modifiers — a fill *or* an exact size. Dropping only fills left
+ * `interaction_click_button`'s `height(100)` state container at 100 where AndroidX reports the
+ * shown branch's 40. Dropping the modifier from both `ordered` and the resolved `width`/`height`
+ * matters — `applyComponentModifiers` walks the ordered list to preserve AndroidX's order-sensitive
+ * modifier semantics and consults the resolved fields separately, so removing it from one and not
+ * the other would apply half of it.
+ */
+internal fun RcLayoutModifiers.withoutDimensions(): RcLayoutModifiers {
+  if (width == null && height == null) return this
+  return removingOrdered { it is RcWidthModifier || it is RcHeightModifier }
+    .copy(width = null, height = null)
 }
 
 /**
@@ -3042,6 +3104,46 @@ internal fun RcLayoutModifiers.removingOrdered(
 /**
  * Greedy word wrap on character counts — the closed-form Ahem model (`CONFORMANCE_FORMAT.md` §2.3).
  */
+/** The latest text layout of one text component, written during its own measure pass. */
+private class RcTextLines {
+  var result: TextLayoutResult? = null
+}
+
+/**
+ * Sizes a text component to its lines, as AndroidX's `CoreText` does, rather than to the width it
+ * was allowed.
+ *
+ * Compose lays a paragraph out across the whole available width and reports that width as soon as
+ * the text wraps, so a wrapped `CoreText` measured 200 px where AndroidX reports its widest line,
+ * 144 — which moves anything aligned against it and widens its background. This keeps the paragraph
+ * as laid out and narrows the node to the span its lines cover, shifting it so that centred and
+ * end-aligned lines keep their positions within that span. It never goes below the incoming
+ * minimum, so an explicit width still wins.
+ *
+ * Truncated text keeps the full width: it was cut because it did not fit.
+ */
+private fun Modifier.fitToLines(lines: RcTextLines): Modifier = layout { measurable, constraints ->
+  val placeable = measurable.measure(constraints)
+  val result = lines.result
+  if (result == null || result.lineCount == 0 || result.hasVisualOverflow) {
+    return@layout layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+  }
+  var left = Float.MAX_VALUE
+  var right = 0f
+  for (line in 0 until result.lineCount) {
+    left = minOf(left, result.getLineLeft(line))
+    right = maxOf(right, result.getLineRight(line))
+  }
+  // A line's extent is a float sum of advances, so a run of whole-pixel glyphs can land a hair
+  // above an integer; rounding that hair up reported 229 for a 228 px line.
+  val span = ceil(right - left - LINE_EXTENT_EPSILON).toInt()
+  val width = constraints.constrainWidth(span).coerceAtMost(placeable.width)
+  val shift = if (width < placeable.width) -left.roundToInt() else 0
+  layout(width, placeable.height) { placeable.place(shift, 0) }
+}
+
+private const val LINE_EXTENT_EPSILON = 0.01f
+
 internal fun rcAhemWrap(text: String, availableWidthPx: Float, fontSizePx: Float): List<String> {
   if (fontSizePx <= 0f || availableWidthPx <= 0f) return listOf(text)
   val perLine = floor(availableWidthPx / fontSizePx).toInt()

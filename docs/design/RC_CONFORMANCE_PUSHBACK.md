@@ -171,7 +171,15 @@ frames (§6), the CMP player's transition is measurably slower: 0.28 at frame 5 
 Frame 18 matches. We are treating this as **a finding about the player** until shown otherwise, but
 it is worth asking whether mid-transition frames should bind, or carry a tolerance.
 
-**Not yet raised.** Settle this on our side first.
+Settled on our side since: the gold is not reproducible from the spec the document declares.
+`animation_box_offset` declares 300 ms with `CUBIC_STANDARD` (0.4, 0, 0.2, 1). At 60 fps, frame 5 is
+t = 0.28 and frame 10 is t = 0.56, which gives progress 0.28 and 0.815. That is exactly what this
+player now reports. The gold's 0.497 and 0.999 need t = 0.349 and t = 0.952. No uniform frame clock
+produces both from the declared easing, so the gold is recording AndroidX's own frame sampling, not
+the animation the document asks for.
+
+**Ask:** make mid-transition layout checks advisory, or record them from a clock that advances 1/60 s
+per frame.
 
 ## 9. Value checks that read back the document's own constant
 

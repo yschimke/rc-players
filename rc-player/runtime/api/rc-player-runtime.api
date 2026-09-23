@@ -894,6 +894,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public static synthetic fun publishComponentContentSize$default (Lee/schimke/composeai/rcplayer/runtime/RcPlayerState;ILjava/lang/Float;Ljava/lang/Float;ILjava/lang/Object;)Z
 	public final fun publishComponentGeometry (ILee/schimke/composeai/rcplayer/runtime/RcComponentGeometry;)Z
 	public final fun publishComponentGeometry (ILee/schimke/composeai/rcplayer/runtime/RcComponentGeometry;Z)Z
+	public final fun publishTouchPosition (FF)Z
 	public final fun requestWakeIn (Lee/schimke/composeai/rcplayer/protocol/RcWakeIn;)V
 	public final fun resolve-jeHuU8k (I)F
 	public final fun setColor (II)V

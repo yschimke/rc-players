@@ -1432,7 +1432,7 @@ private final class NativeMacDocumentView: NSView {
   ///
   /// The conformance lane drives gestures between the frame it hit-tested against and the frame it
   /// captures, and this is the step between them: the document's own state has changed, so the view
-  /// has to be rebuilt from a fresh snapshot rather than redrawn.
+  /// has to be re-resolved from a fresh snapshot and reconciled onto the native tree, not redrawn.
   func refresh(timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock) throws {
     try install(try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock))
     layoutSubtreeIfNeeded()
@@ -1489,6 +1489,19 @@ private final class NativeMacDocumentView: NSView {
       onDiagnostics(report.diagnostics)
     }
     let refreshingTransition = changedStateLayoutIDs.isEmpty ? stateTransition : nil
+    if changedStateLayoutIDs.isEmpty, let current = outgoing,
+      current.canUpdate(with: snapshot.root, images: images)
+    {
+      // The common frame: the same components with new values. Reconcile in place, so gesture
+      // recognizers, backing stores and an in-flight StateLayout cross-fade (its outgoing branch
+      // and the incoming fade) all survive the frame; only children whose identity changed are
+      // rebuilt, by their parent.
+      current.update(
+        node: snapshot.root, images: images, fontNames: fonts.namesByID,
+        conformanceFontName: conformanceFontName)
+      finishInstall()
+      return
+    }
     let presentationAlpha = refreshingTransition.flatMap { transition in
       outgoing?.component(withID: transition.stateLayoutID)?.layer?.presentation()?.opacity
     }
@@ -1499,6 +1512,8 @@ private final class NativeMacDocumentView: NSView {
       [weak self] componentID, gesture, sample in
       self?.gesture(gesture, componentID: componentID, sample: sample)
     }
+    // A StateLayout switching branch rebuilds the whole tree and cross-fades the old one out: the
+    // outgoing view is kept frozen on the old branch, so it cannot also be updated in place.
     if let changedStateLayoutID = changedStateLayoutIDs.first, let outgoing {
       let transition = stateTransition(for: changedStateLayoutID, in: snapshot)
       outgoingStateComponent?.removeFromSuperview()
@@ -1527,6 +1542,10 @@ private final class NativeMacDocumentView: NSView {
         addSubview(component)
       }
     }
+    finishInstall()
+  }
+
+  private func finishInstall() {
     // A document that reads a discrete wall-clock field has to be re-resolved at least once a
     // second, or its clock freezes on the first frame; the driver re-arms this after each wake.
     remainingWake = snapshot.needsWallClockRefresh ? 1 : nil
@@ -1878,13 +1897,16 @@ private extension Collection {
 private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate {
   /// The resolved component this view draws. Read by the document view's tree dump, which the
   /// conformance corpus's `tree` probe reads.
-  let node: NativeMacNode
+  ///
+  /// Replaced in place when the document view reconciles a newer snapshot onto this view (see
+  /// `canUpdate(with:images:)`), so gesture handlers always dispatch against the current node.
+  private(set) var node: NativeMacNode
 
   /// Set by a `FitBox` on its alternatives. The reference ignores an alternative's own visibility
   /// modifier — a document switches alternatives with it — so the tree reports the box's choice
   /// rather than the modifier's, and the fit test sees the alternative's real size.
   var ignoresOwnVisibility = false
-  let componentChildren: [NativeMacComponentView]
+  private(set) var componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
   private let imageViews: [NSImageView]
@@ -1893,6 +1915,12 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   private weak var tapRecognizer: NSClickGestureRecognizer?
   private weak var doubleClickRecognizer: NSClickGestureRecognizer?
   private var lastTapTimestamp: TimeInterval = -.infinity
+  /// Rows, columns, flows and collapsible containers ask a child for its size several times per
+  /// layout pass with the same constraint, and each ask recurses through the child's subtree. A
+  /// measurement depends only on this subtree's nodes and the constraint, so it is kept until the
+  /// next update replaces a node. Keyed on identical constraints only; a weighted child's final
+  /// allocation is a separate entry.
+  private var preferredSizeCache: [MacPreferredSizeKey: CGSize] = [:]
 
   override var isFlipped: Bool { true }
 
@@ -1910,26 +1938,18 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         node: $0, images: images, fontNames: fontNames, conformanceFontName: conformanceFontName,
         onGesture: onGesture)
     }
-    let promotesText = node.kind == .text
-    let promotesImage = node.kind == .image
-    let drawCommands = node.commands.filter { !(promotesImage && $0.kind == 19) }
+    let drawCommands = Self.canvasCommands(for: node)
     canvas =
       drawCommands.isEmpty
       ? nil
       : NativeMacCanvasView(
         commands: drawCommands, images: images, conformanceFontName: conformanceFontName)
-    labels =
-      promotesText
-      ? node.text.map {
-        [Self.makeLabel($0, fontNames: fontNames, conformanceFontName: conformanceFontName)]
-      } ?? [] : []
-    imageViews =
-      promotesImage
-      ? node.commands.compactMap { command in
-        guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
-        else { return nil }
-        return Self.makeImageView(image, draw: draw, alpha: command.alpha)
-      } : []
+    labels = Self.labelTexts(for: node).map {
+      Self.makeLabel($0, fontNames: fontNames, conformanceFontName: conformanceFontName)
+    }
+    imageViews = Self.imageItems(for: node, images: images).map {
+      Self.makeImageView($0.image, draw: $0.draw, alpha: $0.alpha)
+    }
     if node.clickable {
       let button = NSButton(title: "", target: nil, action: nil)
       button.isBordered = false
@@ -1941,17 +1961,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     }
     super.init(frame: .zero)
     wantsLayer = true
-    // A scrolled container's children are laid out against their content, which is larger than the
-    // viewport by design, so the viewport has to clip them or the overflow paints outside it.
-    layer?.masksToBounds = node.cornerRadius > 0 || node.scrollDirection != nil
-    layer?.cornerRadius = CGFloat(node.cornerRadius)
-    if node.hasBackground { layer?.backgroundColor = Self.color(node.backgroundColor).cgColor }
-    if let border = node.borderARGB, node.borderWidth > 0 {
-      layer?.borderColor = Self.color(Int32(bitPattern: border)).cgColor
-      layer?.borderWidth = CGFloat(node.borderWidth)
-    }
-    isHidden = node.visibility == NativeMacVisibility.gone
-    alphaValue = node.visibility == NativeMacVisibility.invisible ? 0 : 1
+    applyLayerStyle()
+    applyVisibility()
     setAccessibilityIdentifier("rc-native-component-\(node.componentId)")
     if let canvas { addSubview(canvas) }
     labels.forEach(addSubview)
@@ -1963,6 +1974,177 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       addSubview(semanticButton)
     }
     installGestureRecognizers()
+  }
+
+  /// Whether `next` can be applied to this view in place rather than by building a new one.
+  ///
+  /// Only this view's own identity is compared: the same component ID, the same kind and class,
+  /// the same gestures (so the installed recognizers stay right), and the same helper subviews —
+  /// canvas, promoted text label, promoted images, accessibility button. Children are reconciled
+  /// one by one in `update(node:…)`, so a child whose identity changed is rebuilt on its own
+  /// without discarding this view or its siblings.
+  func canUpdate(with next: NativeMacNode, images: [Int: NSImage]) -> Bool {
+    guard
+      node.componentID == next.componentID,
+      node.kind == next.kind,
+      node.componentKind == next.componentKind,
+      node.supportedGestures == next.supportedGestures,
+      node.clickable == next.clickable,
+      (canvas != nil) == !Self.canvasCommands(for: next).isEmpty,
+      labels.count == Self.labelTexts(for: next).count
+    else { return false }
+    let currentImages = Self.imageItems(for: node, images: images)
+    let nextImages = Self.imageItems(for: next, images: images)
+    guard imageViews.count == nextImages.count, currentImages.count == nextImages.count else {
+      return false
+    }
+    // An image view only ever gains an accessibility label; one that should lose it is rebuilt.
+    return zip(currentImages, nextImages).allSatisfy {
+      ($0.draw.contentDescription == nil) == ($1.draw.contentDescription == nil)
+    }
+  }
+
+  /// Applies a newer snapshot of the same component to this view and reconciles its children.
+  ///
+  /// Everything the initializer derives from the node is re-derived here; frames are left to the
+  /// next layout pass, which every updated view is marked for. The caller has checked
+  /// `canUpdate(with:images:)`.
+  func update(
+    node next: NativeMacNode,
+    images: [Int: NSImage],
+    fontNames: [Int: String],
+    conformanceFontName: String?
+  ) {
+    node = next
+    // A FitBox parent sets this again during its layout, exactly as it does on a fresh view.
+    ignoresOwnVisibility = false
+    preferredSizeCache.removeAll(keepingCapacity: true)
+    canvas?.update(commands: Self.canvasCommands(for: next))
+    for (label, text) in zip(labels, Self.labelTexts(for: next)) {
+      Self.configure(
+        label, text: text, fontNames: fontNames, conformanceFontName: conformanceFontName)
+    }
+    for (view, item) in zip(imageViews, Self.imageItems(for: next, images: images)) {
+      Self.configure(view, image: item.image, draw: item.draw, alpha: item.alpha)
+    }
+    if let semanticButton {
+      let toolTip = next.semanticLabel ?? next.semanticText
+      if semanticButton.toolTip != toolTip { semanticButton.toolTip = toolTip }
+    }
+    reconcileChildren(
+      next.children, images: images, fontNames: fontNames,
+      conformanceFontName: conformanceFontName)
+    applyLayerStyle()
+    applyVisibility()
+    needsLayout = true
+  }
+
+  /// Keeps every child whose component survives (matched by component ID, in document order) and
+  /// can take its new node, and builds a new view only for the rest.
+  private func reconcileChildren(
+    _ nextNodes: [NativeMacNode],
+    images: [Int: NSImage],
+    fontNames: [Int: String],
+    conformanceFontName: String?
+  ) {
+    let previous = componentChildren
+    var candidates = Dictionary(grouping: previous) { $0.node.componentID }
+    var next: [NativeMacComponentView] = []
+    next.reserveCapacity(nextNodes.count)
+    for childNode in nextNodes {
+      if var matches = candidates[childNode.componentID], !matches.isEmpty {
+        let candidate = matches.removeFirst()
+        candidates[childNode.componentID] = matches
+        if candidate.canUpdate(with: childNode, images: images) {
+          candidate.update(
+            node: childNode, images: images, fontNames: fontNames,
+            conformanceFontName: conformanceFontName)
+          next.append(candidate)
+          continue
+        }
+      }
+      next.append(
+        NativeMacComponentView(
+          node: childNode, images: images, fontNames: fontNames,
+          conformanceFontName: conformanceFontName, onGesture: onGesture))
+    }
+    componentChildren = next
+    if next.count == previous.count, zip(next, previous).allSatisfy({ $0 === $1 }) { return }
+    let previousIDs = Set(previous.map { ObjectIdentifier($0) })
+    let keptIDs = Set(next.map { ObjectIdentifier($0) })
+    // The common case of a changed child: the same slot, a new view. Swap it where AppKit already
+    // has the old one so no surviving sibling is detached, even briefly.
+    let positional =
+      next.count == previous.count
+      && zip(next, previous).allSatisfy { incoming, outgoing in
+        incoming === outgoing
+          || (!previousIDs.contains(ObjectIdentifier(incoming))
+            && !keptIDs.contains(ObjectIdentifier(outgoing)))
+      }
+    if positional {
+      for (incoming, outgoing) in zip(next, previous) where incoming !== outgoing {
+        replaceSubview(outgoing, with: incoming)
+      }
+      return
+    }
+    for child in previous where !keptIDs.contains(ObjectIdentifier(child)) {
+      child.removeFromSuperview()
+    }
+    // Children paint above the canvas, labels and images and below the accessibility button;
+    // re-adding an existing subview only moves it, so this restores document order.
+    for child in next {
+      if let semanticButton {
+        addSubview(child, positioned: .below, relativeTo: semanticButton)
+      } else {
+        addSubview(child)
+      }
+    }
+  }
+
+  private func applyLayerStyle() {
+    // A scrolled container's children are laid out against their content, which is larger than the
+    // viewport by design, so the viewport has to clip them or the overflow paints outside it.
+    layer?.masksToBounds = node.cornerRadius > 0 || node.scrollDirection != nil
+    layer?.cornerRadius = CGFloat(node.cornerRadius)
+    layer?.backgroundColor = node.hasBackground ? Self.color(node.backgroundColor).cgColor : nil
+    if let border = node.borderARGB, node.borderWidth > 0 {
+      layer?.borderColor = Self.color(Int32(bitPattern: border)).cgColor
+      layer?.borderWidth = CGFloat(node.borderWidth)
+    } else {
+      layer?.borderColor = nil
+      layer?.borderWidth = 0
+    }
+  }
+
+  /// The document's own visibility; containers (collapsible, flow, FitBox) override it during their
+  /// layout. Written only when it changes, so an in-flight fade on this view is not reset.
+  private func applyVisibility() {
+    let hidden = node.visibility == NativeMacVisibility.gone
+    if isHidden != hidden { isHidden = hidden }
+    let alpha: CGFloat = node.visibility == NativeMacVisibility.invisible ? 0 : 1
+    if alphaValue != alpha { alphaValue = alpha }
+  }
+
+  private static func canvasCommands(for node: NativeMacNode) -> [NativeMacDrawCommand] {
+    let promotesImage = node.kind == .image
+    return node.commands.filter { !(promotesImage && $0.kind == 19) }
+  }
+
+  private static func labelTexts(for node: NativeMacNode) -> [NativeSwiftTextSnapshot] {
+    guard node.kind == .text, let text = node.text else { return [] }
+    return [text]
+  }
+
+  private static func imageItems(
+    for node: NativeMacNode, images: [Int: NSImage]
+  ) -> [(image: NSImage, draw: NativeSwiftImageDrawSnapshot, alpha: Float)] {
+    guard node.kind == .image else { return [] }
+    return node.commands.compactMap {
+      command -> (image: NSImage, draw: NativeSwiftImageDrawSnapshot, alpha: Float)? in
+      guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+      else { return nil }
+      return (image, draw, command.alpha)
+    }
   }
 
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
@@ -2195,6 +2377,14 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   }
 
   func preferredSize(in available: CGSize) -> CGSize {
+    let key = MacPreferredSizeKey(width: available.width, height: available.height)
+    if let cached = preferredSizeCache[key] { return cached }
+    let size = preferredSizeUncached(in: available)
+    preferredSizeCache[key] = size
+    return size
+  }
+
+  private func preferredSizeUncached(in available: CGSize) -> CGSize {
     let padding = insets
     // The container's own bounds, resolved first: a collapsible container's retention decision is
     // about *its* bound, not the space its parent offered, so a 50-point collapsible column holding
@@ -2775,6 +2965,19 @@ private typealias MacFlowLine = (
     _ text: NativeSwiftTextSnapshot, fontNames: [Int: String], conformanceFontName: String?
   ) -> NSTextField {
     let label = NSTextField(labelWithString: text.value)
+    label.drawsBackground = false
+    label.isSelectable = false
+    configure(label, text: text, fontNames: fontNames, conformanceFontName: conformanceFontName)
+    return label
+  }
+
+  /// Everything a label takes from its text snapshot, for a new label and an updated one alike.
+  /// Each property is written only when it differs, so an unchanged label is not redisplayed.
+  private static func configure(
+    _ label: NSTextField, text: NativeSwiftTextSnapshot, fontNames: [Int: String],
+    conformanceFontName: String?
+  ) {
+    if label.stringValue != text.value { label.stringValue = text.value }
     let size = max(CGFloat(text.size), 1)
     let weight = NSFont.Weight(rawValue: min(max(CGFloat(text.weight - 400) / 500, -1), 1))
     var font = NSFont.systemFont(ofSize: size, weight: weight)
@@ -2788,16 +2991,18 @@ private typealias MacFlowLine = (
     {
       font = italic
     }
-    label.font = font
-    label.textColor = color(Int32(bitPattern: text.colorARGB))
-    label.maximumNumberOfLines = text.maximumLines
-    label.lineBreakMode = text.overflow == 2 ? .byTruncatingTail : .byWordWrapping
-    label.alignment =
+    if label.font != font { label.font = font }
+    let textColor = color(Int32(bitPattern: text.colorARGB))
+    if label.textColor != textColor { label.textColor = textColor }
+    if label.maximumNumberOfLines != text.maximumLines {
+      label.maximumNumberOfLines = text.maximumLines
+    }
+    let lineBreakMode: NSLineBreakMode = text.overflow == 2 ? .byTruncatingTail : .byWordWrapping
+    if label.lineBreakMode != lineBreakMode { label.lineBreakMode = lineBreakMode }
+    let alignment: NSTextAlignment =
       text.alignment == 2
       ? .center : (text.alignment == 3 ? .right : .left)
-    label.drawsBackground = false
-    label.isSelectable = false
-    return label
+    if label.alignment != alignment { label.alignment = alignment }
   }
 
   private static func makeImageView(
@@ -2806,16 +3011,26 @@ private typealias MacFlowLine = (
     let view = NSImageView(image: image)
     view.imageFrameStyle = .none
     view.imageAlignment = .alignCenter
-    view.imageScaling =
+    configure(view, image: image, draw: draw, alpha: alpha)
+    return view
+  }
+
+  /// Everything an image view takes from its draw command, for a new view and an updated one alike.
+  private static func configure(
+    _ view: NSImageView, image: NSImage, draw: NativeSwiftImageDrawSnapshot, alpha: Float
+  ) {
+    if view.image !== image { view.image = image }
+    let scaling: NSImageScaling =
       draw.scaleType == NativeSwiftImageScaleType.fillBounds
       ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
-    view.alphaValue = CGFloat(min(max(alpha, 0), 1))
+    if view.imageScaling != scaling { view.imageScaling = scaling }
+    let opacity = CGFloat(min(max(alpha, 0), 1))
+    if view.alphaValue != opacity { view.alphaValue = opacity }
     view.setAccessibilityIdentifier("rc-native-image-\(draw.imageID)")
     if let label = draw.contentDescription {
       view.setAccessibilityElement(true)
       view.setAccessibilityLabel(label)
     }
-    return view
   }
 
   fileprivate static func color(_ argb: Int32) -> NSColor {
@@ -2826,8 +3041,14 @@ private typealias MacFlowLine = (
   }
 }
 
+/// A constraint `NativeMacComponentView.preferredSize(in:)` has already answered.
+private struct MacPreferredSizeKey: Hashable {
+  let width: CGFloat
+  let height: CGFloat
+}
+
 private final class NativeMacCanvasView: NSView {
-  let commands: [NativeMacDrawCommand]
+  private(set) var commands: [NativeMacDrawCommand]
   let images: [Int: NSImage]
   /// The face every label uses under the conformance lane (Ahem), so canvas text measures the same.
   ///
@@ -2844,6 +3065,13 @@ private final class NativeMacCanvasView: NSView {
     super.init(frame: .zero)
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+
+  /// A newer frame's commands for the same component. Draw commands carry no equality, so the
+  /// canvas simply redraws; its backing store is kept.
+  func update(commands: [NativeMacDrawCommand]) {
+    self.commands = commands
+    needsDisplay = true
+  }
 
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
@@ -3115,8 +3343,9 @@ struct NativeAppKitEvidenceReport: Codable {
     var decodeMilliseconds: Double = 100
     var buildMilliseconds: Double = 250
     var captureMilliseconds: Double = 250
-    // A drawn AppKit frame, not a resolved snapshot: the renderer rebuilds its component tree
-    // every frame, so this ceiling is one 30Hz frame rather than the core's 8ms.
+    // A drawn AppKit frame, not a resolved snapshot: the renderer reconciles its component tree,
+    // lays it out and draws it every frame, so this ceiling is one 30Hz frame rather than the
+    // core's 8ms.
     var steadyFrameMilliseconds: Double = 33
     var maximumViewCount: Int = 500
     var minimumLabelCount: Int = 1
