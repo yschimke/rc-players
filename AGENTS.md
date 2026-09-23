@@ -137,6 +137,13 @@ formatter rule means, just run through `build-brief`.
 - **Re-check PR state immediately before every push.** A PR can merge between turns. Right before
   pushing, `git fetch origin main` and confirm the branch head is not already in `origin/main`. If it
   has landed, **stop**: branch fresh from `origin/main` for the follow-up and say so.
+- **Re-check PR state immediately before every follow-up commit too.** A merged PR cannot receive
+  additional commits. Before staging a fix-up, fetch `origin/main`, check whether the branch's PR is
+  merged, and branch fresh from `origin/main` when it is.
+- **Inspect GitHub feedback before handoff and before any follow-up work.** Read the PR's
+  conversation comments, inline review comments, review states, and CI checks after opening or
+  updating a PR. Address valid findings on an unmerged PR; if it has already merged, carry them on a
+  fresh follow-up branch. Never report a PR as complete based only on a local build or merge state.
 - **Don't auto-merge.** Opening, tracking and fix-up commits are automatic; merging is the user's
   call.
 
