@@ -280,6 +280,24 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let shaderUniformNames: [Int: Set<String>]
   /// Conditional containers evaluated while linking the document.
   public let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
+  /// Every `IMPULSE_START` in declaration order, with its window resolved for this frame.
+  public let impulses: [NativeSwiftImpulseSnapshot]
+  /// When the document asked to be resolved again, in seconds from this frame: the shortest
+  /// `WAKE_IN`, an impulse still waiting for its window, or 0 for one inside it. Nil when nothing
+  /// asked.
+  public let wakeAfter: TimeInterval?
+
+  /// The wake a host should schedule: the document's own request, or the once-a-second refresh a
+  /// document reading a discrete wall-clock field needs, whichever comes first.
+  public var hostWakeAfter: TimeInterval? {
+    [needsWallClockRefresh ? 1 : nil, wakeAfter].compactMap { $0 }.min()
+  }
+}
+
+/// One `IMPULSE_START`: a window of `duration` seconds opening at `startAt` on the animation clock.
+public struct NativeSwiftImpulseSnapshot: Equatable, Sendable {
+  public let duration: Float
+  public let startAt: Float
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
@@ -1051,6 +1069,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var integers: [Int: Int]
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
   private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
+  /// AndroidX's per-impulse "first frame in the window" bit, and each impulse's phase at the frame
+  /// last advanced to.
+  private var impulseInitialPass: [Int: Bool] = [:]
+  private var impulsePhases: [Int: NativeSwiftImpulsePhase] = [:]
+  private var lastImpulseFrameTime: TimeInterval?
   private var lastParticleFrameTime: TimeInterval?
   // A host may request another frame for a document that has no clock-driven state. Preserve the
   // public value snapshot while sharing its copy-on-write storage instead of re-resolving the
@@ -1108,6 +1131,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
     particleSystems = other.particleSystems.mapValues { $0.detachedCopy() }
+    impulseInitialPass = other.impulseInitialPass
+    impulsePhases = other.impulsePhases
+    lastImpulseFrameTime = other.lastImpulseFrameTime
     lastParticleFrameTime = other.lastParticleFrameTime
     staticSnapshotCache = other.staticSnapshotCache
   }
@@ -1182,6 +1208,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
         resolveAnimatedValues: true)
     }
+    advanceImpulses(values: values, timeSeconds: timeSeconds)
     resolveTextOperations(values: values)
     // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
     // preceding TextFromFloat/TextLookup/TextMerge, so resolve it only after those text producers
@@ -1224,12 +1251,65 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
       }, shaderUniformNames: document.shaderUniformNames,
-      conditionalTraces: document.conditionalTraces)
+      conditionalTraces: document.conditionalTraces,
+      impulses: document.impulses.map {
+        NativeSwiftImpulseSnapshot(
+          duration: NativeSwiftFloatExpression.resolve($0.durationWord, values: values),
+          startAt: NativeSwiftFloatExpression.resolve($0.startAtWord, values: values))
+      },
+      wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds))
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
       staticSnapshotCache = StaticSnapshotCache(
         measuredComponents: measuredComponents, snapshot: snapshot)
     }
     return snapshot
+  }
+
+  /// AndroidX `ImpulseOperation`: waiting before the window, initializing on the first frame inside
+  /// it, processing on every later frame inside it, idle after it, which re-arms the first frame.
+  /// Advanced once per frame time, so resolving a frame twice does not consume the first frame.
+  private func advanceImpulses(values: [Int: Float], timeSeconds: TimeInterval) {
+    guard !document.impulses.isEmpty, lastImpulseFrameTime != timeSeconds else { return }
+    lastImpulseFrameTime = timeSeconds
+    let time = Float(timeSeconds)
+    for (index, impulse) in document.impulses.enumerated() {
+      let startAt = NativeSwiftFloatExpression.resolve(impulse.startAtWord, values: values)
+      let duration = NativeSwiftFloatExpression.resolve(impulse.durationWord, values: values)
+      if time < startAt {
+        impulsePhases[index] = .waiting
+      } else if time <= startAt + duration {
+        impulsePhases[index] = impulseInitialPass[index, default: true] ? .initialize : .process
+        impulseInitialPass[index] = false
+      } else {
+        impulsePhases[index] = .idle
+        impulseInitialPass[index] = true
+      }
+    }
+  }
+
+  /// Whether a command drawn inside an impulse belongs to the impulse's phase at this frame.
+  private func impulseAllows(_ gate: ParsedImpulseGate?) -> Bool {
+    guard let gate else { return true }
+    let phase = impulsePhases[gate.impulse] ?? .idle
+    if gate.segment == document.impulses[gate.impulse].processSegment { return phase == .process }
+    return phase == .initialize
+  }
+
+  private func wakeAfter(values: [Int: Float], timeSeconds: TimeInterval) -> TimeInterval? {
+    var requests = document.wakeWords.compactMap { word -> TimeInterval? in
+      let seconds = NativeSwiftFloatExpression.resolve(word, values: values)
+      return seconds.isFinite && seconds >= 0 ? TimeInterval(seconds) : nil
+    }
+    for (index, impulse) in document.impulses.enumerated() {
+      switch impulsePhases[index] ?? .idle {
+      case .waiting:
+        let startAt = NativeSwiftFloatExpression.resolve(impulse.startAtWord, values: values)
+        requests.append(max(TimeInterval(startAt) - timeSeconds, 0))
+      case .initialize, .process: requests.append(0)
+      case .idle: break
+      }
+    }
+    return requests.min()
   }
 
   /// Advances retained particle systems to this frame and returns one system's current state.
@@ -1500,6 +1580,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) -> Bool {
     wallClock == nil
       && !document.needsContinuousFrames
+      && document.impulses.isEmpty
       && document.particleLoops.isEmpty
       && !floatAnimationRuntimes.contains {
         floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
@@ -1579,7 +1660,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       children: try resolvedChildren(
         of: node, values: values, colors: resolvedColors,
         stateBranchActive: stateBranchActive),
-      commands: try node.commands.map {
+      commands: try node.commands.filter { impulseAllows($0.impulseGate) }.map {
         try $0.resolve(
           values: values, colors: resolvedColors, texts: texts,
           componentValueIDs: Set(document.componentValues.map(\.valueID)),
@@ -2405,6 +2486,9 @@ private struct ParsedDocument {
   let accessibilityRecords: [ParsedAccessibility]
   let shaderUniformNames: [Int: Set<String>]
   let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
+  let impulses: [ParsedImpulse]
+  /// `WAKE_IN` requests, as the words the document wrote.
+  let wakeWords: [UInt32]
   let particleDefinitions: [ParsedParticleDefinition]
   let particleLoops: [ParsedParticleLoop]
   let needsContinuousFrames: Bool
@@ -3134,7 +3218,29 @@ private struct ParsedAccessibility {
   let isClickable: Bool
 }
 
+/// `IMPULSE_START`'s two words, and which of its `IMPULSE_PROCESS` containers is the process
+/// body: AndroidX runs the last child as the body when it is one, and everything else once, on the
+/// first frame inside the window.
+private struct ParsedImpulse {
+  let durationWord: UInt32
+  let startAtWord: UInt32
+  var processSegment: Int?
+}
+
+/// Where a draw command sits in an impulse: its setup (`segment` -1) or its n-th process container.
+private struct ParsedImpulseGate {
+  let impulse: Int
+  let segment: Int
+}
+
+/// AndroidX `ImpulseOperation`'s phase at one frame.
+private enum NativeSwiftImpulsePhase {
+  case waiting, initialize, process, idle
+}
+
 private struct ParsedDrawCommand {
+  /// Set when the command is drawn by an impulse, which shows it only in the matching phase.
+  var impulseGate: ParsedImpulseGate?
   let kind: Int
   let words: [UInt32]
   /// Literal geometry never depends on a frame's expression table. Keeping the decoded floats
@@ -4252,6 +4358,21 @@ private enum NativeSwiftDocumentDecoder {
     var syntheticRootWasAdded = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
+    var impulses: [ParsedImpulse] = []
+    var wakeWords: [UInt32] = []
+    /// An open impulse container: its setup (-1) or one of its process containers, closed when
+    /// `modifierContainers` returns to `depth`.
+    struct ImpulseScope {
+      let impulse: Int
+      let segment: Int
+      let depth: Int
+    }
+    var impulseScopes: [ImpulseScope] = []
+    var impulseSegmentCounts: [Int: Int] = [:]
+    /// The process container an impulse's setup most recently ended with, if nothing followed it.
+    var impulseTrailingProcess: [Int: Int] = [:]
+    /// Nodes an operation drew into while an impulse was open, with their command count before.
+    var impulseDrawTargets: [(node: ParsedNode, count: Int)] = []
     var paint = ParsedPaint()
     // AndroidX has two wire forms for MacroDefine: an inline byte body and a container body
     // terminated by ContainerEnd.  Retaining raw bytes lets a call execute its body with the
@@ -4368,6 +4489,14 @@ private enum NativeSwiftDocumentDecoder {
     }
 
     func drawingNode() throws -> ParsedNode {
+      let node = try drawingTarget()
+      if !impulseScopes.isEmpty, !impulseDrawTargets.contains(where: { $0.node === node }) {
+        impulseDrawTargets.append((node: node, count: node.commands.count))
+      }
+      return node
+    }
+
+    func drawingTarget() throws -> ParsedNode {
       if stack.isEmpty {
         if let implicitCanvasRoot { return implicitCanvasRoot }
         guard root == nil, nodes.count < maximumNodes else {
@@ -4585,6 +4714,7 @@ private enum NativeSwiftDocumentDecoder {
       }
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
+      let impulseScope = impulseScopes.last
       // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
       // own their children; macro definitions and calls expand into those children; neither is an
       // independent top-level operation. Template bytes execute through `suspendedInputs` and are
@@ -5703,6 +5833,14 @@ private enum NativeSwiftDocumentDecoder {
           .integerValue(targetID: targetID, value: value))
       case 214:  // Container end
         if !modifierContainers.isEmpty {
+          if let scope = impulseScopes.last, scope.depth == modifierContainers.count {
+            impulseScopes.removeLast()
+            if scope.segment >= 0 {
+              impulseTrailingProcess[scope.impulse] = scope.segment
+            } else {
+              impulses[scope.impulse].processSegment = impulseTrailingProcess[scope.impulse]
+            }
+          }
           modifierContainers.removeLast()
         } else {
           // Modern AndroidX documents carry a final document-level terminator after the root.
@@ -5822,6 +5960,33 @@ private enum NativeSwiftDocumentDecoder {
         let count = try input.count(
           "sound expression parameter count", maximum: maximumSoundParameters)
         for _ in 0..<count { _ = try input.word("sound expression parameter") }
+      case NativeSwiftWireOpcode.impulseStart:
+        // A window of time on the animation clock. Its children run once, on the first frame
+        // inside the window; a trailing IMPULSE_PROCESS runs on every frame after that until the
+        // window closes. Draw commands inside carry that gate; see `impulseAllows`.
+        guard impulseScopes.isEmpty else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "nested impulses are not migrated")
+        }
+        let duration = try input.word("impulse duration")
+        let startAt = try input.word("impulse start")
+        impulses.append(
+          ParsedImpulse(durationWord: duration, startAtWord: startAt, processSegment: nil))
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+        impulseScopes.append(
+          ImpulseScope(impulse: impulses.count - 1, segment: -1, depth: modifierContainers.count))
+      case NativeSwiftWireOpcode.impulseProcess:
+        guard let scope = impulseScopes.last, scope.segment == -1 else {
+          throw input.malformed("ImpulseProcess outside an ImpulseStart")
+        }
+        let segment = impulseSegmentCounts[scope.impulse, default: 0]
+        impulseSegmentCounts[scope.impulse] = segment + 1
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+        impulseScopes.append(
+          ImpulseScope(impulse: scope.impulse, segment: segment, depth: modifierContainers.count))
+      case NativeSwiftWireOpcode.wakeIn:
+        // Asks the host to resolve the document again after this many seconds.
+        wakeWords.append(try input.word("wake in seconds"))
       case NativeSwiftWireOpcode.textStyle:
         let style = try textProperties("TextStyle")
         guard let styleID = style.integers[1] else {
@@ -5878,10 +6043,34 @@ private enum NativeSwiftDocumentDecoder {
         throw NativeSwiftCoreError.unsupported(
           opcode: opcode, offset: opcodeOffset, reason: "operation family not migrated")
       }
+      if let impulseScope {
+        let structural = [
+          NativeSwiftWireOpcode.impulseStart, NativeSwiftWireOpcode.impulseProcess, 214,
+        ].contains(opcode)
+        if impulseScope.segment == -1, !structural {
+          impulseTrailingProcess.removeValue(forKey: impulseScope.impulse)
+        }
+        // An impulse gates what it draws. Anything else inside one — state, layout, a wake —
+        // would run on every frame here rather than only in its window, so it is refused rather
+        // than run at the wrong time.
+        if impulseDrawTargets.isEmpty, !structural {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "only drawing is migrated inside an impulse")
+        }
+        let gate = ParsedImpulseGate(impulse: impulseScope.impulse, segment: impulseScope.segment)
+        for target in impulseDrawTargets {
+          for index in target.count..<target.node.commands.count {
+            target.node.commands[index].impulseGate = gate
+          }
+        }
+        impulseDrawTargets.removeAll()
+      }
       spans.append(
         NativeSwiftOperationSpan(
           opcode: opcode, offset: opcodeOffset, endOffset: input.offset))
     }
+    guard impulseScopes.isEmpty else { throw input.malformed("Unclosed impulse") }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     // A *data-only* document declares expressions, colours and text with nothing to draw, so it
     // carries no root component at all. A renderer handed one has been given something it cannot
@@ -5959,6 +6148,7 @@ private enum NativeSwiftDocumentDecoder {
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
       shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
+      impulses: impulses, wakeWords: wakeWords,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,
