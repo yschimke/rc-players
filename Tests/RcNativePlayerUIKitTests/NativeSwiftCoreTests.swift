@@ -1473,6 +1473,84 @@ import Testing
           + "epoch-1 to \(String(describing: later.integers[60]))"))
   }
 
+  /// A loop whose body conditions on its own index unrolls, with each pass's condition reading
+  /// that pass's index, instead of refusing the document.
+  @Test func loopBodyConditionsOnItsIndex() throws {
+    let looped = Writer()
+    looped.header(width: 100, height: 100)
+    looped.u8(80).int(70).float(0)
+    looped.u8(215).int(70).float(0).float(1).float(3)
+    looped.u8(178).u8(4).int(Writer.nanReference(70)).float(0)
+    looped.u8(42).int(Writer.nanReference(70)).float(0).float(10).float(10)
+    looped.u8(214)
+    looped.u8(214)
+    let commands = try NativeSwiftDocumentSession.open(data: looped.data).snapshot().root.commands
+    #expect(
+      commands.filter { $0.kind == 10 }.map { $0.values[0] } == [1, 2],
+      Comment(rawValue: "a conditioned loop drew at \(commands.map { ($0.kind, $0.values) })"))
+  }
+
+  /// A colour the host has set by name stays the host's under a dark theme, even when it equals
+  /// the document's light fallback.
+  @Test func hostColourSurvivesAThemeSwitch() throws {
+    let themed = Writer()
+    themed.header(width: 100, height: 100)
+    themed.u8(196).int(10).int(1).u16(0).u16(0).int(Int(Int32(bitPattern: 0xFF11_1111)))
+      .int(Int(Int32(bitPattern: 0xFF22_2222)))
+    themed.namedVariable(id: 10, type: NativeSwiftNamedVariableType.color, name: "tint")
+    let session = try NativeSwiftDocumentSession.open(
+      data: themed.data, toleratingRootlessData: true)
+    #expect(session.setColor(0xFF11_1111, for: "tint"))
+    session.setRequestedTheme(NativeSwiftTheme.dark)
+    let color = try session.probeValues(timeSeconds: 0).colors[10]
+    #expect(
+      color == 0xFF11_1111,
+      Comment(rawValue: "a host colour became \(String(describing: color)) under a dark theme"))
+  }
+
+  /// A click's actions run in order against live state: a float action reads the integer an
+  /// earlier action wrote, and a float write is visible, truncated, as an integer.
+  @Test func clickActionsSeeEarlierWrites() throws {
+    let clicked = Writer()
+    clicked.header(width: 100, height: 100)
+    clicked.u8(200).int(1).u8(202).int(3).int(-1).int(1).int(4)
+    clicked.u8(59)
+      .u8(212).int(20).int(3)
+      .u8(222).int(21).int(Writer.nanReference(20))
+      .u8(222).int(22).float(2.7)
+      .u8(214).u8(214).u8(214)
+    let session = try NativeSwiftDocumentSession.open(data: clicked.data)
+    _ = try session.click(componentID: 3, timeSeconds: 0)
+    let values = try session.probeValues(timeSeconds: 0)
+    #expect(
+      values.floats[21] == 3 && values.integers[22] == 2,
+      Comment(rawValue:
+        "after a click, float 21 is \(String(describing: values.floats[21])) and integer 22 is "
+          + "\(String(describing: values.integers[22]))"))
+  }
+
+  /// A stored instant is read in its own offset: January in London is GMT even when the wall clock
+  /// is in summer time. And an interval measured in hours from now moves with the clock.
+  @Test func storedInstantsUseTheirOwnOffset() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(148).int(1).int64(1_768_478_400_000)
+    document.u8(172).int(40).int(1).u16(8).u16(0)
+    document.u8(172).int(41).int(1).u16(2).u16(0)
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let london = try #require(TimeZone(identifier: "Europe/London"))
+    let summer = NativeSwiftWallClock(
+      epochMillis: 1_782_907_200_000, offsetSeconds: 3600, timeZone: london)
+    let hour = try session.probeValues(timeSeconds: 0, wallClock: summer).floats[40]
+    #expect(
+      hour == 12,
+      Comment(rawValue: "a January noon UTC read as hour \(String(describing: hour))"))
+    #expect(
+      try session.snapshot(wallClock: summer).needsContinuousFrames,
+      "an hours-from-now interval did not ask for continuous frames")
+  }
+
   // MARK: - Graphics-layer attribute ids (#423)
   //
   // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:
