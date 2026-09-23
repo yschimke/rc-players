@@ -1,3 +1,4 @@
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
 import Foundation
 #if canImport(RcNativePlayerCore)
   import RcNativePlayerCore
@@ -138,3 +139,4 @@ enum NativeMacPolicy {
     return budget
   }
 }
+#endif

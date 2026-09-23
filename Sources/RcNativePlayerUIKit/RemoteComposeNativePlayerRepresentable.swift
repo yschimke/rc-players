@@ -71,3 +71,103 @@
     }
   }
 #endif
+
+#if canImport(AppKit) && canImport(SwiftUI) && !targetEnvironment(macCatalyst)
+  import AppKit
+  import SwiftUI
+
+  @MainActor
+  public struct RemoteComposeNativePlayerRepresentable: NSViewRepresentable {
+    public let data: Data
+    public var compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy
+    public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
+    public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
+
+    public init(
+      data: Data,
+      compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
+      onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
+      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
+    ) {
+      self.data = data
+      self.compatibilityPolicy = compatibilityPolicy
+      self.onEvent = onEvent
+      self.onDiagnostics = onDiagnostics
+    }
+
+    public func makeCoordinator() -> Coordinator { Coordinator() }
+
+    public func makeNSView(context: Context) -> NativeMacRepresentableHost {
+      let host = NativeMacRepresentableHost()
+      host.updateHandlers(onEvent: onEvent, onDiagnostics: onDiagnostics)
+      host.load(data: data, policy: compatibilityPolicy)
+      context.coordinator.data = data
+      context.coordinator.policy = compatibilityPolicy
+      return host
+    }
+
+    public func updateNSView(_ host: NativeMacRepresentableHost, context: Context) {
+      host.updateHandlers(onEvent: onEvent, onDiagnostics: onDiagnostics)
+      guard context.coordinator.data != data || context.coordinator.policy != compatibilityPolicy
+      else { return }
+      host.load(data: data, policy: compatibilityPolicy)
+      context.coordinator.data = data
+      context.coordinator.policy = compatibilityPolicy
+    }
+
+    public final class Coordinator {
+      fileprivate var data = Data()
+      fileprivate var policy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible
+    }
+  }
+
+  @MainActor
+  public final class NativeMacRepresentableHost: NSView {
+    private var player: NativeMacDocumentView?
+    private var onEvent: (RemoteComposeNativePlayerEvent) -> Void = { _ in }
+    private var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
+
+    public override var isFlipped: Bool { true }
+
+    func updateHandlers(
+      onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void,
+      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void
+    ) {
+      self.onEvent = onEvent
+      self.onDiagnostics = onDiagnostics
+    }
+
+    func load(data: Data, policy: RemoteComposeNativePlayerCompatibilityPolicy) {
+      do {
+        let session = try NativeSwiftDocumentSession.open(data: data)
+        let snapshot = try session.snapshot(timeSeconds: 0, wallClock: .capture)
+        let compatibility: NativeMacCompatibility = policy == .strict ? .strict : .compatible
+        let report = try NativeMacPolicy.evaluate(snapshot, compatibility: compatibility)
+        onDiagnostics(report.diagnostics)
+        guard RemoteComposeNativeCompatibilityDecision.shouldRender(
+          policy: policy, diagnostics: report.diagnostics)
+        else { return }
+        let fonts = try NativeMacFontRegistry.register(snapshot: snapshot, downloadedFonts: [:])
+        let view = try NativeMacDocumentView(
+          snapshot: snapshot, session: session, compatibility: compatibility, report: report,
+          fonts: fonts,
+          onEvent: { [weak self] summary in
+            self?.onEvent(.debug(message: summary, value: 0, flags: 0))
+          }, onDiagnostics: { [weak self] diagnostics in self?.onDiagnostics(diagnostics) },
+          onError: { _ in })
+        player?.removeFromSuperview()
+        player = view
+        addSubview(view)
+        needsLayout = true
+      } catch {
+        // The UIKit host reports decode failures through its diagnostics path; retain the existing
+        // macOS view when a replacement document cannot be opened.
+      }
+    }
+
+    public override func layout() {
+      super.layout()
+      player?.frame = bounds
+    }
+  }
+#endif
