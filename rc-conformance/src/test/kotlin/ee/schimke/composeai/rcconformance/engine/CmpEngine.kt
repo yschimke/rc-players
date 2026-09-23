@@ -31,6 +31,7 @@ import ee.schimke.composeai.rcconformance.runner.Observation
 import ee.schimke.composeai.rcconformance.runner.UnsupportedStepKind
 import ee.schimke.composeai.rcconformance.runner.toRgba
 import ee.schimke.composeai.rcplayer.compose.LocalRcAhemTextMetrics
+import ee.schimke.composeai.rcplayer.compose.LocalRcDrawObserver
 import ee.schimke.composeai.rcplayer.compose.LocalRcInspection
 import ee.schimke.composeai.rcplayer.compose.LocalRcTimeSource
 import ee.schimke.composeai.rcplayer.compose.RcComponentIdKey
@@ -39,8 +40,10 @@ import ee.schimke.composeai.rcplayer.compose.RcComponentVisibilityKey
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcContentInsetKey
 import ee.schimke.composeai.rcplayer.compose.RcDocumentStateKey
+import ee.schimke.composeai.rcplayer.compose.RcDrawObserver
 import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.compose.RcScrollOffsetKey
+import ee.schimke.composeai.rcplayer.compose.RcTextRun
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
@@ -74,6 +77,7 @@ import java.io.File
 import java.time.Instant
 import java.time.ZoneOffset
 import javax.imageio.ImageIO
+import kotlin.math.abs
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -223,6 +227,17 @@ private class CmpSession(
    * The wall clock the player reads. The system clock until a `clock_snapshot` freezes it; kept
    * frozen afterwards, because later steps are measured against the same snapshot.
    */
+  /**
+   * Text runs the player reported, each stamped with the frame that drew it.
+   *
+   * The corpus's text records are transient: they describe a paint, not state that outlives it. A
+   * frame that does not redraw a canvas leaves what it last drew on screen, so the runs that answer
+   * a probe are those of the latest frame that drew any.
+   */
+  private val textRuns = mutableListOf<Pair<Int, RcTextRun>>()
+  private var frameStamp = 0
+  private val drawObserver = RcDrawObserver { run -> textRuns += frameStamp to run }
+
   /** Whether each gesture step landed on something that handles it, by step id. */
   private val handled = mutableMapOf<String, Boolean>()
 
@@ -257,6 +272,7 @@ private class CmpSession(
         // replayed through the model.
         LocalRcAhemTextMetrics provides (gold.textMetrics == "ahem"),
         LocalRcTimeSource provides clock,
+        LocalRcDrawObserver provides drawObserver,
       ) {
         viewConfiguration = LocalViewConfiguration.current
         key(generation) {
@@ -533,6 +549,7 @@ private class CmpSession(
   }
 
   private fun advanceFrame() {
+    frameStamp += 1
     val before = test.mainClock.currentTime
     test.mainClock.advanceTimeByFrame()
     elapsedMillis += test.mainClock.currentTime - before
@@ -545,6 +562,7 @@ private class CmpSession(
 
   private fun advanceBy(millis: Long) {
     if (millis <= 0L) return
+    frameStamp += 1
     test.mainClock.advanceTimeBy(millis)
     elapsedMillis += millis
   }
@@ -662,6 +680,11 @@ private class CmpSession(
         handled[check.at]?.let { Observation.Value(JsonPrimitive(it)) }
           ?: Observation.NotImplemented
       "trace:host_actions" -> Observation.Value(JsonArray(hostActions.toList()))
+      "records:anchor_runs",
+      "relation:anchor_runs" -> Observation.Value(anchorRuns())
+      "records:glyph_runs" -> Observation.Value(glyphRuns())
+      "ops:total_glyphs" ->
+        Observation.Value(JsonPrimitive(latestTextRuns().sumOf { it.glyphCount }))
       "trace:branches" -> branches()?.let(Observation::Value) ?: Observation.NotImplemented
       "records:animation_specs" ->
         Observation.Value(
@@ -1080,6 +1103,66 @@ private class CmpSession(
     return if (observable) JsonArray(entries) else null
   }
 
+  private fun latestTextRuns(): List<RcTextRun> {
+    val latest = textRuns.maxOfOrNull { it.first } ?: return emptyList()
+    return textRuns.filter { it.first == latest }.map { it.second }
+  }
+
+  /** Each anchored run's resolved baseline origin, in draw order (§6). */
+  private fun anchorRuns(): JsonArray = buildJsonArray {
+    latestTextRuns()
+      .filter { it.glyphs.isEmpty() }
+      .forEach { run ->
+        add(
+          buildJsonObject {
+            put("text", JsonPrimitive(run.text))
+            put("x", JsonPrimitive(run.originX))
+            put("y", JsonPrimitive(run.originY))
+          }
+        )
+      }
+  }
+
+  /**
+   * Each glyph-by-glyph run summarised the way the corpus asserts it (§4.2): a value shared by
+   * every glyph is reported as `all…`, and the direction the glyphs advance in as `…Order`. Only
+   * what holds is reported, so a run whose glyphs are not all on one line has no `allDeviceY`.
+   */
+  private fun glyphRuns(): JsonArray = buildJsonArray {
+    latestTextRuns()
+      .filter { it.glyphs.isNotEmpty() }
+      .forEach { run ->
+        fun shared(values: List<Float>): Float? =
+          values.first().takeIf { first -> values.all { abs(it - first) <= GLYPH_EPSILON } }
+        fun order(values: List<Float>): String {
+          val steps = values.zipWithNext { a, b -> b - a }
+          return when {
+            steps.all { it > GLYPH_EPSILON } -> "increasing"
+            steps.all { it < -GLYPH_EPSILON } -> "decreasing"
+            steps.all { abs(it) <= GLYPH_EPSILON } -> "constant"
+            else -> "mixed"
+          }
+        }
+        val xs = run.glyphs.map { it.x }
+        val ys = run.glyphs.map { it.y }
+        add(
+          buildJsonObject {
+            put("text", JsonPrimitive(run.text))
+            put("glyphCount", JsonPrimitive(run.glyphCount))
+            shared(run.glyphs.map { it.rotationDegrees })?.let {
+              put("allRotationsDeg", JsonPrimitive(it))
+            }
+            shared(xs)?.let { put("allDeviceX", JsonPrimitive(it)) }
+            shared(ys)?.let { put("allDeviceY", JsonPrimitive(it)) }
+            put("firstDeviceX", JsonPrimitive(xs.first()))
+            put("firstDeviceY", JsonPrimitive(ys.first()))
+            put("deviceXOrder", JsonPrimitive(order(xs)))
+            put("deviceYOrder", JsonPrimitive(order(ys)))
+          }
+        )
+      }
+  }
+
   /** An [RcAnimationSpec] in the corpus's record shape (§4.2). */
   private fun RcAnimationSpec.toRecord(): JsonObject = buildJsonObject {
     put("animationId", JsonPrimitive(animationId))
@@ -1185,6 +1268,8 @@ private class CmpSession(
     /** One frame of the test clock, which advances in whole 16 ms frames. */
     const val FRAME_MILLIS = 16L
     const val HEADER_CLASS_NAME = "Header"
+    /** Device pixels within which two glyph coordinates count as the same. */
+    const val GLYPH_EPSILON = 0.01f
     /** The corpus's names for `ConditionalOperations` types 0..5, in wire order. */
     val BRANCH_TYPES = listOf("eq", "neq", "lt", "lte", "gt", "gte")
     const val DEFAULT_ANIMATION_MILLIS = 300
