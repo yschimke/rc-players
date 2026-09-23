@@ -10,7 +10,7 @@ import Foundation
 /// coordinate. A host that is deliberately replaying Android-authored content opts into the
 /// document's own contract instead.
 ///
-/// This axis is independent of which renderer the host selected. CMP always applies the Android
+/// This axis is independent of which renderer the host selected. The reference renderer applies the Android
 /// contract because it is the compatibility oracle; the native renderer states its choice.
 public enum RemoteComposeNativePlayerAndroidCompatibility: Equatable, Sendable {
   /// Resolve dp-typed geometry at density 1.0 and report documents that expected otherwise.

@@ -503,8 +503,8 @@ public enum NativeSwiftCoreError: Error, CustomStringConvertible, LocalizedError
 
 /// The ids AndroidX's `RemoteContext` reserves for values the player supplies, not the document.
 ///
-/// Only the ones this core actually loads are named, matching `RcSystemVariables` on the Kotlin
-/// side. A reference to an id the player does not load resolves to 0 and poisons the arithmetic
+/// Only the ones this core actually loads are named, matching the upstream `RcSystemVariables`
+/// contract. A reference to an id the player does not load resolves to 0 and poisons the arithmetic
 /// downstream, so naming one here without loading it would be worse than leaving it out.
 ///
 /// `ANIMATION_DELTA_TIME` (31) and `EPOCH_SECOND` (32) are deliberately absent: a delta needs the
@@ -4658,7 +4658,7 @@ private enum NativeSwiftDocumentDecoder {
         // Light is the one taken, and that is measured rather than reasoned. The TypeScript
         // reference resolves light only for THEME_LIGHT (-3) and falls to dark for everything else
         // including THEME_UNSPECIFIED, which is what a player with no theme concept is -- so
-        // following it would mean dark. Against the CMP JVM lane, which is what this player is
+        // following it would mean dark. Against the reference JVM lane, which is what this player is
         // scored on, dark renders theme-systemthemeswatches 25.59% wrong and light renders it
         // pixel-exact. The catalog publishes a light-theme sheet, so light is what its reference
         // pixels are.

@@ -180,6 +180,19 @@ enum NativeResourcePolicy {
   }
 }
 
+/// ImageScaling wire values used by the standalone UIKit package.  This target deliberately does
+/// not depend on the shared Swift-core module, so it owns the complete protocol mapping it reads.
+private enum NativeUIKitImageScaleType {
+  static let none = 0
+  static let inside = 1
+  static let fitWidth = 2
+  static let fitHeight = 3
+  static let fit = 4
+  static let crop = 5
+  static let fillBounds = 6
+  static let fixed = 7
+}
+
 enum NativeImageGeometry {
   static func destination(
     source: CGRect,
@@ -200,10 +213,10 @@ enum NativeImageGeometry {
     var width = destinationWidth
     var height = destinationHeight
     switch scaleType {
-    case NativeSwiftImageScaleType.none:
+    case NativeUIKitImageScaleType.none:
       width = sourceWidth
       height = sourceHeight
-    case NativeSwiftImageScaleType.inside:
+    case NativeUIKitImageScaleType.inside:
       if !(destinationHeight > sourceHeight && destinationWidth > sourceWidth) {
         if sourceWidth * destination.height > destination.width * sourceHeight {
           height = destinationWidth * sourceHeight / sourceWidth
@@ -214,22 +227,22 @@ enum NativeImageGeometry {
         width = sourceWidth
         height = sourceHeight
       }
-    case NativeSwiftImageScaleType.fitWidth: height = destinationWidth * sourceHeight / sourceWidth
-    case NativeSwiftImageScaleType.fitHeight: width = destinationHeight * sourceWidth / sourceHeight
-    case NativeSwiftImageScaleType.fit:
+    case NativeUIKitImageScaleType.fitWidth: height = destinationWidth * sourceHeight / sourceWidth
+    case NativeUIKitImageScaleType.fitHeight: width = destinationHeight * sourceWidth / sourceHeight
+    case NativeUIKitImageScaleType.fit:
       if sourceWidth * destination.height > destination.width * sourceHeight {
         height = destinationWidth * sourceHeight / sourceWidth
       } else {
         width = destinationHeight * sourceWidth / sourceHeight
       }
-    case NativeSwiftImageScaleType.crop:
+    case NativeUIKitImageScaleType.crop:
       if sourceWidth * destination.height < destination.width * sourceHeight {
         height = destinationWidth * sourceHeight / sourceWidth
       } else {
         width = destinationHeight * sourceWidth / sourceHeight
       }
-    case NativeSwiftImageScaleType.fillBounds: break
-    case NativeSwiftImageScaleType.fixed:
+    case NativeUIKitImageScaleType.fillBounds: break
+    case NativeUIKitImageScaleType.fixed:
       width = sourceWidth * scaleFactor
       height = sourceHeight * scaleFactor
     default: return .zero
