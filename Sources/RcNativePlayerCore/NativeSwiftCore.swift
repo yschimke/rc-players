@@ -961,15 +961,21 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     {
       return cached.snapshot
     }
+    // Particle advancement needs current expression targets, but it must not advance a retained
+    // float-animation runtime before the final frame resolver sees the measured/particle values.
+    // Otherwise one snapshot evaluates the same runtime twice at the same instant with different
+    // targets and corrupts its retained initial value.
     var values = try resolvedFloats(
-      timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
+      timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
+      resolveAnimatedValues: document.particleLoops.isEmpty)
     advanceParticles(values: values, timeSeconds: timeSeconds)
     // Particle advancement publishes the current particle registers into the session. Resolve one
     // more time before turning commands, colours and text into a snapshot so this frame observes
     // the state it just advanced rather than the previous frame's registers.
     if !document.particleLoops.isEmpty {
       values = try resolvedFloats(
-        timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
+        timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
+        resolveAnimatedValues: true)
     }
     resolveTextOperations(values: values)
     // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
@@ -1106,6 +1112,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     stateLock.lock()
     defer { stateLock.unlock() }
     var values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    advanceParticles(values: values, timeSeconds: timeSeconds)
+    if !document.particleLoops.isEmpty {
+      values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    }
     resolveTextOperations(values: values)
     for lookup in document.dataMapLookups {
       guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
@@ -1121,6 +1131,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
       }
     }
+    // Text operations and lookups update retained state, so a previously cached static frame is
+    // no longer a valid result for a later snapshot.
+    staticSnapshotCache = nil
     // Integer expressions are part of the state, not only of an action's result: the reference
     // evaluates them as it resolves, so a probe reads what an expression computed rather than the
     // empty slot it started in. Order matters, and the document's own declaration order is what it
@@ -1531,7 +1544,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func resolvedFloats(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil,
-    measuredComponents: [Int: NativeSwiftMeasuredSize] = [:]
+    measuredComponents: [Int: NativeSwiftMeasuredSize] = [:], resolveAnimatedValues: Bool = true
   ) throws -> [Int: Float] {
     var result = floats
     result.merge(floatOverrides) { _, override in override }
@@ -1620,7 +1633,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for expression in document.expressions {
       guard floatOverrides[expression.id] == nil else { continue }
       if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
-        if let animationWords = expression.animationWords,
+        if resolveAnimatedValues, let animationWords = expression.animationWords,
           let runtime = try? animationRuntime(for: expression.id, animationWords: animationWords)
         {
           // Geometry bindings are measured immediately below. They must see the same animated
@@ -1656,7 +1669,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for expression in document.expressions {
       guard floatOverrides[expression.id] == nil else { continue }
       let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
-      if let animationWords = expression.animationWords {
+      if resolveAnimatedValues, let animationWords = expression.animationWords {
         let runtime = try animationRuntime(for: expression.id, animationWords: animationWords)
         result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
       } else {
@@ -2593,7 +2606,7 @@ private final class NativeSwiftFloatAnimationRuntime {
   }
 
   private func wrapDistance(from: Float, to: Float, wrap: Float) -> Float {
-    var delta = (to - from).truncatingRemainder(dividingBy: 360)
+    var delta = (to - from).truncatingRemainder(dividingBy: wrap)
     if delta < -wrap / 2 { delta += wrap } else if delta > wrap / 2 { delta -= wrap }
     return delta
   }
