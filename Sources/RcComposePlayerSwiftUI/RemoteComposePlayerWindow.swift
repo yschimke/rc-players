@@ -116,6 +116,10 @@
         onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
         onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
       ) {
+        guard configuration.nativeFallbackSupportsCurrentAppearance else {
+          onError(.playback("The native Swift fallback currently supports light appearance only."))
+          return
+        }
         Task { @MainActor in
           do {
             try await NativeAppKitWindowController.shared.openNative(
@@ -126,6 +130,7 @@
               height: CGFloat(height),
               opaque: configuration.background.isOpaque,
               downloadableFontResolver: downloadableFontResolver,
+              onFontFallback: { onError(.playback($0)) },
               onEvent: { onEvent(RemoteComposePlayerEvent(nativeEvent: $0)) },
               onDiagnostics: { _ in },
               onError: { onError(.playback($0)) })
@@ -143,6 +148,17 @@
     private extension RemoteComposePlayerCompatibility {
       var nativeValue: NativeMacCompatibility {
         self == .strict ? .strict : .compatible
+      }
+    }
+
+    private extension RemoteComposePlayerConfiguration {
+      var nativeFallbackSupportsCurrentAppearance: Bool {
+        switch theme {
+        case .light: true
+        case .dark: false
+        case .system:
+          NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) != .darkAqua
+        }
       }
     }
 
