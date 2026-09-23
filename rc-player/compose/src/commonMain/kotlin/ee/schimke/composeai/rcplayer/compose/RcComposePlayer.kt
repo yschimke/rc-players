@@ -748,6 +748,7 @@ private fun RenderLayoutNode(
   // its bounds are interpolated between the outgoing and incoming branch by the shared transition,
   // so it must not also drive `animateRcBounds` — two approach-layout animations chasing the same
   // node fight each other. Outside a switcher this is null and nothing changes.
+  val layoutAnimations = LocalRcLayoutAnimations.current
   val sharedElementModifier =
     if (node is RcLayoutNode.Content) null
     else rcSharedElementModifier(node.componentId, node.animationId, node.modifiers.animationSpec)
@@ -757,20 +758,22 @@ private fun RenderLayoutNode(
     } else if (node is RcLayoutNode.Content || lookaheadScope == null) {
       modifier
     } else {
-      // Only when the document asked for it. Falling back to `DefaultRcAnimationSpec` here made
-      // every layout node animate its bounds over 300ms, so a viewport change crossed the screen
-      // instead of taking effect -- and the conformance corpus asserts the opposite in 119 golds:
-      // a `resize` lands immediately, while `animation_box_offset`, whose document *does* declare a
-      // spec, interpolates across its 18 captured frames. The default still applies to shared
-      // elements inside a `StateLayout` (see RcSharedElements), which is the case upstream declares
-      // it for.
-      node.modifiers.animationSpec?.let { modifier.animateRcBounds(lookaheadScope, it) } ?: modifier
+      // AndroidX animates every component but layout content to its new measure, over the
+      // component's spec or the 300 ms default (`Component.layout`). A resize lands at once only
+      // because the host turns animation off for it, which is what `LocalRcLayoutAnimations` is.
+      val spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec
+      if (layoutAnimations) modifier.animateRcBounds(lookaheadScope, spec) else modifier
     }
   val animatedVisibility =
     if (node is RcLayoutNode.Content) {
       RcAnimatedVisibility(visibility != 0, if (visibility == 2) modifier.alpha(0f) else modifier)
     } else {
-      animateRcVisibility(visibility, node.modifiers.animationSpec, boundsModifier)
+      animateRcVisibility(
+        visibility,
+        node.modifiers.animationSpec,
+        boundsModifier,
+        layoutAnimations,
+      )
     }
   val geometryIds = node.geometryComponentIds()
   val inspecting = LocalRcInspection.current
@@ -1619,6 +1622,7 @@ private fun animateRcVisibility(
   targetVisibility: Int,
   operation: RcAnimationSpec?,
   modifier: Modifier,
+  enabled: Boolean = true,
 ): RcAnimatedVisibility {
   val spec = operation ?: DefaultRcAnimationSpec
   val maxDurationMillis =
@@ -1642,7 +1646,7 @@ private fun animateRcVisibility(
     previousVisibility = animationTarget
     animationTarget = targetVisibility
     elapsedMillis.snapTo(0f)
-    if (spec.isEnabled && maxDurationMillis > 0f) {
+    if (enabled && spec.isEnabled && maxDurationMillis > 0f) {
       elapsedMillis.animateTo(
         maxDurationMillis,
         tween(maxDurationMillis.roundToInt(), easing = LinearEasing),

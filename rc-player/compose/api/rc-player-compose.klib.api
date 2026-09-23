@@ -1012,6 +1012,8 @@ final val ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver // ee.schimk
     final fun <get-LocalRcDrawObserver>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcDrawObserver?> // ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver.<get-LocalRcDrawObserver>|<get-LocalRcDrawObserver>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcInspection // ee.schimke.composeai.rcplayer.compose/LocalRcInspection|{}LocalRcInspection[0]
     final fun <get-LocalRcInspection>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcInspection.<get-LocalRcInspection>|<get-LocalRcInspection>(){}[0]
+final val ee.schimke.composeai.rcplayer.compose/LocalRcLayoutAnimations // ee.schimke.composeai.rcplayer.compose/LocalRcLayoutAnimations|{}LocalRcLayoutAnimations[0]
+    final fun <get-LocalRcLayoutAnimations>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcLayoutAnimations.<get-LocalRcLayoutAnimations>|<get-LocalRcLayoutAnimations>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost|{}LocalRcSoundHost[0]
     final fun <get-LocalRcSoundHost>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcSoundHost> // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost.<get-LocalRcSoundHost>|<get-LocalRcSoundHost>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcTimeSource // ee.schimke.composeai.rcplayer.compose/LocalRcTimeSource|{}LocalRcTimeSource[0]
