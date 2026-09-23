@@ -46,10 +46,10 @@ class RcModifierFilteringTest {
   }
 
   @Test
-  fun droppingFillDimensionsMovesTheScrollPositionWithIt() {
+  fun droppingDimensionsMovesTheScrollPositionWithIt() {
     val modifiers =
       RcLayoutModifiers(ordered = listOf(fill, offset), width = fill, scrollPosition = 1)
-    val filtered = modifiers.withoutFillDimensions()
+    val filtered = modifiers.withoutDimensions()
     assertEquals(listOf(offset), filtered.ordered)
     assertEquals(0, filtered.scrollPosition)
   }
