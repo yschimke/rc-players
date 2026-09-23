@@ -209,8 +209,9 @@ jobs:
     name: Publish the report
     needs: [score, score-apple]
     # `always()` so a red lane still gets a report — a missing lane is rendered as *not measured*,
-    # which is a different statement from a zero and the one the reader needs.
-    if: always()
+    # which is a different statement from a zero and the one the reader needs. Only `main`
+    # publishes: a dispatch on a branch measures that branch, and must not replace the day's run.
+    if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -300,7 +301,8 @@ jobs:
     needs: [score, score-apple]
     # A red lane must not cost the site: the index renders a lane with no results as *not measured*,
     # which is the statement a reader needs, and the other lanes' reports are still worth having.
-    if: always()
+    # Branch dispatches stop at the scored artifacts, as `publish` does.
+    if: always() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

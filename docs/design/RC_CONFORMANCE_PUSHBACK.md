@@ -141,3 +141,58 @@ Frame 18 matches. We are treating this as **a finding about the player** until s
 it is worth asking whether mid-transition frames should bind, or carry a tolerance.
 
 **Not yet raised.** Settle this on our side first.
+
+## 9. Value checks that read back the document's own constant
+
+These entries came out of the native-appkit review of the 2026-09-23 run (`ee18643`).
+
+**Golds:** the eight `scheduling_*` and eight `semantics_*` golds with a `float` check;
+`data_boolean_constant_and_lookup`, `data_long_constant_and_lookup`,
+`wire_boolean_and_long_primitives`, `wire_debug_message_emission`,
+`wire_sound_data_and_play_sound`.
+
+Each carries one value check besides `ops:present`, and that check cannot see the operation under
+test: the asserted float is a `FloatConstant` the document declares beside it. For example,
+`scheduling_impulse_process_body` asserts slot 110 = 2, and its first operation is
+`FloatConstant(110, 2.0)`. The semantics golds write the role number they declare into their marker
+slot, and several golds use the opcode number itself as the marker. The impulse window, the long's
+value, the boolean's value and the semantics node are never asserted, so a player that parses these
+operations and ignores them passes. The corpus's §1 says an assertion that cannot fail is worse than
+none.
+
+**Ask:** assert the operation's own effect — the impulse body inside and outside its window, the
+long and boolean values through a typed probe, debug and sound as recorded events.
+**Settled by:** checks that fail for a parse-only implementation.
+
+## 10. `clock_time_attribute_from_load` tests the month
+
+Its `TimeAttribute` uses type 10, `TIME_MONTH_VALUE`, and expects 10 (November, zero-based).
+`TIME_FROM_LOAD_SEC` is type 14, and no gold tests it.
+
+**Ask:** rename this gold, and add one for `TIME_FROM_LOAD_SEC`.
+
+## 11. Clock golds with no `clock_snapshot` still depend on the host's zone
+
+`clock_time_attribute_calendar_date` and `clock_time_attribute_day_of_week` read the instant
+1 700 000 000 000 ms, 2023-11-14T22:13:20Z, from a `LongConstant`, and expect day 14 and weekday 1
+(Tuesday). The reference reads calendar fields in the system zone, and in any zone 1 h 47 min or more
+east of UTC that instant is the 15th, a Wednesday. §5's missing zone applies here too, with no
+`clock_snapshot` step to hang it on.
+
+**Ask:** declare the zone in `harness`, or pick an instant near midday UTC.
+
+## 12. `text_attribute_and_transform` cannot fail
+
+It asserts 110.7421875 for the width of "TransformSample". That depends on the font, and the harness
+declares no `text_metrics`. It also carries `"tolerance": 1000`, so any value from −890 to 1111
+passes — including the 0 a player with no text metrics reports.
+
+**Ask:** declare `text_metrics: "ahem"` and a real tolerance, or assert the length selector.
+
+## 13. `colortheme_theme_light_dark_switch` sets no theme and switches nothing
+
+Its document is `THEME(1)` followed by one `ColorConstant`. AndroidX's themes are `UNSPECIFIED` (-1),
+`DARK` (-2) and `LIGHT` (-3); 1 is none of them, and the timeline is a single paint, so nothing
+switches. The check asserts the constant's own value.
+
+**Ask:** use `THEME_DARK`/`THEME_LIGHT`, and add `theme` steps as `color_theme_mode_switching` does.
