@@ -95,4 +95,32 @@ class RcNamedActionDispatchTest {
       "Expected the captured host lambda to run exactly once, but ran $clicks times"
     }
   }
+
+  @Test
+  fun statePlayerPreservesAndDispatchesCapturedHostLambdas() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    var clicks = 0
+    val captured =
+      captureSingleRemoteDocument(
+        context = context,
+        content = {
+          val onClick = lambdaAction { clicks++ }
+          RemoteBox(modifier = RemoteModifier.size(120.rdp, 40.rdp).clickable(onClick))
+        },
+      )
+    val playerState = RcPlayerState(captured)
+
+    assert(playerState.lambdas.isNotEmpty()) {
+      "Expected RcPlayerState to retain captured host lambdas"
+    }
+
+    rule.setContent { Box(modifier = Modifier.size(200.dp)) { RcPlayer(state = playerState) } }
+
+    rule.onNode(hasClickAction()).performClick()
+    rule.waitForIdle()
+
+    assert(clicks == 1) {
+      "Expected the state player to invoke its captured host lambda exactly once, but ran $clicks times"
+    }
+  }
 }

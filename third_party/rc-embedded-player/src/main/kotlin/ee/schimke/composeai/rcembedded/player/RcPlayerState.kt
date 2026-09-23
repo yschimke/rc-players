@@ -18,8 +18,11 @@
 
 package ee.schimke.composeai.rcembedded.player
 
+import android.app.PendingIntent
 import android.graphics.Bitmap
 import androidx.annotation.RestrictTo
+import androidx.collection.IntObjectMap
+import androidx.collection.emptyIntObjectMap
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.RemoteComposeBuffer
@@ -65,6 +68,9 @@ public class RcPlayerState(
   /** The default prefix applied to variable names (e.g. `"USER"`, or `null` for none). */
   public val defaultPrefix: String? = "USER",
 ) {
+  internal var lambdas: IntObjectMap<() -> Unit> = emptyIntObjectMap()
+  internal var pendingIntents: IntObjectMap<PendingIntent> = emptyIntObjectMap()
+
   internal val preprocessed: DocumentPreprocessResult = preprocessDocument(document)
   internal val remoteContext: AndroidRemoteContext =
     initializePlayerRemoteContext(
@@ -416,7 +422,10 @@ public fun RcPlayerState(
         initFromBuffer(RemoteComposeBuffer.fromInputStream(it))
       }
     }
-  return RcPlayerState(coreDoc, defaultPrefix)
+  return RcPlayerState(coreDoc, defaultPrefix).also { state ->
+    state.lambdas = capturedDocument.lambdas
+    state.pendingIntents = capturedDocument.pendingIntents
+  }
 }
 
 /** Creates and remembers an [RcPlayerState] for the given [document]. */
