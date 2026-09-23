@@ -50,12 +50,9 @@ enum NativeResourcePolicyTests {
         limits: RemoteComposeNativeResourceLimits(maximumDecodedImageBytes: 0))
     }
 
-    let repoRoot = URL(fileURLWithPath: #filePath)
+    let fontURL = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-    let fontURL =
-      repoRoot.appendingPathComponent("rc-player/wasm/dist-assets/fonts/Roboto-Regular.ttf")
+      .appendingPathComponent("Fixtures/fonts/Roboto-Regular.ttf")
     let originalFont = try Data(contentsOf: fontURL)
     // A trailing padding byte preserves the valid font and PostScript name while making the
     // registration data differ, exercising replacement after the previous registry is gone.
