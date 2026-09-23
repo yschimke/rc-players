@@ -5,6 +5,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
@@ -136,6 +137,52 @@ class RcSystemVariableTest {
     assertEquals(20f, state.system(RcSystemVariables.WEEK_DAY))
     // Every id it did *not* claim is still the player's to supply.
     assertEquals(1845.25f, state.system(RcSystemVariables.CONTINUOUS_SEC))
+  }
+
+  @Test
+  fun namingASystemVariableDoesNotClaimIt() {
+    // AndroidX's `NamedVariable` registers a name against an id and writes no value, so naming the
+    // calendar fields — how `clock_digital_calendar` exposes them to its host — must leave the
+    // player loading them. Counting the name as a claim drew every named field as 0.
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(
+            RcNamedVariable(RcSystemVariables.YEAR, RcNamedVariable.FLOAT_TYPE, "cal_year"),
+            RcNamedVariable(RcSystemVariables.DAY_OF_MONTH, RcNamedVariable.FLOAT_TYPE, "cal_day"),
+          ),
+        ),
+        timeSource = clock,
+      )
+
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+
+    assertEquals(2026f, state.system(RcSystemVariables.YEAR))
+    assertEquals(19f, state.system(RcSystemVariables.DAY_OF_MONTH))
+    assertEquals(RcSystemVariables.YEAR, state.namedVariable("cal_year")?.id)
+  }
+
+  @Test
+  fun aHostOverrideOfANamedSystemVariableHoldsUntilCleared() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(RcNamedVariable(RcSystemVariables.YEAR, RcNamedVariable.FLOAT_TYPE, "cal_year")),
+      )
+    val state =
+      RcPlayerState(
+        document,
+        mapOf("cal_year" to RcNamedValue.FloatValue(1999f)),
+        timeSource = clock,
+      )
+
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    assertEquals(1999f, state.system(RcSystemVariables.YEAR))
+
+    state.clearNamedValue("cal_year")
+    state.beginFrame(timeSeconds = 1f, epochMillis = EPOCH_MILLIS)
+    assertEquals(2026f, state.system(RcSystemVariables.YEAR))
   }
 
   @Test

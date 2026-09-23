@@ -182,6 +182,11 @@ public class RcPlayerState(
    * Seeded from the document's *declarations* and extended by [setFloat]; only values loaded once
    * need the guard, because anything recomputed during a frame runs after [beginFrame] and
    * overwrites the system value on its own.
+   *
+   * A declaration here means one that **writes a value**. A `NamedVariable` does not: AndroidX's
+   * `NamedVariable.apply` only registers the name against the id. Naming a system variable is how a
+   * document exposes `year` or `dayOfMonth` to its host, and counting that as a claim stopped the
+   * player loading the very value being named — a calendar that names its fields drew them as 0.
    */
   private val claimedSystemIds: MutableSet<Int> = buildSet {
     document.operations.forEach { operation ->
@@ -189,7 +194,6 @@ public class RcPlayerState(
         is RcFloatConstant -> add(operation.id)
         is RcIntegerConstant -> add(operation.id)
         is RcTouchExpression -> add(operation.id)
-        is RcNamedVariable -> add(operation.id)
         is RcComponentValue -> add(operation.valueId)
         else -> Unit
       }
@@ -197,6 +201,11 @@ public class RcPlayerState(
   }
     .intersect(RcSystemVariables.ALL)
     .toMutableSet()
+
+  /**
+   * The claims the document made for itself, which clearing a host override must leave standing.
+   */
+  private val documentClaimedSystemIds: Set<Int> = claimedSystemIds.toSet()
   /**
    * The host's density and font scale, published as [RcSystemVariables.DENSITY] and
    * [RcSystemVariables.FONT_SIZE].
@@ -1393,6 +1402,16 @@ public class RcPlayerState(
       baseTexts[variable.id]?.let { texts[variable.id] = it } ?: texts.remove(variable.id)
       return
     }
+    val numeric =
+      variable.type == RcNamedVariable.FLOAT_TYPE || variable.type == RcNamedVariable.INT_TYPE
+    if (
+      numeric && variable.id in RcSystemVariables.ALL && variable.id !in documentClaimedSystemIds
+    ) {
+      // A named system variable: the value to go back to is the clock's, which the next frame
+      // loads once the host's claim is gone. Writing a remembered value back would re-claim it.
+      claimedSystemIds.remove(variable.id)
+      return
+    }
     documentNamedValues[name]?.let { setNamedValue(name, it) }
   }
 
@@ -1434,12 +1453,16 @@ public class RcPlayerState(
     when {
       variable.type == RcNamedVariable.STRING_TYPE && value is RcNamedValue.Text ->
         setText(variable.id, value.value)
+      // `setFloat`, not `storeFloat`: a host overriding a named *system* variable claims it, the
+      // same as any other host write, or the next frame's clock would replace the override.
       variable.type == RcNamedVariable.FLOAT_TYPE && value is RcNamedValue.FloatValue ->
-        storeFloat(variable.id, value.value)
+        setFloat(variable.id, value.value)
       variable.type == RcNamedVariable.COLOR_TYPE && value is RcNamedValue.Color ->
         colors[variable.id] = value.argb
-      variable.type == RcNamedVariable.INT_TYPE && value is RcNamedValue.Integer ->
+      variable.type == RcNamedVariable.INT_TYPE && value is RcNamedValue.Integer -> {
+        if (variable.id in RcSystemVariables.ALL) claimedSystemIds.add(variable.id)
         setInteger(variable.id, value.value)
+      }
       variable.type == RcNamedVariable.LONG_TYPE && value is RcNamedValue.LongValue ->
         longs[variable.id] = value.value
       else ->
