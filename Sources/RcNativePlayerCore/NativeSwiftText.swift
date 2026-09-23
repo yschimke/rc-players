@@ -3,7 +3,9 @@ import Foundation
 struct ParsedTextFromFloat {
   let outputID: Int
   let value: UInt32
+  let digitsBefore: Int
   let digitsAfter: Int
+  let flags: Int
 }
 
 struct ParsedTextMerge {

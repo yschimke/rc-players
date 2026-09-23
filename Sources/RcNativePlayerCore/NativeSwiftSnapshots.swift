@@ -35,6 +35,204 @@ public enum NativeSwiftTheme {
   public static let light = -3
 }
 
+/// AndroidX's `StringUtils.floatToString`, as `TEXT_FROM_FLOAT` formats a number: padding before
+/// and after the point, grouping, separators, rounding and sign options, and the legacy mode.
+///
+/// A port of the CMP player's `RcTextFormatter`, which a compatibility test holds to AndroidX's own
+/// Java utility; the arithmetic is kept in `Float` because the reference's is.
+public enum NativeSwiftTextFormatter {
+  /// `TEXT_FROM_FLOAT`'s flag bits: every one AndroidX defines.
+  public enum Flag {
+    public static let padAfterSpace = 0
+    public static let padAfterNone = 1
+    public static let padAfterZero = 3
+    public static let padBeforeSpace = 0
+    public static let padBeforeNone = 4
+    public static let padBeforeZero = 12
+    public static let groupingNone = 0
+    public static let groupingBy3 = 1 << 4
+    public static let groupingBy4 = 2 << 4
+    public static let groupingBy32 = 3 << 4
+    public static let separatorCommaPeriod = 0
+    public static let separatorPeriodComma = 1 << 6
+    public static let separatorSpaceComma = 2 << 6
+    public static let separatorUnderscorePeriod = 3 << 6
+    public static let optionsNegativeParentheses = 1 << 8
+    public static let optionsRounding = 2 << 8
+    public static let legacyMode = 1 << 10
+    public static let fullFormat = 1 << 12
+  }
+
+  public static func format(
+    _ input: Float, digitsBefore: Int, digitsAfter: Int, flags: Int
+  ) -> String {
+    if flags & Flag.fullFormat != 0 { return "\(input)" }
+    let post: Character? =
+      switch flags & 3 {
+      case Flag.padAfterNone: nil
+      case Flag.padAfterZero: "0"
+      default: " "
+      }
+    let pre: Character? =
+      switch flags & (3 << 2) {
+      case Flag.padBeforeNone: nil
+      case Flag.padBeforeZero: "0"
+      default: " "
+      }
+    if flags & Flag.legacyMode != 0 {
+      return legacy(input, before: digitsBefore, after: digitsAfter, pre: pre, post: post)
+    }
+    return modern(
+      input, before: digitsBefore, requestedAfter: digitsAfter, pre: pre, post: post,
+      separator: (flags >> 6) & 3, grouping: (flags >> 4) & 3, options: (flags >> 8) & 3)
+  }
+
+  private static func legacy(
+    _ input: Float, before: Int, after: Int, pre: Character?, post: Character?
+  ) -> String {
+    var value = input
+    let negative = value < 0
+    if negative { value = -value }
+    let integer = pad(String(javaInt(value)), to: before, with: pre)
+    if after == 0 { return (negative ? "-" : "") + integer }
+    var text = fractionDigits(value, digits: after, keep: after)
+    while text.last == "0" { text.removeLast() }
+    if let post, text.count < after { text += String(repeating: post, count: after - text.count) }
+    return (negative ? "-" : "") + integer + "." + text
+  }
+
+  private static func modern(
+    _ input: Float, before: Int, requestedAfter: Int, pre: Character?, post: Character?,
+    separator: Int, grouping: Int, options: Int
+  ) -> String {
+    let separators: (group: Character, decimal: Character) =
+      switch separator {
+      case 1: (".", ",")
+      case 2: (" ", ",")
+      case 3: ("_", ".")
+      default: (",", ".")
+      }
+    var value = input
+    let negative = value < 0
+    if negative { value = -value }
+    let raw = characters(value, before: before, after: requestedAfter, rounding: options & 2 != 0)
+    let grouped = group(
+      String(raw.prefix { $0 != "." }), grouping: grouping, separator: separators.group)
+    let integerLength = grouped.count
+    let integer = pad(grouped, to: before, with: pre)
+    let trimAfter =
+      integerLength + requestedAfter > 9 ? max(1, 9 - integerLength) : requestedAfter
+    let after = post == nil ? trimAfter : requestedAfter
+    let parentheses = options & 1 != 0
+    if after == 0 { return sign(integer, negative: negative, parentheses: parentheses) }
+    var text = fractionDigits(value, digits: trimAfter, keep: after)
+    while text.count > 1, text.last == "0" { text.removeLast() }
+    if let post, text.count < after { text += String(repeating: post, count: after - text.count) }
+    return sign(
+      integer + String(separators.decimal) + text, negative: negative, parentheses: parentheses)
+  }
+
+  /// The reference rounds the fraction to `digits` places in Float arithmetic, prints the Float
+  /// and keeps up to `keep` characters after its "0.".
+  private static func fractionDigits(_ value: Float, digits: Int, keep: Int) -> String {
+    var fraction = value.truncatingRemainder(dividingBy: 1)
+    for _ in 0..<digits { fraction *= 10 }
+    fraction = Float(javaRound(fraction))
+    for _ in 0..<digits { fraction *= 0.1 }
+    let text = Array(javaFloatString(fraction))
+    guard text.count > 2 else { return "" }
+    return String(text[2..<min(text.count, keep + 2)])
+  }
+
+  private static func pad(_ text: String, to width: Int, with character: Character?) -> String {
+    if text.count < width, let character {
+      return String(repeating: character, count: width - text.count) + text
+    }
+    if text.count > width { return String(text.suffix(max(width, 0))) }
+    return text
+  }
+
+  private static func group(_ value: String, grouping: Int, separator: Character) -> String {
+    guard grouping != 0 else { return value }
+    var result = Array(value)
+    let step = grouping == 2 ? 4 : grouping == 3 ? 2 : 3
+    var index = value.count - (grouping == 2 ? 4 : 3)
+    while index > 0 {
+      result.insert(separator, at: index)
+      index -= step
+    }
+    return String(result)
+  }
+
+  private static func sign(_ value: String, negative: Bool, parentheses: Bool) -> String {
+    !negative ? value : parentheses ? "(\(value))" : "-\(value)"
+  }
+
+  private static func characters(_ value: Float, before: Int, after: Int, rounding: Bool) -> String {
+    var adjusted = value
+    var power: Int64 = 1
+    for _ in 0..<max(after, 0) { power *= 10 }
+    if rounding {
+      var factor: Float = 0.5
+      for _ in 0..<max(after, 0) { factor /= 10 }
+      adjusted += factor
+    }
+    let integer = javaLong(adjusted)
+    let integerText = String(String(integer).suffix(max(min(before, String(integer).count), 0)))
+    var fractional = javaLong((adjusted - Float(integer)) * Float(power))
+    var fractionLength = 0
+    if after > 0 {
+      if fractional == 0 {
+        fractionLength = 1
+      } else {
+        var trimmed = fractional
+        while trimmed > 0, trimmed % 10 == 0 { trimmed /= 10 }
+        while trimmed > 0 {
+          trimmed /= 10
+          fractionLength += 1
+        }
+      }
+    }
+    let count = min(after, fractionLength)
+    var digits = [Character](repeating: "0", count: max(count, 0))
+    for index in stride(from: count - 1, through: 0, by: -1) {
+      digits[index] = Character(String(fractional % 10))
+      fractional /= 10
+    }
+    return integerText + "." + String(digits)
+  }
+
+  /// Java's `Math.round`-style `floor(x + 0.5)`, as the reference writes it.
+  private static func javaRound(_ value: Float) -> Int { javaInt((value + 0.5).rounded(.down)) }
+
+  /// Java's float-to-int conversion: truncating, saturating, NaN to 0.
+  private static func javaInt(_ value: Float) -> Int {
+    guard !value.isNaN else { return 0 }
+    return Int(max(min(value, Float(Int32.max)), Float(Int32.min)).rounded(.towardZero))
+  }
+
+  private static func javaLong(_ value: Float) -> Int64 {
+    guard !value.isNaN else { return 0 }
+    if value >= Float(Int64.max) { return Int64.max }
+    if value <= Float(Int64.min) { return Int64.min }
+    return Int64(value.rounded(.towardZero))
+  }
+
+  /// `Float.toString` for a fraction in [0, 1): the shortest round-tripping digits, which Swift's
+  /// description also produces there. Java switches to scientific notation below 1e-3; so does
+  /// this, so a tiny fraction keeps the reference's (odd) digits.
+  private static func javaFloatString(_ value: Float) -> String {
+    if value == 0 { return "0.0" }
+    if abs(value) >= 1e-3 { return "\(value)" }
+    let text = "\(value)"
+    guard let exponent = text.firstIndex(where: { $0 == "e" }) else { return text }
+    var mantissa = String(text[..<exponent])
+    if !mantissa.contains(".") { mantissa += ".0" }
+    let power = Int(text[text.index(after: exponent)...]) ?? 0
+    return "\(mantissa)E\(power)"
+  }
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int

@@ -1130,7 +1130,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       switch operation {
       case .fromFloat(let conversion):
         let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
-        texts[conversion.outputID] = String(format: "%.*f", min(max(conversion.digitsAfter, 0), 12), value)
+        texts[conversion.outputID] = NativeSwiftTextFormatter.format(
+          value, digitsBefore: conversion.digitsBefore, digitsAfter: conversion.digitsAfter,
+          flags: conversion.flags)
       case .merge(let merge):
         texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
       case .lookupInt(let lookup):
