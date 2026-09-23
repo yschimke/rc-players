@@ -388,6 +388,10 @@
 
     private func rebuildContent() {
       playerController.installNativeUpdateHandler(nil)
+      guard configuration.nativeFallbackSupportsCurrentAppearance(in: view.traitCollection) else {
+        errorHandler(.playback("The native Swift fallback currently supports light appearance only."))
+        return
+      }
       let native = RemoteComposeNativePlayerViewController(
         data: documentData,
         background: configuration.background.nativeValue,
@@ -399,11 +403,18 @@
       install(native)
       playerController.installNativeUpdateHandler { [weak native] name, value in
         Task { @MainActor in
-          switch value {
-          case .float(let value): _ = await native?.setFloat(value, for: name)
-          case .text(let value): _ = await native?.setString(value, for: name)
-          case .integer(let value): _ = await native?.setColor(UInt32(bitPattern: Int32(value)), for: name)
-          case .none, .floatList, .unsupported: break
+          // The first native frame is asynchronous. Retry a bounded time so values supplied before
+          // view creation are applied once its retained document session becomes available.
+          for _ in 0..<50 {
+            let accepted: Bool
+            switch value {
+            case .float(let value): accepted = await native?.setFloat(value, for: name) ?? false
+            case .text(let value): accepted = await native?.setString(value, for: name) ?? false
+            case .integer(let value): accepted = await native?.setColor(UInt32(bitPattern: Int32(value)), for: name) ?? false
+            case .none, .floatList, .unsupported: return
+            }
+            if accepted { return }
+            try? await Task.sleep(nanoseconds: 50_000_000)
           }
         }
       }
@@ -470,6 +481,15 @@
 
   private extension RemoteComposePlayerBackground {
     var nativeValue: RemoteComposeNativePlayerBackground { isOpaque ? .opaque : .transparent }
+  }
+  private extension RemoteComposePlayerConfiguration {
+    func nativeFallbackSupportsCurrentAppearance(in traits: UITraitCollection) -> Bool {
+      switch theme {
+      case .light: true
+      case .dark: false
+      case .system: traits.userInterfaceStyle != .dark
+      }
+    }
   }
   private extension RemoteComposePlayerCompatibility {
     var nativeValue: RemoteComposeNativePlayerCompatibilityPolicy { isLenient ? .compatible : .strict }
