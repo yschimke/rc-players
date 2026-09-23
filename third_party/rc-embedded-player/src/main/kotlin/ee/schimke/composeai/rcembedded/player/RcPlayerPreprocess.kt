@@ -18,6 +18,7 @@
 
 package ee.schimke.composeai.rcembedded.player
 
+import android.util.Log
 import androidx.collection.mutableIntObjectMapOf
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.Operation
@@ -86,6 +87,19 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
   var hasDiscreteTime = false
 
   fun visit(operation: Operation) {
+    val definedId =
+      when (operation) {
+        is NamedVariable -> operation.mVarId
+        is VariableProvider -> operation.id
+        else -> -1
+      }
+    if (definedId > 0 && isTimeVariable(definedId)) {
+      Log.w(
+        "RcPlayer",
+        "Operation ${operation.javaClass.simpleName} defines reserved system variable ID $definedId",
+      )
+    }
+
     if (operation is TextFromFloat && Utils.isVariable(operation.mValue)) {
       val id = Utils.idFromNan(operation.mValue)
       if (isContinuousTimeVariable(id)) {
