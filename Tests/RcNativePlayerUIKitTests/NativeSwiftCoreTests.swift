@@ -472,6 +472,22 @@ enum NativeSwiftCoreTests {
       nowSnapshot.needsWallClockRefresh,
       "a time attribute read from now did not ask for a wall-clock refresh")
 
+    // Semantics declared outside any component describe the document, and attach to its root
+    // rather than refusing the whole document for having no component to modify.
+    let described = Writer()
+    described.header(width: 100, height: 100)
+    described.text(id: 1, "Label")
+    described.u8(103).int(1)
+    described.u8(250).int(1).u8(5).int(1).int(0).u8(1).u8(1).u8(1)
+    let describedSnapshot = try NativeSwiftDocumentSession.open(
+      data: described.data, toleratingRootlessData: true
+    ).snapshot()
+    precondition(
+      describedSnapshot.root.accessibility?.role == 5
+        && describedSnapshot.accessibilityRecords.count == 1,
+      "document-level semantics did not reach the root: "
+        + "\(String(describing: describedSnapshot.root.accessibility))")
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)

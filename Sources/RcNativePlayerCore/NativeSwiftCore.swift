@@ -4143,6 +4143,7 @@ private enum NativeSwiftDocumentDecoder {
     var longConstants: [Int: Int64] = [:]
     var booleanConstants: [Int: Bool] = [:]
     var timeAttributes: [ParsedTimeAttribute] = []
+    var documentAccessibility: ParsedAccessibility?
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var images: [Int: ParsedImageResource] = [:]
@@ -5631,7 +5632,10 @@ private enum NativeSwiftDocumentDecoder {
           overflow: integers[10] ?? 1, maximumLines: integers[11] ?? Int.max)
         try begin(node)
       case 250:  // Accessibility semantics
-        let node = try currentNode(stack, input: input)
+        // Outside any component the semantics describe the document itself, beside its root
+        // content description; they attach to the root once there is one. Refusing them refused
+        // every document that describes itself this way.
+        let node = stack.last
         let contentDescriptionID = try input.int("content description id")
         let role = try input.u8("semantic role")
         let textID = try input.int("semantic text id")
@@ -5653,7 +5657,7 @@ private enum NativeSwiftDocumentDecoder {
           contentDescriptionID: contentDescriptionID, role: role <= 9 ? role : -1, textID: textID,
           stateDescriptionID: stateDescriptionID, mode: mode <= 2 ? mode : 0,
           isEnabled: enabled != 0, isClickable: clickable != 0)
-        node.accessibility = semantics
+        if let node { node.accessibility = semantics } else { documentAccessibility = semantics }
         accessibilityRecords.append(semantics)
       case NativeSwiftWireOpcode.rootContentBehavior:
         // How a host should scroll, align and size the root. The native hosts already fit the
@@ -5734,6 +5738,9 @@ private enum NativeSwiftDocumentDecoder {
     }
     guard let root = decodedRoot, root.kind == .root else {
       throw input.malformed("Missing root component")
+    }
+    if let documentAccessibility, root.accessibility == nil {
+      root.accessibility = documentAccessibility
     }
     // A clock reference can hide in a float expression, in a text-from-float conversion, in a colour
     // expression's channels, or in any word a node kept — a draw command, a dimension, a path

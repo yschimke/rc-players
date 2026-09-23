@@ -143,8 +143,9 @@ most of it:
   behind them, by golds: impulse and `WAKE_IN` scheduling (9), `ROOT_CONTENT_BEHAVIOR` (8 of the 10
   semantics golds), `ATTRIBUTE_TIME` with the `LongConstant` it reads (7, the clock golds),
   `BooleanConstant`, `IdLookup`, `LoopOperation`, particle compare, path expressions, the text
-  operations, and single golds for the rest. Root content behaviour, boolean and long constants,
-  time attributes, debug messages and the sound family now decode; the others are still refused.
+  operations, and single golds for the rest. Root content behaviour, document-level semantics,
+  boolean and long constants, time attributes, debug messages and the sound family now decode; the
+  others are still refused.
 
 What is left after those: `StateLayout` transitions and the Ahem text golds on `tree` (~15 golds),
 the scheduling, lookup and text operations above, the `records:impulses` probe this lane does not
