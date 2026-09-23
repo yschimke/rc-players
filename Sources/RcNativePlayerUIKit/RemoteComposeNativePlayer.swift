@@ -135,11 +135,6 @@
     }
   }
 
-  public enum RemoteComposeNativePlayerBackground: Equatable, Sendable {
-    case opaque
-    case transparent
-  }
-
   /// Root UIKit view. It can be embedded without SwiftUI or the supplied view controller.
   @MainActor
   public final class RemoteComposeNativePlayerView: UIView {
