@@ -16,6 +16,15 @@ func nativeEventSummary(_ event: NativeSwiftEvent) -> String {
   }
 }
 
+func nativeEventSummary(_ event: RemoteComposeNativePlayerEvent) -> String {
+  switch event {
+  case .action(let id): "Action \(id)"
+  case .actionWithMetadata(let id, let metadata): "Action \(id): \(metadata)"
+  case .namedAction(let name, let value): "Named \(name): \(value.summary)"
+  case .debug(let message, let value, let flags): "Debug \(message): \(value) [\(flags)]"
+  }
+}
+
 private extension NativeSwiftActionValue {
   var summary: String {
     switch self {
@@ -23,6 +32,18 @@ private extension NativeSwiftActionValue {
     case .float(let value): String(value)
     case .integer(let value): String(value)
     case .text(let value): value
+    }
+  }
+}
+
+private extension RemoteComposeNativePlayerActionValue {
+  var summary: String {
+    switch self {
+    case .none: "none"
+    case .float(let value): String(value)
+    case .integer(let value): String(value)
+    case .text(let value): value
+    case .floatList(let value): value.description
     }
   }
 }
@@ -826,6 +847,29 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
   ) async throws {
+    try await openNative(
+      data: data, title: title, compatibility: compatibility,
+      downloadableFontResolver: downloadableFontResolver,
+      onFontFallback: onFontFallback,
+      onEvent: { onEvent(nativeEventSummary($0)) },
+      onDiagnostics: onDiagnostics, onError: onError)
+  }
+
+  /// Opens a native AppKit player and forwards the wire-level host event without reducing it to
+  /// a diagnostic string. SwiftUI clients use this path so named-action values remain typed.
+  public func openNative(
+    data: Data,
+    title: String,
+    compatibility: NativeMacCompatibility,
+    width: CGFloat? = nil,
+    height: CGFloat? = nil,
+    opaque: Bool = true,
+    downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+    onFontFallback: @escaping (String) -> Void = { _ in },
+    onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void,
+    onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
+    onError: @escaping (String) -> Void
+  ) async throws {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
     let snapshot = try session.snapshot(timeSeconds: 0, wallClock: nativeSystemWallClock())
@@ -843,23 +887,30 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: compatibility, report: report,
       fonts: fonts,
-      onEvent: { onEvent(nativeEventSummary($0)) }, onDiagnostics: onDiagnostics, onError: onError)
+      onEvent: { event in
+        guard case let .namedAction(name, value) = event else { return }
+        onEvent(.namedAction(name: name, value: nativePlayerActionValue(value)))
+      }, onDiagnostics: onDiagnostics, onError: onError)
     let scroll = NSScrollView()
-    scroll.drawsBackground = true
-    scroll.backgroundColor = .windowBackgroundColor
+    scroll.drawsBackground = opaque
+    scroll.backgroundColor = opaque ? .windowBackgroundColor : .clear
     scroll.hasHorizontalScroller = true
     scroll.hasVerticalScroller = true
+    player.frame = NSRect(
+      x: 0, y: 0, width: CGFloat(snapshot.width), height: CGFloat(snapshot.height))
     scroll.documentView = player
 
     let size = NSSize(
-      width: max(CGFloat(snapshot.width), 640),
-      height: max(CGFloat(snapshot.height), 480))
+      width: max(width ?? max(CGFloat(snapshot.width), 640), 1),
+      height: max(height ?? max(CGFloat(snapshot.height), 480), 1))
     let window = NSWindow(
       contentRect: NSRect(origin: .zero, size: size),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered,
       defer: false)
     window.title = "\(title) — Native AppKit POC (\(compatibility.title))"
+    window.isOpaque = opaque
+    window.backgroundColor = opaque ? .windowBackgroundColor : .clear
     window.contentView = scroll
     window.delegate = self
     window.center()
