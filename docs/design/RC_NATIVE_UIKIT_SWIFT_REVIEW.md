@@ -398,6 +398,14 @@ is backwards. `@autoclosure () -> String`, or a `Field` enum, or drop it.
 
 ## 9. Tests
 
+> **Status (#398):** remediation 1 is done — `RcNativePlayerUIKitTests` is a swift-testing
+> `.testTarget` in both manifests, fixtures are bundle resources, and the per-file `swiftc` scripts
+> are gone. Item 2 is done through the test target: the macOS lane runs
+> `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` and `scripts/check-native-swift-ios-tests.sh`, which
+> builds both native targets for the host and for the iOS Simulator. Item 3 is partial: a
+> `.swift-format` is checked in and `format.yml` lints without `--strict` until the existing
+> findings are cleared. The text below describes the state the review found.
+
 `Package.swift` declares five targets. **None of them is a `.testTarget`.** `swift test` on this
 package runs nothing. `Tests/RcNativePlayerUIKitTests/` is not referenced by the manifest at all.
 

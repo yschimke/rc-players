@@ -1,5 +1,7 @@
 import Darwin
 import Foundation
+import RcNativePlayerCore
+import Testing
 
 /// Host-independent performance evidence for the pure-Swift document core.
 ///
@@ -11,8 +13,11 @@ import Foundation
 /// Timing on a hosted runner is noisy, so the timing budgets are order-of-magnitude ceilings meant
 /// to catch a real regression, not a tuning gate. The structural numbers — node and command
 /// counts, retained-frame allocation growth — are the parts that hold exactly.
-@main
-enum NativeSwiftBenchmark {
+///
+/// Timing only means something in an optimized build, so this runs only when
+/// `RC_NATIVE_CORE_BENCHMARK_OUTPUT` names the report to write; `scripts/measure-native-swift-core.sh`
+/// sets it and builds the release configuration. An ordinary `swift test` skips it.
+@Suite struct NativeSwiftBenchmark {
   private struct FixtureReport: Codable {
     let id: String
     let bytes: Int
@@ -54,17 +59,19 @@ enum NativeSwiftBenchmark {
     replacementMilliseconds: 100,
     retainedFrameResidentByteGrowth: 16 * 1024 * 1024)
 
-  static func main() throws {
-    let arguments = Array(CommandLine.arguments.dropFirst())
-    guard let output = arguments.first, arguments.count >= 2 else {
-      FileHandle.standardError.write(
-        Data("usage: native-swift-benchmark <output.json> <fixture.rc>...\n".utf8))
-      exit(1)
-    }
+  static let outputPath =
+    ProcessInfo.processInfo.environment["RC_NATIVE_CORE_BENCHMARK_OUTPUT"]
+
+  @Test(
+    .enabled(
+      if: NativeSwiftBenchmark.outputPath != nil,
+      "set RC_NATIVE_CORE_BENCHMARK_OUTPUT, or run scripts/measure-native-swift-core.sh"))
+  func coreBenchmark() throws {
+    let output = try #require(Self.outputPath)
 
     var fixtures: [FixtureReport] = []
-    for path in arguments.dropFirst() {
-      fixtures.append(try measure(URL(fileURLWithPath: path)))
+    for name in NativeTestFixtures.comparativeDocuments {
+      fixtures.append(try Self.measure(NativeTestFixtures.url(name)))
     }
 
     var overBudget: [String] = []
@@ -72,6 +79,7 @@ enum NativeSwiftBenchmark {
       func check(_ metric: String, _ value: Double, _ budget: Double) {
         if value > budget { overBudget.append("\(fixture.id).\(metric)=\(value) > \(budget)") }
       }
+      let budgets = Self.budgets
       check("decode", fixture.medianDecodeMilliseconds, budgets.decodeMilliseconds)
       check("firstFrame", fixture.medianFirstFrameMilliseconds, budgets.firstFrameMilliseconds)
       check("steadyFrame", fixture.medianSteadyFrameMilliseconds, budgets.steadyFrameMilliseconds)
@@ -86,9 +94,9 @@ enum NativeSwiftBenchmark {
     let report = Report(
       schemaVersion: 1,
       sourceRevision: ProcessInfo.processInfo.environment["RC_SOURCE_REVISION"] ?? "unknown",
-      iterations: iterations,
-      frames: frames,
-      budgets: budgets,
+      iterations: Self.iterations,
+      frames: Self.frames,
+      budgets: Self.budgets,
       fixtures: fixtures,
       overBudget: overBudget,
       passed: overBudget.isEmpty)
@@ -104,13 +112,10 @@ enum NativeSwiftBenchmark {
           fixture.id, fixture.medianDecodeMilliseconds, fixture.medianFirstFrameMilliseconds,
           fixture.medianSteadyFrameMilliseconds, fixture.medianReplacementMilliseconds))
     }
-    guard report.passed else {
-      FileHandle.standardError.write(
-        Data("native Swift core benchmark over budget:\n  \(overBudget.joined(separator: "\n  "))\n"
-          .utf8))
-      exit(1)
-    }
-    print("native Swift core benchmark: ok (\(output))")
+    #expect(
+      report.passed,
+      "native Swift core benchmark over budget:\n  \(overBudget.joined(separator: "\n  "))")
+    print("native Swift core benchmark: \(output)")
   }
 
   private static func measure(_ url: URL) throws -> FixtureReport {

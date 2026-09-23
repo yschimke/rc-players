@@ -54,6 +54,13 @@ var targets: [Target] = [
   .target(name: "RcComposePlayerSwiftUI", dependencies: swiftUIDependencies),
   .target(name: "RcNativePlayerCore"),
   .target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
+  // The native player's tests. They depend only on the pure-Swift targets, so
+  // `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` runs them without resolving the binary target.
+  .testTarget(
+    name: "RcNativePlayerUIKitTests",
+    dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"],
+    resources: [.copy("Fixtures")]
+  ),
 ]
 if !nativeOnly {
   targets.insert(

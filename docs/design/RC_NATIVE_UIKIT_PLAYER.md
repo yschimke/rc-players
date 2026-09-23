@@ -605,20 +605,20 @@ returning diagnostics. The sample intentionally uses compatible behavior.
 Current checks are:
 
 - `RcNativeSnapshotTest` round-trips a protocol document and verifies nesting, paint, and geometry;
-- `scripts/check-native-uikit-compatibility.sh` executes strict/compatible policy decisions as a
-  host-platform Swift test;
-- `scripts/check-native-uikit-layout.sh` executes pure Swift dimension, weight, arrangement, RTL,
-  and dynamic root-resize assertions;
-- `scripts/check-native-uikit-accessibility.sh` executes pure Swift role, merge, clear, and label
-  policy assertions;
+- the `RcNativePlayerUIKitTests` SwiftPM test target (`Tests/RcNativePlayerUIKitTests/`, swift-testing)
+  covers the pure-Swift core and every renderer-neutral policy: strict/compatible decisions, the
+  density contract, layout dimension, weight, arrangement, RTL and root-resize geometry,
+  accessibility role, merge, clear and label policy, frame timing (static, continuous, one-shot,
+  delayed, paused, resumed, and Reduce Motion scheduling), execution limits, graphics state, text,
+  texture and resource policy. `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` runs it on the macOS
+  host and `scripts/check-native-swift-ios-tests.sh` runs it on an iOS simulator; fixtures are
+  bundled resources rather than positional arguments;
 - `scripts/check-native-uikit-accessibility-simulator.sh` renders the packaged native player with
   Increased Contrast and an accessibility Dynamic Type size, then applies the normal title-card
   pixel sanity checks;
 - `scripts/check-native-uikit-accessibility-ui.sh` queries the simulator accessibility server
   through XCUITest, verifies the native Title Card button owns its descendant labels, and runs
   Apple's element, trait, description, and hit-region audits;
-- `scripts/check-native-uikit-frame-timing.sh` advances monotonic timestamps directly and verifies
-  static, continuous, one-shot, delayed, paused, resumed, and Reduce Motion scheduling policy;
 - `scripts/check-native-uikit-animation-simulator.sh` captures two native Progress frames and
   requires both visible ink and changing pixels within the document surface;
 - `scripts/check-native-uikit-comparison.sh` renders Title Card, indeterminate and determinate
@@ -628,11 +628,11 @@ Current checks are:
   macOS comparison corpus rather than maintaining a separate fixture format;
 - `scripts/measure-native-uikit-simulator.sh` records packaged Release timing, hierarchy,
   accessibility, allocation, memory, binary-size, lifecycle-recovery, and deallocation evidence;
-- `scripts/check-native-swift-fuzz.sh` mutation-fuzzes the pure-Swift core against the derived
-  corpus described below;
+- `NativeSwiftFuzzTests` mutation-fuzzes the pure-Swift core against the derived corpus described
+  below; `scripts/check-native-swift-fuzz.sh` runs it alone with the seed, iteration and sanitizer
+  knobs;
 - `scripts/measure-native-swift-core.sh` and `scripts/measure-native-appkit.sh` publish the
   host-independent and AppKit halves of the native performance evidence;
-- `scripts/check-native-uikit-density.sh` executes the density contract as a pure Swift test;
 - `scripts/build-apple-player.sh` compiles and links the Swift sources to the XCFramework;
 - the sample toggles CMP/native for the same bundled files.
 
