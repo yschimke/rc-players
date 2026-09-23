@@ -22,7 +22,7 @@ abstract class GenerateRcOperationManifest : org.gradle.api.DefaultTask() {
         .filterNot { it.isBlank() || it.startsWith("#") }
         .mapIndexed { index, line ->
           val fields = line.split('|')
-          require(fields.size == 4) { "Invalid RC manifest line ${index + 1}: $line" }
+          require(fields.size == 5) { "Invalid RC manifest line ${index + 1}: $line" }
           fields
         }
     require(rows.map { it[0].toInt() }.distinct().size == rows.size) {
@@ -62,7 +62,8 @@ abstract class GenerateRcOperationManifest : org.gradle.api.DefaultTask() {
             appendLine(
               "    RcOperationInventoryEntry(${row[0]}, \"${row[1]}\", " +
                 "\"${stableName(row[1])}\", ${row[2]}, " +
-                "RcOperationStatus.${row[3].uppercase()}),"
+                "RcOperationStatus.${row[3].uppercase()}, " +
+                "${row[4].takeUnless { it == "-" }?.let { "\"$it\"" } ?: "null"}),"
             )
           }
         appendLine("  )")

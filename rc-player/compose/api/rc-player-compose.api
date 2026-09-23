@@ -788,6 +788,10 @@ public final class ee/schimke/composeai/rcplayer/compose/RcSpannableString {
 	public final fun getRenderer ()Lkotlin/jvm/functions/Function4;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcTimeSourceLocalKt {
+	public static final fun getLocalRcTimeSource ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcTypefaceLoader {
 	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader$Companion;
 	public abstract fun getFamilies ()Ljava/util/Set;
