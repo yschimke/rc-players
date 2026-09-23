@@ -99,6 +99,18 @@ public struct NativeSwiftAnimationSpec: Sendable {
   public let visibilityEasingType: Int
   public let enterAnimation: Int
   public let exitAnimation: Int
+
+  public init(
+    motionDuration: Float, motionEasingType: Int, visibilityDuration: Float,
+    visibilityEasingType: Int, enterAnimation: Int, exitAnimation: Int
+  ) {
+    self.motionDuration = motionDuration
+    self.motionEasingType = motionEasingType
+    self.visibilityDuration = visibilityDuration
+    self.visibilityEasingType = visibilityEasingType
+    self.enterAnimation = enterAnimation
+    self.exitAnimation = exitAnimation
+  }
 }
 
 public struct NativeSwiftImageResourceSnapshot: Sendable {
