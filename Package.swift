@@ -46,8 +46,16 @@ if !nativeOnly {
   products.insert(.library(name: "RcComposePlayer", targets: ["RcComposePlayer"]), at: 0)
 }
 
+// The XCFramework carries iosArm64, iosSimulatorArm64 and macosArm64 slices only, so the overlay
+// depends on it only for iOS and macOS. Every other Apple platform (visionOS, tvOS, watchOS) builds
+// the overlay against the native Swift player instead: `Sources/RcComposePlayerSwiftUI` guards
+// every Kotlin code path with `#if canImport(RcComposePlayer)`. An unconditional dependency let
+// those platforms resolve the package and then fail at link time.
 var swiftUIDependencies: [Target.Dependency] = ["RcPlayerAppleFonts", "RcNativePlayerUIKit"]
-if !nativeOnly { swiftUIDependencies.insert("RcComposePlayer", at: 0) }
+if !nativeOnly {
+  swiftUIDependencies.insert(
+    .target(name: "RcComposePlayer", condition: .when(platforms: [.iOS, .macOS])), at: 0)
+}
 
 var targets: [Target] = [
   .target(name: "RcPlayerAppleFonts"),
