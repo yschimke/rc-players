@@ -969,6 +969,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftDocumentSnapshot {
     stateLock.lock()
     defer { stateLock.unlock() }
+    try resolveIntegerExpressions()
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock),
       let cached = staticSnapshotCache, cached.measuredComponents == measuredComponents
     {
@@ -1081,6 +1082,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     guard let node = document.nodes[componentID], node.isClickable,
       node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
+    try resolveIntegerExpressions()
     let values = try resolvedFloats(timeSeconds: timeSeconds)
     // A sequence can mutate state before a later expression fails. Invalidate before executing the
     // first action so an error cannot leave a stale static snapshot cached over that mutation.
@@ -1089,9 +1091,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for action in actions {
       switch action {
       case .integerExpression(let targetID, let expressionID):
-        guard let expression = document.integerExpressions[expressionID] else { continue }
-        integers[targetID] = try NativeSwiftIntegerExpression.evaluate(
-          mask: expression.mask, tokens: expression.tokens, values: integers)
+        if let expression = document.integerExpressions[expressionID] {
+          integers[targetID] = try NativeSwiftIntegerExpression.evaluate(
+            mask: expression.mask, tokens: expression.tokens, values: integers)
+        } else if let value = integers[expressionID] {
+          integers[targetID] = value
+        }
       case .floatExpression(let targetID, let expressionID):
         guard let expression = document.expressions.first(where: { $0.id == expressionID })
         else { continue }
@@ -1111,6 +1116,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         }
         events.append(.namedAction(name: name, value: value))
       }
+      try resolveIntegerExpressions()
     }
     return events
   }
@@ -1124,6 +1130,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) throws -> NativeSwiftProbeValues {
     stateLock.lock()
     defer { stateLock.unlock() }
+    try resolveIntegerExpressions()
     var values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
     advanceParticles(values: values, timeSeconds: timeSeconds)
     if !document.particleLoops.isEmpty {
@@ -1151,17 +1158,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // evaluates them as it resolves, so a probe reads what an expression computed rather than the
     // empty slot it started in. Order matters, and the document's own declaration order is what it
     // declares.
-    var resolvedIntegers = integers
-    for id in document.integerExpressionOrder {
-      guard let expression = document.integerExpressions[id] else { continue }
-      if let value = try? NativeSwiftIntegerExpression.evaluate(
-        mask: expression.mask, tokens: expression.tokens, values: resolvedIntegers)
-      {
-        resolvedIntegers[id] = value
-      }
-    }
     return NativeSwiftProbeValues(
-      floats: values, integers: resolvedIntegers, texts: texts,
+      floats: values, integers: integers, texts: texts,
       colors: resolveColors(values: values))
   }
 
@@ -1555,10 +1553,22 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return value
   }
 
+  /// Integer expressions are retained document state. Re-evaluate them in wire declaration order
+  /// whenever a frame or gesture observes state, so an action that changes an input propagates to
+  /// conditionals, text lookup and integer-to-float projections in that same frame.
+  private func resolveIntegerExpressions() throws {
+    for id in document.integerExpressionOrder {
+      guard let expression = document.integerExpressions[id] else { continue }
+      integers[id] = try NativeSwiftIntegerExpression.evaluate(
+        mask: expression.mask, tokens: expression.tokens, values: integers)
+    }
+  }
+
   private func resolvedFloats(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil,
     measuredComponents: [Int: NativeSwiftMeasuredSize] = [:], resolveAnimatedValues: Bool = true
   ) throws -> [Int: Float] {
+    try resolveIntegerExpressions()
     var result = floats
     result.merge(floatOverrides) { _, override in override }
     // RemoteBoolean is encoded as a named RemoteInt, then projected into float/color expressions by
@@ -5291,7 +5301,7 @@ private enum NativeSwiftDocumentDecoder {
           let container = modifierContainers.reversed().first(where: { $0.node != nil }),
           let target = container.node, let gesture = container.gesture
         else { throw input.malformed("Integer action is outside a click modifier") }
-        guard integerExpressions[expressionID] != nil else {
+        guard integerExpressions[expressionID] != nil || integers[expressionID] != nil else {
           throw input.malformed("Missing integer action expression \(expressionID)")
         }
         target.actions[gesture, default: []].append(

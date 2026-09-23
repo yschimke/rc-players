@@ -1,3 +1,4 @@
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
 import AppKit
 import CoreText
 import Darwin
@@ -1085,7 +1086,7 @@ private enum MacLinearLayout {
   }
 }
 
-private final class NativeMacDocumentView: NSView {
+final class NativeMacDocumentView: NSView {
   private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
   private let onEvent: (String) -> Void
@@ -1102,6 +1103,8 @@ private final class NativeMacDocumentView: NSView {
   /// animator.
   private var outgoingStateComponent: NativeMacComponentView?
   private var stateTransition: NativeMacStateTransition?
+  private var appliedMeasurements: [Int: NativeSwiftMeasuredSize] = [:]
+  private var isRefiningBoundGeometry = false
 
   /// The active document component tree, for the conformance corpus's `tree` probe.
   ///
@@ -1292,14 +1295,14 @@ private final class NativeMacDocumentView: NSView {
     }
     try NativeMacPolicy.validate(events: events, against: report)
     let outgoing = component
-    let changedStateLayoutID = changedStateLayout(
+    let changedStateLayoutIDs = changedStateLayouts(
       from: snapshot.root, to: next.root)
     snapshot = next
     if reportedDiagnostics != report.diagnostics {
       reportedDiagnostics = report.diagnostics
       onDiagnostics(report.diagnostics)
     }
-    let refreshingTransition = changedStateLayoutID == nil ? stateTransition : nil
+    let refreshingTransition = changedStateLayoutIDs.isEmpty ? stateTransition : nil
     let presentationAlpha = refreshingTransition.flatMap { transition in
       outgoing?.component(withID: transition.stateLayoutID)?.layer?.presentation()?.opacity
     }
@@ -1310,24 +1313,17 @@ private final class NativeMacDocumentView: NSView {
       [weak self] componentID, gesture, sample in
       self?.gesture(gesture, componentID: componentID, sample: sample)
     }
-    if let changedStateLayoutID, let outgoing,
-      let outgoingState = outgoing.component(withID: changedStateLayoutID),
-      let outgoingParent = outgoingState.superview,
-      let incomingState = component.component(withID: changedStateLayoutID)
-    {
+    if let changedStateLayoutID = changedStateLayoutIDs.first, let outgoing {
       let transition = stateTransition(for: changedStateLayoutID, in: snapshot)
-      let outgoingFrame = outgoingParent.convert(outgoingState.frame, to: self)
-      outgoingState.removeFromSuperview()
-      outgoing.removeFromSuperview()
       outgoingStateComponent?.removeFromSuperview()
-      outgoingStateComponent = outgoingState
-      outgoingState.frame = outgoingFrame
-      outgoingState.alphaValue = 1
-      incomingState.alphaValue = 0
+      outgoingStateComponent = outgoing
+      outgoing.frame = bounds
+      component.frame = bounds
       addSubview(component)
-      addSubview(outgoingState, positioned: .below, relativeTo: component)
+      component.layoutSubtreeIfNeeded()
+      addSubview(outgoing, positioned: .below, relativeTo: component)
       stateTransition = transition
-      animateStateLayoutTransition(from: outgoingState, to: incomingState, transition: transition)
+      animateStateLayoutTransition(from: outgoing, to: component, transition: transition)
     } else {
       outgoingStateComponent?.removeFromSuperview()
       outgoingStateComponent = nil
@@ -1394,6 +1390,27 @@ private final class NativeMacDocumentView: NSView {
   override func layout() {
     super.layout()
     component.frame = bounds
+    refineBoundGeometry()
+  }
+
+  /// Re-resolves bindings that reference a component's measured size after AppKit has assigned
+  /// real frames. This mirrors the UIKit host's two-pass layout without retaining a second session.
+  private func refineBoundGeometry() {
+    guard !isRefiningBoundGeometry, !snapshot.boundComponents.isEmpty else { return }
+    var measured: [Int: NativeSwiftMeasuredSize] = [:]
+    component.collectMeasuredSizes(of: snapshot.boundComponents, into: &measured)
+    guard measured != appliedMeasurements else { return }
+    appliedMeasurements = measured
+    isRefiningBoundGeometry = true
+    defer { isRefiningBoundGeometry = false }
+    do {
+      try install(
+        session.snapshot(
+          timeSeconds: sampleTime(), wallClock: nativeSystemWallClock(),
+          measuredComponents: measured))
+    } catch {
+      onError("Native geometry refinement failed: \(error.localizedDescription)")
+    }
   }
 
   /// StateLayout branch changes are native AppKit cross-fades. The timing curve is provided by Core
@@ -1454,12 +1471,12 @@ private final class NativeMacDocumentView: NSView {
     return indices
   }
 
-  private func changedStateLayout(
+  private func changedStateLayouts(
     from oldRoot: NativeSwiftNodeSnapshot, to newRoot: NativeSwiftNodeSnapshot
-  ) -> Int? {
+  ) -> [Int] {
     let oldIndices = snapshotStateLayoutIndices(oldRoot)
     let newIndices = snapshotStateLayoutIndices(newRoot)
-    return newIndices.keys.sorted().first { oldIndices[$0] != newIndices[$0] }
+    return newIndices.keys.sorted().filter { oldIndices[$0] != newIndices[$0] }
   }
 
   private func updateFrameDriver() {
@@ -1687,6 +1704,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
   private weak var tapRecognizer: NSClickGestureRecognizer?
   private weak var doubleClickRecognizer: NSClickGestureRecognizer?
+  private var lastTapTimestamp: TimeInterval = -.infinity
 
   override var isFlipped: Bool { true }
 
@@ -1768,8 +1786,22 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     return nil
   }
 
+  func collectMeasuredSizes(
+    of wanted: Set<Int>, into result: inout [Int: NativeSwiftMeasuredSize],
+    inherited: CGSize? = nil
+  ) {
+    let measurable = bounds.size == .zero ? inherited : bounds.size
+    if wanted.contains(node.componentID), let measurable {
+      result[node.componentID] = NativeSwiftMeasuredSize(
+        width: Float(measurable.width), height: Float(measurable.height))
+    }
+    for child in componentChildren {
+      child.collectMeasuredSizes(of: wanted, into: &result, inherited: measurable)
+    }
+  }
+
   @objc private func activate(_ sender: Any?) {
-    onGesture(Int(node.componentId), .tap, nil)
+    dispatchTap(sample: nil)
   }
 
   private func installGestureRecognizers() {
@@ -1805,7 +1837,14 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
 
   @objc private func handleTap(_ recognizer: NSClickGestureRecognizer) {
     guard recognizer.state == .ended else { return }
-    onGesture(Int(node.componentId), .tap, pointerSample(recognizer))
+    dispatchTap(sample: pointerSample(recognizer))
+  }
+
+  private func dispatchTap(sample: NativeSwiftPointerSample?) {
+    let timestamp = NSApp.currentEvent?.timestamp ?? ProcessInfo.processInfo.systemUptime
+    guard timestamp - lastTapTimestamp > 0.001 else { return }
+    lastTapTimestamp = timestamp
+    onGesture(Int(node.componentId), .tap, sample)
   }
 
   func gestureRecognizer(
@@ -1879,6 +1918,27 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       if let hit = child.hitTest(local) { return hit }
     }
     return node.supportedGestures.isEmpty ? nil : self
+  }
+
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+    !node.supportedGestures.isEmpty
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    guard !node.supportedGestures.isEmpty else {
+      super.mouseDown(with: event)
+      return
+    }
+    // Gesture recognizers have already received the event; do not bubble it into an enclosing
+    // NSHostingView where a drag or tap recognizer can steal the document interaction.
+  }
+
+  override func mouseUp(with event: NSEvent) {
+    guard !node.supportedGestures.isEmpty else {
+      super.mouseUp(with: event)
+      return
+    }
+    // See mouseDown(with:).
   }
 
   /// Finds a scroll modifier geometrically. `point` is in the superview's coordinates, matching
@@ -2947,3 +3007,4 @@ private func nativeSystemWallClock() -> NativeSwiftWallClock {
     epochMillis: Int64((date.timeIntervalSince1970 * 1000).rounded()),
     offsetSeconds: TimeZone.current.secondsFromGMT(for: date))
 }
+#endif

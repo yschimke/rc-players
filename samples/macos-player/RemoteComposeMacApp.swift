@@ -1,6 +1,7 @@
 import AppKit
 import CoreText
 import RcComposePlayer
+import RcNativePlayerUIKit
 #if canImport(RcPlayerAppleFonts)
   import RcPlayerAppleFonts
 #endif
