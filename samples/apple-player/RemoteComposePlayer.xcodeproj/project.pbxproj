@@ -39,6 +39,20 @@
 		10000000000000000000001F /* NativeCustomComponentSamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000022 /* NativeCustomComponentSamples.swift */; };
 		100000000000000000000020 /* NativeSwiftCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000023 /* NativeSwiftCore.swift */; };
 		10000000000000000000002D /* NativeSwiftWireReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002E /* NativeSwiftWireReader.swift */; };
+		100000000000000000000040 /* NativeSwiftWireConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000040 /* NativeSwiftWireConstants.swift */; };
+		100000000000000000000041 /* NativeSwiftSnapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000041 /* NativeSwiftSnapshots.swift */; };
+		100000000000000000000042 /* NativeSwiftCoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000042 /* NativeSwiftCoreError.swift */; };
+		100000000000000000000043 /* NativeSwiftSystemVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000043 /* NativeSwiftSystemVariables.swift */; };
+		100000000000000000000044 /* NativeSwiftLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000044 /* NativeSwiftLayout.swift */; };
+		100000000000000000000045 /* NativeSwiftDocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000045 /* NativeSwiftDocumentSession.swift */; };
+		100000000000000000000046 /* NativeSwiftParsedDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000046 /* NativeSwiftParsedDocument.swift */; };
+		100000000000000000000047 /* NativeSwiftParticles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000047 /* NativeSwiftParticles.swift */; };
+		100000000000000000000048 /* NativeSwiftAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000048 /* NativeSwiftAnimation.swift */; };
+		100000000000000000000049 /* NativeSwiftExpressions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000049 /* NativeSwiftExpressions.swift */; };
+		10000000000000000000004A /* NativeSwiftText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004A /* NativeSwiftText.swift */; };
+		10000000000000000000004B /* NativeSwiftPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004B /* NativeSwiftPaths.swift */; };
+		10000000000000000000004C /* NativeSwiftPaint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004C /* NativeSwiftPaint.swift */; };
+		10000000000000000000004D /* NativeSwiftDocumentDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004D /* NativeSwiftDocumentDecoder.swift */; };
 		100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */; };
 		100000000000000000000022 /* NativeDensityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000025 /* NativeDensityPolicy.swift */; };
 		100000000000000000000023 /* NativeTexturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000026 /* NativeTexturePolicy.swift */; };
@@ -100,6 +114,20 @@
 		200000000000000000000022 /* NativeCustomComponentSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCustomComponentSamples.swift; sourceTree = "<group>"; };
 		200000000000000000000023 /* NativeSwiftCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCore.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftCore.swift"; sourceTree = "<group>"; };
 		20000000000000000000002E /* NativeSwiftWireReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftWireReader.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftWireReader.swift"; sourceTree = "<group>"; };
+		200000000000000000000040 /* NativeSwiftWireConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftWireConstants.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftWireConstants.swift"; sourceTree = "<group>"; };
+		200000000000000000000041 /* NativeSwiftSnapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftSnapshots.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftSnapshots.swift"; sourceTree = "<group>"; };
+		200000000000000000000042 /* NativeSwiftCoreError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftCoreError.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftCoreError.swift"; sourceTree = "<group>"; };
+		200000000000000000000043 /* NativeSwiftSystemVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftSystemVariables.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftSystemVariables.swift"; sourceTree = "<group>"; };
+		200000000000000000000044 /* NativeSwiftLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftLayout.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftLayout.swift"; sourceTree = "<group>"; };
+		200000000000000000000045 /* NativeSwiftDocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftDocumentSession.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftDocumentSession.swift"; sourceTree = "<group>"; };
+		200000000000000000000046 /* NativeSwiftParsedDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftParsedDocument.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftParsedDocument.swift"; sourceTree = "<group>"; };
+		200000000000000000000047 /* NativeSwiftParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftParticles.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftParticles.swift"; sourceTree = "<group>"; };
+		200000000000000000000048 /* NativeSwiftAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftAnimation.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftAnimation.swift"; sourceTree = "<group>"; };
+		200000000000000000000049 /* NativeSwiftExpressions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftExpressions.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftExpressions.swift"; sourceTree = "<group>"; };
+		20000000000000000000004A /* NativeSwiftText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftText.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftText.swift"; sourceTree = "<group>"; };
+		20000000000000000000004B /* NativeSwiftPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftPaths.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftPaths.swift"; sourceTree = "<group>"; };
+		20000000000000000000004C /* NativeSwiftPaint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftPaint.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftPaint.swift"; sourceTree = "<group>"; };
+		20000000000000000000004D /* NativeSwiftDocumentDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftDocumentDecoder.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftDocumentDecoder.swift"; sourceTree = "<group>"; };
 		200000000000000000000024 /* RemoteComposeDownloadableFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeDownloadableFonts.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeDownloadableFonts.swift"; sourceTree = "<group>"; };
 		200000000000000000000027 /* RemoteComposeFontVariation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteComposeFontVariation.swift; path = "../../Sources/RcPlayerAppleFonts/RemoteComposeFontVariation.swift"; sourceTree = "<group>"; };
 		200000000000000000000028 /* SwiftControls.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftControls.rc; path = Fixtures/SwiftControls.rc; sourceTree = "<group>"; };
@@ -205,6 +233,20 @@
 				200000000000000000000018 /* NativeSession.swift */,
 				200000000000000000000023 /* NativeSwiftCore.swift */,
 				20000000000000000000002E /* NativeSwiftWireReader.swift */,
+				200000000000000000000040 /* NativeSwiftWireConstants.swift */,
+				200000000000000000000041 /* NativeSwiftSnapshots.swift */,
+				200000000000000000000042 /* NativeSwiftCoreError.swift */,
+				200000000000000000000043 /* NativeSwiftSystemVariables.swift */,
+				200000000000000000000044 /* NativeSwiftLayout.swift */,
+				200000000000000000000045 /* NativeSwiftDocumentSession.swift */,
+				200000000000000000000046 /* NativeSwiftParsedDocument.swift */,
+				200000000000000000000047 /* NativeSwiftParticles.swift */,
+				200000000000000000000048 /* NativeSwiftAnimation.swift */,
+				200000000000000000000049 /* NativeSwiftExpressions.swift */,
+				20000000000000000000004A /* NativeSwiftText.swift */,
+				20000000000000000000004B /* NativeSwiftPaths.swift */,
+				20000000000000000000004C /* NativeSwiftPaint.swift */,
+				20000000000000000000004D /* NativeSwiftDocumentDecoder.swift */,
 				200000000000000000000019 /* NativeAccessibilityPolicy.swift */,
 				20000000000000000000001A /* NativeFrameTiming.swift */,
 				20000000000000000000001B /* NativeExecutionLimits.swift */,
@@ -335,6 +377,20 @@
 				100000000000000000000016 /* NativeSession.swift in Sources */,
 				100000000000000000000020 /* NativeSwiftCore.swift in Sources */,
 				10000000000000000000002D /* NativeSwiftWireReader.swift in Sources */,
+				100000000000000000000040 /* NativeSwiftWireConstants.swift in Sources */,
+				100000000000000000000041 /* NativeSwiftSnapshots.swift in Sources */,
+				100000000000000000000042 /* NativeSwiftCoreError.swift in Sources */,
+				100000000000000000000043 /* NativeSwiftSystemVariables.swift in Sources */,
+				100000000000000000000044 /* NativeSwiftLayout.swift in Sources */,
+				100000000000000000000045 /* NativeSwiftDocumentSession.swift in Sources */,
+				100000000000000000000046 /* NativeSwiftParsedDocument.swift in Sources */,
+				100000000000000000000047 /* NativeSwiftParticles.swift in Sources */,
+				100000000000000000000048 /* NativeSwiftAnimation.swift in Sources */,
+				100000000000000000000049 /* NativeSwiftExpressions.swift in Sources */,
+				10000000000000000000004A /* NativeSwiftText.swift in Sources */,
+				10000000000000000000004B /* NativeSwiftPaths.swift in Sources */,
+				10000000000000000000004C /* NativeSwiftPaint.swift in Sources */,
+				10000000000000000000004D /* NativeSwiftDocumentDecoder.swift in Sources */,
 				100000000000000000000021 /* RemoteComposeDownloadableFonts.swift in Sources */,
 				100000000000000000000024 /* RemoteComposeFontVariation.swift in Sources */,
 				100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */,

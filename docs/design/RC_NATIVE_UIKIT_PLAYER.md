@@ -130,7 +130,7 @@ compatible or strict policy; the player does not silently claim compatibility.
 
 | Concern | Location | Responsibility |
 |---|---|---|
-| Swift decode and state | `Sources/RcNativePlayerCore/NativeSwiftCore.swift` | Bounded wire reads, immutable parsed tree, retained document values, snapshot resolution shared by UIKit and AppKit |
+| Swift decode and state | `Sources/RcNativePlayerCore/` (`NativeSwiftDocumentDecoder.swift`, `NativeSwiftDocumentSession.swift`, …) | Bounded wire reads, immutable parsed tree, retained document values, snapshot resolution shared by UIKit and AppKit |
 | Session isolation | `NativeSession.swift` | Own the Swift runtime in an actor and serialize state updates |
 | Swift package product | `RcNativePlayerUIKit` in `Package.swift` | Ship the native source beside existing products |
 | Public UIKit API | `RemoteComposeNativePlayer.swift` | View/controller lifecycle, replacement, errors, diagnostics |

@@ -34,8 +34,7 @@ CLANG_MODULE_CACHE_PATH="$work/module-cache" \
 SWIFT_MODULECACHE_PATH="$work/module-cache" \
 xcrun swiftc \
   "${compile[@]}" \
-  "$repo_root/Sources/RcNativePlayerCore/NativeSwiftCore.swift" \
-  "$repo_root/Sources/RcNativePlayerCore/NativeSwiftWireReader.swift" \
+  "$repo_root"/Sources/RcNativePlayerCore/*.swift \
   "$repo_root/Tests/RcNativePlayerUIKitTests/NativeSwiftFuzzTests.swift" \
   -o "$work/native-swift-fuzz-tests"
 

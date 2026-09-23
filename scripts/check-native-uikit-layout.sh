@@ -7,8 +7,7 @@ trap 'rm -rf "$work"' EXIT
 
 # The core is compiled in for `NativeSwiftDimensionType`, which the layout resolver switches on.
 xcrun swiftc \
-  "$repo_root/Sources/RcNativePlayerCore/NativeSwiftCore.swift" \
-  "$repo_root/Sources/RcNativePlayerCore/NativeSwiftWireReader.swift" \
+  "$repo_root"/Sources/RcNativePlayerCore/*.swift \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeLayout.swift" \
   "$repo_root/Tests/RcNativePlayerUIKitTests/NativeLayoutTests.swift" \
   -o "$work/native-layout-tests"
