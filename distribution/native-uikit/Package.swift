@@ -14,5 +14,10 @@ let package = Package(
     .target(name: "RcNativePlayerCore"),
     .target(
       name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
+    .testTarget(
+      name: "RcNativePlayerUIKitTests",
+      dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"],
+      resources: [.copy("Fixtures")]
+    ),
   ]
 )

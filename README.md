@@ -85,6 +85,11 @@ self-contained, pure-Swift local package containing the native sources with no b
 gives evaluators a small pinned, offline-resolvable artifact without changing the supported CMP
 product.
 
+The native player's tests are a SwiftPM test target, `RcNativePlayerUIKitTests`, written with
+swift-testing. Run them on the Mac with `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` — native-only
+mode keeps the Kotlin binary target out of the package graph — and on an iOS simulator with
+`scripts/check-native-swift-ios-tests.sh`.
+
 [`samples/apple-player`](samples/apple-player/) is the full application check: a SwiftUI document
 player linked against the current release XCFramework build, built in CI for the arm64 iOS
 Simulator, and
@@ -258,11 +263,13 @@ rather than by what the change touched:
 | `iosArm64` — device | | compiled only; a hosted runner has no device to run it on |
 | The shipped Wasm bundle, in a real browser | ✅ `scripts/wasm-smoke` | |
 | ABI gate (`checkKotlinAbi`) | | ✅ — the dumps cover the Apple klibs, which only build here |
+| Native Swift player tests (`RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test`, and the same target on an iOS simulator) | | ✅, path-gated with the row below |
 | XCFramework link, Swift type check, Xcode packaging | | ✅, and **only** when the change can affect them |
 
-Both lanes run on every pull request. Only the last row is path-gated (the `apple-changes` job): the
-release link is what makes the macOS lane expensive, and a change that cannot reach the Apple
-artifacts should not pay for it. Test execution is never gated — a lane that can only run here is
+Both lanes run on every pull request. Only the last two rows are path-gated (the `apple-changes`
+job): the release link is what makes the macOS lane expensive, and a change that cannot reach the
+Apple artifacts should not pay for it. The native Swift tests share that gate because nothing
+outside its paths — `Sources`, `Tests/RcNativePlayerUIKitTests`, the manifests — can change them. Test execution is never gated — a lane that can only run here is
 worth its minutes on every change, and the previous arrangement, where the path filter skipped the
 whole job, meant a change confined to `rc-player/wasm` or `third_party/` merged without a single
 Kotlin/Native or wasm test running.

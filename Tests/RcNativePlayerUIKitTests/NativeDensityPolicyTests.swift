@@ -1,21 +1,23 @@
 import CoreGraphics
 import Foundation
+import Testing
 
-@main
-enum NativeDensityPolicyTests {
-  static func main() {
+@testable import RcNativePlayerUIKit
+
+@Suite struct NativeDensityPolicyTests {
+  @Test func densityPolicy() throws {
     // A document generated at density 2 with dp layout behavior: the title-card case.
     let dpAtTwo = NativeDensityPolicy.diagnostics(
       density: 2, densityBehavior: NativeDensityPolicy.dpBehavior,
       androidCompatibility: .disabled, componentID: 1)
-    precondition(dpAtTwo.count == 1, "dp geometry must be diagnosed by default")
-    precondition(dpAtTwo[0].severity == .warning)
-    precondition(dpAtTwo[0].opcode == 0 && dpAtTwo[0].operationName == "Header")
-    precondition(dpAtTwo[0].componentID == 1)
-    precondition(dpAtTwo[0].reason.contains("density 1.0"))
+    try #require(dpAtTwo.count == 1, "dp geometry must be diagnosed by default")
+    #expect(dpAtTwo[0].severity == .warning)
+    #expect(dpAtTwo[0].opcode == 0 && dpAtTwo[0].operationName == "Header")
+    #expect(dpAtTwo[0].componentID == 1)
+    #expect(dpAtTwo[0].reason.contains("density 1.0"))
 
     // Opting in silences the diagnostic because the geometry is then reproduced deliberately.
-    precondition(
+    #expect(
       NativeDensityPolicy.diagnostics(
         density: 2, densityBehavior: NativeDensityPolicy.dpBehavior,
         androidCompatibility: .enabled, componentID: 1
@@ -27,15 +29,15 @@ enum NativeDensityPolicyTests {
     let dpAtOne = NativeDensityPolicy.diagnostics(
       density: 1, densityBehavior: NativeDensityPolicy.dpBehavior,
       androidCompatibility: .disabled, componentID: 1)
-    precondition(dpAtOne.count == 1, "dp geometry is unconverted by default at any density")
-    precondition(dpAtOne[0].reason.contains("density 1.0"))
+    try #require(dpAtOne.count == 1, "dp geometry is unconverted by default at any density")
+    #expect(dpAtOne[0].reason.contains("density 1.0"))
 
     // Legacy behavior carries no density-typed geometry, whatever density it was generated at.
-    precondition(
+    #expect(
       NativeDensityPolicy.diagnostics(
         density: 3, densityBehavior: 0, androidCompatibility: .disabled, componentID: 1
       ).isEmpty)
-    precondition(
+    #expect(
       NativeDensityPolicy.diagnostics(
         density: 1, densityBehavior: 0, androidCompatibility: .enabled, componentID: 1
       ).isEmpty)
@@ -47,37 +49,37 @@ enum NativeDensityPolicyTests {
       let pixels = NativeDensityPolicy.diagnostics(
         density: 2, densityBehavior: NativeDensityPolicy.pixelBehavior,
         androidCompatibility: compatibility, componentID: 7)
-      precondition(pixels.count == 1, "pixel-typed constraints are unimplemented in both modes")
-      precondition(pixels[0].componentID == 7 && pixels[0].severity == .warning)
+      try #require(pixels.count == 1, "pixel-typed constraints are unimplemented in both modes")
+      #expect(pixels[0].componentID == 7 && pixels[0].severity == .warning)
     }
 
     // A non-finite declared density is still reportable rather than interpolated into the message.
     let invalid = NativeDensityPolicy.diagnostics(
       density: .nan, densityBehavior: NativeDensityPolicy.dpBehavior,
       androidCompatibility: .disabled, componentID: 1)
-    precondition(invalid.count == 1 && invalid[0].reason.contains("an invalid density"))
+    #expect(invalid.count == 1 && invalid[0].reason.contains("an invalid density"))
 
-    precondition(
+    #expect(
       NativeDensityPolicy.usesDensityTypedGeometry(
         densityBehavior: NativeDensityPolicy.dpBehavior))
-    precondition(
+    #expect(
       NativeDensityPolicy.usesDensityTypedGeometry(
         densityBehavior: NativeDensityPolicy.pixelBehavior))
-    precondition(!NativeDensityPolicy.usesDensityTypedGeometry(densityBehavior: 0))
+    #expect(!NativeDensityPolicy.usesDensityTypedGeometry(densityBehavior: 0))
 
     // Default native rendering resolves dp geometry at density 1.0 whatever the viewport fit is.
     for scale in [CGFloat(0.5), 1, 2, 3.75] {
-      precondition(
+      #expect(
         NativeDensityPolicy.layoutDensityScale(
           androidCompatibility: .disabled, playbackDensityScale: scale) == 1)
     }
     // Android compatibility honors the playback density the root transform resolved.
-    precondition(
+    #expect(
       NativeDensityPolicy.layoutDensityScale(
         androidCompatibility: .enabled, playbackDensityScale: 2) == 2)
     // A degenerate viewport can never scale geometry by zero, infinity, or NaN.
     for scale in [CGFloat(0), -1, .infinity, .nan] {
-      precondition(
+      #expect(
         NativeDensityPolicy.layoutDensityScale(
           androidCompatibility: .enabled, playbackDensityScale: scale) == 1)
     }
@@ -86,12 +88,12 @@ enum NativeDensityPolicyTests {
     // both dp, and only PIXELS is pixels. A LEGACY document is the one that separates this rule
     // from `layoutUnitScale`'s, and it is what the whole catalog corpus is.
     for behavior in [0, 2] {
-      precondition(
+      #expect(
         NativeDensityPolicy.dimensionConstraintScale(
           densityBehavior: behavior, layoutDensityScale: 2, documentScale: 1) == 2,
         "a DimensionIn bound is dp under density behavior \(behavior)")
     }
-    precondition(
+    #expect(
       NativeDensityPolicy.dimensionConstraintScale(
         densityBehavior: NativeDensityPolicy.pixelBehavior,
         layoutDensityScale: 2, documentScale: 1) == 1)
@@ -99,14 +101,12 @@ enum NativeDensityPolicyTests {
     // A density warning is a difference, so strict refuses it and compatible renders it.
     let diagnostics = RemoteComposeNativePlayerDiagnostics(
       issues: dpAtTwo, unsupportedOpcodes: [], notes: [])
-    precondition(diagnostics.isPartial)
-    precondition(
+    #expect(diagnostics.isPartial)
+    #expect(
       RemoteComposeNativeCompatibilityDecision.shouldRender(
         policy: .compatible, diagnostics: diagnostics))
-    precondition(
+    #expect(
       !RemoteComposeNativeCompatibilityDecision.shouldRender(
         policy: .strict, diagnostics: diagnostics))
-
-    print("native UIKit density policy tests: ok")
   }
 }

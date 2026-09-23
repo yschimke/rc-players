@@ -1,23 +1,26 @@
 import CoreGraphics
 import Foundation
+import Testing
 
-@main
-enum NativeGraphicsStateTests {
-  static func main() {
-    precondition(NativeGraphicsState.lineCap(0) == .butt)
-    precondition(NativeGraphicsState.lineCap(1) == .round)
-    precondition(NativeGraphicsState.lineCap(2) == .square)
-    precondition(NativeGraphicsState.lineJoin(0) == .miter)
-    precondition(NativeGraphicsState.lineJoin(1) == .round)
-    precondition(NativeGraphicsState.lineJoin(2) == .bevel)
+@testable import RcNativePlayerCore
+@testable import RcNativePlayerUIKit
 
-    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.clear) == .clear)
-    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.source) == .copy)
-    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.sourceOver) == .normal)
-    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.plus) == .plusLighter)
-    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.screen) == .screen)
-    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.multiply) == .multiply)
-    precondition(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.luminosity) == .luminosity)
+@Suite struct NativeGraphicsStateTests {
+  @Test func graphicsState() {
+    #expect(NativeGraphicsState.lineCap(0) == .butt)
+    #expect(NativeGraphicsState.lineCap(1) == .round)
+    #expect(NativeGraphicsState.lineCap(2) == .square)
+    #expect(NativeGraphicsState.lineJoin(0) == .miter)
+    #expect(NativeGraphicsState.lineJoin(1) == .round)
+    #expect(NativeGraphicsState.lineJoin(2) == .bevel)
+
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.clear) == .clear)
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.source) == .copy)
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.sourceOver) == .normal)
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.plus) == .plusLighter)
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.screen) == .screen)
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.multiply) == .multiply)
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.luminosity) == .luminosity)
 
     let path = NativePathBuilder.make([
       NativePathElement(kind: 10, values: [2, 3]),
@@ -26,9 +29,9 @@ enum NativeGraphicsStateTests {
       NativePathElement(kind: 14, values: [8, 16, 4, 16, 2, 13]),
       NativePathElement(kind: 15, values: []),
     ])
-    precondition(path.currentPoint == CGPoint(x: 2, y: 3))
-    precondition(path.boundingBoxOfPath.width >= 10)
-    precondition(path.boundingBoxOfPath.height >= 10)
+    #expect(path.currentPoint == CGPoint(x: 2, y: 3))
+    #expect(path.boundingBoxOfPath.width >= 10)
+    #expect(path.boundingBoxOfPath.height >= 10)
 
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     let context = CGContext(
@@ -51,8 +54,8 @@ enum NativeGraphicsStateTests {
         tileMode: 0),
       in: context)
     let pixels = context.data!.assumingMemoryBound(to: UInt8.self)
-    precondition(pixels[0] > pixels[2], "linear gradient should begin red")
-    precondition(pixels[19 * 4 + 2] > pixels[19 * 4], "linear gradient should end blue")
+    #expect(pixels[0] > pixels[2], "linear gradient should begin red")
+    #expect(pixels[19 * 4 + 2] > pixels[19 * 4], "linear gradient should end blue")
 
     let sweepContext = CGContext(
       data: nil,
@@ -71,8 +74,6 @@ enum NativeGraphicsStateTests {
         values: [4, 4, 0, 0],
         tileMode: 0),
       in: sweepContext)
-    precondition(sweepContext.makeImage() != nil)
-
-    print("native UIKit graphics-state tests: ok")
+    #expect(sweepContext.makeImage() != nil)
   }
 }

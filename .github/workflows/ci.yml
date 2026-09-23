@@ -90,29 +90,19 @@ jobs:
               scripts/build-apple-player.sh \
               scripts/build-macos-player.sh \
               scripts/check-apple-player-screenshot.sh \
-              scripts/check-native-uikit-accessibility.sh \
               scripts/check-native-uikit-accessibility-ui.sh \
               scripts/check-native-uikit-accessibility-simulator.sh \
               scripts/check-native-uikit-animation-simulator.sh \
-              scripts/check-native-uikit-compatibility.sh \
-              scripts/check-native-uikit-density.sh \
               scripts/check-native-uikit-comparison.sh \
-              scripts/check-native-uikit-execution-limits.sh \
-              scripts/check-native-uikit-frame-timing.sh \
-              scripts/check-native-uikit-graphics.sh \
-              scripts/check-native-uikit-layout.sh \
-              scripts/check-native-swift-core.sh \
               scripts/measure-native-appkit.sh \
               scripts/measure-native-swift-core.sh \
               scripts/check-native-swift-fuzz.sh \
+              scripts/check-native-swift-ios-tests.sh \
               scripts/measure-native-uikit-simulator.sh \
               scripts/measure-apple-players-macos.sh \
               scripts/native-uikit-comparison \
               scripts/check-native-uikit-package.sh \
               scripts/check-native-uikit-profile.sh \
-              scripts/check-native-uikit-resources.sh \
-              scripts/check-native-uikit-text.sh \
-              scripts/check-native-uikit-texture.sh \
               scripts/check-swift-sample.sh \
               scripts/package-apple-player.sh \
               scripts/package-macos-player.sh \
@@ -365,67 +355,42 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-swift-sample.sh
 
-      - name: Test native UIKit compatibility policies
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-compatibility.sh
-
-      - name: Test native UIKit density policy
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-density.sh
-
-      - name: Test the pure Swift document core
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-swift-core.sh
-
-      # Derived corpus: every supported fixture, expanded into truncated, corrupted, spliced and
-      # extreme-valued variants. The second pass is shorter because the sanitizer is the expensive
-      # part, not the mutation count.
-      - name: Fuzz the pure Swift document core
+      # The native player's SwiftPM test target on the macOS host: the pure-Swift core, the fuzz
+      # corpus at its default size, and every renderer-neutral policy in `RcNativePlayerUIKit`. It
+      # replaced one `swiftc` script per test file, each compiling a hand-picked subset of sources —
+      # so a file added to a target but missed by the scripts was never type-checked, and a fixture
+      # passed by position could silently disable a block. Native-only mode keeps the Kotlin binary
+      # target out of the package graph; nothing here needs the framework assembled above.
+      - name: Test the native Swift player on macOS
         if: needs.apple-changes.outputs.required == 'true'
         env:
-          # Both passes, not just the sanitized one: a failing input is the whole point of the run,
-          # and the default temporary directory is not in the uploaded artifact.
+          RC_COMPOSE_PLAYER_NATIVE_ONLY: 1
+          # A failing fuzz input is the whole point of that test, and the default temporary
+          # directory is not in the uploaded artifact.
           RC_NATIVE_FUZZ_CORPUS_OUT: ${{ github.workspace }}/build/native-fuzz-failures
-        run: |
-          scripts/check-native-swift-fuzz.sh
-          RC_NATIVE_FUZZ_SANITIZE=address RC_NATIVE_FUZZ_ITERATIONS=24 \
-            scripts/check-native-swift-fuzz.sh
+        run: swift test
+
+      # The same test target built for, and run on, an iOS simulator: the only place the UIKit
+      # renderer behind `#if canImport(UIKit)` is compiled as a package rather than through the
+      # sample app.
+      - name: Test the native Swift player on an iOS simulator
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/check-native-swift-ios-tests.sh
+
+      # The plain `swift test` above already ran the derived corpus unsanitized. This is the
+      # address-sanitized pass, shorter because the sanitizer is the expensive part, not the
+      # mutation count.
+      - name: Fuzz the pure Swift document core under AddressSanitizer
+        if: needs.apple-changes.outputs.required == 'true'
+        env:
+          RC_NATIVE_FUZZ_CORPUS_OUT: ${{ github.workspace }}/build/native-fuzz-failures
+          RC_NATIVE_FUZZ_SANITIZE: address
+          RC_NATIVE_FUZZ_ITERATIONS: 24
+        run: scripts/check-native-swift-fuzz.sh
 
       - name: Benchmark the pure Swift document core
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/measure-native-swift-core.sh
-
-      - name: Test native UIKit layout geometry
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-layout.sh
-
-      - name: Test native UIKit accessibility policy
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-accessibility.sh
-
-      - name: Test native UIKit frame timing
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-frame-timing.sh
-
-      - name: Test native UIKit execution limits
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-execution-limits.sh
-
-      - name: Test native UIKit graphics state
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-graphics.sh
-
-      - name: Test native UIKit text policy
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-text.sh
-
-      - name: Test native UIKit texture policy
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-texture.sh
-
-      - name: Test native UIKit resource policy
-        if: needs.apple-changes.outputs.required == 'true'
-        run: scripts/check-native-uikit-resources.sh
 
       # A header-only type check cannot catch application-host contracts. In particular,
       # ComposeUIViewController enforces its high-refresh plist entry at runtime, and Xcode's
@@ -549,4 +514,5 @@ jobs:
           path: |
             rc-player/**/build/reports/tests/**
             rc-player/**/build/test-results/**
+            build/native-swift-ios-tests.xcresult
           retention-days: 7

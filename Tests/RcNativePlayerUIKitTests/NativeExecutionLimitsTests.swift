@@ -1,8 +1,10 @@
 import Foundation
+import Testing
 
-@main
-enum NativeExecutionLimitsTests {
-  static func main() throws {
+@testable import RcNativePlayerUIKit
+
+@Suite struct NativeExecutionLimitsTests {
+  @Test func executionLimits() throws {
     try NativeFrameBudget.validate(.default)
     expect(.invalidLimits) {
       try NativeFrameBudget.validate(
@@ -125,21 +127,21 @@ enum NativeExecutionLimitsTests {
       try actionWork.recordWork(
         1, limits: RemoteComposeNativeExecutionLimits(maximumFrameWork: 2))
     }
-
-    print("native UIKit execution limit tests: ok")
   }
 
-  private static func expect(
+  private func expect(
     _ expected: RemoteComposeNativeLimitError,
+    sourceLocation: SourceLocation = #_sourceLocation,
     operation: () throws -> Void
   ) {
     do {
       try operation()
-      preconditionFailure("expected \(expected)")
+      Issue.record("expected \(expected)", sourceLocation: sourceLocation)
     } catch let error as RemoteComposeNativeLimitError {
-      precondition(error == expected, "expected \(expected), got \(error)")
+      #expect(
+        error == expected, "expected \(expected), got \(error)", sourceLocation: sourceLocation)
     } catch {
-      preconditionFailure("unexpected error: \(error)")
+      Issue.record("unexpected error: \(error)", sourceLocation: sourceLocation)
     }
   }
 }

@@ -1,8 +1,10 @@
 import Foundation
+import Testing
 
-@main
-enum NativeSwiftCoreTests {
-  static func main() throws {
+@testable import RcNativePlayerCore
+
+@Suite struct NativeSwiftCoreTests {
+  @Test func documentCore() throws {
     // A host surfaces a failed frame through `localizedDescription`, not `description`: only the
     // document-open path in NativeSession downcasts to NativeSwiftCoreError. Without
     // `LocalizedError` that goes through the NSError bridge and the user reads "The operation
@@ -11,7 +13,7 @@ enum NativeSwiftCoreTests {
       NativeSwiftCoreError.malformed(offset: 12, reason: "sample"),
       NativeSwiftCoreError.unsupported(opcode: 81, offset: 4, reason: "sample"),
     ] {
-      precondition(
+      #expect(
         sample.localizedDescription == sample.description,
         "NativeSwiftCoreError must surface its own description through localizedDescription")
     }
@@ -23,17 +25,19 @@ enum NativeSwiftCoreTests {
     // the document's full width instead.
     let chained = try NativeSwiftDocumentSession.open(data: chainedSizeModifierDocument())
       .snapshot()
-    guard let chainedColumn = chained.root.children.first?.children.first else {
-      preconditionFailure("the chained-size fixture decoded no child component")
-    }
-    precondition(
+    let chainedColumn = try #require(
+      chained.root.children.first?.children.first,
+      "the chained-size fixture decoded no child component")
+    #expect(
       chainedColumn.widthType == 6 && chainedColumn.widthValue == 172,
-      "expected the outer width(172.dp) to win, got "
-        + "\(chainedColumn.widthType)/\(chainedColumn.widthValue)")
-    precondition(
+      Comment(
+        rawValue: "expected the outer width(172.dp) to win, got "
+          + "\(chainedColumn.widthType)/\(chainedColumn.widthValue)"))
+    #expect(
       chainedColumn.heightType == 6 && chainedColumn.heightValue == 64,
-      "expected the outer height(64.dp) to win, got "
-        + "\(chainedColumn.heightType)/\(chainedColumn.heightValue)")
+      Comment(
+        rawValue: "expected the outer height(64.dp) to win, got "
+          + "\(chainedColumn.heightType)/\(chainedColumn.heightValue)"))
 
     // A scroll modifier opens a container of its own, and the opcode stream closes it with the same
     // 214 that closes every other container. Reading 226 as a plain modifier left that 214 to pop the
@@ -41,29 +45,31 @@ enum NativeSwiftCoreTests {
     // arrived as siblings of the row, laid out by nobody. `row_scroll_basic` is the gold that caught
     // it, and this fixture is that shape.
     let scrolled = try NativeSwiftDocumentSession.open(data: scrolledRowDocument()).snapshot()
-    guard let scrolledRow = scrolled.root.children.first else {
-      preconditionFailure("the scrolled-row fixture decoded no row")
-    }
-    precondition(
+    let scrolledRow = try #require(
+      scrolled.root.children.first, "the scrolled-row fixture decoded no row")
+    #expect(
       scrolledRow.componentKind == "RowLayout",
       "expected the scrolled component to be a row, got \(scrolledRow.componentKind)")
-    precondition(
+    #expect(
       scrolledRow.scrollDirection == .horizontal && scrolledRow.scrollOffset == 40
         && scrolledRow.scrollMaximum == 240,
-      "expected a horizontal scroll at 40/240, got "
-        + "\(String(describing: scrolledRow.scrollDirection))/\(scrolledRow.scrollOffset)"
-        + "/\(scrolledRow.scrollMaximum)")
-    precondition(
+      Comment(
+        rawValue: "expected a horizontal scroll at 40/240, got "
+          + "\(String(describing: scrolledRow.scrollDirection))/\(scrolledRow.scrollOffset)"
+          + "/\(scrolledRow.scrollMaximum)"))
+    #expect(
       NativeSwiftScrollGesture.offset(afterDragging: 40, delta: -30, maximum: 60) == 60
         && NativeSwiftScrollGesture.offset(afterDragging: 40, delta: 60, maximum: 60) == 0,
       "scroll drag arithmetic did not clamp at both ends")
-    guard let scrolledContent = scrolledRow.children.first, scrolledContent.children.count == 1 else {
-      preconditionFailure("the scrolled row's content did not stay under the row")
-    }
-    precondition(
+    let scrolledContent = try #require(
+      scrolledRow.children.first, "the scrolled row's content did not stay under the row")
+    try #require(
+      scrolledContent.children.count == 1, "the scrolled row's content did not stay under the row")
+    #expect(
       scrolledContent.children.first?.componentID == -5,
-      "the scrolled row's child landed at "
-        + "\(String(describing: scrolledContent.children.first?.componentID))")
+      Comment(
+        rawValue: "the scrolled row's child landed at "
+          + "\(String(describing: scrolledContent.children.first?.componentID))"))
     // A *data-only* document declares values and nothing to draw, so it carries no root component at
     // all. Refusing it is right for a renderer and wrong for a conformance run, which still has to
     // answer the scalar probes those documents assert — so the mode is asked for explicitly and the
@@ -72,27 +78,28 @@ enum NativeSwiftCoreTests {
     let rootless = rootlessValuesDocument()
     do {
       _ = try NativeSwiftDocumentSession.open(data: rootless)
-      preconditionFailure("a document with no root component was accepted without the mode")
+      Issue.record("a document with no root component was accepted without the mode")
     } catch let error as NativeSwiftCoreError {
-      precondition(error.description.contains("Missing root component"))
+      #expect(error.description.contains("Missing root component"))
     }
     let dataOnly = try NativeSwiftDocumentSession.open(
       data: rootless, toleratingRootlessData: true)
     let dataOnlySnapshot = try dataOnly.snapshot()
-    precondition(
+    #expect(
       dataOnlySnapshot.root.children.isEmpty,
       "a data-only document's synthetic root grew children")
     let dataOnlyValues = try dataOnly.probeValues(timeSeconds: 0)
-    precondition(
+    #expect(
       dataOnly.namedVariableID("answer") == 5 && dataOnlyValues.floats[5] == 42,
-      "a data-only document's own values did not resolve: "
-        + "\(String(describing: dataOnlyValues.floats[5]))")
-    precondition(dataOnly.setFloat(24, forID: 99), "a finite float slot update was refused")
+      Comment(
+        rawValue: "a data-only document's own values did not resolve: "
+          + "\(String(describing: dataOnlyValues.floats[5]))"))
+    #expect(dataOnly.setFloat(24, forID: 99), "a finite float slot update was refused")
     let updatedDataOnlyValues = try dataOnly.probeValues(timeSeconds: 0)
-    precondition(
+    #expect(
       updatedDataOnlyValues.floats[99] == 24,
       "a float slot update did not survive resolution")
-    precondition(
+    #expect(
       !dataOnly.setFloat(.nan, forID: 99), "a non-finite float slot update was accepted")
 
     // AndroidX data maps resolve a key text through a typed resource-id table. This is a rootless
@@ -104,7 +111,7 @@ enum NativeSwiftCoreTests {
     let dataMapValues = try NativeSwiftDocumentSession.open(
       data: dataMap, toleratingRootlessData: true
     ).probeValues(timeSeconds: 0)
-    precondition(
+    #expect(
       dataMapValues.floats[31] == 42 && dataMapValues.texts[30] == "RemoteCompose SDUI",
       "data-map lookup did not expose its typed values: \(dataMapValues)")
 
@@ -114,11 +121,12 @@ enum NativeSwiftCoreTests {
     let particleSession = try NativeSwiftDocumentSession.open(data: particleDocument())
     let firstParticles = try particleSession.particleSnapshot(id: 9, timeSeconds: 0)
     let secondParticles = try particleSession.particleSnapshot(id: 9, timeSeconds: 1)
-    precondition(
+    #expect(
       firstParticles?.variableIDs == [70] && firstParticles?.particles == [[3]],
-      "particle definition did not initialise and simulate its first frame: "
-        + "\(String(describing: firstParticles))")
-    precondition(
+      Comment(
+        rawValue: "particle definition did not initialise and simulate its first frame: "
+          + "\(String(describing: firstParticles))"))
+    #expect(
       secondParticles?.particles == [[4]],
       "particle loop did not retain state between frames: \(String(describing: secondParticles))")
 
@@ -128,168 +136,43 @@ enum NativeSwiftCoreTests {
     _ = try compactAnimation.snapshot()
 
     let wire = editableTextDocument()
-    if CommandLine.arguments.count == 2 {
-      let kotlinFixture = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
-      precondition(kotlinFixture == wire, "Swift test fixture differs from the Kotlin encoder")
-    }
-    if CommandLine.arguments.count >= 3 {
-      let titleData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
-      let titleSession = try NativeSwiftDocumentSession.open(data: titleData)
-      let title = try titleSession.snapshot()
-      precondition(title.width == 640 && title.height == 480)
-      precondition(title.density == 2 && title.densityBehavior == 2)
-      precondition(title.root.firstText == "Morning run")
-      precondition(title.root.allText.contains("5.2 km · 28 min"))
-      guard let backgroundPath = title.root.firstPathCommand else {
-        preconditionFailure("title card has no native background path")
-      }
-      precondition(backgroundPath.usesComponentGeometry)
-      let backgroundY = backgroundPath.path.flatMap { element in
-        stride(from: 1, to: element.values.count - (element.kind == 13 ? 1 : 0), by: 2).map {
-          element.values[$0]
-        }
-      }
-      precondition(backgroundY.max() ?? 0 > 100, "title background did not use measured content")
-      guard let button = title.root.firstClickable else {
-        preconditionFailure("title card has no native clickable component")
-      }
-      let events = try titleSession.click(componentID: button.componentID, timeSeconds: 2)
-      precondition(events == [.namedAction(name: "catalogAction", value: .float(1))])
-    }
-    if CommandLine.arguments.count == 4 {
-      let progressData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[3]))
-      let progressSession = try NativeSwiftDocumentSession.open(data: progressData)
-      let first = try progressSession.snapshot(timeSeconds: 0.25)
-      let second = try progressSession.snapshot(timeSeconds: 0.75)
-      precondition(first.needsContinuousFrames)
-      precondition(first.root.allCommandValues != second.root.allCommandValues)
-      precondition(first.root.allCommandValues.count >= 15)
-    }
-    if CommandLine.arguments.count == 6 {
-      for (path, size) in zip(
-        CommandLine.arguments[4...5], [(384, 384), (454, 400)])
-      {
-        let data = try Data(contentsOf: URL(fileURLWithPath: path))
-        let snapshot = try NativeSwiftDocumentSession.open(data: data).snapshot()
-        precondition(snapshot.width == size.0 && snapshot.height == size.1)
-        precondition(snapshot.root.allCommandKinds.contains(15))
-      }
-    }
-    if CommandLine.arguments.count == 8 {
-      // The deferred-density capture — the one fixture here that computes its text size from
-      // ID_DENSITY/ID_FONT_SIZE instead of folding a capture device's density in.
-      //
-      // This used to assert a refusal: the size arrives NaN-boxed and `literalFloat` rejected it
-      // outright, so a `RemoteDensity.Host` capture was declined rather than drawn. The core now
-      // carries the word to resolution time, so the same fixture renders, and its size is whatever
-      // the host supplied — the inversion is the point, so it is written out rather than deleted.
-      let hostData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[7]))
-      let hostSession = try NativeSwiftDocumentSession.open(data: hostData)
-      // `([33] 14.0 / [27] / 15.0 *)` cancels the density back out, leaving the font scale times
-      // the 15sp the capture asked for: 15 unscaled, 22.5 at fontScale 1.5.
-      guard let unscaled = try hostSession.snapshot().root.firstTextSnapshot else {
-        preconditionFailure("the deferred-density fixture rendered no text")
-      }
-      precondition(
-        abs(unscaled.size - 15) < 0.01, "expected a 15pt deferred size, got \(unscaled.size)")
-      hostSession.setHostDensity(2.2625, fontScale: 1.5)
-      guard let scaled = try hostSession.snapshot().root.firstTextSnapshot else {
-        preconditionFailure("the deferred-density fixture rendered no text after rescaling")
-      }
-      precondition(
-        abs(scaled.size - 22.5) < 0.01, "expected a 22.5pt deferred size, got \(scaled.size)")
-
-      // The density the document resolves against is the player's own, and the host sets it. Kept
-      // next to the assertions above because these are the two halves of the same contract: what
-      // the player supplies, and what it refuses to be talked into.
-      let session = try NativeSwiftDocumentSession.open(data: wire)
-      session.setHostDensity(2.2625, fontScale: 1.3)
-      session.setHostDensity(0, fontScale: -1)  // Ignored: both reach a document as a divisor.
-      _ = try session.snapshot()
-    }
-    if CommandLine.arguments.count >= 7 {
-      let imageData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[6]))
-      let session = try NativeSwiftDocumentSession.open(data: imageData)
-      let snapshot = try session.snapshot()
-      precondition(snapshot.width == 454 && snapshot.height == 200)
-      precondition(snapshot.density == 2 && snapshot.densityBehavior == 0)
-      precondition(snapshot.images.count == 1)
-      precondition(snapshot.images[0].width == 8 && snapshot.images[0].height == 8)
-      let imageID = snapshot.root.firstImage?.imageID ?? snapshot.root.firstTextureImageID
-      precondition(imageID == snapshot.images[0].id, "image button has no native bitmap draw")
-      precondition(snapshot.root.firstTextureCommand?.usesComponentGeometry == true)
-      // The texture's shader matrix maps the 8x8 bitmap over the button — a 21.5x scale and a
-      // -56 vertical offset, both computed by a MATRIX_EXPRESSION. The renderer used to drop it and
-      // tile the bitmap at its natural size.
-      let matrix = snapshot.root.firstTextureCommand?.shaderMatrix
-      precondition(matrix?.count == 9, "texture shader matrix was \(String(describing: matrix))")
-      precondition(
-        abs((matrix?[0] ?? 0) - 21.5) < 0.01 && abs((matrix?[4] ?? 0) - 21.5) < 0.01,
-        "texture matrix scale was \(String(describing: matrix))")
-      precondition(
-        abs((matrix?[5] ?? 0) + 56) < 0.01,
-        "texture matrix translateY was \(String(describing: matrix))")
-      // Setting the scrim's gradient replaces the texture shader. The texture id used to survive
-      // the gradient, and the renderer's texture branch then drew the image a second time.
-      let scrim = snapshot.root.allCommands.first { $0.gradient != nil }
-      precondition(
-        scrim?.textureImageID == nil, "the gradient scrim still carried the texture shader")
-      guard let button = snapshot.root.firstClickable else {
-        preconditionFailure("image button has no clickable component")
-      }
-      let events = try session.click(componentID: button.componentID, timeSeconds: 0)
-      precondition(events == [])
-    }
-
-    if CommandLine.arguments.count >= 9 {
-      let tileData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[8]))
-      let tileSession = try NativeSwiftDocumentSession.open(data: tileData)
-      let activeColors = try tileSession.snapshot().root.allColors
-      precondition(tileSession.namedVariableID("light.kitchen.is_on") == 51)
-      precondition(activeColors.contains(0xffff_be3e))
-      precondition(activeColors.contains(0x33ff_be3e))
-      precondition(tileSession.setInteger(0, for: "light.kitchen.is_on"))
-      let inactiveColors = try tileSession.snapshot().root.allColors
-      precondition(inactiveColors.contains(0xffb0_b0b0))
-      precondition(inactiveColors.contains(0x33b0_b0b0))
-    }
     let session = try NativeSwiftDocumentSession.open(data: wire)
     let initial = try session.snapshot()
-    precondition(initial.width == 360 && initial.height == 150)
-    precondition(initial.density == 1 && initial.densityBehavior == 0)
-    precondition(initial.root.children.first?.children.first?.kind == .column)
+    #expect(initial.width == 360 && initial.height == 150)
+    #expect(initial.density == 1 && initial.densityBehavior == 0)
+    #expect(initial.root.children.first?.children.first?.kind == .column)
 
     let column = initial.root.children[0].children[0]
-    precondition(column.children.count == 1)
+    #expect(column.children.count == 1)
     let content = column.children[0]
-    precondition(content.children.count == 3)
-    precondition(content.children[0].custom?.config == "demo:EditableText")
-    precondition(content.children[0].custom?.properties[0].textValue == "Hello from the document")
-    precondition(content.children[2].text?.value == "Hello from the document")
+    #expect(content.children.count == 3)
+    #expect(content.children[0].custom?.config == "demo:EditableText")
+    #expect(content.children[0].custom?.properties[0].textValue == "Hello from the document")
+    #expect(content.children[2].text?.value == "Hello from the document")
 
-    precondition(session.setColor(0xff12_3456, for: "accent"))
+    #expect(session.setColor(0xff12_3456, for: "accent"))
     let accepted = try session.returnCustomText(
       "Edited in Swift", componentID: 5, propertyID: 2)
-    precondition(accepted)
+    #expect(accepted)
     let updated = try session.snapshot()
     let updatedContent = updated.root.children[0].children[0].children[0]
-    precondition(updatedContent.children[0].custom?.properties[0].textValue == "Edited in Swift")
-    precondition(
+    #expect(updatedContent.children[0].custom?.properties[0].textValue == "Edited in Swift")
+    #expect(
       updatedContent.children[0].custom?.properties[2].integerValue
         == Int(Int32(bitPattern: 0xff12_3456)))
-    precondition(updatedContent.children[2].text?.value == "Edited in Swift")
+    #expect(updatedContent.children[2].text?.value == "Edited in Swift")
     let rejected = try session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
-    precondition(!rejected)
+    #expect(!rejected)
 
     let floatSession = try NativeSwiftDocumentSession.open(data: dynamicCustomFloatDocument())
     let initialFloat = try floatSession.snapshot().root.children[0].children[0]
-    precondition(initialFloat.custom?.properties[0].floatValue == 0.4)
+    #expect(initialFloat.custom?.properties[0].floatValue == 0.4)
     let acceptedFloat = try floatSession.returnCustomFloat(0.85, componentID: 3, propertyID: 2)
-    precondition(acceptedFloat, "declared float return should be accepted")
+    #expect(acceptedFloat, "declared float return should be accepted")
     let returnedFloat = try floatSession.snapshot().root.children[0].children[0]
-    precondition(abs((returnedFloat.custom?.properties[0].floatValue ?? 0) - 0.85) < 0.001)
+    #expect(abs((returnedFloat.custom?.properties[0].floatValue ?? 0) - 0.85) < 0.001)
     let rejectedFloat = try floatSession.returnCustomFloat(0.5, componentID: 3, propertyID: 99)
-    precondition(!rejectedFloat, "an undeclared return channel should be rejected")
+    #expect(!rejectedFloat, "an undeclared return channel should be rejected")
 
     // A Row whose spacing is computed rather than stated. Before float words were carried to
     // resolution time this stored the reference's raw NaN bits into a plain `Float` and laid the
@@ -303,7 +186,7 @@ enum NativeSwiftCoreTests {
     computedSpacing.u8(203).int(2).int(0).int(1).int(4).int(Writer.nanReference(41))
     computedSpacing.u8(214).u8(214)
     let spacingSnapshot = try NativeSwiftDocumentSession.open(data: computedSpacing.data).snapshot()
-    precondition(
+    #expect(
       spacingSnapshot.root.children[0].spacing == 12,
       "computed row spacing resolved to \(spacingSnapshot.root.children[0].spacing)")
 
@@ -319,9 +202,9 @@ enum NativeSwiftCoreTests {
     poisonedSize.u8(214).u8(214).u8(214)
     do {
       _ = try NativeSwiftDocumentSession.open(data: poisonedSize.data).snapshot()
-      preconditionFailure("a text size resolving to zero was accepted")
+      Issue.record("a text size resolving to zero was accepted")
     } catch let error as NativeSwiftCoreError {
-      precondition(
+      #expect(
         error.description.contains("text size"),
         "expected the failure to name the text size, got \(error.description)")
     }
@@ -351,7 +234,7 @@ enum NativeSwiftCoreTests {
     fillBinding.u8(214).u8(214).u8(214).u8(214).u8(214)
     let fillSnapshot = try NativeSwiftDocumentSession.open(data: fillBinding.data).snapshot()
     let fillScale = fillSnapshot.root.allCommands.first(where: { $0.kind == 3 })?.values.first
-    precondition(
+    #expect(
       abs((fillScale ?? 0) - 26.0 / 24.0) < 0.001,
       "a fill inside a fixed box measured the document, got scale \(String(describing: fillScale))")
 
@@ -367,21 +250,21 @@ enum NativeSwiftCoreTests {
     calendar.u8(214)
     let calendarSession = try NativeSwiftDocumentSession.open(data: calendar.data)
     let unset = try calendarSession.snapshot()
-    precondition(
+    #expect(
       unset.root.commands[0].values[0] == 0,
       "an unsupplied calendar field resolved to \(unset.root.commands[0].values[0])")
     // 2026-09-19T12:34:56.789Z.
     let wallClock = NativeSwiftWallClock(epochMillis: 1_789_821_296_789, offsetSeconds: 0)
     let fields = try calendarSession.snapshot(wallClock: wallClock).root.commands
       .map { $0.values[0] }
-    precondition(
+    #expect(
       fields == [2026, 9, 19, 6, 262, 2096, 754, 12, 0],
       "calendar fields resolved to \(fields)")
     // A zone offset moves the local fields but not the instant.
     let shifted = try calendarSession.snapshot(
       wallClock: NativeSwiftWallClock(epochMillis: 1_789_821_296_789, offsetSeconds: 3600)
     ).root.commands.map { $0.values[0] }
-    precondition(
+    #expect(
       shifted == [2026, 9, 19, 6, 262, 2096, 814, 13, 3600],
       "offset calendar fields resolved to \(shifted)")
 
@@ -395,7 +278,7 @@ enum NativeSwiftCoreTests {
     claimed.u8(214)
     let claimedYear = try NativeSwiftDocumentSession.open(data: claimed.data)
       .snapshot(wallClock: wallClock).root.commands[0].values[0]
-    precondition(claimedYear == 1999, "a claimed calendar id resolved to \(claimedYear)")
+    #expect(claimedYear == 1999, "a claimed calendar id resolved to \(claimedYear)")
 
     // Pre-epoch instants: `-1 ms` is the last millisecond of 1969, and the fields have to describe
     // that rather than 1970-01-01T00:00:00.999. A week earlier is a Sunday, ISO 7, which a negative
@@ -403,20 +286,20 @@ enum NativeSwiftCoreTests {
     let preEpoch = try calendarSession.snapshot(
       wallClock: NativeSwiftWallClock(epochMillis: -1)
     ).root.commands.map { $0.values[0] }
-    precondition(
+    #expect(
       preEpoch == [1969, 12, 31, 3, 365, 3599, 1439, 23, 0],
       "pre-epoch calendar fields resolved to \(preEpoch)")
     let sunday = try calendarSession.snapshot(
       wallClock: NativeSwiftWallClock(epochMillis: -345_600_000)
     ).root.commands.map { $0.values[0] }
-    precondition(
+    #expect(
       sunday[3] == 7 && sunday[4] == 362,
       "a pre-epoch weekday resolved to \(sunday[3]) / day-of-year \(sunday[4])")
 
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)
-    precondition(
+    #expect(
       refreshed.needsWallClockRefresh,
       "a document reading calendar fields did not ask for a refresh")
     let animated = Writer()
@@ -427,10 +310,10 @@ enum NativeSwiftCoreTests {
     animated.u8(42).int(Writer.nanReference(41)).int(0).int(0).int(0)
     animated.u8(214)
     let animatedSnapshot = try NativeSwiftDocumentSession.open(data: animated.data).snapshot()
-    precondition(
+    #expect(
       !animatedSnapshot.needsWallClockRefresh,
       "an animation-only document asked for a wall-clock refresh")
-    precondition(
+    #expect(
       animatedSnapshot.needsContinuousFrames,
       "an animation-only document did not ask for continuous frames")
 
@@ -442,7 +325,7 @@ enum NativeSwiftCoreTests {
     clockText.u8(135).int(40).int(Writer.nanReference(2)).int(0).int(0)
     clockText.u8(200).int(1).u8(214).u8(214)
     let clockTextSnapshot = try NativeSwiftDocumentSession.open(data: clockText.data).snapshot()
-    precondition(
+    #expect(
       clockTextSnapshot.needsWallClockRefresh,
       "a clock-to-text conversion did not ask for a wall-clock refresh")
     let plainText = Writer()
@@ -450,7 +333,7 @@ enum NativeSwiftCoreTests {
     plainText.u8(135).int(40).float(1.5).int(0).int(0)
     plainText.u8(200).int(1).u8(214).u8(214)
     let plainTextSnapshot = try NativeSwiftDocumentSession.open(data: plainText.data).snapshot()
-    precondition(
+    #expect(
       !plainTextSnapshot.needsWallClockRefresh,
       "a constant text-from-float conversion asked for a wall-clock refresh")
 
@@ -465,11 +348,12 @@ enum NativeSwiftCoreTests {
       .float(0.5)
     staticColor.u8(200).int(1).u8(214).u8(214)
     let staticColorSnapshot = try NativeSwiftDocumentSession.open(data: staticColor.data).snapshot()
-    precondition(
+    #expect(
       !staticColorSnapshot.needsContinuousFrames && !staticColorSnapshot.needsWallClockRefresh,
-      "a static colour expression asked for frames: continuous="
-        + "\(staticColorSnapshot.needsContinuousFrames) wallClock="
-        + "\(staticColorSnapshot.needsWallClockRefresh)")
+      Comment(
+        rawValue: "a static colour expression asked for frames: continuous="
+          + "\(staticColorSnapshot.needsContinuousFrames) wallClock="
+          + "\(staticColorSnapshot.needsWallClockRefresh)"))
     // The tween of the same mode *is* a float word, so a clock there is still found.
     let tweenedColor = Writer()
     tweenedColor.header(width: 100, height: 100)
@@ -479,7 +363,7 @@ enum NativeSwiftCoreTests {
       .int(Writer.nanReference(2))
     tweenedColor.u8(200).int(1).u8(214).u8(214)
     let tweenedSnapshot = try NativeSwiftDocumentSession.open(data: tweenedColor.data).snapshot()
-    precondition(
+    #expect(
       tweenedSnapshot.needsWallClockRefresh,
       "a colour tween reading the clock did not ask for a refresh")
     // Modes 4...6 build a colour from float channels, so all three are words.
@@ -488,7 +372,7 @@ enum NativeSwiftCoreTests {
     channelColor.u8(134).int(40).int(4).int(Writer.nanReference(2)).int(0).int(0)
     channelColor.u8(200).int(1).u8(214).u8(214)
     let channelSnapshot = try NativeSwiftDocumentSession.open(data: channelColor.data).snapshot()
-    precondition(
+    #expect(
       channelSnapshot.needsWallClockRefresh,
       "a colour channel reading the clock did not ask for a refresh")
 
@@ -510,19 +394,18 @@ enum NativeSwiftCoreTests {
     stateLayout.u8(67).int(6).float(150)
     stateLayout.u8(214).u8(214).u8(214)
     let stateSnapshot = try NativeSwiftDocumentSession.open(data: stateLayout.data).snapshot()
-    guard let stateNode = stateSnapshot.root.children.first else {
-      preconditionFailure("the state-layout fixture decoded no state layout")
-    }
-    precondition(
+    let stateNode = try #require(
+      stateSnapshot.root.children.first, "the state-layout fixture decoded no state layout")
+    #expect(
       stateNode.componentKind == "StateLayout",
       "a state layout reported kind \(stateNode.componentKind)")
-    precondition(stateNode.stateIndex == 0, "state index resolved to \(String(describing: stateNode.stateIndex))")
+    #expect(stateNode.stateIndex == 0, "state index resolved to \(String(describing: stateNode.stateIndex))")
     // The container takes the active child's size whatever the document asks for: both its fill
     // width and fixed 100-point height are dropped.
-    precondition(
+    #expect(
       stateNode.widthType == 2 && stateNode.heightType == 2,
       "a dimensioned state layout kept its own size: \(stateNode.widthType)/\(stateNode.heightType)")
-    precondition(
+    #expect(
       stateNode.children.map(\.visibility) == [1, 0],
       "state layout children were \(stateNode.children.map(\.visibility)), expected only the first")
     // The same document with the index set to the second branch.
@@ -540,15 +423,16 @@ enum NativeSwiftCoreTests {
     secondBranch.u8(67).int(6).float(150)
     secondBranch.u8(214).u8(214).u8(214)
     let secondSnapshot = try NativeSwiftDocumentSession.open(data: secondBranch.data).snapshot()
-    precondition(
+    #expect(
       secondSnapshot.root.children.first?.children.map(\.visibility) == [0, 1],
       "the second state branch was not the visible one")
     // The reported index counts the *branches*, not the wrapper they sit in, so it agrees with the
     // branch that is actually visible.
-    precondition(
+    #expect(
       secondSnapshot.root.children.first?.stateIndex == 1,
-      "the second branch reported index "
-        + "\(String(describing: secondSnapshot.root.children.first?.stateIndex))")
+      Comment(
+        rawValue: "the second branch reported index "
+          + "\(String(describing: secondSnapshot.root.children.first?.stateIndex))"))
 
     // A flow container's wrap bounds reach the snapshot, so a renderer can wrap rather than lay
     // every child out on one line.
@@ -561,16 +445,16 @@ enum NativeSwiftCoreTests {
     flow.u8(67).int(6).float(50)
     flow.u8(214).u8(214).u8(214)
     let flowSnapshot = try NativeSwiftDocumentSession.open(data: flow.data).snapshot()
-    guard let flowNode = flowSnapshot.root.children.first else {
-      preconditionFailure("the flow fixture decoded no flow container")
-    }
-    precondition(
+    let flowNode = try #require(
+      flowSnapshot.root.children.first, "the flow fixture decoded no flow container")
+    #expect(
       flowNode.componentKind == "FlowLayout",
       "a flow container reported kind \(flowNode.componentKind)")
-    precondition(
+    #expect(
       flowNode.flowMaximumItems == 2 && flowNode.flowMaximumLines == 3,
-      "flow bounds resolved to \(String(describing: flowNode.flowMaximumItems)) / "
-        + "\(String(describing: flowNode.flowMaximumLines))")
+      Comment(
+        rawValue: "flow bounds resolved to \(String(describing: flowNode.flowMaximumItems)) / "
+          + "\(String(describing: flowNode.flowMaximumLines))"))
 
     // A weighted flow child reserves its `widthIn` minimum while the line is segmented, so its
     // siblings are not placed beside it when that minimum cannot fit; without it the weight is
@@ -582,13 +466,13 @@ enum NativeSwiftCoreTests {
       NativeSwiftFlow.Child(measuredWidth: 100),
     ]
     let segmented = NativeSwiftFlow.segment(weightedFlow, available: 300, spacing: 0)
-    precondition(
+    #expect(
       segmented.lines == [[0, 1], [2]],
       "weighted flow segmentation produced \(segmented.lines)")
     let withoutMinimum = NativeSwiftFlow.segment(
       [NativeSwiftFlow.Child(measuredWidth: 0, weight: 1), weightedFlow[1], weightedFlow[2]],
       available: 300, spacing: 0)
-    precondition(
+    #expect(
       withoutMinimum.lines == [[0, 1, 2]],
       "an unconstrained weighted child should not force a wrap: \(withoutMinimum.lines)")
     // The caps still apply: items per line, and lines before the rest are discarded.
@@ -596,7 +480,7 @@ enum NativeSwiftCoreTests {
       [NativeSwiftFlow.Child(measuredWidth: 10), NativeSwiftFlow.Child(measuredWidth: 10),
        NativeSwiftFlow.Child(measuredWidth: 10)],
       available: 1000, spacing: 0, maximumItems: 2, maximumLines: 1)
-    precondition(
+    #expect(
       capped.lines == [[0, 1]] && capped.discarded == [2],
       "flow caps produced \(capped.lines) / \(capped.discarded)")
     // Once the line cap is reached, everything from that child on is discarded — a later, smaller
@@ -606,7 +490,7 @@ enum NativeSwiftCoreTests {
        NativeSwiftFlow.Child(measuredWidth: 0, weight: 1, minimumWidth: 30),
        NativeSwiftFlow.Child(measuredWidth: 20)],
       available: 100, spacing: 0, maximumLines: 1)
-    precondition(
+    #expect(
       cappedSuffix.lines == [[0]] && cappedSuffix.discarded == [1, 2],
       "a capped suffix produced \(cappedSuffix.lines) / \(cappedSuffix.discarded)")
     // A GONE child is in neither the line, its spacing, nor its item count.
@@ -615,7 +499,7 @@ enum NativeSwiftCoreTests {
        NativeSwiftFlow.Child(measuredWidth: 100),
        NativeSwiftFlow.Child(measuredWidth: 100)],
       available: 100, spacing: 10, maximumItems: 2)
-    precondition(
+    #expect(
       goneFlow.lines == [[1], [2]],
       "a GONE child consumed a slot or a gap: \(goneFlow.lines)")
 
@@ -623,7 +507,7 @@ enum NativeSwiftCoreTests {
     modern.modernHeader(width: 100, height: 50, unrelatedKey: 69, unrelatedValue: 999)
     modern.u8(200).int(1).u8(214).u8(214)
     let modernSnapshot = try NativeSwiftDocumentSession.open(data: modern.data).snapshot()
-    precondition(modernSnapshot.width == 100 && modernSnapshot.height == 50)
+    #expect(modernSnapshot.width == 100 && modernSnapshot.height == 50)
 
     let googleFont = Writer()
     googleFont.header(width: 100, height: 50)
@@ -634,7 +518,7 @@ enum NativeSwiftCoreTests {
       id: 3, textID: 20, color: 0xff00_0000, size: 16, familyID: 21)
     googleFont.u8(214).u8(214)
     let googleSnapshot = try NativeSwiftDocumentSession.open(data: googleFont.data).snapshot()
-    precondition(googleSnapshot.root.firstTextSnapshot?.familyName == "google:Orbitron")
+    #expect(googleSnapshot.root.firstTextSnapshot?.familyName == "google:Orbitron")
 
     let canvasOperations = Writer()
     canvasOperations.header(width: 100, height: 100)
@@ -644,7 +528,7 @@ enum NativeSwiftCoreTests {
     canvasOperations.u8(173).u8(130).u8(131).u8(214)
     canvasOperations.u8(214).u8(214).u8(214)
     let canvasSnapshot = try NativeSwiftDocumentSession.open(data: canvasOperations.data).snapshot()
-    precondition(canvasSnapshot.root.children[0].children[0].commands.count == 2)
+    #expect(canvasSnapshot.root.children[0].children[0].commands.count == 2)
 
     // AndroidX LOOM streams are also allowed to paint directly into the document canvas before
     // any structural definition.  That is a real drawable document, unlike a rootless data-only
@@ -654,7 +538,7 @@ enum NativeSwiftCoreTests {
     standaloneCanvas.u8(42).float(0).float(0).float(40).float(30).u8(214)
     let standaloneCanvasSnapshot = try NativeSwiftDocumentSession.open(data: standaloneCanvas.data)
       .snapshot()
-    precondition(
+    #expect(
       standaloneCanvasSnapshot.root.componentKind == "Canvas"
         && standaloneCanvasSnapshot.root.commands.count == 1
         && standaloneCanvasSnapshot.root.commands[0].kind == 10,
@@ -670,7 +554,7 @@ enum NativeSwiftCoreTests {
     let standaloneTransformSnapshot = try NativeSwiftDocumentSession.open(
       data: standaloneTransform.data
     ).snapshot()
-    precondition(
+    #expect(
       standaloneTransformSnapshot.root.componentKind == "Canvas"
         && standaloneTransformSnapshot.root.commands.map(\.kind) == [2, 10],
       "standalone transform commands did not share the implicit canvas root")
@@ -685,7 +569,7 @@ enum NativeSwiftCoreTests {
     loomMacro.u8(42).float(20).float(10).float(76).float(50).u8(214)
     loomMacro.u8(247).int(30).int(0).u8(214)
     let loomMacroSnapshot = try NativeSwiftDocumentSession.open(data: loomMacro.data).snapshot()
-    precondition(
+    #expect(
       loomMacroSnapshot.root.commands.count == 2,
       "a container-form LOOM macro was not expanded at its call site")
 
@@ -705,7 +589,7 @@ enum NativeSwiftCoreTests {
     let parameterizedLoomSnapshot = try NativeSwiftDocumentSession.open(
       data: parameterizedLoomMacro.data
     ).snapshot()
-    precondition(
+    #expect(
       parameterizedLoomSnapshot.root.children[0].commands.first?.kind == 18,
       "a LOOM parameter id was not remapped to the call-site path")
 
@@ -721,7 +605,7 @@ enum NativeSwiftCoreTests {
     blockLoomMacro.u8(42).float(10).float(10).float(40).float(40).u8(214)
     blockLoomMacro.u8(214)
     let blockLoomSnapshot = try NativeSwiftDocumentSession.open(data: blockLoomMacro.data).snapshot()
-    precondition(
+    #expect(
       blockLoomSnapshot.root.commands.count == 1,
       "a LOOM macro argument did not expand its supplied block")
 
@@ -736,7 +620,7 @@ enum NativeSwiftCoreTests {
     let structuralReferenceSnapshot = try NativeSwiftDocumentSession.open(
       data: structuralReference.data
     ).snapshot()
-    precondition(
+    #expect(
       structuralReferenceSnapshot.root.commands.count == 2,
       "referenced operations were not expanded at their include site")
 
@@ -750,7 +634,7 @@ enum NativeSwiftCoreTests {
     drawPath.u8(214).u8(214).u8(214)
     let pathSnapshot = try NativeSwiftDocumentSession.open(data: drawPath.data).snapshot()
     let pathCommand = pathSnapshot.root.children[0].children[0].commands[0]
-    precondition(pathCommand.kind == 18 && pathCommand.path.count == 2)
+    #expect(pathCommand.kind == 18 && pathCommand.path.count == 2)
 
     let staticDrawing = Writer()
     staticDrawing.header(width: 100, height: 100)
@@ -777,8 +661,8 @@ enum NativeSwiftCoreTests {
     let drawingCommands =
       try NativeSwiftDocumentSession.open(data: staticDrawing.data).snapshot().root.children[0]
         .commands
-    precondition(drawingCommands.map(\.kind) == [6, 2, 3, 5, 10, 12, 13, 14, 16, 11, 7])
-    precondition(drawingCommands.last?.path.count == 2)
+    #expect(drawingCommands.map(\.kind) == [6, 2, 3, 5, 10, 12, 13, 14, 16, 11, 7])
+    #expect(drawingCommands.last?.path.count == 2)
 
     // Filter quality is paint state: an IMAGE_FILTER_QUALITY field (10) names a quality, the
     // legacy FILTER_BITMAP flag (17) names two, and a command that never saw either leaves it unset
@@ -798,7 +682,7 @@ enum NativeSwiftCoreTests {
     filterQuality.u8(214).u8(214)
     let filterCommands =
       try NativeSwiftDocumentSession.open(data: filterQuality.data).snapshot().root.commands
-    precondition(
+    #expect(
       filterCommands.map(\.filterQuality) == [nil, 3, 0, 1, 1],
       "paint filter quality resolved to \(filterCommands.map { String(describing: $0.filterQuality) })")
 
@@ -809,13 +693,13 @@ enum NativeSwiftCoreTests {
         sizes.map { NativeSwiftCollapsible.Child(mainSize: $0) },
         available: available, spacing: spacing)
     }
-    precondition(
+    #expect(
       kept([70, 70, 70], available: 250, spacing: 20) == [true, true, true],
       "a container with room for every child dropped one")
-    precondition(
+    #expect(
       kept([70, 70, 70], available: 180, spacing: 20) == [true, true, false],
       "the child that did not fit was not the one dropped")
-    precondition(
+    #expect(
       kept([70, 70, 70], available: 89, spacing: 20) == [true, false, false],
       "overflow did not stop at the first child that did not fit")
     // A priority sorts a child ahead of another: the reference keeps absent priorities first, then
@@ -825,7 +709,7 @@ enum NativeSwiftCoreTests {
       NativeSwiftCollapsible.Child(mainSize: 100, priority: 5),
       NativeSwiftCollapsible.Child(mainSize: 100),
     ]
-    precondition(
+    #expect(
       NativeSwiftCollapsible.keptChildren(prioritised, available: 200, spacing: 0)
         == [false, true, true],
       "priority order did not decide which child was dropped")
@@ -835,7 +719,7 @@ enum NativeSwiftCoreTests {
       NativeSwiftCollapsible.Child(mainSize: 100, weight: 1),
       NativeSwiftCollapsible.Child(mainSize: 200),
     ]
-    precondition(
+    #expect(
       NativeSwiftCollapsible.keptChildren(weighted, available: 150, spacing: 0)
         == [true, false],
       "a weighted child consumed space in the fit test")
@@ -844,24 +728,24 @@ enum NativeSwiftCoreTests {
       NativeSwiftCollapsible.Child(mainSize: 100, isGone: true),
       NativeSwiftCollapsible.Child(mainSize: 100),
     ]
-    precondition(
+    #expect(
       NativeSwiftCollapsible.keptChildren(gone, available: 100, spacing: 0) == [false, true],
       "a GONE child was kept or consumed space")
     // A fill child has no natural size, so it is not measured unbounded — an unbounded fill
     // resolves to infinity and the fit test then drops it from any container.
-    precondition(
+    #expect(
       !NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 1)
         && !NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 7)
         && !NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 8),
       "a fill dimension was measured unbounded")
-    precondition(
+    #expect(
       NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 2)
         && NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 6)
         && NativeSwiftCollapsible.measuresUnbounded(mainAxisType: 3),
       "a fixed, wrapping or weighted dimension was not measured unbounded")
 
     // Unbounded space keeps everything the document did not hide.
-    precondition(
+    #expect(
       kept([10, 10], available: .infinity) == [true, true],
       "an unbounded container dropped a child")
 
@@ -876,21 +760,23 @@ enum NativeSwiftCoreTests {
     collapsible.u8(235).int(1).float(2)
     collapsible.u8(214).u8(214).u8(214)
     let collapsibleSnapshot = try NativeSwiftDocumentSession.open(data: collapsible.data).snapshot()
-    guard let column = collapsibleSnapshot.root.children.first else {
-      preconditionFailure("the collapsible fixture decoded no column")
-    }
-    precondition(
-      column.componentKind == "CollapsibleColumnLayout",
-      "a collapsible column reported kind \(column.componentKind)")
-    precondition(column.isCollapsible, "a collapsible column did not report itself as one")
-    precondition(column.spacing == 20, "collapsible spacing resolved to \(column.spacing)")
-    guard let child = column.children.first else {
-      preconditionFailure("the collapsible fixture decoded no child")
-    }
-    precondition(
+    let collapsibleColumn = try #require(
+      collapsibleSnapshot.root.children.first, "the collapsible fixture decoded no column")
+    #expect(
+      collapsibleColumn.componentKind == "CollapsibleColumnLayout",
+      "a collapsible column reported kind \(collapsibleColumn.componentKind)")
+    #expect(collapsibleColumn.isCollapsible, "a collapsible column did not report itself as one")
+    #expect(
+      collapsibleColumn.spacing == 20,
+      "collapsible spacing resolved to \(collapsibleColumn.spacing)")
+    let child = try #require(
+      collapsibleColumn.children.first, "the collapsible fixture decoded no child")
+    #expect(
       child.collapsiblePriority == 2 && child.collapsiblePriorityOrientation == 1,
-      "the priority modifier resolved to \(String(describing: child.collapsiblePriority)) / "
-        + "\(String(describing: child.collapsiblePriorityOrientation))")
+      Comment(
+        rawValue: "the priority modifier resolved to "
+          + "\(String(describing: child.collapsiblePriority)) / "
+          + "\(String(describing: child.collapsiblePriorityOrientation))"))
 
     let semantics = Writer()
     semantics.header(width: 100, height: 100)
@@ -903,11 +789,11 @@ enum NativeSwiftCoreTests {
     semantics.u8(214).u8(214).u8(214)
     let semanticsSession = try NativeSwiftDocumentSession.open(data: semantics.data)
     let semanticButton = try semanticsSession.snapshot().root.children[0].children[0]
-    precondition(semanticButton.accessibility?.contentDescription == "Disabled action")
-    precondition(semanticButton.accessibility?.stateDescription == "Unavailable")
-    precondition(semanticButton.accessibility?.isEnabled == false)
+    #expect(semanticButton.accessibility?.contentDescription == "Disabled action")
+    #expect(semanticButton.accessibility?.stateDescription == "Unavailable")
+    #expect(semanticButton.accessibility?.isEnabled == false)
     let disabledEvents = try semanticsSession.click(componentID: 3, timeSeconds: 0)
-    precondition(disabledEvents == nil)
+    #expect(disabledEvents == nil)
 
     let gestures = Writer()
     gestures.header(width: 100, height: 100)
@@ -921,16 +807,16 @@ enum NativeSwiftCoreTests {
     gestures.u8(214).u8(214)
     let gestureSession = try NativeSwiftDocumentSession.open(data: gestures.data)
     let gestureNode = try gestureSession.snapshot().root.children[0]
-    precondition(
+    #expect(
       gestureNode.supportedGestures == [
         .longPress, .doubleTap, .touchDown, .touchUp, .touchCancel,
       ])
     for gesture in gestureNode.supportedGestures {
       let events = try gestureSession.gesture(gesture, componentID: 3, timeSeconds: 0)
-      precondition(events == [.namedAction(name: "gesture", value: .none)])
+      #expect(events == [.namedAction(name: "gesture", value: .none)])
     }
     let missingTap = try gestureSession.click(componentID: 3, timeSeconds: 0)
-    precondition(missingTap == nil)
+    #expect(missingTap == nil)
 
     let integerAction = Writer()
     integerAction.header(width: 100, height: 100)
@@ -944,7 +830,7 @@ enum NativeSwiftCoreTests {
       .u8(214).u8(214).u8(214)
     let integerSession = try NativeSwiftDocumentSession.open(data: integerAction.data)
     let integerEvents = try integerSession.click(componentID: 3, timeSeconds: 0)
-    precondition(integerEvents == [.namedAction(name: "count", value: .integer(2))])
+    #expect(integerEvents == [.namedAction(name: "count", value: .integer(2))])
 
     let malformedPaint = Writer()
     malformedPaint.header(width: 100, height: 100)
@@ -953,16 +839,16 @@ enum NativeSwiftCoreTests {
     malformedPaint.u8(214)
     do {
       _ = try NativeSwiftDocumentSession.open(data: malformedPaint.data)
-      preconditionFailure("negative variable paint count was accepted")
+      Issue.record("negative variable paint count was accepted")
     } catch let error as NativeSwiftCoreError {
-      precondition(!error.isUnsupported)
+      #expect(!error.isUnsupported)
     }
 
     do {
       _ = try NativeSwiftDocumentSession.open(data: wire.dropLast())
-      preconditionFailure("truncated input was accepted")
+      Issue.record("truncated input was accepted")
     } catch let error as NativeSwiftCoreError {
-      precondition(!error.isUnsupported)
+      #expect(!error.isUnsupported)
     }
 
     let unsupported = Writer()
@@ -970,32 +856,32 @@ enum NativeSwiftCoreTests {
     unsupported.u8(255)
     do {
       _ = try NativeSwiftDocumentSession.open(data: unsupported.data)
-      preconditionFailure("unsupported opcode was accepted")
+      Issue.record("unsupported opcode was accepted")
     } catch let error as NativeSwiftCoreError {
-      precondition(error.isUnsupported)
+      #expect(error.isUnsupported)
     }
 
     let tweenSession = try NativeSwiftDocumentSession.open(data: animatedFloatDocument())
     let firstTween = try tweenSession.snapshot(timeSeconds: 0)
-    precondition(firstTween.root.commands[0].values[0] == 0)
-    precondition(!firstTween.needsContinuousFrames, "an unchanged initial target should be idle")
-    precondition(tweenSession.setFloat(10, for: "target"))
+    #expect(firstTween.root.commands[0].values[0] == 0)
+    #expect(!firstTween.needsContinuousFrames, "an unchanged initial target should be idle")
+    #expect(tweenSession.setFloat(10, for: "target"))
     let tweenStart = try tweenSession.snapshot(timeSeconds: 0)
     let tweenMiddle = try tweenSession.snapshot(timeSeconds: 0.5)
     let tweenEnd = try tweenSession.snapshot(timeSeconds: 1)
-    precondition(tweenStart.root.commands[0].values[0] == 0)
-    precondition(abs(tweenMiddle.root.commands[0].values[0] - 5) < 0.01)
-    precondition(tweenEnd.root.commands[0].values[0] == 10)
-    precondition(tweenStart.needsContinuousFrames && tweenMiddle.needsContinuousFrames)
-    precondition(!tweenEnd.needsContinuousFrames, "a completed tween kept requesting frames")
+    #expect(tweenStart.root.commands[0].values[0] == 0)
+    #expect(abs(tweenMiddle.root.commands[0].values[0] - 5) < 0.01)
+    #expect(tweenEnd.root.commands[0].values[0] == 10)
+    #expect(tweenStart.needsContinuousFrames && tweenMiddle.needsContinuousFrames)
+    #expect(!tweenEnd.needsContinuousFrames, "a completed tween kept requesting frames")
 
     let staticSession = try NativeSwiftDocumentSession.open(
       data: animatedFloatDocument(includeAnimation: false))
     _ = try staticSession.snapshot(timeSeconds: 0)
-    precondition(staticSession.setFloat(10, for: "target"))
+    #expect(staticSession.setFloat(10, for: "target"))
     let staticUpdate = try staticSession.snapshot(timeSeconds: 0.5)
-    precondition(staticUpdate.root.commands[0].values[0] == 10)
-    precondition(!staticUpdate.needsContinuousFrames)
+    #expect(staticUpdate.root.commands[0].values[0] == 10)
+    #expect(!staticUpdate.needsContinuousFrames)
 
     // These samples are from the Kotlin RcFloatAnimation reference at 250ms intervals, scaled from
     // 0 to 10. They exercise the descriptor's packed type/parameter fields as well as each curve.
@@ -1015,16 +901,16 @@ enum NativeSwiftCoreTests {
       let session = try NativeSwiftDocumentSession.open(
         data: animatedFloatDocument(easingType: easing.type, parameters: easing.parameters))
       _ = try session.snapshot(timeSeconds: 0)
-      precondition(session.setFloat(10, for: "target"))
+      #expect(session.setFloat(10, for: "target"))
       _ = try session.snapshot(timeSeconds: 0)
       for (time, expected) in zip([0.25, 0.5, 0.75], easing.values) {
         let actual = try session.snapshot(timeSeconds: time).root.commands[0].values[0]
-        precondition(
+        #expect(
           abs(actual - expected) < 0.01,
           "easing \(easing.type) at \(time)s: expected \(expected), got \(actual)")
       }
       let endpoint = try session.snapshot(timeSeconds: 1).root.commands[0].values[0]
-      precondition(abs(endpoint - 10) < 0.01, "easing \(easing.type) did not reach its target")
+      #expect(abs(endpoint - 10) < 0.01, "easing \(easing.type) did not reach its target")
     }
 
     let springSession = try NativeSwiftDocumentSession.open(data: springFloatDocument())
@@ -1034,44 +920,188 @@ enum NativeSwiftCoreTests {
     for frame in 2...600 {
       springSettled = try springSession.snapshot(timeSeconds: Double(frame) * 0.016)
     }
-    precondition(springStart.root.commands[0].values[0] == 0)
-    precondition(abs(springMoving.root.commands[0].values[0] - 0.004904) < 0.0001)
-    precondition(springStart.needsContinuousFrames && springMoving.needsContinuousFrames)
-    precondition(abs(springSettled.root.commands[0].values[0] - 1) < 0.001)
-    precondition(!springSettled.needsContinuousFrames, "a settled spring kept requesting frames")
+    #expect(springStart.root.commands[0].values[0] == 0)
+    #expect(abs(springMoving.root.commands[0].values[0] - 0.004904) < 0.0001)
+    #expect(springStart.needsContinuousFrames && springMoving.needsContinuousFrames)
+    #expect(abs(springSettled.root.commands[0].values[0] - 1) < 0.001)
+    #expect(!springSettled.needsContinuousFrames, "a settled spring kept requesting frames")
 
     do {
       _ = try NativeSwiftDocumentSession.open(data: unsupportedFloatAnimationDocument())
-      preconditionFailure("an unknown easing mode was silently accepted")
+      Issue.record("an unknown easing mode was silently accepted")
     } catch let error as NativeSwiftCoreError {
-      precondition(error.isUnsupported, "unknown easing should be an explicit unsupported error")
+      #expect(error.isUnsupported, "unknown easing should be an explicit unsupported error")
     }
 
     let concurrentSession = try NativeSwiftDocumentSession.open(data: concurrentStringDocument())
+    // Worker threads carry no test context, so their failures are collected and reported here.
+    let concurrentFailures = FailureLog()
     DispatchQueue.concurrentPerform(iterations: 1_000) { index in
       switch index % 3 {
       case 0:
-        precondition(concurrentSession.setString("value-\(index)", for: "message"))
+        if !concurrentSession.setString("value-\(index)", for: "message") {
+          concurrentFailures.append("concurrent setString refused value-\(index)")
+        }
       case 1:
         do {
           _ = try concurrentSession.snapshot()
         } catch {
-          preconditionFailure("concurrent snapshot failed: \(error)")
+          concurrentFailures.append("concurrent snapshot failed: \(error)")
         }
       default:
         do {
           _ = try concurrentSession.detachedCopy().snapshot()
         } catch {
-          preconditionFailure("concurrent detached snapshot failed: \(error)")
+          concurrentFailures.append("concurrent detached snapshot failed: \(error)")
         }
       }
     }
+    #expect(concurrentFailures.messages.isEmpty, "\(concurrentFailures.messages)")
+  }
 
-    print("native pure Swift core tests: ok")
+  // MARK: - Committed fixtures
+  //
+  // These were one `main` that dispatched on `CommandLine.arguments.count`, and the script passed
+  // eight fixtures — so the blocks guarded by `== 2`, `== 4`, `== 6` and `== 8` never ran. They are
+  // ported verbatim but disabled, so switching one on is a reviewed change rather than a silent one.
+
+  @Test(.disabled("never ran: it needed exactly one argv fixture and the script passed eight"))
+  func editableTextFixtureMatchesTheSwiftEncoder() throws {
+    let kotlinFixture = try NativeTestFixtures.data("editable-text.rc")
+    #expect(
+      kotlinFixture == editableTextDocument(), "Swift test fixture differs from the Kotlin encoder")
+  }
+
+  @Test func titleCardFixture() throws {
+    let titleData = try NativeTestFixtures.data("TitleCardRemote-640x480.rc")
+    let titleSession = try NativeSwiftDocumentSession.open(data: titleData)
+    let title = try titleSession.snapshot()
+    #expect(title.width == 640 && title.height == 480)
+    #expect(title.density == 2 && title.densityBehavior == 2)
+    #expect(title.root.firstText == "Morning run")
+    #expect(title.root.allText.contains("5.2 km · 28 min"))
+    let backgroundPath = try #require(
+      title.root.firstPathCommand, "title card has no native background path")
+    #expect(backgroundPath.usesComponentGeometry)
+    let backgroundY = backgroundPath.path.flatMap { element in
+      stride(from: 1, to: element.values.count - (element.kind == 13 ? 1 : 0), by: 2).map {
+        element.values[$0]
+      }
+    }
+    #expect(backgroundY.max() ?? 0 > 100, "title background did not use measured content")
+    let button = try #require(
+      title.root.firstClickable, "title card has no native clickable component")
+    let events = try titleSession.click(componentID: button.componentID, timeSeconds: 2)
+    #expect(events == [.namedAction(name: "catalogAction", value: .float(1))])
+  }
+
+  @Test(.disabled("never ran: it needed exactly three argv fixtures and the script passed eight"))
+  func indeterminateProgressFixture() throws {
+    let progressData = try NativeTestFixtures.data("IndeterminateCircularProgress-400x400.rc")
+    let progressSession = try NativeSwiftDocumentSession.open(data: progressData)
+    let first = try progressSession.snapshot(timeSeconds: 0.25)
+    let second = try progressSession.snapshot(timeSeconds: 0.75)
+    #expect(first.needsContinuousFrames)
+    #expect(first.root.allCommandValues != second.root.allCommandValues)
+    #expect(first.root.allCommandValues.count >= 15)
+  }
+
+  @Test(.disabled("never ran: it needed exactly five argv fixtures and the script passed eight"))
+  func circularAndArcProgressFixtures() throws {
+    for (name, size) in zip(
+      ["CircularProgressRemote-384x384.rc", "ArcProgressRemote-454x400.rc"],
+      [(384, 384), (454, 400)])
+    {
+      let data = try NativeTestFixtures.data(name)
+      let snapshot = try NativeSwiftDocumentSession.open(data: data).snapshot()
+      #expect(snapshot.width == size.0 && snapshot.height == size.1)
+      #expect(snapshot.root.allCommandKinds.contains(15))
+    }
+  }
+
+  @Test(.disabled("never ran: it needed exactly seven argv fixtures and the script passed eight"))
+  func hostDensityFixture() throws {
+    // The deferred-density capture — the one fixture here that computes its text size from
+    // ID_DENSITY/ID_FONT_SIZE instead of folding a capture device's density in.
+    //
+    // This used to assert a refusal: the size arrives NaN-boxed and `literalFloat` rejected it
+    // outright, so a `RemoteDensity.Host` capture was declined rather than drawn. The core now
+    // carries the word to resolution time, so the same fixture renders, and its size is whatever
+    // the host supplied — the inversion is the point, so it is written out rather than deleted.
+    let hostData = try NativeTestFixtures.data("host-density.rc")
+    let hostSession = try NativeSwiftDocumentSession.open(data: hostData)
+    // `([33] 14.0 / [27] / 15.0 *)` cancels the density back out, leaving the font scale times
+    // the 15sp the capture asked for: 15 unscaled, 22.5 at fontScale 1.5.
+    let unscaledSnapshot = try hostSession.snapshot()
+    let unscaled = try #require(
+      unscaledSnapshot.root.firstTextSnapshot, "the deferred-density fixture rendered no text")
+    #expect(
+      abs(unscaled.size - 15) < 0.01, "expected a 15pt deferred size, got \(unscaled.size)")
+    hostSession.setHostDensity(2.2625, fontScale: 1.5)
+    let scaledSnapshot = try hostSession.snapshot()
+    let scaled = try #require(
+      scaledSnapshot.root.firstTextSnapshot,
+      "the deferred-density fixture rendered no text after rescaling")
+    #expect(
+      abs(scaled.size - 22.5) < 0.01, "expected a 22.5pt deferred size, got \(scaled.size)")
+
+    // The density the document resolves against is the player's own, and the host sets it. Kept
+    // next to the assertions above because these are the two halves of the same contract: what
+    // the player supplies, and what it refuses to be talked into.
+    let session = try NativeSwiftDocumentSession.open(data: editableTextDocument())
+    session.setHostDensity(2.2625, fontScale: 1.3)
+    session.setHostDensity(0, fontScale: -1)  // Ignored: both reach a document as a divisor.
+    _ = try session.snapshot()
+  }
+
+  @Test func imageBackgroundButtonFixture() throws {
+    let imageData = try NativeTestFixtures.data("ImageBackgroundRemoteButton-454x200.rc")
+    let session = try NativeSwiftDocumentSession.open(data: imageData)
+    let snapshot = try session.snapshot()
+    #expect(snapshot.width == 454 && snapshot.height == 200)
+    #expect(snapshot.density == 2 && snapshot.densityBehavior == 0)
+    try #require(snapshot.images.count == 1)
+    #expect(snapshot.images[0].width == 8 && snapshot.images[0].height == 8)
+    let imageID = snapshot.root.firstImage?.imageID ?? snapshot.root.firstTextureImageID
+    #expect(imageID == snapshot.images[0].id, "image button has no native bitmap draw")
+    #expect(snapshot.root.firstTextureCommand?.usesComponentGeometry == true)
+    // The texture's shader matrix maps the 8x8 bitmap over the button — a 21.5x scale and a
+    // -56 vertical offset, both computed by a MATRIX_EXPRESSION. The renderer used to drop it and
+    // tile the bitmap at its natural size.
+    let matrix = snapshot.root.firstTextureCommand?.shaderMatrix
+    #expect(matrix?.count == 9, "texture shader matrix was \(String(describing: matrix))")
+    #expect(
+      abs((matrix?[0] ?? 0) - 21.5) < 0.01 && abs((matrix?[4] ?? 0) - 21.5) < 0.01,
+      "texture matrix scale was \(String(describing: matrix))")
+    #expect(
+      abs((matrix?[5] ?? 0) + 56) < 0.01,
+      "texture matrix translateY was \(String(describing: matrix))")
+    // Setting the scrim's gradient replaces the texture shader. The texture id used to survive
+    // the gradient, and the renderer's texture branch then drew the image a second time.
+    let scrim = snapshot.root.allCommands.first { $0.gradient != nil }
+    #expect(
+      scrim?.textureImageID == nil, "the gradient scrim still carried the texture shader")
+    let button = try #require(
+      snapshot.root.firstClickable, "image button has no clickable component")
+    let events = try session.click(componentID: button.componentID, timeSeconds: 0)
+    #expect(events == [])
+  }
+
+  @Test func demoTileFixture() throws {
+    let tileData = try NativeTestFixtures.data("demo-tile.rc")
+    let tileSession = try NativeSwiftDocumentSession.open(data: tileData)
+    let activeColors = try tileSession.snapshot().root.allColors
+    #expect(tileSession.namedVariableID("light.kitchen.is_on") == 51)
+    #expect(activeColors.contains(0xffff_be3e))
+    #expect(activeColors.contains(0x33ff_be3e))
+    #expect(tileSession.setInteger(0, for: "light.kitchen.is_on"))
+    let inactiveColors = try tileSession.snapshot().root.allColors
+    #expect(inactiveColors.contains(0xffb0_b0b0))
+    #expect(inactiveColors.contains(0x33b0_b0b0))
   }
 
   /// A root holding one column that carries both an exact size and a fill, in AndroidX's order.
-  private static func chainedSizeModifierDocument() -> Data {
+  private func chainedSizeModifierDocument() -> Data {
     let output = Writer()
     output.header(width: 454, height: 400)
     output.u8(200).int(-2)
@@ -1088,7 +1118,7 @@ enum NativeSwiftCoreTests {
 
   /// A root holding one row with a horizontal scroll modifier, in AndroidX's order: the row, the
   /// container the scroll modifier opens, its 214, and only then the row's content.
-  private static func scrolledRowDocument() -> Data {
+  private func scrolledRowDocument() -> Data {
     let output = Writer()
     output.header(width: 200, height: 100)
     output.u8(200).int(-2)
@@ -1102,7 +1132,7 @@ enum NativeSwiftCoreTests {
   }
 
   /// A document with values and no components: one float expression and the name it answers to.
-  private static func rootlessValuesDocument() -> Data {
+  private func rootlessValuesDocument() -> Data {
     let output = Writer()
     output.header(width: 300, height: 200)
     output.u8(81).int(5).int(1).float(42)
@@ -1110,7 +1140,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func particleDocument() -> Data {
+  private func particleDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
     // ParticleDefine(id, count, variable count, [variable id, initial equation]).
@@ -1122,7 +1152,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func editableTextDocument() -> Data {
+  private func editableTextDocument() -> Data {
     let output = Writer()
     output.header(width: 360, height: 150)
     output.u8(138).int(50).int(Int(Int32(bitPattern: 0xff20_2124)))
@@ -1152,7 +1182,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func dynamicCustomFloatDocument() -> Data {
+  private func dynamicCustomFloatDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
     output.u8(81).int(70).int(1).float(0.4)
@@ -1166,7 +1196,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func animatedFloatDocument(
+  private func animatedFloatDocument(
     easingType: Int = 4, parameters: [Float] = [], includeAnimation: Bool = true
   ) -> Data {
     let output = Writer()
@@ -1187,7 +1217,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func compactAnimationDocument() -> Data {
+  private func compactAnimationDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
     output.u8(81).int(51).int((1 << 16) | 1).float(1).float(0.25)
@@ -1195,7 +1225,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func springFloatDocument() -> Data {
+  private func springFloatDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
     output.u8(81).int(51).int((5 << 16) | 1)
@@ -1204,7 +1234,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func unsupportedFloatAnimationDocument() -> Data {
+  private func unsupportedFloatAnimationDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
     output.u8(81).int(51).int((2 << 16) | 1)
@@ -1213,7 +1243,7 @@ enum NativeSwiftCoreTests {
     return output.data
   }
 
-  private static func concurrentStringDocument() -> Data {
+  private func concurrentStringDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
     output.namedVariable(id: 55, type: 0, name: "message")
@@ -1278,6 +1308,24 @@ extension NativeSwiftNodeSnapshot {
 
   fileprivate var allCommands: [NativeSwiftDrawCommandSnapshot] {
     commands + children.flatMap(\.allCommands)
+  }
+}
+
+/// Collects failures from threads that carry no test context.
+private final class FailureLog: @unchecked Sendable {
+  private let lock = NSLock()
+  private var recorded: [String] = []
+
+  var messages: [String] {
+    lock.lock()
+    defer { lock.unlock() }
+    return recorded
+  }
+
+  func append(_ message: String) {
+    lock.lock()
+    recorded.append(message)
+    lock.unlock()
   }
 }
 

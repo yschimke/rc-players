@@ -1,9 +1,11 @@
 import CoreGraphics
 import Foundation
+import Testing
 
-@main
-enum NativeLayoutTests {
-  static func main() {
+@testable import RcNativePlayerUIKit
+
+@Suite struct NativeLayoutTests {
+  @Test func layout() {
     assertClose(
       NativeLayoutDimension(type: 0, value: 80, minimum: 20, maximum: 60)
         .resolve(intrinsic: 10, available: 100),
@@ -82,30 +84,25 @@ enum NativeLayoutTests {
     assertClose(resized.scaleY, 2)
     assertClose(resized.translateX, 0)
     assertClose(resized.translateY, 0)
-
-    print("native UIKit layout tests: ok")
   }
 
-  private static func assertClose(
+  private func assertClose(
     _ actual: CGFloat,
     _ expected: CGFloat,
-    file: StaticString = #file,
-    line: UInt = #line
+    sourceLocation: SourceLocation = #_sourceLocation
   ) {
-    precondition(
+    #expect(
       abs(actual - expected) < 0.001,
       "expected \(expected), got \(actual)",
-      file: file,
-      line: line)
+      sourceLocation: sourceLocation)
   }
 
-  private static func assertEqual(
+  private func assertEqual(
     _ actual: [CGFloat],
     _ expected: [CGFloat],
-    file: StaticString = #file,
-    line: UInt = #line
+    sourceLocation: SourceLocation = #_sourceLocation
   ) {
-    precondition(actual.count == expected.count, file: file, line: line)
-    zip(actual, expected).forEach { assertClose($0, $1, file: file, line: line) }
+    #expect(actual.count == expected.count, sourceLocation: sourceLocation)
+    zip(actual, expected).forEach { assertClose($0, $1, sourceLocation: sourceLocation) }
   }
 }
