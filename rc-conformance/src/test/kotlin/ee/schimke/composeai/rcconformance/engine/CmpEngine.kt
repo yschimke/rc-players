@@ -43,6 +43,7 @@ import ee.schimke.composeai.rcplayer.compose.RcPlayerTheme
 import ee.schimke.composeai.rcplayer.compose.RcScrollOffsetKey
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
+import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
@@ -321,8 +322,15 @@ private class CmpSession(
         touch { moveTo(Offset(step.float("x") ?: 0f, step.float("y") ?: 0f)) }
         afterGesture(step)
       }
+      // A touch-up names where the pointer is lifted (§3); lifting wherever the last drag left it
+      // reported the drag's position as the release point.
       "touch_up" -> {
-        touch { up() }
+        val x = step.float("x")
+        val y = step.float("y")
+        touch {
+          if (x != null && y != null) moveTo(Offset(x, y))
+          up()
+        }
         afterGesture(step)
       }
       "clock_snapshot" -> clockSnapshot(step)
@@ -654,6 +662,7 @@ private class CmpSession(
         handled[check.at]?.let { Observation.Value(JsonPrimitive(it)) }
           ?: Observation.NotImplemented
       "trace:host_actions" -> Observation.Value(JsonArray(hostActions.toList()))
+      "trace:branches" -> branches()?.let(Observation::Value) ?: Observation.NotImplemented
       "records:animation_specs" ->
         Observation.Value(
           buildJsonArray {
@@ -1015,6 +1024,62 @@ private class CmpSession(
         }
       }
 
+  /**
+   * Each conditional's verdict, in the corpus's branch-trace shape (§4.4).
+   *
+   * Derived from the linked document and the current state rather than recorded while painting —
+   * the same trade `draw_log` makes, and exact for the straight-line documents the branch golds
+   * are: a condition over constants has one answer however often it is asked. `path` numbers the
+   * conditionals among their own nesting, so the second conditional inside the first is `0.1`. One
+   * inside a branch that did not run is still listed, not executed. `CHANGED` compares against the
+   * previous frame's value, which a read after the fact cannot know, so a document that uses it is
+   * reported unobservable rather than guessed at.
+   */
+  private fun branches(): JsonArray? {
+    val entries = mutableListOf<JsonObject>()
+    var observable = true
+    fun walk(nodes: List<RcLinkedNode>, prefix: String, parentRan: Boolean) {
+      var index = 0
+      nodes.forEach { node ->
+        if (node !is RcLinkedNode.Container) return@forEach
+        val conditional = node.operation as? RcConditionalOperations
+        if (conditional == null) {
+          walk(node.children, prefix, parentRan)
+          return@forEach
+        }
+        val path = if (prefix.isEmpty()) "$index" else "$prefix.$index"
+        index += 1
+        val a = resolveWord(conditional.left)
+        val b = resolveWord(conditional.right)
+        val holds =
+          when (conditional.type) {
+            RcConditionalOperations.EQUAL -> a == b
+            RcConditionalOperations.NOT_EQUAL -> a != b
+            RcConditionalOperations.LESS_THAN -> a < b
+            RcConditionalOperations.LESS_THAN_OR_EQUAL -> a <= b
+            RcConditionalOperations.GREATER_THAN -> a > b
+            RcConditionalOperations.GREATER_THAN_OR_EQUAL -> a >= b
+            else -> {
+              observable = false
+              false
+            }
+          }
+        val ran = parentRan && holds
+        entries += buildJsonObject {
+          put("path", JsonPrimitive(path))
+          put("type", JsonPrimitive(BRANCH_TYPES.getOrElse(conditional.type) { "changed" }))
+          put("a", JsonPrimitive(a))
+          put("b", JsonPrimitive(b))
+          put("executed", JsonPrimitive(ran))
+          put("executedChildOps", JsonPrimitive(if (ran) node.children.size else 0))
+        }
+        walk(node.children, path, ran)
+      }
+    }
+    linked?.operations?.let { walk(it, "", parentRan = true) }
+    return if (observable) JsonArray(entries) else null
+  }
+
   /** An [RcAnimationSpec] in the corpus's record shape (§4.2). */
   private fun RcAnimationSpec.toRecord(): JsonObject = buildJsonObject {
     put("animationId", JsonPrimitive(animationId))
@@ -1120,6 +1185,8 @@ private class CmpSession(
     /** One frame of the test clock, which advances in whole 16 ms frames. */
     const val FRAME_MILLIS = 16L
     const val HEADER_CLASS_NAME = "Header"
+    /** The corpus's names for `ConditionalOperations` types 0..5, in wire order. */
+    val BRANCH_TYPES = listOf("eq", "neq", "lt", "lte", "gt", "gte")
     const val DEFAULT_ANIMATION_MILLIS = 300
     /** AndroidX `Easing.CUBIC_STANDARD`, the easing of the default animation spec. */
     const val CUBIC_STANDARD = 1
