@@ -341,6 +341,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           expression.words, values: values)
       case .integerValue(let targetID, let value):
         integers[targetID] = value
+      case .floatValue(let targetID, let value):
+        let resolved = NativeSwiftFloatExpression.resolve(value, values: values)
+        if resolved.isFinite { floatOverrides[targetID] = resolved }
+      case .textValue(let targetID, let textID):
+        if let text = texts[textID] { texts[targetID] = text }
       case .named(let action):
         guard let name = texts[action.nameTextID] else { continue }
         let value: NativeSwiftActionValue

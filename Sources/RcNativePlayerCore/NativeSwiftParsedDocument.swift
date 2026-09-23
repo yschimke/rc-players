@@ -161,6 +161,10 @@ enum ParsedAction {
   case integerExpression(targetID: Int, expressionID: Int)
   case floatExpression(targetID: Int, expressionID: Int)
   case integerValue(targetID: Int, value: Int)
+  /// `VALUE_FLOAT_CHANGE_ACTION`: set a float to a (possibly computed) value.
+  case floatValue(targetID: Int, value: UInt32)
+  /// `VALUE_STRING_CHANGE_ACTION`: set a text to another text's value.
+  case textValue(targetID: Int, textID: Int)
 }
 
 struct ParsedModifierContainer {

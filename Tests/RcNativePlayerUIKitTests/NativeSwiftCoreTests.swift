@@ -968,6 +968,32 @@ import Testing
     let missingTap = try gestureSession.click(componentID: 3, timeSeconds: 0)
     #expect(missingTap == nil)
 
+    // A click can set a float and copy a text. The same actions, and host actions, outside any
+    // click modifier are inert rather than refusing the document, as in the reference.
+    let valueActions = Writer()
+    valueActions.header(width: 100, height: 100)
+    valueActions.text(id: 10, "before")
+    valueActions.text(id: 11, "after")
+    valueActions.u8(80).int(40).float(1)
+    valueActions.u8(222).int(40).float(99)
+    valueActions.u8(216).int(1).int(10)
+    valueActions.u8(200).int(1).u8(202).int(3).int(-1).int(1).int(4)
+    valueActions.u8(59)
+    valueActions.u8(222).int(40).float(7)
+    valueActions.u8(213).int(10).int(11)
+    valueActions.u8(214).u8(214).u8(214)
+    let valueSession = try NativeSwiftDocumentSession.open(data: valueActions.data)
+    let untouched = try valueSession.probeValues(timeSeconds: 0)
+    precondition(
+      untouched.floats[40] == 1 && untouched.texts[10] == "before",
+      "an inert action ran: \(String(describing: untouched.floats[40]))")
+    _ = try valueSession.click(componentID: 3, timeSeconds: 0)
+    let clicked = try valueSession.probeValues(timeSeconds: 0)
+    precondition(
+      clicked.floats[40] == 7 && clicked.texts[10] == "after",
+      "value actions set \(String(describing: clicked.floats[40])), "
+        + "\(String(describing: clicked.texts[10]))")
+
     let integerAction = Writer()
     integerAction.header(width: 100, height: 100)
     integerAction.text(id: 10, "count")
