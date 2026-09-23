@@ -52,6 +52,9 @@ struct ParsedDocument {
   let accessibilityRecords: [ParsedAccessibility]
   let shaderUniformNames: [Int: Set<String>]
   let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
+  let impulses: [ParsedImpulse]
+  /// `WAKE_IN` requests, as the words the document wrote.
+  let wakeWords: [UInt32]
   let particleDefinitions: [ParsedParticleDefinition]
   let particleLoops: [ParsedParticleLoop]
   let needsContinuousFrames: Bool
@@ -174,7 +177,29 @@ struct ParsedAccessibility {
   let isClickable: Bool
 }
 
+/// `IMPULSE_START`'s two words, and which of its `IMPULSE_PROCESS` containers is the process
+/// body: AndroidX runs the last child as the body when it is one, and everything else once, on the
+/// first frame inside the window.
+struct ParsedImpulse {
+  let durationWord: UInt32
+  let startAtWord: UInt32
+  var processSegment: Int?
+}
+
+/// Where a draw command sits in an impulse: its setup (`segment` -1) or its n-th process container.
+struct ParsedImpulseGate {
+  let impulse: Int
+  let segment: Int
+}
+
+/// AndroidX `ImpulseOperation`'s phase at one frame.
+enum NativeSwiftImpulsePhase {
+  case waiting, initialize, process, idle
+}
+
 struct ParsedDrawCommand {
+  /// Set when the command is drawn by an impulse, which shows it only in the matching phase.
+  var impulseGate: ParsedImpulseGate?
   let kind: Int
   let words: [UInt32]
   /// Literal geometry never depends on a frame's expression table. Keeping the decoded floats

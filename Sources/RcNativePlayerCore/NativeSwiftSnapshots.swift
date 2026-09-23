@@ -59,6 +59,24 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let shaderUniformNames: [Int: Set<String>]
   /// Conditional containers evaluated while linking the document.
   public let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
+  /// Every `IMPULSE_START` in declaration order, with its window resolved for this frame.
+  public let impulses: [NativeSwiftImpulseSnapshot]
+  /// When the document asked to be resolved again, in seconds from this frame: the shortest
+  /// `WAKE_IN`, an impulse still waiting for its window, or 0 for one inside it. Nil when nothing
+  /// asked.
+  public let wakeAfter: TimeInterval?
+
+  /// The wake a host should schedule: the document's own request, or the once-a-second refresh a
+  /// document reading a discrete wall-clock field needs, whichever comes first.
+  public var hostWakeAfter: TimeInterval? {
+    [needsWallClockRefresh ? 1 : nil, wakeAfter].compactMap { $0 }.min()
+  }
+}
+
+/// One `IMPULSE_START`: a window of `duration` seconds opening at `startAt` on the animation clock.
+public struct NativeSwiftImpulseSnapshot: Equatable, Sendable {
+  public let duration: Float
+  public let startAt: Float
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.

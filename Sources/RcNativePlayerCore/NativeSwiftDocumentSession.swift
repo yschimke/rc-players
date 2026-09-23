@@ -20,6 +20,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var integers: [Int: Int]
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
   private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
+  /// AndroidX's per-impulse "first frame in the window" bit, and each impulse's phase at the frame
+  /// last advanced to.
+  private var impulseInitialPass: [Int: Bool] = [:]
+  private var impulsePhases: [Int: NativeSwiftImpulsePhase] = [:]
+  private var lastImpulseFrameTime: TimeInterval?
   private var lastParticleFrameTime: TimeInterval?
   // A host may request another frame for a document that has no clock-driven state. Preserve the
   // public value snapshot while sharing its copy-on-write storage instead of re-resolving the
@@ -77,6 +82,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
     particleSystems = other.particleSystems.mapValues { $0.detachedCopy() }
+    impulseInitialPass = other.impulseInitialPass
+    impulsePhases = other.impulsePhases
+    lastImpulseFrameTime = other.lastImpulseFrameTime
     lastParticleFrameTime = other.lastParticleFrameTime
     staticSnapshotCache = other.staticSnapshotCache
   }
@@ -151,6 +159,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
         resolveAnimatedValues: true)
     }
+    advanceImpulses(values: values, timeSeconds: timeSeconds)
     resolveTextOperations(values: values)
     // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
     // preceding TextFromFloat/TextLookup/TextMerge, so resolve it only after those text producers
@@ -193,12 +202,65 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
       }, shaderUniformNames: document.shaderUniformNames,
-      conditionalTraces: document.conditionalTraces)
+      conditionalTraces: document.conditionalTraces,
+      impulses: document.impulses.map {
+        NativeSwiftImpulseSnapshot(
+          duration: NativeSwiftFloatExpression.resolve($0.durationWord, values: values),
+          startAt: NativeSwiftFloatExpression.resolve($0.startAtWord, values: values))
+      },
+      wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds))
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
       staticSnapshotCache = StaticSnapshotCache(
         measuredComponents: measuredComponents, snapshot: snapshot)
     }
     return snapshot
+  }
+
+  /// AndroidX `ImpulseOperation`: waiting before the window, initializing on the first frame inside
+  /// it, processing on every later frame inside it, idle after it, which re-arms the first frame.
+  /// Advanced once per frame time, so resolving a frame twice does not consume the first frame.
+  private func advanceImpulses(values: [Int: Float], timeSeconds: TimeInterval) {
+    guard !document.impulses.isEmpty, lastImpulseFrameTime != timeSeconds else { return }
+    lastImpulseFrameTime = timeSeconds
+    let time = Float(timeSeconds)
+    for (index, impulse) in document.impulses.enumerated() {
+      let startAt = NativeSwiftFloatExpression.resolve(impulse.startAtWord, values: values)
+      let duration = NativeSwiftFloatExpression.resolve(impulse.durationWord, values: values)
+      if time < startAt {
+        impulsePhases[index] = .waiting
+      } else if time <= startAt + duration {
+        impulsePhases[index] = impulseInitialPass[index, default: true] ? .initialize : .process
+        impulseInitialPass[index] = false
+      } else {
+        impulsePhases[index] = .idle
+        impulseInitialPass[index] = true
+      }
+    }
+  }
+
+  /// Whether a command drawn inside an impulse belongs to the impulse's phase at this frame.
+  private func impulseAllows(_ gate: ParsedImpulseGate?) -> Bool {
+    guard let gate else { return true }
+    let phase = impulsePhases[gate.impulse] ?? .idle
+    if gate.segment == document.impulses[gate.impulse].processSegment { return phase == .process }
+    return phase == .initialize
+  }
+
+  private func wakeAfter(values: [Int: Float], timeSeconds: TimeInterval) -> TimeInterval? {
+    var requests = document.wakeWords.compactMap { word -> TimeInterval? in
+      let seconds = NativeSwiftFloatExpression.resolve(word, values: values)
+      return seconds.isFinite && seconds >= 0 ? TimeInterval(seconds) : nil
+    }
+    for (index, impulse) in document.impulses.enumerated() {
+      switch impulsePhases[index] ?? .idle {
+      case .waiting:
+        let startAt = NativeSwiftFloatExpression.resolve(impulse.startAtWord, values: values)
+        requests.append(max(TimeInterval(startAt) - timeSeconds, 0))
+      case .initialize, .process: requests.append(0)
+      case .idle: break
+      }
+    }
+    return requests.min()
   }
 
   /// Advances retained particle systems to this frame and returns one system's current state.
@@ -469,6 +531,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) -> Bool {
     wallClock == nil
       && !document.needsContinuousFrames
+      && document.impulses.isEmpty
       && document.particleLoops.isEmpty
       && !floatAnimationRuntimes.contains {
         floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
@@ -548,7 +611,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       children: try resolvedChildren(
         of: node, values: values, colors: resolvedColors,
         stateBranchActive: stateBranchActive),
-      commands: try node.commands.map {
+      commands: try node.commands.filter { impulseAllows($0.impulseGate) }.map {
         try $0.resolve(
           values: values, colors: resolvedColors, texts: texts,
           componentValueIDs: Set(document.componentValues.map(\.valueID)),

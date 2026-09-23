@@ -159,8 +159,9 @@
         needsContinuousFrames: swiftSnapshot.needsContinuousFrames,
         requestsNextFrame: false,
         // A document that reads a discrete wall-clock field has to be re-resolved at least once a
-        // second, or its clock freezes on the first frame; the driver re-arms this after each wake.
-        wakeAfter: swiftSnapshot.needsWallClockRefresh ? 1 : nil)
+        // second, or its clock freezes on the first frame; one with a WAKE_IN or an impulse asks
+        // for its own time. The driver re-arms this after each wake.
+        wakeAfter: swiftSnapshot.hostWakeAfter)
     }
 
     func diagnostics(availableCustomComponents: Set<String>)

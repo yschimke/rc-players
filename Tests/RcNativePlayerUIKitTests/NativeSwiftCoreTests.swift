@@ -350,6 +350,55 @@ import Testing
         && styledTexts[1].overflow == 1,
       "styled text resolved to \(styledTexts.map { ($0.size, $0.weight, $0.overflow) })")
 
+    // An impulse opens a window on the animation clock. Its setup draws once, on the first frame
+    // inside the window; its trailing process body draws on every later frame inside it; nothing
+    // draws before or after. WAKE_IN and a waiting impulse ask the host to come back.
+    let impulse = Writer()
+    impulse.header(width: 100, height: 100)
+    impulse.u8(164).float(1).float(0.5)
+    impulse.u8(42).float(0).float(0).float(10).float(10)
+    impulse.u8(165)
+    impulse.u8(42).float(1).float(1).float(20).float(20)
+    impulse.u8(214)
+    impulse.u8(214)
+    impulse.u8(191).float(0.25)
+    let impulseSession = try NativeSwiftDocumentSession.open(data: impulse.data)
+    func impulseFrame(_ time: TimeInterval) throws -> (right: [Float], wake: TimeInterval?) {
+      let frame = try impulseSession.snapshot(timeSeconds: time)
+      return (frame.root.commands.map { $0.values[2] }, frame.wakeAfter)
+    }
+    let waiting = try impulseFrame(0)
+    precondition(
+      waiting.right.isEmpty && waiting.wake == 0.25,
+      "a waiting impulse drew \(waiting.right) and woke after \(String(describing: waiting.wake))")
+    let first = try impulseFrame(0.6)
+    let again = try impulseFrame(0.6)
+    let later = try impulseFrame(1.0)
+    let after = try impulseFrame(2.0)
+    precondition(
+      first.right == [10] && again.right == [10] && first.wake == 0,
+      "an impulse's first frame drew \(first.right), then \(again.right) on re-resolution")
+    precondition(later.right == [20], "an impulse's process body drew \(later.right)")
+    precondition(
+      after.right.isEmpty && after.wake == 0.25,
+      "a closed impulse drew \(after.right), woke after \(String(describing: after.wake))")
+    let impulseRecord = try impulseSession.snapshot(timeSeconds: 0).impulses
+    precondition(
+      impulseRecord == [NativeSwiftImpulseSnapshot(duration: 1, startAt: 0.5)],
+      "impulse records resolved to \(impulseRecord)")
+    // Only drawing is gated; state inside an impulse would run outside its window, so it refuses.
+    let stateful = Writer()
+    stateful.header(width: 100, height: 100)
+    stateful.u8(164).float(1).float(0)
+    stateful.u8(80).int(40).float(1)
+    stateful.u8(214)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: stateful.data)
+      preconditionFailure("state inside an impulse was accepted")
+    } catch NativeSwiftCoreError.unsupported(let opcode, _, _) {
+      precondition(opcode == 80, "the impulse refused opcode \(opcode)")
+    }
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)

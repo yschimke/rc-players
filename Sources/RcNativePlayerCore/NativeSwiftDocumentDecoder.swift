@@ -149,6 +149,21 @@ enum NativeSwiftDocumentDecoder {
     var syntheticRootWasAdded = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
+    var impulses: [ParsedImpulse] = []
+    var wakeWords: [UInt32] = []
+    /// An open impulse container: its setup (-1) or one of its process containers, closed when
+    /// `modifierContainers` returns to `depth`.
+    struct ImpulseScope {
+      let impulse: Int
+      let segment: Int
+      let depth: Int
+    }
+    var impulseScopes: [ImpulseScope] = []
+    var impulseSegmentCounts: [Int: Int] = [:]
+    /// The process container an impulse's setup most recently ended with, if nothing followed it.
+    var impulseTrailingProcess: [Int: Int] = [:]
+    /// Nodes an operation drew into while an impulse was open, with their command count before.
+    var impulseDrawTargets: [(node: ParsedNode, count: Int)] = []
     var paint = ParsedPaint()
     // AndroidX has two wire forms for MacroDefine: an inline byte body and a container body
     // terminated by ContainerEnd.  Retaining raw bytes lets a call execute its body with the
@@ -265,6 +280,14 @@ enum NativeSwiftDocumentDecoder {
     }
 
     func drawingNode() throws -> ParsedNode {
+      let node = try drawingTarget()
+      if !impulseScopes.isEmpty, !impulseDrawTargets.contains(where: { $0.node === node }) {
+        impulseDrawTargets.append((node: node, count: node.commands.count))
+      }
+      return node
+    }
+
+    func drawingTarget() throws -> ParsedNode {
       if stack.isEmpty {
         if let implicitCanvasRoot { return implicitCanvasRoot }
         guard root == nil, nodes.count < maximumNodes else {
@@ -489,6 +512,7 @@ enum NativeSwiftDocumentDecoder {
       }
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
+      let impulseScope = impulseScopes.last
       // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
       // own their children; macro definitions and calls expand into those children; neither is an
       // independent top-level operation. Template bytes execute through `suspendedInputs` and are
@@ -1609,6 +1633,14 @@ enum NativeSwiftDocumentDecoder {
           .integerValue(targetID: targetID, value: value))
       case 214:  // Container end
         if !modifierContainers.isEmpty {
+          if let scope = impulseScopes.last, scope.depth == modifierContainers.count {
+            impulseScopes.removeLast()
+            if scope.segment >= 0 {
+              impulseTrailingProcess[scope.impulse] = scope.segment
+            } else {
+              impulses[scope.impulse].processSegment = impulseTrailingProcess[scope.impulse]
+            }
+          }
           modifierContainers.removeLast()
         } else {
           // Modern AndroidX documents carry a final document-level terminator after the root.
@@ -1728,6 +1760,33 @@ enum NativeSwiftDocumentDecoder {
         let count = try input.count(
           "sound expression parameter count", maximum: maximumSoundParameters)
         for _ in 0..<count { _ = try input.word("sound expression parameter") }
+      case NativeSwiftWireOpcode.impulseStart:
+        // A window of time on the animation clock. Its children run once, on the first frame
+        // inside the window; a trailing IMPULSE_PROCESS runs on every frame after that until the
+        // window closes. Draw commands inside carry that gate; see `impulseAllows`.
+        guard impulseScopes.isEmpty else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "nested impulses are not migrated")
+        }
+        let duration = try input.word("impulse duration")
+        let startAt = try input.word("impulse start")
+        impulses.append(
+          ParsedImpulse(durationWord: duration, startAtWord: startAt, processSegment: nil))
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+        impulseScopes.append(
+          ImpulseScope(impulse: impulses.count - 1, segment: -1, depth: modifierContainers.count))
+      case NativeSwiftWireOpcode.impulseProcess:
+        guard let scope = impulseScopes.last, scope.segment == -1 else {
+          throw input.malformed("ImpulseProcess outside an ImpulseStart")
+        }
+        let segment = impulseSegmentCounts[scope.impulse, default: 0]
+        impulseSegmentCounts[scope.impulse] = segment + 1
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+        impulseScopes.append(
+          ImpulseScope(impulse: scope.impulse, segment: segment, depth: modifierContainers.count))
+      case NativeSwiftWireOpcode.wakeIn:
+        // Asks the host to resolve the document again after this many seconds.
+        wakeWords.append(try input.word("wake in seconds"))
       case NativeSwiftWireOpcode.textStyle:
         let style = try textProperties("TextStyle")
         guard let styleID = style.integers[1] else {
@@ -1784,10 +1843,34 @@ enum NativeSwiftDocumentDecoder {
         throw NativeSwiftCoreError.unsupported(
           opcode: opcode, offset: opcodeOffset, reason: "operation family not migrated")
       }
+      if let impulseScope {
+        let structural = [
+          NativeSwiftWireOpcode.impulseStart, NativeSwiftWireOpcode.impulseProcess, 214,
+        ].contains(opcode)
+        if impulseScope.segment == -1, !structural {
+          impulseTrailingProcess.removeValue(forKey: impulseScope.impulse)
+        }
+        // An impulse gates what it draws. Anything else inside one — state, layout, a wake —
+        // would run on every frame here rather than only in its window, so it is refused rather
+        // than run at the wrong time.
+        if impulseDrawTargets.isEmpty, !structural {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "only drawing is migrated inside an impulse")
+        }
+        let gate = ParsedImpulseGate(impulse: impulseScope.impulse, segment: impulseScope.segment)
+        for target in impulseDrawTargets {
+          for index in target.count..<target.node.commands.count {
+            target.node.commands[index].impulseGate = gate
+          }
+        }
+        impulseDrawTargets.removeAll()
+      }
       spans.append(
         NativeSwiftOperationSpan(
           opcode: opcode, offset: opcodeOffset, endOffset: input.offset))
     }
+    guard impulseScopes.isEmpty else { throw input.malformed("Unclosed impulse") }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     // A *data-only* document declares expressions, colours and text with nothing to draw, so it
     // carries no root component at all. A renderer handed one has been given something it cannot
@@ -1865,6 +1948,7 @@ enum NativeSwiftDocumentDecoder {
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
       shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
+      impulses: impulses, wakeWords: wakeWords,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,

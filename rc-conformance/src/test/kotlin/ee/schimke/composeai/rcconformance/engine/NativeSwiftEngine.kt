@@ -315,6 +315,7 @@ private class NativeSwiftSession(
       "records:animation_specs",
       "records:anchor_runs",
       "records:glyph_runs",
+      "records:impulses",
       "records:component_bindings",
       "records:components",
       "records:semantics",
