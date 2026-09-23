@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.72.0](https://github.com/yschimke/rc-players/compare/v1.71.0...v1.72.0) (2026-09-23)
+
+
+### Features
+
+* refresh AndroidX embedded player ([#382](https://github.com/yschimke/rc-players/issues/382)) ([69c095f](https://github.com/yschimke/rc-players/commit/69c095ff3b930b6df35e3197660a76fb89a21067))
+
+
+### Bug Fixes
+
+* **swift:** address AppKit player review findings ([#387](https://github.com/yschimke/rc-players/issues/387)) ([ec93350](https://github.com/yschimke/rc-players/commit/ec933507acdbafd2d14e94249e13c35517a5527d))
+* **swift:** allow controller without Kotlin framework ([#389](https://github.com/yschimke/rc-players/issues/389)) ([2c90a28](https://github.com/yschimke/rc-players/commit/2c90a285ee3c63caf15d4c25d06b80d43bbfb9a2))
+* **swift:** fall back to native macOS window host ([#391](https://github.com/yschimke/rc-players/issues/391)) ([4ca907e](https://github.com/yschimke/rc-players/commit/4ca907e61ca0a5e32c266acc1f0fb452193e9a83))
+* **swift:** fall back to native UIKit player ([#392](https://github.com/yschimke/rc-players/issues/392)) ([a8d4d6b](https://github.com/yschimke/rc-players/commit/a8d4d6b4faad1057c14d4a057a58538fc16ec6bc))
+* **swift:** preserve native AppKit event payloads ([#390](https://github.com/yschimke/rc-players/issues/390)) ([1fc217b](https://github.com/yschimke/rc-players/commit/1fc217b95f2718accdb4036b76811d6d32ee484f))
+* **swift:** share native host configuration ([#388](https://github.com/yschimke/rc-players/issues/388)) ([5209896](https://github.com/yschimke/rc-players/commit/5209896388b54cef2b347a5b68fc23f1c2f631ef))
+* **swift:** stabilize native interactive state ([#384](https://github.com/yschimke/rc-players/issues/384)) ([aa3454c](https://github.com/yschimke/rc-players/commit/aa3454c847ed6ebcac3268a00ed466487b776572))
+
 ## [1.71.0](https://github.com/yschimke/rc-players/compare/v1.70.0...v1.71.0) (2026-09-23)
 
 
