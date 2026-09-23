@@ -258,10 +258,12 @@ private class NativeSwiftSession(
     val base = step.int("base_time_millis", 0) / MILLIS_PER_SECOND
     val captures = step.ints("capture").toSet()
     for (frame in 0..step.int("total_frames", 0)) {
-      if (captures.isNotEmpty() && frame !in captures) continue
       clock = base + frame / FRAMES_PER_SECOND
       request("frame_$frame")
-      onCapture("frame_$frame")
+      // Particle systems advance once per rendered frame. Keep uncaptured frames in the native
+      // batch so retained state reaches frame N exactly as the reference does; only bind checks to
+      // the captures the gold requested.
+      if (captures.isEmpty() || frame in captures) onCapture("frame_$frame")
     }
   }
 
@@ -297,7 +299,9 @@ private class NativeSwiftSession(
       "color",
       "float_array:dynamic",
       "float_array:data" -> scalar(check)
+      "particles" -> particles(check.at)
       "ops:count" -> operationCount(check.at)
+      "draw_log:commands" -> drawLog(check.at)
       "ops:component_count" -> operationMetric(check.at, "component_count")
       "ops:distinct_ids" -> operationMetric(check.at, "distinct_ids")
       "trace:handled" -> inputHandled(check.at)
@@ -349,6 +353,18 @@ private class NativeSwiftSession(
   private fun operationMetric(stepId: String, metric: String): Observation {
     val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
     return frames[stepId]?.get(metric)?.let(Observation::Value) ?: Observation.NotImplemented
+  }
+
+  /** The AppKit host publishes particle rows from the first declared system in wire order. */
+  private fun particles(stepId: String): Observation {
+    val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
+    return frames[stepId]?.get("particles")?.let(Observation::Value) ?: Observation.NotImplemented
+  }
+
+  private fun drawLog(stepId: String): Observation {
+    val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
+    return frames[stepId]?.get("draw_log_commands")?.let(Observation::Value)
+      ?: Observation.NotImplemented
   }
 
   private fun tree(stepId: String): Observation {
@@ -453,6 +469,9 @@ private class NativeSwiftSession(
       )
     }
     val parsed = Json.parseToJsonElement(stdout).jsonObject
+    parseErrors(stdout)
+      .takeIf { it.isNotEmpty() }
+      ?.let { System.err.println("native-appkit: ${gold.name} frame error -- $it") }
     batch = parsed
     return parsed
   }

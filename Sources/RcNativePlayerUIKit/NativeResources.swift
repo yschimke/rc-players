@@ -200,10 +200,10 @@ enum NativeImageGeometry {
     var width = destinationWidth
     var height = destinationHeight
     switch scaleType {
-    case 0:
+    case NativeSwiftImageScaleType.none:
       width = sourceWidth
       height = sourceHeight
-    case 1:
+    case NativeSwiftImageScaleType.inside:
       if !(destinationHeight > sourceHeight && destinationWidth > sourceWidth) {
         if sourceWidth * destination.height > destination.width * sourceHeight {
           height = destinationWidth * sourceHeight / sourceWidth
@@ -214,22 +214,22 @@ enum NativeImageGeometry {
         width = sourceWidth
         height = sourceHeight
       }
-    case 2: height = destinationWidth * sourceHeight / sourceWidth
-    case 3: width = destinationHeight * sourceWidth / sourceHeight
-    case 4:
+    case NativeSwiftImageScaleType.fitWidth: height = destinationWidth * sourceHeight / sourceWidth
+    case NativeSwiftImageScaleType.fitHeight: width = destinationHeight * sourceWidth / sourceHeight
+    case NativeSwiftImageScaleType.fit:
       if sourceWidth * destination.height > destination.width * sourceHeight {
         height = destinationWidth * sourceHeight / sourceWidth
       } else {
         width = destinationHeight * sourceWidth / sourceHeight
       }
-    case 5:
+    case NativeSwiftImageScaleType.crop:
       if sourceWidth * destination.height < destination.width * sourceHeight {
         height = destinationWidth * sourceHeight / sourceWidth
       } else {
         width = destinationHeight * sourceWidth / sourceHeight
       }
-    case 6: break
-    case 7:
+    case NativeSwiftImageScaleType.fillBounds: break
+    case NativeSwiftImageScaleType.fixed:
       width = sourceWidth * scaleFactor
       height = sourceHeight * scaleFactor
     default: return .zero

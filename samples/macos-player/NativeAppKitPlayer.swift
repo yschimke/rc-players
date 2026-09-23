@@ -355,7 +355,8 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     viewport: CGSize? = nil,
     values: NativeMacValueRequest = NativeMacValueRequest(),
     steps: [NativeMacInputStep] = [],
-    conformanceFontName: String? = nil
+    conformanceFontName: String? = nil,
+    particleSession: NativeSwiftDocumentSession? = nil
   ) throws -> NativeMacRenderedFrame {
     try NativeMacPolicy.validateDocument(data)
     // A *data-only* document declares values and nothing to draw. A conformance capture still has to
@@ -416,16 +417,40 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     guard let png = bitmap.representation(using: .png, properties: [:]) else {
       throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
     }
+    var records = operationRecords(
+      try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+      operationCount: session.linkedOperationCount)
+    // The particle probe observes one system's particle rows. A document with no system reports an
+    // empty matrix; multiple systems are deliberately not flattened, as that would lose the wire
+    // declaration boundary needed by a future targeted probe.
+    records["particles"] = try (particleSession ?? session).particleSnapshots(timeSeconds: timeSeconds)
+      .first?.particles
+      .map { $0.map(Double.init) } ?? []
+    records["draw_log_commands"] = try drawLog(in: data)
     return NativeMacRenderedFrame(
       png: png, tree: player.layoutTree(),
       values: values.isEmpty
         ? nil
         : try reportedValues(
            session: session, timeSeconds: timeSeconds, wallClock: wallClock, request: values),
-      records: operationRecords(
-        try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-        operationCount: session.linkedOperationCount),
+      records: records,
       inputHandled: inputHandled)
+  }
+
+  /// The conformance draw log is the decoded canvas stream in wire order. Its checks are ordered
+  /// subsequences, so reporting supported canvas commands here is faithful without pretending to
+  /// record host-only work that an AppKit view might perform while painting.
+  private static func drawLog(in data: Data) throws -> [String] {
+    let names: [Int: String] = [
+      38: "clipPath", 39: "clipRect", 40: "paint", 42: "drawRect", 44: "drawBitmap",
+      46: "drawCircle", 47: "drawLine", 51: "drawRoundRect", 52: "drawSector",
+      56: "drawOval", 124: "drawPath", 125: "drawTweenPath", 126: "scale",
+      127: "translate", 128: "skew", 129: "rotate", 130: "save", 131: "restore",
+      149: "drawBitmapScaled", 152: "drawArc",
+    ]
+    return try NativeSwiftDocumentSession.operationSpans(
+      in: data, toleratingRootlessData: true
+    ).compactMap { names[$0.opcode] }
   }
 
   /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
@@ -2425,7 +2450,9 @@ private typealias MacFlowLine = (
     let view = NSImageView(image: image)
     view.imageFrameStyle = .none
     view.imageAlignment = .alignCenter
-    view.imageScaling = draw.scaleType == 6 ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
+    view.imageScaling =
+      draw.scaleType == NativeSwiftImageScaleType.fillBounds
+      ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
     view.alphaValue = CGFloat(min(max(alpha, 0), 1))
     view.setAccessibilityIdentifier("rc-native-image-\(draw.imageID)")
     if let label = draw.contentDescription {
@@ -2531,7 +2558,7 @@ private final class NativeMacCanvasView: NSView {
       paint(path, command, context)
     case 17: drawText(command, context)
     case 18: paint(path(command.path), command, context)
-    case 19: drawImage(command)
+    case 19: drawImage(command, context)
     default: break
     }
   }
@@ -2582,7 +2609,7 @@ private final class NativeMacCanvasView: NSView {
     }
   }
 
-  private func drawImage(_ command: NativeMacDrawCommand) {
+  private func drawImage(_ command: NativeMacDrawCommand, _ context: CGContext) {
     guard let draw = command.image, let image = images[draw.imageID] else { return }
     let source = NSRect(
       x: CGFloat(draw.sourceLeft), y: CGFloat(draw.sourceTop),
@@ -2592,9 +2619,61 @@ private final class NativeMacCanvasView: NSView {
       x: CGFloat(draw.destinationLeft), y: CGFloat(draw.destinationTop),
       width: CGFloat(draw.destinationRight - draw.destinationLeft),
       height: CGFloat(draw.destinationBottom - draw.destinationTop))
+    // AndroidX clips every image scaling mode to the declared destination. Crop may deliberately
+    // overflow it, while a malformed or fixed draw must never leak outside it.
+    context.saveGState()
+    context.clip(to: destination)
     image.draw(
-      in: destination, from: source, operation: .sourceOver,
+      in: scaledImageDestination(
+        source: source, destination: destination, scaleType: draw.scaleType,
+        scaleFactor: CGFloat(draw.scaleFactor)), from: source, operation: .sourceOver,
       fraction: CGFloat(min(max(command.alpha, 0), 1)), respectFlipped: true, hints: nil)
+    context.restoreGState()
+  }
+
+  private func scaledImageDestination(
+    source: NSRect, destination: NSRect, scaleType: Int, scaleFactor: CGFloat
+  ) -> NSRect {
+    guard source.width > 0, source.height > 0, destination.width >= 0, destination.height >= 0,
+      scaleFactor.isFinite
+    else { return .zero }
+    let sourceWidth = Int(source.width)
+    let sourceHeight = Int(source.height)
+    let destinationWidth = Int(destination.width)
+    let destinationHeight = Int(destination.height)
+    guard sourceWidth > 0, sourceHeight > 0, destinationWidth >= 0, destinationHeight >= 0 else {
+      return .zero
+    }
+    var width = destinationWidth
+    var height = destinationHeight
+    switch scaleType {
+    case NativeSwiftImageScaleType.none: width = sourceWidth; height = sourceHeight
+    case NativeSwiftImageScaleType.inside:
+      if !(destinationHeight > sourceHeight && destinationWidth > sourceWidth) {
+        if sourceWidth * destinationHeight > destinationWidth * sourceHeight {
+          height = destinationWidth * sourceHeight / sourceWidth
+        } else { width = destinationHeight * sourceWidth / sourceHeight }
+      } else { width = sourceWidth; height = sourceHeight }
+    case NativeSwiftImageScaleType.fitWidth: height = destinationWidth * sourceHeight / sourceWidth
+    case NativeSwiftImageScaleType.fitHeight: width = destinationHeight * sourceWidth / sourceHeight
+    case NativeSwiftImageScaleType.fit:
+      if sourceWidth * destinationHeight > destinationWidth * sourceHeight {
+        height = destinationWidth * sourceHeight / sourceWidth
+      } else { width = destinationHeight * sourceWidth / sourceHeight }
+    case NativeSwiftImageScaleType.crop:
+      if sourceWidth * destinationHeight < destinationWidth * sourceHeight {
+        height = destinationWidth * sourceHeight / sourceWidth
+      } else { width = destinationHeight * sourceWidth / sourceHeight }
+    case NativeSwiftImageScaleType.fillBounds: break
+    case NativeSwiftImageScaleType.fixed:
+      width = Int(CGFloat(sourceWidth) * scaleFactor)
+      height = Int(CGFloat(sourceHeight) * scaleFactor)
+    default: return .zero
+    }
+    return NSRect(
+      x: destination.minX + CGFloat((destinationWidth - width) / 2),
+      y: destination.minY + CGFloat((destinationHeight - height) / 2), width: CGFloat(width),
+      height: CGFloat(height))
   }
 
   private func path(_ commands: [NativeMacPathCommand]) -> CGPath {

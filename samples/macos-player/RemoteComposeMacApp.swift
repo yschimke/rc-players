@@ -748,6 +748,11 @@ struct RemoteComposeMacApplication {
         } else {
           conformanceFontName = nil
         }
+        // Rendering intentionally opens a fresh session for each frame so gesture traces replay
+        // from their declared start. Particle state is the exception: it is retained across a
+        // frame timeline, so keep an observation-only session for that channel.
+        let particleSession = try? NativeSwiftDocumentSession.open(
+          data: document, toleratingRootlessData: true)
         var results: [[String: Any]] = []
         for request in job.frames {
           // The values this frame's checks assert. A gold asks for the handful it names rather than
@@ -760,7 +765,7 @@ struct RemoteComposeMacApplication {
             let frame = try NativeAppKitWindowController.renderFrame(
               data: document, timeSeconds: request.time, wallClock: request.wallClock,
               viewport: request.viewport, values: request.values, steps: request.steps,
-              conformanceFontName: conformanceFontName)
+              conformanceFontName: conformanceFontName, particleSession: particleSession)
             let path = URL(fileURLWithPath: job.output).appendingPathComponent(
               "\(request.id).png")
             try frame.png.write(to: path, options: .atomic)
