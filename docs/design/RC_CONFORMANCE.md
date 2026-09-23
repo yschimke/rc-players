@@ -81,7 +81,8 @@ So when a gold and the player disagree, the options are, in order:
 2. **The lane cannot observe it yet** — fix the lane. Also common, and cheap: several probes reported
    `PROBE_NOT_IMPLEMENTED` for fields that were already sitting decoded in the document.
 3. **The corpus is asserting something a player cannot or should not reproduce** — record it, raise it
-   upstream, and let the check keep failing. Never paper over it.
+   upstream, and let the check keep failing. Never paper over it. The record is
+   [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md).
 
 A permanently failing check with a written reason is a better artefact than a passing one bought with
 a worse player. `unasserted` exists in the gold format for exactly this reason (§2.8), and the
@@ -112,8 +113,8 @@ layout manager assigned — padding and offset are modifier translation and are 
 §2.7 — with the AndroidX class name of each component, its effective visibility and its depth.
 
 Before that channel existed this lane's gold count was zero *by construction*: no gold in the corpus
-asserts raster alone. It is 168 of 249 at the 2026-09-19 measurement, and the tree and value channels
-are where those passes come from.
+asserts raster alone. It is 216 of 353 core golds at the 2026-09-23 measurement, and the tree and
+value channels are where those passes come from.
 
 The **value probes** read a document's own state rather than its rendering, so the batch protocol
 carries a per-frame request for the slots a gold asserts and returns what the core resolved at that
@@ -131,9 +132,30 @@ step the view is rebuilt before the next hit test. That reduced `STEP_NOT_RUN` f
 to the six checks behind explicit light/dark theme switching. Scroll offsets are observable through
 `scroll_x`/`scroll_y`; translating the AppKit paint subtree by that offset remains raster work.
 
-The remaining diffs are a work list rather than noise: the Ahem text metrics the golds assert, the
-`ops`/`records`/`draw_log` operation-census probes, particles, and the decode refusals behind 21
-raster checks.
+The remaining diffs are a work list rather than noise, and at the 2026-09-23 run two causes carried
+most of it:
+
+* **The operation census knew three names.** `ops:present` and `ops:counts` read a name table that
+  mapped only the three matrix opcodes, so every other operation a gold asserted was reported
+  missing. That one table was the *only* failing check in 43 golds. It now covers every opcode in
+  the AndroidX manifest under both AndroidX names, as the CMP lane does, with absent operations
+  counted as zero. Names only the TypeScript player uses are left to fail
+  ([pushback §2](RC_CONFORMANCE_PUSHBACK.md)).
+* **The core refused documents over operations it had no case for** — and a refused document takes
+  every check in its gold with it. 82 of the 141 failing golds failed every check. The families
+  behind them, by golds: impulse and `WAKE_IN` scheduling (9), `ROOT_CONTENT_BEHAVIOR` (8 of the 10
+  semantics golds), `ATTRIBUTE_TIME` with the `LongConstant` it reads (7, the clock golds),
+  `BooleanConstant`, `IdLookup`, `LoopOperation`, particle compare, path expressions, the text
+  operations, and single golds for the rest. Root content behaviour, document-level semantics,
+  boolean and long constants, time attributes, debug messages and the sound family now decode; the
+  others are still refused.
+
+What is left after those: `StateLayout` transitions and the Ahem text golds on `tree` (~15 golds),
+the scheduling, lookup and text operations above, the `records:impulses` probe this lane does not
+yet wire, and theme switching.
+
+Several of the golds behind these numbers assert less than their names say. They are logged, with
+evidence, in [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md).
 
 ### Native AppKit text and transition policy
 
@@ -147,13 +169,15 @@ behaviours and regressions there are bugs to fix.
 ### Scores
 
 Measured against the corpus as vendored on `vendor/androidx-rc-conformance`, with the advisory flag
-honoured — the 2026-09-19 published run at `9acfa39`:
+honoured — the 2026-09-23 published run at `ee18643`. The corpus has grown since the 2026-09-19
+run these figures used to quote (241 core golds then, 353 now), so the two are not comparable:
 
 | | `cmp` | `androidx-jvm` | `native-appkit` | `typescript` |
 | --- | ---: | ---: | ---: | ---: |
-| Golds passed (core profile) | **190 / 241** | 132 / 241 | 0 / 241 | 199 / 241 |
-| Binding checks failing | 230 / 910 | 468 / 910 | 902 / 910 | — |
-| Advisory (raster) disagreeing | 195 / 605 | 257 / 605 | 344 / 605 | 214 / 605 |
+| Golds passed (core profile) | **236 / 353** | 132 / 353 | 216 / 353 | 352 / 353 |
+| Binding checks failing | 311 / 1140 | 690 / 1140 | 266 / 1140 | 9 / 1140 |
+| Advisory (raster) disagreeing | 171 / 612 | 261 / 612 | 232 / 612 | 174 / 612 |
+| Golds errored | 20 | 43 | 0 | 0 |
 
 The published run is on
 [`reports/conformance`](https://github.com/yschimke/rc-players/tree/reports/conformance), and the

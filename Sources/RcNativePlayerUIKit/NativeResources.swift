@@ -266,7 +266,7 @@ enum NativeImageGeometry {
 final class NativeFontRegistry {
   private struct Registration {
     let data: Data
-    let url: URL
+    let font: CGFont
     var ownerCount: Int
   }
 
@@ -310,17 +310,12 @@ final class NativeFontRegistry {
         ownedNames.insert(postScriptName)
         return postScriptName
       }
-      let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent("rc-native-font-\(UUID().uuidString)")
-        .appendingPathExtension("font")
-      try data.write(to: url, options: [.atomic])
       var registrationError: Unmanaged<CFError>?
-      if CTFontManagerRegisterFontsForURL(url as CFURL, .process, &registrationError) {
+      if CTFontManagerRegisterGraphicsFont(cgFont, &registrationError) {
         Self.processState.registrations[postScriptName] = Registration(
-          data: data, url: url, ownerCount: 1)
+          data: data, font: cgFont, ownerCount: 1)
         ownedNames.insert(postScriptName)
       } else {
-        try? FileManager.default.removeItem(at: url)
         throw RemoteComposeNativeResourceError.corruptFont(id: id)
       }
       return postScriptName
@@ -351,8 +346,7 @@ final class NativeFontRegistry {
       registration.ownerCount -= 1
       if registration.ownerCount == 0 {
         var error: Unmanaged<CFError>?
-        CTFontManagerUnregisterFontsForURL(registration.url as CFURL, .process, &error)
-        try? FileManager.default.removeItem(at: registration.url)
+        CTFontManagerUnregisterGraphicsFont(registration.font, &error)
         processState.registrations.removeValue(forKey: name)
       } else {
         processState.registrations[name] = registration

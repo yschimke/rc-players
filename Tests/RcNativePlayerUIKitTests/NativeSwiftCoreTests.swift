@@ -1100,6 +1100,221 @@ import Testing
     #expect(inactiveColors.contains(0x33b0_b0b0))
   }
 
+  // `ATTRIBUTE_TIME` reads a calendar field or an interval from a `LongConstant` instant, or
+  // from the wall clock when it names none. The operations around it used to be refused, and the
+  // whole document with them: root content behaviour, boolean and long constants, a debug
+  // message and the sound family now decode, and the ones that are host side effects do nothing.
+  // 1_700_000_000_000 is 2023-11-14T22:13:20Z, a Tuesday; the second instant is 1000 s earlier.
+  @Test func timeAttributes() throws {
+    let timed = Writer()
+    timed.header(width: 100, height: 100)
+    timed.u8(148).int(1).int64(1_700_000_000_000)
+    timed.u8(148).int(2).int64(1_699_999_000_000)
+    timed.u8(143).int(3).u8(1)
+    timed.u8(65).int(1).int(0).int(1).int(0)
+    timed.text(id: 6, "debug")
+    timed.u8(179).int(6).float(3.25).int(0)
+    timed.u8(169).int(4).int(4).u8(1).u8(2).u8(3).u8(4)
+    timed.u8(141).int(4)
+    timed.u8(206).int(5).float(1).float(1).float(1).int(1).float(440)
+    let timeFields: [(output: Int, type: Int, arguments: [Int], expected: Float)] = [
+      (20, 6, [], 20), (26, 7, [], 13), (27, 8, [], 22), (21, 9, [], 14),
+      (23, 10, [], 10), (22, 11, [], 1), (24, 12, [], 2023), (29, 15, [], 318),
+      (25, 3, [2], 1000), (30, 4, [2], 1000.0 / 60),
+    ]
+    for field in timeFields {
+      timed.u8(172).int(field.output).int(1).u16(field.type).u16(field.arguments.count)
+      for argument in field.arguments { timed.int(argument) }
+    }
+    timed.u8(172).int(28).int(1).u16(0).u16(0)
+    let timedSession = try NativeSwiftDocumentSession.open(
+      data: timed.data, toleratingRootlessData: true)
+    let timedValues = try timedSession.probeValues(
+      timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: 1_700_000_010_000))
+    for field in timeFields {
+      let resolved = timedValues.floats[field.output]
+      #expect(
+        resolved == field.expected,
+        Comment(
+          rawValue: "time attribute type \(field.type) resolved to "
+            + "\(String(describing: resolved)), not \(field.expected)"))
+    }
+    #expect(
+      timedValues.floats[28] == -10,
+      "a from-now interval resolved to \(String(describing: timedValues.floats[28]))")
+    // Without a wall clock there is no "now" to measure from, and the slot stays unwritten rather
+    // than measuring from the 1970 epoch; fields of a stated instant still resolve.
+    let unclocked = try timedSession.probeValues(timeSeconds: 0)
+    #expect(
+      unclocked.floats[28] == nil && unclocked.floats[24] == 2023,
+      "an unclocked time attribute resolved to \(String(describing: unclocked.floats[28]))")
+    let timedSnapshot = try timedSession.snapshot()
+    #expect(
+      !timedSnapshot.needsWallClockRefresh,
+      "time attributes on a stated instant asked for a wall-clock refresh")
+    let nowAttribute = Writer()
+    nowAttribute.header(width: 100, height: 100)
+    nowAttribute.u8(172).int(20).int(99).u16(6).u16(0)
+    let nowSnapshot = try NativeSwiftDocumentSession.open(
+      data: nowAttribute.data, toleratingRootlessData: true
+    ).snapshot()
+    #expect(
+      nowSnapshot.needsWallClockRefresh,
+      "a time attribute read from now did not ask for a wall-clock refresh")
+  }
+
+  // Semantics declared outside any component describe the document, and attach to its root
+  // rather than refusing the whole document for having no component to modify.
+  @Test func documentLevelSemantics() throws {
+    let described = Writer()
+    described.header(width: 100, height: 100)
+    described.text(id: 1, "Label")
+    described.u8(103).int(1)
+    described.u8(250).int(1).u8(5).int(1).int(0).u8(1).u8(1).u8(1)
+    let describedSnapshot = try NativeSwiftDocumentSession.open(
+      data: described.data, toleratingRootlessData: true
+    ).snapshot()
+    #expect(
+      describedSnapshot.root.accessibility?.role == 5
+        && describedSnapshot.accessibilityRecords.count == 1,
+      Comment(
+        rawValue: "document-level semantics did not reach the root: "
+          + "\(String(describing: describedSnapshot.root.accessibility))"))
+  }
+
+  // MARK: - Regressions for #397
+  //
+  // Each malformed document here used to trap the process instead of failing the open or
+  // degrading one frame.
+
+  @Test func unboundedNestedMacroCallIsMalformed() {
+    expectMalformed(
+      nestedMacroCallDocument(depth: 300), containing: "Macro body nesting",
+      "an unbounded nested macro-call chain")
+  }
+
+  private func expectMalformed(
+    _ data: Data, containing reason: String, _ label: String,
+    sourceLocation: SourceLocation = #_sourceLocation
+  ) {
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: data)
+      Issue.record("\(label) was accepted", sourceLocation: sourceLocation)
+    } catch let error as NativeSwiftCoreError {
+      guard case .malformed = error else {
+        Issue.record(
+          "\(label): expected a malformed error, got \(error)", sourceLocation: sourceLocation)
+        return
+      }
+      #expect(
+        error.description.contains(reason), "\(label): \(error)", sourceLocation: sourceLocation)
+    } catch {
+      Issue.record("\(label): unexpected error \(error)", sourceLocation: sourceLocation)
+    }
+  }
+
+  /// DrawTextRun offsets are UTF-16 code units; out-of-range bounds clamp instead of trapping.
+  @Test func drawTextRunSlicingRegression() throws {
+    let cases: [(start: Int, end: Int, expected: String)] = [
+      (2, 3, "a"),  // The emoji is two UTF-16 units, so unit 2 is "a".
+      (0, -1, "👋ab"),  // -1 runs to the end, as in AndroidX.
+      (2, 100, "ab"),
+      (-5, -3, ""),
+      (3, 1, ""),
+      (100, 200, ""),
+    ]
+    for run in cases {
+      let snapshot = try NativeSwiftDocumentSession.open(
+        data: drawTextRunDocument(start: run.start, end: run.end)
+      ).snapshot()
+      let text = snapshot.root.allCommands.lazy.compactMap(\.text).first
+      #expect(
+        text == run.expected,
+        Comment(
+          rawValue: "DrawTextRun \(run.start)..<\(run.end): expected \(run.expected), "
+            + "got \(String(describing: text))"))
+    }
+  }
+
+  /// Non-finite float indices and lengths used to trap in `Int(Float)`.
+  @Test func nonFiniteIndexRegression() throws {
+    let session = try NativeSwiftDocumentSession.open(
+      data: nonFiniteIndexDocument(), toleratingRootlessData: true)
+    let values = try session.probeValues(timeSeconds: 0)
+    #expect(
+      values.texts[61] == "",
+      "an infinite text-transform range selected \(String(describing: values.texts[61]))")
+    let infiniteList = try session.probeFloatList(id: 70, dynamic: true, timeSeconds: 0)
+    #expect(infiniteList == nil, "an infinite dynamic list length was allocated")
+    let updatedList = try session.probeFloatList(id: 71, dynamic: true, timeSeconds: 0)
+    #expect(
+      updatedList == [0, 0],
+      "an infinite list index was applied: \(String(describing: updatedList))")
+  }
+
+  /// A gradient kind that reserves no tile-mode word used to read one past the paint words.
+  @Test func unknownGradientKindRegression() throws {
+    _ = try NativeSwiftDocumentSession.open(data: unknownGradientKindDocument()).snapshot()
+  }
+
+  /// A NaN animation progress used to force-unwrap a failed spline segment search.
+  @Test func nanSplineProgressRegression() throws {
+    let session = try NativeSwiftDocumentSession.open(
+      data: animatedFloatDocument(easingType: 12, parameters: [0, 0.5, 1]))
+    _ = try session.snapshot(timeSeconds: 0)
+    #expect(session.setFloat(10, for: "target"))
+    do {
+      _ = try session.snapshot(timeSeconds: .nan)
+    } catch is NativeSwiftCoreError {
+      // Rejecting the frame is fine; trapping is not.
+    }
+  }
+
+  /// A container-bodied MacroDefine whose body is a MacroCall → MacroBlock chain that never closes.
+  private func nestedMacroCallDocument(depth: Int) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(246).int(1).int(0).int(0)
+    for _ in 0..<depth { output.u8(247).int(2).int(0).u8(249).int(0) }
+    return output.data
+  }
+
+  /// A container-bodied MacroDefine holding more operations than a whole document may.
+  private func drawTextRunDocument(start: Int, end: Int) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.text(id: 60, "👋ab")
+    output.u8(200).int(1)
+    // DrawTextRun(text, start, end, context start, context end, x, y, rtl).
+    output.u8(43).int(60).int(start).int(end).int(0).int(0).float(0).float(0).u8(0)
+    output.u8(214)
+    return output.data
+  }
+
+  private func nonFiniteIndexDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.text(id: 60, "hello")
+    // TextTransform(output, source, start, length, identity) over an infinite range.
+    output.u8(199).int(61).int(60).float(.infinity).float(-.infinity).int(0)
+    // A dynamic float list of infinite length, and a two-element one updated at -infinity.
+    output.u8(197).int(70).float(.infinity)
+    output.u8(197).int(71).float(2)
+    output.u8(198).int(71).float(-.infinity).float(5)
+    return output.data
+  }
+
+  private func unknownGradientKindDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    // PaintData with one gradient command (11) of unknown kind 3: a one-colour meta word, the
+    // colour, no stops and two coordinates, sized like a sweep with no tile-mode word after them.
+    output.u8(40).int(6).int((3 << 16) | 11).int(1).int(Int(Int32(bitPattern: 0xff00_00ff)))
+      .int(0).float(0).float(0)
+    output.u8(200).int(1).u8(42).float(0).float(0).float(10).float(10).u8(214)
+    return output.data
+  }
+
   /// A root holding one column that carries both an exact size and a fill, in AndroidX's order.
   private func chainedSizeModifierDocument() -> Data {
     let output = Writer()
@@ -1368,6 +1583,11 @@ private final class Writer {
   @discardableResult
   func long(_ value: Int) -> Writer {
     int(0).int(value)
+  }
+
+  @discardableResult
+  func int64(_ value: Int64) -> Writer {
+    int(Int(Int32(truncatingIfNeeded: value >> 32))).int(Int(Int32(truncatingIfNeeded: value)))
   }
 
   @discardableResult

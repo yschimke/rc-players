@@ -251,22 +251,38 @@ private enum NativePlayerEvidence {
     return sorted[sorted.count / 2]
   }
 
+  /// Counts the view tree together with every accessibility element a view publishes through
+  /// `accessibilityElements`, so a semantic node counts the same whether the player backs it with
+  /// a control view or with a view-less `UIAccessibilityElement`. Each object is counted once: a view
+  /// listed in an ancestor's `accessibilityElements` is also a subview.
   private static func hierarchyMetrics(
     _ root: UIView
   ) -> (views: Int, labels: Int, controls: Int, buttons: Int, accessibilityElements: Int) {
-    var pending = [root]
+    var pending: [NSObject] = [root]
+    var visited = Set<ObjectIdentifier>()
     var views = 0
     var labels = 0
     var controls = 0
     var buttons = 0
     var accessibilityElements = 0
-    while let view = pending.popLast() {
-      views += 1
-      if view is UILabel { labels += 1 }
-      if view is UIControl { controls += 1 }
-      if view is UIButton { buttons += 1 }
-      if view.isAccessibilityElement { accessibilityElements += 1 }
-      pending.append(contentsOf: view.subviews)
+    while let object = pending.popLast() {
+      guard visited.insert(ObjectIdentifier(object)).inserted else { continue }
+      let traits = object.accessibilityTraits
+      let activatable = traits.contains(.button) || traits.contains(.toggleButton)
+      if let view = object as? UIView {
+        views += 1
+        if view is UILabel { labels += 1 }
+        if view is UIControl || activatable { controls += 1 }
+        if view is UIButton || traits.contains(.button) { buttons += 1 }
+        pending.append(contentsOf: view.subviews)
+      } else {
+        if activatable { controls += 1 }
+        if traits.contains(.button) { buttons += 1 }
+      }
+      if object.isAccessibilityElement { accessibilityElements += 1 }
+      if let elements = object.accessibilityElements {
+        pending.append(contentsOf: elements.compactMap { $0 as? NSObject })
+      }
     }
     return (views, labels, controls, buttons, accessibilityElements)
   }

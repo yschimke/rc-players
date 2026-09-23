@@ -2453,15 +2453,17 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOperationInventory {
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcOperationInventoryEntry {
-	public fun <init> (ILjava/lang/String;Ljava/lang/String;ILee/schimke/composeai/rcplayer/protocol/RcOperationStatus;)V
+	public fun <init> (ILjava/lang/String;Ljava/lang/String;ILee/schimke/composeai/rcplayer/protocol/RcOperationStatus;Ljava/lang/String;)V
 	public final fun component1 ()I
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()I
 	public final fun component5 ()Lee/schimke/composeai/rcplayer/protocol/RcOperationStatus;
-	public final fun copy (ILjava/lang/String;Ljava/lang/String;ILee/schimke/composeai/rcplayer/protocol/RcOperationStatus;)Lee/schimke/composeai/rcplayer/protocol/RcOperationInventoryEntry;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcOperationInventoryEntry;ILjava/lang/String;Ljava/lang/String;ILee/schimke/composeai/rcplayer/protocol/RcOperationStatus;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcOperationInventoryEntry;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun copy (ILjava/lang/String;Ljava/lang/String;ILee/schimke/composeai/rcplayer/protocol/RcOperationStatus;Ljava/lang/String;)Lee/schimke/composeai/rcplayer/protocol/RcOperationInventoryEntry;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/protocol/RcOperationInventoryEntry;ILjava/lang/String;Ljava/lang/String;ILee/schimke/composeai/rcplayer/protocol/RcOperationStatus;Ljava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcOperationInventoryEntry;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAndroidxClassName ()Ljava/lang/String;
 	public final fun getCluster ()I
 	public final fun getConstantName ()Ljava/lang/String;
 	public final fun getOpcode ()I

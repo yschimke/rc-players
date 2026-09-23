@@ -958,6 +958,8 @@ final val ee.schimke.composeai.rcplayer.compose/LocalRcInspection // ee.schimke.
     final fun <get-LocalRcInspection>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcInspection.<get-LocalRcInspection>|<get-LocalRcInspection>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost|{}LocalRcSoundHost[0]
     final fun <get-LocalRcSoundHost>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcSoundHost> // ee.schimke.composeai.rcplayer.compose/LocalRcSoundHost.<get-LocalRcSoundHost>|<get-LocalRcSoundHost>(){}[0]
+final val ee.schimke.composeai.rcplayer.compose/LocalRcTimeSource // ee.schimke.composeai.rcplayer.compose/LocalRcTimeSource|{}LocalRcTimeSource[0]
+    final fun <get-LocalRcTimeSource>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.runtime/RcTimeSource> // ee.schimke.composeai.rcplayer.compose/LocalRcTimeSource.<get-LocalRcTimeSource>|<get-LocalRcTimeSource>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/RcComponentIdKey // ee.schimke.composeai.rcplayer.compose/RcComponentIdKey|{}RcComponentIdKey[0]
     final fun <get-RcComponentIdKey>(): androidx.compose.ui.semantics/SemanticsPropertyKey<kotlin/Int> // ee.schimke.composeai.rcplayer.compose/RcComponentIdKey.<get-RcComponentIdKey>|<get-RcComponentIdKey>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/RcComponentKindKey // ee.schimke.composeai.rcplayer.compose/RcComponentKindKey|{}RcComponentKindKey[0]

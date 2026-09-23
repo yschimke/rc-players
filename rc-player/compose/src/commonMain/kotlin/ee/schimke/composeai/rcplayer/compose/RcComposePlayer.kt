@@ -411,6 +411,7 @@ private fun RcComposePlayerResolved(
 ) {
   val latestEventSink by rememberUpdatedState(onEvent)
   val latestSystemColors by rememberUpdatedState(systemColors)
+  val latestTimeSource by rememberUpdatedState(LocalRcTimeSource.current)
   val latestHapticFeedback by rememberUpdatedState(LocalHapticFeedback.current)
   val soundHost = LocalRcSoundHost.current
   val soundDispatcher = remember(document) { RcSoundHostDispatcher(soundHost) }
@@ -449,6 +450,9 @@ private fun RcComposePlayerResolved(
             RcPlayerEffect.NextFrame -> nextFrameRequestVersion += 1
           }
         },
+        // Read through `latestTimeSource` for the reason `systemColorLookup` is below: a host that
+        // provides a new source must not discard the running document's state.
+        timeSource = RcForwardingTimeSource { latestTimeSource },
         soundSink = soundDispatcher::dispatch,
         // Read through `latestSystemColors`, never captured directly: a host's lookup is usually a
         // capturing lambda, so a parent recomposition hands us a fresh instance. Keying the state
@@ -1820,9 +1824,21 @@ private fun RcCollapsibleLayout(
     // AndroidX measures an unweighted child before the fit test and leaves a weighted one
     // unmeasured — zero on the main axis — until the leftover space is distributed, so a weight
     // can never push an unweighted sibling out of the container.
+    //
+    // The fit test is against the child's *natural* size, so it measures with the main axis
+    // unbounded — `computeVisibleChildren` passes `Float.MAX_VALUE` there. Measuring within the
+    // container instead clamps an oversized child to exactly the space available, so it always
+    // "fits": a 100 px child in a 60 px row was kept and drawn squeezed to 60 rather than dropped.
+    // A kept child fits by construction, so its unbounded measurement is also its final one.
+    val fitConstraints =
+      if (orientation == RcCollapseOrientation.Horizontal) {
+        childConstraints.copy(maxWidth = Constraints.Infinity)
+      } else {
+        childConstraints.copy(maxHeight = Constraints.Infinity)
+      }
     val placeables = arrayOfNulls<Placeable>(measurables.size)
     measurables.forEachIndexed { index, measurable ->
-      if (weights[index] <= 0f) placeables[index] = measurable.measure(childConstraints)
+      if (weights[index] <= 0f) placeables[index] = measurable.measure(fitConstraints)
     }
     val mainSizes = placeables.map {
       when {

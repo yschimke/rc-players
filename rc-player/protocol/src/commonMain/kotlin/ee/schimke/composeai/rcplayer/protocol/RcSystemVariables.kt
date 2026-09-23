@@ -164,7 +164,6 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
         is RcFloatConstant -> operation.id
         is RcIntegerConstant -> operation.id
         is RcTouchExpression -> operation.id
-        is RcNamedVariable -> operation.id
         is RcComponentValue -> operation.valueId
         else -> null
       }
