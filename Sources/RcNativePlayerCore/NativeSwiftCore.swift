@@ -41,6 +41,19 @@ public enum NativeSwiftWireOpcode {
   public static let matrixVectorMath = 188
 }
 
+/// The DrawTextRun `end` value AndroidX reads as "to the end of the text".
+let nativeSwiftDrawTextRunEndOfText = -1
+
+/// `Int(Float)` traps on NaN, infinity and anything beyond `Int`'s range, and a document is free to
+/// compute any of those. NaN maps to 0 and everything else saturates, so a malformed value degrades
+/// one frame's output instead of crashing the host.
+func nativeSwiftClampedInt(_ value: Float) -> Int {
+  guard !value.isNaN else { return 0 }
+  if value >= Float(Int.max) { return Int.max }
+  if value <= Float(Int.min) { return Int.min }
+  return Int(value)
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
@@ -1173,7 +1186,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         NativeSwiftFloatExpression.resolve($0, values: values)
       }) {
         for update in document.floatListUpdates[id] ?? [] {
-          let index = Int(NativeSwiftFloatExpression.resolve(update.index, values: values))
+          let index = nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(update.index, values: values))
           if result.indices.contains(index) {
             result[index] = NativeSwiftFloatExpression.resolve(update.value, values: values)
           }
@@ -1184,11 +1197,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       // form when no literal DataListFloat with this id exists.
     }
     guard let list = document.dynamicFloatLists[id] else { return nil }
-    let length = Int(NativeSwiftFloatExpression.resolve(list.lengthWord, values: values))
+    let length = nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(list.lengthWord, values: values))
     guard (0...2_000).contains(length) else { return nil }
     var result = Array(repeating: Float(0), count: length)
     for update in list.updates {
-      let index = Int(NativeSwiftFloatExpression.resolve(update.index, values: values))
+      let index = nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(update.index, values: values))
       if result.indices.contains(index) {
         result[index] = NativeSwiftFloatExpression.resolve(update.value, values: values)
       }
@@ -1782,7 +1795,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case .lookup(let lookup):
         guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
         let index = min(
-          max(Int(NativeSwiftFloatExpression.resolve(lookup.index, values: values)), 0), ids.count - 1)
+          max(nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(lookup.index, values: values)), 0), ids.count - 1)
         texts[lookup.outputID] = texts[ids[index]] ?? ""
       case .transform(let transform):
         resolveTextTransform(transform, values: values)
@@ -1796,8 +1809,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private func resolveTextTransform(_ transform: ParsedTextTransform, values: [Int: Float]) {
     let source = texts[transform.textID] ?? ""
     let units = Array(source.utf16)
-    let start = max(0, Int(NativeSwiftFloatExpression.resolve(transform.start, values: values)))
-    let requestedLength = Int(NativeSwiftFloatExpression.resolve(transform.length, values: values))
+    let start = max(0, nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(transform.start, values: values)))
+    let requestedLength = nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(transform.length, values: values))
     let startOffset = min(start, units.count)
     let remaining = units.count - startOffset
     let length = requestedLength <= 0 ? remaining : min(requestedLength, remaining)
@@ -2139,7 +2152,7 @@ private struct ParsedDocument {
 
 private struct ParsedDynamicFloatList {
   let lengthWord: UInt32
-  let updates: [(index: UInt32, value: UInt32)]
+  var updates: [(index: UInt32, value: UInt32)]
 }
 
 private struct ParsedParticleDefinition {
@@ -2726,13 +2739,18 @@ private struct NativeSwiftMonotonicCurve {
   }
 
   func value(at position: Double) -> Float {
+    // A NaN progress fails every comparison below, so the segment search found nothing and the
+    // force unwrap trapped. AndroidX's `getPos` falls through its loop and answers 0.
+    guard !position.isNaN else { return 0 }
     if position <= times[0] { return Float(values[0] + (position - times[0]) * tangents[0]) }
     if position >= times[times.count - 1] {
       return Float(
         values[values.count - 1] + (position - times[times.count - 1])
           * tangents[tangents.count - 1])
     }
-    let index = times.indices.dropLast().first { position < times[$0 + 1] }!
+    guard let index = times.indices.dropLast().first(where: { position < times[$0 + 1] }) else {
+      return 0
+    }
     let h = times[index + 1] - times[index]
     let x = (position - times[index]) / h
     let x2 = x * x
@@ -2917,9 +2935,15 @@ private struct ParsedDrawCommand {
           tileMode: gradient.tileMode)
       }, text: textID.flatMap { id in
         guard let text = texts[id], let start = textStart, let end = textEnd else { return texts[id] }
-        let lower = text.index(text.startIndex, offsetBy: min(max(start, 0), text.count))
-        let upper = text.index(text.startIndex, offsetBy: min(max(end, start), text.count))
-        return String(text[lower..<upper])
+        // DrawTextRun offsets are UTF-16 code units, as in Android's String. As in the AndroidX
+        // player, an end of -1 or past the text runs to its end; every other bound is clamped so
+        // a malformed run selects an empty or shorter slice instead of trapping.
+        let units = Array(text.utf16)
+        let lower = min(max(start, 0), units.count)
+        let upper =
+          end == nativeSwiftDrawTextRunEndOfText || end > units.count
+          ? units.count : max(end, lower)
+        return String(decoding: units[lower..<upper], as: UTF16.self)
       }, textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values),
       textFlags: textFlags)
   }
@@ -3894,6 +3918,8 @@ private enum NativeSwiftDocumentDecoder {
     var integerExpressionOrder: [Int] = []
     var namedVariables: [String: ParsedNamedVariable] = [:]
     var expressions: [ParsedFloatExpression] = []
+    // The IDs in `expressions`, so a click action's existence check is not a scan per operation.
+    var expressionIDs: Set<Int> = []
     var componentValues: [ParsedComponentValue] = []
     var colorAttributes: [ParsedColorAttribute] = []
     var colorExpressions: [ParsedColorExpression] = []
@@ -4014,11 +4040,21 @@ private enum NativeSwiftDocumentDecoder {
       return try currentNode(stack, input: input)
     }
 
-    func captureMacroBody() throws -> Data {
+    // Capture recurses once per nested MacroCall block, so a malformed chain of 247 -> 249 would
+    // otherwise exhaust the stack. Captured operations also draw on the document's operation
+    // budget: they are bytes the decoder walks, even when a definition never executes.
+    func captureMacroBody(depth: Int = 0) throws -> Data {
+      guard depth < maximumNestingDepth else {
+        throw input.malformed("Macro body nesting exceeds \(maximumNestingDepth)")
+      }
       let start = input.offset
       var nesting = 0
       while true {
         let opcodeOffset = input.offset
+        operationCount += 1
+        guard operationCount <= maximumOperations else {
+          throw input.malformed("Operation count exceeds \(maximumOperations)")
+        }
         let opcode = try input.u8("macro body opcode")
         switch opcode {
         case 214:
@@ -4044,7 +4080,7 @@ private enum NativeSwiftDocumentDecoder {
                 reason: "LOOM nested macro calls only support MacroBlock children")
             }
             _ = try input.int("nested macro block index")
-            _ = try captureMacroBody()
+            _ = try captureMacroBody(depth: depth + 1)
           }
         case 39, 42, 47, 56:
           for _ in 0..<4 { _ = try input.word("macro drawing value") }
@@ -4599,6 +4635,7 @@ private enum NativeSwiftDocumentDecoder {
           // value, instead of freezing a reference's raw NaN bits into the seed map.
           expressions.append(
             ParsedFloatExpression(id: floatID, words: [constantWord], animationWords: nil))
+          expressionIDs.insert(floatID)
         } else {
           let value = Float(bitPattern: constantWord)
           guard value.isFinite else { throw input.malformed("float value must be finite") }
@@ -4646,6 +4683,7 @@ private enum NativeSwiftDocumentDecoder {
         expressions.append(
           ParsedFloatExpression(
             id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords))
+        expressionIDs.insert(id)
       case 93:  // Custom
         let id = try input.int("custom component id")
         _ = try input.int("custom animation id")
@@ -4746,9 +4784,9 @@ private enum NativeSwiftDocumentDecoder {
         let update = (
           index: try input.word("dynamic float list index"),
           value: try input.word("dynamic float list value"))
-        if var list = dynamicFloatLists[id] {
-          list = ParsedDynamicFloatList(lengthWord: list.lengthWord, updates: list.updates + [update])
-          dynamicFloatLists[id] = list
+        if dynamicFloatLists[id] != nil {
+          // Appended in place: rebuilding the list per update was quadratic in a long update run.
+          dynamicFloatLists[id]?.updates.append(update)
         } else if floatLists[id] != nil {
           floatListUpdates[id, default: []].append(update)
         } else {
@@ -5315,7 +5353,7 @@ private enum NativeSwiftDocumentDecoder {
           let container = modifierContainers.reversed().first(where: { $0.node != nil }),
           let target = container.node, let gesture = container.gesture
         else { throw input.malformed("Float action is outside a click modifier") }
-        guard expressions.contains(where: { $0.id == expressionID }) else {
+        guard expressionIDs.contains(expressionID) else {
           throw input.malformed("Missing float action expression \(expressionID)")
         }
         target.actions[gesture, default: []].append(
@@ -5612,9 +5650,12 @@ private enum NativeSwiftDocumentDecoder {
           colorRegister: (meta >> 16) & 0xffff,
           stopWords: (0..<stopCount).map { word(index + 2 + colorCount + $0) },
           coordinateWords: (0..<coordinateCount).map { word(coordinateStart + $0) },
+          // Only linear and radial reserve a tile-mode word in `argumentCount`; an unknown kind is
+          // sized like a sweep, so reading one past its coordinates would index past the words.
           tileMode:
-            highBits == NativeSwiftPaintGradientKind.sweep
-            ? 0 : words[coordinateStart + coordinateCount])
+            highBits == NativeSwiftPaintGradientKind.linear
+              || highBits == NativeSwiftPaintGradientKind.radial
+            ? words[coordinateStart + coordinateCount] : 0)
         paint.textureImageID = nil
         paint.textureTileModeX = 0
         paint.textureTileModeY = 0

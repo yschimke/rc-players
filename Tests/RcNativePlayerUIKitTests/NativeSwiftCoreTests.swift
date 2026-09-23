@@ -1067,7 +1067,148 @@ enum NativeSwiftCoreTests {
       }
     }
 
+    try malformedDocumentCrashRegressions()
+
     print("native pure Swift core tests: ok")
+  }
+
+  /// Regressions for #397: each malformed document here used to trap the process instead of
+  /// failing the open or degrading one frame.
+  private static func malformedDocumentCrashRegressions() throws {
+    expectMalformed(
+      nestedMacroCallDocument(depth: 300), containing: "Macro body nesting",
+      "an unbounded nested macro-call chain")
+    expectMalformed(
+      oversizedMacroBodyDocument(), containing: "Operation count exceeds",
+      "a macro body beyond the operation budget")
+    try drawTextRunSlicingRegression()
+    try nonFiniteIndexRegression()
+    try unknownGradientKindRegression()
+    try nanSplineProgressRegression()
+  }
+
+  private static func expectMalformed(_ data: Data, containing reason: String, _ label: String) {
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: data)
+      preconditionFailure("\(label) was accepted")
+    } catch let error as NativeSwiftCoreError {
+      guard case .malformed = error else {
+        preconditionFailure("\(label): expected a malformed error, got \(error)")
+      }
+      precondition(error.description.contains(reason), "\(label): \(error)")
+    } catch {
+      preconditionFailure("\(label): unexpected error \(error)")
+    }
+  }
+
+  /// DrawTextRun offsets are UTF-16 code units; out-of-range bounds clamp instead of trapping.
+  private static func drawTextRunSlicingRegression() throws {
+    let cases: [(start: Int, end: Int, expected: String)] = [
+      (2, 3, "a"),  // The emoji is two UTF-16 units, so unit 2 is "a".
+      (0, -1, "👋ab"),  // -1 runs to the end, as in AndroidX.
+      (2, 100, "ab"),
+      (-5, -3, ""),
+      (3, 1, ""),
+      (100, 200, ""),
+    ]
+    for run in cases {
+      let snapshot = try NativeSwiftDocumentSession.open(
+        data: drawTextRunDocument(start: run.start, end: run.end)
+      ).snapshot()
+      let text = snapshot.root.allCommands.lazy.compactMap(\.text).first
+      precondition(
+        text == run.expected,
+        "DrawTextRun \(run.start)..<\(run.end): expected \(run.expected), "
+          + "got \(String(describing: text))")
+    }
+  }
+
+  /// Non-finite float indices and lengths used to trap in `Int(Float)`.
+  private static func nonFiniteIndexRegression() throws {
+    let session = try NativeSwiftDocumentSession.open(
+      data: nonFiniteIndexDocument(), toleratingRootlessData: true)
+    let values = try session.probeValues(timeSeconds: 0)
+    precondition(
+      values.texts[61] == "",
+      "an infinite text-transform range selected \(String(describing: values.texts[61]))")
+    let infiniteList = try session.probeFloatList(id: 70, dynamic: true, timeSeconds: 0)
+    precondition(infiniteList == nil, "an infinite dynamic list length was allocated")
+    let updatedList = try session.probeFloatList(id: 71, dynamic: true, timeSeconds: 0)
+    precondition(
+      updatedList == [0, 0],
+      "an infinite list index was applied: \(String(describing: updatedList))")
+  }
+
+  /// A gradient kind that reserves no tile-mode word used to read one past the paint words.
+  private static func unknownGradientKindRegression() throws {
+    _ = try NativeSwiftDocumentSession.open(data: unknownGradientKindDocument()).snapshot()
+  }
+
+  /// A NaN animation progress used to force-unwrap a failed spline segment search.
+  private static func nanSplineProgressRegression() throws {
+    let session = try NativeSwiftDocumentSession.open(
+      data: animatedFloatDocument(easingType: 12, parameters: [0, 0.5, 1]))
+    _ = try session.snapshot(timeSeconds: 0)
+    precondition(session.setFloat(10, for: "target"))
+    do {
+      _ = try session.snapshot(timeSeconds: .nan)
+    } catch is NativeSwiftCoreError {
+      // Rejecting the frame is fine; trapping is not.
+    }
+  }
+
+  /// A container-bodied MacroDefine whose body is a MacroCall → MacroBlock chain that never closes.
+  private static func nestedMacroCallDocument(depth: Int) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(246).int(1).int(0).int(0)
+    for _ in 0..<depth { output.u8(247).int(2).int(0).u8(249).int(0) }
+    return output.data
+  }
+
+  /// A container-bodied MacroDefine holding more operations than a whole document may.
+  private static func oversizedMacroBodyDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(246).int(1).int(0).int(0)
+    for _ in 0...100_000 { output.u8(130) }
+    output.u8(214)
+    return output.data
+  }
+
+  private static func drawTextRunDocument(start: Int, end: Int) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.text(id: 60, "👋ab")
+    output.u8(200).int(1)
+    // DrawTextRun(text, start, end, context start, context end, x, y, rtl).
+    output.u8(43).int(60).int(start).int(end).int(0).int(0).float(0).float(0).u8(0)
+    output.u8(214)
+    return output.data
+  }
+
+  private static func nonFiniteIndexDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.text(id: 60, "hello")
+    // TextTransform(output, source, start, length, identity) over an infinite range.
+    output.u8(199).int(61).int(60).float(.infinity).float(-.infinity).int(0)
+    // A dynamic float list of infinite length, and a two-element one updated at -infinity.
+    output.u8(197).int(70).float(.infinity)
+    output.u8(197).int(71).float(2)
+    output.u8(198).int(71).float(-.infinity).float(5)
+    return output.data
+  }
+
+  private static func unknownGradientKindDocument() -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    // PaintData with one gradient command (11) of unknown kind 3: a one-colour meta word, the
+    // colour, no stops and two coordinates, sized like a sweep with no tile-mode word after them.
+    output.u8(40).int(6).int((3 << 16) | 11).int(1).int(Int(Int32(bitPattern: 0xff00_00ff)))
+      .int(0).float(0).float(0)
+    output.u8(200).int(1).u8(42).float(0).float(0).float(10).float(10).u8(214)
+    return output.data
   }
 
   /// A root holding one column that carries both an exact size and a fill, in AndroidX's order.
