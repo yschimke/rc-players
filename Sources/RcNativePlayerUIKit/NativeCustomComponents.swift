@@ -362,3 +362,12 @@
     }
   }
 #endif
+
+#if !canImport(UIKit)
+  /// AppKit hosts do not yet render custom UIKit views, but exposing this placeholder preserves
+  /// the shared configuration API while a document uses only native components.
+  @MainActor
+  public final class RemoteComposeNativeCustomComponentRegistry {
+    public init() {}
+  }
+#endif
