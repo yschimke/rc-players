@@ -1805,7 +1805,7 @@
         for (position, index) in indices.enumerated() {
           let child = items[index]
           let size: CGSize
-          if let weight = weights[position] {
+          if weights[position] != nil {
             // The allocator splits the leftover; the child's own minimum still bounds it, because a
             // weighted child that cannot reach its minimum has to overflow its row rather than be
             // drawn narrower than the document allows.
@@ -1813,7 +1813,7 @@
             let share = max(max(allocated[position], minimum), 0)
             let measured = child.preferredSize(
               in: CGSize(width: share, height: available.height))
-            size = CGSize(width: max(share, weight * 0), height: measured.height)
+            size = CGSize(width: share, height: measured.height)
           } else {
             size = child.preferredSize(in: available)
           }

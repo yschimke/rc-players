@@ -643,10 +643,15 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       node.children.forEach(collectGlyphRuns)
     }
     collectGlyphRuns(snapshot.root)
+    // Keyed by the core's `ParsedDrawCommand` kind, named as the reference names the opcode that
+    // produced it (`RcOperationInventory` stable names, which the CMP lane records). Kinds 0-7 are
+    // save/restore, translate, scale, rotate, skew, clipRect and clipPath: matrix and clip state,
+    // not draws, so they are not recorded. Kind 17 is left out because the core emits it for both
+    // DrawTextRun and DrawTextAnchor and the snapshot cannot tell the two apart.
     let drawNames: [Int: String] = [
-      3: "DrawRect", 4: "DrawRoundRect", 5: "DrawOval", 6: "DrawLine", 7: "DrawPath",
       10: "DrawRect", 11: "DrawOval", 12: "DrawCircle", 13: "DrawLine", 14: "DrawRoundRect",
-      15: "DrawArc", 16: "DrawLine", 18: "DrawPath", 19: "DrawBitmap",
+      15: "DrawArc", 16: "DrawSector", 18: "DrawPath", 19: "DrawBitmap", 20: "DrawTextOnPath",
+      21: "DrawTextOnCircle",
     ]
     var drawComponents: [String] = []
     func collectDrawComponents(_ node: NativeSwiftNodeSnapshot) {
@@ -1084,90 +1089,6 @@ private enum NativeMacVisibility {
   static let invisible = 2
 }
 
-private struct MacDimension {
-  let type: Int
-  let value: CGFloat
-  let minimum: CGFloat
-  let maximum: CGFloat?
-
-  var weight: CGFloat? {
-    type == NativeMacDimensionType.weight ? max(value, .leastNonzeroMagnitude) : nil
-  }
-
-  func resolve(intrinsic: CGFloat, available: CGFloat) -> CGFloat {
-    let proposed: CGFloat
-    switch type {
-    case NativeMacDimensionType.exact, NativeMacDimensionType.exactDp:
-      proposed = max(value, 0)
-    // `FILL` uses a zero payload on the wire: it is a request for all available space, not a zero
-    // fraction. The fractional forms (7 and 8) retain their explicit factor, including zero.
-    case NativeMacDimensionType.fill:
-      proposed = available * (value.isNaN || value == 0 ? 1 : max(value, 0))
-    case NativeMacDimensionType.fillParentMaxWidth, NativeMacDimensionType.fillParentMaxHeight:
-      proposed = available * (value.isNaN ? 1 : max(value, 0))
-    case NativeMacDimensionType.weight: proposed = available
-    default: proposed = intrinsic
-    }
-    return min(max(proposed, minimum), max(maximum.map { min($0, available) } ?? available, 0))
-  }
-}
-
-private enum MacLinearLayout {
-  /// The space a **collapsible** container's weights divide: its own axis less the gaps that
-  /// placement then adds between the children it kept.
-  ///
-  /// The collapsible family is the exception to the additive-spacing rule `allocate` follows. Its
-  /// reference implementation charges `neededSpacing` into the running total before dividing the
-  /// remainder, so a 60-point column with a 10-point gap and 1:2 weights allocates 16 and 33 rather
-  /// than 20 and 40 — otherwise the shares fill the whole axis, the layout constrains the result,
-  /// and the last child is clipped by exactly the total gap.
-  static func collapsibleWeightSpace(extent: CGFloat, count: Int, spacing: CGFloat) -> CGFloat {
-    guard count > 1 else { return extent }
-    return max(extent - spacing * CGFloat(count - 1), 0)
-  }
-
-  static func allocate(available: CGFloat, natural: [CGFloat], weights: [CGFloat?]) -> [CGFloat] {
-    let fixed = zip(natural, weights).reduce(CGFloat.zero) { $0 + ($1.1 == nil ? $1.0 : 0) }
-    let total = weights.compactMap { $0 }.reduce(0, +)
-    guard total > 0 else { return natural }
-    let remaining = max(available - fixed, 0)
-    return zip(natural, weights).map { size, weight in weight.map { remaining * $0 / total } ?? size
-    }
-  }
-
-  static func positions(total: CGFloat, sizes: [CGFloat], positioning: Int, spacing: CGFloat)
-    -> [CGFloat]
-  {
-    guard !sizes.isEmpty else { return [] }
-    let childSize = sizes.reduce(0, +)
-    let contentSize = childSize + spacing * CGFloat(max(sizes.count - 1, 0))
-    var distributed: CGFloat = 0
-    var current: CGFloat
-    switch positioning {
-    case NativeMacPositioning.center: current = (total - contentSize) / 2
-    case NativeMacPositioning.end, NativeMacPositioning.bottom: current = total - contentSize
-    case NativeMacPositioning.spaceBetween:
-      distributed = sizes.count > 1 ? (total - childSize) / CGFloat(sizes.count - 1) : 0
-      current = sizes.count > 1 ? 0 : (total - contentSize) / 2
-    case NativeMacPositioning.spaceEvenly:
-      distributed = (total - childSize) / CGFloat(sizes.count + 1)
-      current = distributed
-    case NativeMacPositioning.spaceAround:
-      distributed = (total - childSize) / CGFloat(sizes.count)
-      current = distributed / 2
-    default: current = 0
-    }
-    return sizes.map { size in
-      defer {
-        current += size + spacing
-          + ((NativeMacPositioning.spaceBetween...NativeMacPositioning.spaceAround).contains(positioning)
-            ? distributed : 0)
-      }
-      return current.rounded()
-    }
-  }
-}
-
 private final class NativeMacDocumentView: NSView {
   private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
@@ -1259,8 +1180,8 @@ private final class NativeMacDocumentView: NSView {
   private var delayedWakeTimer: Timer?
   private var remainingWake: TimeInterval?
   private var wakeStartedAt: TimeInterval?
-  private var elapsed: TimeInterval = 0
-  private var lastActiveTime: TimeInterval?
+  /// Active animation time, shared with the UIKit host so both clocks accumulate identically.
+  private var timeline = NativeAnimationTimeline()
 
   override var isFlipped: Bool { true }
 
@@ -1302,7 +1223,7 @@ private final class NativeMacDocumentView: NSView {
       frame: NSRect(
         x: 0, y: 0, width: CGFloat(snapshot.width),
         height: CGFloat(snapshot.height)))
-    lastActiveTime = Self.now
+    timeline.resume(at: Self.now)
     try install(snapshot, report: report)
     NotificationCenter.default.addObserver(
       self, selector: #selector(applicationDidBecomeActive),
@@ -1656,21 +1577,20 @@ private final class NativeMacDocumentView: NSView {
     sampleTime(at: Self.now)
   }
 
+  /// A display-link frame samples at its future `targetTimestamp`; a later sample at an earlier
+  /// `now` must neither move time backwards nor rewind the anchor, or the gap is counted twice.
+  /// `NativeAnimationTimeline.sample` keeps `max(now, lastActiveTime)` as the anchor. While paused,
+  /// time does not advance — and sampling must not quietly resume it.
   private func sampleTime(at now: TimeInterval) -> TimeInterval {
-    if let lastActiveTime {
-      elapsed += max(now - lastActiveTime, 0)
-      self.lastActiveTime = now
-    }
-    return elapsed
+    timeline.isRunning ? timeline.sample(at: now) : timeline.elapsed
   }
 
   private func pauseTimeline() {
-    _ = sampleTime()
-    lastActiveTime = nil
+    timeline.pause(at: Self.now)
   }
 
   private func resumeTimeline() {
-    if lastActiveTime == nil { lastActiveTime = Self.now }
+    timeline.resume(at: Self.now)
   }
 
   private func pauseWakeCountdown() {
@@ -1814,7 +1734,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let promotesImage = node.kind == .image
     let drawCommands = node.commands.filter { !(promotesImage && $0.kind == 19) }
     canvas =
-      drawCommands.isEmpty ? nil : NativeMacCanvasView(commands: drawCommands, images: images)
+      drawCommands.isEmpty
+      ? nil
+      : NativeMacCanvasView(
+        commands: drawCommands, images: images, conformanceFontName: conformanceFontName)
     labels =
       promotesText
       ? node.text.map {
@@ -2065,9 +1988,13 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     prepareStructuralChildren()
     if isStructural { return }
     if node.kind == .text {
+      // `preferredSize` measures the label in the content box and adds the padding back, so the
+      // label is placed in that same box rather than at the bounds' origin.
+      let content = contentRect
       for label in labels {
-        let height = min(label.intrinsicContentSize.height, bounds.height)
-        label.frame = NSRect(x: 0, y: 0, width: bounds.width, height: height)
+        let height = min(label.intrinsicContentSize.height, content.height)
+        label.frame = NSRect(
+          x: content.minX, y: content.minY, width: content.width, height: height)
       }
     }
     switch node.kind {
@@ -2092,12 +2019,12 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     // The container's own bounds, resolved first: a collapsible container's retention decision is
     // about *its* bound, not the space its parent offered, so a 50-point collapsible column holding
     // a 60-point child keeps nothing whatever the parent has to spare.
-    let widthConstraint = MacDimension(
+    let widthConstraint = NativeLayoutDimension(
       type: Int(node.widthType), value: CGFloat(node.widthValue),
       minimum: CGFloat(node.minimumWidth),
       maximum: node.maximumWidth < 0 ? nil : CGFloat(node.maximumWidth)
     ).resolve(intrinsic: available.width, available: available.width)
-    let heightConstraint = MacDimension(
+    let heightConstraint = NativeLayoutDimension(
       type: Int(node.heightType), value: CGFloat(node.heightValue),
       minimum: CGFloat(node.minimumHeight),
       maximum: node.maximumHeight < 0 ? nil : CGFloat(node.maximumHeight)
@@ -2459,11 +2386,11 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         ?? content.height)
       : content.height
     let natural = items.map { measuredSize(of: $0, in: content.size, axis: scrollAxis) }
-    let allocated = MacLinearLayout.allocate(
-      available: MacLinearLayout.collapsibleWeightSpace(
+    let allocated = NativeLinearLayout.allocateWeighted(
+      available: NativeLinearLayout.collapsibleWeightSpace(
         extent: extent, count: items.count,
         spacing: node.isCollapsible ? spacing : 0),
-      natural: natural.map(\.height),
+      naturalSizes: natural.map(\.height),
       weights: items.map {
         $0.node.heightType == NativeMacDimensionType.weight
           ? max(CGFloat($0.node.heightValue), .leastNonzeroMagnitude) : nil
@@ -2471,7 +2398,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let heights = zip(items, zip(natural, allocated)).map {
       $0.applyDimensions($1.0, available: CGSize(width: content.width, height: $1.1)).height
     }
-    let positions = MacLinearLayout.positions(
+    let positions = NativeLinearLayout.positions(
       total: extent, sizes: heights, positioning: Int(node.verticalPositioning),
       spacing: spacing)
     for index in items.indices {
@@ -2511,7 +2438,7 @@ private func layoutFlow() {
   default: break
   }
   for line in wrapped.lines {
-    let positions = MacLinearLayout.positions(
+    let positions = NativeLinearLayout.positions(
       total: content.width, sizes: line.items.map(\.size.width),
       positioning: node.horizontalPositioning, spacing: spacing)
     for (index, item) in line.items.enumerated() {
@@ -2573,14 +2500,14 @@ private typealias MacFlowLine = (
         children[index].weight > 0
           ? max(CGFloat(children[index].weight), .leastNonzeroMagnitude) : nil
       }
-      let allocated = MacLinearLayout.allocate(
+      let allocated = NativeLinearLayout.allocateWeighted(
         available: max(available.width - gaps, 0),
-        natural: indices.map { CGFloat(children[$0].measuredWidth) }, weights: weights)
+        naturalSizes: indices.map { CGFloat(children[$0].measuredWidth) }, weights: weights)
       var width = gaps
       for (position, index) in indices.enumerated() {
         let child = items[index]
         let size: CGSize
-        if let weight = weights[position] {
+        if weights[position] != nil {
           // The allocator splits the leftover; the child's own minimum still bounds it, because a
           // weighted child that cannot reach its minimum has to overflow its row rather than be
           // drawn narrower than the document allows.
@@ -2588,7 +2515,7 @@ private typealias MacFlowLine = (
           let share = max(max(allocated[position], minimum), 0)
           let measured = child.preferredSize(
             in: CGSize(width: share, height: available.height))
-          size = CGSize(width: max(share, weight * 0), height: measured.height)
+          size = CGSize(width: share, height: measured.height)
         } else {
           size = child.preferredSize(in: available)
         }
@@ -2615,16 +2542,16 @@ private typealias MacFlowLine = (
         ?? content.width)
       : content.width
     let natural = items.map { measuredSize(of: $0, in: content.size, axis: scrollAxis) }
-    let widths = MacLinearLayout.allocate(
-      available: MacLinearLayout.collapsibleWeightSpace(
+    let widths = NativeLinearLayout.allocateWeighted(
+      available: NativeLinearLayout.collapsibleWeightSpace(
         extent: extent, count: items.count,
         spacing: node.isCollapsible ? spacing : 0),
-      natural: natural.map(\.width),
+      naturalSizes: natural.map(\.width),
       weights: items.map {
         $0.node.widthType == NativeMacDimensionType.weight
           ? max(CGFloat($0.node.widthValue), .leastNonzeroMagnitude) : nil
       })
-    let positions = MacLinearLayout.positions(
+    let positions = NativeLinearLayout.positions(
       total: extent, sizes: widths, positioning: Int(node.horizontalPositioning),
       spacing: spacing)
     for index in items.indices {
@@ -2652,12 +2579,12 @@ private typealias MacFlowLine = (
 
   private func applyDimensions(_ intrinsic: CGSize, available: CGSize) -> CGSize {
     CGSize(
-      width: MacDimension(
+      width: NativeLayoutDimension(
         type: Int(node.widthType), value: CGFloat(node.widthValue),
         minimum: CGFloat(node.minimumWidth),
         maximum: node.maximumWidth < 0 ? nil : CGFloat(node.maximumWidth)
       ).resolve(intrinsic: intrinsic.width, available: available.width),
-      height: MacDimension(
+      height: NativeLayoutDimension(
         type: Int(node.heightType), value: CGFloat(node.heightValue),
         minimum: CGFloat(node.minimumHeight),
         maximum: node.maximumHeight < 0 ? nil : CGFloat(node.maximumHeight)
@@ -2722,11 +2649,18 @@ private typealias MacFlowLine = (
 private final class NativeMacCanvasView: NSView {
   let commands: [NativeMacDrawCommand]
   let images: [Int: NSImage]
+  /// The face every label uses under the conformance lane (Ahem), so canvas text measures the same.
+  ///
+  /// Canvas text has no family of its own to look up in the registry's `fontNames`: the core skips
+  /// the paint's typeface command, so a draw-command snapshot carries no family ID. UIKit's canvas
+  /// looks one up with the default style's family (-1), which never matches.
+  let conformanceFontName: String?
   override var isFlipped: Bool { true }
 
-  init(commands: [NativeMacDrawCommand], images: [Int: NSImage]) {
+  init(commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?) {
     self.commands = commands
     self.images = images
+    self.conformanceFontName = conformanceFontName
     super.init(frame: .zero)
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
@@ -2746,11 +2680,13 @@ private final class NativeMacCanvasView: NSView {
     context.setAlpha(CGFloat(command.alpha))
     context.setFillColor(color)
     context.setStrokeColor(color)
-    context.setLineWidth(max(CGFloat(command.strokeWidth), 0.5))
-    context.setLineCap(command.strokeCap == 1 ? .round : (command.strokeCap == 2 ? .square : .butt))
-    context.setLineJoin(
-      command.strokeJoin == 1 ? .round : (command.strokeJoin == 2 ? .bevel : .miter))
-    context.setBlendMode(blendMode(command.blendMode))
+    NativeGraphicsState.apply(
+      to: context, strokeWidth: CGFloat(command.strokeWidth), strokeCap: command.strokeCap,
+      strokeJoin: command.strokeJoin, blendMode: command.blendMode)
+    // DESTINATION leaves the buffer unchanged, so a draw under it paints nothing (UIKit's canvas
+    // skips it the same way). Kinds 0-7 are matrix, clip and save/restore state, which must still
+    // apply; every kind from 10 up is a draw.
+    if command.kind >= 10, command.blendMode == NativeSwiftPaintBlendMode.destination { return }
     switch command.kind {
     case 0: context.saveGState()
     case 1: context.restoreGState()
@@ -2820,7 +2756,11 @@ private final class NativeMacCanvasView: NSView {
       context.saveGState()
       context.addPath(path)
       context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
-      image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: CGFloat(command.alpha))
+      // `respectFlipped` because this view is flipped: without it the texture paints upside down.
+      // Fraction 1 because the paint alpha is already the context's alpha (`draw` sets it).
+      image.draw(
+        in: bounds, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true,
+        hints: nil)
       context.restoreGState()
       return
     }
@@ -2828,41 +2768,12 @@ private final class NativeMacCanvasView: NSView {
     context.drawPath(using: command.stroke ? .stroke : (command.pathWinding == 1 ? .eoFill : .fill))
   }
 
-  private func blendMode(_ value: Int) -> CGBlendMode {
-    switch value {
-    case NativeSwiftPaintBlendMode.clear: .clear
-    case NativeSwiftPaintBlendMode.source: .copy
-    case NativeSwiftPaintBlendMode.destination, NativeSwiftPaintBlendMode.sourceOver: .normal
-    case NativeSwiftPaintBlendMode.destinationOver: .destinationOver
-    case NativeSwiftPaintBlendMode.sourceIn: .sourceIn
-    case NativeSwiftPaintBlendMode.destinationIn: .destinationIn
-    case NativeSwiftPaintBlendMode.sourceOut: .sourceOut
-    case NativeSwiftPaintBlendMode.destinationOut: .destinationOut
-    case NativeSwiftPaintBlendMode.sourceAtop: .sourceAtop
-    case NativeSwiftPaintBlendMode.destinationAtop: .destinationAtop
-    case NativeSwiftPaintBlendMode.xor: .xor
-    case NativeSwiftPaintBlendMode.plus: .plusLighter
-    case NativeSwiftPaintBlendMode.modulate, NativeSwiftPaintBlendMode.multiply: .multiply
-    case NativeSwiftPaintBlendMode.screen: .screen
-    case NativeSwiftPaintBlendMode.overlay: .overlay
-    case NativeSwiftPaintBlendMode.darken: .darken
-    case NativeSwiftPaintBlendMode.lighten: .lighten
-    case NativeSwiftPaintBlendMode.colorDodge: .colorDodge
-    case NativeSwiftPaintBlendMode.colorBurn: .colorBurn
-    case NativeSwiftPaintBlendMode.hardLight: .hardLight
-    case NativeSwiftPaintBlendMode.softLight: .softLight
-    case NativeSwiftPaintBlendMode.difference: .difference
-    case NativeSwiftPaintBlendMode.exclusion: .exclusion
-    case NativeSwiftPaintBlendMode.hue: .hue
-    case NativeSwiftPaintBlendMode.saturation: .saturation
-    case NativeSwiftPaintBlendMode.color: .color
-    case NativeSwiftPaintBlendMode.luminosity: .luminosity
-    default: .normal
-    }
-  }
-
   private func drawImage(_ command: NativeMacDrawCommand, _ context: CGContext) {
     guard let draw = command.image, let image = images[draw.imageID] else { return }
+    // The source rectangle is in bitmap pixels from the top-left, as AndroidX and UIKit read it.
+    // NSImage's `from:` rectangle is in points from the bottom-left, so crop the pixels instead and
+    // draw the cropped image whole.
+    guard let bitmap = Self.cgImage(image) else { return }
     let source = NSRect(
       x: CGFloat(draw.sourceLeft), y: CGFloat(draw.sourceTop),
       width: CGFloat(draw.sourceRight - draw.sourceLeft),
@@ -2871,16 +2782,28 @@ private final class NativeMacCanvasView: NSView {
       x: CGFloat(draw.destinationLeft), y: CGFloat(draw.destinationTop),
       width: CGFloat(draw.destinationRight - draw.destinationLeft),
       height: CGFloat(draw.destinationBottom - draw.destinationTop))
+    guard let cropped = bitmap.cropping(to: source) else { return }
     // AndroidX clips every image scaling mode to the declared destination. Crop may deliberately
     // overflow it, while a malformed or fixed draw must never leak outside it.
     context.saveGState()
     context.clip(to: destination)
-    image.draw(
+    // Fraction 1: the paint alpha is already the context's alpha, as it is for UIKit's image draw.
+    NSImage(cgImage: cropped, size: NSSize(width: cropped.width, height: cropped.height)).draw(
       in: scaledImageDestination(
         source: source, destination: destination, scaleType: draw.scaleType,
-        scaleFactor: CGFloat(draw.scaleFactor)), from: source, operation: .sourceOver,
-      fraction: CGFloat(min(max(command.alpha, 0), 1)), respectFlipped: true, hints: nil)
+        scaleFactor: CGFloat(draw.scaleFactor)), from: .zero, operation: .sourceOver,
+      fraction: 1, respectFlipped: true, hints: nil)
     context.restoreGState()
+  }
+
+  /// The pixel image behind a decoded bitmap, at its native pixel size rather than its point size.
+  private static func cgImage(_ image: NSImage) -> CGImage? {
+    if let bitmap = image.representations.lazy.compactMap({ $0 as? NSBitmapImageRep }).first,
+      let cgImage = bitmap.cgImage
+    {
+      return cgImage
+    }
+    return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
   }
 
   private func scaledImageDestination(
@@ -2952,7 +2875,10 @@ private final class NativeMacCanvasView: NSView {
 
   private func drawText(_ command: NativeMacDrawCommand, _ context: CGContext) {
     guard let text = command.text else { return }
-    let font = NSFont.systemFont(ofSize: max(CGFloat(command.textSize), 1))
+    let size = max(CGFloat(command.textSize), 1)
+    let font =
+      conformanceFontName.flatMap { NSFont(name: $0, size: size) }
+      ?? NSFont.systemFont(ofSize: size)
     let paragraph = NSMutableParagraphStyle()
     if command.textFlags & 1 != 0 {
       paragraph.baseWritingDirection = .rightToLeft
@@ -2961,8 +2887,10 @@ private final class NativeMacCanvasView: NSView {
       string: text,
       attributes: [
         .font: font,
-        .foregroundColor: NativeMacComponentView.color(command.color).withAlphaComponent(
-          CGFloat(command.alpha)),
+        // The colour keeps its own alpha; the paint alpha is already the context's alpha (`draw`
+        // sets it), so replacing the colour's alpha with it both dropped the colour's alpha and
+        // applied the paint alpha twice.
+        .foregroundColor: NativeMacComponentView.color(command.color),
         .paragraphStyle: paragraph,
       ])
     let line = CTLineCreateWithAttributedString(string)
