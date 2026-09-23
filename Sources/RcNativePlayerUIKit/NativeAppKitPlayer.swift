@@ -840,6 +840,9 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     data: Data,
     title: String,
     compatibility: NativeMacCompatibility,
+    width: CGFloat? = nil,
+    height: CGFloat? = nil,
+    opaque: Bool = true,
     downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
     onFontFallback: @escaping (String) -> Void = { _ in },
     onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void,
@@ -868,21 +871,23 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         onEvent(.namedAction(name: name, value: nativePlayerActionValue(value)))
       }, onDiagnostics: onDiagnostics, onError: onError)
     let scroll = NSScrollView()
-    scroll.drawsBackground = true
-    scroll.backgroundColor = .windowBackgroundColor
+    scroll.drawsBackground = opaque
+    scroll.backgroundColor = opaque ? .windowBackgroundColor : .clear
     scroll.hasHorizontalScroller = true
     scroll.hasVerticalScroller = true
     scroll.documentView = player
 
     let size = NSSize(
-      width: max(CGFloat(snapshot.width), 640),
-      height: max(CGFloat(snapshot.height), 480))
+      width: max(CGFloat(snapshot.width), width ?? 640),
+      height: max(CGFloat(snapshot.height), height ?? 480))
     let window = NSWindow(
       contentRect: NSRect(origin: .zero, size: size),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered,
       defer: false)
     window.title = "\(title) — Native AppKit POC (\(compatibility.title))"
+    window.isOpaque = opaque
+    window.backgroundColor = opaque ? .windowBackgroundColor : .clear
     window.contentView = scroll
     window.delegate = self
     window.center()
