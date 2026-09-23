@@ -291,7 +291,7 @@ JVM cut possible, and a few file splits), not something upstream owes anyone:
 
 | Issue | Delta |
 | --- | --- |
-| [#3](https://github.com/yschimke/rc-players/issues/3) | `Rc.AndroidColors` is wrong for 21 of 196 indices — upstream's data, not its rendering |
+| [#3](https://github.com/yschimke/rc-players/issues/3) | **Resolved upstream; retire on the next pin.** `Rc.AndroidColors` was wrong for 21 of 196 indices — upstream's data, not its rendering |
 | [#5](https://github.com/yschimke/rc-players/issues/5) | Published `ui-text-google-fonts` AAR ships no GMS font-provider certificates |
 | [#54](https://github.com/yschimke/rc-players/issues/54) | `findBitmaps` never walks a component's canvas stream, so a `BitmapData` declared there is unregistered — costing both the texture and the `ImageAttribute` dimensions; `ImageAttribute` also needs an explicit draw case, being neither `VariableSupport` nor `VariableProvider` |
 | [#98](https://github.com/yschimke/rc-players/issues/98) | The embedded graphics-layer adapter still ignores authored transform origins and bypasses core's implicit value-change animation |
@@ -358,7 +358,9 @@ AndroidX now carries their behavior. That is the pattern working — the list is
 
   Two follow-ups, both from not taking the AndroidX pieces on trust:
 
-  - **The index table is transcribed, not derived** (`ColorThemeResolution.kt`). Deriving it by
+  - **The index table is transcribed, not derived** (`ColorThemeResolution.kt`). This was resolved
+    upstream after the currently vendored baseline; retire this local transcription when the pin
+    includes that fix. Deriving it by
     reflecting over `Rc.AndroidColors` and lowercasing the field names — which is how this started
     — is wrong for **21 of the 196 indices** at alpha17. `SYSTEM_ACCENT2_200` is `30`, colliding
     with `SYSTEM_ACCENT2_1000`, so index `31` has no constant and index `30` resolves to whichever
