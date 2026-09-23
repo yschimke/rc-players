@@ -1,0 +1,1929 @@
+import Foundation
+
+let nativeSwiftMaximumStringBytes = 4_000
+
+enum NativeSwiftDocumentDecoder {
+  static let maximumStringBytes = nativeSwiftMaximumStringBytes
+  private static let maximumOperations = 100_000
+  private static let maximumProperties = 2_000
+  private static let maximumNodes = 20_000
+  private static let maximumNestingDepth = 256
+  /// AndroidX's own bounds for a sound resource and a sound expression's parameters.
+  private static let maximumSoundBytes = 256 * 1024
+  private static let maximumSoundParameters = 64
+
+  static func decode(_ data: Data, toleratingRootlessData: Bool = false) throws -> ParsedDocument {
+    var spans: [NativeSwiftOperationSpan] = []
+    return try decode(data, spans: &spans, toleratingRootlessData: toleratingRootlessData)
+  }
+
+  /// Decodes a document and records each top-level operation's byte extent in `spans`.
+  ///
+  /// The recording is unconditional because it is three assignments per operation and the array is
+  /// discarded by the ordinary entry point; a second, span-collecting walk would be a second
+  /// decoder that could drift from this one.
+  static func decode(
+    _ data: Data, spans: inout [NativeSwiftOperationSpan], toleratingRootlessData: Bool = false
+  ) throws -> ParsedDocument {
+    var input = WireReader(data)
+    guard try input.u8("header opcode") == 0 else {
+      throw input.malformed("Document must begin with a header")
+    }
+    let encodedMajor = try input.int("major version")
+    _ = try input.int("minor version")
+    _ = try input.int("patch version")
+    let major: Int
+    let width: Int
+    let height: Int
+    var density: Float = 1
+    var densityBehavior = 0
+    if encodedMajor < 0x10000 {
+      major = encodedMajor
+      width = try input.int("width")
+      height = try input.int("height")
+      _ = try input.int("capabilities high word")
+      _ = try input.int("capabilities low word")
+    } else {
+      guard encodedMajor & ~0xffff == 0x048c_0000 else {
+        throw input.malformed("Invalid modern header magic")
+      }
+      major = encodedMajor & 0xffff
+      let count = try input.count("header property count", maximum: maximumProperties)
+      var modernWidth: Int?
+      var modernHeight: Int?
+      for index in 0..<count {
+        let tag = try input.u16("header property \(index) tag")
+        let length = Int(try input.u16("header property \(index) length"))
+        let type = Int(tag >> 10)
+        let key = Int(tag & 0x03ff)
+        switch type {
+        case 0:
+          guard length == 4 else { throw input.malformed("Invalid integer header property length") }
+          let value = try input.int("header property \(index)")
+          if key == 5 { modernWidth = value }
+          if key == 6 { modernHeight = value }
+          if key == 27 { densityBehavior = value }
+        case 1:
+          guard length == 4 else { throw input.malformed("Invalid float header property length") }
+          let value = Float(bitPattern: try input.word("header property \(index)"))
+          if key == 7 { density = value }
+        case 2:
+          guard length == 8 else { throw input.malformed("Invalid long header property length") }
+          _ = try input.int("header property \(index) high word")
+          _ = try input.int("header property \(index) low word")
+        case 3:
+          guard length >= 4 else { throw input.malformed("Invalid string header property length") }
+          let value = try input.utf8("header property \(index)", maximum: maximumStringBytes)
+          guard value.utf8.count + 4 == length else {
+            throw input.malformed("Invalid string header property length")
+          }
+        default: throw input.malformed("Unknown header property type \(type)")
+        }
+      }
+      // LOOM templates deliberately carry no intrinsic canvas: their caller supplies the capture
+      // viewport after macro expansion. Keep a positive neutral size for the shared snapshot; the
+      // host still uses the requested viewport when it paints the expanded document.
+      width = modernWidth ?? 1
+      height = modernHeight ?? 1
+    }
+    guard major >= 0, width > 0, height > 0, density.isFinite, density > 0,
+      (0...2).contains(densityBehavior)
+    else {
+      throw input.malformed("Header dimensions, version, or density metadata are invalid")
+    }
+
+    var texts: [Int: String] = [:]
+    var floats: [Int: Float] = [:]
+    var colors: [Int: UInt32] = [:]
+    var integers: [Int: Int] = [:]
+    var integerExpressions: [Int: ParsedIntegerExpression] = [:]
+    var integerExpressionOrder: [Int] = []
+    var namedVariables: [String: ParsedNamedVariable] = [:]
+    var expressions: [ParsedFloatExpression] = []
+    // The IDs in `expressions`, so a click action's existence check is not a scan per operation.
+    var expressionIDs: Set<Int> = []
+    var componentValues: [ParsedComponentValue] = []
+    var colorAttributes: [ParsedColorAttribute] = []
+    var longConstants: [Int: Int64] = [:]
+    var booleanConstants: [Int: Bool] = [:]
+    var timeAttributes: [ParsedTimeAttribute] = []
+    var documentAccessibility: ParsedAccessibility?
+    var colorExpressions: [ParsedColorExpression] = []
+    var paths: [Int: ParsedPath] = [:]
+    var images: [Int: ParsedImageResource] = [:]
+    var textOperations: [ParsedTextOperation] = []
+    var textFromFloats: [ParsedTextFromFloat] = []
+    var textMerges: [ParsedTextMerge] = []
+    var textTransforms: [ParsedTextTransform] = []
+    var idLists: [Int: [Int]] = [:]
+    var floatLists: [Int: [UInt32]] = [:]
+    var floatListUpdates: [Int: [(index: UInt32, value: UInt32)]] = [:]
+    var dynamicFloatLists: [Int: ParsedDynamicFloatList] = [:]
+    var dataMaps: [Int: [String: (type: Int, valueID: Int)]] = [:]
+    var dataMapLookups: [ParsedDataMapLookup] = []
+    var textLookups: [ParsedTextLookupInt] = []
+    var textFloatLookups: [ParsedTextLookup] = []
+    var matrixConstants: [Int: NativeSwiftMatrixSnapshot] = [:]
+    var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
+    var matrixVectorMath: [ParsedMatrixVectorMath] = []
+    var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
+    var animationSpecOrder: [Int] = []
+    var pathIDs: Set<Int> = []
+    var pathTweenIDs: Set<Int> = []
+    var accessibilityRecords: [ParsedAccessibility] = []
+    var shaderUniformNames: [Int: Set<String>] = [:]
+    var conditionalTraces: [NativeSwiftConditionalTraceSnapshot] = []
+    var conditionalIndex = 0
+    var particleDefinitions: [ParsedParticleDefinition] = []
+    var particleLoops: [ParsedParticleLoop] = []
+    var nodes: [Int: ParsedNode] = [:]
+    var stack: [ParsedNode] = []
+    var root: ParsedNode?
+    var implicitCanvasRoot: ParsedNode?
+    var operationCount = 0
+    var linkedTopLevelOperationCount = 0
+    var syntheticRootWasAdded = false
+    var expressionWordCount = 0
+    var modifierContainers: [ParsedModifierContainer] = []
+    var paint = ParsedPaint()
+    // AndroidX has two wire forms for MacroDefine: an inline byte body and a container body
+    // terminated by ContainerEnd.  Retaining raw bytes lets a call execute its body with the
+    // caller's current paint and layout state, rather than treating a definition as drawing work.
+    struct MacroDefinition {
+      let parameterIDs: [Int]
+      let body: Data
+    }
+    struct MacroExpansionFrame {
+      let input: WireReader
+      let blocks: [Int: Data]
+    }
+    var macroDefinitions: [Int: MacroDefinition] = [:]
+    var referencedOperations: [Int: Data] = [:]
+    var suspendedInputs: [MacroExpansionFrame] = []
+    var macroBlocks: [Int: Data] = [:]
+    // Tier-two LOOM IDs (0x4000...0x4fff) are local declarations.  A macro call must
+    // materialise a fresh ID for each one, or two otherwise independent calls try to add the
+    // same ParsedNode to `nodes`.  Keep generated IDs outside the local tier: they remain valid
+    // 22-bit NaN-reference payloads and cannot be mistaken for a template-local declaration on a
+    // later nested expansion.
+    var nextMacroGeneratedID = 0x5000
+
+    func begin(_ node: ParsedNode) throws {
+      guard nodes.count < maximumNodes else {
+        throw input.malformed("Node count exceeds \(maximumNodes)")
+      }
+      guard stack.count < maximumNestingDepth else {
+        throw input.malformed("Nesting depth exceeds \(maximumNestingDepth)")
+      }
+      guard nodes[node.componentID] == nil else {
+        throw input.malformed("Duplicate component id \(node.componentID)")
+      }
+      if let parent = stack.last {
+        node.parent = parent
+        parent.children.append(node)
+      } else if let implicitCanvasRoot {
+        node.parent = implicitCanvasRoot
+        implicitCanvasRoot.children.append(node)
+      } else if root == nil {
+        root = node
+      } else if toleratingRootlessData, let existingRoot = root {
+        // Conformance-only data/LOOM documents may materialise several top-level layout nodes
+        // without a RootLayoutComponent. Preserve their tree under a synthetic root rather than
+        // treating that valid structural probe as a malformed render document.
+        let syntheticRoot = ParsedNode(kind: .root, componentID: 0)
+        syntheticRoot.componentKind = "RootLayoutComponent"
+        existingRoot.parent = syntheticRoot
+        syntheticRoot.children.append(existingRoot)
+        node.parent = syntheticRoot
+        syntheticRoot.children.append(node)
+        root = syntheticRoot
+        nodes[syntheticRoot.componentID] = syntheticRoot
+        syntheticRootWasAdded = true
+      } else {
+        throw input.malformed("Document has more than one root component")
+      }
+      nodes[node.componentID] = node
+      stack.append(node)
+    }
+
+    // AndroidX permits a document to begin with canvas commands.  LOOM fixtures use this form to
+    // paint a base layer before defining and inflating a pattern, so it is not equivalent to a
+    // rootless data document.  Create the implicit canvas only at the first drawing operation:
+    // doing it eagerly would hide a genuinely missing layout root in an otherwise data-only file.
+    func drawingNode() throws -> ParsedNode {
+      if stack.isEmpty {
+        if let implicitCanvasRoot { return implicitCanvasRoot }
+        guard root == nil, nodes.count < maximumNodes else {
+          throw input.malformed("Drawing operation has no active canvas")
+        }
+        let canvas = ParsedNode(kind: .root, componentID: 0)
+        canvas.componentKind = "Canvas"
+        root = canvas
+        nodes[canvas.componentID] = canvas
+        implicitCanvasRoot = canvas
+        return canvas
+      }
+      return try currentNode(stack, input: input)
+    }
+
+    // Capture recurses once per nested MacroCall block, so a malformed chain of 247 -> 249 would
+    // otherwise exhaust the stack. Captured operations are not charged to the operation budget
+    // here: a captured body is counted when it executes, and the capture itself is bounded by the
+    // input length.
+    func captureMacroBody(depth: Int = 0) throws -> Data {
+      guard depth < maximumNestingDepth else {
+        throw input.malformed("Macro body nesting exceeds \(maximumNestingDepth)")
+      }
+      let start = input.offset
+      var nesting = 0
+      while true {
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("macro body opcode")
+        switch opcode {
+        case 214:
+          if nesting == 0 { return input.rawBytes(from: start, to: opcodeOffset) }
+          nesting -= 1
+        case 40:
+          let count = try input.count("macro paint word count", maximum: 1_024)
+          for _ in 0..<count { _ = try input.int("macro paint word") }
+        case 38, 124, 248:
+          _ = try input.int("macro clip path id")
+        case 247:
+          _ = try input.int("nested macro id")
+          let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
+          for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
+          // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
+          // matching end so the surrounding definition's end remains the capture terminator.
+          while true {
+            let childOpcode = try input.u8("nested macro call operation")
+            if childOpcode == 214 { break }
+            guard childOpcode == 249 else {
+              throw NativeSwiftCoreError.unsupported(
+                opcode: childOpcode, offset: input.offset - 1,
+                reason: "LOOM nested macro calls only support MacroBlock children")
+            }
+            _ = try input.int("nested macro block index")
+            _ = try captureMacroBody(depth: depth + 1)
+          }
+        case 39, 42, 47, 56:
+          for _ in 0..<4 { _ = try input.word("macro drawing value") }
+        case 44:
+          _ = try input.int("macro bitmap id")
+          for _ in 0..<4 { _ = try input.word("macro bitmap destination") }
+          _ = try input.int("macro bitmap description id")
+        case 46:
+          for _ in 0..<3 { _ = try input.word("macro circle value") }
+        case NativeSwiftWireOpcode.conditionalOperations:
+          _ = try input.u8("conditional type")
+          _ = try input.word("conditional left")
+          _ = try input.word("conditional right")
+          nesting += 1
+        case 51, 52, 152:
+          for _ in 0..<6 { _ = try input.word("macro drawing value") }
+        case 202:
+          // BoxLayout declares both its component and animation IDs; positioning is plain data.
+          for _ in 0..<4 { _ = try input.int("macro box value") }
+          nesting += 1
+        case 130, 131:
+          break
+        case 173:
+          nesting += 1
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro body operation is not yet structurally migrated")
+        }
+      }
+    }
+
+    func captureMacroCallBlocks() throws -> [Int: Data] {
+      var blocks: [Int: Data] = [:]
+      while true {
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("macro call operation")
+        if opcode == 214 { return blocks }
+        guard opcode == 249 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro calls only support MacroBlock children")
+        }
+        let index = try input.int("macro block index")
+        guard blocks[index] == nil else { throw input.malformed("Duplicate macro block \(index)") }
+        blocks[index] = try captureMacroBody()
+      }
+    }
+
+    func remappedMacroBody(_ body: Data, mappings initialMappings: [Int: Int]) throws -> Data {
+      var reader = WireReader(body)
+      var output = [UInt8](body)
+      var mappings = initialMappings
+      func replaceWord(at offset: Int, with word: UInt32) {
+        output[offset] = UInt8(truncatingIfNeeded: word >> 24)
+        output[offset + 1] = UInt8(truncatingIfNeeded: word >> 16)
+        output[offset + 2] = UInt8(truncatingIfNeeded: word >> 8)
+        output[offset + 3] = UInt8(truncatingIfNeeded: word)
+      }
+      func replaceID(at offset: Int, with value: Int) {
+        replaceWord(at: offset, with: UInt32(bitPattern: Int32(value)))
+      }
+      func remapFloatReference(at offset: Int) throws {
+        let word = try reader.word("macro drawing value")
+        if let id = NativeSwiftFloatExpression.referenceID(word), let replacement = mappings[id] {
+          replaceWord(
+            at: offset,
+            with: (word & ~UInt32(0x003f_ffff)) | UInt32(truncatingIfNeeded: replacement))
+        }
+      }
+      func declaredID(at offset: Int, name: String) throws {
+        let id = try reader.int(name)
+        if let replacement = mappings[id] {
+          replaceID(at: offset, with: replacement)
+          return
+        }
+        // `declareId` in the canonical LOOM reader preserves system globals, then allocates a
+        // distinct ID for every declaration read while expanding a macro (including regular IDs).
+        guard id > 41, id != -1 else { return }
+        guard nextMacroGeneratedID <= 0x003f_ffff else {
+          throw input.malformed("LOOM macro generated-id range is exhausted")
+        }
+        let replacement = nextMacroGeneratedID
+        nextMacroGeneratedID += 1
+        mappings[id] = replacement
+        replaceID(at: offset, with: replacement)
+      }
+      while !reader.isAtEnd {
+        let opcodeOffset = reader.offset
+        let opcode = try reader.u8("macro body opcode")
+        switch opcode {
+        case 38, 124:
+          let idOffset = reader.offset
+          let id = try reader.int("macro path id")
+          if let replacement = mappings[id] { replaceID(at: idOffset, with: replacement) }
+        case 247:
+          _ = try reader.int("nested macro id")
+          let argumentCount = try reader.count("nested macro argument count", maximum: maximumProperties)
+          for _ in 0..<argumentCount {
+            let argumentOffset = reader.offset
+            let argument = try reader.int("nested macro argument")
+            if let replacement = mappings[argument] {
+              replaceID(at: argumentOffset, with: replacement)
+            }
+          }
+          // The nested call has no blocks in the forwarding form. Its own expansion performs the
+          // next level of parameter rewrite after this parent body is resumed.
+          guard try reader.u8("nested macro call end") == 214 else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "LOOM nested macro-call blocks are not migrated for parameter remapping")
+          }
+        case 40:
+          let count = try reader.count("macro paint word count", maximum: 1_024)
+          for _ in 0..<count { _ = try reader.int("macro paint word") }
+        case 248:
+          _ = try reader.int("macro argument index")
+        case 39, 42, 47, 56:
+          for _ in 0..<4 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case 44:
+          _ = try reader.int("macro bitmap id")
+          for _ in 0..<4 { let offset = reader.offset; try remapFloatReference(at: offset) }
+          _ = try reader.int("macro bitmap description id")
+        case 46:
+          for _ in 0..<3 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case 51, 52, 152:
+          for _ in 0..<6 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case 202:
+          let componentOffset = reader.offset
+          try declaredID(at: componentOffset, name: "macro box component id")
+          let animationOffset = reader.offset
+          try declaredID(at: animationOffset, name: "macro box animation id")
+          _ = try reader.int("macro box horizontal positioning")
+          _ = try reader.int("macro box vertical positioning")
+        case 130, 131:
+          break
+        case 214:
+          // Container ends carry no IDs. Component containers inside a macro body retain their
+          // own terminator after capture, so the expanded stream must preserve it verbatim.
+          break
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "LOOM macro parameter remapping is not migrated for this operation")
+        }
+      }
+      return Data(output)
+    }
+
+    func remappedMacroBody(_ definition: MacroDefinition, arguments: [Int]) throws -> Data {
+      guard definition.parameterIDs.count == arguments.count else {
+        throw input.malformed(
+          "Macro expects \(definition.parameterIDs.count) arguments, got \(arguments.count)")
+      }
+      let mappings = Dictionary(uniqueKeysWithValues: zip(definition.parameterIDs, arguments))
+      return try remappedMacroBody(definition.body, mappings: mappings)
+    }
+
+    while true {
+      if input.isAtEnd {
+        guard let suspended = suspendedInputs.popLast() else { break }
+        input = suspended.input
+        macroBlocks = suspended.blocks
+        continue
+      }
+      operationCount += 1
+      guard operationCount <= maximumOperations else {
+        throw input.malformed("Operation count exceeds \(maximumOperations)")
+      }
+      let opcodeOffset = input.offset
+      let opcode = try input.u8("opcode")
+      // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
+      // own their children; macro definitions and calls expand into those children; neither is an
+      // independent top-level operation. Template bytes execute through `suspendedInputs` and are
+      // likewise excluded from the source document's top-level census.
+      if stack.isEmpty, modifierContainers.isEmpty, suspendedInputs.isEmpty {
+        switch opcode {
+        case 200:
+          linkedTopLevelOperationCount += 1
+        case 201...205, 207, 208, 217, 233, 240, 246, 247, 249, 214:
+          break
+        default:
+          linkedTopLevelOperationCount += 1
+        }
+      }
+      switch opcode {
+      case NativeSwiftWireOpcode.conditionalOperations:
+        let type = Int(try input.u8("conditional type"))
+        let leftWord = try input.word("conditional left")
+        let rightWord = try input.word("conditional right")
+        let body = try captureMacroBody()
+        let left = NativeSwiftFloatExpression.resolve(leftWord, values: floats)
+        let right = NativeSwiftFloatExpression.resolve(rightWord, values: floats)
+        let executed: Bool
+        switch type {
+        case 0: executed = left == right
+        case 1: executed = left != right
+        case 2: executed = left < right
+        case 3: executed = left <= right
+        case 4: executed = left > right
+        case 5: executed = left >= right
+        case 6: executed = left != 0 || right != 0
+        default: executed = false
+        }
+        let path = String(conditionalIndex)
+        conditionalIndex += 1
+        conditionalTraces.append(NativeSwiftConditionalTraceSnapshot(
+          type: type, left: left, right: right, executed: executed,
+          executedChildOps: executed && !body.isEmpty ? 1 : 0, path: path))
+        if executed {
+          guard suspendedInputs.count < maximumNestingDepth else {
+            throw input.malformed("Conditional nesting exceeds \(maximumNestingDepth)")
+          }
+          suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+          input = WireReader(body)
+        }
+      case 2:  // Legacy ComponentStart. Retain its structure; modern documents use 200...205.
+        let kind = try input.int("legacy component kind")
+        let componentID = try input.int("legacy component id")
+        _ = try input.word("legacy component width")
+        _ = try input.word("legacy component height")
+        let node = ParsedNode(kind: .box, componentID: componentID)
+        node.componentKind = "LegacyComponent\(kind)"
+        try begin(node)
+      case 241:  // Parse-time conditional section skip.
+        let condition = try input.int("skip condition")
+        let value = try input.int("skip value")
+        let length = try input.count("skip length", maximum: maximumStringBytes)
+        let shouldSkip: Bool
+        switch condition {
+        case 1: shouldSkip = 7 < value  // AndroidX's current player API baseline.
+        case 2: shouldSkip = 7 > value
+        case 3: shouldSkip = 7 == value
+        case 4: shouldSkip = 7 != value
+        case 5: shouldSkip = (0 & value) != 0
+        case 6: shouldSkip = (0 & value) == 0
+        default: shouldSkip = false
+        }
+        if shouldSkip { _ = try input.rawData("skipped operation section", length: length) }
+      case 142:  // ReferencedOperations definition container.
+        let referenceID = try input.int("referenced operations id")
+        guard referencedOperations[referenceID] == nil else {
+          throw input.malformed("Duplicate referenced operations \(referenceID)")
+        }
+        referencedOperations[referenceID] = try captureMacroBody()
+      case 245:  // Inline a previously captured ReferencedOperations body.
+        let referenceID = try input.int("referenced operations id")
+        guard let body = referencedOperations[referenceID] else {
+          throw input.malformed("Missing referenced operations \(referenceID)")
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("Structural expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(body)
+      case 244:  // Expand a template body once for each ID in a DataListIds collection.
+        let collectionID = try input.int("pattern foreach collection id")
+        let localItemID = try input.int("pattern foreach local item id")
+        let body = try captureMacroBody()
+        guard let ids = idLists[collectionID] else {
+          throw input.malformed("Missing pattern foreach collection \(collectionID)")
+        }
+        var expanded = Data()
+        for id in ids {
+          expanded.append(try remappedMacroBody(body, mappings: [localItemID: id]))
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(expanded)
+      case 248:  // Insert the block supplied to the enclosing MacroCall.
+        let index = try input.int("macro argument index")
+        guard let block = macroBlocks[index] else {
+          throw input.malformed("Missing macro block \(index)")
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(block)
+      case 246:  // Macro definition. Definitions are structural and do not execute their body.
+        let macroID = try input.int("macro id")
+        let parameterCount = try input.count("macro parameter count", maximum: maximumProperties)
+        let parameterIDs = try (0..<parameterCount).map { _ in try input.int("macro parameter id") }
+        let bodySize = try input.count("macro body size", maximum: maximumStringBytes)
+        let body =
+          bodySize == 0
+          ? try captureMacroBody()
+          : try input.rawData("macro body", length: bodySize)
+        guard macroDefinitions[macroID] == nil else {
+          throw input.malformed("Duplicate macro definition \(macroID)")
+        }
+        macroDefinitions[macroID] = MacroDefinition(parameterIDs: parameterIDs, body: body)
+      case 247:  // Macro call container.
+        let macroID = try input.int("macro id")
+        let argumentCount = try input.count("macro argument count", maximum: maximumProperties)
+        let arguments = try (0..<argumentCount).map { _ in try input.int("macro argument id") }
+        guard let definition = macroDefinitions[macroID] else {
+          throw input.malformed("Missing macro definition \(macroID)")
+        }
+        let callBlocks = try captureMacroCallBlocks()
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(try remappedMacroBody(definition, arguments: arguments))
+        macroBlocks = callBlocks
+      case 40:  // Paint data
+        let count = try input.count("paint word count", maximum: 1_024)
+        var words: [Int] = []
+        words.reserveCapacity(count)
+        for _ in 0..<count { words.append(try input.int("paint word")) }
+        try applyPaint(words, to: &paint, input: input)
+      case 45:  // Runtime shader resource; retain names for decoded-operation records.
+        let shaderID = try input.int("shader id")
+        _ = try input.int("shader text id")
+        let sizes = UInt32(bitPattern: Int32(try input.int("shader uniform sizes")))
+        guard sizes >> 24 == 0 else { throw input.malformed("Invalid shader uniform sizes") }
+        var names: Set<String> = []
+        for _ in 0..<(sizes & 0xff) {
+          names.insert(try input.utf8("shader float uniform name", maximum: maximumStringBytes))
+          let count = try input.count("shader float uniform value count", maximum: 1_024)
+          for _ in 0..<count { _ = try input.word("shader float uniform value") }
+        }
+        for _ in 0..<((sizes >> 8) & 0xff) {
+          names.insert(try input.utf8("shader int uniform name", maximum: maximumStringBytes))
+          let count = try input.count("shader int uniform value count", maximum: 1_024)
+          for _ in 0..<count { _ = try input.int("shader int uniform value") }
+        }
+        for _ in 0..<((sizes >> 16) & 0xff) {
+          names.insert(try input.utf8("shader bitmap uniform name", maximum: maximumStringBytes))
+          _ = try input.int("shader bitmap uniform id")
+        }
+        shaderUniformNames[shaderID] = names
+      case 38:  // Clip path
+        let id = try input.int("clip path id")
+        guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 7, words: [], paint: paint, path: path))
+      case 39:  // Clip rectangle
+        let words = try (0..<4).map { _ in try input.word("clip rectangle value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 6, words: words, paint: paint))
+      case 42:  // Draw rectangle
+        let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 10, words: words, paint: paint))
+      case NativeSwiftWireOpcode.drawText:
+        let textID = try input.int("draw text id")
+        let start = try input.int("draw text start")
+        let end = try input.int("draw text end")
+        _ = try input.int("draw text context start")
+        _ = try input.int("draw text context end")
+        let x = try input.word("draw text x")
+        let y = try input.word("draw text y")
+        let rtl = Int(try input.u8("draw text rtl"))
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 17, words: [x, y, Float(-1).bitPattern, Float(-1).bitPattern],
+            paint: paint, textID: textID, textStart: start, textEnd: end, textFlags: rtl))
+      case NativeSwiftWireOpcode.drawTextAnchored:
+        let textID = try input.int("draw anchored text id")
+        let words = try (0..<4).map { _ in try input.word("draw anchored text value") }
+        let flags = try input.int("draw anchored text flags")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID, textFlags: flags))
+      case NativeSwiftWireOpcode.drawTextOnPath:
+        let textID = try input.int("draw text path text id")
+        let pathID = try input.int("draw text path id")
+        guard let path = paths[pathID] else { throw input.malformed("Missing text path \(pathID)") }
+        let vertical = try input.word("draw text path vertical offset")
+        let horizontal = try input.word("draw text path horizontal offset")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(
+            kind: 20, words: [horizontal, vertical], paint: paint, path: path, textID: textID))
+      case NativeSwiftWireOpcode.drawTextOnCircle:
+        let textID = try input.int("draw text circle text id")
+        let words = try (0..<5).map { _ in try input.word("draw text circle value") }
+        _ = try input.u8("draw text circle alignment")
+        _ = try input.u8("draw text circle placement")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 21, words: words, paint: paint, textID: textID))
+      case NativeSwiftWireOpcode.drawBitmap:
+        let imageID = try input.int("draw bitmap image id")
+        guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
+        let destination = try (0..<4).map { _ in try input.word("draw bitmap destination") }
+        let descriptionID = try input.int("draw bitmap content description id")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(
+            kind: 19, words: [], paint: paint,
+            image: ParsedImageDraw(
+              imageID: imageID,
+              source: [0, 0, Float(bitmap.width).bitPattern, Float(bitmap.height).bitPattern],
+              destination: destination, scaleType: NativeSwiftImageScaleType.fillBounds,
+              scaleFactor: Float(1).bitPattern,
+              contentDescriptionID: descriptionID)))
+      case NativeSwiftWireOpcode.drawBitmapScaled:  // Draw bitmap with explicit source, destination and scale mode.
+        let imageID = try input.int("scaled bitmap image id")
+        guard let bitmap = images[imageID] else {
+          throw input.malformed("Missing bitmap \(imageID)")
+        }
+        let source = try (0..<4).map { _ in try input.word("scaled bitmap source") }
+        let destination = try (0..<4).map { _ in try input.word("scaled bitmap destination") }
+        let scaleType = try input.int("scaled bitmap scale type")
+        guard (NativeSwiftImageScaleType.none...NativeSwiftImageScaleType.fixed).contains(scaleType) else {
+          throw input.malformed("Invalid bitmap scale type")
+        }
+        let scaleFactor = try input.word("scaled bitmap scale factor")
+        let descriptionID = try input.int("scaled bitmap content description id")
+        // Keep the resource validation aligned with DrawBitmap even though this operation carries
+        // its source rectangle explicitly.
+        guard bitmap.width > 0, bitmap.height > 0 else {
+          throw input.malformed("Invalid bitmap dimensions")
+        }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(
+            kind: 19, words: [], paint: paint,
+            image: ParsedImageDraw(
+              imageID: imageID, source: source, destination: destination, scaleType: scaleType,
+              scaleFactor: scaleFactor, contentDescriptionID: descriptionID)))
+      case 46:  // Draw circle
+        let words = try (0..<3).map { _ in try input.word("draw circle value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 12, words: words, paint: paint))
+      case 47:  // Draw line
+        let words = try (0..<4).map { _ in try input.word("draw line value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 13, words: words, paint: paint))
+      case 51:  // Draw rounded rectangle
+        let words = try (0..<6).map { _ in try input.word("draw rounded rectangle value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 14, words: words, paint: paint))
+      case 52:  // Draw sector
+        let words = try (0..<6).map { _ in try input.word("draw sector value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 16, words: words, paint: paint))
+      case 56:  // Draw oval
+        let words = try (0..<4).map { _ in try input.word("draw oval value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 11, words: words, paint: paint))
+      case 108:  // Clip to the component's bounds
+        // No payload. The reference clips to the component's laid-out width and height at paint
+        // time, taking them from layout rather than the wire, so all this has to record is that the
+        // component clips at all.
+        try currentNode(stack, input: input).clipsToBounds = true
+      case 224:  // Graphics layer
+        // INT length, then that many [INT tag, value] pairs. The tag's low 10 bits are the
+        // attribute id and bits 10-11 its data type: 1 is a float, anything else an int.
+        let attributeCount = try input.count("graphics layer attribute count", maximum: 64)
+        for _ in 0..<attributeCount {
+          let tag = try input.int("graphics layer tag")
+          let word = try input.word("graphics layer value")
+          let attribute = tag & 0x3ff
+          let isFloat = (tag >> 10) & 0x3 == 1
+          let value =
+            isFloat
+            ? NativeSwiftFloatExpression.resolve(word, values: [:])
+            : Float(Int32(bitPattern: word))
+          try currentNode(stack, input: input).graphicsLayer[attribute] = value
+        }
+      case 54:  // Rounded clip rectangle
+        let node = try currentNode(stack, input: input)
+        node.cornerRadiusWords = try (0..<4).map { _ in try input.word("corner radius") }
+      case 59:  // Click modifier encloses its action operations.
+        let node = try currentNode(stack, input: input)
+        node.isClickable = true
+        modifierContainers.append(ParsedModifierContainer(node: node, gesture: .tap))
+      case 83:  // Multi-click modifier.
+        let node = try currentNode(stack, input: input)
+        let raw = try input.int("multi-click type")
+        let gesture: NativeSwiftGestureKind
+        switch raw {
+        case 0: gesture = .tap
+        case 1: gesture = .longPress
+        case 2: gesture = .doubleTap
+        default: throw input.malformed("Unknown multi-click type \(raw)")
+        }
+        node.isClickable = true
+        modifierContainers.append(ParsedModifierContainer(node: node, gesture: gesture))
+      case 219, 220, 225:  // Pointer lifecycle action containers.
+        let node = try currentNode(stack, input: input)
+        let gesture: NativeSwiftGestureKind =
+          opcode == 219 ? .touchDown : (opcode == 220 ? .touchUp : .touchCancel)
+        node.isClickable = true
+        modifierContainers.append(ParsedModifierContainer(node: node, gesture: gesture))
+      case 130:  // Matrix save
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 0, words: [], paint: paint))
+      case 131:  // Matrix restore
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 1, words: [], paint: paint))
+      case 173:  // Canvas operations container
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+      case 139, 174:  // Marker/modifier operations without payload
+        break
+      case 16:  // Width
+        let node = try currentNode(stack, input: input)
+        let widthType = try input.dimensionType("width type")
+        let widthWord = try input.word("width")
+        // First one wins, because these are a Compose modifier *chain*, not a property. AndroidX
+        // emits `width(172.dp)` followed by `fillMaxWidth()` on every title card: the outer
+        // modifier fixes the constraint at 172dp and the inner fill then fills exactly that, so the
+        // outer is the one that decides. Overwriting instead kept the fill and drew the card at the
+        // document's full width — 454 instead of 344, the largest single divergence on the catalog
+        // corpus. `WRAP` is the absence of a size modifier rather than one of its own, so it never
+        // claims the slot and never displaces what an earlier modifier set.
+        if node.widthType == NativeSwiftDimensionType.wrap {
+          node.widthType = widthType
+          node.widthWord = widthWord
+        }
+      case 55:  // Background
+        let node = try currentNode(stack, input: input)
+        let flags = try input.int("background flags")
+        let colorID = try input.int("background color id")
+        _ = try input.int("background reserved1")
+        _ = try input.int("background reserved2")
+        let usesColorID = flags & 2 != 0
+        let red = try input.floatWord("background red", requireLiteral: !usesColorID)
+        let green = try input.floatWord("background green", requireLiteral: !usesColorID)
+        let blue = try input.floatWord("background blue", requireLiteral: !usesColorID)
+        let alpha = try input.floatWord("background alpha", requireLiteral: !usesColorID)
+        let shape = try input.int("background shape")
+        guard shape == 0 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "non-rectangular backgrounds")
+        }
+        node.backgroundARGB =
+          !usesColorID ? argb(red: red, green: green, blue: blue, alpha: alpha) : nil
+        node.backgroundColorID = usesColorID ? colorID : nil
+      case 58:  // Padding
+        let node = try currentNode(stack, input: input)
+        node.paddingWords = ParsedInsetWords(
+          left: try input.word("padding left"),
+          top: try input.word("padding top"),
+          right: try input.word("padding right"),
+          bottom: try input.word("padding bottom"))
+      case 67:  // Height
+        let node = try currentNode(stack, input: input)
+        let heightType = try input.dimensionType("height type")
+        let heightWord = try input.word("height")
+        // See `case 16`: the outer modifier of a chain decides, and `WRAP` is not a modifier.
+        if node.heightType == NativeSwiftDimensionType.wrap {
+          node.heightType = heightType
+          node.heightWord = heightWord
+        }
+      case 80:  // Float constant
+        let floatID = try input.int("float id")
+        let constantWord = try input.word("float value")
+        if NativeSwiftFloatExpression.referenceID(constantWord) != nil {
+          // A constant that names another value is an alias, not a number. Expressing it as a
+          // one-word expression runs it through the same ordered evaluation as any other computed
+          // value, instead of freezing a reference's raw NaN bits into the seed map.
+          expressions.append(
+            ParsedFloatExpression(id: floatID, words: [constantWord], animationWords: nil))
+          expressionIDs.insert(floatID)
+        } else {
+          let value = Float(bitPattern: constantWord)
+          guard value.isFinite else { throw input.malformed("float value must be finite") }
+          floats[floatID] = value
+        }
+      case 101:  // Bitmap data
+        let imageID = try input.int("bitmap id")
+        let widthAndType = UInt32(bitPattern: Int32(try input.int("bitmap width and type")))
+        let heightAndEncoding = UInt32(
+          bitPattern: Int32(try input.int("bitmap height and encoding")))
+        let width = Int(widthAndType & 0xffff)
+        let height = Int(heightAndEncoding & 0xffff)
+        let type = Int(widthAndType >> 16)
+        let encoding = Int(heightAndEncoding >> 16)
+        guard width > 0, height > 0, width <= 4_096, height <= 4_096 else {
+          throw input.malformed("Invalid bitmap dimensions \(width)x\(height)")
+        }
+        guard images[imageID] == nil else { throw input.malformed("Duplicate bitmap \(imageID)") }
+        images[imageID] = ParsedImageResource(
+          id: imageID, width: width, height: height, type: type, encoding: encoding,
+          data: try input.data("bitmap data", maximum: 8 * 1_024 * 1_024))
+      case 81:  // Float expression
+        let id = try input.int("float expression id")
+        // The length word packs the expression token count in its low half and an optional packed
+        // FloatAnimation descriptor count in its high half. Keep their raw words separate: NaN
+        // operator/reference payloads belong to the RPN expression, while the animation metadata
+        // is interpreted as Float32 bit patterns by the animation runtime.
+        let lengths = try input.int("float expression lengths")
+        let valueCount = lengths & 0xffff
+        let animationCount = (lengths >> 16) & 0xffff
+        let count = valueCount + animationCount
+        guard count <= 65_567 else { throw input.malformed("Float expression is too long") }
+        expressionWordCount += count
+        guard expressionWordCount <= 200_000 else {
+          throw input.malformed("Float expression work exceeds 200000 words")
+        }
+        var words: [UInt32] = []
+        words.reserveCapacity(count)
+        for _ in 0..<count { words.append(try input.word("float expression word")) }
+        let animationWords = animationCount == 0 ? nil : Array(words.suffix(animationCount))
+        if let animationWords {
+          _ = try NativeSwiftFloatAnimationRuntime(
+            animationWords: animationWords, offset: opcodeOffset)
+        }
+        expressions.append(
+          ParsedFloatExpression(
+            id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords))
+        expressionIDs.insert(id)
+      case 93:  // Custom
+        let id = try input.int("custom component id")
+        _ = try input.int("custom animation id")
+        let configID = try input.int("custom config id")
+        let count = try input.count("custom property count", maximum: maximumProperties)
+        var properties: [ParsedCustomProperty] = []
+        properties.reserveCapacity(count)
+        for index in 0..<count {
+          let type = try input.signedU16("custom property \(index) type")
+          let dataType = try input.signedU16("custom property \(index) data type")
+          guard (0...9).contains(dataType) else {
+            throw input.malformed("Unknown custom property data type \(dataType)")
+          }
+          let valueBits = try input.int("custom property \(index) value")
+          if [5, 6, 9].contains(dataType) {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "custom property data type \(dataType) is not migrated")
+          }
+          if dataType == 3,
+            NativeSwiftFloatExpression.referenceID(UInt32(bitPattern: Int32(valueBits))) == nil
+          {
+            throw input.malformed("Custom float return property has no target")
+          }
+          properties.append(
+            ParsedCustomProperty(
+              type: type, dataType: dataType, valueBits: valueBits))
+        }
+        let node = ParsedNode(kind: .custom, componentID: id)
+        node.componentKind = "CustomLayout"
+        node.custom = ParsedCustom(configID: configID, properties: properties)
+        try begin(node)
+      case 102:  // Text data
+        let id = try input.int("text id")
+        texts[id] = try input.utf8("text", maximum: maximumStringBytes)
+      case 138:  // Color constant
+        colors[try input.int("color id")] = UInt32(bitPattern: Int32(try input.int("color")))
+      case 196:  // Color theme
+        // INT id, INT colorGroupId, SHORT lightIndex, SHORT darkIndex, INT lightFallback,
+        // INT darkFallback. The two indices select from a colour group this player does not carry,
+        // so only the fallbacks are usable -- which is what the reference seeds its light and dark
+        // values with at construction, so a player that is never told a theme still resolves to a
+        // real colour.
+        //
+        // Light is the one taken, and that is measured rather than reasoned. The TypeScript
+        // reference resolves light only for THEME_LIGHT (-3) and falls to dark for everything else
+        // including THEME_UNSPECIFIED, which is what a player with no theme concept is -- so
+        // following it would mean dark. Against the reference JVM lane, which is what this player is
+        // scored on, dark renders theme-systemthemeswatches 25.59% wrong and light renders it
+        // pixel-exact. The catalog publishes a light-theme sheet, so light is what its reference
+        // pixels are.
+        //
+        // This is a constant standing in for a theme this player does not model. The moment it
+        // gains one, this reads it instead, and both fallbacks are already parsed for that.
+        let colorID = try input.int("color theme id")
+        _ = try input.int("color theme group id")
+        _ = try input.signedU16("color theme light index")
+        _ = try input.signedU16("color theme dark index")
+        let lightFallback = try input.int("color theme light fallback")
+        let darkFallback = try input.int("color theme dark fallback")
+        _ = darkFallback
+        colors[colorID] = UInt32(bitPattern: Int32(lightFallback))
+      case 140:  // Integer constant
+        integers[try input.int("integer id")] = try input.int("integer value")
+      case 144:  // Integer expression
+        let outputID = try input.int("integer expression output id")
+        let mask = try input.int("integer expression mask")
+        let count = try input.count("integer expression value count", maximum: 320)
+        var tokens: [Int] = []
+        tokens.reserveCapacity(count)
+        for _ in 0..<count { tokens.append(try input.int("integer expression value")) }
+        integerExpressions[outputID] = ParsedIntegerExpression(mask: mask, tokens: tokens)
+        // The order is what `probeValues` re-evaluates in: an expression may read another's result,
+        // so the wire's own declaration order is the one that converges. Without this the refresh
+        // pass had nothing to iterate and a probe kept reporting the decode-time value however a
+        // gesture had moved its inputs.
+        integerExpressionOrder.append(outputID)
+        integers[outputID] = try NativeSwiftIntegerExpression.evaluate(
+          mask: mask, tokens: tokens, values: integers)
+      case 146:  // List of resource ids
+        let id = try input.int("id list id")
+        let count = try input.count("id list count", maximum: maximumProperties)
+        idLists[id] = try (0..<count).map { _ in try input.int("id list value") }
+      case 147:  // Static float list.
+        let id = try input.int("float list id")
+        let count = try input.count("float list count", maximum: maximumProperties)
+        guard floatLists[id] == nil else { throw input.malformed("Duplicate float list \(id)") }
+        floatLists[id] = try (0..<count).map { _ in try input.word("float list value") }
+      case 197:  // Zero-filled float list with a dynamic length.
+        let id = try input.int("dynamic float list id")
+        let length = try input.word("dynamic float list length")
+        guard dynamicFloatLists[id] == nil else {
+          throw input.malformed("Duplicate dynamic float list \(id)")
+        }
+        dynamicFloatLists[id] = ParsedDynamicFloatList(lengthWord: length, updates: [])
+      case 198:  // Update one dynamic float-list element; invalid indices are ignored at resolve.
+        let id = try input.int("dynamic float list id")
+        let update = (
+          index: try input.word("dynamic float list index"),
+          value: try input.word("dynamic float list value"))
+        if dynamicFloatLists[id] != nil {
+          // Appended in place: rebuilding the list per update was quadratic in a long update run.
+          dynamicFloatLists[id]?.updates.append(update)
+        } else if floatLists[id] != nil {
+          floatListUpdates[id, default: []].append(update)
+        } else {
+          throw input.malformed("Missing float list \(id)")
+        }
+      case 145:  // Data map of typed resource IDs, addressed by a text key at lookup time.
+        let mapID = try input.int("data map id")
+        let count = try input.count("data map entry count", maximum: maximumProperties)
+        var entries: [String: (type: Int, valueID: Int)] = [:]
+        for index in 0..<count {
+          let key = try input.utf8("data map entry \(index) key", maximum: maximumStringBytes)
+          let type = try input.u8("data map entry \(index) type")
+          guard (0...4).contains(type) else {
+            throw input.malformed("Unknown data map type \(type)")
+          }
+          guard entries[key] == nil else { throw input.malformed("Duplicate data map key \(key)") }
+          entries[key] = (type, try input.int("data map entry \(index) value id"))
+        }
+        guard dataMaps[mapID] == nil else { throw input.malformed("Duplicate data map \(mapID)") }
+        dataMaps[mapID] = entries
+      case 154:  // Resolve one typed value from a DataMap by a text resource key.
+        let outputID = try input.int("data map lookup output id")
+        let mapID = try input.int("data map lookup map id")
+        let keyTextID = try input.int("data map lookup key text id")
+        dataMapLookups.append(
+          ParsedDataMapLookup(outputID: outputID, mapID: mapID, keyTextID: keyTextID))
+      case 134:  // Dynamic color expression
+        let expression = ParsedColorExpression(
+          outputID: try input.int("color expression output id"),
+          modeAndAlpha: try input.int("color expression mode and alpha"),
+          first: try input.int("color expression first value"),
+          second: try input.int("color expression second value"),
+          third: try input.int("color expression third value"))
+        guard (0...6).contains(expression.modeAndAlpha & 0xff) else {
+          throw input.malformed("Unknown color expression mode")
+        }
+        colorExpressions.append(expression)
+      case NativeSwiftWireOpcode.textFromFloat:
+        let outputID = try input.int("text from float output id")
+        let value = try input.word("text from float value")
+        let digits = UInt32(bitPattern: Int32(try input.int("text from float digits")))
+        _ = try input.int("text from float flags")
+        let conversion = ParsedTextFromFloat(
+            outputID: outputID, value: value,
+            digitsAfter: Int(Int16(bitPattern: UInt16(digits & 0xffff))))
+        textFromFloats.append(conversion)
+        textOperations.append(.fromFloat(conversion))
+      case NativeSwiftWireOpcode.textMerge:
+        let merge = ParsedTextMerge(
+            outputID: try input.int("text merge output id"),
+            leftID: try input.int("text merge left id"),
+            rightID: try input.int("text merge right id"))
+        textMerges.append(merge)
+        textOperations.append(.merge(merge))
+      case NativeSwiftWireOpcode.textLookupInt:
+        let lookup = ParsedTextLookupInt(
+            outputID: try input.int("text lookup output id"),
+            listID: try input.int("text lookup list id"),
+            indexID: try input.int("text lookup index id"))
+        textLookups.append(lookup)
+        textOperations.append(.lookupInt(lookup))
+      case NativeSwiftWireOpcode.textLookup:
+        let lookup = ParsedTextLookup(
+            outputID: try input.int("text lookup output id"),
+            listID: try input.int("text lookup list id"),
+            index: try input.word("text lookup index"))
+        textFloatLookups.append(lookup)
+        textOperations.append(.lookup(lookup))
+      case NativeSwiftWireOpcode.textTransform:
+        let transform = ParsedTextTransform(
+          outputID: try input.int("text transform output id"),
+          textID: try input.int("text transform source id"),
+          start: try input.word("text transform start"),
+          length: try input.word("text transform length"),
+          operation: try input.int("text transform operation"))
+        // Zero is the protocol's identity transform: it still slices its source, but applies no
+        // case or whitespace rewrite. The remaining values are the five AndroidX transforms.
+        guard (NativeSwiftTextTransformOperation.identity...NativeSwiftTextTransformOperation.capitalizeFirst)
+          .contains(transform.operation)
+        else {
+          throw input.malformed("Unknown text transform operation")
+        }
+        textTransforms.append(transform)
+        textOperations.append(.transform(transform))
+      case 123:  // Path data; bounded now, drawing support is a separate operation family.
+        let idAndWinding = try input.int("path id and winding")
+        let count = try input.count("path word count", maximum: 20_000)
+        var words: [UInt32] = []
+        words.reserveCapacity(count)
+        for _ in 0..<count { words.append(try input.word("path word")) }
+        paths[idAndWinding & 0x00ff_ffff] = ParsedPath(
+          winding: idAndWinding >> 24, words: words)
+        pathIDs.insert(idAndWinding & 0x00ff_ffff)
+      case 158:  // Path tween; retained for the decoded-operation record probe.
+        let outID = try input.int("path tween output id")
+        _ = try input.int("path tween first path id")
+        _ = try input.int("path tween second path id")
+        _ = try input.word("path tween factor")
+        pathTweenIDs.insert(outID)
+      case 159:  // Procedural path start; rendering it is separate from reporting its presence.
+        let id = try input.int("path create id")
+        _ = try input.word("path create x")
+        _ = try input.word("path create y")
+        pathIDs.insert(id)
+      case 160:  // Procedural path append.
+        let id = try input.int("path append id")
+        let count = try input.count("path append word count", maximum: 2_000)
+        for _ in 0..<count { _ = try input.word("path append word") }
+        pathIDs.insert(id)
+      case 124:
+        let id = try input.int("path id")
+        guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 18, words: [], paint: paint, path: path))
+      case 137:  // Named variable
+        let id = try input.int("named variable id")
+        let type = try input.int("named variable type")
+        guard (0...6).contains(type) else { throw input.malformed("Unknown named variable type") }
+        let name = try input.utf8("named variable name", maximum: maximumStringBytes)
+        namedVariables[name] = ParsedNamedVariable(id: id, type: type)
+      case 150:  // Component value binding
+        let type = try input.int("component value type")
+        let componentID = try input.int("component value component id")
+        let valueID = try input.int("component value id")
+        guard type == 0 || type == 1 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "component value type \(type)")
+        }
+        // A binding may name a component that is not an open ancestor at this point in the stream --
+        // one already closed, or one the document declares elsewhere. The old guard searched the
+        // open stack only and rejected the whole document otherwise, which is both stricter than
+        // the lookup that consumes these bindings (it searches every known node) and stricter than
+        // the reference player, which falls back to the document's own dimensions when it cannot
+        // find the component. Resolution below handles an unknown component on its own.
+        componentValues.append(
+          ParsedComponentValue(type: type, componentID: componentID, valueID: valueID))
+      case 180:  // Color channel attribute
+        let attribute = ParsedColorAttribute(
+          outputID: try input.int("color attribute output id"),
+          colorID: try input.int("color attribute color id"),
+          type: try input.signedU16("color attribute type"))
+        guard (0...6).contains(attribute.type) else {
+          throw input.malformed("Unknown color attribute type \(attribute.type)")
+        }
+        colorAttributes.append(attribute)
+      case NativeSwiftWireOpcode.matrixConstant:
+        let matrixID = try input.int("matrix constant id")
+        _ = try input.int("matrix constant type")
+        let count = try input.count("matrix constant value count", maximum: 16)
+        guard count == 9 || count == 16 else {
+          throw input.malformed("Matrix constant must contain 9 or 16 values")
+        }
+        let words = try (0..<count).map { _ in try input.word("matrix constant value") }
+        let values = words.map { NativeSwiftFloatExpression.resolve($0, values: floats) }
+        guard values.allSatisfy(\.isFinite) else {
+          throw input.malformed("Matrix constant contains a non-finite value")
+        }
+        matrixConstants[matrixID] = NativeSwiftMatrixSnapshot(id: matrixID, values: values)
+      case NativeSwiftWireOpcode.matrixExpression:  // Matrix expression, named by a paint's SHADER_MATRIX field.
+        let matrixID = try input.int("matrix expression id")
+        let matrixType = try input.int("matrix expression type")
+        let count = try input.count("matrix expression value count", maximum: 32)
+        let matrixWords = try (0..<count).map { _ in try input.word("matrix expression value") }
+        matrixExpressions[matrixID] = ParsedMatrixExpression(
+          id: matrixID, type: matrixType, words: matrixWords)
+      case NativeSwiftWireOpcode.matrixVectorMath:
+        let type = Int(try input.u16("matrix vector math type"))
+        guard type == 0 || type == 1 else {
+          throw input.malformed("Unknown matrix vector math type")
+        }
+        let matrixID = try input.int("matrix vector math matrix id")
+        let outputCount = try input.count("matrix vector math output count", maximum: 4)
+        guard outputCount > 0 else { throw input.malformed("Matrix vector math has no outputs") }
+        let outputs = try (0..<outputCount).map { _ in try input.int("matrix vector math output") }
+        let inputCount = try input.count("matrix vector math input count", maximum: 4)
+        guard inputCount > 0 else { throw input.malformed("Matrix vector math has no inputs") }
+        let inputs = try (0..<inputCount).map { _ in try input.word("matrix vector math input") }
+        matrixVectorMath.append(
+          ParsedMatrixVectorMath(
+            type: type, outputIDs: outputs, matrixID: matrixID, inputWords: inputs))
+      case 171:  // Image dimension attribute
+        let outputID = try input.int("image attribute output id")
+        let imageID = try input.int("image attribute image id")
+        let type = try input.signedU16("image attribute type")
+        let count = Int(try input.u16("image attribute argument count"))
+        guard count <= maximumProperties else {
+          throw input.malformed("Too many image attribute arguments")
+        }
+        for _ in 0..<count { _ = try input.int("image attribute argument") }
+        guard let image = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
+        guard type == 0 || type == 1 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "image attribute type \(type)")
+        }
+        floats[outputID] = Float(type == 0 ? image.width : image.height)
+      case 200:  // Root
+        let root = ParsedNode(kind: .root, componentID: try input.int("root component id"))
+        root.componentKind = "RootLayoutComponent"
+        try begin(root)
+      case 201:  // Content
+        try begin(ParsedNode(kind: .content, componentID: try input.int("content component id")))
+      case 202:  // Box
+        let node = ParsedNode(kind: .box, componentID: try input.int("box component id"))
+        node.componentKind = "BoxLayout"
+        node.animationID = try input.int("box animation id")
+        node.horizontalPositioning = try input.int("box horizontal positioning")
+        node.verticalPositioning = try input.int("box vertical positioning")
+        try begin(node)
+      case 203:  // Row
+        let node = ParsedNode(kind: .row, componentID: try input.int("row component id"))
+        node.componentKind = "RowLayout"
+        node.animationID = try input.int("row animation id")
+        node.horizontalPositioning = try input.int("row horizontal positioning")
+        node.verticalPositioning = try input.int("row vertical positioning")
+        node.spacingWord = try input.word("row spacing")
+        try begin(node)
+      case 204:  // Column
+        let node = ParsedNode(kind: .column, componentID: try input.int("column component id"))
+        node.componentKind = "ColumnLayout"
+        node.animationID = try input.int("column animation id")
+        node.horizontalPositioning = try input.int("column horizontal positioning")
+        node.verticalPositioning = try input.int("column vertical positioning")
+        node.spacingWord = try input.word("column spacing")
+        try begin(node)
+      case 14:  // Animation spec
+        // Verified against AndroidX's own AnimationSpec.read in remote-core: an id, the motion
+        // duration as a float, its easing as an int, the visibility duration as a float, its easing,
+        // then the enter and exit animation kinds. Seven words.
+        //
+        let id = try input.int("animation spec id")
+        let motionDuration = try input.floatWord(
+          "animation spec motion duration", requireLiteral: true)
+        let motionEasingType = try input.int("animation spec motion easing")
+        let visibilityDuration = try input.floatWord(
+          "animation spec visibility duration", requireLiteral: true)
+        let visibilityEasingType = try input.int("animation spec visibility easing")
+        let enterAnimation = try input.int("animation spec enter animation")
+        let exitAnimation = try input.int("animation spec exit animation")
+        guard motionDuration.isFinite, motionDuration >= 0, visibilityDuration.isFinite,
+          visibilityDuration >= 0
+        else {
+          throw input.malformed("Invalid animation spec duration")
+        }
+        animationSpecs[id] = NativeSwiftAnimationSpec(
+          motionDuration: motionDuration, motionEasingType: motionEasingType,
+          visibilityDuration: visibilityDuration, visibilityEasingType: visibilityEasingType,
+          enterAnimation: enterAnimation, exitAnimation: exitAnimation)
+        animationSpecOrder.append(id)
+      case 157:  // Touch expression
+        // An id, four float words (start value, minimum, maximum, velocity id), the touch effects,
+        // then three length-prefixed float arrays. Each length is the low 16 bits of its word --
+        // the high half of the second carries the stop mode -- which is masked in both AndroidX's
+        // own reader and the reference port, and getting that wrong desynchronises everything after.
+        _ = try input.int("touch expression id")
+        for field in ["start value", "minimum", "maximum", "velocity id"] {
+          _ = try input.word("touch expression \(field)")
+        }
+        _ = try input.int("touch expression effects")
+        for array in ["expression", "stops", "easing"] {
+          let header = try input.int("touch expression \(array) length")
+          let count = header & 0xffff
+          guard count <= 4096 else {
+            throw input.malformed("Touch expression \(array) is too long")
+          }
+          for _ in 0..<count { _ = try input.word("touch expression \(array) value") }
+        }
+      case 161:  // Particle define
+        // From AndroidX's ParticlesCreate.read: an id, the particle count, then a variable count and
+        // that many variables, each an id followed by a length-prefixed expression. The bounds are
+        // the reader's own -- fewer than 8000 particles, at most 2000 variables, at most 32 words
+        // per expression -- and they are kept because they are what stops a malformed length from
+        // allocating the document's remainder.
+        let particleID = try input.int("particle id")
+        let particleCount = try input.int("particle count")
+        guard (0..<8000).contains(particleCount) else {
+          throw input.malformed("Particle count is outside 0..<8000")
+        }
+        let variableCount = try input.int("particle variable count")
+        guard (0...2000).contains(variableCount) else {
+          throw input.malformed("Too many particle variables")
+        }
+        guard Int64(particleCount) * Int64(variableCount) <= 20_000 else {
+          throw input.malformed("Particle definition exceeds 20000 units of runtime state")
+        }
+        var variableIDs: [Int] = []
+        var initializationEquations: [[UInt32]] = []
+        variableIDs.reserveCapacity(variableCount)
+        initializationEquations.reserveCapacity(variableCount)
+        for _ in 0..<variableCount {
+          variableIDs.append(try input.int("particle variable id"))
+          let length = try input.int("particle expression length")
+          guard (0...32).contains(length) else {
+            throw input.malformed("Particle expression is too long")
+          }
+          initializationEquations.append(
+            try (0..<length).map { _ in try input.word("particle expression word") })
+        }
+        guard !particleDefinitions.contains(where: { $0.id == particleID }) else {
+          throw input.malformed("Duplicate particle system \(particleID)")
+        }
+        particleDefinitions.append(
+          ParsedParticleDefinition(
+            id: particleID, particleCount: particleCount, variableIDs: variableIDs,
+            initializationEquations: initializationEquations))
+      case 163:  // Particle loop
+        // ParticlesLoop.read: an id, one length-prefixed expression for the loop itself, then a
+        // variable count and a length-prefixed expression per variable. Same bounds as above.
+        let particleID = try input.int("particle loop id")
+        let loopLength = try input.int("particle loop expression length")
+        guard (0...32).contains(loopLength) else {
+          throw input.malformed("Particle loop expression is too long")
+        }
+        let restartEquation = try (0..<loopLength).map {
+          _ in try input.word("particle loop expression word")
+        }
+        let loopVariables = try input.int("particle loop variable count")
+        guard (0...2000).contains(loopVariables) else {
+          throw input.malformed("Too many particle loop variables")
+        }
+        var updateEquations: [[UInt32]] = []
+        updateEquations.reserveCapacity(loopVariables)
+        for _ in 0..<loopVariables {
+          let length = try input.int("particle loop variable expression length")
+          guard (0...32).contains(length) else {
+            throw input.malformed("Particle loop variable expression is too long")
+          }
+          updateEquations.append(
+            try (0..<length).map { _ in try input.word("particle loop variable word") })
+        }
+        if let definition = particleDefinitions.first(where: { $0.id == particleID }) {
+          let work = Int64(definition.particleCount)
+            * Int64(1 + updateEquations.reduce(0) { $0 + $1.count })
+          guard work <= 20_000 else {
+            throw input.malformed("Particle loop exceeds 20000 units of work per frame")
+          }
+        }
+        particleLoops.append(
+          ParsedParticleLoop(
+            id: particleID, restartEquation: restartEquation, updateEquations: updateEquations))
+      case 103:  // Root content description
+        _ = try input.int("root content description id")
+      case 207:  // Canvas content
+        // INT component id, the same shape as the content at 201, and the same role: the container
+        // a canvas draws into.
+        try begin(
+          ParsedNode(kind: .content, componentID: try input.int("canvas content component id")))
+      case 176:  // Fit box
+        // Component id, animation id, both positionings. A fit box scales its content to fit rather
+        // than clipping it; laid out here as an ordinary box, so the content keeps its own size.
+        let node = ParsedNode(kind: .box, componentID: try input.int("fit box component id"))
+        node.componentKind = "FitBoxLayout"
+        node.animationID = try input.int("fit box animation id")
+        node.horizontalPositioning = try input.int("fit box horizontal positioning")
+        node.verticalPositioning = try input.int("fit box vertical positioning")
+        try begin(node)
+      case 217:  // State layout
+        // Component id, animation id, both positionings, then the id of the float holding the index
+        // of the child to show. Laid out as a box, which shows every child stacked rather than the
+        // one the index selects -- a real difference, tracked rather than implied.
+        let node = ParsedNode(kind: .box, componentID: try input.int("state layout component id"))
+        node.componentKind = "StateLayout"
+        node.animationID = try input.int("state layout animation id")
+        node.horizontalPositioning = try input.int("state layout horizontal positioning")
+        node.verticalPositioning = try input.int("state layout vertical positioning")
+        node.stateIndexID = try input.int("state layout index id")
+        try begin(node)
+      case 240:  // Flow layout
+        // The row payload plus two ints: the maximum items per row and the maximum number of rows.
+        // Children wrap onto further lines when they do not fit, so this is not the row it decodes
+        // like; `flowMaximumItems`/`flowMaximumLines` bound the wrap.
+        let node = ParsedNode(kind: .row, componentID: try input.int("flow component id"))
+        node.componentKind = "FlowLayout"
+        node.animationID = try input.int("flow animation id")
+        node.horizontalPositioning = try input.int("flow horizontal positioning")
+        node.verticalPositioning = try input.int("flow vertical positioning")
+        node.spacingWord = try input.word("flow spacing")
+        node.flowMaximumItems = try input.int("flow maximum items in each row")
+        node.flowMaximumLines = try input.int("flow maximum lines")
+        try begin(node)
+      case 223:  // Z-index modifier
+        try currentNode(stack, input: input).zIndexWord = try input.word("z-index")
+      case 221:  // Offset modifier
+        let node = try currentNode(stack, input: input)
+        node.offsetXWord = try input.word("offset x")
+        node.offsetYWord = try input.word("offset y")
+      case 211:  // Visibility modifier
+        // An id, not a value: the modifier names an integer the document updates, so visibility
+        // follows that integer rather than being fixed when the document is written.
+        try currentNode(stack, input: input).visibilityID = try input.int("visibility id")
+      case 226:  // Scroll modifier
+        // INT direction, then position, max and notch max as float words.
+        //
+        // A *container* modifier: the opcode opens a list the matching 214 closes, so it has to be
+        // pushed as one. Not doing that made the 214 pop the component the modifier belongs to, and
+        // the component's own content was then attached to its *parent* — a scrolled row's children
+        // arrived as siblings of the row, laid out by nobody. `row_scroll_basic` is the gold that
+        // caught it.
+        let node = try currentNode(stack, input: input)
+        let rawDirection = try input.int("scroll direction")
+        guard let direction = NativeSwiftScrollDirection(rawValue: rawDirection) else {
+          throw NativeSwiftCoreError.malformed(
+            offset: opcodeOffset, reason: "Unknown scroll direction \(rawDirection)")
+        }
+        node.scrollDirection = direction
+        node.scrollPositionWord = try input.word("scroll position")
+        node.scrollMaximumWord = try input.word("scroll maximum")
+        _ = try input.word("scroll notch maximum")
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+      case 107:  // Border modifier
+        // INT flags, INT color id, two reserved ints, then width, corner radius and r/g/b/a as
+        // float words, then INT shape type.
+        let node = try currentNode(stack, input: input)
+        let flags = try input.int("border flags")
+        let colorID = try input.int("border color id")
+        _ = try input.int("border reserved 1")
+        _ = try input.int("border reserved 2")
+        let width = try input.word("border width")
+        _ = try input.word("border corner")
+        let usesColorID = flags & 2 != 0
+        let red = try input.floatWord("border red", requireLiteral: !usesColorID)
+        let green = try input.floatWord("border green", requireLiteral: !usesColorID)
+        let blue = try input.floatWord("border blue", requireLiteral: !usesColorID)
+        let alpha = try input.floatWord("border alpha", requireLiteral: !usesColorID)
+        _ = try input.int("border shape type")
+        node.borderARGB = !usesColorID ? argb(red: red, green: green, blue: blue, alpha: alpha) : nil
+        node.borderColorID = usesColorID ? colorID : nil
+        node.borderWidthWord = width
+      case 230:  // Collapsible row
+        // The row half of the same family as 233, and the same wire shape as the row at 203.
+        let node = ParsedNode(
+          kind: .row, componentID: try input.int("collapsible row component id"))
+        node.componentKind = "CollapsibleRowLayout"
+        node.animationID = try input.int("collapsible row animation id")
+        node.horizontalPositioning = try input.int("collapsible row horizontal positioning")
+        node.verticalPositioning = try input.int("collapsible row vertical positioning")
+        node.spacingWord = try input.word("collapsible row spacing")
+        node.isCollapsible = true
+        try begin(node)
+      case 235:  // Collapsible priority modifier
+        // INT orientation, FLOAT priority. It orders which children a collapsible container drops
+        // first. Upstream's own `apply` is empty because it is layout input rather than a drawing
+        // instruction — but it is not inert: it decides the order the container hides children in.
+        let orientation = try input.int("collapsible priority orientation")
+        let priority = try input.word("collapsible priority")
+        let node = try currentNode(stack, input: input)
+        node.collapsiblePriorityOrientation = orientation
+        node.collapsiblePriorityWord = priority
+      case 233:  // Collapsible column
+        // Same wire shape as the column at 204 -- component id, animation id, both positionings,
+        // then a float spacing -- because upstream's CollapsibleColumnLayout extends ColumnLayout
+        // and inherits its payload.
+        //
+        // What it does NOT inherit is the behaviour: a collapsible column hides the children that do
+        // not fit its height, in the order a CollapsiblePriority modifier gives them. The decision
+        // lives in `NativeSwiftCollapsible` and both renderers apply it.
+        let node = ParsedNode(
+          kind: .column, componentID: try input.int("collapsible column component id"))
+        node.componentKind = "CollapsibleColumnLayout"
+        node.animationID = try input.int("collapsible column animation id")
+        node.horizontalPositioning = try input.int("collapsible column horizontal positioning")
+        node.verticalPositioning = try input.int("collapsible column vertical positioning")
+        node.spacingWord = try input.word("collapsible column spacing")
+        node.isCollapsible = true
+        try begin(node)
+      case 205:  // Canvas
+        let node = ParsedNode(kind: .canvas, componentID: try input.int("canvas component id"))
+        node.componentKind = "CanvasLayout"
+        node.animationID = try input.int("canvas animation id")
+        try begin(node)
+      case 129:  // Matrix rotate
+        let words = try (0..<3).map { _ in try input.word("matrix rotate value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 4, words: words, paint: paint))
+      case 126:  // Matrix scale
+        let words = try (0..<4).map { _ in try input.word("matrix scale value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 3, words: words, paint: paint))
+      case 127:  // Matrix translate
+        let words = try (0..<2).map { _ in try input.word("matrix translate value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 2, words: words, paint: paint))
+      case 128:  // Matrix skew
+        let words = try (0..<2).map { _ in try input.word("matrix skew value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 5, words: words, paint: paint))
+      case 208:  // Text layout
+        let node = ParsedNode(kind: .text, componentID: try input.int("text component id"))
+        node.componentKind = "TextLayout"
+        node.animationID = try input.int("text animation id")
+        let textID = try input.int("text id")
+        let color = UInt32(bitPattern: Int32(try input.int("text color")))
+        let size = try input.word("text size")
+        let style = try input.int("text style")
+        let weight = try input.word("text weight")
+        let familyID = try input.int("text family id")
+        let alignmentAndFlags = try input.int("text alignment")
+        let flags = UInt32(bitPattern: Int32(alignmentAndFlags)) >> 16
+        guard flags == 0 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "dynamic text colors")
+        }
+        let overflow = try input.int("text overflow")
+        let maximumLines = try input.int("text maximum lines")
+        // `size` is no longer checked here: it may be a reference, and `resolvedFloat` applies the
+        // same `> 0` rule once there is a number to apply it to.
+        guard (0...3).contains(style), (1...6).contains(alignmentAndFlags & 0xffff),
+          (1...5).contains(overflow), maximumLines > 0
+        else { throw input.malformed("Invalid text layout values") }
+        node.text = ParsedText(
+          textID: textID, colorARGB: color, colorID: nil, sizeWord: size, style: style,
+          weightWord: weight,
+          familyID: familyID, alignment: alignmentAndFlags & 0xffff, overflow: overflow,
+          maximumLines: maximumLines)
+        try begin(node)
+      case 234:  // Image layout
+        let node = ParsedNode(kind: .image, componentID: try input.int("image component id"))
+        node.componentKind = "ImageLayout"
+        node.animationID = try input.int("image animation id")
+        let imageID = try input.int("image bitmap id")
+        let scaleType = try input.int("image scale type")
+        let alpha = try input.word("image alpha")
+        guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
+        guard (0...7).contains(scaleType) else { throw input.malformed("Invalid image scale type") }
+        let source: [UInt32] = [
+          0, 0, Float(bitmap.width).bitPattern, Float(bitmap.height).bitPattern,
+        ]
+        node.commands.append(
+          ParsedDrawCommand(
+            kind: 19, words: [], paint: paint,
+            image: ParsedImageDraw(
+              imageID: imageID, source: source, destination: source, scaleType: scaleType,
+              scaleFactor: Float(1).bitPattern, contentDescriptionID: 0), alphaWord: alpha))
+        try begin(node)
+      case 210:  // Host named action
+        let action = ParsedNamedAction(
+          nameTextID: try input.int("host action name text id"),
+          valueType: try input.int("host action value type"),
+          valueID: try input.int("host action value id"))
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else {
+          throw input.malformed("Host named action is outside a click modifier")
+        }
+        target.actions[gesture, default: []].append(.named(action))
+      case 218:  // Integer expression change action
+        let targetID = try input.longAsInt("integer action target id")
+        let expressionID = try input.longAsInt("integer action expression id")
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else { throw input.malformed("Integer action is outside a click modifier") }
+        guard integerExpressions[expressionID] != nil || integers[expressionID] != nil else {
+          throw input.malformed("Missing integer action expression \(expressionID)")
+        }
+        target.actions[gesture, default: []].append(
+          .integerExpression(targetID: targetID, expressionID: expressionID))
+      case 227:  // Float expression change action
+        // How a document mutates its own state: `score = score + 1`. Two ints, not longs -- the
+        // integer-expression sibling at 218 reads longs, and the widths are not interchangeable.
+        let targetID = try input.int("float action target id")
+        let expressionID = try input.int("float action expression id")
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else { throw input.malformed("Float action is outside a click modifier") }
+        guard expressionIDs.contains(expressionID) else {
+          throw input.malformed("Missing float action expression \(expressionID)")
+        }
+        target.actions[gesture, default: []].append(
+          .floatExpression(targetID: targetID, expressionID: expressionID))
+      case 212:  // Integer value change action
+        let targetID = try input.int("integer value action target id")
+        let value = try input.int("integer value action value")
+        guard
+          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
+          let target = container.node, let gesture = container.gesture
+        else { throw input.malformed("Integer value action is outside a click modifier") }
+        target.actions[gesture, default: []].append(
+          .integerValue(targetID: targetID, value: value))
+      case 214:  // Container end
+        if !modifierContainers.isEmpty {
+          modifierContainers.removeLast()
+        } else {
+          // Modern AndroidX documents carry a final document-level terminator after the root.
+          if stack.isEmpty, input.isAtEnd { break }
+          guard !stack.isEmpty else { throw input.malformed("Unmatched container end") }
+          stack.removeLast()
+        }
+      case 231:  // Minimum/maximum width
+        let node = try currentNode(stack, input: input)
+        node.minimumWidthWord = try input.word("minimum width")
+        node.maximumWidthWord = try input.word("maximum width")
+      case 232:  // Minimum/maximum height
+        let node = try currentNode(stack, input: input)
+        node.minimumHeightWord = try input.word("minimum height")
+        node.maximumHeightWord = try input.word("maximum height")
+      case 239:  // CoreText
+        let textID = try input.int("core text id")
+        let propertyCount = Int(try input.u16("core text property count"))
+        guard propertyCount <= 26 else { throw input.malformed("Too many CoreText properties") }
+        var integers: [Int: Int] = [:]
+        var floats: [Int: UInt32] = [:]
+        for _ in 0..<propertyCount {
+          let id = try input.u8("core text property id")
+          if [1, 2, 3, 4, 6, 8, 9, 10, 11, 15, 16, 17, 23, 24].contains(id) {
+            integers[id] = try input.int("core text integer")
+          } else if [5, 7, 12, 13, 14, 25, 26].contains(id) {
+            floats[id] = try input.word("core text float")
+          } else if [18, 19, 22].contains(id) {
+            _ = try input.u8("core text boolean")
+          } else if id == 20 || id == 21 {
+            let count = Int(try input.u16("core text array count"))
+            guard count <= maximumProperties else {
+              throw input.malformed("CoreText array is too long")
+            }
+            for _ in 0..<count { _ = try input.int("core text array value") }
+          } else {
+            throw input.malformed("Unknown CoreText property \(id)")
+          }
+        }
+        let componentID = integers[1] ?? -(textID + 1)
+        let node = ParsedNode(kind: .text, componentID: componentID)
+        node.componentKind = "CoreText"
+        let color =
+          integers[4].flatMap { colors[$0] }
+          ?? UInt32(bitPattern: Int32(integers[3] ?? -16_777_216))
+        node.text = ParsedText(
+          textID: textID, colorARGB: color, colorID: integers[4],
+          sizeWord: floats[5] ?? Float(36).bitPattern,
+          style: integers[6] ?? 0, weightWord: floats[7] ?? Float(400).bitPattern,
+          familyID: integers[8] ?? -1, alignment: integers[9] ?? 1,
+          overflow: integers[10] ?? 1, maximumLines: integers[11] ?? Int.max)
+        try begin(node)
+      case 250:  // Accessibility semantics
+        // Outside any component the semantics describe the document itself, beside its root
+        // content description; they attach to the root once there is one. Refusing them refused
+        // every document that describes itself this way.
+        let node = stack.last
+        let contentDescriptionID = try input.int("content description id")
+        let role = try input.u8("semantic role")
+        let textID = try input.int("semantic text id")
+        let stateDescriptionID = try input.int("state description id")
+        let mode = try input.u8("semantic mode")
+        let enabled = try input.u8("semantic enabled")
+        let clickable = try input.u8("semantic clickable")
+        // Out-of-range values degrade this metadata rather than rejecting the document. These
+        // fields describe a component to a screen reader and contribute nothing to the painted
+        // frame, and the operation is fixed-width, so a value this player does not recognise costs
+        // no sync and tells us nothing about the rest of the stream. The reference player reads all
+        // four without validating any of them.
+        //
+        // The catalog sheet writes role 255 for "no role", which a `role <= 9` guard rejected -- and
+        // with it the whole document, including everything it draws. `icon`, `button-compact` and
+        // `button-loading` were refused on that alone. -1 is the unspecified role the UIKit side
+        // already falls back to, so an unrecognised one resolves there too.
+        let semantics = ParsedAccessibility(
+          contentDescriptionID: contentDescriptionID, role: role <= 9 ? role : -1, textID: textID,
+          stateDescriptionID: stateDescriptionID, mode: mode <= 2 ? mode : 0,
+          isEnabled: enabled != 0, isClickable: clickable != 0)
+        if let node { node.accessibility = semantics } else { documentAccessibility = semantics }
+        accessibilityRecords.append(semantics)
+      case NativeSwiftWireOpcode.rootContentBehavior:
+        // How a host should scroll, align and size the root. The native hosts already fit the
+        // document to their view, so the four fields are read and validated but steer nothing yet;
+        // refusing the operation refused every document that declared it, drawing included.
+        for field in ["scroll", "alignment", "sizing", "mode"] {
+          _ = try input.int("root content behavior \(field)")
+        }
+      case NativeSwiftWireOpcode.dataBoolean:
+        let id = try input.int("boolean constant id")
+        switch try input.u8("boolean constant value") {
+        case 0: booleanConstants[id] = false
+        case 1: booleanConstants[id] = true
+        case let value: throw input.malformed("Invalid boolean byte \(value)")
+        }
+      case NativeSwiftWireOpcode.dataLong:
+        let id = try input.int("long constant id")
+        let high = UInt64(try input.word("long constant high word"))
+        let low = UInt64(try input.word("long constant low word"))
+        longConstants[id] = Int64(bitPattern: high << 32 | low)
+      case NativeSwiftWireOpcode.attributeTime:
+        let outputID = try input.int("time attribute output id")
+        let timeID = try input.int("time attribute time id")
+        let type = try input.signedU16("time attribute type")
+        let count = try input.signedU16("time attribute argument count")
+        guard (0...32).contains(count) else {
+          throw input.malformed("Invalid time argument count \(count)")
+        }
+        let arguments = try (0..<count).map { _ in try input.int("time attribute argument") }
+        timeAttributes.append(ParsedTimeAttribute(
+          outputID: outputID, timeID: timeID, type: type & 0xff, argumentIDs: arguments))
+      case NativeSwiftWireOpcode.debugMessage:
+        // A diagnostic for the host's log. AndroidX prints it and changes nothing else; this core
+        // has no log channel, so reading it past is the whole of its effect.
+        _ = try input.int("debug message text id")
+        _ = try input.word("debug message value")
+        _ = try input.int("debug message flags")
+      case NativeSwiftWireOpcode.dataSound:
+        // Sound is a host capability these players do not have. A document that carries a cue
+        // still draws, silently, rather than being refused for it.
+        _ = try input.int("sound data id")
+        _ = try input.data("sound data", maximum: maximumSoundBytes)
+      case NativeSwiftWireOpcode.playSound:
+        _ = try input.int("play sound id")
+      case NativeSwiftWireOpcode.soundExpression:
+        _ = try input.int("sound expression id")
+        for field in ["left volume", "right volume", "rate"] {
+          _ = try input.word("sound expression \(field)")
+        }
+        let count = try input.count(
+          "sound expression parameter count", maximum: maximumSoundParameters)
+        for _ in 0..<count { _ = try input.word("sound expression parameter") }
+      case 152:  // Draw arc
+        let words = try (0..<6).map { _ in try input.word("draw arc value") }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 15, words: words, paint: paint))
+      default:
+        throw NativeSwiftCoreError.unsupported(
+          opcode: opcode, offset: opcodeOffset, reason: "operation family not migrated")
+      }
+      spans.append(
+        NativeSwiftOperationSpan(
+          opcode: opcode, offset: opcodeOffset, endOffset: input.offset))
+    }
+    guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
+    // A *data-only* document declares expressions, colours and text with nothing to draw, so it
+    // carries no root component at all. A renderer handed one has been given something it cannot
+    // paint and refusing it is right — but a conformance run still has to answer the scalar probes
+    // those documents assert, so it asks for this mode and gets an empty root of the document's own
+    // size. The strict path is the default and stays that way.
+    let decodedRoot: ParsedNode?
+    if let root {
+      decodedRoot = root
+    } else if toleratingRootlessData {
+      decodedRoot = ParsedNode(kind: NativeSwiftNodeSnapshot.Kind.root, componentID: 0)
+    } else {
+      decodedRoot = nil
+    }
+    guard let root = decodedRoot, root.kind == .root else {
+      throw input.malformed("Missing root component")
+    }
+    if let documentAccessibility, root.accessibility == nil {
+      root.accessibility = documentAccessibility
+    }
+    // A clock reference can hide in a float expression, in a text-from-float conversion, in a colour
+    // expression's channels, or in any word a node kept — a draw command, a dimension, a path
+    // argument. Scanning only the expressions left a document whose clock display converted
+    // `TIME_IN_SEC` straight to text without ever asking for another frame.
+    func references(_ ids: Set<Int>, in words: [UInt32]) -> Bool {
+      words.contains { NativeSwiftFloatExpression.referenceID($0).map(ids.contains) ?? false }
+    }
+    func references(_ ids: Set<Int>) -> Bool {
+      if root.references(anyOf: ids) { return true }
+      if expressions.contains(where: { references(ids, in: $0.words) }) { return true }
+      if textFromFloats.contains(where: { references(ids, in: [$0.value]) }) { return true }
+      return colorExpressions.contains { references(ids, in: $0.floatWords) }
+    }
+    // A moving clock means the frame has to be re-resolved continuously.
+    let continuousClockIDs: Set<Int> = [
+      NativeSwiftSystemVariables.continuousSeconds, NativeSwiftSystemVariables.animationTime,
+    ]
+    // A time attribute measured from now, or from load, moves with the clock by itself; the
+    // reference asks for continuous frames for exactly those three types.
+    let continuousTimeTypes: Set<Int> = [
+      NativeSwiftTimeAttributeType.fromNowSeconds, NativeSwiftTimeAttributeType.fromNowMinutes,
+      NativeSwiftTimeAttributeType.fromLoadSeconds,
+    ]
+    let needsContinuousFrames = references(continuousClockIDs)
+      || timeAttributes.contains { continuousTimeTypes.contains($0.type) }
+    // The discrete wall-clock fields are constant within a second, so a document that reads one has
+    // to be re-resolved at least once a second or its clock freezes on the first frame.
+    let discreteWallClockIDs: Set<Int> = [
+      NativeSwiftSystemVariables.timeInSeconds, NativeSwiftSystemVariables.timeInMinutes,
+      NativeSwiftSystemVariables.timeInHours, NativeSwiftSystemVariables.calendarMonth,
+      NativeSwiftSystemVariables.offsetToUTC, NativeSwiftSystemVariables.weekDay,
+      NativeSwiftSystemVariables.dayOfMonth, NativeSwiftSystemVariables.dayOfYear,
+      NativeSwiftSystemVariables.year,
+    ]
+    let needsWallClockRefresh = references(discreteWallClockIDs)
+      || timeAttributes.contains { longConstants[$0.timeID] == nil }
+    return ParsedDocument(
+      width: width, height: height, density: density, densityBehavior: densityBehavior,
+      root: root, nodes: nodes, texts: texts, floats: floats,
+      colors: colors, integers: integers, integerExpressions: integerExpressions,
+      integerExpressionOrder: integerExpressionOrder,
+      namedVariables: namedVariables, expressions: expressions,
+      componentValues: componentValues, colorAttributes: colorAttributes,
+      longConstants: longConstants, booleanConstants: booleanConstants,
+      timeAttributes: timeAttributes,
+      colorExpressions: colorExpressions, images: images, textOperations: textOperations,
+      textFromFloats: textFromFloats,
+      textMerges: textMerges, textTransforms: textTransforms, idLists: idLists, floatLists: floatLists,
+      floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,
+      textLookups: textLookups, textFloatLookups: textFloatLookups,
+      dataMaps: dataMaps, dataMapLookups: dataMapLookups,
+      matrixConstants: matrixConstants, matrixExpressions: matrixExpressions,
+      matrixVectorMath: matrixVectorMath, animationSpecs: animationSpecs,
+      animationSpecOrder: animationSpecOrder,
+      pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
+      accessibilityRecords: accessibilityRecords,
+      shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
+      particleDefinitions: particleDefinitions, particleLoops: particleLoops,
+      needsContinuousFrames: needsContinuousFrames,
+      needsWallClockRefresh: needsWallClockRefresh,
+      linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0))
+  }
+
+  private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)
+    throws
+  {
+    var index = 0
+    while index < words.count {
+      let command = words[index]
+      index += 1
+      let encodedCommand = UInt32(bitPattern: Int32(command))
+      let type = Int(encodedCommand & 0xffff)
+      let highBits = Int(encodedCommand >> 16)
+      let argumentCount: Int
+      if type == NativeSwiftPaintCommand.gradient {
+        guard index < words.count else { throw input.malformed("Truncated paint gradient") }
+        let colorCount = words[index] & 0xff
+        guard (1...16).contains(colorCount), index + 1 + colorCount < words.count else {
+          throw input.malformed("Invalid paint gradient")
+        }
+        let stopCount = words[index + 1 + colorCount]
+        guard stopCount == 0 || stopCount == colorCount else {
+          throw input.malformed("Invalid paint gradient stops")
+        }
+        argumentCount =
+          1 + colorCount + 1 + stopCount
+            + (highBits == NativeSwiftPaintGradientKind.linear
+              ? 5
+              : (highBits == NativeSwiftPaintGradientKind.radial ? 4 : 2))
+      } else {
+        switch type {
+      case NativeSwiftPaintCommand.textSize, NativeSwiftPaintCommand.color,
+        NativeSwiftPaintCommand.strokeWidth, NativeSwiftPaintCommand.shader,
+        NativeSwiftPaintCommand.alpha, NativeSwiftPaintCommand.colorFilter,
+        NativeSwiftPaintCommand.typeface, NativeSwiftPaintCommand.colorID,
+        NativeSwiftPaintCommand.colorFilterID, NativeSwiftPaintCommand.shaderMatrix,
+        NativeSwiftPaintCommand.strokeMiter, NativeSwiftPaintCommand.fallbackTypeface:
+        argumentCount = 1
+      case NativeSwiftPaintCommand.texture: argumentCount = 3
+      case NativeSwiftPaintCommand.strokeCap, NativeSwiftPaintCommand.style,
+        NativeSwiftPaintCommand.imageFilterQuality, NativeSwiftPaintCommand.antiAlias,
+        NativeSwiftPaintCommand.strokeJoin, NativeSwiftPaintCommand.filterBitmap,
+        NativeSwiftPaintCommand.blendMode, NativeSwiftPaintCommand.clearColorFilter:
+        argumentCount = 0
+      case NativeSwiftPaintCommand.fontAxis: argumentCount = highBits * 2
+      case NativeSwiftPaintCommand.pathEffect: argumentCount = highBits
+      default:
+        throw NativeSwiftCoreError.unsupported(
+          opcode: 40, offset: input.offset, reason: "paint command \(type)")
+        }
+      }
+      guard index + argumentCount <= words.count else { throw input.malformed("Truncated paint") }
+      switch type {
+      case NativeSwiftPaintCommand.textSize:
+        paint.textSize = UInt32(bitPattern: Int32(words[index]))
+      case NativeSwiftPaintCommand.color:
+        paint.colorARGB = UInt32(bitPattern: Int32(words[index]))
+        paint.colorID = nil
+      case NativeSwiftPaintCommand.strokeWidth:
+        paint.strokeWidth = UInt32(bitPattern: Int32(words[index]))
+      case NativeSwiftPaintCommand.strokeCap: paint.strokeCap = highBits
+      case NativeSwiftPaintCommand.style:
+        paint.isStroke = highBits == NativeSwiftPaintStyle.stroke
+      case NativeSwiftPaintCommand.alpha:
+        paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
+      case NativeSwiftPaintCommand.strokeJoin: paint.strokeJoin = highBits
+      case NativeSwiftPaintCommand.blendMode: paint.blendMode = highBits
+      case NativeSwiftPaintCommand.imageFilterQuality:
+        // Image filter quality: 0 none, 1 low, 2 medium, 3 high. Anything else is the reference's
+        // low fallback.
+        paint.filterQuality =
+          (NativeSwiftPaintFilterQuality.none...NativeSwiftPaintFilterQuality.high).contains(highBits)
+          ? highBits : NativeSwiftPaintFilterQuality.low
+      case NativeSwiftPaintCommand.filterBitmap:
+        // The legacy filter-bitmap flag: non-zero asks for filtering, which is low quality.
+        paint.filterQuality =
+          highBits != 0 ? NativeSwiftPaintFilterQuality.low : NativeSwiftPaintFilterQuality.none
+      case NativeSwiftPaintCommand.colorID:
+        paint.colorID = words[index]
+      case NativeSwiftPaintCommand.colorFilter:
+        paint.colorFilterARGB = UInt32(bitPattern: Int32(words[index]))
+        paint.colorFilterID = nil
+        paint.colorFilterMode = highBits
+      case NativeSwiftPaintCommand.colorFilterID:
+        paint.colorFilterID = words[index]
+        paint.colorFilterARGB = nil
+        paint.colorFilterMode = highBits
+      case NativeSwiftPaintCommand.clearColorFilter:
+        paint.colorFilterARGB = nil
+        paint.colorFilterID = nil
+        paint.colorFilterMode = nil
+      case NativeSwiftPaintCommand.texture:
+        // A texture shader replaces whatever shader the paint carried, exactly as setting a
+        // gradient does; both fields used to persist together, and the renderer's texture branch
+        // then drew the texture a second time where the document asked for a gradient scrim.
+        paint.textureImageID = words[index]
+        paint.textureTileModeX = words[index + 1] & 0xf
+        paint.textureTileModeY = (words[index + 1] >> 16) & 0xf
+        paint.gradient = nil
+      case NativeSwiftPaintCommand.shaderMatrix:
+        // The local matrix of the shader currently installed: a NaN-encoded MatrixAccess id, or 0
+        // to clear it.
+        paint.shaderMatrixID = NativeSwiftMatrixExpression.referenceID(
+          word: UInt32(bitPattern: Int32(words[index])))
+      case NativeSwiftPaintCommand.gradient:
+        // Layout, matching the reference player: a meta word carrying the colour count and the
+        // colour-ID register, that many colour words, a stop count, that many stop words, and then
+        // the coordinates the gradient kind calls for — linear four and a tile mode, radial three
+        // and a tile mode, sweep two and none. The bounds were checked when `argumentCount` was
+        // computed above.
+        let meta = words[index]
+        let colorCount = meta & 0xff
+        let stopCount = words[index + 1 + colorCount]
+        let coordinateStart = index + 2 + colorCount + stopCount
+        let coordinateCount =
+          highBits == NativeSwiftPaintGradientKind.linear
+          ? 4
+          : (highBits == NativeSwiftPaintGradientKind.radial ? 3 : 2)
+        let word = { (offset: Int) in UInt32(bitPattern: Int32(words[offset])) }
+        paint.gradient = ParsedGradient(
+          kind: highBits,
+          colorWords: Array(words[(index + 1)..<(index + 1 + colorCount)]),
+          colorRegister: (meta >> 16) & 0xffff,
+          stopWords: (0..<stopCount).map { word(index + 2 + colorCount + $0) },
+          coordinateWords: (0..<coordinateCount).map { word(coordinateStart + $0) },
+          // Only linear and radial reserve a tile-mode word in `argumentCount`; an unknown kind is
+          // sized like a sweep, so reading one past its coordinates would index past the words.
+          tileMode:
+            highBits == NativeSwiftPaintGradientKind.linear
+              || highBits == NativeSwiftPaintGradientKind.radial
+            ? words[coordinateStart + coordinateCount] : 0)
+        paint.textureImageID = nil
+        paint.textureTileModeX = 0
+        paint.textureTileModeY = 0
+      default: break
+      }
+      index += argumentCount
+    }
+  }
+
+  private static func currentNode(_ stack: [ParsedNode], input: WireReader) throws -> ParsedNode {
+    guard let node = stack.last else { throw input.malformed("Modifier has no component") }
+    return node
+  }
+
+  private static func argb(red: Float, green: Float, blue: Float, alpha: Float) -> UInt32 {
+    func channel(_ value: Float) -> UInt32 {
+      UInt32((min(max(value, 0), 1) * 255).rounded())
+    }
+    return channel(alpha) << 24 | channel(red) << 16 | channel(green) << 8 | channel(blue)
+  }
+}
