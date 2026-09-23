@@ -310,7 +310,7 @@ struct NativeMacValueRequest: Decodable {
 
   var isEmpty: Bool {
     floats.isEmpty && integers.isEmpty && texts.isEmpty && colors.isEmpty
-      && dynamicFloatArrays.isEmpty && dataFloatArrays.isEmpty
+      && matrices.isEmpty && dynamicFloatArrays.isEmpty && dataFloatArrays.isEmpty
   }
 }
 
@@ -2761,12 +2761,17 @@ private final class NativeMacCanvasView: NSView {
   private func drawText(_ command: NativeMacDrawCommand, _ context: CGContext) {
     guard let text = command.text else { return }
     let font = NSFont.systemFont(ofSize: max(CGFloat(command.textSize), 1))
+    let paragraph = NSMutableParagraphStyle()
+    if command.textFlags & 1 != 0 {
+      paragraph.baseWritingDirection = .rightToLeft
+    }
     let string = NSAttributedString(
       string: text,
       attributes: [
         .font: font,
         .foregroundColor: NativeMacComponentView.color(command.color).withAlphaComponent(
           CGFloat(command.alpha)),
+        .paragraphStyle: paragraph,
       ])
     let line = CTLineCreateWithAttributedString(string)
     var ascent: CGFloat = 0
@@ -2774,8 +2779,13 @@ private final class NativeMacCanvasView: NSView {
     var leading: CGFloat = 0
     let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
     let x = CGFloat(command.first) - width * ((CGFloat(command.third) + 1) / 2)
-    let baseline =
-      CGFloat(command.second) - (ascent + descent + leading) * ((CGFloat(command.fourth) + 1) / 2)
+    let baseline: CGFloat
+    if command.textFlags & 8 != 0, command.fourth.isNaN {
+      baseline = CGFloat(command.second)
+    } else {
+      baseline = CGFloat(command.second) - (ascent + descent + leading)
+        * ((CGFloat(command.fourth) + 1) / 2)
+    }
     context.saveGState()
     context.textMatrix = .identity
     context.translateBy(x: 0, y: baseline * 2)
