@@ -30,6 +30,8 @@ func pathCommandWord(_ command: Int) -> UInt32 {
 
 /// The themes a host can request and a `THEME` operation can scope to: every value AndroidX defines.
 public enum NativeSwiftTheme {
+  /// Follow the platform's own light or dark setting.
+  public static let system = 0
   public static let unspecified = -1
   public static let dark = -2
   public static let light = -3
