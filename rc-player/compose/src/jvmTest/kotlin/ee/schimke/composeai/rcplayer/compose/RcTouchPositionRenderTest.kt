@@ -71,6 +71,43 @@ class RcTouchPositionRenderTest {
     }
   }
 
+  @Test
+  fun aDrawCallReadingThePointerDirectlyRepaints() {
+    // No expression in between: the rect's right edge *is* touch x. The player has to find that
+    // reference to know a touch changes the picture.
+    val red = 0xffff0000.toInt()
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 10, modern = false),
+        listOf(
+          RcPaintData(listOf(4, red)),
+          RcDraw4(
+            RcOpcodes.DRAW_RECT,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            RcFloatWord(NAN_REFERENCE or TOUCH_X),
+            RcFloatWord.literal(10f),
+          ),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 40, height = 10, density = Density(1f)) {
+        RcComposePlayer(document, Modifier.fillMaxSize())
+      }
+    try {
+      scene.render()
+      scene.sendPointerEvent(PointerEventType.Press, Offset(25f, 5f), type = PointerType.Touch)
+      scene.render(500_000_000L)
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 10) }
+      check(scene.render(1_000_000_000L).readPixels(bitmap))
+
+      assertEquals(red, bitmap.getColor(23, 5))
+      assertEquals(0, bitmap.getColor(27, 5))
+    } finally {
+      scene.close()
+    }
+  }
+
   private companion object {
     const val NAN_REFERENCE = 0x7fc00000
     const val TOUCH_X = 13
