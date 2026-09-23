@@ -81,7 +81,8 @@ So when a gold and the player disagree, the options are, in order:
 2. **The lane cannot observe it yet** — fix the lane. Also common, and cheap: several probes reported
    `PROBE_NOT_IMPLEMENTED` for fields that were already sitting decoded in the document.
 3. **The corpus is asserting something a player cannot or should not reproduce** — record it, raise it
-   upstream, and let the check keep failing. Never paper over it.
+   upstream, and let the check keep failing. Never paper over it. The record is
+   [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md).
 
 A permanently failing check with a written reason is a better artefact than a passing one bought with
 a worse player. `unasserted` exists in the gold format for exactly this reason (§2.8), and the
