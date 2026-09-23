@@ -896,11 +896,13 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     scroll.backgroundColor = opaque ? .windowBackgroundColor : .clear
     scroll.hasHorizontalScroller = true
     scroll.hasVerticalScroller = true
+    player.frame = NSRect(
+      x: 0, y: 0, width: CGFloat(snapshot.width), height: CGFloat(snapshot.height))
     scroll.documentView = player
 
     let size = NSSize(
-      width: max(CGFloat(snapshot.width), width ?? 640),
-      height: max(CGFloat(snapshot.height), height ?? 480))
+      width: max(width ?? max(CGFloat(snapshot.width), 640), 1),
+      height: max(height ?? max(CGFloat(snapshot.height), 480), 1))
     let window = NSWindow(
       contentRect: NSRect(origin: .zero, size: size),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
