@@ -24,6 +24,11 @@ public enum NativeSwiftTextTransformOperation {
 }
 
 public enum NativeSwiftWireOpcode {
+  public static let drawText = 43
+  public static let drawTextOnPath = 53
+  public static let drawTextOnCircle = 57
+  public static let drawTextAnchored = 133
+  public static let conditionalOperations = 178
   public static let drawBitmap = 44
   public static let textFromFloat = 135
   public static let textMerge = 136
@@ -34,6 +39,16 @@ public enum NativeSwiftWireOpcode {
   public static let matrixConstant = 186
   public static let matrixExpression = 187
   public static let matrixVectorMath = 188
+}
+
+/// One conditional container as evaluated while linking a document.
+public struct NativeSwiftConditionalTraceSnapshot: Sendable {
+  public let type: Int
+  public let left: Float
+  public let right: Float
+  public let executed: Bool
+  public let executedChildOps: Int
+  public let path: String
 }
 
 /// Immutable, platform-neutral output from the Swift wire/runtime path.
@@ -72,6 +87,8 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let accessibilityRecords: [NativeSwiftAccessibilitySnapshot]
   /// Runtime shader uniform names keyed by shader id. Values remain unobserved by design.
   public let shaderUniformNames: [Int: Set<String>]
+  /// Conditional containers evaluated while linking the document.
+  public let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
@@ -288,6 +305,8 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let filterQuality: Int?
   public let usesComponentGeometry: Bool
   public let gradient: NativeSwiftGradientSnapshot?
+  public let text: String?
+  public let textSize: Float
 }
 
 /// A resolved paint gradient: colours as ARGB, stops and coordinates as floats, ready to draw.
@@ -993,7 +1012,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
-      }, shaderUniformNames: document.shaderUniformNames)
+      }, shaderUniformNames: document.shaderUniformNames,
+      conditionalTraces: document.conditionalTraces)
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
       staticSnapshotCache = StaticSnapshotCache(
         measuredComponents: measuredComponents, snapshot: snapshot)
@@ -2072,6 +2092,7 @@ private struct ParsedDocument {
   let pathTweenIDs: Set<Int>
   let accessibilityRecords: [ParsedAccessibility]
   let shaderUniformNames: [Int: Set<String>]
+  let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
   let particleDefinitions: [ParsedParticleDefinition]
   let particleLoops: [ParsedParticleLoop]
   let needsContinuousFrames: Bool
@@ -2780,10 +2801,11 @@ private struct ParsedDrawCommand {
   let path: ParsedPath?
   let image: ParsedImageDraw?
   let alphaWord: UInt32?
+  let textID: Int?
 
   init(
     kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
-    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil
+    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil
   ) {
     self.kind = kind
     self.words = words
@@ -2793,6 +2815,7 @@ private struct ParsedDrawCommand {
     self.path = path
     self.image = image
     self.alphaWord = alphaWord
+    self.textID = textID
   }
 
   func resolve(
@@ -2849,7 +2872,8 @@ private struct ParsedDrawCommand {
             NativeSwiftFloatExpression.resolve($0, values: values)
           },
           tileMode: gradient.tileMode)
-      })
+      }, text: textID.flatMap { texts[$0] },
+      textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values))
   }
 }
 
@@ -3104,6 +3128,7 @@ private struct ParsedPaint {
   /// How an image or texture is sampled: 0 none, 1 low, 2 medium, 3 high. Nil when the paint never
   /// said, which leaves the renderer's default in place.
   var filterQuality: Int?
+  var textSize: UInt32 = Float(16).bitPattern
 }
 
 /// The word for a literal `-1`, which is how a node says "no maximum". Spelled once so the default
@@ -3847,6 +3872,8 @@ private enum NativeSwiftDocumentDecoder {
     var pathTweenIDs: Set<Int> = []
     var accessibilityRecords: [ParsedAccessibility] = []
     var shaderUniformNames: [Int: Set<String>] = [:]
+    var conditionalTraces: [NativeSwiftConditionalTraceSnapshot] = []
+    var conditionalIndex = 0
     var particleDefinitions: [ParsedParticleDefinition] = []
     var particleLoops: [ParsedParticleLoop] = []
     var nodes: [Int: ParsedNode] = [:]
@@ -3979,6 +4006,11 @@ private enum NativeSwiftDocumentDecoder {
           _ = try input.int("macro bitmap description id")
         case 46:
           for _ in 0..<3 { _ = try input.word("macro circle value") }
+        case NativeSwiftWireOpcode.conditionalOperations:
+          _ = try input.u8("conditional type")
+          _ = try input.word("conditional left")
+          _ = try input.word("conditional right")
+          nesting += 1
         case 51, 52, 152:
           for _ in 0..<6 { _ = try input.word("macro drawing value") }
         case 202:
@@ -4151,6 +4183,36 @@ private enum NativeSwiftDocumentDecoder {
         }
       }
       switch opcode {
+      case NativeSwiftWireOpcode.conditionalOperations:
+        let type = Int(try input.u8("conditional type"))
+        let leftWord = try input.word("conditional left")
+        let rightWord = try input.word("conditional right")
+        let body = try captureMacroBody()
+        let left = NativeSwiftFloatExpression.resolve(leftWord, values: floats)
+        let right = NativeSwiftFloatExpression.resolve(rightWord, values: floats)
+        let executed: Bool
+        switch type {
+        case 0: executed = left == right
+        case 1: executed = left != right
+        case 2: executed = left < right
+        case 3: executed = left <= right
+        case 4: executed = left > right
+        case 5: executed = left >= right
+        case 6: executed = left != 0 || right != 0
+        default: executed = false
+        }
+        let path = String(conditionalIndex)
+        conditionalIndex += 1
+        conditionalTraces.append(NativeSwiftConditionalTraceSnapshot(
+          type: type, left: left, right: right, executed: executed,
+          executedChildOps: executed && !body.isEmpty ? 1 : 0, path: path))
+        if executed {
+          guard suspendedInputs.count < maximumNestingDepth else {
+            throw input.malformed("Conditional nesting exceeds \(maximumNestingDepth)")
+          }
+          suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+          input = WireReader(body)
+        }
       case 2:  // Legacy ComponentStart. Retain its structure; modern documents use 200...205.
         let kind = try input.int("legacy component kind")
         let componentID = try input.int("legacy component id")
@@ -4283,6 +4345,38 @@ private enum NativeSwiftDocumentDecoder {
         let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
+      case NativeSwiftWireOpcode.drawText:
+        let textID = try input.int("draw text id")
+        _ = try input.int("draw text start")
+        _ = try input.int("draw text end")
+        _ = try input.int("draw text context start")
+        _ = try input.int("draw text context end")
+        let x = try input.word("draw text x")
+        let y = try input.word("draw text y")
+        _ = try input.u8("draw text rtl")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 17, words: [x, y, Float(-1).bitPattern, Float(-1).bitPattern],
+            paint: paint, textID: textID))
+      case NativeSwiftWireOpcode.drawTextAnchored:
+        let textID = try input.int("draw anchored text id")
+        let words = try (0..<4).map { _ in try input.word("draw anchored text value") }
+        _ = try input.int("draw anchored text flags")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID))
+      case NativeSwiftWireOpcode.drawTextOnPath:
+        let textID = try input.int("draw text path text id")
+        _ = try input.int("draw text path id")
+        let vertical = try input.word("draw text path vertical offset")
+        let horizontal = try input.word("draw text path horizontal offset")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 20, words: [horizontal, vertical], paint: paint, textID: textID))
+      case NativeSwiftWireOpcode.drawTextOnCircle:
+        let textID = try input.int("draw text circle text id")
+        let words = try (0..<5).map { _ in try input.word("draw text circle value") }
+        _ = try input.u8("draw text circle alignment")
+        _ = try input.u8("draw text circle placement")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 21, words: words, paint: paint, textID: textID))
       case NativeSwiftWireOpcode.drawBitmap:
         let imageID = try input.int("draw bitmap image id")
         guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
@@ -5339,7 +5433,7 @@ private enum NativeSwiftDocumentDecoder {
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
-      shaderUniformNames: shaderUniformNames,
+      shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,
@@ -5396,6 +5490,8 @@ private enum NativeSwiftDocumentDecoder {
       }
       guard index + argumentCount <= words.count else { throw input.malformed("Truncated paint") }
       switch type {
+      case NativeSwiftPaintCommand.textSize:
+        paint.textSize = UInt32(bitPattern: Int32(words[index]))
       case NativeSwiftPaintCommand.color:
         paint.colorARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorID = nil

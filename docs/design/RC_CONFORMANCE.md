@@ -135,6 +135,15 @@ The remaining diffs are a work list rather than noise: the Ahem text metrics the
 `ops`/`records`/`draw_log` operation-census probes, particles, and the decode refusals behind 21
 raster checks.
 
+### Native AppKit text and transition policy
+
+Native AppKit deliberately does not promise pixel-identical glyph antialiasing or Android View's
+sampled layout-transition interpolation: Core Text rasterization and Core Animation timing are
+host behaviours.  A native transition must still reach the documented state and remain a valid
+real-time animation.  This exemption does not cover text geometry or semantics: the Ahem-backed
+conformance layout, anchored/text-path placement, and CoreText autosize are supported-player
+behaviours and regressions there are bugs to fix.
+
 ### Scores
 
 Measured against the corpus as vendored on `vendor/androidx-rc-conformance`, with the advisory flag

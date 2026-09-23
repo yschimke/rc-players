@@ -446,6 +446,11 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   /// record host-only work that an AppKit view might perform while painting.
   private static func drawLog(in data: Data) throws -> [String] {
     let names: [Int: String] = [
+      NativeSwiftWireOpcode.drawText: "DrawText",
+      NativeSwiftWireOpcode.drawTextAnchored: "DrawTextAnchored",
+      NativeSwiftWireOpcode.drawTextOnPath: "DrawTextOnPath",
+      NativeSwiftWireOpcode.drawTextOnCircle: "DrawTextOnCircle",
+      NativeSwiftWireOpcode.conditionalOperations: "ConditionalOperations",
       38: "clipPath", 39: "clipRect", 40: "paint", 42: "drawRect", 44: "drawBitmap",
       46: "drawCircle", 47: "drawLine", 51: "drawRoundRect", 52: "drawSector",
       56: "drawOval", 124: "drawPath", 125: "drawTweenPath", 126: "scale",
@@ -511,6 +516,40 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         "enabled": accessibility.isEnabled, "clickable": accessibility.isClickable,
       ]
     }
+    let conditionalTypes = ["eq", "neq", "lt", "lte", "gt", "gte", "changed"]
+    let branches: [[String: Any]] = snapshot.conditionalTraces.map { trace in
+      [
+        "a": trace.left, "b": trace.right, "executed": trace.executed,
+        "executedChildOps": trace.executedChildOps, "path": trace.path,
+        "type": trace.type >= 0 && trace.type < conditionalTypes.count
+          ? conditionalTypes[trace.type] : "unknown",
+      ]
+    }
+    var anchoredRuns: [[String: Any]] = []
+    func collectTextRuns(_ node: NativeSwiftNodeSnapshot) {
+      for command in node.commands where command.kind == 17 {
+        let width = Float(command.text?.count ?? 0) * command.textSize * 0.5
+        anchoredRuns.append([
+          "x": (command.values[safe: 0] ?? 0)
+            - width * ((command.values[safe: 2] ?? -1) + 1) / 2,
+          "y": (command.values[safe: 1] ?? 0)
+            + command.textSize * ((command.values[safe: 3] ?? -1) + 1) / 2,
+        ])
+      }
+      node.children.forEach(collectTextRuns)
+    }
+    collectTextRuns(snapshot.root)
+    var glyphRuns: [[String: Any]] = []
+    var totalGlyphs = 0
+    func collectGlyphRuns(_ node: NativeSwiftNodeSnapshot) {
+      for command in node.commands where command.kind == 20 || command.kind == 21 {
+        let count = command.text?.count ?? 0
+        totalGlyphs += count
+        glyphRuns.append(["text": command.text ?? "", "glyphCount": count])
+      }
+      node.children.forEach(collectGlyphRuns)
+    }
+    collectGlyphRuns(snapshot.root)
     let drawNames: [Int: String] = [
       3: "DrawRect", 4: "DrawRoundRect", 5: "DrawOval", 6: "DrawLine", 7: "DrawPath",
       10: "DrawRect", 11: "DrawOval", 12: "DrawCircle", 13: "DrawLine", 14: "DrawRoundRect",
@@ -542,6 +581,10 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       "uniforms": Dictionary(uniqueKeysWithValues: snapshot.shaderUniformNames.map { id, names in
         (String(id), Dictionary(uniqueKeysWithValues: names.map { ($0, true) }))
       }),
+      "branches": branches,
+      "anchor_runs": anchoredRuns,
+      "glyph_runs": glyphRuns,
+      "total_glyphs": totalGlyphs,
     ]
   }
 
@@ -1571,8 +1614,6 @@ private extension NativeSwiftDrawCommandSnapshot {
   var sixth: Float { values[safe: 5] ?? 0 }
   var color: Int32 { Int32(bitPattern: colorARGB) }
   var stroke: Bool { isStroke }
-  var text: String? { nil }
-  var textSize: Float { 16 }
 }
 
 private extension NativeSwiftPathElementSnapshot {

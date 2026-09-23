@@ -306,9 +306,13 @@ private class NativeSwiftSession(
       "ops:absent" -> operationPresence(check.at)
       "draw_log:commands" -> drawLog(check.at)
       "ops:component_count" -> operationMetric(check.at, "component_count")
+      "ops:total_glyphs" -> operationMetric(check.at, "total_glyphs")
       "ops:distinct_ids" -> operationMetric(check.at, "distinct_ids")
       "trace:handled" -> inputHandled(check.at)
+      "trace:branches" -> records(check)
       "records:animation_specs",
+      "records:anchor_runs",
+      "records:glyph_runs",
       "records:component_bindings",
       "records:components",
       "records:semantics",
