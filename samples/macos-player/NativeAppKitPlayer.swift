@@ -2450,7 +2450,9 @@ private typealias MacFlowLine = (
     let view = NSImageView(image: image)
     view.imageFrameStyle = .none
     view.imageAlignment = .alignCenter
-    view.imageScaling = draw.scaleType == 6 ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
+    view.imageScaling =
+      draw.scaleType == NativeSwiftImageScaleType.fillBounds
+      ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
     view.alphaValue = CGFloat(min(max(alpha, 0), 1))
     view.setAccessibilityIdentifier("rc-native-image-\(draw.imageID)")
     if let label = draw.contentDescription {
@@ -2556,7 +2558,7 @@ private final class NativeMacCanvasView: NSView {
       paint(path, command, context)
     case 17: drawText(command, context)
     case 18: paint(path(command.path), command, context)
-    case 19: drawImage(command)
+    case 19: drawImage(command, context)
     default: break
     }
   }
@@ -2607,7 +2609,7 @@ private final class NativeMacCanvasView: NSView {
     }
   }
 
-  private func drawImage(_ command: NativeMacDrawCommand) {
+  private func drawImage(_ command: NativeMacDrawCommand, _ context: CGContext) {
     guard let draw = command.image, let image = images[draw.imageID] else { return }
     let source = NSRect(
       x: CGFloat(draw.sourceLeft), y: CGFloat(draw.sourceTop),
@@ -2617,11 +2619,16 @@ private final class NativeMacCanvasView: NSView {
       x: CGFloat(draw.destinationLeft), y: CGFloat(draw.destinationTop),
       width: CGFloat(draw.destinationRight - draw.destinationLeft),
       height: CGFloat(draw.destinationBottom - draw.destinationTop))
+    // AndroidX clips every image scaling mode to the declared destination. Crop may deliberately
+    // overflow it, while a malformed or fixed draw must never leak outside it.
+    context.saveGState()
+    context.clip(to: destination)
     image.draw(
       in: scaledImageDestination(
         source: source, destination: destination, scaleType: draw.scaleType,
         scaleFactor: CGFloat(draw.scaleFactor)), from: source, operation: .sourceOver,
       fraction: CGFloat(min(max(command.alpha, 0), 1)), respectFlipped: true, hints: nil)
+    context.restoreGState()
   }
 
   private func scaledImageDestination(
@@ -2630,33 +2637,43 @@ private final class NativeMacCanvasView: NSView {
     guard source.width > 0, source.height > 0, destination.width >= 0, destination.height >= 0,
       scaleFactor.isFinite
     else { return .zero }
-    var width = destination.width
-    var height = destination.height
+    let sourceWidth = Int(source.width)
+    let sourceHeight = Int(source.height)
+    let destinationWidth = Int(destination.width)
+    let destinationHeight = Int(destination.height)
+    guard sourceWidth > 0, sourceHeight > 0, destinationWidth >= 0, destinationHeight >= 0 else {
+      return .zero
+    }
+    var width = destinationWidth
+    var height = destinationHeight
     switch scaleType {
-    case 0: width = source.width; height = source.height
-    case 1:
-      if !(destination.height > source.height && destination.width > source.width) {
-        if source.width * destination.height > destination.width * source.height {
-          height = destination.width * source.height / source.width
-        } else { width = destination.height * source.width / source.height }
-      } else { width = source.width; height = source.height }
-    case 2: height = destination.width * source.height / source.width
-    case 3: width = destination.height * source.width / source.height
-    case 4:
-      if source.width * destination.height > destination.width * source.height {
-        height = destination.width * source.height / source.width
-      } else { width = destination.height * source.width / source.height }
-    case 5:
-      if source.width * destination.height < destination.width * source.height {
-        height = destination.width * source.height / source.width
-      } else { width = destination.height * source.width / source.height }
-    case 6: break
-    case 7: width = source.width * scaleFactor; height = source.height * scaleFactor
+    case NativeSwiftImageScaleType.none: width = sourceWidth; height = sourceHeight
+    case NativeSwiftImageScaleType.inside:
+      if !(destinationHeight > sourceHeight && destinationWidth > sourceWidth) {
+        if sourceWidth * destinationHeight > destinationWidth * sourceHeight {
+          height = destinationWidth * sourceHeight / sourceWidth
+        } else { width = destinationHeight * sourceWidth / sourceHeight }
+      } else { width = sourceWidth; height = sourceHeight }
+    case NativeSwiftImageScaleType.fitWidth: height = destinationWidth * sourceHeight / sourceWidth
+    case NativeSwiftImageScaleType.fitHeight: width = destinationHeight * sourceWidth / sourceHeight
+    case NativeSwiftImageScaleType.fit:
+      if sourceWidth * destinationHeight > destinationWidth * sourceHeight {
+        height = destinationWidth * sourceHeight / sourceWidth
+      } else { width = destinationHeight * sourceWidth / sourceHeight }
+    case NativeSwiftImageScaleType.crop:
+      if sourceWidth * destinationHeight < destinationWidth * sourceHeight {
+        height = destinationWidth * sourceHeight / sourceWidth
+      } else { width = destinationHeight * sourceWidth / sourceHeight }
+    case NativeSwiftImageScaleType.fillBounds: break
+    case NativeSwiftImageScaleType.fixed:
+      width = Int(CGFloat(sourceWidth) * scaleFactor)
+      height = Int(CGFloat(sourceHeight) * scaleFactor)
     default: return .zero
     }
     return NSRect(
-      x: destination.minX + (destination.width - width) / 2,
-      y: destination.minY + (destination.height - height) / 2, width: width, height: height)
+      x: destination.minX + CGFloat((destinationWidth - width) / 2),
+      y: destination.minY + CGFloat((destinationHeight - height) / 2), width: CGFloat(width),
+      height: CGFloat(height))
   }
 
   private func path(_ commands: [NativeMacPathCommand]) -> CGPath {

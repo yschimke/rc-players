@@ -1,5 +1,38 @@
 import Foundation
 
+/// Native names for the image scale values defined by AndroidX `ImageScaling`.
+/// Keep every wire value here so native hosts do not grow independent magic-number mappings.
+public enum NativeSwiftImageScaleType {
+  public static let none = 0
+  public static let inside = 1
+  public static let fitWidth = 2
+  public static let fitHeight = 3
+  public static let fit = 4
+  public static let crop = 5
+  public static let fillBounds = 6
+  public static let fixed = 7
+}
+
+/// The text transform values defined by AndroidX `TextTransform`.
+public enum NativeSwiftTextTransformOperation {
+  public static let identity = 0
+  public static let lowercase = 1
+  public static let uppercase = 2
+  public static let trim = 3
+  public static let capitalizeWords = 4
+  public static let capitalizeFirst = 5
+}
+
+private enum NativeSwiftWireOpcode {
+  static let drawBitmap = 44
+  static let textFromFloat = 135
+  static let textMerge = 136
+  static let drawBitmapScaled = 149
+  static let textLookup = 151
+  static let textLookupInt = 153
+  static let textTransform = 199
+}
+
 /// Immutable, platform-neutral output from the Swift wire/runtime path.
 ///
 /// Keeping this model free of UIKit and foreign-runtime objects lets decoding and document state remain
@@ -909,25 +942,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       values = try resolvedFloats(
         timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents)
     }
-    for conversion in document.textFromFloats {
-      let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
-      let precision = min(max(conversion.digitsAfter, 0), 12)
-      texts[conversion.outputID] = String(format: "%.*f", precision, value)
-    }
-    for lookup in document.textLookups {
-      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
-      let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
-      texts[lookup.outputID] = texts[ids[index]] ?? ""
-    }
-    for lookup in document.textFloatLookups {
-      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
-      let index = min(max(Int(NativeSwiftFloatExpression.resolve(lookup.index, values: values)), 0), ids.count - 1)
-      texts[lookup.outputID] = texts[ids[index]] ?? ""
-    }
-    for merge in document.textMerges {
-      texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
-    }
-    resolveTextTransforms(values: values)
+    resolveTextOperations(values: values)
     // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
     // preceding TextFromFloat/TextLookup/TextMerge, so resolve it only after those text producers
     // have run for this frame.
@@ -1061,24 +1076,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     stateLock.lock()
     defer { stateLock.unlock() }
     var values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
-    for conversion in document.textFromFloats {
-      let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
-      texts[conversion.outputID] = String(format: "%.*f", min(max(conversion.digitsAfter, 0), 12), value)
-    }
-    for lookup in document.textLookups {
-      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
-      let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
-      texts[lookup.outputID] = texts[ids[index]] ?? ""
-    }
-    for lookup in document.textFloatLookups {
-      guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
-      let index = min(max(Int(NativeSwiftFloatExpression.resolve(lookup.index, values: values)), 0), ids.count - 1)
-      texts[lookup.outputID] = texts[ids[index]] ?? ""
-    }
-    for merge in document.textMerges {
-      texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
-    }
-    resolveTextTransforms(values: values)
+    resolveTextOperations(values: values)
     for lookup in document.dataMapLookups {
       guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
       else { continue }
@@ -1654,34 +1652,67 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     staticSnapshotCache = nil
   }
 
-  /// Applies the wire's text slicing and transform operations after their source producers have
-  /// resolved for this frame. The protocol indexes UTF-16 text; Swift's `String` indices preserve
-  /// character boundaries, which is the safe equivalent for a native host when malformed ranges
-  /// are clamped at the document boundary.
-  private func resolveTextTransforms(values: [Int: Float]) {
-    for transform in document.textTransforms {
-      let source = texts[transform.textID] ?? ""
-      let start = max(0, Int(NativeSwiftFloatExpression.resolve(transform.start, values: values)))
-      let requestedLength = Int(NativeSwiftFloatExpression.resolve(transform.length, values: values))
-      let startIndex = source.index(source.startIndex, offsetBy: min(start, source.count))
-      let remaining = source.distance(from: startIndex, to: source.endIndex)
-      // AndroidX uses a negative length as the "through the end" sentinel. Keeping it distinct
-      // from zero matters: `TextTransform(..., -1, upper)` transforms the whole selected string.
-      let length = requestedLength < 0 ? remaining : min(requestedLength, remaining)
-      let endIndex = source.index(startIndex, offsetBy: length)
-      let selected = String(source[startIndex..<endIndex])
-      switch transform.operation {
-      case 1: texts[transform.outputID] = selected.lowercased()
-      case 2: texts[transform.outputID] = selected.uppercased()
-      case 3: texts[transform.outputID] = selected.trimmingCharacters(in: .whitespacesAndNewlines)
-      case 4:
-        texts[transform.outputID] = selected.split(separator: " ").map {
-          $0.prefix(1).uppercased() + $0.dropFirst().lowercased()
-        }.joined(separator: " ")
-      case 5:
-        texts[transform.outputID] = selected.prefix(1).uppercased() + selected.dropFirst()
-      default: texts[transform.outputID] = selected
+  /// Resolves text producers in wire order. The output of an operation is immediately visible to
+  /// the next operation, including one of a different concrete type.
+  private func resolveTextOperations(values: [Int: Float]) {
+    for operation in document.textOperations {
+      switch operation {
+      case .fromFloat(let conversion):
+        let value = NativeSwiftFloatExpression.resolve(conversion.value, values: values)
+        texts[conversion.outputID] = String(format: "%.*f", min(max(conversion.digitsAfter, 0), 12), value)
+      case .merge(let merge):
+        texts[merge.outputID] = (texts[merge.leftID] ?? "") + (texts[merge.rightID] ?? "")
+      case .lookupInt(let lookup):
+        guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
+        let index = min(max(integers[lookup.indexID] ?? 0, 0), ids.count - 1)
+        texts[lookup.outputID] = texts[ids[index]] ?? ""
+      case .lookup(let lookup):
+        guard let ids = document.idLists[lookup.listID], !ids.isEmpty else { continue }
+        let index = min(
+          max(Int(NativeSwiftFloatExpression.resolve(lookup.index, values: values)), 0), ids.count - 1)
+        texts[lookup.outputID] = texts[ids[index]] ?? ""
+      case .transform(let transform):
+        resolveTextTransform(transform, values: values)
       }
+    }
+  }
+
+  /// The protocol's slicing coordinates are UTF-16 code-unit offsets, as in Android's String.
+  /// Decode the selected units directly instead of stepping Swift character indices, which would
+  /// move differently for emoji and combining sequences.
+  private func resolveTextTransform(_ transform: ParsedTextTransform, values: [Int: Float]) {
+    let source = texts[transform.textID] ?? ""
+    let units = Array(source.utf16)
+    let start = max(0, Int(NativeSwiftFloatExpression.resolve(transform.start, values: values)))
+    let requestedLength = Int(NativeSwiftFloatExpression.resolve(transform.length, values: values))
+    let startOffset = min(start, units.count)
+    let remaining = units.count - startOffset
+    let length = requestedLength <= 0 ? remaining : min(requestedLength, remaining)
+    let selected = String(decoding: units[startOffset..<(startOffset + length)], as: UTF16.self)
+    switch transform.operation {
+    case NativeSwiftTextTransformOperation.lowercase: texts[transform.outputID] = selected.lowercased()
+    case NativeSwiftTextTransformOperation.uppercase: texts[transform.outputID] = selected.uppercased()
+    case NativeSwiftTextTransformOperation.trim:
+      texts[transform.outputID] = selected.trimmingCharacters(in: .whitespacesAndNewlines)
+    case NativeSwiftTextTransformOperation.capitalizeWords:
+      var startsWord = true
+      texts[transform.outputID] = selected.reduce(into: "") { result, character in
+        result += startsWord ? String(character).uppercased() : String(character)
+        startsWord = character.isWhitespace
+      }
+    case NativeSwiftTextTransformOperation.capitalizeFirst:
+      var result = ""
+      var capitalized = false
+      for character in selected {
+        if !capitalized && !character.isWhitespace {
+          result += String(character).uppercased()
+          capitalized = true
+        } else {
+          result.append(character)
+        }
+      }
+      texts[transform.outputID] = result
+    default: texts[transform.outputID] = selected
     }
   }
 
@@ -1961,6 +1992,9 @@ private struct ParsedDocument {
   let colorAttributes: [ParsedColorAttribute]
   let colorExpressions: [ParsedColorExpression]
   let images: [Int: ParsedImageResource]
+  /// Text producers in exactly the order the wire declared them. A later operation may consume an
+  /// earlier result regardless of their concrete operation types.
+  let textOperations: [ParsedTextOperation]
   let textFromFloats: [ParsedTextFromFloat]
   let textMerges: [ParsedTextMerge]
   let textTransforms: [ParsedTextTransform]
@@ -2632,6 +2666,14 @@ private struct ParsedTextTransform {
   let start: UInt32
   let length: UInt32
   let operation: Int
+}
+
+private enum ParsedTextOperation {
+  case fromFloat(ParsedTextFromFloat)
+  case merge(ParsedTextMerge)
+  case lookupInt(ParsedTextLookupInt)
+  case lookup(ParsedTextLookup)
+  case transform(ParsedTextTransform)
 }
 
 private struct ParsedDataMapLookup {
@@ -3714,6 +3756,7 @@ private enum NativeSwiftDocumentDecoder {
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var images: [Int: ParsedImageResource] = [:]
+    var textOperations: [ParsedTextOperation] = []
     var textFromFloats: [ParsedTextFromFloat] = []
     var textMerges: [ParsedTextMerge] = []
     var textTransforms: [ParsedTextTransform] = []
@@ -4168,7 +4211,7 @@ private enum NativeSwiftDocumentDecoder {
         let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
-      case 44:  // Draw bitmap
+      case NativeSwiftWireOpcode.drawBitmap:
         let imageID = try input.int("draw bitmap image id")
         guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
         let destination = try (0..<4).map { _ in try input.word("draw bitmap destination") }
@@ -4179,9 +4222,10 @@ private enum NativeSwiftDocumentDecoder {
             image: ParsedImageDraw(
               imageID: imageID,
               source: [0, 0, Float(bitmap.width).bitPattern, Float(bitmap.height).bitPattern],
-              destination: destination, scaleType: 0, scaleFactor: Float(1).bitPattern,
+              destination: destination, scaleType: NativeSwiftImageScaleType.fillBounds,
+              scaleFactor: Float(1).bitPattern,
               contentDescriptionID: descriptionID)))
-      case 149:  // Draw bitmap with explicit source, destination and scale mode.
+      case NativeSwiftWireOpcode.drawBitmapScaled:  // Draw bitmap with explicit source, destination and scale mode.
         let imageID = try input.int("scaled bitmap image id")
         guard let bitmap = images[imageID] else {
           throw input.malformed("Missing bitmap \(imageID)")
@@ -4189,7 +4233,7 @@ private enum NativeSwiftDocumentDecoder {
         let source = try (0..<4).map { _ in try input.word("scaled bitmap source") }
         let destination = try (0..<4).map { _ in try input.word("scaled bitmap destination") }
         let scaleType = try input.int("scaled bitmap scale type")
-        guard (0...7).contains(scaleType) else {
+        guard (NativeSwiftImageScaleType.none...NativeSwiftImageScaleType.fixed).contains(scaleType) else {
           throw input.malformed("Invalid bitmap scale type")
         }
         let scaleFactor = try input.word("scaled bitmap scale factor")
@@ -4526,34 +4570,38 @@ private enum NativeSwiftDocumentDecoder {
           throw input.malformed("Unknown color expression mode")
         }
         colorExpressions.append(expression)
-      case 135:  // Text derived from a float
+      case NativeSwiftWireOpcode.textFromFloat:
         let outputID = try input.int("text from float output id")
         let value = try input.word("text from float value")
         let digits = UInt32(bitPattern: Int32(try input.int("text from float digits")))
         _ = try input.int("text from float flags")
-        textFromFloats.append(
-          ParsedTextFromFloat(
+        let conversion = ParsedTextFromFloat(
             outputID: outputID, value: value,
-            digitsAfter: Int(Int16(bitPattern: UInt16(digits & 0xffff)))))
-      case 136:  // Text concatenation
-        textMerges.append(
-          ParsedTextMerge(
+            digitsAfter: Int(Int16(bitPattern: UInt16(digits & 0xffff))))
+        textFromFloats.append(conversion)
+        textOperations.append(.fromFloat(conversion))
+      case NativeSwiftWireOpcode.textMerge:
+        let merge = ParsedTextMerge(
             outputID: try input.int("text merge output id"),
             leftID: try input.int("text merge left id"),
-            rightID: try input.int("text merge right id")))
-      case 153:  // Text lookup using an integer id
-        textLookups.append(
-          ParsedTextLookupInt(
+            rightID: try input.int("text merge right id"))
+        textMerges.append(merge)
+        textOperations.append(.merge(merge))
+      case NativeSwiftWireOpcode.textLookupInt:
+        let lookup = ParsedTextLookupInt(
             outputID: try input.int("text lookup output id"),
             listID: try input.int("text lookup list id"),
-            indexID: try input.int("text lookup index id")))
-      case 151:  // Text lookup using a literal or float expression index.
-        textFloatLookups.append(
-          ParsedTextLookup(
+            indexID: try input.int("text lookup index id"))
+        textLookups.append(lookup)
+        textOperations.append(.lookupInt(lookup))
+      case NativeSwiftWireOpcode.textLookup:
+        let lookup = ParsedTextLookup(
             outputID: try input.int("text lookup output id"),
             listID: try input.int("text lookup list id"),
-            index: try input.word("text lookup index")))
-      case 199:  // Text slice and transform.
+            index: try input.word("text lookup index"))
+        textFloatLookups.append(lookup)
+        textOperations.append(.lookup(lookup))
+      case NativeSwiftWireOpcode.textTransform:
         let transform = ParsedTextTransform(
           outputID: try input.int("text transform output id"),
           textID: try input.int("text transform source id"),
@@ -4562,10 +4610,13 @@ private enum NativeSwiftDocumentDecoder {
           operation: try input.int("text transform operation"))
         // Zero is the protocol's identity transform: it still slices its source, but applies no
         // case or whitespace rewrite. The remaining values are the five AndroidX transforms.
-        guard (0...5).contains(transform.operation) else {
+        guard (NativeSwiftTextTransformOperation.identity...NativeSwiftTextTransformOperation.capitalizeFirst)
+          .contains(transform.operation)
+        else {
           throw input.malformed("Unknown text transform operation")
         }
         textTransforms.append(transform)
+        textOperations.append(.transform(transform))
       case 123:  // Path data; bounded now, drawing support is a separate operation family.
         let idAndWinding = try input.int("path id and winding")
         let count = try input.count("path word count", maximum: 20_000)
@@ -5177,7 +5228,8 @@ private enum NativeSwiftDocumentDecoder {
       integerExpressionOrder: integerExpressionOrder,
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
-      colorExpressions: colorExpressions, images: images, textFromFloats: textFromFloats,
+      colorExpressions: colorExpressions, images: images, textOperations: textOperations,
+      textFromFloats: textFromFloats,
       textMerges: textMerges, textTransforms: textTransforms, idLists: idLists, floatLists: floatLists,
       floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,
       textLookups: textLookups, textFloatLookups: textFloatLookups,
