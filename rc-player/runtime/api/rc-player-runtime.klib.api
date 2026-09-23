@@ -1069,6 +1069,8 @@ final class ee.schimke.composeai.rcplayer.runtime/RcPlayerState { // ee.schimke.
         final fun <get-clickAreas>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcClickArea> // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.clickAreas.<get-clickAreas>|<get-clickAreas>(){}[0]
     final val document // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.document|{}document[0]
         final fun <get-document>(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.document.<get-document>|<get-document>(){}[0]
+    final val frameWallClockMillis // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.frameWallClockMillis|{}frameWallClockMillis[0]
+        final fun <get-frameWallClockMillis>(): kotlin/Long // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.frameWallClockMillis.<get-frameWallClockMillis>|<get-frameWallClockMillis>(){}[0]
     final val hasActiveFloatAnimations // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.hasActiveFloatAnimations|{}hasActiveFloatAnimations[0]
         final fun <get-hasActiveFloatAnimations>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.hasActiveFloatAnimations.<get-hasActiveFloatAnimations>|<get-hasActiveFloatAnimations>(){}[0]
     final val rootContentBehavior // ee.schimke.composeai.rcplayer.runtime/RcPlayerState.rootContentBehavior|{}rootContentBehavior[0]
