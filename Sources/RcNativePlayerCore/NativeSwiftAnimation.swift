@@ -1,7 +1,7 @@
 import Foundation
 
 /// AndroidX `FloatAnimation` easing ids, from the authoritative Easing wire implementation.
-enum NativeSwiftFloatEasingType: UInt32 {
+public enum NativeSwiftFloatEasingType: UInt32 {
   case cubicStandard = 1
   case cubicAccelerate = 2
   case cubicDecelerate = 3

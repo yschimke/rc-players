@@ -519,6 +519,54 @@ public enum NativeSwiftVisibility {
   public static let clearOverride = 128
 }
 
+/// AndroidX `LayoutManager` positioning values, shared by the box, row, column, flow, fit-box,
+/// state and collapsible layouts. The `space*` distributions apply on the row/column main axis.
+public enum NativeSwiftPositioning {
+  public static let start = 1
+  public static let center = 2
+  public static let end = 3
+  public static let top = 4
+  public static let bottom = 5
+  public static let spaceBetween = 6
+  public static let spaceEvenly = 7
+  public static let spaceAround = 8
+}
+
+/// `RcLayoutAnimation`: AndroidX `AnimationSpec.ANIMATION`, a layout's enter and exit animation.
+public enum NativeSwiftLayoutAnimation {
+  public static let fadeIn = 0
+  public static let fadeOut = 1
+  public static let slideLeft = 2
+  public static let slideRight = 3
+  public static let slideTop = 4
+  public static let slideBottom = 5
+  public static let rotate = 6
+  public static let particle = 7
+}
+
+/// The winding of a `PATH_DATA` path, the top byte of its id word. AndroidX fills even-odd for 1
+/// and non-zero otherwise.
+public enum NativeSwiftPathWinding {
+  public static let nonZero = 0
+  public static let evenOdd = 1
+}
+
+/// `RcDrawTextAnchored`'s flag bits.
+public enum NativeSwiftDrawTextAnchoredFlag {
+  public static let textRTL = 1
+  public static let monospaceMeasure = 2
+  public static let measureEveryTime = 4
+  public static let baselineRelative = 8
+}
+
+/// `RcBitmapData`'s encodings, from AndroidX `BitmapData`. Only inline data is decodable offline.
+public enum NativeSwiftBitmapEncoding {
+  public static let inline = 0
+  public static let url = 1
+  public static let file = 2
+  public static let empty = 3
+}
+
 /// `RcTextLayout`'s text alignment values.
 public enum NativeSwiftTextAlignment {
   public static let left = 1
@@ -601,14 +649,14 @@ enum NativeSwiftComponentValueType {
 }
 
 /// `RcConditionalOperations`' comparison types.
-enum NativeSwiftConditionalType {
-  static let equal = 0
-  static let notEqual = 1
-  static let lessThan = 2
-  static let lessThanOrEqual = 3
-  static let greaterThan = 4
-  static let greaterThanOrEqual = 5
-  static let changed = 6
+public enum NativeSwiftConditionalType {
+  public static let equal = 0
+  public static let notEqual = 1
+  public static let lessThan = 2
+  public static let lessThanOrEqual = 3
+  public static let greaterThan = 4
+  public static let greaterThanOrEqual = 5
+  public static let changed = 6
 }
 
 /// `RcHostNamedActionValue`'s value types.

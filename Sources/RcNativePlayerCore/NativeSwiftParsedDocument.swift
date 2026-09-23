@@ -235,7 +235,7 @@ struct ParsedDrawCommand {
       strokeJoin: paint.strokeJoin,
       blendMode: paint.blendMode,
       path: try path?.resolve(values: values) ?? [],
-      pathWinding: path?.winding ?? 0,
+      pathWinding: path?.winding ?? NativeSwiftPathWinding.nonZero,
       image: image?.resolve(values: values, texts: texts),
       textureImageID: paint.textureImageID,
       textureTileModeX: paint.textureTileModeX,
@@ -345,8 +345,8 @@ final class ParsedNode {
   var borderARGB: UInt32?
   var borderColorID: Int?
   var borderWidthWord: UInt32 = 0
-  var horizontalPositioning = 1
-  var verticalPositioning = 4
+  var horizontalPositioning = NativeSwiftPositioning.start
+  var verticalPositioning = NativeSwiftPositioning.top
   var animationID: Int?
   var spacingWord: UInt32 = 0
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
