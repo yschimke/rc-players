@@ -36,6 +36,10 @@ public enum NativeSwiftSystemVariables {
   /// Calendar month, 1...12.
   public static let calendarMonth = 9
 
+  /// Whole seconds since the Unix epoch. The reference loads it as an integer; float expressions
+  /// read it as a float, with a float's precision.
+  public static let epochSecond = 32
+
   /// The local zone's offset from UTC in seconds.
   public static let offsetToUTC = 10
 
@@ -117,7 +121,7 @@ public struct NativeSwiftWallClock: Sendable, Equatable {
       millisOfSecond: millis)
   }
 
-  private static func floorDiv(_ value: Int64, _ divisor: Int64) -> Int64 {
+  static func floorDiv(_ value: Int64, _ divisor: Int64) -> Int64 {
     let quotient = value / divisor
     return value % divisor < 0 ? quotient - 1 : quotient
   }

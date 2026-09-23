@@ -8,6 +8,8 @@ enum NativeSwiftDocumentDecoder {
   private static let maximumProperties = 2_000
   private static let maximumNodes = 20_000
   private static let maximumNestingDepth = 256
+  /// AndroidX's own bound on one loop's passes.
+  private static let maximumLoopPasses = 10_000
   /// AndroidX's own bounds for a sound resource and a sound expression's parameters.
   private static let maximumSoundBytes = 256 * 1024
   private static let maximumSoundParameters = 64
@@ -108,6 +110,10 @@ enum NativeSwiftDocumentDecoder {
     var booleanConstants: [Int: Bool] = [:]
     var timeAttributes: [ParsedTimeAttribute] = []
     var documentAccessibility: ParsedAccessibility?
+    var idLookups: [ParsedIdLookup] = []
+    var textLengths: [ParsedTextLength] = []
+    /// Declared text styles by id, for `CoreText` to inherit from.
+    var textStyles: [Int: ParsedTextProperties] = [:]
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var images: [Int: ParsedImageResource] = [:]
@@ -145,6 +151,23 @@ enum NativeSwiftDocumentDecoder {
     var syntheticRootWasAdded = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
+    var impulses: [ParsedImpulse] = []
+    /// A `ColorTheme`'s dark fallback, by colour id; its light one seeds `colors`.
+    var darkColors: [Int: UInt32] = [:]
+    var wakeWords: [UInt32] = []
+    /// An open impulse container: its setup (-1) or one of its process containers, closed when
+    /// `modifierContainers` returns to `depth`.
+    struct ImpulseScope {
+      let impulse: Int
+      let segment: Int
+      let depth: Int
+    }
+    var impulseScopes: [ImpulseScope] = []
+    var impulseSegmentCounts: [Int: Int] = [:]
+    /// The process container an impulse's setup most recently ended with, if nothing followed it.
+    var impulseTrailingProcess: [Int: Int] = [:]
+    /// Nodes an operation drew into while an impulse was open, with their command count before.
+    var impulseDrawTargets: [(node: ParsedNode, count: Int)] = []
     var paint = ParsedPaint()
     // AndroidX has two wire forms for MacroDefine: an inline byte body and a container body
     // terminated by ContainerEnd.  Retaining raw bytes lets a call execute its body with the
@@ -210,7 +233,78 @@ enum NativeSwiftDocumentDecoder {
     // paint a base layer before defining and inflating a pattern, so it is not equivalent to a
     // rootless data document.  Create the implicit canvas only at the first drawing operation:
     // doing it eagerly would hide a genuinely missing layout root in an otherwise data-only file.
+    /// The sparse property list `TEXT_STYLE` and `CoreText` share. Booleans and font-axis arrays
+    /// are read past; nothing in this core renders them yet.
+    func textProperties(_ label: String) throws -> ParsedTextProperties {
+      let count = Int(try input.u16("\(label) property count"))
+      guard count <= 26 else { throw input.malformed("Too many \(label) properties") }
+      var properties = ParsedTextProperties()
+      for _ in 0..<count {
+        let id = try input.u8("\(label) property id")
+        typealias Property = NativeSwiftTextProperty
+        if [
+          Property.componentID, Property.animationID, Property.color, Property.colorID,
+          Property.fontStyle, Property.fontFamily, Property.textAlign, Property.overflow,
+          Property.maxLines, Property.breakStrategy, Property.hyphenationFrequency,
+          Property.justificationMode, Property.flags, Property.textStyleID,
+        ].contains(id) {
+          properties.integers[id] = try input.int("\(label) integer")
+        } else if [
+          Property.fontSize, Property.fontWeight, Property.letterSpacing, Property.lineHeightAdd,
+          Property.lineHeightMultiplier, Property.minFontSize, Property.maxFontSize,
+        ].contains(id) {
+          properties.floats[id] = try input.word("\(label) float")
+        } else if [Property.underline, Property.strikethrough, Property.autosize].contains(id) {
+          _ = try input.u8("\(label) boolean")
+        } else if id == Property.fontAxis || id == Property.fontAxisValues {
+          let count = Int(try input.u16("\(label) array count"))
+          guard count <= maximumProperties else {
+            throw input.malformed("\(label) array is too long")
+          }
+          for _ in 0..<count { _ = try input.int("\(label) array value") }
+        } else {
+          throw input.malformed("Unknown \(label) property \(id)")
+        }
+      }
+      return properties
+    }
+
+    /// A style's properties with its parent chain folded in, nearest last. The identity fields —
+    /// component, animation, style and parent ids — describe the declaration, not the text, and
+    /// are not inherited.
+    func inheritedTextProperties(
+      _ styleID: Int, visiting: Set<Int> = []
+    ) throws -> ParsedTextProperties {
+      guard !visiting.contains(styleID) else {
+        throw input.malformed("Cyclic TextStyle parent at id \(styleID)")
+      }
+      guard let style = textStyles[styleID] else {
+        throw input.malformed("Missing TextStyle id \(styleID)")
+      }
+      var merged = ParsedTextProperties()
+      if let parent = style.integers[NativeSwiftTextProperty.textStyleID], parent != -1 {
+        merged = try inheritedTextProperties(parent, visiting: visiting.union([styleID]))
+      }
+      let identity = [
+        NativeSwiftTextProperty.componentID, NativeSwiftTextProperty.animationID,
+        NativeSwiftTextProperty.flags, NativeSwiftTextProperty.textStyleID,
+      ]
+      for (id, value) in style.integers where !identity.contains(id) {
+        merged.integers[id] = value
+      }
+      merged.floats.merge(style.floats) { _, own in own }
+      return merged
+    }
+
     func drawingNode() throws -> ParsedNode {
+      let node = try drawingTarget()
+      if !impulseScopes.isEmpty, !impulseDrawTargets.contains(where: { $0.node === node }) {
+        impulseDrawTargets.append((node: node, count: node.commands.count))
+      }
+      return node
+    }
+
+    func drawingTarget() throws -> ParsedNode {
       if stack.isEmpty {
         if let implicitCanvasRoot { return implicitCanvasRoot }
         guard root == nil, nodes.count < maximumNodes else {
@@ -436,6 +530,7 @@ enum NativeSwiftDocumentDecoder {
       }
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
+      let impulseScope = impulseScopes.last
       // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
       // own their children; macro definitions and calls expand into those children; neither is an
       // independent top-level operation. Template bytes execute through `suspendedInputs` and are
@@ -539,6 +634,66 @@ enum NativeSwiftDocumentDecoder {
         var expanded = Data()
         for id in ids {
           expanded.append(try remappedMacroBody(body, mappings: [localItemID: id]))
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(expanded)
+      case NativeSwiftWireOpcode.loopStart:
+        // AndroidX's ascending loop: `index < until`, stepping by `step`, with the index variable
+        // set before each pass. This core unrolls it: each pass is the body with the index bound
+        // to a constant of its own, so a draw in pass n reads n rather than the final value.
+        // Bounds are read when the loop is; a bound that is not known then refuses the document
+        // rather than unrolling to the wrong count.
+        let indexID = try input.int("loop index id")
+        let words = try (0..<3).map { _ in try input.word("loop bound") }
+        let body = try captureMacroBody()
+        let bounds = try words.map { word -> Float in
+          if let id = NativeSwiftFloatExpression.referenceID(word), floats[id] == nil {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset, reason: "loop bound \(id) is not a constant")
+          }
+          return NativeSwiftFloatExpression.resolve(word, values: floats)
+        }
+        let (from, step, until) = (bounds[0], bounds[1], bounds[2])
+        guard from.isFinite, step.isFinite, until.isFinite else {
+          throw input.malformed("Loop bounds and step must be finite")
+        }
+        var expanded = Data()
+        func appendConstant(_ id: Int, _ value: Float) {
+          var bytes = [UInt8(NativeSwiftWireOpcode.dataFloat)]
+          for word in [UInt32(bitPattern: Int32(id)), value.bitPattern] {
+            bytes += [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: word >> $0) }
+          }
+          expanded.append(contentsOf: bytes)
+        }
+        if from < until {
+          guard step > 0 else { throw input.malformed("Loop step must be positive") }
+          var value = from
+          var passes = 0
+          while value < until {
+            passes += 1
+            guard passes <= maximumLoopPasses else {
+              throw input.malformed("Loop exceeds \(maximumLoopPasses) passes")
+            }
+            if indexID == 0 {
+              expanded.append(body)
+            } else {
+              guard nextMacroGeneratedID <= 0x003f_ffff else {
+                throw input.malformed("LOOM macro generated-id range is exhausted")
+              }
+              let passID = nextMacroGeneratedID
+              nextMacroGeneratedID += 1
+              appendConstant(passID, value)
+              expanded.append(try remappedMacroBody(body, mappings: [indexID: passID]))
+            }
+            let next = value + step
+            guard next > value else { throw input.malformed("Loop step does not advance") }
+            // After the loop the index holds the last value it was given, as in the reference.
+            if indexID != 0, next >= until { appendConstant(indexID, value) }
+            value = next
+          }
         }
         guard suspendedInputs.count < maximumNestingDepth else {
           throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
@@ -958,8 +1113,8 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.signedU16("color theme dark index")
         let lightFallback = try input.int("color theme light fallback")
         let darkFallback = try input.int("color theme dark fallback")
-        _ = darkFallback
         colors[colorID] = UInt32(bitPattern: Int32(lightFallback))
+        darkColors[colorID] = UInt32(bitPattern: Int32(darkFallback))
       case NativeSwiftWireOpcode.dataInt:  // Integer constant
         integers[try input.int("integer id")] = try input.int("integer value")
       case NativeSwiftWireOpcode.integerExpression:  // Integer expression
@@ -1108,15 +1263,24 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.word("path tween factor")
         pathTweenIDs.insert(outID)
       case NativeSwiftWireOpcode.pathCreate:
-        // Procedural path start; rendering it is separate from reporting its presence.
+        // A path built in steps: a move to the start point, which later appends extend. It is a
+        // path like any `PATH_DATA`, so drawing and text on a path can name it.
         let id = try input.int("path create id")
-        _ = try input.word("path create x")
-        _ = try input.word("path create y")
+        let x = try input.word("path create x")
+        let y = try input.word("path create y")
+        paths[id] = ParsedPath(winding: 0, words: [pathCommandWord(NativeSwiftPathCommand.move), x, y])
         pathIDs.insert(id)
-      case NativeSwiftWireOpcode.pathAdd:  // Procedural path append.
+      case NativeSwiftWireOpcode.pathAdd:
+        // Appends path commands in `PATH_DATA`'s encoding; a leading RESET empties the path first.
         let id = try input.int("path append id")
         let count = try input.count("path append word count", maximum: 2_000)
-        for _ in 0..<count { _ = try input.word("path append word") }
+        let words = try (0..<count).map { _ in try input.word("path append word") }
+        if words.first.flatMap(NativeSwiftFloatExpression.referenceID) == NativeSwiftPathCommand.reset {
+          paths[id] = ParsedPath(winding: paths[id]?.winding ?? 0, words: [])
+        } else {
+          paths[id] = ParsedPath(
+            winding: paths[id]?.winding ?? 0, words: (paths[id]?.words ?? []) + words)
+        }
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.drawPath:
         let id = try input.int("path id")
@@ -1522,13 +1686,17 @@ enum NativeSwiftDocumentDecoder {
           throw NativeSwiftCoreError.unsupported(
             opcode: opcode, offset: opcodeOffset, reason: "dynamic text colors")
         }
-        let overflow = try input.int("text overflow")
+        // An overflow outside the five AndroidX defines renders as clip there, rather than refusing
+        // the document; `text_style_and_layout_text` writes 0.
+        let wireOverflow = try input.int("text overflow")
+        let overflow =
+          (NativeSwiftTextOverflow.clip...NativeSwiftTextOverflow.middleEllipsis).contains(wireOverflow)
+          ? wireOverflow : NativeSwiftTextOverflow.clip
         let maximumLines = try input.int("text maximum lines")
         // `size` is no longer checked here: it may be a reference, and `resolvedFloat` applies the
         // same `> 0` rule once there is a number to apply it to.
         guard (0...3).contains(style),
           (NativeSwiftTextAlignment.left...NativeSwiftTextAlignment.end).contains(alignmentAndFlags & 0xffff),
-          (NativeSwiftTextOverflow.clip...NativeSwiftTextOverflow.middleEllipsis).contains(overflow),
           maximumLines > 0
         else { throw input.malformed("Invalid text layout values") }
         node.text = ParsedText(
@@ -1607,6 +1775,14 @@ enum NativeSwiftDocumentDecoder {
           .integerValue(targetID: targetID, value: value))
       case NativeSwiftWireOpcode.containerEnd:  // Container end
         if !modifierContainers.isEmpty {
+          if let scope = impulseScopes.last, scope.depth == modifierContainers.count {
+            impulseScopes.removeLast()
+            if scope.segment >= 0 {
+              impulseTrailingProcess[scope.impulse] = scope.segment
+            } else {
+              impulses[scope.impulse].processSegment = impulseTrailingProcess[scope.impulse]
+            }
+          }
           modifierContainers.removeLast()
         } else {
           // Modern AndroidX documents carry a final document-level terminator after the root.
@@ -1624,54 +1800,16 @@ enum NativeSwiftDocumentDecoder {
         node.maximumHeightWord = try input.word("maximum height")
       case NativeSwiftWireOpcode.coreText:  // CoreText
         let textID = try input.int("core text id")
-        let propertyCount = Int(try input.u16("core text property count"))
-        guard propertyCount <= 26 else { throw input.malformed("Too many CoreText properties") }
-        var integers: [Int: Int] = [:]
-        var floats: [Int: UInt32] = [:]
-        for _ in 0..<propertyCount {
-          let id = try input.u8("core text property id")
-          if [
-            NativeSwiftTextProperty.componentID,
-            NativeSwiftTextProperty.animationID,
-            NativeSwiftTextProperty.color,
-            NativeSwiftTextProperty.colorID,
-            NativeSwiftTextProperty.fontStyle,
-            NativeSwiftTextProperty.fontFamily,
-            NativeSwiftTextProperty.textAlign,
-            NativeSwiftTextProperty.overflow,
-            NativeSwiftTextProperty.maxLines,
-            NativeSwiftTextProperty.breakStrategy,
-            NativeSwiftTextProperty.hyphenationFrequency,
-            NativeSwiftTextProperty.justificationMode,
-            NativeSwiftTextProperty.flags,
-            NativeSwiftTextProperty.textStyleID,
-          ].contains(id) {
-            integers[id] = try input.int("core text integer")
-          } else if [
-            NativeSwiftTextProperty.fontSize,
-            NativeSwiftTextProperty.fontWeight,
-            NativeSwiftTextProperty.letterSpacing,
-            NativeSwiftTextProperty.lineHeightAdd,
-            NativeSwiftTextProperty.lineHeightMultiplier,
-            NativeSwiftTextProperty.minFontSize,
-            NativeSwiftTextProperty.maxFontSize,
-          ].contains(id) {
-            floats[id] = try input.word("core text float")
-          } else if [
-            NativeSwiftTextProperty.underline, NativeSwiftTextProperty.strikethrough,
-            NativeSwiftTextProperty.autosize,
-          ].contains(id) {
-            _ = try input.u8("core text boolean")
-          } else if id == NativeSwiftTextProperty.fontAxis || id == NativeSwiftTextProperty.fontAxisValues {
-            let count = Int(try input.u16("core text array count"))
-            guard count <= maximumProperties else {
-              throw input.malformed("CoreText array is too long")
-            }
-            for _ in 0..<count { _ = try input.int("core text array value") }
-          } else {
-            throw input.malformed("Unknown CoreText property \(id)")
-          }
+        let own = try textProperties("CoreText")
+        // A named style supplies defaults; the text's own properties override them.
+        var properties = ParsedTextProperties()
+        if let styleID = own.integers[NativeSwiftTextProperty.textStyleID], styleID != -1 {
+          properties = try inheritedTextProperties(styleID)
         }
+        properties.integers.merge(own.integers) { _, own in own }
+        properties.floats.merge(own.floats) { _, own in own }
+        let integers = properties.integers
+        let floats = properties.floats
         let componentID = integers[NativeSwiftTextProperty.componentID] ?? -(textID + 1)
         let node = ParsedNode(kind: .text, componentID: componentID)
         node.componentKind = "CoreText"
@@ -1767,6 +1905,119 @@ enum NativeSwiftDocumentDecoder {
         let count = try input.count(
           "sound expression parameter count", maximum: maximumSoundParameters)
         for _ in 0..<count { _ = try input.word("sound expression parameter") }
+      case NativeSwiftWireOpcode.impulseStart:
+        // A window of time on the animation clock. Its children run once, on the first frame
+        // inside the window; a trailing IMPULSE_PROCESS runs on every frame after that until the
+        // window closes. Draw commands inside carry that gate; see `impulseAllows`.
+        guard impulseScopes.isEmpty else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "nested impulses are not migrated")
+        }
+        let duration = try input.word("impulse duration")
+        let startAt = try input.word("impulse start")
+        impulses.append(
+          ParsedImpulse(durationWord: duration, startAtWord: startAt, processSegment: nil))
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+        impulseScopes.append(
+          ImpulseScope(impulse: impulses.count - 1, segment: -1, depth: modifierContainers.count))
+      case NativeSwiftWireOpcode.impulseProcess:
+        guard let scope = impulseScopes.last, scope.segment == -1 else {
+          throw input.malformed("ImpulseProcess outside an ImpulseStart")
+        }
+        let segment = impulseSegmentCounts[scope.impulse, default: 0]
+        impulseSegmentCounts[scope.impulse] = segment + 1
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+        impulseScopes.append(
+          ImpulseScope(impulse: scope.impulse, segment: segment, depth: modifierContainers.count))
+      case NativeSwiftWireOpcode.wakeIn:
+        // Asks the host to resolve the document again after this many seconds.
+        wakeWords.append(try input.word("wake in seconds"))
+      case NativeSwiftWireOpcode.valueFloatChangeAction, NativeSwiftWireOpcode.valueStringChangeAction,
+        NativeSwiftWireOpcode.hostAction, NativeSwiftWireOpcode.hostMetadataAction,
+        NativeSwiftWireOpcode.hapticFeedback:
+        // Actions run when the click modifier that encloses them fires. Outside one there is
+        // nothing to fire them, and the reference leaves them inert rather than rejecting the
+        // document. Host actions and haptics need an event the hosts do not have yet, so inside a
+        // click modifier they still refuse rather than being dropped silently.
+        let container = modifierContainers.reversed().first(where: { $0.node != nil })
+        let action: ParsedAction?
+        switch opcode {
+        case NativeSwiftWireOpcode.valueFloatChangeAction:
+          action = .floatValue(
+            targetID: try input.int("float value action target id"),
+            value: try input.word("float value action value"))
+        case NativeSwiftWireOpcode.valueStringChangeAction:
+          action = .textValue(
+            targetID: try input.int("text value action target id"),
+            textID: try input.int("text value action text id"))
+        case NativeSwiftWireOpcode.hostAction:
+          _ = try input.int("host action id")
+          action = nil
+        case NativeSwiftWireOpcode.hostMetadataAction:
+          _ = try input.int("host metadata action id")
+          _ = try input.int("host metadata action text id")
+          action = nil
+        default:
+          _ = try input.int("haptic feedback type")
+          action = nil
+        }
+        if let container, let target = container.node, let gesture = container.gesture {
+          guard let action else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "host actions and haptics need a host event")
+          }
+          target.actions[gesture, default: []].append(action)
+        }
+      case NativeSwiftWireOpcode.textStyle:
+        let style = try textProperties("TextStyle")
+        // A style names itself with the property that names a component in CoreText.
+        guard let styleID = style.integers[NativeSwiftTextProperty.componentID] else {
+          throw input.malformed("TextStyle declares no style id")
+        }
+        textStyles[styleID] = style
+      case NativeSwiftWireOpcode.idLookup:
+        idLookups.append(ParsedIdLookup(
+          outputID: try input.int("id lookup output id"),
+          listID: try input.int("id lookup list id"),
+          index: try input.word("id lookup index")))
+      case NativeSwiftWireOpcode.textLength:
+        textLengths.append(ParsedTextLength(
+          outputID: try input.int("text length output id"),
+          textID: try input.int("text length text id")))
+      case NativeSwiftWireOpcode.textSubtext:
+        let subtext = ParsedTextTransform(
+          outputID: try input.int("text subtext output id"),
+          textID: try input.int("text subtext source id"),
+          start: try input.word("text subtext start"),
+          length: try input.word("text subtext length"),
+          operation: NativeSwiftTextTransformOperation.identity)
+        textOperations.append(.subtext(subtext))
+      case NativeSwiftWireOpcode.attributeText:
+        let outputID = try input.int("text attribute output id")
+        let textID = try input.int("text attribute text id")
+        let type = try input.signedU16("text attribute type")
+        _ = try input.u16("text attribute reserved")
+        // Selectors 0-5 read the text's bounds under the current paint, which is host metrics
+        // this core does not have yet, and leave the output as it was; 6 is its length.
+        if type & 0xff == NativeSwiftTextAttributeType.length {
+          textLengths.append(ParsedTextLength(outputID: outputID, textID: textID))
+        }
+      case NativeSwiftWireOpcode.textMeasure:
+        // Bounds under the current paint are host text metrics, which this core does not have yet.
+        // The operation is read and its output left as it was, which is what the reference does
+        // for a selector it cannot serve, rather than refusing everything else the document draws.
+        _ = try input.int("text measure output id")
+        _ = try input.int("text measure text id")
+        let type = try input.int("text measure type")
+        guard (NativeSwiftTextAttributeType.measureWidth...NativeSwiftTextAttributeType.measureBottom)
+          .contains(type & 0xff)
+        else { throw input.malformed("Unknown text measurement \(type & 0xff)") }
+      case NativeSwiftWireOpcode.theme:
+        // Operations after a THEME belong to that theme until the next one. A host that requests
+        // no theme — the only kind this player is today — shows every theme's operations, as the
+        // reference does for THEME_UNSPECIFIED, so the marker is read and scopes nothing yet.
+        _ = try input.int("theme")
       case NativeSwiftWireOpcode.drawArc:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
         try drawingNode().commands.append(
@@ -1775,10 +2026,35 @@ enum NativeSwiftDocumentDecoder {
         throw NativeSwiftCoreError.unsupported(
           opcode: opcode, offset: opcodeOffset, reason: "operation family not migrated")
       }
+      if let impulseScope {
+        let structural = [
+          NativeSwiftWireOpcode.impulseStart, NativeSwiftWireOpcode.impulseProcess,
+          NativeSwiftWireOpcode.containerEnd,
+        ].contains(opcode)
+        if impulseScope.segment == -1, !structural {
+          impulseTrailingProcess.removeValue(forKey: impulseScope.impulse)
+        }
+        // An impulse gates what it draws. Anything else inside one — state, layout, a wake —
+        // would run on every frame here rather than only in its window, so it is refused rather
+        // than run at the wrong time.
+        if impulseDrawTargets.isEmpty, !structural {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "only drawing is migrated inside an impulse")
+        }
+        let gate = ParsedImpulseGate(impulse: impulseScope.impulse, segment: impulseScope.segment)
+        for target in impulseDrawTargets {
+          for index in target.count..<target.node.commands.count {
+            target.node.commands[index].impulseGate = gate
+          }
+        }
+        impulseDrawTargets.removeAll()
+      }
       spans.append(
         NativeSwiftOperationSpan(
           opcode: opcode, offset: opcodeOffset, endOffset: input.offset))
     }
+    guard impulseScopes.isEmpty else { throw input.malformed("Unclosed impulse") }
     guard stack.isEmpty else { throw input.malformed("Unclosed layout container") }
     // A *data-only* document declares expressions, colours and text with nothing to draw, so it
     // carries no root component at all. A renderer handed one has been given something it cannot
@@ -1831,7 +2107,7 @@ enum NativeSwiftDocumentDecoder {
       NativeSwiftSystemVariables.timeInHours, NativeSwiftSystemVariables.calendarMonth,
       NativeSwiftSystemVariables.offsetToUTC, NativeSwiftSystemVariables.weekDay,
       NativeSwiftSystemVariables.dayOfMonth, NativeSwiftSystemVariables.dayOfYear,
-      NativeSwiftSystemVariables.year,
+      NativeSwiftSystemVariables.year, NativeSwiftSystemVariables.epochSecond,
     ]
     let needsWallClockRefresh = references(discreteWallClockIDs)
       || timeAttributes.contains { longConstants[$0.timeID] == nil }
@@ -1843,7 +2119,7 @@ enum NativeSwiftDocumentDecoder {
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
       longConstants: longConstants, booleanConstants: booleanConstants,
-      timeAttributes: timeAttributes,
+      timeAttributes: timeAttributes, idLookups: idLookups, textLengths: textLengths,
       colorExpressions: colorExpressions, images: images, textOperations: textOperations,
       textFromFloats: textFromFloats,
       textMerges: textMerges, textTransforms: textTransforms, idLists: idLists, floatLists: floatLists,
@@ -1856,6 +2132,7 @@ enum NativeSwiftDocumentDecoder {
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
       shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
+      impulses: impulses, darkColors: darkColors, wakeWords: wakeWords,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,

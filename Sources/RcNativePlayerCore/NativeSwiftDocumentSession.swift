@@ -16,10 +16,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var floatOverrides: [Int: Float] = [:]
   private var hostDensity: Float = 1
   private var hostFontScale: Float = 1
+  private var requestedTheme = NativeSwiftTheme.unspecified
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
   private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
+  /// AndroidX's per-impulse "first frame in the window" bit, and each impulse's phase at the frame
+  /// last advanced to.
+  private var impulseInitialPass: [Int: Bool] = [:]
+  private var impulsePhases: [Int: NativeSwiftImpulsePhase] = [:]
+  private var lastImpulseFrameTime: TimeInterval?
   private var lastParticleFrameTime: TimeInterval?
   // A host may request another frame for a document that has no clock-driven state. Preserve the
   // public value snapshot while sharing its copy-on-write storage instead of re-resolving the
@@ -77,6 +83,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
     particleSystems = other.particleSystems.mapValues { $0.detachedCopy() }
+    impulseInitialPass = other.impulseInitialPass
+    requestedTheme = other.requestedTheme
+    impulsePhases = other.impulsePhases
+    lastImpulseFrameTime = other.lastImpulseFrameTime
     lastParticleFrameTime = other.lastParticleFrameTime
     staticSnapshotCache = other.staticSnapshotCache
   }
@@ -116,6 +126,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     staticSnapshotCache = nil
   }
 
+  /// The theme the host is showing: `NativeSwiftTheme.dark`, `.light` or `.unspecified`.
+  ///
+  /// A `ColorTheme` resolves to its dark fallback under a dark theme and to its light one
+  /// otherwise. Unspecified stays light rather than following the TypeScript reference's dark,
+  /// because light is what the reference JVM lane renders for a player with no theme (see the
+  /// `ColorTheme` decode). Operations a `THEME` marker scopes are not filtered by it yet.
+  public func setRequestedTheme(_ theme: Int) {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    requestedTheme = theme
+    staticSnapshotCache = nil
+  }
+
   /// - Parameter measuredComponents: what the host laid each bound component out at, once it knows.
   ///   A component named here resolves its width and height bindings from the measurement; one that
   ///   is absent falls back to this core's own estimate, which is what every caller got before this
@@ -151,6 +174,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
         resolveAnimatedValues: true)
     }
+    advanceImpulses(values: values, timeSeconds: timeSeconds)
     resolveTextOperations(values: values)
     // Data-map lookup is an operation, not a decode-time constant. Its key can be created by a
     // preceding TextFromFloat/TextLookup/TextMerge, so resolve it only after those text producers
@@ -193,12 +217,65 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
       }, shaderUniformNames: document.shaderUniformNames,
-      conditionalTraces: document.conditionalTraces)
+      conditionalTraces: document.conditionalTraces,
+      impulses: document.impulses.map {
+        NativeSwiftImpulseSnapshot(
+          duration: NativeSwiftFloatExpression.resolve($0.durationWord, values: values),
+          startAt: NativeSwiftFloatExpression.resolve($0.startAtWord, values: values))
+      },
+      wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds))
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
       staticSnapshotCache = StaticSnapshotCache(
         measuredComponents: measuredComponents, snapshot: snapshot)
     }
     return snapshot
+  }
+
+  /// AndroidX `ImpulseOperation`: waiting before the window, initializing on the first frame inside
+  /// it, processing on every later frame inside it, idle after it, which re-arms the first frame.
+  /// Advanced once per frame time, so resolving a frame twice does not consume the first frame.
+  private func advanceImpulses(values: [Int: Float], timeSeconds: TimeInterval) {
+    guard !document.impulses.isEmpty, lastImpulseFrameTime != timeSeconds else { return }
+    lastImpulseFrameTime = timeSeconds
+    let time = Float(timeSeconds)
+    for (index, impulse) in document.impulses.enumerated() {
+      let startAt = NativeSwiftFloatExpression.resolve(impulse.startAtWord, values: values)
+      let duration = NativeSwiftFloatExpression.resolve(impulse.durationWord, values: values)
+      if time < startAt {
+        impulsePhases[index] = .waiting
+      } else if time <= startAt + duration {
+        impulsePhases[index] = impulseInitialPass[index, default: true] ? .initialize : .process
+        impulseInitialPass[index] = false
+      } else {
+        impulsePhases[index] = .idle
+        impulseInitialPass[index] = true
+      }
+    }
+  }
+
+  /// Whether a command drawn inside an impulse belongs to the impulse's phase at this frame.
+  private func impulseAllows(_ gate: ParsedImpulseGate?) -> Bool {
+    guard let gate else { return true }
+    let phase = impulsePhases[gate.impulse] ?? .idle
+    if gate.segment == document.impulses[gate.impulse].processSegment { return phase == .process }
+    return phase == .initialize
+  }
+
+  private func wakeAfter(values: [Int: Float], timeSeconds: TimeInterval) -> TimeInterval? {
+    var requests = document.wakeWords.compactMap { word -> TimeInterval? in
+      let seconds = NativeSwiftFloatExpression.resolve(word, values: values)
+      return seconds.isFinite && seconds >= 0 ? TimeInterval(seconds) : nil
+    }
+    for (index, impulse) in document.impulses.enumerated() {
+      switch impulsePhases[index] ?? .idle {
+      case .waiting:
+        let startAt = NativeSwiftFloatExpression.resolve(impulse.startAtWord, values: values)
+        requests.append(max(TimeInterval(startAt) - timeSeconds, 0))
+      case .initialize, .process: requests.append(0)
+      case .idle: break
+      }
+    }
+    return requests.min()
   }
 
   /// Advances retained particle systems to this frame and returns one system's current state.
@@ -264,6 +341,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           expression.words, values: values)
       case .integerValue(let targetID, let value):
         integers[targetID] = value
+      case .floatValue(let targetID, let value):
+        let resolved = NativeSwiftFloatExpression.resolve(value, values: values)
+        if resolved.isFinite { floatOverrides[targetID] = resolved }
+      case .textValue(let targetID, let textID):
+        if let text = texts[textID] { texts[targetID] = text }
       case .named(let action):
         guard let name = texts[action.nameTextID] else { continue }
         let value: NativeSwiftActionValue
@@ -475,6 +557,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) -> Bool {
     wallClock == nil
       && !document.needsContinuousFrames
+      && document.impulses.isEmpty
       && document.particleLoops.isEmpty
       && !floatAnimationRuntimes.contains {
         floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
@@ -554,7 +637,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       children: try resolvedChildren(
         of: node, values: values, colors: resolvedColors,
         stateBranchActive: stateBranchActive),
-      commands: try node.commands.map {
+      commands: try node.commands.filter { impulseAllows($0.impulseGate) }.map {
         try $0.resolve(
           values: values, colors: resolvedColors, texts: texts,
           componentValueIDs: Set(document.componentValues.map(\.valueID)),
@@ -869,6 +952,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       if result[NativeSwiftSystemVariables.year] == nil {
         result[NativeSwiftSystemVariables.year] = Float(fields.year)
       }
+      if result[NativeSwiftSystemVariables.epochSecond] == nil {
+        let seconds = NativeSwiftWallClock.floorDiv(wallClock.epochMillis, 1000)
+        integers[NativeSwiftSystemVariables.epochSecond] = Int(seconds)
+        result[NativeSwiftSystemVariables.epochSecond] = Float(seconds)
+      }
     } else if result[NativeSwiftSystemVariables.continuousSeconds] == nil {
       result[NativeSwiftSystemVariables.continuousSeconds] = animationTime
     }
@@ -882,6 +970,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if result[NativeSwiftSystemVariables.fontSize] == nil {
       result[NativeSwiftSystemVariables.fontSize] =
         NativeSwiftSystemVariables.defaultFontSizeSp * hostFontScale * hostDensity
+    }
+    // A length reads the text as the session last resolved it. Text operations resolve after
+    // floats, so the length of a *derived* text follows it by one resolution; a declared text's
+    // is exact.
+    for length in document.textLengths where floatOverrides[length.outputID] == nil {
+      guard let text = texts[length.textID] else { continue }
+      result[length.outputID] = Float(text.utf16.count)
     }
     for attribute in document.timeAttributes {
       guard floatOverrides[attribute.outputID] == nil,
@@ -952,6 +1047,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       } else {
         result[expression.id] = target
       }
+    }
+    // `ID_LOOKUP` publishes an integer, and integers are visible to float expressions. A list that
+    // does not exist, or an index outside it, leaves the slot as it was.
+    for lookup in document.idLookups {
+      guard let ids = document.idLists[lookup.listID] else { continue }
+      let index = Int(NativeSwiftFloatExpression.resolve(lookup.index, values: result))
+      guard ids.indices.contains(index) else { continue }
+      integers[lookup.outputID] = ids[index]
+      if floatOverrides[lookup.outputID] == nil { result[lookup.outputID] = Float(ids[index]) }
     }
     for operation in document.matrixVectorMath {
       guard let matrix = resolvedMatrix(operation.matrixID, values: result) else { continue }
@@ -1040,6 +1144,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         texts[lookup.outputID] = texts[ids[index]] ?? ""
       case .transform(let transform):
         resolveTextTransform(transform, values: values)
+      case .subtext(let subtext):
+        let units = Array((texts[subtext.textID] ?? "").utf16)
+        let start = min(
+          max(Int(NativeSwiftFloatExpression.resolve(subtext.start, values: values)), 0),
+          units.count)
+        let length = Int(NativeSwiftFloatExpression.resolve(subtext.length, values: values))
+        let end = length == -1 ? units.count : min(start + max(length, 0), units.count)
+        texts[subtext.outputID] = String(decoding: units[start..<end], as: UTF16.self)
       }
     }
   }
@@ -1144,6 +1256,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func resolveColors(values: [Int: Float]) -> [Int: UInt32] {
     var result = colors
+    // Only where the colour still holds the document's own light fallback: a value the host has
+    // since set on the slot is the host's, whatever the theme.
+    if requestedTheme == NativeSwiftTheme.dark {
+      for (id, dark) in document.darkColors where colors[id] == document.colors[id] {
+        result[id] = dark
+      }
+    }
     for expression in document.colorExpressions {
       let mode = expression.modeAndAlpha & 0xff
       switch mode {

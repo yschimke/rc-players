@@ -296,6 +296,156 @@ import Testing
       sunday[3] == 7 && sunday[4] == 362,
       "a pre-epoch weekday resolved to \(sunday[3]) / day-of-year \(sunday[4])")
 
+    // Data and text operations that used to refuse the document: an id lookup into a list, a
+    // text's length (directly and as a text attribute), a slice, a theme marker and a text
+    // measurement, which needs host metrics and so leaves its slot as it was.
+    let texty = Writer()
+    texty.header(width: 100, height: 100)
+    texty.text(id: 1, "Hello RemoteCompose")
+    texty.u8(146).int(2).int(3).int(7).int(8).int(9)
+    texty.u8(192).int(40).int(2).float(1)
+    texty.u8(192).int(41).int(2).float(5)
+    texty.u8(156).int(42).int(1)
+    texty.u8(170).int(43).int(1).u16(6).u16(0)
+    texty.u8(182).int(44).int(1).float(6).float(6)
+    texty.u8(182).int(45).int(1).float(6).float(-1)
+    texty.u8(63).int(-2)
+    texty.u8(155).int(46).int(1).int(0)
+    let textyValues = try NativeSwiftDocumentSession.open(
+      data: texty.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0)
+    #expect(
+      textyValues.integers[40] == 8 && textyValues.floats[40] == 8, Comment(rawValue:
+      "an id lookup resolved to \(String(describing: textyValues.integers[40]))"))
+    #expect(
+      textyValues.integers[41] == nil, Comment(rawValue: "an out-of-range id lookup wrote its slot"))
+    #expect(
+      textyValues.floats[42] == 19 && textyValues.floats[43] == 19, Comment(rawValue:
+      "text lengths resolved to \(String(describing: textyValues.floats[42])), "
+        + "\(String(describing: textyValues.floats[43]))"))
+    #expect(
+      textyValues.texts[44] == "Remote" && textyValues.texts[45] == "RemoteCompose", Comment(rawValue:
+      "subtexts resolved to \(String(describing: textyValues.texts[44])), "
+        + "\(String(describing: textyValues.texts[45]))"))
+    #expect(textyValues.floats[46] == nil, Comment(rawValue: "a text measurement invented a value"))
+
+    // A CoreText that names a TextStyle inherits what it does not set itself, through the style's
+    // own parent. A TextLayout overflow outside AndroidX's five renders as clip.
+    let styled = Writer()
+    styled.header(width: 200, height: 100)
+    styled.text(id: 1, "Styled")
+    styled.u8(242).u16(2).u8(1).int(10).u8(5).float(20)
+    styled.u8(242).u16(3).u8(1).int(11).u8(24).int(10).u8(7).float(700)
+    styled.u8(200).int(1)
+    styled.u8(239).int(1).u16(2).u8(1).int(5).u8(24).int(11)
+    styled.u8(214)
+    styled.u8(208).int(6).int(0).int(1).int(-1).float(12).int(0).float(400).int(-1).int(1)
+      .int(0).int(1)
+    styled.u8(214)
+    styled.u8(214)
+    let styledTexts = try NativeSwiftDocumentSession.open(data: styled.data).snapshot().root
+      .children.flatMap { [$0] + $0.children }.compactMap(\.text)
+    #expect(
+      styledTexts.count == 2 && styledTexts[0].size == 20 && styledTexts[0].weight == 700
+        && styledTexts[1].overflow == 1, Comment(rawValue:
+      "styled text resolved to \(styledTexts.map { ($0.size, $0.weight, $0.overflow) })"))
+
+    // An impulse opens a window on the animation clock. Its setup draws once, on the first frame
+    // inside the window; its trailing process body draws on every later frame inside it; nothing
+    // draws before or after. WAKE_IN and a waiting impulse ask the host to come back.
+    let impulse = Writer()
+    impulse.header(width: 100, height: 100)
+    impulse.u8(164).float(1).float(0.5)
+    impulse.u8(42).float(0).float(0).float(10).float(10)
+    impulse.u8(165)
+    impulse.u8(42).float(1).float(1).float(20).float(20)
+    impulse.u8(214)
+    impulse.u8(214)
+    impulse.u8(191).float(0.25)
+    let impulseSession = try NativeSwiftDocumentSession.open(data: impulse.data)
+    func impulseFrame(_ time: TimeInterval) throws -> (right: [Float], wake: TimeInterval?) {
+      let frame = try impulseSession.snapshot(timeSeconds: time)
+      return (frame.root.commands.map { $0.values[2] }, frame.wakeAfter)
+    }
+    let waiting = try impulseFrame(0)
+    #expect(
+      waiting.right.isEmpty && waiting.wake == 0.25, Comment(rawValue:
+      "a waiting impulse drew \(waiting.right) and woke after \(String(describing: waiting.wake))"))
+    let first = try impulseFrame(0.6)
+    let again = try impulseFrame(0.6)
+    let later = try impulseFrame(1.0)
+    let after = try impulseFrame(2.0)
+    #expect(
+      first.right == [10] && again.right == [10] && first.wake == 0, Comment(rawValue:
+      "an impulse's first frame drew \(first.right), then \(again.right) on re-resolution"))
+    #expect(later.right == [20], Comment(rawValue: "an impulse's process body drew \(later.right)"))
+    #expect(
+      after.right.isEmpty && after.wake == 0.25, Comment(rawValue:
+      "a closed impulse drew \(after.right), woke after \(String(describing: after.wake))"))
+    let impulseRecord = try impulseSession.snapshot(timeSeconds: 0).impulses
+    #expect(
+      impulseRecord == [NativeSwiftImpulseSnapshot(duration: 1, startAt: 0.5)], Comment(rawValue:
+      "impulse records resolved to \(impulseRecord)"))
+    // Only drawing is gated; state inside an impulse would run outside its window, so it refuses.
+    let stateful = Writer()
+    stateful.header(width: 100, height: 100)
+    stateful.u8(164).float(1).float(0)
+    stateful.u8(80).int(40).float(1)
+    stateful.u8(214)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: stateful.data)
+      Issue.record("state inside an impulse was accepted")
+    } catch NativeSwiftCoreError.unsupported(let opcode, _, _) {
+      #expect(opcode == 80, Comment(rawValue: "the impulse refused opcode \(opcode)"))
+    }
+
+    // EPOCH_SECOND is whole seconds since the epoch, floored, as an integer and as a float.
+    let epoch = try NativeSwiftDocumentSession.open(
+      data: rootlessValuesDocument(), toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: 1_789_050_600_999))
+    #expect(
+      epoch.integers[32] == 1_789_050_600 && epoch.floats[32] == Float(1_789_050_600), Comment(rawValue:
+      "EPOCH_SECOND resolved to \(String(describing: epoch.integers[32]))"))
+
+    // A loop unrolls with the index bound per pass, and ends holding its last value. A path built
+    // with PATH_CREATE / PATH_APPEND is drawable, and a leading RESET empties it.
+    let looped = Writer()
+    looped.header(width: 100, height: 100)
+    looped.u8(80).int(70).float(0)
+    looped.u8(215).int(70).float(0).float(1).float(3)
+    looped.u8(42).int(Writer.nanReference(70)).float(0).float(10).float(10)
+    looped.u8(214)
+    looped.u8(159).int(50).float(0).float(0)
+    looped.u8(160).int(50).int(5).int(Writer.nanReference(11)).float(0).float(0).float(10).float(10)
+    looped.u8(124).int(50)
+    let loopedSession = try NativeSwiftDocumentSession.open(data: looped.data)
+    let loopedCommands = try loopedSession.snapshot().root.commands
+    #expect(
+      loopedCommands.filter { $0.kind == 10 }.map { $0.values[0] } == [0, 1, 2], Comment(rawValue:
+      "a loop drew at \(loopedCommands.map { ($0.kind, $0.values) })"))
+    let loopIndex = try loopedSession.probeValues(timeSeconds: 0).floats[70]
+    #expect(loopIndex == 2, Comment(rawValue: "a loop's index ended on \(String(describing: loopIndex))"))
+    #expect(
+      loopedCommands.contains { $0.kind == 18 }, Comment(rawValue: "a created and appended path did not draw"))
+
+    // A ColorTheme resolves to its dark fallback under a dark theme, and to its light one under
+    // a light or unspecified theme. A colour the host has set stays the host's.
+    let themed = Writer()
+    themed.header(width: 100, height: 100)
+    themed.u8(196).int(10).int(1).u16(0).u16(0).int(Int(Int32(bitPattern: 0xFF11_1111)))
+      .int(Int(Int32(bitPattern: 0xFF22_2222)))
+    let themedSession = try NativeSwiftDocumentSession.open(
+      data: themed.data, toleratingRootlessData: true)
+    let unthemed = try themedSession.probeValues(timeSeconds: 0).colors[10]
+    themedSession.setRequestedTheme(NativeSwiftTheme.dark)
+    let dark = try themedSession.probeValues(timeSeconds: 0).colors[10]
+    themedSession.setRequestedTheme(NativeSwiftTheme.light)
+    let light = try themedSession.probeValues(timeSeconds: 0).colors[10]
+    #expect(
+      unthemed == 0xFF11_1111 && dark == 0xFF22_2222 && light == 0xFF11_1111, Comment(rawValue:
+      "a colour theme resolved to \(String(describing: unthemed)), \(String(describing: dark)), "
+        + "\(String(describing: light))"))
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)
@@ -817,6 +967,32 @@ import Testing
     }
     let missingTap = try gestureSession.click(componentID: 3, timeSeconds: 0)
     #expect(missingTap == nil)
+
+    // A click can set a float and copy a text. The same actions, and host actions, outside any
+    // click modifier are inert rather than refusing the document, as in the reference.
+    let valueActions = Writer()
+    valueActions.header(width: 100, height: 100)
+    valueActions.text(id: 10, "before")
+    valueActions.text(id: 11, "after")
+    valueActions.u8(80).int(40).float(1)
+    valueActions.u8(222).int(40).float(99)
+    valueActions.u8(216).int(1).int(10)
+    valueActions.u8(200).int(1).u8(202).int(3).int(-1).int(1).int(4)
+    valueActions.u8(59)
+    valueActions.u8(222).int(40).float(7)
+    valueActions.u8(213).int(10).int(11)
+    valueActions.u8(214).u8(214).u8(214)
+    let valueSession = try NativeSwiftDocumentSession.open(data: valueActions.data)
+    let untouched = try valueSession.probeValues(timeSeconds: 0)
+    #expect(
+      untouched.floats[40] == 1 && untouched.texts[10] == "before", Comment(rawValue:
+      "an inert action ran: \(String(describing: untouched.floats[40]))"))
+    _ = try valueSession.click(componentID: 3, timeSeconds: 0)
+    let clicked = try valueSession.probeValues(timeSeconds: 0)
+    #expect(
+      clicked.floats[40] == 7 && clicked.texts[10] == "after", Comment(rawValue:
+      "value actions set \(String(describing: clicked.floats[40])), "
+        + "\(String(describing: clicked.texts[10]))"))
 
     let integerAction = Writer()
     integerAction.header(width: 100, height: 100)

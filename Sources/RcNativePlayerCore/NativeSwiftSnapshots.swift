@@ -1,5 +1,40 @@
 import Foundation
 
+/// `ATTRIBUTE_TEXT`'s selector: every value AndroidX's `TextAttribute` defines.
+public enum NativeSwiftTextAttributeType {
+  public static let measureWidth = 0
+  public static let measureHeight = 1
+  public static let measureLeft = 2
+  public static let measureRight = 3
+  public static let measureTop = 4
+  public static let measureBottom = 5
+  public static let length = 6
+}
+
+/// Path data's command tokens: every value AndroidX's `PathData` defines, NaN-boxed in the stream.
+public enum NativeSwiftPathCommand {
+  public static let move = 10
+  public static let line = 11
+  public static let quadratic = 12
+  public static let conic = 13
+  public static let cubic = 14
+  public static let close = 15
+  public static let done = 16
+  public static let reset = 17
+}
+
+/// A path command token as the wire spells it: the command id in a quiet NaN's payload.
+func pathCommandWord(_ command: Int) -> UInt32 {
+  0x7fc0_0000 | UInt32(command)
+}
+
+/// The themes a host can request and a `THEME` operation can scope to: every value AndroidX defines.
+public enum NativeSwiftTheme {
+  public static let unspecified = -1
+  public static let dark = -2
+  public static let light = -3
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
@@ -48,6 +83,24 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let shaderUniformNames: [Int: Set<String>]
   /// Conditional containers evaluated while linking the document.
   public let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
+  /// Every `IMPULSE_START` in declaration order, with its window resolved for this frame.
+  public let impulses: [NativeSwiftImpulseSnapshot]
+  /// When the document asked to be resolved again, in seconds from this frame: the shortest
+  /// `WAKE_IN`, an impulse still waiting for its window, or 0 for one inside it. Nil when nothing
+  /// asked.
+  public let wakeAfter: TimeInterval?
+
+  /// The wake a host should schedule: the document's own request, or the once-a-second refresh a
+  /// document reading a discrete wall-clock field needs, whichever comes first.
+  public var hostWakeAfter: TimeInterval? {
+    [needsWallClockRefresh ? 1 : nil, wakeAfter].compactMap { $0 }.min()
+  }
+}
+
+/// One `IMPULSE_START`: a window of `duration` seconds opening at `startAt` on the animation clock.
+public struct NativeSwiftImpulseSnapshot: Equatable, Sendable {
+  public let duration: Float
+  public let startAt: Float
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.

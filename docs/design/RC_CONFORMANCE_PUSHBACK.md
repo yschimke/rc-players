@@ -235,3 +235,18 @@ Its document is `THEME(1)` followed by one `ColorConstant`. AndroidX's themes ar
 switches. The check asserts the constant's own value.
 
 **Ask:** use `THEME_DARK`/`THEME_LIGHT`, and add `theme` steps as `color_theme_mode_switching` does.
+
+## 14. `matrix_constant_3x3_and_4x4` expands a 3×3 matrix inconsistently
+
+The gold declares the 3×3 matrix `[2, 0, 5, 0, 3, 7, 0, 0, 1]` and applies it to `(1, 1, 0)` with
+`MATRIX_VECTOR_MATH` type 0, which adds each row's translation. It expects `(7, 3, 0)`: row 0 adds
+its translation (2 + 5 = 7) and row 1 does not (3, not 3 + 7). No single reading of a 3×3 affine
+matrix gives that. The standard embedding gives `(7, 10, 0)`. The expected values come from an
+embedding that puts the third column in the translation slot for row 0 and in the z column for
+row 1, and the CMP and TypeScript players both implement that embedding. The native player keeps
+the standard embedding and fails this check.
+
+**Ask:** state how a 3×3 `MATRIX_CONSTANT` maps to the 4×4 that `MATRIX_VECTOR_MATH` multiplies by,
+or use a 4×4 matrix in this gold.
+**Settled by:** a stated layout. If upstream says the asymmetric one is intended, the native player
+adopts it.
