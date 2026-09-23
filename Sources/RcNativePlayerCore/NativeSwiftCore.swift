@@ -1616,6 +1616,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           expression.words, values: values)
       case .integerValue(let targetID, let value):
         integers[targetID] = value
+      case .floatValue(let targetID, let value):
+        let resolved = NativeSwiftFloatExpression.resolve(value, values: values)
+        if resolved.isFinite { floatOverrides[targetID] = resolved }
+      case .textValue(let targetID, let textID):
+        if let text = texts[textID] { texts[targetID] = text }
       case .named(let action):
         guard let name = texts[action.nameTextID] else { continue }
         let value: NativeSwiftActionValue
@@ -3459,6 +3464,10 @@ private enum ParsedAction {
   case integerExpression(targetID: Int, expressionID: Int)
   case floatExpression(targetID: Int, expressionID: Int)
   case integerValue(targetID: Int, value: Int)
+  /// `VALUE_FLOAT_CHANGE_ACTION`: set a float to a (possibly computed) value.
+  case floatValue(targetID: Int, value: UInt32)
+  /// `VALUE_STRING_CHANGE_ACTION`: set a text to another text's value.
+  case textValue(targetID: Int, textID: Int)
 }
 
 private struct ParsedModifierContainer {
@@ -6320,6 +6329,43 @@ private enum NativeSwiftDocumentDecoder {
       case NativeSwiftWireOpcode.wakeIn:
         // Asks the host to resolve the document again after this many seconds.
         wakeWords.append(try input.word("wake in seconds"))
+      case NativeSwiftWireOpcode.valueFloatChangeAction, NativeSwiftWireOpcode.valueStringChangeAction,
+        NativeSwiftWireOpcode.hostAction, NativeSwiftWireOpcode.hostMetadataAction,
+        NativeSwiftWireOpcode.hapticFeedback:
+        // Actions run when the click modifier that encloses them fires. Outside one there is
+        // nothing to fire them, and the reference leaves them inert rather than rejecting the
+        // document. Host actions and haptics need an event the hosts do not have yet, so inside a
+        // click modifier they still refuse rather than being dropped silently.
+        let container = modifierContainers.reversed().first(where: { $0.node != nil })
+        let action: ParsedAction?
+        switch opcode {
+        case NativeSwiftWireOpcode.valueFloatChangeAction:
+          action = .floatValue(
+            targetID: try input.int("float value action target id"),
+            value: try input.word("float value action value"))
+        case NativeSwiftWireOpcode.valueStringChangeAction:
+          action = .textValue(
+            targetID: try input.int("text value action target id"),
+            textID: try input.int("text value action text id"))
+        case NativeSwiftWireOpcode.hostAction:
+          _ = try input.int("host action id")
+          action = nil
+        case NativeSwiftWireOpcode.hostMetadataAction:
+          _ = try input.int("host metadata action id")
+          _ = try input.int("host metadata action text id")
+          action = nil
+        default:
+          _ = try input.int("haptic feedback type")
+          action = nil
+        }
+        if let container, let target = container.node, let gesture = container.gesture {
+          guard let action else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "host actions and haptics need a host event")
+          }
+          target.actions[gesture, default: []].append(action)
+        }
       case NativeSwiftWireOpcode.textStyle:
         let style = try textProperties("TextStyle")
         guard let styleID = style.integers[1] else {
