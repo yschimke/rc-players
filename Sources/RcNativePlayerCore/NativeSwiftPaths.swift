@@ -20,25 +20,25 @@ struct ParsedPath {
       let padding: Int
       let argumentCount: Int
       switch command {
-      case 10:
+      case NativeSwiftPathVerb.move:
         padding = 0
         argumentCount = 2
-      case 11:
+      case NativeSwiftPathVerb.line:
         padding = 2
         argumentCount = 2
-      case 12:
+      case NativeSwiftPathVerb.quadratic:
         padding = 2
         argumentCount = 4
-      case 13:
+      case NativeSwiftPathVerb.conic:
         padding = 2
         argumentCount = 5
-      case 14:
+      case NativeSwiftPathVerb.cubic:
         padding = 2
         argumentCount = 6
-      case 15:
+      case NativeSwiftPathVerb.close:
         padding = 0
         argumentCount = 0
-      case 16:
+      case NativeSwiftPathVerb.done:
         return false
       default:
         return false
@@ -71,30 +71,30 @@ struct ParsedPath {
       }
       index += 1
       switch command {
-      case 10:
+      case NativeSwiftPathVerb.move:
         result.append(NativeSwiftPathElementSnapshot(kind: command, values: try arguments(2)))
-      case 11:
+      case NativeSwiftPathVerb.line:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(2, skippingLegacyPadding: true)))
-      case 12:
+      case NativeSwiftPathVerb.quadratic:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(4, skippingLegacyPadding: true)))
-      case 13:
+      case NativeSwiftPathVerb.conic:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(5, skippingLegacyPadding: true)))
-      case 14:
+      case NativeSwiftPathVerb.cubic:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(6, skippingLegacyPadding: true)))
-      case 15:
+      case NativeSwiftPathVerb.close:
         result.append(NativeSwiftPathElementSnapshot(kind: command, values: []))
-      case 16: return result
+      case NativeSwiftPathVerb.done: return result
       default:
         throw NativeSwiftCoreError.unsupported(
-          opcode: 123, offset: 0, reason: "path command \(command)")
+          opcode: NativeSwiftWireOpcode.dataPath, offset: 0, reason: "path command \(command)")
       }
     }
     return result

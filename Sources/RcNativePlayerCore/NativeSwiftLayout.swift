@@ -127,7 +127,9 @@ public enum NativeSwiftCollapsible {
   /// then drops it even when it is the container's only child. Fill dimensions keep the container's
   /// own bound instead.
   public static func measuresUnbounded(mainAxisType: Int) -> Bool {
-    !(mainAxisType == 1 || mainAxisType == 7 || mainAxisType == 8)
+    !(mainAxisType == NativeSwiftDimensionType.fill
+      || mainAxisType == NativeSwiftDimensionType.fillParentMaxWidth
+      || mainAxisType == NativeSwiftDimensionType.fillParentMaxHeight)
   }
 
   /// One flag per child, in the order they were given.

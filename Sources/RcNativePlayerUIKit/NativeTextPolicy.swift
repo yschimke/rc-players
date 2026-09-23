@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(RcNativePlayerCore)
+  import RcNativePlayerCore
+#endif
 
 enum NativeTextDirection {
   case leftToRight
@@ -34,26 +37,27 @@ enum NativeTextPolicy {
   ) -> NativeResolvedTextAlignment {
     if justified { return .justified }
     switch value {
-    case 1: return .left
-    case 2: return .right
-    case 3: return .center
-    case 6: return direction == .rightToLeft ? .left : .right
+    case NativeSwiftTextAlignment.left: return .left
+    case NativeSwiftTextAlignment.right: return .right
+    case NativeSwiftTextAlignment.center: return .center
+    case NativeSwiftTextAlignment.end: return direction == .rightToLeft ? .left : .right
     default: return direction == .rightToLeft ? .right : .left
     }
   }
 
   static func overflow(_ value: Int) -> NativeResolvedTextOverflow {
     switch value {
-    case 2: return .visible
-    case 3: return .tail
-    case 4: return .head
-    case 5: return .middle
+    case NativeSwiftTextOverflow.visible: return .visible
+    case NativeSwiftTextOverflow.ellipsis: return .tail
+    case NativeSwiftTextOverflow.startEllipsis: return .head
+    case NativeSwiftTextOverflow.middleEllipsis: return .middle
     default: return .clip
     }
   }
 
   static func numberOfLines(overflow: Int, maximum: Int) -> Int {
-    maximum > 1 && (overflow == 1 || overflow == 2) ? 0 : max(maximum, 1)
+    maximum > 1 && (overflow == NativeSwiftTextOverflow.clip || overflow == NativeSwiftTextOverflow.visible)
+      ? 0 : max(maximum, 1)
   }
 
   static func lineBreak(overflow: Int) -> NativeResolvedLineBreak {

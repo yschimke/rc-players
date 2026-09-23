@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(RcNativePlayerCore)
+  import RcNativePlayerCore
+#endif
 
 /// Work limits applied before a native frame reaches UIKit or Core Graphics.
 public struct RemoteComposeNativeExecutionLimits: Equatable, Sendable {
@@ -224,16 +227,17 @@ struct NativeFrameBudget: Equatable, Sendable {
     limits: RemoteComposeNativeExecutionLimits
   ) throws {
     switch type {
-    case 0, 6:
+    case NativeSwiftDimensionType.exact, NativeSwiftDimensionType.exactDp:
       try validateNumbers([value], componentID: componentID, field: field, limits: limits)
       try validateCanvasDimensions([abs(value)], limits: limits)
-    case 1, 7, 8:
+    case NativeSwiftDimensionType.fill, NativeSwiftDimensionType.fillParentMaxWidth,
+      NativeSwiftDimensionType.fillParentMaxHeight:
       if value.isNaN { return }
       guard value.isFinite, value >= 0 else {
         throw RemoteComposeNativeLimitError.invalidDimensionValue(
           componentID: componentID, field: field, actual: value)
       }
-    case 3:
+    case NativeSwiftDimensionType.weight:
       guard value.isFinite, value >= 0 else {
         throw RemoteComposeNativeLimitError.invalidDimensionValue(
           componentID: componentID, field: field, actual: value)
