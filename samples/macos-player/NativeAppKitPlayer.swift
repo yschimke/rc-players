@@ -376,10 +376,11 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
     let fonts = try NativeMacFontRegistry.register(
       snapshot: snapshot, downloadedFonts: downloadedFonts)
+    var hostActionSummaries: [String] = []
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: .compatible, report: report,
       fonts: fonts, conformanceFontName: conformanceFontName,
-      onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
+      onEvent: { hostActionSummaries.append($0) }, onDiagnostics: { _ in }, onError: { _ in })
     let captureSize = viewport ?? CGSize(width: snapshot.width, height: snapshot.height)
     let initialSize = steps.first?.viewport ?? captureSize
     let frame = NSRect(origin: .zero, size: initialSize)
@@ -431,6 +432,13 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       .first?.particles
       .map { $0.map(Double.init) } ?? []
     records["draw_log_commands"] = try drawLog(in: data)
+    records["host_actions"] = hostActionSummaries.compactMap { summary -> [String: Any]? in
+      guard summary.hasPrefix("Named "), let separator = summary.range(of: ": ") else { return nil }
+      return [
+        "name": String(summary.dropFirst("Named ".count).prefix(upTo: separator.lowerBound)),
+        "value": String(summary[separator.upperBound...]),
+      ]
+    }
     return NativeMacRenderedFrame(
       png: png, tree: player.layoutTree(),
       values: values.isEmpty
@@ -596,6 +604,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     return [
       "ops_count": operationCount,
       "ops_present": Array(Set(operationNames)).sorted(),
+      "ops_counts": Dictionary(grouping: operationNames, by: { $0 }).mapValues(\.count),
       "component_count": components.count,
       "distinct_ids": Set(componentIDs).count == componentIDs.count,
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
