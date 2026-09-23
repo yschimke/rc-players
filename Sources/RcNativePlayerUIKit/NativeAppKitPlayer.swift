@@ -530,7 +530,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   private static func operationNames(in data: Data) throws -> [String] {
     let spans = try NativeSwiftDocumentSession.operationSpans(
       in: data, toleratingRootlessData: true)
-    return ([NativeSwiftWireOpcode.header] + spans.map(\.opcode)).compactMap { censusNames[$0] }
+    return ([NativeSwiftWireOpcode.header] + spans.map(\.opcode)).flatMap { censusNames[$0] ?? [] }
   }
 
   /// `ops:counts` over the whole vocabulary. An operation the document does not contain is counted
@@ -538,183 +538,192 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   /// an unobservable count rather than an observed one.
   private static func operationCounts(_ names: [String]) -> [String: Int] {
     var counts = Dictionary(
-      censusNames.values.map { ($0, 0) }, uniquingKeysWith: { first, _ in first })
+      censusNames.values.flatMap { $0 }.map { ($0, 0) }, uniquingKeysWith: { first, _ in first })
     for name in names { counts[name, default: 0] += 1 }
     return counts
   }
 
-  /// Operation names in the conformance corpus's vocabulary, for every opcode AndroidX defines.
+  /// The names an operation answers to in the census, for every opcode in the AndroidX manifest.
   ///
-  /// The corpus names an operation by the class that implements it, and where AndroidX's Java class
-  /// and the corpus's TypeScript player disagree — `CoreSemantics` / `AccessibilitySemantics`, the
-  /// `…ModifierOperation` / `…Modifier` family, the `…Stub` parse-only classes — every gold asserts
-  /// the TypeScript name. This table follows the golds, because the probe compares names, and the
-  /// divergence is recorded in `docs/design/RC_CONFORMANCE.md` as a question for upstream.
-  /// `PARTICLE_PROCESS` (162) has no class in either implementation and so no name.
-  private static let censusNames: [Int: String] = [
-    NativeSwiftWireOpcode.header: "Header",
-    NativeSwiftWireOpcode.componentStart: "ComponentStartStub",
-    NativeSwiftWireOpcode.animationSpec: "AnimationSpec",
-    NativeSwiftWireOpcode.modifierWidth: "WidthModifier",
-    NativeSwiftWireOpcode.clipPath: "ClipPath",
-    NativeSwiftWireOpcode.clipRect: "ClipRect",
-    NativeSwiftWireOpcode.paintValues: "PaintData",
-    NativeSwiftWireOpcode.drawRect: "DrawRect",
-    NativeSwiftWireOpcode.drawText: "DrawText",
-    NativeSwiftWireOpcode.drawBitmap: "DrawBitmap",
-    NativeSwiftWireOpcode.dataShader: "ShaderData",
-    NativeSwiftWireOpcode.drawCircle: "DrawCircle",
-    NativeSwiftWireOpcode.drawLine: "DrawLine",
-    NativeSwiftWireOpcode.drawBitmapFontTextRun: "DrawBitmapFontTextStub",
-    NativeSwiftWireOpcode.drawBitmapFontTextRunOnPath: "DrawBitmapFontTextOnPathStub",
-    NativeSwiftWireOpcode.drawRoundRect: "DrawRoundRect",
-    NativeSwiftWireOpcode.drawSector: "DrawSector",
-    NativeSwiftWireOpcode.drawTextOnPath: "DrawTextOnPath",
-    NativeSwiftWireOpcode.modifierRoundedClipRect: "RoundedClipRectModifier",
-    NativeSwiftWireOpcode.modifierBackground: "BackgroundModifier",
-    NativeSwiftWireOpcode.drawOval: "DrawOval",
-    NativeSwiftWireOpcode.drawTextOnCircle: "DrawTextOnCircleStub",
-    NativeSwiftWireOpcode.modifierPadding: "PaddingModifier",
-    NativeSwiftWireOpcode.modifierClick: "ClickModifier",
-    NativeSwiftWireOpcode.theme: "Theme",
-    NativeSwiftWireOpcode.clickArea: "ClickArea",
-    NativeSwiftWireOpcode.rootContentBehavior: "RootContentBehavior",
-    NativeSwiftWireOpcode.drawBitmapInt: "DrawBitmapInt",
-    NativeSwiftWireOpcode.modifierHeight: "HeightModifier",
-    NativeSwiftWireOpcode.dataFloat: "FloatConstant",
-    NativeSwiftWireOpcode.animatedFloat: "FloatExpression",
-    NativeSwiftWireOpcode.modifierMultiClick: "MultiClickModifier",
-    NativeSwiftWireOpcode.layoutCustom: "Custom",
-    NativeSwiftWireOpcode.dataBitmap: "BitmapData",
-    NativeSwiftWireOpcode.dataText: "TextData",
-    NativeSwiftWireOpcode.rootContentDescription: "RootContentDescription",
-    NativeSwiftWireOpcode.modifierBorder: "BorderModifier",
-    NativeSwiftWireOpcode.modifierClipRect: "ClipRectModifier",
-    NativeSwiftWireOpcode.dataPath: "PathData",
-    NativeSwiftWireOpcode.drawPath: "DrawPath",
-    NativeSwiftWireOpcode.drawTweenPath: "DrawTweenPath",
-    NativeSwiftWireOpcode.matrixScale: "MatrixScale",
-    NativeSwiftWireOpcode.matrixTranslate: "MatrixTranslate",
-    NativeSwiftWireOpcode.matrixSkew: "MatrixSkew",
-    NativeSwiftWireOpcode.matrixRotate: "MatrixRotate",
-    NativeSwiftWireOpcode.matrixSave: "MatrixSave",
-    NativeSwiftWireOpcode.matrixRestore: "MatrixRestore",
-    NativeSwiftWireOpcode.drawTextAnchored: "DrawTextAnchored",
-    NativeSwiftWireOpcode.colorExpressions: "ColorExpression",
-    NativeSwiftWireOpcode.textFromFloat: "TextFromFloat",
-    NativeSwiftWireOpcode.textMerge: "TextMerge",
-    NativeSwiftWireOpcode.namedVariable: "NamedVariable",
-    NativeSwiftWireOpcode.colorConstant: "ColorConstant",
-    NativeSwiftWireOpcode.drawContent: "DrawContent",
-    NativeSwiftWireOpcode.dataInt: "IntegerConstant",
-    NativeSwiftWireOpcode.playSound: "PlaySound",
-    NativeSwiftWireOpcode.referencedOperations: "ReferencedOperations",
-    NativeSwiftWireOpcode.dataBoolean: "BooleanConstant",
-    NativeSwiftWireOpcode.integerExpression: "IntegerExpression",
-    NativeSwiftWireOpcode.idMap: "DataMapIds",
-    NativeSwiftWireOpcode.idList: "DataListIds",
-    NativeSwiftWireOpcode.floatList: "DataListFloat",
-    NativeSwiftWireOpcode.dataLong: "LongConstant",
-    NativeSwiftWireOpcode.drawBitmapScaled: "DrawBitmapScaled",
-    NativeSwiftWireOpcode.componentValue: "ComponentValue",
-    NativeSwiftWireOpcode.textLookup: "TextLookup",
-    NativeSwiftWireOpcode.drawArc: "DrawArc",
-    NativeSwiftWireOpcode.textLookupInt: "TextLookupIntStub",
-    NativeSwiftWireOpcode.dataMapLookup: "DataMapLookup",
-    NativeSwiftWireOpcode.textMeasure: "TextMeasure",
-    NativeSwiftWireOpcode.textLength: "TextLength",
-    NativeSwiftWireOpcode.touchExpression: "TouchExpression",
-    NativeSwiftWireOpcode.pathTween: "PathTween",
-    NativeSwiftWireOpcode.pathCreate: "PathCreate",
-    NativeSwiftWireOpcode.pathAdd: "PathAppend",
-    NativeSwiftWireOpcode.particleDefine: "ParticlesCreateOp",
-    NativeSwiftWireOpcode.particleLoop: "ParticlesLoopOp",
-    NativeSwiftWireOpcode.impulseStart: "ImpulseOperation",
-    NativeSwiftWireOpcode.impulseProcess: "ImpulseProcess",
-    NativeSwiftWireOpcode.functionCall: "FloatFunctionCallStub",
-    NativeSwiftWireOpcode.dataBitmapFont: "BitmapFontDataStub",
-    NativeSwiftWireOpcode.functionDefine: "FloatFunctionDefineStub",
-    NativeSwiftWireOpcode.dataSound: "SoundData",
-    NativeSwiftWireOpcode.attributeText: "TextAttribute",
-    NativeSwiftWireOpcode.attributeImage: "ImageAttributeStub",
-    NativeSwiftWireOpcode.attributeTime: "TimeAttribute",
-    NativeSwiftWireOpcode.canvasOperations: "CanvasOperationsOp",
-    NativeSwiftWireOpcode.modifierDrawContent: "DrawContentModifier",
-    NativeSwiftWireOpcode.pathCombine: "PathCombineStub",
-    NativeSwiftWireOpcode.layoutFitBox: "FitBoxLayout",
-    NativeSwiftWireOpcode.hapticFeedback: "HapticFeedback",
-    NativeSwiftWireOpcode.conditionalOperations: "ConditionalOperations",
-    NativeSwiftWireOpcode.debugMessage: "DebugMessage",
-    NativeSwiftWireOpcode.attributeColor: "ColorAttribute",
-    NativeSwiftWireOpcode.matrixFromPath: "MatrixFromPath",
-    NativeSwiftWireOpcode.textSubtext: "TextSubtext",
-    NativeSwiftWireOpcode.bitmapTextMeasure: "BitmapTextMeasureStub",
-    NativeSwiftWireOpcode.drawBitmapTextAnchored: "DrawBitmapTextAnchoredStub",
-    NativeSwiftWireOpcode.rem: "RemStub",
-    NativeSwiftWireOpcode.matrixConstant: "MatrixConstant",
-    NativeSwiftWireOpcode.matrixExpression: "MatrixExpression",
-    NativeSwiftWireOpcode.matrixVectorMath: "MatrixVectorMath",
-    NativeSwiftWireOpcode.dataFont: "FontDataStub",
-    NativeSwiftWireOpcode.drawToBitmap: "DrawToBitmap",
-    NativeSwiftWireOpcode.wakeIn: "WakeIn",
-    NativeSwiftWireOpcode.idLookup: "IdLookup",
-    NativeSwiftWireOpcode.pathExpression: "PathExpression",
-    NativeSwiftWireOpcode.particleCompare: "ParticlesCompareOp",
-    NativeSwiftWireOpcode.colorTheme: "ColorTheme",
-    NativeSwiftWireOpcode.dynamicFloatList: "DataDynamicListFloat",
-    NativeSwiftWireOpcode.updateDynamicFloatList: "UpdateDynamicFloatList",
-    NativeSwiftWireOpcode.textTransform: "TextTransform",
-    NativeSwiftWireOpcode.layoutRoot: "RootLayoutComponent",
-    NativeSwiftWireOpcode.layoutContent: "LayoutComponentContent",
-    NativeSwiftWireOpcode.layoutBox: "BoxLayout",
-    NativeSwiftWireOpcode.layoutRow: "RowLayout",
-    NativeSwiftWireOpcode.layoutColumn: "ColumnLayout",
-    NativeSwiftWireOpcode.layoutCanvas: "CanvasLayout",
-    NativeSwiftWireOpcode.soundExpression: "SoundExpression",
-    NativeSwiftWireOpcode.layoutCanvasContent: "CanvasContent",
-    NativeSwiftWireOpcode.layoutText: "TextLayout",
-    NativeSwiftWireOpcode.hostAction: "HostActionOperation",
-    NativeSwiftWireOpcode.hostNamedAction: "HostNamedActionOperation",
-    NativeSwiftWireOpcode.modifierVisibility: "VisibilityModifier",
-    NativeSwiftWireOpcode.valueIntegerChangeAction: "ValueIntegerChangeAction",
-    NativeSwiftWireOpcode.valueStringChangeAction: "ValueStringChangeAction",
-    NativeSwiftWireOpcode.containerEnd: "ContainerEnd",
-    NativeSwiftWireOpcode.loopStart: "LoopOperation",
-    NativeSwiftWireOpcode.hostMetadataAction: "HostActionMetadataOperation",
-    NativeSwiftWireOpcode.layoutState: "StateLayout",
-    NativeSwiftWireOpcode.valueIntegerExpressionChangeAction: "ValueIntegerExpressionChangeAction",
-    NativeSwiftWireOpcode.modifierTouchDown: "TouchDownModifier",
-    NativeSwiftWireOpcode.modifierTouchUp: "TouchUpModifier",
-    NativeSwiftWireOpcode.modifierOffset: "OffsetModifier",
-    NativeSwiftWireOpcode.valueFloatChangeAction: "ValueFloatChangeAction",
-    NativeSwiftWireOpcode.modifierZindex: "ZIndexModifier",
-    NativeSwiftWireOpcode.modifierGraphicsLayer: "GraphicsLayerModifier",
-    NativeSwiftWireOpcode.modifierTouchCancel: "TouchCancelModifier",
-    NativeSwiftWireOpcode.modifierScroll: "ScrollModifier",
-    NativeSwiftWireOpcode.valueFloatExpressionChangeAction: "ValueFloatExpressionChangeAction",
-    NativeSwiftWireOpcode.modifierMarquee: "MarqueeModifier",
-    NativeSwiftWireOpcode.modifierRipple: "RippleModifier",
-    NativeSwiftWireOpcode.layoutCollapsibleRow: "CollapsibleRowLayout",
-    NativeSwiftWireOpcode.modifierWidthIn: "WidthInModifier",
-    NativeSwiftWireOpcode.modifierHeightIn: "HeightInModifier",
-    NativeSwiftWireOpcode.layoutCollapsibleColumn: "CollapsibleColumnLayout",
-    NativeSwiftWireOpcode.layoutImage: "ImageLayout",
-    NativeSwiftWireOpcode.modifierCollapsiblePriority: "CollapsiblePriorityModifier",
-    NativeSwiftWireOpcode.runAction: "RunActionOperation",
-    NativeSwiftWireOpcode.modifierAlignBy: "AlignByModifier",
-    NativeSwiftWireOpcode.layoutCompute: "LayoutComputeOperation",
-    NativeSwiftWireOpcode.coreText: "CoreText",
-    NativeSwiftWireOpcode.layoutFlow: "FlowLayout",
-    NativeSwiftWireOpcode.skip: "Skip",
-    NativeSwiftWireOpcode.textStyle: "TextStyle",
-    NativeSwiftWireOpcode.modifierDimensionConstraints: "DimensionConstraintsModifier",
-    NativeSwiftWireOpcode.macroForEach: "PatternForEach",
-    NativeSwiftWireOpcode.includeReferencedOperations: "IncludeReferencedOperations",
-    NativeSwiftWireOpcode.macroDefine: "PatternDefine",
-    NativeSwiftWireOpcode.macroCall: "PatternInflation",
-    NativeSwiftWireOpcode.macroArgument: "PatternArgument",
-    NativeSwiftWireOpcode.macroBlock: "PatternBlock",
-    NativeSwiftWireOpcode.accessibilitySemantics: "AccessibilitySemantics",
+  /// The corpus never says which vocabulary `ops:*` uses, and its golds mix three (see
+  /// `docs/design/RC_CONFORMANCE_PUSHBACK.md` §2). Each operation reports AndroidX's concrete class
+  /// name and the name derived from its constant, as the CMP lane does: `CoreSemantics` and
+  /// `AccessibilitySemantics`, `DrawText` and `DrawTextRun`. Names only the TypeScript player uses
+  /// (`TouchDownModifier`, `CanvasOperationsOp`, `…Stub`) are neither, and are left to fail.
+  /// Generated from `rc-player/protocol/src/main/rc-operations.manifest`.
+  private static let censusNames: [Int: [String]] = [
+    NativeSwiftWireOpcode.header: ["Header"],
+    NativeSwiftWireOpcode.componentStart: ["ComponentStart"],
+    NativeSwiftWireOpcode.loadBitmap: ["LoadBitmap"],
+    NativeSwiftWireOpcode.animationSpec: ["AnimationSpec"],
+    NativeSwiftWireOpcode.modifierWidth: ["WidthModifierOperation", "ModifierWidth"],
+    NativeSwiftWireOpcode.clipPath: ["ClipPath"],
+    NativeSwiftWireOpcode.clipRect: ["ClipRect"],
+    NativeSwiftWireOpcode.paintValues: ["PaintData", "PaintValues"],
+    NativeSwiftWireOpcode.drawRect: ["DrawRect"],
+    NativeSwiftWireOpcode.drawText: ["DrawText", "DrawTextRun"],
+    NativeSwiftWireOpcode.drawBitmap: ["DrawBitmap"],
+    NativeSwiftWireOpcode.dataShader: ["ShaderData", "DataShader"],
+    NativeSwiftWireOpcode.drawCircle: ["DrawCircle"],
+    NativeSwiftWireOpcode.drawLine: ["DrawLine"],
+    NativeSwiftWireOpcode.drawBitmapFontTextRun: ["DrawBitmapFontText", "DrawBitmapFontTextRun"],
+    NativeSwiftWireOpcode.drawBitmapFontTextRunOnPath: ["DrawBitmapFontTextOnPath", "DrawBitmapFontTextRunOnPath"],
+    NativeSwiftWireOpcode.drawRoundRect: ["DrawRoundRect"],
+    NativeSwiftWireOpcode.drawSector: ["DrawSector"],
+    NativeSwiftWireOpcode.drawTextOnPath: ["DrawTextOnPath"],
+    NativeSwiftWireOpcode.modifierRoundedClipRect: ["RoundedClipRectModifierOperation", "ModifierRoundedClipRect"],
+    NativeSwiftWireOpcode.modifierBackground: ["BackgroundModifierOperation", "ModifierBackground"],
+    NativeSwiftWireOpcode.drawOval: ["DrawOval"],
+    NativeSwiftWireOpcode.drawTextOnCircle: ["DrawTextOnCircle"],
+    NativeSwiftWireOpcode.modifierPadding: ["PaddingModifierOperation", "ModifierPadding"],
+    NativeSwiftWireOpcode.modifierClick: ["ClickModifierOperation", "ModifierClick"],
+    NativeSwiftWireOpcode.theme: ["Theme"],
+    NativeSwiftWireOpcode.clickArea: ["ClickArea"],
+    NativeSwiftWireOpcode.rootContentBehavior: ["RootContentBehavior"],
+    NativeSwiftWireOpcode.drawBitmapInt: ["DrawBitmapInt"],
+    NativeSwiftWireOpcode.modifierHeight: ["HeightModifierOperation", "ModifierHeight"],
+    NativeSwiftWireOpcode.dataFloat: ["FloatConstant", "DataFloat"],
+    NativeSwiftWireOpcode.animatedFloat: ["FloatExpression", "AnimatedFloat"],
+    NativeSwiftWireOpcode.modifierMultiClick: ["MultiClickModifier", "ModifierMultiClick"],
+    NativeSwiftWireOpcode.layoutCustom: ["Custom", "LayoutCustom"],
+    NativeSwiftWireOpcode.dataBitmap: ["BitmapData", "DataBitmap"],
+    NativeSwiftWireOpcode.dataText: ["TextData", "DataText"],
+    NativeSwiftWireOpcode.rootContentDescription: ["RootContentDescription"],
+    NativeSwiftWireOpcode.modifierBorder: ["BorderModifierOperation", "ModifierBorder"],
+    NativeSwiftWireOpcode.modifierClipRect: ["ClipRectModifierOperation", "ModifierClipRect"],
+    NativeSwiftWireOpcode.dataPath: ["PathData", "DataPath"],
+    NativeSwiftWireOpcode.drawPath: ["DrawPath"],
+    NativeSwiftWireOpcode.drawTweenPath: ["DrawTweenPath"],
+    NativeSwiftWireOpcode.matrixScale: ["MatrixScale"],
+    NativeSwiftWireOpcode.matrixTranslate: ["MatrixTranslate"],
+    NativeSwiftWireOpcode.matrixSkew: ["MatrixSkew"],
+    NativeSwiftWireOpcode.matrixRotate: ["MatrixRotate"],
+    NativeSwiftWireOpcode.matrixSave: ["MatrixSave"],
+    NativeSwiftWireOpcode.matrixRestore: ["MatrixRestore"],
+    NativeSwiftWireOpcode.matrixSet: ["MatrixSet"],
+    NativeSwiftWireOpcode.drawTextAnchored: ["DrawTextAnchored", "DrawTextAnchor"],
+    NativeSwiftWireOpcode.colorExpressions: ["ColorExpression", "ColorExpressions"],
+    NativeSwiftWireOpcode.textFromFloat: ["TextFromFloat"],
+    NativeSwiftWireOpcode.textMerge: ["TextMerge"],
+    NativeSwiftWireOpcode.namedVariable: ["NamedVariable"],
+    NativeSwiftWireOpcode.colorConstant: ["ColorConstant"],
+    NativeSwiftWireOpcode.drawContent: ["DrawContent"],
+    NativeSwiftWireOpcode.dataInt: ["IntegerConstant", "DataInt"],
+    NativeSwiftWireOpcode.playSound: ["PlaySound"],
+    NativeSwiftWireOpcode.referencedOperations: ["ReferencedOperations"],
+    NativeSwiftWireOpcode.dataBoolean: ["BooleanConstant", "DataBoolean"],
+    NativeSwiftWireOpcode.integerExpression: ["IntegerExpression"],
+    NativeSwiftWireOpcode.idMap: ["DataMapIds", "IdMap"],
+    NativeSwiftWireOpcode.idList: ["DataListIds", "IdList"],
+    NativeSwiftWireOpcode.floatList: ["DataListFloat", "FloatList"],
+    NativeSwiftWireOpcode.dataLong: ["LongConstant", "DataLong"],
+    NativeSwiftWireOpcode.drawBitmapScaled: ["DrawBitmapScaled"],
+    NativeSwiftWireOpcode.componentValue: ["ComponentValue"],
+    NativeSwiftWireOpcode.textLookup: ["TextLookup"],
+    NativeSwiftWireOpcode.drawArc: ["DrawArc"],
+    NativeSwiftWireOpcode.textLookupInt: ["TextLookupInt"],
+    NativeSwiftWireOpcode.dataMapLookup: ["DataMapLookup"],
+    NativeSwiftWireOpcode.textMeasure: ["TextMeasure"],
+    NativeSwiftWireOpcode.textLength: ["TextLength"],
+    NativeSwiftWireOpcode.touchExpression: ["TouchExpression"],
+    NativeSwiftWireOpcode.pathTween: ["PathTween"],
+    NativeSwiftWireOpcode.pathCreate: ["PathCreate"],
+    NativeSwiftWireOpcode.pathAdd: ["PathAppend", "PathAdd"],
+    NativeSwiftWireOpcode.particleDefine: ["ParticlesCreate", "ParticleDefine"],
+    NativeSwiftWireOpcode.particleProcess: ["ParticleProcess"],
+    NativeSwiftWireOpcode.particleLoop: ["ParticlesLoop", "ParticleLoop"],
+    NativeSwiftWireOpcode.impulseStart: ["ImpulseOperation", "ImpulseStart"],
+    NativeSwiftWireOpcode.impulseProcess: ["ImpulseProcess"],
+    NativeSwiftWireOpcode.functionCall: ["FloatFunctionCall", "FunctionCall"],
+    NativeSwiftWireOpcode.dataBitmapFont: ["BitmapFontData", "DataBitmapFont"],
+    NativeSwiftWireOpcode.functionDefine: ["FloatFunctionDefine", "FunctionDefine"],
+    NativeSwiftWireOpcode.dataSound: ["SoundData", "DataSound"],
+    NativeSwiftWireOpcode.attributeText: ["TextAttribute", "AttributeText"],
+    NativeSwiftWireOpcode.attributeImage: ["ImageAttribute", "AttributeImage"],
+    NativeSwiftWireOpcode.attributeTime: ["TimeAttribute", "AttributeTime"],
+    NativeSwiftWireOpcode.canvasOperations: ["CanvasOperations"],
+    NativeSwiftWireOpcode.modifierDrawContent: ["DrawContentOperation", "ModifierDrawContent"],
+    NativeSwiftWireOpcode.pathCombine: ["PathCombine"],
+    NativeSwiftWireOpcode.layoutFitBox: ["FitBoxLayout", "LayoutFitBox"],
+    NativeSwiftWireOpcode.hapticFeedback: ["HapticFeedback"],
+    NativeSwiftWireOpcode.conditionalOperations: ["ConditionalOperations"],
+    NativeSwiftWireOpcode.debugMessage: ["DebugMessage"],
+    NativeSwiftWireOpcode.attributeColor: ["ColorAttribute", "AttributeColor"],
+    NativeSwiftWireOpcode.matrixFromPath: ["MatrixFromPath"],
+    NativeSwiftWireOpcode.textSubtext: ["TextSubtext"],
+    NativeSwiftWireOpcode.bitmapTextMeasure: ["BitmapTextMeasure"],
+    NativeSwiftWireOpcode.drawBitmapTextAnchored: ["DrawBitmapTextAnchored"],
+    NativeSwiftWireOpcode.rem: ["Rem"],
+    NativeSwiftWireOpcode.matrixConstant: ["MatrixConstant"],
+    NativeSwiftWireOpcode.matrixExpression: ["MatrixExpression"],
+    NativeSwiftWireOpcode.matrixVectorMath: ["MatrixVectorMath"],
+    NativeSwiftWireOpcode.dataFont: ["FontData", "DataFont"],
+    NativeSwiftWireOpcode.drawToBitmap: ["DrawToBitmap"],
+    NativeSwiftWireOpcode.wakeIn: ["WakeIn"],
+    NativeSwiftWireOpcode.idLookup: ["IdLookup"],
+    NativeSwiftWireOpcode.pathExpression: ["PathExpression"],
+    NativeSwiftWireOpcode.particleCompare: ["ParticlesCompare", "ParticleCompare"],
+    NativeSwiftWireOpcode.update: ["Update"],
+    NativeSwiftWireOpcode.colorTheme: ["ColorTheme"],
+    NativeSwiftWireOpcode.dynamicFloatList: ["DataDynamicListFloat", "DynamicFloatList"],
+    NativeSwiftWireOpcode.updateDynamicFloatList: ["UpdateDynamicFloatList"],
+    NativeSwiftWireOpcode.textTransform: ["TextTransform"],
+    NativeSwiftWireOpcode.layoutRoot: ["RootLayoutComponent", "LayoutRoot"],
+    NativeSwiftWireOpcode.layoutContent: ["LayoutComponentContent", "LayoutContent"],
+    NativeSwiftWireOpcode.layoutBox: ["BoxLayout", "LayoutBox"],
+    NativeSwiftWireOpcode.layoutRow: ["RowLayout", "LayoutRow"],
+    NativeSwiftWireOpcode.layoutColumn: ["ColumnLayout", "LayoutColumn"],
+    NativeSwiftWireOpcode.layoutCanvas: ["CanvasLayout", "LayoutCanvas"],
+    NativeSwiftWireOpcode.soundExpression: ["SoundExpression"],
+    NativeSwiftWireOpcode.layoutCanvasContent: ["CanvasContent", "LayoutCanvasContent"],
+    NativeSwiftWireOpcode.layoutText: ["TextLayout", "LayoutText"],
+    NativeSwiftWireOpcode.hostAction: ["HostActionOperation", "HostAction"],
+    NativeSwiftWireOpcode.hostNamedAction: ["HostNamedActionOperation", "HostNamedAction"],
+    NativeSwiftWireOpcode.modifierVisibility: ["ComponentVisibilityOperation", "ModifierVisibility"],
+    NativeSwiftWireOpcode.valueIntegerChangeAction: ["ValueIntegerChangeActionOperation", "ValueIntegerChangeAction"],
+    NativeSwiftWireOpcode.valueStringChangeAction: ["ValueStringChangeActionOperation", "ValueStringChangeAction"],
+    NativeSwiftWireOpcode.containerEnd: ["ContainerEnd"],
+    NativeSwiftWireOpcode.loopStart: ["LoopOperation", "LoopStart"],
+    NativeSwiftWireOpcode.hostMetadataAction: ["HostActionMetadataOperation", "HostMetadataAction"],
+    NativeSwiftWireOpcode.layoutState: ["StateLayout", "LayoutState"],
+    NativeSwiftWireOpcode.valueIntegerExpressionChangeAction: ["ValueIntegerExpressionChangeActionOperation", "ValueIntegerExpressionChangeAction"],
+    NativeSwiftWireOpcode.modifierTouchDown: ["TouchDownModifierOperation", "ModifierTouchDown"],
+    NativeSwiftWireOpcode.modifierTouchUp: ["TouchUpModifierOperation", "ModifierTouchUp"],
+    NativeSwiftWireOpcode.modifierOffset: ["OffsetModifierOperation", "ModifierOffset"],
+    NativeSwiftWireOpcode.valueFloatChangeAction: ["ValueFloatChangeActionOperation", "ValueFloatChangeAction"],
+    NativeSwiftWireOpcode.modifierZindex: ["ZIndexModifierOperation", "ModifierZindex"],
+    NativeSwiftWireOpcode.modifierGraphicsLayer: ["GraphicsLayerModifierOperation", "ModifierGraphicsLayer"],
+    NativeSwiftWireOpcode.modifierTouchCancel: ["TouchCancelModifierOperation", "ModifierTouchCancel"],
+    NativeSwiftWireOpcode.modifierScroll: ["ScrollModifierOperation", "ModifierScroll"],
+    NativeSwiftWireOpcode.valueFloatExpressionChangeAction: ["ValueFloatExpressionChangeActionOperation", "ValueFloatExpressionChangeAction"],
+    NativeSwiftWireOpcode.modifierMarquee: ["MarqueeModifierOperation", "ModifierMarquee"],
+    NativeSwiftWireOpcode.modifierRipple: ["RippleModifierOperation", "ModifierRipple"],
+    NativeSwiftWireOpcode.layoutCollapsibleRow: ["CollapsibleRowLayout", "LayoutCollapsibleRow"],
+    NativeSwiftWireOpcode.modifierWidthIn: ["WidthInModifierOperation", "ModifierWidthIn"],
+    NativeSwiftWireOpcode.modifierHeightIn: ["HeightInModifierOperation", "ModifierHeightIn"],
+    NativeSwiftWireOpcode.layoutCollapsibleColumn: ["CollapsibleColumnLayout", "LayoutCollapsibleColumn"],
+    NativeSwiftWireOpcode.layoutImage: ["ImageLayout", "LayoutImage"],
+    NativeSwiftWireOpcode.modifierCollapsiblePriority: ["CollapsiblePriorityModifierOperation", "ModifierCollapsiblePriority"],
+    NativeSwiftWireOpcode.runAction: ["RunActionOperation", "RunAction"],
+    NativeSwiftWireOpcode.modifierAlignBy: ["AlignByModifierOperation", "ModifierAlignBy"],
+    NativeSwiftWireOpcode.layoutCompute: ["LayoutComputeOperation", "LayoutCompute"],
+    NativeSwiftWireOpcode.coreText: ["CoreText"],
+    NativeSwiftWireOpcode.layoutFlow: ["FlowLayout", "LayoutFlow"],
+    NativeSwiftWireOpcode.skip: ["Skip"],
+    NativeSwiftWireOpcode.textStyle: ["TextStyle"],
+    NativeSwiftWireOpcode.modifierDimensionConstraints: ["DimensionConstraintsModifierOperation", "ModifierDimensionConstraints"],
+    NativeSwiftWireOpcode.macroForEach: ["PatternForEach", "MacroForEach"],
+    NativeSwiftWireOpcode.includeReferencedOperations: ["IncludeReferencedOperations"],
+    NativeSwiftWireOpcode.macroDefine: ["PatternDefine", "MacroDefine"],
+    NativeSwiftWireOpcode.macroCall: ["PatternInflation", "MacroCall"],
+    NativeSwiftWireOpcode.macroArgument: ["PatternArgument", "MacroArgument"],
+    NativeSwiftWireOpcode.macroBlock: ["PatternBlock", "MacroBlock"],
+    NativeSwiftWireOpcode.accessibilitySemantics: ["CoreSemantics", "AccessibilitySemantics"],
+    NativeSwiftWireOpcode.extensionRangeReserved4: ["ExtensionRangeReserved4"],
+    NativeSwiftWireOpcode.extensionRangeReserved3: ["ExtensionRangeReserved3"],
+    NativeSwiftWireOpcode.extensionRangeReserved2: ["ExtensionRangeReserved2"],
+    NativeSwiftWireOpcode.extensionRangeReserved1: ["ExtensionRangeReserved1"],
+    NativeSwiftWireOpcode.extendedOpcode: ["ExtendedOpcode"],
   ]
 
   /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
@@ -1111,7 +1120,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
 private final class NativeMacFontRegistry {
   private struct Registration {
     let data: Data
-    let url: URL
+    let font: CGFont
     var owners: Int
   }
 
@@ -1195,24 +1204,25 @@ private final class NativeMacFontRegistry {
       ownedNames.insert(name)
       return name
     }
-    let url = FileManager.default.temporaryDirectory
-      .appendingPathComponent("rc-native-mac-font-\(UUID().uuidString)")
-      .appendingPathExtension("font")
-    try data.write(to: url, options: .atomic)
     var error: Unmanaged<CFError>?
-    guard CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) else {
-      try? FileManager.default.removeItem(at: url)
+    guard CTFontManagerRegisterGraphicsFont(font, &error) else {
       throw NativeSwiftCoreError.malformed(
         offset: 0, reason: "Downloaded font \(id) could not be registered")
     }
-    Self.registrations[name] = Registration(data: data, url: url, owners: 1)
+    Self.registrations[name] = Registration(data: data, font: font, owners: 1)
     ownedNames.insert(name)
     return name
   }
 
   deinit {
     let names = ownedNames
-    Task { @MainActor in Self.release(names) }
+    // Release synchronously when the last owner drops on the main thread, so a replacement
+    // registry created right after can register the same PostScript name.
+    if Thread.isMainThread {
+      MainActor.assumeIsolated { Self.release(names) }
+    } else {
+      Task { @MainActor in Self.release(names) }
+    }
   }
 
   private static func release(_ names: Set<String>) {
@@ -1221,8 +1231,7 @@ private final class NativeMacFontRegistry {
       registration.owners -= 1
       if registration.owners == 0 {
         var error: Unmanaged<CFError>?
-        CTFontManagerUnregisterFontsForURL(registration.url as CFURL, .process, &error)
-        try? FileManager.default.removeItem(at: registration.url)
+        CTFontManagerUnregisterGraphicsFont(registration.font, &error)
         registrations.removeValue(forKey: name)
       } else {
         registrations[name] = registration

@@ -28,6 +28,7 @@ import ee.schimke.composeai.rcconformance.runner.UnsupportedStepKind
 import ee.schimke.composeai.rcconformance.runner.toRgba
 import ee.schimke.composeai.rcplayer.compose.LocalRcAhemTextMetrics
 import ee.schimke.composeai.rcplayer.compose.LocalRcInspection
+import ee.schimke.composeai.rcplayer.compose.LocalRcTimeSource
 import ee.schimke.composeai.rcplayer.compose.RcComponentIdKey
 import ee.schimke.composeai.rcplayer.compose.RcComponentKindKey
 import ee.schimke.composeai.rcplayer.compose.RcComponentVisibilityKey
@@ -54,9 +55,13 @@ import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
+import ee.schimke.composeai.rcplayer.runtime.RcTimeSnapshot
+import ee.schimke.composeai.rcplayer.runtime.RcTimeSource
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.time.Instant
+import java.time.ZoneOffset
 import javax.imageio.ImageIO
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -204,6 +209,13 @@ private class CmpSession(
   private var generation by mutableStateOf(0)
 
   /**
+   * The wall clock the player reads. The system clock until a `clock_snapshot` freezes it; kept
+   * frozen afterwards, because later steps are measured against the same snapshot.
+   */
+  private var timeSource: RcTimeSource = RcTimeSource.System
+  private val clock = FrozenOrSystem { timeSource }
+
+  /**
    * Milliseconds the **current composition** has been advanced by, which is what the player sees.
    *
    * The player rebases: it records the first frame it is given as its origin and reports elapsed
@@ -224,6 +236,7 @@ private class CmpSession(
         // disagree on line breaking (§2.3), so a gold measured with the real stack must not be
         // replayed through the model.
         LocalRcAhemTextMetrics provides (gold.textMetrics == "ahem"),
+        LocalRcTimeSource provides clock,
       ) {
         key(generation) {
           // `fillMaxSize()` is load-bearing. The player's raw-document path paints into a `Canvas`
@@ -331,24 +344,50 @@ private class CmpSession(
    * The `capture` list is the point of the step. Checks bind to `frame_<n>`, where `n` is the frame
    * *number* rather than its index in the list, so a capture of `[0, 5, 10, 18]` answers to
    * `frame_0`, `frame_5`, `frame_10` and `frame_18`.
+   *
+   * Each frame is exactly **one** frame of the test clock, and frame 0 is the frame the previous
+   * step left. Walking a millisecond target instead — `base + n * 1000 / 60` — does not do that:
+   * `mainClock.advanceTimeBy` rounds every delta *up* to whole frames, so a 17 ms step runs two,
+   * and a particle system that moves once per frame drifted +1, +2, +2, +1, +2 against the corpus's
+   * one step per capture. `base_time_millis` is the reference clock's reading at frame 0, and only
+   * deltas are observable here (see [elapsedMillis]); jumping the clock to it ran every
+   * resize-triggered layout animation to completion before its first capture.
    */
   private fun frameSequence(step: Step, onCapture: (String) -> Unit) {
-    val base = step.int("base_time_millis", 0).toLong()
+    val capture = step.ints("capture")
     for (frame in 0..step.int("total_frames", 0)) {
-      // 1/60 s per frame (§3), kept in milliseconds because that is the clock's unit.
-      advanceTo(base + frame * MILLIS_PER_SECOND.toLong() / FRAMES_PER_SECOND)
+      if (frame > 0) advanceFrame()
       test.waitForIdle()
-      if (frame in step.ints("capture")) onCapture("frame_$frame")
+      if (frame in capture) onCapture("frame_$frame")
     }
   }
 
-  /** Rebuilds the document against a frozen clock, then paints. */
+  /**
+   * Rebuilds the document against a frozen **wall** clock, then paints (§3).
+   *
+   * The corpus writes the clock three ways — an instant (`timestamp_millis`), a time of day
+   * (`hour`/`minute`/`second`), or seconds into the day (`continuous_seconds`) — and all three are
+   * wall-clock readings. They reach the player through `LocalRcTimeSource`, the clock
+   * `TimeAttribute` and the calendar variables read. Advancing the animation clock instead, as this
+   * used to, left every one of them on the machine's real time: the two snapshots of
+   * `clock_analog_hands` reported identical hands.
+   *
+   * The corpus does not name a zone; UTC is the one that makes `fixedTimestamp` in the gold's own
+   * parameters agree with its expected calendar fields.
+   */
   private fun clockSnapshot(step: Step) {
-    val seconds =
-      (step.obj("clock")?.get("continuous_seconds") as? JsonPrimitive)?.content?.toDoubleOrNull()
-        ?: 0.0
+    val clock = step.obj("clock") ?: throw UnsupportedStepKind("clock_snapshot(no clock)")
+    fun number(key: String): Double? = (clock[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
+    val epochMillis =
+      number("timestamp_millis")?.toLong()
+        ?: number("continuous_seconds")?.let { (it * MILLIS_PER_SECOND).toLong() }
+        ?: run {
+          val hour = number("hour") ?: throw UnsupportedStepKind("clock_snapshot($clock)")
+          val seconds = hour * 3_600 + (number("minute") ?: 0.0) * 60 + (number("second") ?: 0.0)
+          (seconds * MILLIS_PER_SECOND).toLong()
+        }
+    timeSource = FrozenUtcClock(epochMillis)
     rebuild()
-    advanceTo((seconds * MILLIS_PER_SECOND).toLong())
     paint(frames = 2)
   }
 
@@ -482,11 +521,14 @@ private class CmpSession(
           )
         )
       "ops:present",
-      "ops:absent" -> Observation.Value(names().distinct().toJsonArray())
+      "ops:absent" -> Observation.Value(classNames().distinct().toJsonArray())
       "ops:counts" ->
         Observation.Value(
           buildJsonObject {
-            names().groupingBy { it }.eachCount().forEach { (n, c) -> put(n, JsonPrimitive(c)) }
+            classNames()
+              .groupingBy { it }
+              .eachCount()
+              .forEach { (n, c) -> put(n, JsonPrimitive(c)) }
           }
         )
       // The document root is the container, not one of the components in it: the reference counts
@@ -840,10 +882,7 @@ private class CmpSession(
       nodes.forEach { node ->
         when (node) {
           is RcLinkedNode.Operation ->
-            RcOperationInventory.byOpcode[node.operation.opcode]
-              ?.stableName
-              ?.takeIf { it.startsWith("Draw") }
-              ?.let(out::add)
+            className(node.operation.opcode)?.takeIf { it.startsWith("Draw") }?.let(out::add)
           is RcLinkedNode.Container -> walk(node.children)
         }
       }
@@ -852,8 +891,33 @@ private class CmpSession(
     return out
   }
 
+  /** The document's operations by this library's wire-derived names — `draw_log`'s input. */
   private fun names(): List<String> =
     document.operations.mapNotNull { RcOperationInventory.byOpcode[it.opcode]?.stableName }
+
+  /**
+   * Every name each operation answers to in the census, one list per operation.
+   *
+   * The corpus never says which vocabulary `ops:*` asserts in, and it uses two of AndroidX's own:
+   * mostly the class an opcode is read into — `ShaderData` for `DATA_SHADER`, `TimeAttribute` for
+   * `ATTRIBUTE_TIME` — but the semantics golds name `AccessibilitySemantics`, the constant's name,
+   * where the class is `CoreSemantics`. Reporting either one alone fails whichever golds use the
+   * other, and more than half the opcodes differ between them, so an operation answers to both.
+   * Names only the TypeScript player uses (`TouchDownModifier`, `CanvasOperationsOp`) are neither,
+   * and are left to fail.
+   */
+  private fun censusNames(): List<List<String>> =
+    document.operations.mapNotNull { operation ->
+      RcOperationInventory.byOpcode[operation.opcode]?.let {
+        listOfNotNull(it.androidxClassName, it.stableName).distinct()
+      }
+    }
+
+  private fun classNames(): List<String> = censusNames().flatten()
+
+  /** AndroidX's class name, or this library's where AndroidX registers no reader for the opcode. */
+  private fun className(opcode: Int): String? =
+    RcOperationInventory.byOpcode[opcode]?.let { it.androidxClassName ?: it.stableName }
 
   /**
    * The current frame, cropped from the surface to the current viewport.
@@ -884,7 +948,6 @@ private class CmpSession(
   }
 
   private companion object {
-    const val FRAMES_PER_SECOND = 60L
     const val MILLIS_PER_SECOND = 1_000.0
     const val LIGHT_THEME = -3
     const val ROOT_COMPONENT_KIND = "RootLayoutComponent"
@@ -908,3 +971,33 @@ private fun JsonObject.intOr(key: String, fallback: Int): Int =
 
 private fun JsonObject.floatOr(key: String, fallback: Float): Float =
   (this[key] as? JsonPrimitive)?.content?.toFloatOrNull() ?: fallback
+
+/** A wall clock stopped at [epochMillis], read in UTC. */
+private class FrozenUtcClock(private val epochMillis: Long) : RcTimeSource {
+  override fun currentTimeMillis(): Long = epochMillis
+
+  override fun snapshot(epochMillis: Long): RcTimeSnapshot {
+    val local = Instant.ofEpochMilli(epochMillis).atZone(ZoneOffset.UTC)
+    return RcTimeSnapshot(
+      epochMillis = epochMillis,
+      year = local.year,
+      month = local.monthValue,
+      dayOfMonth = local.dayOfMonth,
+      dayOfYear = local.dayOfYear,
+      hour = local.hour,
+      minute = local.minute,
+      second = local.second,
+      isoDayOfWeek = local.dayOfWeek.value,
+    )
+  }
+}
+
+/**
+ * Forwards to the session's current clock, so a `clock_snapshot` changes what the next rebuilt
+ * document reads without re-providing the composition local.
+ */
+private class FrozenOrSystem(private val current: () -> RcTimeSource) : RcTimeSource {
+  override fun currentTimeMillis(): Long = current().currentTimeMillis()
+
+  override fun snapshot(epochMillis: Long): RcTimeSnapshot = current().snapshot(epochMillis)
+}

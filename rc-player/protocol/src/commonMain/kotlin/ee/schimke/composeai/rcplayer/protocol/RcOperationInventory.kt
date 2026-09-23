@@ -34,6 +34,16 @@ public data class RcOperationInventoryEntry(
   val stableName: String,
   val cluster: Int,
   val status: RcOperationStatus,
+  /**
+   * The simple name of the AndroidX class that reads this opcode — `ShaderData` for `DATA_SHADER`,
+   * `TimeAttribute` for `ATTRIBUTE_TIME` — or null where AndroidX registers no reader.
+   *
+   * [stableName] is derived from the constant and is this library's name for the operation. This
+   * one is AndroidX's, and the two differ for more than half the opcodes; anything that has to
+   * agree with AndroidX's vocabulary, such as the conformance corpus's operation census, needs this
+   * one.
+   */
+  val androidxClassName: String?,
 )
 
 /** An explicit opcode allow-list for producers selecting a compatible document subset. */

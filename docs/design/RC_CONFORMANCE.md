@@ -81,7 +81,8 @@ So when a gold and the player disagree, the options are, in order:
 2. **The lane cannot observe it yet** — fix the lane. Also common, and cheap: several probes reported
    `PROBE_NOT_IMPLEMENTED` for fields that were already sitting decoded in the document.
 3. **The corpus is asserting something a player cannot or should not reproduce** — record it, raise it
-   upstream, and let the check keep failing. Never paper over it.
+   upstream, and let the check keep failing. Never paper over it. The record is
+   [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md).
 
 A permanently failing check with a written reason is a better artefact than a passing one bought with
 a worse player. `unasserted` exists in the gold format for exactly this reason (§2.8), and the
@@ -136,8 +137,10 @@ most of it:
 
 * **The operation census knew three names.** `ops:present` and `ops:counts` read a name table that
   mapped only the three matrix opcodes, so every other operation a gold asserted was reported
-  missing. That one table was the *only* failing check in 43 golds. It now covers every opcode
-  AndroidX defines, in the corpus's own vocabulary, with absent operations counted as zero.
+  missing. That one table was the *only* failing check in 43 golds. It now covers every opcode in
+  the AndroidX manifest under both AndroidX names, as the CMP lane does, with absent operations
+  counted as zero. Names only the TypeScript player uses are left to fail
+  ([pushback §2](RC_CONFORMANCE_PUSHBACK.md)).
 * **The core refused documents over operations it had no case for** — and a refused document takes
   every check in its gold with it. 82 of the 141 failing golds failed every check. The families
   behind them, by golds: impulse and `WAKE_IN` scheduling (9), `ROOT_CONTENT_BEHAVIOR` (8 of the 10

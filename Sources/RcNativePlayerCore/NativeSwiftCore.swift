@@ -40,9 +40,9 @@ public enum NativeSwiftWireOpcode {
   public static let matrixExpression = 187
   public static let matrixVectorMath = 188
 
-  // Every other opcode AndroidX's `Operations` registry defines, from the authoritative wire
-  // implementation (`RcOpcodes` in `rc-player-protocol`). Named here so a decoder, census or probe
-  // never has to spell one as a literal; the core does not execute every one of them.
+  // Every other opcode in AndroidX's `Operations` registry, from the authoritative wire
+  // implementation (`rc-player-protocol`'s `rc-operations.manifest`). Named here so a decoder,
+  // census or probe never has to spell one as a literal; the core does not execute them all.
   public static let header = 0
   public static let componentStart = 2
   public static let animationSpec = 14
@@ -192,6 +192,14 @@ public enum NativeSwiftWireOpcode {
   public static let macroArgument = 248
   public static let macroBlock = 249
   public static let accessibilitySemantics = 250
+  public static let loadBitmap = 4
+  public static let matrixSet = 132
+  public static let update = 195
+  public static let extensionRangeReserved4 = 251
+  public static let extensionRangeReserved3 = 252
+  public static let extensionRangeReserved2 = 253
+  public static let extensionRangeReserved1 = 254
+  public static let extendedOpcode = 255
 }
 
 /// `ATTRIBUTE_TIME`'s type field: every value AndroidX's `TimeAttribute` defines. 13 is unassigned.
