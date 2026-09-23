@@ -483,3 +483,59 @@ public fun RcPlayer(
     pendingIntents = capturedDocument.pendingIntents,
   )
 }
+
+/**
+ * Initializes the snapshot-backed context shared by [RcPlayerState].
+ *
+ * This is the AndroidX state-holder bootstrap, adapted to retain this fork's lazy bitmap path.
+ */
+internal fun initializePlayerRemoteContext(
+  document: CoreDocument,
+  clock: RemoteClock,
+  preprocessed: DocumentPreprocessResult,
+): AndroidRemoteContext {
+  val context = AndroidRemoteContext(clock)
+  context.useChoreographer = true
+  if (document.remoteComposeState !is SnapshotRemoteComposeState) {
+    document.setRemoteComposeState(SnapshotRemoteComposeState())
+    document.recollectCollectionsReflection()
+  }
+  document.initializeContext(context, emptyMap())
+  document.applyDataOperationsWithoutBitmaps(context)
+  document.setLayoutCallback {}
+  document.applyOperationsReflection(context, preprocessed.globalOps)
+  document.applyOperationsReflection(context, preprocessed.constantOps)
+  val dataOperations = ArrayList<Operation>()
+  document.rootLayoutComponent?.getData(dataOperations, true)
+  document.applyOperationsWithoutBitmaps(context, dataOperations)
+  return context
+}
+
+/** Plays the [RcPlayerState]'s document using AndroidX's state-holder entry point. */
+@OptIn(ExperimentalRemotePlayerApi::class)
+@Composable
+public fun RcPlayer(
+  state: RcPlayerState,
+  modifier: Modifier = Modifier,
+  imageLoader: RcImageLoader? = null,
+  isShaderValid: (shaderSource: String) -> Boolean = { true },
+  onAction: (actionId: Int, value: String?) -> Unit = { _, _ -> },
+  onNamedAction: (name: String, value: Any?, stateUpdater: StateUpdater) -> Unit = { _, _, _ -> },
+  customPlugins: CustomPluginRegistry? = null,
+  lambdas: IntObjectMap<() -> Unit> = emptyIntObjectMap(),
+  pendingIntents: IntObjectMap<PendingIntent> = emptyIntObjectMap(),
+  theme: Int = Theme.SYSTEM,
+) {
+  RcPlayer(
+    document = state.document,
+    modifier = modifier,
+    theme = theme,
+    imageLoader = imageLoader,
+    isShaderValid = isShaderValid,
+    onAction = onAction,
+    onNamedAction = onNamedAction,
+    customPlugins = customPlugins,
+    lambdas = lambdas,
+    pendingIntents = pendingIntents,
+  )
+}

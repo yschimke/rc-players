@@ -15,7 +15,7 @@ both lets `rc-compare` diff them against the same baked PNG.
 
 - Repository: <https://github.com/androidx/androidx>
 - Path: `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
-- Commit: `770a32e294816a8e5dcc47dccd61ba9084424386` (`androidx-main`, 2026-09-14)
+- Commit: `c36509dbc4a16ac3db9b968fb68929ab9b5c7f44` (`androidx-main`, 2026-09-23)
 - License: Apache-2.0
 
 The original 2026-07-29 snapshot came from the integration-test application. AndroidX moved the
@@ -23,6 +23,14 @@ implementation into `androidx.compose.remote:remote-player-compose` on 2026-08-0
 the current library source after importing the subsequent correctness, transition, frame-limiting,
 and preprocessing changes. The vendored copy remains useful as a pinned, locally patched baseline
 that can be loaded alongside the published implementation.
+
+### 2026-09-23 refresh
+
+The source baseline now follows `androidx-main` at `c36509dbc4a`. This imports AndroidX's
+`RcPlayerState` state-holder API: reactive, named float/int/boolean/string/colour/bitmap and float
+array overrides, reset-to-authored-default support, and the state-based `RcPlayer` entry point.
+The bootstrap is adapted to the fork's snapshot-backed store and lazy bitmap path; the pre-existing
+document and captured-document entry points remain source compatible.
 
 ### 2026-09-08 refresh
 
