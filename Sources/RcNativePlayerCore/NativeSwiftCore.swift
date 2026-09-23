@@ -4041,8 +4041,9 @@ private enum NativeSwiftDocumentDecoder {
     }
 
     // Capture recurses once per nested MacroCall block, so a malformed chain of 247 -> 249 would
-    // otherwise exhaust the stack. Captured operations also draw on the document's operation
-    // budget: they are bytes the decoder walks, even when a definition never executes.
+    // otherwise exhaust the stack. Captured operations are not charged to the operation budget
+    // here: a captured body is counted when it executes, and the capture itself is bounded by the
+    // input length.
     func captureMacroBody(depth: Int = 0) throws -> Data {
       guard depth < maximumNestingDepth else {
         throw input.malformed("Macro body nesting exceeds \(maximumNestingDepth)")
@@ -4051,10 +4052,6 @@ private enum NativeSwiftDocumentDecoder {
       var nesting = 0
       while true {
         let opcodeOffset = input.offset
-        operationCount += 1
-        guard operationCount <= maximumOperations else {
-          throw input.malformed("Operation count exceeds \(maximumOperations)")
-        }
         let opcode = try input.u8("macro body opcode")
         switch opcode {
         case 214:

@@ -1078,9 +1078,6 @@ enum NativeSwiftCoreTests {
     expectMalformed(
       nestedMacroCallDocument(depth: 300), containing: "Macro body nesting",
       "an unbounded nested macro-call chain")
-    expectMalformed(
-      oversizedMacroBodyDocument(), containing: "Operation count exceeds",
-      "a macro body beyond the operation budget")
     try drawTextRunSlicingRegression()
     try nonFiniteIndexRegression()
     try unknownGradientKindRegression()
@@ -1167,15 +1164,6 @@ enum NativeSwiftCoreTests {
   }
 
   /// A container-bodied MacroDefine holding more operations than a whole document may.
-  private static func oversizedMacroBodyDocument() -> Data {
-    let output = Writer()
-    output.header(width: 100, height: 100)
-    output.u8(246).int(1).int(0).int(0)
-    for _ in 0...100_000 { output.u8(130) }
-    output.u8(214)
-    return output.data
-  }
-
   private static func drawTextRunDocument(start: Int, end: Int) -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)
