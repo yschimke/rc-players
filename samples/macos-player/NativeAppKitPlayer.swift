@@ -2632,12 +2632,15 @@ private final class NativeMacCanvasView: NSView {
       let path = CGMutablePath()
       path.move(to: CGPoint(x: v[0], y: v[1]))
       path.addLine(to: CGPoint(x: v[2], y: v[3]))
-      paint(path, command, context)
+      // DrawLine is a stroke operation regardless of the current paint style.  Routing it through
+      // `paint` used a fill for the common fill-style paint, and an open path has no fill area.
+      context.addPath(path)
+      context.strokePath()
     case 14:
       paint(
         CGPath(
           roundedRect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
-          cornerWidth: max(v[4], v[5]), cornerHeight: max(v[4], v[5]), transform: nil), command,
+          cornerWidth: v[4], cornerHeight: v[5], transform: nil), command,
         context)
     case 15, 16:
       let center = CGPoint(x: (v[0] + v[2]) / 2, y: (v[1] + v[3]) / 2)
