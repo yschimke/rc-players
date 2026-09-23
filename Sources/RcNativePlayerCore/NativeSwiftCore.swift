@@ -41,6 +41,24 @@ public enum NativeSwiftWireOpcode {
   public static let matrixVectorMath = 188
 }
 
+/// `RcDimensionType`: the width/height modifier types, as AndroidX writes them.
+enum NativeSwiftDimensionType {
+  static let exact = 0
+  static let fill = 1
+  static let wrap = 2
+  static let weight = 3
+  static let intrinsicMin = 4
+  static let intrinsicMax = 5
+  static let exactDp = 6
+  static let fillParentMaxWidth = 7
+  static let fillParentMaxHeight = 8
+
+  /// The types whose value is a fill fraction.
+  static func isFill(_ type: Int) -> Bool {
+    type == fill || type == fillParentMaxWidth || type == fillParentMaxHeight
+  }
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
@@ -1409,9 +1427,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       // is what makes the container's own background and border cover the branch and not the
       // parent.
       widthType: stateLayoutDimension(node, isWidth: true),
-      widthValue: try resolvedFloat(node.widthWord, "width", values: values),
+      widthValue: try dimensionValue(
+        node.widthWord, type: stateLayoutDimension(node, isWidth: true), "width", values: values),
       heightType: stateLayoutDimension(node, isWidth: false),
-      heightValue: try resolvedFloat(node.heightWord, "height", values: values),
+      heightValue: try dimensionValue(
+        node.heightWord, type: stateLayoutDimension(node, isWidth: false), "height",
+        values: values),
       // A state layout takes the active child's size, so its own padding is dropped with its fill:
       // the reference reports an 80x80 container for an 80x80 child behind a 20pt padding modifier,
       // not 120x120, and the child sits at the container's origin. Keeping the padding made the
@@ -1490,6 +1511,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// never had. `interaction_click_button` declares `height(100)` on a container whose branches are
   /// 40 and 80 tall, and the reference reports 40 and then 80. Bounds (`widthIn`/`heightIn`) still
   /// apply: they constrain the child's size rather than replacing it.
+  /// A width or height modifier's value. A bare `fillMaxWidth()`/`fillMaxHeight()` writes the
+  /// canonical NaN as its fraction, which the reference reads as 1 (`fillFraction()` in
+  /// `RcNativeSnapshot.kt`); resolved as an expression reference it would become 0 and be
+  /// indistinguishable from an explicit zero fraction, so the raw word is checked here, where it
+  /// still exists.
+  private func dimensionValue(
+    _ word: UInt32, type: Int, _ field: String, values: [Int: Float]
+  ) throws -> Float {
+    if NativeSwiftDimensionType.isFill(type) && word == Float.nan.bitPattern { return 1 }
+    return try resolvedFloat(word, field, values: values)
+  }
+
   private func stateLayoutDimension(_ node: ParsedNode, isWidth: Bool) -> Int {
     guard node.stateIndexID != nil else { return isWidth ? node.widthType : node.heightType }
     return 2

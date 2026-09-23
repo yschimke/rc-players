@@ -16,11 +16,11 @@ enum NativeLayoutTests {
       NativeLayoutDimension(type: 1, value: 0.5, minimum: 0, maximum: nil)
         .resolve(intrinsic: 12, available: 200),
       100)
-    // A NaN-payload `fillMaxWidth()` reaches the renderer as 0 and still fills.
+    // An explicit zero fill fraction is zero; a bare `fillMaxWidth()` arrives from the core as 1.
     assertClose(
       NativeLayoutDimension(type: 1, value: 0, minimum: 0, maximum: nil)
         .resolve(intrinsic: 12, available: 200),
-      200)
+      0)
 
     let weighted = NativeLinearLayout.allocateWeighted(
       available: 200,

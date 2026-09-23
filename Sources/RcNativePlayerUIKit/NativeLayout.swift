@@ -18,15 +18,8 @@ struct NativeLayoutDimension: Equatable {
     switch type {
     case 0, 6:
       proposed = max(value, 0)
-    // `FILL` (1) with a zero value is a request for all the available space, not a zero fraction.
-    // AndroidX's `fillMaxWidth()`/`fillMaxHeight()` without a fraction writes a NaN payload, which
-    // the reference reads as 1 (`fillFraction()` in third_party/rc-embedded-player). The native core
-    // resolves that canonical NaN as an encoded reference to slot 0 and hands the renderer 0, so 0
-    // is the only form that payload can reach us in. The fractional forms (7 and 8) keep their
-    // explicit factor, including zero.
-    case 1:
-      proposed = available * (value.isNaN || value == 0 ? 1 : max(value, 0))
-    case 7, 8:
+    case 1, 7, 8:
+      // The core hands a bare `fillMaxWidth()` over as 1; an explicit zero fraction stays zero.
       let fraction = value.isNaN ? 1 : max(value, 0)
       proposed = available * fraction
     case 3:
