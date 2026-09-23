@@ -369,74 +369,9 @@ struct ParsedInsetWords {
   var bottom: UInt32 = 0
 }
 
-final class ParsedNode {
-  let kind: NativeSwiftNodeSnapshot.Kind
-  let componentID: Int
-  weak var parent: ParsedNode?
-  var children: [ParsedNode] = []
-  var commands: [ParsedDrawCommand] = []
-  var isClickable = false
-  var actions: [NativeSwiftGestureKind: [ParsedAction]] = [:]
-  var accessibility: ParsedAccessibility?
-  var widthType = NativeSwiftDimensionType.wrap
-  var widthWord: UInt32 = 0
-  var heightType = NativeSwiftDimensionType.wrap
-  var heightWord: UInt32 = 0
-  var paddingWords = ParsedInsetWords()
-  var minimumWidthWord: UInt32 = 0
-  var maximumWidthWord: UInt32 = nativeSwiftNegativeOneWord
-  var minimumHeightWord: UInt32 = 0
-  var maximumHeightWord: UInt32 = nativeSwiftNegativeOneWord
-  // Four words rather than one: a rounded clip states a radius per corner, and the maximum of four
-  // references is not itself a word, so the reduction has to wait until they resolve.
-  var cornerRadiusWords: [UInt32] = []
-  /// Set by MODIFIER_CLIP_RECT, which clips a component to its own laid-out bounds and carries no
-  /// payload to say so. Separate from `cornerRadiusWords` because a square clip is not a zero-radius
-  /// rounded clip: the rounded modifier states radii, this one states nothing at all.
-  var clipsToBounds = false
-  var graphicsLayer: [Int: Float] = [:]
-  var offsetXWord: UInt32?
-  var offsetYWord: UInt32?
-  var zIndexWord: UInt32?
-  var visibilityID: Int?
-  var backgroundARGB: UInt32?
-  var backgroundColorID: Int?
-  var borderARGB: UInt32?
-  var borderColorID: Int?
-  var borderWidthWord: UInt32 = 0
-  var horizontalPositioning = NativeSwiftPositioning.start
-  var verticalPositioning = NativeSwiftPositioning.top
-  var animationID: Int?
-  var spacingWord: UInt32 = 0
-  /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
-  /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
-  var componentKind = ""
-  /// Set by the scroll modifier (226).
-  var scrollDirection: NativeSwiftScrollDirection?
-  /// The float word holding the scroll position, and the one holding how far it may travel. The
-  /// notch maximum is consumed by the decoder and dropped: nothing here snaps a scroll yet.
-  var scrollPositionWord: UInt32?
-  var scrollMaximumWord: UInt32?
-  /// Set by `StateLayout` (217): the integer holding the index of the child to show.
-  var stateIndexID: Int?
-  /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
-  /// this many lines in total. Both default to unlimited.
-  var flowMaximumItems: Int?
-  var flowMaximumLines: Int?
-  /// Set by the collapsible row/column family; see `NativeSwiftCollapsible`.
-  var isCollapsible = false
-  /// A `CollapsiblePriority` modifier's payload, held as a word so it resolves with the frame's
-  /// values like every other float field.
-  var collapsiblePriorityWord: UInt32?
-  var collapsiblePriorityOrientation: Int?
-  var text: ParsedText?
-  var custom: ParsedCustom?
-
-  init(kind: NativeSwiftNodeSnapshot.Kind, componentID: Int) {
-    self.kind = kind
-    self.componentID = componentID
-  }
-
+// `ParsedNode` itself is declared in NativeSwiftDocumentDecoder.swift, beside the only code that
+// may build it; see the ownership note there. What reads a node lives here.
+extension ParsedNode {
   /// Whether any word in this subtree references one of `ids`.
   ///
   /// A player that publishes a value the document reads has to refresh it: a frame that resolves a

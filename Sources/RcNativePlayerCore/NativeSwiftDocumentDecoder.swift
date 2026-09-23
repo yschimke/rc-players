@@ -2450,3 +2450,83 @@ enum NativeSwiftDocumentDecoder {
     return channel(alpha) << 24 | channel(red) << 16 | channel(green) << 8 | channel(blue)
   }
 }
+
+/// One component of a decoded document.
+///
+/// Ownership: a node is built and mutated only while `NativeSwiftDocumentDecoder.decode` runs --
+/// every setter is `fileprivate`, so nothing outside this file can write one -- and is effectively
+/// immutable once `decode` returns its `ParsedDocument`. That is what lets `detachedCopy` share the
+/// tree between sessions and threads without copying it.
+///
+/// It stays a class rather than a struct because the decoder attaches children through an open
+/// stack of parents and records every node in an id table as it goes, and the frame resolver walks
+/// `parent` links upwards when it measures a fill; a value type would need that whole construction
+/// rewritten around indices.
+final class ParsedNode {
+  let kind: NativeSwiftNodeSnapshot.Kind
+  let componentID: Int
+  fileprivate(set) weak var parent: ParsedNode?
+  fileprivate(set) var children: [ParsedNode] = []
+  fileprivate(set) var commands: [ParsedDrawCommand] = []
+  fileprivate(set) var isClickable = false
+  fileprivate(set) var actions: [NativeSwiftGestureKind: [ParsedAction]] = [:]
+  fileprivate(set) var accessibility: ParsedAccessibility?
+  fileprivate(set) var widthType = NativeSwiftDimensionType.wrap
+  fileprivate(set) var widthWord: UInt32 = 0
+  fileprivate(set) var heightType = NativeSwiftDimensionType.wrap
+  fileprivate(set) var heightWord: UInt32 = 0
+  fileprivate(set) var paddingWords = ParsedInsetWords()
+  fileprivate(set) var minimumWidthWord: UInt32 = 0
+  fileprivate(set) var maximumWidthWord: UInt32 = nativeSwiftNegativeOneWord
+  fileprivate(set) var minimumHeightWord: UInt32 = 0
+  fileprivate(set) var maximumHeightWord: UInt32 = nativeSwiftNegativeOneWord
+  // Four words rather than one: a rounded clip states a radius per corner, and the maximum of four
+  // references is not itself a word, so the reduction has to wait until they resolve.
+  fileprivate(set) var cornerRadiusWords: [UInt32] = []
+  /// Set by MODIFIER_CLIP_RECT, which clips a component to its own laid-out bounds and carries no
+  /// payload to say so. Separate from `cornerRadiusWords` because a square clip is not a zero-radius
+  /// rounded clip: the rounded modifier states radii, this one states nothing at all.
+  fileprivate(set) var clipsToBounds = false
+  fileprivate(set) var graphicsLayer: [Int: Float] = [:]
+  fileprivate(set) var offsetXWord: UInt32?
+  fileprivate(set) var offsetYWord: UInt32?
+  fileprivate(set) var zIndexWord: UInt32?
+  fileprivate(set) var visibilityID: Int?
+  fileprivate(set) var backgroundARGB: UInt32?
+  fileprivate(set) var backgroundColorID: Int?
+  fileprivate(set) var borderARGB: UInt32?
+  fileprivate(set) var borderColorID: Int?
+  fileprivate(set) var borderWidthWord: UInt32 = 0
+  fileprivate(set) var horizontalPositioning = NativeSwiftPositioning.start
+  fileprivate(set) var verticalPositioning = NativeSwiftPositioning.top
+  fileprivate(set) var animationID: Int?
+  fileprivate(set) var spacingWord: UInt32 = 0
+  /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
+  /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
+  fileprivate(set) var componentKind = ""
+  /// Set by the scroll modifier (226).
+  fileprivate(set) var scrollDirection: NativeSwiftScrollDirection?
+  /// The float word holding the scroll position, and the one holding how far it may travel. The
+  /// notch maximum is consumed by the decoder and dropped: nothing here snaps a scroll yet.
+  fileprivate(set) var scrollPositionWord: UInt32?
+  fileprivate(set) var scrollMaximumWord: UInt32?
+  /// Set by `StateLayout` (217): the integer holding the index of the child to show.
+  fileprivate(set) var stateIndexID: Int?
+  /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
+  /// this many lines in total. Both default to unlimited.
+  fileprivate(set) var flowMaximumItems: Int?
+  fileprivate(set) var flowMaximumLines: Int?
+  /// Set by the collapsible row/column family; see `NativeSwiftCollapsible`.
+  fileprivate(set) var isCollapsible = false
+  /// A `CollapsiblePriority` modifier's payload, held as a word so it resolves with the frame's
+  /// values like every other float field.
+  fileprivate(set) var collapsiblePriorityWord: UInt32?
+  fileprivate(set) var collapsiblePriorityOrientation: Int?
+  fileprivate(set) var text: ParsedText?
+  fileprivate(set) var custom: ParsedCustom?
+
+  init(kind: NativeSwiftNodeSnapshot.Kind, componentID: Int) {
+    self.kind = kind
+    self.componentID = componentID
+  }
+}
