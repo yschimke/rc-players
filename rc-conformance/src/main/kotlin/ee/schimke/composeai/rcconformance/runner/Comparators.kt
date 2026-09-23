@@ -311,6 +311,12 @@ public object Comparators {
     }
 
   private fun matches(expected: JsonElement, actual: JsonElement, tolerance: Double): Boolean {
+    // A string the gold wrote is compared as a string, even when it reads as a number: "00123.5"
+    // is a formatted text, not 123.5, and a branch path "1.0" is not path "1". Parsing both as
+    // numbers passed a player that dropped the padding and one that flattened the branch tree.
+    if (expected is JsonPrimitive && expected.isString) {
+      return actual is JsonPrimitive && actual.isString && actual.content == expected.content
+    }
     val expectedNumber = expected.numberOrNull()
     return if (expectedNumber != null) {
       numbersMatch(expected, actual, tolerance)

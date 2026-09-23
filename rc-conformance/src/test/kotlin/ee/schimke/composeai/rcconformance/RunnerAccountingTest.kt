@@ -133,6 +133,23 @@ class RunnerAccountingTest {
   }
 
   @Test
+  fun aStringExpectationIsComparedAsAString() {
+    // `text` and branch paths are strings that often read as numbers. Compared as numbers,
+    // "00123.5" matched a player's "123.5" and path "1.0" matched "1", so a formatter that dropped
+    // its padding and a trace that flattened its branches both passed.
+    val timeline = """[{"id":"initial","kind":"paint"}]"""
+    val checks = """[{"at":"initial","probe":"text","target":22,"expect":"00123.5"}]"""
+    fun run(actual: String) =
+      ConformanceRunner(
+          FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(actual)) }
+        )
+        .run(gold(timeline, checks))
+        .status
+    assertEquals("FAIL", run("123.5"))
+    assertEquals("PASS", run("00123.5"))
+  }
+
+  @Test
   fun toleranceComesFromTheCheckThenTheFileThenExact() {
     val engine = FakeEngine(drivable = setOf("paint")) { Observation.Value(JsonPrimitive(42.4)) }
     val timeline = """[{"id":"initial","kind":"paint"}]"""
