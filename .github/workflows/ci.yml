@@ -375,6 +375,27 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-swift-ios-tests.sh
 
+      # visionOS has no Kotlin slice, so the overlay builds there against the native Swift player
+      # alone (the manifest links the XCFramework on iOS and macOS only). A generic device build
+      # needs only the xros SDK, not a simulator runtime. Xcode 26 ships visionOS as an optional
+      # platform component, so an image without it skips with a warning rather than failing; once
+      # the SDK is present, a build failure fails the job.
+      - name: Build the native Swift packages for visionOS
+        if: needs.apple-changes.outputs.required == 'true'
+        env:
+          RC_COMPOSE_PLAYER_NATIVE_ONLY: 1
+        run: |
+          set -euo pipefail
+          if ! xcodebuild -showsdks | grep -q -- '-sdk xros'; then
+            echo "::warning::No visionOS SDK in $(xcode-select -p); skipping the visionOS build."
+            exit 0
+          fi
+          xcodebuild build -quiet \
+            -scheme RcComposePlayer-Package \
+            -destination 'generic/platform=visionOS' \
+            -derivedDataPath build/native-swift-visionos \
+            CODE_SIGNING_ALLOWED=NO
+
       # The derived corpus, unsanitized and optimized (the script builds release when no sanitizer
       # is set). A failing fuzz input is the whole point of this test, and the default temporary
       # directory is not in the uploaded artifact.

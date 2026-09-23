@@ -85,7 +85,7 @@ if !nativeOnly {
 
 let package = Package(
   name: "RcComposePlayer",
-  platforms: [.iOS(.v13), .macOS(.v12)],
+  platforms: [.iOS(.v13), .macOS(.v12), .visionOS(.v1)],
   products: products,
   targets: targets
 )
