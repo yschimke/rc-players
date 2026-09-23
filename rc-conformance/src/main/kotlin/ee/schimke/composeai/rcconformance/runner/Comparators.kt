@@ -61,6 +61,7 @@ public object Comparators {
             check.key == "draw_log:commands" -> compareSubsequence(check, observation.value)
             check.key == "ops:present" -> comparePresence(check, observation.value, present = true)
             check.key == "ops:absent" -> comparePresence(check, observation.value, present = false)
+            check.probe == "relation" -> compareRelations(check, observation.value, tolerance)
             else -> compareValue(check, "", check.expect, observation.value, tolerance)
           }
         )
@@ -326,6 +327,54 @@ public object Comparators {
 
   private fun join(path: String, part: String) =
     if (path.isEmpty()) part else if (part.startsWith("[")) "$path$part" else "$path.$part"
+
+  // ---------------------------------------------------------------- relations
+
+  /**
+   * Relationships between recorded runs rather than their absolute coordinates (§4.2), so the check
+   * survives two text stacks measuring a glyph differently.
+   *
+   * Each relation names an axis and the runs it spans, by index into the observed list.
+   * `equal_gaps` holds when every consecutive difference along that axis matches the first within
+   * [tolerance]. A relation over a run the player did not report fails as that relation, not as a
+   * crash.
+   */
+  private fun compareRelations(check: Check, actual: JsonElement, tolerance: Double): List<Diff> {
+    val runs =
+      actual as? JsonArray ?: return listOf(diff(check, "shape", check.expect, actual, null))
+    val relations = check.expect as? JsonArray ?: return listOf(malformedExpectation(check))
+    return relations.mapNotNull { element ->
+      val relation = element as? JsonObject ?: return@mapNotNull malformedExpectation(check)
+      val kind = relation["kind"]?.stringOrNull()
+      val axis = relation["axis"]?.stringOrNull()
+      val indices = (relation["runs"] as? JsonArray)?.mapNotNull { it.numberOrNull()?.toInt() }
+      if (kind == null || axis == null || indices == null)
+        return@mapNotNull malformedExpectation(check)
+      val values = indices.map { index ->
+        ((runs.getOrNull(index) as? JsonObject)?.get(axis))?.numberOrNull()
+      }
+      val holds =
+        values.none { it == null } &&
+          values.filterNotNull().let { v ->
+            val steps = v.zipWithNext { a, b -> b - a }
+            when (kind) {
+              "strictly_increasing" -> steps.all { it > tolerance }
+              "strictly_decreasing" -> steps.all { it < -tolerance }
+              "equal_gaps" -> steps.all { abs(it - steps.first()) <= tolerance }
+              else -> false
+            }
+          }
+      if (holds) null
+      else
+        diff(
+          check,
+          "$kind:$axis",
+          relation,
+          JsonArray(values.map { it?.let(::JsonPrimitive) ?: JsonNull }),
+          tolerance,
+        )
+    }
+  }
 
   // ---------------------------------------------------------------- helpers
 
