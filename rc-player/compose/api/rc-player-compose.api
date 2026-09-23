@@ -127,6 +127,14 @@ public final class ee/schimke/composeai/rcplayer/compose/RcDownloadedFont {
 	public final fun getIdentity ()Ljava/lang/String;
 }
 
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcDrawObserver {
+	public abstract fun onTextRun (Lee/schimke/composeai/rcplayer/compose/RcTextRun;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcDrawObserverKt {
+	public static final fun getLocalRcDrawObserver ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcFontAxis {
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;F)V
@@ -168,6 +176,22 @@ public final class ee/schimke/composeai/rcplayer/compose/RcFontVariations {
 
 public final class ee/schimke/composeai/rcplayer/compose/RcFontVariations$Companion {
 	public final fun getNone ()Lee/schimke/composeai/rcplayer/compose/RcFontVariations;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcGlyphPlacement {
+	public static final field $stable I
+	public fun <init> (FFF)V
+	public final fun component1 ()F
+	public final fun component2 ()F
+	public final fun component3 ()F
+	public final fun copy (FFF)Lee/schimke/composeai/rcplayer/compose/RcGlyphPlacement;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcGlyphPlacement;FFFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcGlyphPlacement;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getRotationDegrees ()F
+	public final fun getX ()F
+	public final fun getY ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcManifestTypefaceLoader {
@@ -786,6 +810,27 @@ public final class ee/schimke/composeai/rcplayer/compose/RcSpannableString {
 	public final fun annotate (Lee/schimke/composeai/rcplayer/compose/RcCustomComponent;)Landroidx/compose/ui/text/AnnotatedString;
 	public final fun getLinkStyle ()Landroidx/compose/ui/text/SpanStyle;
 	public final fun getRenderer ()Lkotlin/jvm/functions/Function4;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcTextRun {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;IFFLjava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;IFFLjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()I
+	public final fun component3 ()F
+	public final fun component4 ()F
+	public final fun component5 ()Ljava/util/List;
+	public final fun copy (Ljava/lang/String;IFFLjava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcTextRun;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/compose/RcTextRun;Ljava/lang/String;IFFLjava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcTextRun;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getGlyphCount ()I
+	public final fun getGlyphs ()Ljava/util/List;
+	public final fun getOriginX ()F
+	public final fun getOriginY ()F
+	public final fun getText ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcTimeSourceLocalKt {

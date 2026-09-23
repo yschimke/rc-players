@@ -1,4 +1,5 @@
 import Foundation
+import RcNativePlayerCore
 import Testing
 
 @testable import RcNativePlayerUIKit
@@ -29,5 +30,27 @@ import Testing
     let scripts = ["Latin", "日本語", "مرحبا", "👟🏃🏽‍♀️"]
     let allEncoded = scripts.allSatisfy { !$0.isEmpty && !$0.utf16.isEmpty }
     #expect(allEncoded)
+  }
+
+  /// The explicit values the AppKit renderer used to swap or misread (#427): right and center keep
+  /// their own sides, `visible` wraps and only `ellipsis` truncates.
+  @Test func explicitAlignmentAndOverflowValues() {
+    #expect(
+      NativeTextPolicy.alignment(
+        value: NativeSwiftTextAlignment.right, justified: false, direction: .leftToRight) == .right)
+    #expect(
+      NativeTextPolicy.alignment(
+        value: NativeSwiftTextAlignment.center, justified: false, direction: .leftToRight)
+        == .center)
+    #expect(
+      NativeTextPolicy.alignment(
+        value: NativeSwiftTextAlignment.right, justified: false, direction: .rightToLeft) == .right)
+    #expect(
+      NativeTextPolicy.alignment(
+        value: NativeSwiftTextAlignment.end, justified: false, direction: .leftToRight) == .right)
+    #expect(NativeTextPolicy.overflow(NativeSwiftTextOverflow.visible) == .visible)
+    #expect(NativeTextPolicy.lineBreak(overflow: NativeSwiftTextOverflow.visible) == .wordWrap)
+    #expect(NativeTextPolicy.lineBreak(overflow: NativeSwiftTextOverflow.ellipsis) == .tail)
+    #expect(NativeTextPolicy.lineBreak(overflow: NativeSwiftTextOverflow.clip) == .clip)
   }
 }

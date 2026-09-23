@@ -94,6 +94,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -582,6 +583,7 @@ private fun RcComposePlayerResolved(
   DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }
   val fonts = remember(document) { decodeInlineFonts(document) }
   val textMeasurer = rememberTextMeasurer()
+  val drawObserver = LocalRcDrawObserver.current
   // Subscribe *composition* to invalidations, not just the draw layer below.
   //
   // `rootContentDescription` and the legacy click areas are read here, during composition, and both
@@ -684,7 +686,7 @@ private fun RcComposePlayerResolved(
           drawOperations(
             linkedDocument.operations,
             state,
-            RcPaintState(),
+            RcPaintState(typefaces, drawObserver),
             mutableMapOf(),
             textMeasurer,
             images,
@@ -724,6 +726,7 @@ private fun RenderLayoutNode(
   val lookaheadScope = LocalRcLookaheadScope.current
   val fontFamilies = LocalRcFonts.current
   val typefaces = LocalRcTypefaces.current
+  val drawObserver = LocalRcDrawObserver.current
   val customComponents = LocalRcCustomComponents.current
   val invalidate = LocalRcInvalidate.current
   val offscreenTargets = LocalRcOffscreenTargets.current
@@ -868,7 +871,7 @@ private fun RenderLayoutNode(
                 drawOperations(
                   operations,
                   state,
-                  RcPaintState(),
+                  RcPaintState(typefaces, drawObserver),
                   mutableMapOf(),
                   textMeasurer,
                   images,
@@ -896,7 +899,7 @@ private fun RenderLayoutNode(
           drawOperations(
             node.operations,
             state,
-            RcPaintState(),
+            RcPaintState(typefaces, drawObserver),
             mutableMapOf(),
             textMeasurer,
             images,
@@ -2258,6 +2261,8 @@ private fun Modifier.applyComponentModifiers(
 ): Modifier {
   val density = androidx.compose.ui.platform.LocalDensity.current
   val offscreenTargets = LocalRcOffscreenTargets.current
+  val typefaces = LocalRcTypefaces.current
+  val drawObserver = LocalRcDrawObserver.current
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
     else {
@@ -2304,7 +2309,7 @@ private fun Modifier.applyComponentModifiers(
         drawOperations(
           operations,
           state,
-          RcPaintState(),
+          RcPaintState(typefaces, drawObserver),
           mutableMapOf(),
           textMeasurer,
           images,
@@ -3804,7 +3809,17 @@ internal fun computeRootTransform(
   return RcRootTransform(scaleX, scaleY, translateX, translateY)
 }
 
-private class RcPaintState {
+/**
+ * The canvas paint, as `PaintData` operations leave it.
+ *
+ * [typefaces] is the host's loader, so canvas text resolves its families the way `CoreText` does —
+ * a host that supplies a default face gets it on a `DrawText` as well as on a text component.
+ */
+private class RcPaintState(
+  val typefaces: RcTypefaceLoader = RcTypefaceLoader.Empty,
+  /** Told about each text run as it is drawn; null — the default — records nothing. */
+  val observer: RcDrawObserver? = null,
+) {
   var color: Int = 0xff000000.toInt()
   var strokeWidth: Float = 1f
   var stroke: Boolean = false
@@ -3819,7 +3834,8 @@ private class RcPaintState {
   var runtimeShader: Shader? = null
   var colorFilter: ColorFilter? = null
   var textSize: Float = 16f
-  var fontFamily: FontFamily = FontFamily.Default
+  /** Until a `PaintData` names a font type, the host's default face — as `CoreText` gets it. */
+  var fontFamily: FontFamily = rcResolveTypeface(null, -1, emptyMap(), typefaces)
   var fontWeight: FontWeight = FontWeight.Normal
   var fontStyle: FontStyle = FontStyle.Normal
   var fontType: Int = 0
@@ -4682,6 +4698,19 @@ private fun DrawScope.drawTextAnchored(
     style = style,
     blendMode = paint.blendMode,
   )
+  paint.observer?.let { observer ->
+    val origin = toDevice(Offset(position.x, position.baselineY))
+    observer.onTextRun(RcTextRun(text, unicodeScalars(text).size, origin.x, origin.y))
+  }
+}
+
+/** [local] in device pixels, through every transform the canvas is under — for [RcDrawObserver]. */
+private fun DrawScope.toDevice(local: Offset): Offset {
+  val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
+  return Offset(
+    m[0] * local.x + m[1] * local.y + m[2],
+    m[3] * local.x + m[4] * local.y + m[5],
+  )
 }
 
 /**
@@ -4858,6 +4887,7 @@ private fun DrawScope.drawTextSegmentsOnPath(
 ) {
   var contourLength = measure.length
   var distance = horizontalOffset
+  val glyphs = paint.observer?.let { mutableListOf<RcGlyphPlacement>() }
   for (segment in segments) {
     val advance = segment.advance
     val center = distance + advance / 2f
@@ -4886,9 +4916,27 @@ private fun DrawScope.drawTextSegmentsOnPath(
           style = style,
           blendMode = paint.blendMode,
         )
+        // The glyph's baseline origin, read inside its own rotation so the device position is
+        // where it was actually drawn.
+        glyphs?.add(
+          toDevice(placement.topLeft + Offset(0f, segment.firstBaseline)).let {
+            RcGlyphPlacement(it.x, it.y, placement.angleDegrees)
+          }
+        )
       }
     }
     distance += advance
+  }
+  if (glyphs != null && glyphs.isNotEmpty()) {
+    paint.observer?.onTextRun(
+      RcTextRun(
+        text = segments.joinToString("") { it.text },
+        glyphCount = glyphs.size,
+        originX = glyphs.first().x,
+        originY = glyphs.first().y,
+        glyphs = glyphs,
+      )
+    )
   }
 }
 
@@ -5592,14 +5640,15 @@ private fun applyPaint(
         val style = command ushr 16
         val fontType = operation.words[index++]
         state.fontType = fontType
-        state.fontFamily =
+        val family =
           when (fontType) {
-            0 -> FontFamily.Default
-            1 -> FontFamily.SansSerif
-            2 -> FontFamily.Serif
-            3 -> FontFamily.Monospace
+            0 -> RC_DEFAULT_FAMILY
+            1 -> "sans-serif"
+            2 -> "serif"
+            3 -> "monospace"
             else -> error("AndroidX font id $fontType is not implemented by the CMP backend")
           }
+        state.fontFamily = rcResolveTypeface(family, -1, emptyMap(), state.typefaces)
         state.fontWeight = FontWeight((style and 0x3ff).takeIf { it > 0 } ?: 400)
         state.fontStyle = if (style and 0x800 != 0) FontStyle.Italic else FontStyle.Normal
       }
