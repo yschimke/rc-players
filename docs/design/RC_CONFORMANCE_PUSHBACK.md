@@ -131,7 +131,38 @@ such as the `canvas_*` primitives. Others look like a missed flag within a singl
 
 **Ask:** confirm that the 21 are intended.
 
-## 8. Question: mid-animation layout geometry as a binding check
+## 8. `conditional_skip_api_gate` assumes API level 7, but AndroidX is on level 8
+
+The gold says it exercises each `Skip` comparison "against the player's API level 7". AndroidX alpha19
+reports `CoreDocument.DOCUMENT_API_LEVEL = 8`, and so does this player's decoder, so the
+`api_equal_to` and `api_not_equal_to` gates resolve the other way. The census failures that follow
+(`DrawLine` present, `DrawArc` absent) come from the gold's API level being stale, not from how the
+player skips.
+
+**Ask:** regenerate against the current level, or have the gold state which level it assumes so a
+runner can decode at that level.
+
+## 9. `interactivity_hit_testing_bounds` hit-tests a box where it is not drawn
+
+The box is 100×60, with an offset modifier of (50, 50). The gold expects a tap at (50, 30), in empty
+space above the drawn box, to be handled, and a tap at (50, 80), on the drawn box, not to be. AndroidX
+tests the component's layout rectangle and leaves out the offset it paints with. This player
+hit-tests where it draws, which is what a user tapping the box expects.
+
+**Ask:** confirm whether ignoring the offset is intended. If it is not, fix the reference and
+regenerate. If it is, the spec should say that hit testing ignores offset modifiers.
+
+## 10. Question: `click` delivered at once, even with a double-click handler
+
+With a `MultiClickModifier` that has a double-click action, this player (like Android's View player)
+waits the double-tap timeout before it confirms a single click. The reference delivers the click
+immediately. `modifier_multi_click` then reads the tree at the frame of the click and sees the
+change not yet applied. Every host that tells a single click from a double one has this delay, so we
+treat it as host behaviour. It is recorded here in case the corpus means something stronger.
+
+**Not yet raised.**
+
+## 11. Question: mid-animation layout geometry as a binding check
 
 The five `animation_*` golds check tree geometry at sampled frames of a layout transition. For
 example, `animation_box_offset` expects progress 0.497 at frame 5 and 0.999 at frame 10. That ties a
