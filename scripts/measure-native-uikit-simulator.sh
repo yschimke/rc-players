@@ -80,6 +80,8 @@ assert report["sourceRevision"] == sys.argv[2]
 assert report["iterations"] >= 5
 assert report["metrics"]["nativeViewCount"] > 1
 assert report["metrics"]["labelCount"] > 0
+# Button and control counts include view-less accessibility elements (button / toggle traits), not
+# only UIButton / UIControl subviews; see NativePlayerEvidence.hierarchyMetrics.
 assert report["metrics"]["buttonCount"] > 0
 assert report["metrics"]["exposedAccessibilityElementCount"] == 1
 assert report["metrics"]["executableBytes"] > 0
