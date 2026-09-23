@@ -110,7 +110,9 @@ jobs:
           set -euo pipefail
           card=rc-conformance/build/conformance/scorecard.md
           if [ -f "$card" ]; then
-            cat "$card" >> "$GITHUB_STEP_SUMMARY"
+            # Into the log as well: a step summary is not readable through the API, and a branch
+            # dispatch publishes nothing else.
+            tee -a "$GITHUB_STEP_SUMMARY" < "$card"
           else
             echo "The run produced no scorecard — see the job log." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -192,7 +194,9 @@ jobs:
           set -euo pipefail
           card=rc-conformance/build/conformance/scorecard.md
           if [ -f "$card" ]; then
-            cat "$card" >> "$GITHUB_STEP_SUMMARY"
+            # Into the log as well: a step summary is not readable through the API, and a branch
+            # dispatch publishes nothing else.
+            tee -a "$GITHUB_STEP_SUMMARY" < "$card"
           else
             echo "The run produced no scorecard — see the job log." >> "$GITHUB_STEP_SUMMARY"
           fi
