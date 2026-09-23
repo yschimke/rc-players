@@ -86,6 +86,7 @@ public final class RemoteComposePlayerController {
     let kotlinController = RcComposePlayerController()
   #else
     private var values: [String: RemoteComposePlayerActionValue] = [:]
+    private var nativeUpdateHandler: ((String, RemoteComposePlayerActionValue) -> Void)?
   #endif
 
   public init() {}
@@ -104,6 +105,7 @@ public final class RemoteComposePlayerController {
       kotlinController.setFloat(name: name, value: value)
     #else
       values[name] = .float(value)
+      nativeUpdateHandler?(name, .float(value))
       return true
     #endif
   }
@@ -114,6 +116,7 @@ public final class RemoteComposePlayerController {
       kotlinController.setString(name: name, value: value)
     #else
       values[name] = .text(value)
+      nativeUpdateHandler?(name, .text(value))
       return true
     #endif
   }
@@ -123,8 +126,25 @@ public final class RemoteComposePlayerController {
     #if canImport(UIKit) && canImport(RcComposePlayer)
       kotlinController.setColor(name: name, argb: Int32(bitPattern: argb))
     #else
-      values[name] = .integer(Int(Int32(bitPattern: argb)))
+      let value = RemoteComposePlayerActionValue.integer(Int(Int32(bitPattern: argb)))
+      values[name] = value
+      nativeUpdateHandler?(name, value)
       return true
+    #endif
+  }
+
+  func installNativeUpdateHandler(
+    _ handler: ((String, RemoteComposePlayerActionValue) -> Void)?
+  ) {
+    #if canImport(UIKit) && canImport(RcComposePlayer)
+      // Kotlin owns controller propagation in the standard UIKit player.
+    #else
+      nativeUpdateHandler = handler
+      guard let handler else { return }
+      for name in values.keys.sorted() {
+        guard let value = values[name] else { continue }
+        handler(name, value)
+      }
     #endif
   }
 }

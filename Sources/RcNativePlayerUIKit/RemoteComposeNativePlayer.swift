@@ -46,7 +46,8 @@
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
-      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
+      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
+      onError: @escaping (RemoteComposeNativePlayerError) -> Void = { _ in }
     ) {
       let customComponents = customComponents ?? RemoteComposeNativeCustomComponentRegistry()
       playerView = RemoteComposeNativePlayerView(
@@ -58,7 +59,8 @@
         downloadableFontResolver: downloadableFontResolver,
         clock: clock,
         onEvent: onEvent,
-        onDiagnostics: onDiagnostics)
+        onDiagnostics: onDiagnostics,
+        onError: onError)
       super.init(nibName: nil, bundle: nil)
     }
 
@@ -187,6 +189,7 @@
 
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
     public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
+    public var onError: (RemoteComposeNativePlayerError) -> Void
     public private(set) var resourceLimits: RemoteComposeNativeResourceLimits
     public private(set) var executionLimits: RemoteComposeNativeExecutionLimits
     public private(set) var customComponents: RemoteComposeNativeCustomComponentRegistry
@@ -238,7 +241,8 @@
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
-      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
+      onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
+      onError: @escaping (RemoteComposeNativePlayerError) -> Void = { _ in }
     ) {
       playerBackground = background
       self.compatibilityPolicy = compatibilityPolicy
@@ -256,6 +260,7 @@
         totalCostLimit: resourceLimits.maximumDecodedImageBytes)
       self.onEvent = onEvent
       self.onDiagnostics = onDiagnostics
+      self.onError = onError
       super.init(frame: .zero)
       isApplicationActive = UIApplication.shared.applicationState != .background
       animationTimeline.reset(
@@ -743,6 +748,11 @@
       needsRetry = true
       errorLabel.text = error.localizedDescription
       errorLabel.isHidden = false
+      if let error = error as? RemoteComposeNativePlayerError {
+        onError(error)
+      } else {
+        onError(.decode(error.localizedDescription))
+      }
       loadTask = nil
       pendingWork = nil
       hasPendingScheduledFrame = false

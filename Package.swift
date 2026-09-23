@@ -52,7 +52,8 @@ let package = Package(
     ),
     .target(name: "RcPlayerAppleFonts"),
     .target(
-      name: "RcComposePlayerSwiftUI", dependencies: ["RcComposePlayer", "RcPlayerAppleFonts"]),
+      name: "RcComposePlayerSwiftUI",
+      dependencies: ["RcComposePlayer", "RcPlayerAppleFonts", "RcNativePlayerUIKit"]),
     .target(name: "RcNativePlayerCore"),
     .target(
       name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),

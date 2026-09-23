@@ -1,4 +1,4 @@
-#if canImport(UIKit)
+#if canImport(UIKit) && canImport(RcComposePlayer)
   import RcComposePlayer
   #if canImport(RcPlayerAppleFonts)
     import RcPlayerAppleFonts
@@ -309,6 +309,190 @@
         label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
         label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
       ])
+    }
+  }
+#elseif canImport(UIKit)
+  #if canImport(RcNativePlayerUIKit)
+    import RcNativePlayerUIKit
+  #endif
+  #if canImport(RcPlayerAppleFonts)
+    import RcPlayerAppleFonts
+  #endif
+  import SwiftUI
+  import UIKit
+
+  @MainActor
+  public final class RemoteComposePlayerViewController: UIViewController {
+    private var documentData: Data
+    private var configuration: RemoteComposePlayerConfiguration
+    private var eventHandler: (RemoteComposePlayerEvent) -> Void
+    private var errorHandler: (RemoteComposePlayerError) -> Void
+    private var playerController: RemoteComposePlayerController
+    private var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
+    private var nativeController: RemoteComposeNativePlayerViewController?
+
+    public init(
+      data: Data,
+      controller: RemoteComposePlayerController? = nil,
+      configuration: RemoteComposePlayerConfiguration = .init(),
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+      onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
+      onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
+    ) {
+      documentData = data
+      playerController = controller ?? RemoteComposePlayerController()
+      self.configuration = configuration
+      self.downloadableFontResolver = downloadableFontResolver
+      eventHandler = onEvent
+      errorHandler = onError
+      super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    public override func viewDidLoad() {
+      super.viewDidLoad()
+      rebuildContent()
+    }
+
+    public func update(
+      data: Data,
+      configuration: RemoteComposePlayerConfiguration,
+      onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
+      onError: @escaping (RemoteComposePlayerError) -> Void
+    ) {
+      update(data: data, controller: playerController, configuration: configuration,
+             downloadableFontResolver: downloadableFontResolver, onEvent: onEvent, onError: onError)
+    }
+
+    public func update(
+      data: Data,
+      controller: RemoteComposePlayerController,
+      configuration: RemoteComposePlayerConfiguration,
+      downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+      onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
+      onError: @escaping (RemoteComposePlayerError) -> Void
+    ) {
+      eventHandler = onEvent
+      errorHandler = onError
+      guard data != documentData || configuration != self.configuration || controller !== playerController
+          || !sameResolver(downloadableFontResolver, self.downloadableFontResolver) else { return }
+      playerController.installNativeUpdateHandler(nil)
+      documentData = data
+      playerController = controller
+      self.configuration = configuration
+      self.downloadableFontResolver = downloadableFontResolver
+      if isViewLoaded { rebuildContent() }
+    }
+
+    private func rebuildContent() {
+      playerController.installNativeUpdateHandler(nil)
+      let native = RemoteComposeNativePlayerViewController(
+        data: documentData,
+        background: configuration.background.nativeValue,
+        compatibilityPolicy: configuration.compatibility.nativeValue,
+        downloadableFontResolver: downloadableFontResolver,
+        onEvent: { [weak self] event in self?.eventHandler(.init(nativeEvent: event)) },
+        onDiagnostics: { _ in },
+        onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
+      install(native)
+      playerController.installNativeUpdateHandler { [weak native] name, value in
+        Task { @MainActor in
+          switch value {
+          case .float(let value): _ = await native?.setFloat(value, for: name)
+          case .text(let value): _ = await native?.setString(value, for: name)
+          case .integer(let value): _ = await native?.setColor(UInt32(bitPattern: Int32(value)), for: name)
+          case .none, .floatList, .unsupported: break
+          }
+        }
+      }
+    }
+
+    private func install(_ controller: RemoteComposeNativePlayerViewController) {
+      nativeController?.willMove(toParent: nil)
+      nativeController?.view.removeFromSuperview()
+      nativeController?.removeFromParent()
+      addChild(controller)
+      view.addSubview(controller.view)
+      controller.view.translatesAutoresizingMaskIntoConstraints = false
+      NSLayoutConstraint.activate([
+        controller.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        controller.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        controller.view.topAnchor.constraint(equalTo: view.topAnchor),
+        controller.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+      ])
+      controller.didMove(toParent: self)
+      nativeController = controller
+    }
+
+    private func sameResolver(
+      _ first: (any RemoteComposeDownloadableFontResolving)?,
+      _ second: (any RemoteComposeDownloadableFontResolving)?
+    ) -> Bool {
+      switch (first, second) {
+      case (nil, nil): true
+      case (let first?, let second?): first === second
+      default: false
+      }
+    }
+  }
+
+  @MainActor
+  public struct RemoteComposePlayerView: UIViewControllerRepresentable {
+    @MainActor public final class Coordinator { fileprivate let defaultController = RemoteComposePlayerController() }
+    public let data: Data
+    public let controller: RemoteComposePlayerController?
+    public var configuration: RemoteComposePlayerConfiguration
+    public var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
+    public var onEvent: (RemoteComposePlayerEvent) -> Void
+    public var onError: (RemoteComposePlayerError) -> Void
+
+    public init(data: Data, controller: RemoteComposePlayerController? = nil,
+                configuration: RemoteComposePlayerConfiguration = .init(),
+                downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+                onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
+                onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }) {
+      self.data = data; self.controller = controller; self.configuration = configuration
+      self.downloadableFontResolver = downloadableFontResolver; self.onEvent = onEvent; self.onError = onError
+    }
+
+    public func makeUIViewController(context: Context) -> RemoteComposePlayerViewController {
+      RemoteComposePlayerViewController(data: data, controller: controller ?? context.coordinator.defaultController,
+        configuration: configuration, downloadableFontResolver: downloadableFontResolver, onEvent: onEvent, onError: onError)
+    }
+    public func makeCoordinator() -> Coordinator { Coordinator() }
+    public func updateUIViewController(_ controller: RemoteComposePlayerViewController, context: Context) {
+      controller.update(data: data, controller: self.controller ?? context.coordinator.defaultController,
+        configuration: configuration, downloadableFontResolver: downloadableFontResolver, onEvent: onEvent, onError: onError)
+    }
+  }
+
+  private extension RemoteComposePlayerBackground {
+    var nativeValue: RemoteComposeNativePlayerBackground { isOpaque ? .opaque : .transparent }
+  }
+  private extension RemoteComposePlayerCompatibility {
+    var nativeValue: RemoteComposeNativePlayerCompatibilityPolicy { isLenient ? .compatible : .strict }
+  }
+  private extension RemoteComposePlayerActionValue {
+    init(nativeValue: RemoteComposeNativePlayerActionValue) {
+      switch nativeValue {
+      case .none: self = .none
+      case .float(let value): self = .float(value)
+      case .integer(let value): self = .integer(value)
+      case .text(let value): self = .text(value)
+      case .floatList(let value): self = .floatList(value)
+      }
+    }
+  }
+  private extension RemoteComposePlayerEvent {
+    init(nativeEvent: RemoteComposeNativePlayerEvent) {
+      switch nativeEvent {
+      case .action(let id): self = .action(id: id)
+      case .actionWithMetadata(let id, let metadata): self = .actionWithMetadata(id: id, metadata: metadata)
+      case .namedAction(let name, let value): self = .namedAction(name: name, value: .init(nativeValue: value))
+      case .debug(let message, let value, let flags): self = .debug(message: message, value: value, flags: flags)
+      }
     }
   }
 #endif
