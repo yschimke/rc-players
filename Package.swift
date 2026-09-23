@@ -28,19 +28,35 @@
 // Compose Multiplatform 1.11 publishes no Apple x86_64 variants, so Intel simulators and Intel Macs
 // cannot build against this. Stated here rather than discovered at link time. See
 // docs/design/RC_PLAYER_SWIFT.md.
+import Foundation
 import PackageDescription
 
-let package = Package(
-  name: "RcComposePlayer",
-  platforms: [.iOS(.v13), .macOS(.v12)],
-  products: [
-    .library(name: "RcComposePlayer", targets: ["RcComposePlayer"]),
-    .library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"]),
-    .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"]),
-    .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
-    .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
-  ],
-  targets: [
+/// Set `RC_COMPOSE_PLAYER_NATIVE_ONLY=1` when resolving the source-overlay wrapper without the
+/// Kotlin/Native XCFramework. SwiftPM resolves every declared binary target before compilation, so
+/// a conditional import alone cannot provide this mode.
+let nativeOnly = ProcessInfo.processInfo.environment["RC_COMPOSE_PLAYER_NATIVE_ONLY"] == "1"
+
+var products: [Product] = [
+  .library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"]),
+  .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"]),
+  .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
+  .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
+]
+if !nativeOnly {
+  products.insert(.library(name: "RcComposePlayer", targets: ["RcComposePlayer"]), at: 0)
+}
+
+var swiftUIDependencies: [Target.Dependency] = ["RcPlayerAppleFonts", "RcNativePlayerUIKit"]
+if !nativeOnly { swiftUIDependencies.insert("RcComposePlayer", at: 0) }
+
+var targets: [Target] = [
+  .target(name: "RcPlayerAppleFonts"),
+  .target(name: "RcComposePlayerSwiftUI", dependencies: swiftUIDependencies),
+  .target(name: "RcNativePlayerCore"),
+  .target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
+]
+if !nativeOnly {
+  targets.insert(
     .binaryTarget(
       name: "RcComposePlayer",
       url:
@@ -49,12 +65,12 @@ let package = Package(
       // than fetching something unverified. On a bare `X.Y.Z` tag they are the real released
       // values, written by scripts/update-package-swift.sh. Check which you are looking at.
       checksum: "0000000000000000000000000000000000000000000000000000000000000000"
-    ),
-    .target(name: "RcPlayerAppleFonts"),
-    .target(
-      name: "RcComposePlayerSwiftUI", dependencies: ["RcComposePlayer", "RcPlayerAppleFonts"]),
-    .target(name: "RcNativePlayerCore"),
-    .target(
-      name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
-  ]
+    ), at: 0)
+}
+
+let package = Package(
+  name: "RcComposePlayer",
+  platforms: [.iOS(.v13), .macOS(.v12)],
+  products: products,
+  targets: targets
 )

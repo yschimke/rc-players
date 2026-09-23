@@ -45,6 +45,8 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/ios" "$work/macos"
 overlay_sources=(Sources/RcComposePlayerSwiftUI/*.swift)
 font_sources=(Sources/RcPlayerAppleFonts/*.swift)
+native_core_sources=(Sources/RcNativePlayerCore/*.swift)
+native_uikit_sources=(Sources/RcNativePlayerUIKit/*.swift)
 extract_sample() {
   local platform="$1"
   local sample="$2"
@@ -113,6 +115,29 @@ xcrun -sdk "$sdk" swiftc \
   -F "$(dirname "$ios_slice")" \
   -I "$work/ios" \
   -typecheck "$ios_sample"
+
+# The source overlay deliberately compiles without the Kotlin framework too. Build the real native
+# sources as a module (rather than a declaration-only mock), then compile the overlay with no
+# `-F RcComposePlayer` path so `canImport(RcComposePlayer)` selects its UIKit fallback.
+echo "type-checking native iOS fallback ($target)"
+xcrun -sdk "$sdk" swiftc \
+  -target "$target" \
+  -parse-as-library \
+  -framework UIKit \
+  -I "$work/ios" \
+  -emit-module \
+  -module-name RcNativePlayerUIKit \
+  -emit-module-path "$work/ios/RcNativePlayerUIKit.swiftmodule" \
+  "${native_core_sources[@]}" "${native_uikit_sources[@]}"
+xcrun -sdk "$sdk" swiftc \
+  -target "$target" \
+  -parse-as-library \
+  -framework UIKit \
+  -I "$work/ios" \
+  -emit-module \
+  -module-name RcComposePlayerSwiftUINativeFallback \
+  -emit-module-path "$work/ios/RcComposePlayerSwiftUINativeFallback.swiftmodule" \
+  "${overlay_sources[@]}"
 
 macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
 macos_target="$arch-apple-macos12.0"

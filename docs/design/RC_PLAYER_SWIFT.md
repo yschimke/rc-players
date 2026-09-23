@@ -256,6 +256,18 @@ These are properties of the raw interop layer rather than defects — the call w
 written. The `RcComposePlayerSwiftUI` source target closes them for ordinary adoption while leaving
 this API available for custom typeface loaders and other advanced integration.
 
+**The Swift source overlay has a native fallback; SwiftPM resolution is still explicit.** When an
+app compiles the overlay with `RcNativePlayerUIKit` but without `RcComposePlayer`,
+`RemoteComposePlayerView` uses the native UIKit player and `RemoteComposePlayerWindow` uses the
+native AppKit host. Their public configuration, typed host events, downloadable-font resolver, and
+controller writes are forwarded to the native host. The ordinary `RcComposePlayerSwiftUI` SwiftPM
+target still declares the Kotlin XCFramework because SwiftPM resolves declared binary targets before
+the compiler evaluates `canImport`; use the `RcNativePlayerUIKit` product directly, or compile the
+source overlay with that target, for a deliberately no-XCFramework integration. For the supplied
+package manifest, set `RC_COMPOSE_PLAYER_NATIVE_ONLY=1` while resolving or building; that mode
+removes the Kotlin binary target from the package graph and makes `RcComposePlayerSwiftUI` select
+the native UIKit/AppKit fallback.
+
 **"Works exactly as written" is checked, not asserted.**
 `scripts/check-swift-sample.sh` compiles the source overlay for iOS and macOS, then extracts the
 `swift` blocks above and type-checks them against the overlay and assembled XCFramework. The macOS
