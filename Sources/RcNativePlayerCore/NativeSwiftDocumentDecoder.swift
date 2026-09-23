@@ -10,6 +10,11 @@ enum NativeSwiftDocumentDecoder {
   private static let maximumNestingDepth = 256
   /// AndroidX's own bound on one loop's passes.
   private static let maximumLoopPasses = 10_000
+  /// The bytes every LOOM loop and for-each expansion in one document may unroll to, together.
+  /// Their bodies are small drawing and structural operations, so this is far above anything a real
+  /// template produces; it exists because an unrolled body is held in memory before it runs, and a
+  /// 100 KB document could otherwise build gigabytes of it.
+  private static let maximumExpandedBytes = 16 * 1024 * 1024
   /// AndroidX's own bounds for a sound resource and a sound expression's parameters.
   private static let maximumSoundBytes = 256 * 1024
   private static let maximumSoundParameters = 64
@@ -198,6 +203,8 @@ enum NativeSwiftDocumentDecoder {
     // 22-bit NaN-reference payloads and cannot be mistaken for a template-local declaration on a
     // later nested expansion.
     var nextMacroGeneratedID = 0x5000
+    /// Bytes unrolled by loop and for-each expansions so far; see `maximumExpandedBytes`.
+    var expandedBytes = 0
 
     func begin(_ node: ParsedNode) throws {
       guard nodes.count < maximumNodes else {
@@ -280,27 +287,41 @@ enum NativeSwiftDocumentDecoder {
     /// A style's properties with its parent chain folded in, nearest last. The identity fields —
     /// component, animation, style and parent ids — describe the declaration, not the text, and
     /// are not inherited.
-    func inheritedTextProperties(
-      _ styleID: Int, visiting: Set<Int> = []
-    ) throws -> ParsedTextProperties {
-      guard !visiting.contains(styleID) else {
-        throw input.malformed("Cyclic TextStyle parent at id \(styleID)")
-      }
-      guard let style = textStyles[styleID] else {
-        throw input.malformed("Missing TextStyle id \(styleID)")
-      }
-      var merged = ParsedTextProperties()
-      if let parent = style.integers[NativeSwiftTextProperty.textStyleID], parent != -1 {
-        merged = try inheritedTextProperties(parent, visiting: visiting.union([styleID]))
+    ///
+    /// The chain is collected iteratively and at most `maximumNestingDepth` styles deep: it is as
+    /// long as the document makes it, and folding it by recursion overflowed a 512 KiB
+    /// secondary-thread stack on a few thousand chained styles.
+    func inheritedTextProperties(_ styleID: Int) throws -> ParsedTextProperties {
+      var chain: [ParsedTextProperties] = []  // Nearest first.
+      var visiting: Set<Int> = []
+      var currentID = styleID
+      while true {
+        guard !visiting.contains(currentID) else {
+          throw input.malformed("Cyclic TextStyle parent at id \(currentID)")
+        }
+        guard let style = textStyles[currentID] else {
+          throw input.malformed("Missing TextStyle id \(currentID)")
+        }
+        guard chain.count < maximumNestingDepth else {
+          throw input.malformed("TextStyle inheritance exceeds \(maximumNestingDepth)")
+        }
+        visiting.insert(currentID)
+        chain.append(style)
+        guard let parent = style.integers[NativeSwiftTextProperty.textStyleID], parent != -1
+        else { break }
+        currentID = parent
       }
       let identity = [
         NativeSwiftTextProperty.componentID, NativeSwiftTextProperty.animationID,
         NativeSwiftTextProperty.flags, NativeSwiftTextProperty.textStyleID,
       ]
-      for (id, value) in style.integers where !identity.contains(id) {
-        merged.integers[id] = value
+      var merged = ParsedTextProperties()
+      for style in chain.reversed() {
+        for (id, value) in style.integers where !identity.contains(id) {
+          merged.integers[id] = value
+        }
+        merged.floats.merge(style.floats) { _, own in own }
       }
-      merged.floats.merge(style.floats) { _, own in own }
       return merged
     }
 
@@ -639,8 +660,29 @@ enum NativeSwiftDocumentDecoder {
         throw input.malformed(
           "Macro expects \(definition.parameterIDs.count) arguments, got \(arguments.count)")
       }
-      let mappings = Dictionary(uniqueKeysWithValues: zip(definition.parameterIDs, arguments))
+      // A definition may name the same parameter id twice; `uniqueKeysWithValues` trapped on it.
+      var mappings: [Int: Int] = [:]
+      for (parameterID, argument) in zip(definition.parameterIDs, arguments) {
+        guard mappings.updateValue(argument, forKey: parameterID) == nil else {
+          throw input.malformed("Macro parameter id \(parameterID) is repeated")
+        }
+      }
       return try remappedMacroBody(definition.body, mappings: mappings)
+    }
+
+    /// Charges an expansion being unrolled against the document's budgets as it grows, so an
+    /// amplifying loop fails while it is still small rather than after it has been built.
+    ///
+    /// `operations` is a floor on what the expansion will execute: every non-empty pass runs at
+    /// least one operation, and each one counts against `maximumOperations` when it runs. Failing
+    /// here therefore reports the same limit the document would reach later, only sooner.
+    func chargeExpansion(operations: Int, bytes: Int) throws {
+      guard operations <= maximumOperations - operationCount else {
+        throw input.malformed("Operation count exceeds \(maximumOperations)")
+      }
+      guard bytes <= maximumExpandedBytes - expandedBytes else {
+        throw input.malformed("LOOM expansion exceeds \(maximumExpandedBytes) bytes")
+      }
     }
 
     while true {
@@ -776,9 +818,14 @@ enum NativeSwiftDocumentDecoder {
           throw input.malformed("Missing pattern foreach collection \(collectionID)")
         }
         var expanded = Data()
+        var expandedOperations = 0
         for id in ids {
-          expanded.append(try remappedMacroBody(body, mappings: [localItemID: id]))
+          let pass = try remappedMacroBody(body, mappings: [localItemID: id])
+          if !pass.isEmpty { expandedOperations += 1 }
+          try chargeExpansion(operations: expandedOperations, bytes: expanded.count + pass.count)
+          expanded.append(pass)
         }
+        expandedBytes += expanded.count
         guard suspendedInputs.count < maximumNestingDepth else {
           throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
         }
@@ -816,11 +863,13 @@ enum NativeSwiftDocumentDecoder {
           guard step > 0 else { throw input.malformed("Loop step must be positive") }
           var value = from
           var passes = 0
+          var expandedOperations = 0
           while value < until {
             passes += 1
             guard passes <= maximumLoopPasses else {
               throw input.malformed("Loop exceeds \(maximumLoopPasses) passes")
             }
+            let passStart = expanded.count
             if indexID == 0 {
               expanded.append(body)
             } else {
@@ -836,9 +885,12 @@ enum NativeSwiftDocumentDecoder {
             guard next > value else { throw input.malformed("Loop step does not advance") }
             // After the loop the index holds the last value it was given, as in the reference.
             if indexID != 0, next >= until { appendConstant(indexID, value) }
+            if expanded.count > passStart { expandedOperations += 1 }
+            try chargeExpansion(operations: expandedOperations, bytes: expanded.count)
             value = next
           }
         }
+        expandedBytes += expanded.count
         guard suspendedInputs.count < maximumNestingDepth else {
           throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
         }

@@ -1597,6 +1597,90 @@ import Testing
       "an unbounded chain of conditionals inside one that does not run")
   }
 
+  /// Time-attribute intervals between two document-chosen instants were Int64 differences, and
+  /// `LongConstant`s of Int64.max and Int64.min overflowed them: a 55-byte document trapped. They
+  /// are taken in Double now, and every interval form resolves to a finite value.
+  @Test func extremeTimeAttributeIntervalsDoNotTrap() throws {
+    typealias TimeType = NativeSwiftTimeAttributeType
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(NativeSwiftWireOpcode.dataLong).int(1).int64(.max)
+    document.u8(NativeSwiftWireOpcode.dataLong).int(2).int64(.min)
+    // ATTRIBUTE_TIME(output, time id, type, argument count, arguments...).
+    document.u8(NativeSwiftWireOpcode.attributeTime).int(60).int(1)
+      .u16(TimeType.fromArgumentSeconds).u16(1).int(2)
+    document.u8(NativeSwiftWireOpcode.attributeTime).int(61).int(1)
+      .u16(TimeType.fromNowSeconds).u16(0)
+    document.u8(NativeSwiftWireOpcode.attributeTime).int(62).int(1)
+      .u16(TimeType.fromLoadSeconds).u16(0)
+    let values = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: .min))
+    for id in 60...62 {
+      let value = values.floats[id]
+      #expect(
+        value.map { $0.isFinite && $0 > 0 } == true,
+        Comment(rawValue: "interval \(id): \(String(describing: value))"))
+    }
+  }
+
+  /// A MacroDefine that names one parameter id twice built its argument mapping with
+  /// `Dictionary(uniqueKeysWithValues:)`, which traps on the duplicate as soon as the macro is
+  /// called. The call is refused instead.
+  @Test func repeatedMacroParameterIsMalformed() {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    // MacroDefine(id 1, parameters [7, 7], body size 0 = container body), with an empty body.
+    document.u8(NativeSwiftWireOpcode.macroDefine).int(1).int(2).int(7).int(7).int(0)
+    document.u8(NativeSwiftWireOpcode.containerEnd)
+    // MacroCall(id 1, arguments [10, 11]) with no blocks.
+    document.u8(NativeSwiftWireOpcode.macroCall).int(1).int(2).int(10).int(11)
+    document.u8(NativeSwiftWireOpcode.containerEnd)
+    expectMalformed(
+      document.data, containing: "Macro parameter id 7 is repeated",
+      "a macro that repeats a parameter id")
+  }
+
+  /// `CoreText` folds a `TextStyle`'s parent chain, which the document makes as long as it likes;
+  /// folding it by recursion overflowed a 512 KiB stack on a few thousand styles. It is iterative
+  /// and bounded now.
+  @Test func unboundedTextStyleChainIsMalformed() {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    let depth = 300
+    for id in 1...depth {
+      // TextStyle(two properties: its own id, and its parent's, -1 for none).
+      document.u8(NativeSwiftWireOpcode.textStyle).u16(2)
+      document.u8(NativeSwiftTextProperty.componentID).int(id)
+      document.u8(NativeSwiftTextProperty.textStyleID).int(id == 1 ? -1 : id - 1)
+    }
+    // CoreText(text id 5, one property: the deepest style).
+    document.u8(NativeSwiftWireOpcode.coreText).int(5).u16(1)
+    document.u8(NativeSwiftTextProperty.textStyleID).int(depth)
+    expectMalformed(
+      document.data, containing: "TextStyle inheritance exceeds",
+      "a TextStyle chain deeper than the nesting bound")
+  }
+
+  /// A LoopStart unrolls every pass into memory before any of it runs. Ten thousand passes of a
+  /// 4 KB body -- a skipped conditional around a 1,024-word paint -- would build 40 MB from a
+  /// document a few kilobytes long; the expansion is charged against a byte budget as it grows and
+  /// refused once it passes it.
+  @Test func amplifyingLoopIsMalformed() {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    // LoopStart(index id 0, from 0, step 1, until 10,000).
+    document.u8(NativeSwiftWireOpcode.loopStart).int(0).float(0).float(1).float(10_000)
+    document.u8(NativeSwiftWireOpcode.conditionalOperations).u8(NativeSwiftConditionalType.equal)
+      .float(0).float(1)
+    document.u8(NativeSwiftWireOpcode.paintValues).int(1_024)
+    for _ in 0..<1_024 { document.int(0) }
+    document.u8(NativeSwiftWireOpcode.containerEnd)  // The conditional.
+    document.u8(NativeSwiftWireOpcode.containerEnd)  // The loop body.
+    expectMalformed(
+      document.data, containing: "LOOM expansion exceeds", "a loop that amplifies its body")
+  }
+
   private func expectMalformed(
     _ data: Data, containing reason: String, _ label: String,
     sourceLocation: SourceLocation = #_sourceLocation

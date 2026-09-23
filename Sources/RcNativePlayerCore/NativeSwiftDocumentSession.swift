@@ -870,20 +870,26 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       epochMillis: selectedMillis, offsetSeconds: wallClock?.offsetSeconds ?? 0)
     let fields = selected.fields
     typealias TimeType = NativeSwiftTimeAttributeType
-    func interval(_ millis: Int64, unit: Double) -> Float { Float(Double(millis) * 0.001 / unit) }
+    // Intervals are taken in Double, not Int64: a document picks both instants, and two
+    // `LongConstant`s as far apart as Int64.max and Int64.min overflow -- and trap -- an Int64
+    // subtraction. Epoch milliseconds are exact in Double well beyond any real date, so an ordinary
+    // instant gives exactly what the integer difference did.
+    func interval(since start: Double, unit: Double) -> Float {
+      Float((Double(selectedMillis) - start) * 0.001 / unit)
+    }
     switch attribute.type {
     case TimeType.fromNowSeconds, TimeType.fromNowMinutes, TimeType.fromNowHours:
       guard let now = wallClock?.epochMillis else { return nil }
       let unit: Double = attribute.type == TimeType.fromNowSeconds
         ? 1 : attribute.type == TimeType.fromNowMinutes ? 60 : 3600
-      return interval(selectedMillis - now, unit: unit)
+      return interval(since: Double(now), unit: unit)
     case TimeType.fromArgumentSeconds, TimeType.fromArgumentMinutes, TimeType.fromArgumentHours:
       guard let argumentID = attribute.argumentIDs.first,
         let argument = document.longConstants[argumentID]
       else { return nil }
       let unit: Double = attribute.type == TimeType.fromArgumentSeconds
         ? 1 : attribute.type == TimeType.fromArgumentMinutes ? 60 : 3600
-      return interval(selectedMillis - argument, unit: unit)
+      return interval(since: Double(argument), unit: unit)
     case TimeType.second: return Float(fields.second)
     case TimeType.minute: return Float(fields.minute)
     case TimeType.hour: return Float(fields.hour)
@@ -894,8 +900,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     case TimeType.fromLoadSeconds:
       // The document loaded `timeSeconds` before the wall clock's instant.
       guard let now = wallClock?.epochMillis else { return nil }
-      let loadMillis = now - Int64((timeSeconds * 1000).rounded())
-      return interval(selectedMillis - loadMillis, unit: 1)
+      // In Double too: `Int64(_:)` traps on a non-finite or out-of-range elapsed time.
+      let loadMillis = Double(now) - (timeSeconds * 1000).rounded()
+      return interval(since: loadMillis, unit: 1)
     case TimeType.dayOfYear: return Float(fields.dayOfYear)
     default: return nil
     }
