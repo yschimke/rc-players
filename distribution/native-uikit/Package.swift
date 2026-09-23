@@ -10,10 +10,13 @@ let package = Package(
     .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
   ],
   targets: [
-    .target(name: "RcPlayerAppleFonts"),
+    .target(name: "RcPlayerAppleFonts", resources: [.copy("PrivacyInfo.xcprivacy")]),
     .target(name: "RcNativePlayerCore"),
     .target(
-      name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
+      name: "RcNativePlayerUIKit",
+      dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"],
+      resources: [.copy("PrivacyInfo.xcprivacy")]
+    ),
     .testTarget(
       name: "RcNativePlayerUIKitTests",
       dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"],

@@ -58,10 +58,17 @@ if !nativeOnly {
 }
 
 var targets: [Target] = [
-  .target(name: "RcPlayerAppleFonts"),
+  // Each shipping Apple target carries an App Store privacy manifest. `RcNativePlayerUIKit`
+  // declares the system-boot-time reason because its AppKit host still reads
+  // `ProcessInfo.systemUptime`; the fonts target uses no required-reason API.
+  .target(name: "RcPlayerAppleFonts", resources: [.copy("PrivacyInfo.xcprivacy")]),
   .target(name: "RcComposePlayerSwiftUI", dependencies: swiftUIDependencies),
   .target(name: "RcNativePlayerCore"),
-  .target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
+  .target(
+    name: "RcNativePlayerUIKit",
+    dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"],
+    resources: [.copy("PrivacyInfo.xcprivacy")]
+  ),
   // The native player's tests. They depend only on the pure-Swift targets, so
   // `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` runs them without resolving the binary target.
   .testTarget(
