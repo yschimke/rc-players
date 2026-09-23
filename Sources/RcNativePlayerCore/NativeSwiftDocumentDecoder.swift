@@ -140,6 +140,14 @@ enum NativeSwiftDocumentDecoder {
     var shaderUniformNames: [Int: Set<String>] = [:]
     var conditionalTraces: [NativeSwiftConditionalTraceSnapshot] = []
     var conditionalIndex = 0
+    /// The executing conditional bodies, innermost last: each one's path, the index its next
+    /// nested conditional takes, and the expansion depth that closes it.
+    struct ConditionalScope {
+      let path: String
+      var next: Int
+      let depth: Int
+    }
+    var conditionalScopes: [ConditionalScope] = []
     var particleDefinitions: [ParsedParticleDefinition] = []
     var particleLoops: [ParsedParticleLoop] = []
     var nodes: [Int: ParsedNode] = [:]
@@ -333,62 +341,105 @@ enum NativeSwiftDocumentDecoder {
       while true {
         let opcodeOffset = input.offset
         let opcode = try input.u8("macro body opcode")
-        switch opcode {
-        case NativeSwiftWireOpcode.containerEnd:
+        if opcode == NativeSwiftWireOpcode.containerEnd {
           if nesting == 0 { return input.rawBytes(from: start, to: opcodeOffset) }
           nesting -= 1
-        case NativeSwiftWireOpcode.paintValues:
-          let count = try input.count("macro paint word count", maximum: 1_024)
-          for _ in 0..<count { _ = try input.int("macro paint word") }
-        case NativeSwiftWireOpcode.clipPath, NativeSwiftWireOpcode.drawPath,
-          NativeSwiftWireOpcode.macroArgument:
-          _ = try input.int("macro clip path id")
-        case NativeSwiftWireOpcode.macroCall:
-          _ = try input.int("nested macro id")
-          let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
-          for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
-          // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
-          // matching end so the surrounding definition's end remains the capture terminator.
-          while true {
-            let childOpcode = try input.u8("nested macro call operation")
-            if childOpcode == NativeSwiftWireOpcode.containerEnd { break }
-            guard childOpcode == NativeSwiftWireOpcode.macroBlock else {
-              throw NativeSwiftCoreError.unsupported(
-                opcode: childOpcode, offset: input.offset - 1,
-                reason: "LOOM nested macro calls only support MacroBlock children")
-            }
-            _ = try input.int("nested macro block index")
-            _ = try captureMacroBody(depth: depth + 1)
-          }
-        case NativeSwiftOpcodeGroup.fourWordDraws:
-          for _ in 0..<4 { _ = try input.word("macro drawing value") }
-        case NativeSwiftWireOpcode.drawBitmap:
-          _ = try input.int("macro bitmap id")
-          for _ in 0..<4 { _ = try input.word("macro bitmap destination") }
-          _ = try input.int("macro bitmap description id")
-        case NativeSwiftWireOpcode.drawCircle:
-          for _ in 0..<3 { _ = try input.word("macro circle value") }
-        case NativeSwiftWireOpcode.conditionalOperations:
-          _ = try input.u8("conditional type")
-          _ = try input.word("conditional left")
-          _ = try input.word("conditional right")
+        } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: depth) {
           nesting += 1
-        case NativeSwiftOpcodeGroup.sixWordDraws:
-          for _ in 0..<6 { _ = try input.word("macro drawing value") }
-        case NativeSwiftWireOpcode.layoutBox:
-          // BoxLayout declares both its component and animation IDs; positioning is plain data.
-          for _ in 0..<4 { _ = try input.int("macro box value") }
-          nesting += 1
-        case NativeSwiftOpcodeGroup.matrixStack:
-          break
-        case NativeSwiftWireOpcode.canvasOperations:
-          nesting += 1
-        default:
-          throw NativeSwiftCoreError.unsupported(
-            opcode: opcode, offset: opcodeOffset,
-            reason: "LOOM macro body operation is not yet structurally migrated")
         }
       }
+    }
+
+    /// Reads past one captured operation's payload, returning whether it opens a container. The
+    /// operations a captured body may hold are the ones listed here; anything else refuses.
+    func skipOperationPayload(_ opcode: Int, at opcodeOffset: Int, depth: Int) throws -> Bool {
+      switch opcode {
+      case NativeSwiftWireOpcode.paintValues:
+        let count = try input.count("macro paint word count", maximum: 1_024)
+        for _ in 0..<count { _ = try input.int("macro paint word") }
+      case NativeSwiftWireOpcode.clipPath, NativeSwiftWireOpcode.drawPath,
+        NativeSwiftWireOpcode.macroArgument:
+        _ = try input.int("macro clip path id")
+      case NativeSwiftWireOpcode.macroCall:
+        _ = try input.int("nested macro id")
+        let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
+        for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
+        // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
+        // matching end so the surrounding definition's end remains the capture terminator.
+        while true {
+          let childOpcode = try input.u8("nested macro call operation")
+          if childOpcode == NativeSwiftWireOpcode.containerEnd { break }
+          guard childOpcode == NativeSwiftWireOpcode.macroBlock else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: childOpcode, offset: input.offset - 1,
+              reason: "LOOM nested macro calls only support MacroBlock children")
+          }
+          _ = try input.int("nested macro block index")
+          _ = try captureMacroBody(depth: depth + 1)
+        }
+      case NativeSwiftOpcodeGroup.fourWordDraws:
+        for _ in 0..<4 { _ = try input.word("macro drawing value") }
+      case NativeSwiftWireOpcode.drawBitmap:
+        _ = try input.int("macro bitmap id")
+        for _ in 0..<4 { _ = try input.word("macro bitmap destination") }
+        _ = try input.int("macro bitmap description id")
+      case NativeSwiftWireOpcode.drawCircle:
+        for _ in 0..<3 { _ = try input.word("macro circle value") }
+      case NativeSwiftWireOpcode.conditionalOperations:
+        _ = try input.u8("conditional type")
+        _ = try input.word("conditional left")
+        _ = try input.word("conditional right")
+        return true
+      case NativeSwiftOpcodeGroup.sixWordDraws:
+        for _ in 0..<6 { _ = try input.word("macro drawing value") }
+      case NativeSwiftWireOpcode.layoutBox:
+        // BoxLayout declares both its component and animation IDs; positioning is plain data.
+        for _ in 0..<4 { _ = try input.int("macro box value") }
+        return true
+      case NativeSwiftOpcodeGroup.matrixStack:
+        break
+      case NativeSwiftWireOpcode.canvasOperations:
+        return true
+      default:
+        throw NativeSwiftCoreError.unsupported(
+          opcode: opcode, offset: opcodeOffset,
+          reason: "LOOM macro body operation is not yet structurally migrated")
+      }
+      return false
+    }
+
+    /// Walks a conditional's captured body without running it: counts its direct child
+    /// operations, and when `tracePath` is given, traces each nested conditional under it as not
+    /// executed, as the reference records every conditional in a branch that did not run.
+    func walkConditionalBody(_ body: Data, tracePath: String?) throws -> Int {
+      let saved = input
+      input = WireReader(body)
+      defer { input = saved }
+      var children = 0
+      var nestedIndex = 0
+      while !input.isAtEnd {
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("conditional body opcode")
+        children += 1
+        if opcode == NativeSwiftWireOpcode.conditionalOperations {
+          let type = try input.u8("conditional type")
+          let left = NativeSwiftFloatExpression.resolve(
+            try input.word("conditional left"), values: floats)
+          let right = NativeSwiftFloatExpression.resolve(
+            try input.word("conditional right"), values: floats)
+          let inner = try captureMacroBody()
+          guard let tracePath else { continue }
+          let path = "\(tracePath).\(nestedIndex)"
+          nestedIndex += 1
+          conditionalTraces.append(NativeSwiftConditionalTraceSnapshot(
+            type: type, left: left, right: right, executed: false, executedChildOps: 0,
+            path: path))
+          _ = try walkConditionalBody(inner, tracePath: path)
+        } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: 0) {
+          _ = try captureMacroBody()
+        }
+      }
+      return children
     }
 
     func captureMacroCallBlocks() throws -> [Int: Data] {
@@ -520,6 +571,9 @@ enum NativeSwiftDocumentDecoder {
     while true {
       if input.isAtEnd {
         guard let suspended = suspendedInputs.popLast() else { break }
+        while let scope = conditionalScopes.last, scope.depth > suspendedInputs.count {
+          conditionalScopes.removeLast()
+        }
         input = suspended.input
         macroBlocks = suspended.blocks
         continue
@@ -569,17 +623,32 @@ enum NativeSwiftDocumentDecoder {
         case NativeSwiftConditionalType.changed: executed = left != 0 || right != 0
         default: executed = false
         }
-        let path = String(conditionalIndex)
-        conditionalIndex += 1
-        conditionalTraces.append(NativeSwiftConditionalTraceSnapshot(
-          type: type, left: left, right: right, executed: executed,
-          executedChildOps: executed && !body.isEmpty ? 1 : 0, path: path))
+        // Paths are the reference's: the n-th conditional at top level is "n", and the m-th
+        // conditional directly inside it is "n.m".
+        let path: String
+        if let scope = conditionalScopes.last {
+          path = "\(scope.path).\(scope.next)"
+          conditionalScopes[conditionalScopes.count - 1].next += 1
+        } else {
+          path = String(conditionalIndex)
+          conditionalIndex += 1
+        }
+        // A skipped body's nested conditionals are traced by the walk, after this one.
+        let traceIndex = conditionalTraces.count
+        let childOps = try walkConditionalBody(body, tracePath: executed ? nil : path)
+        conditionalTraces.insert(
+          NativeSwiftConditionalTraceSnapshot(
+            type: type, left: left, right: right, executed: executed,
+            executedChildOps: executed ? childOps : 0, path: path),
+          at: traceIndex)
         if executed {
           guard suspendedInputs.count < maximumNestingDepth else {
             throw input.malformed("Conditional nesting exceeds \(maximumNestingDepth)")
           }
           suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
           input = WireReader(body)
+          conditionalScopes.append(
+            ConditionalScope(path: path, next: 0, depth: suspendedInputs.count))
         }
       case NativeSwiftWireOpcode.componentStart:
         // Legacy ComponentStart. Retain its structure; modern documents use 200...205.
