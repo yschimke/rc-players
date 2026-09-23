@@ -336,27 +336,77 @@ enum NativeSwiftDocumentDecoder {
       return try currentNode(stack, input: input)
     }
 
-    // Capture recurses once per nested MacroCall block, so a malformed chain of 247 -> 249 would
-    // otherwise exhaust the stack. Captured operations are not charged to the operation budget
-    // here: a captured body is counted when it executes, and the capture itself is bounded by the
-    // input length.
+    // A MacroCall nests further MacroBlock bodies, and a malformed chain of 247 -> 249 would nest
+    // them without end. The capture walks that nesting with an explicit frame stack rather than
+    // recursing, so a chain up to the cap costs no call-stack depth: a debug build recursing 256
+    // bodies deep overflows a 512 KiB secondary-thread stack (SIGBUS), which is where hosts and
+    // swift-testing decode. Captured operations are not charged to the operation budget here: a
+    // captured body is counted when it executes, and the capture itself is bounded by the input
+    // length.
     func captureMacroBody(depth: Int = 0) throws -> Data {
       guard depth < maximumNestingDepth else {
         throw input.malformed("Macro body nesting exceeds \(maximumNestingDepth)")
       }
+      enum Frame {
+        /// A body being captured, with the containers opened inside it and not yet closed.
+        case body(nesting: Int)
+        /// A nested MacroCall, whose remaining children are MacroBlocks up to its end.
+        case call
+      }
       let start = input.offset
-      var nesting = 0
-      while true {
-        let opcodeOffset = input.offset
-        let opcode = try input.u8("macro body opcode")
-        census(opcode)
-        if opcode == NativeSwiftWireOpcode.containerEnd {
-          if nesting == 0 { return input.rawBytes(from: start, to: opcodeOffset) }
-          nesting -= 1
-        } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: depth) {
-          nesting += 1
+      var frames: [Frame] = [.body(nesting: 0)]
+      var bodyDepth = depth
+      while let frame = frames.last {
+        switch frame {
+        case .call:
+          let childOpcode = try input.u8("nested macro call operation")
+          census(childOpcode)
+          if childOpcode == NativeSwiftWireOpcode.containerEnd {
+            frames.removeLast()
+            continue
+          }
+          guard childOpcode == NativeSwiftWireOpcode.macroBlock else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: childOpcode, offset: input.offset - 1,
+              reason: "LOOM nested macro calls only support MacroBlock children")
+          }
+          _ = try input.int("nested macro block index")
+          guard bodyDepth + 1 < maximumNestingDepth else {
+            throw input.malformed("Macro body nesting exceeds \(maximumNestingDepth)")
+          }
+          bodyDepth += 1
+          frames.append(.body(nesting: 0))
+        case .body(let nesting):
+          let opcodeOffset = input.offset
+          let opcode = try input.u8("macro body opcode")
+          census(opcode)
+          if opcode == NativeSwiftWireOpcode.containerEnd {
+            frames.removeLast()
+            if nesting > 0 {
+              frames.append(.body(nesting: nesting - 1))
+            } else if frames.isEmpty {
+              return input.rawBytes(from: start, to: opcodeOffset)
+            } else {
+              bodyDepth -= 1
+            }
+          } else if opcode == NativeSwiftWireOpcode.macroCall {
+            // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
+            // matching end so the surrounding definition's end remains the capture terminator.
+            try skipMacroCallHeader()
+            frames.append(.call)
+          } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: bodyDepth) {
+            frames.removeLast()
+            frames.append(.body(nesting: nesting + 1))
+          }
         }
       }
+      preconditionFailure("the outermost body frame returns when it closes")
+    }
+
+    func skipMacroCallHeader() throws {
+      _ = try input.int("nested macro id")
+      let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
+      for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
     }
 
     /// Reads past one captured operation's payload, returning whether it opens a container. The
@@ -370,11 +420,9 @@ enum NativeSwiftDocumentDecoder {
         NativeSwiftWireOpcode.macroArgument:
         _ = try input.int("macro clip path id")
       case NativeSwiftWireOpcode.macroCall:
-        _ = try input.int("nested macro id")
-        let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
-        for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
-        // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
-        // matching end so the surrounding definition's end remains the capture terminator.
+        // captureMacroBody walks nested calls itself; this path serves callers skipping a single
+        // top-level operation, so it recurses at most once into the iterative capture.
+        try skipMacroCallHeader()
         while true {
           let childOpcode = try input.u8("nested macro call operation")
           census(childOpcode)

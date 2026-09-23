@@ -251,7 +251,7 @@ or use a 4×4 matrix in this gold.
 **Settled by:** a stated layout. If upstream says the asymmetric one is intended, the native player
 adopts it.
 
-## 15. Drags assume no touch slop
+## 18. Drags assume no touch slop
 
 The harness hands a drag straight to `CoreDocument.touchDrag`, so a scroll follows the pointer from
 its first pixel: a 40 px drag scrolls 40 px. A player that recognises drags the way its platform
@@ -265,7 +265,7 @@ expressions read the raw pointer and get no allowance. The player keeps platform
 **Ask:** say in the format that gesture positions are positions *after recognition*. Or give
 `touch_drag` a `slop` the harness applies, so every player is measured the same way.
 
-## 16. A fling's velocity is handed to the document, not produced by the gesture
+## 19. A fling's velocity is handed to the document, not produced by the gesture
 
 `interaction_swipe_scroll_decay` releases with `dy: -1200`, which the harness passes to
 `TouchExpression.touchUp` as the release velocity. A player driven by pointer events derives
@@ -277,7 +277,7 @@ only reachable by a player that takes the declared velocity as given.
 **Ask:** make the touch-up velocity a declared host input that players are expected to honour, or
 generate the drag as timed samples whose tracked velocity is the one asserted.
 
-## 17. `StateLayout` golds assert AndroidX's bookkeeping for hidden states
+## 20. `StateLayout` golds assert AndroidX's bookkeeping for hidden states
 
 In `state_layout_expandable_card`, the children (-10, -11) of the hidden state's container (-8,
 `GONE`) are expected at `initial` as `VISIBLE`, at y = 0. -11's laid-out position is y = 76. After
@@ -293,3 +293,14 @@ The CMP player reports what is laid out: the shown state's subtree, and the hidd
 container as `GONE` at zero size.
 **Ask:** specify what the tree reports for components inside a state that is not shown. For
 example: absent, or `GONE` with no geometry. Avoid a value that depends on history.
+
+## 21. `fitbox_fit`: the two AndroidX players disagree when nothing fits
+
+When no alternative fits, remote-core hides the FitBox: the box and its child both report `GONE`,
+and `fitbox_fit` asserts that. AndroidX's embedded Compose player shows the smallest alternative,
+clipped, instead ("Add FitBox shared element transitions using Compose Intrinsics", androidx-main
+`6fb763d3fe4`). The CMP player follows the embedded player, on the view that a clipped component
+says more than a blank one.
+
+**Ask:** say which behaviour the format specifies. If it is hiding, the embedded player should
+change too. If it is either, tag the gold `host-specific`.
