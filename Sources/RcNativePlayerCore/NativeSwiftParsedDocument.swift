@@ -53,6 +53,7 @@ struct ParsedDocument {
   let shaderUniformNames: [Int: Set<String>]
   let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
   let impulses: [ParsedImpulse]
+  let darkColors: [Int: UInt32]
   /// `WAKE_IN` requests, as the words the document wrote.
   let wakeWords: [UInt32]
   let particleDefinitions: [ParsedParticleDefinition]

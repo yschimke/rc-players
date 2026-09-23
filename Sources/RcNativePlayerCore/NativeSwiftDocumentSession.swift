@@ -16,6 +16,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var floatOverrides: [Int: Float] = [:]
   private var hostDensity: Float = 1
   private var hostFontScale: Float = 1
+  private var requestedTheme = NativeSwiftTheme.unspecified
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
@@ -83,6 +84,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
     particleSystems = other.particleSystems.mapValues { $0.detachedCopy() }
     impulseInitialPass = other.impulseInitialPass
+    requestedTheme = other.requestedTheme
     impulsePhases = other.impulsePhases
     lastImpulseFrameTime = other.lastImpulseFrameTime
     lastParticleFrameTime = other.lastParticleFrameTime
@@ -121,6 +123,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     if density.isFinite, density > 0 { hostDensity = density }
     if fontScale.isFinite, fontScale > 0 { hostFontScale = fontScale }
+    staticSnapshotCache = nil
+  }
+
+  /// The theme the host is showing: `NativeSwiftTheme.dark`, `.light` or `.unspecified`.
+  ///
+  /// A `ColorTheme` resolves to its dark fallback under a dark theme and to its light one
+  /// otherwise. Unspecified stays light rather than following the TypeScript reference's dark,
+  /// because light is what the reference JVM lane renders for a player with no theme (see the
+  /// `ColorTheme` decode). Operations a `THEME` marker scopes are not filtered by it yet.
+  public func setRequestedTheme(_ theme: Int) {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    requestedTheme = theme
     staticSnapshotCache = nil
   }
 
@@ -1205,6 +1220,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func resolveColors(values: [Int: Float]) -> [Int: UInt32] {
     var result = colors
+    // Only where the colour still holds the document's own light fallback: a value the host has
+    // since set on the slot is the host's, whatever the theme.
+    if requestedTheme == NativeSwiftTheme.dark {
+      for (id, dark) in document.darkColors where colors[id] == document.colors[id] {
+        result[id] = dark
+      }
+    }
     for expression in document.colorExpressions {
       let mode = expression.modeAndAlpha & 0xff
       switch mode {

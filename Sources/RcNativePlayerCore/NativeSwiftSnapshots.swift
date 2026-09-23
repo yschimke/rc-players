@@ -28,6 +28,13 @@ func pathCommandWord(_ command: Int) -> UInt32 {
   0x7fc0_0000 | UInt32(command)
 }
 
+/// The themes a host can request and a `THEME` operation can scope to: every value AndroidX defines.
+public enum NativeSwiftTheme {
+  public static let unspecified = -1
+  public static let dark = -2
+  public static let light = -3
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int

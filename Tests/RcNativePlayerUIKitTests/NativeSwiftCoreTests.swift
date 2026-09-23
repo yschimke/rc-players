@@ -428,6 +428,24 @@ import Testing
     precondition(
       loopedCommands.contains { $0.kind == 18 }, "a created and appended path did not draw")
 
+    // A ColorTheme resolves to its dark fallback under a dark theme, and to its light one under
+    // a light or unspecified theme. A colour the host has set stays the host's.
+    let themed = Writer()
+    themed.header(width: 100, height: 100)
+    themed.u8(196).int(10).int(1).u16(0).u16(0).int(Int(Int32(bitPattern: 0xFF11_1111)))
+      .int(Int(Int32(bitPattern: 0xFF22_2222)))
+    let themedSession = try NativeSwiftDocumentSession.open(
+      data: themed.data, toleratingRootlessData: true)
+    let unthemed = try themedSession.probeValues(timeSeconds: 0).colors[10]
+    themedSession.setRequestedTheme(NativeSwiftTheme.dark)
+    let dark = try themedSession.probeValues(timeSeconds: 0).colors[10]
+    themedSession.setRequestedTheme(NativeSwiftTheme.light)
+    let light = try themedSession.probeValues(timeSeconds: 0).colors[10]
+    precondition(
+      unthemed == 0xFF11_1111 && dark == 0xFF22_2222 && light == 0xFF11_1111,
+      "a colour theme resolved to \(String(describing: unthemed)), \(String(describing: dark)), "
+        + "\(String(describing: light))")
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)

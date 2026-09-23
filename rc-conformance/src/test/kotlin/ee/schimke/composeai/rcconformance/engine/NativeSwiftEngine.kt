@@ -114,6 +114,8 @@ private class NativeSwiftSession(
   /** The logical clock a frame is captured at, in seconds, and the input driven before it. */
   private var clock = 0.0
   private var wallClock: JsonObject? = null
+  /** The theme a `theme` step requested, sent with every later frame; null until one does. */
+  private var theme: Int? = null
   private val driven = mutableListOf<JsonObject>()
 
   private val workingDirectory: File = Files.createTempDirectory("rc-conformance-swift").toFile()
@@ -148,6 +150,7 @@ private class NativeSwiftSession(
     val height: Int,
     val time: Double,
     val wallClock: JsonObject?,
+    val theme: Int?,
     /**
      * The input driven before this frame, replayed by the player: it opens a document per frame.
      */
@@ -178,6 +181,11 @@ private class NativeSwiftSession(
       }
       "frame_sequence" -> frameSequence(step, onCapture)
       "clock_snapshot" -> clockSnapshot(step)
+      // The host's light/dark theme (§3): -3 light, -2 dark. Later frames render under it.
+      "theme" -> {
+        theme = step.int("theme", -1)
+        request(step.id)
+      }
       "click",
       "longPress",
       "doubleClick",
@@ -185,8 +193,8 @@ private class NativeSwiftSession(
       "touch_drag",
       "touch_up" -> gesture(step)
       "trigger" -> trigger(step)
-      // A theme this player does not model, and a clock it does not carry: refused rather than
-      // silently treated as a repaint, which would turn the step's checks into false passes.
+      // Anything else is refused rather than silently treated as a repaint, which would turn the
+      // step's checks into false passes.
       else -> throw UnsupportedStepKind(step.kind)
     }
   }
@@ -277,7 +285,7 @@ private class NativeSwiftSession(
   }
 
   private fun request(id: String) {
-    requested += Frame(id, width, height, clock, wallClock, driven.toList())
+    requested += Frame(id, width, height, clock, wallClock, theme, driven.toList())
     // The captures are taken lazily, in one subprocess, the first time a probe asks for one. A
     // check bound to an earlier step still reads that step's own frame, because each is captured at
     // the viewport recorded when the step ran.
@@ -435,6 +443,7 @@ private class NativeSwiftSession(
                 put("height", frame.height)
                 put("time", frame.time)
                 frame.wallClock?.let { put("wall_clock", it) }
+                frame.theme?.let { put("theme", it) }
                 if (frame.steps.isNotEmpty()) {
                   put("steps", buildJsonArray { frame.steps.forEach { add(it) } })
                 }

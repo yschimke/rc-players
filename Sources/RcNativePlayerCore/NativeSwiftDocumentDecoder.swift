@@ -152,6 +152,8 @@ enum NativeSwiftDocumentDecoder {
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
     var impulses: [ParsedImpulse] = []
+    /// A `ColorTheme`'s dark fallback, by colour id; its light one seeds `colors`.
+    var darkColors: [Int: UInt32] = [:]
     var wakeWords: [UInt32] = []
     /// An open impulse container: its setup (-1) or one of its process containers, closed when
     /// `modifierContainers` returns to `depth`.
@@ -1067,8 +1069,8 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.signedU16("color theme dark index")
         let lightFallback = try input.int("color theme light fallback")
         let darkFallback = try input.int("color theme dark fallback")
-        _ = darkFallback
         colors[colorID] = UInt32(bitPattern: Int32(lightFallback))
+        darkColors[colorID] = UInt32(bitPattern: Int32(darkFallback))
       case 140:  // Integer constant
         integers[try input.int("integer id")] = try input.int("integer value")
       case 144:  // Integer expression
@@ -2020,7 +2022,7 @@ enum NativeSwiftDocumentDecoder {
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
       shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
-      impulses: impulses, wakeWords: wakeWords,
+      impulses: impulses, darkColors: darkColors, wakeWords: wakeWords,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,

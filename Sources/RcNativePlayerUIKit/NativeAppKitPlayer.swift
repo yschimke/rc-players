@@ -408,6 +408,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     data: Data,
     timeSeconds: TimeInterval = 0,
     wallClock: NativeSwiftWallClock = .capture,
+    theme: Int = NativeSwiftTheme.unspecified,
     downloadedFonts: [String: RemoteComposeDownloadedFont] = [:],
     viewport: CGSize? = nil,
     values: NativeMacValueRequest = NativeMacValueRequest(),
@@ -421,6 +422,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     // does not, and a host that is about to show a document is still told it has nothing to paint.
     let session = try NativeSwiftDocumentSession.open(
       data: data, toleratingRootlessData: true)
+    session.setRequestedTheme(theme)
     // A gesture needs a laid-out view to hit-test against, and the document as it stood when the
     // first gesture arrived — not as it stands at the capture. The frame's own instant is the start
     // only when nothing was driven.
