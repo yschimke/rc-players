@@ -48,6 +48,7 @@
 		100000000000000000000027 /* SwiftChart.rc in Resources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002A /* SwiftChart.rc */; };
 		100000000000000000000028 /* ApplePlayerBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002B /* ApplePlayerBenchmark.swift */; };
 		100000000000000000000029 /* ApplePlayerBenchmarkInteractionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000002C /* ApplePlayerBenchmarkInteractionUITests.swift */; };
+		100000000000000000000030 /* NativeSharedTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000030 /* NativeSharedTypes.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -106,6 +107,7 @@
 		20000000000000000000002A /* SwiftChart.rc */ = {isa = PBXFileReference; lastKnownFileType = file; name = SwiftChart.rc; path = Fixtures/SwiftChart.rc; sourceTree = "<group>"; };
 		20000000000000000000002B /* ApplePlayerBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlayerBenchmark.swift; sourceTree = "<group>"; };
 		20000000000000000000002C /* ApplePlayerBenchmarkInteractionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlayerBenchmarkInteractionUITests.swift; sourceTree = "<group>"; };
+		200000000000000000000030 /* NativeSharedTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSharedTypes.swift; path = "../../Sources/RcNativePlayerUIKit/NativeSharedTypes.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -207,6 +209,7 @@
 				20000000000000000000001A /* NativeFrameTiming.swift */,
 				20000000000000000000001B /* NativeExecutionLimits.swift */,
 				200000000000000000000021 /* NativeCustomComponents.swift */,
+				200000000000000000000030 /* NativeSharedTypes.swift */,
 				20000000000000000000000F /* RemoteComposeNativePlayer.swift */,
 				200000000000000000000010 /* NativeComponentViews.swift */,
 				200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */,
@@ -338,6 +341,7 @@
 				100000000000000000000018 /* NativeFrameTiming.swift in Sources */,
 				100000000000000000000019 /* NativeExecutionLimits.swift in Sources */,
 				10000000000000000000001E /* NativeCustomComponents.swift in Sources */,
+				100000000000000000000030 /* NativeSharedTypes.swift in Sources */,
 				10000000000000000000001A /* NativePlayerEvidence.swift in Sources */,
 				10000000000000000000001B /* NativeAccessibilityTestHost.swift in Sources */,
 				10000000000000000000001D /* NativeComparisonHarness.swift in Sources */,
