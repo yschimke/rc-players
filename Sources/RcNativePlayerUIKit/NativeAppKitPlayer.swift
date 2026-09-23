@@ -27,6 +27,15 @@ private extension NativeSwiftActionValue {
   }
 }
 
+private func nativePlayerActionValue(_ value: NativeSwiftActionValue) -> RemoteComposeNativePlayerActionValue {
+  switch value {
+  case .none: .none
+  case .float(let value): .float(value)
+  case .integer(let value): .integer(value)
+  case .text(let value): .text(value)
+  }
+}
+
 extension NativeSwiftWallClock {
   /// The instant a capture renders against, so a corpus run is reproducible.
   ///
@@ -34,7 +43,7 @@ extension NativeSwiftWallClock {
   /// depending on when the lane ran, and two frames of one gold could straddle a second boundary.
   /// 2026-01-01T00:00:00Z, chosen because it is a round instant rather than because anything
   /// depends on the date.
-  static let capture = NativeSwiftWallClock(epochMillis: 1_767_225_600_000)
+  public static let capture = NativeSwiftWallClock(epochMillis: 1_767_225_600_000)
 }
 
 enum NativeMacFrameDriverMode: Equatable {
@@ -326,15 +335,15 @@ struct NativeMacRenderedFrame {
 }
 
 @MainActor
-final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
-  static let shared = NativeAppKitWindowController()
+public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
+  public static let shared = NativeAppKitWindowController()
   private var windows: [NSWindow] = []
 
   /// - Parameter viewport: the size to lay the document out in, when that differs from the size the
   ///   document declares. The conformance corpus needs it: `resize` is its most common step kind,
   ///   more common than `paint`, and a capture that always uses the document's own size answers a
   ///   different question from the one the gold asked.
-  static func renderPNG(
+  public static func renderPNG(
     data: Data,
     timeSeconds: TimeInterval = 0,
     wallClock: NativeSwiftWallClock = .capture,
@@ -345,6 +354,28 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       data: data, timeSeconds: timeSeconds, wallClock: wallClock,
       downloadedFonts: downloadedFonts, viewport: viewport
     ).png
+  }
+
+  /// Builds an embeddable AppKit view from the same validation and snapshot path as a window.
+  public static func makeView(
+    data: Data,
+    compatibility: NativeMacCompatibility = .compatible,
+    onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
+    onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
+    onError: @escaping (String) -> Void = { _ in }
+  ) throws -> NSView {
+    try NativeMacPolicy.validateDocument(data)
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    let snapshot = try session.snapshot(timeSeconds: 0, wallClock: nativeSystemWallClock())
+    let report = try NativeMacPolicy.evaluate(snapshot, compatibility: compatibility)
+    let fonts = try NativeMacFontRegistry.register(snapshot: snapshot, downloadedFonts: [:])
+    return try NativeMacDocumentView(
+      snapshot: snapshot, session: session, compatibility: compatibility, report: report,
+      fonts: fonts,
+      onEvent: { event in
+        guard case let .namedAction(name, value) = event else { return }
+        onEvent(.namedAction(name: name, value: nativePlayerActionValue(value)))
+      }, onDiagnostics: onDiagnostics, onError: onError)
   }
 
   /// One captured frame and the tree it was laid out as.
@@ -381,7 +412,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: .compatible, report: report,
       fonts: fonts, conformanceFontName: conformanceFontName,
-      onEvent: { hostActionSummaries.append($0) }, onDiagnostics: { _ in }, onError: { _ in })
+      onEvent: { hostActionSummaries.append(nativeEventSummary($0)) }, onDiagnostics: { _ in }, onError: { _ in })
     let captureSize = viewport ?? CGSize(width: snapshot.width, height: snapshot.height)
     let initialSize = steps.first?.viewport ?? captureSize
     let frame = NSRect(origin: .zero, size: initialSize)
@@ -785,7 +816,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     ).map(\.family)
   }
 
-  func open(
+  public func open(
     data: Data,
     title: String,
     compatibility: NativeMacCompatibility,
@@ -812,7 +843,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: compatibility, report: report,
       fonts: fonts,
-      onEvent: onEvent, onDiagnostics: onDiagnostics, onError: onError)
+      onEvent: { onEvent(nativeEventSummary($0)) }, onDiagnostics: onDiagnostics, onError: onError)
     let scroll = NSScrollView()
     scroll.drawsBackground = true
     scroll.backgroundColor = .windowBackgroundColor
@@ -836,7 +867,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     windows.append(window)
   }
 
-  func windowWillClose(_ notification: Notification) {
+  public func windowWillClose(_ notification: Notification) {
     guard let window = notification.object as? NSWindow else { return }
     windows.removeAll { $0 === window }
   }
@@ -1086,10 +1117,10 @@ private enum MacLinearLayout {
   }
 }
 
-final class NativeMacDocumentView: NSView {
+private final class NativeMacDocumentView: NSView {
   private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
-  private let onEvent: (String) -> Void
+  private let onEvent: (NativeSwiftEvent) -> Void
   private let onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
   private let onError: (String) -> Void
   private var snapshot: NativeSwiftDocumentSnapshot
@@ -1105,6 +1136,7 @@ final class NativeMacDocumentView: NSView {
   private var stateTransition: NativeMacStateTransition?
   private var appliedMeasurements: [Int: NativeSwiftMeasuredSize] = [:]
   private var isRefiningBoundGeometry = false
+  private var currentSnapshotUsesMeasurements = false
 
   /// The active document component tree, for the conformance corpus's `tree` probe.
   ///
@@ -1188,7 +1220,7 @@ final class NativeMacDocumentView: NSView {
     report: NativeMacPolicyReport,
     fonts: NativeMacFontRegistry,
     conformanceFontName: String? = nil,
-    onEvent: @escaping (String) -> Void,
+    onEvent: @escaping (NativeSwiftEvent) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
   ) throws {
@@ -1285,7 +1317,8 @@ final class NativeMacDocumentView: NSView {
   private func install(
     _ next: NativeSwiftDocumentSnapshot,
     events: [NativeSwiftEvent] = [],
-    report suppliedReport: NativeMacPolicyReport? = nil
+    report suppliedReport: NativeMacPolicyReport? = nil,
+    usesMeasurements: Bool = false
   ) throws {
     let report: NativeMacPolicyReport
     if let suppliedReport {
@@ -1298,6 +1331,7 @@ final class NativeMacDocumentView: NSView {
     let changedStateLayoutIDs = changedStateLayouts(
       from: snapshot.root, to: next.root)
     snapshot = next
+    currentSnapshotUsesMeasurements = usesMeasurements
     if reportedDiagnostics != report.diagnostics {
       reportedDiagnostics = report.diagnostics
       onDiagnostics(report.diagnostics)
@@ -1321,6 +1355,8 @@ final class NativeMacDocumentView: NSView {
       component.frame = bounds
       addSubview(component)
       component.layoutSubtreeIfNeeded()
+      // Keep the view logically interactive while Core Animation fades its layer in.
+      component.layer?.opacity = 0
       addSubview(outgoing, positioned: .below, relativeTo: component)
       stateTransition = transition
       animateStateLayoutTransition(from: outgoing, to: component, transition: transition)
@@ -1370,7 +1406,7 @@ final class NativeMacDocumentView: NSView {
       try install(
         try session.snapshot(timeSeconds: sampleTime(), wallClock: nativeSystemWallClock()),
         events: events)
-      for event in events { onEvent(nativeEventSummary(event)) }
+      for event in events { onEvent(event) }
     } catch {
       onError("Native input failed: \(error.localizedDescription)")
       NSSound.beep()
@@ -1399,7 +1435,7 @@ final class NativeMacDocumentView: NSView {
     guard !isRefiningBoundGeometry, !snapshot.boundComponents.isEmpty else { return }
     var measured: [Int: NativeSwiftMeasuredSize] = [:]
     component.collectMeasuredSizes(of: snapshot.boundComponents, into: &measured)
-    guard measured != appliedMeasurements else { return }
+    guard !currentSnapshotUsesMeasurements || measured != appliedMeasurements else { return }
     appliedMeasurements = measured
     isRefiningBoundGeometry = true
     defer { isRefiningBoundGeometry = false }
@@ -1407,7 +1443,8 @@ final class NativeMacDocumentView: NSView {
       try install(
         session.snapshot(
           timeSeconds: sampleTime(), wallClock: nativeSystemWallClock(),
-          measuredComponents: measured))
+          measuredComponents: measured),
+        usesMeasurements: true)
     } catch {
       onError("Native geometry refinement failed: \(error.localizedDescription)")
     }
@@ -1423,7 +1460,7 @@ final class NativeMacDocumentView: NSView {
       context.duration = transition.duration
       context.timingFunction = transition.timingFunction
       outgoing.animator().alphaValue = 0
-      incoming.animator().alphaValue = 1
+      incoming.layer?.opacity = 1
     } completionHandler: { [weak self, weak outgoing] in
       guard let self, let outgoing, self.outgoingStateComponent === outgoing else { return }
       outgoing.removeFromSuperview()
