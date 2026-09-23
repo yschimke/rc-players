@@ -1105,10 +1105,14 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.int("background reserved1")
         _ = try input.int("background reserved2")
         let usesColorID = flags & 2 != 0
-        let red = try input.floatWord("background red", requireLiteral: !usesColorID)
-        let green = try input.floatWord("background green", requireLiteral: !usesColorID)
-        let blue = try input.floatWord("background blue", requireLiteral: !usesColorID)
-        let alpha = try input.floatWord("background alpha", requireLiteral: !usesColorID)
+        let red = try input.floatWord(
+          "background red", requireLiteral: !usesColorID, opcode: opcode)
+        let green = try input.floatWord(
+          "background green", requireLiteral: !usesColorID, opcode: opcode)
+        let blue = try input.floatWord(
+          "background blue", requireLiteral: !usesColorID, opcode: opcode)
+        let alpha = try input.floatWord(
+          "background alpha", requireLiteral: !usesColorID, opcode: opcode)
         let shape = try input.int("background shape")
         guard shape == 0 else {
           throw NativeSwiftCoreError.unsupported(
@@ -1141,7 +1145,9 @@ enum NativeSwiftDocumentDecoder {
           // one-word expression runs it through the same ordered evaluation as any other computed
           // value, instead of freezing a reference's raw NaN bits into the seed map.
           expressions.append(
-            ParsedFloatExpression(id: floatID, words: [constantWord], animationWords: nil))
+            ParsedFloatExpression(
+              id: floatID, words: [constantWord], animationWords: nil, opcode: opcode,
+              offset: opcodeOffset))
           expressionIDs.insert(floatID)
         } else {
           let value = Float(bitPattern: constantWord)
@@ -1189,7 +1195,8 @@ enum NativeSwiftDocumentDecoder {
         }
         expressions.append(
           ParsedFloatExpression(
-            id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords))
+            id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords,
+            opcode: opcode, offset: opcodeOffset))
         expressionIDs.insert(id)
       case NativeSwiftWireOpcode.layoutCustom:  // Custom
         let id = try input.int("custom component id")
@@ -1227,7 +1234,8 @@ enum NativeSwiftDocumentDecoder {
         }
         let node = ParsedNode(kind: .custom, componentID: id)
         node.componentKind = "CustomLayout"
-        node.custom = ParsedCustom(configID: configID, properties: properties)
+        node.custom = ParsedCustom(
+          configID: configID, properties: properties, offset: opcodeOffset)
         try begin(node)
       case NativeSwiftWireOpcode.dataText:  // Text data
         let id = try input.int("text id")
@@ -1268,14 +1276,15 @@ enum NativeSwiftDocumentDecoder {
         var tokens: [Int] = []
         tokens.reserveCapacity(count)
         for _ in 0..<count { tokens.append(try input.int("integer expression value")) }
-        integerExpressions[outputID] = ParsedIntegerExpression(mask: mask, tokens: tokens)
+        integerExpressions[outputID] = ParsedIntegerExpression(
+          mask: mask, tokens: tokens, offset: opcodeOffset)
         // The order is what `probeValues` re-evaluates in: an expression may read another's result,
         // so the wire's own declaration order is the one that converges. Without this the refresh
         // pass had nothing to iterate and a probe kept reporting the decode-time value however a
         // gesture had moved its inputs.
         integerExpressionOrder.append(outputID)
         integers[outputID] = try NativeSwiftIntegerExpression.evaluate(
-          mask: mask, tokens: tokens, values: integers)
+          mask: mask, tokens: tokens, values: integers, offset: opcodeOffset)
       case NativeSwiftWireOpcode.idList:  // List of resource ids
         let id = try input.int("id list id")
         let count = try input.count("id list count", maximum: maximumProperties)
@@ -1328,7 +1337,8 @@ enum NativeSwiftDocumentDecoder {
         let mapID = try input.int("data map lookup map id")
         let keyTextID = try input.int("data map lookup key text id")
         dataMapLookups.append(
-          ParsedDataMapLookup(outputID: outputID, mapID: mapID, keyTextID: keyTextID))
+          ParsedDataMapLookup(
+            outputID: outputID, mapID: mapID, keyTextID: keyTextID, offset: opcodeOffset))
       case NativeSwiftWireOpcode.colorExpressions:  // Dynamic color expression
         let expression = ParsedColorExpression(
           outputID: try input.int("color expression output id"),
@@ -1398,7 +1408,7 @@ enum NativeSwiftDocumentDecoder {
         words.reserveCapacity(count)
         for _ in 0..<count { words.append(try input.word("path word")) }
         paths[idAndWinding & 0x00ff_ffff] = ParsedPath(
-          winding: idAndWinding >> 24, words: words)
+          winding: idAndWinding >> 24, words: words, opcode: opcode, offset: opcodeOffset)
         pathIDs.insert(idAndWinding & 0x00ff_ffff)
       case NativeSwiftWireOpcode.pathTween:
         // Path tween; retained for the decoded-operation record probe.
@@ -1413,7 +1423,9 @@ enum NativeSwiftDocumentDecoder {
         let id = try input.int("path create id")
         let x = try input.word("path create x")
         let y = try input.word("path create y")
-        paths[id] = ParsedPath(winding: 0, words: [pathCommandWord(NativeSwiftPathCommand.move), x, y])
+        paths[id] = ParsedPath(
+          winding: 0, words: [pathCommandWord(NativeSwiftPathCommand.move), x, y], opcode: opcode,
+          offset: opcodeOffset)
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.pathAdd:
         // Appends path commands in `PATH_DATA`'s encoding; a leading RESET empties the path first.
@@ -1421,10 +1433,12 @@ enum NativeSwiftDocumentDecoder {
         let count = try input.count("path append word count", maximum: 2_000)
         let words = try (0..<count).map { _ in try input.word("path append word") }
         if words.first.flatMap(NativeSwiftFloatExpression.referenceID) == NativeSwiftPathCommand.reset {
-          paths[id] = ParsedPath(winding: paths[id]?.winding ?? 0, words: [])
-        } else {
           paths[id] = ParsedPath(
-            winding: paths[id]?.winding ?? 0, words: (paths[id]?.words ?? []) + words)
+            winding: paths[id]?.winding ?? 0, words: [], opcode: opcode, offset: opcodeOffset)
+        } else if let existing = paths[id] {
+          paths[id] = existing.appending(words, opcode: opcode, offset: opcodeOffset)
+        } else {
+          paths[id] = ParsedPath(winding: 0, words: words, opcode: opcode, offset: opcodeOffset)
         }
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.drawPath:
@@ -1561,10 +1575,10 @@ enum NativeSwiftDocumentDecoder {
         //
         let id = try input.int("animation spec id")
         let motionDuration = try input.floatWord(
-          "animation spec motion duration", requireLiteral: true)
+          "animation spec motion duration", requireLiteral: true, opcode: opcode)
         let motionEasingType = try input.int("animation spec motion easing")
         let visibilityDuration = try input.floatWord(
-          "animation spec visibility duration", requireLiteral: true)
+          "animation spec visibility duration", requireLiteral: true, opcode: opcode)
         let visibilityEasingType = try input.int("animation spec visibility easing")
         let enterAnimation = try input.int("animation spec enter animation")
         let exitAnimation = try input.int("animation spec exit animation")
@@ -1633,7 +1647,7 @@ enum NativeSwiftDocumentDecoder {
         particleDefinitions.append(
           ParsedParticleDefinition(
             id: particleID, particleCount: particleCount, variableIDs: variableIDs,
-            initializationEquations: initializationEquations))
+            initializationEquations: initializationEquations, offset: opcodeOffset))
       case NativeSwiftWireOpcode.particleLoop:  // Particle loop
         // ParticlesLoop.read: an id, one length-prefixed expression for the loop itself, then a
         // variable count and a length-prefixed expression per variable. Same bounds as above.
@@ -1668,7 +1682,8 @@ enum NativeSwiftDocumentDecoder {
         }
         particleLoops.append(
           ParsedParticleLoop(
-            id: particleID, restartEquation: restartEquation, updateEquations: updateEquations))
+            id: particleID, restartEquation: restartEquation, updateEquations: updateEquations,
+            offset: opcodeOffset))
       case NativeSwiftWireOpcode.rootContentDescription:  // Root content description
         _ = try input.int("root content description id")
       case NativeSwiftWireOpcode.layoutCanvasContent:  // Canvas content
@@ -1764,10 +1779,14 @@ enum NativeSwiftDocumentDecoder {
         let width = try input.word("border width")
         _ = try input.word("border corner")
         let usesColorID = flags & 2 != 0
-        let red = try input.floatWord("border red", requireLiteral: !usesColorID)
-        let green = try input.floatWord("border green", requireLiteral: !usesColorID)
-        let blue = try input.floatWord("border blue", requireLiteral: !usesColorID)
-        let alpha = try input.floatWord("border alpha", requireLiteral: !usesColorID)
+        let red = try input.floatWord(
+          "border red", requireLiteral: !usesColorID, opcode: opcode)
+        let green = try input.floatWord(
+          "border green", requireLiteral: !usesColorID, opcode: opcode)
+        let blue = try input.floatWord(
+          "border blue", requireLiteral: !usesColorID, opcode: opcode)
+        let alpha = try input.floatWord(
+          "border alpha", requireLiteral: !usesColorID, opcode: opcode)
         _ = try input.int("border shape type")
         node.borderARGB = !usesColorID ? argb(red: red, green: green, blue: blue, alpha: alpha) : nil
         node.borderColorID = usesColorID ? colorID : nil
@@ -2287,7 +2306,9 @@ enum NativeSwiftDocumentDecoder {
     // An expression reads "forward" when an id it reads is written by the same or a later
     // expression, which is what makes the tolerant first pass observable without a binding.
     var lastExpressionIndex: [Int: Int] = [:]
-    for (index, expression) in expressions.enumerated() { lastExpressionIndex[expression.id] = index }
+    for (index, expression) in expressions.enumerated() {
+      lastExpressionIndex[expression.id] = index
+    }
     let expressionsReadForward = expressions.enumerated().contains { index, expression in
       expression.words.contains { word in
         guard let id = NativeSwiftFloatExpression.referenceID(word),

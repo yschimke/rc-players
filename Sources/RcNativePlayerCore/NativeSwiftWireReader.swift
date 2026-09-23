@@ -60,11 +60,15 @@ struct WireReader {
     return value
   }
 
-  mutating func floatWord(_ field: @autoclosure () -> String, requireLiteral: Bool) throws -> Float {
+  /// A float word that must be a literal when `requireLiteral` is set. `opcode` is the operation
+  /// being read, which a refused reference is reported against.
+  mutating func floatWord(
+    _ field: @autoclosure () -> String, requireLiteral: Bool, opcode: Int
+  ) throws -> Float {
     let value = Float(bitPattern: try uint32(field()))
     if value.isNaN, requireLiteral {
       throw NativeSwiftCoreError.unsupported(
-        opcode: -1, offset: offset - 4, reason: "dynamic float \(field())")
+        opcode: opcode, offset: offset - 4, reason: "dynamic float \(field())")
     }
     guard !requireLiteral || value.isFinite else { throw malformed("\(field()) must be finite") }
     return value

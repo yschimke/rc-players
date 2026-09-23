@@ -4,11 +4,17 @@ struct ParsedFloatExpression {
   let id: Int
   let words: [UInt32]
   let animationWords: [UInt32]?
+  /// The operation that declared the expression -- `ANIMATED_FLOAT`, or a `DATA_FLOAT` alias -- and
+  /// its byte offset, so a failure while evaluating it names where it came from.
+  let opcode: Int
+  let offset: Int
 }
 
 struct ParsedIntegerExpression {
   let mask: Int
   let tokens: [Int]
+  /// The declaring `INTEGER_EXPRESSION`'s byte offset, for evaluation failures.
+  let offset: Int
 }
 
 /// A `MATRIX_EXPRESSION` held as it arrived on the wire. The expression is RPN over a small matrix
@@ -27,13 +33,15 @@ struct ParsedMatrixVectorMath {
 }
 
 enum NativeSwiftIntegerExpression {
-  static func evaluate(mask: Int, tokens: [Int], values: [Int: Int]) throws -> Int {
+  /// - Parameter offset: the declaring `INTEGER_EXPRESSION`'s byte offset, reported by any error.
+  static func evaluate(mask: Int, tokens: [Int], values: [Int: Int], offset: Int) throws -> Int {
     var stack: [Int32] = []
     stack.reserveCapacity(tokens.count)
     // Operands come off as a tuple, oldest first, rather than as a fresh `Array` per operator.
     func require(_ count: Int) throws {
       guard stack.count >= count else {
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Integer expression stack underflow")
+        throw NativeSwiftCoreError.malformed(
+          offset: offset, reason: "Integer expression stack underflow")
       }
     }
     func pop1() throws -> Int32 {
@@ -100,12 +108,13 @@ enum NativeSwiftIntegerExpression {
         }
       } else {
         throw NativeSwiftCoreError.unsupported(
-          opcode: NativeSwiftWireOpcode.integerExpression, offset: 0,
+          opcode: NativeSwiftWireOpcode.integerExpression, offset: offset,
           reason: "integer expression operator \(operation)")
       }
     }
     guard stack.count == 1, let result = stack.last else {
-      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Invalid integer expression result")
+      throw NativeSwiftCoreError.malformed(
+        offset: offset, reason: "Invalid integer expression result")
     }
     return Int(result)
   }
@@ -130,15 +139,20 @@ enum NativeSwiftFloatExpression {
     return Int(word & referenceMask)
   }
 
+  /// - Parameters:
+  ///   - opcode: the operation that declared `words` -- `ANIMATED_FLOAT`, a `DATA_FLOAT` alias, or
+  ///     a particle definition or loop -- reported by any error.
+  ///   - offset: that operation's byte offset.
   static func evaluate(
-    _ words: [UInt32], values: [Int: Float], variables: [Float] = []
+    _ words: [UInt32], values: [Int: Float], variables: [Float] = [], opcode: Int, offset: Int
   ) throws -> Float {
     var stack: [Float] = []
     stack.reserveCapacity(min(words.count, 128))
     // Operands come off as a tuple, oldest first, rather than as a fresh `Array` per operator.
     func require(_ count: Int) throws {
       guard stack.count >= count else {
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Float expression stack underflow")
+        throw NativeSwiftCoreError.malformed(
+          offset: offset, reason: "Float expression stack underflow")
       }
     }
     func pop1() throws -> Float {
@@ -171,7 +185,8 @@ enum NativeSwiftFloatExpression {
       else {
         stack.append(resolve(word, values: values))
         guard stack.count <= 128 else {
-          throw NativeSwiftCoreError.malformed(offset: 0, reason: "Float expression stack overflow")
+          throw NativeSwiftCoreError.malformed(
+            offset: offset, reason: "Float expression stack overflow")
         }
         continue
       }
@@ -187,7 +202,8 @@ enum NativeSwiftFloatExpression {
         case NativeSwiftFloatOperator.sub: stack.append(first - second)
         case NativeSwiftFloatOperator.mul: stack.append(first * second)
         case NativeSwiftFloatOperator.div: stack.append(first / second)
-        case NativeSwiftFloatOperator.mod: stack.append(first.truncatingRemainder(dividingBy: second))
+        case NativeSwiftFloatOperator.mod:
+          stack.append(first.truncatingRemainder(dividingBy: second))
         case NativeSwiftFloatOperator.min: stack.append(min(first, second))
         case NativeSwiftFloatOperator.max: stack.append(max(first, second))
         default: stack.append(powf(first, second))
@@ -279,12 +295,12 @@ enum NativeSwiftFloatExpression {
         stack.append(cubicEasing(x1, y1, x2, y2, x))
       default:
         throw NativeSwiftCoreError.unsupported(
-          opcode: NativeSwiftWireOpcode.animatedFloat, offset: 0,
-          reason: "float expression operator \(operation)")
+          opcode: opcode, offset: offset, reason: "float expression operator \(operation)")
       }
     }
     guard stack.count == 1, let result = stack.last, result.isFinite else {
-      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Invalid float expression result")
+      throw NativeSwiftCoreError.malformed(
+        offset: offset, reason: "Invalid float expression result")
     }
     return result
   }

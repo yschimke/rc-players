@@ -163,6 +163,8 @@ struct ParsedDataMapLookup {
   let outputID: Int
   let mapID: Int
   let keyTextID: Int
+  /// The `DATA_MAP_LOOKUP` operation's byte offset, for resolution failures.
+  let offset: Int
 }
 
 struct ParsedNamedAction {
@@ -421,6 +423,8 @@ extension ParsedNode {
 struct ParsedCustom {
   let configID: Int
   let properties: [ParsedCustomProperty]
+  /// The `LAYOUT_CUSTOM` operation's byte offset, for resolution failures.
+  let offset: Int
 }
 
 struct ParsedCustomProperty {

@@ -193,7 +193,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+        throw NativeSwiftCoreError.malformed(
+          offset: lookup.offset, reason: "Unknown data-map type")
       }
     }
     let resolvedColors = resolveColors(values: values)
@@ -335,7 +336,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case .integerExpression(let targetID, let expressionID):
         if let expression = document.integerExpressions[expressionID] {
           integers[targetID] = try NativeSwiftIntegerExpression.evaluate(
-            mask: expression.mask, tokens: expression.tokens, values: integers)
+            mask: expression.mask, tokens: expression.tokens, values: integers,
+            offset: expression.offset)
         } else if let value = integers[expressionID] {
           integers[targetID] = value
         }
@@ -343,7 +345,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         guard let expression = document.expressions.first(where: { $0.id == expressionID })
         else { continue }
         floatOverrides[targetID] = try NativeSwiftFloatExpression.evaluate(
-          expression.words, values: values)
+          expression.words, values: values, opcode: expression.opcode, offset: expression.offset)
       case .integerValue(let targetID, let value):
         integers[targetID] = value
       case .floatValue(let targetID, let value):
@@ -395,7 +397,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+        throw NativeSwiftCoreError.malformed(
+          offset: lookup.offset, reason: "Unknown data-map type")
       }
     }
     // Text operations and lookups update retained state, so a previously cached static frame is
@@ -411,7 +414,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   /// Resolves a static or dynamic float list for conformance state probes.
-  @_spi(Conformance) public func probeFloatList(id: Int, dynamic: Bool, timeSeconds: TimeInterval) throws -> [Float]? {
+  @_spi(Conformance) public func probeFloatList(
+    id: Int, dynamic: Bool, timeSeconds: TimeInterval
+  ) throws -> [Float]? {
     stateLock.lock()
     defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
@@ -445,7 +450,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// Returns a matrix in the exact shape the wire declares (nine values for a 3x3 constant,
   /// sixteen for a 4x4 constant or expression).
-  @_spi(Conformance) public func probeMatrix(id: Int, timeSeconds: TimeInterval) throws -> [Float]? {
+  @_spi(Conformance)
+  public func probeMatrix(id: Int, timeSeconds: TimeInterval) throws -> [Float]? {
     stateLock.lock()
     defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
@@ -460,7 +466,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// A probe that names a variable the document never declared is genuinely unobservable; one that
   /// addresses a numeric slot the document left empty is an observation, and the caller has to keep
   /// the two apart.
-  @_spi(Conformance) public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
+  @_spi(Conformance)
+  public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
 
   /// The authoring API addresses user values without the wire format's `USER:` prefix. Keep the
   /// wire spelling available too, so hosts can use either form when a document names it explicitly.
@@ -598,7 +605,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if let source = node.custom {
       guard let config = texts[source.configID] else {
         throw NativeSwiftCoreError.malformed(
-          offset: 0, reason: "Custom component \(node.componentID) has no config text")
+          offset: source.offset,
+          reason: "Custom component \(node.componentID) has no config text")
       }
       let properties = source.properties.map { property in
         let floatValue =
@@ -840,7 +848,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for id in document.integerExpressionOrder {
       guard let expression = document.integerExpressions[id] else { continue }
       integers[id] = try NativeSwiftIntegerExpression.evaluate(
-        mask: expression.mask, tokens: expression.tokens, values: integers)
+        mask: expression.mask, tokens: expression.tokens, values: integers,
+        offset: expression.offset)
     }
   }
 
@@ -1033,9 +1042,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // per document whether the first pass is needed at all.
     for expression in document.expressions where document.needsTolerantExpressionPass {
       guard floatOverrides[expression.id] == nil else { continue }
-      if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
-        if resolveAnimatedValues, let animationWords = expression.animationWords,
-          let runtime = try? animationRuntime(for: expression.id, animationWords: animationWords)
+      if let value = try? NativeSwiftFloatExpression.evaluate(
+        expression.words, values: result, opcode: expression.opcode, offset: expression.offset)
+      {
+        if resolveAnimatedValues, expression.animationWords != nil,
+          let runtime = try? animationRuntime(for: expression)
         {
           // Geometry bindings are measured immediately below. They must see the same animated
           // value the final resolver will draw, not the expression's raw target.
@@ -1085,9 +1096,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     func evaluateExpressions() throws {
       for expression in document.expressions {
         guard floatOverrides[expression.id] == nil else { continue }
-        let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
-        if resolveAnimatedValues, let animationWords = expression.animationWords {
-          let runtime = try animationRuntime(for: expression.id, animationWords: animationWords)
+        let target = try NativeSwiftFloatExpression.evaluate(
+          expression.words, values: result, opcode: expression.opcode, offset: expression.offset)
+        if resolveAnimatedValues, expression.animationWords != nil {
+          let runtime = try animationRuntime(for: expression)
           result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
         } else {
           result[expression.id] = target
@@ -1171,12 +1183,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
   }
 
+  /// The retained runtime for an expression that carries animation words.
   private func animationRuntime(
-    for id: Int, animationWords: [UInt32]
+    for expression: ParsedFloatExpression
   ) throws -> NativeSwiftFloatAnimationRuntime {
-    if let existing = floatAnimationRuntimes[id] { return existing }
-    let runtime = try NativeSwiftFloatAnimationRuntime(animationWords: animationWords)
-    floatAnimationRuntimes[id] = runtime
+    if let existing = floatAnimationRuntimes[expression.id] { return existing }
+    let runtime = try NativeSwiftFloatAnimationRuntime(
+      animationWords: expression.animationWords ?? [], offset: expression.offset)
+    floatAnimationRuntimes[expression.id] = runtime
     return runtime
   }
 
