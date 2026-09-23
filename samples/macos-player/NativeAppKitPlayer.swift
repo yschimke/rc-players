@@ -271,23 +271,26 @@ struct NativeMacValueRequest: Decodable {
   let integers: [String]
   let texts: [String]
   let colors: [String]
+  let matrices: [String]
   let dynamicFloatArrays: [String]
   let dataFloatArrays: [String]
 
   init(
     floats: [String] = [], integers: [String] = [], texts: [String] = [], colors: [String] = [],
+    matrices: [String] = [],
     dynamicFloatArrays: [String] = [], dataFloatArrays: [String] = []
   ) {
     self.floats = floats
     self.integers = integers
     self.texts = texts
     self.colors = colors
+    self.matrices = matrices
     self.dynamicFloatArrays = dynamicFloatArrays
     self.dataFloatArrays = dataFloatArrays
   }
 
   private enum CodingKeys: String, CodingKey {
-    case floats, integers, texts, colors
+    case floats, integers, texts, colors, matrices
     case dynamicFloatArrays = "float_arrays_dynamic"
     case dataFloatArrays = "float_arrays_data"
   }
@@ -299,6 +302,7 @@ struct NativeMacValueRequest: Decodable {
       integers: try values.decodeIfPresent([String].self, forKey: .integers) ?? [],
       texts: try values.decodeIfPresent([String].self, forKey: .texts) ?? [],
       colors: try values.decodeIfPresent([String].self, forKey: .colors) ?? [],
+      matrices: try values.decodeIfPresent([String].self, forKey: .matrices) ?? [],
       dynamicFloatArrays: try values.decodeIfPresent([String].self, forKey: .dynamicFloatArrays)
         ?? [],
       dataFloatArrays: try values.decodeIfPresent([String].self, forKey: .dataFloatArrays) ?? [])
@@ -419,7 +423,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     }
     var records = operationRecords(
       try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-      operationCount: session.linkedOperationCount)
+      operationCount: session.linkedOperationCount, operationNames: try operationNames(in: data))
     // The particle probe observes one system's particle rows. A document with no system reports an
     // empty matrix; multiple systems are deliberately not flattened, as that would lose the wire
     // declaration boundary needed by a future targeted probe.
@@ -453,10 +457,21 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     ).compactMap { names[$0.opcode] }
   }
 
+  private static func operationNames(in data: Data) throws -> [String] {
+    let names: [Int: String] = [
+      NativeSwiftWireOpcode.matrixConstant: "MatrixConstant",
+      NativeSwiftWireOpcode.matrixExpression: "MatrixExpression",
+      NativeSwiftWireOpcode.matrixVectorMath: "MatrixVectorMath",
+    ]
+    return try NativeSwiftDocumentSession.operationSpans(
+      in: data, toleratingRootlessData: true
+    ).compactMap { names[$0.opcode] }
+  }
+
   /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
   /// are document facts, not reconstructed AppKit animation state.
   private static func operationRecords(
-    _ snapshot: NativeSwiftDocumentSnapshot, operationCount: Int
+    _ snapshot: NativeSwiftDocumentSnapshot, operationCount: Int, operationNames: [String]
   ) -> [String: Any] {
     func specRecord(_ id: Int, _ spec: NativeSwiftAnimationSpec) -> [String: Any] {
       [
@@ -509,6 +524,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     collectDrawComponents(snapshot.root)
     return [
       "ops_count": operationCount,
+      "ops_present": Array(Set(operationNames)).sorted(),
       "component_count": components.count,
       "distinct_ids": Set(componentIDs).count == componentIDs.count,
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
@@ -563,6 +579,9 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       "texts": try report(request.texts) { resolved.texts[$0] },
       "colors": try report(request.colors) { id in
         resolved.colors[id].map { NSNumber(value: $0) } ?? NSNumber(value: UInt32(0))
+      },
+      "matrices": try report(request.matrices) { id in
+        try session.probeMatrix(id: id, timeSeconds: timeSeconds)?.map(Double.init)
       },
       "float_arrays_dynamic": try report(request.dynamicFloatArrays) { id in
         try session.probeFloatList(id: id, dynamic: true, timeSeconds: timeSeconds)?

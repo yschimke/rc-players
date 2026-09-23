@@ -297,10 +297,13 @@ private class NativeSwiftSession(
       "int",
       "text",
       "color",
+      "matrix",
       "float_array:dynamic",
       "float_array:data" -> scalar(check)
       "particles" -> particles(check.at)
       "ops:count" -> operationCount(check.at)
+      "ops:present",
+      "ops:absent" -> operationPresence(check.at)
       "draw_log:commands" -> drawLog(check.at)
       "ops:component_count" -> operationMetric(check.at, "component_count")
       "ops:distinct_ids" -> operationMetric(check.at, "distinct_ids")
@@ -339,6 +342,7 @@ private class NativeSwiftSession(
       "int" -> "integers"
       "text" -> "texts"
       "color" -> "colors"
+      "matrix" -> "matrices"
       "float_array:dynamic" -> "float_arrays_dynamic"
       "float_array:data" -> "float_arrays_data"
       else -> error("Not a native Swift value probe: $probe")
@@ -347,6 +351,11 @@ private class NativeSwiftSession(
   private fun operationCount(stepId: String): Observation {
     val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
     return frames[stepId]?.get("ops_count")?.let(Observation::Value) ?: Observation.NotImplemented
+  }
+
+  private fun operationPresence(stepId: String): Observation {
+    val frames = capturedRecords ?: captureRecords().also { capturedRecords = it }
+    return frames[stepId]?.get("ops_present")?.let(Observation::Value) ?: Observation.NotImplemented
   }
 
   /** Structural LOOM probes: materialised component count and ID uniqueness. */
@@ -519,7 +528,16 @@ private class NativeSwiftSession(
   private val valueTargets: Map<String, List<String>> by lazy {
     gold.checks
       .filter {
-        it.key in setOf("float", "int", "text", "color", "float_array:dynamic", "float_array:data")
+        it.key in
+          setOf(
+            "float",
+            "int",
+            "text",
+            "color",
+            "matrix",
+            "float_array:dynamic",
+            "float_array:data",
+          )
       }
       .mapNotNull { check -> check.target?.let { bucketName(check.key) to it } }
       .groupBy({ it.first }, { it.second })
