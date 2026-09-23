@@ -1104,15 +1104,20 @@
     /// The origin is the part that needed deciding. No document on the catalog sheet carries
     /// `TRANSFORM_ORIGIN`, so the default decides every transform on it, and the declared
     /// `remote-core` default -- 0, the top-left -- is not what any AndroidX lane actually draws for
-    /// an absent attribute. This player centres, and `graphicsLayerTransformOrigin` below carries
-    /// the derivation and the measurement.
+    /// an absent attribute. The core reports an absent origin as the centre (0.5, 0.5), and
+    /// `graphicsLayerTransformOrigin` below carries the derivation and the measurement.
     ///
-    /// CALayer applies `transform` about its own anchor point, so an origin of (0, 0) has to be
+    /// CALayer applies `transform` about its own anchor point, so the document's origin has to be
     /// folded into the matrix rather than assumed. For a linear part S and an anchor at A, the
-    /// transform that behaves as if applied about p is S with a translation of (I - S)(p - A);
-    /// with p = (0, 0) that is -(I - S)A. Recomputed from `bounds` on every layout pass, so it
-    /// stays correct through resizes and never compounds.
-    /// The transform origin used when a document does not state one.
+    /// transform that behaves as if applied about p is S with a translation of (I - S)(p - A).
+    /// Recomputed from `bounds` on every layout pass, so it stays correct through resizes and
+    /// never compounds.
+    ///
+    /// ### The transform origin
+    ///
+    /// The snapshot carries `TRANSFORM_ORIGIN_X`/`_Y` (ids 5/6) as fractions of the component's
+    /// size, the way Compose's `TransformOrigin` reads them, and 0.5 when the document does not
+    /// state one.
     ///
     /// `TRANSFORM_ORIGIN` looked contested — `remote-core` declares a default of `0f` while
     /// `remote-creation-compose` omitted the attribute at `0.5f` (#155, #153) — and this centred
@@ -1145,11 +1150,15 @@
     /// An AndroidX lane that pivots an absent origin at the top-left. `remote-player-compose`'s
     /// embedded player now reads the attribute's source directly and does pivot there — it does
     /// not consult `needsToWrite` — so it and the `RenderNode` lanes disagree on documents captured
-    /// before `4969cdd96c6`. If that reading becomes the one AndroidX settles on, delete this
-    /// function and use `.zero` for `origin` in `applyGraphicsLayer`; `rc-player-compose` carries
-    /// the same default, in `RcGraphicsLayerValues`, and would move with it.
-    private static func graphicsLayerTransformOrigin(of size: CGSize) -> CGPoint {
-      CGPoint(x: size.width / 2, y: size.height / 2)
+    /// before `4969cdd96c6`. If that reading becomes the one AndroidX settles on, change the
+    /// absent-origin default in `NativeSwiftDocumentSession` to 0; `rc-player-compose` carries the
+    /// same default, in `RcGraphicsLayerValues`, and would move with it.
+    private static func graphicsLayerTransformOrigin(
+      of graphicsLayer: NativeSwiftGraphicsLayerSnapshot, in size: CGSize
+    ) -> CGPoint {
+      CGPoint(
+        x: CGFloat(graphicsLayer.transformOriginX) * size.width,
+        y: CGFloat(graphicsLayer.transformOriginY) * size.height)
     }
 
     private func applyGraphicsLayer() {
@@ -1159,7 +1168,7 @@
       let linear = CGAffineTransform(
         rotationAngle: CGFloat(graphicsLayer.rotationZ) * .pi / 180
       ).scaledBy(x: CGFloat(graphicsLayer.scaleX), y: CGFloat(graphicsLayer.scaleY))
-      let origin = Self.graphicsLayerTransformOrigin(of: bounds.size)
+      let origin = Self.graphicsLayerTransformOrigin(of: graphicsLayer, in: bounds.size)
       let dx = origin.x - anchor.x, dy = origin.y - anchor.y
       let originX = dx - (linear.a * dx + linear.c * dy)
       let originY = dy - (linear.b * dx + linear.d * dy)

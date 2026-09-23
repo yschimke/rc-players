@@ -214,6 +214,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
 /// The 2D subset of MODIFIER_GRAPHICS_LAYER this player applies. Rotation about X and Y, Z
 /// translation, camera distance, shadow elevation and blur are parsed and deliberately not applied:
 /// nothing on the catalog sheet uses them, and a wrong 3D transform is worse than an absent one.
+///
+/// Each field is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it
+/// (`RcGraphicsLayerModifier` in `rc-player-protocol`): scale 0/1, rotation Z 4, transform origin
+/// 5/6, translation 7/8 and alpha 11.
 public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   public let scaleX: Float
   public let scaleY: Float
@@ -221,10 +225,26 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   public let translationY: Float
   public let rotationZ: Float
   public let alpha: Float
+  /// The pivot for scale and rotation as a fraction of the component's width: 0 is the left edge,
+  /// 1 the right. An absent attribute is the centre, 0.5 — `RcGraphicsLayerValues` in
+  /// `rc-player-runtime` explains why that, and not the declared `0f`, is what AndroidX draws.
+  public let transformOriginX: Float
+  /// The pivot for scale and rotation as a fraction of the component's height.
+  public let transformOriginY: Float
 
+  /// A layer pivoting about its centre.
   public init(
     scaleX: Float, scaleY: Float, translationX: Float, translationY: Float, rotationZ: Float,
     alpha: Float
+  ) {
+    self.init(
+      scaleX: scaleX, scaleY: scaleY, translationX: translationX, translationY: translationY,
+      rotationZ: rotationZ, alpha: alpha, transformOriginX: 0.5, transformOriginY: 0.5)
+  }
+
+  public init(
+    scaleX: Float, scaleY: Float, translationX: Float, translationY: Float, rotationZ: Float,
+    alpha: Float, transformOriginX: Float, transformOriginY: Float
   ) {
     self.scaleX = scaleX
     self.scaleY = scaleY
@@ -232,8 +252,12 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
     self.translationY = translationY
     self.rotationZ = rotationZ
     self.alpha = alpha
+    self.transformOriginX = transformOriginX
+    self.transformOriginY = transformOriginY
   }
 
+  /// True when the layer changes nothing. The transform origin is not consulted: a pivot moves
+  /// nothing without a scale or rotation to apply about it.
   public var isIdentity: Bool {
     scaleX == 1 && scaleY == 1 && translationX == 0 && translationY == 0 && rotationZ == 0
       && alpha == 1

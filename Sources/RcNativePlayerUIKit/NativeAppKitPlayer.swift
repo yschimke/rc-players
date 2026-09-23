@@ -161,24 +161,21 @@ private struct NativeMacStateTransition {
   let timingFunction: CAMediaTimingFunction
   let startedAt: TimeInterval
 
-  /// AndroidX `GeneralEasing` values supported by native Core Animation timing functions.
-  private enum EasingType {
-    static let standard = 1
-    static let accelerate = 2
-    static let decelerate = 3
-    static let linear = 4
-    static let anticipate = 5
-    static let overshoot = 6
-  }
-
+  /// The AndroidX `GeneralEasing` values native Core Animation timing functions support.
   static func timingFunction(for easingType: Int?) -> CAMediaTimingFunction {
     switch easingType {
-    case EasingType.standard: return CAMediaTimingFunction(controlPoints: 0.4, 0, 0.2, 1)
-    case EasingType.accelerate: return CAMediaTimingFunction(controlPoints: 0.4, 0.05, 0.8, 0.7)
-    case EasingType.decelerate: return CAMediaTimingFunction(controlPoints: 0, 0, 0.2, 0.95)
-    case EasingType.linear: return CAMediaTimingFunction(name: .linear)
-    case EasingType.anticipate: return CAMediaTimingFunction(controlPoints: 0.36, 0, 0.66, -0.56)
-    case EasingType.overshoot: return CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1)
+    case Int(NativeSwiftFloatEasingType.cubicStandard.rawValue):
+      return CAMediaTimingFunction(controlPoints: 0.4, 0, 0.2, 1)
+    case Int(NativeSwiftFloatEasingType.cubicAccelerate.rawValue):
+      return CAMediaTimingFunction(controlPoints: 0.4, 0.05, 0.8, 0.7)
+    case Int(NativeSwiftFloatEasingType.cubicDecelerate.rawValue):
+      return CAMediaTimingFunction(controlPoints: 0, 0, 0.2, 0.95)
+    case Int(NativeSwiftFloatEasingType.cubicLinear.rawValue):
+      return CAMediaTimingFunction(name: .linear)
+    case Int(NativeSwiftFloatEasingType.cubicAnticipate.rawValue):
+      return CAMediaTimingFunction(controlPoints: 0.36, 0, 0.66, -0.56)
+    case Int(NativeSwiftFloatEasingType.cubicOvershoot.rawValue):
+      return CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1)
     default: return CAMediaTimingFunction(controlPoints: 0.4, 0, 0.2, 1)
     }
   }
@@ -514,11 +511,26 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       NativeSwiftWireOpcode.drawTextOnPath: "DrawTextOnPath",
       NativeSwiftWireOpcode.drawTextOnCircle: "DrawTextOnCircleStub",
       NativeSwiftWireOpcode.conditionalOperations: "ConditionalOperations",
-      38: "clipPath", 39: "clipRect", 40: "paint", 42: "drawRect", 44: "drawBitmap",
-      46: "drawCircle", 47: "drawLine", 51: "drawRoundRect", 52: "drawSector",
-      56: "drawOval", 124: "drawPath", 125: "drawTweenPath", 126: "scale",
-      127: "translate", 128: "skew", 129: "rotate", 130: "save", 131: "restore",
-      149: "drawBitmapScaled", 152: "drawArc",
+      NativeSwiftWireOpcode.clipPath: "clipPath",
+      NativeSwiftWireOpcode.clipRect: "clipRect",
+      NativeSwiftWireOpcode.paintValues: "paint",
+      NativeSwiftWireOpcode.drawRect: "drawRect",
+      NativeSwiftWireOpcode.drawBitmap: "drawBitmap",
+      NativeSwiftWireOpcode.drawCircle: "drawCircle",
+      NativeSwiftWireOpcode.drawLine: "drawLine",
+      NativeSwiftWireOpcode.drawRoundRect: "drawRoundRect",
+      NativeSwiftWireOpcode.drawSector: "drawSector",
+      NativeSwiftWireOpcode.drawOval: "drawOval",
+      NativeSwiftWireOpcode.drawPath: "drawPath",
+      NativeSwiftWireOpcode.drawTweenPath: "drawTweenPath",
+      NativeSwiftWireOpcode.matrixScale: "scale",
+      NativeSwiftWireOpcode.matrixTranslate: "translate",
+      NativeSwiftWireOpcode.matrixSkew: "skew",
+      NativeSwiftWireOpcode.matrixRotate: "rotate",
+      NativeSwiftWireOpcode.matrixSave: "save",
+      NativeSwiftWireOpcode.matrixRestore: "restore",
+      NativeSwiftWireOpcode.drawBitmapScaled: "drawBitmapScaled",
+      NativeSwiftWireOpcode.drawArc: "drawArc",
     ]
     return try NativeSwiftDocumentSession.operationSpans(
       in: data, toleratingRootlessData: true
@@ -743,8 +755,11 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       ]
     }
     let defaultSpec = NativeSwiftAnimationSpec(
-      motionDuration: 300, motionEasingType: 1, visibilityDuration: 300,
-      visibilityEasingType: 1, enterAnimation: 0, exitAnimation: 1)
+      motionDuration: 300, motionEasingType: Int(NativeSwiftFloatEasingType.cubicStandard.rawValue),
+      visibilityDuration: 300,
+      visibilityEasingType: Int(NativeSwiftFloatEasingType.cubicStandard.rawValue),
+      enterAnimation: NativeSwiftLayoutAnimation.fadeIn,
+      exitAnimation: NativeSwiftLayoutAnimation.fadeOut)
     var components: [NativeSwiftNodeSnapshot] = []
     func collect(_ node: NativeSwiftNodeSnapshot) {
       if node.componentKind != "", node.kind != .root { components.append(node) }
@@ -771,18 +786,25 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         "enabled": accessibility.isEnabled, "clickable": accessibility.isClickable,
       ]
     }
-    let conditionalTypes = ["eq", "neq", "lt", "lte", "gt", "gte", "changed"]
+    let conditionalTypes: [Int: String] = [
+      NativeSwiftConditionalType.equal: "eq",
+      NativeSwiftConditionalType.notEqual: "neq",
+      NativeSwiftConditionalType.lessThan: "lt",
+      NativeSwiftConditionalType.lessThanOrEqual: "lte",
+      NativeSwiftConditionalType.greaterThan: "gt",
+      NativeSwiftConditionalType.greaterThanOrEqual: "gte",
+      NativeSwiftConditionalType.changed: "changed",
+    ]
     let branches: [[String: Any]] = snapshot.conditionalTraces.map { trace in
       [
         "a": trace.left, "b": trace.right, "executed": trace.executed,
         "executedChildOps": trace.executedChildOps, "path": trace.path,
-        "type": trace.type >= 0 && trace.type < conditionalTypes.count
-          ? conditionalTypes[trace.type] : "unknown",
+        "type": conditionalTypes[trace.type] ?? "unknown",
       ]
     }
     var anchoredRuns: [[String: Any]] = []
     func collectTextRuns(_ node: NativeSwiftNodeSnapshot) {
-      for command in node.commands where command.kind == 17 {
+      for command in node.commands where command.kind == NativeSwiftDrawKind.text {
         let width = Float(command.text?.count ?? 0) * command.textSize * 0.5
         anchoredRuns.append([
           "x": (command.values[safe: 0] ?? 0)
@@ -797,10 +819,15 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     var glyphRuns: [[String: Any]] = []
     var totalGlyphs = 0
     func collectGlyphRuns(_ node: NativeSwiftNodeSnapshot) {
-      for command in node.commands where command.kind == 20 || command.kind == 21 {
+      for command in node.commands
+      where command.kind == NativeSwiftDrawKind.textOnPath
+        || command.kind == NativeSwiftDrawKind.textOnCircle
+      {
         let count = command.text?.count ?? 0
         totalGlyphs += count
-        guard command.kind == 20, command.path.count >= 2 else { continue }
+        guard command.kind == NativeSwiftDrawKind.textOnPath, command.path.count >= 2 else {
+          continue
+        }
         let start = command.path[0].values
         let end = command.path[1].values
         guard start.count >= 2, end.count >= 2 else { continue }
@@ -843,9 +870,17 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     // not draws, so they are not recorded. Kind 17 is left out because the core emits it for both
     // DrawTextRun and DrawTextAnchor and the snapshot cannot tell the two apart.
     let drawNames: [Int: String] = [
-      10: "DrawRect", 11: "DrawOval", 12: "DrawCircle", 13: "DrawLine", 14: "DrawRoundRect",
-      15: "DrawArc", 16: "DrawSector", 18: "DrawPath", 19: "DrawBitmap", 20: "DrawTextOnPath",
-      21: "DrawTextOnCircle",
+      NativeSwiftDrawKind.rect: "DrawRect",
+      NativeSwiftDrawKind.oval: "DrawOval",
+      NativeSwiftDrawKind.circle: "DrawCircle",
+      NativeSwiftDrawKind.line: "DrawLine",
+      NativeSwiftDrawKind.roundRect: "DrawRoundRect",
+      NativeSwiftDrawKind.arc: "DrawArc",
+      NativeSwiftDrawKind.sector: "DrawSector",
+      NativeSwiftDrawKind.path: "DrawPath",
+      NativeSwiftDrawKind.bitmap: "DrawBitmap",
+      NativeSwiftDrawKind.textOnPath: "DrawTextOnPath",
+      NativeSwiftDrawKind.textOnCircle: "DrawTextOnCircle",
     ]
     var drawComponents: [String] = []
     func collectDrawComponents(_ node: NativeSwiftNodeSnapshot) {
@@ -1258,22 +1293,6 @@ private struct MacInsets: Equatable {
   static let zero = MacInsets(top: 0, left: 0, bottom: 0, right: 0)
 }
 
-/// AndroidX `LayoutComponentContent` positioning values used by linear layout placement.
-private enum NativeMacPositioning {
-  static let center = 2
-  static let end = 3
-  static let bottom = 5
-  static let spaceBetween = 6
-  static let spaceEvenly = 7
-  static let spaceAround = 8
-}
-
-/// AndroidX visibility values after modifier override bits are stripped by the native core.
-private enum NativeMacVisibility {
-  static let gone = 0
-  static let invisible = 2
-}
-
 private final class NativeMacDocumentView: NSView {
   private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
@@ -1323,7 +1342,7 @@ private final class NativeMacDocumentView: NSView {
         // catch.
         let gone =
            view.isHidden
-             || (view.node.visibility == NativeMacVisibility.gone && !view.ignoresOwnVisibility)
+             || (view.node.visibility == NativeSwiftVisibility.gone && !view.ignoresOwnVisibility)
         var entry: [String: Any] = [
           "id": view.node.componentID,
           "kind": kind,
@@ -1335,7 +1354,8 @@ private final class NativeMacDocumentView: NSView {
           "isGone": gone,
           "visibility": gone
              ? "GONE"
-              : (view.node.visibility == NativeMacVisibility.invisible && !view.ignoresOwnVisibility
+              : (view.node.visibility == NativeSwiftVisibility.invisible
+                && !view.ignoresOwnVisibility
                 ? "INVISIBLE" : "VISIBLE"),
         ]
         // §4.3 reports the paint translation on the scrolled component, while its children keep
@@ -1386,7 +1406,9 @@ private final class NativeMacDocumentView: NSView {
     self.conformanceFontName = conformanceFontName
     images = try Dictionary(
       uniqueKeysWithValues: snapshot.images.map { resource in
-        guard resource.encoding == 0, let image = NSImage(data: resource.data) else {
+        guard resource.encoding == NativeSwiftBitmapEncoding.inline,
+          let image = NSImage(data: resource.data)
+        else {
           throw NativeSwiftCoreError.malformed(
             offset: 0, reason: "Could not decode embedded image \(resource.id)")
         }
@@ -2125,15 +2147,15 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// The document's own visibility; containers (collapsible, flow, FitBox) override it during their
   /// layout. Written only when it changes, so an in-flight fade on this view is not reset.
   private func applyVisibility() {
-    let hidden = node.visibility == NativeMacVisibility.gone
+    let hidden = node.visibility == NativeSwiftVisibility.gone
     if isHidden != hidden { isHidden = hidden }
-    let alpha: CGFloat = node.visibility == NativeMacVisibility.invisible ? 0 : 1
+    let alpha: CGFloat = node.visibility == NativeSwiftVisibility.invisible ? 0 : 1
     if alphaValue != alpha { alphaValue = alpha }
   }
 
   private static func canvasCommands(for node: NativeMacNode) -> [NativeMacDrawCommand] {
     let promotesImage = node.kind == .image
-    return node.commands.filter { !(promotesImage && $0.kind == 19) }
+    return node.commands.filter { !(promotesImage && $0.kind == NativeSwiftDrawKind.bitmap) }
   }
 
   private static func labelTexts(for node: NativeMacNode) -> [NativeSwiftTextSnapshot] {
@@ -2147,7 +2169,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     guard node.kind == .image else { return [] }
     return node.commands.compactMap {
       command -> (image: NSImage, draw: NativeSwiftImageDrawSnapshot, alpha: Float)? in
-      guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+      guard command.kind == NativeSwiftDrawKind.bitmap, let draw = command.image,
+        let image = images[draw.imageID]
       else { return nil }
       return (image, draw, command.alpha)
     }
@@ -2485,7 +2508,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       && node.paddingRight == 0
   }
   private var flattenedLayoutItems: [NativeMacComponentView] {
-    componentChildren.filter { $0.node.visibility != NativeMacVisibility.gone }.flatMap { child in
+    componentChildren.filter { $0.node.visibility != NativeSwiftVisibility.gone }.flatMap { child in
       child.isStructural ? child.flattenedLayoutItems : [child]
     }
   }
@@ -2525,7 +2548,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     }
     for (index, child) in items.enumerated() { child.isHidden = !kept[index] }
     let visible = items.enumerated().filter { kept[$0.offset] }.map(\.element)
-    isHidden = node.visibility == NativeMacVisibility.gone || visible.isEmpty
+    isHidden = node.visibility == NativeSwiftVisibility.gone || visible.isEmpty
     return visible
   }
 
@@ -2635,8 +2658,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       let y: CGFloat
       if aligned {
         switch node.verticalPositioning {
-        case NativeMacPositioning.center: y = space.midY - size.height / 2
-        case NativeMacPositioning.bottom: y = space.maxY - size.height
+        case NativeSwiftPositioning.center: y = space.midY - size.height / 2
+        case NativeSwiftPositioning.bottom: y = space.maxY - size.height
         default: y = space.minY
         }
       } else {
@@ -2677,7 +2700,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// content's is the box's own switch: a GONE content shows nothing.
   private var fitBoxContentVisible: Bool {
     !componentChildren.contains {
-      $0.isFitBoxContent && $0.node.visibility == NativeMacVisibility.gone
+      $0.isFitBoxContent && $0.node.visibility == NativeSwiftVisibility.gone
     }
   }
 
@@ -2704,7 +2727,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// GONE, which is what the reference does and what `fitbox_fit` asserts.
   private func layoutFitBox() {
     let content = contentRect
-    isHidden = node.visibility == NativeMacVisibility.gone
+    isHidden = node.visibility == NativeSwiftVisibility.gone
     let measured = fitBoxAlternativesAndSizes(in: content.size)
     for (alternative, _) in measured {
       // The reference ignores an alternative's own visibility modifier: it is the document's switch
@@ -2737,8 +2760,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   ) {
     let y: CGFloat
     switch node.verticalPositioning {
-    case NativeMacPositioning.center: y = content.midY - size.height / 2
-    case NativeMacPositioning.bottom: y = content.maxY - size.height
+    case NativeSwiftPositioning.center: y = content.midY - size.height / 2
+    case NativeSwiftPositioning.bottom: y = content.maxY - size.height
     default: y = content.minY
     }
     view.frame = CGRect(
@@ -2809,8 +2832,8 @@ private func layoutFlow() {
   let blockHeight = wrapped.lines.map(\.height).reduce(0, +)
   var y = content.minY
   switch node.verticalPositioning {
-  case NativeMacPositioning.center: y += (content.height - blockHeight) / 2
-  case NativeMacPositioning.bottom: y += content.height - blockHeight
+  case NativeSwiftPositioning.center: y += (content.height - blockHeight) / 2
+  case NativeSwiftPositioning.bottom: y += content.height - blockHeight
   default: break
   }
   for line in wrapped.lines {
@@ -2820,8 +2843,8 @@ private func layoutFlow() {
     for (index, item) in line.items.enumerated() {
       let offset: CGFloat
       switch node.verticalPositioning {
-      case NativeMacPositioning.center: offset = (line.height - item.size.height) / 2
-      case NativeMacPositioning.bottom: offset = line.height - item.size.height
+      case NativeSwiftPositioning.center: offset = (line.height - item.size.height) / 2
+      case NativeSwiftPositioning.bottom: offset = line.height - item.size.height
       default: offset = 0
       }
       item.view.isHidden = false
@@ -2935,8 +2958,8 @@ private typealias MacFlowLine = (
         in: CGSize(width: widths[index], height: content.height))
       let y: CGFloat
       switch node.verticalPositioning {
-      case NativeMacPositioning.center: y = content.midY - size.height / 2
-      case NativeMacPositioning.bottom: y = content.maxY - size.height
+      case NativeSwiftPositioning.center: y = content.midY - size.height / 2
+      case NativeSwiftPositioning.bottom: y = content.maxY - size.height
       default: y = content.minY
       }
       items[index].frame = CGRect(
@@ -2947,8 +2970,8 @@ private typealias MacFlowLine = (
 
   private func alignedX(_ width: CGFloat, in rect: CGRect) -> CGFloat {
     switch node.horizontalPositioning {
-    case NativeMacPositioning.center: rect.midX - width / 2
-    case NativeMacPositioning.end: rect.maxX - width
+    case NativeSwiftPositioning.center: rect.midX - width / 2
+    case NativeSwiftPositioning.end: rect.maxX - width
     default: rect.minX
     }
   }
@@ -3003,11 +3026,12 @@ private typealias MacFlowLine = (
     if label.maximumNumberOfLines != text.maximumLines {
       label.maximumNumberOfLines = text.maximumLines
     }
-    let lineBreakMode: NSLineBreakMode = text.overflow == 2 ? .byTruncatingTail : .byWordWrapping
+    let lineBreakMode: NSLineBreakMode =
+      text.overflow == NativeSwiftTextOverflow.visible ? .byTruncatingTail : .byWordWrapping
     if label.lineBreakMode != lineBreakMode { label.lineBreakMode = lineBreakMode }
     let alignment: NSTextAlignment =
-      text.alignment == 2
-      ? .center : (text.alignment == 3 ? .right : .left)
+      text.alignment == NativeSwiftTextAlignment.right
+      ? .center : (text.alignment == NativeSwiftTextAlignment.center ? .right : .left)
     if label.alignment != alignment { label.alignment = alignment }
   }
 
@@ -3100,42 +3124,49 @@ private final class NativeMacCanvasView: NSView {
     // DESTINATION leaves the buffer unchanged, so a draw under it paints nothing (UIKit's canvas
     // skips it the same way). Kinds 0-7 are matrix, clip and save/restore state, which must still
     // apply; every kind from 10 up is a draw.
-    if command.kind >= 10, command.blendMode == NativeSwiftPaintBlendMode.destination { return }
+    if command.kind >= NativeSwiftDrawKind.rect,
+      command.blendMode == NativeSwiftPaintBlendMode.destination
+    {
+      return
+    }
     switch command.kind {
-    case 0: context.saveGState()
-    case 1: context.restoreGState()
-    case 2: context.translateBy(x: v[0], y: v[1])
-    case 3:
+    case NativeSwiftDrawKind.matrixSave: context.saveGState()
+    case NativeSwiftDrawKind.matrixRestore: context.restoreGState()
+    case NativeSwiftDrawKind.matrixTranslate: context.translateBy(x: v[0], y: v[1])
+    case NativeSwiftDrawKind.matrixScale:
       let pivot = CGPoint(x: v[2].isNaN ? 0 : v[2], y: v[3].isNaN ? 0 : v[3])
       context.translateBy(x: pivot.x, y: pivot.y)
       context.scaleBy(x: v[0], y: v[1])
       context.translateBy(x: -pivot.x, y: -pivot.y)
-    case 4:
+    case NativeSwiftDrawKind.matrixRotate:
       let pivot = CGPoint(x: v[1].isNaN ? 0 : v[1], y: v[2].isNaN ? 0 : v[2])
       context.translateBy(x: pivot.x, y: pivot.y)
       context.rotate(by: v[0] * .pi / 180)
       context.translateBy(x: -pivot.x, y: -pivot.y)
-    case 5: context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
-    case 6: context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
-    case 7:
+    case NativeSwiftDrawKind.matrixSkew:
+      context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
+    case NativeSwiftDrawKind.clipRect:
+      context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
+    case NativeSwiftDrawKind.clipPath:
       context.addPath(path(command.path))
-      context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
-    case 10:
+      context.clip(
+        using: command.pathWinding == NativeSwiftPathWinding.evenOdd ? .evenOdd : .winding)
+    case NativeSwiftDrawKind.rect:
       paint(
         CGPath(
           rect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]), transform: nil),
         command, context)
-    case 11:
+    case NativeSwiftDrawKind.oval:
       paint(
         CGPath(
           ellipseIn: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
           transform: nil), command, context)
-    case 12:
+    case NativeSwiftDrawKind.circle:
       paint(
         CGPath(
           ellipseIn: CGRect(x: v[0] - v[2], y: v[1] - v[2], width: v[2] * 2, height: v[2] * 2),
           transform: nil), command, context)
-    case 13:
+    case NativeSwiftDrawKind.line:
       let path = CGMutablePath()
       path.move(to: CGPoint(x: v[0], y: v[1]))
       path.addLine(to: CGPoint(x: v[2], y: v[3]))
@@ -3143,24 +3174,24 @@ private final class NativeMacCanvasView: NSView {
       // `paint` used a fill for the common fill-style paint, and an open path has no fill area.
       context.addPath(path)
       context.strokePath()
-    case 14:
+    case NativeSwiftDrawKind.roundRect:
       paint(
         CGPath(
           roundedRect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
           cornerWidth: v[4], cornerHeight: v[5], transform: nil), command,
         context)
-    case 15, 16:
+    case NativeSwiftDrawKind.arc, NativeSwiftDrawKind.sector:
       let center = CGPoint(x: (v[0] + v[2]) / 2, y: (v[1] + v[3]) / 2)
       let path = CGMutablePath()
-      if command.kind == 16 { path.move(to: center) }
+      if command.kind == NativeSwiftDrawKind.sector { path.move(to: center) }
       path.addArc(
         center: center, radius: min(v[2] - v[0], v[3] - v[1]) / 2, startAngle: v[4] * .pi / 180,
         endAngle: (v[4] + v[5]) * .pi / 180, clockwise: false)
-      if command.kind == 16 { path.closeSubpath() }
+      if command.kind == NativeSwiftDrawKind.sector { path.closeSubpath() }
       paint(path, command, context)
-    case 17: drawText(command, context)
-    case 18: paint(path(command.path), command, context)
-    case 19: drawImage(command, context)
+    case NativeSwiftDrawKind.text: drawText(command, context)
+    case NativeSwiftDrawKind.path: paint(path(command.path), command, context)
+    case NativeSwiftDrawKind.bitmap: drawImage(command, context)
     default: break
     }
   }
@@ -3169,7 +3200,8 @@ private final class NativeMacCanvasView: NSView {
     if let imageID = command.textureImageID, let image = images[imageID], !command.stroke {
       context.saveGState()
       context.addPath(path)
-      context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
+      context.clip(
+        using: command.pathWinding == NativeSwiftPathWinding.evenOdd ? .evenOdd : .winding)
       // `respectFlipped` because this view is flipped: without it the texture paints upside down.
       // Fraction 1 because the paint alpha is already the context's alpha (`draw` sets it).
       image.draw(
@@ -3179,7 +3211,9 @@ private final class NativeMacCanvasView: NSView {
       return
     }
     context.addPath(path)
-    context.drawPath(using: command.stroke ? .stroke : (command.pathWinding == 1 ? .eoFill : .fill))
+    context.drawPath(
+      using: command.stroke
+        ? .stroke : (command.pathWinding == NativeSwiftPathWinding.evenOdd ? .eoFill : .fill))
   }
 
   private func drawImage(_ command: NativeMacDrawCommand, _ context: CGContext) {
@@ -3269,18 +3303,20 @@ private final class NativeMacCanvasView: NSView {
     let path = CGMutablePath()
     for item in commands {
       switch item.kind {
-      case 10: path.move(to: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
-      case 11: path.addLine(to: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
-      case 12, 13:
+      case NativeSwiftPathVerb.move:
+        path.move(to: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
+      case NativeSwiftPathVerb.line:
+        path.addLine(to: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
+      case NativeSwiftPathVerb.quadratic, NativeSwiftPathVerb.conic:
         path.addQuadCurve(
           to: CGPoint(x: CGFloat(item.third), y: CGFloat(item.fourth)),
           control: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
-      case 14:
+      case NativeSwiftPathVerb.cubic:
         path.addCurve(
           to: CGPoint(x: CGFloat(item.fifth), y: CGFloat(item.sixth)),
           control1: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)),
           control2: CGPoint(x: CGFloat(item.third), y: CGFloat(item.fourth)))
-      case 15: path.closeSubpath()
+      case NativeSwiftPathVerb.close: path.closeSubpath()
       default: break
       }
     }
@@ -3294,7 +3330,7 @@ private final class NativeMacCanvasView: NSView {
       conformanceFontName.flatMap { NSFont(name: $0, size: size) }
       ?? NSFont.systemFont(ofSize: size)
     let paragraph = NSMutableParagraphStyle()
-    if command.textFlags & 1 != 0 {
+    if command.textFlags & NativeSwiftDrawTextAnchoredFlag.textRTL != 0 {
       paragraph.baseWritingDirection = .rightToLeft
     }
     let string = NSAttributedString(
@@ -3314,7 +3350,9 @@ private final class NativeMacCanvasView: NSView {
     let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
     let x = CGFloat(command.first) - width * ((CGFloat(command.third) + 1) / 2)
     let baseline: CGFloat
-    if command.textFlags & 8 != 0, command.fourth.isNaN {
+    if command.textFlags & NativeSwiftDrawTextAnchoredFlag.baselineRelative != 0,
+      command.fourth.isNaN
+    {
       baseline = CGFloat(command.second)
     } else {
       baseline = CGFloat(command.second) - (ascent + descent + leading)
