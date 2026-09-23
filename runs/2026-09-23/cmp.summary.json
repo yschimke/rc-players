@@ -1,7 +1,7 @@
 {
  "player": {
   "name": "cmp",
-  "version": "1.70.1-SNAPSHOT"
+  "version": "1.72.1-SNAPSHOT"
  },
  "corpus": {
   "path": "/home/runner/work/rc-players/rc-players/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance/gold",
