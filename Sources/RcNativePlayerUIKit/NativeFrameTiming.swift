@@ -45,7 +45,7 @@ public struct RemoteComposeNativeSystemClock: RemoteComposeNativePlayerClock, Se
     let instant = Int64((date.timeIntervalSince1970 * 1000).rounded())
     return NativeSwiftWallClock(
       epochMillis: instant,
-      offsetSeconds: TimeZone.current.secondsFromGMT(for: date))
+      offsetSeconds: TimeZone.current.secondsFromGMT(for: date), timeZone: .current)
   }
 }
 
