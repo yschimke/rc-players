@@ -72,6 +72,7 @@ jobs:
               .github/workflows/release.yml \
               Package.swift \
               Sources \
+              Tests/RcNativePlayerCoreTests \
               Tests/RcNativePlayerUIKitTests \
               distribution/native-uikit \
               build.gradle.kts \
@@ -119,6 +120,47 @@ jobs:
             required=false
           fi
           echo "required=$required" | tee -a "$GITHUB_OUTPUT"
+
+  # The pure-Swift document core on Linux. It imports Foundation alone, so the one part of the native
+  # player that every Apple host sits on can be tested on the cheap lane, in minutes, instead of
+  # only behind the macOS job's packaging gate. Off Apple platforms `Package.swift` declares only
+  # `RcNativePlayerCore` and `RcNativePlayerCoreTests`, so nothing here resolves the XCFramework or
+  # compiles a UIKit/AppKit/CoreGraphics target. The fuzz suite is skipped for the same reason the
+  # macOS lane skips it: its elapsed-time budget was calibrated against an optimized build.
+  #
+  # The official toolchain image, as in format.yml's swift-format job, so the Swift version is
+  # chosen here rather than by an image refresh.
+  native-core-linux:
+    name: Native Swift core (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check whether the native core changed
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -eu
+          required=true
+          if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null && \
+            git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+              .github/workflows/ci.yml \
+              Package.swift \
+              Sources/RcNativePlayerCore \
+              Tests/RcNativePlayerCoreTests
+          then
+            required=false
+          fi
+          echo "required=$required" | tee -a "$GITHUB_OUTPUT"
+      - name: Test the native Swift core
+        if: steps.filter.outputs.required == 'true'
+        run: swift test --filter RcNativePlayerCoreTests --skip NativeSwiftFuzzTests
 
   # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,
   # both vendored players, and the build-only fixture generators.

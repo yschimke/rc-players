@@ -18,6 +18,11 @@ let package = Package(
       resources: [.copy("PrivacyInfo.xcprivacy")]
     ),
     .testTarget(
+      name: "RcNativePlayerCoreTests",
+      dependencies: ["RcNativePlayerCore"],
+      resources: [.copy("Fixtures")]
+    ),
+    .testTarget(
       name: "RcNativePlayerUIKitTests",
       dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"],
       resources: [.copy("Fixtures")]
