@@ -162,11 +162,13 @@ private struct NativeConformanceFrameRequest: Decodable {
   let width: CGFloat?
   let height: CGFloat?
   let clock: NativeConformanceClock?
+  /// The host theme this frame renders under, as `NativeSwiftTheme` spells it.
+  let theme: Int?
   let steps: [NativeMacInputStep]
   let values: NativeMacValueRequest
 
   private enum CodingKeys: String, CodingKey {
-    case id, time, width, height, steps, values
+    case id, time, width, height, steps, values, theme
     case clock = "wall_clock"
   }
 
@@ -177,6 +179,7 @@ private struct NativeConformanceFrameRequest: Decodable {
     width = try values.decodeIfPresent(CGFloat.self, forKey: .width)
     height = try values.decodeIfPresent(CGFloat.self, forKey: .height)
     clock = try values.decodeIfPresent(NativeConformanceClock.self, forKey: .clock)
+    theme = try values.decodeIfPresent(Int.self, forKey: .theme)
     steps = try values.decodeIfPresent([NativeMacInputStep].self, forKey: .steps) ?? []
     self.values =
       try values.decodeIfPresent(NativeMacValueRequest.self, forKey: .values)
@@ -767,6 +770,7 @@ struct RemoteComposeMacApplication {
           do {
             let frame = try NativeAppKitWindowController.renderFrame(
               data: document, timeSeconds: request.time, wallClock: request.wallClock,
+              theme: request.theme ?? NativeSwiftTheme.unspecified,
               viewport: request.viewport, values: request.values, steps: request.steps,
               conformanceFontName: conformanceFontName, particleSession: particleSession)
             let path = URL(fileURLWithPath: job.output).appendingPathComponent(

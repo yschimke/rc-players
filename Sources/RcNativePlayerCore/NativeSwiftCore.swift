@@ -249,6 +249,13 @@ private func pathCommandWord(_ command: Int) -> UInt32 {
   0x7fc0_0000 | UInt32(command)
 }
 
+/// The themes a host can request and a `THEME` operation can scope to: every value AndroidX defines.
+public enum NativeSwiftTheme {
+  public static let unspecified = -1
+  public static let dark = -2
+  public static let light = -3
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
@@ -1086,6 +1093,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var floatOverrides: [Int: Float] = [:]
   private var hostDensity: Float = 1
   private var hostFontScale: Float = 1
+  private var requestedTheme = NativeSwiftTheme.unspecified
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
@@ -1153,6 +1161,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
     particleSystems = other.particleSystems.mapValues { $0.detachedCopy() }
     impulseInitialPass = other.impulseInitialPass
+    requestedTheme = other.requestedTheme
     impulsePhases = other.impulsePhases
     lastImpulseFrameTime = other.lastImpulseFrameTime
     lastParticleFrameTime = other.lastParticleFrameTime
@@ -1191,6 +1200,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     if density.isFinite, density > 0 { hostDensity = density }
     if fontScale.isFinite, fontScale > 0 { hostFontScale = fontScale }
+    staticSnapshotCache = nil
+  }
+
+  /// The theme the host is showing: `NativeSwiftTheme.dark`, `.light` or `.unspecified`.
+  ///
+  /// A `ColorTheme` resolves to its dark fallback under a dark theme and to its light one
+  /// otherwise. Unspecified stays light rather than following the TypeScript reference's dark,
+  /// because light is what the reference JVM lane renders for a player with no theme (see the
+  /// `ColorTheme` decode). Operations a `THEME` marker scopes are not filtered by it yet.
+  public func setRequestedTheme(_ theme: Int) {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    requestedTheme = theme
     staticSnapshotCache = nil
   }
 
@@ -2260,6 +2282,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func resolveColors(values: [Int: Float]) -> [Int: UInt32] {
     var result = colors
+    // Only where the colour still holds the document's own light fallback: a value the host has
+    // since set on the slot is the host's, whatever the theme.
+    if requestedTheme == NativeSwiftTheme.dark {
+      for (id, dark) in document.darkColors where colors[id] == document.colors[id] {
+        result[id] = dark
+      }
+    }
     for expression in document.colorExpressions {
       let mode = expression.modeAndAlpha & 0xff
       switch mode {
@@ -2513,6 +2542,7 @@ private struct ParsedDocument {
   let shaderUniformNames: [Int: Set<String>]
   let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
   let impulses: [ParsedImpulse]
+  let darkColors: [Int: UInt32]
   /// `WAKE_IN` requests, as the words the document wrote.
   let wakeWords: [UInt32]
   let particleDefinitions: [ParsedParticleDefinition]
@@ -4387,6 +4417,8 @@ private enum NativeSwiftDocumentDecoder {
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
     var impulses: [ParsedImpulse] = []
+    /// A `ColorTheme`'s dark fallback, by colour id; its light one seeds `colors`.
+    var darkColors: [Int: UInt32] = [:]
     var wakeWords: [UInt32] = []
     /// An open impulse container: its setup (-1) or one of its process containers, closed when
     /// `modifierContainers` returns to `depth`.
@@ -5293,8 +5325,8 @@ private enum NativeSwiftDocumentDecoder {
         _ = try input.signedU16("color theme dark index")
         let lightFallback = try input.int("color theme light fallback")
         let darkFallback = try input.int("color theme dark fallback")
-        _ = darkFallback
         colors[colorID] = UInt32(bitPattern: Int32(lightFallback))
+        darkColors[colorID] = UInt32(bitPattern: Int32(darkFallback))
       case 140:  // Integer constant
         integers[try input.int("integer id")] = try input.int("integer value")
       case 144:  // Integer expression
@@ -6246,7 +6278,7 @@ private enum NativeSwiftDocumentDecoder {
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
       shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
-      impulses: impulses, wakeWords: wakeWords,
+      impulses: impulses, darkColors: darkColors, wakeWords: wakeWords,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,
