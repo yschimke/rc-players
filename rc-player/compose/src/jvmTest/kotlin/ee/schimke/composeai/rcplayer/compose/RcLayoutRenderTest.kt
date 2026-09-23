@@ -570,6 +570,54 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun wrappedCoreTextIsAsWideAsItsWidestLine() {
+    // Compose lays wrapped text out across the whole available width and reports that width;
+    // AndroidX's CoreText reports its widest line. The background shows which: two words that
+    // wrap onto two lines must leave the right-hand side of the 100 px root unpainted.
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 60, modern = false),
+        listOf(
+          RcTextData(10, "WWWW WWWW"),
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcCoreText(
+            textId = 10,
+            properties =
+              listOf(
+                RcTextStyleProperty.IntValue(1, 3),
+                RcTextStyleProperty.IntValue(2, 30),
+                RcTextStyleProperty.IntValue(3, 0xff000000.toInt()),
+                RcTextStyleProperty.FloatValue(5, RcFloatWord.literal(16f)),
+              ),
+          ),
+          solidBackground(red = 1f, green = 0f, blue = 0f),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 100, height = 60, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val image = scene.render()
+      val bitmap = Bitmap().apply { allocN32Pixels(100, 60) }
+      check(image.readPixels(bitmap))
+      val red = 0xffff0000.toInt()
+      val rightmostRed =
+        (0 until 100).last { x -> (0 until 60).any { bitmap.getColor(x, it) == red } }
+      val lowestRed = (0 until 60).last { y -> (0 until 100).any { bitmap.getColor(it, y) == red } }
+
+      assertTrue(lowestRed > 20, "the text did not wrap onto a second line")
+      assertTrue(rightmostRed < 90, "the background spans ${rightmostRed + 1} px, the whole width")
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun aFillWrittenWithAPlainNaNFillsItsParent() {
     // AndroidX writes FILL with the quiet NaN 0x7fc00000 when there is no fraction. Its payload is
     // 0, which `Utils.isVariable` rejects as a reference; reading it as slot 0 gave a fraction of 0

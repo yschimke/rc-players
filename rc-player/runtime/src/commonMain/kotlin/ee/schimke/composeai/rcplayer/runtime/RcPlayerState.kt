@@ -1125,6 +1125,29 @@ public class RcPlayerState(
     eventSink(RcPlayerEvent.HostActionMetadata(area.id, text(area.metadataId).orEmpty()))
   }
 
+  /**
+   * Publishes the pointer's position, in document coordinates, as AndroidX's `ID_TOUCH_POS_X` and
+   * `ID_TOUCH_POS_Y` (13 and 14).
+   *
+   * `CoreDocument.touchDown`, `touchDrag` and `touchUp` all load these before they notify anything
+   * else, so a document can read where the pointer is — or where it was last lifted — from any
+   * expression. Returns whether the document reads either, which is when a repaint is worth asking
+   * for.
+   */
+  public fun publishTouchPosition(x: Float, y: Float): Boolean {
+    storeFloat(RcTouchExpressionRuntime.ID_TOUCH_POS_X, x)
+    storeFloat(RcTouchExpressionRuntime.ID_TOUCH_POS_Y, y)
+    return readsTouchPosition
+  }
+
+  private val readsTouchPosition: Boolean by lazy {
+    val ids =
+      setOf(RcTouchExpressionRuntime.ID_TOUCH_POS_X, RcTouchExpressionRuntime.ID_TOUCH_POS_Y)
+    document.operations.filterIsInstance<RcFloatExpression>().any { expression ->
+      expression.expression.any { it.referencedId in ids }
+    }
+  }
+
   public fun executeTouch(block: RcTouchActionBlock) {
     executeActions(
       block.children,
