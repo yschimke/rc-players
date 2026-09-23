@@ -271,23 +271,26 @@ struct NativeMacValueRequest: Decodable {
   let integers: [String]
   let texts: [String]
   let colors: [String]
+  let matrices: [String]
   let dynamicFloatArrays: [String]
   let dataFloatArrays: [String]
 
   init(
     floats: [String] = [], integers: [String] = [], texts: [String] = [], colors: [String] = [],
+    matrices: [String] = [],
     dynamicFloatArrays: [String] = [], dataFloatArrays: [String] = []
   ) {
     self.floats = floats
     self.integers = integers
     self.texts = texts
     self.colors = colors
+    self.matrices = matrices
     self.dynamicFloatArrays = dynamicFloatArrays
     self.dataFloatArrays = dataFloatArrays
   }
 
   private enum CodingKeys: String, CodingKey {
-    case floats, integers, texts, colors
+    case floats, integers, texts, colors, matrices
     case dynamicFloatArrays = "float_arrays_dynamic"
     case dataFloatArrays = "float_arrays_data"
   }
@@ -299,6 +302,7 @@ struct NativeMacValueRequest: Decodable {
       integers: try values.decodeIfPresent([String].self, forKey: .integers) ?? [],
       texts: try values.decodeIfPresent([String].self, forKey: .texts) ?? [],
       colors: try values.decodeIfPresent([String].self, forKey: .colors) ?? [],
+      matrices: try values.decodeIfPresent([String].self, forKey: .matrices) ?? [],
       dynamicFloatArrays: try values.decodeIfPresent([String].self, forKey: .dynamicFloatArrays)
         ?? [],
       dataFloatArrays: try values.decodeIfPresent([String].self, forKey: .dataFloatArrays) ?? [])
@@ -419,7 +423,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     }
     var records = operationRecords(
       try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-      operationCount: session.linkedOperationCount)
+      operationCount: session.linkedOperationCount, operationNames: try operationNames(in: data))
     // The particle probe observes one system's particle rows. A document with no system reports an
     // empty matrix; multiple systems are deliberately not flattened, as that would lose the wire
     // declaration boundary needed by a future targeted probe.
@@ -442,6 +446,11 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   /// record host-only work that an AppKit view might perform while painting.
   private static func drawLog(in data: Data) throws -> [String] {
     let names: [Int: String] = [
+      NativeSwiftWireOpcode.drawText: "DrawText",
+      NativeSwiftWireOpcode.drawTextAnchored: "DrawTextAnchored",
+      NativeSwiftWireOpcode.drawTextOnPath: "DrawTextOnPath",
+      NativeSwiftWireOpcode.drawTextOnCircle: "DrawTextOnCircle",
+      NativeSwiftWireOpcode.conditionalOperations: "ConditionalOperations",
       38: "clipPath", 39: "clipRect", 40: "paint", 42: "drawRect", 44: "drawBitmap",
       46: "drawCircle", 47: "drawLine", 51: "drawRoundRect", 52: "drawSector",
       56: "drawOval", 124: "drawPath", 125: "drawTweenPath", 126: "scale",
@@ -453,10 +462,21 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     ).compactMap { names[$0.opcode] }
   }
 
+  private static func operationNames(in data: Data) throws -> [String] {
+    let names: [Int: String] = [
+      NativeSwiftWireOpcode.matrixConstant: "MatrixConstant",
+      NativeSwiftWireOpcode.matrixExpression: "MatrixExpression",
+      NativeSwiftWireOpcode.matrixVectorMath: "MatrixVectorMath",
+    ]
+    return try NativeSwiftDocumentSession.operationSpans(
+      in: data, toleratingRootlessData: true
+    ).compactMap { names[$0.opcode] }
+  }
+
   /// Exposes decoded operation fields exactly as the corpus's `records` probes define them. These
   /// are document facts, not reconstructed AppKit animation state.
   private static func operationRecords(
-    _ snapshot: NativeSwiftDocumentSnapshot, operationCount: Int
+    _ snapshot: NativeSwiftDocumentSnapshot, operationCount: Int, operationNames: [String]
   ) -> [String: Any] {
     func specRecord(_ id: Int, _ spec: NativeSwiftAnimationSpec) -> [String: Any] {
       [
@@ -496,6 +516,40 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         "enabled": accessibility.isEnabled, "clickable": accessibility.isClickable,
       ]
     }
+    let conditionalTypes = ["eq", "neq", "lt", "lte", "gt", "gte", "changed"]
+    let branches: [[String: Any]] = snapshot.conditionalTraces.map { trace in
+      [
+        "a": trace.left, "b": trace.right, "executed": trace.executed,
+        "executedChildOps": trace.executedChildOps, "path": trace.path,
+        "type": trace.type >= 0 && trace.type < conditionalTypes.count
+          ? conditionalTypes[trace.type] : "unknown",
+      ]
+    }
+    var anchoredRuns: [[String: Any]] = []
+    func collectTextRuns(_ node: NativeSwiftNodeSnapshot) {
+      for command in node.commands where command.kind == 17 {
+        let width = Float(command.text?.count ?? 0) * command.textSize * 0.5
+        anchoredRuns.append([
+          "x": (command.values[safe: 0] ?? 0)
+            - width * ((command.values[safe: 2] ?? -1) + 1) / 2,
+          "y": (command.values[safe: 1] ?? 0)
+            + command.textSize * ((command.values[safe: 3] ?? -1) + 1) / 2,
+        ])
+      }
+      node.children.forEach(collectTextRuns)
+    }
+    collectTextRuns(snapshot.root)
+    var glyphRuns: [[String: Any]] = []
+    var totalGlyphs = 0
+    func collectGlyphRuns(_ node: NativeSwiftNodeSnapshot) {
+      for command in node.commands where command.kind == 20 || command.kind == 21 {
+        let count = command.text?.count ?? 0
+        totalGlyphs += count
+        glyphRuns.append(["text": command.text ?? "", "glyphCount": count])
+      }
+      node.children.forEach(collectGlyphRuns)
+    }
+    collectGlyphRuns(snapshot.root)
     let drawNames: [Int: String] = [
       3: "DrawRect", 4: "DrawRoundRect", 5: "DrawOval", 6: "DrawLine", 7: "DrawPath",
       10: "DrawRect", 11: "DrawOval", 12: "DrawCircle", 13: "DrawLine", 14: "DrawRoundRect",
@@ -509,6 +563,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     collectDrawComponents(snapshot.root)
     return [
       "ops_count": operationCount,
+      "ops_present": Array(Set(operationNames)).sorted(),
       "component_count": components.count,
       "distinct_ids": Set(componentIDs).count == componentIDs.count,
       "animation_specs": snapshot.animationSpecOrder.compactMap { id in
@@ -526,6 +581,10 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       "uniforms": Dictionary(uniqueKeysWithValues: snapshot.shaderUniformNames.map { id, names in
         (String(id), Dictionary(uniqueKeysWithValues: names.map { ($0, true) }))
       }),
+      "branches": branches,
+      "anchor_runs": anchoredRuns,
+      "glyph_runs": glyphRuns,
+      "total_glyphs": totalGlyphs,
     ]
   }
 
@@ -563,6 +622,9 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       "texts": try report(request.texts) { resolved.texts[$0] },
       "colors": try report(request.colors) { id in
         resolved.colors[id].map { NSNumber(value: $0) } ?? NSNumber(value: UInt32(0))
+      },
+      "matrices": try report(request.matrices) { id in
+        try session.probeMatrix(id: id, timeSeconds: timeSeconds)?.map(Double.init)
       },
       "float_arrays_dynamic": try report(request.dynamicFloatArrays) { id in
         try session.probeFloatList(id: id, dynamic: true, timeSeconds: timeSeconds)?
@@ -1552,8 +1614,6 @@ private extension NativeSwiftDrawCommandSnapshot {
   var sixth: Float { values[safe: 5] ?? 0 }
   var color: Int32 { Int32(bitPattern: colorARGB) }
   var stroke: Bool { isStroke }
-  var text: String? { nil }
-  var textSize: Float { 16 }
 }
 
 private extension NativeSwiftPathElementSnapshot {

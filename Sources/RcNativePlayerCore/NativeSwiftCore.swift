@@ -23,14 +23,32 @@ public enum NativeSwiftTextTransformOperation {
   public static let capitalizeFirst = 5
 }
 
-private enum NativeSwiftWireOpcode {
-  static let drawBitmap = 44
-  static let textFromFloat = 135
-  static let textMerge = 136
-  static let drawBitmapScaled = 149
-  static let textLookup = 151
-  static let textLookupInt = 153
-  static let textTransform = 199
+public enum NativeSwiftWireOpcode {
+  public static let drawText = 43
+  public static let drawTextOnPath = 53
+  public static let drawTextOnCircle = 57
+  public static let drawTextAnchored = 133
+  public static let conditionalOperations = 178
+  public static let drawBitmap = 44
+  public static let textFromFloat = 135
+  public static let textMerge = 136
+  public static let drawBitmapScaled = 149
+  public static let textLookup = 151
+  public static let textLookupInt = 153
+  public static let textTransform = 199
+  public static let matrixConstant = 186
+  public static let matrixExpression = 187
+  public static let matrixVectorMath = 188
+}
+
+/// One conditional container as evaluated while linking a document.
+public struct NativeSwiftConditionalTraceSnapshot: Sendable {
+  public let type: Int
+  public let left: Float
+  public let right: Float
+  public let executed: Bool
+  public let executedChildOps: Int
+  public let path: String
 }
 
 /// Immutable, platform-neutral output from the Swift wire/runtime path.
@@ -69,6 +87,8 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let accessibilityRecords: [NativeSwiftAccessibilitySnapshot]
   /// Runtime shader uniform names keyed by shader id. Values remain unobserved by design.
   public let shaderUniformNames: [Int: Set<String>]
+  /// Conditional containers evaluated while linking the document.
+  public let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
 }
 
 /// The native timing metadata a layout component names on the Remote Compose wire.
@@ -285,6 +305,8 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let filterQuality: Int?
   public let usesComponentGeometry: Bool
   public let gradient: NativeSwiftGradientSnapshot?
+  public let text: String?
+  public let textSize: Float
 }
 
 /// A resolved paint gradient: colours as ARGB, stops and coordinates as floats, ready to draw.
@@ -373,6 +395,13 @@ public struct NativeSwiftProbeValues: Sendable {
   /// ARGB, as the corpus spells it: an unsigned 32-bit integer, so opaque red is 4294901760 rather
   /// than the negative Int the same bits mean here.
   public let colors: [Int: UInt32]
+}
+
+/// A matrix declaration exactly as it appeared on the wire. Matrix probes deliberately retain a
+/// 3x3 declaration as nine values rather than exposing the runtime's expanded 4x4 representation.
+public struct NativeSwiftMatrixSnapshot: Sendable {
+  public let id: Int
+  public let values: [Float]
 }
 
 public struct NativeSwiftPointerSample: Equatable, Sendable {
@@ -983,7 +1012,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
-      }, shaderUniformNames: document.shaderUniformNames)
+      }, shaderUniformNames: document.shaderUniformNames,
+      conditionalTraces: document.conditionalTraces)
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
       staticSnapshotCache = StaticSnapshotCache(
         measuredComponents: measuredComponents, snapshot: snapshot)
@@ -1140,6 +1170,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
     }
     return result
+  }
+
+  /// Returns a matrix in the exact shape the wire declares (nine values for a 3x3 constant,
+  /// sixteen for a 4x4 constant or expression).
+  public func probeMatrix(id: Int, timeSeconds: TimeInterval) throws -> [Float]? {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
+    if let constant = document.matrixConstants[id] { return constant.values }
+    return document.matrixExpressions[id].flatMap {
+      NativeSwiftMatrixExpression.evaluate4x4($0, values: values)
+    }
   }
 
   /// The slot a document's named variable occupies, or nil when it declared no such name.
@@ -1621,7 +1663,42 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         result[expression.id] = target
       }
     }
+    for operation in document.matrixVectorMath {
+      guard let matrix = resolvedMatrix(operation.matrixID, values: result) else { continue }
+      let input = operation.inputWords.map { NativeSwiftFloatExpression.resolve($0, values: result) }
+      var output = [Float](repeating: 0, count: operation.outputIDs.count)
+      if operation.type == 0 {
+        for row in output.indices {
+          var value = matrix[3 + row * 4]
+          for column in input.indices { value += matrix[column + row * 4] * input[column] }
+          output[row] = value
+        }
+      } else {
+        var input4 = [Float](repeating: 0, count: 4)
+        input4[3] = 1
+        for index in input.indices { input4[index] = input[index] }
+        var output4 = [Float](repeating: 0, count: 4)
+        for row in 0..<4 {
+          for column in 0..<4 { output4[row] += matrix[column + row * 4] * input4[column] }
+        }
+        guard output4[3] != 0 else { continue }
+        for index in output.indices { output[index] = output4[index] / output4[3] }
+      }
+      for (index, outputID) in operation.outputIDs.enumerated() { result[outputID] = output[index] }
+    }
     return result
+  }
+
+  private func resolvedMatrix(_ id: Int, values: [Int: Float]) -> [Float]? {
+    if let constant = document.matrixConstants[id] {
+      if constant.values.count == 16 { return constant.values }
+      guard constant.values.count == 9 else { return nil }
+      let v = constant.values
+      return [v[0], v[1], 0, v[2], v[3], v[4], 0, v[5], v[6], v[7], v[8], 0, 0, 0, 0, 1]
+    }
+    return document.matrixExpressions[id].flatMap {
+      NativeSwiftMatrixExpression.evaluate4x4($0, values: values)
+    }
   }
 
   private func animationRuntime(
@@ -2006,13 +2083,16 @@ private struct ParsedDocument {
   let textFloatLookups: [ParsedTextLookup]
   let dataMaps: [Int: [String: (type: Int, valueID: Int)]]
   let dataMapLookups: [ParsedDataMapLookup]
+  let matrixConstants: [Int: NativeSwiftMatrixSnapshot]
   let matrixExpressions: [Int: ParsedMatrixExpression]
+  let matrixVectorMath: [ParsedMatrixVectorMath]
   let animationSpecs: [Int: NativeSwiftAnimationSpec]
   let animationSpecOrder: [Int]
   let pathIDs: Set<Int>
   let pathTweenIDs: Set<Int>
   let accessibilityRecords: [ParsedAccessibility]
   let shaderUniformNames: [Int: Set<String>]
+  let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
   let particleDefinitions: [ParsedParticleDefinition]
   let particleLoops: [ParsedParticleLoop]
   let needsContinuousFrames: Bool
@@ -2721,10 +2801,11 @@ private struct ParsedDrawCommand {
   let path: ParsedPath?
   let image: ParsedImageDraw?
   let alphaWord: UInt32?
+  let textID: Int?
 
   init(
     kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
-    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil
+    image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil
   ) {
     self.kind = kind
     self.words = words
@@ -2734,6 +2815,7 @@ private struct ParsedDrawCommand {
     self.path = path
     self.image = image
     self.alphaWord = alphaWord
+    self.textID = textID
   }
 
   func resolve(
@@ -2790,7 +2872,8 @@ private struct ParsedDrawCommand {
             NativeSwiftFloatExpression.resolve($0, values: values)
           },
           tileMode: gradient.tileMode)
-      })
+      }, text: textID.flatMap { texts[$0] },
+      textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values))
   }
 }
 
@@ -3016,6 +3099,13 @@ private struct ParsedMatrixExpression {
   let words: [UInt32]
 }
 
+private struct ParsedMatrixVectorMath {
+  let type: Int
+  let outputIDs: [Int]
+  let matrixID: Int
+  let inputWords: [UInt32]
+}
+
 private struct ParsedPaint {
   var colorARGB: UInt32 = 0xff00_0000
   var colorID: Int?
@@ -3038,6 +3128,7 @@ private struct ParsedPaint {
   /// How an image or texture is sampled: 0 none, 1 low, 2 medium, 3 high. Nil when the paint never
   /// said, which leaves the renderer's default in place.
   var filterQuality: Int?
+  var textSize: UInt32 = Float(16).bitPattern
 }
 
 /// The word for a literal `-1`, which is how a node says "no maximum". Spelled once so the default
@@ -3427,7 +3518,7 @@ private enum NativeSwiftMatrixExpression {
     return payload
   }
 
-  static func evaluate(_ expression: ParsedMatrixExpression, values: [Int: Float]) -> [Float]? {
+  static func evaluate4x4(_ expression: ParsedMatrixExpression, values: [Int: Float]) -> [Float]? {
     var matrices = [[Float]](repeating: identity, count: 10)
     var index = 0
     matrices[0] = identity
@@ -3509,9 +3600,13 @@ private enum NativeSwiftMatrixExpression {
         return nil
       }
     }
+    return matrices[0]
+  }
+
+  static func evaluate(_ expression: ParsedMatrixExpression, values: [Int: Float]) -> [Float]? {
+    guard let matrix = evaluate4x4(expression, values: values) else { return nil }
     // `MatrixAccess.to3x3`: a 4x4 collapses to the Android 3x3 layout, which is
     // [scaleX, skewX, translateX, skewY, scaleY, translateY, persp0, persp1, persp2].
-    let matrix = matrices[0]
     return [
       matrix[0], matrix[1], matrix[3],
       matrix[4], matrix[5], matrix[7],
@@ -3768,13 +3863,17 @@ private enum NativeSwiftDocumentDecoder {
     var dataMapLookups: [ParsedDataMapLookup] = []
     var textLookups: [ParsedTextLookupInt] = []
     var textFloatLookups: [ParsedTextLookup] = []
+    var matrixConstants: [Int: NativeSwiftMatrixSnapshot] = [:]
     var matrixExpressions: [Int: ParsedMatrixExpression] = [:]
+    var matrixVectorMath: [ParsedMatrixVectorMath] = []
     var animationSpecs: [Int: NativeSwiftAnimationSpec] = [:]
     var animationSpecOrder: [Int] = []
     var pathIDs: Set<Int> = []
     var pathTweenIDs: Set<Int> = []
     var accessibilityRecords: [ParsedAccessibility] = []
     var shaderUniformNames: [Int: Set<String>] = [:]
+    var conditionalTraces: [NativeSwiftConditionalTraceSnapshot] = []
+    var conditionalIndex = 0
     var particleDefinitions: [ParsedParticleDefinition] = []
     var particleLoops: [ParsedParticleLoop] = []
     var nodes: [Int: ParsedNode] = [:]
@@ -3907,6 +4006,11 @@ private enum NativeSwiftDocumentDecoder {
           _ = try input.int("macro bitmap description id")
         case 46:
           for _ in 0..<3 { _ = try input.word("macro circle value") }
+        case NativeSwiftWireOpcode.conditionalOperations:
+          _ = try input.u8("conditional type")
+          _ = try input.word("conditional left")
+          _ = try input.word("conditional right")
+          nesting += 1
         case 51, 52, 152:
           for _ in 0..<6 { _ = try input.word("macro drawing value") }
         case 202:
@@ -4079,6 +4183,36 @@ private enum NativeSwiftDocumentDecoder {
         }
       }
       switch opcode {
+      case NativeSwiftWireOpcode.conditionalOperations:
+        let type = Int(try input.u8("conditional type"))
+        let leftWord = try input.word("conditional left")
+        let rightWord = try input.word("conditional right")
+        let body = try captureMacroBody()
+        let left = NativeSwiftFloatExpression.resolve(leftWord, values: floats)
+        let right = NativeSwiftFloatExpression.resolve(rightWord, values: floats)
+        let executed: Bool
+        switch type {
+        case 0: executed = left == right
+        case 1: executed = left != right
+        case 2: executed = left < right
+        case 3: executed = left <= right
+        case 4: executed = left > right
+        case 5: executed = left >= right
+        case 6: executed = left != 0 || right != 0
+        default: executed = false
+        }
+        let path = String(conditionalIndex)
+        conditionalIndex += 1
+        conditionalTraces.append(NativeSwiftConditionalTraceSnapshot(
+          type: type, left: left, right: right, executed: executed,
+          executedChildOps: executed && !body.isEmpty ? 1 : 0, path: path))
+        if executed {
+          guard suspendedInputs.count < maximumNestingDepth else {
+            throw input.malformed("Conditional nesting exceeds \(maximumNestingDepth)")
+          }
+          suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+          input = WireReader(body)
+        }
       case 2:  // Legacy ComponentStart. Retain its structure; modern documents use 200...205.
         let kind = try input.int("legacy component kind")
         let componentID = try input.int("legacy component id")
@@ -4211,6 +4345,38 @@ private enum NativeSwiftDocumentDecoder {
         let words = try (0..<4).map { _ in try input.word("draw rectangle value") }
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: 10, words: words, paint: paint))
+      case NativeSwiftWireOpcode.drawText:
+        let textID = try input.int("draw text id")
+        _ = try input.int("draw text start")
+        _ = try input.int("draw text end")
+        _ = try input.int("draw text context start")
+        _ = try input.int("draw text context end")
+        let x = try input.word("draw text x")
+        let y = try input.word("draw text y")
+        _ = try input.u8("draw text rtl")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 17, words: [x, y, Float(-1).bitPattern, Float(-1).bitPattern],
+            paint: paint, textID: textID))
+      case NativeSwiftWireOpcode.drawTextAnchored:
+        let textID = try input.int("draw anchored text id")
+        let words = try (0..<4).map { _ in try input.word("draw anchored text value") }
+        _ = try input.int("draw anchored text flags")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID))
+      case NativeSwiftWireOpcode.drawTextOnPath:
+        let textID = try input.int("draw text path text id")
+        _ = try input.int("draw text path id")
+        let vertical = try input.word("draw text path vertical offset")
+        let horizontal = try input.word("draw text path horizontal offset")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 20, words: [horizontal, vertical], paint: paint, textID: textID))
+      case NativeSwiftWireOpcode.drawTextOnCircle:
+        let textID = try input.int("draw text circle text id")
+        let words = try (0..<5).map { _ in try input.word("draw text circle value") }
+        _ = try input.u8("draw text circle alignment")
+        _ = try input.u8("draw text circle placement")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(kind: 21, words: words, paint: paint, textID: textID))
       case NativeSwiftWireOpcode.drawBitmap:
         let imageID = try input.int("draw bitmap image id")
         guard let bitmap = images[imageID] else { throw input.malformed("Missing bitmap \(imageID)") }
@@ -4678,13 +4844,41 @@ private enum NativeSwiftDocumentDecoder {
           throw input.malformed("Unknown color attribute type \(attribute.type)")
         }
         colorAttributes.append(attribute)
-      case 187:  // Matrix expression, named by a paint's SHADER_MATRIX field.
+      case NativeSwiftWireOpcode.matrixConstant:
+        let matrixID = try input.int("matrix constant id")
+        _ = try input.int("matrix constant type")
+        let count = try input.count("matrix constant value count", maximum: 16)
+        guard count == 9 || count == 16 else {
+          throw input.malformed("Matrix constant must contain 9 or 16 values")
+        }
+        let words = try (0..<count).map { _ in try input.word("matrix constant value") }
+        let values = words.map { NativeSwiftFloatExpression.resolve($0, values: floats) }
+        guard values.allSatisfy(\.isFinite) else {
+          throw input.malformed("Matrix constant contains a non-finite value")
+        }
+        matrixConstants[matrixID] = NativeSwiftMatrixSnapshot(id: matrixID, values: values)
+      case NativeSwiftWireOpcode.matrixExpression:  // Matrix expression, named by a paint's SHADER_MATRIX field.
         let matrixID = try input.int("matrix expression id")
         let matrixType = try input.int("matrix expression type")
         let count = try input.count("matrix expression value count", maximum: 32)
         let matrixWords = try (0..<count).map { _ in try input.word("matrix expression value") }
         matrixExpressions[matrixID] = ParsedMatrixExpression(
           id: matrixID, type: matrixType, words: matrixWords)
+      case NativeSwiftWireOpcode.matrixVectorMath:
+        let type = Int(try input.u16("matrix vector math type"))
+        guard type == 0 || type == 1 else {
+          throw input.malformed("Unknown matrix vector math type")
+        }
+        let matrixID = try input.int("matrix vector math matrix id")
+        let outputCount = try input.count("matrix vector math output count", maximum: 4)
+        guard outputCount > 0 else { throw input.malformed("Matrix vector math has no outputs") }
+        let outputs = try (0..<outputCount).map { _ in try input.int("matrix vector math output") }
+        let inputCount = try input.count("matrix vector math input count", maximum: 4)
+        guard inputCount > 0 else { throw input.malformed("Matrix vector math has no inputs") }
+        let inputs = try (0..<inputCount).map { _ in try input.word("matrix vector math input") }
+        matrixVectorMath.append(
+          ParsedMatrixVectorMath(
+            type: type, outputIDs: outputs, matrixID: matrixID, inputWords: inputs))
       case 171:  // Image dimension attribute
         let outputID = try input.int("image attribute output id")
         let imageID = try input.int("image attribute image id")
@@ -5234,11 +5428,12 @@ private enum NativeSwiftDocumentDecoder {
       floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,
       textLookups: textLookups, textFloatLookups: textFloatLookups,
       dataMaps: dataMaps, dataMapLookups: dataMapLookups,
-      matrixExpressions: matrixExpressions, animationSpecs: animationSpecs,
+      matrixConstants: matrixConstants, matrixExpressions: matrixExpressions,
+      matrixVectorMath: matrixVectorMath, animationSpecs: animationSpecs,
       animationSpecOrder: animationSpecOrder,
       pathIDs: pathIDs, pathTweenIDs: pathTweenIDs,
       accessibilityRecords: accessibilityRecords,
-      shaderUniformNames: shaderUniformNames,
+      shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,
@@ -5295,6 +5490,8 @@ private enum NativeSwiftDocumentDecoder {
       }
       guard index + argumentCount <= words.count else { throw input.malformed("Truncated paint") }
       switch type {
+      case NativeSwiftPaintCommand.textSize:
+        paint.textSize = UInt32(bitPattern: Int32(words[index]))
       case NativeSwiftPaintCommand.color:
         paint.colorARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorID = nil
