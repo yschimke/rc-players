@@ -792,10 +792,22 @@ private fun RenderLayoutNode(
     }
     return
   }
+  // A collapsible layout that keeps none of its children is GONE itself (AndroidX
+  // `computeVisibleChildren`), which only its measure pass can know.
+  val collapse =
+    if (node is RcLayoutNode.CollapsibleRow || node is RcLayoutNode.CollapsibleColumn) {
+      remember(node) { RcCollapse() }
+    } else null
   val effectiveModifier =
-    animatedVisibility.modifier
+    (collapse?.let { Modifier.goneWhenCollapsed(it).then(animatedVisibility.modifier) }
+        ?: animatedVisibility.modifier)
       .trackComponentGeometry(geometryIds, state)
-      .inspectComponent(node, visibility, inspecting, contentInset)
+      .inspectComponent(
+        node,
+        if (collapse?.collapsed == true) 0 else visibility,
+        inspecting,
+        contentInset,
+      )
   when (node) {
     is RcLayoutNode.Root ->
       Box(
@@ -1150,6 +1162,7 @@ private fun RenderLayoutNode(
       RcCollapsibleLayout(
         children = node.content.children,
         orientation = RcCollapseOrientation.Horizontal,
+        collapse = requireNotNull(collapse),
         mainPositioning = node.operation.horizontalPositioning,
         crossPositioning = node.operation.verticalPositioning,
         spacing = state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
@@ -1174,6 +1187,7 @@ private fun RenderLayoutNode(
       RcCollapsibleLayout(
         children = node.content.children,
         orientation = RcCollapseOrientation.Vertical,
+        collapse = requireNotNull(collapse),
         mainPositioning = node.operation.verticalPositioning,
         crossPositioning = node.operation.horizontalPositioning,
         spacing = state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
@@ -1808,6 +1822,7 @@ private enum class RcCollapseOrientation {
 private fun RcCollapsibleLayout(
   children: List<RcLayoutNode>,
   orientation: RcCollapseOrientation,
+  collapse: RcCollapse,
   mainPositioning: Int,
   crossPositioning: Int,
   spacing: Int,
@@ -1878,6 +1893,7 @@ private fun RcCollapsibleLayout(
       else constraints.maxHeight
     val retained = selectCollapsibleChildren(mainSizes, priorities, maximumMain)
     val retainedIndices = retained.indices.filter { retained[it] }
+    collapse.collapsed = retainedIndices.isEmpty()
     // Distribute the main-axis space the retained unweighted children left, in proportion to each
     // retained weighted child's weight, and measure those children at their share.
     val totalWeight =
@@ -1982,6 +1998,29 @@ private fun RcCollapsibleLayout(
     }
   }
 }
+
+/** Whether a collapsible layout kept none of its children on its last measure. */
+private class RcCollapse {
+  var collapsed by mutableStateOf(false)
+}
+
+/**
+ * Makes a collapsible layout that kept nothing GONE: no space in its parent and nothing drawn,
+ * background included.
+ *
+ * AndroidX's `computeVisibleChildren` marks the container itself GONE when no child fits, so it
+ * contributes nothing to its parent and paints nothing. Only the collapsible's own measure knows
+ * that, and it runs *inside* the size and decoration modifiers — an exact `width(60)` outside it
+ * would still claim 60 px and the background would still paint across them. This sits outside the
+ * whole chain: it measures the component, which is where the verdict is written, and then declines
+ * to place it at all.
+ */
+private fun Modifier.goneWhenCollapsed(collapse: RcCollapse): Modifier =
+  layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    if (collapse.collapsed) layout(0, 0) {}
+    else layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+  }
 
 /** AndroidX alpha18 priority sort and first-overflow cutoff; spacing is deliberately excluded. */
 internal fun selectCollapsibleChildren(
@@ -5228,13 +5267,27 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
       if (shader != null) {
         drawContext.canvas.drawOval(a, b, c, d, paint.runtimeShaderPaint(shader))
       } else {
-        drawOval(
-          paint.composeColor(),
-          Offset(a, b),
-          Size(c - a, d - b),
-          style = paint.style(),
-          blendMode = paint.blendMode,
-        )
+        val brush = paint.brush
+        if (brush == null) {
+          drawOval(
+            paint.composeColor(),
+            Offset(a, b),
+            Size(c - a, d - b),
+            style = paint.style(),
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        } else {
+          drawOval(
+            brush,
+            Offset(a, b),
+            Size(c - a, d - b),
+            alpha = paint.alpha,
+            style = paint.style(),
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        }
       }
     }
     RcOpcodes.DRAW_LINE -> {
@@ -5242,14 +5295,29 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
       if (shader != null) {
         drawContext.canvas.drawLine(Offset(a, b), Offset(c, d), paint.runtimeShaderPaint(shader))
       } else {
-        drawLine(
-          paint.composeColor(),
-          Offset(a, b),
-          Offset(c, d),
-          strokeWidth = paint.strokeWidth,
-          cap = paint.strokeCap,
-          blendMode = paint.blendMode,
-        )
+        val brush = paint.brush
+        if (brush == null) {
+          drawLine(
+            paint.composeColor(),
+            Offset(a, b),
+            Offset(c, d),
+            strokeWidth = paint.strokeWidth,
+            cap = paint.strokeCap,
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        } else {
+          drawLine(
+            brush,
+            Offset(a, b),
+            Offset(c, d),
+            strokeWidth = paint.strokeWidth,
+            cap = paint.strokeCap,
+            alpha = paint.alpha,
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        }
       }
     }
     RcOpcodes.CLIP_RECT -> drawContext.canvas.clipRect(a, b, c, d)
@@ -5267,13 +5335,29 @@ private fun DrawScope.draw3(operation: RcDraw3, paint: RcPaintState, state: RcPl
       if (shader != null) {
         drawContext.canvas.drawCircle(Offset(a, b), c, paint.runtimeShaderPaint(shader))
       } else {
-        drawCircle(
-          paint.composeColor(),
-          c,
-          Offset(a, b),
-          style = paint.style(),
-          blendMode = paint.blendMode,
-        )
+        // A gradient set on the paint shades a circle as it does a rect: drawing the flat colour
+        // instead painted `canvas_shader_gradient`'s sweep-gradient disc solid black.
+        val brush = paint.brush
+        if (brush == null) {
+          drawCircle(
+            paint.composeColor(),
+            c,
+            Offset(a, b),
+            style = paint.style(),
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        } else {
+          drawCircle(
+            brush,
+            c,
+            Offset(a, b),
+            alpha = paint.alpha,
+            style = paint.style(),
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        }
       }
     }
     RcOpcodes.MATRIX_ROTATE -> drawContext.transform.rotate(a, rcMatrixPivot(b, c))
@@ -5332,16 +5416,33 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
       if (shader != null) {
         drawContext.canvas.drawArc(a, b, c, d, e, f, useCenter, paint.runtimeShaderPaint(shader))
       } else {
-        drawArc(
-          paint.composeColor(),
-          e,
-          f,
-          useCenter = useCenter,
-          topLeft = Offset(a, b),
-          size = Size(c - a, d - b),
-          style = paint.style(),
-          blendMode = paint.blendMode,
-        )
+        val brush = paint.brush
+        if (brush == null) {
+          drawArc(
+            paint.composeColor(),
+            e,
+            f,
+            useCenter = useCenter,
+            topLeft = Offset(a, b),
+            size = Size(c - a, d - b),
+            style = paint.style(),
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        } else {
+          drawArc(
+            brush,
+            e,
+            f,
+            useCenter = useCenter,
+            topLeft = Offset(a, b),
+            size = Size(c - a, d - b),
+            alpha = paint.alpha,
+            style = paint.style(),
+            colorFilter = paint.colorFilter,
+            blendMode = paint.blendMode,
+          )
+        }
       }
     }
   }
