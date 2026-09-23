@@ -41,11 +41,11 @@ xcrun swiftc \
 
 fixtures=(
   "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/editable-text.rc"
-  "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/TitleCardRemote-640x480.rc"
-  "$repo_root/rc-player/compose/src/jvmTest/resources/rc-fixtures/IndeterminateCircularProgress-400x400.rc"
-  "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/CircularProgressRemote-384x384.rc"
-  "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ArcProgressRemote-454x400.rc"
-  "$repo_root/third_party/rc-embedded-player/src/test/resources/rc-fixtures/ImageBackgroundRemoteButton-454x200.rc"
+  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/TitleCardRemote-640x480.rc"
+  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/IndeterminateCircularProgress-400x400.rc"
+  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/CircularProgressRemote-384x384.rc"
+  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/ArcProgressRemote-454x400.rc"
+  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/ImageBackgroundRemoteButton-454x200.rc"
 )
 for fixture in "${fixtures[@]}"; do
   if [ ! -f "$fixture" ]; then
