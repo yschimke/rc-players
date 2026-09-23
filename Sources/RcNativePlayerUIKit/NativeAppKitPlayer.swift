@@ -16,6 +16,15 @@ func nativeEventSummary(_ event: NativeSwiftEvent) -> String {
   }
 }
 
+func nativeEventSummary(_ event: RemoteComposeNativePlayerEvent) -> String {
+  switch event {
+  case .action(let id): "Action \(id)"
+  case .actionWithMetadata(let id, let metadata): "Action \(id): \(metadata)"
+  case .namedAction(let name, let value): "Named \(name): \(value.summary)"
+  case .debug(let message, let value, let flags): "Debug \(message): \(value) [\(flags)]"
+  }
+}
+
 private extension NativeSwiftActionValue {
   var summary: String {
     switch self {
@@ -23,6 +32,18 @@ private extension NativeSwiftActionValue {
     case .float(let value): String(value)
     case .integer(let value): String(value)
     case .text(let value): value
+    }
+  }
+}
+
+private extension RemoteComposeNativePlayerActionValue {
+  var summary: String {
+    switch self {
+    case .none: "none"
+    case .float(let value): String(value)
+    case .integer(let value): String(value)
+    case .text(let value): value
+    case .floatList(let value): value.description
     }
   }
 }
