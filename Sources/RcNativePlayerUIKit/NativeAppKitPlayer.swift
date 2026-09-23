@@ -826,6 +826,26 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
   ) async throws {
+    try await openNative(
+      data: data, title: title, compatibility: compatibility,
+      downloadableFontResolver: downloadableFontResolver,
+      onFontFallback: onFontFallback,
+      onEvent: { onEvent(nativeEventSummary($0)) },
+      onDiagnostics: onDiagnostics, onError: onError)
+  }
+
+  /// Opens a native AppKit player and forwards the wire-level host event without reducing it to
+  /// a diagnostic string. SwiftUI clients use this path so named-action values remain typed.
+  public func openNative(
+    data: Data,
+    title: String,
+    compatibility: NativeMacCompatibility,
+    downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+    onFontFallback: @escaping (String) -> Void = { _ in },
+    onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void,
+    onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
+    onError: @escaping (String) -> Void
+  ) async throws {
     try NativeMacPolicy.validateDocument(data)
     let session = try NativeSwiftDocumentSession.open(data: data)
     let snapshot = try session.snapshot(timeSeconds: 0, wallClock: nativeSystemWallClock())
@@ -843,7 +863,10 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let player = try NativeMacDocumentView(
       snapshot: snapshot, session: session, compatibility: compatibility, report: report,
       fonts: fonts,
-      onEvent: { onEvent(nativeEventSummary($0)) }, onDiagnostics: onDiagnostics, onError: onError)
+      onEvent: { event in
+        guard case let .namedAction(name, value) = event else { return }
+        onEvent(.namedAction(name: name, value: nativePlayerActionValue(value)))
+      }, onDiagnostics: onDiagnostics, onError: onError)
     let scroll = NSScrollView()
     scroll.drawsBackground = true
     scroll.backgroundColor = .windowBackgroundColor
