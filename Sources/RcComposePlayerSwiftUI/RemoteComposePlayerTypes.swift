@@ -82,7 +82,7 @@ private func remoteComposeActionURL(_ value: String) -> URL? {
 
 @MainActor
 public final class RemoteComposePlayerController {
-  #if canImport(RcComposePlayer)
+  #if canImport(UIKit) && canImport(RcComposePlayer)
     let kotlinController = RcComposePlayerController()
   #else
     private var values: [String: RemoteComposePlayerActionValue] = [:]
@@ -91,7 +91,7 @@ public final class RemoteComposePlayerController {
   public init() {}
 
   public var names: [String] {
-    #if canImport(RcComposePlayer)
+    #if canImport(UIKit) && canImport(RcComposePlayer)
       kotlinController.names
     #else
       values.keys.sorted()
@@ -100,7 +100,7 @@ public final class RemoteComposePlayerController {
 
   @discardableResult
   public func setFloat(_ value: Float, for name: String) -> Bool {
-    #if canImport(RcComposePlayer)
+    #if canImport(UIKit) && canImport(RcComposePlayer)
       kotlinController.setFloat(name: name, value: value)
     #else
       values[name] = .float(value)
@@ -110,7 +110,7 @@ public final class RemoteComposePlayerController {
 
   @discardableResult
   public func setString(_ value: String, for name: String) -> Bool {
-    #if canImport(RcComposePlayer)
+    #if canImport(UIKit) && canImport(RcComposePlayer)
       kotlinController.setString(name: name, value: value)
     #else
       values[name] = .text(value)
@@ -120,7 +120,7 @@ public final class RemoteComposePlayerController {
 
   @discardableResult
   public func setColor(_ argb: UInt32, for name: String) -> Bool {
-    #if canImport(RcComposePlayer)
+    #if canImport(UIKit) && canImport(RcComposePlayer)
       kotlinController.setColor(name: name, argb: Int32(bitPattern: argb))
     #else
       values[name] = .integer(Int(Int32(bitPattern: argb)))
