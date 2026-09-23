@@ -928,7 +928,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
 private final class NativeMacFontRegistry {
   private struct Registration {
     let data: Data
-    let url: URL
+    let font: CGFont
     var owners: Int
   }
 
@@ -1012,24 +1012,25 @@ private final class NativeMacFontRegistry {
       ownedNames.insert(name)
       return name
     }
-    let url = FileManager.default.temporaryDirectory
-      .appendingPathComponent("rc-native-mac-font-\(UUID().uuidString)")
-      .appendingPathExtension("font")
-    try data.write(to: url, options: .atomic)
     var error: Unmanaged<CFError>?
-    guard CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) else {
-      try? FileManager.default.removeItem(at: url)
+    guard CTFontManagerRegisterGraphicsFont(font, &error) else {
       throw NativeSwiftCoreError.malformed(
         offset: 0, reason: "Downloaded font \(id) could not be registered")
     }
-    Self.registrations[name] = Registration(data: data, url: url, owners: 1)
+    Self.registrations[name] = Registration(data: data, font: font, owners: 1)
     ownedNames.insert(name)
     return name
   }
 
   deinit {
     let names = ownedNames
-    Task { @MainActor in Self.release(names) }
+    // Release synchronously when the last owner drops on the main thread, so a replacement
+    // registry created right after can register the same PostScript name.
+    if Thread.isMainThread {
+      MainActor.assumeIsolated { Self.release(names) }
+    } else {
+      Task { @MainActor in Self.release(names) }
+    }
   }
 
   private static func release(_ names: Set<String>) {
@@ -1038,8 +1039,7 @@ private final class NativeMacFontRegistry {
       registration.owners -= 1
       if registration.owners == 0 {
         var error: Unmanaged<CFError>?
-        CTFontManagerUnregisterFontsForURL(registration.url as CFURL, .process, &error)
-        try? FileManager.default.removeItem(at: registration.url)
+        CTFontManagerUnregisterGraphicsFont(registration.font, &error)
         registrations.removeValue(forKey: name)
       } else {
         registrations[name] = registration
