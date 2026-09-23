@@ -4378,11 +4378,13 @@ private enum NativeSwiftDocumentDecoder {
           ParsedDrawCommand(kind: 17, words: words, paint: paint, textID: textID, textFlags: flags))
       case NativeSwiftWireOpcode.drawTextOnPath:
         let textID = try input.int("draw text path text id")
-        _ = try input.int("draw text path id")
+        let pathID = try input.int("draw text path id")
+        guard let path = paths[pathID] else { throw input.malformed("Missing text path \(pathID)") }
         let vertical = try input.word("draw text path vertical offset")
         let horizontal = try input.word("draw text path horizontal offset")
         try drawingNode().commands.append(
-          ParsedDrawCommand(kind: 20, words: [horizontal, vertical], paint: paint, textID: textID))
+          ParsedDrawCommand(
+            kind: 20, words: [horizontal, vertical], paint: paint, path: path, textID: textID))
       case NativeSwiftWireOpcode.drawTextOnCircle:
         let textID = try input.int("draw text circle text id")
         let words = try (0..<5).map { _ in try input.word("draw text circle value") }

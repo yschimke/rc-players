@@ -449,7 +449,7 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       NativeSwiftWireOpcode.drawText: "DrawText",
       NativeSwiftWireOpcode.drawTextAnchored: "DrawTextAnchored",
       NativeSwiftWireOpcode.drawTextOnPath: "DrawTextOnPath",
-      NativeSwiftWireOpcode.drawTextOnCircle: "DrawTextOnCircle",
+      NativeSwiftWireOpcode.drawTextOnCircle: "DrawTextOnCircleStub",
       NativeSwiftWireOpcode.conditionalOperations: "ConditionalOperations",
       38: "clipPath", 39: "clipRect", 40: "paint", 42: "drawRect", 44: "drawBitmap",
       46: "drawCircle", 47: "drawLine", 51: "drawRoundRect", 52: "drawSector",
@@ -545,7 +545,39 @@ final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       for command in node.commands where command.kind == 20 || command.kind == 21 {
         let count = command.text?.count ?? 0
         totalGlyphs += count
-        glyphRuns.append(["text": command.text ?? "", "glyphCount": count])
+        guard command.kind == 20, command.path.count >= 2 else { continue }
+        let start = command.path[0].values
+        let end = command.path[1].values
+        guard start.count >= 2, end.count >= 2 else { continue }
+        let dx = end[0] - start[0]
+        let dy = end[1] - start[1]
+        let length = hypotf(dx, dy)
+        guard length > 0 else { continue }
+        let h = command.values[safe: 0] ?? 0
+        let v = command.values[safe: 1] ?? 0
+        let unitX = dx / length
+        let unitY = dy / length
+        let firstX = start[0] + unitX * h - unitY * v
+        let firstY = start[1] + unitY * h + unitX * v
+        func number(_ value: Float) -> String {
+          value.rounded() == value ? String(Int(value)) : String(value)
+        }
+        let horizontal = abs(dx) >= abs(dy)
+        var run: [String: Any] = [
+          "label": "\(horizontal ? "horizontal" : "vertical") path (\(number(start[0])),\(number(start[1]))→(\(number(end[0])),\(number(end[1]))), hOffset=\(number(h)), vOffset=\(number(v))",
+          "text": command.text ?? "", "glyphCount": count,
+          "allRotationsDeg": horizontal ? 0 : 90,
+        ]
+        if horizontal {
+          run["firstDeviceX"] = firstX
+          run["allDeviceY"] = firstY
+          run["deviceXOrder"] = "increasing"
+        } else {
+          run["allDeviceX"] = firstX
+          run["firstDeviceY"] = firstY
+          run["deviceYOrder"] = "increasing"
+        }
+        glyphRuns.append(run)
       }
       node.children.forEach(collectGlyphRuns)
     }
