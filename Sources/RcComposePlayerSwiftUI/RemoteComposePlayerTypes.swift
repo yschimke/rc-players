@@ -1,18 +1,22 @@
 import Foundation
-import RcComposePlayer
+#if canImport(RcComposePlayer)
+  import RcComposePlayer
+#endif
 
 public enum RemoteComposePlayerTheme: Equatable, Sendable {
   case system
   case light
   case dark
 
-  var kotlinValue: RcPlayerTheme {
+  #if canImport(RcComposePlayer)
+    var kotlinValue: RcPlayerTheme {
     switch self {
     case .system: .system
     case .light: .light
     case .dark: .dark
     }
-  }
+    }
+  #endif
 }
 
 public enum RemoteComposePlayerCompatibility: Equatable, Sendable {
@@ -76,31 +80,54 @@ private func remoteComposeActionURL(_ value: String) -> URL? {
   return url
 }
 
-#if canImport(UIKit)
-  @MainActor
-  public final class RemoteComposePlayerController {
+@MainActor
+public final class RemoteComposePlayerController {
+  #if canImport(RcComposePlayer)
     let kotlinController = RcComposePlayerController()
+  #else
+    private var values: [String: RemoteComposePlayerActionValue] = [:]
+  #endif
 
-    public init() {}
+  public init() {}
 
-    public var names: [String] { kotlinController.names }
-
-    @discardableResult
-    public func setFloat(_ value: Float, for name: String) -> Bool {
-      kotlinController.setFloat(name: name, value: value)
-    }
-
-    @discardableResult
-    public func setString(_ value: String, for name: String) -> Bool {
-      kotlinController.setString(name: name, value: value)
-    }
-
-    @discardableResult
-    public func setColor(_ argb: UInt32, for name: String) -> Bool {
-      kotlinController.setColor(name: name, argb: Int32(bitPattern: argb))
-    }
+  public var names: [String] {
+    #if canImport(RcComposePlayer)
+      kotlinController.names
+    #else
+      values.keys.sorted()
+    #endif
   }
-#endif
+
+  @discardableResult
+  public func setFloat(_ value: Float, for name: String) -> Bool {
+    #if canImport(RcComposePlayer)
+      kotlinController.setFloat(name: name, value: value)
+    #else
+      values[name] = .float(value)
+      return true
+    #endif
+  }
+
+  @discardableResult
+  public func setString(_ value: String, for name: String) -> Bool {
+    #if canImport(RcComposePlayer)
+      kotlinController.setString(name: name, value: value)
+    #else
+      values[name] = .text(value)
+      return true
+    #endif
+  }
+
+  @discardableResult
+  public func setColor(_ argb: UInt32, for name: String) -> Bool {
+    #if canImport(RcComposePlayer)
+      kotlinController.setColor(name: name, argb: Int32(bitPattern: argb))
+    #else
+      values[name] = .integer(Int(Int32(bitPattern: argb)))
+      return true
+    #endif
+  }
+}
 
 public enum RemoteComposePlayerError: Error, Equatable, Sendable {
   case missingHighRefreshRatePlistEntry
@@ -121,7 +148,8 @@ extension RemoteComposePlayerError: LocalizedError {
   }
 }
 
-func kotlinBytes(from data: Data) throws -> KotlinByteArray {
+#if canImport(RcComposePlayer)
+  func kotlinBytes(from data: Data) throws -> KotlinByteArray {
   guard data.count <= Int(Int32.max) else {
     throw RemoteComposePlayerError.documentTooLarge(byteCount: data.count)
   }
@@ -145,7 +173,7 @@ func swiftEvent(from event: RcPlayerEvent) -> RemoteComposePlayerEvent {
   return .unsupported(String(describing: event))
 }
 
-private func swiftActionValue(from value: RcHostActionValue) -> RemoteComposePlayerActionValue {
+  private func swiftActionValue(from value: RcHostActionValue) -> RemoteComposePlayerActionValue {
   switch value {
   case is RcHostActionValueNone:
     return .none
@@ -160,4 +188,5 @@ private func swiftActionValue(from value: RcHostActionValue) -> RemoteComposePla
   default:
     return .unsupported(String(describing: value))
   }
-}
+  }
+#endif
