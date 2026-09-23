@@ -137,16 +137,85 @@
     }
   }
 
+  /// How many host inputs may wait behind the one in flight. Beyond this an input is refused
+  /// (`set*` returns false, a gesture is dropped) rather than queued without bound.
+  private let nativePlayerInputCapacity = 256
+
+  /// What a presentation's pump is waiting on.
+  private enum NativePumpActivity {
+    case idle
+    case frame
+    case input
+  }
+
+  private struct NativePendingInput {
+    let input: NativePlayerEngine.Input
+    /// Receives whether the document accepted the input; nil for a gesture nobody awaits.
+    let reply: ((Bool) -> Void)?
+  }
+
+  private struct NativeFrameRequest {
+    let time: TimeInterval
+    let wallClock: NativeSwiftWallClock?
+  }
+
+  /// One open document and the work queued against it.
+  ///
+  /// Frames and input run one at a time, in arrival order, on a single pump task, so a frame never
+  /// lands on top of the state a later input produced and an input always resolves at the time of
+  /// the frame on screen. The pump exists only while there is work, and holds no chain of tasks.
+  @MainActor
+  private final class NativePlayerPresentation {
+    let engine: NativePlayerEngine
+    let resources: NativeResourceStore
+    var inputs = NativeBoundedQueue<NativePendingInput>(capacity: nativePlayerInputCapacity)
+    var activity = NativePumpActivity.idle
+    /// A frame `renderFrame(at:)` accepted; the pump starts it as soon as it is free.
+    var pendingFrame: NativeFrameRequest?
+    /// A `renderFrame(at:)` time that arrived while input was outstanding, retried once it drains.
+    var deferredFrameTime: TimeInterval?
+    /// The task draining this presentation's work, while there is any.
+    var pump: Task<Void, Never>?
+
+    init(engine: NativePlayerEngine, resources: NativeResourceStore) {
+      self.engine = engine
+      self.resources = resources
+    }
+
+    var hasOutstandingInput: Bool { activity == .input || !inputs.isEmpty }
+
+    var isBusy: Bool { activity != .idle || !inputs.isEmpty || pendingFrame != nil }
+
+    /// Drop everything pending. Queued input is answered `false`; whatever the pump is awaiting is
+    /// discarded by the view's generation check when it returns.
+    func abandon() {
+      pump?.cancel()
+      pump = nil
+      activity = .idle
+      pendingFrame = nil
+      deferredFrameTime = nil
+      for pending in inputs.removeAll() { pending.reply?(false) }
+    }
+  }
+
   /// Root UIKit view. It can be embedded without SwiftUI or the supplied view controller.
   @MainActor
   public final class RemoteComposeNativePlayerView: UIView {
-    /// A retained session can cross several asynchronous boundaries: awaiting a frame, queued
-    /// input, validation, installation, and event delivery. A context is current only while the
-    /// same session remains installed in the same document epoch and app lifecycle.
-    private struct SessionOperationContext {
-      let session: NativeSnapshotSessionHandle
-      let epoch: UInt64
-      let lifecycle: UInt64
+    /// What the view is doing with its document. Exactly one holds at a time, so combinations such
+    /// as "loading while presenting" or "failed yet rendering frames" cannot be expressed.
+    private enum State {
+      /// Nothing is open: before the first load, or after a load was refused before it started.
+      case idle
+      /// Opening the retained bytes: resolving the first frame and the resources.
+      case loading(Task<Void, Never>)
+      /// A session is open and its latest frame is installed.
+      case presenting(NativePlayerPresentation)
+      /// The error label is showing. A session that was already open keeps accepting input, and an
+      /// input that installs returns the view to `presenting`; frames wait for the next load.
+      case failed(NativePlayerPresentation?)
+      /// The application went to the background while a document was opening or input was in
+      /// flight, or a load arrived while it was there; the bytes are reopened on activation.
+      case awaitingForeground
     }
 
     public var playerBackground: RemoteComposeNativePlayerBackground {
@@ -194,23 +263,16 @@
       (any RemoteComposeDownloadableFontResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
-    private var loadTask: Task<Void, Never>?
-    private var inputTail: Task<Void, Never>?
-    private var loadGeneration: UInt64 = 0
-    private var inputGeneration: UInt64 = 0
-    private var lifecycleGeneration: UInt64 = 0
-    private var sessionEpoch: UInt64 = 0
-    private var retainedSessionEpoch: UInt64 = 0
+    /// The resources behind the frame on screen, whose fonts stay registered until replaced.
+    private var installedResources: NativeResourceStore?
+    private var state = State.idle
+    /// Bumped whenever in-flight work stops being wanted: a (re)load or a move to the background.
+    /// Asynchronous work captures it when it starts and applies its result only while it matches.
+    private var generation: UInt64 = 0
+    /// Mirrors UIKit's application lifecycle notifications.
     private var isApplicationActive = true
-    private var needsForegroundRender = false
-    private var isRenderingDocument = false
-    private var needsRetry = false
-    private var retainedSession: NativeSnapshotSessionHandle?
-    private var retainedSessionData: Data?
-    private var retainedResources: NativeResourceStore?
-    private var currentFrameTime: TimeInterval = 0
-    private var serializedInputCount = 0
-    private var deferredFrameTime: TimeInterval?
+    /// A display-link or wake frame that arrived while the view was busy, taken once it frees up.
+    private var scheduledFramePending = false
     private let clock: any RemoteComposeNativePlayerClock
     private var animationTimeline = NativeAnimationTimeline()
     private var frameSchedule = NativeFrameSchedule.idle
@@ -218,8 +280,6 @@
     private lazy var displayLinkTarget = NativeDisplayLinkTarget(owner: self)
     private var delayedWakeTask: Task<Void, Never>?
     private var wakeCountdown = NativeWakeCountdown()
-    private var hasPendingScheduledFrame = false
-    private var frameDriverGeneration: UInt64 = 0
     private var resourceCache: NativeImageCache
     private let errorLabel = UILabel()
 
@@ -288,19 +348,20 @@
     }
 
     deinit {
-      loadTask?.cancel()
+      // A pump holds the view strongly, so none can be running here; only an open (which holds it
+      // weakly, and may be waiting on a resolver) and a wake timer can outlive it.
+      if case .loading(let task) = state { task.cancel() }
       delayedWakeTask?.cancel()
       NotificationCenter.default.removeObserver(self)
     }
 
     public func load(_ data: Data) {
-      if data == documentData, !needsRetry { return }
+      if data == documentData, !isShowingError { return }
       if data != documentData {
         animationTimeline.reset(
           at: clock.now(),
           active: isApplicationActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
       }
-      loadTask?.cancel()
       documentData = data
       render(data)
     }
@@ -318,8 +379,6 @@
       }
       let limitsChanged = limits != resourceLimits
       guard limitsChanged || resolverChanged else { return }
-      loadTask?.cancel()
-      loadGeneration &+= 1
       resourceLimits = limits
       resourceResolver = resolver
       resourceCache = NativeImageCache(
@@ -376,21 +435,55 @@
       if let documentData { render(documentData) }
     }
 
+    // MARK: - State
+
+    private var isShowingError: Bool {
+      if case .failed = state { return true }
+      return false
+    }
+
+    /// The open session that accepts input, whether or not an error is showing.
+    private var openPresentation: NativePlayerPresentation? {
+      switch state {
+      case .presenting(let presentation): return presentation
+      case .failed(let presentation): return presentation
+      case .idle, .loading, .awaitingForeground: return nil
+      }
+    }
+
+    /// Whether a scheduled frame has to wait: a document is opening, or its pump has work.
+    private var isBusy: Bool {
+      switch state {
+      case .loading: return true
+      case .presenting(let presentation): return presentation.isBusy
+      case .failed(let presentation): return presentation?.isBusy ?? false
+      case .idle, .awaitingForeground: return false
+      }
+    }
+
+    /// Supersede all in-flight work: cancel an open, and drop the open session's queued frames and
+    /// input. Anything already awaiting the engine is discarded when it returns.
+    private func abandonWork() {
+      generation &+= 1
+      switch state {
+      case .loading(let task): task.cancel()
+      case .presenting(let presentation): presentation.abandon()
+      case .failed(let presentation): presentation?.abandon()
+      case .idle, .awaitingForeground: break
+      }
+    }
+
+    // MARK: - Loading
+
     private func render(_ data: Data) {
+      abandonWork()
       guard isApplicationActive else {
-        needsForegroundRender = true
+        state = .awaitingForeground
         return
       }
-      needsRetry = false
-      needsForegroundRender = false
-      isRenderingDocument = true
-      hasPendingScheduledFrame = false
+      scheduledFramePending = false
       stopFrameDriver()
-      loadTask?.cancel()
-      inputTail = nil
-      loadGeneration &+= 1
-      inputGeneration &+= 1
-      sessionEpoch &+= 1
+      state = .idle
       do {
         try NativeFrameBudget.validate(executionLimits)
         guard data.count <= executionLimits.maximumDocumentBytes else {
@@ -398,11 +491,10 @@
             actual: data.count, maximum: executionLimits.maximumDocumentBytes)
         }
       } catch {
-        show(error: error)
+        show(error: error, retaining: nil)
         return
       }
-      let generation = loadGeneration
-      let epoch = sessionEpoch
+      let generation = self.generation
       let executionLimits = executionLimits
       let compatibilityPolicy = compatibilityPolicy
       let androidCompatibility = androidCompatibility
@@ -414,9 +506,9 @@
       let downloadableFontResolver = downloadableFontResolver
       let resourceCache = resourceCache
       let wallClock = clock.wallClock()
-      loadTask = Task { [weak self] in
+      let task = Task { [weak self] in
         do {
-          let (session, frame) = try await NativeSnapshotSessionHandle.open(
+          let (engine, frame) = try await NativePlayerEngine.open(
             data: data, maximumDocumentBytes: executionLimits.maximumDocumentBytes,
             hostDensity: hostDensity, hostFontScale: hostFontScale,
             wallClock: wallClock)
@@ -424,7 +516,7 @@
           let model = try NativeDocument(
             frame: frame, timeSeconds: 0, limits: executionLimits,
             androidCompatibility: androidCompatibility)
-          guard generation == self?.loadGeneration else { return }
+          guard generation == self?.generation else { return }
           let diagnostics = model.diagnostics(
             availableCustomComponents: availableCustomComponents)
           self?.onDiagnostics(diagnostics)
@@ -439,229 +531,30 @@
             downloadableFontResolver: downloadableFontResolver,
             cache: resourceCache)
           try Task.checkCancellation()
-          guard let self, generation == self.loadGeneration else { return }
-          self.retainedSession = session
-          self.retainedSessionData = data
-          self.retainedSessionEpoch = epoch
-          self.currentFrameTime = 0
-          try self.install(model, resources: resources)
-        } catch let error as CancellationError {
-          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
-          self.show(error: error)
+          guard let self, generation == self.generation else { return }
+          self.presentOpened(model, engine: engine, resources: resources)
         } catch {
-          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
-          self.show(error: error)
+          guard !Task.isCancelled, let self, generation == self.generation else { return }
+          self.show(error: error, retaining: nil)
         }
       }
+      state = .loading(task)
     }
 
-    /// Resolve another immutable frame from the retained runtime without decoding the document.
-    public func renderFrame(at timeSeconds: TimeInterval) {
-      guard isApplicationActive else { return }
-      guard loadTask == nil else { return }
-      guard !needsRetry, retainedSessionData == documentData else { return }
-      guard serializedInputCount == 0 else {
-        deferredFrameTime = timeSeconds
+    /// Install the first frame of a freshly opened session.
+    private func presentOpened(
+      _ model: NativeDocument, engine: NativePlayerEngine, resources: NativeResourceStore
+    ) {
+      let presentation = NativePlayerPresentation(engine: engine, resources: resources)
+      do {
+        try install(model, for: presentation)
+      } catch {
+        // The session is open even though its first frame could not be installed, so it keeps
+        // accepting input, exactly as after any later failure.
+        show(error: error, retaining: presentation)
         return
       }
-      guard let retainedSession, let retainedResources else { return }
-      let frameTime = animationTimeline.advance(to: timeSeconds, at: clock.now())
-      let wallClock = clock.wallClock()
-      loadTask?.cancel()
-      loadGeneration &+= 1
-      let generation = loadGeneration
-      loadTask = Task { [weak self] in
-        do {
-          let frame = try await retainedSession.frame(
-            at: frameTime, wallClock: wallClock)
-          try Task.checkCancellation()
-          guard let self, generation == self.loadGeneration else { return }
-          let model = try NativeDocument(
-            frame: frame, timeSeconds: frameTime, limits: self.executionLimits,
-            androidCompatibility: self.androidCompatibility)
-          try self.validate(model)
-          try Task.checkCancellation()
-          guard generation == self.loadGeneration else { return }
-          self.currentFrameTime = frameTime
-          try self.install(model, resources: retainedResources)
-        } catch let error as CancellationError {
-          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
-          self.show(error: error)
-        } catch {
-          guard !Task.isCancelled, let self, generation == self.loadGeneration else { return }
-          self.show(error: error)
-        }
-      }
-    }
-
-    @discardableResult
-    public func setFloat(_ value: Float, for name: String) async -> Bool {
-      await updateSession { session, time in
-        try await session.setFloat(value, for: name, at: time)
-      }
-    }
-
-    @discardableResult
-    public func setString(_ value: String, for name: String) async -> Bool {
-      await updateSession { session, time in
-        try await session.setString(value, for: name, at: time)
-      }
-    }
-
-    @discardableResult
-    public func setColor(_ argb: UInt32, for name: String) async -> Bool {
-      await updateSession { session, time in
-        try await session.setColor(argb, for: name, at: time)
-      }
-    }
-
-    @discardableResult
-    public func setInteger(_ value: Int, for name: String) async -> Bool {
-      await updateSession { session, time in
-        try await session.setInteger(value, for: name, at: time)
-      }
-    }
-
-    private func updateSession(
-      _ operation:
-        @escaping @Sendable (NativeSnapshotSessionHandle, TimeInterval) async throws ->
-        NativeSnapshotSessionHandle.Update
-    ) async -> Bool {
-      guard
-        isApplicationActive, retainedSessionEpoch == sessionEpoch,
-        let retainedSession
-      else { return false }
-      serializedInputCount += 1
-      defer { finishSerializedInput() }
-      if let pendingFrame = loadTask { await pendingFrame.value }
-      let context = SessionOperationContext(
-        session: retainedSession, epoch: sessionEpoch, lifecycle: lifecycleGeneration)
-      guard
-        isCurrent(context), let retainedResources
-      else { return false }
-      let time = currentFrameTime
-      let (input, task) = enqueueInput(lifecycle: context.lifecycle) {
-        try await operation(retainedSession, time)
-      }
-      switch await task.value {
-      case .success(let update):
-        guard isCurrent(context) else { return update.accepted }
-        do {
-          let model = try NativeDocument(
-            frame: update.frame, timeSeconds: time, limits: executionLimits,
-            androidCompatibility: androidCompatibility)
-          try validateExecution(model, events: update.events)
-          guard isCurrent(context) else { return update.accepted }
-          guard input == inputGeneration else {
-            dispatch(update.events, for: context)
-            return update.accepted
-          }
-          try validate(model)
-          guard
-            input == inputGeneration, isCurrent(context)
-          else { return update.accepted }
-          try install(model, resources: retainedResources)
-          dispatch(update.events, for: context)
-          return update.accepted
-        } catch {
-          guard isCurrent(context) else { return false }
-          show(error: error)
-          return false
-        }
-      case .failure(let error):
-        guard isLifecycleCurrent(context) else { return false }
-        if !(error is CancellationError) { show(error: error) }
-        return false
-      }
-    }
-
-    private func isCurrent(_ context: SessionOperationContext) -> Bool {
-      isLifecycleCurrent(context)
-        && retainedSessionEpoch == context.epoch
-        && retainedSession === context.session
-    }
-
-    private func isLifecycleCurrent(_ context: SessionOperationContext) -> Bool {
-      isApplicationActive
-        && lifecycleGeneration == context.lifecycle
-        && sessionEpoch == context.epoch
-    }
-
-    private func finishSerializedInput() {
-      serializedInputCount -= 1
-      guard serializedInputCount == 0 else { return }
-      if let deferredFrameTime {
-        self.deferredFrameTime = nil
-        renderFrame(at: deferredFrameTime)
-      } else if hasPendingScheduledFrame {
-        requestScheduledFrame()
-      }
-    }
-
-    private func enqueueInput(
-      lifecycle: UInt64,
-      _ operation: @escaping @Sendable () async throws -> NativeSnapshotSessionHandle.Update
-    ) -> (UInt64, Task<Result<NativeSnapshotSessionHandle.Update, any Error>, Never>) {
-      inputGeneration &+= 1
-      let input = inputGeneration
-      let previous = inputTail
-      let task = Task<Result<NativeSnapshotSessionHandle.Update, any Error>, Never> { [weak self] in
-        await previous?.value
-        do {
-          try Task.checkCancellation()
-          guard
-            self?.isApplicationActive == true, lifecycle == self?.lifecycleGeneration
-          else { throw CancellationError() }
-          return .success(try await operation())
-        } catch {
-          return .failure(error)
-        }
-      }
-      inputTail = Task { _ = await task.value }
-      return (input, task)
-    }
-
-    private func dispatch(_ events: [RemoteComposeNativePlayerEvent], for context: SessionOperationContext) {
-      for event in events {
-        guard isCurrent(context) else { return }
-        onEvent(event)
-      }
-    }
-
-    private func validate(_ model: NativeDocument) throws {
-      let diagnostics = model.diagnostics(availableCustomComponents: customComponents.names)
-      onDiagnostics(diagnostics)
-      if !RemoteComposeNativeCompatibilityDecision.shouldRender(
-        policy: compatibilityPolicy, diagnostics: diagnostics)
-      {
-        throw RemoteComposeNativePlayerError.incompatible(diagnostics)
-      }
-    }
-
-    private func validateExecution(
-      _ model: NativeDocument, events: [RemoteComposeNativePlayerEvent]
-    ) throws {
-      var budget = model.executionBudget
-      for event in events {
-        switch event {
-        case .action:
-          try budget.recordEvent(limits: executionLimits)
-        case .actionWithMetadata(_, let metadata):
-          try budget.recordEvent(strings: [metadata], limits: executionLimits)
-        case .namedAction(let name, let value):
-          switch value {
-          case .none, .float, .integer:
-            try budget.recordEvent(strings: [name], limits: executionLimits)
-          case .text(let text):
-            try budget.recordEvent(strings: [name, text], limits: executionLimits)
-          case .floatList(let values):
-            try budget.recordEvent(
-              additionalWork: values.count, strings: [name], limits: executionLimits)
-          }
-        case .debug(let message, _, _):
-          try budget.recordEvent(strings: [message], limits: executionLimits)
-        }
-      }
+      if scheduledFramePending { requestScheduledFrame() }
     }
 
     private static func prepareResources(
@@ -704,15 +597,247 @@
       return resources
     }
 
-    private func install(_ model: NativeDocument, resources: NativeResourceStore) throws {
-      try resources.activateFonts(replacing: retainedResources)
-      isRenderingDocument = false
+    // MARK: - Frames and input
+
+    /// Resolve another immutable frame from the retained runtime without decoding the document.
+    ///
+    /// Ignored while a frame is already on its way; deferred until queued input has been applied.
+    public func renderFrame(at timeSeconds: TimeInterval) {
+      guard isApplicationActive, case .presenting(let presentation) = state else { return }
+      guard presentation.activity != .frame, presentation.pendingFrame == nil else { return }
+      guard !presentation.hasOutstandingInput else {
+        presentation.deferredFrameTime = timeSeconds
+        return
+      }
+      let frameTime = animationTimeline.advance(to: timeSeconds, at: clock.now())
+      presentation.pendingFrame = NativeFrameRequest(
+        time: frameTime, wallClock: clock.wallClock())
+      startPump(for: presentation)
+    }
+
+    @discardableResult
+    public func setFloat(_ value: Float, for name: String) async -> Bool {
+      await submit(.setFloat(value, name: name))
+    }
+
+    @discardableResult
+    public func setString(_ value: String, for name: String) async -> Bool {
+      await submit(.setString(value, name: name))
+    }
+
+    @discardableResult
+    public func setColor(_ argb: UInt32, for name: String) async -> Bool {
+      await submit(.setColor(argb, name: name))
+    }
+
+    @discardableResult
+    public func setInteger(_ value: Int, for name: String) async -> Bool {
+      await submit(.setInteger(value, name: name))
+    }
+
+    private func submit(_ input: NativePlayerEngine.Input) async -> Bool {
+      await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+        enqueue(input) { accepted in continuation.resume(returning: accepted) }
+      }
+    }
+
+    /// Queue `input` behind the open session's pending work. `reply` is called exactly once.
+    private func enqueue(_ input: NativePlayerEngine.Input, reply: ((Bool) -> Void)?) {
+      guard isApplicationActive, let presentation = openPresentation,
+        presentation.inputs.append(NativePendingInput(input: input, reply: reply))
+      else {
+        reply?(false)
+        return
+      }
+      startPump(for: presentation)
+    }
+
+    private func startPump(for presentation: NativePlayerPresentation) {
+      guard presentation.pump == nil else { return }
+      let generation = self.generation
+      presentation.pump = Task { [weak self] in
+        await self?.drain(presentation, generation: generation)
+      }
+    }
+
+    /// Run a presentation's work to completion, one item at a time, in arrival order: an accepted
+    /// frame (only ever accepted while no input is outstanding, so it predates any queued input),
+    /// then queued input, then the frame that was deferred behind that input. Stops as soon as the
+    /// generation moves on, leaving the presentation to whoever superseded it.
+    private func drain(_ presentation: NativePlayerPresentation, generation: UInt64) async {
+      while generation == self.generation {
+        if let request = presentation.pendingFrame {
+          presentation.pendingFrame = nil
+          presentation.activity = .frame
+          await presentFrame(request, on: presentation, generation: generation)
+          guard generation == self.generation else { return }
+          presentation.activity = .idle
+          if scheduledFramePending { requestScheduledFrame() }
+        } else if let pending = presentation.inputs.popFirst() {
+          presentation.activity = .input
+          await applyInput(pending, to: presentation, generation: generation)
+        } else if presentation.activity == .input {
+          // The last input is done: take the frame that waited for it.
+          presentation.activity = .idle
+          if let deferredFrameTime = presentation.deferredFrameTime {
+            presentation.deferredFrameTime = nil
+            renderFrame(at: deferredFrameTime)
+          } else if scheduledFramePending {
+            requestScheduledFrame()
+          }
+        } else {
+          presentation.pump = nil
+          return
+        }
+      }
+    }
+
+    private func presentFrame(
+      _ request: NativeFrameRequest, on presentation: NativePlayerPresentation,
+      generation: UInt64
+    ) async {
+      do {
+        let frame = try await presentation.engine.frame(
+          at: request.time, wallClock: request.wallClock)
+        guard generation == self.generation else { return }
+        let model = try NativeDocument(
+          frame: frame, timeSeconds: request.time, limits: executionLimits,
+          androidCompatibility: androidCompatibility)
+        try validate(model)
+        guard generation == self.generation else { return }
+        var installError: (any Error)?
+        do {
+          try install(model, for: presentation)
+        } catch {
+          installError = error
+        }
+        // Input from here on resolves at this frame's time, even if installing it failed.
+        await presentation.engine.present(frameTime: request.time)
+        if let installError { throw installError }
+      } catch {
+        guard generation == self.generation else { return }
+        show(error: error, retaining: presentation)
+      }
+    }
+
+    private func applyInput(
+      _ pending: NativePendingInput, to presentation: NativePlayerPresentation,
+      generation: UInt64
+    ) async {
+      let result: Result<NativePlayerEngine.Update, any Error>
+      do {
+        result = .success(try await presentation.engine.apply(pending.input))
+      } catch {
+        result = .failure(error)
+      }
+      guard generation == self.generation else {
+        // Superseded by a reload or the background: report what the session said, but nothing
+        // from a superseded session reaches the screen or the host's callbacks.
+        if case .success(let update) = result {
+          pending.reply?(update.accepted)
+        } else {
+          pending.reply?(false)
+        }
+        return
+      }
+      switch result {
+      case .success(let update):
+        // Evaluated first: an optional-chained call skips its argument when a gesture has no reply.
+        let accepted = presentInput(update, on: presentation, generation: generation)
+        pending.reply?(accepted)
+      case .failure(let error):
+        if !(error is CancellationError) { show(error: error, retaining: presentation) }
+        pending.reply?(false)
+      }
+    }
+
+    /// Install the frame an input produced and deliver its events. Returns whether the document
+    /// accepted the input.
+    private func presentInput(
+      _ update: NativePlayerEngine.Update, on presentation: NativePlayerPresentation,
+      generation: UInt64
+    ) -> Bool {
+      do {
+        let model = try NativeDocument(
+          frame: update.frame, timeSeconds: update.timeSeconds, limits: executionLimits,
+          androidCompatibility: androidCompatibility)
+        try validateExecution(model, events: update.events)
+        guard presentation.inputs.isEmpty else {
+          // A newer input will install its own frame; this one's events still go out, in order.
+          dispatch(update.events, generation: generation)
+          return update.accepted
+        }
+        try validate(model)
+        guard generation == self.generation, presentation.inputs.isEmpty else {
+          return update.accepted
+        }
+        try install(model, for: presentation)
+        dispatch(update.events, generation: generation)
+        return update.accepted
+      } catch {
+        guard generation == self.generation else { return false }
+        show(error: error, retaining: presentation)
+        return false
+      }
+    }
+
+    private func dispatch(_ events: [RemoteComposeNativePlayerEvent], generation: UInt64) {
+      for event in events {
+        guard generation == self.generation else { return }
+        onEvent(event)
+      }
+    }
+
+    private func validate(_ model: NativeDocument) throws {
+      let diagnostics = model.diagnostics(availableCustomComponents: customComponents.names)
+      onDiagnostics(diagnostics)
+      if !RemoteComposeNativeCompatibilityDecision.shouldRender(
+        policy: compatibilityPolicy, diagnostics: diagnostics)
+      {
+        throw RemoteComposeNativePlayerError.incompatible(diagnostics)
+      }
+    }
+
+    private func validateExecution(
+      _ model: NativeDocument, events: [RemoteComposeNativePlayerEvent]
+    ) throws {
+      var budget = model.executionBudget
+      for event in events {
+        switch event {
+        case .action:
+          try budget.recordEvent(limits: executionLimits)
+        case .actionWithMetadata(_, let metadata):
+          try budget.recordEvent(strings: [metadata], limits: executionLimits)
+        case .namedAction(let name, let value):
+          switch value {
+          case .none, .float, .integer:
+            try budget.recordEvent(strings: [name], limits: executionLimits)
+          case .text(let text):
+            try budget.recordEvent(strings: [name, text], limits: executionLimits)
+          case .floatList(let values):
+            try budget.recordEvent(
+              additionalWork: values.count, strings: [name], limits: executionLimits)
+          }
+        case .debug(let message, _, _):
+          try budget.recordEvent(strings: [message], limits: executionLimits)
+        }
+      }
+    }
+
+    private func install(
+      _ model: NativeDocument, for presentation: NativePlayerPresentation
+    ) throws {
+      try presentation.resources.activateFonts(replacing: installedResources)
+      installedResources = presentation.resources
+      // Before the view update, so a callback it raises already finds this session.
+      state = .presenting(presentation)
       if documentView?.update(
-        document: model, resources: resources, customComponents: customComponents) != true
+        document: model, resources: presentation.resources, customComponents: customComponents)
+        != true
       {
         let nextView = NativeDocumentView(
           document: model,
-          resources: resources,
+          resources: presentation.resources,
           customComponents: customComponents,
           onGesture: { [weak self] componentID, gesture, sample in
             self?.performGesture(gesture, componentID: componentID, sample: sample)
@@ -723,20 +848,16 @@
           })
         replaceDocumentView(with: nextView)
       }
-      retainedResources = resources
       frameSchedule = model.frameSchedule
       wakeCountdown.reset(after: frameSchedule.wakeAfter)
-      needsRetry = false
       errorLabel.isHidden = true
-      loadTask = nil
       updateFrameDriver()
-      if hasPendingScheduledFrame { requestScheduledFrame() }
     }
 
-    private func show(error: Error) {
-      isRenderingDocument = false
+    private func show(error: Error, retaining presentation: NativePlayerPresentation?) {
       stopFrameDriver()
-      needsRetry = true
+      state = .failed(presentation)
+      scheduledFramePending = false
       errorLabel.text = error.localizedDescription
       errorLabel.isHidden = false
       if let error = error as? RemoteComposeNativePlayerError {
@@ -744,40 +865,29 @@
       } else {
         onError(.decode(error.localizedDescription))
       }
-      loadTask = nil
-      hasPendingScheduledFrame = false
     }
 
     private func performGesture(
       _ gesture: NativeSwiftGestureKind, componentID: Int,
       sample: NativeSwiftPointerSample?
     ) {
-      Task { [weak self] in
-        guard let self else { return }
-        _ = await self.updateSession { session, time in
-          try await session.gesture(
-            gesture, componentID: componentID, sample: sample, at: time)
-        }
-      }
+      enqueue(.gesture(gesture, componentID: componentID, sample: sample), reply: nil)
     }
 
     private func performCustomReturn(
       componentID: Int, propertyID: Int, value: NativeCustomReturnValue
     ) {
-      Task { [weak self] in
-        guard let self else { return }
-        _ = await self.updateSession { session, time in
-          switch value {
-          case .float(let value):
-            try await session.returnCustomFloat(
-              value, componentID: componentID, propertyID: propertyID, at: time)
-          case .text(let value):
-            try await session.returnCustomText(
-              value, componentID: componentID, propertyID: propertyID, at: time)
-          }
-        }
+      switch value {
+      case .float(let value):
+        enqueue(
+          .customFloat(value, componentID: componentID, propertyID: propertyID), reply: nil)
+      case .text(let value):
+        enqueue(
+          .customText(value, componentID: componentID, propertyID: propertyID), reply: nil)
       }
     }
+
+    // MARK: - View
 
     public override func layoutSubviews() {
       super.layoutSubviews()
@@ -822,10 +932,11 @@
       backgroundColor = opaque ? .systemBackground : .clear
     }
 
+    // MARK: - Frame driver
+
     private func updateFrameDriver() {
       let now = clock.now()
       wakeCountdown.pause(at: now)
-      frameDriverGeneration &+= 1
       delayedWakeTask?.cancel()
       delayedWakeTask = nil
       let mode = frameSchedule.driverMode(
@@ -846,15 +957,14 @@
       case .wake(let delay):
         displayLink?.invalidate()
         displayLink = nil
-        let generation = frameDriverGeneration
         let remainingDelay = wakeCountdown.start(after: delay, at: now)
+        // Replaced timers are cancelled on the main actor, the same actor this resumes on, so a
+        // cancelled one always observes it here.
         delayedWakeTask = Task { [weak self] in
           let maximumDelay = TimeInterval(UInt64.max / 1_000_000_000)
           let nanoseconds = UInt64(min(remainingDelay, maximumDelay) * 1_000_000_000)
           try? await Task.sleep(nanoseconds: nanoseconds)
-          guard !Task.isCancelled, let self, generation == self.frameDriverGeneration else {
-            return
-          }
+          guard !Task.isCancelled, let self else { return }
           self.delayedWakeTask = nil
           self.requestScheduledFrame()
         }
@@ -863,7 +973,6 @@
 
     private func stopFrameDriver() {
       wakeCountdown.pause(at: clock.now())
-      frameDriverGeneration &+= 1
       delayedWakeTask?.cancel()
       delayedWakeTask = nil
       displayLink?.invalidate()
@@ -880,15 +989,11 @@
 
     private func requestScheduledFrame() {
       guard isApplicationActive, window != nil else { return }
-      guard serializedInputCount == 0 else {
-        hasPendingScheduledFrame = true
+      guard !isBusy else {
+        scheduledFramePending = true
         return
       }
-      guard loadTask == nil else {
-        hasPendingScheduledFrame = true
-        return
-      }
-      hasPendingScheduledFrame = false
+      scheduledFramePending = false
       let now = clock.now()
       let time: TimeInterval
       if UIAccessibility.isReduceMotionEnabled {
@@ -898,6 +1003,8 @@
       }
       renderFrame(at: time)
     }
+
+    // MARK: - Lifecycle
 
     @objc private func reduceMotionStatusDidChange() {
       if UIAccessibility.isReduceMotionEnabled {
@@ -910,17 +1017,20 @@
 
     @objc private func applicationDidEnterBackground() {
       isApplicationActive = false
-      needsForegroundRender =
-        (isRenderingDocument || serializedInputCount > 0) && documentData != nil
-      isRenderingDocument = false
+      // An interrupted open, or input that never reached the screen, is replayed from the bytes on
+      // activation; an idle session simply resumes.
+      let reopen: Bool
+      switch state {
+      case .loading, .awaitingForeground: reopen = true
+      case .presenting(let presentation): reopen = presentation.hasOutstandingInput
+      case .failed(let presentation): reopen = presentation?.hasOutstandingInput ?? false
+      case .idle: reopen = false
+      }
       animationTimeline.pause(at: clock.now())
       stopFrameDriver()
-      loadTask?.cancel()
-      loadTask = nil
-      loadGeneration &+= 1
-      inputGeneration &+= 1
-      lifecycleGeneration &+= 1
-      hasPendingScheduledFrame = false
+      abandonWork()
+      scheduledFramePending = false
+      if reopen, documentData != nil { state = .awaitingForeground }
     }
 
     @objc private func applicationDidBecomeActive() {
@@ -930,7 +1040,7 @@
       } else {
         animationTimeline.resume(at: clock.now())
       }
-      if needsForegroundRender, let documentData {
+      if case .awaitingForeground = state, let documentData {
         render(documentData)
       } else {
         updateFrameDriver()
