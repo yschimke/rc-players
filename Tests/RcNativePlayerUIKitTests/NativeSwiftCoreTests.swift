@@ -459,7 +459,32 @@ import Testing
       (-123.456, 3, 1, 256, "(123.5)"),
       (0.999, 1, 2, 1024, "0.  "),
       (7.1, 2, 3, 15, "07.100"),
+      // Java's own spelling of a tiny fraction, and digit counts past what an Int64 power holds:
+      // the reference's quirks are kept, and nothing traps.
+      (0.0001, 0, 4, 5, ".0"),
+      (0.0001, 1, 4, 0, "0.0   "),
+      (0.00012, 1, 5, 3, "0.20000"),
+      (1.5, 2, 19, 0, " 1.5                  "),
+      (1.5, 2, 20, 3, " 1.50000000000000000000"),
+      (1.5, 2, 25, 1, " 1.5"),
+      (1.5, 2, 20, 1024, " 1.1474848E-11         "),
+      (2.25, 3, 30, 515, "  2.250000000000000000000000000000"),
+      (0.0005, 0, 5, 1024, ".0E-4 "),
+      // FULL_FORMAT is Java's Float.toString.
+      (0.0001, 0, 0, 4096, "1.0E-4"),
+      (1.0e7, 0, 0, 4096, "1.0E7"),
+      (12345678, 0, 0, 4096, "1.2345678E7"),
+      (1234567, 0, 0, 4096, "1234567.0"),
+      (0.001, 0, 0, 4096, "0.001"),
+      (0.00012345, 0, 0, 4096, "1.2345E-4"),
+      (3.4e38, 0, 0, 4096, "3.4E38"),
+      (-0.0, 0, 0, 4096, "-0.0"),
+      (100, 0, 0, 4096, "100.0"),
+      (.infinity, 0, 0, 4096, "Infinity"),
     ]
+    // A negative digit count, which the reference's substring would throw on, formats instead.
+    _ = NativeSwiftTextFormatter.format(1.5, digitsBefore: -3, digitsAfter: -2, flags: 0)
+    _ = NativeSwiftTextFormatter.format(1.5, digitsBefore: -3, digitsAfter: -2, flags: 1024)
     for (value, before, after, flags, expected) in formatted {
       let actual = NativeSwiftTextFormatter.format(
         value, digitsBefore: before, digitsAfter: after, flags: flags)
@@ -1397,6 +1422,41 @@ import Testing
     #expect(
       actual == ["0:false:0", "0.0:false:0", "1:true:2", "1.0:true:1", "1.1:false:0"],
       Comment(rawValue: "conditional traces: \(actual)"))
+  }
+
+  /// Values that feed expressions but are produced after them — a derived text's length, an
+  /// `ID_LOOKUP`, `EPOCH_SECOND` — reach those expressions in the same resolution, and the epoch
+  /// keeps moving after the first frame.
+  @Test func producedValuesReachTheirReadersInOneResolution() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.text(id: 1, "Hello RemoteCompose")
+    document.u8(182).int(44).int(1).float(6).float(6)
+    document.u8(156).int(50).int(44)
+    document.u8(81).int(51).int(3)
+      .int(Writer.nanReference(50)).float(2).int(Writer.floatOperator(3))
+    document.u8(146).int(2).int(3).int(7).int(8).int(9)
+    document.u8(192).int(40).int(2).float(1)
+    document.u8(81).int(52).int(3)
+      .int(Writer.nanReference(40)).float(1).int(Writer.floatOperator(1))
+    document.u8(144).int(60).int(5).int(3).int(32).int(1).int(65_538)
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let first = try session.probeValues(
+      timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: 1_789_050_600_999))
+    #expect(
+      first.floats[51] == 12 && first.floats[52] == 9 && first.integers[60] == 1_789_050_599,
+      Comment(rawValue:
+        "first resolution read length×2 \(String(describing: first.floats[51])), lookup+1 "
+          + "\(String(describing: first.floats[52])), epoch-1 "
+          + "\(String(describing: first.integers[60]))"))
+    let later = try session.probeValues(
+      timeSeconds: 5, wallClock: NativeSwiftWallClock(epochMillis: 1_789_050_605_000))
+    #expect(
+      later.integers[32] == 1_789_050_605 && later.integers[60] == 1_789_050_604,
+      Comment(rawValue:
+        "a later frame's epoch resolved to \(String(describing: later.integers[32])), "
+          + "epoch-1 to \(String(describing: later.integers[60]))"))
   }
 
   // MARK: - Graphics-layer attribute ids (#423)
