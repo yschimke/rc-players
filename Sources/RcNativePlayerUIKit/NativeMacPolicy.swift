@@ -81,7 +81,8 @@ public enum NativeMacPolicy {
       }
       guard image.encoding == 0 else {
         throw NativeSwiftCoreError.unsupported(
-          opcode: 101, offset: 0, reason: "external AppKit image resources")
+          opcode: NativeSwiftWireOpcode.dataBitmap, offset: 0,
+          reason: "external AppKit image resources")
       }
     }
   }

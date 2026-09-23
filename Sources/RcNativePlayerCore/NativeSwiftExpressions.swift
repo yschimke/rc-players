@@ -39,50 +39,57 @@ enum NativeSwiftIntegerExpression {
     }
     for (index, token) in tokens.enumerated() {
       let marked = UInt32(bitPattern: Int32(mask)) & (UInt32(1) << UInt32(index & 31)) != 0
-      if !marked || token < 65_536 {
+      if !marked || token < NativeSwiftIntegerOperator.offset {
         stack.append(Int32(truncatingIfNeeded: marked ? values[token] ?? 0 : token))
         continue
       }
-      let operation = token - 65_536
-      if (1...14).contains(operation) {
+      let operation = token - NativeSwiftIntegerOperator.offset
+      if (NativeSwiftIntegerOperator.add...NativeSwiftIntegerOperator.max).contains(operation) {
         let value = try pop(2)
         let left = value[0]
         let right = value[1]
         switch operation {
-        case 1: stack.append(left &+ right)
-        case 2: stack.append(left &- right)
-        case 3: stack.append(left &* right)
-        case 4: stack.append(right == 0 || (left == .min && right == -1) ? 0 : left / right)
-        case 5: stack.append(right == 0 || (left == .min && right == -1) ? 0 : left % right)
-        case 6: stack.append(left << (right & 31))
-        case 7: stack.append(left >> (right & 31))
-        case 8:
+        case NativeSwiftIntegerOperator.add: stack.append(left &+ right)
+        case NativeSwiftIntegerOperator.sub: stack.append(left &- right)
+        case NativeSwiftIntegerOperator.mul: stack.append(left &* right)
+        case NativeSwiftIntegerOperator.div:
+          stack.append(right == 0 || (left == .min && right == -1) ? 0 : left / right)
+        case NativeSwiftIntegerOperator.mod:
+          stack.append(right == 0 || (left == .min && right == -1) ? 0 : left % right)
+        case NativeSwiftIntegerOperator.shl: stack.append(left << (right & 31))
+        case NativeSwiftIntegerOperator.shr: stack.append(left >> (right & 31))
+        case NativeSwiftIntegerOperator.ushr:
           stack.append(Int32(bitPattern: UInt32(bitPattern: left) >> UInt32(right & 31)))
-        case 9: stack.append(left | right)
-        case 10: stack.append(left & right)
-        case 11: stack.append(left ^ right)
-        case 12: stack.append((left ^ (right >> 31)) &- (right >> 31))
-        case 13: stack.append(min(left, right))
+        case NativeSwiftIntegerOperator.or: stack.append(left | right)
+        case NativeSwiftIntegerOperator.and: stack.append(left & right)
+        case NativeSwiftIntegerOperator.xor: stack.append(left ^ right)
+        case NativeSwiftIntegerOperator.copySign: stack.append((left ^ (right >> 31)) &- (right >> 31))
+        case NativeSwiftIntegerOperator.min: stack.append(min(left, right))
         default: stack.append(max(left, right))
         }
-      } else if (15...20).contains(operation) {
+      } else if (NativeSwiftIntegerOperator.neg...NativeSwiftIntegerOperator.sign).contains(operation) {
         let value = try pop(1)[0]
         switch operation {
-        case 15: stack.append(0 &- value)
-        case 16: stack.append(value == .min ? .min : abs(value))
-        case 17: stack.append(value &+ 1)
-        case 18: stack.append(value &- 1)
-        case 19: stack.append(~value)
+        case NativeSwiftIntegerOperator.neg: stack.append(0 &- value)
+        case NativeSwiftIntegerOperator.abs: stack.append(value == .min ? .min : abs(value))
+        case NativeSwiftIntegerOperator.incr: stack.append(value &+ 1)
+        case NativeSwiftIntegerOperator.decr: stack.append(value &- 1)
+        case NativeSwiftIntegerOperator.not: stack.append(~value)
         default: stack.append((value >> 31) | Int32(bitPattern: 0 &- UInt32(bitPattern: value)) >> 31)
         }
-      } else if (21...23).contains(operation) {
+      } else if (NativeSwiftIntegerOperator.clamp...NativeSwiftIntegerOperator.mad).contains(operation) {
         let value = try pop(3)
-        if operation == 21 { stack.append(min(max(value[0], value[2]), value[1])) }
-        else if operation == 22 { stack.append(value[2] > 0 ? value[1] : value[0]) }
-        else { stack.append(value[2] &+ value[1] &* value[0]) }
+        if operation == NativeSwiftIntegerOperator.clamp {
+          stack.append(min(max(value[0], value[2]), value[1]))
+        } else if operation == NativeSwiftIntegerOperator.ifElse {
+          stack.append(value[2] > 0 ? value[1] : value[0])
+        } else {
+          stack.append(value[2] &+ value[1] &* value[0])
+        }
       } else {
         throw NativeSwiftCoreError.unsupported(
-          opcode: 144, offset: 0, reason: "integer expression operator \(operation)")
+          opcode: NativeSwiftWireOpcode.integerExpression, offset: 0,
+          reason: "integer expression operator \(operation)")
       }
     }
     guard stack.count == 1, let result = stack.last else {
@@ -105,7 +112,9 @@ enum NativeSwiftFloatExpression {
   static func referenceID(_ word: UInt32) -> Int? {
     guard isEncoded(word) else { return nil }
     let payload = Int(word & payloadMask)
-    guard payload <= operatorOffset || payload > operatorOffset + 79 else { return nil }
+    guard payload <= operatorOffset || payload > operatorOffset + NativeSwiftFloatOperator.last else {
+      return nil
+    }
     return Int(word & referenceMask)
   }
 
@@ -124,7 +133,9 @@ enum NativeSwiftFloatExpression {
     }
     for word in words {
       let payload = Int(word & payloadMask)
-      guard isEncoded(word), payload > operatorOffset, payload <= operatorOffset + 79 else {
+      guard isEncoded(word), payload > operatorOffset,
+        payload <= operatorOffset + NativeSwiftFloatOperator.last
+      else {
         stack.append(resolve(word, values: values))
         guard stack.count <= 128 else {
           throw NativeSwiftCoreError.malformed(offset: 0, reason: "Float expression stack overflow")
@@ -133,46 +144,51 @@ enum NativeSwiftFloatExpression {
       }
       let operation = payload - operatorOffset
       switch operation {
-      case 70...72:
-        let index = operation - 70
+      case NativeSwiftFloatOperator.var1...NativeSwiftFloatOperator.var3:
+        let index = operation - NativeSwiftFloatOperator.var1
         stack.append(variables.indices.contains(index) ? variables[index] : 0)
-      case 1...8:
+      case NativeSwiftFloatOperator.add...NativeSwiftFloatOperator.pow:
         let value = try pop(2)
         switch operation {
-        case 1: stack.append(value[0] + value[1])
-        case 2: stack.append(value[0] - value[1])
-        case 3: stack.append(value[0] * value[1])
-        case 4: stack.append(value[0] / value[1])
-        case 5: stack.append(value[0].truncatingRemainder(dividingBy: value[1]))
-        case 6: stack.append(min(value[0], value[1]))
-        case 7: stack.append(max(value[0], value[1]))
+        case NativeSwiftFloatOperator.add: stack.append(value[0] + value[1])
+        case NativeSwiftFloatOperator.sub: stack.append(value[0] - value[1])
+        case NativeSwiftFloatOperator.mul: stack.append(value[0] * value[1])
+        case NativeSwiftFloatOperator.div: stack.append(value[0] / value[1])
+        case NativeSwiftFloatOperator.mod: stack.append(value[0].truncatingRemainder(dividingBy: value[1]))
+        case NativeSwiftFloatOperator.min: stack.append(min(value[0], value[1]))
+        case NativeSwiftFloatOperator.max: stack.append(max(value[0], value[1]))
         default: stack.append(powf(value[0], value[1]))
         }
-      case 9...11, 13...23, 28...31, 45, 51...53, 73:
+      case NativeSwiftFloatOperator.sqrt...NativeSwiftFloatOperator.sign,
+        NativeSwiftFloatOperator.exp...NativeSwiftFloatOperator.atan,
+        NativeSwiftFloatOperator.cbrt...NativeSwiftFloatOperator.ceil,
+        NativeSwiftFloatOperator.square,
+        NativeSwiftFloatOperator.log2...NativeSwiftFloatOperator.fract,
+        NativeSwiftFloatOperator.changeSign:
         let value = try pop(1)[0]
         switch operation {
-        case 9: stack.append(sqrtf(value))
-        case 10: stack.append(abs(value))
-        case 11: stack.append(value == 0 ? 0 : (value < 0 ? -1 : 1))
-        case 13: stack.append(expf(value))
-        case 14: stack.append(floorf(value))
-        case 15: stack.append(log10f(value))
-        case 16: stack.append(logf(value))
-        case 17: stack.append(roundf(value))
-        case 18: stack.append(sinf(value))
-        case 19: stack.append(cosf(value))
-        case 20: stack.append(tanf(value))
-        case 21: stack.append(asinf(value))
-        case 22: stack.append(acosf(value))
-        case 23: stack.append(atanf(value))
-        case 28: stack.append(cbrtf(value))
-        case 29: stack.append(value * 57.29578)
-        case 30: stack.append(value * 0.017453292)
-        case 31: stack.append(ceilf(value))
-        case 45: stack.append(value * value)
-        case 51: stack.append(log2f(value))
-        case 52: stack.append(1 / value)
-        case 53:
+        case NativeSwiftFloatOperator.sqrt: stack.append(sqrtf(value))
+        case NativeSwiftFloatOperator.abs: stack.append(abs(value))
+        case NativeSwiftFloatOperator.sign: stack.append(value == 0 ? 0 : (value < 0 ? -1 : 1))
+        case NativeSwiftFloatOperator.exp: stack.append(expf(value))
+        case NativeSwiftFloatOperator.floor: stack.append(floorf(value))
+        case NativeSwiftFloatOperator.log: stack.append(log10f(value))
+        case NativeSwiftFloatOperator.ln: stack.append(logf(value))
+        case NativeSwiftFloatOperator.round: stack.append(roundf(value))
+        case NativeSwiftFloatOperator.sin: stack.append(sinf(value))
+        case NativeSwiftFloatOperator.cos: stack.append(cosf(value))
+        case NativeSwiftFloatOperator.tan: stack.append(tanf(value))
+        case NativeSwiftFloatOperator.asin: stack.append(asinf(value))
+        case NativeSwiftFloatOperator.acos: stack.append(acosf(value))
+        case NativeSwiftFloatOperator.atan: stack.append(atanf(value))
+        case NativeSwiftFloatOperator.cbrt: stack.append(cbrtf(value))
+        case NativeSwiftFloatOperator.deg: stack.append(value * 57.29578)
+        case NativeSwiftFloatOperator.rad: stack.append(value * 0.017453292)
+        case NativeSwiftFloatOperator.ceil: stack.append(ceilf(value))
+        case NativeSwiftFloatOperator.square: stack.append(value * value)
+        case NativeSwiftFloatOperator.log2: stack.append(log2f(value))
+        case NativeSwiftFloatOperator.inv: stack.append(1 / value)
+        case NativeSwiftFloatOperator.fract:
           // FRACT, and the reference's own definition: the fraction above the floor, wrapped
           // positive. `value - Float(Int(value))` trapped on a non-finite or out-of-range operand
           // and was wrong for negatives anyway.
@@ -180,38 +196,40 @@ enum NativeSwiftFloatExpression {
           stack.append(fraction < 0 ? fraction + 1 : fraction)
         default: stack.append(-value)
         }
-      case 12, 24, 43, 44, 47, 54:
+      case NativeSwiftFloatOperator.copySign, NativeSwiftFloatOperator.atan2,
+        NativeSwiftFloatOperator.squareSum, NativeSwiftFloatOperator.step,
+        NativeSwiftFloatOperator.hypot, NativeSwiftFloatOperator.pingPong:
         let value = try pop(2)
         switch operation {
-        case 12: stack.append(copysignf(abs(value[0]), value[1]))
-        case 24: stack.append(atan2f(value[0], value[1]))
-        case 43: stack.append(value[0] * value[0] + value[1] * value[1])
-        case 44: stack.append(value[0] > value[1] ? 1 : 0)
-        case 47: stack.append(hypotf(value[0], value[1]))
+        case NativeSwiftFloatOperator.copySign: stack.append(copysignf(abs(value[0]), value[1]))
+        case NativeSwiftFloatOperator.atan2: stack.append(atan2f(value[0], value[1]))
+        case NativeSwiftFloatOperator.squareSum: stack.append(value[0] * value[0] + value[1] * value[1])
+        case NativeSwiftFloatOperator.step: stack.append(value[0] > value[1] ? 1 : 0)
+        case NativeSwiftFloatOperator.hypot: stack.append(hypotf(value[0], value[1]))
         default:
           let doubled = value[1] * 2
           let remainder = value[0].truncatingRemainder(dividingBy: doubled)
           stack.append(remainder < value[1] ? remainder : doubled - remainder)
         }
-      case 25:
+      case NativeSwiftFloatOperator.mad:
         let value = try pop(3)
         stack.append(value[2] + value[1] * value[0])
-      case 26:
+      case NativeSwiftFloatOperator.ifElse:
         let value = try pop(3)
         stack.append(value[2] > 0 ? value[1] : value[0])
-      case 27:
+      case NativeSwiftFloatOperator.clamp:
         let value = try pop(3)
         stack.append(min(max(value[0], value[2]), value[1]))
-      case 48:
+      case NativeSwiftFloatOperator.swap:
         // SWAP: the reference's expression language can exchange its top two operands, which is how
         // a formula written for a stack machine reads `a` and `b` in the order it wants.
         let value = try pop(2)
         stack.append(value[1])
         stack.append(value[0])
-      case 49:
+      case NativeSwiftFloatOperator.lerp:
         let value = try pop(3)
         stack.append(value[0] + (value[1] - value[0]) * value[2])
-      case 50:
+      case NativeSwiftFloatOperator.smoothStep:
         // SMOOTH_STEP: 0 below the first edge, 1 above the second, and the Hermite curve between
         // them. `expr_interpolation` is the gold that names it.
         let value = try pop(3)
@@ -223,12 +241,13 @@ enum NativeSwiftFloatExpression {
           let t = (value[0] - value[2]) / (value[1] - value[2])
           stack.append(t * t * (3 - 2 * t))
         }
-      case 74:
+      case NativeSwiftFloatOperator.cubic:
         let value = try pop(5)
         stack.append(cubicEasing(value[0], value[1], value[2], value[3], value[4]))
       default:
         throw NativeSwiftCoreError.unsupported(
-          opcode: 81, offset: 0, reason: "float expression operator \(operation)")
+          opcode: NativeSwiftWireOpcode.animatedFloat, offset: 0,
+          reason: "float expression operator \(operation)")
       }
     }
     guard stack.count == 1, let result = stack.last, result.isFinite else {
@@ -277,7 +296,7 @@ enum NativeSwiftFloatExpression {
 /// the shader still draws at its natural scale.
 enum NativeSwiftMatrixExpression {
   static let operatorOffset = 0x0032_0000
-  static let lastOperator = operatorOffset + 54
+  static let lastOperator = operatorOffset + NativeSwiftMatrixOperator.last
 
   /// The NaN-encoded id a `SHADER_MATRIX` paint field carries, or nil when the field is zero.
   static func referenceID(word: UInt32) -> Int? {
@@ -303,62 +322,69 @@ enum NativeSwiftMatrixExpression {
       else { continue }
       let operation = payload - operatorOffset
       switch operation {
-      case 1:  // IDENTITY pushes a new matrix for a following scale or rotation.
+      case NativeSwiftMatrixOperator.identity:
+        // IDENTITY pushes a new matrix for a following scale or rotation.
         index += 1
         guard index < matrices.count else { return nil }
         matrices[index] = identity
-      case 2, 3, 4:
+      case NativeSwiftMatrixOperator.rotateX, NativeSwiftMatrixOperator.rotateY,
+        NativeSwiftMatrixOperator.rotateZ:
         guard let degrees = operand(position - 1) else { return nil }
         matrices[index] = multiply(matrices[index], rotation(axis: operation, degrees: degrees))
-      case 5, 6, 7:
+      case NativeSwiftMatrixOperator.translateX, NativeSwiftMatrixOperator.translateY,
+        NativeSwiftMatrixOperator.translateZ:
         guard let value = operand(position - 1) else { return nil }
         matrices[index] = multiply(
           matrices[index],
           translation(
-            x: operation == 5 ? value : 0, y: operation == 6 ? value : 0,
-            z: operation == 7 ? value : 0))
-      case 8, 9:
+            x: operation == NativeSwiftMatrixOperator.translateX ? value : 0,
+            y: operation == NativeSwiftMatrixOperator.translateY ? value : 0,
+            z: operation == NativeSwiftMatrixOperator.translateZ ? value : 0))
+      case NativeSwiftMatrixOperator.translate2, NativeSwiftMatrixOperator.translate3:
         let first = operand(position - 2)
         let second = operand(position - 1)
         guard let first, let second else { return nil }
         matrices[index] = multiply(
           matrices[index], translation(x: first, y: second, z: 0))
-      case 10, 11, 12:
+      case NativeSwiftMatrixOperator.scaleX, NativeSwiftMatrixOperator.scaleY,
+        NativeSwiftMatrixOperator.scaleZ:
         guard let value = operand(position - 1) else { return nil }
         scale(
           &matrices[index],
-          x: operation == 10 ? value : 1, y: operation == 11 ? value : 1,
-          z: operation == 12 ? value : 1)
-      case 13:
+          x: operation == NativeSwiftMatrixOperator.scaleX ? value : 1,
+          y: operation == NativeSwiftMatrixOperator.scaleY ? value : 1,
+          z: operation == NativeSwiftMatrixOperator.scaleZ ? value : 1)
+      case NativeSwiftMatrixOperator.scale2:
         let first = operand(position - 2)
         let second = operand(position - 1)
         guard let first, let second else { return nil }
         scale(&matrices[index], x: first, y: second, z: 0)
-      case 14:
+      case NativeSwiftMatrixOperator.scale3:
         let first = operand(position - 3)
         let second = operand(position - 2)
         let third = operand(position - 1)
         guard let first, let second, let third else { return nil }
         scale(&matrices[index], x: first, y: second, z: third)
-      case 15:  // MUL merges the top two matrices.
+      case NativeSwiftMatrixOperator.mul:  // MUL merges the top two matrices.
         guard index > 0 else { return nil }
         matrices[index - 1] = multiply(matrices[index - 1], matrices[index])
         index -= 1
-      case 16:  // ROT_PZ: angle, pivot x, pivot y.
+      case NativeSwiftMatrixOperator.rotatePivotZ:  // ROT_PZ: angle, pivot x, pivot y.
         let pivotX = operand(position - 2)
         let pivotY = operand(position - 1)
         let degrees = operand(position - 3)
         guard let pivotX, let pivotY, let degrees else { return nil }
         matrices[index] = multiply(
           rotationWithPivot(pivotX: pivotX, pivotY: pivotY, degrees: degrees), matrices[index])
-      case 17:  // ROT_AXIS: angle, x, y, z.
+      case NativeSwiftMatrixOperator.rotateAxis:  // ROT_AXIS: angle, x, y, z.
         let x = operand(position - 3)
         let y = operand(position - 2)
         let z = operand(position - 1)
         let degrees = operand(position - 4)
         guard let x, let y, let z, let degrees else { return nil }
         matrices[index] = multiply(rotationAroundAxis(x: x, y: y, z: z, degrees: degrees), matrices[index])
-      case 18:  // PROJECTION: fov degrees, aspect ratio, near, far.
+      case NativeSwiftMatrixOperator.projection:
+        // PROJECTION: fov degrees, aspect ratio, near, far.
         let fov = operand(position - 4)
         let aspect = operand(position - 3)
         let near = operand(position - 2)
@@ -422,12 +448,12 @@ enum NativeSwiftMatrixExpression {
     let sine = sinf(radians)
     var matrix = identity
     switch axis {
-    case 2:
+    case NativeSwiftMatrixOperator.rotateX:
       matrix[5] = cosine
       matrix[6] = -sine
       matrix[9] = sine
       matrix[10] = cosine
-    case 3:
+    case NativeSwiftMatrixOperator.rotateY:
       matrix[0] = cosine
       matrix[2] = sine
       matrix[8] = -sine

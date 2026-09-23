@@ -1,5 +1,8 @@
 import CoreGraphics
 import Foundation
+#if canImport(RcNativePlayerCore)
+  import RcNativePlayerCore
+#endif
 
 /// Whether the native player reproduces the Android density contract for dp-typed geometry.
 ///
@@ -89,7 +92,7 @@ enum NativeDensityPolicy {
       return [
         RemoteComposeNativePlayerDiagnostic(
           severity: .warning,
-          opcode: 0,
+          opcode: NativeSwiftWireOpcode.header,
           operationName: "Header",
           componentID: componentID,
           reason:
@@ -101,7 +104,7 @@ enum NativeDensityPolicy {
     return [
       RemoteComposeNativePlayerDiagnostic(
         severity: .warning,
-        opcode: 0,
+        opcode: NativeSwiftWireOpcode.header,
         operationName: "Header",
         componentID: componentID,
         reason:

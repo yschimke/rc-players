@@ -183,11 +183,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
       else { continue }
       switch entry.type {
-      case 0:
+      case NativeSwiftDataMapType.string:
         if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
-      case 1, 3, 4:
+      case NativeSwiftDataMapType.int, NativeSwiftDataMapType.long, NativeSwiftDataMapType.boolean:
         integers[lookup.outputID] = integers[entry.valueID] ?? 0
-      case 2:
+      case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
         throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
@@ -350,10 +350,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         guard let name = texts[action.nameTextID] else { continue }
         let value: NativeSwiftActionValue
         switch action.valueType {
-        case -1: value = .none
-        case 0: value = .float(values[action.valueID] ?? 0)
-        case 1: value = .integer(integers[action.valueID] ?? 0)
-        case 2: value = .text(texts[action.valueID] ?? "")
+        case NativeSwiftHostActionValueType.none: value = .none
+        case NativeSwiftHostActionValueType.float: value = .float(values[action.valueID] ?? 0)
+        case NativeSwiftHostActionValueType.integer: value = .integer(integers[action.valueID] ?? 0)
+        case NativeSwiftHostActionValueType.string: value = .text(texts[action.valueID] ?? "")
         default: continue
         }
         events.append(.namedAction(name: name, value: value))
@@ -383,11 +383,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       guard let key = texts[lookup.keyTextID], let entry = document.dataMaps[lookup.mapID]?[key]
       else { continue }
       switch entry.type {
-      case 0:
+      case NativeSwiftDataMapType.string:
         if let value = texts[entry.valueID] { texts[lookup.outputID] = value }
-      case 1, 3, 4:
+      case NativeSwiftDataMapType.int, NativeSwiftDataMapType.long, NativeSwiftDataMapType.boolean:
         integers[lookup.outputID] = integers[entry.valueID] ?? 0
-      case 2:
+      case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
         throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
@@ -478,7 +478,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func setFloat(_ value: Float, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard value.isFinite, let variable = namedVariable(for: name), variable.type == 1 else {
+    guard value.isFinite, let variable = namedVariable(for: name),
+      variable.type == NativeSwiftNamedVariableType.float
+    else {
       return false
     }
     floatOverrides[variable.id] = value
@@ -490,7 +492,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     stateLock.lock()
     defer { stateLock.unlock() }
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
-      let variable = namedVariable(for: name), variable.type == 0
+      let variable = namedVariable(for: name), variable.type == NativeSwiftNamedVariableType.string
     else { return false }
     texts[variable.id] = value
     staticSnapshotCache = nil
@@ -500,7 +502,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func setColor(_ value: UInt32, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard let variable = namedVariable(for: name), variable.type == 2 else { return false }
+    guard let variable = namedVariable(for: name), variable.type == NativeSwiftNamedVariableType.color else {
+      return false
+    }
     colors[variable.id] = value
     staticSnapshotCache = nil
     return true
@@ -511,7 +515,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   public func setInteger(_ value: Int, for name: String) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
-    guard let variable = namedVariable(for: name), variable.type == 4 else { return false }
+    guard let variable = namedVariable(for: name), variable.type == NativeSwiftNamedVariableType.int else {
+      return false
+    }
     integers[variable.id] = value
     staticSnapshotCache = nil
     return true
@@ -523,7 +529,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
       let node = document.nodes[componentID], node.kind == .custom,
       let property = node.custom?.properties.first(where: {
-        $0.type == propertyID && $0.dataType == 4
+        $0.type == propertyID && $0.dataType == NativeSwiftCustomPropertyType.textReturn
       })
     else { return false }
     texts[property.valueBits] = value
@@ -536,7 +542,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     guard value.isFinite, let node = document.nodes[componentID], node.kind == .custom,
       let property = node.custom?.properties.first(where: {
-        $0.type == propertyID && $0.dataType == 3
+        $0.type == propertyID && $0.dataType == NativeSwiftCustomPropertyType.floatReturn
       }),
       let targetID = NativeSwiftFloatExpression.referenceID(
         UInt32(bitPattern: Int32(property.valueBits)))
@@ -591,17 +597,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
       let properties = source.properties.map { property in
         let floatValue =
-          property.dataType == 1
+          property.dataType == NativeSwiftCustomPropertyType.floatProperty
           ? NativeSwiftFloatExpression.resolve(
             UInt32(bitPattern: Int32(property.valueBits)), values: values)
           : 0
         let integerValue: Int
         let textValue: String?
         switch property.dataType {
-        case 2:
+        case NativeSwiftCustomPropertyType.stringProperty:
           integerValue = property.valueBits
           textValue = texts[property.valueBits]
-        case 7:
+        case NativeSwiftCustomPropertyType.colorIDProperty:
           integerValue = Int(Int32(bitPattern: resolvedColors[property.valueBits] ?? 0))
           textValue = nil
         default:
@@ -678,13 +684,21 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       graphicsLayer: node.graphicsLayer.isEmpty
         ? nil
         : NativeSwiftGraphicsLayerSnapshot(
-          scaleX: node.graphicsLayer[0] ?? 1, scaleY: node.graphicsLayer[1] ?? 1,
-          translationX: node.graphicsLayer[5] ?? 0, translationY: node.graphicsLayer[6] ?? 0,
-          rotationZ: node.graphicsLayer[4] ?? 0, alpha: node.graphicsLayer[8] ?? 1),
+          // These reads follow the TypeScript reference port's attribute table, which differs from
+          // AndroidX's `GraphicsLayerModifierOperation`: there 5/6 are the transform origin, 7/8
+          // the translation and 11 the alpha. Named as the protocol defines them so the mismatch
+          // is visible; correcting it changes rendering and is out of scope for a rename.
+          scaleX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.scaleX] ?? 1,
+          scaleY: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.scaleY] ?? 1,
+          translationX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.transformOriginX] ?? 0,
+          translationY: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.transformOriginY] ?? 0,
+          rotationZ: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.rotationZ] ?? 0,
+          alpha: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.translationY] ?? 1),
       offsetX: node.offsetXWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       offsetY: node.offsetYWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
-      visibility: visibilityOverride ?? node.visibilityID.map { resolvedVisibility(of: $0) } ?? 1,
+      visibility: visibilityOverride ?? node.visibilityID.map { resolvedVisibility(of: $0) }
+        ?? NativeSwiftVisibility.visible,
       backgroundARGB: node.backgroundColorID.flatMap { resolvedColors[$0] } ?? node.backgroundARGB,
       borderARGB: node.borderColorID.flatMap { resolvedColors[$0] } ?? node.borderARGB,
       borderWidth: try resolvedFloat(node.borderWidthWord, "border width", values: values),
@@ -996,17 +1010,25 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       // A real measurement wins over any estimate. Width and height are the only two types this
       // player resolves, and they are the two a host can report.
       if let measured = measuredComponents[binding.componentID],
-        binding.type == 0 || binding.type == 1
+        binding.type == NativeSwiftComponentValueType.width
+          || binding.type == NativeSwiftComponentValueType.height
       {
-        result[binding.valueID] = binding.type == 0 ? measured.width : measured.height
+        result[binding.valueID] =
+          binding.type == NativeSwiftComponentValueType.width ? measured.width : measured.height
         continue
       }
-      let available = binding.type == 0 ? Float(document.width) : Float(document.height)
+      let available =
+        binding.type == NativeSwiftComponentValueType.width
+        ? Float(document.width) : Float(document.height)
       guard let node = document.nodes[binding.componentID] else {
         // Matching the reference player: a width or height binding to a component this document
         // does not describe resolves to the document's own, rather than leaving the id unset and
         // taking every expression built on it down with it.
-        if binding.type == 0 || binding.type == 1 { result[binding.valueID] = available }
+        if binding.type == NativeSwiftComponentValueType.width
+          || binding.type == NativeSwiftComponentValueType.height
+        {
+          result[binding.valueID] = available
+        }
         continue
       }
       let measuredNode = node.parent ?? node
@@ -1182,18 +1204,24 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // never assigns, and expects all three GONE while their unmodified ancestors stay VISIBLE.
     // Defaulting to visible instead looks safer and is wrong; a component whose visibility nobody
     // has decided is hidden, not shown.
-    let value = integers[id] ?? 0
+    let value = integers[id] ?? NativeSwiftVisibility.gone
     if value >> 4 > 0 {
-      if value & 32 == 32 { return 1 }
-      if value & 16 == 16 { return 0 }
-      if value & 64 == 64 { return 2 }
-      return 0
+      if value & NativeSwiftVisibility.overrideVisible == NativeSwiftVisibility.overrideVisible {
+        return NativeSwiftVisibility.visible
+      }
+      if value & NativeSwiftVisibility.overrideGone == NativeSwiftVisibility.overrideGone {
+        return NativeSwiftVisibility.gone
+      }
+      if value & NativeSwiftVisibility.overrideInvisible == NativeSwiftVisibility.overrideInvisible {
+        return NativeSwiftVisibility.invisible
+      }
+      return NativeSwiftVisibility.gone
     }
     switch value {
-    case 1: return 1
-    case 0: return 0
-    case 2: return 2
-    default: return 0
+    case NativeSwiftVisibility.visible: return NativeSwiftVisibility.visible
+    case NativeSwiftVisibility.gone: return NativeSwiftVisibility.gone
+    case NativeSwiftVisibility.invisible: return NativeSwiftVisibility.invisible
+    default: return NativeSwiftVisibility.gone
     }
   }
 
@@ -1205,7 +1233,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     let minimum = min(red, green, blue)
     let delta = maximum - minimum
     switch type {
-    case 0:
+    case NativeSwiftColorAttributeType.hue:
       let sector: Float
       if maximum == minimum { sector = 0 }
       else if maximum == red { sector = (green - blue) / delta }
@@ -1214,11 +1242,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       var hue = (sector * 60).truncatingRemainder(dividingBy: 360)
       if hue < 0 { hue += 360 }
       return hue / 360
-    case 1: return maximum == minimum ? 0 : delta / maximum
-    case 2: return maximum
-    case 3: return red
-    case 4: return green
-    case 5: return blue
+    case NativeSwiftColorAttributeType.saturation: return maximum == minimum ? 0 : delta / maximum
+    case NativeSwiftColorAttributeType.brightness: return maximum
+    case NativeSwiftColorAttributeType.red: return red
+    case NativeSwiftColorAttributeType.green: return green
+    case NativeSwiftColorAttributeType.blue: return blue
     default: return Float((color >> 24) & 0xff) / 255
     }
   }
@@ -1235,16 +1263,19 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for expression in document.colorExpressions {
       let mode = expression.modeAndAlpha & 0xff
       switch mode {
-      case 0...3:
+      case NativeSwiftColorExpressionMode.colorColorInterpolate...NativeSwiftColorExpressionMode.idIDInterpolate:
         let first = mode & 1 != 0 ? result[expression.first] ?? 0 : UInt32(bitPattern: Int32(expression.first))
         let second = mode & 2 != 0 ? result[expression.second] ?? 0 : UInt32(bitPattern: Int32(expression.second))
         let tween = NativeSwiftFloatExpression.resolve(
           UInt32(bitPattern: Int32(expression.third)), values: values)
         result[expression.outputID] = interpolateColor(first, second, tween: tween)
-      case 4...6:
+      case NativeSwiftColorExpressionMode.hsv...NativeSwiftColorExpressionMode.idARGB:
         let alpha: Float
-        if mode == 4 { alpha = Float(expression.modeAndAlpha >> 16) / 255 }
-        else if mode == 5 { alpha = Float(expression.modeAndAlpha >> 16) / 1024 }
+        if mode == NativeSwiftColorExpressionMode.hsv {
+          alpha = Float(expression.modeAndAlpha >> 16) / 255
+        } else if mode == NativeSwiftColorExpressionMode.argb {
+          alpha = Float(expression.modeAndAlpha >> 16) / 1024
+        }
         else {
           alpha = NativeSwiftFloatExpression.resolve(
             0x7fc0_0000 | UInt32(expression.modeAndAlpha >> 16), values: values)
@@ -1256,7 +1287,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         let third = NativeSwiftFloatExpression.resolve(
           UInt32(bitPattern: Int32(expression.third)), values: values)
         result[expression.outputID] =
-          mode == 4
+          mode == NativeSwiftColorExpressionMode.hsv
           ? hsvColor(alpha: alpha, hue: first, saturation: second, brightness: third)
           : argbColor(alpha: alpha, red: first, green: second, blue: third)
       default: break
@@ -1334,8 +1365,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let value = NativeSwiftFloatExpression.resolve(word, values: values)
       return value.isFinite ? value : 0
     }
-    let dimensionType = type == 0 ? node.widthType : node.heightType
-    let dimensionWord = type == 0 ? node.widthWord : node.heightWord
+    let dimensionType = type == NativeSwiftComponentValueType.width ? node.widthType : node.heightType
+    let dimensionWord = type == NativeSwiftComponentValueType.width ? node.widthWord : node.heightWord
     let dimensionValue = float(dimensionWord)
     if dimensionType == NativeSwiftDimensionType.exact || dimensionType == NativeSwiftDimensionType.exactDp {
       return max(dimensionValue, 0)
@@ -1352,19 +1383,20 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // contains a fill canvas measure the whole document, because the fill's own estimate resolved
     // to `available`.
     let children = flattenedChildren(of: node, values: values).filter {
-      !NativeSwiftDimensionType.isFill(type == 0 ? $0.widthType : $0.heightType)
+      !NativeSwiftDimensionType.isFill(
+        type == NativeSwiftComponentValueType.width ? $0.widthType : $0.heightType)
     }
     let childDimensions = children.map {
       estimatedDimension(of: $0, type: type, available: available, values: values)
     }
     let intrinsic: Float
     if let text = node.text {
-      if type == 0 {
+      if type == NativeSwiftComponentValueType.width {
         intrinsic = Float(texts[text.textID]?.count ?? 0) * float(text.sizeWord) * 0.6
       } else {
         intrinsic = float(text.sizeWord) * 1.2
       }
-    } else if type == 0 {
+    } else if type == NativeSwiftComponentValueType.width {
       intrinsic = node.kind == .row ? childDimensions.reduce(0, +) : childDimensions.max() ?? 0
     } else {
       intrinsic =
@@ -1374,10 +1406,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         : childDimensions.max() ?? 0
     }
     let padding =
-      type == 0
+      type == NativeSwiftComponentValueType.width
       ? float(node.paddingWords.left) + float(node.paddingWords.right)
       : float(node.paddingWords.top) + float(node.paddingWords.bottom)
-    let minimum = type == 1 ? float(node.minimumHeightWord) : 0
+    let minimum = type == NativeSwiftComponentValueType.height ? float(node.minimumHeightWord) : 0
     return max(intrinsic + padding, minimum)
   }
 
@@ -1397,8 +1429,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     var current = node.parent
     var depth = 0
     while let candidate = current, depth < 64 {
-      let dimensionType = type == 0 ? candidate.widthType : candidate.heightType
-      let dimensionValue = float(type == 0 ? candidate.widthWord : candidate.heightWord)
+      let dimensionType =
+        type == NativeSwiftComponentValueType.width ? candidate.widthType : candidate.heightType
+      let dimensionValue = float(
+        type == NativeSwiftComponentValueType.width ? candidate.widthWord : candidate.heightWord)
       if dimensionType == NativeSwiftDimensionType.exact || dimensionType == NativeSwiftDimensionType.exactDp {
         return max(dimensionValue, 0)
       }

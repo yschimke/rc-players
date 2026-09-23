@@ -655,6 +655,48 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun aCollapsibleRowThatKeepsNothingIsGoneBackgroundAndAll() {
+    // AndroidX marks the container itself GONE when none of its children fit
+    // (`computeVisibleChildren`), so it paints nothing — its own background included — and takes
+    // no space. Dropping only the children left a blue 60 x 100 slab behind.
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 60, legacyHeight = 100, modern = false),
+        listOf(
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcCollapsibleRowLayout(3, 30, 1, 4, RcFloatWord.literal(0f)),
+          width(60f),
+          height(100f),
+          solidBackground(red = 0f, green = 0f, blue = 1f),
+          RcLayoutContent(4),
+        ) +
+          collapsibleCanvas(
+            5,
+            100f,
+            0xffff0000.toInt(),
+            RcCollapsiblePriorityModifier.HORIZONTAL,
+            1f,
+          ) +
+          List(4) { RcNoArg(RcOpcodes.CONTAINER_END) },
+      )
+    val scene =
+      ImageComposeScene(width = 60, height = 100, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val image = scene.render()
+      val bitmap = Bitmap().apply { allocN32Pixels(60, 100) }
+      check(image.readPixels(bitmap))
+
+      assertEquals(0, bitmap.getColor(5, 5))
+      assertEquals(0, bitmap.getColor(55, 95))
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun collapsibleRowDropsAChildWiderThanItselfInsteadOfSqueezingIt() {
     // AndroidX's fit test measures each child with the main axis unbounded, so a 100px child is
     // 100px and does not fit a 60px row. Measuring within the row clamped it to 60 — exactly the

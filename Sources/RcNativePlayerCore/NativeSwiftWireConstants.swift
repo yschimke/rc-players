@@ -242,3 +242,408 @@ public enum NativeSwiftDimensionType {
     type == fill || type == fillParentMaxWidth || type == fillParentMaxHeight
   }
 }
+
+/// Opcode groups that share one fixed payload shape inside a LOOM macro body. The capture walk and
+/// the parameter-remapping walk both switch on them, so each group is spelled once here.
+struct NativeSwiftOpcodeGroup {
+  let opcodes: Set<Int>
+
+  init(_ opcodes: Set<Int>) { self.opcodes = opcodes }
+
+  static func ~= (group: NativeSwiftOpcodeGroup, opcode: Int) -> Bool {
+    group.opcodes.contains(opcode)
+  }
+
+  /// Draws whose payload is four float words: clip rectangle, rectangle, line, oval.
+  static let fourWordDraws = NativeSwiftOpcodeGroup([
+    NativeSwiftWireOpcode.clipRect, NativeSwiftWireOpcode.drawRect,
+    NativeSwiftWireOpcode.drawLine, NativeSwiftWireOpcode.drawOval,
+  ])
+  /// Draws whose payload is six float words: rounded rectangle, sector, arc.
+  static let sixWordDraws = NativeSwiftOpcodeGroup([
+    NativeSwiftWireOpcode.drawRoundRect, NativeSwiftWireOpcode.drawSector,
+    NativeSwiftWireOpcode.drawArc,
+  ])
+  /// The payload-free matrix stack operations.
+  static let matrixStack = NativeSwiftOpcodeGroup([
+    NativeSwiftWireOpcode.matrixSave, NativeSwiftWireOpcode.matrixRestore,
+  ])
+}
+
+/// The kind of a decoded draw command (`ParsedDrawCommand.kind`, `NativeSwiftDrawCommandSnapshot.kind`).
+/// These are the core's own command kinds, not wire opcodes: every kind the core emits is listed,
+/// and the renderers switch on these names. 8 and 9 are unassigned.
+public enum NativeSwiftDrawKind {
+  public static let matrixSave = 0
+  public static let matrixRestore = 1
+  public static let matrixTranslate = 2
+  public static let matrixScale = 3
+  public static let matrixRotate = 4
+  public static let matrixSkew = 5
+  public static let clipRect = 6
+  public static let clipPath = 7
+  public static let rect = 10
+  public static let oval = 11
+  public static let circle = 12
+  public static let line = 13
+  public static let roundRect = 14
+  public static let arc = 15
+  public static let sector = 16
+  public static let text = 17
+  public static let path = 18
+  public static let bitmap = 19
+  public static let textOnPath = 20
+  public static let textOnCircle = 21
+}
+
+/// `RcPathCommands`: the NaN-boxed verbs of a `PATH_DATA` word stream, and the kinds of
+/// `NativeSwiftPathElementSnapshot`.
+public enum NativeSwiftPathVerb {
+  public static let move = 10
+  public static let line = 11
+  public static let quadratic = 12
+  public static let conic = 13
+  public static let cubic = 14
+  public static let close = 15
+  public static let done = 16
+  public static let reset = 17
+}
+
+/// AndroidX `AnimatedFloatExpression` operators, as offsets from its NaN-boxed operator base.
+/// 64...69 are unassigned.
+enum NativeSwiftFloatOperator {
+  static let add = 1
+  static let sub = 2
+  static let mul = 3
+  static let div = 4
+  static let mod = 5
+  static let min = 6
+  static let max = 7
+  static let pow = 8
+  static let sqrt = 9
+  static let abs = 10
+  static let sign = 11
+  static let copySign = 12
+  static let exp = 13
+  static let floor = 14
+  static let log = 15
+  static let ln = 16
+  static let round = 17
+  static let sin = 18
+  static let cos = 19
+  static let tan = 20
+  static let asin = 21
+  static let acos = 22
+  static let atan = 23
+  static let atan2 = 24
+  static let mad = 25
+  static let ifElse = 26
+  static let clamp = 27
+  static let cbrt = 28
+  static let deg = 29
+  static let rad = 30
+  static let ceil = 31
+  static let arrayDeref = 32
+  static let arrayMax = 33
+  static let arrayMin = 34
+  static let arraySum = 35
+  static let arrayAverage = 36
+  static let arrayLength = 37
+  static let arraySpline = 38
+  static let rand = 39
+  static let randSeed = 40
+  static let noiseFrom = 41
+  static let randInRange = 42
+  static let squareSum = 43
+  static let step = 44
+  static let square = 45
+  static let dup = 46
+  static let hypot = 47
+  static let swap = 48
+  static let lerp = 49
+  static let smoothStep = 50
+  static let log2 = 51
+  static let inv = 52
+  static let fract = 53
+  static let pingPong = 54
+  static let nop = 55
+  static let storeR0 = 56
+  static let storeR1 = 57
+  static let storeR2 = 58
+  static let storeR3 = 59
+  static let loadR0 = 60
+  static let loadR1 = 61
+  static let loadR2 = 62
+  static let loadR3 = 63
+  static let var1 = 70
+  static let var2 = 71
+  static let var3 = 72
+  static let changeSign = 73
+  static let cubic = 74
+  static let arraySplineLoop = 75
+  static let arraySumTill = 76
+  static let arraySumXY = 77
+  static let arraySumSquares = 78
+  static let arrayLerp = 79
+  /// The highest operator AndroidX assigns; payloads above it are references.
+  static let last = arrayLerp
+}
+
+/// `RcIntegerExpression`'s operators, as offsets from `offset`.
+enum NativeSwiftIntegerOperator {
+  static let offset = 65_536
+  static let add = 1
+  static let sub = 2
+  static let mul = 3
+  static let div = 4
+  static let mod = 5
+  static let shl = 6
+  static let shr = 7
+  static let ushr = 8
+  static let or = 9
+  static let and = 10
+  static let xor = 11
+  static let copySign = 12
+  static let min = 13
+  static let max = 14
+  static let neg = 15
+  static let abs = 16
+  static let incr = 17
+  static let decr = 18
+  static let not = 19
+  static let sign = 20
+  static let clamp = 21
+  static let ifElse = 22
+  static let mad = 23
+  static let var1 = 24
+  static let var2 = 25
+  static let var3 = 26
+}
+
+/// AndroidX `MatrixOperations` operators, as offsets from its NaN-boxed operator base.
+enum NativeSwiftMatrixOperator {
+  static let identity = 1
+  static let rotateX = 2
+  static let rotateY = 3
+  static let rotateZ = 4
+  static let translateX = 5
+  static let translateY = 6
+  static let translateZ = 7
+  static let translate2 = 8
+  static let translate3 = 9
+  static let scaleX = 10
+  static let scaleY = 11
+  static let scaleZ = 12
+  static let scale2 = 13
+  static let scale3 = 14
+  static let mul = 15
+  static let rotatePivotZ = 16
+  static let rotateAxis = 17
+  static let projection = 18
+  /// The end of the range `MatrixOperations` reserves for operators (`LAST_OP`).
+  static let last = 54
+}
+
+/// `RcHeader`'s modern property-map keys.
+enum NativeSwiftHeaderKey {
+  static let documentWidth = 5
+  static let documentHeight = 6
+  static let densityAtGeneration = 7
+  static let densityBehavior = 27
+}
+
+/// The type field (`tag >> 10`) of a modern header property.
+enum NativeSwiftHeaderValueType {
+  static let int = 0
+  static let float = 1
+  static let long = 2
+  static let string = 3
+}
+
+/// `RcHeader`'s density behaviours.
+enum NativeSwiftDensityBehavior {
+  static let legacy = 0
+  static let pixels = 1
+  static let dp = 2
+}
+
+/// `RcCustomProperty`'s data types.
+public enum NativeSwiftCustomPropertyType {
+  public static let intProperty = 0
+  public static let floatProperty = 1
+  public static let stringProperty = 2
+  public static let floatReturn = 3
+  public static let textReturn = 4
+  public static let intReturn = 5
+  public static let colorReturn = 6
+  public static let colorIDProperty = 7
+  public static let colorProperty = 8
+  public static let intIDProperty = 9
+}
+
+/// `RcGraphicsLayerModifier`'s attribute ids: the low 10 bits of each attribute tag.
+enum NativeSwiftGraphicsLayerAttribute {
+  static let scaleX = 0
+  static let scaleY = 1
+  static let rotationX = 2
+  static let rotationY = 3
+  static let rotationZ = 4
+  static let transformOriginX = 5
+  static let transformOriginY = 6
+  static let translationX = 7
+  static let translationY = 8
+  static let translationZ = 9
+  static let shadowElevation = 10
+  static let alpha = 11
+  static let cameraDistance = 12
+  static let compositingStrategy = 13
+  static let spotShadowColor = 14
+  static let ambientShadowColor = 15
+  static let hasBlur = 16
+  static let blurRadiusX = 17
+  static let blurRadiusY = 18
+  static let blurTileMode = 19
+  static let shape = 20
+  static let shapeRadius = 21
+  static let attributeCount = 22
+}
+
+/// AndroidX `Component.Visibility`: the plain states, and the override bits that apply above 15.
+public enum NativeSwiftVisibility {
+  public static let gone = 0
+  public static let visible = 1
+  public static let invisible = 2
+  public static let overrideGone = 16
+  public static let overrideVisible = 32
+  public static let overrideInvisible = 64
+  public static let clearOverride = 128
+}
+
+/// `RcTextLayout`'s text alignment values.
+public enum NativeSwiftTextAlignment {
+  public static let left = 1
+  public static let right = 2
+  public static let center = 3
+  public static let justify = 4
+  public static let start = 5
+  public static let end = 6
+}
+
+/// `RcTextLayout`'s text overflow values.
+public enum NativeSwiftTextOverflow {
+  public static let clip = 1
+  public static let visible = 2
+  public static let ellipsis = 3
+  public static let startEllipsis = 4
+  public static let middleEllipsis = 5
+}
+
+/// The property ids of a `CoreText` / `TextStyle` parameter list, from AndroidX `CoreText`.
+enum NativeSwiftTextProperty {
+  static let componentID = 1
+  static let animationID = 2
+  static let color = 3
+  static let colorID = 4
+  static let fontSize = 5
+  static let fontStyle = 6
+  static let fontWeight = 7
+  static let fontFamily = 8
+  static let textAlign = 9
+  static let overflow = 10
+  static let maxLines = 11
+  static let letterSpacing = 12
+  static let lineHeightAdd = 13
+  static let lineHeightMultiplier = 14
+  static let breakStrategy = 15
+  static let hyphenationFrequency = 16
+  static let justificationMode = 17
+  static let underline = 18
+  static let strikethrough = 19
+  static let fontAxis = 20
+  static let fontAxisValues = 21
+  static let autosize = 22
+  static let flags = 23
+  static let textStyleID = 24
+  static let minFontSize = 25
+  static let maxFontSize = 26
+}
+
+/// `RcIdMap`'s entry types.
+enum NativeSwiftDataMapType {
+  static let string = 0
+  static let int = 1
+  static let float = 2
+  static let long = 3
+  static let boolean = 4
+}
+
+/// `RcNamedVariable`'s types.
+enum NativeSwiftNamedVariableType {
+  static let string = 0
+  static let float = 1
+  static let color = 2
+  static let image = 3
+  static let int = 4
+  static let long = 5
+  static let floatArray = 6
+}
+
+/// `RcComponentValue`'s types.
+enum NativeSwiftComponentValueType {
+  static let width = 0
+  static let height = 1
+  static let localX = 2
+  static let localY = 3
+  static let rootX = 4
+  static let rootY = 5
+  static let contentWidth = 6
+  static let contentHeight = 7
+}
+
+/// `RcConditionalOperations`' comparison types.
+enum NativeSwiftConditionalType {
+  static let equal = 0
+  static let notEqual = 1
+  static let lessThan = 2
+  static let lessThanOrEqual = 3
+  static let greaterThan = 4
+  static let greaterThanOrEqual = 5
+  static let changed = 6
+}
+
+/// `RcHostNamedActionValue`'s value types.
+enum NativeSwiftHostActionValueType {
+  static let none = -1
+  static let float = 0
+  static let integer = 1
+  static let string = 2
+  static let floatArray = 3
+}
+
+/// `RcColorAttribute`'s channel types.
+enum NativeSwiftColorAttributeType {
+  static let hue = 0
+  static let saturation = 1
+  static let brightness = 2
+  static let red = 3
+  static let green = 4
+  static let blue = 5
+  static let alpha = 6
+}
+
+/// `RcColorExpression`'s modes: the low byte of its mode-and-alpha word.
+enum NativeSwiftColorExpressionMode {
+  static let colorColorInterpolate = 0
+  static let idColorInterpolate = 1
+  static let colorIDInterpolate = 2
+  static let idIDInterpolate = 3
+  static let hsv = 4
+  static let argb = 5
+  static let idARGB = 6
+}
+
+/// `RcImageAttribute`'s types.
+enum NativeSwiftImageAttributeType {
+  static let width = 0
+  static let height = 1
+}

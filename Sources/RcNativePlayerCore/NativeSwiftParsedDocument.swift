@@ -124,11 +124,11 @@ struct ParsedColorExpression {
   var floatWords: [UInt32] {
     func word(_ value: Int) -> UInt32 { UInt32(bitPattern: Int32(truncatingIfNeeded: value)) }
     switch modeAndAlpha & 0xff {
-    case 0...3:
+    case NativeSwiftColorExpressionMode.colorColorInterpolate...NativeSwiftColorExpressionMode.idIDInterpolate:
       return [word(third)]
-    case 4, 5:
+    case NativeSwiftColorExpressionMode.hsv, NativeSwiftColorExpressionMode.argb:
       return [word(first), word(second), word(third)]
-    case 6:
+    case NativeSwiftColorExpressionMode.idARGB:
       return [
         word(first), word(second), word(third),
         0x7fc0_0000 | (UInt32(truncatingIfNeeded: modeAndAlpha >> 16) & 0xffff),

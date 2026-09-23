@@ -173,7 +173,7 @@
         if let custom = node.custom, !availableCustomComponents.contains(custom.config) {
           issues.append(
             RemoteComposeNativePlayerDiagnostic(
-              severity: .unsupported, opcode: 93, operationName: "Custom",
+              severity: .unsupported, opcode: NativeSwiftWireOpcode.layoutCustom, operationName: "Custom",
               componentID: node.componentID,
               reason: "Host custom component '\(custom.config)' is not registered"))
         }
@@ -385,7 +385,7 @@
     }
 
     var effectiveAccessibilityLabels: [String] {
-      guard visibility == 1 else { return [] }
+      guard visibility == NativeSwiftVisibility.visible else { return [] }
       let descendants = children.flatMap(\.effectiveAccessibilityLabels)
       guard let descriptor = accessibilityDescriptor else {
         return localAccessibilityLabels + descendants
@@ -429,7 +429,7 @@
     }
 
     private var effectiveSemanticBehaviors: [NativeSemanticBehavior] {
-      guard visibility == 1 else { return [] }
+      guard visibility == NativeSwiftVisibility.visible else { return [] }
       if let semanticBehavior {
         if semanticBehavior.descriptor.mode == .set {
           return [semanticBehavior] + children.flatMap(\.effectiveSemanticBehaviors)
@@ -597,7 +597,8 @@
     static let `default` = NativeTextStyle(
       swiftSnapshot: NativeSwiftTextSnapshot(
         value: "", colorARGB: 0xff00_0000, size: 16, style: 0, weight: 400,
-        familyID: -1, alignment: 1, overflow: 1, maximumLines: Int.max))
+        familyID: -1, alignment: NativeSwiftTextAlignment.left, overflow: NativeSwiftTextOverflow.clip,
+        maximumLines: Int.max))
 
     init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
       fontStyle = snapshot.style
@@ -828,7 +829,8 @@
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
       let drawingCommands = node.commands.filter {
-        !(promotesText && $0.kind == 17) && !(promotesImage && $0.kind == 19)
+        !(promotesText && $0.kind == NativeSwiftDrawKind.text)
+          && !(promotesImage && $0.kind == NativeSwiftDrawKind.bitmap)
       }
       canvasView =
         drawingCommands.isEmpty
@@ -836,7 +838,7 @@
       textLabels =
         promotesText
         ? node.commands.enumerated().compactMap { index, command in
-          guard command.kind == 17 else { return nil }
+          guard command.kind == NativeSwiftDrawKind.text else { return nil }
           return NativeTextLabel(
             componentID: node.componentID, commandIndex: index, command: command,
             fontNames: fontNames)
@@ -844,7 +846,8 @@
       imageViews =
         promotesImage
         ? node.commands.compactMap { command in
-          guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+          guard command.kind == NativeSwiftDrawKind.bitmap, let draw = command.image,
+            let image = images[draw.imageID]
           else {
             return nil
           }
@@ -867,8 +870,8 @@
       semanticElement = makeSemanticElement(for: node)
       isOpaque = false
       backgroundColor = node.backgroundColor ?? .clear
-      isHidden = node.visibility == 0
-      alpha = node.visibility == 2 ? 0 : 1
+      isHidden = node.visibility == NativeSwiftVisibility.gone
+      alpha = node.visibility == NativeSwiftVisibility.invisible ? 0 : 1
       // A scrolled container's children are laid out against their content, which is larger than the
       // viewport by design, so the viewport has to clip them or the overflow paints outside it.
       clipsToBounds = node.cornerRadius > 0 || node.clipsToBounds || node.scrollDirection != nil
@@ -1009,8 +1012,8 @@
       }
       updateSemanticElement(from: next)
       backgroundColor = next.backgroundColor ?? .clear
-      isHidden = next.visibility == 0
-      alpha = next.visibility == 2 ? 0 : 1
+      isHidden = next.visibility == NativeSwiftVisibility.gone
+      alpha = next.visibility == NativeSwiftVisibility.invisible ? 0 : 1
       clipsToBounds =
         next.cornerRadius > 0 || next.clipsToBounds || next.scrollDirection != nil
       setNeedsLayout()
@@ -1026,14 +1029,16 @@
       let promotesText = node.kind == .text
       let promotesImage = node.kind == .image
       let drawing = node.commands.filter {
-        !(promotesText && $0.kind == 17) && !(promotesImage && $0.kind == 19)
+        !(promotesText && $0.kind == NativeSwiftDrawKind.text)
+          && !(promotesImage && $0.kind == NativeSwiftDrawKind.bitmap)
       }
-      let text = promotesText ? node.commands.filter { $0.kind == 17 } : []
+      let text = promotesText ? node.commands.filter { $0.kind == NativeSwiftDrawKind.text } : []
       let imageItems =
         promotesImage
         ? node.commands.compactMap {
           command -> (UIImage, NativeImageDraw, CGFloat, Int?)? in
-          guard command.kind == 19, let draw = command.image, let image = images[draw.imageID]
+          guard command.kind == NativeSwiftDrawKind.bitmap, let draw = command.image,
+            let image = images[draw.imageID]
           else { return nil }
           return (image, draw, command.alpha, command.filterQuality)
         } : []
@@ -1163,7 +1168,7 @@
           CGAffineTransform(
             translationX: originX + CGFloat(graphicsLayer.translationX),
             y: originY + CGFloat(graphicsLayer.translationY))))
-      if graphicsLayer.alpha != 1, node.visibility != 2 {
+      if graphicsLayer.alpha != 1, node.visibility != NativeSwiftVisibility.invisible {
         alpha = CGFloat(max(0, min(1, graphicsLayer.alpha)))
       }
     }
@@ -1394,14 +1399,15 @@
         && customView == nil
         && node.semanticBehavior?.acceptsPointerAction != true
         && node.backgroundColor == nil
-        && node.visibility == 1 && node.widthType == NativeSwiftDimensionType.wrap && node.heightType == NativeSwiftDimensionType.wrap
+        && node.visibility == NativeSwiftVisibility.visible
+        && node.widthType == NativeSwiftDimensionType.wrap && node.heightType == NativeSwiftDimensionType.wrap
         && node.minimumWidth == 0 && node.minimumHeight == 0
         && node.maximumWidth == nil && node.maximumHeight == nil
         && node.padding == .zero && node.offset == .zero && node.zIndex == 0
     }
 
     private var flattenedLayoutItems: [NativeComponentView] {
-      componentChildren.filter { $0.node.visibility != 0 }.flatMap { child in
+      componentChildren.filter { $0.node.visibility != NativeSwiftVisibility.gone }.flatMap { child in
         child.isStructural ? child.flattenedLayoutItems : [child]
       }
     }
@@ -1415,7 +1421,7 @@
     }
 
     private var layoutUnitScale: CGFloat {
-      node.densityBehavior == 2 ? layoutDensityScale : documentScale
+      node.densityBehavior == NativeDensityPolicy.dpBehavior ? layoutDensityScale : documentScale
     }
 
     /// What `widthIn`/`heightIn` bounds are measured in — see `NativeDensityPolicy`.
@@ -1546,7 +1552,7 @@
     /// Whether the box's *content* is switched on. An alternative's own modifier is ignored, but the
     /// content's is the box's own switch: a GONE content shows nothing.
     private var fitBoxContentVisible: Bool {
-      !componentChildren.contains { $0.isFitBoxContent && $0.node.visibility == 0 }
+      !componentChildren.contains { $0.isFitBoxContent && $0.node.visibility == NativeSwiftVisibility.gone }
     }
 
     /// An alternative's natural size: the size it asks for when nothing forces it to fill.
@@ -1573,13 +1579,13 @@
     private func layoutFitBox() {
       let insets = scaledPadding
       let content = bounds.inset(by: insets)
-      isHidden = node.visibility == 0
+      isHidden = node.visibility == NativeSwiftVisibility.gone
       let measured = fitBoxAlternativesAndSizes(in: content.size)
       for (alternative, _) in measured {
         // The reference ignores an alternative's own visibility modifier: it is the document's
         // switch between alternatives, not something the box obeys.
         alternative.isHidden = true
-        if alternative.node.visibility != 0 { alternative.alpha = 1 }
+        if alternative.node.visibility != NativeSwiftVisibility.gone { alternative.alpha = 1 }
       }
       let fitting = measured.first {
         $0.size.width <= content.width + 0.5 && $0.size.height <= content.height + 0.5
@@ -1617,7 +1623,7 @@
       else { return items }
       for (index, child) in items.enumerated() { child.isHidden = !kept[index] }
       let visible = items.enumerated().filter { kept[$0.offset] }.map(\.element)
-      isHidden = node.visibility == 0 || visible.isEmpty
+      isHidden = node.visibility == NativeSwiftVisibility.gone || visible.isEmpty
       return visible
     }
 
@@ -2197,7 +2203,7 @@
       case .head: lineBreakMode = .byTruncatingHead
       case .middle: lineBreakMode = .byTruncatingMiddle
       }
-      clipsToBounds = style.overflow != 2
+      clipsToBounds = style.overflow != NativeSwiftTextOverflow.visible
       semanticContentAttribute =
         layoutDirection == .rightToLeft ? .forceRightToLeft : .forceLeftToRight
       configuredParagraph = true
@@ -2463,50 +2469,52 @@
       context.interpolationQuality = command.interpolationQuality ?? defaultInterpolationQuality
 
       switch command.kind {
-      case 0: context.saveGState()
-      case 1: context.restoreGState()
-      case 2: context.translateBy(x: v[0], y: v[1])
-      case 3:
+      case NativeSwiftDrawKind.matrixSave: context.saveGState()
+      case NativeSwiftDrawKind.matrixRestore: context.restoreGState()
+      case NativeSwiftDrawKind.matrixTranslate: context.translateBy(x: v[0], y: v[1])
+      case NativeSwiftDrawKind.matrixScale:
         let pivot = CGPoint(x: v[2].isNaN ? 0 : v[2], y: v[3].isNaN ? 0 : v[3])
         context.translateBy(x: pivot.x, y: pivot.y)
         context.scaleBy(x: v[0], y: v[1])
         context.translateBy(x: -pivot.x, y: -pivot.y)
-      case 4:
+      case NativeSwiftDrawKind.matrixRotate:
         let pivot = CGPoint(x: v[1].isNaN ? 0 : v[1], y: v[2].isNaN ? 0 : v[2])
         context.translateBy(x: pivot.x, y: pivot.y)
         context.rotate(by: v[0] * .pi / 180)
         context.translateBy(x: -pivot.x, y: -pivot.y)
-      case 5: context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
-      case 6: context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
-      case 7:
+      case NativeSwiftDrawKind.matrixSkew:
+        context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
+      case NativeSwiftDrawKind.clipRect:
+        context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
+      case NativeSwiftDrawKind.clipPath:
         context.addPath(NativePathBuilder.make(command.path))
         context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
-      case 10:
+      case NativeSwiftDrawKind.rect:
         paint(CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]), command, context)
-      case 11:
+      case NativeSwiftDrawKind.oval:
         paintEllipse(
           CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]), command, context)
-      case 12:
+      case NativeSwiftDrawKind.circle:
         paintEllipse(
           CGRect(x: v[0] - v[2], y: v[1] - v[2], width: v[2] * 2, height: v[2] * 2), command,
           context)
-      case 13:
+      case NativeSwiftDrawKind.line:
         let path = CGMutablePath()
         path.move(to: CGPoint(x: v[0], y: v[1]))
         path.addLine(to: CGPoint(x: v[2], y: v[3]))
         paint(path, command, context)
-      case 14:
+      case NativeSwiftDrawKind.roundRect:
         let path = UIBezierPath(
           roundedRect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
           cornerRadius: max(v[4], v[5]))
         paint(path.cgPath, command, context)
-      case 15, 16: drawArc(command, context)
-      case 17: drawText(command)
-      case 18:
+      case NativeSwiftDrawKind.arc, NativeSwiftDrawKind.sector: drawArc(command, context)
+      case NativeSwiftDrawKind.text: drawText(command)
+      case NativeSwiftDrawKind.path:
         paint(
           NativePathBuilder.make(command.path), command, context,
           fillRule: command.pathWinding == 1 ? .evenOdd : .winding)
-      case 19: drawImage(command, context)
+      case NativeSwiftDrawKind.bitmap: drawImage(command, context)
       default: break
       }
     }
@@ -2586,10 +2594,10 @@
       let radius = min(v[2] - v[0], v[3] - v[1]) / 2
       let start = v[4] * .pi / 180
       let end = (v[4] + v[5]) * .pi / 180
-      if command.kind == 16 { context.move(to: center) }
+      if command.kind == NativeSwiftDrawKind.sector { context.move(to: center) }
       context.addArc(
         center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
-      if command.kind == 16 { context.closePath() }
+      if command.kind == NativeSwiftDrawKind.sector { context.closePath() }
       let path = context.path
       context.beginPath()
       if let path { paint(path, command, context) }
