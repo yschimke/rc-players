@@ -638,6 +638,28 @@ enum NativeSwiftCoreTests {
       "a colour theme resolved to \(String(describing: unthemed)), \(String(describing: dark)), "
         + "\(String(describing: light))")
 
+    // TEXT_FROM_FLOAT formats as AndroidX's StringUtils does: zero and space padding either side of
+    // the point, grouping, separators, rounding, parentheses and the legacy mode. Each expectation
+    // is the CMP player's RcTextFormatter output, which a compatibility test holds to AndroidX.
+    let formatted: [(Float, Int, Int, Int, String)] = [
+      (123.456, 5, 1, 12, "00123.5"),
+      (123.456, 3, 2, 0, "123.46"),
+      (-12345.678, 10, 2, 535, "-12,345.68"),
+      (9.5, 2, 0, 12, "09"),
+      (0.05, 1, 2, 3, "0.05"),
+      (1234567.8, 10, 2, 80, " 1.234.567,8 "),
+      (-123.456, 3, 1, 256, "(123.5)"),
+      (0.999, 1, 2, 1024, "0.  "),
+      (7.1, 2, 3, 15, "07.100"),
+    ]
+    for (value, before, after, flags, expected) in formatted {
+      let actual = NativeSwiftTextFormatter.format(
+        value, digitsBefore: before, digitsAfter: after, flags: flags)
+      precondition(
+        actual == expected,
+        "\(value) with \(before).\(after) flags \(flags) formatted as [\(actual)], not [\(expected)]")
+    }
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)
