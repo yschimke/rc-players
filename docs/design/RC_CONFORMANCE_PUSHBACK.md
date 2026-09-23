@@ -123,10 +123,39 @@ harness does not declare a zone.
 
 It asserts 110.7421875 for a measured attribute of "TransformSample". The value depends on the font,
 but the harness declares no `text_metrics`, unlike the golds that use the Ahem model to make width
-portable.
+portable. It also carries `"tolerance": 1000`, so any value from −890 to 1111 passes — including the
+0 a player with no text metrics at all reports. The check cannot fail.
 
 **Proposed upstream:** declare `text_metrics: "ahem"`, or assert a font-independent attribute such
 as length.
+
+## 8. A layout component with no root
+
+**Gold:** `text_style_and_layout_text`.
+
+Its document is a `TextStyle`, then a `TextLayout` component at top level with no
+`RootLayoutComponent` around it, then the `FloatConstant` its value check reads (143 = 18). The
+spec does not say what a layout component outside a root means; the CMP player refuses it
+("Layout component appears outside a RootLayoutComponent"), and so does the native core. The only
+value asserted is the constant.
+
+**Proposed upstream:** put the text in a root, and assert something the style changes — the laid-out
+height, or the resolved size in a `records` probe.
+
+**What we did:** the native core now decodes `TextStyle` and applies it to `CoreText` through its
+parent chain, and renders an unknown `TextLayout` overflow as clip as AndroidX does. It still refuses
+a layout component outside a root.
+
+## 9. `colortheme_theme_light_dark_switch` sets no theme and switches nothing
+
+**Gold:** `colortheme_theme_light_dark_switch`.
+
+Its document is `THEME(1)` followed by one `ColorConstant`. AndroidX's themes are `UNSPECIFIED` (-1),
+`DARK` (-2) and `LIGHT` (-3); 1 is none of them, and the timeline has a single paint step, so nothing
+switches. The check asserts the constant's own value.
+
+**Proposed upstream:** use `THEME_DARK`/`THEME_LIGHT`, and add `theme` steps as
+`color_theme_mode_switching` does.
 
 ## Minor, noted rather than disputed
 
