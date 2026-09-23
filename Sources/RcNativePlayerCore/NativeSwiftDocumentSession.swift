@@ -915,6 +915,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       if result[NativeSwiftSystemVariables.year] == nil {
         result[NativeSwiftSystemVariables.year] = Float(fields.year)
       }
+      if result[NativeSwiftSystemVariables.epochSecond] == nil {
+        let seconds = NativeSwiftWallClock.floorDiv(wallClock.epochMillis, 1000)
+        integers[NativeSwiftSystemVariables.epochSecond] = Int(seconds)
+        result[NativeSwiftSystemVariables.epochSecond] = Float(seconds)
+      }
     } else if result[NativeSwiftSystemVariables.continuousSeconds] == nil {
       result[NativeSwiftSystemVariables.continuousSeconds] = animationTime
     }

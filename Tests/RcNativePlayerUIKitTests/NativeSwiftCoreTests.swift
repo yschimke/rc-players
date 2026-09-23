@@ -399,6 +399,35 @@ import Testing
       precondition(opcode == 80, "the impulse refused opcode \(opcode)")
     }
 
+    // EPOCH_SECOND is whole seconds since the epoch, floored, as an integer and as a float.
+    let epoch = try NativeSwiftDocumentSession.open(
+      data: rootlessValuesDocument(), toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: 1_789_050_600_999))
+    precondition(
+      epoch.integers[32] == 1_789_050_600 && epoch.floats[32] == Float(1_789_050_600),
+      "EPOCH_SECOND resolved to \(String(describing: epoch.integers[32]))")
+
+    // A loop unrolls with the index bound per pass, and ends holding its last value. A path built
+    // with PATH_CREATE / PATH_APPEND is drawable, and a leading RESET empties it.
+    let looped = Writer()
+    looped.header(width: 100, height: 100)
+    looped.u8(80).int(70).float(0)
+    looped.u8(215).int(70).float(0).float(1).float(3)
+    looped.u8(42).int(Writer.nanReference(70)).float(0).float(10).float(10)
+    looped.u8(214)
+    looped.u8(159).int(50).float(0).float(0)
+    looped.u8(160).int(50).int(5).int(Writer.nanReference(11)).float(0).float(0).float(10).float(10)
+    looped.u8(124).int(50)
+    let loopedSession = try NativeSwiftDocumentSession.open(data: looped.data)
+    let loopedCommands = try loopedSession.snapshot().root.commands
+    precondition(
+      loopedCommands.filter { $0.kind == 10 }.map { $0.values[0] } == [0, 1, 2],
+      "a loop drew at \(loopedCommands.map { ($0.kind, $0.values) })")
+    let loopIndex = try loopedSession.probeValues(timeSeconds: 0).floats[70]
+    precondition(loopIndex == 2, "a loop's index ended on \(String(describing: loopIndex))")
+    precondition(
+      loopedCommands.contains { $0.kind == 18 }, "a created and appended path did not draw")
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)

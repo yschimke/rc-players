@@ -11,6 +11,23 @@ public enum NativeSwiftTextAttributeType {
   public static let length = 6
 }
 
+/// Path data's command tokens: every value AndroidX's `PathData` defines, NaN-boxed in the stream.
+public enum NativeSwiftPathCommand {
+  public static let move = 10
+  public static let line = 11
+  public static let quadratic = 12
+  public static let conic = 13
+  public static let cubic = 14
+  public static let close = 15
+  public static let done = 16
+  public static let reset = 17
+}
+
+/// A path command token as the wire spells it: the command id in a quiet NaN's payload.
+func pathCommandWord(_ command: Int) -> UInt32 {
+  0x7fc0_0000 | UInt32(command)
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
