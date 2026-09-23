@@ -62,6 +62,21 @@ struct ParsedDocument {
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
   let linkedOperationCount: Int
+
+  // Per-document facts the frame resolver would otherwise recompute on every frame. They depend
+  // only on what was decoded, so the decoder settles them once.
+
+  /// `images` as snapshots in id order, shared by every frame's snapshot.
+  let imageSnapshots: [NativeSwiftImageResourceSnapshot]
+  /// The components `componentValues` bind, as `NativeSwiftDocumentSnapshot.boundComponents`.
+  let boundComponentIDs: Set<Int>
+  /// Whether the tolerant first expression pass can change what the authoritative pass computes:
+  /// a component-value binding reads between them, or an expression reads an id that the same or
+  /// a later expression writes. See `resolvedFloats`.
+  let needsTolerantExpressionPass: Bool
+  /// Whether any layout word reads a component-value binding's output, which invalidates a
+  /// subtree estimate once that binding is written. See `resolvedFloats`.
+  let layoutReadsComponentValues: Bool
 }
 
 struct ParsedDynamicFloatList {
@@ -205,6 +220,10 @@ enum NativeSwiftImpulsePhase {
 struct ParsedDrawCommand {
   /// Set when the command is drawn by an impulse, which shows it only in the matching phase.
   var impulseGate: ParsedImpulseGate?
+  /// Whether a geometry word reads a component-value binding. The bindings are only all known once
+  /// the whole document has decoded, so the decoder settles it then with
+  /// `markComponentGeometry(_:)` rather than every frame rebuilding the set and the word list.
+  private(set) var usesComponentGeometry = false
   let kind: Int
   let words: [UInt32]
   /// Literal geometry never depends on a frame's expression table. Keeping the decoded floats
@@ -239,18 +258,26 @@ struct ParsedDrawCommand {
     self.textFlags = textFlags
   }
 
+  /// Decides `usesComponentGeometry` against the document's component-value output ids. The words
+  /// scanned are the command's own, its path's (command tokens included, as a flat scan), its
+  /// image destination and its gradient coordinates.
+  mutating func markComponentGeometry(_ componentValueIDs: Set<Int>) {
+    func reads(_ words: [UInt32]) -> Bool {
+      words.contains { word in
+        NativeSwiftFloatExpression.referenceID(word).map(componentValueIDs.contains) ?? false
+      }
+    }
+    usesComponentGeometry =
+      reads(words) || reads(path?.words ?? []) || reads(image?.destination ?? [])
+      || reads(paint.gradient?.coordinateWords ?? [])
+  }
+
   func resolve(
     values: [Int: Float], colors: [Int: UInt32], texts: [Int: String],
-    componentValueIDs: Set<Int>, matrices: [Int: ParsedMatrixExpression]
+    matrices: [Int: ParsedMatrixExpression]
   ) throws
     -> NativeSwiftDrawCommandSnapshot
   {
-    let geometryWords =
-      words + (path?.words ?? []) + (image?.destination ?? [])
-      + (paint.gradient?.coordinateWords ?? [])
-    let usesComponentGeometry = geometryWords.contains { word in
-      NativeSwiftFloatExpression.referenceID(word).map(componentValueIDs.contains) ?? false
-    }
     return NativeSwiftDrawCommandSnapshot(
       kind: kind,
       values: staticValues ?? words.map { NativeSwiftFloatExpression.resolve($0, values: values) },

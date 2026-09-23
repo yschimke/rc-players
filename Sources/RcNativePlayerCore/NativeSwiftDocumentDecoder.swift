@@ -2243,6 +2243,31 @@ enum NativeSwiftDocumentDecoder {
     ]
     let needsWallClockRefresh = references(discreteWallClockIDs)
       || timeAttributes.contains { longConstants[$0.timeID] == nil }
+    // Which draw commands read a component-value binding is fixed by now; settle it once here
+    // rather than on every frame. The walk is iterative: the tree is up to `maximumNestingDepth`
+    // deep and decode may run on a small secondary-thread stack.
+    let componentValueIDs = Set(componentValues.map(\.valueID))
+    if !componentValueIDs.isEmpty {
+      var pending = [root]
+      while let node = pending.popLast() {
+        for index in node.commands.indices {
+          node.commands[index].markComponentGeometry(componentValueIDs)
+        }
+        pending.append(contentsOf: node.children)
+      }
+    }
+    // An expression reads "forward" when an id it reads is written by the same or a later
+    // expression, which is what makes the tolerant first pass observable without a binding.
+    var lastExpressionIndex: [Int: Int] = [:]
+    for (index, expression) in expressions.enumerated() { lastExpressionIndex[expression.id] = index }
+    let expressionsReadForward = expressions.enumerated().contains { index, expression in
+      expression.words.contains { word in
+        guard let id = NativeSwiftFloatExpression.referenceID(word),
+          let writer = lastExpressionIndex[id]
+        else { return false }
+        return writer >= index
+      }
+    }
     return ParsedDocument(
       width: width, height: height, density: density, densityBehavior: densityBehavior,
       root: root, nodes: nodes, texts: texts, floats: floats,
@@ -2268,7 +2293,12 @@ enum NativeSwiftDocumentDecoder {
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,
-      linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0))
+      linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0),
+      imageSnapshots: images.values.sorted { $0.id < $1.id }.map(\.snapshot),
+      boundComponentIDs: Set(componentValues.map(\.componentID)),
+      needsTolerantExpressionPass: !componentValues.isEmpty || expressionsReadForward,
+      layoutReadsComponentValues: !componentValueIDs.isEmpty
+        && root.references(anyOf: componentValueIDs))
   }
 
   private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)

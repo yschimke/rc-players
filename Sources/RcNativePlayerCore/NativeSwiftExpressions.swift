@@ -29,13 +29,27 @@ struct ParsedMatrixVectorMath {
 enum NativeSwiftIntegerExpression {
   static func evaluate(mask: Int, tokens: [Int], values: [Int: Int]) throws -> Int {
     var stack: [Int32] = []
-    func pop(_ count: Int) throws -> [Int32] {
+    stack.reserveCapacity(tokens.count)
+    // Operands come off as a tuple, oldest first, rather than as a fresh `Array` per operator.
+    func require(_ count: Int) throws {
       guard stack.count >= count else {
         throw NativeSwiftCoreError.malformed(offset: 0, reason: "Integer expression stack underflow")
       }
-      let result = Array(stack.suffix(count))
-      stack.removeLast(count)
-      return result
+    }
+    func pop1() throws -> Int32 {
+      try require(1)
+      return stack.removeLast()
+    }
+    func pop2() throws -> (Int32, Int32) {
+      try require(2)
+      let second = stack.removeLast()
+      return (stack.removeLast(), second)
+    }
+    func pop3() throws -> (Int32, Int32, Int32) {
+      try require(3)
+      let third = stack.removeLast()
+      let second = stack.removeLast()
+      return (stack.removeLast(), second, third)
     }
     for (index, token) in tokens.enumerated() {
       let marked = UInt32(bitPattern: Int32(mask)) & (UInt32(1) << UInt32(index & 31)) != 0
@@ -45,9 +59,7 @@ enum NativeSwiftIntegerExpression {
       }
       let operation = token - NativeSwiftIntegerOperator.offset
       if (NativeSwiftIntegerOperator.add...NativeSwiftIntegerOperator.max).contains(operation) {
-        let value = try pop(2)
-        let left = value[0]
-        let right = value[1]
+        let (left, right) = try pop2()
         switch operation {
         case NativeSwiftIntegerOperator.add: stack.append(left &+ right)
         case NativeSwiftIntegerOperator.sub: stack.append(left &- right)
@@ -68,7 +80,7 @@ enum NativeSwiftIntegerExpression {
         default: stack.append(max(left, right))
         }
       } else if (NativeSwiftIntegerOperator.neg...NativeSwiftIntegerOperator.sign).contains(operation) {
-        let value = try pop(1)[0]
+        let value = try pop1()
         switch operation {
         case NativeSwiftIntegerOperator.neg: stack.append(0 &- value)
         case NativeSwiftIntegerOperator.abs: stack.append(value == .min ? .min : abs(value))
@@ -78,13 +90,13 @@ enum NativeSwiftIntegerExpression {
         default: stack.append((value >> 31) | Int32(bitPattern: 0 &- UInt32(bitPattern: value)) >> 31)
         }
       } else if (NativeSwiftIntegerOperator.clamp...NativeSwiftIntegerOperator.mad).contains(operation) {
-        let value = try pop(3)
+        let (first, second, third) = try pop3()
         if operation == NativeSwiftIntegerOperator.clamp {
-          stack.append(min(max(value[0], value[2]), value[1]))
+          stack.append(min(max(first, third), second))
         } else if operation == NativeSwiftIntegerOperator.ifElse {
-          stack.append(value[2] > 0 ? value[1] : value[0])
+          stack.append(third > 0 ? second : first)
         } else {
-          stack.append(value[2] &+ value[1] &* value[0])
+          stack.append(third &+ second &* first)
         }
       } else {
         throw NativeSwiftCoreError.unsupported(
@@ -123,13 +135,34 @@ enum NativeSwiftFloatExpression {
   ) throws -> Float {
     var stack: [Float] = []
     stack.reserveCapacity(min(words.count, 128))
-    func pop(_ count: Int) throws -> [Float] {
+    // Operands come off as a tuple, oldest first, rather than as a fresh `Array` per operator.
+    func require(_ count: Int) throws {
       guard stack.count >= count else {
         throw NativeSwiftCoreError.malformed(offset: 0, reason: "Float expression stack underflow")
       }
-      let result = Array(stack.suffix(count))
-      stack.removeLast(count)
-      return result
+    }
+    func pop1() throws -> Float {
+      try require(1)
+      return stack.removeLast()
+    }
+    func pop2() throws -> (Float, Float) {
+      try require(2)
+      let second = stack.removeLast()
+      return (stack.removeLast(), second)
+    }
+    func pop3() throws -> (Float, Float, Float) {
+      try require(3)
+      let third = stack.removeLast()
+      let second = stack.removeLast()
+      return (stack.removeLast(), second, third)
+    }
+    func pop5() throws -> (Float, Float, Float, Float, Float) {
+      try require(5)
+      let fifth = stack.removeLast()
+      let fourth = stack.removeLast()
+      let third = stack.removeLast()
+      let second = stack.removeLast()
+      return (stack.removeLast(), second, third, fourth, fifth)
     }
     for word in words {
       let payload = Int(word & payloadMask)
@@ -148,16 +181,16 @@ enum NativeSwiftFloatExpression {
         let index = operation - NativeSwiftFloatOperator.var1
         stack.append(variables.indices.contains(index) ? variables[index] : 0)
       case NativeSwiftFloatOperator.add...NativeSwiftFloatOperator.pow:
-        let value = try pop(2)
+        let (first, second) = try pop2()
         switch operation {
-        case NativeSwiftFloatOperator.add: stack.append(value[0] + value[1])
-        case NativeSwiftFloatOperator.sub: stack.append(value[0] - value[1])
-        case NativeSwiftFloatOperator.mul: stack.append(value[0] * value[1])
-        case NativeSwiftFloatOperator.div: stack.append(value[0] / value[1])
-        case NativeSwiftFloatOperator.mod: stack.append(value[0].truncatingRemainder(dividingBy: value[1]))
-        case NativeSwiftFloatOperator.min: stack.append(min(value[0], value[1]))
-        case NativeSwiftFloatOperator.max: stack.append(max(value[0], value[1]))
-        default: stack.append(powf(value[0], value[1]))
+        case NativeSwiftFloatOperator.add: stack.append(first + second)
+        case NativeSwiftFloatOperator.sub: stack.append(first - second)
+        case NativeSwiftFloatOperator.mul: stack.append(first * second)
+        case NativeSwiftFloatOperator.div: stack.append(first / second)
+        case NativeSwiftFloatOperator.mod: stack.append(first.truncatingRemainder(dividingBy: second))
+        case NativeSwiftFloatOperator.min: stack.append(min(first, second))
+        case NativeSwiftFloatOperator.max: stack.append(max(first, second))
+        default: stack.append(powf(first, second))
         }
       case NativeSwiftFloatOperator.sqrt...NativeSwiftFloatOperator.sign,
         NativeSwiftFloatOperator.exp...NativeSwiftFloatOperator.atan,
@@ -165,7 +198,7 @@ enum NativeSwiftFloatExpression {
         NativeSwiftFloatOperator.square,
         NativeSwiftFloatOperator.log2...NativeSwiftFloatOperator.fract,
         NativeSwiftFloatOperator.changeSign:
-        let value = try pop(1)[0]
+        let value = try pop1()
         switch operation {
         case NativeSwiftFloatOperator.sqrt: stack.append(sqrtf(value))
         case NativeSwiftFloatOperator.abs: stack.append(abs(value))
@@ -199,51 +232,51 @@ enum NativeSwiftFloatExpression {
       case NativeSwiftFloatOperator.copySign, NativeSwiftFloatOperator.atan2,
         NativeSwiftFloatOperator.squareSum, NativeSwiftFloatOperator.step,
         NativeSwiftFloatOperator.hypot, NativeSwiftFloatOperator.pingPong:
-        let value = try pop(2)
+        let (first, second) = try pop2()
         switch operation {
-        case NativeSwiftFloatOperator.copySign: stack.append(copysignf(abs(value[0]), value[1]))
-        case NativeSwiftFloatOperator.atan2: stack.append(atan2f(value[0], value[1]))
-        case NativeSwiftFloatOperator.squareSum: stack.append(value[0] * value[0] + value[1] * value[1])
-        case NativeSwiftFloatOperator.step: stack.append(value[0] > value[1] ? 1 : 0)
-        case NativeSwiftFloatOperator.hypot: stack.append(hypotf(value[0], value[1]))
+        case NativeSwiftFloatOperator.copySign: stack.append(copysignf(abs(first), second))
+        case NativeSwiftFloatOperator.atan2: stack.append(atan2f(first, second))
+        case NativeSwiftFloatOperator.squareSum: stack.append(first * first + second * second)
+        case NativeSwiftFloatOperator.step: stack.append(first > second ? 1 : 0)
+        case NativeSwiftFloatOperator.hypot: stack.append(hypotf(first, second))
         default:
-          let doubled = value[1] * 2
-          let remainder = value[0].truncatingRemainder(dividingBy: doubled)
-          stack.append(remainder < value[1] ? remainder : doubled - remainder)
+          let doubled = second * 2
+          let remainder = first.truncatingRemainder(dividingBy: doubled)
+          stack.append(remainder < second ? remainder : doubled - remainder)
         }
       case NativeSwiftFloatOperator.mad:
-        let value = try pop(3)
-        stack.append(value[2] + value[1] * value[0])
+        let (first, second, third) = try pop3()
+        stack.append(third + second * first)
       case NativeSwiftFloatOperator.ifElse:
-        let value = try pop(3)
-        stack.append(value[2] > 0 ? value[1] : value[0])
+        let (first, second, third) = try pop3()
+        stack.append(third > 0 ? second : first)
       case NativeSwiftFloatOperator.clamp:
-        let value = try pop(3)
-        stack.append(min(max(value[0], value[2]), value[1]))
+        let (first, second, third) = try pop3()
+        stack.append(min(max(first, third), second))
       case NativeSwiftFloatOperator.swap:
         // SWAP: the reference's expression language can exchange its top two operands, which is how
         // a formula written for a stack machine reads `a` and `b` in the order it wants.
-        let value = try pop(2)
-        stack.append(value[1])
-        stack.append(value[0])
+        let (first, second) = try pop2()
+        stack.append(second)
+        stack.append(first)
       case NativeSwiftFloatOperator.lerp:
-        let value = try pop(3)
-        stack.append(value[0] + (value[1] - value[0]) * value[2])
+        let (first, second, third) = try pop3()
+        stack.append(first + (second - first) * third)
       case NativeSwiftFloatOperator.smoothStep:
         // SMOOTH_STEP: 0 below the first edge, 1 above the second, and the Hermite curve between
         // them. `expr_interpolation` is the gold that names it.
-        let value = try pop(3)
-        if value[0] < value[2] {
+        let (first, second, third) = try pop3()
+        if first < third {
           stack.append(0)
-        } else if value[0] > value[1] {
+        } else if first > second {
           stack.append(1)
         } else {
-          let t = (value[0] - value[2]) / (value[1] - value[2])
+          let t = (first - third) / (second - third)
           stack.append(t * t * (3 - 2 * t))
         }
       case NativeSwiftFloatOperator.cubic:
-        let value = try pop(5)
-        stack.append(cubicEasing(value[0], value[1], value[2], value[3], value[4]))
+        let (x1, y1, x2, y2, x) = try pop5()
+        stack.append(cubicEasing(x1, y1, x2, y2, x))
       default:
         throw NativeSwiftCoreError.unsupported(
           opcode: NativeSwiftWireOpcode.animatedFloat, offset: 0,

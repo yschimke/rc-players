@@ -203,13 +203,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       density: document.density,
       densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
-      images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
+      images: document.imageSnapshots,
       needsContinuousFrames: document.needsContinuousFrames || !document.particleLoops.isEmpty
         || floatAnimationRuntimes.contains {
           floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
         },
       needsWallClockRefresh: document.needsWallClockRefresh,
-      boundComponents: Set(document.componentValues.map(\.componentID)),
+      boundComponents: document.boundComponentIDs,
       animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
       pathIDs: document.pathIDs, pathTweenIDs: document.pathTweenIDs,
       accessibilityRecords: document.accessibilityRecords.map {
@@ -640,10 +640,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       children: try resolvedChildren(
         of: node, values: values, colors: resolvedColors,
         stateBranchActive: stateBranchActive),
-      commands: try node.commands.filter { impulseAllows($0.impulseGate) }.map {
-        try $0.resolve(
+      commands: try node.commands.compactMap { command -> NativeSwiftDrawCommandSnapshot? in
+        guard impulseAllows(command.impulseGate) else { return nil }
+        return try command.resolve(
           values: values, colors: resolvedColors, texts: texts,
-          componentValueIDs: Set(document.componentValues.map(\.valueID)),
           matrices: document.matrixExpressions)
       },
       isClickable: node.isClickable,
@@ -920,12 +920,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     // A copied dynamic colour is encoded as colour expression → channel attributes → colour
     // expression. Resolve the source colours before extracting their channels so the final colour
-    // pass can preserve copies such as a selected tint with reduced alpha.
-    let preliminaryColors = resolveColors(values: result)
-    for attribute in document.colorAttributes {
-      guard floatOverrides[attribute.outputID] == nil else { continue }
-      result[attribute.outputID] = colorAttribute(
-        attribute.type, of: preliminaryColors[attribute.colorID] ?? 0)
+    // pass can preserve copies such as a selected tint with reduced alpha. Only a channel attribute
+    // reads this preliminary table, so a document without one does not pay for a second colour
+    // resolution per frame; `resolveColors` has no side effects to preserve.
+    if !document.colorAttributes.isEmpty {
+      let preliminaryColors = resolveColors(values: result)
+      for attribute in document.colorAttributes {
+        guard floatOverrides[attribute.outputID] == nil else { continue }
+        result[attribute.outputID] = colorAttribute(
+          attribute.type, of: preliminaryColors[attribute.colorID] ?? 0)
+      }
     }
     // Player-supplied clocks. A document that declares its own value at one of these ids keeps it,
     // matching the reference player's claimed-id rule — `floats` seeds `result`.
@@ -1018,7 +1022,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // result that `evaluate` rejects — correctly, but not yet. Dropping it here leaves the id
     // unset, exactly as it was before this pass existed; the authoritative pass after the
     // measurement evaluates it for real and throws if it is still bad.
-    for expression in document.expressions {
+    //
+    // The first pass only changes what the second computes when something sits between them to
+    // read it -- a component-value binding -- or when an expression reads an id that the same or a
+    // later expression writes, which the second pass then sees updated. Without either, the second
+    // pass reads exactly what the first did and recomputes the same values (animation runtimes
+    // return the same value for the same target at the same instant), so the decoder decides once
+    // per document whether the first pass is needed at all.
+    for expression in document.expressions where document.needsTolerantExpressionPass {
       guard floatOverrides[expression.id] == nil else { continue }
       if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
         if resolveAnimatedValues, let animationWords = expression.animationWords,
@@ -1032,6 +1043,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         }
       }
     }
+    // Subtree estimates are pure in (node, dimension) for one `values` table, so they are shared
+    // across bindings -- a parent and child both bound, or a width and height binding on one node,
+    // walk the same subtree. A binding writes `result`, though, so when any layout word reads a
+    // bound value the table is dropped before each binding's estimate instead.
+    var estimates: [NativeSwiftEstimateKey: Float] = [:]
     for binding in document.componentValues {
       guard floatOverrides[binding.valueID] == nil else { continue }
       // A real measurement wins over any estimate. Width and height are the only two types this
@@ -1059,8 +1075,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         continue
       }
       let measuredNode = node.parent ?? node
+      if document.layoutReadsComponentValues { estimates.removeAll(keepingCapacity: true) }
       result[binding.valueID] = estimatedDimension(
-        of: measuredNode, type: binding.type, available: available, values: result)
+        of: measuredNode, type: binding.type, available: available, values: result,
+        estimates: &estimates)
     }
     func evaluateExpressions() throws {
       for expression in document.expressions {
@@ -1417,8 +1435,25 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return argbColor(alpha: alpha, red: rgb.0, green: rgb.1, blue: rgb.2)
   }
 
+  /// A node's estimated width or height, memoised in `estimates`.
+  ///
+  /// The estimate is a pure function of the node, the dimension, `available` (fixed per dimension)
+  /// and `values`, so a caller may keep `estimates` for as long as `values` does not change.
   private func estimatedDimension(
-    of node: ParsedNode, type: Int, available: Float, values: [Int: Float]
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float],
+    estimates: inout [NativeSwiftEstimateKey: Float]
+  ) -> Float {
+    let key = NativeSwiftEstimateKey(node: ObjectIdentifier(node), type: type)
+    if let cached = estimates[key] { return cached }
+    let estimate = uncachedEstimatedDimension(
+      of: node, type: type, available: available, values: values, estimates: &estimates)
+    estimates[key] = estimate
+    return estimate
+  }
+
+  private func uncachedEstimatedDimension(
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float],
+    estimates: inout [NativeSwiftEstimateKey: Float]
   ) -> Float {
     // Measurement runs before the final resolution pass and must not throw: an unresolvable field
     // reads as zero here and is rejected properly by `resolvedFloat` when the snapshot is built.
@@ -1436,7 +1471,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       // A bare fill writes the canonical NaN, which `float` would resolve to 0; the reference
       // reads it as a fraction of 1.
       let fraction = dimensionWord == Float.nan.bitPattern ? 1 : max(dimensionValue, 0)
-      return ancestorDimension(of: node, type: type, available: available, values: values)
+      return ancestorDimension(
+        of: node, type: type, available: available, values: values, estimates: &estimates)
         * fraction
     }
     // A fill child contributes nothing to a wrapping parent's intrinsic size: the parent decides
@@ -1447,8 +1483,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       !NativeSwiftDimensionType.isFill(
         type == NativeSwiftComponentValueType.width ? $0.widthType : $0.heightType)
     }
-    let childDimensions = children.map {
-      estimatedDimension(of: $0, type: type, available: available, values: values)
+    var childDimensions: [Float] = []
+    childDimensions.reserveCapacity(children.count)
+    for child in children {
+      childDimensions.append(
+        estimatedDimension(
+          of: child, type: type, available: available, values: values, estimates: &estimates))
     }
     let intrinsic: Float
     if let text = node.text {
@@ -1481,7 +1521,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// an icon inside a 52-unit button measure the 454-unit canvas; the reference measures the
   /// component the layout actually gave it. Falls back to the document when no ancestor decides.
   private func ancestorDimension(
-    of node: ParsedNode, type: Int, available: Float, values: [Int: Float]
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float],
+    estimates: inout [NativeSwiftEstimateKey: Float]
   ) -> Float {
     func float(_ word: UInt32) -> Float {
       let value = NativeSwiftFloatExpression.resolve(word, values: values)
@@ -1499,7 +1540,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
       if !NativeSwiftDimensionType.isFill(dimensionType) {
         let intrinsic = estimatedDimension(
-          of: candidate, type: type, available: available, values: values)
+          of: candidate, type: type, available: available, values: values,
+          estimates: &estimates)
         if intrinsic > 0 { return intrinsic }
       }
       current = candidate.parent
@@ -1529,4 +1571,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return [child]
     }
   }
+}
+
+/// Memo key for `estimatedDimension`: one parsed node's width or height estimate.
+struct NativeSwiftEstimateKey: Hashable {
+  let node: ObjectIdentifier
+  let type: Int
 }

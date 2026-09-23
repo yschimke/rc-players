@@ -24,7 +24,11 @@ final class NativeSwiftParticleSystemRuntime {
     variableIDs = definition.variableIDs
     initializationEquations = definition.initializationEquations
     particles = Array(repeating: Array(repeating: 0, count: definition.variableIDs.count), count: definition.particleCount)
-    for index in particles.indices { initialize(index: index, baseValues: values) }
+    var scratch = values
+    var variables: [Float] = [0, 0, 0]
+    for index in particles.indices {
+      initialize(index: index, baseValues: values, scratch: &scratch, variables: &variables)
+    }
   }
 
   private init(copying other: NativeSwiftParticleSystemRuntime) {
@@ -40,13 +44,20 @@ final class NativeSwiftParticleSystemRuntime {
     NativeSwiftParticleSystemSnapshot(id: id, variableIDs: variableIDs, particles: particles)
   }
 
+  /// Advances every particle one step.
+  ///
+  /// One working copy of `baseValues` serves every particle: the only keys a particle writes are its
+  /// own variable ids, and each iteration overwrites all of them before evaluating anything, so the
+  /// table a particle's equations read is exactly `baseValues` plus its own variables -- what a
+  /// fresh copy per particle gave, without copying the whole value table up to 8,000 times a frame.
   func advance(loop: ParsedParticleLoop, baseValues: [Int: Float]) {
     guard loop.updateEquations.count == variableIDs.count else { return }
+    var values = baseValues
+    var variables: [Float] = [0, 0, 0]
     for index in particles.indices {
       let previous = particles[index]
-      var values = baseValues
       for (variableIndex, variableID) in variableIDs.enumerated() { values[variableID] = previous[variableIndex] }
-      let variables = [Float(index), 0, 0]
+      variables[0] = Float(index)
       let updated = loop.updateEquations.map {
         (try? NativeSwiftFloatExpression.evaluate($0, values: values, variables: variables)) ?? 0
       }
@@ -56,14 +67,27 @@ final class NativeSwiftParticleSystemRuntime {
         (try? NativeSwiftFloatExpression.evaluate(
           loop.restartEquation, values: values, variables: variables)) ?? 0
       ) > 0 {
-        initialize(index: index, baseValues: baseValues)
+        // `values` is this loop's working copy; the next particle overwrites every variable id
+        // `initialize` touches, so it is safe to lend it out as scratch.
+        initialize(index: index, baseValues: baseValues, scratch: &values, variables: &variables)
       }
     }
   }
 
-  private func initialize(index: Int, baseValues: [Int: Float]) {
-    var values = baseValues
-    let variables = [Float(index), 0, 0]
+  /// Re-seeds one particle from its initialization equations.
+  ///
+  /// `scratch` is a working copy of `baseValues` that may still hold another particle's variables.
+  /// Each variable id is restored to its `baseValues` entry (or removed) first, so equation n reads
+  /// the variables before it as just initialized and the rest as `baseValues` has them -- exactly
+  /// what a fresh copy of `baseValues` read.
+  private func initialize(
+    index: Int, baseValues: [Int: Float], scratch values: inout [Int: Float],
+    variables: inout [Float]
+  ) {
+    for variableID in variableIDs { values[variableID] = baseValues[variableID] }
+    variables[0] = Float(index)
+    variables[1] = 0
+    variables[2] = 0
     var initialized = Array(repeating: Float(0), count: variableIDs.count)
     for (variableIndex, equation) in initializationEquations.enumerated() {
       let value =
