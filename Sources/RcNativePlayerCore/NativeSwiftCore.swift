@@ -232,6 +232,23 @@ public enum NativeSwiftTextAttributeType {
   public static let length = 6
 }
 
+/// Path data's command tokens: every value AndroidX's `PathData` defines, NaN-boxed in the stream.
+public enum NativeSwiftPathCommand {
+  public static let move = 10
+  public static let line = 11
+  public static let quadratic = 12
+  public static let conic = 13
+  public static let cubic = 14
+  public static let close = 15
+  public static let done = 16
+  public static let reset = 17
+}
+
+/// A path command token as the wire spells it: the command id in a quiet NaN's payload.
+private func pathCommandWord(_ command: Int) -> UInt32 {
+  0x7fc0_0000 | UInt32(command)
+}
+
 /// One conditional container as evaluated while linking a document.
 public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
@@ -758,6 +775,10 @@ public enum NativeSwiftSystemVariables {
   /// Calendar month, 1...12.
   public static let calendarMonth = 9
 
+  /// Whole seconds since the Unix epoch. The reference loads it as an integer; float expressions
+  /// read it as a float, with a float's precision.
+  public static let epochSecond = 32
+
   /// The local zone's offset from UTC in seconds.
   public static let offsetToUTC = 10
 
@@ -839,7 +860,7 @@ public struct NativeSwiftWallClock: Sendable, Equatable {
       millisOfSecond: millis)
   }
 
-  private static func floorDiv(_ value: Int64, _ divisor: Int64) -> Int64 {
+  static func floorDiv(_ value: Int64, _ divisor: Int64) -> Int64 {
     let quotient = value / divisor
     return value % divisor < 0 ? quotient - 1 : quotient
   }
@@ -1948,6 +1969,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
       if result[NativeSwiftSystemVariables.year] == nil {
         result[NativeSwiftSystemVariables.year] = Float(fields.year)
+      }
+      if result[NativeSwiftSystemVariables.epochSecond] == nil {
+        let seconds = NativeSwiftWallClock.floorDiv(wallClock.epochMillis, 1000)
+        integers[NativeSwiftSystemVariables.epochSecond] = Int(seconds)
+        result[NativeSwiftSystemVariables.epochSecond] = Float(seconds)
       }
     } else if result[NativeSwiftSystemVariables.continuousSeconds] == nil {
       result[NativeSwiftSystemVariables.continuousSeconds] = animationTime
@@ -4219,6 +4245,8 @@ private enum NativeSwiftDocumentDecoder {
   private static let maximumProperties = 2_000
   private static let maximumNodes = 20_000
   private static let maximumNestingDepth = 256
+  /// AndroidX's own bound on one loop's passes.
+  private static let maximumLoopPasses = 10_000
   /// AndroidX's own bounds for a sound resource and a sound expression's parameters.
   private static let maximumSoundBytes = 256 * 1024
   private static let maximumSoundParameters = 64
@@ -4815,6 +4843,66 @@ private enum NativeSwiftDocumentDecoder {
         }
         suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
         input = WireReader(expanded)
+      case NativeSwiftWireOpcode.loopStart:
+        // AndroidX's ascending loop: `index < until`, stepping by `step`, with the index variable
+        // set before each pass. This core unrolls it: each pass is the body with the index bound
+        // to a constant of its own, so a draw in pass n reads n rather than the final value.
+        // Bounds are read when the loop is; a bound that is not known then refuses the document
+        // rather than unrolling to the wrong count.
+        let indexID = try input.int("loop index id")
+        let words = try (0..<3).map { _ in try input.word("loop bound") }
+        let body = try captureMacroBody()
+        let bounds = try words.map { word -> Float in
+          if let id = NativeSwiftFloatExpression.referenceID(word), floats[id] == nil {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset, reason: "loop bound \(id) is not a constant")
+          }
+          return NativeSwiftFloatExpression.resolve(word, values: floats)
+        }
+        let (from, step, until) = (bounds[0], bounds[1], bounds[2])
+        guard from.isFinite, step.isFinite, until.isFinite else {
+          throw input.malformed("Loop bounds and step must be finite")
+        }
+        var expanded = Data()
+        func appendConstant(_ id: Int, _ value: Float) {
+          var bytes = [UInt8(80)]
+          for word in [UInt32(bitPattern: Int32(id)), value.bitPattern] {
+            bytes += [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: word >> $0) }
+          }
+          expanded.append(contentsOf: bytes)
+        }
+        if from < until {
+          guard step > 0 else { throw input.malformed("Loop step must be positive") }
+          var value = from
+          var passes = 0
+          while value < until {
+            passes += 1
+            guard passes <= maximumLoopPasses else {
+              throw input.malformed("Loop exceeds \(maximumLoopPasses) passes")
+            }
+            if indexID == 0 {
+              expanded.append(body)
+            } else {
+              guard nextMacroGeneratedID <= 0x003f_ffff else {
+                throw input.malformed("LOOM macro generated-id range is exhausted")
+              }
+              let passID = nextMacroGeneratedID
+              nextMacroGeneratedID += 1
+              appendConstant(passID, value)
+              expanded.append(try remappedMacroBody(body, mappings: [indexID: passID]))
+            }
+            let next = value + step
+            guard next > value else { throw input.malformed("Loop step does not advance") }
+            // After the loop the index holds the last value it was given, as in the reference.
+            if indexID != 0, next >= until { appendConstant(indexID, value) }
+            value = next
+          }
+        }
+        guard suspendedInputs.count < maximumNestingDepth else {
+          throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
+        }
+        suspendedInputs.append(MacroExpansionFrame(input: input, blocks: macroBlocks))
+        input = WireReader(expanded)
       case 248:  // Insert the block supplied to the enclosing MacroCall.
         let index = try input.int("macro argument index")
         guard let block = macroBlocks[index] else {
@@ -5347,15 +5435,25 @@ private enum NativeSwiftDocumentDecoder {
         _ = try input.int("path tween second path id")
         _ = try input.word("path tween factor")
         pathTweenIDs.insert(outID)
-      case 159:  // Procedural path start; rendering it is separate from reporting its presence.
+      case NativeSwiftWireOpcode.pathCreate:
+        // A path built in steps: a move to the start point, which later appends extend. It is a
+        // path like any `PATH_DATA`, so drawing and text on a path can name it.
         let id = try input.int("path create id")
-        _ = try input.word("path create x")
-        _ = try input.word("path create y")
+        let x = try input.word("path create x")
+        let y = try input.word("path create y")
+        paths[id] = ParsedPath(winding: 0, words: [pathCommandWord(NativeSwiftPathCommand.move), x, y])
         pathIDs.insert(id)
-      case 160:  // Procedural path append.
+      case NativeSwiftWireOpcode.pathAdd:
+        // Appends path commands in `PATH_DATA`'s encoding; a leading RESET empties the path first.
         let id = try input.int("path append id")
         let count = try input.count("path append word count", maximum: 2_000)
-        for _ in 0..<count { _ = try input.word("path append word") }
+        let words = try (0..<count).map { _ in try input.word("path append word") }
+        if words.first.flatMap(NativeSwiftFloatExpression.referenceID) == NativeSwiftPathCommand.reset {
+          paths[id] = ParsedPath(winding: paths[id]?.winding ?? 0, words: [])
+        } else {
+          paths[id] = ParsedPath(
+            winding: paths[id]?.winding ?? 0, words: (paths[id]?.words ?? []) + words)
+        }
         pathIDs.insert(id)
       case 124:
         let id = try input.int("path id")
@@ -6123,7 +6221,7 @@ private enum NativeSwiftDocumentDecoder {
       NativeSwiftSystemVariables.timeInHours, NativeSwiftSystemVariables.calendarMonth,
       NativeSwiftSystemVariables.offsetToUTC, NativeSwiftSystemVariables.weekDay,
       NativeSwiftSystemVariables.dayOfMonth, NativeSwiftSystemVariables.dayOfYear,
-      NativeSwiftSystemVariables.year,
+      NativeSwiftSystemVariables.year, NativeSwiftSystemVariables.epochSecond,
     ]
     let needsWallClockRefresh = references(discreteWallClockIDs)
       || timeAttributes.contains { longConstants[$0.timeID] == nil }
