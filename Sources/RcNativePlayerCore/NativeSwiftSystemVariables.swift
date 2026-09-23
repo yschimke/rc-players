@@ -75,10 +75,22 @@ public struct NativeSwiftWallClock: Sendable, Equatable {
   /// The local zone's offset from UTC at that instant. The reference reads the system zone; a
   /// corpus capture freezes both the instant and the zone it was rendered in.
   public let offsetSeconds: Int
+  /// The zone itself, when the host has one. It gives an instant other than this one its own
+  /// offset — a stored timestamp on the far side of a daylight-saving change is read in that
+  /// instant's offset, as the reference reads it in the system zone. Without it, `offsetSeconds`
+  /// applies to every instant.
+  public let timeZone: TimeZone?
 
-  public init(epochMillis: Int64, offsetSeconds: Int = 0) {
+  public init(epochMillis: Int64, offsetSeconds: Int = 0, timeZone: TimeZone? = nil) {
     self.epochMillis = epochMillis
     self.offsetSeconds = offsetSeconds
+    self.timeZone = timeZone
+  }
+
+  /// The zone's offset at another instant, falling back to this clock's own offset.
+  func offsetSeconds(atEpochMillis millis: Int64) -> Int {
+    guard let timeZone else { return offsetSeconds }
+    return timeZone.secondsFromGMT(for: Date(timeIntervalSince1970: Double(millis) / 1000))
   }
 
   /// The calendar fields AndroidX's `TimeVariables` publishes, in the local zone.

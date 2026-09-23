@@ -21,6 +21,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var integers: [Int: Int]
   /// Set once a document operation is seen writing `EPOCH_SECOND`'s id itself.
   private var documentClaimsEpochSecond = false
+  /// The colours a host has set by name, which a theme switch leaves alone.
+  private var hostSetColors: Set<Int> = []
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
   private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
   /// AndroidX's per-impulse "first frame in the window" bit, and each impulse's phase at the frame
@@ -74,6 +76,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// operation model conformance exposes; it intentionally differs from raw wire spans.
   public var linkedOperationCount: Int { document.linkedOperationCount }
 
+  /// Every operation the document carries on the wire, by opcode, once each and in wire order,
+  /// header excluded — the census the reference takes of `document.operations`. Unlike
+  /// ``operationSpans(in:toleratingRootlessData:)`` it counts a branch that does not run, and a
+  /// macro body once however often it is called.
+  public var operationCensus: [Int] { document.operationCensus }
+
   private init(copying other: NativeSwiftDocumentSession) {
     document = other.document
     texts = other.texts
@@ -82,6 +90,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     colors = other.colors
     integers = other.integers
     documentClaimsEpochSecond = other.documentClaimsEpochSecond
+    hostSetColors = other.hostSetColors
     hostDensity = other.hostDensity
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
@@ -323,7 +332,20 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
     try resolveIntegerExpressions()
-    let values = try resolvedFloats(timeSeconds: timeSeconds)
+    // Actions run in order against live state, as the reference's `executeActionsUnchecked` does:
+    // each write is visible to the actions after it in the same click.
+    var values = try resolvedFloats(timeSeconds: timeSeconds)
+    func storeInteger(_ id: Int, _ value: Int) {
+      integers[id] = value
+      values[id] = Float(value)
+    }
+    // A float write is published into the integer view too, truncated, as
+    // `RcPlayerState.storeFloat` does: the two numeric views share ids.
+    func storeFloat(_ id: Int, _ value: Float) {
+      floatOverrides[id] = value
+      values[id] = value
+      integers[id] = Int(Int32(clamping: nativeSwiftClampedInt(value)))
+    }
     // A sequence can mutate state before a later expression fails. Invalidate before executing the
     // first action so an error cannot leave a stale static snapshot cached over that mutation.
     staticSnapshotCache = nil
@@ -332,21 +354,23 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       switch action {
       case .integerExpression(let targetID, let expressionID):
         if let expression = document.integerExpressions[expressionID] {
-          integers[targetID] = try NativeSwiftIntegerExpression.evaluate(
-            mask: expression.mask, tokens: expression.tokens, values: integers)
+          storeInteger(
+            targetID,
+            try NativeSwiftIntegerExpression.evaluate(
+              mask: expression.mask, tokens: expression.tokens, values: integers))
         } else if let value = integers[expressionID] {
-          integers[targetID] = value
+          storeInteger(targetID, value)
         }
       case .floatExpression(let targetID, let expressionID):
         guard let expression = document.expressions.first(where: { $0.id == expressionID })
         else { continue }
-        floatOverrides[targetID] = try NativeSwiftFloatExpression.evaluate(
-          expression.words, values: values)
+        storeFloat(
+          targetID, try NativeSwiftFloatExpression.evaluate(expression.words, values: values))
       case .integerValue(let targetID, let value):
-        integers[targetID] = value
+        storeInteger(targetID, value)
       case .floatValue(let targetID, let value):
         let resolved = NativeSwiftFloatExpression.resolve(value, values: values)
-        if resolved.isFinite { floatOverrides[targetID] = resolved }
+        if resolved.isFinite { storeFloat(targetID, resolved) }
       case .textValue(let targetID, let textID):
         if let text = texts[textID] { texts[targetID] = text }
       case .named(let action):
@@ -509,6 +533,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return false
     }
     colors[variable.id] = value
+    hostSetColors.insert(variable.id)
     staticSnapshotCache = nil
     return true
   }
@@ -856,7 +881,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     guard let selectedMillis = document.longConstants[attribute.timeID] ?? wallClock?.epochMillis
     else { return nil }
     let selected = NativeSwiftWallClock(
-      epochMillis: selectedMillis, offsetSeconds: wallClock?.offsetSeconds ?? 0)
+      epochMillis: selectedMillis,
+      offsetSeconds: wallClock?.offsetSeconds(atEpochMillis: selectedMillis) ?? 0)
     let fields = selected.fields
     typealias TimeType = NativeSwiftTimeAttributeType
     func interval(_ millis: Int64, unit: Double) -> Float { Float(Double(millis) * 0.001 / unit) }
@@ -1314,10 +1340,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func resolveColors(values: [Int: Float]) -> [Int: UInt32] {
     var result = colors
-    // Only where the colour still holds the document's own light fallback: a value the host has
-    // since set on the slot is the host's, whatever the theme.
+    // Not where the host has set the slot: that value is the host's, whatever the theme, even when
+    // it happens to equal the document's light fallback.
     if requestedTheme == NativeSwiftTheme.dark {
-      for (id, dark) in document.darkColors where colors[id] == document.colors[id] {
+      for (id, dark) in document.darkColors where !hostSetColors.contains(id) {
         result[id] = dark
       }
     }
