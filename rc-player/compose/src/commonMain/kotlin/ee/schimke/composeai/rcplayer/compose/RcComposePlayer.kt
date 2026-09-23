@@ -411,6 +411,7 @@ private fun RcComposePlayerResolved(
 ) {
   val latestEventSink by rememberUpdatedState(onEvent)
   val latestSystemColors by rememberUpdatedState(systemColors)
+  val latestTimeSource by rememberUpdatedState(LocalRcTimeSource.current)
   val latestHapticFeedback by rememberUpdatedState(LocalHapticFeedback.current)
   val soundHost = LocalRcSoundHost.current
   val soundDispatcher = remember(document) { RcSoundHostDispatcher(soundHost) }
@@ -449,6 +450,9 @@ private fun RcComposePlayerResolved(
             RcPlayerEffect.NextFrame -> nextFrameRequestVersion += 1
           }
         },
+        // Read through `latestTimeSource` for the reason `systemColorLookup` is below: a host that
+        // provides a new source must not discard the running document's state.
+        timeSource = RcForwardingTimeSource { latestTimeSource },
         soundSink = soundDispatcher::dispatch,
         // Read through `latestSystemColors`, never captured directly: a host's lookup is usually a
         // capturing lambda, so a parent recomposition hands us a fresh instance. Keying the state
