@@ -1381,6 +1381,20 @@ import Testing
           + "\(String(describing: describedSnapshot.root.accessibility))"))
   }
 
+  /// A pre-layout `ClickArea` draws nothing and must not stop the document loading.
+  @Test func legacyClickAreaLoads() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(64).int(7).int(0).float(0).float(0).float(50).float(50).int(0)
+    document.u8(80).int(60).float(101)
+    let values = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0)
+    #expect(
+      values.floats[60] == 101,
+      Comment(rawValue: "float 60: \(String(describing: values.floats[60]))"))
+  }
+
   // MARK: - Graphics-layer attribute ids (#423)
   //
   // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:
