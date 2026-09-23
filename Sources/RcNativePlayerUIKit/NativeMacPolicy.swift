@@ -4,13 +4,13 @@ import Foundation
   import RcNativePlayerCore
 #endif
 
-enum NativeMacCompatibility: String, CaseIterable, Identifiable {
+public enum NativeMacCompatibility: String, CaseIterable, Identifiable, Sendable {
   case compatible
   case strict
 
-  var id: Self { self }
-  var title: String { self == .compatible ? "Compatible" : "Strict" }
-  var detail: String {
+  public var id: Self { self }
+  public var title: String { self == .compatible ? "Compatible" : "Strict" }
+  public var detail: String {
     switch self {
     case .compatible: "Render the supported pure-Swift profile."
     case .strict: "Refuse documents outside the supported pure-Swift profile."
@@ -22,15 +22,15 @@ enum NativeMacCompatibility: String, CaseIterable, Identifiable {
   }
 }
 
-struct NativeMacPolicyReport: Equatable {
-  let diagnostics: RemoteComposeNativePlayerDiagnostics
+public struct NativeMacPolicyReport: Equatable, Sendable {
+  public let diagnostics: RemoteComposeNativePlayerDiagnostics
   let budget: NativeFrameBudget
 }
 
-enum NativeMacPolicy {
-  static let executionLimits = RemoteComposeNativeExecutionLimits.default
+public enum NativeMacPolicy {
+  public static let executionLimits = RemoteComposeNativeExecutionLimits.default
 
-  static func validateDocument(_ data: Data) throws {
+  public static func validateDocument(_ data: Data) throws {
     try NativeFrameBudget.validate(executionLimits)
     let maximum = min(executionLimits.maximumDocumentBytes, Int(Int32.max))
     guard data.count <= maximum else {
@@ -38,7 +38,7 @@ enum NativeMacPolicy {
     }
   }
 
-  static func evaluate(
+  public static func evaluate(
     _ snapshot: NativeSwiftDocumentSnapshot,
     compatibility: NativeMacCompatibility
   ) throws -> NativeMacPolicyReport {
