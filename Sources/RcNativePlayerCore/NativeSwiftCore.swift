@@ -39,6 +39,178 @@ public enum NativeSwiftWireOpcode {
   public static let matrixConstant = 186
   public static let matrixExpression = 187
   public static let matrixVectorMath = 188
+
+  // Every other opcode AndroidX's `Operations` registry defines, from the authoritative wire
+  // implementation (`RcOpcodes` in `rc-player-protocol`). Named here so a decoder, census or probe
+  // never has to spell one as a literal; the core does not execute every one of them.
+  public static let header = 0
+  public static let componentStart = 2
+  public static let animationSpec = 14
+  public static let modifierWidth = 16
+  public static let clipPath = 38
+  public static let clipRect = 39
+  public static let paintValues = 40
+  public static let drawRect = 42
+  public static let dataShader = 45
+  public static let drawCircle = 46
+  public static let drawLine = 47
+  public static let drawBitmapFontTextRun = 48
+  public static let drawBitmapFontTextRunOnPath = 49
+  public static let drawRoundRect = 51
+  public static let drawSector = 52
+  public static let modifierRoundedClipRect = 54
+  public static let modifierBackground = 55
+  public static let drawOval = 56
+  public static let modifierPadding = 58
+  public static let modifierClick = 59
+  public static let theme = 63
+  public static let clickArea = 64
+  public static let rootContentBehavior = 65
+  public static let drawBitmapInt = 66
+  public static let modifierHeight = 67
+  public static let dataFloat = 80
+  public static let animatedFloat = 81
+  public static let modifierMultiClick = 83
+  public static let layoutCustom = 93
+  public static let dataBitmap = 101
+  public static let dataText = 102
+  public static let rootContentDescription = 103
+  public static let modifierBorder = 107
+  public static let modifierClipRect = 108
+  public static let dataPath = 123
+  public static let drawPath = 124
+  public static let drawTweenPath = 125
+  public static let matrixScale = 126
+  public static let matrixTranslate = 127
+  public static let matrixSkew = 128
+  public static let matrixRotate = 129
+  public static let matrixSave = 130
+  public static let matrixRestore = 131
+  public static let colorExpressions = 134
+  public static let namedVariable = 137
+  public static let colorConstant = 138
+  public static let drawContent = 139
+  public static let dataInt = 140
+  public static let playSound = 141
+  public static let referencedOperations = 142
+  public static let dataBoolean = 143
+  public static let integerExpression = 144
+  public static let idMap = 145
+  public static let idList = 146
+  public static let floatList = 147
+  public static let dataLong = 148
+  public static let componentValue = 150
+  public static let drawArc = 152
+  public static let dataMapLookup = 154
+  public static let textMeasure = 155
+  public static let textLength = 156
+  public static let touchExpression = 157
+  public static let pathTween = 158
+  public static let pathCreate = 159
+  public static let pathAdd = 160
+  public static let particleDefine = 161
+  public static let particleProcess = 162
+  public static let particleLoop = 163
+  public static let impulseStart = 164
+  public static let impulseProcess = 165
+  public static let functionCall = 166
+  public static let dataBitmapFont = 167
+  public static let functionDefine = 168
+  public static let dataSound = 169
+  public static let attributeText = 170
+  public static let attributeImage = 171
+  public static let attributeTime = 172
+  public static let canvasOperations = 173
+  public static let modifierDrawContent = 174
+  public static let pathCombine = 175
+  public static let layoutFitBox = 176
+  public static let hapticFeedback = 177
+  public static let debugMessage = 179
+  public static let attributeColor = 180
+  public static let matrixFromPath = 181
+  public static let textSubtext = 182
+  public static let bitmapTextMeasure = 183
+  public static let drawBitmapTextAnchored = 184
+  public static let rem = 185
+  public static let dataFont = 189
+  public static let drawToBitmap = 190
+  public static let wakeIn = 191
+  public static let idLookup = 192
+  public static let pathExpression = 193
+  public static let particleCompare = 194
+  public static let colorTheme = 196
+  public static let dynamicFloatList = 197
+  public static let updateDynamicFloatList = 198
+  public static let layoutRoot = 200
+  public static let layoutContent = 201
+  public static let layoutBox = 202
+  public static let layoutRow = 203
+  public static let layoutColumn = 204
+  public static let layoutCanvas = 205
+  public static let soundExpression = 206
+  public static let layoutCanvasContent = 207
+  public static let layoutText = 208
+  public static let hostAction = 209
+  public static let hostNamedAction = 210
+  public static let modifierVisibility = 211
+  public static let valueIntegerChangeAction = 212
+  public static let valueStringChangeAction = 213
+  public static let containerEnd = 214
+  public static let loopStart = 215
+  public static let hostMetadataAction = 216
+  public static let layoutState = 217
+  public static let valueIntegerExpressionChangeAction = 218
+  public static let modifierTouchDown = 219
+  public static let modifierTouchUp = 220
+  public static let modifierOffset = 221
+  public static let valueFloatChangeAction = 222
+  public static let modifierZindex = 223
+  public static let modifierGraphicsLayer = 224
+  public static let modifierTouchCancel = 225
+  public static let modifierScroll = 226
+  public static let valueFloatExpressionChangeAction = 227
+  public static let modifierMarquee = 228
+  public static let modifierRipple = 229
+  public static let layoutCollapsibleRow = 230
+  public static let modifierWidthIn = 231
+  public static let modifierHeightIn = 232
+  public static let layoutCollapsibleColumn = 233
+  public static let layoutImage = 234
+  public static let modifierCollapsiblePriority = 235
+  public static let runAction = 236
+  public static let modifierAlignBy = 237
+  public static let layoutCompute = 238
+  public static let coreText = 239
+  public static let layoutFlow = 240
+  public static let skip = 241
+  public static let textStyle = 242
+  public static let modifierDimensionConstraints = 243
+  public static let macroForEach = 244
+  public static let includeReferencedOperations = 245
+  public static let macroDefine = 246
+  public static let macroCall = 247
+  public static let macroArgument = 248
+  public static let macroBlock = 249
+  public static let accessibilitySemantics = 250
+}
+
+/// `ATTRIBUTE_TIME`'s type field: every value AndroidX's `TimeAttribute` defines. 13 is unassigned.
+public enum NativeSwiftTimeAttributeType {
+  public static let fromNowSeconds = 0
+  public static let fromNowMinutes = 1
+  public static let fromNowHours = 2
+  public static let fromArgumentSeconds = 3
+  public static let fromArgumentMinutes = 4
+  public static let fromArgumentHours = 5
+  public static let second = 6
+  public static let minute = 7
+  public static let hour = 8
+  public static let dayOfMonth = 9
+  public static let monthValue = 10
+  public static let dayOfWeek = 11
+  public static let year = 12
+  public static let fromLoadSeconds = 14
+  public static let dayOfYear = 15
 }
 
 /// One conditional container as evaluated while linking a document.
@@ -1564,6 +1736,54 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
   }
 
+  /// AndroidX `TimeAttribute.paint`: one calendar field or interval, read from an instant.
+  ///
+  /// The instant is the `LongConstant` the operation names, or the host's wall clock when the
+  /// document names none. Fields are read in the wall clock's zone, as the reference reads the
+  /// system zone. Month and day of week are zero-based, as they are in the reference. A value
+  /// with nothing to measure from — no wall clock for a `NOW` or `LOAD` interval, a missing
+  /// argument — leaves the slot unwritten rather than inventing an epoch.
+  private func timeAttribute(
+    _ attribute: ParsedTimeAttribute, timeSeconds: TimeInterval,
+    wallClock: NativeSwiftWallClock?
+  ) -> Float? {
+    guard let selectedMillis = document.longConstants[attribute.timeID] ?? wallClock?.epochMillis
+    else { return nil }
+    let selected = NativeSwiftWallClock(
+      epochMillis: selectedMillis, offsetSeconds: wallClock?.offsetSeconds ?? 0)
+    let fields = selected.fields
+    typealias TimeType = NativeSwiftTimeAttributeType
+    func interval(_ millis: Int64, unit: Double) -> Float { Float(Double(millis) * 0.001 / unit) }
+    switch attribute.type {
+    case TimeType.fromNowSeconds, TimeType.fromNowMinutes, TimeType.fromNowHours:
+      guard let now = wallClock?.epochMillis else { return nil }
+      let unit: Double = attribute.type == TimeType.fromNowSeconds
+        ? 1 : attribute.type == TimeType.fromNowMinutes ? 60 : 3600
+      return interval(selectedMillis - now, unit: unit)
+    case TimeType.fromArgumentSeconds, TimeType.fromArgumentMinutes, TimeType.fromArgumentHours:
+      guard let argumentID = attribute.argumentIDs.first,
+        let argument = document.longConstants[argumentID]
+      else { return nil }
+      let unit: Double = attribute.type == TimeType.fromArgumentSeconds
+        ? 1 : attribute.type == TimeType.fromArgumentMinutes ? 60 : 3600
+      return interval(selectedMillis - argument, unit: unit)
+    case TimeType.second: return Float(fields.second)
+    case TimeType.minute: return Float(fields.minute)
+    case TimeType.hour: return Float(fields.hour)
+    case TimeType.dayOfMonth: return Float(fields.dayOfMonth)
+    case TimeType.monthValue: return Float(fields.month - 1)
+    case TimeType.dayOfWeek: return Float(fields.isoDayOfWeek - 1)
+    case TimeType.year: return Float(fields.year)
+    case TimeType.fromLoadSeconds:
+      // The document loaded `timeSeconds` before the wall clock's instant.
+      guard let now = wallClock?.epochMillis else { return nil }
+      let loadMillis = now - Int64((timeSeconds * 1000).rounded())
+      return interval(selectedMillis - loadMillis, unit: 1)
+    case TimeType.dayOfYear: return Float(fields.dayOfYear)
+    default: return nil
+    }
+  }
+
   private func resolvedFloats(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil,
     measuredComponents: [Int: NativeSwiftMeasuredSize] = [:], resolveAnimatedValues: Bool = true
@@ -1642,6 +1862,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if result[NativeSwiftSystemVariables.fontSize] == nil {
       result[NativeSwiftSystemVariables.fontSize] =
         NativeSwiftSystemVariables.defaultFontSizeSp * hostFontScale * hostDensity
+    }
+    for attribute in document.timeAttributes {
+      guard floatOverrides[attribute.outputID] == nil,
+        let value = timeAttribute(attribute, timeSeconds: timeSeconds, wallClock: wallClock)
+      else { continue }
+      result[attribute.outputID] = value
     }
     // Expressions are evaluated twice, deliberately. A component-value binding measures a node, and
     // a node's own geometry can now itself be a reference, so neither ordering is right alone: the
@@ -2103,6 +2329,11 @@ private struct ParsedDocument {
   let expressions: [ParsedFloatExpression]
   let componentValues: [ParsedComponentValue]
   let colorAttributes: [ParsedColorAttribute]
+  /// Epoch-millisecond instants declared with `LongConstant`.
+  let longConstants: [Int: Int64]
+  /// `BooleanConstant` values; retained as the reference retains them, read by nothing yet.
+  let booleanConstants: [Int: Bool]
+  let timeAttributes: [ParsedTimeAttribute]
   let colorExpressions: [ParsedColorExpression]
   let images: [Int: ParsedImageResource]
   /// Text producers in exactly the order the wire declared them. A later operation may consume an
@@ -2236,6 +2467,16 @@ private struct ParsedComponentValue {
   let type: Int
   let componentID: Int
   let valueID: Int
+}
+
+/// `ATTRIBUTE_TIME`: which clock field an attribute publishes, and from what instant.
+private struct ParsedTimeAttribute {
+  let outputID: Int
+  /// A `LongConstant` holding epoch milliseconds, or an id naming none, which means now.
+  let timeID: Int
+  /// The low byte of the wire's short, which is all the reference executes on.
+  let type: Int
+  let argumentIDs: [Int]
 }
 
 private struct ParsedColorAttribute {
@@ -3805,6 +4046,9 @@ private enum NativeSwiftDocumentDecoder {
   private static let maximumProperties = 2_000
   private static let maximumNodes = 20_000
   private static let maximumNestingDepth = 256
+  /// AndroidX's own bounds for a sound resource and a sound expression's parameters.
+  private static let maximumSoundBytes = 256 * 1024
+  private static let maximumSoundParameters = 64
 
   static func decode(_ data: Data, toleratingRootlessData: Bool = false) throws -> ParsedDocument {
     var spans: [NativeSwiftOperationSpan] = []
@@ -3896,6 +4140,9 @@ private enum NativeSwiftDocumentDecoder {
     var expressions: [ParsedFloatExpression] = []
     var componentValues: [ParsedComponentValue] = []
     var colorAttributes: [ParsedColorAttribute] = []
+    var longConstants: [Int: Int64] = [:]
+    var booleanConstants: [Int: Bool] = [:]
+    var timeAttributes: [ParsedTimeAttribute] = []
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var images: [Int: ParsedImageResource] = [:]
@@ -5408,6 +5655,57 @@ private enum NativeSwiftDocumentDecoder {
           isEnabled: enabled != 0, isClickable: clickable != 0)
         node.accessibility = semantics
         accessibilityRecords.append(semantics)
+      case NativeSwiftWireOpcode.rootContentBehavior:
+        // How a host should scroll, align and size the root. The native hosts already fit the
+        // document to their view, so the four fields are read and validated but steer nothing yet;
+        // refusing the operation refused every document that declared it, drawing included.
+        for field in ["scroll", "alignment", "sizing", "mode"] {
+          _ = try input.int("root content behavior \(field)")
+        }
+      case NativeSwiftWireOpcode.dataBoolean:
+        let id = try input.int("boolean constant id")
+        switch try input.u8("boolean constant value") {
+        case 0: booleanConstants[id] = false
+        case 1: booleanConstants[id] = true
+        case let value: throw input.malformed("Invalid boolean byte \(value)")
+        }
+      case NativeSwiftWireOpcode.dataLong:
+        let id = try input.int("long constant id")
+        let high = UInt64(try input.word("long constant high word"))
+        let low = UInt64(try input.word("long constant low word"))
+        longConstants[id] = Int64(bitPattern: high << 32 | low)
+      case NativeSwiftWireOpcode.attributeTime:
+        let outputID = try input.int("time attribute output id")
+        let timeID = try input.int("time attribute time id")
+        let type = try input.signedU16("time attribute type")
+        let count = try input.signedU16("time attribute argument count")
+        guard (0...32).contains(count) else {
+          throw input.malformed("Invalid time argument count \(count)")
+        }
+        let arguments = try (0..<count).map { _ in try input.int("time attribute argument") }
+        timeAttributes.append(ParsedTimeAttribute(
+          outputID: outputID, timeID: timeID, type: type & 0xff, argumentIDs: arguments))
+      case NativeSwiftWireOpcode.debugMessage:
+        // A diagnostic for the host's log. AndroidX prints it and changes nothing else; this core
+        // has no log channel, so reading it past is the whole of its effect.
+        _ = try input.int("debug message text id")
+        _ = try input.word("debug message value")
+        _ = try input.int("debug message flags")
+      case NativeSwiftWireOpcode.dataSound:
+        // Sound is a host capability these players do not have. A document that carries a cue
+        // still draws, silently, rather than being refused for it.
+        _ = try input.int("sound data id")
+        _ = try input.data("sound data", maximum: maximumSoundBytes)
+      case NativeSwiftWireOpcode.playSound:
+        _ = try input.int("play sound id")
+      case NativeSwiftWireOpcode.soundExpression:
+        _ = try input.int("sound expression id")
+        for field in ["left volume", "right volume", "rate"] {
+          _ = try input.word("sound expression \(field)")
+        }
+        let count = try input.count(
+          "sound expression parameter count", maximum: maximumSoundParameters)
+        for _ in 0..<count { _ = try input.word("sound expression parameter") }
       case 152:  // Draw arc
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
         try drawingNode().commands.append(
@@ -5454,7 +5752,14 @@ private enum NativeSwiftDocumentDecoder {
     let continuousClockIDs: Set<Int> = [
       NativeSwiftSystemVariables.continuousSeconds, NativeSwiftSystemVariables.animationTime,
     ]
+    // A time attribute measured from now, or from load, moves with the clock by itself; the
+    // reference asks for continuous frames for exactly those three types.
+    let continuousTimeTypes: Set<Int> = [
+      NativeSwiftTimeAttributeType.fromNowSeconds, NativeSwiftTimeAttributeType.fromNowMinutes,
+      NativeSwiftTimeAttributeType.fromLoadSeconds,
+    ]
     let needsContinuousFrames = references(continuousClockIDs)
+      || timeAttributes.contains { continuousTimeTypes.contains($0.type) }
     // The discrete wall-clock fields are constant within a second, so a document that reads one has
     // to be re-resolved at least once a second or its clock freezes on the first frame.
     let discreteWallClockIDs: Set<Int> = [
@@ -5465,6 +5770,7 @@ private enum NativeSwiftDocumentDecoder {
       NativeSwiftSystemVariables.year,
     ]
     let needsWallClockRefresh = references(discreteWallClockIDs)
+      || timeAttributes.contains { longConstants[$0.timeID] == nil }
     return ParsedDocument(
       width: width, height: height, density: density, densityBehavior: densityBehavior,
       root: root, nodes: nodes, texts: texts, floats: floats,
@@ -5472,6 +5778,8 @@ private enum NativeSwiftDocumentDecoder {
       integerExpressionOrder: integerExpressionOrder,
       namedVariables: namedVariables, expressions: expressions,
       componentValues: componentValues, colorAttributes: colorAttributes,
+      longConstants: longConstants, booleanConstants: booleanConstants,
+      timeAttributes: timeAttributes,
       colorExpressions: colorExpressions, images: images, textOperations: textOperations,
       textFromFloats: textFromFloats,
       textMerges: textMerges, textTransforms: textTransforms, idLists: idLists, floatLists: floatLists,

@@ -413,6 +413,65 @@ enum NativeSwiftCoreTests {
       sunday[3] == 7 && sunday[4] == 362,
       "a pre-epoch weekday resolved to \(sunday[3]) / day-of-year \(sunday[4])")
 
+    // `ATTRIBUTE_TIME` reads a calendar field or an interval from a `LongConstant` instant, or
+    // from the wall clock when it names none. The operations around it used to be refused, and the
+    // whole document with them: root content behaviour, boolean and long constants, a debug
+    // message and the sound family now decode, and the ones that are host side effects do nothing.
+    // 1_700_000_000_000 is 2023-11-14T22:13:20Z, a Tuesday; the second instant is 1000 s earlier.
+    let timed = Writer()
+    timed.header(width: 100, height: 100)
+    timed.u8(148).int(1).int64(1_700_000_000_000)
+    timed.u8(148).int(2).int64(1_699_999_000_000)
+    timed.u8(143).int(3).u8(1)
+    timed.u8(65).int(1).int(0).int(1).int(0)
+    timed.text(id: 6, "debug")
+    timed.u8(179).int(6).float(3.25).int(0)
+    timed.u8(169).int(4).int(4).u8(1).u8(2).u8(3).u8(4)
+    timed.u8(141).int(4)
+    timed.u8(206).int(5).float(1).float(1).float(1).int(1).float(440)
+    let timeFields: [(output: Int, type: Int, arguments: [Int], expected: Float)] = [
+      (20, 6, [], 20), (26, 7, [], 13), (27, 8, [], 22), (21, 9, [], 14),
+      (23, 10, [], 10), (22, 11, [], 1), (24, 12, [], 2023), (29, 15, [], 318),
+      (25, 3, [2], 1000), (30, 4, [2], 1000.0 / 60),
+    ]
+    for field in timeFields {
+      timed.u8(172).int(field.output).int(1).u16(field.type).u16(field.arguments.count)
+      for argument in field.arguments { timed.int(argument) }
+    }
+    timed.u8(172).int(28).int(1).u16(0).u16(0)
+    let timedSession = try NativeSwiftDocumentSession.open(
+      data: timed.data, toleratingRootlessData: true)
+    let timedValues = try timedSession.probeValues(
+      timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: 1_700_000_010_000))
+    for field in timeFields {
+      precondition(
+        timedValues.floats[field.output] == field.expected,
+        "time attribute type \(field.type) resolved to "
+          + "\(String(describing: timedValues.floats[field.output])), not \(field.expected)")
+    }
+    precondition(
+      timedValues.floats[28] == -10,
+      "a from-now interval resolved to \(String(describing: timedValues.floats[28]))")
+    // Without a wall clock there is no "now" to measure from, and the slot stays unwritten rather
+    // than measuring from the 1970 epoch; fields of a stated instant still resolve.
+    let unclocked = try timedSession.probeValues(timeSeconds: 0)
+    precondition(
+      unclocked.floats[28] == nil && unclocked.floats[24] == 2023,
+      "an unclocked time attribute resolved to \(String(describing: unclocked.floats[28]))")
+    let timedSnapshot = try timedSession.snapshot()
+    precondition(
+      !timedSnapshot.needsWallClockRefresh,
+      "time attributes on a stated instant asked for a wall-clock refresh")
+    let nowAttribute = Writer()
+    nowAttribute.header(width: 100, height: 100)
+    nowAttribute.u8(172).int(20).int(99).u16(6).u16(0)
+    let nowSnapshot = try NativeSwiftDocumentSession.open(
+      data: nowAttribute.data, toleratingRootlessData: true
+    ).snapshot()
+    precondition(
+      nowSnapshot.needsWallClockRefresh,
+      "a time attribute read from now did not ask for a wall-clock refresh")
+
     // A document that reads a discrete wall-clock field asks a host to re-resolve at least once a
     // second; one that only reads the animation clock does not.
     let refreshed = try calendarSession.snapshot(wallClock: wallClock)
@@ -1320,6 +1379,11 @@ private final class Writer {
   @discardableResult
   func long(_ value: Int) -> Writer {
     int(0).int(value)
+  }
+
+  @discardableResult
+  func int64(_ value: Int64) -> Writer {
+    int(Int(Int32(truncatingIfNeeded: value >> 32))).int(Int(Int32(truncatingIfNeeded: value)))
   }
 
   @discardableResult
