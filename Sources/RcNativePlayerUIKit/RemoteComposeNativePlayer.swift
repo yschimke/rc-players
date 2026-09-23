@@ -26,6 +26,19 @@
     }
   }
 
+  extension RemoteComposeNativePlayerBackground {
+    /// The background a player has when the host does not choose one: `.opaque` on iOS, and
+    /// `.transparent` on visionOS, where an opaque system background paints over the window's
+    /// glass material.
+    public static var platformDefault: RemoteComposeNativePlayerBackground {
+      #if os(visionOS)
+        return .transparent
+      #else
+        return .opaque
+      #endif
+    }
+  }
+
   /// A UIKit-native Remote Compose player proof of concept.
   ///
   /// The wire decoder, retained state, lifecycle, component hierarchy, layout, and drawing are all
@@ -36,7 +49,7 @@
 
     public init(
       data: Data,
-      background: RemoteComposeNativePlayerBackground = .opaque,
+      background: RemoteComposeNativePlayerBackground = .platformDefault,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
@@ -232,12 +245,16 @@
     /// The density a deferred-density capture resolves against.
     ///
     /// A `RemoteDensity.Host` document computes its sizes from `ID_DENSITY`/`ID_FONT_SIZE` instead
-    /// of folding a capture device's density in, so the player owes it a value. 1.0 is the default
-    /// because that is what `androidCompatibility == .disabled` resolves dp geometry at; a host
-    /// reproducing Android geometry sets its real playback density with
-    /// `configureHostDensity(_:fontScale:)`.
+    /// of folding a capture device's density in, so the player owes it a value.
+    ///
+    /// Until the host calls `configureHostDensity(_:fontScale:)` the player chooses: 1.0 while
+    /// `androidCompatibility == .disabled`, because that is what it resolves dp geometry at, and
+    /// the screen's `traitCollection.displayScale` while reproducing Android geometry, following
+    /// trait changes such as a move to another display. An explicit value is kept from then on.
     public private(set) var hostDensity: Float = 1
     public private(set) var hostFontScale: Float = 1
+    /// Whether the host pinned the density with `configureHostDensity(_:fontScale:)`.
+    private var hostDensityIsExplicit = false
 
     /// Whether dp-typed geometry follows the document's Android density contract.
     ///
@@ -246,7 +263,9 @@
     /// diagnostic first and then opt in.
     public var androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility {
       didSet {
-        guard androidCompatibility != oldValue, let documentData else { return }
+        guard androidCompatibility != oldValue else { return }
+        if !hostDensityIsExplicit { hostDensity = automaticHostDensity }
+        guard let documentData else { return }
         render(documentData)
       }
     }
@@ -269,8 +288,13 @@
     /// Bumped whenever in-flight work stops being wanted: a (re)load or a move to the background.
     /// Asynchronous work captures it when it starts and applies its result only while it matches.
     private var generation: UInt64 = 0
-    /// Mirrors UIKit's application lifecycle notifications.
-    private var isApplicationActive = true
+    /// Whether the window scene showing this view is in the foreground. A view that has not yet
+    /// been in a scene counts as active, so it loads eagerly as it always has.
+    private var isSceneActive = true
+    /// The window scene whose lifecycle notifications drive `isSceneActive`. Weak: a scene outlives
+    /// its windows, not the other way round, and a view keeps following its last scene while it is
+    /// out of any window.
+    private weak var observedScene: UIScene?
     /// A display-link or wake frame that arrived while the view was busy, taken once it frees up.
     private var scheduledFramePending = false
     private let clock: any RemoteComposeNativePlayerClock
@@ -285,7 +309,7 @@
 
     public init(
       data: Data,
-      background: RemoteComposeNativePlayerBackground = .opaque,
+      background: RemoteComposeNativePlayerBackground = .platformDefault,
       compatibilityPolicy: RemoteComposeNativePlayerCompatibilityPolicy = .compatible,
       androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility = .disabled,
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
@@ -316,24 +340,14 @@
       self.onDiagnostics = onDiagnostics
       self.onError = onError
       super.init(frame: .zero)
-      isApplicationActive = UIApplication.shared.applicationState != .background
+      hostDensity = automaticHostDensity
       animationTimeline.reset(
         at: clock.now(),
-        active: isApplicationActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
+        active: isSceneActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
       isAccessibilityElement = false
       clipsToBounds = true
       configureErrorLabel()
       applyBackground()
-      NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(applicationDidEnterBackground),
-        name: UIApplication.didEnterBackgroundNotification,
-        object: nil)
-      NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(applicationDidBecomeActive),
-        name: UIApplication.didBecomeActiveNotification,
-        object: nil)
       NotificationCenter.default.addObserver(
         self,
         selector: #selector(reduceMotionStatusDidChange),
@@ -360,7 +374,7 @@
       if data != documentData {
         animationTimeline.reset(
           at: clock.now(),
-          active: isApplicationActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
+          active: isSceneActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
       }
       documentData = data
       render(data)
@@ -400,6 +414,7 @@
     /// document that reads `ID_DENSITY` would otherwise keep the geometry it built from the old
     /// value. Non-finite and non-positive values are ignored by the core rather than stored.
     public func configureHostDensity(_ density: Float, fontScale: Float = 1) {
+      hostDensityIsExplicit = true
       let density = density.isFinite && density > 0 ? density : hostDensity
       let fontScale = fontScale.isFinite && fontScale > 0 ? fontScale : hostFontScale
       guard density != hostDensity || fontScale != hostFontScale else { return }
@@ -477,7 +492,7 @@
 
     private func render(_ data: Data) {
       abandonWork()
-      guard isApplicationActive else {
+      guard isSceneActive else {
         state = .awaitingForeground
         return
       }
@@ -603,7 +618,7 @@
     ///
     /// Ignored while a frame is already on its way; deferred until queued input has been applied.
     public func renderFrame(at timeSeconds: TimeInterval) {
-      guard isApplicationActive, case .presenting(let presentation) = state else { return }
+      guard isSceneActive, case .presenting(let presentation) = state else { return }
       guard presentation.activity != .frame, presentation.pendingFrame == nil else { return }
       guard !presentation.hasOutstandingInput else {
         presentation.deferredFrameTime = timeSeconds
@@ -643,7 +658,7 @@
 
     /// Queue `input` behind the open session's pending work. `reply` is called exactly once.
     private func enqueue(_ input: NativePlayerEngine.Input, reply: ((Bool) -> Void)?) {
-      guard isApplicationActive, let presentation = openPresentation,
+      guard isSceneActive, let presentation = openPresentation,
         presentation.inputs.append(NativePendingInput(input: input, reply: reply))
       else {
         reply?(false)
@@ -895,11 +910,18 @@
       errorLabel.frame = bounds.insetBy(dx: 24, dy: 24)
     }
 
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+      super.traitCollectionDidChange(previousTraitCollection)
+      guard previousTraitCollection?.displayScale != traitCollection.displayScale else { return }
+      followDisplayScale()
+    }
+
     public override func didMoveToWindow() {
       super.didMoveToWindow()
+      followWindowScene()
       if window == nil {
         animationTimeline.pause(at: clock.now())
-      } else if isApplicationActive {
+      } else if isSceneActive {
         if UIAccessibility.isReduceMotionEnabled {
           animationTimeline.pause(at: clock.now())
         } else {
@@ -940,7 +962,7 @@
       delayedWakeTask?.cancel()
       delayedWakeTask = nil
       let mode = frameSchedule.driverMode(
-        isActive: isApplicationActive,
+        isActive: isSceneActive,
         isVisible: window != nil,
         reduceMotion: UIAccessibility.isReduceMotionEnabled)
       switch mode {
@@ -951,6 +973,11 @@
         guard displayLink == nil else { return }
         let link = CADisplayLink(
           target: displayLinkTarget, selector: #selector(NativeDisplayLinkTarget.fire))
+        if #available(iOS 15.0, *) {
+          // A document states whether it animates, not at what rate, so ask for the system's
+          // range: full rate on ProMotion and visionOS where the app allows it, 60 Hz elsewhere.
+          link.preferredFrameRateRange = .default
+        }
         displayLinkTarget.displayLink = link
         link.add(to: .main, forMode: .common)
         displayLink = link
@@ -988,7 +1015,7 @@
     }
 
     private func requestScheduledFrame() {
-      guard isApplicationActive, window != nil else { return }
+      guard isSceneActive, window != nil else { return }
       guard !isBusy else {
         scheduledFramePending = true
         return
@@ -1009,14 +1036,60 @@
     @objc private func reduceMotionStatusDidChange() {
       if UIAccessibility.isReduceMotionEnabled {
         animationTimeline.pause(at: clock.now())
-      } else if isApplicationActive, window != nil {
+      } else if isSceneActive, window != nil {
         animationTimeline.resume(at: clock.now())
       }
       updateFrameDriver()
     }
 
-    @objc private func applicationDidEnterBackground() {
-      isApplicationActive = false
+    /// The density the player uses until the host configures one; see `hostDensity`.
+    private var automaticHostDensity: Float {
+      guard androidCompatibility == .enabled else { return 1 }
+      let scale = Float(traitCollection.displayScale)
+      return scale.isFinite && scale > 0 ? scale : 1
+    }
+
+    /// Re-derive an unconfigured host density after a trait change, reloading if it moved.
+    private func followDisplayScale() {
+      guard !hostDensityIsExplicit else { return }
+      let density = automaticHostDensity
+      guard density != hostDensity else { return }
+      hostDensity = density
+      if let documentData { render(documentData) }
+    }
+
+    /// Observe the lifecycle of the window scene this view is now in, and adopt its state.
+    ///
+    /// Scene notifications rather than the application's: an app extension has no
+    /// `UIApplication.shared`, and on iPadOS and visionOS one scene can be in the background while
+    /// another is on screen. A view out of any window keeps following its last scene. Like the
+    /// application-level contract this replaces, only the background pauses the player; a scene
+    /// that is merely inactive (an overlay, Control Center) keeps animating.
+    private func followWindowScene() {
+      guard let scene = window?.windowScene, scene !== observedScene else { return }
+      let center = NotificationCenter.default
+      if let observedScene {
+        center.removeObserver(
+          self, name: UIScene.didEnterBackgroundNotification, object: observedScene)
+        center.removeObserver(self, name: UIScene.didActivateNotification, object: observedScene)
+      }
+      observedScene = scene
+      center.addObserver(
+        self, selector: #selector(sceneDidEnterBackground),
+        name: UIScene.didEnterBackgroundNotification, object: scene)
+      center.addObserver(
+        self, selector: #selector(sceneDidActivate),
+        name: UIScene.didActivateNotification, object: scene)
+      let isBackground = scene.activationState == .background
+      if isBackground, isSceneActive {
+        sceneDidEnterBackground()
+      } else if !isBackground, !isSceneActive {
+        sceneDidActivate()
+      }
+    }
+
+    @objc private func sceneDidEnterBackground() {
+      isSceneActive = false
       // An interrupted open, or input that never reached the screen, is replayed from the bytes on
       // activation; an idle session simply resumes.
       let reopen: Bool
@@ -1033,8 +1106,8 @@
       if reopen, documentData != nil { state = .awaitingForeground }
     }
 
-    @objc private func applicationDidBecomeActive() {
-      isApplicationActive = true
+    @objc private func sceneDidActivate() {
+      isSceneActive = true
       if UIAccessibility.isReduceMotionEnabled {
         animationTimeline.pause(at: clock.now())
       } else {
