@@ -3207,9 +3207,9 @@ private final class NativeMacCanvasView: NSView {
       context.strokePath()
     case NativeSwiftDrawKind.roundRect:
       paint(
-        CGPath(
-          roundedRect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
-          cornerWidth: v[4], cornerHeight: v[5], transform: nil), command,
+        NativeGraphicsState.roundedRectPath(
+          CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
+          cornerWidth: v[4], cornerHeight: v[5]), command,
         context)
     case NativeSwiftDrawKind.arc, NativeSwiftDrawKind.sector:
       let center = CGPoint(x: (v[0] + v[2]) / 2, y: (v[1] + v[3]) / 2)
