@@ -61,7 +61,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ///
   /// Data-only documents remain strict by default. The conformance value lane can deliberately
   /// opt into the same rootless mode as ``open(data:toleratingRootlessData:)``.
-  public static func operationSpans(
+  @_spi(Conformance) public static func operationSpans(
     in data: Data, toleratingRootlessData: Bool = false
   ) throws -> [NativeSwiftOperationSpan] {
     var spans: [NativeSwiftOperationSpan] = []
@@ -72,7 +72,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// The linked document's top-level operation census, with the header included. This is the
   /// operation model conformance exposes; it intentionally differs from raw wire spans.
-  public var linkedOperationCount: Int { document.linkedOperationCount }
+  @_spi(Conformance) public var linkedOperationCount: Int { document.linkedOperationCount }
 
   private init(copying other: NativeSwiftDocumentSession) {
     document = other.document
@@ -210,8 +210,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         },
       needsWallClockRefresh: document.needsWallClockRefresh,
       boundComponents: document.boundComponentIDs,
-      animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
-      pathIDs: document.pathIDs, pathTweenIDs: document.pathTweenIDs,
+      animationSpecs: document.animationSpecs,
       accessibilityRecords: document.accessibilityRecords.map {
         NativeSwiftAccessibilitySnapshot(
           contentDescriptionID: $0.contentDescriptionID, role: $0.role, textID: $0.textID,
@@ -219,14 +218,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
-      }, shaderUniformNames: document.shaderUniformNames,
-      conditionalTraces: document.conditionalTraces,
+      },
       impulses: document.impulses.map {
         NativeSwiftImpulseSnapshot(
           duration: NativeSwiftFloatExpression.resolve($0.durationWord, values: values),
           startAt: NativeSwiftFloatExpression.resolve($0.startAtWord, values: values))
       },
-      wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds))
+      wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds),
+      conformanceAnimationSpecOrder: document.animationSpecOrder,
+      conformancePathIDs: document.pathIDs, conformancePathTweenIDs: document.pathTweenIDs,
+      conformanceShaderUniformNames: document.shaderUniformNames,
+      conformanceConditionalTraces: document.conditionalTraces)
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
       staticSnapshotCache = StaticSnapshotCache(
         measuredComponents: measuredComponents, snapshot: snapshot)
@@ -284,7 +286,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// Advances retained particle systems to this frame and returns one system's current state.
   /// Rendering a particle loop uses the same retained state; this accessor additionally makes the
   /// behaviour observable to the native conformance host without exposing decoder internals.
-  public func particleSnapshot(id: Int, timeSeconds: TimeInterval = 0) throws
+  @_spi(Conformance) public func particleSnapshot(id: Int, timeSeconds: TimeInterval = 0) throws
     -> NativeSwiftParticleSystemSnapshot?
   {
     stateLock.lock()
@@ -297,7 +299,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// Advances retained particle systems to this frame and returns every decoded system in stable
   /// wire order. Conformance documents can declare more than one system, so callers that observe
   /// particle state must not depend on dictionary iteration order.
-  public func particleSnapshots(timeSeconds: TimeInterval = 0) throws
+  @_spi(Conformance) public func particleSnapshots(timeSeconds: TimeInterval = 0) throws
     -> [NativeSwiftParticleSystemSnapshot]
   {
     stateLock.lock()
@@ -370,7 +372,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ///
   /// Called after `snapshot` so the text-from-float conversions and merges it performs are visible
   /// here too; the two reads then describe one instant rather than two.
-  public func probeValues(
+  @_spi(Conformance) public func probeValues(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil
   ) throws -> NativeSwiftProbeValues {
     stateLock.lock()
@@ -409,7 +411,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   /// Resolves a static or dynamic float list for conformance state probes.
-  public func probeFloatList(id: Int, dynamic: Bool, timeSeconds: TimeInterval) throws -> [Float]? {
+  @_spi(Conformance) public func probeFloatList(id: Int, dynamic: Bool, timeSeconds: TimeInterval) throws -> [Float]? {
     stateLock.lock()
     defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
@@ -443,7 +445,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// Returns a matrix in the exact shape the wire declares (nine values for a 3x3 constant,
   /// sixteen for a 4x4 constant or expression).
-  public func probeMatrix(id: Int, timeSeconds: TimeInterval) throws -> [Float]? {
+  @_spi(Conformance) public func probeMatrix(id: Int, timeSeconds: TimeInterval) throws -> [Float]? {
     stateLock.lock()
     defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
@@ -458,7 +460,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// A probe that names a variable the document never declared is genuinely unobservable; one that
   /// addresses a numeric slot the document left empty is an observation, and the caller has to keep
   /// the two apart.
-  public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
+  @_spi(Conformance) public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
 
   /// The authoring API addresses user values without the wire format's `USER:` prefix. Keep the
   /// wire spelling available too, so hosts can use either form when a document names it explicitly.
@@ -526,7 +528,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return true
   }
 
-  public func returnCustomText(_ value: String, componentID: Int, propertyID: Int) throws -> Bool {
+  public func returnCustomText(_ value: String, componentID: Int, propertyID: Int) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
@@ -540,7 +542,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return true
   }
 
-  public func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) throws -> Bool {
+  public func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
     guard value.isFinite, let node = document.nodes[componentID], node.kind == .custom,

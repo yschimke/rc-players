@@ -264,7 +264,7 @@ public enum NativeSwiftTextFormatter {
 }
 
 /// One conditional container as evaluated while linking a document.
-public struct NativeSwiftConditionalTraceSnapshot: Sendable {
+@_spi(Conformance) public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
   public let left: Float
   public let right: Float
@@ -300,23 +300,36 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   /// Layout transition specifications declared by the document, keyed by animation id.
   public let animationSpecs: [Int: NativeSwiftAnimationSpec]
   /// Animation ids in declaration order, for truthful operation-record observations.
-  public let animationSpecOrder: [Int]
+  @_spi(Conformance) public var animationSpecOrder: [Int] { conformanceAnimationSpecOrder }
   /// Path resource ids declared by the document, including procedural path construction.
-  public let pathIDs: Set<Int>
+  @_spi(Conformance) public var pathIDs: Set<Int> { conformancePathIDs }
   /// Output ids declared by `PATH_TWEEN` operations.
-  public let pathTweenIDs: Set<Int>
+  @_spi(Conformance) public var pathTweenIDs: Set<Int> { conformancePathTweenIDs }
   /// Every declared accessibility operation, including root-attached and repeated modifiers.
   public let accessibilityRecords: [NativeSwiftAccessibilitySnapshot]
   /// Runtime shader uniform names keyed by shader id. Values remain unobserved by design.
-  public let shaderUniformNames: [Int: Set<String>]
+  @_spi(Conformance) public var shaderUniformNames: [Int: Set<String>] {
+    conformanceShaderUniformNames
+  }
   /// Conditional containers evaluated while linking the document.
-  public let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
+  @_spi(Conformance) public var conditionalTraces: [NativeSwiftConditionalTraceSnapshot] {
+    conformanceConditionalTraces
+  }
   /// Every `IMPULSE_START` in declaration order, with its window resolved for this frame.
   public let impulses: [NativeSwiftImpulseSnapshot]
   /// When the document asked to be resolved again, in seconds from this frame: the shortest
   /// `WAKE_IN`, an impulse still waiting for its window, or 0 for one inside it. Nil when nothing
   /// asked.
   public let wakeAfter: TimeInterval?
+
+  // Storage for the conformance-only records above. They are `@_spi(Conformance)` computed
+  // properties over internal storage rather than SPI stored properties, so the struct's layout
+  // stays independent of which clients import the SPI.
+  let conformanceAnimationSpecOrder: [Int]
+  let conformancePathIDs: Set<Int>
+  let conformancePathTweenIDs: Set<Int>
+  let conformanceShaderUniformNames: [Int: Set<String>]
+  let conformanceConditionalTraces: [NativeSwiftConditionalTraceSnapshot]
 
   /// The wake a host should schedule: the document's own request, or the once-a-second refresh a
   /// document reading a discrete wall-clock field needs, whichever comes first.
@@ -515,7 +528,7 @@ public struct NativeSwiftMeasuredSize: Sendable, Equatable {
 /// duplicating and dropping whole operations — rather than as flat bytes. The spans come from the
 /// same walk that validates the document, so a mutator and the decoder cannot disagree about
 /// framing: `endOffset` is exactly where the decoder stopped reading the operation.
-public struct NativeSwiftOperationSpan: Sendable, Equatable {
+@_spi(Conformance) public struct NativeSwiftOperationSpan: Sendable, Equatable {
   public let opcode: Int
   public let offset: Int
   public let endOffset: Int
@@ -531,7 +544,7 @@ public struct NativeSwiftOperationSpan: Sendable, Equatable {
 
 /// The current values of one decoded particle system. The outer array is ordered by particle index;
 /// values within each particle use the definition's declared variable order.
-public struct NativeSwiftParticleSystemSnapshot: Sendable, Equatable {
+@_spi(Conformance) public struct NativeSwiftParticleSystemSnapshot: Sendable, Equatable {
   public let id: Int
   public let variableIDs: [Int]
   public let particles: [[Float]]
@@ -665,7 +678,7 @@ public enum NativeSwiftScrollGesture {
 /// The corpus's `float`, `int`, `text` and `color` probes read a document's *state* rather than its
 /// rendering: an expression's result, a variable a gesture wrote, a colour an expression built. A
 /// target is either a numeric slot or the name of a variable the document declared.
-public struct NativeSwiftProbeValues: Sendable {
+@_spi(Conformance) public struct NativeSwiftProbeValues: Sendable {
   public let floats: [Int: Float]
   public let integers: [Int: Int]
   public let texts: [Int: String]
@@ -676,7 +689,7 @@ public struct NativeSwiftProbeValues: Sendable {
 
 /// A matrix declaration exactly as it appeared on the wire. Matrix probes deliberately retain a
 /// 3x3 declaration as nine values rather than exposing the runtime's expanded 4x4 representation.
-public struct NativeSwiftMatrixSnapshot: Sendable {
+@_spi(Conformance) public struct NativeSwiftMatrixSnapshot: Sendable {
   public let id: Int
   public let values: [Float]
 }

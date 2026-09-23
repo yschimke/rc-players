@@ -4,7 +4,7 @@ import CoreText
 import Darwin
 import QuartzCore
 #if canImport(RcNativePlayerCore)
-  import RcNativePlayerCore
+  @_spi(Conformance) import RcNativePlayerCore
 #endif
 #if canImport(RcPlayerAppleFonts)
   import RcPlayerAppleFonts

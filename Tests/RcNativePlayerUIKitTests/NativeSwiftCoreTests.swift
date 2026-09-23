@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import RcNativePlayerCore
+@_spi(Conformance) @testable import RcNativePlayerCore
 
 @Suite struct NativeSwiftCoreTests {
   @Test func documentCore() throws {
@@ -151,7 +151,7 @@ import Testing
     #expect(content.children[2].text?.value == "Hello from the document")
 
     #expect(session.setColor(0xff12_3456, for: "accent"))
-    let accepted = try session.returnCustomText(
+    let accepted = session.returnCustomText(
       "Edited in Swift", componentID: 5, propertyID: 2)
     #expect(accepted)
     let updated = try session.snapshot()
@@ -161,17 +161,17 @@ import Testing
       updatedContent.children[0].custom?.properties[2].integerValue
         == Int(Int32(bitPattern: 0xff12_3456)))
     #expect(updatedContent.children[2].text?.value == "Edited in Swift")
-    let rejected = try session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
+    let rejected = session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
     #expect(!rejected)
 
     let floatSession = try NativeSwiftDocumentSession.open(data: dynamicCustomFloatDocument())
     let initialFloat = try floatSession.snapshot().root.children[0].children[0]
     #expect(initialFloat.custom?.properties[0].floatValue == 0.4)
-    let acceptedFloat = try floatSession.returnCustomFloat(0.85, componentID: 3, propertyID: 2)
+    let acceptedFloat = floatSession.returnCustomFloat(0.85, componentID: 3, propertyID: 2)
     #expect(acceptedFloat, "declared float return should be accepted")
     let returnedFloat = try floatSession.snapshot().root.children[0].children[0]
     #expect(abs((returnedFloat.custom?.properties[0].floatValue ?? 0) - 0.85) < 0.001)
-    let rejectedFloat = try floatSession.returnCustomFloat(0.5, componentID: 3, propertyID: 99)
+    let rejectedFloat = floatSession.returnCustomFloat(0.5, componentID: 3, propertyID: 99)
     #expect(!rejectedFloat, "an undeclared return channel should be rejected")
 
     // A Row whose spacing is computed rather than stated. Before float words were carried to
