@@ -3604,8 +3604,16 @@ private fun Modifier.applyHeight(
     else -> this
   }
 
+/**
+ * The fraction a fill modifier fills, or all of it when the document gives none.
+ *
+ * "None" is a NaN that references nothing — which includes the plain quiet NaN `0x7fc00000`. Its
+ * NaN payload is 0, and AndroidX's `Utils.isVariable` rejects id 0 as a reference, so it is not a
+ * read of slot 0: resolving it that way read 0 and laid a `fillMaxSize()` box out at 0 x 0, which
+ * left its click target untappable.
+ */
 private fun RcPlayerState.fillFraction(value: RcFloatWord): Float =
-  if (value.referencedId == null && value.value.isNaN()) 1f else resolve(value)
+  if (value.value.isNaN() && (value.referencedId ?: 0) == 0) 1f else resolve(value)
 
 internal data class RcRootTransform(
   val scaleX: Float,
