@@ -202,6 +202,10 @@ public final class ee/schimke/composeai/rcplayer/compose/RcGlyphPlacement {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcLayoutAnimationsKt {
+	public static final fun getLocalRcLayoutAnimations ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcManifestTypefaceLoader {
 	public static final field $stable I
 	public fun <init> (Lkotlin/jvm/functions/Function2;)V

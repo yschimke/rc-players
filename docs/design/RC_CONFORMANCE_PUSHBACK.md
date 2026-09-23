@@ -250,3 +250,46 @@ the standard embedding and fails this check.
 or use a 4×4 matrix in this gold.
 **Settled by:** a stated layout. If upstream says the asymmetric one is intended, the native player
 adopts it.
+
+## 15. Drags assume no touch slop
+
+The harness hands a drag straight to `CoreDocument.touchDrag`, so a scroll follows the pointer from
+its first pixel: a 40 px drag scrolls 40 px. A player that recognises drags the way its platform
+does (Compose, Android views, UIKit) scrolls nothing until the pointer has passed the platform's
+touch slop, and then only the movement beyond it. Affects `interaction_scroll_column`,
+`interaction_scroll_row`, `interaction_touch_drag_sequence` and `interaction_swipe_scroll_decay`.
+
+**What the CMP lane does:** when a gesture goes down on a scroll container, it pays the slop up
+front, in the direction of the first drag, so a document still sees the declared movement. Touch
+expressions read the raw pointer and get no allowance. The player keeps platform slop.
+**Ask:** say in the format that gesture positions are positions *after recognition*. Or give
+`touch_drag` a `slop` the harness applies, so every player is measured the same way.
+
+## 16. A fling's velocity is handed to the document, not produced by the gesture
+
+`interaction_swipe_scroll_decay` releases with `dy: -1200`, which the harness passes to
+`TouchExpression.touchUp` as the release velocity. A player driven by pointer events derives
+velocity from the pointer's history. The timeline's own history, 100 px in one step followed by a
+20 ms hold, gives a release velocity near zero on any platform tracker. The expected decay follows
+AndroidX's `VelocityEasing` exactly (stop at `pos + v/2`, ramp down over `2·distance/v`), so it is
+only reachable by a player that takes the declared velocity as given.
+
+**Ask:** make the touch-up velocity a declared host input that players are expected to honour, or
+generate the drag as timed samples whose tracked velocity is the one asserted.
+
+## 17. `StateLayout` golds assert AndroidX's bookkeeping for hidden states
+
+In `state_layout_expandable_card`, the children (-10, -11) of the hidden state's container (-8,
+`GONE`) are expected at `initial` as `VISIBLE`, at y = 0. -11's laid-out position is y = 76. After
+one switch there and back (`step_3`), the same children are expected `GONE`, keeping the geometry
+they last had. So whether a hidden state's descendants read visible or gone depends on whether that
+state has ever been shown, not on what is on screen. `state_layout_nested_boxes_control`,
+`state_layout_switch_visibility`, `state_layout_row_to_column`,
+`state_layout_shared_element_across_states`, `state_layout_shared_element_nested_ids` and the
+three `animation_state_*` golds assert the same bookkeeping. Several also bind to the instant of a
+switch, with the outgoing state's container `VISIBLE` at full size and its children `GONE`.
+
+The CMP player reports what is laid out: the shown state's subtree, and the hidden state's
+container as `GONE` at zero size.
+**Ask:** specify what the tree reports for components inside a state that is not shown. For
+example: absent, or `GONE` with no geometry. Avoid a value that depends on history.
