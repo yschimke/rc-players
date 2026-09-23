@@ -31,6 +31,10 @@ final enum class ee.schimke.composeai.rcplayer.compose/RcPlayerTheme : kotlin/En
     final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.compose/RcPlayerTheme> // ee.schimke.composeai.rcplayer.compose/RcPlayerTheme.values|values#static(){}[0]
 }
 
+abstract fun interface ee.schimke.composeai.rcplayer.compose/RcAnimationClock { // ee.schimke.composeai.rcplayer.compose/RcAnimationClock|null[0]
+    abstract fun seconds(): kotlin/Float // ee.schimke.composeai.rcplayer.compose/RcAnimationClock.seconds|seconds(){}[0]
+}
+
 abstract fun interface ee.schimke.composeai.rcplayer.compose/RcDrawObserver { // ee.schimke.composeai.rcplayer.compose/RcDrawObserver|null[0]
     abstract fun onTextRun(ee.schimke.composeai.rcplayer.compose/RcTextRun) // ee.schimke.composeai.rcplayer.compose/RcDrawObserver.onTextRun|onTextRun(ee.schimke.composeai.rcplayer.compose.RcTextRun){}[0]
 }
@@ -1002,6 +1006,8 @@ final object ee.schimke.composeai.rcplayer.compose/RcSpannableString { // ee.sch
 
 final val ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics // ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics|{}LocalRcAhemTextMetrics[0]
     final fun <get-LocalRcAhemTextMetrics>(): androidx.compose.runtime/ProvidableCompositionLocal<kotlin/Boolean> // ee.schimke.composeai.rcplayer.compose/LocalRcAhemTextMetrics.<get-LocalRcAhemTextMetrics>|<get-LocalRcAhemTextMetrics>(){}[0]
+final val ee.schimke.composeai.rcplayer.compose/LocalRcAnimationClock // ee.schimke.composeai.rcplayer.compose/LocalRcAnimationClock|{}LocalRcAnimationClock[0]
+    final fun <get-LocalRcAnimationClock>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcAnimationClock?> // ee.schimke.composeai.rcplayer.compose/LocalRcAnimationClock.<get-LocalRcAnimationClock>|<get-LocalRcAnimationClock>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver // ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver|{}LocalRcDrawObserver[0]
     final fun <get-LocalRcDrawObserver>(): androidx.compose.runtime/ProvidableCompositionLocal<ee.schimke.composeai.rcplayer.compose/RcDrawObserver?> // ee.schimke.composeai.rcplayer.compose/LocalRcDrawObserver.<get-LocalRcDrawObserver>|<get-LocalRcDrawObserver>(){}[0]
 final val ee.schimke.composeai.rcplayer.compose/LocalRcInspection // ee.schimke.composeai.rcplayer.compose/LocalRcInspection|{}LocalRcInspection[0]

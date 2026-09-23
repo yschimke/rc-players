@@ -232,6 +232,13 @@ public class RcPlayerState(
   public val animationTimeSeconds: Float
     get() = frameTimeSeconds
 
+  /**
+   * The wall clock this frame was begun at, in epoch milliseconds — the [RcTimeSource]'s reading,
+   * which is what AndroidX operations that time themselves off `RemoteClock` (the marquee) read.
+   */
+  public val frameWallClockMillis: Long
+    get() = frameEpochMillis
+
   /** Whether a stateful float tween or spring still needs another evaluation frame. */
   public val hasActiveFloatAnimations: Boolean
     get() = floatExpressionRuntimes.values.any { it.isAnimating(frameTimeSeconds) }

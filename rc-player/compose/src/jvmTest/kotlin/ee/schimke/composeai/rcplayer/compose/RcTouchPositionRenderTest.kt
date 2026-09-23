@@ -57,6 +57,9 @@ class RcTouchPositionRenderTest {
     try {
       scene.render()
       scene.sendPointerEvent(PointerEventType.Press, Offset(25f, 5f), type = PointerType.Touch)
+      // The press invalidates through the global snapshot, whose apply notification can land after
+      // the next frame has already begun; the contract is that a following frame shows it.
+      scene.render(500_000_000L)
       val image = scene.render(1_000_000_000L)
       val bitmap = Bitmap().apply { allocN32Pixels(40, 10) }
       check(image.readPixels(bitmap))

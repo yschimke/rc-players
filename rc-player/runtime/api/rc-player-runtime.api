@@ -876,6 +876,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun getAnimationTimeSeconds ()F
 	public final fun getClickAreas ()Ljava/util/List;
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun getFrameWallClockMillis ()J
 	public final fun getHasActiveFloatAnimations ()Z
 	public final fun getRootContentBehavior ()Lee/schimke/composeai/rcplayer/protocol/RcRootContentBehavior;
 	public final fun getRootContentDescription ()Ljava/lang/String;
