@@ -302,6 +302,7 @@ private class NativeSwiftSession(
       "float_array:data" -> scalar(check)
       "particles" -> particles(check.at)
       "ops:count" -> operationCount(check.at)
+      "ops:counts" -> operationMetric(check.at, "ops_counts")
       "ops:present",
       "ops:absent" -> operationPresence(check.at)
       "draw_log:commands" -> drawLog(check.at)
@@ -309,6 +310,7 @@ private class NativeSwiftSession(
       "ops:total_glyphs" -> operationMetric(check.at, "total_glyphs")
       "ops:distinct_ids" -> operationMetric(check.at, "distinct_ids")
       "trace:handled" -> inputHandled(check.at)
+      "trace:host_actions" -> records(check)
       "trace:branches" -> records(check)
       "records:animation_specs",
       "records:anchor_runs",
