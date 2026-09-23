@@ -11,9 +11,9 @@ struct ParsedPath {
   }
 
   let winding: Int
-  let words: [UInt32]
+  private(set) var words: [UInt32]
   /// Never empty: every path starts with the operation that declared it.
-  let origins: [Origin]
+  private(set) var origins: [Origin]
 
   init(winding: Int, words: [UInt32], opcode: Int, offset: Int) {
     self.winding = winding
@@ -21,17 +21,13 @@ struct ParsedPath {
     origins = [Origin(firstWord: 0, opcode: opcode, offset: offset)]
   }
 
-  private init(winding: Int, words: [UInt32], origins: [Origin]) {
-    self.winding = winding
-    self.words = words
-    self.origins = origins
-  }
-
-  /// This path with `more` words appended by the operation at `offset`.
-  func appending(_ more: [UInt32], opcode: Int, offset: Int) -> ParsedPath {
-    ParsedPath(
-      winding: winding, words: words + more,
-      origins: origins + [Origin(firstWord: words.count, opcode: opcode, offset: offset)])
+  /// Appends `more` words written by the operation at `offset`.
+  ///
+  /// In place, so a path built by a run of `PATH_ADD`s grows in amortised constant time rather than
+  /// being copied whole by each one; a draw that already holds the path keeps its own copy.
+  mutating func append(_ more: [UInt32], opcode: Int, offset: Int) {
+    origins.append(Origin(firstWord: words.count, opcode: opcode, offset: offset))
+    words.append(contentsOf: more)
   }
 
   /// The operation that wrote the word at `index`.

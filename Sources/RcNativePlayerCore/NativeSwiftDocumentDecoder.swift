@@ -1487,8 +1487,8 @@ enum NativeSwiftDocumentDecoder {
         if words.first.flatMap(NativeSwiftFloatExpression.referenceID) == NativeSwiftPathCommand.reset {
           paths[id] = ParsedPath(
             winding: paths[id]?.winding ?? 0, words: [], opcode: opcode, offset: opcodeOffset)
-        } else if let existing = paths[id] {
-          paths[id] = existing.appending(words, opcode: opcode, offset: opcodeOffset)
+        } else if paths[id] != nil {
+          paths[id]?.append(words, opcode: opcode, offset: opcodeOffset)
         } else {
           paths[id] = ParsedPath(winding: 0, words: words, opcode: opcode, offset: opcodeOffset)
         }
