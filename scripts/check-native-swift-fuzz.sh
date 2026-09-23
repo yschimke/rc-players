@@ -6,8 +6,8 @@
 # Every case must either decode into a bounded snapshot or fail with a typed NativeSwiftCoreError —
 # a trap, an untyped error, or a hang fails the run and the offending bytes are written out.
 #
-# This runs `NativeSwiftFuzzTests` from the SwiftPM test target. A plain
-# `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` runs the same test at the default iteration count;
+# This runs `NativeSwiftFuzzTests` from the SwiftPM test target. CI runs it through this script;
+# a plain `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` also runs it, unoptimized;
 # this script exists for the knobs below.
 #
 # Reproducing a failure:

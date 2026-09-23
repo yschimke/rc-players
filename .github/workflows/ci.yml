@@ -355,8 +355,9 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-swift-sample.sh
 
-      # The native player's SwiftPM test target on the macOS host: the pure-Swift core, the fuzz
-      # corpus at its default size, and every renderer-neutral policy in `RcNativePlayerUIKit`. It
+      # The native player's SwiftPM test target on the macOS host: the pure-Swift core and every
+      # renderer-neutral policy in `RcNativePlayerUIKit`. The fuzz suite is skipped here and run
+      # optimized below, because its elapsed-time budget was calibrated against an `-O` build. It
       # replaced one `swiftc` script per test file, each compiling a hand-picked subset of sources —
       # so a file added to a target but missed by the scripts was never type-checked, and a fixture
       # passed by position could silently disable a block. Native-only mode keeps the Kotlin binary
@@ -365,10 +366,7 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         env:
           RC_COMPOSE_PLAYER_NATIVE_ONLY: 1
-          # A failing fuzz input is the whole point of that test, and the default temporary
-          # directory is not in the uploaded artifact.
-          RC_NATIVE_FUZZ_CORPUS_OUT: ${{ github.workspace }}/build/native-fuzz-failures
-        run: swift test
+        run: swift test --skip NativeSwiftFuzzTests
 
       # The same test target built for, and run on, an iOS simulator: the only place the UIKit
       # renderer behind `#if canImport(UIKit)` is compiled as a package rather than through the
@@ -377,8 +375,16 @@ jobs:
         if: needs.apple-changes.outputs.required == 'true'
         run: scripts/check-native-swift-ios-tests.sh
 
-      # The plain `swift test` above already ran the derived corpus unsanitized. This is the
-      # address-sanitized pass, shorter because the sanitizer is the expensive part, not the
+      # The derived corpus, unsanitized and optimized (the script builds release when no sanitizer
+      # is set). A failing fuzz input is the whole point of this test, and the default temporary
+      # directory is not in the uploaded artifact.
+      - name: Fuzz the pure Swift document core
+        if: needs.apple-changes.outputs.required == 'true'
+        env:
+          RC_NATIVE_FUZZ_CORPUS_OUT: ${{ github.workspace }}/build/native-fuzz-failures
+        run: scripts/check-native-swift-fuzz.sh
+
+      # The address-sanitized pass, shorter because the sanitizer is the expensive part, not the
       # mutation count.
       - name: Fuzz the pure Swift document core under AddressSanitizer
         if: needs.apple-changes.outputs.required == 'true'
