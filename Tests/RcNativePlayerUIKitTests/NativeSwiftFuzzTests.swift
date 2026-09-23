@@ -1,4 +1,7 @@
 import Foundation
+import Testing
+
+@testable import RcNativePlayerCore
 
 /// Mutation fuzzing for the pure-Swift document core.
 ///
@@ -23,8 +26,11 @@ import Foundation
 /// Reproduction is deterministic. `RC_NATIVE_FUZZ_SEED` and `RC_NATIVE_FUZZ_ITERATIONS` select the
 /// same case sequence on any host, and a failure writes the offending bytes to
 /// `RC_NATIVE_FUZZ_CORPUS_OUT` (default: a temporary directory, printed) before exiting.
-@main
-enum NativeSwiftFuzzTests {
+///
+/// The seeds are the bundled comparative fixtures in `NativeTestFixtures.comparativeDocuments`
+/// order, after the synthetic seeds. Each seed's PRNG stream is keyed by its position, so that
+/// order is part of the corpus: `minimumDecodedRatio` was measured against it.
+@Suite struct NativeSwiftFuzzTests {
   private static let defaultIterations = 96
   private static let caseTimeoutSeconds = 10.0
   /// The proportion of cases that must decode for the run to pass.
@@ -34,26 +40,17 @@ enum NativeSwiftFuzzTests {
   /// still failing a corpus that dies at the header.
   private static let minimumDecodedRatio = 0.12
 
-  static func main() {
-    let arguments = Array(CommandLine.arguments.dropFirst())
-    var seeds: [(name: String, data: Data)] = syntheticSeeds()
-    for path in arguments {
-      guard let data = FileManager.default.contents(atPath: path) else {
-        FileHandle.standardError.write(Data("fuzz seed not readable: \(path)\n".utf8))
-        exit(1)
-      }
-      seeds.append((name: URL(fileURLWithPath: path).lastPathComponent, data: data))
-    }
-    guard arguments.count >= 1 else {
-      FileHandle.standardError.write(
-        Data("usage: native-swift-fuzz-tests <fixture.rc>...\n".utf8))
-      exit(1)
+  @Test func mutationFuzz() throws {
+    var seeds: [(name: String, data: Data)] = Self.syntheticSeeds()
+    for name in NativeTestFixtures.comparativeDocuments {
+      seeds.append((name: name, data: try NativeTestFixtures.data(name)))
     }
 
-    let iterations = max(environmentInt("RC_NATIVE_FUZZ_ITERATIONS") ?? defaultIterations, 0)
+    let iterations = max(
+      Self.environmentInt("RC_NATIVE_FUZZ_ITERATIONS") ?? Self.defaultIterations, 0)
     let seedValue = UInt64(
-      bitPattern: Int64(environmentInt("RC_NATIVE_FUZZ_SEED") ?? 0x5EED))
-    let watchdog = Watchdog(timeout: caseTimeoutSeconds)
+      bitPattern: Int64(Self.environmentInt("RC_NATIVE_FUZZ_SEED") ?? 0x5EED))
+    let watchdog = Watchdog(timeout: Self.caseTimeoutSeconds)
     watchdog.start()
 
     var decoded = 0
@@ -66,7 +63,8 @@ enum NativeSwiftFuzzTests {
       // The pristine seed first: a supported fixture must stay supported, and a synthetic
       // malformed seed must stay typed.
       watchdog.begin(label: "\(seed.name)#pristine", data: seed.data)
-      exercise(seed.data, label: "\(seed.name)#pristine", decoded: &decoded, rejected: &rejected)
+      Self.exercise(
+        seed.data, label: "\(seed.name)#pristine", decoded: &decoded, rejected: &rejected)
       cases += 1
 
       // The operation spans the decoder itself walked, so the mutator and the decoder cannot
@@ -77,13 +75,13 @@ enum NativeSwiftFuzzTests {
         let label = "\(seed.name)#\(iteration)"
         let mutant: Data
         if !spans.isEmpty, random.next(upperBound: 2) == 1 {
-          mutant = structuralMutation(seed.data, spans: spans, using: &random)
+          mutant = Self.structuralMutation(seed.data, spans: spans, using: &random)
           structuralCases += 1
         } else {
-          mutant = mutate(seed.data, using: &random)
+          mutant = Self.mutate(seed.data, using: &random)
         }
         watchdog.begin(label: label, data: mutant)
-        exercise(mutant, label: label, decoded: &decoded, rejected: &rejected)
+        Self.exercise(mutant, label: label, decoded: &decoded, rejected: &rejected)
         cases += 1
       }
     }
@@ -92,18 +90,19 @@ enum NativeSwiftFuzzTests {
 
     // Bounded work, measured over the whole run so one slow host does not decide a single case.
     let budget = Double(cases) * 0.25
-    precondition(
+    #expect(
       elapsed < budget,
       "fuzzing \(cases) cases took \(elapsed)s, over the \(budget)s bounded-work budget")
-    precondition(
-      Double(decoded) >= Double(cases) * minimumDecodedRatio,
-      "only \(decoded) of \(cases) cases decoded; the corpus is dying at the header instead of "
-        + "reaching the operation stream")
-    precondition(rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
+    #expect(
+      Double(decoded) >= Double(cases) * Self.minimumDecodedRatio,
+      Comment(
+        rawValue: "only \(decoded) of \(cases) cases decoded; the corpus is dying at the header "
+          + "instead of reaching the operation stream"))
+    #expect(rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
     print(
-      "native Swift fuzz: ok (\(cases) cases, \(structuralCases) structure-aware, \(decoded) "
+      "native Swift fuzz: \(cases) cases, \(structuralCases) structure-aware, \(decoded) "
         + "decoded, \(rejected) typed rejections, \(String(format: "%.2f", elapsed))s, "
-        + "seed=\(seedValue))")
+        + "seed=\(seedValue)")
   }
 
   /// Run one input through the whole retained-session surface and assert the typed contract.
@@ -115,7 +114,7 @@ enum NativeSwiftFuzzTests {
       session = try NativeSwiftDocumentSession.open(data: data)
     } catch let error as NativeSwiftCoreError {
       // Typed rejection: unsupported and malformed both fail closed, which is the contract.
-      precondition(!error.description.isEmpty)
+      #expect(!error.description.isEmpty)
       rejected += 1
       return
     } catch {
@@ -168,7 +167,7 @@ enum NativeSwiftFuzzTests {
       decoded += 1
     } catch let error as NativeSwiftCoreError {
       // A typed failure after a successful decode is allowed: resolution enforces its own limits.
-      precondition(!error.description.isEmpty)
+      #expect(!error.description.isEmpty)
       decoded += 1
     } catch {
       report(data, label: label, reason: "untyped frame failure: \(error)")

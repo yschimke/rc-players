@@ -140,11 +140,6 @@
   /// Root UIKit view. It can be embedded without SwiftUI or the supplied view controller.
   @MainActor
   public final class RemoteComposeNativePlayerView: UIView {
-    private enum PendingWork {
-      case documentLoad
-      case frame
-    }
-
     /// A retained session can cross several asynchronous boundaries: awaiting a frame, queued
     /// input, validation, installation, and event delivery. A context is current only while the
     /// same session remains installed in the same document epoch and app lifecycle.
@@ -200,7 +195,6 @@
     private var documentView: NativeDocumentView?
     private var documentData: Data?
     private var loadTask: Task<Void, Never>?
-    private var pendingWork: PendingWork?
     private var inputTail: Task<Void, Never>?
     private var loadGeneration: UInt64 = 0
     private var inputGeneration: UInt64 = 0
@@ -408,7 +402,6 @@
         return
       }
       let generation = loadGeneration
-      pendingWork = .documentLoad
       let epoch = sessionEpoch
       let executionLimits = executionLimits
       let compatibilityPolicy = compatibilityPolicy
@@ -477,7 +470,6 @@
       loadTask?.cancel()
       loadGeneration &+= 1
       let generation = loadGeneration
-      pendingWork = .frame
       loadTask = Task { [weak self] in
         do {
           let frame = try await retainedSession.frame(
@@ -737,7 +729,6 @@
       needsRetry = false
       errorLabel.isHidden = true
       loadTask = nil
-      pendingWork = nil
       updateFrameDriver()
       if hasPendingScheduledFrame { requestScheduledFrame() }
     }
@@ -754,7 +745,6 @@
         onError(.decode(error.localizedDescription))
       }
       loadTask = nil
-      pendingWork = nil
       hasPendingScheduledFrame = false
     }
 
@@ -927,7 +917,6 @@
       stopFrameDriver()
       loadTask?.cancel()
       loadTask = nil
-      pendingWork = nil
       loadGeneration &+= 1
       inputGeneration &+= 1
       lifecycleGeneration &+= 1

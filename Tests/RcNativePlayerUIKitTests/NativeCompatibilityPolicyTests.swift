@@ -1,8 +1,10 @@
 import Foundation
+import Testing
 
-@main
-enum NativeCompatibilityPolicyTests {
-  static func main() {
+@testable import RcNativePlayerUIKit
+
+@Suite struct NativeCompatibilityPolicyTests {
+  @Test func compatibilityPolicy() {
     let clean = RemoteComposeNativePlayerDiagnostics(
       issues: [], unsupportedOpcodes: [], notes: [])
     let issue = RemoteComposeNativePlayerDiagnostic(
@@ -14,24 +16,24 @@ enum NativeCompatibilityPolicyTests {
     let partial = RemoteComposeNativePlayerDiagnostics(
       issues: [issue], unsupportedOpcodes: [124], notes: [])
 
-    precondition(
+    #expect(
       RemoteComposeNativeCompatibilityDecision.shouldRender(
         policy: .compatible, diagnostics: partial))
-    precondition(
+    #expect(
       RemoteComposeNativeCompatibilityDecision.shouldRender(policy: .strict, diagnostics: clean))
-    precondition(
+    #expect(
       !RemoteComposeNativeCompatibilityDecision.shouldRender(
         policy: .strict, diagnostics: partial))
-    precondition(partial.isPartial)
-    precondition(!clean.isPartial)
+    #expect(partial.isPartial)
+    #expect(!clean.isPartial)
 
     guard
       case .incompatible(let diagnostics) =
         RemoteComposeNativePlayerError.incompatible(partial)
     else {
-      preconditionFailure("incompatible error did not preserve diagnostics")
+      Issue.record("incompatible error did not preserve diagnostics")
+      return
     }
-    precondition(diagnostics == partial)
-    print("native UIKit compatibility policy tests: ok")
+    #expect(diagnostics == partial)
   }
 }

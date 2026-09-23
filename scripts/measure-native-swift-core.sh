@@ -8,29 +8,30 @@
 #
 # The JSON report carries its own budgets, so a CI artifact is reviewable on its own.
 #
+# The benchmark is `NativeSwiftBenchmark` in the SwiftPM test target. It is skipped unless
+# RC_NATIVE_CORE_BENCHMARK_OUTPUT is set, because timings from an unoptimized `swift test` build
+# mean nothing; this script sets it and builds the release configuration.
+#
 # Usage: scripts/measure-native-swift-core.sh [output.json]
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output="${1:-${RC_NATIVE_CORE_BENCHMARK_OUTPUT:-$repo_root/build/native-swift-core-benchmark.json}}"
-work="$(mktemp -d "${TMPDIR:-/tmp}/rc-native-swift-benchmark.XXXXXX")"
-trap 'rm -rf "$work"' EXIT
-mkdir -p "$work/module-cache" "$(dirname "$output")"
+mkdir -p "$(dirname "$output")"
+output="$(cd "$(dirname "$output")" && pwd)/$(basename "$output")"
+rm -f "$output"
 
-CLANG_MODULE_CACHE_PATH="$work/module-cache" \
-SWIFT_MODULECACHE_PATH="$work/module-cache" \
-xcrun swiftc \
-  -O -whole-module-optimization \
-  "$repo_root"/Sources/RcNativePlayerCore/*.swift \
-  "$repo_root/Tests/RcNativePlayerUIKitTests/NativeSwiftBenchmark.swift" \
-  -o "$work/native-swift-benchmark"
-
+RC_COMPOSE_PLAYER_NATIVE_ONLY=1 \
+RC_NATIVE_CORE_BENCHMARK_OUTPUT="$output" \
 RC_SOURCE_REVISION="$(git -C "$repo_root" rev-parse HEAD)" \
-"$work/native-swift-benchmark" "$output" \
-  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/editable-text.rc" \
-  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/TitleCardRemote-640x480.rc" \
-  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/IndeterminateCircularProgress-400x400.rc" \
-  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/CircularProgressRemote-384x384.rc" \
-  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/ArcProgressRemote-454x400.rc" \
-  "$repo_root/Tests/RcNativePlayerUIKitTests/Fixtures/ImageBackgroundRemoteButton-454x200.rc"
+  swift test \
+    --package-path "$repo_root" \
+    -c release -Xswiftc -enable-testing \
+    --filter 'NativeSwiftBenchmark'
+
+# A skipped test also exits 0, so the report is the proof that the benchmark ran.
+if [ ! -f "$output" ]; then
+  echo "the native Swift core benchmark did not write $output" >&2
+  exit 1
+fi
 echo "native Swift core benchmark: $output"

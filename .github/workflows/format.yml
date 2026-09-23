@@ -31,3 +31,32 @@ jobs:
       # ktfmtFormatAll` locally before committing — the round-trip through CI costs more.
       - name: Check formatting
         run: ./gradlew ktfmtCheckAll
+
+  # The native Swift player against the checked-in `.swift-format` (2-space indent, 100 columns).
+  #
+  # ADVISORY FOR NOW: without `--strict`, findings print as warnings and the step still passes, so
+  # the output is a report rather than a gate. The existing sources predate the config and carry
+  # findings — over-long lines among them — that no one has reformatted yet, and doing that here
+  # would bury the change that introduced the lint. TODO(#398): clear the findings with
+  # `swift format --in-place`, then add `--strict` so this becomes the hard gate ktfmt is. A file
+  # that does not parse fails the step either way.
+  #
+  # The official toolchain image rather than whatever Swift the runner image carries, so the
+  # formatter's version is chosen here and not by an image refresh.
+  swift-format:
+    name: swift-format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the native Swift player
+        run: |
+          swift format lint \
+            --configuration .swift-format \
+            --recursive \
+            Sources/RcNativePlayerCore \
+            Sources/RcNativePlayerUIKit \
+            Tests/RcNativePlayerUIKitTests

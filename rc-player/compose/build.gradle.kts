@@ -260,6 +260,11 @@ val rcNativePlayerUIKitPackageZip =
       into("Sources/RcPlayerAppleFonts") { from(rootProject.file("Sources/RcPlayerAppleFonts")) }
       into("Sources/RcNativePlayerCore") { from(rootProject.file("Sources/RcNativePlayerCore")) }
       into("Sources/RcNativePlayerUIKit") { from(rootProject.file("Sources/RcNativePlayerUIKit")) }
+      // The manifest declares the test target, so its sources and fixtures ship with it: SwiftPM
+      // refuses a root package whose declared target directory is missing.
+      into("Tests/RcNativePlayerUIKitTests") {
+        from(rootProject.file("Tests/RcNativePlayerUIKitTests"))
+      }
     }
   }
 

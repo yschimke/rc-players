@@ -1,8 +1,11 @@
+import CoreGraphics
 import Foundation
+import Testing
 
-@main
-enum NativeResourcePolicyTests {
-  static func main() throws {
+@testable import RcNativePlayerUIKit
+
+@Suite struct NativeResourcePolicyTests {
+  @Test func resourcePolicy() throws {
     var total = 0
     let limits = RemoteComposeNativeResourceLimits(
       maximumResourceBytes: 16,
@@ -13,9 +16,9 @@ enum NativeResourcePolicyTests {
       maximumResourceCount: 2)
     try NativeResourcePolicy.validate(
       id: 1, byteCount: 12, width: 4, height: 4, runningTotal: &total, limits: limits)
-    precondition(total == 12)
+    #expect(total == 12)
     let reference = try NativeResourcePolicy.reference(from: Data("image.png".utf8), id: 1)
-    precondition(reference == "image.png")
+    #expect(reference == "image.png")
     try NativeResourcePolicy.validateUniqueIDs([1, 2])
 
     expect(.resourceTooLarge(id: 2, actual: 17, maximum: 16)) { runningTotal in
@@ -50,22 +53,19 @@ enum NativeResourcePolicyTests {
         limits: RemoteComposeNativeResourceLimits(maximumDecodedImageBytes: 0))
     }
 
-    let fontURL = URL(fileURLWithPath: #filePath)
-      .deletingLastPathComponent()
-      .appendingPathComponent("Fixtures/fonts/Roboto-Regular.ttf")
-    let originalFont = try Data(contentsOf: fontURL)
+    let originalFont = try NativeTestFixtures.data("fonts/Roboto-Regular.ttf")
     // A trailing padding byte preserves the valid font and PostScript name while making the
     // registration data differ, exercising replacement after the previous registry is gone.
     let replacementFont = originalFont + Data([0])
     func registerAndRelease(_ data: Data) throws {
       let registry = NativeFontRegistry(countLimit: 1)
       let name = try registry.register(data: data, id: 1)
-      precondition(name == "Roboto-Regular")
+      #expect(name == "Roboto-Regular")
     }
     try registerAndRelease(originalFont)
     let replacementRegistry = NativeFontRegistry(countLimit: 1)
     let replacementName = try replacementRegistry.register(data: replacementFont, id: 2)
-    precondition(replacementName == "Roboto-Regular")
+    #expect(replacementName == "Roboto-Regular")
     replacementRegistry.reset()
 
     let fit = NativeImageGeometry.destination(
@@ -73,55 +73,56 @@ enum NativeResourcePolicyTests {
       destination: CGRect(x: 10, y: 20, width: 100, height: 100),
       scaleType: 4,
       scaleFactor: 1)
-    precondition(fit == CGRect(x: 10, y: 45, width: 100, height: 50))
+    #expect(fit == CGRect(x: 10, y: 45, width: 100, height: 50))
     let crop = NativeImageGeometry.destination(
       source: CGRect(x: 0, y: 0, width: 200, height: 100),
       destination: CGRect(x: 10, y: 20, width: 100, height: 100),
       scaleType: 5,
       scaleFactor: 1)
-    precondition(crop == CGRect(x: -40, y: 20, width: 200, height: 100))
+    #expect(crop == CGRect(x: -40, y: 20, width: 200, height: 100))
     let huge = NativeImageGeometry.destination(
       source: CGRect(x: 0, y: 0, width: 2, height: 1),
       destination: CGRect(x: 0, y: 0, width: 1e100, height: 1e100),
       scaleType: 4,
       scaleFactor: 1)
-    precondition(huge.width.isFinite && huge.height.isFinite)
-    precondition(
+    #expect(huge.width.isFinite && huge.height.isFinite)
+    #expect(
       NativeImageGeometry.destination(
         source: CGRect(x: 0, y: 0, width: 2, height: 1),
         destination: CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 1),
         scaleType: 6,
         scaleFactor: 1) == .zero)
-    print("native UIKit resource policy tests: ok")
   }
 
-  private static func expect(
+  private func expect(
     _ expected: RemoteComposeNativeResourceError,
     initialTotal: Int = 0,
+    sourceLocation: SourceLocation = #_sourceLocation,
     operation: (inout Int) throws -> Void
   ) {
     var total = initialTotal
     do {
       try operation(&total)
-      preconditionFailure("expected \(expected)")
+      Issue.record("expected \(expected)", sourceLocation: sourceLocation)
     } catch let error as RemoteComposeNativeResourceError {
-      precondition(error == expected)
+      #expect(error == expected, sourceLocation: sourceLocation)
     } catch {
-      preconditionFailure("unexpected error: \(error)")
+      Issue.record("unexpected error: \(error)", sourceLocation: sourceLocation)
     }
   }
 
-  private static func expectError(
+  private func expectError(
     _ expected: RemoteComposeNativeResourceError,
+    sourceLocation: SourceLocation = #_sourceLocation,
     operation: () throws -> Void
   ) {
     do {
       try operation()
-      preconditionFailure("expected \(expected)")
+      Issue.record("expected \(expected)", sourceLocation: sourceLocation)
     } catch let error as RemoteComposeNativeResourceError {
-      precondition(error == expected)
+      #expect(error == expected, sourceLocation: sourceLocation)
     } catch {
-      preconditionFailure("unexpected error: \(error)")
+      Issue.record("unexpected error: \(error)", sourceLocation: sourceLocation)
     }
   }
 }
