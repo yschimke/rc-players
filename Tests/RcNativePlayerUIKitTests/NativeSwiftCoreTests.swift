@@ -1182,6 +1182,109 @@ import Testing
           + "\(String(describing: describedSnapshot.root.accessibility))"))
   }
 
+  // MARK: - Graphics-layer attribute ids (#423)
+  //
+  // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:
+  // 5/6 used to be read as the translation and 8 as the alpha.
+
+  @Test func graphicsLayerScaleAndRotation() throws {
+    let layer = try graphicsLayerSnapshot([
+      (NativeSwiftGraphicsLayerAttribute.scaleX, 2),
+      (NativeSwiftGraphicsLayerAttribute.scaleY, 3),
+      (NativeSwiftGraphicsLayerAttribute.rotationZ, 45),
+    ])
+    #expect(layer.scaleX == 2)
+    #expect(layer.scaleY == 3)
+    #expect(layer.rotationZ == 45)
+    #expect(layer.translationX == 0 && layer.translationY == 0)
+    #expect(layer.alpha == 1)
+    #expect(layer.transformOriginX == 0.5 && layer.transformOriginY == 0.5)
+  }
+
+  @Test func graphicsLayerTranslationIsSevenAndEight() throws {
+    let layer = try graphicsLayerSnapshot([
+      (NativeSwiftGraphicsLayerAttribute.translationX, 12),
+      (NativeSwiftGraphicsLayerAttribute.translationY, -7),
+    ])
+    #expect(layer.translationX == 12)
+    #expect(layer.translationY == -7)
+    #expect(layer.alpha == 1, "TRANSLATION_Y (8) was read as the alpha")
+    #expect(layer.transformOriginX == 0.5 && layer.transformOriginY == 0.5)
+    #expect(!layer.isIdentity)
+  }
+
+  @Test func graphicsLayerTransformOriginIsFiveAndSix() throws {
+    let layer = try graphicsLayerSnapshot([
+      (NativeSwiftGraphicsLayerAttribute.transformOriginX, 0.25),
+      (NativeSwiftGraphicsLayerAttribute.transformOriginY, 1),
+    ])
+    #expect(layer.transformOriginX == 0.25)
+    #expect(layer.transformOriginY == 1)
+    #expect(
+      layer.translationX == 0 && layer.translationY == 0,
+      "TRANSFORM_ORIGIN (5/6) was read as the translation")
+    // A pivot alone moves nothing.
+    #expect(layer.isIdentity)
+  }
+
+  @Test func graphicsLayerWrittenTopLeftOriginIsKept() throws {
+    // A written 0 is a pivot, not a missing attribute; only an absent one is the centre.
+    let layer = try graphicsLayerSnapshot([
+      (NativeSwiftGraphicsLayerAttribute.transformOriginX, 0),
+      (NativeSwiftGraphicsLayerAttribute.scaleX, -1),
+    ])
+    #expect(layer.transformOriginX == 0)
+    #expect(layer.transformOriginY == 0.5)
+    #expect(layer.scaleX == -1)
+  }
+
+  @Test func graphicsLayerAlphaIsEleven() throws {
+    let layer = try graphicsLayerSnapshot([(NativeSwiftGraphicsLayerAttribute.alpha, 0.4)])
+    #expect(layer.alpha == 0.4)
+    #expect(layer.translationX == 0 && layer.translationY == 0)
+    #expect(layer.scaleX == 1 && layer.scaleY == 1 && layer.rotationZ == 0)
+    #expect(!layer.isIdentity)
+  }
+
+  @Test func graphicsLayerUnappliedAttributesLeaveTheLayerAlone() throws {
+    // Parsed and deliberately not applied: none of these may leak into a 2D field.
+    let layer = try graphicsLayerSnapshot([
+      (NativeSwiftGraphicsLayerAttribute.rotationX, 30),
+      (NativeSwiftGraphicsLayerAttribute.rotationY, 60),
+      (NativeSwiftGraphicsLayerAttribute.translationZ, 4),
+      (NativeSwiftGraphicsLayerAttribute.shadowElevation, 8),
+      (NativeSwiftGraphicsLayerAttribute.cameraDistance, 16),
+    ])
+    #expect(
+      layer
+        == NativeSwiftGraphicsLayerSnapshot(
+          scaleX: 1, scaleY: 1, translationX: 0, translationY: 0, rotationZ: 0, alpha: 1,
+          transformOriginX: 0.5, transformOriginY: 0.5))
+    #expect(layer.isIdentity)
+  }
+
+  @Test func graphicsLayerSnapshotInitDefaultsToACentredOrigin() {
+    let layer = NativeSwiftGraphicsLayerSnapshot(
+      scaleX: 1, scaleY: 1, translationX: 0, translationY: 0, rotationZ: 0, alpha: 1)
+    #expect(layer.transformOriginX == 0.5 && layer.transformOriginY == 0.5)
+  }
+
+  /// Decodes a column carrying one MODIFIER_GRAPHICS_LAYER of float attributes and returns the
+  /// layer the snapshot resolved for it.
+  private func graphicsLayerSnapshot(
+    _ attributes: [(id: Int, value: Float)],
+    sourceLocation: SourceLocation = #_sourceLocation
+  ) throws -> NativeSwiftGraphicsLayerSnapshot {
+    let snapshot = try NativeSwiftDocumentSession.open(data: graphicsLayerDocument(attributes))
+      .snapshot()
+    let column = try #require(
+      snapshot.root.children.first?.children.first,
+      "the graphics-layer fixture decoded no child component", sourceLocation: sourceLocation)
+    return try #require(
+      column.graphicsLayer, "the graphics-layer modifier did not reach the snapshot",
+      sourceLocation: sourceLocation)
+  }
+
   // MARK: - Regressions for #397
   //
   // Each malformed document here used to trap the process instead of failing the open or
@@ -1326,6 +1429,23 @@ import Testing
     output.u8(16).int(1).float(1)  // .fillMaxWidth()
     output.u8(67).int(6).float(64)  // height(64.dp)
     output.u8(67).int(1).float(1)  // .fillMaxHeight()
+    output.u8(201).int(-5)
+    for _ in 0..<4 { output.u8(214) }
+    return output.data
+  }
+
+  /// A root holding one column with a graphics-layer modifier of float attributes. Each tag is the
+  /// attribute id with data type 1 (float) in bits 10-11.
+  private func graphicsLayerDocument(_ attributes: [(id: Int, value: Float)]) -> Data {
+    let output = Writer()
+    output.header(width: 200, height: 200)
+    output.u8(200).int(-2)
+    output.u8(201).int(-3)
+    output.u8(204).int(-4).int(0).int(1).int(4).float(0)
+    output.u8(NativeSwiftWireOpcode.modifierGraphicsLayer).int(attributes.count)
+    for attribute in attributes {
+      output.int(attribute.id | (1 << 10)).float(attribute.value)
+    }
     output.u8(201).int(-5)
     for _ in 0..<4 { output.u8(214) }
     return output.data
