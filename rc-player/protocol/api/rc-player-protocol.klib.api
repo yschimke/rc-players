@@ -2980,8 +2980,10 @@ final class ee.schimke.composeai.rcplayer.protocol/RcOperationBudget { // ee.sch
 }
 
 final class ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry { // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry|null[0]
-    constructor <init>(kotlin/Int, kotlin/String, kotlin/String, kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcOperationStatus) // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.<init>|<init>(kotlin.Int;kotlin.String;kotlin.String;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcOperationStatus){}[0]
+    constructor <init>(kotlin/Int, kotlin/String, kotlin/String, kotlin/Int, ee.schimke.composeai.rcplayer.protocol/RcOperationStatus, kotlin/String?) // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.<init>|<init>(kotlin.Int;kotlin.String;kotlin.String;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcOperationStatus;kotlin.String?){}[0]
 
+    final val androidxClassName // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.androidxClassName|{}androidxClassName[0]
+        final fun <get-androidxClassName>(): kotlin/String? // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.androidxClassName.<get-androidxClassName>|<get-androidxClassName>(){}[0]
     final val cluster // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.cluster|{}cluster[0]
         final fun <get-cluster>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.cluster.<get-cluster>|<get-cluster>(){}[0]
     final val constantName // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.constantName|{}constantName[0]
@@ -2998,7 +3000,8 @@ final class ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry { /
     final fun component3(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.component3|component3(){}[0]
     final fun component4(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.component4|component4(){}[0]
     final fun component5(): ee.schimke.composeai.rcplayer.protocol/RcOperationStatus // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.component5|component5(){}[0]
-    final fun copy(kotlin/Int = ..., kotlin/String = ..., kotlin/String = ..., kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcOperationStatus = ...): ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.copy|copy(kotlin.Int;kotlin.String;kotlin.String;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcOperationStatus){}[0]
+    final fun component6(): kotlin/String? // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.component6|component6(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/String = ..., kotlin/String = ..., kotlin/Int = ..., ee.schimke.composeai.rcplayer.protocol/RcOperationStatus = ..., kotlin/String? = ...): ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.copy|copy(kotlin.Int;kotlin.String;kotlin.String;kotlin.Int;ee.schimke.composeai.rcplayer.protocol.RcOperationStatus;kotlin.String?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.protocol/RcOperationInventoryEntry.toString|toString(){}[0]
