@@ -3,7 +3,7 @@ import CoreGraphics
   import RcNativePlayerCore
 #endif
 
-struct NativeGradient {
+struct NativeGradient: Equatable {
   let kind: Int
   let colors: [CGColor]
   let stops: [CGFloat]

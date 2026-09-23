@@ -1,6 +1,6 @@
 import CoreGraphics
 
-struct NativePathElement {
+struct NativePathElement: Equatable {
   let kind: Int
   let values: [CGFloat]
 }
