@@ -1,6 +1,10 @@
 import CoreGraphics
 import Foundation
 
+#if canImport(RcNativePlayerCore)
+  import RcNativePlayerCore
+#endif
+
 /// Pure geometry used by the UIKit renderer. Keeping this free of UIView mutation makes layout
 /// behavior deterministic and directly testable.
 struct NativeLayoutDimension: Equatable {
@@ -16,13 +20,13 @@ struct NativeLayoutDimension: Equatable {
   func resolve(intrinsic: CGFloat, available: CGFloat) -> CGFloat {
     let proposed: CGFloat
     switch type {
-    case 0, 6:
+    case NativeSwiftDimensionType.exact, NativeSwiftDimensionType.exactDp:
       proposed = max(value, 0)
-    case 1, 7, 8:
+    case NativeSwiftDimensionType.fill, NativeSwiftDimensionType.fillParentMaxWidth, NativeSwiftDimensionType.fillParentMaxHeight:
       // The core hands a bare `fillMaxWidth()` over as 1; an explicit zero fraction stays zero.
       let fraction = value.isNaN ? 1 : max(value, 0)
       proposed = available * fraction
-    case 3:
+    case NativeSwiftDimensionType.weight:
       proposed = available
     default:
       proposed = intrinsic

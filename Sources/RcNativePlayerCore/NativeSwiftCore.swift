@@ -41,20 +41,21 @@ public enum NativeSwiftWireOpcode {
   public static let matrixVectorMath = 188
 }
 
-/// `RcDimensionType`: the width/height modifier types, as AndroidX writes them.
-enum NativeSwiftDimensionType {
-  static let exact = 0
-  static let fill = 1
-  static let wrap = 2
-  static let weight = 3
-  static let intrinsicMin = 4
-  static let intrinsicMax = 5
-  static let exactDp = 6
-  static let fillParentMaxWidth = 7
-  static let fillParentMaxHeight = 8
+/// `RcDimensionType`: the width/height modifier types, as AndroidX writes them. Shared by the core
+/// and both native renderers so none of them infers the wire meaning from a literal.
+public enum NativeSwiftDimensionType {
+  public static let exact = 0
+  public static let fill = 1
+  public static let wrap = 2
+  public static let weight = 3
+  public static let intrinsicMin = 4
+  public static let intrinsicMax = 5
+  public static let exactDp = 6
+  public static let fillParentMaxWidth = 7
+  public static let fillParentMaxHeight = 8
 
   /// The types whose value is a fill fraction.
-  static func isFill(_ type: Int) -> Bool {
+  public static func isFill(_ type: Int) -> Bool {
     type == fill || type == fillParentMaxWidth || type == fillParentMaxHeight
   }
 }
@@ -1525,7 +1526,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func stateLayoutDimension(_ node: ParsedNode, isWidth: Bool) -> Int {
     guard node.stateIndexID != nil else { return isWidth ? node.widthType : node.heightType }
-    return 2
+    return NativeSwiftDimensionType.wrap
   }
 
   /// A node's children, with a state layout's inactive branches marked GONE.
@@ -2020,10 +2021,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return value.isFinite ? value : 0
     }
     let dimensionType = type == 0 ? node.widthType : node.heightType
-    let dimensionValue = float(type == 0 ? node.widthWord : node.heightWord)
-    if dimensionType == 0 || dimensionType == 6 { return max(dimensionValue, 0) }
-    if dimensionType == 1 || dimensionType == 7 || dimensionType == 8 {
-      let fraction = dimensionValue.isNaN ? 1 : max(dimensionValue, 0)
+    let dimensionWord = type == 0 ? node.widthWord : node.heightWord
+    let dimensionValue = float(dimensionWord)
+    if dimensionType == NativeSwiftDimensionType.exact || dimensionType == NativeSwiftDimensionType.exactDp {
+      return max(dimensionValue, 0)
+    }
+    if NativeSwiftDimensionType.isFill(dimensionType) {
+      // A bare fill writes the canonical NaN, which `float` would resolve to 0; the reference
+      // reads it as a fraction of 1.
+      let fraction = dimensionWord == Float.nan.bitPattern ? 1 : max(dimensionValue, 0)
       return ancestorDimension(of: node, type: type, available: available, values: values)
         * fraction
     }
@@ -2032,7 +2038,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // contains a fill canvas measure the whole document, because the fill's own estimate resolved
     // to `available`.
     let children = flattenedChildren(of: node, values: values).filter {
-      !isFillDimension(type == 0 ? $0.widthType : $0.heightType)
+      !NativeSwiftDimensionType.isFill(type == 0 ? $0.widthType : $0.heightType)
     }
     let childDimensions = children.map {
       estimatedDimension(of: $0, type: type, available: available, values: values)
@@ -2079,8 +2085,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     while let candidate = current, depth < 64 {
       let dimensionType = type == 0 ? candidate.widthType : candidate.heightType
       let dimensionValue = float(type == 0 ? candidate.widthWord : candidate.heightWord)
-      if dimensionType == 0 || dimensionType == 6 { return max(dimensionValue, 0) }
-      if !isFillDimension(dimensionType) {
+      if dimensionType == NativeSwiftDimensionType.exact || dimensionType == NativeSwiftDimensionType.exactDp {
+        return max(dimensionValue, 0)
+      }
+      if !NativeSwiftDimensionType.isFill(dimensionType) {
         let intrinsic = estimatedDimension(
           of: candidate, type: type, available: available, values: values)
         if intrinsic > 0 { return intrinsic }
@@ -2091,9 +2099,6 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return available
   }
 
-  private func isFillDimension(_ dimensionType: Int) -> Bool {
-    dimensionType == 1 || dimensionType == 7 || dimensionType == 8
-  }
 
   /// Flattens a bare content wrapper into its parent for measurement.
   ///
@@ -2106,7 +2111,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       NativeSwiftFloatExpression.resolve(word, values: values) == 0
     }
     return node.children.flatMap { child in
-      if child.kind == .content, child.widthType == 2, child.heightType == 2,
+      if child.kind == .content, child.widthType == NativeSwiftDimensionType.wrap, child.heightType == NativeSwiftDimensionType.wrap,
         isZero(child.paddingWords.left), isZero(child.paddingWords.top),
         isZero(child.paddingWords.right), isZero(child.paddingWords.bottom)
       {
@@ -3233,9 +3238,9 @@ private final class ParsedNode {
   var isClickable = false
   var actions: [NativeSwiftGestureKind: [ParsedAction]] = [:]
   var accessibility: ParsedAccessibility?
-  var widthType = 2
+  var widthType = NativeSwiftDimensionType.wrap
   var widthWord: UInt32 = 0
-  var heightType = 2
+  var heightType = NativeSwiftDimensionType.wrap
   var heightWord: UInt32 = 0
   var paddingWords = ParsedInsetWords()
   var minimumWidthWord: UInt32 = 0
@@ -4584,7 +4589,7 @@ private enum NativeSwiftDocumentDecoder {
         // document's full width — 454 instead of 344, the largest single divergence on the catalog
         // corpus. `WRAP` is the absence of a size modifier rather than one of its own, so it never
         // claims the slot and never displaces what an earlier modifier set.
-        if node.widthType == 2 {
+        if node.widthType == NativeSwiftDimensionType.wrap {
           node.widthType = widthType
           node.widthWord = widthWord
         }
@@ -4619,7 +4624,7 @@ private enum NativeSwiftDocumentDecoder {
         let heightType = try input.dimensionType("height type")
         let heightWord = try input.word("height")
         // See `case 16`: the outer modifier of a chain decides, and `WRAP` is not a modifier.
-        if node.heightType == 2 {
+        if node.heightType == NativeSwiftDimensionType.wrap {
           node.heightType = heightType
           node.heightWord = heightWord
         }

@@ -1061,18 +1061,6 @@ private struct MacInsets: Equatable {
   static let zero = MacInsets(top: 0, left: 0, bottom: 0, right: 0)
 }
 
-/// `RcDimensionType` mirrored locally so the AppKit host never has to infer wire meanings from
-/// numeric literals. Keep these values in step with `rc-player-protocol`'s public model.
-private enum NativeMacDimensionType {
-  static let exact = 0
-  static let fill = 1
-  static let wrap = 2
-  static let weight = 3
-  static let exactDp = 6
-  static let fillParentMaxWidth = 7
-  static let fillParentMaxHeight = 8
-}
-
 /// AndroidX `LayoutComponentContent` positioning values used by linear layout placement.
 private enum NativeMacPositioning {
   static let center = 2
@@ -2103,8 +2091,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   private var isStructural: Bool {
     (node.kind == .content || (node.kind == .canvas && node.commands.isEmpty))
       && node.text == nil && node.custom == nil && !node.clickable && !node.hasBackground
-      && node.widthType == NativeMacDimensionType.wrap
-      && node.heightType == NativeMacDimensionType.wrap && node.minimumHeight == 0
+      && node.widthType == NativeSwiftDimensionType.wrap
+      && node.heightType == NativeSwiftDimensionType.wrap && node.minimumHeight == 0
       && node.paddingTop == 0 && node.paddingLeft == 0 && node.paddingBottom == 0
       && node.paddingRight == 0
   }
@@ -2183,7 +2171,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         ? child.node.collapsiblePriority : nil
       return NativeSwiftCollapsible.Child(
         mainSize: Float(axis == .vertical ? size.height : size.width),
-        weight: weightType == NativeMacDimensionType.weight ? Float(max(weightValue, 0)) : 0,
+        weight: weightType == NativeSwiftDimensionType.weight ? Float(max(weightValue, 0)) : 0,
         priority: priority)
     }
     let extent = axis == .vertical ? available.height : available.width
@@ -2392,7 +2380,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
         spacing: node.isCollapsible ? spacing : 0),
       naturalSizes: natural.map(\.height),
       weights: items.map {
-        $0.node.heightType == NativeMacDimensionType.weight
+        $0.node.heightType == NativeSwiftDimensionType.weight
           ? max(CGFloat($0.node.heightValue), .leastNonzeroMagnitude) : nil
       })
     let heights = zip(items, zip(natural, allocated)).map {
@@ -2485,7 +2473,7 @@ private typealias MacFlowLine = (
     let children = items.map { child in
       NativeSwiftFlow.Child(
         measuredWidth: Float(child.preferredSize(in: available).width),
-        weight: child.node.widthType == NativeMacDimensionType.weight
+        weight: child.node.widthType == NativeSwiftDimensionType.weight
           ? Float(max(child.node.widthValue, 0)) : 0,
         minimumWidth: Float(child.node.minimumWidth))
     }
@@ -2548,7 +2536,7 @@ private typealias MacFlowLine = (
         spacing: node.isCollapsible ? spacing : 0),
       naturalSizes: natural.map(\.width),
       weights: items.map {
-        $0.node.widthType == NativeMacDimensionType.weight
+        $0.node.widthType == NativeSwiftDimensionType.weight
           ? max(CGFloat($0.node.widthValue), .leastNonzeroMagnitude) : nil
       })
     let positions = NativeLinearLayout.positions(
