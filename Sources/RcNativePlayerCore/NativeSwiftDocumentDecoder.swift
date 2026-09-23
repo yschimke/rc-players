@@ -1202,10 +1202,11 @@ enum NativeSwiftDocumentDecoder {
         let outputID = try input.int("text from float output id")
         let value = try input.word("text from float value")
         let digits = UInt32(bitPattern: Int32(try input.int("text from float digits")))
-        _ = try input.int("text from float flags")
+        let flags = try input.int("text from float flags")
         let conversion = ParsedTextFromFloat(
             outputID: outputID, value: value,
-            digitsAfter: Int(Int16(bitPattern: UInt16(digits & 0xffff))))
+            digitsBefore: Int(Int16(bitPattern: UInt16(digits >> 16))),
+            digitsAfter: Int(Int16(bitPattern: UInt16(digits & 0xffff))), flags: flags)
         textFromFloats.append(conversion)
         textOperations.append(.fromFloat(conversion))
       case NativeSwiftWireOpcode.textMerge:
