@@ -259,7 +259,7 @@ private class CmpSession(
    * platform does: nothing scrolls until the pointer has moved `touchSlop`, and only the movement
    * past it scrolls. The corpus measures the second part — how the document answers a drag — so the
    * lane pays the recognizer's slop up front, in the drag's own direction, rather than asking the
-   * player to drop platform gesture recognition. Recorded in `RC_CONFORMANCE_PUSHBACK.md` §12.
+   * player to drop platform gesture recognition. Recorded in `RC_CONFORMANCE_PUSHBACK.md` §18.
    */
   private var slopAllowance = Offset.Zero
 
