@@ -1634,6 +1634,21 @@ enum NativeSwiftDocumentDecoder {
         node.flowMaximumItems = try input.int("flow maximum items in each row")
         node.flowMaximumLines = try input.int("flow maximum lines")
         try begin(node)
+      case NativeSwiftWireOpcode.modifierAlignBy:  // Align-by (baseline) modifier
+        // FLOAT line, INT flags. It aligns a Row child by a text baseline; a child with no text has
+        // no baseline, and the reference then leaves it at the row's own vertical positioning. That
+        // is all this player does with it: baseline alignment of text children is not modelled yet.
+        _ = try currentNode(stack, input: input)
+        _ = try input.word("align by line")
+        _ = try input.int("align by flags")
+      case NativeSwiftWireOpcode.clickArea:  // Legacy click area
+        // INT id, INT content description id, four FLOAT bounds words, INT metadata id. A
+        // pre-layout document registers these for the host to hit-test. They draw nothing, and
+        // hosts do not hit-test them yet, so a click inside one is not reported.
+        _ = try input.int("click area id")
+        _ = try input.int("click area content description id")
+        for _ in 0..<4 { _ = try input.word("click area bounds") }
+        _ = try input.int("click area metadata id")
       case NativeSwiftWireOpcode.modifierZindex:  // Z-index modifier
         try currentNode(stack, input: input).zIndexWord = try input.word("z-index")
       case NativeSwiftWireOpcode.modifierOffset:  // Offset modifier

@@ -1406,6 +1406,20 @@ import Testing
           + "\(String(describing: describedSnapshot.root.accessibility))"))
   }
 
+  /// A pre-layout `ClickArea` draws nothing and must not stop the document loading.
+  @Test func legacyClickAreaLoads() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(64).int(7).int(0).float(0).float(0).float(50).float(50).int(0)
+    document.u8(80).int(60).float(101)
+    let values = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0)
+    #expect(
+      values.floats[60] == 101,
+      Comment(rawValue: "float 60: \(String(describing: values.floats[60]))"))
+  }
+
   /// `conditional_nested_branches`: paths number conditionals within their own nesting, one in a
   /// branch that did not run is still traced as not executed, and `executedChildOps` counts the
   /// direct children of a branch that ran.

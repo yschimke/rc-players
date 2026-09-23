@@ -181,7 +181,7 @@ the animation the document asks for.
 **Ask:** make mid-transition layout checks advisory, or record them from a clock that advances 1/60 s
 per frame.
 
-## 9. Value checks that read back the document's own constant
+## 12. Value checks that read back the document's own constant
 
 These entries came out of the native-appkit review of the 2026-09-23 run (`ee18643`).
 
@@ -203,14 +203,14 @@ none.
 long and boolean values through a typed probe, debug and sound as recorded events.
 **Settled by:** checks that fail for a parse-only implementation.
 
-## 10. `clock_time_attribute_from_load` tests the month
+## 13. `clock_time_attribute_from_load` tests the month
 
 Its `TimeAttribute` uses type 10, `TIME_MONTH_VALUE`, and expects 10 (November, zero-based).
 `TIME_FROM_LOAD_SEC` is type 14, and no gold tests it.
 
 **Ask:** rename this gold, and add one for `TIME_FROM_LOAD_SEC`.
 
-## 11. Clock golds with no `clock_snapshot` still depend on the host's zone
+## 14. Clock golds with no `clock_snapshot` still depend on the host's zone
 
 `clock_time_attribute_calendar_date` and `clock_time_attribute_day_of_week` read the instant
 1 700 000 000 000 ms, 2023-11-14T22:13:20Z, from a `LongConstant`, and expect day 14 and weekday 1
@@ -220,7 +220,7 @@ east of UTC that instant is the 15th, a Wednesday. §5's missing zone applies he
 
 **Ask:** declare the zone in `harness`, or pick an instant near midday UTC.
 
-## 12. `text_attribute_and_transform` cannot fail
+## 15. `text_attribute_and_transform` cannot fail
 
 It asserts 110.7421875 for the width of "TransformSample". That depends on the font, and the harness
 declares no `text_metrics`. It also carries `"tolerance": 1000`, so any value from −890 to 1111
@@ -228,7 +228,7 @@ passes — including the 0 a player with no text metrics reports.
 
 **Ask:** declare `text_metrics: "ahem"` and a real tolerance, or assert the length selector.
 
-## 13. `colortheme_theme_light_dark_switch` sets no theme and switches nothing
+## 16. `colortheme_theme_light_dark_switch` sets no theme and switches nothing
 
 Its document is `THEME(1)` followed by one `ColorConstant`. AndroidX's themes are `UNSPECIFIED` (-1),
 `DARK` (-2) and `LIGHT` (-3); 1 is none of them, and the timeline is a single paint, so nothing
@@ -236,7 +236,7 @@ switches. The check asserts the constant's own value.
 
 **Ask:** use `THEME_DARK`/`THEME_LIGHT`, and add `theme` steps as `color_theme_mode_switching` does.
 
-## 14. `matrix_constant_3x3_and_4x4` expands a 3×3 matrix inconsistently
+## 17. `matrix_constant_3x3_and_4x4` expands a 3×3 matrix inconsistently
 
 The gold declares the 3×3 matrix `[2, 0, 5, 0, 3, 7, 0, 0, 1]` and applies it to `(1, 1, 0)` with
 `MATRIX_VECTOR_MATH` type 0, which adds each row's translation. It expects `(7, 3, 0)`: row 0 adds
