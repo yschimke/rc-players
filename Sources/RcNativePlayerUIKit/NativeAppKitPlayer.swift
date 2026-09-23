@@ -3020,13 +3020,41 @@ private typealias MacFlowLine = (
     if label.maximumNumberOfLines != text.maximumLines {
       label.maximumNumberOfLines = text.maximumLines
     }
-    let lineBreakMode: NSLineBreakMode =
-      text.overflow == NativeSwiftTextOverflow.visible ? .byTruncatingTail : .byWordWrapping
+    let lineBreakMode = Self.lineBreakMode(
+      overflow: text.overflow, maximumLines: text.maximumLines)
     if label.lineBreakMode != lineBreakMode { label.lineBreakMode = lineBreakMode }
-    let alignment: NSTextAlignment =
-      text.alignment == NativeSwiftTextAlignment.right
-      ? .center : (text.alignment == NativeSwiftTextAlignment.center ? .right : .left)
+    let alignment = Self.alignment(
+      text.alignment, direction: label.userInterfaceLayoutDirection)
     if label.alignment != alignment { label.alignment = alignment }
+  }
+
+  /// The shared `NativeTextPolicy` alignment, so AppKit and UIKit resolve start/end, RTL and the
+  /// explicit values identically.
+  private static func alignment(
+    _ value: Int, direction: NSUserInterfaceLayoutDirection
+  ) -> NSTextAlignment {
+    switch NativeTextPolicy.alignment(
+      value: value, justified: false,
+      direction: direction == .rightToLeft ? .rightToLeft : .leftToRight
+    ) {
+    case .left: return .left
+    case .right: return .right
+    case .center: return .center
+    case .justified: return .justified
+    }
+  }
+
+  /// The shared `NativeTextPolicy` line break. An `NSTextField` only wraps under a wrapping mode,
+  /// so a multi-line clipped label wraps and is clipped by its frame rather than being cut to one
+  /// line by `.byClipping`.
+  private static func lineBreakMode(overflow: Int, maximumLines: Int) -> NSLineBreakMode {
+    switch NativeTextPolicy.lineBreak(overflow: overflow) {
+    case .clip: return maximumLines > 1 ? .byWordWrapping : .byClipping
+    case .wordWrap: return .byWordWrapping
+    case .tail: return .byTruncatingTail
+    case .head: return .byTruncatingHead
+    case .middle: return .byTruncatingMiddle
+    }
   }
 
   private static func makeImageView(
