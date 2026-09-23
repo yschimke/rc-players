@@ -263,7 +263,10 @@ native AppKit host. Their public configuration, typed host events, downloadable-
 controller writes are forwarded to the native host. The ordinary `RcComposePlayerSwiftUI` SwiftPM
 target still declares the Kotlin XCFramework because SwiftPM resolves declared binary targets before
 the compiler evaluates `canImport`; use the `RcNativePlayerUIKit` product directly, or compile the
-source overlay with that target, for a deliberately no-XCFramework integration.
+source overlay with that target, for a deliberately no-XCFramework integration. For the supplied
+package manifest, set `RC_COMPOSE_PLAYER_NATIVE_ONLY=1` while resolving or building; that mode
+removes the Kotlin binary target from the package graph and makes `RcComposePlayerSwiftUI` select
+the native UIKit/AppKit fallback.
 
 **"Works exactly as written" is checked, not asserted.**
 `scripts/check-swift-sample.sh` compiles the source overlay for iOS and macOS, then extracts the
