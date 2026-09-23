@@ -453,7 +453,7 @@
     }
   }
 
-  struct NativeDrawCommand {
+  struct NativeDrawCommand: Equatable {
     let kind: Int
     let values: [CGFloat]
     let color: UIColor
@@ -567,7 +567,7 @@
     }
   }
 
-  struct NativeImageDraw {
+  struct NativeImageDraw: Equatable {
     let imageID: Int
     let source: CGRect
     let destination: CGRect
@@ -577,7 +577,7 @@
 
   }
 
-  struct NativeTextStyle {
+  struct NativeTextStyle: Equatable {
     let fontStyle: Int
     let fontFamilyID: Int
     let fontFamilyName: String?
@@ -2367,11 +2367,41 @@
     }
   }
 
+  /// Everything a `NativeCanvasView` draw depends on, compared exactly so no change is missed.
+  ///
+  /// Images are compared by identity, and only those a command references. The key holds the
+  /// images themselves rather than `ObjectIdentifier`s so a freed image's address cannot be reused
+  /// by a new one and read as unchanged.
+  private struct NativeCanvasRenderKey: Equatable {
+    let commands: [NativeDrawCommand]
+    let images: [Int: UIImage]
+    let fontNames: [Int: String]
+
+    init(commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]) {
+      self.commands = commands
+      var referenced: [Int: UIImage] = [:]
+      for command in commands {
+        if let id = command.image?.imageID ?? command.textureImageID, let image = images[id] {
+          referenced[id] = image
+        }
+      }
+      self.images = referenced
+      self.fontNames = fontNames
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+      lhs.commands == rhs.commands && lhs.fontNames == rhs.fontNames
+        && lhs.images.count == rhs.images.count
+        && lhs.images.allSatisfy { id, image in rhs.images[id] === image }
+    }
+  }
+
   final class NativeCanvasView: UIView {
     private var commands: [NativeDrawCommand]
     private var images: [Int: UIImage]
     private var fontNames: [Int: String]
-    private var renderSignature: Int
+    /// What the view last drew: `setNeedsDisplay()` runs only when the next update differs.
+    private var rendered: NativeCanvasRenderKey
     var documentScale: CGFloat = 1 {
       didSet { if documentScale != oldValue { setNeedsDisplay() } }
     }
@@ -2380,7 +2410,7 @@
       self.commands = commands
       self.images = images
       self.fontNames = fontNames
-      renderSignature = Self.signature(commands: commands, images: images, fontNames: fontNames)
+      rendered = NativeCanvasRenderKey(commands: commands, images: images, fontNames: fontNames)
       super.init(frame: .zero)
       isOpaque = false
       backgroundColor = .clear
@@ -2397,87 +2427,13 @@
     func update(
       commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]
     ) {
-      let nextSignature = Self.signature(commands: commands, images: images, fontNames: fontNames)
+      let next = NativeCanvasRenderKey(commands: commands, images: images, fontNames: fontNames)
       self.commands = commands
       self.images = images
       self.fontNames = fontNames
-      guard nextSignature != renderSignature else { return }
-      renderSignature = nextSignature
+      guard next != rendered else { return }
+      rendered = next
       setNeedsDisplay()
-    }
-
-    private static func signature(
-      commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]
-    ) -> Int {
-      var hasher = Hasher()
-      for command in commands {
-        hasher.combine(command.kind)
-        command.values.forEach { hasher.combine($0) }
-        command.color.cgColor.components?.forEach { hasher.combine($0) }
-        hasher.combine(command.alpha)
-        hasher.combine(command.strokeWidth)
-        hasher.combine(command.isStroke)
-        hasher.combine(command.strokeCap)
-        hasher.combine(command.strokeJoin)
-        hasher.combine(command.blendMode)
-        hasher.combine(command.usesComponentGeometry)
-        hasher.combine(command.textSize)
-        hasher.combine(command.textWeight)
-        hasher.combine(command.text)
-        hasher.combine(command.textStyle.fontStyle)
-        hasher.combine(command.textStyle.fontFamilyID)
-        hasher.combine(command.textStyle.fontFamilyName)
-        hasher.combine(command.textStyle.alignment)
-        hasher.combine(command.textStyle.overflow)
-        hasher.combine(command.textStyle.maxLines)
-        hasher.combine(command.textStyle.letterSpacing)
-        hasher.combine(command.textStyle.lineHeightAdd)
-        hasher.combine(command.textStyle.lineHeightMultiplier)
-        hasher.combine(command.textStyle.breakStrategy)
-        hasher.combine(command.textStyle.hyphenation)
-        hasher.combine(command.textStyle.isJustified)
-        hasher.combine(command.textStyle.isUnderlined)
-        hasher.combine(command.textStyle.isStruckThrough)
-        for segment in command.path {
-          hasher.combine(segment.kind)
-          segment.values.forEach { hasher.combine($0) }
-        }
-        hasher.combine(command.pathWinding)
-        if let gradient = command.gradient {
-          hasher.combine(gradient.kind)
-          gradient.colors.forEach { $0.components?.forEach { hasher.combine($0) } }
-          gradient.stops.forEach { hasher.combine($0) }
-          gradient.values.forEach { hasher.combine($0) }
-          hasher.combine(gradient.tileMode)
-        }
-        if let image = command.image {
-          hasher.combine(image.imageID)
-          hasher.combine(image.source.origin.x)
-          hasher.combine(image.source.origin.y)
-          hasher.combine(image.source.size.width)
-          hasher.combine(image.source.size.height)
-          hasher.combine(image.destination.origin.x)
-          hasher.combine(image.destination.origin.y)
-          hasher.combine(image.destination.size.width)
-          hasher.combine(image.destination.size.height)
-          hasher.combine(image.scaleType)
-          hasher.combine(image.scaleFactor)
-        }
-        hasher.combine(command.textureImageID)
-        hasher.combine(command.textureTileModeX)
-        hasher.combine(command.textureTileModeY)
-        command.shaderMatrix?.forEach { hasher.combine($0) }
-        hasher.combine(command.filterQuality)
-      }
-      for id in commands.compactMap({ $0.image?.imageID ?? $0.textureImageID }).sorted() {
-        hasher.combine(id)
-        if let image = images[id] { hasher.combine(ObjectIdentifier(image)) }
-      }
-      for (id, name) in fontNames.sorted(by: { $0.key < $1.key }) {
-        hasher.combine(id)
-        hasher.combine(name)
-      }
-      return hasher.finalize()
     }
 
     override func draw(_ rect: CGRect) {
