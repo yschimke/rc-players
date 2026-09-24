@@ -13,7 +13,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
+import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import kotlin.test.Test
@@ -219,6 +221,40 @@ class RcSystemVariableTest {
     assertTrue(
       documentReading(RcSystemVariables.CONTINUOUS_SEC).referencesContinuousSystemVariable()
     )
+  }
+
+  @Test
+  fun aClockReadInAnyFieldIsFound() {
+    // A text field showing the seconds directly, and a date that has to turn over at midnight:
+    // neither is an expression, and both must still be found.
+    val seconds =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(
+          RcTextFromFloat(200, RcFloatWord(NAN_REFERENCE or RcSystemVariables.TIME_IN_SEC), 2, 0, 0)
+        ),
+      )
+    assertTrue(seconds.referencesAnyOf(RcSystemVariables.CLOCK))
+    val day =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(
+          RcTextFromFloat(
+            200,
+            RcFloatWord(NAN_REFERENCE or RcSystemVariables.DAY_OF_MONTH),
+            2,
+            0,
+            0,
+          )
+        ),
+      )
+    assertTrue(day.referencesAnyOf(RcSystemVariables.CLOCK))
+    val none =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(RcTextFromFloat(200, RcFloatWord.literal(3f), 2, 0, 0)),
+      )
+    assertFalse(none.referencesAnyOf(RcSystemVariables.CLOCK))
   }
 
   @Test
