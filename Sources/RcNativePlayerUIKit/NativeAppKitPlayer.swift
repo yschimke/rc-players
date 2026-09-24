@@ -3148,6 +3148,11 @@ private final class NativeMacCanvasView: NSView {
   /// Bitmaps already resampled for a bilinear upscale, keyed by what they were resampled from and
   /// to. `images` never changes for a canvas, so an entry stays valid for the view's lifetime.
   private var resampledImages: [ResampledImageKey: CGImage] = [:]
+  /// The pixel bytes `resampledImages` holds, bounded by `resampledCacheBytes`.
+  private var resampledBytes = 0
+  /// What one canvas keeps resampled: 32 MiB, two of the largest resamples. Bounded by bytes, not
+  /// entries, because a canvas animating an image's size makes a new entry per size.
+  private static let resampledCacheBytes = 32 << 20
 
   init(commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?) {
     self.commands = commands
@@ -3395,8 +3400,13 @@ private final class NativeMacCanvasView: NSView {
         bytesPerRow: width * 4, space: space, bitmapInfo: CGBitmapInfo(rawValue: info),
         provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
     else { return nil }
-    if resampledImages.count >= 32 { resampledImages.removeAll() }
+    let bytes = width * height * 4
+    if resampledBytes + bytes > Self.resampledCacheBytes {
+      resampledImages.removeAll()
+      resampledBytes = 0
+    }
     resampledImages[key] = result
+    resampledBytes += bytes
     return result
   }
 
