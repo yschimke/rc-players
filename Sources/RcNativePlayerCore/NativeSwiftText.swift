@@ -75,4 +75,7 @@ struct ParsedText {
   let alignment: NativeSwiftTextAlignment
   let overflow: Int
   let maximumLines: Int
+  /// `CoreText`'s autosize flag and the font-size range it searches, as float words so a variable
+  /// resolves with the frame's values. Nil when the component does not autosize.
+  var autosize: (minimumWord: UInt32?, maximumWord: UInt32?)? = nil
 }

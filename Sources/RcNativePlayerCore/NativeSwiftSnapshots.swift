@@ -823,11 +823,15 @@ public struct NativeSwiftTextSnapshot: Sendable {
   public let alignment: NativeSwiftTextAlignment
   public let overflow: Int
   public let maximumLines: Int
+  /// The font-size range `CoreText` autosizes within, or nil when it keeps `size`. The host picks
+  /// the size, because only it can measure the text: `NativeSwiftTextAutosize.fontSize` is the
+  /// search. A bound the document left out defaults as the Compose player's does (4 to 400).
+  public let autosize: NativeSwiftTextAutosize?
 
   public init(
     value: String, colorARGB: UInt32, size: Float, style: Int, weight: Float,
     familyID: Int, familyName: String? = nil, alignment: NativeSwiftTextAlignment, overflow: Int,
-    maximumLines: Int
+    maximumLines: Int, autosize: NativeSwiftTextAutosize? = nil
   ) {
     self.value = value
     self.colorARGB = colorARGB
@@ -839,6 +843,43 @@ public struct NativeSwiftTextSnapshot: Sendable {
     self.alignment = alignment
     self.overflow = overflow
     self.maximumLines = maximumLines
+    self.autosize = autosize
+  }
+}
+
+/// `CoreText` autosize: the range a host searches for the largest font the text fits its box at.
+public struct NativeSwiftTextAutosize: Equatable, Sendable {
+  public let minimumFontSize: Float
+  public let maximumFontSize: Float
+
+  public init(minimumFontSize: Float, maximumFontSize: Float) {
+    self.minimumFontSize = minimumFontSize
+    self.maximumFontSize = maximumFontSize
+  }
+
+  /// The font size the text takes: what autosize chooses, as the reference's
+  /// `CoreText.computeWrapSize` searches.
+  ///
+  /// A bisection of `[minimum, maximum]` on whether the laid-out block is *strictly* shorter than
+  /// the box, snapped down to a half-point grid from `minimum`, then one half-step more if that
+  /// still fits and stays under `maximum`. Only the search is the reference's; `fits` is the
+  /// host's own text layout, so line breaking stays native. With Ahem it reproduces the corpus:
+  /// "Autosize" in a 200 × 40 box takes 25, "Clamped Autosize" capped at 18 takes 17.5.
+  ///
+  /// - Parameter fits: whether the text, laid out at a size, is shorter than the box.
+  public func fontSize(step: Float = 0.5, fits: (Float) -> Bool) -> Float {
+    var low = minimumFontSize
+    var high = maximumFontSize
+    // Bounded, and stopped once the midpoint no longer moves: over a huge range a Float midpoint
+    // can round onto an endpoint while the bounds are still more than a step apart.
+    for _ in 0..<64 where high - low >= step {
+      let middle = (low + high) / 2
+      guard middle > low, middle < high else { break }
+      if fits(middle) { low = middle } else { high = middle }
+    }
+    var size = ((low - minimumFontSize) / step).rounded(.down) * step + minimumFontSize
+    if size + step < maximumFontSize, fits(size + step) { size += step }
+    return max(size, minimumFontSize)
   }
 }
 

@@ -1919,6 +1919,45 @@ import Testing
     }
   }
 
+  @Test func coreTextAutosizeCarriesItsRangeAndSearch() throws {
+    // `core_text_autosize_basic` and `core_text_autosize_max_clamped`: the autosize flag used to be
+    // read and dropped, so the text kept its declared size in every box.
+    func text(_ base64: String) throws -> NativeSwiftTextSnapshot {
+      let snapshot = try NativeSwiftDocumentSession.open(data: Data(base64Encoded: base64)!)
+        .snapshot()
+      func find(_ node: NativeSwiftNodeSnapshot) -> NativeSwiftTextSnapshot? {
+        node.text ?? node.children.lazy.compactMap(find).first
+      }
+      return try #require(find(snapshot.root))
+    }
+    let basic = try text(
+      "AASMAAEAAAABAAAAAAAAAAQABQAEAAAAyAAGAAQAAAAoDAkAHAAAABhjb3JlX3RleHRfYXV0b3NpemVfYmFzaWMADgAEAAACAcj////+yv////3/////AAAAAQAAAAQQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////xmAAAAKgAAAAhBdXRvc2l6Ze8AAAAqAAUB////+xlBIAAAGkLIAAAJAAAABRYBNwAAAAAAAAAAAAAAAAAAAAA/E5OUP0XFxj99/f4/gAAAAAAAAMn////61tbW1tY="
+    )
+    let clamped = try text(
+      "AASMAAEAAAABAAAAAAAAAAQABQAEAAABLAAGAAQAAACWDAkAIgAAAB5jb3JlX3RleHRfYXV0b3NpemVfbWF4X2NsYW1wZWQADgAEAAACAcj////+yv////3/////AAAAAQAAAAQQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////xmAAAAKgAAABBDbGFtcGVkIEF1dG9zaXpl7wAAACoABQH////7GUEAAAAaQZAAAAkAAAAFFgE3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q/RcXGP339/j+AAAAAAAAAyf////rW1tbW1g=="
+    )
+    #expect(basic.autosize == NativeSwiftTextAutosize(minimumFontSize: 10, maximumFontSize: 100))
+    #expect(clamped.autosize == NativeSwiftTextAutosize(minimumFontSize: 8, maximumFontSize: 18))
+    // The search over a host's layout. Here, Ahem: each character one em, lines broken wherever
+    // they fill the width, each line one em tall.
+    func ahemFits(_ characters: Int, width: Float, height: Float) -> (Float) -> Bool {
+      { size in
+        let lines = (Float(characters) * size / width).rounded(.up)
+        return max(lines, 1) * size < height
+      }
+    }
+    // "Autosize" in 200 × 40 fills the width at 25; "Clamped Autosize" stops a half-step below 18.
+    #expect(basic.autosize?.fontSize(fits: ahemFits(8, width: 200, height: 40)) == 25)
+    #expect(clamped.autosize?.fontSize(fits: ahemFits(16, width: 300, height: 150)) == 17.5)
+    // `core_text_autosize_height_driven`: strictly shorter than a 24-point box is 23.5.
+    let heightDriven = NativeSwiftTextAutosize(minimumFontSize: 10, maximumFontSize: 80)
+    #expect(heightDriven.fontSize(fits: ahemFits(15, width: 500, height: 24)) == 23.5)
+    // A range so wide that a Float midpoint rounds onto an endpoint still ends, near the edge.
+    let huge = NativeSwiftTextAutosize(minimumFontSize: 1, maximumFontSize: 1_000_000_000)
+    let chosen = huge.fontSize { $0 < 500_000_000 }
+    #expect(chosen < 500_000_000 && chosen > 499_000_000)
+  }
+
   @Test func amplifyingLoopIsMalformed() {
     let document = Writer()
     document.header(width: 100, height: 100)
