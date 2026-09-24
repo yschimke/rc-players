@@ -2216,21 +2216,35 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     return NSLayoutManager().defaultLineHeight(for: font).rounded(.up)
   }
 
-  /// The size a `CoreText` component's text takes within `maxWidth`, by the reference's line rules
-  /// (`NativeTextPolicy.layoutLines`) over this font's advances — not the field's own fitting
-  /// size, which adds its cell padding and counts a wrapped line's trailing space.
+  /// The size a `CoreText` component's text takes within `maxWidth`, laid out by TextKit as the
+  /// UIKit renderer measures it: no line-fragment padding, the policy's line count, and a
+  /// truncating last line under an ellipsis. The field's own fitting size is not used — it adds
+  /// its cell padding (`core_text_simple`'s 228-point line answered 232) — and a truncating
+  /// line-break mode there makes it one line, where TextKit truncates only the last it keeps.
+  /// Line breaking is TextKit's own: where it wraps differently from Android, that is an accepted
+  /// difference, not something this host imitates.
   private static func measuredText(
     _ label: NSTextField, text: NativeSwiftTextSnapshot, maxWidth: CGFloat
   ) -> CGSize {
-    guard maxWidth > 0 else { return .zero }
-    let attributes: [NSAttributedString.Key: Any] = label.font.map { [.font: $0] } ?? [:]
-    let layout = NativeTextPolicy.layoutLines(
-      text.value, maxWidth: Double(maxWidth), maxLines: text.maximumLines,
-      overflow: text.overflow
-    ) { Double((($0 as NSString).size(withAttributes: attributes)).width) }
-    return CGSize(
-      width: CGFloat(layout.width).rounded(.up),
-      height: CGFloat(layout.lines.count) * lineHeight(of: label))
+    guard maxWidth > 0, let font = label.font else { return .zero }
+    let storage = NSTextStorage(string: text.value, attributes: [.font: font])
+    let manager = NSLayoutManager()
+    let container = NSTextContainer(
+      size: CGSize(width: maxWidth, height: .greatestFiniteMagnitude))
+    container.lineFragmentPadding = 0
+    container.maximumNumberOfLines = NativeTextPolicy.numberOfLines(
+      overflow: text.overflow, maximum: text.maximumLines)
+    container.lineBreakMode = lineBreakMode(overflow: text.overflow, maximumLines: 1)
+    if container.maximumNumberOfLines != 1,
+      NativeTextPolicy.lineBreak(overflow: text.overflow) == .clip
+    {
+      container.lineBreakMode = .byWordWrapping
+    }
+    manager.addTextContainer(container)
+    storage.addLayoutManager(manager)
+    manager.ensureLayout(for: container)
+    let used = manager.usedRect(for: container)
+    return CGSize(width: min(used.width.rounded(.up), maxWidth), height: used.height.rounded(.up))
   }
 
   private func applyLayerStyle() {
