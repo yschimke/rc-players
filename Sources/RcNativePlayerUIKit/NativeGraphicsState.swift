@@ -125,8 +125,8 @@ enum NativeGradientRenderer {
         locations: normalizedStops)
     else { return }
 
-    // Clamp extends the end colours; decal stops at them. Repeat and mirror are laid out over the
-    // periods the clip reaches and drawn as one gradient, falling back to clamp past the limit.
+    // Clamp extends the end colours; decal stops at them. Repeat and mirror draw the gradient once
+    // per period the clip reaches, each in its own band.
     let extend: CGGradientDrawingOptions =
       value.tileMode == NativeGradientTiling.decal
       ? [] : [.drawsBeforeStartLocation, .drawsAfterEndLocation]
@@ -138,14 +138,11 @@ enum NativeGradientRenderer {
       let start = CGPoint(x: value.values[0], y: value.values[1])
       let end = CGPoint(x: value.values[2], y: value.values[3])
       if tiles,
-        let tiled = tiledLinear(
-          start: start, end: end, colors: spaceColors, stops: normalizedStops ?? [],
-          mirror: value.tileMode == NativeGradientTiling.mirror, space: space,
-          clip: context.boundingBoxOfClipPath)
+        drawTiledLinear(
+          gradient, start: start, end: end,
+          mirror: value.tileMode == NativeGradientTiling.mirror,
+          average: averageColor(spaceColors, stops: normalizedStops ?? []), in: context)
       {
-        context.drawLinearGradient(
-          tiled.gradient, start: tiled.start, end: tiled.end,
-          options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
         return
       }
       context.drawLinearGradient(gradient, start: start, end: end, options: extend)
@@ -153,14 +150,11 @@ enum NativeGradientRenderer {
       let center = CGPoint(x: value.values[0], y: value.values[1])
       let radius = value.values[2]
       if tiles,
-        let tiled = tiledRadial(
-          center: center, radius: radius, colors: spaceColors, stops: normalizedStops ?? [],
-          mirror: value.tileMode == NativeGradientTiling.mirror, space: space,
-          clip: context.boundingBoxOfClipPath)
+        drawTiledRadial(
+          gradient, center: center, radius: radius,
+          mirror: value.tileMode == NativeGradientTiling.mirror,
+          average: averageColor(spaceColors, stops: normalizedStops ?? []), in: context)
       {
-        context.drawRadialGradient(
-          tiled.gradient, startCenter: center, startRadius: 0, endCenter: center,
-          endRadius: tiled.radius, options: [.drawsAfterEndLocation])
         return
       }
       context.drawRadialGradient(
@@ -176,56 +170,120 @@ enum NativeGradientRenderer {
     }
   }
 
-  /// A linear gradient repeated or mirrored over every period `clip` reaches, and the start and
-  /// end points of that span; nil when it cannot be laid out.
-  private static func tiledLinear(
-    start: CGPoint, end: CGPoint, colors: [CGColor], stops: [CGFloat], mirror: Bool,
-    space: CGColorSpace, clip: CGRect
-  ) -> (gradient: CGGradient, start: CGPoint, end: CGPoint)? {
+  /// Draws a repeated or mirrored linear gradient: the one-period gradient once per period the
+  /// clip reaches, each clipped to the strip between its two ends, reversed in a mirror's odd
+  /// periods. False leaves the draw to the clamped path.
+  ///
+  /// A period under a device pixel cannot show its pattern, so the clip is filled with the
+  /// gradient's average colour instead; otherwise the band count is bounded by the canvas. Bands
+  /// are clipped aliased, so neighbours share their edge pixels rather than both half-covering them.
+  private static func drawTiledLinear(
+    _ gradient: CGGradient, start: CGPoint, end: CGPoint, mirror: Bool, average: CGColor,
+    in context: CGContext
+  ) -> Bool {
     let axis = CGPoint(x: end.x - start.x, y: end.y - start.y)
-    let length = axis.x * axis.x + axis.y * axis.y
-    guard length > 0, !clip.isNull, !clip.isInfinite else { return nil }
+    let length = hypot(axis.x, axis.y)
+    let clip = context.boundingBoxOfClipPath
+    guard length > 0, !clip.isNull, !clip.isInfinite else { return false }
     // The gradient parameter at each corner of the clip: its projection onto the axis.
     let parameters = corners(of: clip).map {
-      Double((($0.x - start.x) * axis.x + ($0.y - start.y) * axis.y) / length)
+      Double((($0.x - start.x) * axis.x + ($0.y - start.y) * axis.y) / (length * length))
     }
     guard let lower = parameters.min(), let upper = parameters.max(),
-      let span = NativeGradientTiling.periods(lower: lower, upper: upper),
-      let gradient = tiledGradient(
-        colors: colors, stops: stops, mirror: mirror, span: span, space: space)
-    else { return nil }
-    func point(_ t: Int) -> CGPoint {
-      CGPoint(x: start.x + axis.x * CGFloat(t), y: start.y + axis.y * CGFloat(t))
+      let span = NativeGradientTiling.periods(lower: lower, upper: upper)
+    else { return false }
+    let devicePeriod = context.convertToDeviceSpace(CGSize(width: axis.x, height: axis.y))
+    guard hypot(devicePeriod.width, devicePeriod.height) >= 1 else {
+      context.setFillColor(average)
+      context.fill(clip)
+      return true
     }
-    return (gradient, point(span.first), point(span.last))
+    // Half-width of each band across the axis: enough to cover the clip from any point on it.
+    let reach = hypot(clip.width, clip.height) + length
+    let across = CGPoint(x: -axis.y / length * reach, y: axis.x / length * reach)
+    context.saveGState()
+    defer { context.restoreGState() }
+    context.setShouldAntialias(false)
+    for period in span.first..<span.last {
+      let from = CGPoint(
+        x: start.x + axis.x * CGFloat(period), y: start.y + axis.y * CGFloat(period))
+      let to = CGPoint(x: from.x + axis.x, y: from.y + axis.y)
+      let band = CGMutablePath()
+      band.addLines(between: [
+        CGPoint(x: from.x + across.x, y: from.y + across.y),
+        CGPoint(x: to.x + across.x, y: to.y + across.y),
+        CGPoint(x: to.x - across.x, y: to.y - across.y),
+        CGPoint(x: from.x - across.x, y: from.y - across.y),
+      ])
+      band.closeSubpath()
+      let flipped = mirror && period % 2 != 0
+      context.saveGState()
+      context.addPath(band)
+      context.clip()
+      context.drawLinearGradient(
+        gradient, start: flipped ? to : from, end: flipped ? from : to,
+        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+      context.restoreGState()
+    }
+    return true
   }
 
-  /// A radial gradient repeated or mirrored out to the farthest corner of `clip`, and the radius
-  /// that span ends at; nil when it cannot be laid out.
-  private static func tiledRadial(
-    center: CGPoint, radius: CGFloat, colors: [CGColor], stops: [CGFloat], mirror: Bool,
-    space: CGColorSpace, clip: CGRect
-  ) -> (gradient: CGGradient, radius: CGFloat)? {
-    guard radius > 0, !clip.isNull, !clip.isInfinite else { return nil }
+  /// Draws a repeated or mirrored radial gradient: the one-period gradient once per ring the clip
+  /// reaches, each clipped to its ring, running outward-in in a mirror's odd periods. The same
+  /// sub-pixel and aliasing rules as `drawTiledLinear` apply.
+  private static func drawTiledRadial(
+    _ gradient: CGGradient, center: CGPoint, radius: CGFloat, mirror: Bool, average: CGColor,
+    in context: CGContext
+  ) -> Bool {
+    let clip = context.boundingBoxOfClipPath
+    guard radius > 0, !clip.isNull, !clip.isInfinite else { return false }
     let farthest = corners(of: clip).map { hypot($0.x - center.x, $0.y - center.y) }.max() ?? 0
-    guard let span = NativeGradientTiling.periods(lower: 0, upper: Double(farthest / radius)),
-      let gradient = tiledGradient(
-        colors: colors, stops: stops, mirror: mirror, span: span, space: space)
-    else { return nil }
-    return (gradient, radius * CGFloat(span.last))
+    let nearest = hypot(
+      max(clip.minX - center.x, 0, center.x - clip.maxX),
+      max(clip.minY - center.y, 0, center.y - clip.maxY))
+    guard
+      let span = NativeGradientTiling.periods(
+        lower: Double(nearest / radius), upper: Double(farthest / radius))
+    else { return false }
+    let deviceRadius = context.convertToDeviceSpace(CGSize(width: radius, height: radius))
+    guard min(abs(deviceRadius.width), abs(deviceRadius.height)) >= 1 else {
+      context.setFillColor(average)
+      context.fill(clip)
+      return true
+    }
+    context.saveGState()
+    defer { context.restoreGState() }
+    context.setShouldAntialias(false)
+    for period in max(span.first, 0)..<span.last {
+      let inner = radius * CGFloat(period)
+      let outer = inner + radius
+      let ring = CGMutablePath()
+      ring.addEllipse(
+        in: CGRect(x: center.x - outer, y: center.y - outer, width: outer * 2, height: outer * 2))
+      if inner > 0 {
+        ring.addEllipse(
+          in: CGRect(
+            x: center.x - inner, y: center.y - inner, width: inner * 2, height: inner * 2))
+      }
+      let flipped = mirror && period % 2 != 0
+      context.saveGState()
+      context.addPath(ring)
+      context.clip(using: .evenOdd)
+      context.drawRadialGradient(
+        gradient, startCenter: center, startRadius: flipped ? outer : inner, endCenter: center,
+        endRadius: flipped ? inner : outer,
+        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+      context.restoreGState()
+    }
+    return true
   }
 
-  private static func tiledGradient(
-    colors: [CGColor], stops: [CGFloat], mirror: Bool, span: (first: Int, last: Int),
-    space: CGColorSpace
-  ) -> CGGradient? {
-    guard stops.count == colors.count else { return nil }
-    let layout = NativeGradientTiling.layout(
-      stops: stops.map(Double.init), mirror: mirror, first: span.first, last: span.last)
-    guard !layout.isEmpty else { return nil }
-    return CGGradient(
-      colorsSpace: space, colors: layout.map { colors[$0.colorIndex] } as CFArray,
-      locations: layout.map { CGFloat($0.location) })
+  /// The colour a period too small to see averages to, in sRGB.
+  private static func averageColor(_ colors: [CGColor], stops: [CGFloat]) -> CGColor {
+    let components = NativeGradientTiling.averageColor(
+      colors: colors.map { rgbaComponents($0).map(Double.init) }, stops: stops.map(Double.init))
+    return CGColor(colorSpace: rgbColorSpace, components: components.map { CGFloat($0) })
+      ?? colors[0]
   }
 
   private static func corners(of rect: CGRect) -> [CGPoint] {

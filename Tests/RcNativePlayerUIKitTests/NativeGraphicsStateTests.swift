@@ -77,20 +77,22 @@ import Testing
     #expect(sweepContext.makeImage() != nil)
   }
 
-  /// Repeat and mirror are laid out over the periods a shape reaches: each period's stops in turn,
-  /// reversed in the odd ones for a mirror, and padded with the end colours at 0 and 1.
-  @Test func gradientTilingLaysOutPeriods() {
+  /// Repeat and mirror are drawn one period at a time over the periods a shape reaches, and a
+  /// period too small to see fills with the colour the gradient averages to.
+  @Test func gradientTilingPeriodsAndAverage() {
     #expect(NativeGradientTiling.periods(lower: -0.5, upper: 1.2)! == (first: -1, last: 2))
-    #expect(NativeGradientTiling.periods(lower: 0, upper: 1000) == nil)
+    #expect(NativeGradientTiling.periods(lower: 0, upper: 300)! == (first: 0, last: 300))
+    #expect(NativeGradientTiling.periods(lower: 0, upper: .infinity) == nil)
 
-    func pairs(_ stops: [Double], mirror: Bool, _ first: Int, _ last: Int) -> [[Double]] {
-      NativeGradientTiling.layout(stops: stops, mirror: mirror, first: first, last: last).map {
-        [Double($0.colorIndex), $0.location]
-      }
-    }
-    #expect(pairs([0, 1], mirror: false, -1, 1) == [[0, 0], [1, 0.5], [0, 0.5], [1, 1]])
-    #expect(pairs([0, 1], mirror: true, -1, 1) == [[1, 0], [0, 0.5], [0, 0.5], [1, 1]])
+    let blackToWhite: [[Double]] = [[0, 0, 0, 1], [1, 1, 1, 1]]
     #expect(
-      pairs([0.25, 0.75], mirror: false, 0, 1) == [[0, 0], [0, 0.25], [1, 0.75], [1, 1]])
+      NativeGradientTiling.averageColor(colors: blackToWhite, stops: [0, 1]) == [0.5, 0.5, 0.5, 1])
+    #expect(
+      NativeGradientTiling.averageColor(colors: blackToWhite, stops: [0.25, 0.75])
+        == [0.5, 0.5, 0.5, 1])
+    #expect(
+      NativeGradientTiling.averageColor(
+        colors: [[1, 0, 0, 1], [0, 0, 1, 1], [0, 1, 0, 1]], stops: [0, 0.5, 1])
+        == [0.25, 0.25, 0.5, 1])
   }
 }
