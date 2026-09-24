@@ -2,9 +2,9 @@ import Foundation
 
 /// The platform tests' fixtures, copied into this test bundle by the manifest's `.copy("Fixtures")`.
 ///
-/// Only the fonts live here. The `.rc` documents belong to `RcNativePlayerCoreTests`, which has
-/// its own copy of this helper reading its own bundle, so the core suite can run without the
-/// platform targets.
+/// The fonts live here, and a copy of the one document `NativePlayerEngineTests` drives. The other
+/// `.rc` documents belong to `RcNativePlayerCoreTests`, which has its own copy of this helper
+/// reading its own bundle, so the core suite can run without the platform targets.
 enum NativeTestFixtures {
   struct Missing: Error, CustomStringConvertible {
     let name: String
