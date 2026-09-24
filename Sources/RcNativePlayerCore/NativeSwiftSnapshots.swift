@@ -626,6 +626,9 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   /// number: `DrawTextAnchored`'s `panY` when it is the id-0 NaN, which the reference reads as
   /// "leave the baseline where it is".
   public let unsetValueIndices: [Int]
+  /// Set only on a `NativeSwiftDrawKind.drawToBitmap` command: where this node's later commands
+  /// draw, up to the next such command or the end of the node's commands.
+  public let offscreenTarget: NativeSwiftOffscreenTargetSnapshot?
 
   /// The values a host validates as geometry: every value except those sentinels. A NaN anywhere
   /// else is still a document error.
@@ -668,6 +671,34 @@ public struct NativeSwiftImageDrawSnapshot: Sendable {
   public let scaleType: Int
   public let scaleFactor: Float
   public let contentDescription: String?
+}
+
+/// A `DrawToBitmap` redirect, from AndroidX `AndroidPaintContext.drawToBitmap`: drawing moves to
+/// the declared bitmap `bitmapID`, which a later `DrawBitmap` of that id then shows, or back to the
+/// canvas when `bitmapID` is `NativeSwiftDrawToBitmapID.mainCanvas`. The bitmap keeps what was
+/// drawn into it; unless `mode` carries `NativeSwiftDrawToBitmapMode.noInitialize`, every redirect
+/// first erases it to `colorARGB`, ignoring the target's matrix and clip.
+public struct NativeSwiftOffscreenTargetSnapshot: Sendable, Equatable {
+  public let bitmapID: Int
+  public let mode: Int
+  public let colorARGB: UInt32
+  /// The declared bitmap's size in pixels, which the offscreen target takes; 0 for the canvas.
+  public let width: Int
+  public let height: Int
+
+  public init(bitmapID: Int, mode: Int, colorARGB: UInt32, width: Int, height: Int) {
+    self.bitmapID = bitmapID
+    self.mode = mode
+    self.colorARGB = colorARGB
+    self.width = width
+    self.height = height
+  }
+
+  /// Whether this redirect returns drawing to the canvas rather than naming a bitmap.
+  public var returnsToCanvas: Bool { bitmapID == NativeSwiftDrawToBitmapID.mainCanvas }
+
+  /// Whether the target is erased to `colorARGB` before drawing into it.
+  public var erasesTarget: Bool { mode & NativeSwiftDrawToBitmapMode.noInitialize == 0 }
 }
 
 public struct NativeSwiftPathElementSnapshot: Sendable {

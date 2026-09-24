@@ -1301,6 +1301,100 @@ import Testing
     _ = try session.snapshot()
   }
 
+  @Test func drawToBitmapRedirectsIntoADeclaredBitmap() throws {
+    // BitmapData: id, then type << 16 | width and encoding << 16 | height, then the payload.
+    func declareBitmap(_ writer: Writer, id: Int, width: Int, height: Int) {
+      writer.u8(101).int(id).int(width).int(height).int(4)
+      for byte in [0x89, 0x50, 0x4e, 0x47] { writer.u8(byte) }
+    }
+    let green = Int(Int32(bitPattern: 0xff00_ff00))
+
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    declareBitmap(document, id: 7, width: 8, height: 4)
+    document.u8(190).int(7).int(0).int(green)
+    document.u8(42).float(0).float(0).float(8).float(4)
+    document.u8(190).int(0).int(0).int(0)
+    document.u8(44).int(7).float(10).float(10).float(26).float(18).int(0)
+    // PaintOperation.getId keeps the low sixteen bits, so 0x1_0007 names bitmap 7.
+    document.u8(190).int(0x1_0007).int(NativeSwiftDrawToBitmapMode.noInitialize).int(0)
+    let snapshot = try NativeSwiftDocumentSession.open(data: document.data).snapshot()
+    let commands = snapshot.root.commands
+    #expect(
+      commands.map(\.kind) == [
+        NativeSwiftDrawKind.drawToBitmap, NativeSwiftDrawKind.rect,
+        NativeSwiftDrawKind.drawToBitmap, NativeSwiftDrawKind.bitmap,
+        NativeSwiftDrawKind.drawToBitmap,
+      ])
+    let redirect = try #require(commands[0].offscreenTarget)
+    #expect(
+      redirect
+        == NativeSwiftOffscreenTargetSnapshot(
+          bitmapID: 7, mode: 0, colorARGB: 0xff00_ff00, width: 8, height: 4))
+    #expect(redirect.erasesTarget && !redirect.returnsToCanvas)
+    let back = try #require(commands[2].offscreenTarget)
+    #expect(back.returnsToCanvas && back.width == 0 && back.height == 0)
+    #expect(commands[3].image?.imageID == 7)
+    let accumulate = try #require(commands[4].offscreenTarget)
+    #expect(accumulate.bitmapID == 7 && !accumulate.erasesTarget)
+    #expect(commands[1].offscreenTarget == nil && commands[3].offscreenTarget == nil)
+    #expect(snapshot.images.map(\.id) == [7])
+
+    func refusal(_ writer: Writer) throws -> NativeSwiftCoreError? {
+      do {
+        _ = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+        return nil
+      } catch let error as NativeSwiftCoreError {
+        return error
+      }
+    }
+
+    // The reference requireNonNull()s the target, so an undeclared bitmap is a document error.
+    let undeclared = Writer()
+    undeclared.header(width: 100, height: 100)
+    undeclared.u8(190).int(9).int(0).int(0)
+    let undeclaredError = try #require(try refusal(undeclared), "undeclared target was accepted")
+    #expect(!undeclaredError.isUnsupported)
+
+    let truncated = Writer()
+    truncated.header(width: 100, height: 100)
+    declareBitmap(truncated, id: 7, width: 8, height: 4)
+    truncated.u8(190).int(7).int(0)
+    let truncatedError = try #require(try refusal(truncated), "truncated DrawToBitmap was accepted")
+    #expect(!truncatedError.isUnsupported)
+
+    // A target named through an integer variable is refused explicitly, not drawn to bitmap 7.
+    let dereferenced = Writer()
+    dereferenced.header(width: 100, height: 100)
+    declareBitmap(dereferenced, id: 7, width: 8, height: 4)
+    dereferenced.u8(190).int(NativeSwiftDrawToBitmapID.pointerDereference | 7).int(0).int(0)
+    let dereferencedError = try #require(
+      try refusal(dereferenced), "dereferenced target was accepted")
+    #expect(dereferencedError.isUnsupported)
+
+    // Offscreen targets are bounded: at most 64 distinct targets and 16777216 pixels in all.
+    let tooMany = Writer()
+    tooMany.header(width: 100, height: 100)
+    for id in 1...65 { declareBitmap(tooMany, id: id, width: 1, height: 1) }
+    for id in 1...64 { tooMany.u8(190).int(id).int(0).int(0) }
+    tooMany.u8(190).int(1).int(0).int(0)
+    #expect(try refusal(tooMany) == nil, "redrawing into a known target counts once")
+    tooMany.u8(190).int(65).int(0).int(0)
+    let tooManyError = try #require(try refusal(tooMany), "a 65th offscreen target was accepted")
+    #expect(!tooManyError.isUnsupported)
+
+    let tooLarge = Writer()
+    tooLarge.header(width: 100, height: 100)
+    declareBitmap(tooLarge, id: 1, width: 4_096, height: 4_096)
+    declareBitmap(tooLarge, id: 2, width: 1, height: 1)
+    tooLarge.u8(190).int(1).int(0).int(0)
+    #expect(try refusal(tooLarge) == nil, "a 4096x4096 target fits the pixel budget exactly")
+    tooLarge.u8(190).int(2).int(0).int(0)
+    let tooLargeError = try #require(
+      try refusal(tooLarge), "targets over the pixel budget were accepted")
+    #expect(!tooLargeError.isUnsupported)
+  }
+
   @Test func imageBackgroundButtonFixture() throws {
     let imageData = try NativeTestFixtures.data("ImageBackgroundRemoteButton-454x200.rc")
     let session = try NativeSwiftDocumentSession.open(data: imageData)

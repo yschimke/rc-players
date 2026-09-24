@@ -418,6 +418,7 @@
     let shaderMatrix: [Float]?
     let filterQuality: Int?
     let usesComponentGeometry: Bool
+    let offscreenTarget: NativeSwiftOffscreenTargetSnapshot?
 
     init(_ snapshot: NativeSwiftDrawCommandSnapshot) {
       kind = snapshot.kind
@@ -465,6 +466,7 @@
       shaderMatrix = snapshot.shaderMatrix
       filterQuality = snapshot.filterQuality
       usesComponentGeometry = snapshot.usesComponentGeometry
+      offscreenTarget = snapshot.offscreenTarget
     }
 
     init(text snapshot: NativeSwiftTextSnapshot) {
@@ -491,6 +493,7 @@
       shaderMatrix = nil
       filterQuality = nil
       usesComponentGeometry = false
+      offscreenTarget = nil
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -509,6 +512,7 @@
         && Floats.same(lhs.shaderMatrix, rhs.shaderMatrix)
         && lhs.filterQuality == rhs.filterQuality
         && lhs.usesComponentGeometry == rhs.usesComponentGeometry
+        && lhs.offscreenTarget == rhs.offscreenTarget
     }
 
     /// The shader's local matrix as a Core Graphics affine transform, or identity when the paint
@@ -1895,7 +1899,11 @@
       self.commands = commands
       var referenced: [Int: UIImage] = [:]
       for command in commands {
-        if let id = command.image?.imageID ?? command.textureImageID, let image = images[id] {
+        // A `DrawToBitmap` target starts from its declared image, so that image is read too.
+        if let id = command.image?.imageID ?? command.textureImageID
+          ?? command.offscreenTarget?.bitmapID,
+          let image = images[id]
+        {
           referenced[id] = image
         }
       }
@@ -1916,6 +1924,8 @@
     private var fontNames: [Int: String]
     /// What the view last drew: `setNeedsDisplay()` runs only when the next update differs.
     private var rendered: NativeCanvasRenderKey
+    /// The bitmaps this canvas's `DrawToBitmap` commands draw into, kept between draws.
+    private let offscreenTargets = NativeOffscreenTargets()
     var documentScale: CGFloat = 1 {
       didSet { if documentScale != oldValue { setNeedsDisplay() } }
     }
@@ -1953,7 +1963,23 @@
     override func draw(_ rect: CGRect) {
       guard let context = UIGraphicsGetCurrentContext() else { return }
       context.scaleBy(x: documentScale, y: documentScale)
-      commands.forEach { draw($0, in: context) }
+      // A `DrawToBitmap` sends the commands after it to an offscreen bitmap until the next one;
+      // drawing returns to this canvas at the end of the node's commands, as the CMP player's
+      // draw-target scope does. The target is pushed as UIKit's current context because text and
+      // image draws go through `UIGraphicsGetCurrentContext()` rather than the context passed.
+      var target: CGContext?
+      for command in commands {
+        guard command.kind == NativeSwiftDrawKind.drawToBitmap else {
+          draw(command, in: target ?? context)
+          continue
+        }
+        if target != nil { UIGraphicsPopContext() }
+        target = command.offscreenTarget.flatMap { redirect in
+          offscreenTargets.begin(redirect, seed: images[redirect.bitmapID]?.cgImage)
+        }
+        if let target { UIGraphicsPushContext(target) }
+      }
+      if target != nil { UIGraphicsPopContext() }
     }
 
     private func draw(_ command: NativeDrawCommand, in context: CGContext) {
@@ -2144,7 +2170,8 @@
       guard
         command.blendMode != NativeSwiftPaintBlendMode.destination,
         let draw = command.image,
-        let source = images[draw.imageID]?.cgImage,
+        // A bitmap a `DrawToBitmap` drew into shows what it holds now.
+        let source = offscreenTargets.image(draw.imageID) ?? images[draw.imageID]?.cgImage,
         let cropped = source.cropping(to: draw.source)
       else { return }
       let destination = NativeImageGeometry.destination(
