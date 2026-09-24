@@ -3,8 +3,9 @@
 #
 # `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` covers the macOS host. This is the UIKit half: it
 # compiles `RcNativePlayerCore` and `RcNativePlayerUIKit` for the iOS Simulator — including the
-# `#if canImport(UIKit)` renderer a macOS build never sees — and runs `RcNativePlayerUIKitTests`
-# there. No app host is involved; the simulator UI checks stay in their own scripts.
+# `#if canImport(UIKit)` renderer a macOS build never sees — and runs `RcNativePlayerCoreTests` and
+# `RcNativePlayerUIKitTests` there. No app host is involved; the simulator UI checks stay in their own
+# scripts.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -57,6 +58,7 @@ RC_COMPOSE_PLAYER_NATIVE_ONLY=1 xcodebuild test -quiet \
   -destination "platform=iOS Simulator,id=$udid" \
   -derivedDataPath "$derived_data" \
   -resultBundlePath "$result" \
+  -only-testing:RcNativePlayerCoreTests \
   -only-testing:RcNativePlayerUIKitTests \
   CODE_SIGNING_ALLOWED=NO
 

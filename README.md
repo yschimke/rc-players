@@ -85,10 +85,12 @@ self-contained, pure-Swift local package containing the native sources with no b
 gives evaluators a small pinned, offline-resolvable artifact without changing the supported CMP
 product.
 
-The native player's tests are a SwiftPM test target, `RcNativePlayerUIKitTests`, written with
-swift-testing. Run them on the Mac with `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` — native-only
+The native player's tests are two SwiftPM test targets written with swift-testing:
+`RcNativePlayerCoreTests` for the pure-Swift document core and `RcNativePlayerUIKitTests` for the
+platform layer. Run them on the Mac with `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` — native-only
 mode keeps the Kotlin binary target out of the package graph — and on an iOS simulator with
-`scripts/check-native-swift-ios-tests.sh`.
+`scripts/check-native-swift-ios-tests.sh`. On Linux the manifest declares only the core and its
+tests, so `swift test --filter RcNativePlayerCoreTests` runs there too.
 
 [`samples/apple-player`](samples/apple-player/) is the full application check: a SwiftUI document
 player linked against the current release XCFramework build, built in CI for the arm64 iOS
@@ -269,7 +271,7 @@ rather than by what the change touched:
 Both lanes run on every pull request. Only the last two rows are path-gated (the `apple-changes`
 job): the release link is what makes the macOS lane expensive, and a change that cannot reach the
 Apple artifacts should not pay for it. The native Swift tests share that gate because nothing
-outside its paths — `Sources`, `Tests/RcNativePlayerUIKitTests`, the manifests — can change them. Test execution is never gated — a lane that can only run here is
+outside its paths — `Sources`, `Tests/RcNativePlayerCoreTests`, `Tests/RcNativePlayerUIKitTests`, the manifests — can change them. Test execution is never gated — a lane that can only run here is
 worth its minutes on every change, and the previous arrangement, where the path filter skipped the
 whole job, meant a change confined to `rc-player/wasm` or `third_party/` merged without a single
 Kotlin/Native or wasm test running.
