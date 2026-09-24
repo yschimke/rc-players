@@ -1601,6 +1601,28 @@ import Testing
     #expect(durations == [120, 900], Comment(rawValue: "boxes adopted durations \(durations)"))
   }
 
+  /// A spec nested in a body inside a component (here a canvas-operations body) is not one of the
+  /// component's own operations, and the component keeps the default.
+  @Test func aNestedSpecIsNotAdopted() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(200).int(1)
+    document.u8(202).int(3).int(-1).int(1).int(1)
+    document.u8(173)
+    document.u8(14).int(5).float(120).int(2).float(640).int(4).int(0).int(1)
+    document.u8(214)
+    document.u8(214)
+    document.u8(214)
+    let root = try NativeSwiftDocumentSession.open(data: document.data).snapshot().root
+    var adopted: [Int?] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      if node.componentKind == "BoxLayout" { adopted.append(node.animationSpecID) }
+      node.children.forEach(collect)
+    }
+    collect(root)
+    #expect(adopted == [nil], Comment(rawValue: "a nested spec was adopted: \(adopted)"))
+  }
+
   /// `text_anchored_pan_alignment`: a `panY` of the id-0 NaN is the reference's "no vertical pan"
   /// and stays NaN, so the text keeps its baseline; a numeric `panY` resolves as it is.
   @Test func anchoredTextKeepsTheNoPanSentinel() throws {

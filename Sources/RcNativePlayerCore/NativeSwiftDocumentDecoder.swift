@@ -196,6 +196,10 @@ enum NativeSwiftDocumentDecoder {
     var macroDefinitions: [Int: MacroDefinition] = [:]
     var referencedOperations: [Int: Data] = [:]
     var suspendedInputs: [MacroExpansionFrame] = []
+    /// The expansion and modifier-container depths each component opened at. An operation read at
+    /// exactly those depths, with the component on top of the stack, is one of its direct children;
+    /// anything in a conditional, macro, canvas, impulse or modifier body is not.
+    var componentOpenDepths: [ObjectIdentifier: (expansion: Int, modifiers: Int)] = [:]
     /// Every operation on the source wire, once each, in wire order: what the reference's
     /// `document.operations` holds. Bytes replayed by an expansion (a macro call, an unrolled loop,
     /// a branch that runs) or re-walked for a trace were counted when they were first read.
@@ -224,6 +228,7 @@ enum NativeSwiftDocumentDecoder {
       guard nodes[node.componentID] == nil else {
         throw input.malformed("Duplicate component id \(node.componentID)")
       }
+      componentOpenDepths[ObjectIdentifier(node)] = (suspendedInputs.count, modifierContainers.count)
       if let parent = stack.last {
         node.parent = parent
         parent.children.append(node)
@@ -1671,9 +1676,11 @@ enum NativeSwiftDocumentDecoder {
         animationSpecs[id] = spec
         animationSpecOrder.append(id)
         // A spec among a component's own operations is that component's, the last one winning, as
-        // the reference binds it. Inside one of the component's modifier containers it is not.
+        // the reference binds it. One nested in any body inside the component is not a direct
+        // child, and belongs to nobody.
         if let owner = stack.last, owner.kind != .root,
-          modifierContainers.last.map({ $0.node !== owner }) ?? true
+          let opened = componentOpenDepths[ObjectIdentifier(owner)],
+          opened.expansion == suspendedInputs.count, opened.modifiers == modifierContainers.count
         {
           owner.animationSpecID = id
           owner.animationSpec = spec
