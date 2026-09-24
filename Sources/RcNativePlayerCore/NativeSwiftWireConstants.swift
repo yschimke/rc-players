@@ -444,13 +444,29 @@ enum NativeSwiftMatrixOperator {
   static let last = 54
 }
 
-/// `RcHeader`'s modern property-map keys.
+/// `RcHeader`'s modern property-map keys: the low 10 bits of a property tag. Every key AndroidX's
+/// `Header` defines (the vendored `third_party/remote-compose-player` `Header.ts`); the core reads
+/// only the size, density and density-behaviour keys and reads past the rest by their type.
 enum NativeSwiftHeaderKey {
   static let documentWidth = 5
   static let documentHeight = 6
   static let densityAtGeneration = 7
+  static let desiredFPS = 8
+  static let contentDescription = 9
+  static let source = 11
+  static let dataUpdate = 12
+  static let hostExceptionHandler = 13
+  static let profiles = 14
+  static let featurePaintMeasure = 15
+  static let debug = 16
+  static let featureMeasureVersion = 17
+  static let featureTouchVersion = 18
   static let densityBehavior = 27
 }
+
+/// The magic a modern header ORs into the high half of its major-version word
+/// (`Header.MAGIC_NUMBER`).
+let nativeSwiftHeaderMagic = 0x048c_0000
 
 /// The type field (`tag >> 10`) of a modern header property.
 enum NativeSwiftHeaderValueType {

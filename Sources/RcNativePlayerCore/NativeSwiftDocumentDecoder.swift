@@ -43,7 +43,7 @@ enum NativeSwiftDocumentDecoder {
     let width: Int
     let height: Int
     var density: Float = 1
-    var densityBehavior = 0
+    var densityBehavior = NativeSwiftDensityBehavior.legacy
     if encodedMajor < 0x10000 {
       major = encodedMajor
       width = try input.int("width")
@@ -51,7 +51,7 @@ enum NativeSwiftDocumentDecoder {
       _ = try input.int("capabilities high word")
       _ = try input.int("capabilities low word")
     } else {
-      guard encodedMajor & ~0xffff == 0x048c_0000 else {
+      guard encodedMajor & ~0xffff == nativeSwiftHeaderMagic else {
         throw input.malformed("Invalid modern header magic")
       }
       major = encodedMajor & 0xffff
