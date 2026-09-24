@@ -873,6 +873,230 @@ import Testing
     #expect(drawingCommands.last?.path.count == 2)
   }
 
+  @Test func layoutComputeRunsItsBodyOverTheComponentBox() throws {
+    typealias Op = NativeSwiftWireOpcode
+    typealias FloatOp = NativeSwiftFloatOperator
+    // Array ids live in AndroidX's array region, as `createID(NanMap.TYPE_ARRAY)` allocates them.
+    let measureBounds = NativeSwiftIDRegion.array + 42
+    let positionBounds = NativeSwiftIDRegion.array + 43
+    func deref(_ list: Int, _ index: Float) -> [Int] {
+      [
+        Writer.nanReference(list), Writer.literal(index),
+        Writer.floatOperator(FloatOp.arrayDeref),
+      ]
+    }
+    func expression(_ output: Int, _ words: [Int], into document: Writer) {
+      document.u8(Op.animatedFloat).int(output).int(words.count)
+      for word in words { document.int(word) }
+    }
+    // The shape `RemoteComposeWriter.addLayoutCompute` writes: the bounds array declared inside
+    // the body, expressions reading it through A_DEREF, and updates writing results back.
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(Op.layoutRoot).int(1).u8(Op.layoutContent).int(2)
+    document.u8(Op.layoutBox).int(3).int(-1).int(1).int(1)
+    document.u8(Op.layoutContent).int(5)
+    document.u8(Op.layoutBox).int(4).int(-1).int(1).int(1)
+    // Measure: width = parentWidth / 2, height = height + 10.
+    document.u8(Op.layoutCompute).int(NativeSwiftLayoutComputeType.measure).int(measureBounds)
+      .u8(0)
+    document.u8(Op.dynamicFloatList).int(measureBounds).float(6)
+    expression(
+      50, deref(measureBounds, 4) + [Writer.literal(2), Writer.floatOperator(FloatOp.div)],
+      into: document)
+    document.u8(Op.updateDynamicFloatList).int(measureBounds).float(2)
+      .int(Writer.nanReference(50))
+    expression(
+      51, deref(measureBounds, 3) + [Writer.literal(10), Writer.floatOperator(FloatOp.add)],
+      into: document)
+    document.u8(Op.updateDynamicFloatList).int(measureBounds).float(3)
+      .int(Writer.nanReference(51))
+    document.u8(Op.containerEnd)
+    // Position: x = parentWidth - width (end-aligned), y untouched.
+    document.u8(Op.layoutCompute).int(NativeSwiftLayoutComputeType.position).int(positionBounds)
+      .u8(1)
+    document.u8(Op.dynamicFloatList).int(positionBounds).float(6)
+    expression(
+      52,
+      deref(positionBounds, 4) + deref(positionBounds, 2) + [Writer.floatOperator(FloatOp.sub)],
+      into: document)
+    document.u8(Op.updateDynamicFloatList).int(positionBounds).float(0)
+      .int(Writer.nanReference(52))
+    document.u8(Op.containerEnd)
+    document.u8(Op.containerEnd).u8(Op.containerEnd).u8(Op.containerEnd)
+    document.u8(Op.containerEnd).u8(Op.containerEnd)
+    let session = try NativeSwiftDocumentSession.open(data: document.data)
+    let root = try session.snapshot().root
+    let child = try #require(findNode(4, in: root), "the computed box was not decoded")
+    try #require(child.layoutComputes.count == 2, "the box did not keep both computations")
+    let measure = child.layoutComputes[0]
+    let position = child.layoutComputes[1]
+    #expect(
+      measure.type == NativeSwiftLayoutComputeType.measure && !measure.animateChanges
+        && position.type == NativeSwiftLayoutComputeType.position && position.animateChanges,
+      "the computations' type or animateChanges were misread")
+    // Only the modified component carries them; its parent box does not.
+    #expect(findNode(3, in: root)?.layoutComputes.isEmpty == true)
+    let measured = measure.evaluate(
+      x: 4, y: 5, width: 20, height: 10, parentWidth: 100, parentHeight: 80)
+    #expect(
+      measured == [4, 5, 50, 20, 100, 80],
+      "the measure computation produced \(String(describing: measured))")
+    let placed = position.evaluate(
+      x: 0, y: 6, width: 30, height: 10, parentWidth: 100, parentHeight: 80)
+    #expect(
+      placed?.prefix(2) == [70, 6],
+      "the position computation produced \(String(describing: placed))")
+    // Every operation of the body is on the wire once, in the census.
+    #expect(session.operationCensus.filter { $0 == Op.layoutCompute }.count == 2)
+    #expect(session.operationCensus.filter { $0 == Op.updateDynamicFloatList }.count == 3)
+
+    // A body that reads past its list, or a bounds array the document never declared, leaves the
+    // box as measured: the reference returns without touching it when it has no array.
+    let missing = Writer()
+    missing.header(width: 100, height: 100)
+    missing.u8(Op.layoutRoot).int(1).u8(Op.layoutBox).int(3).int(-1).int(1).int(1)
+    missing.u8(Op.layoutCompute).int(0).int(NativeSwiftIDRegion.array + 99).u8(0)
+    missing.u8(Op.containerEnd)
+    missing.u8(Op.layoutCompute).int(0).int(measureBounds).u8(0)
+    missing.u8(Op.dynamicFloatList).int(measureBounds).float(6)
+    expression(60, deref(measureBounds, 9), into: missing)
+    missing.u8(Op.updateDynamicFloatList).int(measureBounds).float(2)
+      .int(Writer.nanReference(60))
+    missing.u8(Op.containerEnd)
+    missing.u8(Op.containerEnd).u8(Op.containerEnd)
+    let missingBox = try #require(
+      findNode(3, in: try NativeSwiftDocumentSession.open(data: missing.data).snapshot().root))
+    try #require(missingBox.layoutComputes.count == 2)
+    for compute in missingBox.layoutComputes {
+      #expect(
+        compute.evaluate(x: 0, y: 0, width: 1, height: 1, parentWidth: 1, parentHeight: 1) == nil,
+        "a computation without a usable array changed the box")
+    }
+
+    // A static bounds list is read back but never seeded, as the reference only writes the box
+    // into a DynamicFloatList.
+    let staticBounds = Writer()
+    staticBounds.header(width: 100, height: 100)
+    staticBounds.u8(Op.floatList).int(measureBounds).int(6)
+    for value: Float in [1, 2, 3, 4, 5, 6] { staticBounds.float(value) }
+    staticBounds.u8(Op.layoutRoot).int(1).u8(Op.layoutBox).int(3).int(-1).int(1).int(1)
+    staticBounds.u8(Op.layoutCompute).int(0).int(measureBounds).u8(0).u8(Op.containerEnd)
+    staticBounds.u8(Op.containerEnd).u8(Op.containerEnd)
+    let staticBox = try #require(
+      findNode(3, in: try NativeSwiftDocumentSession.open(data: staticBounds.data).snapshot().root))
+    #expect(
+      staticBox.layoutComputes.first?.evaluate(
+        x: 9, y: 9, width: 9, height: 9, parentWidth: 9, parentHeight: 9) == [1, 2, 3, 4, 5, 6])
+
+    // Outside a component — top level, as `wire_component_value_and_custom_layout` writes it — a
+    // LayoutCompute is an inert container. A drawing operation in its body is not migrated, and a
+    // body that never closes is truncated.
+    let topLevel = Writer()
+    topLevel.header(width: 100, height: 100)
+    topLevel.u8(Op.layoutCompute).int(0).int(measureBounds).u8(0).u8(Op.containerEnd)
+    topLevel.u8(Op.layoutRoot).int(1).u8(Op.containerEnd)
+    _ = try NativeSwiftDocumentSession.open(data: topLevel.data).snapshot()
+    let drawing = Writer()
+    drawing.header(width: 100, height: 100)
+    drawing.u8(Op.layoutRoot).int(1)
+    drawing.u8(Op.layoutCompute).int(0).int(measureBounds).u8(0)
+    drawing.u8(Op.drawRect).float(0).float(0).float(1).float(1).u8(Op.containerEnd)
+    drawing.u8(Op.containerEnd)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: drawing.data)
+      Issue.record("a drawing operation inside LayoutCompute was accepted")
+    } catch let error as NativeSwiftCoreError {
+      #expect(error.isUnsupported, "expected an unsupported refusal, got \(error)")
+    }
+    let truncated = Writer()
+    truncated.header(width: 100, height: 100)
+    truncated.u8(Op.layoutRoot).int(1)
+    truncated.u8(Op.layoutCompute).int(0).int(measureBounds).u8(0)
+    truncated.u8(Op.dynamicFloatList).int(measureBounds)
+    expectMalformed(
+      truncated.data, containing: "Unexpected end", "a truncated LayoutCompute body")
+  }
+
+  @Test func macroBlocksOutsideAndInsideNestedCalls() throws {
+    typealias Op = NativeSwiftWireOpcode
+    // A MacroBlock outside any MacroCall, as `loom_macro_block_slot_injection` writes it: the
+    // reference keeps it as a container whose `apply` does nothing, so its rectangle is never
+    // drawn, and the float declared beside it still resolves.
+    let stray = Writer()
+    stray.header(width: 300, height: 300)
+    stray.u8(Op.dataFloat).int(73).float(144)
+    stray.u8(Op.macroBlock).int(1)
+    stray.u8(Op.drawRect).float(10).float(10).float(90).float(90).u8(Op.containerEnd)
+    let straySession = try NativeSwiftDocumentSession.open(
+      data: stray.data, toleratingRootlessData: true)
+    let straySnapshot = try straySession.snapshot()
+    #expect(
+      straySnapshot.root.commands.isEmpty && straySnapshot.root.children.isEmpty,
+      "a stray MacroBlock's body was drawn")
+    #expect(try straySession.probeValues(timeSeconds: 0).floats[73] == 144)
+    #expect(
+      straySession.operationCensus == [
+        Op.dataFloat, Op.macroBlock, Op.drawRect, Op.containerEnd,
+      ])
+
+    // A stray block nested in a running conditional is captured structurally and stays inert;
+    // what follows it in the branch still draws.
+    let nested = Writer()
+    nested.header(width: 100, height: 100)
+    nested.u8(Op.layoutRoot).int(1).u8(Op.layoutCanvas).int(2).int(-1)
+    nested.u8(Op.conditionalOperations).u8(NativeSwiftConditionalType.equal).float(0).float(0)
+    nested.u8(Op.macroBlock).int(0)
+    nested.u8(Op.drawRect).float(0).float(0).float(5).float(5).u8(Op.containerEnd)
+    nested.u8(Op.drawRect).float(0).float(0).float(9).float(9)
+    nested.u8(Op.containerEnd)
+    nested.u8(Op.containerEnd).u8(Op.containerEnd)
+    let nestedCommands =
+      try NativeSwiftDocumentSession.open(data: nested.data).snapshot().root.children[0].commands
+    #expect(
+      nestedCommands.count == 1 && nestedCommands.first?.values == [0, 0, 9, 9],
+      "a stray block inside a conditional drew, or swallowed its sibling")
+
+    // A parameterized macro whose body forwards a MacroBlock to a nested call. The block is part
+    // of the outer body, so the outer call's parameter remap reaches into it; the inner macro then
+    // inserts it with MacroArgument. Both paths must draw the caller's path 200.
+    let forwarding = Writer()
+    forwarding.header(width: 100, height: 100)
+    forwarding.u8(Op.layoutRoot).int(1).u8(Op.layoutCanvas).int(2).int(-1)
+    forwarding.u8(Op.dataPath).int(200).int(5)
+      .int(Writer.nanReference(10)).float(0).float(0)
+      .int(Writer.nanReference(15)).int(Writer.nanReference(16))
+    // Macro 41(p101): its block, then its own draw of p101.
+    forwarding.u8(Op.macroDefine).int(41).int(1).int(101).int(0)
+    forwarding.u8(Op.macroArgument).int(0)
+    forwarding.u8(Op.drawPath).int(101).u8(Op.containerEnd)
+    // Macro 40(p100): MacroCall 41(p100) { MacroBlock 0 { DrawPath p100 } }.
+    forwarding.u8(Op.macroDefine).int(40).int(1).int(100).int(0)
+    forwarding.u8(Op.macroCall).int(41).int(1).int(100)
+    forwarding.u8(Op.macroBlock).int(0).u8(Op.drawPath).int(100).u8(Op.containerEnd)
+    forwarding.u8(Op.containerEnd)
+    forwarding.u8(Op.containerEnd)
+    forwarding.u8(Op.macroCall).int(40).int(1).int(200).u8(Op.containerEnd)
+    forwarding.u8(Op.containerEnd).u8(Op.containerEnd)
+    let forwardedCommands =
+      try NativeSwiftDocumentSession.open(data: forwarding.data).snapshot().root.children[0]
+      .commands
+    #expect(
+      forwardedCommands.count == 2
+        && forwardedCommands.allSatisfy {
+          $0.kind == NativeSwiftDrawKind.path && $0.path.count == 2
+        },
+      "a forwarded MacroBlock did not reach the caller's path: \(forwardedCommands.map(\.kind))")
+  }
+
+  private func findNode(_ id: Int, in node: NativeSwiftNodeSnapshot) -> NativeSwiftNodeSnapshot? {
+    if node.componentID == id { return node }
+    for child in node.children {
+      if let found = findNode(id, in: child) { return found }
+    }
+    return nil
+  }
+
   @Test func filterQualityAndCollapsibleLayout() throws {
     // Filter quality is paint state: an IMAGE_FILTER_QUALITY field (10) names a quality, the
     // legacy FILTER_BITMAP flag (17) names two, and a command that never saw either leaves it unset
@@ -2973,6 +3197,11 @@ private final class Writer {
   /// A NaN-boxed float-expression operator word. `3` is multiply; see `NativeSwiftFloatExpression`.
   static func floatOperator(_ operation: Int) -> Int {
     Int(Int32(bitPattern: 0xff80_0000 | UInt32(0x0031_0000 + operation)))
+  }
+
+  /// A literal float as the int `int(_:)` writes, for an expression's word list.
+  static func literal(_ value: Float) -> Int {
+    Int(Int32(bitPattern: value.bitPattern))
   }
 
   private(set) var bytes: [UInt8] = []

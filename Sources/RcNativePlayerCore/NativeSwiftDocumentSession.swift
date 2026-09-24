@@ -550,7 +550,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     stateLock.lock()
     defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
-    if !dynamic {
+    return floatList(id: id, staticFirst: !dynamic, values: values)
+  }
+
+  /// A float list as `values` resolves it: a static `DataListFloat` (when `staticFirst`) with its
+  /// updates applied, or else a `DynamicFloatList`, zero-filled to its length.
+  private func floatList(id: Int, staticFirst: Bool, values: [Int: Float]) -> [Float]? {
+    if staticFirst {
       if var result = document.floatLists[id]?.map({
         NativeSwiftFloatExpression.resolve($0, values: values)
       }) {
@@ -911,7 +917,35 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           velocity: try resolvedFloat($0, "marquee velocity", values: values, positive: true))
       },
       text: text,
-      custom: custom)
+      custom: custom,
+      layoutComputes: node.layoutComputes.map { resolvedLayoutCompute($0, values: values) })
+  }
+
+  /// A component's `LayoutComputeOperation` with the frame's values and lists its body reads, so a
+  /// host's layout pass can run it without reaching back into the session.
+  private func resolvedLayoutCompute(
+    _ compute: ParsedLayoutCompute, values: [Int: Float]
+  ) -> NativeSwiftLayoutComputeSnapshot {
+    var readValues: [Int: Float] = [:]
+    var listIDs: Set<Int> = [compute.boundsID]
+    for step in compute.steps {
+      for id in step.referencedIDs {
+        if let value = values[id] { readValues[id] = value }
+        if id & NativeSwiftIDRegion.mask == NativeSwiftIDRegion.array { listIDs.insert(id) }
+      }
+      if case .update(let listID, _, _) = step { listIDs.insert(listID) }
+    }
+    var lists: [Int: [Float]] = [:]
+    for id in listIDs {
+      if let list = floatList(id: id, staticFirst: true, values: values) { lists[id] = list }
+    }
+    // The reference copies the component's box in only when the array is a DynamicFloatList.
+    let seedsBounds =
+      document.dynamicFloatLists[compute.boundsID] != nil
+      && document.floatLists[compute.boundsID] == nil
+    return NativeSwiftLayoutComputeSnapshot(
+      type: compute.type, boundsID: compute.boundsID, animateChanges: compute.animateChanges,
+      steps: compute.steps, seedsBounds: seedsBounds, lists: lists, values: readValues)
   }
 
   /// A state layout's branches, unwrapping the bare content node they usually share.

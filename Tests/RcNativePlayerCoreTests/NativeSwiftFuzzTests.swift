@@ -120,7 +120,15 @@ import Testing
 
       // The operation spans the decoder itself walked, so the mutator and the decoder cannot
       // disagree about framing. A seed the decoder refuses has none, and stays byte-level only.
-      let spans = (try? NativeSwiftDocumentSession.operationSpans(in: seed.data)) ?? []
+      // An operation replayed by a macro, loop or branch expansion is spanned in the expanded
+      // bytes, not in the seed; only the in-order spans that lie in the seed itself are its own.
+      var spans: [NativeSwiftOperationSpan] = []
+      for span in (try? NativeSwiftDocumentSession.operationSpans(in: seed.data)) ?? []
+      where span.offset >= (spans.last?.endOffset ?? 0) && span.endOffset > span.offset
+        && span.endOffset <= seed.data.count
+      {
+        spans.append(span)
+      }
       var random = SplitMix64(seed: seedValue &+ UInt64(index) &* 0x9E37_79B9_7F4A_7C15)
       for iteration in 0..<iterations {
         let label = "\(seed.name)#\(iteration)"
@@ -163,6 +171,8 @@ import Testing
     do {
       let snapshot = try session.snapshot()
       try validate(snapshot, label: label, data: data)
+      var computeBudget = 64
+      evaluateLayoutComputes(in: snapshot.root, budget: &computeBudget)
 
       // Frames must stay bounded and typed across time, including hostile times.
       for time in [0.0, 0.25, 1.0, 60.0, -1.0, 1e9] as [TimeInterval] {
@@ -279,7 +289,80 @@ import Testing
       (name: "noise", data: Data((0..<512).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })),
       (name: "zeros", data: Data(repeating: 0, count: 1024)),
       (name: "ones", data: Data(repeating: 0xFF, count: 1024)),
+      (name: "layout-compute-macro-block", data: layoutComputeAndMacroBlockSeed()),
     ]
+  }
+
+  /// A box with a LayoutCompute body, a stray MacroBlock, and a macro forwarding a MacroBlock to a
+  /// nested call: none of the bundled fixtures carries these, and mutations should reach them.
+  private static func layoutComputeAndMacroBlockSeed() -> Data {
+    typealias Op = NativeSwiftWireOpcode
+    var bytes: [UInt8] = []
+    /// One operation: its opcode byte, then each operand as a big-endian word.
+    func emit(_ opcode: Int, _ operands: [Int] = []) {
+      bytes.append(UInt8(truncatingIfNeeded: opcode))
+      for operand in operands {
+        let raw = UInt32(bitPattern: Int32(truncatingIfNeeded: operand))
+        for shift: UInt32 in [24, 16, 8, 0] {
+          bytes.append(UInt8(truncatingIfNeeded: raw >> shift))
+        }
+      }
+    }
+    func float(_ value: Float) -> Int { Int(Int32(bitPattern: value.bitPattern)) }
+    func reference(_ id: Int) -> Int { Int(Int32(bitPattern: 0xff80_0000 | UInt32(id))) }
+    func floatOperator(_ operation: Int) -> Int { reference(0x0031_0000 + operation) }
+    let bounds = NativeSwiftIDRegion.array + 42
+    let end = Op.containerEnd
+    emit(Op.header, [1, 0, 0, 100, 100, 0, 0])
+    emit(Op.macroBlock, [3])
+    emit(Op.drawRect, [0, 0, 4, 4].map(float))
+    emit(end)
+    emit(Op.macroDefine, [41, 1, 101, 0])
+    emit(Op.macroArgument, [0])
+    emit(Op.drawRect, [1, 1, 2, 2].map(float))
+    emit(end)
+    emit(Op.macroDefine, [40, 1, 100, 0])
+    emit(Op.macroCall, [41, 1, 100])
+    emit(Op.macroBlock, [0])
+    emit(Op.drawRect, [3, 3, 6, 6].map(float))
+    emit(end)
+    emit(end)
+    emit(end)
+    emit(Op.layoutRoot, [1])
+    emit(Op.layoutBox, [2, -1, 1, 1])
+    emit(Op.layoutCompute, [NativeSwiftLayoutComputeType.measure, bounds])
+    bytes.append(1)  // animateChanges
+    emit(Op.dynamicFloatList, [bounds, float(6)])
+    emit(
+      Op.animatedFloat,
+      [
+        50, 5, reference(bounds), float(4),
+        floatOperator(NativeSwiftFloatOperator.arrayDeref), float(2),
+        floatOperator(NativeSwiftFloatOperator.div),
+      ])
+    emit(Op.updateDynamicFloatList, [bounds, float(2), reference(50)])
+    emit(end)
+    emit(Op.layoutCanvas, [3, -1])
+    emit(Op.macroCall, [40, 1, 200])
+    emit(end)
+    emit(end)
+    emit(end)
+    emit(end)
+    return Data(bytes)
+  }
+
+  /// Runs every LayoutCompute the tree carries over ordinary and hostile boxes, as a host's layout
+  /// pass would: a computation may decline, never trap.
+  private static func evaluateLayoutComputes(in node: NativeSwiftNodeSnapshot, budget: inout Int) {
+    guard budget > 0 else { return }
+    for compute in node.layoutComputes {
+      budget -= 1
+      for value: Float in [0, 12.5, -3, .nan, .infinity, .greatestFiniteMagnitude] {
+        _ = compute.evaluate(
+          x: value, y: 1, width: value, height: 2, parentWidth: 100, parentHeight: value)
+      }
+    }
+    for child in node.children { evaluateLayoutComputes(in: child, budget: &budget) }
   }
 
   private enum Mutation: CaseIterable {

@@ -181,3 +181,102 @@ public enum NativeSwiftCollapsible {
     return kept
   }
 }
+
+/// One operation of a `LayoutComputeOperation` (238) body, in wire order.
+///
+/// AndroidX's writer (`RemoteComposeWriter.addLayoutCompute`) fills the body with float expressions
+/// that read the bounds array through `A_DEREF`, and `UpdateDynamicFloatList` operations that
+/// write results back into it. Those, float constants and the bounds array's own
+/// `DynamicFloatList` declaration are the body this core runs; anything else refuses the document.
+enum NativeSwiftLayoutComputeStep: Sendable, Equatable {
+  /// A `FloatConstant` or `FloatExpression`: `id` takes the value of `words`, evaluated as RPN.
+  case float(id: Int, words: [UInt32], offset: Int)
+  /// An `UpdateDynamicFloatList`: element `index` of list `listID` takes `value`.
+  case update(listID: Int, index: UInt32, value: UInt32)
+
+  /// Every NaN-encoded id the step reads, arrays included.
+  var referencedIDs: [Int] {
+    switch self {
+    case .float(_, let words, _):
+      return words.compactMap(NativeSwiftFloatExpression.referenceID)
+    case .update(let listID, let index, let value):
+      return [listID] + [index, value].compactMap(NativeSwiftFloatExpression.referenceID)
+    }
+  }
+}
+
+/// A decoded `LayoutComputeOperation`, attached to the component it modifies.
+struct ParsedLayoutCompute {
+  let type: Int
+  let boundsID: Int
+  let animateChanges: Bool
+  let steps: [NativeSwiftLayoutComputeStep]
+}
+
+/// A `LayoutComputeOperation` as one frame resolved it: a component-attached program that, given
+/// the component's measured or placed box and its parent's size, computes a new width and height
+/// (`NativeSwiftLayoutComputeType.measure`) or x and y (`.position`).
+///
+/// The reference runs it from `BoxLayout`'s measure and layout passes (`applyComputedLayout`): it
+/// copies `[x, y, width, height, parentWidth, parentHeight]` into the bounds array when that array
+/// is a `DynamicFloatList`, applies the body's operations in order, and reads the array back. This
+/// is that, as a pure function a host's layout engine can call: the frame's float values and lists
+/// the body reads are captured when the snapshot is taken.
+///
+/// Values are in document units, the units the body's expressions are written in.
+public struct NativeSwiftLayoutComputeSnapshot: Sendable, Equatable {
+  /// `NativeSwiftLayoutComputeType`: which half of the bounds the host applies.
+  public let type: Int
+  /// The float-list id the bounds travel through.
+  public let boundsID: Int
+  /// The reference's `animateChanges`: whether a change the computation makes may animate.
+  public let animateChanges: Bool
+  let steps: [NativeSwiftLayoutComputeStep]
+  /// Whether the bounds array is a `DynamicFloatList`, which is the only kind the reference
+  /// writes the component's box into before the body runs.
+  let seedsBounds: Bool
+  /// The lists the body reads or writes, as this frame resolved them.
+  let lists: [Int: [Float]]
+  /// The float values the body reads, as this frame resolved them.
+  let values: [Int: Float]
+
+  /// Runs the computation over a component's box.
+  ///
+  /// - Returns: the bounds array after the body ran — at least `x`, `y`, `width` and `height` —
+  ///   or nil when the computation does not apply: the bounds array does not exist, the body
+  ///   failed to evaluate, or a result is not finite. The reference leaves the box as measured
+  ///   when it has no array, and a nil here asks the host to do the same.
+  public func evaluate(
+    x: Float, y: Float, width: Float, height: Float, parentWidth: Float, parentHeight: Float
+  ) -> [Float]? {
+    var arrays = lists
+    if seedsBounds {
+      arrays[boundsID] = [x, y, width, height, parentWidth, parentHeight]
+    }
+    guard arrays[boundsID] != nil else { return nil }
+    var locals = values
+    for step in steps {
+      switch step {
+      case .float(let id, let words, let offset):
+        guard
+          let value = try? NativeSwiftFloatExpression.evaluate(
+            words, values: locals, arrays: arrays, opcode: NativeSwiftWireOpcode.animatedFloat,
+            offset: offset)
+        else { return nil }
+        locals[id] = value
+      case .update(let listID, let indexWord, let valueWord):
+        // The reference ignores an update to a list it does not hold, or past its end.
+        guard var list = arrays[listID] else { continue }
+        let index = nativeSwiftClampedInt(
+          NativeSwiftFloatExpression.resolve(indexWord, values: locals))
+        guard list.indices.contains(index) else { continue }
+        list[index] = NativeSwiftFloatExpression.resolve(valueWord, values: locals)
+        arrays[listID] = list
+      }
+    }
+    guard let result = arrays[boundsID], result.count > NativeSwiftLayoutComputeBound.height,
+      result[0...NativeSwiftLayoutComputeBound.height].allSatisfy(\.isFinite)
+    else { return nil }
+    return result
+  }
+}

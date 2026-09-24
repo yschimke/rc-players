@@ -475,6 +475,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let marquee: NativeSwiftMarqueeSnapshot?
   public let text: NativeSwiftTextSnapshot?
   public let custom: NativeSwiftCustomSnapshot?
+  /// The component's `LayoutComputeOperation` modifiers, in wire order. A `BoxLayout` (or
+  /// `CanvasLayout`) parent runs the measure ones after measuring this component and the position
+  /// ones after placing it.
+  public let layoutComputes: [NativeSwiftLayoutComputeSnapshot]
 }
 
 /// The 2D subset of MODIFIER_GRAPHICS_LAYER this player applies. Rotation about X and Y, Z

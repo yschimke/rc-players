@@ -77,6 +77,8 @@ struct NativeLayoutNode: Equatable {
   /// Whether the component takes pointer actions of its own — the UIKit renderer's
   /// `NativeAccessibilityNode.semanticBehavior?.acceptsPointerAction`.
   var acceptsPointerAction: Bool = false
+  /// The component's `LayoutComputeOperation` modifiers, which a box parent runs over its box.
+  var layoutComputes: [NativeSwiftLayoutComputeSnapshot] = []
 }
 
 extension NativeLayoutNode {
@@ -117,6 +119,7 @@ extension NativeLayoutNode {
     let hasSemantics = snapshot.accessibility != nil || snapshot.isClickable
     let isEnabled = snapshot.accessibility?.isEnabled ?? true
     acceptsPointerAction = hasSemantics && isEnabled && !snapshot.supportedGestures.isEmpty
+    layoutComputes = snapshot.layoutComputes
   }
 }
 
@@ -230,6 +233,14 @@ struct NativeLayoutEngine {
       && node.minimumWidth == 0 && node.minimumHeight == 0
       && node.maximumWidth == nil && node.maximumHeight == nil
       && node.padding == .zero && node.offset == .zero && node.zIndex == 0
+      && node.layoutComputes.isEmpty
+  }
+
+  /// Whether a container runs its children's `LayoutComputeOperation`s. The reference's
+  /// `BoxLayout` does, from its measure and layout passes, and `CanvasLayout` inherits it; no other
+  /// layout manager calls `applyComputedLayout`, so a computation under a row or column is inert.
+  static func runsLayoutComputes(_ container: NativeLayoutNode) -> Bool {
+    container.componentKind == "BoxLayout" || container.componentKind == "CanvasLayout"
   }
 
   /// The components a container lays out: its non-GONE children, looking through structural ones.
@@ -424,7 +435,17 @@ struct NativeLayoutEngine {
     default:
       // Zero, not the available space: a wrapping box with nothing visible in it has no size of
       // its own. A fill box still resolves to the available space through its own dimension.
-      let sizes = items.map { preferredSize(of: $0, in: contentAvailable) }
+      // A box wraps to its children's sizes after their measure computations, as `BoxLayout`'s
+      // `computeWrapSize` applies them before taking the largest.
+      let runsComputes = Self.runsLayoutComputes(node)
+      let parent = CGSize(
+        width: min(available.width, widthConstraint),
+        height: min(available.height, heightConstraint))
+      let sizes = items.map { child -> CGSize in
+        let size = preferredSize(of: child, in: contentAvailable)
+        guard runsComputes else { return size }
+        return computedSize(of: child.layoutNode, measured: size, parent: parent)
+      }
       intrinsic = CGSize(
         width: sizes.map(\.width).max() ?? 0,
         height: sizes.map(\.height).max() ?? 0)
@@ -435,6 +456,60 @@ struct NativeLayoutEngine {
         width: intrinsic.width + insets.left + insets.right,
         height: intrinsic.height + insets.top + insets.bottom),
       available: available)
+  }
+
+  // MARK: - Layout computations
+
+  /// `size` after the component's `LayoutComputeOperation`s of type measure, in the order it
+  /// declared them. `parent` is the box's own size, which the reference passes as bounds 4 and 5.
+  ///
+  /// Each computation sees the size the previous one produced. The reference measures with the
+  /// component at its measured size and x/y as last placed; a measure pass here has not placed it,
+  /// so x and y read as 0. A result the computation cannot produce leaves the size alone, and a
+  /// negative one is clamped to 0 rather than handed to a view frame.
+  func computedSize(of node: NativeLayoutNode, measured size: CGSize, parent: CGSize) -> CGSize {
+    guard !node.layoutComputes.isEmpty else { return size }
+    let scale = context.documentScale > 0 ? context.documentScale : 1
+    var result = size
+    for compute in node.layoutComputes where compute.type == NativeSwiftLayoutComputeType.measure {
+      guard
+        let bounds = compute.evaluate(
+          x: 0, y: 0, width: Float(result.width / scale), height: Float(result.height / scale),
+          parentWidth: Float(parent.width / scale), parentHeight: Float(parent.height / scale))
+      else { continue }
+      let width = CGFloat(bounds[NativeSwiftLayoutComputeBound.width]) * scale
+      let height = CGFloat(bounds[NativeSwiftLayoutComputeBound.height]) * scale
+      result = CGSize(width: max(width, 0), height: max(height, 0))
+    }
+    return result
+  }
+
+  /// `frame` after the component's `LayoutComputeOperation`s of type position. Positions are
+  /// relative to `content`, the box's padded content rectangle, as `BoxLayout` places a child;
+  /// `parent` is the box's own size.
+  func computedFrame(
+    of node: NativeLayoutNode, frame: CGRect, content: CGRect, parent: CGSize
+  ) -> CGRect {
+    guard !node.layoutComputes.isEmpty else { return frame }
+    let scale = context.documentScale > 0 ? context.documentScale : 1
+    var origin = CGPoint(x: frame.minX - content.minX, y: frame.minY - content.minY)
+    let positions = node.layoutComputes.filter {
+      $0.type == NativeSwiftLayoutComputeType.position
+    }
+    for compute in positions {
+      guard
+        let bounds = compute.evaluate(
+          x: Float(origin.x / scale), y: Float(origin.y / scale),
+          width: Float(frame.width / scale), height: Float(frame.height / scale),
+          parentWidth: Float(parent.width / scale), parentHeight: Float(parent.height / scale))
+      else { continue }
+      origin = CGPoint(
+        x: CGFloat(bounds[NativeSwiftLayoutComputeBound.x]) * scale,
+        y: CGFloat(bounds[NativeSwiftLayoutComputeBound.y]) * scale)
+    }
+    return CGRect(
+      x: content.minX + origin.x, y: content.minY + origin.y, width: frame.width,
+      height: frame.height)
   }
 
   /// The size a child contributes to its container.
@@ -637,12 +712,22 @@ struct NativeLayoutEngine {
         x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
       : CGRect(
         x: content.minX, y: content.minY, width: content.width, height: extent ?? content.height)
+    let runsComputes = Self.runsLayoutComputes(node)
     for child in items {
       let size = measuredSize(of: child, in: content.size, axis: axis, container: node)
-      let frame =
+      var frame =
         aligned
         ? alignedFrame(size: size, in: space, container: node)
         : CGRect(origin: content.origin, size: content.size)
+      if runsComputes, !child.layoutNode.layoutComputes.isEmpty {
+        // `BoxLayout` measures the child, applies its measure computations, aligns the result and
+        // then applies its position computations. A canvas lays such a child out the same way,
+        // as `CanvasLayout` does when it holds components rather than a canvas content.
+        let computed = computedSize(of: child.layoutNode, measured: size, parent: bounds.size)
+        frame = computedFrame(
+          of: child.layoutNode, frame: alignedFrame(size: computed, in: space, container: node),
+          content: content, parent: bounds.size)
+      }
       result.placements.append(.init(item: child, frame: offsetFrame(child.layoutNode, frame)))
     }
     return result

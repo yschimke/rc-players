@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
-import RcNativePlayerCore
 import Testing
 
+@testable import RcNativePlayerCore
 @testable import RcNativePlayerUIKit
 
 /// The shared layout engine, driven through plain tree nodes and a fake text measurer: every
@@ -270,6 +270,80 @@ import Testing
     text.layoutCache.removeAll()
     _ = engine.preferredSize(of: text, in: CGSize(width: 100, height: 100))
     #expect(text.measurements == 3)
+  }
+
+  // MARK: - Layout computations
+
+  @Test func boxRunsItsChildsLayoutComputations() {
+    let child = fixed(2, width: 20, height: 10) {
+      $0.layoutComputes = [Self.halfParentWidth(), Self.endAlignedWithInset(10)]
+    }
+    let root = item(.box, id: 1, children: [child]) {
+      $0.componentKind = "BoxLayout"
+      $0.horizontalPositioning = NativeSwiftPositioning.center
+      $0.verticalPositioning = NativeSwiftPositioning.center
+    }
+    let tree = NativeLayoutEngine().frameTree(root: root, size: CGSize(width: 200, height: 100))
+    // Measured 20 wide, the measure computation makes it half the box's 200; centring puts it at
+    // y 45, and the position computation moves x to 200 - 100 - 10.
+    expectFrame(tree, 2, CGRect(x: 90, y: 45, width: 100, height: 10))
+  }
+
+  @Test func wrappingBoxSizesToTheComputedChild() {
+    let child = fixed(2, width: 20, height: 10) { $0.layoutComputes = [Self.halfParentWidth()] }
+    let box = item(.box, id: 1, children: [child]) { $0.componentKind = "BoxLayout" }
+    let engine = NativeLayoutEngine()
+    #expect(
+      engine.preferredSize(of: box, in: CGSize(width: 160, height: 100))
+        == CGSize(width: 80, height: 10))
+  }
+
+  @Test func layoutComputationsAreInertOutsideABox() {
+    // The reference's row never calls `applyComputedLayout`.
+    let child = fixed(2, width: 20, height: 10) {
+      $0.layoutComputes = [Self.halfParentWidth(), Self.endAlignedWithInset(10)]
+    }
+    let root = item(.row, id: 1, children: [child]) { $0.componentKind = "RowLayout" }
+    let tree = NativeLayoutEngine().frameTree(root: root, size: CGSize(width: 200, height: 100))
+    expectFrame(tree, 2, CGRect(x: 0, y: 0, width: 20, height: 10))
+  }
+
+  private static let boundsID = NativeSwiftIDRegion.array + 42
+
+  private static func word(_ value: Float) -> UInt32 { value.bitPattern }
+
+  private static func reference(_ id: Int) -> UInt32 { 0xff80_0000 | UInt32(id) }
+
+  private static func bound(_ index: Float) -> [UInt32] {
+    [
+      reference(boundsID), word(index),
+      NativeSwiftFloatExpression.operatorWord(NativeSwiftFloatOperator.arrayDeref),
+    ]
+  }
+
+  /// Measure: width = parent width / 2.
+  private static func halfParentWidth() -> NativeSwiftLayoutComputeSnapshot {
+    let divide = NativeSwiftFloatExpression.operatorWord(NativeSwiftFloatOperator.div)
+    return NativeSwiftLayoutComputeSnapshot(
+      type: NativeSwiftLayoutComputeType.measure, boundsID: boundsID, animateChanges: false,
+      steps: [
+        .float(id: 50, words: bound(4) + [word(2), divide], offset: 0),
+        .update(listID: boundsID, index: word(2), value: reference(50)),
+      ],
+      seedsBounds: true, lists: [:], values: [:])
+  }
+
+  /// Position: x = parent width - width - inset.
+  private static func endAlignedWithInset(_ inset: Float) -> NativeSwiftLayoutComputeSnapshot {
+    let subtract = NativeSwiftFloatExpression.operatorWord(NativeSwiftFloatOperator.sub)
+    return NativeSwiftLayoutComputeSnapshot(
+      type: NativeSwiftLayoutComputeType.position, boundsID: boundsID, animateChanges: false,
+      steps: [
+        .float(
+          id: 51, words: bound(4) + bound(2) + [subtract, word(inset), subtract], offset: 0),
+        .update(listID: boundsID, index: word(0), value: reference(51)),
+      ],
+      seedsBounds: true, lists: [:], values: [:])
   }
 
   // MARK: - Fixtures

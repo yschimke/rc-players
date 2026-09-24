@@ -481,6 +481,12 @@ extension ParsedNode {
     if let offsetYWord, matches(offsetYWord) { return true }
     if let zIndexWord, matches(zIndexWord) { return true }
     if let text, matches(text.sizeWord) || matches(text.weightWord) { return true }
+    // A layout computation reads its values each time the component is laid out, so one that
+    // reads the clock moves the layout with it.
+    let computeReads = layoutComputes.contains { compute in
+      compute.steps.contains { $0.referencedIDs.contains(where: ids.contains) }
+    }
+    if computeReads { return true }
     for command in commands {
       if command.words.contains(where: matches) { return true }
       if let path = command.path, path.references(anyOf: ids) { return true }
