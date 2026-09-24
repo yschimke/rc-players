@@ -3236,10 +3236,9 @@ private final class NativeMacCanvasView: NSView {
       let path = CGMutablePath()
       path.move(to: CGPoint(x: v[0], y: v[1]))
       path.addLine(to: CGPoint(x: v[2], y: v[3]))
-      // DrawLine is a stroke operation regardless of the current paint style.  Routing it through
-      // `paint` used a fill for the common fill-style paint, and an open path has no fill area.
-      context.addPath(path)
-      context.strokePath()
+      // DrawLine is a stroke operation regardless of the current paint style: an open path has no
+      // fill area. It still goes through `paint` so a gradient shader strokes it, as in UIKit.
+      paint(path, command, context, forceStroke: true)
     case NativeSwiftDrawKind.roundRect:
       paint(
         NativeGraphicsState.roundedRectPath(
@@ -3262,8 +3261,12 @@ private final class NativeMacCanvasView: NSView {
     }
   }
 
-  private func paint(_ path: CGPath, _ command: NativeMacDrawCommand, _ context: CGContext) {
-    if let imageID = command.textureImageID, let image = images[imageID], !command.stroke {
+  private func paint(
+    _ path: CGPath, _ command: NativeMacDrawCommand, _ context: CGContext,
+    forceStroke: Bool = false
+  ) {
+    let stroke = command.stroke || forceStroke
+    if let imageID = command.textureImageID, let image = images[imageID], !stroke {
       context.saveGState()
       context.addPath(path)
       context.clip(
@@ -3283,14 +3286,13 @@ private final class NativeMacCanvasView: NSView {
     // does. Without this every gradient drew as the paint's flat colour.
     if let gradient = command.gradient {
       context.saveGState()
-      if command.stroke { context.replacePathWithStrokedPath() }
-      context.clip(using: command.stroke ? .winding : fillRule)
+      if stroke { context.replacePathWithStrokedPath() }
+      context.clip(using: stroke ? .winding : fillRule)
       NativeGradientRenderer.draw(Self.gradient(gradient), in: context)
       context.restoreGState()
       return
     }
-    context.drawPath(
-      using: command.stroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
+    context.drawPath(using: stroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
   }
 
   /// The renderer's gradient for a decoded shader, its colours in sRGB as the reference's are.
