@@ -23,6 +23,7 @@
 		10000000000000000000000F /* RemoteComposeNativePlayerRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000011 /* RemoteComposeNativePlayerRepresentable.swift */; };
 		100000000000000000000010 /* NativeCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* NativeCompatibility.swift */; };
 		100000000000000000000011 /* NativeLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000013 /* NativeLayout.swift */; };
+		10000000000000000000004E /* NativeLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004E /* NativeLayoutEngine.swift */; };
 		100000000000000000000012 /* NativeGraphicsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* NativeGraphicsState.swift */; };
 		100000000000000000000013 /* NativePath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* NativePath.swift */; };
 		100000000000000000000014 /* NativeTextPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* NativeTextPolicy.swift */; };
@@ -101,6 +102,7 @@
 		200000000000000000000060 /* NativeBilinearScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeBilinearScaler.swift; path = "../../Sources/RcNativePlayerUIKit/NativeBilinearScaler.swift"; sourceTree = "<group>"; };
 		200000000000000000000061 /* NativeGradientTiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeGradientTiling.swift; path = "../../Sources/RcNativePlayerUIKit/NativeGradientTiling.swift"; sourceTree = "<group>"; };
 		200000000000000000000013 /* NativeLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeLayout.swift; path = "../../Sources/RcNativePlayerUIKit/NativeLayout.swift"; sourceTree = "<group>"; };
+		20000000000000000000004E /* NativeLayoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeLayoutEngine.swift; path = "../../Sources/RcNativePlayerUIKit/NativeLayoutEngine.swift"; sourceTree = "<group>"; };
 		200000000000000000000014 /* NativeGraphicsState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeGraphicsState.swift; path = "../../Sources/RcNativePlayerUIKit/NativeGraphicsState.swift"; sourceTree = "<group>"; };
 		200000000000000000000015 /* NativePath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativePath.swift; path = "../../Sources/RcNativePlayerUIKit/NativePath.swift"; sourceTree = "<group>"; };
 		200000000000000000000016 /* NativeTextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeTextPolicy.swift; path = "../../Sources/RcNativePlayerUIKit/NativeTextPolicy.swift"; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 				200000000000000000000060 /* NativeBilinearScaler.swift */,
 				200000000000000000000061 /* NativeGradientTiling.swift */,
 				200000000000000000000013 /* NativeLayout.swift */,
+				20000000000000000000004E /* NativeLayoutEngine.swift */,
 				200000000000000000000014 /* NativeGraphicsState.swift */,
 				200000000000000000000015 /* NativePath.swift */,
 				200000000000000000000016 /* NativeTextPolicy.swift */,
@@ -378,6 +381,7 @@
 				100000000000000000000060 /* NativeBilinearScaler.swift in Sources */,
 				100000000000000000000061 /* NativeGradientTiling.swift in Sources */,
 				100000000000000000000011 /* NativeLayout.swift in Sources */,
+				10000000000000000000004E /* NativeLayoutEngine.swift in Sources */,
 				100000000000000000000012 /* NativeGraphicsState.swift in Sources */,
 				100000000000000000000013 /* NativePath.swift in Sources */,
 				100000000000000000000014 /* NativeTextPolicy.swift in Sources */,
