@@ -1366,6 +1366,10 @@ public class RcPlayerState(
 
   public fun hasComponentValues(componentId: Int): Boolean = componentId in componentValues
 
+  /** Whether any component's geometry is read back by the document through a `ComponentValue`. */
+  public val hasAnyComponentValues: Boolean
+    get() = componentValues.isNotEmpty()
+
   /**
    * Publishes geometry after placement. The callback fires only when an exposed float changes, so
    * the first layout schedules one settling pass and stable geometry cannot form a measure loop.
@@ -1387,6 +1391,30 @@ public class RcPlayerState(
     return publishComponentValues(componentId, geometry, refreshExpressions)
   }
 
+  /**
+   * Publishes a component's measured size from inside a measure pass, keeping its last position.
+   *
+   * The settling counterpart of [publishComponentGeometry]. A player that measures the layout more
+   * than once before it draws — AndroidX re-measures until `ComponentValue` stops moving — calls
+   * this from the measure pass, so an expression over a component's width is already refreshed when
+   * the next pass reads it. It does not raise the invalidation callback: the caller is measuring
+   * again anyway, and an invalidation from inside a measure pass would only buy a redundant frame.
+   * Position is not known until placement, so it keeps whatever was last published — nothing on the
+   * first frame — and [publishComponentGeometry] still owns it.
+   */
+  public fun publishComponentSize(componentId: Int, width: Float, height: Float): Boolean {
+    val geometry =
+      componentGeometries[componentId]?.copy(width = width, height = height)
+        ?: RcComponentGeometry(width, height, 0f, 0f, 0f, 0f)
+    componentGeometries[componentId] = geometry
+    return publishComponentValues(
+      componentId,
+      geometry,
+      refreshExpressions = true,
+      invalidate = false,
+    )
+  }
+
   /** Supplies the scrollable content extent used by alpha18 CONTENT_WIDTH/CONTENT_HEIGHT. */
   public fun publishComponentContentSize(
     componentId: Int,
@@ -1403,6 +1431,7 @@ public class RcPlayerState(
     componentId: Int,
     geometry: RcComponentGeometry,
     refreshExpressions: Boolean = true,
+    invalidate: Boolean = true,
   ): Boolean {
     var changed = false
     componentValues[componentId].orEmpty().forEach { binding ->
@@ -1428,7 +1457,7 @@ public class RcPlayerState(
       // before the settling draw, including expressions used by layout modifiers rather than a
       // CanvasOperations block.
       document.operations.filterIsInstance<RcFloatExpression>().forEach(::applyFloatExpression)
-      onInvalidated()
+      if (invalidate) onInvalidated()
     }
     return changed
   }
