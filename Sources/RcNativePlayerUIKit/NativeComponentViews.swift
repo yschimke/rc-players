@@ -1271,24 +1271,42 @@
       // Semantic elements resolve from the displayed views, so any change layout makes to what is
       // displayed (a collapsed or restored child, a flow's discarded item, a FitBox's choice) is
       // re-resolved here rather than at the next document update.
-      var displayedStateChanged = false
+      var changedItems: [NativeComponentView] = []
       for change in arrangement.visibilityChanges {
+        var changed = false
         if change.item.isHidden != change.isHidden {
           change.item.isHidden = change.isHidden
-          displayedStateChanged = true
+          changed = true
         }
         if change.resetsAlpha { change.item.alpha = 1 }
         if change.isFitBoxAlternative, !change.item.ignoresOwnVisibility {
           change.item.ignoresOwnVisibility = true
-          displayedStateChanged = true
+          changed = true
         }
+        if changed { changedItems.append(change.item) }
       }
+      var containerChanged = false
       if let containerIsHidden = arrangement.containerIsHidden, isHidden != containerIsHidden {
         isHidden = containerIsHidden
-        displayedStateChanged = true
+        containerChanged = true
       }
       for placement in arrangement.placements { placement.item.frame = placement.frame }
-      if displayedStateChanged { refreshSemanticElements() }
+      guard !changedItems.isEmpty || containerChanged else { return }
+      // An arranged item can sit below a structural wrapper, whose own element also resolves from
+      // it, so the path from each changed item up to this container is refreshed too.
+      var refreshed = Set<ObjectIdentifier>()
+      for item in changedItems {
+        var view = item.superview
+        while let current = view, current !== self {
+          if let component = current as? NativeComponentView,
+            refreshed.insert(ObjectIdentifier(component)).inserted
+          {
+            component.configureSemanticElement()
+          }
+          view = current.superview
+        }
+      }
+      refreshSemanticElements()
     }
 
     /// Re-resolves every semantic element from here up: a merging ancestor's label, role and
