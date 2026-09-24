@@ -125,21 +125,47 @@ enum NativeGradientRenderer {
         locations: normalizedStops)
     else { return }
 
+    // Clamp extends the end colours; decal stops at them. Repeat and mirror are laid out over the
+    // periods the clip reaches and drawn as one gradient, falling back to clamp past the limit.
+    let extend: CGGradientDrawingOptions =
+      value.tileMode == NativeGradientTiling.decal
+      ? [] : [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+    let tiles =
+      value.tileMode == NativeGradientTiling.repeated
+      || value.tileMode == NativeGradientTiling.mirror
     switch value.kind {
     case 0:
-      context.drawLinearGradient(
-        gradient,
-        start: CGPoint(x: value.values[0], y: value.values[1]),
-        end: CGPoint(x: value.values[2], y: value.values[3]),
-        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+      let start = CGPoint(x: value.values[0], y: value.values[1])
+      let end = CGPoint(x: value.values[2], y: value.values[3])
+      if tiles,
+        let tiled = tiledLinear(
+          start: start, end: end, colors: spaceColors, stops: normalizedStops ?? [],
+          mirror: value.tileMode == NativeGradientTiling.mirror, space: space,
+          clip: context.boundingBoxOfClipPath)
+      {
+        context.drawLinearGradient(
+          tiled.gradient, start: tiled.start, end: tiled.end,
+          options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+        return
+      }
+      context.drawLinearGradient(gradient, start: start, end: end, options: extend)
     case 1:
+      let center = CGPoint(x: value.values[0], y: value.values[1])
+      let radius = value.values[2]
+      if tiles,
+        let tiled = tiledRadial(
+          center: center, radius: radius, colors: spaceColors, stops: normalizedStops ?? [],
+          mirror: value.tileMode == NativeGradientTiling.mirror, space: space,
+          clip: context.boundingBoxOfClipPath)
+      {
+        context.drawRadialGradient(
+          tiled.gradient, startCenter: center, startRadius: 0, endCenter: center,
+          endRadius: tiled.radius, options: [.drawsAfterEndLocation])
+        return
+      }
       context.drawRadialGradient(
-        gradient,
-        startCenter: CGPoint(x: value.values[0], y: value.values[1]),
-        startRadius: 0,
-        endCenter: CGPoint(x: value.values[0], y: value.values[1]),
-        endRadius: value.values[2],
-        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+        gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius,
+        options: extend)
     case 2:
       drawSweep(
         colors: normalizedColors,
@@ -148,6 +174,65 @@ enum NativeGradientRenderer {
         in: context)
     default: break
     }
+  }
+
+  /// A linear gradient repeated or mirrored over every period `clip` reaches, and the start and
+  /// end points of that span; nil when it cannot be laid out.
+  private static func tiledLinear(
+    start: CGPoint, end: CGPoint, colors: [CGColor], stops: [CGFloat], mirror: Bool,
+    space: CGColorSpace, clip: CGRect
+  ) -> (gradient: CGGradient, start: CGPoint, end: CGPoint)? {
+    let axis = CGPoint(x: end.x - start.x, y: end.y - start.y)
+    let length = axis.x * axis.x + axis.y * axis.y
+    guard length > 0, !clip.isNull, !clip.isInfinite else { return nil }
+    // The gradient parameter at each corner of the clip: its projection onto the axis.
+    let parameters = corners(of: clip).map {
+      Double((($0.x - start.x) * axis.x + ($0.y - start.y) * axis.y) / length)
+    }
+    guard let lower = parameters.min(), let upper = parameters.max(),
+      let span = NativeGradientTiling.periods(lower: lower, upper: upper),
+      let gradient = tiledGradient(
+        colors: colors, stops: stops, mirror: mirror, span: span, space: space)
+    else { return nil }
+    func point(_ t: Int) -> CGPoint {
+      CGPoint(x: start.x + axis.x * CGFloat(t), y: start.y + axis.y * CGFloat(t))
+    }
+    return (gradient, point(span.first), point(span.last))
+  }
+
+  /// A radial gradient repeated or mirrored out to the farthest corner of `clip`, and the radius
+  /// that span ends at; nil when it cannot be laid out.
+  private static func tiledRadial(
+    center: CGPoint, radius: CGFloat, colors: [CGColor], stops: [CGFloat], mirror: Bool,
+    space: CGColorSpace, clip: CGRect
+  ) -> (gradient: CGGradient, radius: CGFloat)? {
+    guard radius > 0, !clip.isNull, !clip.isInfinite else { return nil }
+    let farthest = corners(of: clip).map { hypot($0.x - center.x, $0.y - center.y) }.max() ?? 0
+    guard let span = NativeGradientTiling.periods(lower: 0, upper: Double(farthest / radius)),
+      let gradient = tiledGradient(
+        colors: colors, stops: stops, mirror: mirror, span: span, space: space)
+    else { return nil }
+    return (gradient, radius * CGFloat(span.last))
+  }
+
+  private static func tiledGradient(
+    colors: [CGColor], stops: [CGFloat], mirror: Bool, span: (first: Int, last: Int),
+    space: CGColorSpace
+  ) -> CGGradient? {
+    guard stops.count == colors.count else { return nil }
+    let layout = NativeGradientTiling.layout(
+      stops: stops.map(Double.init), mirror: mirror, first: span.first, last: span.last)
+    guard !layout.isEmpty else { return nil }
+    return CGGradient(
+      colorsSpace: space, colors: layout.map { colors[$0.colorIndex] } as CFArray,
+      locations: layout.map { CGFloat($0.location) })
+  }
+
+  private static func corners(of rect: CGRect) -> [CGPoint] {
+    [
+      CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
+      CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY),
+    ]
   }
 
   private static func drawSweep(

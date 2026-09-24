@@ -49,6 +49,7 @@ xcrun swiftc \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeGraphicsState.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeTexturePolicy.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeBilinearScaler.swift" \
+  "$repo_root/Sources/RcNativePlayerUIKit/NativeGradientTiling.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeLayout.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeFrameTiming.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeAppKitPlayer.swift" \
