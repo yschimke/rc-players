@@ -1651,9 +1651,13 @@ import Testing
           + "AAAAAACFAAAAKkNIAABDSAAAP4AAAH/AAAAAAAAAhQAAACpCyAAAQ5YAAAAAAAC/gAAAAAAAAIUAAAAqQsgAAEOW"
           + "AAAAAAAAAAAAAAAAAACFAAAAKkLIAABDlgAAAAAAAD+AAAAAAAAA1tbW"))
     var pans: [Float] = []
+    var unset: [[Int]] = []
+    var geometryIsFinite = true
     func collect(_ node: NativeSwiftNodeSnapshot) {
       for command in node.commands where command.kind == NativeSwiftDrawKind.text {
         pans.append(command.values[3])
+        unset.append(command.unsetValueIndices)
+        geometryIsFinite = geometryIsFinite && command.geometryValues.allSatisfy(\.isFinite)
       }
       node.children.forEach(collect)
     }
@@ -1661,6 +1665,10 @@ import Testing
     #expect(
       pans.count == 6 && pans.prefix(3).allSatisfy(\.isNaN) && Array(pans.suffix(3)) == [-1, 0, 1],
       Comment(rawValue: "anchored panY values \(pans)"))
+    // The hosts validate `geometryValues`, which must leave out exactly the sentinel: otherwise
+    // they refuse every document that uses it before the baseline branch can run.
+    #expect(unset == [[3], [3], [3], [], [], []], Comment(rawValue: "unset indices \(unset)"))
+    #expect(geometryIsFinite)
   }
 
   // MARK: - Graphics-layer attribute ids (#423)

@@ -348,7 +348,8 @@ struct ParsedDrawCommand {
           ? units.count : max(end, lower)
         return String(decoding: units[lower..<upper], as: UTF16.self)
       }, textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values),
-      textFlags: textFlags)
+      textFlags: textFlags,
+      unsetValueIndices: nanSentinelIndices.sorted())
   }
 }
 

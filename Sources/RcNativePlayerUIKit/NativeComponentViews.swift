@@ -114,7 +114,8 @@
         for command in node.commands {
           try budget.recordCommand(pathElementCount: command.path.count, limits: limits)
           try budget.validateNumbers(
-            command.values.map(Double.init) + [Double(command.strokeWidth), Double(command.alpha)]
+            command.geometryValues.map(Double.init)
+              + [Double(command.strokeWidth), Double(command.alpha)]
               + command.path.flatMap { $0.values.map(Double.init) },
             componentID: node.componentID, field: "draw", limits: limits)
         }
