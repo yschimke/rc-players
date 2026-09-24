@@ -63,6 +63,13 @@ public enum NativeSwiftTextFormatter {
     public static let optionsRounding = 2 << 8
     public static let legacyMode = 1 << 10
     public static let fullFormat = 1 << 12
+
+    /// The two-bit fields the values above occupy.
+    static let padAfterMask = 3
+    static let padBeforeMask = 3 << 2
+    static let groupingMask = 3 << 4
+    static let separatorMask = 3 << 6
+    static let optionsMask = 3 << 8
   }
 
   public static func format(
@@ -70,13 +77,13 @@ public enum NativeSwiftTextFormatter {
   ) -> String {
     if flags & Flag.fullFormat != 0 { return javaFloatString(input) }
     let post: Character? =
-      switch flags & 3 {
+      switch flags & Flag.padAfterMask {
       case Flag.padAfterNone: nil
       case Flag.padAfterZero: "0"
       default: " "
       }
     let pre: Character? =
-      switch flags & (3 << 2) {
+      switch flags & Flag.padBeforeMask {
       case Flag.padBeforeNone: nil
       case Flag.padBeforeZero: "0"
       default: " "
@@ -86,7 +93,8 @@ public enum NativeSwiftTextFormatter {
     }
     return modern(
       input, before: digitsBefore, requestedAfter: digitsAfter, pre: pre, post: post,
-      separator: (flags >> 6) & 3, grouping: (flags >> 4) & 3, options: (flags >> 8) & 3)
+      separator: flags & Flag.separatorMask, grouping: flags & Flag.groupingMask,
+      options: flags & Flag.optionsMask)
   }
 
   private static func legacy(
@@ -109,15 +117,16 @@ public enum NativeSwiftTextFormatter {
   ) -> String {
     let separators: (group: Character, decimal: Character) =
       switch separator {
-      case 1: (".", ",")
-      case 2: (" ", ",")
-      case 3: ("_", ".")
-      default: (",", ".")
+      case Flag.separatorPeriodComma: (".", ",")
+      case Flag.separatorSpaceComma: (" ", ",")
+      case Flag.separatorUnderscorePeriod: ("_", ".")
+      default: (",", ".")  // Flag.separatorCommaPeriod
       }
     var value = input
     let negative = value < 0
     if negative { value = -value }
-    let raw = characters(value, before: before, after: requestedAfter, rounding: options & 2 != 0)
+    let raw = characters(
+      value, before: before, after: requestedAfter, rounding: options & Flag.optionsRounding != 0)
     let grouped = group(
       String(raw.prefix { $0 != "." }), grouping: grouping, separator: separators.group)
     let integerLength = grouped.count
@@ -125,7 +134,7 @@ public enum NativeSwiftTextFormatter {
     let trimAfter =
       integerLength + requestedAfter > 9 ? max(1, 9 - integerLength) : requestedAfter
     let after = post == nil ? trimAfter : requestedAfter
-    let parentheses = options & 1 != 0
+    let parentheses = options & Flag.optionsNegativeParentheses != 0
     if after == 0 { return sign(integer, negative: negative, parentheses: parentheses) }
     var text = fractionDigits(value, digits: trimAfter, keep: after)
     while text.count > 1, text.last == "0" { text.removeLast() }
@@ -157,10 +166,10 @@ public enum NativeSwiftTextFormatter {
   }
 
   private static func group(_ value: String, grouping: Int, separator: Character) -> String {
-    guard grouping != 0 else { return value }
+    guard grouping != Flag.groupingNone else { return value }
     var result = Array(value)
-    let step = grouping == 2 ? 4 : grouping == 3 ? 2 : 3
-    var index = value.count - (grouping == 2 ? 4 : 3)
+    let step = grouping == Flag.groupingBy4 ? 4 : grouping == Flag.groupingBy32 ? 2 : 3
+    var index = value.count - (grouping == Flag.groupingBy4 ? 4 : 3)
     while index > 0 {
       result.insert(separator, at: index)
       index -= step
@@ -266,7 +275,7 @@ public enum NativeSwiftTextFormatter {
 }
 
 /// One conditional container as evaluated while linking a document.
-public struct NativeSwiftConditionalTraceSnapshot: Sendable {
+@_spi(Conformance) public struct NativeSwiftConditionalTraceSnapshot: Sendable {
   public let type: Int
   public let left: Float
   public let right: Float
@@ -302,23 +311,36 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   /// Layout transition specifications declared by the document, keyed by animation id.
   public let animationSpecs: [Int: NativeSwiftAnimationSpec]
   /// Animation ids in declaration order, for truthful operation-record observations.
-  public let animationSpecOrder: [Int]
+  @_spi(Conformance) public var animationSpecOrder: [Int] { conformanceAnimationSpecOrder }
   /// Path resource ids declared by the document, including procedural path construction.
-  public let pathIDs: Set<Int>
+  @_spi(Conformance) public var pathIDs: Set<Int> { conformancePathIDs }
   /// Output ids declared by `PATH_TWEEN` operations.
-  public let pathTweenIDs: Set<Int>
+  @_spi(Conformance) public var pathTweenIDs: Set<Int> { conformancePathTweenIDs }
   /// Every declared accessibility operation, including root-attached and repeated modifiers.
   public let accessibilityRecords: [NativeSwiftAccessibilitySnapshot]
   /// Runtime shader uniform names keyed by shader id. Values remain unobserved by design.
-  public let shaderUniformNames: [Int: Set<String>]
+  @_spi(Conformance) public var shaderUniformNames: [Int: Set<String>] {
+    conformanceShaderUniformNames
+  }
   /// Conditional containers evaluated while linking the document.
-  public let conditionalTraces: [NativeSwiftConditionalTraceSnapshot]
+  @_spi(Conformance) public var conditionalTraces: [NativeSwiftConditionalTraceSnapshot] {
+    conformanceConditionalTraces
+  }
   /// Every `IMPULSE_START` in declaration order, with its window resolved for this frame.
   public let impulses: [NativeSwiftImpulseSnapshot]
   /// When the document asked to be resolved again, in seconds from this frame: the shortest
   /// `WAKE_IN`, an impulse still waiting for its window, or 0 for one inside it. Nil when nothing
   /// asked.
   public let wakeAfter: TimeInterval?
+
+  // Storage for the conformance-only records above. They are `@_spi(Conformance)` computed
+  // properties over internal storage rather than SPI stored properties, so the struct's layout
+  // stays independent of which clients import the SPI.
+  let conformanceAnimationSpecOrder: [Int]
+  let conformancePathIDs: Set<Int>
+  let conformancePathTweenIDs: Set<Int>
+  let conformanceShaderUniformNames: [Int: Set<String>]
+  let conformanceConditionalTraces: [NativeSwiftConditionalTraceSnapshot]
 
   /// The wake a host should schedule: the document's own request, or the once-a-second refresh a
   /// document reading a discrete wall-clock field needs, whichever comes first.
@@ -517,7 +539,7 @@ public struct NativeSwiftMeasuredSize: Sendable, Equatable {
 /// duplicating and dropping whole operations — rather than as flat bytes. The spans come from the
 /// same walk that validates the document, so a mutator and the decoder cannot disagree about
 /// framing: `endOffset` is exactly where the decoder stopped reading the operation.
-public struct NativeSwiftOperationSpan: Sendable, Equatable {
+@_spi(Conformance) public struct NativeSwiftOperationSpan: Sendable, Equatable {
   public let opcode: Int
   public let offset: Int
   public let endOffset: Int
@@ -533,7 +555,7 @@ public struct NativeSwiftOperationSpan: Sendable, Equatable {
 
 /// The current values of one decoded particle system. The outer array is ordered by particle index;
 /// values within each particle use the definition's declared variable order.
-public struct NativeSwiftParticleSystemSnapshot: Sendable, Equatable {
+@_spi(Conformance) public struct NativeSwiftParticleSystemSnapshot: Sendable, Equatable {
   public let id: Int
   public let variableIDs: [Int]
   public let particles: [[Float]]
@@ -667,7 +689,7 @@ public enum NativeSwiftScrollGesture {
 /// The corpus's `float`, `int`, `text` and `color` probes read a document's *state* rather than its
 /// rendering: an expression's result, a variable a gesture wrote, a colour an expression built. A
 /// target is either a numeric slot or the name of a variable the document declared.
-public struct NativeSwiftProbeValues: Sendable {
+@_spi(Conformance) public struct NativeSwiftProbeValues: Sendable {
   public let floats: [Int: Float]
   public let integers: [Int: Int]
   public let texts: [Int: String]
@@ -678,7 +700,7 @@ public struct NativeSwiftProbeValues: Sendable {
 
 /// A matrix declaration exactly as it appeared on the wire. Matrix probes deliberately retain a
 /// 3x3 declaration as nine values rather than exposing the runtime's expanded 4x4 representation.
-public struct NativeSwiftMatrixSnapshot: Sendable {
+@_spi(Conformance) public struct NativeSwiftMatrixSnapshot: Sendable {
   public let id: Int
   public let values: [Float]
 }

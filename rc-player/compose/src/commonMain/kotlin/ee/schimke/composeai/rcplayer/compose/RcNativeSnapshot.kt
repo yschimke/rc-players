@@ -1957,15 +1957,15 @@ public object RcNativeSnapshotBridge {
           )
       }
       is RcDrawBitmap -> {
-        val bitmap =
-          requireNotNull(bitmaps[operation.imageId]) { "Missing bitmap ${operation.imageId}" }
+        val imageId = state.drawId(operation.imageId)
+        val bitmap = requireNotNull(bitmaps[imageId]) { "Missing bitmap $imageId" }
         commands +=
           paint.command(
             RcNativeDrawCommand.IMAGE,
             image =
               validatedImageDraw(
                 RcNativeImageDraw(
-                  imageId = operation.imageId,
+                  imageId = imageId,
                   sourceLeft = 0f,
                   sourceTop = 0f,
                   sourceRight = bitmap.width.toFloat(),
@@ -1988,7 +1988,7 @@ public object RcNativeSnapshotBridge {
             image =
               validatedImageDraw(
                 RcNativeImageDraw(
-                  imageId = operation.imageId,
+                  imageId = state.drawId(operation.imageId),
                   sourceLeft = operation.srcLeft.toFloat(),
                   sourceTop = operation.srcTop.toFloat(),
                   sourceRight = operation.srcRight.toFloat(),
@@ -2010,7 +2010,7 @@ public object RcNativeSnapshotBridge {
             image =
               validatedImageDraw(
                 RcNativeImageDraw(
-                  imageId = operation.imageId,
+                  imageId = state.drawId(operation.imageId),
                   sourceLeft = state.resolve(operation.srcLeft),
                   sourceTop = state.resolve(operation.srcTop),
                   sourceRight = state.resolve(operation.srcRight),
@@ -2029,7 +2029,12 @@ public object RcNativeSnapshotBridge {
           )
       is RcIdOperation ->
         if (operation.opcode == RcOpcodes.DRAW_PATH || operation.opcode == RcOpcodes.CLIP_PATH) {
-          val data = requireNotNull(paths[operation.id]) { "Missing path ${operation.id}" }
+          // DrawPath names its path like any paint operation, possibly through a variable; ClipPath
+          // packs the path id in the low 20 bits and the region op in the high byte.
+          val pathId =
+            if (operation.opcode == RcOpcodes.DRAW_PATH) state.drawId(operation.id)
+            else operation.id and 0x000fffff
+          val data = requireNotNull(paths[pathId]) { "Missing path $pathId" }
           commands +=
             paint.command(
               if (operation.opcode == RcOpcodes.DRAW_PATH) RcNativeDrawCommand.PATH

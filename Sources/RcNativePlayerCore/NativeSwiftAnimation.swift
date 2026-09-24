@@ -130,7 +130,8 @@ final class NativeSwiftFloatAnimationRuntime {
   private var springVelocity: Float = 0
   private var springLastTime: Float = 0
 
-  init(animationWords words: [UInt32], offset: Int = 0) throws {
+  /// - Parameter offset: the declaring `ANIMATED_FLOAT`'s byte offset, reported by any error.
+  init(animationWords words: [UInt32], offset: Int) throws {
     func malformed(_ reason: String) -> NativeSwiftCoreError {
       .malformed(offset: offset, reason: "invalid float animation: \(reason)")
     }

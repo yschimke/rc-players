@@ -37,6 +37,8 @@ import ee.schimke.composeai.rcplayer.compose.LocalRcDrawObserver
 import ee.schimke.composeai.rcplayer.compose.LocalRcInspection
 import ee.schimke.composeai.rcplayer.compose.LocalRcLayoutAnimations
 import ee.schimke.composeai.rcplayer.compose.LocalRcTimeSource
+import ee.schimke.composeai.rcplayer.compose.RcAccessibilityOnlyClickKey
+import ee.schimke.composeai.rcplayer.compose.RcBranch
 import ee.schimke.composeai.rcplayer.compose.RcComponentIdKey
 import ee.schimke.composeai.rcplayer.compose.RcComponentKindKey
 import ee.schimke.composeai.rcplayer.compose.RcComponentVisibilityKey
@@ -79,6 +81,7 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.IdentityHashMap
 import javax.imageio.ImageIO
 import kotlin.math.abs
 import kotlin.math.roundToLong
@@ -240,7 +243,29 @@ private class CmpSession(
    */
   private val textRuns = mutableListOf<Pair<Int, RcTextRun>>()
   private var frameStamp = 0
-  private val drawObserver = RcDrawObserver { run -> textRuns += frameStamp to run }
+  /** The last frame the player began drawing, so an empty frame replaces the previous runs. */
+  private var drawnFrame = -1
+
+  /**
+   * Each conditional's latest evaluation, as the player made it. Keyed by identity: two identical
+   * conditionals are equal as data but are still two branches.
+   */
+  private val branchEvaluations = IdentityHashMap<RcConditionalOperations, RcBranch>()
+
+  private val drawObserver =
+    object : RcDrawObserver {
+      override fun onTextRun(run: RcTextRun) {
+        textRuns += frameStamp to run
+      }
+
+      override fun onFrame() {
+        drawnFrame = frameStamp
+      }
+
+      override fun onConditional(branch: RcBranch) {
+        branchEvaluations[branch.operation] = branch
+      }
+    }
 
   /** Whether each gesture step landed on something that handles it, by step id. */
   private val handled = mutableMapOf<String, Boolean>()
@@ -401,7 +426,9 @@ private class CmpSession(
         val x = step.float("x")
         val y = step.float("y")
         touch {
-          if (x != null && y != null) moveTo(Offset(x, y) + slopAllowance)
+          // Lifted *at* the named point: the pointer is repositioned without a move event, so a
+          // drag handler sees only the release, as it does from a reference `ACTION_UP` there.
+          if (x != null && y != null) updatePointerTo(0, Offset(x, y) + slopAllowance)
           up()
         }
         afterGesture(step)
@@ -547,11 +574,16 @@ private class CmpSession(
    *
    * Read, like the tree, from the unmerged semantics: a component that reacts to a click publishes
    * the click action, and the one under the pointer is the one a hit test reaches. Taken before the
-   * gesture, because what the gesture does can move or remove the very node it hit.
+   * gesture, because what the gesture does can move or remove the very node it hit. A click that
+   * only accessibility services can trigger has no pointer handler, so it does not count.
    */
   private fun handlesAt(point: Offset, action: SemanticsPropertyKey<*>): Boolean {
+    fun handles(node: SemanticsNode): Boolean =
+      action in node.config &&
+        !(action == SemanticsActions.OnClick &&
+          node.config.getOrElseNullable(RcAccessibilityOnlyClickKey) { false } == true)
     fun hit(node: SemanticsNode): Boolean =
-      (node.layoutInfo.isPlaced && action in node.config && node.boundsInRoot.contains(point)) ||
+      (node.layoutInfo.isPlaced && handles(node) && node.boundsInRoot.contains(point)) ||
         node.children.any(::hit)
     return semanticsRoot()?.let(::hit) ?: false
   }
@@ -1136,13 +1168,13 @@ private class CmpSession(
   /**
    * Each conditional's verdict, in the corpus's branch-trace shape (§4.4).
    *
-   * Derived from the linked document and the current state rather than recorded while painting —
-   * the same trade `draw_log` makes, and exact for the straight-line documents the branch golds
-   * are: a condition over constants has one answer however often it is asked. `path` numbers the
-   * conditionals among their own nesting, so the second conditional inside the first is `0.1`. One
-   * inside a branch that did not run is still listed, not executed. `CHANGED` compares against the
-   * previous frame's value, which a read after the fact cannot know, so a document that uses it is
-   * reported unobservable rather than guessed at.
+   * Operands and verdicts are the ones the player reported as it evaluated each conditional
+   * ([RcDrawObserver.onConditional]), because a branch's children can write to the very ids it
+   * compares — read after painting, a branch that ran could look as if it had not. `path` numbers
+   * the conditionals among their own nesting, so the second conditional inside the first is `0.1`.
+   * One inside a branch that did not run was never evaluated: it is listed, not executed, with its
+   * operands as they stand. A `CHANGED` conditional the player never evaluated has no verdict a
+   * read after the fact could know, so a document with one is reported unobservable.
    */
   private fun branches(): JsonArray? {
     val entries = mutableListOf<JsonObject>()
@@ -1158,21 +1190,24 @@ private class CmpSession(
         }
         val path = if (prefix.isEmpty()) "$index" else "$prefix.$index"
         index += 1
-        val a = resolveWord(conditional.left)
-        val b = resolveWord(conditional.right)
+        val evaluated = branchEvaluations[conditional]
+        val a = evaluated?.left ?: resolveWord(conditional.left)
+        val b = evaluated?.right ?: resolveWord(conditional.right)
         val holds =
-          when (conditional.type) {
-            RcConditionalOperations.EQUAL -> a == b
-            RcConditionalOperations.NOT_EQUAL -> a != b
-            RcConditionalOperations.LESS_THAN -> a < b
-            RcConditionalOperations.LESS_THAN_OR_EQUAL -> a <= b
-            RcConditionalOperations.GREATER_THAN -> a > b
-            RcConditionalOperations.GREATER_THAN_OR_EQUAL -> a >= b
-            else -> {
-              observable = false
-              false
+          if (evaluated != null) evaluated.holds
+          else
+            when (conditional.type) {
+              RcConditionalOperations.EQUAL -> a == b
+              RcConditionalOperations.NOT_EQUAL -> a != b
+              RcConditionalOperations.LESS_THAN -> a < b
+              RcConditionalOperations.LESS_THAN_OR_EQUAL -> a <= b
+              RcConditionalOperations.GREATER_THAN -> a > b
+              RcConditionalOperations.GREATER_THAN_OR_EQUAL -> a >= b
+              else -> {
+                observable = false
+                false
+              }
             }
-          }
         val ran = parentRan && holds
         entries += buildJsonObject {
           put("path", JsonPrimitive(path))
@@ -1190,7 +1225,7 @@ private class CmpSession(
   }
 
   private fun latestTextRuns(): List<RcTextRun> {
-    val latest = textRuns.maxOfOrNull { it.first } ?: return emptyList()
+    val latest = maxOf(textRuns.maxOfOrNull { it.first } ?: -1, drawnFrame)
     return textRuns.filter { it.first == latest }.map { it.second }
   }
 

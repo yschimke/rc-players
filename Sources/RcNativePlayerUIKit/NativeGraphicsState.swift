@@ -74,6 +74,28 @@ enum NativeGraphicsState {
     default: .normal
     }
   }
+
+  /// Corner radii Core Graphics accepts for `rect`. `CGPath(roundedRect:cornerWidth:cornerHeight:)`
+  /// asserts unless each radius is non-negative and at most half the matching side, and document
+  /// radii are unvalidated; a non-finite radius becomes 0.
+  static func clampedCornerRadii(
+    in rect: CGRect, cornerWidth: CGFloat, cornerHeight: CGFloat
+  ) -> (width: CGFloat, height: CGFloat) {
+    func clamp(_ radius: CGFloat, _ side: CGFloat) -> CGFloat {
+      guard radius.isFinite, side.isFinite else { return 0 }
+      return min(max(radius, 0), side / 2)
+    }
+    return (clamp(cornerWidth, rect.width), clamp(cornerHeight, rect.height))
+  }
+
+  /// A rounded-rectangle path whose radii are clamped with `clampedCornerRadii`.
+  static func roundedRectPath(
+    _ rect: CGRect, cornerWidth: CGFloat, cornerHeight: CGFloat
+  ) -> CGPath {
+    let radii = clampedCornerRadii(in: rect, cornerWidth: cornerWidth, cornerHeight: cornerHeight)
+    return CGPath(
+      roundedRect: rect, cornerWidth: radii.width, cornerHeight: radii.height, transform: nil)
+  }
 }
 
 enum NativeGradientRenderer {
@@ -162,12 +184,29 @@ enum NativeGradientRenderer {
     let lower = stops.index(before: upper)
     let distance = stops[upper] - stops[lower]
     let fraction = distance > 0 ? (location - stops[lower]) / distance : 0
-    let left = colors[lower].components ?? [0, 0, 0, 1]
-    let right = colors[upper].components ?? [0, 0, 0, 1]
+    let left = rgbaComponents(colors[lower])
+    let right = rgbaComponents(colors[upper])
     let components = (0..<4).map { index in
       left[index] + (right[index] - left[index]) * fraction
     }
-    return CGColor(
-      colorSpace: CGColorSpaceCreateDeviceRGB(), components: components) ?? colors[lower]
+    return CGColor(colorSpace: rgbColorSpace, components: components) ?? colors[lower]
+  }
+
+  private static let rgbColorSpace =
+    CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+
+  /// Exactly four sRGB components (red, green, blue, alpha) for any colour. `CGColor.components`
+  /// has as many entries as the colour's space has channels plus alpha, so a grayscale colour has
+  /// two and indexing it as RGBA read out of bounds.
+  static func rgbaComponents(_ color: CGColor) -> [CGFloat] {
+    let converted = color.converted(to: rgbColorSpace, intent: .defaultIntent, options: nil)
+    let components = (converted ?? color).components ?? []
+    switch components.count {
+    case 4...: return Array(components[0..<4])
+    case 3: return [components[0], components[1], components[2], 1]
+    case 2: return [components[0], components[0], components[0], components[1]]
+    case 1: return [components[0], components[0], components[0], 1]
+    default: return [0, 0, 0, 1]
+    }
   }
 }

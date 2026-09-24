@@ -68,6 +68,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueStringChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
+import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 
@@ -464,7 +465,13 @@ public class RcPlayerState(
   }
 
   private fun loadSystem(id: Int, value: Float) {
-    if (id !in claimedSystemIds) storeFloat(id, value)
+    // A float only, as AndroidX loads it. Mirrored into the integers too, the clock would answer
+    // an integer read of its id — and ids this low are also how documents write literal constants,
+    // so `Visibility.VISIBLE` (1) would read as the seconds into the hour.
+    if (id !in claimedSystemIds) {
+      floats[id] = value
+      integers.remove(id)
+    }
   }
 
   /**
@@ -1147,12 +1154,15 @@ public class RcPlayerState(
     return readsTouchPosition
   }
 
+  /**
+   * Whether any operation reads the touch slots, in any field — an expression, a draw coordinate, a
+   * layout dimension, a conditional's operand. A coincidental match only costs a repaint per
+   * pointer move, which is why the encoded scan's over-reporting is acceptable here.
+   */
   private val readsTouchPosition: Boolean by lazy {
-    val ids =
+    document.referencesAnyOf(
       setOf(RcTouchExpressionRuntime.ID_TOUCH_POS_X, RcTouchExpressionRuntime.ID_TOUCH_POS_Y)
-    document.operations.filterIsInstance<RcFloatExpression>().any { expression ->
-      expression.expression.any { it.referencedId in ids }
-    }
+    )
   }
 
   public fun executeTouch(block: RcTouchActionBlock) {
@@ -1293,7 +1303,25 @@ public class RcPlayerState(
         )
     }
 
-  public fun integer(id: Int): Int? = integers[id]
+  /**
+   * The integer at [id], or null when nothing is there.
+   *
+   * An id below `RemoteComposeState.START_ID` (42) that nothing wrote answers its own value, as
+   * AndroidX's does: creation code writes some enum constants as bare ids — `Visibility.VISIBLE` as
+   * id 1 — so reading them as unset hid those components.
+   */
+  public fun integer(id: Int): Int? = integers[id] ?: id.takeIf { it in 0 until LITERAL_ID_LIMIT }
+
+  /**
+   * The resource id a draw operation names — AndroidX `PaintOperation.getId`.
+   *
+   * The low 16 bits are the id. With bit 30 set they are instead an integer variable holding the
+   * id, which is how a document picks a path or bitmap at run time.
+   */
+  public fun drawId(raw: Int): Int {
+    val id = raw and DRAW_ID_MASK
+    return if (raw and DRAW_ID_DEREFERENCE != 0) integer(id) ?: 0 else id
+  }
 
   public fun boolean(id: Int): Boolean? = booleans[id]
 
@@ -1607,3 +1635,12 @@ public sealed interface RcHostActionValue {
   /** Immutable snapshot: later document list mutations cannot change an already emitted event. */
   public data class FloatListValue(val value: List<Float>) : RcHostActionValue
 }
+
+/** `RemoteComposeState.START_ID`: ids below it are the player's own, or literal constants. */
+private const val LITERAL_ID_LIMIT = 42
+
+/** `PaintOperation.VALUE_MASK`. */
+private const val DRAW_ID_MASK = 0xffff
+
+/** `PaintOperation.PTR_DEREFERENCE`. */
+private const val DRAW_ID_DEREFERENCE = 0x40000000

@@ -246,6 +246,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
@@ -265,6 +266,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
+import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
+import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import ee.schimke.composeai.rcplayer.runtime.RcAnimationTimeline
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
@@ -525,7 +528,18 @@ private fun RcComposePlayerResolved(
         // anything: `remote-m3`'s indeterminate circular progress builds its sweep from a float
         // expression over the player-supplied `CONTINUOUS_SEC` (#4264). Without this the state's
         // per-frame variables would be loaded exactly once and the arc would hold its first pose.
-        document.referencesMovingSystemVariable()
+        document.referencesContinuousSystemVariable()
+    }
+  // A document that reads the clock only in whole seconds — a digital watch face — changes once a
+  // second, and redrawing it at the display rate in between draws the same frame again. AndroidX
+  // sleeps such a document to the next second; so does this.
+  // Any other clock read — a text field showing the seconds directly, a date that must turn over at
+  // midnight — gets the same once-a-second refresh, found by scanning every field.
+  val ticksEverySecond =
+    remember(document) {
+      !documentDeclaresAnimation &&
+        (document.referencesMovingSystemVariable() ||
+          document.referencesAnyOf(RcSystemVariables.CLOCK))
     }
   // `frameDemand` is snapshot-backed, so a tween starting or finishing recomposes the player and
   // starts or stops the loop below with it.
@@ -548,6 +562,15 @@ private fun RcComposePlayerResolved(
         // is skipped on a recomposition whose inputs have not changed, so a running tween needs the
         // layout version to move with the clock. Only while one is running.
         if (frameDemand.isActive) invalidationVersion += 1
+      }
+    }
+  }
+  LaunchedEffect(ticksEverySecond, needsContinuousFrames) {
+    if (ticksEverySecond && !needsContinuousFrames) {
+      while (true) {
+        delay(MILLIS_PER_SECOND - latestTimeSource.currentTimeMillis().mod(MILLIS_PER_SECOND))
+        withFrameNanos(recordFrame)
+        invalidationVersion += 1
       }
     }
   }
@@ -630,6 +653,7 @@ private fun RcComposePlayerResolved(
     interactiveModifier
       .drawWithContent {
         invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
+        drawObserver?.onFrame()
         drawContent()
       }
       // Published here rather than on the root layout component, because a canvas-only document has
@@ -1671,9 +1695,13 @@ private fun animateRcVisibility(
     }
   }
 
+  // Turned off mid-transition: finish it now rather than let the running one play out.
+  LaunchedEffect(enabled) { if (!enabled) elapsedMillis.snapTo(maxDurationMillis) }
+
   // AndroidX INVISIBLE participates in measure/layout exactly like VISIBLE, but skips paint.
   // It does not run the GONE visibility transition.
   if (targetVisibility == 2) return RcAnimatedVisibility(true, modifier.alpha(0f))
+  if (!enabled) return RcAnimatedVisibility(targetVisibility == 1, modifier)
 
   val shouldRender =
     when (targetVisibility) {
@@ -1917,7 +1945,12 @@ private fun RcCollapsibleLayout(
       else constraints.maxHeight
     val retained = selectCollapsibleChildren(mainSizes, priorities, maximumMain)
     val retainedIndices = retained.indices.filter { retained[it] }
-    collapse.collapsed = retainedIndices.isEmpty()
+    // A GONE child measures zero on the main axis, so it always "fits" and is always retained; it
+    // still shows nothing. The container collapses when nothing it kept is visible.
+    collapse.collapsed = retainedIndices.none { index ->
+      val visibility = children[index].modifiers.visibility
+      visibility == null || androidXVisibility(state.integer(visibility.visibilityId) ?: 0) != 0
+    }
     // Distribute the main-axis space the retained unweighted children left, in proportion to each
     // retained weighted child's weight, and measure those children at their share.
     val totalWeight =
@@ -2959,11 +2992,12 @@ private fun Modifier.applyAndroidXMarquee(
   // AndroidX times the marquee off the wall clock from the frame it was first painted in, not off
   // the document's animation time.
   val nowMillis = state.frameWallClockMillis
-  val firstPaintMillis = remember { longArrayOf(nowMillis) }
+  // Keyed to the document's state: a host swapping documents gets a new marquee, with its own hold.
+  val firstPaintMillis = remember(state, operation) { longArrayOf(nowMillis) }
   val timeSeconds = (nowMillis - firstPaintMillis[0]) / 1_000f
   // How far the content overflows is only known once it has been measured, so the layout reports
   // it back. It moves only when the content or the viewport does.
-  var overflowDistance by remember { mutableFloatStateOf(0f) }
+  var overflowDistance by remember(state, operation) { mutableFloatStateOf(0f) }
   fun offsetFor(distance: Float): Float =
     androidXMarqueeOffset(
       overflowDistance = distance,
@@ -3464,7 +3498,10 @@ private fun Modifier.applyAccessibilitySemantics(
       ?.let { id -> state.text(id)?.let { stateDescription = it } }
     androidXSemanticsRole(operation.role)?.let { role = it }
     if (!operation.enabled) disabled()
-    if (operation.clickable && !hasClickAction) onClick { false }
+    if (operation.clickable && !hasClickAction) {
+      onClick { false }
+      rcAccessibilityOnlyClick = true
+    }
   }
   return when (operation.mode) {
     RcAccessibilitySemantics.MODE_SET -> semantics(properties = properties)
@@ -3989,16 +4026,14 @@ private class RcDrawTargetState(
     if (depth == 0) restoreMain(scope)
   }
 
-  fun redirect(scope: DrawScope, operation: RcDrawToBitmap) {
-    if (operation.bitmapId == 0) {
+  fun redirect(scope: DrawScope, operation: RcDrawToBitmap, bitmapId: Int) {
+    if (bitmapId == 0) {
       restoreMain(scope)
       return
     }
     val source =
-      requireNotNull(images[operation.bitmapId]) {
-        "DrawToBitmap references missing bitmap ${operation.bitmapId}"
-      }
-    val canvas = offscreenTargets.canvasFor(operation.bitmapId, source, images)
+      requireNotNull(images[bitmapId]) { "DrawToBitmap references missing bitmap $bitmapId" }
+    val canvas = offscreenTargets.canvasFor(bitmapId, source, images)
     scope.drawContext.canvas = canvas
     scope.drawContext.size = Size(source.width.toFloat(), source.height.toFloat())
     if (operation.mode and RcDrawToBitmap.MODE_NO_INITIALIZE == 0) {
@@ -4103,7 +4138,16 @@ private fun DrawScope.drawOperationsRouted(
           RcOpcodes.RUN_ACTION -> state.executeRunAction(node.children)
           RcOpcodes.CONDITIONAL_OPERATIONS -> {
             val conditional = node.operation as RcConditionalOperations
-            if (state.evaluateConditional(conditional)) {
+            val holds = state.evaluateConditional(conditional)
+            paint.observer?.onConditional(
+              RcBranch(
+                conditional,
+                state.resolve(conditional.left),
+                state.resolve(conditional.right),
+                holds,
+              )
+            )
+            if (holds) {
               drawOperations(
                 node.children,
                 state,
@@ -4360,7 +4404,7 @@ private fun DrawScope.drawOperationsRouted(
       is RcDrawTextOnPath -> drawTextOnPath(operation, state, paint, computedPaths, textMeasurer)
       is RcDrawTextOnCircle -> drawTextOnCircle(operation, state, paint, textMeasurer)
       is RcDrawBitmap -> drawBitmap(operation, state, paint, images)
-      is RcDrawBitmapInt -> drawBitmapInt(operation, paint, images)
+      is RcDrawBitmapInt -> drawBitmapInt(operation, state, paint, images)
       is RcDrawBitmapScaled -> drawBitmapScaled(operation, state, paint, images)
       is RcDrawBitmapFontTextRun ->
         drawBitmapFontTextRun(operation, state, images, paint.alpha, paint.blendMode)
@@ -4387,7 +4431,7 @@ private fun DrawScope.drawOperationsRouted(
           textMeasurer,
         )
       is RcDrawTweenPath -> drawTweenPath(operation, paint, state)
-      is RcDrawToBitmap -> targets.redirect(this, operation)
+      is RcDrawToBitmap -> targets.redirect(this, operation, state.drawId(operation.bitmapId))
       is RcShaderData -> functions.shaders[operation.shaderId] = operation
       is RcNoArg ->
         when (operation.opcode) {
@@ -4524,7 +4568,7 @@ private fun DrawScope.drawBitmap(
   paint: RcPaintState,
   images: Map<Int, ImageBitmap>,
 ) {
-  val image = images[operation.imageId] ?: return
+  val image = images[state.drawId(operation.imageId)] ?: return
   val left = state.resolve(operation.left)
   val top = state.resolve(operation.top)
   val width = state.resolve(operation.right) - left
@@ -4545,10 +4589,11 @@ private fun DrawScope.drawBitmap(
 
 private fun DrawScope.drawBitmapInt(
   operation: RcDrawBitmapInt,
+  state: RcPlayerState,
   paint: RcPaintState,
   images: Map<Int, ImageBitmap>,
 ) {
-  val image = images[operation.imageId] ?: return
+  val image = images[state.drawId(operation.imageId)] ?: return
   drawBitmapRegion(
     image,
     operation.srcLeft,
@@ -4569,7 +4614,7 @@ private fun DrawScope.drawBitmapScaled(
   paint: RcPaintState,
   images: Map<Int, ImageBitmap>,
 ) {
-  val image = images[operation.imageId] ?: return
+  val image = images[state.drawId(operation.imageId)] ?: return
   val sl = state.resolve(operation.srcLeft)
   val st = state.resolve(operation.srcTop)
   val sr = state.resolve(operation.srcRight)
@@ -4808,6 +4853,12 @@ private fun DrawScope.drawTextAnchored(
 }
 
 /** [local] in device pixels, through every transform the canvas is under — for [RcDrawObserver]. */
+/** The angle the current transform turns the local x-axis to on the device, in degrees. */
+private fun DrawScope.deviceRotationDegrees(): Float {
+  val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
+  return atan2(m[3], m[0]) * (180f / PI.toFloat())
+}
+
 private fun DrawScope.toDevice(local: Offset): Offset {
   val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
   return Offset(
@@ -4918,7 +4969,7 @@ private fun DrawScope.drawTextOnPath(
 ) {
   val text = state.text(operation.textId).orEmpty()
   if (text.isEmpty()) return
-  val path = pathForId(operation.pathId, state, computedPaths)
+  val path = pathForId(state.drawId(operation.pathId), state, computedPaths)
   val measure = org.jetbrains.skia.PathMeasure(path.asSkiaPath(), false)
   if (measure.length <= 0f) return
   drawTextOnPathWithCompose(
@@ -4995,7 +5046,8 @@ private fun DrawScope.drawTextSegmentsOnPath(
     val advance = segment.advance
     val center = distance + advance / 2f
     if (center > contourLength) {
-      if (!measure.nextContour()) return
+      // Out of path: stop drawing, but still report the glyphs that were drawn.
+      if (!measure.nextContour()) break
       contourLength = measure.length
       distance = 0f
     }
@@ -5019,11 +5071,11 @@ private fun DrawScope.drawTextSegmentsOnPath(
           style = style,
           blendMode = paint.blendMode,
         )
-        // The glyph's baseline origin, read inside its own rotation so the device position is
-        // where it was actually drawn.
+        // The glyph's baseline origin and angle, read inside its own rotation so both are where
+        // and how it was actually drawn — including any rotation the canvas was already under.
         glyphs?.add(
           toDevice(placement.topLeft + Offset(0f, segment.firstBaseline)).let {
-            RcGlyphPlacement(it.x, it.y, placement.angleDegrees)
+            RcGlyphPlacement(it.x, it.y, deviceRotationDegrees())
           }
         )
       }
@@ -5190,8 +5242,13 @@ private fun DrawScope.drawTweenPath(
   state: RcPlayerState,
 ) {
   val data =
-    tweenPathData(-1, operation.path1Id, operation.path2Id, state.resolve(operation.tween), state)
-      ?: return
+    tweenPathData(
+      -1,
+      state.drawId(operation.path1Id),
+      state.drawId(operation.path2Id),
+      state.resolve(operation.tween),
+      state,
+    ) ?: return
   val path = buildPath(data, state)
   val start = state.resolve(operation.start)
   val stop = state.resolve(operation.stop)
@@ -5285,7 +5342,7 @@ private fun DrawScope.drawIdOperation(
 ) {
   when (operation.opcode) {
     RcOpcodes.DRAW_PATH -> {
-      drawRcPath(pathForId(operation.id, state, computedPaths), paint)
+      drawRcPath(pathForId(state.drawId(operation.id), state, computedPaths), paint)
     }
     RcOpcodes.CLIP_PATH -> {
       // AndroidX packs the path id in the low 20 bits and the Region.Op in the high byte.
@@ -5939,3 +5996,5 @@ private fun blendMode(value: Int): BlendMode =
     28 -> BlendMode.Luminosity
     else -> BlendMode.SrcOver
   }
+
+private const val MILLIS_PER_SECOND = 1_000L

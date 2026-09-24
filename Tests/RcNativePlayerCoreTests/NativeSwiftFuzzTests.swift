@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import RcNativePlayerCore
+@_spi(Conformance) @testable import RcNativePlayerCore
 
 /// Mutation fuzzing for the pure-Swift document core.
 ///
@@ -152,9 +152,9 @@ import Testing
             timeSeconds: 0.5)
         }
         _ = try session.click(componentID: componentID, timeSeconds: 0)
-        _ = try session.returnCustomText("fuzz", componentID: componentID, propertyID: 2)
-        _ = try session.returnCustomFloat(1.5, componentID: componentID, propertyID: 1)
-        _ = try session.returnCustomFloat(.nan, componentID: componentID, propertyID: 1)
+        _ = session.returnCustomText("fuzz", componentID: componentID, propertyID: 2)
+        _ = session.returnCustomFloat(1.5, componentID: componentID, propertyID: 1)
+        _ = session.returnCustomFloat(.nan, componentID: componentID, propertyID: 1)
       }
 
       // Resolving the same time twice must produce the same tree; a frame is a pure function of
