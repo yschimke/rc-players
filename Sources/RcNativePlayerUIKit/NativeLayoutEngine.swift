@@ -994,7 +994,8 @@ extension NativeLayoutEngine {
       }
     }
 
-    func visit(_ item: Item, depth: Int) {
+    // A component under a hidden ancestor is hidden too, whatever its own visibility says.
+    func visit(_ item: Item, depth: Int, ancestorIsHidden: Bool) {
       let id = ObjectIdentifier(item)
       let node = item.layoutNode
       let frame = frames[id] ?? .zero
@@ -1012,16 +1013,19 @@ extension NativeLayoutEngine {
         }
         extent = arrangement.scrollExtent
       }
+      let isHidden =
+        ancestorIsHidden || (hidden[id] ?? (node.visibility == NativeSwiftVisibility.gone))
       output.append(
         NativeLayoutFrame(
           componentID: node.componentID, depth: depth, frame: frame,
-          contentFrame: contentRect(of: node, in: bounds),
-          isHidden: hidden[id] ?? (node.visibility == NativeSwiftVisibility.gone),
+          contentFrame: contentRect(of: node, in: bounds), isHidden: isHidden,
           scrollExtent: extent))
-      for child in item.layoutChildren { visit(child, depth: depth + 1) }
+      for child in item.layoutChildren {
+        visit(child, depth: depth + 1, ancestorIsHidden: isHidden)
+      }
     }
 
-    visit(root, depth: 0)
+    visit(root, depth: 0, ancestorIsHidden: false)
     return NativeLayoutFrameTree(frames: output)
   }
 }

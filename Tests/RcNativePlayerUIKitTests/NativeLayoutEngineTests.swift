@@ -163,6 +163,20 @@ import Testing
     #expect(engine.preferredSize(of: root, in: CGSize(width: 100, height: 20)) == .zero)
   }
 
+  @Test func descendantsOfAGoneContainerAreHidden() {
+    let gone = item(
+      .column, id: 2,
+      children: [item(.row, id: 3, children: [fixed(4, width: 10, height: 10)])]
+    ) { $0.visibility = NativeSwiftVisibility.gone }
+    let root = item(.column, id: 1, children: [gone, fixed(5, width: 10, height: 10)])
+    let tree = NativeLayoutEngine().frameTree(root: root, size: CGSize(width: 100, height: 100))
+    #expect(tree.frame(ofComponent: 1)?.isHidden == false)
+    #expect(tree.frame(ofComponent: 2)?.isHidden == true)
+    #expect(tree.frame(ofComponent: 3)?.isHidden == true)
+    #expect(tree.frame(ofComponent: 4)?.isHidden == true)
+    #expect(tree.frame(ofComponent: 5)?.isHidden == false)
+  }
+
   // MARK: - Flow
 
   @Test func flowWrapsOntoFurtherLines() {
