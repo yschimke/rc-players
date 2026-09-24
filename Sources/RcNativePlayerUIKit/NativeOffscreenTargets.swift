@@ -3,36 +3,64 @@ import CoreGraphics
   import RcNativePlayerCore
 #endif
 
-/// The offscreen bitmaps a canvas's `DrawToBitmap` commands draw into, by bitmap id.
+/// Where a node's later commands go after a `DrawToBitmap`.
+enum NativeOffscreenRedirect {
+  /// Back to the node's own canvas: the redirect named bitmap id 0.
+  case canvas
+  /// Into this offscreen target.
+  case offscreen(CGContext)
+  /// Nowhere: the target could not be allocated, so the commands up to the next redirect are
+  /// dropped rather than drawn onto the canvas.
+  case dropped
+}
+
+/// The offscreen bitmaps a document's `DrawToBitmap` commands draw into, by bitmap id.
 ///
 /// AndroidX's `AndroidPaintContext.drawToBitmap` wraps the declared bitmap in a `Canvas` once and
-/// caches it, so a target keeps what was drawn into it — across redirects and across frames — and
-/// starts from the declared bitmap's own pixels. Each target here is a Core Graphics bitmap context
-/// of the declared size, seeded with the decoded image when there is one, and kept for the life of
-/// the canvas view that owns it. A `DrawBitmap` of that id then draws the target's current pixels.
+/// caches it, so a target keeps what was drawn into it — across redirects, components and frames —
+/// and starts from the declared bitmap's own pixels. Each target here is a Core Graphics bitmap
+/// context of the declared size, seeded with the decoded image when there is one. One pool belongs
+/// to the document view and is shared by every canvas in its tree, so a bitmap id names the same
+/// pixels wherever it is drawn into or read; a `DrawBitmap` of that id draws its current pixels.
 ///
-/// The core bounds what a document can ask for (64 targets, 16777216 pixels in all), so this
-/// allocates at most that.
+/// The core bounds what a document can ask for (64 targets, 16777216 pixels in all), charging each
+/// bitmap id once. The pool holds one target per id and refuses to grow past that same ceiling, so
+/// it allocates at most that however many components draw into the targets.
 final class NativeOffscreenTargets {
-  private var contexts: [Int: CGContext] = [:]
+  static let maximumTargets = 64
+  static let maximumPixels = 16_777_216
 
-  /// The context later commands draw into for `target`, erased first unless its mode says not to.
-  /// Nil when `target` returns drawing to the canvas, or when Core Graphics cannot allocate it, in
-  /// which case the redirected commands are dropped rather than drawn onto the canvas.
-  func begin(_ target: NativeSwiftOffscreenTargetSnapshot, seed: CGImage?) -> CGContext? {
-    guard !target.returnsToCanvas, target.width > 0, target.height > 0 else { return nil }
+  private var contexts: [Int: CGContext] = [:]
+  private var pixels = 0
+
+  /// Where later commands draw for `target`, erased first unless its mode says not to: the canvas
+  /// when `target` returns drawing to it, and `.dropped` when Core Graphics cannot allocate the
+  /// target or the pool's ceiling refuses it.
+  func begin(
+    _ target: NativeSwiftOffscreenTargetSnapshot, seed: CGImage?
+  ) -> NativeOffscreenRedirect {
+    if target.returnsToCanvas { return .canvas }
+    guard target.width > 0, target.height > 0 else { return .dropped }
     let context: CGContext
-    if let existing = contexts[target.bitmapID] {
+    if let existing = contexts[target.bitmapID], existing.width == target.width,
+      existing.height == target.height
+    {
       context = existing
     } else {
-      guard let created = Self.make(width: target.width, height: target.height, seed: seed) else {
-        return nil
+      // An id redeclared at another size (a newer document reusing it) replaces its old target.
+      if let stale = contexts.removeValue(forKey: target.bitmapID) {
+        pixels -= stale.width * stale.height
       }
+      let size = target.width * target.height
+      guard contexts.count < Self.maximumTargets, size <= Self.maximumPixels - pixels,
+        let created = Self.make(width: target.width, height: target.height, seed: seed)
+      else { return .dropped }
       contexts[target.bitmapID] = created
+      pixels += size
       context = created
     }
     if target.erasesTarget { Self.erase(context, to: target.colorARGB) }
-    return context
+    return .offscreen(context)
   }
 
   /// What target `id` holds now, or nil when nothing has drawn into it.

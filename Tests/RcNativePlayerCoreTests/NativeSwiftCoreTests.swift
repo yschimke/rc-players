@@ -1619,6 +1619,74 @@ import Testing
     #expect(!tooLargeError.isUnsupported)
   }
 
+  @Test func drawToBitmapInsideCapturedBodies() throws {
+    typealias Op = NativeSwiftWireOpcode
+    func declareBitmap(_ writer: Writer, id: Int, width: Int, height: Int) {
+      writer.u8(101).int(id).int(width).int(height).int(4)
+      for byte in [0x89, 0x50, 0x4e, 0x47] { writer.u8(byte) }
+    }
+    func canvasCommands(_ writer: Writer) throws -> [NativeSwiftDrawCommandSnapshot] {
+      let snapshot = try NativeSwiftDocumentSession.open(data: writer.data).snapshot()
+      return snapshot.root.children[0].commands
+    }
+    let redirectKinds = [
+      NativeSwiftDrawKind.drawToBitmap, NativeSwiftDrawKind.rect, NativeSwiftDrawKind.drawToBitmap,
+    ]
+
+    // A running conditional captures its body before executing it, and a skipped one is walked
+    // without running: both have to step over DrawToBitmap's id, mode and colour.
+    let conditional = Writer()
+    conditional.header(width: 100, height: 100)
+    declareBitmap(conditional, id: 7, width: 8, height: 4)
+    conditional.u8(Op.layoutRoot).int(1).u8(Op.layoutCanvas).int(2).int(-1)
+    for type in [NativeSwiftConditionalType.equal, NativeSwiftConditionalType.notEqual] {
+      conditional.u8(Op.conditionalOperations).u8(type).float(0).float(0)
+      conditional.u8(Op.drawToBitmap).int(7).int(0).int(0)
+      conditional.u8(Op.drawRect).float(0).float(0).float(8).float(4)
+      conditional.u8(Op.drawToBitmap).int(0).int(0).int(0)
+      conditional.u8(Op.containerEnd)
+    }
+    conditional.u8(Op.containerEnd).u8(Op.containerEnd)
+    let conditionalCommands = try canvasCommands(conditional)
+    #expect(conditionalCommands.map(\.kind) == redirectKinds)
+    #expect(conditionalCommands.first?.offscreenTarget?.bitmapID == 7)
+
+    // A LOOM macro whose parameter names the target: the call's argument replaces it, as
+    // `LoomWireBuffer.readId` resolves `DrawToBitmap`'s id. Unremapped, 300 is no bitmap at all.
+    let macro = Writer()
+    macro.header(width: 100, height: 100)
+    declareBitmap(macro, id: 7, width: 8, height: 4)
+    macro.u8(Op.layoutRoot).int(1).u8(Op.layoutCanvas).int(2).int(-1)
+    macro.u8(Op.macroDefine).int(50).int(1).int(300).int(0)
+    macro.u8(Op.drawToBitmap).int(300).int(NativeSwiftDrawToBitmapMode.noInitialize).int(0)
+    macro.u8(Op.drawRect).float(0).float(0).float(8).float(4)
+    macro.u8(Op.drawToBitmap).int(0).int(0).int(0)
+    macro.u8(Op.containerEnd)
+    macro.u8(Op.macroCall).int(50).int(1).int(7).u8(Op.containerEnd)
+    macro.u8(Op.containerEnd).u8(Op.containerEnd)
+    let macroCommands = try canvasCommands(macro)
+    #expect(macroCommands.map(\.kind) == redirectKinds)
+    #expect(
+      macroCommands.first?.offscreenTarget
+        == NativeSwiftOffscreenTargetSnapshot(
+          bitmapID: 7, mode: NativeSwiftDrawToBitmapMode.noInitialize, colorARGB: 0, width: 8,
+          height: 4))
+    #expect(macroCommands.last?.offscreenTarget?.returnsToCanvas == true)
+
+    // A truncated DrawToBitmap in a captured body is a typed malformed error, not a crash.
+    let truncated = Writer()
+    truncated.header(width: 100, height: 100)
+    truncated.u8(Op.layoutRoot).int(1).u8(Op.layoutCanvas).int(2).int(-1)
+    truncated.u8(Op.conditionalOperations).u8(NativeSwiftConditionalType.equal).float(0).float(0)
+    truncated.u8(Op.drawToBitmap).int(7)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: truncated.data).snapshot()
+      Issue.record("a truncated DrawToBitmap in a conditional body was accepted")
+    } catch let error as NativeSwiftCoreError {
+      #expect(!error.isUnsupported)
+    }
+  }
+
   @Test func imageBackgroundButtonFixture() throws {
     let imageData = try NativeTestFixtures.data("ImageBackgroundRemoteButton-454x200.rc")
     let session = try NativeSwiftDocumentSession.open(data: imageData)

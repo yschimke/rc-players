@@ -590,6 +590,11 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.int("macro bitmap description id")
       case NativeSwiftWireOpcode.drawCircle:
         for _ in 0..<3 { _ = try input.word("macro circle value") }
+      case NativeSwiftWireOpcode.drawToBitmap:
+        // Bitmap id, mode and colour; validated when the captured body executes.
+        _ = try input.int("macro draw to bitmap id")
+        _ = try input.int("macro draw to bitmap mode")
+        _ = try input.int("macro draw to bitmap color")
       case NativeSwiftWireOpcode.conditionalOperations:
         _ = try input.u8("conditional type")
         _ = try input.word("conditional left")
@@ -786,6 +791,15 @@ enum NativeSwiftDocumentDecoder {
           _ = try reader.int("macro bitmap description id")
         case NativeSwiftWireOpcode.drawCircle:
           for _ in 0..<3 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case NativeSwiftWireOpcode.drawToBitmap:
+          // AndroidX `DrawToBitmap.read` takes the bitmap id with `readId()`, which a LOOM
+          // expansion resolves through its remap context: the whole word, as a parameter names it.
+          // Mode and colour are plain `readInt()`s.
+          let idOffset = reader.offset
+          let id = try reader.int("macro draw to bitmap id")
+          if let replacement = mappings[id] { replaceID(at: idOffset, with: replacement) }
+          _ = try reader.int("macro draw to bitmap mode")
+          _ = try reader.int("macro draw to bitmap color")
         case NativeSwiftOpcodeGroup.sixWordDraws:
           for _ in 0..<6 { let offset = reader.offset; try remapFloatReference(at: offset) }
         case NativeSwiftWireOpcode.layoutBox:

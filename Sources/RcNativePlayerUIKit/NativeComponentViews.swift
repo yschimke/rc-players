@@ -585,6 +585,9 @@
     private let customComponents: RemoteComposeNativeCustomComponentRegistry
     private let customComponentsRevision: UInt
     private let componentView: NativeComponentView
+    /// The document's `DrawToBitmap` targets, shared by every canvas in the component tree so a
+    /// bitmap id is one target for the whole document, as the core's resource budget counts it.
+    private let offscreenTargets: NativeOffscreenTargets
 
     init(
       document: NativeDocument,
@@ -597,10 +600,13 @@
       self.resources = resources
       self.customComponents = customComponents
       customComponentsRevision = customComponents.revision
+      let offscreenTargets = NativeOffscreenTargets()
+      self.offscreenTargets = offscreenTargets
       componentView = NativeComponentView(
         node: document.root,
         images: resources.images,
         fontNames: resources.fontNames,
+        offscreenTargets: offscreenTargets,
         customComponents: customComponents,
         onGesture: onGesture,
         onCustomReturn: onCustomReturn)
@@ -783,6 +789,7 @@
       node: NativeNode,
       images: [Int: UIImage],
       fontNames: [Int: String],
+      offscreenTargets: NativeOffscreenTargets,
       customComponents: RemoteComposeNativeCustomComponentRegistry,
       onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void,
       onCustomReturn: @escaping (Int, Int, NativeCustomReturnValue) -> Void
@@ -797,7 +804,10 @@
       }
       canvasView =
         drawingCommands.isEmpty
-        ? nil : NativeCanvasView(commands: drawingCommands, images: images, fontNames: fontNames)
+        ? nil
+        : NativeCanvasView(
+          commands: drawingCommands, images: images, fontNames: fontNames,
+          offscreenTargets: offscreenTargets)
       textLabels =
         promotesText
         ? node.commands.enumerated().compactMap { index, command in
@@ -826,6 +836,7 @@
       componentChildren = node.children.map {
         NativeComponentView(
           node: $0, images: images, fontNames: fontNames,
+          offscreenTargets: offscreenTargets,
           customComponents: customComponents, onGesture: onGesture,
           onCustomReturn: onCustomReturn)
       }
@@ -1924,16 +1935,21 @@
     private var fontNames: [Int: String]
     /// What the view last drew: `setNeedsDisplay()` runs only when the next update differs.
     private var rendered: NativeCanvasRenderKey
-    /// The bitmaps this canvas's `DrawToBitmap` commands draw into, kept between draws.
-    private let offscreenTargets = NativeOffscreenTargets()
+    /// The bitmaps `DrawToBitmap` commands draw into: the document view's pool, shared by every
+    /// canvas in its tree and kept between draws.
+    private let offscreenTargets: NativeOffscreenTargets
     var documentScale: CGFloat = 1 {
       didSet { if documentScale != oldValue { setNeedsDisplay() } }
     }
 
-    init(commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String]) {
+    init(
+      commands: [NativeDrawCommand], images: [Int: UIImage], fontNames: [Int: String],
+      offscreenTargets: NativeOffscreenTargets
+    ) {
       self.commands = commands
       self.images = images
       self.fontNames = fontNames
+      self.offscreenTargets = offscreenTargets
       rendered = NativeCanvasRenderKey(commands: commands, images: images, fontNames: fontNames)
       super.init(frame: .zero)
       isOpaque = false
@@ -1967,19 +1983,25 @@
       // drawing returns to this canvas at the end of the node's commands, as the CMP player's
       // draw-target scope does. The target is pushed as UIKit's current context because text and
       // image draws go through `UIGraphicsGetCurrentContext()` rather than the context passed.
-      var target: CGContext?
+      // A target that cannot be allocated drops its commands rather than drawing them here.
+      var redirect = NativeOffscreenRedirect.canvas
       for command in commands {
         guard command.kind == NativeSwiftDrawKind.drawToBitmap else {
-          draw(command, in: target ?? context)
+          switch redirect {
+          case .canvas: draw(command, in: context)
+          case .offscreen(let target): draw(command, in: target)
+          case .dropped: break
+          }
           continue
         }
-        if target != nil { UIGraphicsPopContext() }
-        target = command.offscreenTarget.flatMap { redirect in
-          offscreenTargets.begin(redirect, seed: images[redirect.bitmapID]?.cgImage)
-        }
-        if let target { UIGraphicsPushContext(target) }
+        if case .offscreen = redirect { UIGraphicsPopContext() }
+        redirect =
+          command.offscreenTarget.map { next in
+            offscreenTargets.begin(next, seed: images[next.bitmapID]?.cgImage)
+          } ?? NativeOffscreenRedirect.canvas
+        if case .offscreen(let target) = redirect { UIGraphicsPushContext(target) }
       }
-      if target != nil { UIGraphicsPopContext() }
+      if case .offscreen = redirect { UIGraphicsPopContext() }
     }
 
     private func draw(_ command: NativeDrawCommand, in context: CGContext) {
