@@ -286,7 +286,11 @@ enum NativeSwiftDocumentDecoder {
           Property.lineHeightMultiplier, Property.minFontSize, Property.maxFontSize,
         ].contains(id) {
           properties.floats[id] = try input.word("\(label) float")
-        } else if [Property.underline, Property.strikethrough, Property.autosize].contains(id) {
+        } else if id == Property.autosize {
+          // Kept, as 0 or 1, because it changes the component's size: the text takes the largest
+          // font in its range that fits the box. A style can set it for every text using it.
+          properties.integers[id] = Int(try input.u8("\(label) boolean"))
+        } else if [Property.underline, Property.strikethrough].contains(id) {
           _ = try input.u8("\(label) boolean")
         } else if id == Property.fontAxis || id == Property.fontAxisValues {
           let count = Int(try input.u16("\(label) array count"))
@@ -2122,7 +2126,14 @@ enum NativeSwiftDocumentDecoder {
           alignment: integers[NativeSwiftTextProperty.textAlign].map(
             NativeSwiftTextAlignment.init(wireValue:)) ?? .left,
           overflow: integers[NativeSwiftTextProperty.overflow] ?? NativeSwiftTextOverflow.clip,
-          maximumLines: integers[NativeSwiftTextProperty.maxLines] ?? Int.max)
+          maximumLines: integers[NativeSwiftTextProperty.maxLines] ?? Int.max,
+          autosize: integers[NativeSwiftTextProperty.autosize].flatMap {
+            $0 != 0
+              ? (
+                minimumWord: floats[NativeSwiftTextProperty.minFontSize],
+                maximumWord: floats[NativeSwiftTextProperty.maxFontSize]
+              ) : nil
+          })
         try begin(node)
       case NativeSwiftWireOpcode.accessibilitySemantics:  // Accessibility semantics
         // Outside any component the semantics describe the document itself, beside its root

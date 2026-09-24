@@ -649,7 +649,23 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         familyName: texts[source.familyID],
         alignment: source.alignment,
         overflow: source.overflow,
-        maximumLines: source.maximumLines)
+        maximumLines: source.maximumLines,
+        autosize: try source.autosize.map { range in
+          // An unset bound is -1 on the wire (or absent). The Compose player's defaults: 400 for
+          // the maximum, 4 for the minimum, and the minimum never above the maximum.
+          var minimum: Float = -1
+          if let word = range.minimumWord {
+            minimum = try resolvedFloat(word, "autosize minimum", values: values)
+          }
+          var maximum: Float = -1
+          if let word = range.maximumWord {
+            maximum = try resolvedFloat(word, "autosize maximum", values: values)
+          }
+          let resolvedMaximum = maximum > 0 ? maximum : 400
+          return NativeSwiftTextAutosize(
+            minimumFontSize: min(minimum > 0 ? minimum : 4, resolvedMaximum),
+            maximumFontSize: resolvedMaximum)
+        })
     } else {
       text = nil
     }

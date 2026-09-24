@@ -1990,6 +1990,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   /// The horizontal offset a marquee draws its text at, placed by `layout()`. The tree reports it as
   /// `scroll_x`.
   private(set) var marqueeOffset: CGFloat = 0
+  /// What autosize chose for each space this text was measured in. The size is the one the
+  /// constraint it was measured under gave — as Compose chooses it — so layout reuses it rather than
+  /// searching again inside the box it produced, where "strictly shorter" would pick a smaller one.
+  private var autosizedTexts: [MacAvailableSpace: MacAutosizedText] = [:]
   /// Whether the marquee's content overflows, so it moves and needs frames.
   private var marqueeMoves = false
   private(set) var componentChildren: [NativeMacComponentView]
@@ -2107,6 +2111,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     // A FitBox parent sets this again during its layout, exactly as it does on a fresh view.
     ignoresOwnVisibility = false
     layoutCache.removeAll()
+    autosizedTexts.removeAll(keepingCapacity: true)
     canvas?.update(commands: Self.canvasCommands(for: next))
     for (label, text) in zip(labels, Self.labelTexts(for: next)) {
       Self.configure(
@@ -2226,25 +2231,62 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   private static func measuredText(
     _ label: NSTextField, text: NativeSwiftTextSnapshot, maxWidth: CGFloat
   ) -> CGSize {
-    guard maxWidth > 0, let font = label.font else { return .zero }
+    guard let font = label.font else { return .zero }
+    let size = textLayoutSize(
+      text, font: font, maxWidth: maxWidth,
+      maximumLines: NativeTextPolicy.numberOfLines(
+        overflow: text.overflow, maximum: text.maximumLines))
+    return CGSize(width: size.width.rounded(.up), height: size.height.rounded(.up))
+  }
+
+  /// The block TextKit lays `text` out in at `font`, within `maxWidth` and at most `maximumLines`
+  /// lines (0 for no cap).
+  private static func textLayoutSize(
+    _ text: NativeSwiftTextSnapshot, font: NSFont, maxWidth: CGFloat, maximumLines: Int
+  ) -> CGSize {
+    guard maxWidth > 0 else { return .zero }
     let storage = NSTextStorage(string: text.value, attributes: [.font: font])
     let manager = NSLayoutManager()
     let container = NSTextContainer(
       size: CGSize(width: maxWidth, height: .greatestFiniteMagnitude))
     container.lineFragmentPadding = 0
-    container.maximumNumberOfLines = NativeTextPolicy.numberOfLines(
-      overflow: text.overflow, maximum: text.maximumLines)
+    container.maximumNumberOfLines = maximumLines
     container.lineBreakMode = lineBreakMode(overflow: text.overflow, maximumLines: 1)
-    if container.maximumNumberOfLines != 1,
-      NativeTextPolicy.lineBreak(overflow: text.overflow) == .clip
-    {
+    if maximumLines != 1, NativeTextPolicy.lineBreak(overflow: text.overflow) == .clip {
       container.lineBreakMode = .byWordWrapping
     }
     manager.addTextContainer(container)
     storage.addLayoutManager(manager)
     manager.ensureLayout(for: container)
     let used = manager.usedRect(for: container)
-    return CGSize(width: min(used.width.rounded(.up), maxWidth), height: used.height.rounded(.up))
+    return CGSize(width: min(used.width, maxWidth), height: used.height)
+  }
+
+  /// `font` at another point size, the rest of its description kept.
+  private static func resized(_ font: NSFont, to size: CGFloat) -> NSFont {
+    NSFont(descriptor: font.fontDescriptor, size: size) ?? font
+  }
+
+  /// `CoreText` autosize within `available`: the font size `NativeSwiftTextAutosize.fontSize`
+  /// chooses, testing each candidate with TextKit's own layout, and the block it takes.
+  ///
+  /// The candidate block is the declared `maxLines` of text, whatever the overflow, as the
+  /// reference measures it; it fits when it is strictly shorter than the space. The size is not
+  /// rounded: a half-point font lays out a half-point block, as `core_text_autosize_height_driven`
+  /// records (23.5 in a 24-point box).
+  private static func autosizedText(
+    _ label: NSTextField, text: NativeSwiftTextSnapshot, autosize: NativeSwiftTextAutosize,
+    available: CGSize
+  ) -> MacAutosizedText? {
+    guard let font = label.font else { return nil }
+    let lineCap = text.maximumLines == Int.max ? 0 : text.maximumLines
+    func block(_ size: Float) -> CGSize {
+      textLayoutSize(
+        text, font: resized(font, to: CGFloat(size)), maxWidth: available.width,
+        maximumLines: lineCap)
+    }
+    let fontSize = autosize.fontSize { block($0).height < available.height }
+    return MacAutosizedText(fontSize: CGFloat(fontSize), size: block(fontSize))
   }
 
   private func applyLayerStyle() {
@@ -2502,6 +2544,23 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
       // `preferredSize` measures the label in the content box and adds the padding back, so the
       // label is placed in that same box rather than at the bounds' origin.
       let content = contentRect
+      if node.text?.autosize != nil, let label = labels.first, let font = label.font {
+        // The size chosen for the space whose block fills this content box; searching afresh with
+        // the box itself only when none was measured.
+        let chosen =
+          autosizedTexts.values.min {
+            abs($0.size.width - content.width) + abs($0.size.height - content.height)
+              < abs($1.size.width - content.width) + abs($1.size.height - content.height)
+          }
+          ?? node.text.flatMap { text in
+            text.autosize.flatMap {
+              Self.autosizedText(label, text: text, autosize: $0, available: content.size)
+            }
+          }
+        if let chosen, font.pointSize != chosen.fontSize {
+          label.font = Self.resized(font, to: chosen.fontSize)
+        }
+      }
       for label in labels {
         // The field draws its text inset by its cell's padding, so it is widened by that much
         // either side and the glyphs start where the measured box does.
@@ -2594,6 +2653,14 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
         return CGSize(
           width: min(Self.unboundedWidth(of: label), available.width),
           height: Self.lineHeight(of: label))
+      }
+      if let autosize = text.autosize {
+        guard
+          let chosen = Self.autosizedText(
+            label, text: text, autosize: autosize, available: available)
+        else { return .zero }
+        autosizedTexts[MacAvailableSpace(available)] = chosen
+        return chosen.size
       }
       return Self.measuredText(label, text: text, maxWidth: available.width)
     case .image:
@@ -2760,6 +2827,23 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
       red: CGFloat((value >> 16) & 0xff) / 255, green: CGFloat((value >> 8) & 0xff) / 255,
       blue: CGFloat(value & 0xff) / 255, alpha: CGFloat((value >> 24) & 0xff) / 255)
   }
+}
+
+/// A space a component was measured in, as a dictionary key.
+private struct MacAvailableSpace: Hashable {
+  let width: CGFloat
+  let height: CGFloat
+
+  init(_ size: CGSize) {
+    width = size.width
+    height = size.height
+  }
+}
+
+/// The font size `CoreText` autosize chose, and the block the text takes at it.
+private struct MacAutosizedText {
+  let fontSize: CGFloat
+  let size: CGSize
 }
 
 private final class NativeMacCanvasView: NSView {
