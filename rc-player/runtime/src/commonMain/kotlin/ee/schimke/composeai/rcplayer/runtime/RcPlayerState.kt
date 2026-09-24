@@ -13,7 +13,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDebugMessage
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
-import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
@@ -69,6 +68,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueStringChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
+import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 
@@ -1156,24 +1156,13 @@ public class RcPlayerState(
 
   /**
    * Whether any operation reads the touch slots, in any field — an expression, a draw coordinate, a
-   * layout dimension, a conditional's operand.
-   *
-   * Found by scanning the encoded document for a NaN-encoded reference to either slot rather than
-   * by listing the fields that can hold one: a list misses the next operation to gain a float
-   * operand, and a document reading the pointer from a draw call then stays stale until something
-   * unrelated redraws it. A coincidental match only costs a repaint per pointer move; a document
-   * that cannot be encoded is assumed to read the slots.
+   * layout dimension, a conditional's operand. A coincidental match only costs a repaint per
+   * pointer move, which is why the encoded scan's over-reporting is acceptable here.
    */
   private val readsTouchPosition: Boolean by lazy {
-    val bytes = runCatching { RcDocumentCodec.encode(document) }.getOrNull() ?: return@lazy true
-    (0..bytes.size - Int.SIZE_BYTES).any { offset ->
-      var bits = 0
-      for (i in 0 until Int.SIZE_BYTES) bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
-      RcFloatWord(bits).referencedId.let {
-        it == RcTouchExpressionRuntime.ID_TOUCH_POS_X ||
-          it == RcTouchExpressionRuntime.ID_TOUCH_POS_Y
-      }
-    }
+    document.referencesAnyOf(
+      setOf(RcTouchExpressionRuntime.ID_TOUCH_POS_X, RcTouchExpressionRuntime.ID_TOUCH_POS_Y)
+    )
   }
 
   public fun executeTouch(block: RcTouchActionBlock) {

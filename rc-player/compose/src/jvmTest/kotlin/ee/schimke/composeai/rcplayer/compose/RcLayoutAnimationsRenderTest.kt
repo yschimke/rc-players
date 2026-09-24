@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
@@ -58,6 +59,8 @@ class RcLayoutAnimationsRenderTest {
     try {
       scene.render(0L)
       height.intValue = 80
+      // Written outside composition: deliver it now, or the next frame may not see it.
+      Snapshot.sendApplyNotifications()
       val bitmap = Bitmap().apply { allocN32Pixels(40, 80) }
       check(scene.render(FRAME_NANOS).readPixels(bitmap))
       return bitmap

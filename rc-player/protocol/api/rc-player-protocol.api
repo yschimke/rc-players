@@ -3094,12 +3094,14 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcSystemVariables {
 	public static final field WEEK_DAY I
 	public static final field YEAR I
 	public final fun getALL ()Ljava/util/Set;
+	public final fun getCLOCK ()Ljava/util/Set;
 	public final fun getCONTINUOUS ()Ljava/util/Set;
 	public final fun getMOVING ()Ljava/util/Set;
 	public final fun getPER_SECOND ()Ljava/util/Set;
 }
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcSystemVariablesKt {
+	public static final fun referencesAnyOf (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Set;)Z
 	public static final fun referencesContinuousSystemVariable (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Z
 	public static final fun referencesMovingSystemVariable (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Z
 }

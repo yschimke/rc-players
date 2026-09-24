@@ -124,6 +124,31 @@ public object RcSystemVariables {
 
   /** The moving variables that change every frame. */
   public val CONTINUOUS: Set<Int> = MOVING - PER_SECOND
+
+  /**
+   * Every variable read from a clock — the moving ones and the calendar fields, which move too,
+   * just rarely: a date display has to catch midnight. Not [DENSITY] or [FONT_SIZE], which change
+   * only with the host's configuration.
+   */
+  public val CLOCK: Set<Int> = ALL - DENSITY - FONT_SIZE
+}
+
+/**
+ * Whether any operation of this document refers to one of [ids], in any field.
+ *
+ * Found by scanning the encoded document for a NaN-encoded reference at every offset rather than by
+ * listing the fields that can hold one — a list misses the next operation to gain a float operand.
+ * The scan cannot tell a reference from a coincidental bit pattern or from a word the document
+ * shadows, so it can only over-report; a caller uses it where over-reporting is cheap. A document
+ * that cannot be encoded is reported as referring to them.
+ */
+public fun RcDocument.referencesAnyOf(ids: Set<Int>): Boolean {
+  val bytes = runCatching { RcDocumentCodec.encode(this) }.getOrNull() ?: return true
+  return (0..bytes.size - Int.SIZE_BYTES).any { offset ->
+    var bits = 0
+    for (i in 0 until Int.SIZE_BYTES) bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
+    RcFloatWord(bits).referencedId in ids
+  }
 }
 
 /**

@@ -246,6 +246,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
@@ -265,6 +266,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
+import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import ee.schimke.composeai.rcplayer.runtime.RcAnimationTimeline
@@ -531,8 +533,14 @@ private fun RcComposePlayerResolved(
   // A document that reads the clock only in whole seconds — a digital watch face — changes once a
   // second, and redrawing it at the display rate in between draws the same frame again. AndroidX
   // sleeps such a document to the next second; so does this.
+  // Any other clock read — a text field showing the seconds directly, a date that must turn over at
+  // midnight — gets the same once-a-second refresh, found by scanning every field.
   val ticksEverySecond =
-    remember(document) { !documentDeclaresAnimation && document.referencesMovingSystemVariable() }
+    remember(document) {
+      !documentDeclaresAnimation &&
+        (document.referencesMovingSystemVariable() ||
+          document.referencesAnyOf(RcSystemVariables.CLOCK))
+    }
   // `frameDemand` is snapshot-backed, so a tween starting or finishing recomposes the player and
   // starts or stops the loop below with it.
   val needsContinuousFrames = documentDeclaresAnimation || frameDemand.isActive
