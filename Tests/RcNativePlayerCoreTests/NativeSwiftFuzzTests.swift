@@ -40,7 +40,17 @@ import Testing
   /// still failing a corpus that dies at the header.
   private static let minimumDecodedRatio = 0.12
 
-  @Test func mutationFuzz() throws {
+  /// The stack the corpus runs on, the size of a main thread's.
+  ///
+  /// swift-testing runs a test on a cooperative-pool thread, whose stack is 512 KiB on macOS. The
+  /// address-sanitized debug build this suite also runs under roughly doubles the decoder's frame
+  /// (from about 103 KiB to 204 KiB on x86-64, and more on arm64), and that overflowed the pool
+  /// thread. A workqueue thread has no alternate signal stack for the sanitizer's handler, so the
+  /// process died with SIGILL and no report. On a thread of its own the build configuration no
+  /// longer decides whether the fuzzer can run.
+  private static let corpusStackBytes = 8 << 20
+
+  @Test func mutationFuzz() async throws {
     var seeds: [(name: String, data: Data)] = Self.syntheticSeeds()
     for name in NativeTestFixtures.comparativeDocuments {
       seeds.append((name: name, data: try NativeTestFixtures.data(name)))
@@ -50,6 +60,47 @@ import Testing
       Self.environmentInt("RC_NATIVE_FUZZ_ITERATIONS") ?? Self.defaultIterations, 0)
     let seedValue = UInt64(
       bitPattern: Int64(Self.environmentInt("RC_NATIVE_FUZZ_SEED") ?? 0x5EED))
+    let corpus = seeds
+    let run = await withCheckedContinuation { continuation in
+      let worker = Thread {
+        continuation.resume(
+          returning: Self.runCorpus(corpus, iterations: iterations, seedValue: seedValue))
+      }
+      worker.stackSize = Self.corpusStackBytes
+      worker.start()
+    }
+
+    // Bounded work, measured over the whole run so one slow host does not decide a single case.
+    let budget = Double(run.cases) * 0.25
+    #expect(
+      run.elapsed < budget,
+      "fuzzing \(run.cases) cases took \(run.elapsed)s, over the \(budget)s bounded-work budget")
+    #expect(
+      Double(run.decoded) >= Double(run.cases) * Self.minimumDecodedRatio,
+      Comment(
+        rawValue: "only \(run.decoded) of \(run.cases) cases decoded; the corpus is dying at the "
+          + "header instead of reaching the operation stream"))
+    #expect(run.rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
+    print(
+      "native Swift fuzz: \(run.cases) cases, \(run.structuralCases) structure-aware, "
+        + "\(run.decoded) decoded, \(run.rejected) typed rejections, "
+        + "\(String(format: "%.2f", run.elapsed))s, seed=\(seedValue)")
+  }
+
+  /// What one pass over the corpus did.
+  private struct CorpusRun: Sendable {
+    var cases = 0
+    var structuralCases = 0
+    var decoded = 0
+    var rejected = 0
+    var elapsed = 0.0
+  }
+
+  /// Every seed, pristine and then mutated. A contract violation never returns: `report` writes
+  /// the case out and exits, so this records no test issues and runs on any thread.
+  private static func runCorpus(
+    _ seeds: [(name: String, data: Data)], iterations: Int, seedValue: UInt64
+  ) -> CorpusRun {
     let watchdog = Watchdog(timeout: Self.caseTimeoutSeconds)
     watchdog.start()
 
@@ -86,23 +137,9 @@ import Testing
       }
     }
     watchdog.stop()
-    let elapsed = ProcessInfo.processInfo.systemUptime - started
-
-    // Bounded work, measured over the whole run so one slow host does not decide a single case.
-    let budget = Double(cases) * 0.25
-    #expect(
-      elapsed < budget,
-      "fuzzing \(cases) cases took \(elapsed)s, over the \(budget)s bounded-work budget")
-    #expect(
-      Double(decoded) >= Double(cases) * Self.minimumDecodedRatio,
-      Comment(
-        rawValue: "only \(decoded) of \(cases) cases decoded; the corpus is dying at the header "
-          + "instead of reaching the operation stream"))
-    #expect(rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
-    print(
-      "native Swift fuzz: \(cases) cases, \(structuralCases) structure-aware, \(decoded) "
-        + "decoded, \(rejected) typed rejections, \(String(format: "%.2f", elapsed))s, "
-        + "seed=\(seedValue)")
+    return CorpusRun(
+      cases: cases, structuralCases: structuralCases, decoded: decoded, rejected: rejected,
+      elapsed: ProcessInfo.processInfo.systemUptime - started)
   }
 
   /// Run one input through the whole retained-session surface and assert the typed contract.
@@ -114,7 +151,9 @@ import Testing
       session = try NativeSwiftDocumentSession.open(data: data)
     } catch let error as NativeSwiftCoreError {
       // Typed rejection: unsupported and malformed both fail closed, which is the contract.
-      #expect(!error.description.isEmpty)
+      if error.description.isEmpty {
+        report(data, label: label, reason: "typed decode failure without a description")
+      }
       rejected += 1
       return
     } catch {
@@ -167,7 +206,9 @@ import Testing
       decoded += 1
     } catch let error as NativeSwiftCoreError {
       // A typed failure after a successful decode is allowed: resolution enforces its own limits.
-      #expect(!error.description.isEmpty)
+      if error.description.isEmpty {
+        report(data, label: label, reason: "typed frame failure without a description")
+      }
       decoded += 1
     } catch {
       report(data, label: label, reason: "untyped frame failure: \(error)")
