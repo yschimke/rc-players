@@ -414,7 +414,9 @@
     /// document that reads `ID_DENSITY` would otherwise keep the geometry it built from the old
     /// value. Non-finite and non-positive values are ignored by the core rather than stored.
     public func configureHostDensity(_ density: Float, fontScale: Float = 1) {
-      hostDensityIsExplicit = true
+      // Only a valid density pins the value; an ignored one leaves automatic density following
+      // the display scale.
+      if density.isFinite && density > 0 { hostDensityIsExplicit = true }
       let density = density.isFinite && density > 0 ? density : hostDensity
       let fontScale = fontScale.isFinite && fontScale > 0 ? fontScale : hostFontScale
       guard density != hostDensity || fontScale != hostFontScale else { return }
