@@ -105,9 +105,42 @@ internal expect fun Path.rcConicTo(
 )
 
 /**
+ * How many times [rcConicAsQuads] halves a conic so each quad stays within [tolerance] px of it —
+ * Skia's `SkConic::computeQuadPOW2`: the distance between a conic and the quad sharing its points
+ * is bounded by `|k·(p0 − 2p1 + p2)|` with `k = (w − 1) / (4·(2 + (w − 1)))`, and each halving cuts
+ * that bound by four. Capped at [RC_CONIC_MAX_LEVELS] (2¹⁰ quads), well past Skia's own 2⁵.
+ */
+internal fun rcConicQuadLevels(
+  x0: Float,
+  y0: Float,
+  x1: Float,
+  y1: Float,
+  x2: Float,
+  y2: Float,
+  weight: Float,
+  tolerance: Float = 0.25f,
+): Int {
+  if (!weight.isFinite() || weight <= 0f) return 0
+  val a = weight - 1f
+  val k = a / (4f * (2f + a))
+  val dx = k * (x0 - 2f * x1 + x2)
+  val dy = k * (y0 - 2f * y1 + y2)
+  var error = kotlin.math.sqrt(dx * dx + dy * dy)
+  var levels = 0
+  while (error > tolerance && levels < RC_CONIC_MAX_LEVELS) {
+    error *= 0.25f
+    levels++
+  }
+  return levels
+}
+
+internal const val RC_CONIC_MAX_LEVELS = 10
+
+/**
  * A conic as `2^levels` quadratics, by Skia's `SkConic::chop` — halve the rational curve at t = ½
  * until each piece's weight is close enough to 1 that its control point serves as a quad's. Each
- * quad is emitted as (control x, control y, end x, end y).
+ * quad is emitted as (control x, control y, end x, end y). [levels] defaults to the depth
+ * [rcConicQuadLevels] computes for a quarter-pixel tolerance.
  */
 internal fun rcConicAsQuads(
   x0: Float,
@@ -117,7 +150,7 @@ internal fun rcConicAsQuads(
   x2: Float,
   y2: Float,
   weight: Float,
-  levels: Int = 4,
+  levels: Int = rcConicQuadLevels(x0, y0, x1, y1, x2, y2, weight),
   quad: (Float, Float, Float, Float) -> Unit,
 ) {
   if (levels == 0 || !weight.isFinite() || weight <= 0f) {
