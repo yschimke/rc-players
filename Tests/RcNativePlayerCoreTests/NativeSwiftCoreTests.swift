@@ -1952,6 +1952,10 @@ import Testing
     // `core_text_autosize_height_driven`: strictly shorter than a 24-point box is 23.5.
     let heightDriven = NativeSwiftTextAutosize(minimumFontSize: 10, maximumFontSize: 80)
     #expect(heightDriven.fontSize(fits: ahemFits(15, width: 500, height: 24)) == 23.5)
+    // A range so wide that a Float midpoint rounds onto an endpoint still ends, near the edge.
+    let huge = NativeSwiftTextAutosize(minimumFontSize: 1, maximumFontSize: 1_000_000_000)
+    let chosen = huge.fontSize { $0 < 500_000_000 }
+    #expect(chosen < 500_000_000 && chosen > 499_000_000)
   }
 
   @Test func amplifyingLoopIsMalformed() {

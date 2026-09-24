@@ -870,8 +870,11 @@ public struct NativeSwiftTextAutosize: Equatable, Sendable {
   public func fontSize(step: Float = 0.5, fits: (Float) -> Bool) -> Float {
     var low = minimumFontSize
     var high = maximumFontSize
-    while high - low >= step {
+    // Bounded, and stopped once the midpoint no longer moves: over a huge range a Float midpoint
+    // can round onto an endpoint while the bounds are still more than a step apart.
+    for _ in 0..<64 where high - low >= step {
       let middle = (low + high) / 2
+      guard middle > low, middle < high else { break }
       if fits(middle) { low = middle } else { high = middle }
     }
     var size = ((low - minimumFontSize) / step).rounded(.down) * step + minimumFontSize
