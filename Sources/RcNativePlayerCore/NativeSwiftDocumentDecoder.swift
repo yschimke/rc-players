@@ -378,10 +378,13 @@ enum NativeSwiftDocumentDecoder {
     /// The path a paint operation's id word names, read as AndroidX `PaintOperation.getId` reads
     /// it: the low sixteen bits are the path id, or with the dereference bit set, an integer
     /// variable whose value picks among the paths declared so far each time the operation paints.
-    /// Nil for a literal id that names no path.
+    /// Nil for a literal id that names no path. A literal id is looked up whole first: a macro
+    /// expansion can generate path ids past sixteen bits, and those carry no flag bits to strip.
     func paintOperationPath(_ word: Int, opcode: Int, offset: Int) -> ParsedPath? {
       let id = word & NativeSwiftPaintOperationID.valueMask
-      guard word & NativeSwiftPaintOperationID.pointerDereference != 0 else { return paths[id] }
+      guard word & NativeSwiftPaintOperationID.pointerDereference != 0 else {
+        return paths[word] ?? paths[id]
+      }
       return ParsedPath(
         winding: NativeSwiftPathWinding.nonZero,
         source: .dereferenced(ParsedPathDereference(variableID: id, candidates: paths)),
