@@ -778,10 +778,21 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     }
     collect(snapshot.root)
     let componentIDs = components.map(\.componentID)
-    let bindings: [[String: Any]] = components.enumerated().map { index, node in
-      let id = node.animationID ?? -1
-      let usesDefaultSpec = node.animationID == nil
-      let spec = snapshot.animationSpecs[id] ?? defaultSpec
+    // Bindings list only the leaf components, as the reference harness does: the corpus names the
+    // boxes in a column and not the column that holds them.
+    var leaves: [NativeSwiftNodeSnapshot] = []
+    @discardableResult func collectLeaves(_ node: NativeSwiftNodeSnapshot) -> Bool {
+      var below = false
+      for child in node.children where collectLeaves(child) { below = true }
+      let isComponent = node.componentKind != "" && node.kind != .root
+      if isComponent, !below { leaves.append(node) }
+      return isComponent || below
+    }
+    collectLeaves(snapshot.root)
+    let bindings: [[String: Any]] = leaves.enumerated().map { index, node in
+      let id = node.animationSpecID ?? -1
+      let usesDefaultSpec = node.animationSpec == nil
+      let spec = node.animationSpec ?? defaultSpec
       var record = specRecord(id, spec)
       record["componentAnimationId"] = id
       record["componentIndex"] = index
@@ -817,11 +828,13 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     func collectTextRuns(_ node: NativeSwiftNodeSnapshot) {
       for command in node.commands where command.kind == NativeSwiftDrawKind.text {
         let width = Float(command.text?.count ?? 0) * command.textSize * 0.5
+        // A NaN panY leaves the baseline where the document put it, as the reference does.
+        let panY = command.values[safe: 3] ?? -1
         anchoredRuns.append([
           "x": (command.values[safe: 0] ?? 0)
             - width * ((command.values[safe: 2] ?? -1) + 1) / 2,
           "y": (command.values[safe: 1] ?? 0)
-            + command.textSize * ((command.values[safe: 3] ?? -1) + 1) / 2,
+            + (panY.isNaN ? 0 : command.textSize * (panY + 1) / 2),
         ])
       }
       node.children.forEach(collectTextRuns)
@@ -852,12 +865,10 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         let unitY = dy / length
         let firstX = start[0] + unitX * h - unitY * v
         let firstY = start[1] + unitY * h + unitX * v
-        func number(_ value: Float) -> String {
-          value.rounded() == value ? String(Int(value)) : String(value)
-        }
         let horizontal = abs(dx) >= abs(dy)
+        // No `label`: the corpus writes it as prose for the reader, and compares it only when a
+        // player reports one.
         var run: [String: Any] = [
-          "label": "\(horizontal ? "horizontal" : "vertical") path (\(number(start[0])),\(number(start[1]))→(\(number(end[0])),\(number(end[1]))), hOffset=\(number(h)), vOffset=\(number(v))",
           "text": command.text ?? "", "glyphCount": count,
           "allRotationsDeg": horizontal ? 0 : 90,
         ]
@@ -1698,8 +1709,10 @@ private final class NativeMacDocumentView: NSView {
   private func stateTransition(
     for stateLayoutID: Int, in snapshot: NativeSwiftDocumentSnapshot
   ) -> NativeMacStateTransition {
+    // The spec the state layout adopts among its own operations, as the reference binds it; the
+    // id it names is the fallback.
     let spec = snapshot.root.component(withID: stateLayoutID).flatMap { node in
-      node.animationID.flatMap { snapshot.animationSpecs[$0] }
+      node.animationSpec ?? node.animationID.flatMap { snapshot.animationSpecs[$0] }
     }
     let duration = TimeInterval(spec?.motionDuration ?? 300) / 1_000
     return NativeMacStateTransition(
@@ -2846,9 +2859,9 @@ private final class NativeMacCanvasView: NSView {
     let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, &leading))
     let x = CGFloat(command.first) - width * ((CGFloat(command.third) + 1) / 2)
     let baseline: CGFloat
-    if command.textFlags & NativeSwiftDrawTextAnchoredFlag.baselineRelative != 0,
-      command.fourth.isNaN
-    {
+    // A NaN panY is the reference's "no vertical pan": the y given is the baseline, whatever the
+    // flags say (`DrawTextAnchored.paint`).
+    if command.fourth.isNaN {
       baseline = CGFloat(command.second)
     } else {
       baseline = CGFloat(command.second) - (ascent + descent + leading)

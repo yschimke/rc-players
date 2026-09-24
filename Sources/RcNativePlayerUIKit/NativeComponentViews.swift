@@ -114,7 +114,8 @@
         for command in node.commands {
           try budget.recordCommand(pathElementCount: command.path.count, limits: limits)
           try budget.validateNumbers(
-            command.values.map(Double.init) + [Double(command.strokeWidth), Double(command.alpha)]
+            command.geometryValues.map(Double.init)
+              + [Double(command.strokeWidth), Double(command.alpha)]
               + command.path.flatMap { $0.values.map(Double.init) },
             componentID: node.componentID, field: "draw", limits: limits)
         }
@@ -2065,7 +2066,9 @@
       let panX = command.values[2]
       let panY = command.values[3]
       let x = command.values[0] - width * ((panX + 1) / 2)
-      let baseline = command.values[1] - height * ((panY + 1) / 2)
+      // A NaN panY is the reference's "no vertical pan": the y given is the baseline.
+      let baseline =
+        panY.isNaN ? command.values[1] : command.values[1] - height * ((panY + 1) / 2)
       context.saveGState()
       context.textMatrix = .identity
       context.translateBy(x: 0, y: baseline * 2)

@@ -196,6 +196,10 @@ enum NativeSwiftDocumentDecoder {
     var macroDefinitions: [Int: MacroDefinition] = [:]
     var referencedOperations: [Int: Data] = [:]
     var suspendedInputs: [MacroExpansionFrame] = []
+    /// The expansion and modifier-container depths each component opened at. An operation read at
+    /// exactly those depths, with the component on top of the stack, is one of its direct children;
+    /// anything in a conditional, macro, canvas, impulse or modifier body is not.
+    var componentOpenDepths: [ObjectIdentifier: (expansion: Int, modifiers: Int)] = [:]
     /// Every operation on the source wire, once each, in wire order: what the reference's
     /// `document.operations` holds. Bytes replayed by an expansion (a macro call, an unrolled loop,
     /// a branch that runs) or re-walked for a trace were counted when they were first read.
@@ -224,6 +228,7 @@ enum NativeSwiftDocumentDecoder {
       guard nodes[node.componentID] == nil else {
         throw input.malformed("Duplicate component id \(node.componentID)")
       }
+      componentOpenDepths[ObjectIdentifier(node)] = (suspendedInputs.count, modifierContainers.count)
       if let parent = stack.last {
         node.parent = parent
         parent.children.append(node)
@@ -1023,7 +1028,7 @@ enum NativeSwiftDocumentDecoder {
         try drawingNode().commands.append(
           ParsedDrawCommand(
             kind: NativeSwiftDrawKind.text, words: words, paint: paint, textID: textID,
-            textFlags: flags))
+            textFlags: flags, nanSentinelIndices: [3]))
       case NativeSwiftWireOpcode.drawTextOnPath:
         let textID = try input.int("draw text path text id")
         let pathID = try input.int("draw text path id")
@@ -1671,11 +1676,22 @@ enum NativeSwiftDocumentDecoder {
         else {
           throw input.malformed("Invalid animation spec duration")
         }
-        animationSpecs[id] = NativeSwiftAnimationSpec(
+        let spec = NativeSwiftAnimationSpec(
           motionDuration: motionDuration, motionEasingType: motionEasingType,
           visibilityDuration: visibilityDuration, visibilityEasingType: visibilityEasingType,
           enterAnimation: enterAnimation, exitAnimation: exitAnimation)
+        animationSpecs[id] = spec
         animationSpecOrder.append(id)
+        // A spec among a component's own operations is that component's, the last one winning, as
+        // the reference binds it. One nested in any body inside the component is not a direct
+        // child, and belongs to nobody.
+        if let owner = stack.last, owner.kind != .root,
+          let opened = componentOpenDepths[ObjectIdentifier(owner)],
+          opened.expansion == suspendedInputs.count, opened.modifiers == modifierContainers.count
+        {
+          owner.animationSpecID = id
+          owner.animationSpec = spec
+        }
       case NativeSwiftWireOpcode.touchExpression:  // Touch expression
         // An id, four float words (start value, minimum, maximum, velocity id), the touch effects,
         // then three length-prefixed float arrays. Each length is the low 16 bits of its word --
@@ -2638,6 +2654,10 @@ final class ParsedNode {
   fileprivate(set) var horizontalPositioning = NativeSwiftPositioning.start
   fileprivate(set) var verticalPositioning = NativeSwiftPositioning.top
   fileprivate(set) var animationID: Int?
+  fileprivate(set) var animationSpecID: Int?
+  /// The adopted spec itself: two components may each carry a spec under the same id, and the
+  /// document-wide table keeps only the last one read.
+  fileprivate(set) var animationSpec: NativeSwiftAnimationSpec?
   fileprivate(set) var spacingWord: UInt32 = 0
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
   /// `tree` probe. Empty for a structural wrapper, which the corpus never names.

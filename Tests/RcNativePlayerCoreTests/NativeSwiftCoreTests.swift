@@ -1574,6 +1574,103 @@ import Testing
       "an hours-from-now interval did not ask for continuous frames")
   }
 
+  /// `animation_spec_component_binding`: a component adopts the `AnimationSpec` among its own
+  /// operations, as the reference binds it, whatever animation id it declares.
+  @Test func componentsAdoptTheirOwnAnimationSpec() throws {
+    let document = try #require(
+      Data(
+        base64Encoded:
+          "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAJAAAACBhbmltYXRpb25fc3BlY19jb21wb25lbnRf"
+          + "YmluZGluZwAOAAQAAAIByP////7M/////f////8AAAABAAAABAAAAAAQAAAAAX/AAABDAAAAAX/AAADJ/////Mr/"
+          + "///7/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAADgAAAAtC8AAAAAAAAkQgAAAAAAAEAAAABAAAAAXWyv//"
+          + "//r/////AAAAAgAAAAIQAAAAAELIAABDAAAAAEJIAAAOAAAAFkRhAAAAAAADQiAAAAAAAAUAAAAAAAAAB9bW1tY="))
+    let root = try NativeSwiftDocumentSession.open(data: document).snapshot().root
+    var adopted: [Int?] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      if node.componentKind == "BoxLayout" { adopted.append(node.animationSpecID) }
+      node.children.forEach(collect)
+    }
+    collect(root)
+    #expect(adopted == [11, 22], Comment(rawValue: "boxes adopted specs \(adopted)"))
+  }
+
+  /// Two components may each carry a spec under the same id; each keeps the one it read, not the
+  /// last one the document declared.
+  @Test func componentsKeepTheirOwnSpecUnderASharedID() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(200).int(1)
+    document.u8(202).int(3).int(-1).int(1).int(1)
+    document.u8(14).int(5).float(120).int(2).float(640).int(4).int(0).int(1)
+    document.u8(214)
+    document.u8(202).int(4).int(-1).int(1).int(1)
+    document.u8(14).int(5).float(900).int(3).float(40).int(5).int(0).int(1)
+    document.u8(214)
+    document.u8(214)
+    let root = try NativeSwiftDocumentSession.open(data: document.data).snapshot().root
+    var durations: [Float?] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      if node.componentKind == "BoxLayout" { durations.append(node.animationSpec?.motionDuration) }
+      node.children.forEach(collect)
+    }
+    collect(root)
+    #expect(durations == [120, 900], Comment(rawValue: "boxes adopted durations \(durations)"))
+  }
+
+  /// A spec nested in a body inside a component (here a canvas-operations body) is not one of the
+  /// component's own operations, and the component keeps the default.
+  @Test func aNestedSpecIsNotAdopted() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(200).int(1)
+    document.u8(202).int(3).int(-1).int(1).int(1)
+    document.u8(173)
+    document.u8(14).int(5).float(120).int(2).float(640).int(4).int(0).int(1)
+    document.u8(214)
+    document.u8(214)
+    document.u8(214)
+    let root = try NativeSwiftDocumentSession.open(data: document.data).snapshot().root
+    var adopted: [Int?] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      if node.componentKind == "BoxLayout" { adopted.append(node.animationSpecID) }
+      node.children.forEach(collect)
+    }
+    collect(root)
+    #expect(adopted == [nil], Comment(rawValue: "a nested spec was adopted: \(adopted)"))
+  }
+
+  /// `text_anchored_pan_alignment`: a `panY` of the id-0 NaN is the reference's "no vertical pan"
+  /// and stays NaN, so the text keeps its baseline; a numeric `panY` resolves as it is.
+  @Test func anchoredTextKeepsTheNoPanSentinel() throws {
+    let document = try #require(
+      Data(
+        base64Encoded:
+          "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAHwAAABt0ZXh0X2FuY2hvcmVkX3Bhbl9hbGlnbm1l"
+          + "bnQADgAEAAACAcj////+zf////3/////EAAAAAF/wAAAQwAAAAF/wAAAyf////woAAAABQAAAAT/OL34AAAACAAA"
+          + "AAFBwAAAZgAAACoAAAAGQW5jaG9yhQAAACpDSAAAQ0gAAL+AAAB/wAAAAAAAAIUAAAAqQ0gAAENIAAAAAAAAf8AA"
+          + "AAAAAACFAAAAKkNIAABDSAAAP4AAAH/AAAAAAAAAhQAAACpCyAAAQ5YAAAAAAAC/gAAAAAAAAIUAAAAqQsgAAEOW"
+          + "AAAAAAAAAAAAAAAAAACFAAAAKkLIAABDlgAAAAAAAD+AAAAAAAAA1tbW"))
+    var pans: [Float] = []
+    var unset: [[Int]] = []
+    var geometryIsFinite = true
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      for command in node.commands where command.kind == NativeSwiftDrawKind.text {
+        pans.append(command.values[3])
+        unset.append(command.unsetValueIndices)
+        geometryIsFinite = geometryIsFinite && command.geometryValues.allSatisfy(\.isFinite)
+      }
+      node.children.forEach(collect)
+    }
+    collect(try NativeSwiftDocumentSession.open(data: document).snapshot().root)
+    #expect(
+      pans.count == 6 && pans.prefix(3).allSatisfy(\.isNaN) && Array(pans.suffix(3)) == [-1, 0, 1],
+      Comment(rawValue: "anchored panY values \(pans)"))
+    // The hosts validate `geometryValues`, which must leave out exactly the sentinel: otherwise
+    // they refuse every document that uses it before the baseline branch can run.
+    #expect(unset == [[3], [3], [3], [], [], []], Comment(rawValue: "unset indices \(unset)"))
+    #expect(geometryIsFinite)
+  }
+
   // MARK: - Graphics-layer attribute ids (#423)
   //
   // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:

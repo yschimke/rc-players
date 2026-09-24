@@ -426,6 +426,12 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let verticalPositioning: Int
   /// The animation specification this component names, if it has one.
   public let animationID: Int?
+  /// The `AnimationSpec` this component adopts: the last one among its own operations, as the
+  /// reference binds a spec by position rather than by id. Nil when it has none and so uses the
+  /// default.
+  public let animationSpecID: Int?
+  /// The spec adopted under `animationSpecID`, as this component read it.
+  public let animationSpec: NativeSwiftAnimationSpec?
   public let spacing: Float
   /// The child a `StateLayout` is showing, clamped to its children, or nil when this node is not a
   /// state layout. The inactive children arrive GONE, which is what the reference does.
@@ -608,6 +614,19 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let text: String?
   public let textSize: Float
   public let textFlags: Int
+  /// Positions in `values` that hold NaN as the wire's own "no value" sentinel rather than a
+  /// number: `DrawTextAnchored`'s `panY` when it is the id-0 NaN, which the reference reads as
+  /// "leave the baseline where it is".
+  public let unsetValueIndices: [Int]
+
+  /// The values a host validates as geometry: every value except those sentinels. A NaN anywhere
+  /// else is still a document error.
+  public var geometryValues: [Float] {
+    guard !unsetValueIndices.isEmpty else { return values }
+    return values.enumerated().compactMap { index, value in
+      unsetValueIndices.contains(index) ? nil : value
+    }
+  }
 }
 
 /// A resolved paint gradient: colours as ARGB, stops and coordinates as floats, ready to draw.
