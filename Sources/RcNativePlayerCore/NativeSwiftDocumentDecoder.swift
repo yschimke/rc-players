@@ -1502,7 +1502,8 @@ enum NativeSwiftDocumentDecoder {
         let x = try input.word("path create x")
         let y = try input.word("path create y")
         paths[id] = ParsedPath(
-          winding: 0, words: [pathCommandWord(NativeSwiftPathCommand.move), x, y], opcode: opcode,
+          winding: NativeSwiftPathWinding.nonZero,
+          words: [pathCommandWord(NativeSwiftPathCommand.move), x, y], opcode: opcode,
           offset: opcodeOffset)
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.pathAdd:
@@ -1512,11 +1513,14 @@ enum NativeSwiftDocumentDecoder {
         let words = try (0..<count).map { _ in try input.word("path append word") }
         if words.first.flatMap(NativeSwiftFloatExpression.referenceID) == NativeSwiftPathCommand.reset {
           paths[id] = ParsedPath(
-            winding: paths[id]?.winding ?? 0, words: [], opcode: opcode, offset: opcodeOffset)
+            winding: paths[id]?.winding ?? NativeSwiftPathWinding.nonZero, words: [],
+            opcode: opcode, offset: opcodeOffset)
         } else if paths[id] != nil {
           paths[id]?.append(words, opcode: opcode, offset: opcodeOffset)
         } else {
-          paths[id] = ParsedPath(winding: 0, words: words, opcode: opcode, offset: opcodeOffset)
+          paths[id] = ParsedPath(
+            winding: NativeSwiftPathWinding.nonZero, words: words, opcode: opcode,
+            offset: opcodeOffset)
         }
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.drawPath:
