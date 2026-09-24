@@ -298,12 +298,15 @@ struct ParsedDrawCommand {
   let nanSentinelIndices: Set<Int>
   /// A `DrawToBitmap` redirect's target. It holds no expression words, so it is final at decode.
   let offscreenTarget: NativeSwiftOffscreenTargetSnapshot?
+  /// `MATRIX_FROM_PATH`'s `NativeSwiftMatrixFromPathFlag` bits; zero for every other kind.
+  let matrixFlags: Int
 
   init(
     kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
     image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil,
     textStart: Int? = nil, textEnd: Int? = nil, textFlags: Int = 0,
-    nanSentinelIndices: Set<Int> = [], offscreenTarget: NativeSwiftOffscreenTargetSnapshot? = nil
+    nanSentinelIndices: Set<Int> = [], offscreenTarget: NativeSwiftOffscreenTargetSnapshot? = nil,
+    matrixFlags: Int = 0
   ) {
     self.kind = kind
     self.words = words
@@ -321,6 +324,7 @@ struct ParsedDrawCommand {
     self.textEnd = textEnd
     self.textFlags = textFlags
     self.offscreenTarget = offscreenTarget
+    self.matrixFlags = matrixFlags
   }
 
   /// Decides `usesComponentGeometry` against the document's component-value output ids. The words
@@ -335,6 +339,7 @@ struct ParsedDrawCommand {
     usesComponentGeometry =
       reads(words) || reads(path?.words ?? []) || reads(image?.destination ?? [])
       || reads(paint.gradient?.coordinateWords ?? [])
+      || (path?.sourceReferences(anyOf: componentValueIDs) ?? false)
   }
 
   func resolve(
@@ -343,13 +348,21 @@ struct ParsedDrawCommand {
   ) throws
     -> NativeSwiftDrawCommandSnapshot
   {
+    let resolvedValues =
+      staticValues
+      ?? words.enumerated().map { index, word in
+        nanSentinelIndices.contains(index)
+          ? .nan : NativeSwiftFloatExpression.resolve(word, values: values)
+      }
+    let resolvedPath = try path?.resolve(values: values) ?? []
+    // MATRIX_FROM_PATH draws as the matrix measured off its path, not as the path itself.
+    let isPathMatrix = kind == NativeSwiftDrawKind.matrixFromPath
     return NativeSwiftDrawCommandSnapshot(
       kind: kind,
-      values: staticValues
-        ?? words.enumerated().map { index, word in
-          nanSentinelIndices.contains(index)
-            ? .nan : NativeSwiftFloatExpression.resolve(word, values: values)
-        },
+      values: isPathMatrix
+        ? NativeSwiftPathMeasure(resolvedPath).matrix(
+          fraction: resolvedValues.first ?? 0, flags: matrixFlags)
+        : resolvedValues,
       // SRC_IN is the vector-tint path emitted by Remote Compose. Its source is the filter colour,
       // while the glyph alpha remains in the path rasterization performed by Core Graphics.
       colorARGB:
@@ -362,7 +375,7 @@ struct ParsedDrawCommand {
       strokeCap: paint.strokeCap,
       strokeJoin: paint.strokeJoin,
       blendMode: paint.blendMode,
-      path: try path?.resolve(values: values) ?? [],
+      path: isPathMatrix ? [] : resolvedPath,
       pathWinding: path?.winding ?? NativeSwiftPathWinding.nonZero,
       image: image?.resolve(values: values, texts: texts),
       textureImageID: paint.textureImageID,

@@ -310,7 +310,8 @@ struct NativeSwiftOpcodeGroup {
 
 /// The kind of a decoded draw command (`ParsedDrawCommand.kind`, `NativeSwiftDrawCommandSnapshot.kind`).
 /// These are the core's own command kinds, not wire opcodes: every kind the core emits is listed,
-/// and the renderers switch on these names. 8 and 9 are unassigned.
+/// and the renderers switch on these names. 9 is unassigned. Kinds below `rect` change matrix, clip
+/// or save/restore state; `rect` and above draw.
 public enum NativeSwiftDrawKind {
   public static let matrixSave = 0
   public static let matrixRestore = 1
@@ -320,6 +321,10 @@ public enum NativeSwiftDrawKind {
   public static let matrixSkew = 5
   public static let clipRect = 6
   public static let clipPath = 7
+  /// `MATRIX_FROM_PATH`: an affine matrix to concatenate, already measured off its path. Its six
+  /// values are in `CGAffineTransform` order, `[a, b, c, d, tx, ty]`, mapping `(x, y)` to
+  /// `(a·x + c·y + tx, b·x + d·y + ty)`.
+  public static let matrixFromPath = 8
   public static let rect = 10
   public static let oval = 11
   public static let circle = 12
@@ -335,6 +340,9 @@ public enum NativeSwiftDrawKind {
   /// `DrawToBitmap`: later draws of this node go to the offscreen bitmap its
   /// `offscreenTarget` names, or back to the node's own canvas when that target's id is 0.
   public static let drawToBitmap = 22
+  /// `DRAW_TWEEN_PATH`: drawn exactly as `path` is. The interpolation and trim are already applied
+  /// to the command's path elements; the kind only keeps the operation's name distinct.
+  public static let tweenPath = 23
 }
 
 /// `DrawToBitmap`'s `mode` flags, from AndroidX `DrawToBitmap`. `MODE_NO_INITIALIZE` is the only
@@ -351,6 +359,32 @@ public enum NativeSwiftDrawToBitmapID {
   public static let mainCanvas = 0
   public static let valueMask = 0xffff
   public static let pointerDereference = 1 << 30
+}
+
+/// AndroidX `PathExpression`'s flag bits: every value it defines. The two interpolation bits are
+/// read together, as `flags & interpolationMask`, and a value that is neither `monotonic` nor
+/// `linear` draws the default `spline`, as AndroidX's `PathGenerator` does.
+enum NativeSwiftPathExpressionFlag {
+  /// The last point joins back to the first, and the path is closed.
+  static let loop = 1
+  static let monotonic = 2
+  static let linear = 4
+  /// The X expression is a radius over the angle, around the centre the Y words give.
+  static let polar = 8
+  static let spline = 0
+  static let interpolationMask = monotonic | linear
+  /// The path's winding, in the high byte.
+  static let windingMask = 0x0300_0000
+  static let windingShift = 24
+}
+
+/// AndroidX `MatrixFromPath`'s flag bits, which it notes must match `SkPathMeasure`'s
+/// `MatrixFlags`: every value it defines.
+enum NativeSwiftMatrixFromPathFlag {
+  /// Translate to the point at the distance along the path.
+  static let position = 1
+  /// Rotate onto the path's tangent at that point.
+  static let tangent = 2
 }
 
 /// The former name of `NativeSwiftPathCommand`, which carries the same values.
