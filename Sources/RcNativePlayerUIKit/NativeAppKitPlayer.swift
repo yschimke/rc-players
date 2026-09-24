@@ -3417,12 +3417,12 @@ private final class NativeMacCanvasView: NSView {
     input.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
     guard let data = input.data else { return nil }
     let rowBytes = input.bytesPerRow
-    let bytes = data.assumingMemoryBound(to: UInt8.self)
+    let base = data.assumingMemoryBound(to: UInt8.self)
     var pixels = [UInt8]()
     pixels.reserveCapacity(image.width * image.height * 4)
     for row in 0..<image.height {
       pixels.append(
-        contentsOf: UnsafeBufferPointer(start: bytes + row * rowBytes, count: image.width * 4))
+        contentsOf: UnsafeBufferPointer(start: base + row * rowBytes, count: image.width * 4))
     }
     guard
       let scaled = NativeBilinearScaler.scale(
