@@ -2377,7 +2377,8 @@ import Testing
     // The TypeScript-written gold writes the flags as an int, so its lengths are garbage.
     let gold = Data(
       base64Encoded:
-        "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEswgAAAAEAAAAAAABCyAAAAAAAAT+AAAAAAAABAAAAAUAAAAAAAAABAAAAAUBAAADWUAAAAFpDQgAA"
+        "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEswgAAAAEAAAAAAABCyAAAAAAAAT+AAAAAAAABAAAAAUAA"
+          + "AAAAAAABAAAAAUBAAADWUAAAAFpDQgAA"
     )!
     expectMalformed(gold, "particle_compare_conditional_respawn's misaligned payload")
   }
