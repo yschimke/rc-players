@@ -213,13 +213,6 @@
     let family: String
   }
 
-  private struct NativeSemanticBehavior {
-    let descriptor: NativeAccessibilityDescriptor
-    let componentID: Int
-    let clickActionTypes: [Int]
-    let acceptsPointerAction: Bool
-  }
-
   struct NativeNode {
     enum Kind: Equatable {
       case root
@@ -253,15 +246,11 @@
     let componentID: Int
     let commands: [NativeDrawCommand]
     let children: [NativeNode]
-    let semanticRole: Int
-    let isClickable: Bool
-    let isEnabled: Bool
-    let accessibilityLabel: String?
-    let accessibilityText: String?
-    let accessibilityValue: String?
-    let accessibilityMode: NativeAccessibilityMode
-    let hasAccessibilitySemantics: Bool
-    let clickActionTypes: [Int]
+    /// What the shared accessibility policy reads of this node, resolved by the document core's
+    /// snapshot so both hosts start from the same descriptor, labels and actions.
+    let semanticDescriptor: NativeAccessibilityDescriptor?
+    let semanticLocalLabels: [String]
+    let semanticClickActionTypes: [NativeSwiftGestureKind]
     let gestureTypes: [NativeSwiftGestureKind]
     let widthType: Int
     let widthValue: CGFloat
@@ -324,16 +313,9 @@
       children = snapshot.children.map {
         NativeNode(swiftSnapshot: $0, densityBehavior: densityBehavior)
       }
-      semanticRole = snapshot.accessibility?.role ?? (snapshot.isClickable ? 0 : -1)
-      isClickable = snapshot.isClickable || snapshot.accessibility?.isClickable == true
-      isEnabled = snapshot.accessibility?.isEnabled ?? true
-      accessibilityLabel = snapshot.accessibility?.contentDescription
-      accessibilityText = snapshot.accessibility?.text ?? snapshot.text?.value
-      accessibilityValue = snapshot.accessibility?.stateDescription
-      accessibilityMode =
-        snapshot.accessibility.flatMap { NativeAccessibilityMode(rawValue: $0.mode) } ?? .set
-      hasAccessibilitySemantics = snapshot.accessibility != nil
-      clickActionTypes = isEnabled ? snapshot.supportedGestures.map(\.rawValue) : []
+      semanticDescriptor = snapshot.semanticDescriptor
+      semanticLocalLabels = snapshot.semanticLocalLabels
+      semanticClickActionTypes = snapshot.semanticClickActionTypes
       gestureTypes = snapshot.supportedGestures
       widthType = snapshot.widthType
       widthValue = CGFloat(snapshot.widthValue)
@@ -368,80 +350,29 @@
     var firstText: String? {
       commands.lazy.compactMap(\.text).first ?? children.lazy.compactMap(\.firstText).first
     }
+  }
 
-    var localAccessibilityLabels: [String] {
-      [accessibilityLabel, accessibilityText].compactMap { $0 }
-        + commands.flatMap { command in
-          [command.text, command.image?.contentDescription].compactMap { $0 }
-        }
-    }
+  /// The document as it was written. The component views resolve from what they display instead;
+  /// see their conformance below.
+  extension NativeNode: NativeAccessibilityNode {
+    var semanticComponentID: Int { componentID }
+    var isSemanticallyVisible: Bool { visibility == NativeSwiftVisibility.visible }
+    var semanticChildren: [NativeNode] { children }
+  }
 
-    var accessibilityDescriptor: NativeAccessibilityDescriptor? {
-      guard hasAccessibilitySemantics || isClickable else { return nil }
-      return NativeAccessibilityDescriptor(
-        role: NativeAccessibilityRole(rawValue: semanticRole),
-        mode: accessibilityMode,
-        contentDescription: accessibilityLabel,
-        text: accessibilityText,
-        stateDescription: accessibilityValue,
-        isEnabled: isEnabled,
-        isClickable: isClickable)
+  /// The accessibility policy reads each component as it is displayed rather than as the document
+  /// wrote it: a container can hide a child the document shows (a collapsed row, a FitBox's other
+  /// alternatives), and a FitBox shows an alternative whose own visibility modifier is GONE. A
+  /// merging ancestor has to take the displayed children's labels and actions, as AppKit does.
+  extension NativeComponentView: @preconcurrency NativeAccessibilityNode {
+    var semanticComponentID: Int { node.semanticComponentID }
+    var semanticDescriptor: NativeAccessibilityDescriptor? { node.semanticDescriptor }
+    var semanticLocalLabels: [String] { node.semanticLocalLabels }
+    var semanticClickActionTypes: [NativeSwiftGestureKind] { node.semanticClickActionTypes }
+    var isSemanticallyVisible: Bool {
+      !isHidden && (node.isSemanticallyVisible || ignoresOwnVisibility)
     }
-
-    var effectiveAccessibilityLabels: [String] {
-      guard visibility == NativeSwiftVisibility.visible else { return [] }
-      let descendants = children.flatMap(\.effectiveAccessibilityLabels)
-      guard let descriptor = accessibilityDescriptor else {
-        return localAccessibilityLabels + descendants
-      }
-      switch descriptor.mode {
-      case .clearAndSet:
-        return [descriptor.resolvedLabel(descendantLabels: [])].compactMap { $0 }
-      case .merge:
-        return [
-          descriptor.resolvedLabel(
-            descendantLabels: localAccessibilityLabels + descendants)
-        ].compactMap { $0 }
-      case .set:
-        return [descriptor.resolvedLabel(descendantLabels: [])].compactMap { $0 }
-          + localAccessibilityLabels + descendants
-      }
-    }
-
-    var descendantAccessibilityLabels: [String] {
-      children.flatMap(\.effectiveAccessibilityLabels)
-    }
-
-    fileprivate var semanticBehavior: NativeSemanticBehavior? {
-      guard let own = accessibilityDescriptor else { return nil }
-      guard own.mode == .merge else {
-        return NativeSemanticBehavior(
-          descriptor: own, componentID: componentID, clickActionTypes: clickActionTypes,
-          acceptsPointerAction: !clickActionTypes.isEmpty)
-      }
-      let descendants = children.flatMap(\.effectiveSemanticBehaviors)
-      let mergedDescriptor = descendants.reduce(own) { descriptor, descendant in
-        descriptor.mergingBehavior(from: descendant.descriptor)
-      }
-      let ownsAction = !clickActionTypes.isEmpty
-      let descendantAction = descendants.first { !$0.clickActionTypes.isEmpty }
-      return NativeSemanticBehavior(
-        descriptor: mergedDescriptor,
-        componentID: ownsAction ? componentID : descendantAction?.componentID ?? componentID,
-        clickActionTypes: ownsAction ? clickActionTypes : descendantAction?.clickActionTypes ?? [],
-        acceptsPointerAction: ownsAction)
-    }
-
-    private var effectiveSemanticBehaviors: [NativeSemanticBehavior] {
-      guard visibility == NativeSwiftVisibility.visible else { return [] }
-      if let semanticBehavior {
-        if semanticBehavior.descriptor.mode == .set {
-          return [semanticBehavior] + children.flatMap(\.effectiveSemanticBehaviors)
-        }
-        return [semanticBehavior]
-      }
-      return children.flatMap(\.effectiveSemanticBehaviors)
-    }
+    var semanticChildren: [NativeComponentView] { componentChildren }
   }
 
   struct NativeCustomComponent: Equatable {
@@ -708,7 +639,10 @@
 
     /// The document is the one accessibility container: every semantic element it lists names it as
     /// its container, so VoiceOver and XCUITest walk the same parent chain they enumerate.
-    private func publishAccessibilityElements() {
+    ///
+    /// Layout republishes it too, through the component views' refresh, because a container that
+    /// hides or restores a child at layout changes which elements are listed.
+    func publishAccessibilityElements() {
       let elements = componentView.accessibilityOrder
       for case let element as NativeSemanticElement in elements {
         element.accessibilityContainer = self
@@ -806,6 +740,10 @@
     private var customView: NativeCustomComponentView?
     private var componentChildren: [NativeComponentView]
     private var semanticElement: NativeSemanticElement?
+    /// Set by a `FitBox` on its alternatives. The reference ignores an alternative's own visibility
+    /// modifier (a document switches alternatives with it), so accessibility reads the box's choice
+    /// rather than the modifier's.
+    private var ignoresOwnVisibility = false
     // Repeated requests with the same constraint occur while rows and flows first determine
     // natural sizes and then place siblings. The cache deliberately keys only identical
     // constraints; a weighted child's final width remains a separate measurement.
@@ -888,7 +826,7 @@
           onCustomReturn: onCustomReturn)
       }
       super.init(frame: .zero)
-      semanticElement = makeSemanticElement(for: node)
+      semanticElement = makeSemanticElement()
       isOpaque = false
       backgroundColor = node.backgroundColor ?? .clear
       isHidden = node.visibility == NativeSwiftVisibility.gone
@@ -1007,7 +945,9 @@
         textLabels.count == local.text.count,
         imageViews.count == local.images.count,
         node.custom?.config == next.custom?.config,
-        Self.semanticElement(semanticElement, matches: next),
+        // Whether the node has an element depends only on its own semantics; the element's kind
+        // and label are re-resolved from the displayed views on every update.
+        (semanticElement != nil) == (next.semanticDescriptor != nil),
         componentChildren.count == next.children.count
       else { return false }
       return zip(componentChildren, next.children).allSatisfy { child, childNode in
@@ -1026,6 +966,8 @@
       }
       let local = Self.localContent(for: next, images: images)
       node = next
+      // A FitBox parent sets this again during its layout, exactly as it does on a fresh view.
+      ignoresOwnVisibility = false
       invalidatePreferredSizes()
       canvasView?.update(commands: local.drawing, images: images, fontNames: fontNames)
       zip(textLabels, local.text).forEach { label, command in
@@ -1041,7 +983,9 @@
         child.update(node: childNode, images: images, fontNames: fontNames)
         child.layer.zPosition = childNode.zIndex
       }
-      updateSemanticElement(from: next)
+      // After the children: a merging or unlabeled node resolves its label, role and action from
+      // its descendants' views, which now hold the new node.
+      configureSemanticElement()
       backgroundColor = next.backgroundColor ?? .clear
       isHidden = next.visibility == NativeSwiftVisibility.gone
       alpha = next.visibility == NativeSwiftVisibility.invisible ? 0 : 1
@@ -1078,13 +1022,6 @@
       return (drawing, text, imageItems)
     }
 
-    private static func semanticElement(
-      _ element: NativeSemanticElement?, matches node: NativeNode
-    ) -> Bool {
-      guard let descriptor = node.semanticBehavior?.descriptor else { return element == nil }
-      return element?.kind == descriptor.elementKind
-    }
-
     var accessibilityOrder: [Any] {
       // The *effective* state, not the document's field: a FitBox displays an alternative whose own
       // visibility modifier is GONE, and a displayed button has to be reachable by VoiceOver rather
@@ -1095,7 +1032,7 @@
         textLabels.filter(\.isAccessibilityElement).map { $0 as Any }
         + imageViews.filter(\.isAccessibilityElement).map { $0 as Any }
         + (customView.map { [$0 as Any] } ?? [])
-      guard let semanticElement, let descriptor = node.semanticBehavior?.descriptor else {
+      guard let semanticElement, let descriptor = semanticBehavior?.descriptor else {
         return local + descendants
       }
       let owner = semanticElement.isAccessibilityElement ? [semanticElement] : []
@@ -1334,12 +1271,61 @@
 
     /// Writes an arrangement the engine produced for this container onto its children.
     private func apply(_ arrangement: NativeLayoutArrangement<NativeComponentView>) {
+      // Semantic elements resolve from the displayed views, so any change layout makes to what is
+      // displayed (a collapsed or restored child, a flow's discarded item, a FitBox's choice) is
+      // re-resolved here rather than at the next document update.
+      var changedItems: [NativeComponentView] = []
       for change in arrangement.visibilityChanges {
-        change.item.isHidden = change.isHidden
+        var changed = false
+        if change.item.isHidden != change.isHidden {
+          change.item.isHidden = change.isHidden
+          changed = true
+        }
         if change.resetsAlpha { change.item.alpha = 1 }
+        if change.isFitBoxAlternative, !change.item.ignoresOwnVisibility {
+          change.item.ignoresOwnVisibility = true
+          changed = true
+        }
+        if changed { changedItems.append(change.item) }
       }
-      if let containerIsHidden = arrangement.containerIsHidden { isHidden = containerIsHidden }
+      var containerChanged = false
+      if let containerIsHidden = arrangement.containerIsHidden, isHidden != containerIsHidden {
+        isHidden = containerIsHidden
+        containerChanged = true
+      }
       for placement in arrangement.placements { placement.item.frame = placement.frame }
+      guard !changedItems.isEmpty || containerChanged else { return }
+      // An arranged item can sit below a structural wrapper, whose own element also resolves from
+      // it, so the path from each changed item up to this container is refreshed too.
+      var refreshed = Set<ObjectIdentifier>()
+      for item in changedItems {
+        var view = item.superview
+        while let current = view, current !== self {
+          if let component = current as? NativeComponentView,
+            refreshed.insert(ObjectIdentifier(component)).inserted
+          {
+            component.configureSemanticElement()
+          }
+          view = current.superview
+        }
+      }
+      refreshSemanticElements()
+    }
+
+    /// Re-resolves every semantic element from here up: a merging ancestor's label, role and
+    /// action come from its displayed descendants. The document then republishes the elements it
+    /// lists, since what is displayed decides that too.
+    func refreshSemanticElements() {
+      var view: UIView? = self
+      while let current = view {
+        if let component = current as? NativeComponentView {
+          component.configureSemanticElement()
+        } else if let document = current as? NativeDocumentView {
+          document.publishAccessibilityElements()
+          return
+        }
+        view = current.superview
+      }
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -1395,38 +1381,37 @@
       semanticElement.frameInOwner = clippedBounds.isNull ? .zero : clippedBounds
     }
 
-    private func makeSemanticElement(for node: NativeNode) -> NativeSemanticElement? {
-      guard let behavior = node.semanticBehavior else { return nil }
+    private func makeSemanticElement() -> NativeSemanticElement? {
+      guard let behavior = semanticBehavior else { return nil }
       let element = NativeSemanticElement(
         owner: self, kind: behavior.descriptor.elementKind, componentID: behavior.componentID)
-      Self.configureSemanticElement(element, node: node, behavior: behavior, onGesture: onGesture)
+      configure(element, behavior: behavior)
       return element
     }
 
-    private func updateSemanticElement(from node: NativeNode) {
-      guard let semanticElement, let behavior = node.semanticBehavior else { return }
-      Self.configureSemanticElement(
-        semanticElement, node: node, behavior: behavior, onGesture: onGesture)
+    private func configureSemanticElement() {
+      guard let semanticElement, let behavior = semanticBehavior else { return }
+      configure(semanticElement, behavior: behavior)
     }
 
-    private static func configureSemanticElement(
-      _ element: NativeSemanticElement,
-      node: NativeNode,
-      behavior: NativeSemanticBehavior,
-      onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
+    /// Writes the semantics this view resolves from what it and its descendants display onto its
+    /// element. Activation dispatches the same tap the pointer path does, for this component or,
+    /// for a merging node whose action belongs to a descendant, that descendant's.
+    private func configure(
+      _ element: NativeSemanticElement, behavior: NativeAccessibilityBehavior
     ) {
       let descriptor = behavior.descriptor
-      let action =
-        descriptor.isEnabled && behavior.clickActionTypes.contains(NativeSwiftGestureKind.tap.rawValue)
-        ? { componentID in onGesture(componentID, .tap, nil) } : nil
+      let onGesture = onGesture
+      let action: ((Int) -> Void)? =
+        behavior.activatesTap ? { componentID in onGesture(componentID, .tap, nil) } : nil
+      element.kind = descriptor.elementKind
       element.componentID = behavior.componentID
       element.action = action
       // An image never gated activation on enablement; every control-backed kind did.
       element.requiresEnabledToActivate = descriptor.elementKind != .image
       element.isEnabled = descriptor.isEnabled
-      let mergedLabels = node.localAccessibilityLabels + node.descendantAccessibilityLabels
-      let label = descriptor.resolvedLabel(descendantLabels: mergedLabels)
-      let traits = accessibilityTraits(for: descriptor)
+      let label = resolvedSemanticLabel
+      let traits = Self.accessibilityTraits(for: descriptor)
       element.isAccessibilityElement =
         label != nil || descriptor.stateDescription != nil || !traits.isEmpty || action != nil
       element.accessibilityLabel = label
@@ -1458,7 +1443,7 @@
   /// owning component view's area (the structural union for a flattened component), and activation
   /// dispatches the same tap event the pointer path does.
   private final class NativeSemanticElement: UIAccessibilityElement {
-    let kind: NativeAccessibilityElementKind
+    var kind: NativeAccessibilityElementKind
     var componentID: Int
     var action: ((Int) -> Void)?
     var isEnabled = true
