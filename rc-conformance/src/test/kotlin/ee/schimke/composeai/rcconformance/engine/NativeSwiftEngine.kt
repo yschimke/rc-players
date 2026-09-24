@@ -103,6 +103,9 @@ private const val MILLIS_PER_SECOND = 1000.0
 /** The corpus's frame rate for `frame_sequence` (§3): one frame per sixtieth of a second. */
 private const val FRAMES_PER_SECOND = 60.0
 
+/** How far before a frame sequence's base the reference harness holds its warm-up paints (§3). */
+private const val WARM_UP_SECONDS = 1.0
+
 private class NativeSwiftSession(
   private val gold: Gold,
   private val playerBinary: File,
@@ -114,6 +117,15 @@ private class NativeSwiftSession(
   /** The logical clock a frame is captured at, in seconds, and the input driven before it. */
   private var clock = 0.0
   private var wallClock: JsonObject? = null
+
+  /**
+   * The instant the reference harness painted its warm-up frames at, on [clock]'s axis, once a
+   * frame sequence has named its base: the generator holds `RemoteClock` one second before
+   * `base_time_millis` through the warm-up paints. A marquee latches its first paint there, and the
+   * player opens a fresh document per frame, so it has to be told rather than left to latch each
+   * frame as its own first.
+   */
+  private var firstPaintTime: Double? = null
   /** The theme a `theme` step requested, sent with every later frame; null until one does. */
   private var theme: Int? = null
   private val driven = mutableListOf<JsonObject>()
@@ -264,6 +276,9 @@ private class NativeSwiftSession(
    */
   private fun frameSequence(step: Step, onCapture: (String) -> Unit) {
     val base = step.int("base_time_millis", 0) / MILLIS_PER_SECOND
+    if (firstPaintTime == null && step.float("base_time_millis") != null) {
+      firstPaintTime = base - WARM_UP_SECONDS
+    }
     val captures = step.ints("capture").toSet()
     for (frame in 0..step.int("total_frames", 0)) {
       clock = base + frame / FRAMES_PER_SECOND
@@ -445,6 +460,7 @@ private class NativeSwiftSession(
                 put("width", frame.width)
                 put("height", frame.height)
                 put("time", frame.time)
+                firstPaintTime?.let { put("first_paint_time", it) }
                 frame.wallClock?.let { put("wall_clock", it) }
                 frame.theme?.let { put("theme", it) }
                 if (frame.steps.isNotEmpty()) {

@@ -416,7 +416,8 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     values: NativeMacValueRequest = NativeMacValueRequest(),
     steps: [NativeMacInputStep] = [],
     conformanceFontName: String? = nil,
-    particleSession: NativeSwiftDocumentSession? = nil
+    particleSession: NativeSwiftDocumentSession? = nil,
+    firstPaintTime: TimeInterval? = nil
   ) throws -> NativeMacRenderedFrame {
     try NativeMacPolicy.validateDocument(data)
     // A *data-only* document declares values and nothing to draw. A conformance capture still has to
@@ -425,6 +426,9 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let session = try NativeSwiftDocumentSession.open(
       data: data, toleratingRootlessData: true)
     session.setRequestedTheme(theme)
+    // Each frame opens a fresh session, which would take this frame as the first paint and hold a
+    // marquee still; the batch names the instant its warm-up paints ran at instead.
+    if let firstPaintTime { session.setFirstPaintTime(firstPaintTime) }
     // A gesture needs a laid-out view to hit-test against, and the document as it stood when the
     // first gesture arrived — not as it stands at the capture. The frame's own instant is the start
     // only when nothing was driven.
@@ -1322,6 +1326,14 @@ private final class NativeMacDocumentView: NSView {
   private let onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
   private let onError: (String) -> Void
   private var snapshot: NativeSwiftDocumentSnapshot
+  /// How long the document has been on screen, which a marquee's component reads during layout.
+  var marqueeElapsedSeconds: TimeInterval { snapshot.marqueeElapsedSeconds }
+
+  /// A marquee started or stopped overflowing. Re-decided after the layout pass that noticed, so the
+  /// frame driver is not rebuilt from inside it.
+  func marqueeDemandChanged() {
+    DispatchQueue.main.async { [weak self] in self?.updateFrameDriver() }
+  }
   private let images: [Int: NSImage]
   private let fonts: NativeMacFontRegistry
   private let conformanceFontName: String?
@@ -1351,7 +1363,9 @@ private final class NativeMacDocumentView: NSView {
   /// taken back out here; the parent's reported size already carries the padding.
   func layoutTree() -> [[String: Any]] {
     var nodes: [[String: Any]] = []
-    func walk(_ view: NativeMacComponentView, depth: Int, parentPadding: MacInsets) {
+    func walk(
+      _ view: NativeMacComponentView, depth: Int, parentPadding: MacInsets, parentShift: CGFloat
+    ) {
       let kind = view.node.componentKind
       let named = !kind.isEmpty
       var childDepth = depth
@@ -1368,7 +1382,8 @@ private final class NativeMacDocumentView: NSView {
         var entry: [String: Any] = [
           "id": view.node.componentID,
           "kind": kind,
-          "x": Double(frame.origin.x - parentPadding.left - CGFloat(view.node.offsetX)),
+          "x": Double(
+            frame.origin.x - parentPadding.left - CGFloat(view.node.offsetX) - parentShift),
           "y": Double(frame.origin.y - parentPadding.top - CGFloat(view.node.offsetY)),
           "width": Double(frame.size.width),
           "height": Double(frame.size.height),
@@ -1389,6 +1404,10 @@ private final class NativeMacDocumentView: NSView {
             entry["scroll_y"] = Double(-view.node.scrollOffset)
           }
         }
+        // A marquee is a scroll the clock drives, and the corpus reads its offset the same way.
+        if view.node.marquee != nil, abs(view.marqueeOffset) > CGFloat(Float.ulpOfOne) {
+          entry["scroll_x"] = Double(view.marqueeOffset)
+        }
         nodes.append(entry)
         childDepth = depth + 1
       }
@@ -1396,9 +1415,16 @@ private final class NativeMacDocumentView: NSView {
       // padding of its own, so the inset its children were placed against is the nearest named
       // ancestor's.
       let padding = named ? view.insets : parentPadding
-      for child in view.componentChildren { walk(child, depth: childDepth, parentPadding: padding) }
+      // A container marquee slides its children's frames, but the reference translates them at
+      // paint time, so their layout positions are reported without the slide; it is the
+      // container's `scroll_x`. A structural child's own children sit in its coordinates, which
+      // already carry the slide, so only the direct children take it back out.
+      let shift = view.node.marquee != nil && view.node.kind != .text ? view.marqueeOffset : 0
+      for child in view.componentChildren {
+        walk(child, depth: childDepth, parentPadding: padding, parentShift: shift)
+      }
     }
-    walk(component, depth: 0, parentPadding: MacInsets.zero)
+    walk(component, depth: 0, parentPadding: MacInsets.zero, parentShift: 0)
     // §4.3: nodes are sorted by component id ascending, which puts a node after all its descendants.
     return nodes.sorted { ($0["id"] as? Int ?? 0) < ($1["id"] as? Int ?? 0) }
   }
@@ -1744,7 +1770,8 @@ private final class NativeMacDocumentView: NSView {
     delayedWakeTimer?.invalidate()
     delayedWakeTimer = nil
     let mode = NativeMacFrameDriverMode.resolve(
-      needsContinuousFrames: snapshot.needsContinuousFrames,
+      needsContinuousFrames: snapshot.needsContinuousFrames
+        || component?.hasMovingMarquee == true,
       requestsNextFrame: false,
       wakeAfter: remainingWake,
       isActive: NSApplication.shared.isActive,
@@ -1960,6 +1987,11 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   /// modifier — a document switches alternatives with it — so the tree reports the box's choice
   /// rather than the modifier's, and the fit test sees the alternative's real size.
   var ignoresOwnVisibility = false
+  /// The horizontal offset a marquee draws its text at, placed by `layout()`. The tree reports it as
+  /// `scroll_x`.
+  private(set) var marqueeOffset: CGFloat = 0
+  /// Whether the marquee's content overflows, so it moves and needs frames.
+  private var marqueeMoves = false
   private(set) var componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
@@ -2157,10 +2189,29 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     }
   }
 
+  /// The document view this component is installed in, for the document-wide clock.
+  private var documentView: NativeMacDocumentView? {
+    var ancestor = superview
+    while let view = ancestor {
+      if let document = view as? NativeMacDocumentView { return document }
+      ancestor = view.superview
+    }
+    return nil
+  }
+
+  /// The text's own one-line advance, rounded up to a whole point as the reference's measured
+  /// placeable is. Read from the attributed string rather than the field, whose cell adds padding
+  /// the overflow distance must not count.
+  private static func unboundedWidth(of label: NSTextField) -> CGFloat {
+    label.attributedStringValue.size().width.rounded(.up)
+  }
+
   private func applyLayerStyle() {
     // A scrolled container's children are laid out against their content, which is larger than the
-    // viewport by design, so the viewport has to clip them or the overflow paints outside it.
-    layer?.masksToBounds = node.cornerRadius > 0 || node.scrollDirection != nil
+    // viewport by design, so the viewport has to clip them or the overflow paints outside it. A
+    // marquee's text is wider than its box for the same reason.
+    layer?.masksToBounds =
+      node.cornerRadius > 0 || node.scrollDirection != nil || node.marquee != nil
     layer?.cornerRadius = CGFloat(node.cornerRadius)
     layer?.backgroundColor = node.hasBackground ? Self.color(node.backgroundColor).cgColor : nil
     if let border = node.borderARGB, node.borderWidth > 0 {
@@ -2412,13 +2463,71 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
       let content = contentRect
       for label in labels {
         let height = min(label.intrinsicContentSize.height, content.height)
-        label.frame = NSRect(
-          x: content.minX, y: content.minY, width: content.width, height: height)
+        if let marquee = node.marquee {
+          // A marquee measures its content unbounded along x and slides it under the component's
+          // clip, by the distance the content and its spacing overrun the box
+          // (`applyAndroidXMarquee`). AppKit points are the document's dp, so density is 1.
+          let natural = Self.unboundedWidth(of: label)
+          let overflow = Float(natural + CGFloat(marquee.spacing) - content.width)
+          setMarquee(
+            offset: CGFloat(
+              marquee.offset(
+                overflowDistance: max(overflow, 0), density: 1,
+                elapsedSeconds: documentView?.marqueeElapsedSeconds ?? 0)),
+            moves: overflow > 0 && overflow.isFinite)
+          label.frame = NSRect(
+            x: content.minX + marqueeOffset, y: content.minY,
+            width: max(content.width, natural), height: height)
+        } else {
+          setMarquee(offset: 0, moves: false)
+          label.frame = NSRect(
+            x: content.minX, y: content.minY, width: content.width, height: height)
+        }
       }
     }
     // Rows, columns, flows, boxes, FitBoxes and the root: the shared engine decides, in document
     // units and left to right, and this view only writes the result onto its children.
     apply(NativeLayoutEngine().arrange(self, in: bounds))
+    applyContainerMarquee()
+  }
+
+  /// A marquee on anything but text: the children are measured unbounded along x, the way
+  /// `applyAndroidXMarquee` measures its content, and every child slides by the overflow under the
+  /// component's clip. A canvas or image has no content wider than its box, so it stays still.
+  private func applyContainerMarquee() {
+    guard node.kind != .text else { return }
+    guard let marquee = node.marquee, !componentChildren.isEmpty else {
+      setMarquee(offset: 0, moves: false)
+      return
+    }
+    // The engine laid the children out unbounded along x (`NativeLayoutNode.contentAxis`), so
+    // their frames already reach as far as the content does; this is how far that, plus the
+    // spacing, runs past the box.
+    let content = contentRect
+    let reach = componentChildren.filter { !$0.isHidden }.map(\.frame.maxX).max() ?? content.minX
+    let natural = reach - content.minX
+    let overflow = Float(natural + CGFloat(marquee.spacing) - content.width)
+    let offset = CGFloat(
+      marquee.offset(
+        overflowDistance: max(overflow, 0), density: 1,
+        elapsedSeconds: documentView?.marqueeElapsedSeconds ?? 0))
+    setMarquee(offset: offset, moves: overflow > 0 && overflow.isFinite)
+    guard offset != 0 else { return }
+    for child in componentChildren { child.frame.origin.x += offset }
+  }
+
+  /// Records where the marquee is and whether it can move, telling the document view when the
+  /// latter changes: frames are requested only while some marquee overflows.
+  private func setMarquee(offset: CGFloat, moves: Bool) {
+    marqueeOffset = offset
+    guard marqueeMoves != moves else { return }
+    marqueeMoves = moves
+    documentView?.marqueeDemandChanged()
+  }
+
+  /// Whether this component or any below it has a marquee whose content overflows.
+  var hasMovingMarquee: Bool {
+    marqueeMoves || componentChildren.contains { $0.hasMovingMarquee }
   }
 
   // MARK: NativeLayoutItem
@@ -2430,8 +2539,16 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   func layoutContentSize(fitting available: CGSize) -> CGSize {
     switch node.kind {
     case .text:
-      return labels.first?.sizeThatFits(
-        NSSize(width: available.width, height: .greatestFiniteMagnitude)) ?? .zero
+      // A marquee's text is one unbroken line however narrow the box: the overflow scrolls rather
+      // than wrapping, so it is measured unbounded and the box takes what fits.
+      let measuredWidth =
+        node.marquee != nil ? CGFloat.greatestFiniteMagnitude : available.width
+      let labelSize =
+        labels.first?.sizeThatFits(
+          NSSize(width: measuredWidth, height: .greatestFiniteMagnitude)) ?? .zero
+      return node.marquee != nil
+        ? CGSize(width: min(labelSize.width, available.width), height: labelSize.height)
+        : labelSize
     case .image:
       return imageViews.first?.image?.size ?? .zero
     default:

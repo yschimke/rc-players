@@ -1864,6 +1864,61 @@ import Testing
   /// 4 KB body -- a skipped conditional around a 1,024-word paint -- would build 40 MB from a
   /// document a few kilobytes long; the expansion is charged against a byte budget as it grows and
   /// refused once it passes it.
+  @Test func marqueeModifierFollowsTheFirstPaintClock() throws {
+    // `modifier_marquee_ticker`: a 240-wide text carrying MODIFIER_MARQUEE (228), which used to
+    // refuse the whole document. Its offset runs on the wall clock from the first paint; the corpus
+    // harness holds that clock a second before the sequence's base, which a host pins here.
+    let document = Data(
+      base64Encoded:
+        "AASMAAEAAAABAAAAAAAAAAQABQAEAAABLAAGAAQAAABkDAkAGwAAABdtb2RpZmllcl9tYXJxdWVlX3RpY2tlcgAOAAQAAAIByP////7L/////f////8AAAABAAAABAAAAAAQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////xmAAAAKgAAABxSZW1vdGVDb21wb3NlIE1hcnF1ZWUgVGlja2Vy7wAAACoABQH////7BUGAAAAJAAAABQoAAAACCwAAAAEQAAAAAENwAABDAAAAAEIgAAA3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q/RcXGP339/j+AAAAAAAAA5P////8AAAAAAAAAAEP6AABCAAAAQnAAAMn////61tbW1tY="
+    )!
+    let session = try NativeSwiftDocumentSession.open(data: document)
+    session.setFirstPaintTime(9)
+    func marquee(in node: NativeSwiftNodeSnapshot) -> NativeSwiftMarqueeSnapshot? {
+      node.marquee ?? node.children.lazy.compactMap(marquee(in:)).first
+    }
+    let first = try session.snapshot(timeSeconds: 10)
+    let decoded = try #require(marquee(in: first.root))
+    #expect(
+      decoded
+        == NativeSwiftMarqueeSnapshot(
+          iterations: -1, animationMode: 0, repeatDelayMillis: 0, initialDelayMillis: 500,
+          spacing: 32, velocity: 60),
+      "the marquee's fields did not decode: \(decoded)")
+    // Frames are the host's to ask for, once it has measured an overflow; the core only makes sure
+    // the clock-driven offset is never served from its static snapshot cache.
+    #expect(!first.needsContinuousFrames, "a marquee that may fit asked for frames by itself")
+    #expect(
+      try session.snapshot(timeSeconds: 11).marqueeElapsedSeconds == 2,
+      "a marquee's clock was served from the static snapshot cache")
+    // Ahem at 16 sets the 28-character line 448 wide; with its 32 spacing it overruns 240 by 240.
+    // Frame n of the sequence is 10 + n/60 seconds; the corpus's `scroll_x` at each capture:
+    let expected: [(frame: Double, offset: Float)] = [
+      (0, 0), (30, -120), (60, -204.85), (90, -240), (150, -120), (210, 0), (240, -35.15),
+    ]
+    for (frame, offset) in expected {
+      let snapshot = try session.snapshot(timeSeconds: 10 + frame / 60)
+      let actual = decoded.offset(
+        overflowDistance: 240, density: 1, elapsedSeconds: snapshot.marqueeElapsedSeconds)
+      #expect(abs(actual - offset) < 0.5, "frame \(frame): \(actual), expected \(offset)")
+    }
+    // Unpinned, the first snapshot is the first paint.
+    let live = try NativeSwiftDocumentSession.open(data: document)
+    #expect(try live.snapshot(timeSeconds: 3).marqueeElapsedSeconds == 0)
+    #expect(try live.snapshot(timeSeconds: 4.5).marqueeElapsedSeconds == 1.5)
+
+    // A velocity of zero never moves the content, yet would keep a host painting forever; the
+    // Kotlin player refuses it, and so does this one. The velocity is the modifier's last word.
+    var stalled = [UInt8](document)
+    let velocity: [UInt8] = [0x42, 0x70, 0x00, 0x00]
+    let at = try #require(
+      (0...(stalled.count - velocity.count)).last { Array(stalled[$0..<$0 + 4]) == velocity })
+    stalled.replaceSubrange(at..<at + 4, with: [0, 0, 0, 0])
+    #expect(throws: NativeSwiftCoreError.self) {
+      try NativeSwiftDocumentSession.open(data: Data(stalled)).snapshot(timeSeconds: 0)
+    }
+  }
+
   @Test func amplifyingLoopIsMalformed() {
     let document = Writer()
     document.header(width: 100, height: 100)

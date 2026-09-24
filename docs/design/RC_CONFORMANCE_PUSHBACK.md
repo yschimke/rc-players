@@ -120,7 +120,14 @@ spec should also say **one frame per step**. A millisecond clock that rounds up 
 two frames on some steps. That made all eight particle golds fail, until this lane switched to one
 frame per step.
 
-**Ask:** document both points.
+A third point is undocumented and still observable. The generator holds `RemoteClock` at **one
+second before** `base_time_millis` through its warm-up paints. Anything that latches a wall-clock
+instant at first paint inherits that second. `modifier_marquee_ticker` is the case: its `scroll_x` is
+still 0 at frame 0 and -120 at frame 30 only because the marquee's first paint happened one second
+before the sequence began. The CMP and native lanes both hard-code the offset (`WARM_UP_MILLIS`,
+`WARM_UP_SECONDS`) to match.
+
+**Ask:** document all three points.
 
 ## 7. Advisory flags on raster checks look inconsistent
 

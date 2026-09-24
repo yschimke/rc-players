@@ -875,7 +875,10 @@
       alpha = node.visibility == NativeSwiftVisibility.invisible ? 0 : 1
       // A scrolled container's children are laid out against their content, which is larger than the
       // viewport by design, so the viewport has to clip them or the overflow paints outside it.
-      clipsToBounds = node.cornerRadius > 0 || node.clipsToBounds || node.scrollDirection != nil
+      // A marquee's content is laid out wider than its box, as a scroll's is, so both clip.
+      clipsToBounds =
+        node.cornerRadius > 0 || node.clipsToBounds || node.scrollDirection != nil
+        || node.layout.marquee
       accessibilityIdentifier = "rc-native-component-\(node.componentID)"
       if let canvasView { addSubview(canvasView) }
       textLabels.forEach(addSubview)
@@ -1024,6 +1027,7 @@
       alpha = next.visibility == NativeSwiftVisibility.invisible ? 0 : 1
       clipsToBounds =
         next.cornerRadius > 0 || next.clipsToBounds || next.scrollDirection != nil
+        || next.layout.marquee
       setNeedsLayout()
       return true
     }

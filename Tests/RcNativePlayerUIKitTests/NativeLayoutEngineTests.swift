@@ -78,6 +78,21 @@ import Testing
     expectFrame(tree, 4, CGRect(x: 50, y: 0, width: 50, height: 20))
   }
 
+  @Test func marqueeRowLaysItsContentOutAtItsNaturalWidth() {
+    func row(marquee: Bool) -> Item {
+      item(.row, id: 1, children: [item(.box, id: 2, children: [fixed(3, width: 150, height: 20)])])
+      { $0.marquee = marquee }
+    }
+    let size = CGSize(width: 100, height: 40)
+    // Unbounded along x, as a horizontal scroll is: the wrap-content box keeps its 150 points past
+    // the 100-point row, which the renderer clips and slides it under.
+    let marquee = NativeLayoutEngine().frameTree(root: row(marquee: true), size: size)
+    expectFrame(marquee, 2, CGRect(x: 0, y: 0, width: 150, height: 20))
+    // Without the marquee the box is held to the row's 100.
+    let plain = NativeLayoutEngine().frameTree(root: row(marquee: false), size: size)
+    expectFrame(plain, 2, CGRect(x: 0, y: 0, width: 100, height: 20))
+  }
+
   // MARK: - Text, fill and padding
 
   @Test func textWrapsWithinItsPaddedContentBox() {

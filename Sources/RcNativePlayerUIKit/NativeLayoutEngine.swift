@@ -62,6 +62,13 @@ struct NativeLayoutNode: Equatable {
   var zIndex: CGFloat = 0
   var visibility: Int = NativeSwiftVisibility.visible
   var scrollDirection: NativeSwiftScrollDirection? = nil
+  /// Whether the component carries a marquee, which lets its content run past the box along x.
+  var marquee: Bool = false
+  /// The axis this container's content is measured unbounded along: its scroll's, or x under a
+  /// marquee, which lays its content out at its natural width and slides it into view.
+  var contentAxis: NativeSwiftScrollDirection? {
+    scrollDirection ?? (marquee ? .horizontal : nil)
+  }
   /// Whether the component paints anything itself: draw commands or text.
   var drawsContent: Bool = false
   /// Whether the component is a host custom component.
@@ -100,6 +107,7 @@ extension NativeLayoutNode {
     zIndex = CGFloat(snapshot.zIndex)
     visibility = snapshot.visibility
     scrollDirection = snapshot.scrollDirection
+    marquee = snapshot.marquee != nil
     drawsContent = !snapshot.commands.isEmpty || snapshot.text != nil
     hasCustom = snapshot.custom != nil
     hasBackground = snapshot.backgroundARGB != nil
@@ -437,7 +445,7 @@ struct NativeLayoutEngine {
   private func measuredSize<Item: NativeLayoutItem>(
     of child: Item, in available: CGSize, axis: Axis, container: NativeLayoutNode
   ) -> CGSize {
-    guard container.scrollDirection != nil else { return preferredSize(of: child, in: available) }
+    guard container.contentAxis != nil else { return preferredSize(of: child, in: available) }
     let type = axis == .vertical ? child.layoutNode.heightType : child.layoutNode.widthType
     guard NativeSwiftCollapsible.measuresUnbounded(mainAxisType: type) else {
       return preferredSize(of: child, in: available)
@@ -466,7 +474,7 @@ struct NativeLayoutEngine {
     of items: [Item], in viewport: CGSize, axis: Axis, stacking: Bool,
     container: NativeLayoutNode
   ) -> CGFloat? {
-    guard container.scrollDirection != nil else { return nil }
+    guard container.contentAxis != nil else { return nil }
     let extents = items.map { child -> CGFloat in
       let size = measuredSize(of: child, in: viewport, axis: axis, container: container)
       return axis == .vertical ? size.height : size.width
@@ -619,12 +627,12 @@ struct NativeLayoutEngine {
     var result = NativeLayoutArrangement<Item>()
     let content = contentRect(of: node, in: bounds)
     let items = Self.flattenedLayoutItems(of: item)
-    let axis: Axis = node.scrollDirection == .horizontal ? .horizontal : .vertical
+    let axis: Axis = node.contentAxis == .horizontal ? .horizontal : .vertical
     let extent = scrolledExtent(
       of: items, in: content.size, axis: axis, stacking: false, container: node)
     result.scrollExtent = extent
     let space =
-      node.scrollDirection == .horizontal
+      node.contentAxis == .horizontal
       ? CGRect(
         x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
       : CGRect(
@@ -703,9 +711,9 @@ struct NativeLayoutEngine {
     // centred in the pre-collapse total. The axis that scrolls is the *modifier's*, which need not
     // be the arrangement axis: a horizontally scrolled column still stacks, but each child is
     // measured unbounded in width.
-    let scrollAxis: Axis = node.scrollDirection == .horizontal ? .horizontal : .vertical
+    let scrollAxis: Axis = node.contentAxis == .horizontal ? .horizontal : .vertical
     let scrolled =
-      node.scrollDirection == .vertical
+      node.contentAxis == .vertical
       ? scrolledExtent(
         of: Self.flattenedLayoutItems(of: item), in: content.size, axis: .vertical,
         stacking: true, container: node)
@@ -757,9 +765,9 @@ struct NativeLayoutEngine {
     // As in `arrangeColumn`: a scrolled row arranges against its content, not its viewport, and
     // the axis that scrolls is the modifier's — a vertically scrolled row still places left to
     // right.
-    let scrollAxis: Axis = node.scrollDirection == .horizontal ? .horizontal : .vertical
+    let scrollAxis: Axis = node.contentAxis == .horizontal ? .horizontal : .vertical
     let scrolled =
-      node.scrollDirection == .horizontal
+      node.contentAxis == .horizontal
       ? scrolledExtent(
         of: Self.flattenedLayoutItems(of: item), in: content.size, axis: .horizontal,
         stacking: true, container: node)

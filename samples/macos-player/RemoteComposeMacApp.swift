@@ -166,10 +166,14 @@ private struct NativeConformanceFrameRequest: Decodable {
   let theme: Int?
   let steps: [NativeMacInputStep]
   let values: NativeMacValueRequest
+  /// The instant the reference harness's warm-up paints ran at, on `time`'s clock: what a marquee
+  /// latches as its first paint. Absent, the frame itself is the first paint.
+  let firstPaintTime: TimeInterval?
 
   private enum CodingKeys: String, CodingKey {
     case id, time, width, height, steps, values, theme
     case clock = "wall_clock"
+    case firstPaintTime = "first_paint_time"
   }
 
   init(from decoder: Decoder) throws {
@@ -180,6 +184,7 @@ private struct NativeConformanceFrameRequest: Decodable {
     height = try values.decodeIfPresent(CGFloat.self, forKey: .height)
     clock = try values.decodeIfPresent(NativeConformanceClock.self, forKey: .clock)
     theme = try values.decodeIfPresent(Int.self, forKey: .theme)
+    firstPaintTime = try values.decodeIfPresent(TimeInterval.self, forKey: .firstPaintTime)
     steps = try values.decodeIfPresent([NativeMacInputStep].self, forKey: .steps) ?? []
     self.values =
       try values.decodeIfPresent(NativeMacValueRequest.self, forKey: .values)
@@ -772,7 +777,8 @@ struct RemoteComposeMacApplication {
               data: document, timeSeconds: request.time, wallClock: request.wallClock,
               theme: request.theme ?? NativeSwiftTheme.unspecified,
               viewport: request.viewport, values: request.values, steps: request.steps,
-              conformanceFontName: conformanceFontName, particleSession: particleSession)
+              conformanceFontName: conformanceFontName, particleSession: particleSession,
+              firstPaintTime: request.firstPaintTime)
             let path = URL(fileURLWithPath: job.output).appendingPathComponent(
               "\(request.id).png")
             try frame.png.write(to: path, options: .atomic)
