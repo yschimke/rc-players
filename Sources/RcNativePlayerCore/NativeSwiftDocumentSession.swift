@@ -31,6 +31,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var impulsePhases: [Int: NativeSwiftImpulsePhase] = [:]
   private var lastImpulseFrameTime: TimeInterval?
   private var lastParticleFrameTime: TimeInterval?
+  /// Whether a particle comparison's condition passed on the frame last advanced to: the reference
+  /// asks for another frame then, and only then, where a loop always asks.
+  private var particleCompareFired = false
+  /// The frame instant `RUN_ACTION` bodies last ran at, so that resolving one frame twice (a
+  /// snapshot and a probe) runs them once.
+  private var lastRunActionFrameTime: TimeInterval?
   /// The instant this session was first painted at, on the clock its frames are resolved against;
   /// what a marquee times itself from. Latched by the first snapshot unless a host pinned it.
   private var firstPaintSeconds: TimeInterval?
@@ -103,6 +109,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     impulsePhases = other.impulsePhases
     lastImpulseFrameTime = other.lastImpulseFrameTime
     lastParticleFrameTime = other.lastParticleFrameTime
+    particleCompareFired = other.particleCompareFired
+    lastRunActionFrameTime = other.lastRunActionFrameTime
     firstPaintSeconds = other.firstPaintSeconds
     staticSnapshotCache = other.staticSnapshotCache
   }
@@ -196,15 +204,22 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // Particle advancement needs current expression targets, but it must not advance a retained
     // float-animation runtime before the final frame resolver sees the measured/particle values.
     // Otherwise one snapshot evaluates the same runtime twice at the same instant with different
-    // targets and corrupts its retained initial value.
+    // targets and corrupts its retained initial value. `RUN_ACTION` bodies change state the frame
+    // has to observe in the same way, so with either present only the final pass resolves them.
+    let settlesLater = !document.particleOperations.isEmpty || !document.runActions.isEmpty
     var values = try resolvedFloats(
       timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
-      resolveAnimatedValues: document.particleLoops.isEmpty)
+      resolveAnimatedValues: !settlesLater)
+    if try runFrameActions(values: values, timeSeconds: timeSeconds) {
+      values = try resolvedFloats(
+        timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
+        resolveAnimatedValues: false)
+    }
     advanceParticles(values: values, timeSeconds: timeSeconds)
     // Particle advancement publishes the current particle registers into the session. Resolve one
     // more time before turning commands, colours and text into a snapshot so this frame observes
     // the state it just advanced rather than the previous frame's registers.
-    if !document.particleLoops.isEmpty {
+    if settlesLater {
       values = try resolvedFloats(
         timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: measuredComponents,
         resolveAnimatedValues: true)
@@ -237,7 +252,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.imageSnapshots,
-      needsContinuousFrames: document.needsContinuousFrames || !document.particleLoops.isEmpty
+      needsContinuousFrames: document.needsContinuousFrames || document.hasParticleLoop
+        || particleCompareFired
         || floatAnimationRuntimes.contains {
           floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
         },
@@ -359,9 +375,69 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
     try resolveIntegerExpressions()
-    // Actions run in order against live state, as the reference's `executeActionsUnchecked` does:
-    // each write is visible to the actions after it in the same click.
     var values = try resolvedFloats(timeSeconds: timeSeconds)
+    return try execute(actions, values: &values)
+  }
+
+  /// Delivers a host event to the document's `EVENT_ACTION` handlers.
+  ///
+  /// AndroidX leaves routing to the host: a handler is registered with whatever router the host
+  /// installed for its event type, and the core ships none. This is the plain router: every handler
+  /// for `type`, in document order. A handler takes the event when its filter equals `metadata`: it
+  /// writes `data` into its data ids, slot by slot (a zero id skips a slot), then, unless its
+  /// condition evaluates to zero, runs its actions and reports its flags.
+  public func dispatchEvent(
+    type: Int, metadata: Int, data: [Float] = [], timeSeconds: TimeInterval
+  ) throws -> NativeSwiftEventDispatch {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    var handledFlags: [Int] = []
+    var events: [NativeSwiftEvent] = []
+    for handler in document.eventHandlers where handler.type == type && handler.filter == metadata {
+      try resolveIntegerExpressions()
+      // The reference's `overrideFloat`: the float slot only, as `setFloat` writes it.
+      for (id, value) in zip(handler.dataIDs, data) where id != 0 && value.isFinite {
+        staticSnapshotCache = nil
+        floatOverrides[id] = value
+      }
+      var values = try resolvedFloats(timeSeconds: timeSeconds)
+      if let condition = handler.condition {
+        let result = try NativeSwiftFloatExpression.evaluate(
+          condition, values: values, opcode: NativeSwiftWireOpcode.eventAction,
+          offset: handler.offset)
+        guard result != 0 else { continue }
+      }
+      events += try execute(handler.actions, values: &values)
+      handledFlags.append(handler.flags)
+    }
+    return NativeSwiftEventDispatch(handledFlags: handledFlags, events: events)
+  }
+
+  /// Runs every `RUN_ACTION` body that follows a component, once per frame instant, as the
+  /// reference does each time it paints the document. Returns whether any action ran, in which
+  /// case the values the frame resolved before are stale.
+  private func runFrameActions(values: [Int: Float], timeSeconds: TimeInterval) throws -> Bool {
+    guard !document.runActions.isEmpty, lastRunActionFrameTime != timeSeconds else {
+      return false
+    }
+    lastRunActionFrameTime = timeSeconds
+    var values = values
+    var ran = false
+    for runAction in document.runActions where runAction.followsComponent {
+      guard !runAction.actions.isEmpty else { continue }
+      // A RUN_ACTION holds no host action (the decoder drops them), so nothing reaches the host.
+      _ = try execute(runAction.actions, values: &values)
+      ran = true
+    }
+    return ran
+  }
+
+  /// Runs a gesture's, handler's or frame's actions in order against live state, as the reference's
+  /// `executeActionsUnchecked` does: each write is visible to the actions after it. `values` is the
+  /// frame's resolved floats, kept current with each write.
+  private func execute(_ actions: [ParsedAction], values: inout [Int: Float]) throws
+    -> [NativeSwiftEvent]
+  {
     func storeInteger(_ id: Int, _ value: Int) {
       integers[id] = value
       values[id] = Float(value)
@@ -432,8 +508,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     defer { stateLock.unlock() }
     try resolveIntegerExpressions()
     var values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    if try runFrameActions(values: values, timeSeconds: timeSeconds) {
+      values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
+    }
     advanceParticles(values: values, timeSeconds: timeSeconds)
-    if !document.particleLoops.isEmpty {
+    if !document.particleOperations.isEmpty {
       values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: wallClock)
     }
     resolveTextOperations(values: values)
@@ -623,7 +702,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       && !document.needsContinuousFrames
       && !document.hasMarquee
       && document.impulses.isEmpty
-      && document.particleLoops.isEmpty
+      && document.particleOperations.isEmpty
+      && document.runActions.isEmpty
       && !floatAnimationRuntimes.contains {
         floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
       }
@@ -1291,19 +1371,37 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   private func advanceParticles(values: [Int: Float], timeSeconds: TimeInterval) {
-    guard !document.particleLoops.isEmpty, lastParticleFrameTime != timeSeconds else { return }
+    guard !document.particleOperations.isEmpty, lastParticleFrameTime != timeSeconds else {
+      return
+    }
     lastParticleFrameTime = timeSeconds
     for definition in document.particleDefinitions where particleSystems[definition.id] == nil {
       particleSystems[definition.id] = NativeSwiftParticleSystemRuntime(definition: definition, values: values)
     }
-    for loop in document.particleLoops {
-      guard let system = particleSystems[loop.id] else { continue }
-      system.advance(loop: loop, baseValues: values)
-      // The ordinary resolver sees the latest particle while drawing a loop body. UIKit's loop
-      // renderer replaces these for each child; publishing the last value is still the reference's
-      // externally observable register state when no loop child is painted.
-      for (index, variableID) in system.variableIDs.enumerated() {
-        floats[variableID] = system.particles.last?[index] ?? 0
+    particleCompareFired = false
+    // Loops and comparisons run in wire order, each seeing what the ones before it left.
+    for operation in document.particleOperations {
+      switch operation {
+      case .loop(let loop):
+        guard let system = particleSystems[loop.id] else { continue }
+        system.advance(loop: loop, baseValues: values)
+        // The ordinary resolver sees the latest particle while drawing a loop body. UIKit's loop
+        // renderer replaces these for each child; publishing the last value is still the
+        // reference's externally observable register state when no loop child is painted.
+        for (index, variableID) in system.variableIDs.enumerated() {
+          floats[variableID] = system.particles.last?[index] ?? 0
+        }
+      case .compare(let compare):
+        guard let system = particleSystems[compare.id] else { continue }
+        let result = system.compare(compare, baseValues: values)
+        particleCompareFired = particleCompareFired || result.fired
+        // As with a loop, the registers keep the last particle the comparison loaded. Its body is
+        // drawn once, against them, whether or not anything passed; the reference draws it once
+        // per particle (or pair) that passes.
+        guard let published = result.published else { continue }
+        for (index, variableID) in system.variableIDs.enumerated() {
+          floats[variableID] = published[index]
+        }
       }
     }
     staticSnapshotCache = nil

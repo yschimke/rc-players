@@ -710,6 +710,14 @@ public enum NativeSwiftEvent: Equatable, Sendable {
   case namedAction(name: String, value: NativeSwiftActionValue)
 }
 
+/// What delivering one host event to a document's `EVENT_ACTION` handlers did.
+public struct NativeSwiftEventDispatch: Equatable, Sendable {
+  /// The flags of each handler that took the event, in document order; empty when none did.
+  public let handledFlags: [Int]
+  /// The host-facing events the handlers' actions raised, such as named host actions.
+  public let events: [NativeSwiftEvent]
+}
+
 public enum NativeSwiftGestureKind: Int, CaseIterable, Equatable, Sendable {
   case tap
   case longPress

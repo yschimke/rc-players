@@ -627,6 +627,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     NativeSwiftWireOpcode.rootContentDescription: ["RootContentDescription"],
     NativeSwiftWireOpcode.modifierBorder: ["BorderModifierOperation", "ModifierBorder"],
     NativeSwiftWireOpcode.modifierClipRect: ["ClipRectModifierOperation", "ModifierClipRect"],
+    NativeSwiftWireOpcode.eventAction: ["EventActionOperation", "EventAction"],
     NativeSwiftWireOpcode.dataPath: ["PathData", "DataPath"],
     NativeSwiftWireOpcode.drawPath: ["DrawPath"],
     NativeSwiftWireOpcode.drawTweenPath: ["DrawTweenPath"],
