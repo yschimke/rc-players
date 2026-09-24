@@ -1671,6 +1671,30 @@ import Testing
     #expect(geometryIsFinite)
   }
 
+  /// `CLIP_PATH` packs its region operation in the high byte above the path id, as AndroidX's
+  /// `ClipPath.read` unpacks it. Reading the whole word as the id found no path for any region but
+  /// REPLACE and refused the document; the region now reaches the hosts as the command's one value.
+  @Test func clipPathUnpacksItsRegionOperation() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(200).int(1).u8(201).int(2).u8(205).int(3).int(-1)
+    document.u8(123).int(42).int(5)
+      .int(Writer.nanReference(10)).float(0).float(0)
+      .int(Writer.nanReference(15)).int(Writer.nanReference(16))
+    document.u8(38).int(NativeSwiftClipRegionOp.difference << 24 | 42)
+    document.u8(38).int(NativeSwiftClipRegionOp.intersect << 24 | 42)
+    document.u8(214).u8(214).u8(214)
+    let canvas = try NativeSwiftDocumentSession.open(data: document.data).snapshot().root
+      .children[0].children[0]
+    let clips = canvas.commands.filter { $0.kind == NativeSwiftDrawKind.clipPath }
+    #expect(
+      clips.map(\.values) == [
+        [Float(NativeSwiftClipRegionOp.difference)], [Float(NativeSwiftClipRegionOp.intersect)],
+      ],
+      Comment(rawValue: "clip values \(clips.map(\.values))"))
+    #expect(clips.allSatisfy { $0.path.count == 2 })
+  }
+
   // MARK: - Graphics-layer attribute ids (#423)
   //
   // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:

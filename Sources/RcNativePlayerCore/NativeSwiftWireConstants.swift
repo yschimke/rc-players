@@ -646,6 +646,25 @@ public enum NativeSwiftPathWinding: Int, Sendable, Equatable {
 /// `Paint.Cap` defines, as `rc-player`'s `RcComposePlayer.kt` and the vendored
 /// `third_party/rc-embedded-player` `RcPlayerPaint.kt` `mapStrokeCap` read it. Any other value
 /// draws as `butt`, which `init(wireValue:)` applies.
+/// AndroidX `ClipPath.PATH_CLIP_*`, the region operation `CLIP_PATH` packs above its path id. The
+/// reference clips *out* the path for `difference` and intersects with it for every other value.
+public enum NativeSwiftClipRegionOp {
+  public static let replace = 0
+  public static let difference = 1
+  public static let intersect = 2
+  public static let union = 3
+  public static let xor = 4
+  public static let reverseDifference = 5
+  public static let undefined = 6
+}
+
+/// How `CLIP_PATH` packs its one operand: the path id in the low 20 bits, and the region operation
+/// in the high byte, read with an arithmetic shift as AndroidX's `ClipPath.read` does.
+enum NativeSwiftClipPathOperand {
+  static let pathIDMask = 0x000f_ffff
+  static let regionOpShift = 24
+}
+
 public enum NativeSwiftStrokeCap: Int, Sendable, Equatable {
   case butt = 0
   case round = 1
