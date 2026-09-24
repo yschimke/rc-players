@@ -63,6 +63,13 @@ public enum NativeSwiftTextFormatter {
     public static let optionsRounding = 2 << 8
     public static let legacyMode = 1 << 10
     public static let fullFormat = 1 << 12
+
+    /// The two-bit fields the values above occupy.
+    static let padAfterMask = 3
+    static let padBeforeMask = 3 << 2
+    static let groupingMask = 3 << 4
+    static let separatorMask = 3 << 6
+    static let optionsMask = 3 << 8
   }
 
   public static func format(
@@ -70,13 +77,13 @@ public enum NativeSwiftTextFormatter {
   ) -> String {
     if flags & Flag.fullFormat != 0 { return javaFloatString(input) }
     let post: Character? =
-      switch flags & 3 {
+      switch flags & Flag.padAfterMask {
       case Flag.padAfterNone: nil
       case Flag.padAfterZero: "0"
       default: " "
       }
     let pre: Character? =
-      switch flags & (3 << 2) {
+      switch flags & Flag.padBeforeMask {
       case Flag.padBeforeNone: nil
       case Flag.padBeforeZero: "0"
       default: " "
@@ -86,7 +93,8 @@ public enum NativeSwiftTextFormatter {
     }
     return modern(
       input, before: digitsBefore, requestedAfter: digitsAfter, pre: pre, post: post,
-      separator: (flags >> 6) & 3, grouping: (flags >> 4) & 3, options: (flags >> 8) & 3)
+      separator: flags & Flag.separatorMask, grouping: flags & Flag.groupingMask,
+      options: flags & Flag.optionsMask)
   }
 
   private static func legacy(
@@ -109,15 +117,16 @@ public enum NativeSwiftTextFormatter {
   ) -> String {
     let separators: (group: Character, decimal: Character) =
       switch separator {
-      case 1: (".", ",")
-      case 2: (" ", ",")
-      case 3: ("_", ".")
-      default: (",", ".")
+      case Flag.separatorPeriodComma: (".", ",")
+      case Flag.separatorSpaceComma: (" ", ",")
+      case Flag.separatorUnderscorePeriod: ("_", ".")
+      default: (",", ".")  // Flag.separatorCommaPeriod
       }
     var value = input
     let negative = value < 0
     if negative { value = -value }
-    let raw = characters(value, before: before, after: requestedAfter, rounding: options & 2 != 0)
+    let raw = characters(
+      value, before: before, after: requestedAfter, rounding: options & Flag.optionsRounding != 0)
     let grouped = group(
       String(raw.prefix { $0 != "." }), grouping: grouping, separator: separators.group)
     let integerLength = grouped.count
@@ -125,7 +134,7 @@ public enum NativeSwiftTextFormatter {
     let trimAfter =
       integerLength + requestedAfter > 9 ? max(1, 9 - integerLength) : requestedAfter
     let after = post == nil ? trimAfter : requestedAfter
-    let parentheses = options & 1 != 0
+    let parentheses = options & Flag.optionsNegativeParentheses != 0
     if after == 0 { return sign(integer, negative: negative, parentheses: parentheses) }
     var text = fractionDigits(value, digits: trimAfter, keep: after)
     while text.count > 1, text.last == "0" { text.removeLast() }
@@ -157,10 +166,10 @@ public enum NativeSwiftTextFormatter {
   }
 
   private static func group(_ value: String, grouping: Int, separator: Character) -> String {
-    guard grouping != 0 else { return value }
+    guard grouping != Flag.groupingNone else { return value }
     var result = Array(value)
-    let step = grouping == 2 ? 4 : grouping == 3 ? 2 : 3
-    var index = value.count - (grouping == 2 ? 4 : 3)
+    let step = grouping == Flag.groupingBy4 ? 4 : grouping == Flag.groupingBy32 ? 2 : 3
+    var index = value.count - (grouping == Flag.groupingBy4 ? 4 : 3)
     while index > 0 {
       result.insert(separator, at: index)
       index -= step

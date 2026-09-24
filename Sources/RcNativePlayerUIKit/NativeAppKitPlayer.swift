@@ -202,8 +202,11 @@ private enum NativeMacScrollMotion {
 private struct NativeMacInputReplay {
   private var scroll: NativeMacScrollMotion = .idle
 
+  /// `onEvent` receives the host events the gesture raises (a click's host action, for one), as the
+  /// live view's own gesture path hands them to the host.
   mutating func consume(
-    _ step: NativeMacInputStep, session: NativeSwiftDocumentSession, view: NativeMacDocumentView
+    _ step: NativeMacInputStep, session: NativeSwiftDocumentSession, view: NativeMacDocumentView,
+    onEvent: (NativeSwiftEvent) -> Void
   ) throws -> Bool {
     func publishPointer() {
       _ = session.setFloat(Float(step.point.x), forID: NativeSwiftSystemVariables.touchX)
@@ -269,12 +272,14 @@ private struct NativeMacInputReplay {
     guard let componentID = view.gestureTarget(at: step.point, for: gesture) else {
       return handledByScroll
     }
-    return (try session.gesture(
+    let events = try session.gesture(
       gesture, componentID: componentID,
       sample: NativeSwiftPointerSample(
         x: Float(step.point.x), y: Float(step.point.y),
         velocityX: Float(step.velocity.dx), velocityY: Float(step.velocity.dy)),
-      timeSeconds: step.at) != nil) || handledByScroll
+      timeSeconds: step.at)
+    events?.forEach(onEvent)
+    return events != nil || handledByScroll
   }
 
   func finish(at time: TimeInterval, session: NativeSwiftDocumentSession) {
@@ -449,7 +454,10 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
         player.frame = NSRect(origin: .zero, size: viewport)
         player.layoutSubtreeIfNeeded()
       }
-      inputHandled = try replay.consume(step, session: session, view: player)
+      // A replayed gesture's events reach the host-action record the live view's would.
+      inputHandled = try replay.consume(
+        step, session: session, view: player,
+        onEvent: { hostActionSummaries.append(nativeEventSummary($0)) })
       // A later input must hit-test the state left by the one before it. This matters when a click
       // switches a StateLayout before the next gesture, and also keeps the scroll tree current while
       // a multi-sample drag is replayed.

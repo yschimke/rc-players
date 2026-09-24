@@ -202,6 +202,23 @@ public enum NativeSwiftWireOpcode {
   public static let extendedOpcode = 255
 }
 
+/// `SKIP`'s condition types: every value AndroidX's `Skip` defines (the vendored
+/// `third_party/remote-compose-player` `Skip.ts`). Any other condition never skips.
+enum NativeSwiftSkipCondition {
+  static let apiLessThan = 1
+  static let apiGreaterThan = 2
+  static let apiEqualTo = 3
+  static let apiNotEqualTo = 4
+  static let profileIncludes = 5
+  static let profileExcludes = 6
+
+  /// The library API level a `SKIP` condition is compared against: AndroidX's current player
+  /// baseline, `Skip.ts`'s default `sLibraryApiLevel`.
+  static let libraryAPILevel = 7
+  /// The profile bits a `SKIP` condition is compared against: `Skip.ts`'s default `sProfile`.
+  static let profile = 0
+}
+
 /// `ATTRIBUTE_TIME`'s type field: every value AndroidX's `TimeAttribute` defines. 13 is unassigned.
 public enum NativeSwiftTimeAttributeType {
   public static let fromNowSeconds = 0
@@ -241,6 +258,15 @@ public enum NativeSwiftDimensionType {
   public static func isFill(_ type: Int) -> Bool {
     type == fill || type == fillParentMaxWidth || type == fillParentMaxHeight
   }
+}
+
+/// The LOOM id tiers, from AndroidX `RemapContext` (the vendored
+/// `third_party/remote-compose-player` `Utils.ts` `isSystemGlobal` / `isMacroLocal`). System
+/// globals keep their meaning inside a macro; macro-local ids are always made unique per expansion.
+enum NativeSwiftLoomID {
+  static let lastSystemGlobal = 41
+  static let firstMacroLocal = 0x4000
+  static let lastMacroLocal = 0x4fff
 }
 
 /// Opcode groups that share one fixed payload shape inside a LOOM macro body. The capture walk and
@@ -444,13 +470,37 @@ enum NativeSwiftMatrixOperator {
   static let last = 54
 }
 
-/// `RcHeader`'s modern property-map keys.
+/// `MATRIX_VECTOR_MATH`'s types: the two the vendored `third_party/remote-compose-player`
+/// `MatrixVectorMath.ts` applies -- 0 multiplies the vector by the matrix, and 1 evaluates it with
+/// the perspective divide. The core refuses any other type.
+enum NativeSwiftMatrixVectorMathType {
+  static let multiply = 0
+  static let perspective = 1
+}
+
+/// `RcHeader`'s modern property-map keys: the low 10 bits of a property tag. Every key AndroidX's
+/// `Header` defines (the vendored `third_party/remote-compose-player` `Header.ts`); the core reads
+/// only the size, density and density-behaviour keys and reads past the rest by their type.
 enum NativeSwiftHeaderKey {
   static let documentWidth = 5
   static let documentHeight = 6
   static let densityAtGeneration = 7
+  static let desiredFPS = 8
+  static let contentDescription = 9
+  static let source = 11
+  static let dataUpdate = 12
+  static let hostExceptionHandler = 13
+  static let profiles = 14
+  static let featurePaintMeasure = 15
+  static let debug = 16
+  static let featureMeasureVersion = 17
+  static let featureTouchVersion = 18
   static let densityBehavior = 27
 }
+
+/// The magic a modern header ORs into the high half of its major-version word
+/// (`Header.MAGIC_NUMBER`).
+let nativeSwiftHeaderMagic = 0x048c_0000
 
 /// The type field (`tag >> 10`) of a modern header property.
 enum NativeSwiftHeaderValueType {
@@ -506,6 +556,49 @@ enum NativeSwiftGraphicsLayerAttribute {
   static let shape = 20
   static let shapeRadius = 21
   static let attributeCount = 22
+}
+
+/// The value type of a graphics-layer attribute: bits 10-11 of its tag. Every type
+/// `rc-player-protocol`'s `GraphicsLayerModifierCodec` accepts (AndroidX
+/// `GraphicsLayerModifierOperation`); the core reads any other type as an int, as the vendored
+/// `third_party/remote-compose-player` player does.
+enum NativeSwiftGraphicsLayerValueType {
+  static let int = 0
+  static let float = 1
+}
+
+/// `MODIFIER_MULTI_CLICK`'s click types: every value AndroidX's `MultiClickModifier` defines
+/// (`RcMultiClickType`, and the vendored `third_party/remote-compose-player` `MultiClickModifier`).
+enum NativeSwiftMultiClickType {
+  static let single = 0
+  static let long = 1
+  static let double = 2
+}
+
+/// `ACCESSIBILITY_SEMANTICS`' roles: every value AndroidX's `CoreSemantics` defines
+/// (`RcAccessibilitySemantics.ROLE_*`).
+enum NativeSwiftAccessibilityRole {
+  static let button = 0
+  static let checkbox = 1
+  static let switchRole = 2
+  static let radioButton = 3
+  static let tab = 4
+  static let image = 5
+  static let dropdownList = 6
+  static let picker = 7
+  static let carousel = 8
+  static let unknown = 9
+  /// Not a wire value: what the core records for a role outside `button...unknown` (the catalog
+  /// writes 255 for "no role"), and the unspecified role the native hosts fall back to.
+  static let unspecified = -1
+}
+
+/// `ACCESSIBILITY_SEMANTICS`' merge modes: every value AndroidX's `CoreSemantics` defines
+/// (`RcAccessibilitySemantics.MODE_*`).
+enum NativeSwiftAccessibilityMode {
+  static let set = 0
+  static let clearAndSet = 1
+  static let merge = 2
 }
 
 /// AndroidX `Component.Visibility`: the plain states, and the override bits that apply above 15.
