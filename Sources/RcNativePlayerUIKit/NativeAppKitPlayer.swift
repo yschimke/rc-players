@@ -2206,6 +2206,47 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     label.attributedStringValue.size().width.rounded(.up)
   }
 
+  /// The horizontal padding an `NSTextField` label's cell draws its text inside, on each side. A
+  /// label asked to fit `core_text_simple`'s 228-point line answered 232.
+  private static let labelInset: CGFloat = 2
+
+  /// The height of one line of the label's font, as TextKit sets it.
+  private static func lineHeight(of label: NSTextField) -> CGFloat {
+    guard let font = label.font else { return label.intrinsicContentSize.height }
+    return NSLayoutManager().defaultLineHeight(for: font).rounded(.up)
+  }
+
+  /// The size a `CoreText` component's text takes within `maxWidth`, laid out by TextKit as the
+  /// UIKit renderer measures it: no line-fragment padding, the policy's line count, and a
+  /// truncating last line under an ellipsis. The field's own fitting size is not used — it adds
+  /// its cell padding (`core_text_simple`'s 228-point line answered 232) — and a truncating
+  /// line-break mode there makes it one line, where TextKit truncates only the last it keeps.
+  /// Line breaking is TextKit's own: where it wraps differently from Android, that is an accepted
+  /// difference, not something this host imitates.
+  private static func measuredText(
+    _ label: NSTextField, text: NativeSwiftTextSnapshot, maxWidth: CGFloat
+  ) -> CGSize {
+    guard maxWidth > 0, let font = label.font else { return .zero }
+    let storage = NSTextStorage(string: text.value, attributes: [.font: font])
+    let manager = NSLayoutManager()
+    let container = NSTextContainer(
+      size: CGSize(width: maxWidth, height: .greatestFiniteMagnitude))
+    container.lineFragmentPadding = 0
+    container.maximumNumberOfLines = NativeTextPolicy.numberOfLines(
+      overflow: text.overflow, maximum: text.maximumLines)
+    container.lineBreakMode = lineBreakMode(overflow: text.overflow, maximumLines: 1)
+    if container.maximumNumberOfLines != 1,
+      NativeTextPolicy.lineBreak(overflow: text.overflow) == .clip
+    {
+      container.lineBreakMode = .byWordWrapping
+    }
+    manager.addTextContainer(container)
+    storage.addLayoutManager(manager)
+    manager.ensureLayout(for: container)
+    let used = manager.usedRect(for: container)
+    return CGSize(width: min(used.width.rounded(.up), maxWidth), height: used.height.rounded(.up))
+  }
+
   private func applyLayerStyle() {
     // A scrolled container's children are laid out against their content, which is larger than the
     // viewport by design, so the viewport has to clip them or the overflow paints outside it. A
@@ -2462,7 +2503,13 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
       // label is placed in that same box rather than at the bounds' origin.
       let content = contentRect
       for label in labels {
-        let height = min(label.intrinsicContentSize.height, content.height)
+        // The field draws its text inset by its cell's padding, so it is widened by that much
+        // either side and the glyphs start where the measured box does.
+        let inset = Self.labelInset
+        let height = min(
+          node.text.map { Self.measuredText(label, text: $0, maxWidth: content.width).height }
+            ?? label.intrinsicContentSize.height,
+          content.height)
         if let marquee = node.marquee {
           // A marquee measures its content unbounded along x and slides it under the component's
           // clip, by the distance the content and its spacing overrun the box
@@ -2476,12 +2523,13 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
                 elapsedSeconds: documentView?.marqueeElapsedSeconds ?? 0)),
             moves: overflow > 0 && overflow.isFinite)
           label.frame = NSRect(
-            x: content.minX + marqueeOffset, y: content.minY,
-            width: max(content.width, natural), height: height)
+            x: content.minX + marqueeOffset - inset, y: content.minY,
+            width: max(content.width, natural) + inset * 2, height: height)
         } else {
           setMarquee(offset: 0, moves: false)
           label.frame = NSRect(
-            x: content.minX, y: content.minY, width: content.width, height: height)
+            x: content.minX - inset, y: content.minY, width: content.width + inset * 2,
+            height: height)
         }
       }
     }
@@ -2539,16 +2587,15 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   func layoutContentSize(fitting available: CGSize) -> CGSize {
     switch node.kind {
     case .text:
+      guard let label = labels.first, let text = node.text else { return .zero }
       // A marquee's text is one unbroken line however narrow the box: the overflow scrolls rather
       // than wrapping, so it is measured unbounded and the box takes what fits.
-      let measuredWidth =
-        node.marquee != nil ? CGFloat.greatestFiniteMagnitude : available.width
-      let labelSize =
-        labels.first?.sizeThatFits(
-          NSSize(width: measuredWidth, height: .greatestFiniteMagnitude)) ?? .zero
-      return node.marquee != nil
-        ? CGSize(width: min(labelSize.width, available.width), height: labelSize.height)
-        : labelSize
+      if node.marquee != nil {
+        return CGSize(
+          width: min(Self.unboundedWidth(of: label), available.width),
+          height: Self.lineHeight(of: label))
+      }
+      return Self.measuredText(label, text: text, maxWidth: available.width)
     case .image:
       return imageViews.first?.image?.size ?? .zero
     default:
@@ -2627,12 +2674,24 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     if label.font != font { label.font = font }
     let textColor = color(Int32(bitPattern: text.colorARGB))
     if label.textColor != textColor { label.textColor = textColor }
-    if label.maximumNumberOfLines != text.maximumLines {
-      label.maximumNumberOfLines = text.maximumLines
+    // The same line count the component is measured with (`measuredText`), so the field paints
+    // every line it was given room for: a multi-line clip or visible layout is not capped.
+    let maximumLines = NativeTextPolicy.numberOfLines(
+      overflow: text.overflow, maximum: text.maximumLines)
+    if label.maximumNumberOfLines != maximumLines {
+      label.maximumNumberOfLines = maximumLines
     }
     let lineBreakMode = Self.lineBreakMode(
       overflow: text.overflow, maximumLines: text.maximumLines)
     if label.lineBreakMode != lineBreakMode { label.lineBreakMode = lineBreakMode }
+    // A truncating mode makes the field one line; several lines with an ellipsis wrap instead and
+    // truncate only the last one they show.
+    let truncatesLast =
+      text.maximumLines > 1 && NativeTextPolicy.lineBreak(overflow: text.overflow) != .clip
+      && NativeTextPolicy.lineBreak(overflow: text.overflow) != .wordWrap
+    if label.cell?.truncatesLastVisibleLine != truncatesLast {
+      label.cell?.truncatesLastVisibleLine = truncatesLast
+    }
     let alignment = Self.alignment(
       text.alignment, direction: label.userInterfaceLayoutDirection)
     if label.alignment != alignment { label.alignment = alignment }
@@ -2661,9 +2720,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     switch NativeTextPolicy.lineBreak(overflow: overflow) {
     case .clip: return maximumLines > 1 ? .byWordWrapping : .byClipping
     case .wordWrap: return .byWordWrapping
-    case .tail: return .byTruncatingTail
-    case .head: return .byTruncatingHead
-    case .middle: return .byTruncatingMiddle
+    case .tail: return maximumLines > 1 ? .byWordWrapping : .byTruncatingTail
+    case .head: return maximumLines > 1 ? .byWordWrapping : .byTruncatingHead
+    case .middle: return maximumLines > 1 ? .byWordWrapping : .byTruncatingMiddle
     }
   }
 
