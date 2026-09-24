@@ -114,6 +114,41 @@ public object RcSystemVariables {
       ANIMATION_DELTA_TIME,
       EPOCH_SECOND,
     )
+
+  /**
+   * The moving variables that change at most once a second: wall-clock readings in whole seconds,
+   * minutes and hours. A document that reads only these needs a frame each second, not each display
+   * refresh — AndroidX's `GraphTimeState` sleeps such a document to the next second.
+   */
+  public val PER_SECOND: Set<Int> = setOf(TIME_IN_SEC, TIME_IN_MIN, TIME_IN_HR, EPOCH_SECOND)
+
+  /** The moving variables that change every frame. */
+  public val CONTINUOUS: Set<Int> = MOVING - PER_SECOND
+
+  /**
+   * Every variable read from a clock — the moving ones and the calendar fields, which move too,
+   * just rarely: a date display has to catch midnight. Not [DENSITY] or [FONT_SIZE], which change
+   * only with the host's configuration.
+   */
+  public val CLOCK: Set<Int> = ALL - DENSITY - FONT_SIZE
+}
+
+/**
+ * Whether any operation of this document refers to one of [ids], in any field.
+ *
+ * Found by scanning the encoded document for a NaN-encoded reference at every offset rather than by
+ * listing the fields that can hold one — a list misses the next operation to gain a float operand.
+ * The scan cannot tell a reference from a coincidental bit pattern or from a word the document
+ * shadows, so it can only over-report; a caller uses it where over-reporting is cheap. A document
+ * that cannot be encoded is reported as referring to them.
+ */
+public fun RcDocument.referencesAnyOf(ids: Set<Int>): Boolean {
+  val bytes = runCatching { RcDocumentCodec.encode(this) }.getOrNull() ?: return true
+  return (0..bytes.size - Int.SIZE_BYTES).any { offset ->
+    var bits = 0
+    for (i in 0 until Int.SIZE_BYTES) bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
+    RcFloatWord(bits).referencedId in ids
+  }
 }
 
 /**
@@ -150,7 +185,18 @@ public object RcSystemVariables {
  * through an expression list) is still not detected; no writer emits that shape today, and a scan
  * of every word of every operation would need the model to expose them generically.
  */
-public fun RcDocument.referencesMovingSystemVariable(): Boolean {
+public fun RcDocument.referencesMovingSystemVariable(): Boolean =
+  referencesSystemVariable(RcSystemVariables.MOVING)
+
+/**
+ * Whether this document reads a system variable that changes every frame, in the places
+ * [referencesMovingSystemVariable] looks. A document that reads moving variables but none of these
+ * changes only once a second, and needs a frame only then.
+ */
+public fun RcDocument.referencesContinuousSystemVariable(): Boolean =
+  referencesSystemVariable(RcSystemVariables.CONTINUOUS)
+
+private fun RcDocument.referencesSystemVariable(ids: Set<Int>): Boolean {
   // The last definition wins, as it does in the runtime's own `define`.
   val definitions = operations.filterIsInstance<RcParticleDefine>().associateBy { it.id }
   val particleCounts = definitions.mapValues { it.value.particleCount }
@@ -171,11 +217,11 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
   return operations.any { operation ->
     when (operation) {
       is RcFloatExpression ->
-        operation.expression.movesWithSystemTime(claimed) ||
-          operation.animation?.movesWithSystemTime(claimed) == true
+        operation.expression.movesWithSystemTime(ids, claimed) ||
+          operation.animation?.movesWithSystemTime(ids, claimed) == true
       is RcPathExpression ->
-        operation.expressionX.movesWithSystemTime(claimed) ||
-          operation.expressionY.movesWithSystemTime(claimed)
+        operation.expressionX.movesWithSystemTime(ids, claimed) ||
+          operation.expressionY.movesWithSystemTime(ids, claimed)
       // A range too small for the comparison's own shape is the third case that cannot deadlock.
       // `compare` reaches its condition only inside a loop over `system.particles`: one particle is
       // enough in single mode, but pair mode nests `firstIndex in secondIndex + 1 until end` and so
@@ -191,10 +237,11 @@ public fun RcDocument.referencesMovingSystemVariable(): Boolean {
           // The bounds are not shadowed — `resolvedIndex` calls `resolve` directly — so they stay
           // global.
           (operation.condition.movesWithSystemTime(
-            claimed + definitions[operation.id]?.variableIds.orEmpty().toSet()
+            ids,
+            claimed + definitions[operation.id]?.variableIds.orEmpty().toSet(),
           ) ||
-            operation.minimumIndex.movesWithSystemTime(claimed) ||
-            operation.maximumIndex.movesWithSystemTime(claimed))
+            operation.minimumIndex.movesWithSystemTime(ids, claimed) ||
+            operation.maximumIndex.movesWithSystemTime(ids, claimed))
       else -> false
     }
   }
@@ -237,9 +284,10 @@ private fun RcFloatWord.staticIndex(negativeDefault: Int, size: Int): Int? {
   return if (value < 0f) negativeDefault else value.toInt().coerceIn(0, size)
 }
 
-private fun RcFloatWord.movesWithSystemTime(shadowed: Set<Int> = emptySet()): Boolean =
-  referencedId in RcSystemVariables.MOVING && referencedId !in shadowed
+private fun RcFloatWord.movesWithSystemTime(ids: Set<Int>, shadowed: Set<Int>): Boolean =
+  referencedId in ids && referencedId !in shadowed
 
-private fun List<RcFloatWord>.movesWithSystemTime(shadowed: Set<Int> = emptySet()): Boolean = any {
-  it.referencedId in RcSystemVariables.MOVING && it.referencedId !in shadowed
-}
+private fun List<RcFloatWord>.movesWithSystemTime(ids: Set<Int>, shadowed: Set<Int>): Boolean =
+  any {
+    it.movesWithSystemTime(ids, shadowed)
+  }

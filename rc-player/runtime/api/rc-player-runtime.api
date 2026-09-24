@@ -859,6 +859,7 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerState {
 	public final fun clearNamedValue (Ljava/lang/String;)V
 	public final fun color (I)I
 	public final fun compareParticles (Lee/schimke/composeai/rcplayer/protocol/RcParticleCompare;Lkotlin/jvm/functions/Function0;)V
+	public final fun drawId (I)I
 	public final fun emitDebugMessage (Lee/schimke/composeai/rcplayer/protocol/RcDebugMessage;)V
 	public final fun evaluateConditional (Lee/schimke/composeai/rcplayer/protocol/RcConditionalOperations;)Z
 	public final fun evaluateImpulse (Lee/schimke/composeai/rcplayer/protocol/RcImpulseStart;)Lee/schimke/composeai/rcplayer/runtime/RcImpulsePhase;
