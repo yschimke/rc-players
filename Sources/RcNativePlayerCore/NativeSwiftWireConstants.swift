@@ -260,6 +260,15 @@ public enum NativeSwiftDimensionType {
   }
 }
 
+/// The LOOM id tiers, from AndroidX `RemapContext` (the vendored
+/// `third_party/remote-compose-player` `Utils.ts` `isSystemGlobal` / `isMacroLocal`). System
+/// globals keep their meaning inside a macro; macro-local ids are always made unique per expansion.
+enum NativeSwiftLoomID {
+  static let lastSystemGlobal = 41
+  static let firstMacroLocal = 0x4000
+  static let lastMacroLocal = 0x4fff
+}
+
 /// Opcode groups that share one fixed payload shape inside a LOOM macro body. The capture walk and
 /// the parameter-remapping walk both switch on them, so each group is spelled once here.
 struct NativeSwiftOpcodeGroup {

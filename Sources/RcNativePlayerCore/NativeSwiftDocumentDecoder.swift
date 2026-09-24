@@ -205,12 +205,12 @@ enum NativeSwiftDocumentDecoder {
       if suspendedInputs.isEmpty, !rewalkingCapturedBody { operationCensus.append(opcode) }
     }
     var macroBlocks: [Int: Data] = [:]
-    // Tier-two LOOM IDs (0x4000...0x4fff) are local declarations.  A macro call must
-    // materialise a fresh ID for each one, or two otherwise independent calls try to add the
-    // same ParsedNode to `nodes`.  Keep generated IDs outside the local tier: they remain valid
+    // Tier-two LOOM IDs (`NativeSwiftLoomID`'s macro-local tier) are local declarations.  A macro
+    // call must materialise a fresh ID for each one, or two otherwise independent calls try to add
+    // the same ParsedNode to `nodes`.  Keep generated IDs outside the local tier: they remain valid
     // 22-bit NaN-reference payloads and cannot be mistaken for a template-local declaration on a
     // later nested expansion.
-    var nextMacroGeneratedID = 0x5000
+    var nextMacroGeneratedID = NativeSwiftLoomID.lastMacroLocal + 1
     /// Bytes unrolled by loop and for-each expansions so far; see `maximumExpandedBytes`.
     var expandedBytes = 0
 
@@ -601,7 +601,7 @@ enum NativeSwiftDocumentDecoder {
         }
         // `declareId` in the canonical LOOM reader preserves system globals, then allocates a
         // distinct ID for every declaration read while expanding a macro (including regular IDs).
-        guard id > 41, id != -1 else { return }
+        guard id > NativeSwiftLoomID.lastSystemGlobal, id != -1 else { return }
         guard nextMacroGeneratedID <= 0x003f_ffff else {
           throw input.malformed("LOOM macro generated-id range is exhausted")
         }
