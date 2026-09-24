@@ -51,7 +51,10 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34])
+// A window larger than any document. Compose lays the content out at the window's size, and the
+// default 320 px window would squeeze a 384 px catalog document — wrapping its text — whatever the
+// harness measures the view at afterwards.
+@Config(sdk = [34], qualifiers = "w1000dp-h1000dp")
 class RcAndroidRenderTest {
 
   @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
@@ -87,6 +90,12 @@ class RcAndroidRenderTest {
       // asks for a frame every frame, so with auto-advance on Compose never goes idle. Stepping a
       // fixed 100 ms instead renders the same instant every run.
       composeRule.mainClock.autoAdvance = false
+      // A frame for the new document to compose, then the fixed instant. Without the first step
+      // the capture below draws whatever was on screen before — the previous document.
+      repeat(SETTLE_FRAMES) {
+        composeRule.mainClock.advanceTimeByFrame()
+        composeRule.waitForIdle()
+      }
       composeRule.mainClock.advanceTimeBy(100)
     }
     composeRule.waitForIdle()
@@ -103,6 +112,17 @@ class RcAndroidRenderTest {
   fun fillsARectWithThePaintColor() {
     val bitmap = render(document(RcPaintData(listOf(COLOR, RED)), rect(0f, 0f, 8f, 8f)))
     assertEquals(RED, bitmap.getPixel(4, 4))
+  }
+
+  @Test
+  fun aPausedClockCaptureShowsTheDocumentJustSet() {
+    // The catalog sweep drives the clock by hand. Each capture has to be the document it just set,
+    // not the previous one still on screen.
+    val red = document(RcPaintData(listOf(COLOR, RED)), rect(0f, 0f, 8f, 8f))
+    val blue = document(RcPaintData(listOf(COLOR, BLUE)), rect(0f, 0f, 8f, 8f))
+    assertEquals(RED, render(red, manualClock = true).getPixel(4, 4))
+    assertEquals(BLUE, render(blue, manualClock = true).getPixel(4, 4))
+    assertEquals(RED, render(red, manualClock = true).getPixel(4, 4))
   }
 
   @Test
@@ -304,6 +324,9 @@ class RcAndroidRenderTest {
 
   private companion object {
     const val RED = 0xffff0000.toInt()
+    const val BLUE = 0xff0000ff.toInt()
+    /** Frames for a newly set document to compose, lay out and resolve its fonts. */
+    val SETTLE_FRAMES = System.getProperty("rc.android.settleFrames")?.toInt() ?: 3
     const val BLACK = 0xff000000.toInt()
     const val WHITE = 0xffffffff.toInt()
     /** `PaintBundle.COLOR`; the ARGB word follows. */
