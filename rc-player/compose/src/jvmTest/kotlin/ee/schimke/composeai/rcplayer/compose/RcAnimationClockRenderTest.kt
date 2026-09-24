@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -50,6 +51,8 @@ class RcAnimationClockRenderTest {
       assertEquals(0, atTwentyFive.getColor(26, 5))
 
       seconds.floatValue = 12f
+      // Written outside composition: deliver it now, or the next frame may not see it.
+      Snapshot.sendApplyNotifications()
       val atTwelve = scene.pixels()
       assertEquals(red, atTwelve.getColor(11, 5))
       assertEquals(0, atTwelve.getColor(13, 5))
