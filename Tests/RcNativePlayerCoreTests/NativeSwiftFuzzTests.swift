@@ -50,6 +50,64 @@ import Testing
       Self.environmentInt("RC_NATIVE_FUZZ_ITERATIONS") ?? Self.defaultIterations, 0)
     let seedValue = UInt64(
       bitPattern: Int64(Self.environmentInt("RC_NATIVE_FUZZ_SEED") ?? 0x5EED))
+
+    // The corpus runs on its own thread, sized below; the expectations stay on the test's.
+    let box = FuzzSummaryBox()
+    let finished = DispatchSemaphore(value: 0)
+    let thread = Thread {
+      box.summary = Self.runCorpus(seeds: seeds, iterations: iterations, seedValue: seedValue)
+      finished.signal()
+    }
+    thread.stackSize = Self.corpusStackSize
+    thread.start()
+    finished.wait()
+    guard let summary = box.summary else {
+      Issue.record("the fuzz corpus thread finished without a summary")
+      return
+    }
+    let cases = summary.cases
+    let decoded = summary.decoded
+    let elapsed = summary.elapsed
+
+    // Bounded work, measured over the whole run so one slow host does not decide a single case.
+    let budget = Double(cases) * 0.25
+    #expect(
+      elapsed < budget,
+      "fuzzing \(cases) cases took \(elapsed)s, over the \(budget)s bounded-work budget")
+    #expect(
+      Double(decoded) >= Double(cases) * Self.minimumDecodedRatio,
+      Comment(
+        rawValue: "only \(decoded) of \(cases) cases decoded; the corpus is dying at the header "
+          + "instead of reaching the operation stream"))
+    #expect(
+      summary.rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
+    print(
+      "native Swift fuzz: \(cases) cases, \(summary.structuralCases) structure-aware, \(decoded) "
+        + "decoded, \(summary.rejected) typed rejections, "
+        + "\(String(format: "%.2f", elapsed))s, seed=\(seedValue)")
+  }
+
+  /// The stack the corpus runs on.
+  ///
+  /// An optimized run keeps the 512 KiB a secondary thread gets on macOS, which is where
+  /// swift-testing runs tests and where a host decoding off the main thread runs the core, so a
+  /// stack overflow a host would hit still fails the run. An unoptimized or sanitized run gets
+  /// 16 MiB instead: the decoder's debug frame alone is about 100 KiB (#461) and AddressSanitizer
+  /// pads every frame further, which is the likeliest reason the sanitized run died with a trap
+  /// on its first cases, before it could report one.
+  private static var corpusStackSize: Int {
+    #if DEBUG
+      return 16 << 20
+    #else
+      let sanitizer = ProcessInfo.processInfo.environment["RC_NATIVE_FUZZ_SANITIZE"] ?? ""
+      return sanitizer.isEmpty ? 512 << 10 : 16 << 20
+    #endif
+  }
+
+  /// Expand every seed and run each case; a failing case reports and exits rather than returning.
+  private static func runCorpus(
+    seeds: [(name: String, data: Data)], iterations: Int, seedValue: UInt64
+  ) -> FuzzSummary {
     let watchdog = Watchdog(timeout: Self.caseTimeoutSeconds)
     watchdog.start()
 
@@ -86,23 +144,9 @@ import Testing
       }
     }
     watchdog.stop()
-    let elapsed = ProcessInfo.processInfo.systemUptime - started
-
-    // Bounded work, measured over the whole run so one slow host does not decide a single case.
-    let budget = Double(cases) * 0.25
-    #expect(
-      elapsed < budget,
-      "fuzzing \(cases) cases took \(elapsed)s, over the \(budget)s bounded-work budget")
-    #expect(
-      Double(decoded) >= Double(cases) * Self.minimumDecodedRatio,
-      Comment(
-        rawValue: "only \(decoded) of \(cases) cases decoded; the corpus is dying at the header "
-          + "instead of reaching the operation stream"))
-    #expect(rejected > 0, "no fuzz case was rejected; the mutations are not reaching the core")
-    print(
-      "native Swift fuzz: \(cases) cases, \(structuralCases) structure-aware, \(decoded) "
-        + "decoded, \(rejected) typed rejections, \(String(format: "%.2f", elapsed))s, "
-        + "seed=\(seedValue)")
+    return FuzzSummary(
+      cases: cases, structuralCases: structuralCases, decoded: decoded, rejected: rejected,
+      elapsed: ProcessInfo.processInfo.systemUptime - started)
   }
 
   /// Run one input through the whole retained-session surface and assert the typed contract.
@@ -114,7 +158,9 @@ import Testing
       session = try NativeSwiftDocumentSession.open(data: data)
     } catch let error as NativeSwiftCoreError {
       // Typed rejection: unsupported and malformed both fail closed, which is the contract.
-      #expect(!error.description.isEmpty)
+      if error.description.isEmpty {
+        report(data, label: label, reason: "typed decode failure with an empty description")
+      }
       rejected += 1
       return
     } catch {
@@ -167,7 +213,9 @@ import Testing
       decoded += 1
     } catch let error as NativeSwiftCoreError {
       // A typed failure after a successful decode is allowed: resolution enforces its own limits.
-      #expect(!error.description.isEmpty)
+      if error.description.isEmpty {
+        report(data, label: label, reason: "typed frame failure with an empty description")
+      }
       decoded += 1
     } catch {
       report(data, label: label, reason: "untyped frame failure: \(error)")
@@ -442,6 +490,21 @@ import Testing
   private static func environmentInt(_ name: String) -> Int? {
     ProcessInfo.processInfo.environment[name].flatMap(Int.init)
   }
+}
+
+/// What one pass over the corpus did, handed back from the corpus thread.
+private struct FuzzSummary {
+  let cases: Int
+  let structuralCases: Int
+  let decoded: Int
+  let rejected: Int
+  let elapsed: TimeInterval
+}
+
+/// Carries the summary out of the corpus thread; `DispatchSemaphore` orders the write before the
+/// test's read.
+private final class FuzzSummaryBox: @unchecked Sendable {
+  var summary: FuzzSummary?
 }
 
 /// Deterministic PRNG: the same seed replays the same corpus on any host.
