@@ -914,6 +914,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       NativeSwiftDrawKind.bitmap: "DrawBitmap",
       NativeSwiftDrawKind.textOnPath: "DrawTextOnPath",
       NativeSwiftDrawKind.textOnCircle: "DrawTextOnCircle",
+      NativeSwiftDrawKind.drawToBitmap: "DrawToBitmap",
     ]
     var drawComponents: [String] = []
     func collectDrawComponents(_ node: NativeSwiftNodeSnapshot) {
@@ -3114,6 +3115,8 @@ private final class NativeMacCanvasView: NSView {
   /// the paint's typeface command, so a draw-command snapshot carries no family ID. UIKit's canvas
   /// looks one up with the default style's family (-1), which never matches.
   let conformanceFontName: String?
+  /// The bitmaps this canvas's `DrawToBitmap` commands draw into, kept between draws.
+  private let offscreenTargets = NativeOffscreenTargets()
   override var isFlipped: Bool { true }
   init(commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?) {
     self.commands = commands
@@ -3134,7 +3137,28 @@ private final class NativeMacCanvasView: NSView {
 
   override func draw(_ dirtyRect: NSRect) {
     guard let context = NSGraphicsContext.current?.cgContext else { return }
-    for command in commands { draw(command, context) }
+    // A `DrawToBitmap` sends the commands after it to an offscreen bitmap until the next one;
+    // drawing returns to this canvas at the end of the node's commands, as the CMP player's
+    // draw-target scope does. The target becomes AppKit's current context, flipped as this view
+    // is, because image draws go through `NSGraphicsContext.current` rather than the context
+    // passed.
+    var target: CGContext?
+    for command in commands {
+      guard command.kind == NativeSwiftDrawKind.drawToBitmap else {
+        draw(command, target ?? context)
+        continue
+      }
+      if target != nil { NSGraphicsContext.restoreGraphicsState() }
+      target = command.offscreenTarget.flatMap { redirect in
+        offscreenTargets.begin(
+          redirect, seed: images[redirect.bitmapID].flatMap { Self.cgImage($0) })
+      }
+      if let target {
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: target, flipped: true)
+      }
+    }
+    if target != nil { NSGraphicsContext.restoreGraphicsState() }
   }
 
   private func draw(_ command: NativeMacDrawCommand, _ context: CGContext) {
@@ -3270,11 +3294,13 @@ private final class NativeMacCanvasView: NSView {
   }
 
   private func drawImage(_ command: NativeMacDrawCommand, _ context: CGContext) {
-    guard let draw = command.image, let image = images[draw.imageID] else { return }
     // The source rectangle is in bitmap pixels from the top-left, as AndroidX and UIKit read it.
     // NSImage's `from:` rectangle is in points from the bottom-left, so crop the pixels instead and
-    // draw the cropped image whole.
-    guard let bitmap = Self.cgImage(image) else { return }
+    // draw the cropped image whole. A bitmap a `DrawToBitmap` drew into shows what it holds now.
+    guard let draw = command.image,
+      let bitmap = offscreenTargets.image(draw.imageID)
+        ?? images[draw.imageID].flatMap({ Self.cgImage($0) })
+    else { return }
     let source = NSRect(
       x: CGFloat(draw.sourceLeft), y: CGFloat(draw.sourceTop),
       width: CGFloat(draw.sourceRight - draw.sourceLeft),

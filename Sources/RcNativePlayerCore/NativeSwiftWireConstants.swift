@@ -320,6 +320,25 @@ public enum NativeSwiftDrawKind {
   public static let bitmap = 19
   public static let textOnPath = 20
   public static let textOnCircle = 21
+  /// `DrawToBitmap`: later draws of this node go to the offscreen bitmap its
+  /// `offscreenTarget` names, or back to the node's own canvas when that target's id is 0.
+  public static let drawToBitmap = 22
+}
+
+/// `DrawToBitmap`'s `mode` flags, from AndroidX `DrawToBitmap`. `MODE_NO_INITIALIZE` is the only
+/// flag the reference defines; without it the target is erased to the operation's colour each
+/// time drawing is redirected into it (`AndroidPaintContext.drawToBitmap`'s `eraseColor`).
+public enum NativeSwiftDrawToBitmapMode {
+  public static let noInitialize = 1
+}
+
+/// How `DrawToBitmap`'s bitmap-id word is read, from AndroidX `PaintOperation.getId`: the low
+/// sixteen bits are the id, and the dereference bit makes that id an integer variable holding it.
+public enum NativeSwiftDrawToBitmapID {
+  /// The id that returns drawing to the main canvas rather than naming a bitmap.
+  public static let mainCanvas = 0
+  public static let valueMask = 0xffff
+  public static let pointerDereference = 1 << 30
 }
 
 /// The former name of `NativeSwiftPathCommand`, which carries the same values.

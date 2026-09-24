@@ -122,6 +122,10 @@ enum NativeSwiftDocumentDecoder {
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var images: [Int: ParsedImageResource] = [:]
+    /// The distinct bitmaps `DrawToBitmap` draws into, and their pixels. Each is an offscreen
+    /// target a host allocates, so both are bounded as the CMP player's `RcOffscreenTargetLimits`.
+    var offscreenTargetIDs: Set<Int> = []
+    var offscreenTargetPixels = 0
     var textOperations: [ParsedTextOperation] = []
     var textFromFloats: [ParsedTextFromFloat] = []
     var textMerges: [ParsedTextMerge] = []
@@ -1110,6 +1114,47 @@ enum NativeSwiftDocumentDecoder {
             image: ParsedImageDraw(
               imageID: imageID, source: source, destination: destination, scaleType: scaleType,
               scaleFactor: scaleFactor, contentDescriptionID: descriptionID)))
+      case NativeSwiftWireOpcode.drawToBitmap:
+        // AndroidX `DrawToBitmap(bitmapId, mode, color)`: later drawing goes to the declared
+        // bitmap, or back to the canvas for id 0. The id word is read as `PaintOperation.getId`
+        // reads it: the low sixteen bits, unless the dereference bit makes them an integer
+        // variable, which this core does not resolve at draw time.
+        let rawBitmapID = try input.int("draw to bitmap id")
+        let mode = try input.int("draw to bitmap mode")
+        let colorWord = try input.int("draw to bitmap color")
+        let color = UInt32(bitPattern: Int32(truncatingIfNeeded: colorWord))
+        guard rawBitmapID & NativeSwiftDrawToBitmapID.pointerDereference == 0 else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "DrawToBitmap through an integer variable is not migrated")
+        }
+        let bitmapID = rawBitmapID & NativeSwiftDrawToBitmapID.valueMask
+        var width = 0
+        var height = 0
+        if bitmapID != NativeSwiftDrawToBitmapID.mainCanvas {
+          // The reference `requireNonNull`s the bitmap, so an undeclared one is a document error.
+          guard let bitmap = images[bitmapID] else {
+            throw input.malformed("Missing bitmap \(bitmapID)")
+          }
+          width = bitmap.width
+          height = bitmap.height
+          if !offscreenTargetIDs.contains(bitmapID) {
+            guard offscreenTargetIDs.count < 64 else {
+              throw input.malformed("DrawToBitmap exceeds 64 offscreen targets")
+            }
+            // Declared dimensions are at most 4096 each, so this sum cannot overflow.
+            guard offscreenTargetPixels + width * height <= 16_777_216 else {
+              throw input.malformed("DrawToBitmap exceeds 16777216 offscreen pixels")
+            }
+            offscreenTargetIDs.insert(bitmapID)
+            offscreenTargetPixels += width * height
+          }
+        }
+        try drawingNode().commands.append(
+          ParsedDrawCommand(
+            kind: NativeSwiftDrawKind.drawToBitmap, words: [], paint: paint,
+            offscreenTarget: NativeSwiftOffscreenTargetSnapshot(
+              bitmapID: bitmapID, mode: mode, colorARGB: color, width: width, height: height)))
       case NativeSwiftWireOpcode.drawCircle:  // Draw circle
         let words = try (0..<3).map { _ in try input.word("draw circle value") }
         try drawingNode().commands.append(
