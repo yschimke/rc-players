@@ -111,21 +111,4 @@ import Testing
       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
       provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
   }
-
-  /// A scaled bitmap is sampled at destination pixel centres and clamped at the edges, as Skia's
-  /// bilinear filter samples it: black-to-white over two pixels becomes 0, 64, 191, 255 over four.
-  @Test func bilinearScalerSamplesPixelCentres() {
-    let row: [UInt8] = [0, 0, 0, 255, 255, 255, 255, 255]
-    let scaled = NativeBilinearScaler.scale(
-      row, width: 2, height: 1, targetWidth: 4, targetHeight: 1)
-    #expect(scaled == [0, 0, 0, 255, 64, 64, 64, 255, 191, 191, 191, 255, 255, 255, 255, 255])
-    let unscaled = NativeBilinearScaler.scale(
-      row, width: 2, height: 1, targetWidth: 2, targetHeight: 1)
-    #expect(unscaled == row)
-    #expect(
-      NativeBilinearScaler.scale([1, 2, 3], width: 2, height: 1, targetWidth: 4, targetHeight: 1)
-        == nil)
-    #expect(
-      NativeBilinearScaler.scale(row, width: 2, height: 1, targetWidth: 0, targetHeight: 1) == nil)
-  }
 }

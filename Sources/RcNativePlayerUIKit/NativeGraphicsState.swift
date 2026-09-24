@@ -17,7 +17,7 @@ enum NativeGraphicsState {
     strokeWidth: CGFloat,
     strokeCap: NativeSwiftStrokeCap,
     strokeJoin: NativeSwiftStrokeJoin,
-    blendMode: Int
+    blendMode: NativeSwiftPaintBlendMode
   ) {
     context.setLineWidth(max(strokeWidth, 0.5))
     context.setLineCap(lineCap(strokeCap))
@@ -49,37 +49,36 @@ enum NativeGraphicsState {
     }
   }
 
-  static func blendMode(_ value: Int) -> CGBlendMode {
+  static func blendMode(_ value: NativeSwiftPaintBlendMode) -> CGBlendMode {
     switch value {
-    case NativeSwiftPaintBlendMode.clear: .clear
-    case NativeSwiftPaintBlendMode.source: .copy
-    case NativeSwiftPaintBlendMode.destination: .normal
-    case NativeSwiftPaintBlendMode.sourceOver: .normal
-    case NativeSwiftPaintBlendMode.destinationOver: .destinationOver
-    case NativeSwiftPaintBlendMode.sourceIn: .sourceIn
-    case NativeSwiftPaintBlendMode.destinationIn: .destinationIn
-    case NativeSwiftPaintBlendMode.sourceOut: .sourceOut
-    case NativeSwiftPaintBlendMode.destinationOut: .destinationOut
-    case NativeSwiftPaintBlendMode.sourceAtop: .sourceAtop
-    case NativeSwiftPaintBlendMode.destinationAtop: .destinationAtop
-    case NativeSwiftPaintBlendMode.xor: .xor
-    case NativeSwiftPaintBlendMode.plus: .plusLighter
-    case NativeSwiftPaintBlendMode.modulate, NativeSwiftPaintBlendMode.multiply: .multiply
-    case NativeSwiftPaintBlendMode.screen: .screen
-    case NativeSwiftPaintBlendMode.overlay: .overlay
-    case NativeSwiftPaintBlendMode.darken: .darken
-    case NativeSwiftPaintBlendMode.lighten: .lighten
-    case NativeSwiftPaintBlendMode.colorDodge: .colorDodge
-    case NativeSwiftPaintBlendMode.colorBurn: .colorBurn
-    case NativeSwiftPaintBlendMode.hardLight: .hardLight
-    case NativeSwiftPaintBlendMode.softLight: .softLight
-    case NativeSwiftPaintBlendMode.difference: .difference
-    case NativeSwiftPaintBlendMode.exclusion: .exclusion
-    case NativeSwiftPaintBlendMode.hue: .hue
-    case NativeSwiftPaintBlendMode.saturation: .saturation
-    case NativeSwiftPaintBlendMode.color: .color
-    case NativeSwiftPaintBlendMode.luminosity: .luminosity
-    default: .normal
+    case .clear: .clear
+    case .source: .copy
+    case .destination: .normal
+    case .sourceOver: .normal
+    case .destinationOver: .destinationOver
+    case .sourceIn: .sourceIn
+    case .destinationIn: .destinationIn
+    case .sourceOut: .sourceOut
+    case .destinationOut: .destinationOut
+    case .sourceAtop: .sourceAtop
+    case .destinationAtop: .destinationAtop
+    case .xor: .xor
+    case .plus: .plusLighter
+    case .modulate, .multiply: .multiply
+    case .screen: .screen
+    case .overlay: .overlay
+    case .darken: .darken
+    case .lighten: .lighten
+    case .colorDodge: .colorDodge
+    case .colorBurn: .colorBurn
+    case .hardLight: .hardLight
+    case .softLight: .softLight
+    case .difference: .difference
+    case .exclusion: .exclusion
+    case .hue: .hue
+    case .saturation: .saturation
+    case .color: .color
+    case .luminosity: .luminosity
     }
   }
 
