@@ -26,6 +26,8 @@ question:
 | **Java** — font-variation axes | ❌ stock `SimpleFontInstance` ignores them | ⚠️ only if the scanned file is variable | ✅ `loadVariable` + `Typeface.Builder(file).setFontVariationSettings(…)` | ✅ `Font.Builder` rebuilt with the axes |
 | **CMP Android** (vendored embedded player, server-side) | ✅ framework typefaces | ⚠️ `Typeface.create(name)` | ✅ `FontsContractCompat` | ❌ ignored |
 | **CMP Android** — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + `Font(File, …, variationSettings)` | ❌ canvas ops |
+| **`rc-player-compose` on Android** (this repo's player, `android.graphics`) | ✅ from the host loader | ⚠️ host loader | ✅ `RcGoogleFontsTypefaceLoader`: the shared `composeai.fonts.cacheDir` cache, else the GMS provider | ✅ `decodeInlineFonts`, via a temp file per payload |
+| **`rc-player-compose` on Android** — font-variation axes | ✅ layout ops | — | ✅ on the cache's variable file; ❌ on the GMS path | ❌ canvas ops |
 | **CMP JVM** (embedded player over Skiko, server-side) | ✅ | ⚠️ host families, else nearest standard | ✅ downloaded via `GoogleFontTypefaceResolver` | ❌ ignored |
 | **CMP JVM** — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + an axis-carrying font identity | ❌ canvas ops |
 | **CMP Apple Swift API** | ✅ Compose families | ⚠️ host loader | ✅ opt-in `RemoteComposeGoogleFontsResolver` | ✅ `decodeInlineFonts` |

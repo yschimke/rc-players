@@ -132,6 +132,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcDownloadableFontReque
 
 public final class ee/schimke/composeai/rcplayer/compose/RcDownloadableFontsKt {
 	public static final fun rcDownloadableFontFallback (Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
+	public static final fun rcDownloadableFontRequests (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Ljava/util/List;
 	public static final fun rcDownloadableFontRequests ([B)Ljava/util/List;
 	public static final fun rcDownloadedTypefaceLoader (Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
 }
@@ -216,6 +217,21 @@ public final class ee/schimke/composeai/rcplayer/compose/RcGlyphPlacement {
 	public final fun getY ()F
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcGoogleFontsTypefaceLoader : ee/schimke/composeai/rcplayer/compose/RcTypefaceLoader {
+	public static final field $stable I
+	public fun <init> (Ljava/util/Collection;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;)V
+	public synthetic fun <init> (Ljava/util/Collection;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun getFamilies ()Ljava/util/Set;
+	public fun typeface (Ljava/lang/String;Lee/schimke/composeai/rcplayer/compose/RcFontVariations;)Landroidx/compose/ui/text/font/FontFamily;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcGoogleFontsTypefaceLoaderKt {
+	public static final fun rcGoogleFontsTypefaceLoader (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
+	public static final fun rcGoogleFontsTypefaceLoader ([BLee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
+	public static synthetic fun rcGoogleFontsTypefaceLoader$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
+	public static synthetic fun rcGoogleFontsTypefaceLoader$default ([BLee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcLayoutAnimationsKt {

@@ -132,6 +132,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcDownloadableFontReque
 
 public final class ee/schimke/composeai/rcplayer/compose/RcDownloadableFontsKt {
 	public static final fun rcDownloadableFontFallback (Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
+	public static final fun rcDownloadableFontRequests (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Ljava/util/List;
 	public static final fun rcDownloadableFontRequests ([B)Ljava/util/List;
 	public static final fun rcDownloadedTypefaceLoader (Ljava/util/List;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
 }

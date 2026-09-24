@@ -15,5 +15,11 @@ document renders without an exception and fewer than a tenth come out as one fla
 ./gradlew :rc-player-compose:testAndroidHostTest --rerun -Prc.android.out=<abs dir>
 ```
 
-Text in a host-supplied family (Orbitron, Lobster Two, …) falls back to the default face here: the
-test passes no typeface loader, which is a harness choice rather than a player gap.
+Fonts are supplied as a host would: each document's `google:` families through
+`RcGoogleFontsTypefaceLoader` over the shared Google Fonts cache (pointed at the wasm host's
+vendored files, which use the cache's `<slug>-<weight>.ttf` names), and everything else —
+`default` is Roboto Flex — from the same directory's `fonts.json`. Orbitron, Space Grotesk,
+JetBrains Mono, Google Sans Flex and Inter draw in their own faces. Two gaps are the test
+directory's naming, not the loader: Lobster Two ships as `LobsterTwo-*.ttf` rather than
+`lobster-two-400.ttf`, and the `wght`/`wdth` specimens need a `roboto-flex-variable.ttf` the
+directory does not carry (it has `RobotoFlex.ttf`), so their axes do not vary here.

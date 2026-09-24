@@ -124,6 +124,10 @@ kotlin {
       // consumer's POM.
       implementation(libs.kotlinx.coroutines.test)
     }
+    // `RcGoogleFontsTypefaceLoader`'s on-device path: Compose's GMS downloadable fonts. The shared
+    // Google Fonts cache is read directly (`RcSharedFontCache`) rather than through
+    // `data-fonts-google`, whose okhttp 5 would force API 37 on every consumer.
+    androidMain.dependencies { implementation(libs.androidx.compose.ui.text.google.fonts.cmp) }
     named("androidHostTest").dependencies {
       implementation(libs.robolectric)
       implementation(libs.junit)

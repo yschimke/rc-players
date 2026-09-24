@@ -236,6 +236,7 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-compose-ui-test-junit4-cmp = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-for-cmp" }
+androidx-compose-ui-text-google-fonts-cmp = { module = "androidx.compose.ui:ui-text-google-fonts", version.ref = "androidx-compose-for-cmp" }
 androidx-compose-ui-test-manifest-cmp = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-for-cmp" }
 junit = { module = "junit:junit", version.ref = "junit" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
