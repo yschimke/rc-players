@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.75.0](https://github.com/yschimke/rc-players/compare/v1.74.0...v1.75.0) (2026-09-24)
+
+
+### Features
+
+* default Android system colours for the CMP player ([#497](https://github.com/yschimke/rc-players/issues/497)) ([c27b0aa](https://github.com/yschimke/rc-players/commit/c27b0aafaaea05e1c4b42b701a3bca6374144f42))
+
+
+### Bug Fixes
+
+* keep the host's modifier outermost when the CMP layout settles ([#500](https://github.com/yschimke/rc-players/issues/500)) ([0cd1adf](https://github.com/yschimke/rc-players/commit/0cd1adfe344bb4ece8c0b8d8cee28dd6dcf83251))
+* keep the requested weight when the embedded lane varies a Google font ([#501](https://github.com/yschimke/rc-players/issues/501)) ([c48d2ab](https://github.com/yschimke/rc-players/commit/c48d2abee6a562fc021b333a52a3ca4de9d03f61))
+* settle ComponentValue geometry before the CMP player's first frame ([#499](https://github.com/yschimke/rc-players/issues/499)) ([6cce939](https://github.com/yschimke/rc-players/commit/6cce9398d328265d0025549db5aebd24724d20d3))
+
 ## [1.74.0](https://github.com/yschimke/rc-players/compare/v1.73.0...v1.74.0) (2026-09-24)
 
 
