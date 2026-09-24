@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(QuartzCore)
+  import QuartzCore
+#endif
+
 #if canImport(RcNativePlayerCore)
   import RcNativePlayerCore
 #endif
@@ -23,7 +27,18 @@ extension RemoteComposeNativePlayerClock {
 public struct RemoteComposeNativeSystemClock: RemoteComposeNativePlayerClock, Sendable {
   public init() {}
 
-  public func now() -> TimeInterval { ProcessInfo.processInfo.systemUptime }
+  /// Monotonic seconds on the same host time base as `CADisplayLink` timestamps.
+  ///
+  /// `CACurrentMediaTime()` rather than `ProcessInfo.systemUptime`: both read the mach host clock,
+  /// but `systemUptime` is a required-reason API (system boot time) in Apple's privacy manifest
+  /// rules, and an animation clock has no business depending on one.
+  public func now() -> TimeInterval {
+    #if canImport(QuartzCore)
+      CACurrentMediaTime()
+    #else
+      ProcessInfo.processInfo.systemUptime
+    #endif
+  }
 
   public func wallClock() -> NativeSwiftWallClock? {
     let date = Date()

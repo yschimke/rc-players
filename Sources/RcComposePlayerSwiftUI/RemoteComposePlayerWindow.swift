@@ -116,8 +116,8 @@
         onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
         onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
       ) {
-        guard configuration.nativeFallbackSupportsCurrentAppearance else {
-          onError(.playback("The native Swift fallback currently supports light appearance only."))
+        guard configuration.nativeFallbackSupportsTheme else {
+          onError(.playback("The native Swift fallback does not support an explicit dark theme yet."))
           return
         }
         Task { @MainActor in
@@ -152,14 +152,9 @@
     }
 
     private extension RemoteComposePlayerConfiguration {
-      var nativeFallbackSupportsCurrentAppearance: Bool {
-        switch theme {
-        case .light: true
-        case .dark: false
-        case .system:
-          NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) != .darkAqua
-        }
-      }
+      /// `.system` resolves to the document's own theme under either host appearance; only an
+      /// explicit `.dark` request, which the native player has no palette for, is refused.
+      var nativeFallbackSupportsTheme: Bool { theme != .dark }
     }
 
     private extension RemoteComposePlayerActionValue {

@@ -12,6 +12,15 @@ public final class ee/schimke/composeai/rcplayer/compose/RcAnimationClockKt {
 	public static final fun getLocalRcAnimationClock ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcBranch {
+	public static final field $stable I
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcConditionalOperations;FFZ)V
+	public final fun getHolds ()Z
+	public final fun getLeft ()F
+	public final fun getOperation ()Lee/schimke/composeai/rcplayer/protocol/RcConditionalOperations;
+	public final fun getRight ()F
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcBundledTypefaceLoader : ee/schimke/composeai/rcplayer/compose/RcTypefaceLoader {
 	public static final field $stable I
 	public fun <init> (Ljava/util/Map;)V
@@ -136,7 +145,14 @@ public final class ee/schimke/composeai/rcplayer/compose/RcDownloadedFont {
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcDrawObserver {
+	public fun onConditional (Lee/schimke/composeai/rcplayer/compose/RcBranch;)V
+	public fun onFrame ()V
 	public abstract fun onTextRun (Lee/schimke/composeai/rcplayer/compose/RcTextRun;)V
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcDrawObserver$DefaultImpls {
+	public static fun onConditional (Lee/schimke/composeai/rcplayer/compose/RcDrawObserver;Lee/schimke/composeai/rcplayer/compose/RcBranch;)V
+	public static fun onFrame (Lee/schimke/composeai/rcplayer/compose/RcDrawObserver;)V
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcDrawObserverKt {
@@ -760,6 +776,8 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNativeTextStyle {
 public final class ee/schimke/composeai/rcplayer/compose/RcPlayerInspectionKt {
 	public static final fun getLocalRcAhemTextMetrics ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 	public static final fun getLocalRcInspection ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun getRcAccessibilityOnlyClick (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)Z
+	public static final fun getRcAccessibilityOnlyClickKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
 	public static final fun getRcComponentId (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)I
 	public static final fun getRcComponentIdKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
 	public static final fun getRcComponentKind (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)Ljava/lang/String;
@@ -772,6 +790,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcPlayerInspectionKt {
 	public static final fun getRcDocumentStateKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
 	public static final fun getRcScrollOffset (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)J
 	public static final fun getRcScrollOffsetKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;
+	public static final fun setRcAccessibilityOnlyClick (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;Z)V
 	public static final fun setRcComponentId (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;I)V
 	public static final fun setRcComponentKind (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;Ljava/lang/String;)V
 	public static final fun setRcComponentVisibility (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;I)V

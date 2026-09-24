@@ -34,7 +34,19 @@ import PackageDescription
 /// Set `RC_COMPOSE_PLAYER_NATIVE_ONLY=1` when resolving the source-overlay wrapper without the
 /// Kotlin/Native XCFramework. SwiftPM resolves every declared binary target before compilation, so
 /// a conditional import alone cannot provide this mode.
-let nativeOnly = ProcessInfo.processInfo.environment["RC_COMPOSE_PLAYER_NATIVE_ONLY"] == "1"
+///
+/// Off Apple platforms the package is the pure-Swift document core and its tests alone: every
+/// other target imports CoreGraphics, CoreText, UIKit or AppKit, and a remote binary target cannot
+/// be resolved there at all. The manifest is compiled for the host, so `os()` decides it. This is
+/// what lets the Linux CI job run `swift test --filter RcNativePlayerCoreTests`, which otherwise
+/// builds every test target in the package, not just the filtered one.
+#if os(Linux) || os(Windows)
+  let coreOnly = true
+#else
+  let coreOnly = false
+#endif
+let nativeOnly =
+  coreOnly || ProcessInfo.processInfo.environment["RC_COMPOSE_PLAYER_NATIVE_ONLY"] == "1"
 
 var products: [Product] = [
   .library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"]),
@@ -46,22 +58,48 @@ if !nativeOnly {
   products.insert(.library(name: "RcComposePlayer", targets: ["RcComposePlayer"]), at: 0)
 }
 
+// The XCFramework carries iosArm64, iosSimulatorArm64 and macosArm64 slices only, so the overlay
+// depends on it only for iOS and macOS. Every other Apple platform (visionOS, tvOS, watchOS) builds
+// the overlay against the native Swift player instead: `Sources/RcComposePlayerSwiftUI` guards
+// every Kotlin code path with `#if canImport(RcComposePlayer)`. An unconditional dependency let
+// those platforms resolve the package and then fail at link time.
 var swiftUIDependencies: [Target.Dependency] = ["RcPlayerAppleFonts", "RcNativePlayerUIKit"]
-if !nativeOnly { swiftUIDependencies.insert("RcComposePlayer", at: 0) }
+if !nativeOnly {
+  swiftUIDependencies.insert(
+    .target(name: "RcComposePlayer", condition: .when(platforms: [.iOS, .macOS])), at: 0)
+}
 
 var targets: [Target] = [
-  .target(name: "RcPlayerAppleFonts"),
+  // Each shipping Apple target carries an App Store privacy manifest. `RcNativePlayerUIKit`
+  // declares the system-boot-time reason because its AppKit host still reads
+  // `ProcessInfo.systemUptime`; the fonts target uses no required-reason API.
+  .target(name: "RcPlayerAppleFonts", resources: [.copy("PrivacyInfo.xcprivacy")]),
   .target(name: "RcComposePlayerSwiftUI", dependencies: swiftUIDependencies),
   .target(name: "RcNativePlayerCore"),
-  .target(name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]),
+  .target(
+    name: "RcNativePlayerUIKit",
+    dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"],
+    resources: [.copy("PrivacyInfo.xcprivacy")]
+  ),
   // The native player's tests. They depend only on the pure-Swift targets, so
   // `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` runs them without resolving the binary target.
+  // The document core's suite is its own target so it also runs on Linux.
+  .testTarget(
+    name: "RcNativePlayerCoreTests",
+    dependencies: ["RcNativePlayerCore"],
+    resources: [.copy("Fixtures")]
+  ),
   .testTarget(
     name: "RcNativePlayerUIKitTests",
     dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"],
     resources: [.copy("Fixtures")]
   ),
 ]
+if coreOnly {
+  let coreTargets: Set<String> = ["RcNativePlayerCore", "RcNativePlayerCoreTests"]
+  products = products.filter { $0.name == "RcNativePlayerCore" }
+  targets = targets.filter { coreTargets.contains($0.name) }
+}
 if !nativeOnly {
   targets.insert(
     .binaryTarget(
@@ -77,7 +115,7 @@ if !nativeOnly {
 
 let package = Package(
   name: "RcComposePlayer",
-  platforms: [.iOS(.v13), .macOS(.v12)],
+  platforms: [.iOS(.v13), .macOS(.v12), .visionOS(.v1)],
   products: products,
   targets: targets
 )

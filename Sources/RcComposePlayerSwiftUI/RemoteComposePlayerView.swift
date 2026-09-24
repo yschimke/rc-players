@@ -388,13 +388,13 @@
 
     private func rebuildContent() {
       playerController.installNativeUpdateHandler(nil)
-      guard configuration.nativeFallbackSupportsCurrentAppearance(in: view.traitCollection) else {
-        errorHandler(.playback("The native Swift fallback currently supports light appearance only."))
+      guard configuration.nativeFallbackSupportsTheme else {
+        errorHandler(.playback("The native Swift fallback does not support an explicit dark theme yet."))
         return
       }
       let native = RemoteComposeNativePlayerViewController(
         data: documentData,
-        background: configuration.background.nativeValue,
+        background: configuration.nativeFallbackBackground,
         compatibilityPolicy: configuration.compatibility.nativeValue,
         downloadableFontResolver: downloadableFontResolver,
         onEvent: { [weak self] event in self?.eventHandler(.init(nativeEvent: event)) },
@@ -483,12 +483,19 @@
     var nativeValue: RemoteComposeNativePlayerBackground { isOpaque ? .opaque : .transparent }
   }
   private extension RemoteComposePlayerConfiguration {
-    func nativeFallbackSupportsCurrentAppearance(in traits: UITraitCollection) -> Bool {
-      switch theme {
-      case .light: true
-      case .dark: false
-      case .system: traits.userInterfaceStyle != .dark
-      }
+    /// The native player renders the document's own colours and has no dark palette to switch to,
+    /// so only an explicit `.dark` request is refused. `.system` resolves to the document's theme
+    /// whatever the host appearance: refusing it under a dark trait collection left visionOS,
+    /// which is always dark, with nothing but an error.
+    var nativeFallbackSupportsTheme: Bool { theme != .dark }
+
+    /// visionOS presents apps on glass, so a `.system` player draws on a clear background there
+    /// rather than an opaque slab. Every other platform keeps the configured background.
+    var nativeFallbackBackground: RemoteComposeNativePlayerBackground {
+      #if os(visionOS)
+        if theme == .system { return .transparent }
+      #endif
+      return background.nativeValue
     }
   }
   private extension RemoteComposePlayerCompatibility {

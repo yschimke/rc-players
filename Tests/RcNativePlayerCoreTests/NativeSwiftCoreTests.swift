@@ -1186,10 +1186,20 @@ import Testing
   // MARK: - Committed fixtures
   //
   // These were one `main` that dispatched on `CommandLine.arguments.count`, and the script passed
-  // eight fixtures — so the blocks guarded by `== 2`, `== 4`, `== 6` and `== 8` never ran. They are
-  // ported verbatim but disabled, so switching one on is a reviewed change rather than a silent one.
+  // eight fixtures — so the blocks guarded by `== 2`, `== 4`, `== 6` and `== 8` never ran. They
+  // were ported verbatim but disabled, so switching one on is a reviewed change rather than a
+  // silent one. Everything but the encoder comparison below is now switched on.
 
-  @Test(.disabled("never ran: it needed exactly one argv fixture and the script passed eight"))
+  // The committed fixture is written by the Kotlin demo generator (`rc-player/demos`,
+  // `-Prc.demo.output=…/editable-text.rc`); `editableTextDocument()` is a hand-written Swift
+  // encoder of the same document, and the two have drifted apart. Regenerating the fixture would
+  // not close the gap — it is the Kotlin writer's output either way — and it would reseed the fuzz
+  // corpus, which is keyed by fixture position. Re-enable once the Swift encoder is brought back in
+  // line with the Kotlin one.
+  @Test(
+    .disabled(
+      "editable-text.rc (Kotlin demo generator) no longer matches the Swift test encoder byte for byte"
+    ))
   func editableTextFixtureMatchesTheSwiftEncoder() throws {
     let kotlinFixture = try NativeTestFixtures.data("editable-text.rc")
     #expect(
@@ -1219,8 +1229,7 @@ import Testing
     #expect(events == [.namedAction(name: "catalogAction", value: .float(1))])
   }
 
-  @Test(.disabled("never ran: it needed exactly three argv fixtures and the script passed eight"))
-  func indeterminateProgressFixture() throws {
+  @Test func indeterminateProgressFixture() throws {
     let progressData = try NativeTestFixtures.data("IndeterminateCircularProgress-400x400.rc")
     let progressSession = try NativeSwiftDocumentSession.open(data: progressData)
     let first = try progressSession.snapshot(timeSeconds: 0.25)
@@ -1230,8 +1239,7 @@ import Testing
     #expect(first.root.allCommandValues.count >= 15)
   }
 
-  @Test(.disabled("never ran: it needed exactly five argv fixtures and the script passed eight"))
-  func circularAndArcProgressFixtures() throws {
+  @Test func circularAndArcProgressFixtures() throws {
     for (name, size) in zip(
       ["CircularProgressRemote-384x384.rc", "ArcProgressRemote-454x400.rc"],
       [(384, 384), (454, 400)])
@@ -1243,8 +1251,7 @@ import Testing
     }
   }
 
-  @Test(.disabled("never ran: it needed exactly seven argv fixtures and the script passed eight"))
-  func hostDensityFixture() throws {
+  @Test func hostDensityFixture() throws {
     // The deferred-density capture — the one fixture here that computes its text size from
     // ID_DENSITY/ID_FONT_SIZE instead of folding a capture device's density in.
     //
