@@ -199,6 +199,10 @@ private enum NativeMacScrollMotion {
 /// Keeping the drag and fling here makes illegal combinations unrepresentable to the renderer: the
 /// window controller asks this value to consume an input; it does not coordinate two optional
 /// `inout` parameters and a string switch itself.
+///
+/// Main-actor isolated because it hit-tests the document view, as the window controller that drives
+/// it is.
+@MainActor
 private struct NativeMacInputReplay {
   private var scroll: NativeMacScrollMotion = .idle
 
@@ -1494,13 +1498,20 @@ private final class NativeMacDocumentView: NSView {
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
   deinit {
-    if #available(macOS 14.0, *) {
-      (displayLinkDriver as? NativeMacDisplayLinkDriver)?.invalidate()
+    // `deinit` is nonisolated, and the frame driver and timers are main-actor state. AppKit
+    // releases its views on the main thread, and there they are stopped synchronously, as they
+    // always were. A view released anywhere else leaves them to lapse on their own: the display
+    // link invalidates itself on its next tick once its owner is gone, and a pending one-shot timer
+    // finds a nil `self`. (`MainActor.assumeIsolated` is emitted into the client and back-deploys
+    // to macOS 10.15, so this does not raise the floor.)
+    if Thread.isMainThread {
+      MainActor.assumeIsolated {
+        stopDisplayFrames()
+        delayedWakeTimer?.invalidate()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+      }
     }
-    fallbackFrameTimer?.invalidate()
-    delayedWakeTimer?.invalidate()
     NotificationCenter.default.removeObserver(self)
-    NSWorkspace.shared.notificationCenter.removeObserver(self)
   }
 
   /// Re-resolves the document at a later instant and lays it out again.
@@ -1709,11 +1720,18 @@ private final class NativeMacDocumentView: NSView {
       outgoing.animator().alphaValue = 0
       incoming.layer?.opacity = 1
     } completionHandler: { [weak self, weak outgoing] in
-      guard let self, let outgoing, self.outgoingStateComponent === outgoing else { return }
-      outgoing.removeFromSuperview()
-      self.outgoingStateComponent = nil
-      self.stateTransition = nil
+      // The SDK does not promise this block runs on the main actor, so it only captures the two
+      // views — main-actor isolated, hence Sendable — and hops to the main queue to tear down.
+      guard let self, let outgoing else { return }
+      DispatchQueue.main.async { self.finishStateTransition(from: outgoing) }
     }
+  }
+
+  private func finishStateTransition(from outgoing: NativeMacComponentView) {
+    guard outgoingStateComponent === outgoing else { return }
+    outgoing.removeFromSuperview()
+    outgoingStateComponent = nil
+    stateTransition = nil
   }
 
   private func animateIncomingState(
@@ -1800,8 +1818,10 @@ private final class NativeMacDocumentView: NSView {
   }
 
   private func schedule(after delay: TimeInterval, repeats: Bool) -> Timer {
+    // The block is a nonisolated `@Sendable` closure, so it hops to the main queue — whose closures
+    // run on the main actor — rather than touching the view itself, re-capturing it weakly.
     let timer = Timer(timeInterval: delay, repeats: repeats) { [weak self] _ in
-      DispatchQueue.main.async { self?.frameTimerDidFire() }
+      DispatchQueue.main.async { [weak self] in self?.frameTimerDidFire() }
     }
     RunLoop.main.add(timer, forMode: .common)
     return timer
@@ -1900,7 +1920,10 @@ private final class NativeMacDocumentView: NSView {
 
 }
 
+/// The display link's target. Main-actor isolated: it is created by the document view and its link
+/// is scheduled on the main run loop, so every callback lands where the view's state lives.
 @available(macOS 14.0, *)
+@MainActor
 private final class NativeMacDisplayLinkDriver: NSObject {
   private weak var owner: NativeMacDocumentView?
   private var link: CADisplayLink!
@@ -1918,7 +1941,13 @@ private final class NativeMacDisplayLinkDriver: NSObject {
   }
 
   @objc private func fire(_ link: CADisplayLink) {
-    owner?.displayLinkDidFire(targetTimestamp: link.targetTimestamp)
+    // The link retains this target, not the view. A view released without stopping it (off the
+    // main thread, where its `deinit` cannot) is noticed here, and the link stops itself.
+    guard let owner else {
+      invalidate()
+      return
+    }
+    owner.displayLinkDidFire(targetTimestamp: link.targetTimestamp)
   }
 }
 
@@ -1973,7 +2002,12 @@ private extension Collection {
   subscript(safe index: Index) -> Element? { indices.contains(index) ? self[index] : nil }
 }
 
-private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate, NativeLayoutItem {
+/// `NativeLayoutItem` is nonisolated so the shared engine runs in tests without views. This view
+/// only hands itself to the engine from its own main-actor methods, which the `@preconcurrency`
+/// conformance checks at run time — as the UIKit renderer's component view does.
+private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
+  @preconcurrency NativeLayoutItem
+{
   /// The resolved component this view draws. Read by the document view's tree dump, which the
   /// conformance corpus's `tree` probe reads.
   ///
@@ -3253,6 +3287,7 @@ private func nativeAppKitMedian(_ samples: [Double]) -> Double {
   return sorted[sorted.count / 2]
 }
 
+@MainActor
 private func nativeAppKitCount(
   _ view: NSView, views: inout Int, labels: inout Int, controls: inout Int
 ) {
