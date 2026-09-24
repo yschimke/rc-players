@@ -2,7 +2,6 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.IntrinsicMeasurable
 import androidx.compose.ui.layout.IntrinsicMeasureScope
@@ -44,8 +43,6 @@ internal class RcFirstLayoutSettle {
    * happens to relayout the player.
    */
   val probeGeneration = mutableIntStateOf(0)
-  /** The last size the kept tree measured, which is all a host asking for intrinsics can get. */
-  var lastSize: IntSize = IntSize.Zero
 }
 
 private sealed interface RcSettleSlot {
@@ -80,11 +77,13 @@ private sealed interface RcSettleSlot {
  */
 @Composable
 internal fun RcSettledLayout(
+  modifier: Modifier,
+  documentSize: IntSize,
   settle: RcFirstLayoutSettle,
   onSettled: () -> Unit,
   tree: @Composable (probe: RcGeometryProbe?) -> Unit,
 ) {
-  SubcomposeLayout(remember(settle) { RcIntrinsicsFromLastMeasureElement(settle) }) { constraints ->
+  SubcomposeLayout(modifier.then(RcDocumentSizeIntrinsicsElement(documentSize))) { constraints ->
     // Read so a pass that composed probes can schedule the measure that disposes them.
     settle.probeGeneration.intValue
     var probed = false
@@ -107,7 +106,6 @@ internal fun RcSettledLayout(
       constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: constraints.minWidth)
     val height =
       constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: constraints.minHeight)
-    settle.lastSize = IntSize(width, height)
     layout(width, height) {
       placeables.forEach { it.place(0, 0) }
       if (probed) settle.probeGeneration.intValue += 1
@@ -117,20 +115,23 @@ internal fun RcSettledLayout(
 
 /**
  * `SubcomposeLayout` cannot answer intrinsic measurements, and throws when asked. The player could
- * before this wrapper existed, so a host measuring it inside `IntrinsicSize` would now crash; this
- * answers with the size the kept tree last measured instead — the only size there is to report
- * without composing the document again.
+ * before this wrapper existed, so a host measuring it inside `IntrinsicSize` would now crash. This
+ * answers with the size the document declares — its header's width and height, which the header
+ * defaults rather than leaves at zero — because the tree's real intrinsics would need it composed,
+ * and on the first query it has not been. It is deliberately not the last measured size: a parent
+ * that sizes the player from its intrinsics would feed that back in, and a first answer of zero
+ * would keep the player collapsed for good.
  */
-private data class RcIntrinsicsFromLastMeasureElement(val settle: RcFirstLayoutSettle) :
-  ModifierNodeElement<RcIntrinsicsFromLastMeasureNode>() {
-  override fun create() = RcIntrinsicsFromLastMeasureNode(settle)
+private data class RcDocumentSizeIntrinsicsElement(val documentSize: IntSize) :
+  ModifierNodeElement<RcDocumentSizeIntrinsicsNode>() {
+  override fun create() = RcDocumentSizeIntrinsicsNode(documentSize)
 
-  override fun update(node: RcIntrinsicsFromLastMeasureNode) {
-    node.settle = settle
+  override fun update(node: RcDocumentSizeIntrinsicsNode) {
+    node.documentSize = documentSize
   }
 }
 
-private class RcIntrinsicsFromLastMeasureNode(var settle: RcFirstLayoutSettle) :
+private class RcDocumentSizeIntrinsicsNode(var documentSize: IntSize) :
   Modifier.Node(), LayoutModifierNode {
   override fun MeasureScope.measure(
     measurable: Measurable,
@@ -143,20 +144,20 @@ private class RcIntrinsicsFromLastMeasureNode(var settle: RcFirstLayoutSettle) :
   override fun IntrinsicMeasureScope.minIntrinsicWidth(
     measurable: IntrinsicMeasurable,
     height: Int,
-  ): Int = settle.lastSize.width
+  ): Int = documentSize.width
 
   override fun IntrinsicMeasureScope.maxIntrinsicWidth(
     measurable: IntrinsicMeasurable,
     height: Int,
-  ): Int = settle.lastSize.width
+  ): Int = documentSize.width
 
   override fun IntrinsicMeasureScope.minIntrinsicHeight(
     measurable: IntrinsicMeasurable,
     width: Int,
-  ): Int = settle.lastSize.height
+  ): Int = documentSize.height
 
   override fun IntrinsicMeasureScope.maxIntrinsicHeight(
     measurable: IntrinsicMeasurable,
     width: Int,
-  ): Int = settle.lastSize.height
+  ): Int = documentSize.height
 }
