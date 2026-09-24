@@ -35,14 +35,14 @@ import Testing
     #expect(!NativeTexturePolicy.isDecal(1))
     #expect(!NativeTexturePolicy.isDecal(2))
 
-    // Filter quality: AndroidX's 0..3, and nil for a paint that never named one so the renderer's
-    // own default stands.
+    // Filter quality: AndroidX's 0..3, and bilinear for a paint that never named one or named an
+    // unknown level, as both reference players do.
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 0) == CGInterpolationQuality.none)
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 1) == .low)
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 2) == .medium)
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 3) == .high)
-    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: nil) == nil)
-    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 9) == nil)
+    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: nil) == .low)
+    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 9) == .low)
   }
 
   /// The pattern must land where the clipped path is, under a scaled CTM.

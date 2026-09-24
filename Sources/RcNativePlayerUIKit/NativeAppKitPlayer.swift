@@ -3274,13 +3274,32 @@ private final class NativeMacCanvasView: NSView {
     // overflow it, while a malformed or fixed draw must never leak outside it.
     context.saveGState()
     context.clip(to: destination)
+    // The paint's filter quality, bilinear when it named none, as the reference players sample.
+    // NSImage takes its interpolation from the hint rather than the context, so both are set.
+    let quality = NativeTexturePolicy.interpolationQuality(
+      forFilterQuality: command.filterQuality)
+    context.interpolationQuality = quality
     // Fraction 1: the paint alpha is already the context's alpha, as it is for UIKit's image draw.
     NSImage(cgImage: cropped, size: NSSize(width: cropped.width, height: cropped.height)).draw(
       in: scaledImageDestination(
         source: source, destination: destination, scaleType: draw.scaleType,
         scaleFactor: CGFloat(draw.scaleFactor)), from: .zero, operation: .sourceOver,
-      fraction: 1, respectFlipped: true, hints: nil)
+      fraction: 1, respectFlipped: true,
+      hints: [.interpolation: NSNumber(value: Self.imageInterpolation(quality).rawValue)])
     context.restoreGState()
+  }
+
+  /// AppKit's name for a Core Graphics interpolation quality.
+  private static func imageInterpolation(
+    _ quality: CGInterpolationQuality
+  ) -> NSImageInterpolation {
+    switch quality {
+    case CGInterpolationQuality.none: return NSImageInterpolation.none
+    case .low: return .low
+    case .medium: return .medium
+    case .high: return .high
+    default: return .default
+    }
   }
 
   /// The pixel image behind a decoded bitmap, at its native pixel size rather than its point size.
