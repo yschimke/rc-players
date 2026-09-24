@@ -159,6 +159,13 @@ enum NativeGradientRenderer {
       CGPoint(x: clip.maxX, y: clip.maxY), CGPoint(x: clip.minX, y: clip.maxY),
     ].map { hypot($0.x - center.x, $0.y - center.y) }.max() ?? 0
     guard radius > 0 else { return }
+    // The wedges are drawn aliased. Each is about a pixel wide at the rim, and two antialiased
+    // neighbours only cover a shared edge pixel a·(1−a) of the way between them, so the backdrop
+    // showed through almost every seam. The clip set before this call keeps the shape's own edge
+    // antialiased.
+    context.saveGState()
+    defer { context.restoreGState() }
+    context.setShouldAntialias(false)
     let steps = 360
     for index in 0..<steps {
       let start = CGFloat(index) / CGFloat(steps)

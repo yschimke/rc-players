@@ -3250,9 +3250,34 @@ private final class NativeMacCanvasView: NSView {
       return
     }
     context.addPath(path)
+    let fillRule: CGPathFillRule =
+      command.pathWinding == NativeSwiftPathWinding.evenOdd ? .evenOdd : .winding
+    // A gradient shader paints inside the shape, or inside its stroke outline, as UIKit's canvas
+    // does. Without this every gradient drew as the paint's flat colour.
+    if let gradient = command.gradient {
+      context.saveGState()
+      if command.stroke { context.replacePathWithStrokedPath() }
+      context.clip(using: command.stroke ? .winding : fillRule)
+      NativeGradientRenderer.draw(Self.gradient(gradient), in: context)
+      context.restoreGState()
+      return
+    }
     context.drawPath(
-      using: command.stroke
-        ? .stroke : (command.pathWinding == NativeSwiftPathWinding.evenOdd ? .eoFill : .fill))
+      using: command.stroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
+  }
+
+  /// The renderer's gradient for a decoded shader, its colours in sRGB as the reference's are.
+  private static func gradient(_ snapshot: NativeSwiftGradientSnapshot) -> NativeGradient {
+    NativeGradient(
+      kind: snapshot.kind,
+      colors: snapshot.colorsARGB.map { argb in
+        CGColor(
+          srgbRed: CGFloat((argb >> 16) & 0xff) / 255, green: CGFloat((argb >> 8) & 0xff) / 255,
+          blue: CGFloat(argb & 0xff) / 255, alpha: CGFloat((argb >> 24) & 0xff) / 255)
+      },
+      stops: snapshot.stops.map { CGFloat($0) },
+      values: snapshot.values.map { CGFloat($0) },
+      tileMode: snapshot.tileMode)
   }
 
   private func drawImage(_ command: NativeMacDrawCommand, _ context: CGContext) {
