@@ -311,3 +311,17 @@ says more than a blank one.
 
 **Ask:** say which behaviour the format specifies. If it is hiding, the embedded player should
 change too. If it is either, tag the gold `host-specific`.
+
+## 22. `text_on_circle_stream_alignment` counts a text-on-circle that was never drawn
+
+The document draws one text on a circle and then one text along a path. The gold asserts
+`ops:total_glyphs` of 2 (only the path text's glyphs), `ops:present` of `DrawTextOnCircleStub`, and
+a single glyph run labelled "text-on-path after the unimplemented circle op". So the recording
+player did not implement the circle operation: it drew nothing for it and counted no glyphs. A
+player that does draw the circle text reports 8 glyphs and fails. The gold is measuring an
+implementation gap, not the format.
+
+The native Swift player draws the circle text and reports 8. It is left failing on purpose.
+**Ask:** regenerate the gold from a player that implements `DRAW_TEXT_ON_CIRCLE`, or drop the glyph
+count and the `Stub` name from its checks.
+**Settled by:** a regenerated gold.
