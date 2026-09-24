@@ -306,6 +306,7 @@ private class NativeSwiftSession(
       "text",
       "color",
       "matrix",
+      "float_array",
       "float_array:dynamic",
       "float_array:data" -> scalar(check)
       "particles" -> particles(check.at)
@@ -358,6 +359,8 @@ private class NativeSwiftSession(
       "text" -> "texts"
       "color" -> "colors"
       "matrix" -> "matrices"
+      // A bare `float_array` is the computed list, as the CMP lane reads it.
+      "float_array",
       "float_array:dynamic" -> "float_arrays_dynamic"
       "float_array:data" -> "float_arrays_data"
       else -> error("Not a native Swift value probe: $probe")
@@ -551,6 +554,7 @@ private class NativeSwiftSession(
             "text",
             "color",
             "matrix",
+            "float_array",
             "float_array:dynamic",
             "float_array:data",
           )
