@@ -2,6 +2,7 @@ plugins {
   id("composeai.base-conventions")
   id("composeai.jvm-conventions")
   id("org.jetbrains.kotlin.multiplatform")
+  id("com.android.kotlin.multiplatform.library")
   id("composeai.maven-publishing")
 }
 
@@ -105,8 +106,9 @@ kotlin {
   // Kotlin Gradle plugin from 2.2 (still `@ExperimentalAbiValidation` at 2.4), so this needs no
   // extra plugin on the classpath — which is why the player stack gets the gate first rather than
   // waiting for a repo-wide rollout (docs/API_STABILITY.md notes no module had one until now).
-  // Both dumps are written: `<module>.api` for the JVM target and `<module>.klib.api` covering the
-  // klib-based targets (Apple + wasmJs) together. Regenerate with `./gradlew updateKotlinAbi`.
+  // Three dumps are written: `jvm/<module>.api` and `android/<module>.api` for the two JVM-bytecode
+  // targets, and `<module>.klib.api` covering the klib-based targets (Apple + wasmJs) together.
+  // Regenerate with `./gradlew updateKotlinAbi`.
   @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
 
   // Unnamed `jvm()`, not `jvm("desktop")`. This module is published, and the JVM artifact should
@@ -124,6 +126,15 @@ kotlin {
   iosArm64()
   iosSimulatorArm64()
   macosArm64()
+
+  // Android, through AGP's KMP library plugin — see `:rc-player-trace` for the SDK levels.
+  android {
+    namespace = "ee.schimke.composeai.rcplayer.protocol"
+    compileSdk = libs.versions.rc.player.compileSdk.get().toInt()
+    minSdk = libs.versions.rc.player.minSdk.get().toInt()
+    // `commonTest` also runs on the Android host JVM, against the SDK's stub `android.jar`.
+    withHostTest { isReturnDefaultValues = true }
+  }
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 

@@ -84,9 +84,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.asComposeShader
-import androidx.compose.ui.graphics.asSkiaBitmap
-import androidx.compose.ui.graphics.asSkiaPath
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -96,8 +93,6 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEvent
@@ -147,7 +142,6 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
@@ -301,12 +295,6 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.jetbrains.skia.ColorAlphaType
-import org.jetbrains.skia.ColorType
-import org.jetbrains.skia.Image
-import org.jetbrains.skia.ImageInfo
-import org.jetbrains.skia.RuntimeEffect
-import org.jetbrains.skia.RuntimeShaderBuilder
 
 @Composable
 public fun RcComposePlayer(
@@ -3971,7 +3959,7 @@ private class RcPaintState(
   var blendModeValue: Int = 3
   var brush: Brush? = null
   var baseShader: Shader? = null
-  var runtimeShaderOwner: RuntimeShaderBuilder? = null
+  var runtimeShaderOwner: Any? = null
   var runtimeShader: Shader? = null
   var colorFilter: ColorFilter? = null
   /** How bitmaps are sampled when scaled — `FILTER_BITMAP` / `IMAGE_FILTER_QUALITY`. */
@@ -4467,7 +4455,9 @@ private fun decodeInlineFontsUncounted(document: RcDocument): Map<Int, FontFamil
   document.operations
     .filterIsInstance<RcFontData>()
     .mapNotNull { font ->
-      runCatching { font.fontId to FontFamily(Font("remote-compose-${font.fontId}", font.data)) }
+      runCatching {
+        font.fontId to FontFamily(rcFontFromBytes("remote-compose-${font.fontId}", font.data))
+      }
         .getOrNull()
     }
     .toMap()
@@ -4541,26 +4531,14 @@ private fun decodeInlineImage(bitmap: RcBitmapData): ImageBitmap =
   when (bitmap.type) {
     RcBitmapData.TYPE_PNG_8888,
     RcBitmapData.TYPE_PNG,
-    RcBitmapData.TYPE_PNG_ALPHA_8 -> Image.makeFromEncoded(bitmap.data).toComposeImageBitmap()
+    RcBitmapData.TYPE_PNG_ALPHA_8 -> decodeRcEncodedImage(bitmap.data)
     RcBitmapData.TYPE_RAW8888 -> {
-      val rowBytes = bitmap.width * 4
-      require(bitmap.data.size >= rowBytes * bitmap.height) { "Truncated RGBA bitmap" }
-      Image.makeRaster(
-          ImageInfo(bitmap.width, bitmap.height, ColorType.RGBA_8888, ColorAlphaType.UNPREMUL),
-          bitmap.data,
-          rowBytes,
-        )
-        .toComposeImageBitmap()
+      require(bitmap.data.size >= bitmap.width * 4 * bitmap.height) { "Truncated RGBA bitmap" }
+      rcRasterImage(bitmap.width, bitmap.height, bitmap.data, alphaOnly = false)
     }
     RcBitmapData.TYPE_RAW8 -> {
-      val rowBytes = bitmap.width
-      require(bitmap.data.size >= rowBytes * bitmap.height) { "Truncated alpha bitmap" }
-      Image.makeRaster(
-          ImageInfo(bitmap.width, bitmap.height, ColorType.ALPHA_8, ColorAlphaType.UNPREMUL),
-          bitmap.data,
-          rowBytes,
-        )
-        .toComposeImageBitmap()
+      require(bitmap.data.size >= bitmap.width * bitmap.height) { "Truncated alpha bitmap" }
+      rcRasterImage(bitmap.width, bitmap.height, bitmap.data, alphaOnly = true)
     }
     else -> error("Unknown AndroidX bitmap type ${bitmap.type}")
   }
@@ -4861,12 +4839,12 @@ private fun DrawScope.drawTextAnchored(
 /** [local] in device pixels, through every transform the canvas is under — for [RcDrawObserver]. */
 /** The angle the current transform turns the local x-axis to on the device, in degrees. */
 private fun DrawScope.deviceRotationDegrees(): Float {
-  val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
+  val m = rcLocalToDevice()
   return atan2(m[3], m[0]) * (180f / PI.toFloat())
 }
 
 private fun DrawScope.toDevice(local: Offset): Offset {
-  val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
+  val m = rcLocalToDevice()
   return Offset(
     m[0] * local.x + m[1] * local.y + m[2],
     m[3] * local.x + m[4] * local.y + m[5],
@@ -4916,7 +4894,7 @@ private fun DrawScope.drawTextOnCircle(
   val textWidth = segments.sumOf { it.advance.toDouble() }.toFloat()
   if (textWidth <= 0f) return
   val arc = arcForCircleText(centerX, centerY, radius, startAngle, textWidth, operation)
-  val measure = org.jetbrains.skia.PathMeasure(arc.asSkiaPath(), false)
+  val measure = RcPathMeasure(arc)
   if (measure.length <= 0f) return
   drawTextSegmentsOnPath(
     segments = segments,
@@ -4976,7 +4954,7 @@ private fun DrawScope.drawTextOnPath(
   val text = state.text(operation.textId).orEmpty()
   if (text.isEmpty()) return
   val path = pathForId(state.drawId(operation.pathId), state, computedPaths)
-  val measure = org.jetbrains.skia.PathMeasure(path.asSkiaPath(), false)
+  val measure = RcPathMeasure(path)
   if (measure.length <= 0f) return
   drawTextOnPathWithCompose(
     text = text,
@@ -4994,7 +4972,7 @@ private fun DrawScope.drawTextOnPath(
  */
 private fun DrawScope.drawTextOnPathWithCompose(
   text: String,
-  measure: org.jetbrains.skia.PathMeasure,
+  measure: RcPathMeasure,
   horizontalOffset: Float,
   verticalOffset: Float,
   paint: RcPaintState,
@@ -5038,7 +5016,7 @@ private fun measureTextSegments(
 
 private fun DrawScope.drawTextSegmentsOnPath(
   segments: List<RcTextSegment>,
-  measure: org.jetbrains.skia.PathMeasure,
+  measure: RcPathMeasure,
   horizontalOffset: Float,
   verticalOffset: Float,
   paint: RcPaintState,
@@ -5057,8 +5035,8 @@ private fun DrawScope.drawTextSegmentsOnPath(
       contourLength = measure.length
       distance = 0f
     }
-    val position = measure.getPosition(distance + advance / 2f)
-    val tangent = measure.getTangent(distance + advance / 2f)
+    val position = measure.position(distance + advance / 2f)
+    val tangent = measure.tangent(distance + advance / 2f)
     if (position != null && tangent != null) {
       val composePosition = Offset(position.x, position.y)
       val placement =
@@ -5399,6 +5377,11 @@ private fun buildPath(data: RcPathData, state: RcPlayerState): Path {
       fillType = if (data.winding == 1) PathFillType.EvenOdd else PathFillType.NonZero
     }
   var index = 0
+  // Common `Path` cannot report its current point, and a conic drawn as quads needs its start.
+  var lastX = 0f
+  var lastY = 0f
+  var contourX = 0f
+  var contourY = 0f
   fun argument(): Float {
     if (index >= data.words.size) error("Truncated PathData ${data.id} at word $index")
     return state.resolve(data.words[index++])
@@ -5412,33 +5395,58 @@ private fun buildPath(data: RcPathData, state: RcPlayerState): Path {
       data.words[index++].referencedId
         ?: error("PathData ${data.id} command at word ${index - 1} is not NaN-encoded")
     when (command) {
-      RcPathCommands.MOVE -> path.moveTo(argument(), argument())
+      RcPathCommands.MOVE -> {
+        lastX = argument()
+        lastY = argument()
+        contourX = lastX
+        contourY = lastY
+        path.moveTo(lastX, lastY)
+      }
       RcPathCommands.LINE -> {
         skipLegacyPadding()
-        path.lineTo(argument(), argument())
+        lastX = argument()
+        lastY = argument()
+        path.lineTo(lastX, lastY)
       }
       RcPathCommands.QUADRATIC -> {
         skipLegacyPadding()
-        path.quadraticTo(argument(), argument(), argument(), argument())
+        val cx = argument()
+        val cy = argument()
+        lastX = argument()
+        lastY = argument()
+        path.quadraticTo(cx, cy, lastX, lastY)
       }
       RcPathCommands.CONIC -> {
         skipLegacyPadding()
-        path.conicToSkia(argument(), argument(), argument(), argument(), argument())
+        val cx = argument()
+        val cy = argument()
+        val x = argument()
+        val y = argument()
+        path.rcConicTo(lastX, lastY, cx, cy, x, y, argument())
+        lastX = x
+        lastY = y
       }
       RcPathCommands.CUBIC -> {
         skipLegacyPadding()
-        path.cubicTo(argument(), argument(), argument(), argument(), argument(), argument())
+        val c1x = argument()
+        val c1y = argument()
+        val c2x = argument()
+        val c2y = argument()
+        lastX = argument()
+        lastY = argument()
+        path.cubicTo(c1x, c1y, c2x, c2y, lastX, lastY)
       }
-      RcPathCommands.CLOSE -> path.close()
+      RcPathCommands.CLOSE -> {
+        path.close()
+        lastX = contourX
+        lastY = contourY
+      }
       RcPathCommands.DONE -> return path
       else -> error("PathData ${data.id} has unknown command $command")
     }
   }
   return path
 }
-
-/** Narrow platform seam for the one AndroidX path primitive absent from common Compose Path. */
-internal expect fun Path.conicToSkia(x1: Float, y1: Float, x2: Float, y2: Float, weight: Float)
 
 private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPlayerState) {
   val a = state.resolve(operation.first)
@@ -5831,8 +5839,6 @@ private fun applyPaint(
   }
 }
 
-private data class RcRuntimeShader(val shader: Shader, val owner: RuntimeShaderBuilder)
-
 private fun buildRuntimeShader(
   shaderId: Int,
   state: RcPlayerState,
@@ -5853,41 +5859,28 @@ private fun buildRuntimeShader(
       "Shader $shaderId references missing text ${data.shaderTextId}"
     }
   return try {
-    val builder = RuntimeShaderBuilder(RuntimeEffect.makeForShader(source))
+    val builder = rcRuntimeShaderBuilder(source)
     data.floatUniforms.forEach { (name, words) ->
       val dynamic = words.singleOrNull()?.referencedId?.let(state::floatValues)
-      val values = dynamic ?: words.map(state::resolve).toFloatArray()
-      when (values.size) {
-        1 -> builder.uniform(name, values[0])
-        2 -> builder.uniform(name, values[0], values[1])
-        3 -> builder.uniform(name, values[0], values[1], values[2])
-        4 -> builder.uniform(name, values[0], values[1], values[2], values[3])
-        else -> builder.uniform(name, values)
-      }
+      builder.floatUniform(name, dynamic ?: words.map(state::resolve).toFloatArray())
     }
     data.intUniforms.forEach { (name, values) ->
-      when (values.size) {
-        1 -> builder.uniform(name, values[0])
-        2 -> builder.uniform(name, values[0], values[1])
-        3 -> builder.uniform(name, values[0], values[1], values[2])
-        4 -> builder.uniform(name, values[0], values[1], values[2], values[3])
-        else ->
-          throw IllegalArgumentException(
-            "Shader $shaderId integer uniform '$name' has ${values.size} values; expected 1..4"
-          )
+      require(values.size in 1..4) {
+        "Shader $shaderId integer uniform '$name' has ${values.size} values; expected 1..4"
       }
+      builder.intUniform(name, values.toIntArray())
     }
     data.bitmapUniforms.forEach { (name, bitmapId) ->
       val image =
         requireNotNull(images[bitmapId]) {
           "Shader $shaderId bitmap uniform '$name' references missing bitmap $bitmapId"
         }
-      builder.child(name, image.asSkiaBitmap().makeShader())
+      builder.bitmapUniform(name, image)
     }
-    RcRuntimeShader(builder.makeShader().asComposeShader(), builder)
+    builder.build()
   } catch (failure: Throwable) {
     throw IllegalArgumentException(
-      "Shader $shaderId is unsupported by the Skia runtime: ${failure.message}",
+      "Shader $shaderId is unsupported by the platform runtime: ${failure.message}",
       failure,
     )
   }

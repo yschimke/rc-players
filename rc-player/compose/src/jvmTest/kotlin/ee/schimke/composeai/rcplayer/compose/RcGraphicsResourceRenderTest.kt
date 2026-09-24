@@ -144,7 +144,7 @@ class RcGraphicsResourceRenderTest {
 
     try {
       val failure = runCatching { scene.render(0L) }.exceptionOrNull()
-      assertTrue(failure?.message.orEmpty().contains("unsupported by the Skia runtime"))
+      assertTrue(failure?.message.orEmpty().contains("unsupported by the platform runtime"))
     } finally {
       scene.close()
     }

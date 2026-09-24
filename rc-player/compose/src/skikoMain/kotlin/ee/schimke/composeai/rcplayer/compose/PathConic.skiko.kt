@@ -3,7 +3,15 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asSkiaPath
 
-internal actual fun Path.conicToSkia(x1: Float, y1: Float, x2: Float, y2: Float, weight: Float) {
+internal actual fun Path.rcConicTo(
+  @Suppress("UNUSED_PARAMETER") x0: Float,
+  @Suppress("UNUSED_PARAMETER") y0: Float,
+  x1: Float,
+  y1: Float,
+  x2: Float,
+  y2: Float,
+  weight: Float,
+) {
   // Skiko m144 (CMP 1.11, skiko 0.144.6) deprecated the mutating `Path` API at
   // DeprecationLevel.ERROR in favour of `PathBuilder`. Source-level only — the native still exports
   // `Java_org_jetbrains_skia_PathKt__1nConicTo`, so the geometry is unchanged. This seam exists

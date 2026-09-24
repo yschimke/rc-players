@@ -1,10 +1,8 @@
 package ee.schimke.composeai.rcplayer.compose
 
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.platform.Font
 
 /**
  * One host-supplied face: the font file's bytes plus the `(weight, italic)` it was registered for.
@@ -70,9 +68,14 @@ public class RcFontFaces(private val faces: List<RcFontFace>) {
             val weight = FontWeight(face.weight)
             val style = if (face.italic) FontStyle.Italic else FontStyle.Normal
             if (composeSettings == null) {
-              Font(identity = face.identity, data = face.data, weight = weight, style = style)
+              rcFontFromBytes(
+                identity = face.identity,
+                data = face.data,
+                weight = weight,
+                style = style,
+              )
             } else {
-              Font(
+              rcFontFromBytes(
                 // The identity carries the axes, because Compose's font cache keys on it: two
                 // instances of one file that share an identity are the *same* cached typeface, so
                 // the first axis set drawn would silently be used for every later one (every line

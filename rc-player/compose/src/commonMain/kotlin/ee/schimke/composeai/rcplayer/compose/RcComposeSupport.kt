@@ -80,7 +80,6 @@ import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import ee.schimke.composeai.rcplayer.runtime.hasPortableVisibilityAnimation
 import ee.schimke.composeai.rcplayer.runtime.isLayoutComputeExecutable
-import org.jetbrains.skia.RuntimeEffect
 
 /**
  * How much of a document an issue costs, and therefore whether a lenient host can play it anyway.
@@ -1634,10 +1633,8 @@ private fun hasInvalidDrawContent(
   }
 }
 
-private fun runtimeShaderSourceIsSupported(source: String): Boolean = runCatching {
-  RuntimeEffect.makeForShader(source).close()
-}
-  .isSuccess
+private fun runtimeShaderSourceIsSupported(source: String): Boolean =
+  rcRuntimeShaderSupported(source)
 
 private fun paintIssue(
   paint: RcPaintData,

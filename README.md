@@ -245,8 +245,8 @@ Worth knowing here specifically:
 - `.build-brief.json` is available for project-specific regex matches but is intentionally absent
   until this repository has a result line worth surfacing.
 
-An Android SDK is needed for `third_party/rc-embedded-player` (`ANDROID_HOME`, or `sdk.dir` in
-`local.properties`). The Apple targets only build on macOS; on Linux the Kotlin Gradle plugin disables
+An Android SDK is needed for `third_party/rc-embedded-player` and for the published `rc-player/*`
+modules' Android target (`ANDROID_HOME`, or `sdk.dir` in `local.properties`). The Apple targets only build on macOS; on Linux the Kotlin Gradle plugin disables
 them with a warning rather than failing.
 
 `-Pcomposeai.remoteCompose=snapshot` swaps the pinned AndroidX Remote Compose alphas for the
@@ -262,6 +262,7 @@ rather than by what the change touched:
 | | Linux (`ubuntu-latest`) | macOS (`macos-15`) |
 | --- | --- | --- |
 | JVM suites for the four published modules, `compat-tests`, `metrics`, `profile` | ✅ | ✅ (via `allTests`) |
+| Android host tests for `trace`, `protocol`, `runtime`; Android compile of `compose` | ✅ | |
 | Vendored Android player, Robolectric (`testDebugUnitTest`) | ✅ | |
 | Vendored JVM and TypeScript players | ✅ | |
 | `macosArm64Test`, `iosSimulatorArm64Test`, `wasmJsBrowserTest` | | ✅ |
