@@ -375,6 +375,19 @@ enum NativeSwiftDocumentDecoder {
         offset: offset)
     }
 
+    /// The path a paint operation's id word names, read as AndroidX `PaintOperation.getId` reads
+    /// it: the low sixteen bits are the path id, or with the dereference bit set, an integer
+    /// variable whose value picks among the paths declared so far each time the operation paints.
+    /// Nil for a literal id that names no path.
+    func paintOperationPath(_ word: Int, opcode: Int, offset: Int) -> ParsedPath? {
+      let id = word & NativeSwiftPaintOperationID.valueMask
+      guard word & NativeSwiftPaintOperationID.pointerDereference != 0 else { return paths[id] }
+      return ParsedPath(
+        winding: NativeSwiftPathWinding.nonZero,
+        source: .dereferenced(ParsedPathDereference(variableID: id, candidates: paths)),
+        opcode: opcode, offset: offset)
+    }
+
     func drawingNode() throws -> ParsedNode {
       let node = try drawingTarget()
       if !impulseScopes.isEmpty, !impulseDrawTargets.contains(where: { $0.node === node }) {
@@ -1751,21 +1764,26 @@ enum NativeSwiftDocumentDecoder {
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.drawPath:
         let id = try input.int("path id")
-        guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
+        guard let path = paintOperationPath(id, opcode: opcode, offset: opcodeOffset) else {
+          throw input.malformed("Missing path \(id & NativeSwiftPaintOperationID.valueMask)")
+        }
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: NativeSwiftDrawKind.path, words: [], paint: paint, path: path))
       case NativeSwiftWireOpcode.drawTweenPath:
         // Draws the interpolation between two paths, trimmed to the [start, stop] fraction of its
-        // length (AndroidX `DrawTweenPath`): both path ids, then the tween, start and stop.
+        // length (AndroidX `DrawTweenPath`): both path ids, then the tween, start and stop. Each
+        // id is read through `PaintOperation.getId`, so either may name an integer variable.
         let firstID = try input.int("tween path first path id")
         let secondID = try input.int("tween path second path id")
         let fraction = try input.word("tween path fraction")
         let start = try input.word("tween path start")
         let stop = try input.word("tween path stop")
-        guard let first = paths[firstID] else { throw input.malformed("Missing path \(firstID)") }
-        guard let second = paths[secondID] else {
-          throw input.malformed("Missing path \(secondID)")
+        let mask = NativeSwiftPaintOperationID.valueMask
+        guard let first = paintOperationPath(firstID, opcode: opcode, offset: opcodeOffset) else {
+          throw input.malformed("Missing path \(firstID & mask)")
         }
+        guard let second = paintOperationPath(secondID, opcode: opcode, offset: opcodeOffset)
+        else { throw input.malformed("Missing path \(secondID & mask)") }
         let path = try tweenPath(
           first, second, fraction: fraction, start: start, stop: stop, opcode: opcode,
           offset: opcodeOffset)
@@ -2105,8 +2123,10 @@ enum NativeSwiftDocumentDecoder {
       case NativeSwiftWireOpcode.layoutCanvasContent:  // Canvas content
         // INT component id, the same shape as the content at 201, and the same role: the container
         // a canvas draws into.
-        try begin(
-          ParsedNode(kind: .content, componentID: try input.int("canvas content component id")))
+        let node = ParsedNode(
+          kind: .content, componentID: try input.int("canvas content component id"))
+        node.isCanvasContent = true
+        try begin(node)
       case NativeSwiftWireOpcode.layoutFitBox:  // Fit box
         // Component id, animation id, both positionings. A fit box scales its content to fit rather
         // than clipping it; laid out here as an ordinary box, so the content keeps its own size.
@@ -3068,6 +3088,9 @@ final class ParsedNode {
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
   /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
   fileprivate(set) var componentKind = ""
+  /// Set on a `CanvasContent` (207): a content node, like the one at 201, but the one whose
+  /// presence makes a `CanvasLayout` fill its children rather than lay them out as a box.
+  fileprivate(set) var isCanvasContent = false
   /// Set by the scroll modifier (226).
   fileprivate(set) var scrollDirection: NativeSwiftScrollDirection?
   /// The float word holding the scroll position, and the one holding how far it may travel. The

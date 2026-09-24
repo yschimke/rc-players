@@ -232,9 +232,13 @@ public struct NativeSwiftLayoutComputeSnapshot: Sendable, Equatable {
   /// The reference's `animateChanges`: whether a change the computation makes may animate.
   public let animateChanges: Bool
   let steps: [NativeSwiftLayoutComputeStep]
-  /// Whether the bounds array is a `DynamicFloatList`, which is the only kind the reference
-  /// writes the component's box into before the body runs.
-  let seedsBounds: Bool
+  /// The lists the body reads or writes that are `DynamicFloatList`s. The reference writes the
+  /// component's box into the bounds array only when it is one, and `UpdateDynamicFloatList`
+  /// changes only a list its state holds as dynamic (`getDynamicFloats`), so an update to a static
+  /// `DataListFloat` is ignored rather than altering a copy the body reads back.
+  let dynamicListIDs: Set<Int>
+  /// Whether the bounds array is a `DynamicFloatList`, which the component's box is seeded into.
+  var seedsBounds: Bool { dynamicListIDs.contains(boundsID) }
   /// The lists the body reads or writes, as this frame resolved them.
   let lists: [Int: [Float]]
   /// The float values the body reads, as this frame resolved them.
@@ -265,8 +269,8 @@ public struct NativeSwiftLayoutComputeSnapshot: Sendable, Equatable {
         else { return nil }
         locals[id] = value
       case .update(let listID, let indexWord, let valueWord):
-        // The reference ignores an update to a list it does not hold, or past its end.
-        guard var list = arrays[listID] else { continue }
+        // The reference ignores an update to a list it does not hold as dynamic, or past its end.
+        guard dynamicListIDs.contains(listID), var list = arrays[listID] else { continue }
         let index = nativeSwiftClampedInt(
           NativeSwiftFloatExpression.resolve(indexWord, values: locals))
         guard list.indices.contains(index) else { continue }

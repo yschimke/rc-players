@@ -801,6 +801,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return NativeSwiftNodeSnapshot(
       kind: node.kind,
       componentKind: node.componentKind,
+      isCanvasContent: node.isCanvasContent,
       componentID: node.componentID,
       children: try resolvedChildren(
         of: node, values: values, colors: resolvedColors,
@@ -808,7 +809,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       commands: try node.commands.compactMap { command -> NativeSwiftDrawCommandSnapshot? in
         guard impulseAllows(command.impulseGate) else { return nil }
         return try command.resolve(
-          values: values, colors: resolvedColors, texts: texts,
+          values: values, integers: integers, colors: resolvedColors, texts: texts,
           matrices: document.matrixExpressions)
       },
       isClickable: node.isClickable,
@@ -939,13 +940,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for id in listIDs {
       if let list = floatList(id: id, staticFirst: true, values: values) { lists[id] = list }
     }
-    // The reference copies the component's box in only when the array is a DynamicFloatList.
-    let seedsBounds =
-      document.dynamicFloatLists[compute.boundsID] != nil
-      && document.floatLists[compute.boundsID] == nil
+    // A list is dynamic when it is a DynamicFloatList and no static list of the same id shadows
+    // it, as `floatList(staticFirst:)` reads it: the reference seeds the component's box into, and
+    // applies `UpdateDynamicFloatList` to, only those.
+    let dynamicListIDs = listIDs.filter {
+      document.dynamicFloatLists[$0] != nil && document.floatLists[$0] == nil
+    }
     return NativeSwiftLayoutComputeSnapshot(
       type: compute.type, boundsID: compute.boundsID, animateChanges: compute.animateChanges,
-      steps: compute.steps, seedsBounds: seedsBounds, lists: lists, values: readValues)
+      steps: compute.steps, dynamicListIDs: dynamicListIDs, lists: lists, values: readValues)
   }
 
   /// A state layout's branches, unwrapping the bare content node they usually share.

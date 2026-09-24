@@ -401,6 +401,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// `StateLayout` — as the conformance corpus's `tree` probe spells it. Empty for a structural
   /// content wrapper, which the corpus never names.
   public let componentKind: String
+  /// Whether this is a `CanvasContent` (207) rather than an ordinary content wrapper. Both are
+  /// `.content` with an empty `componentKind`, but a `CanvasLayout` holding a canvas content sizes
+  /// every child to itself, while one without lays its children out as a `BoxLayout` does.
+  public let isCanvasContent: Bool
   public let componentID: Int
   public let children: [NativeSwiftNodeSnapshot]
   public let commands: [NativeSwiftDrawCommandSnapshot]
