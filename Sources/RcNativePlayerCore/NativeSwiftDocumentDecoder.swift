@@ -1993,13 +1993,13 @@ enum NativeSwiftDocumentDecoder {
         // `size` is no longer checked here: it may be a reference, and `resolvedFloat` applies the
         // same `> 0` rule once there is a number to apply it to.
         guard (0...3).contains(style),
-          (NativeSwiftTextAlignment.left...NativeSwiftTextAlignment.end).contains(alignmentAndFlags & 0xffff),
+          let alignment = NativeSwiftTextAlignment(rawValue: alignmentAndFlags & 0xffff),
           maximumLines > 0
         else { throw input.malformed("Invalid text layout values") }
         node.text = ParsedText(
           textID: textID, colorARGB: color, colorID: nil, sizeWord: size, style: style,
           weightWord: weight,
-          familyID: familyID, alignment: alignmentAndFlags & 0xffff, overflow: overflow,
+          familyID: familyID, alignment: alignment, overflow: overflow,
           maximumLines: maximumLines)
         try begin(node)
       case NativeSwiftWireOpcode.layoutImage:  // Image layout
@@ -2119,7 +2119,8 @@ enum NativeSwiftDocumentDecoder {
           style: integers[NativeSwiftTextProperty.fontStyle] ?? 0,
           weightWord: floats[NativeSwiftTextProperty.fontWeight] ?? Float(400).bitPattern,
           familyID: integers[NativeSwiftTextProperty.fontFamily] ?? -1,
-          alignment: integers[NativeSwiftTextProperty.textAlign] ?? NativeSwiftTextAlignment.left,
+          alignment: integers[NativeSwiftTextProperty.textAlign].map(
+            NativeSwiftTextAlignment.init(wireValue:)) ?? .left,
           overflow: integers[NativeSwiftTextProperty.overflow] ?? NativeSwiftTextOverflow.clip,
           maximumLines: integers[NativeSwiftTextProperty.maxLines] ?? Int.max)
         try begin(node)
@@ -2539,7 +2540,8 @@ enum NativeSwiftDocumentDecoder {
         paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
       case NativeSwiftPaintCommand.strokeJoin:
         paint.strokeJoin = NativeSwiftStrokeJoin(wireValue: highBits)
-      case NativeSwiftPaintCommand.blendMode: paint.blendMode = highBits
+      case NativeSwiftPaintCommand.blendMode:
+        paint.blendMode = NativeSwiftPaintBlendMode(wireValue: highBits)
       case NativeSwiftPaintCommand.imageFilterQuality:
         // Image filter quality: 0 none, 1 low, 2 medium, 3 high. Anything else is the reference's
         // low fallback.
@@ -2555,11 +2557,11 @@ enum NativeSwiftDocumentDecoder {
       case NativeSwiftPaintCommand.colorFilter:
         paint.colorFilterARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorFilterID = nil
-        paint.colorFilterMode = highBits
+        paint.colorFilterMode = NativeSwiftPaintBlendMode(wireValue: highBits)
       case NativeSwiftPaintCommand.colorFilterID:
         paint.colorFilterID = words[index]
         paint.colorFilterARGB = nil
-        paint.colorFilterMode = highBits
+        paint.colorFilterMode = NativeSwiftPaintBlendMode(wireValue: highBits)
       case NativeSwiftPaintCommand.clearColorFilter:
         paint.colorFilterARGB = nil
         paint.colorFilterID = nil
