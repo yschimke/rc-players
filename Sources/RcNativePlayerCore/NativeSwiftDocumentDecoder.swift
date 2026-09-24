@@ -1932,9 +1932,9 @@ enum NativeSwiftDocumentDecoder {
             literalBound(maximumWord, negative: definition.particleCount)
               - literalBound(minimumWord, negative: 0)))
         let visits = compare.comparesPairs ? selected * (selected - 1) / 2 : selected
-        let evaluations = Int64(
-          1 + condition.count + compare.firstEquations.reduce(0) { $0 + $1.count }
-            + compare.secondEquations.reduce(0) { $0 + $1.count })
+        let firstWords: Int = compare.firstEquations.reduce(0) { $0 + $1.count }
+        let secondWords: Int = compare.secondEquations.reduce(0) { $0 + $1.count }
+        let evaluations = Int64(1 + condition.count + firstWords + secondWords)
         guard visits * evaluations <= 20_000 else {
           throw input.malformed("Particle compare exceeds 20000 units of work per frame")
         }
