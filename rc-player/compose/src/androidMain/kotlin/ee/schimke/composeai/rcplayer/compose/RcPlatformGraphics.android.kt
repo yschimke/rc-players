@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * Compose on Android builds typefaces from files, not bytes, so the bytes are written once per
@@ -36,12 +37,16 @@ internal actual fun rcFontFromBytes(
   else Font(file, weight, style, variationSettings)
 }
 
-private val rcFontFiles = mutableMapOf<Int, File>()
+private val rcFontFiles = mutableMapOf<String, File>()
 
-/** One file per distinct font payload — instances of the same file share it. */
-private fun rcFontFile(data: ByteArray): File =
-  synchronized(rcFontFiles) {
-    val key = data.contentHashCode()
+/**
+ * One file per distinct font payload — instances of the same file share it. Keyed by SHA-256 of
+ * the whole payload, so two different fonts can never be handed each other's file.
+ */
+private fun rcFontFile(data: ByteArray): File {
+  val key =
+    MessageDigest.getInstance("SHA-256").digest(data).joinToString("") { "%02x".format(it) }
+  return synchronized(rcFontFiles) {
     rcFontFiles[key]?.takeIf { it.length() == data.size.toLong() }
       ?: File.createTempFile("rc-font-", ".ttf").also { file ->
         file.deleteOnExit()
@@ -49,6 +54,7 @@ private fun rcFontFile(data: ByteArray): File =
         rcFontFiles[key] = file
       }
   }
+}
 
 /**
  * `Canvas.getMatrix` — deprecated because on a hardware canvas it is relative to the current render
