@@ -343,7 +343,7 @@ struct ParsedDrawCommand {
   }
 
   func resolve(
-    values: [Int: Float], colors: [Int: UInt32], texts: [Int: String],
+    values: [Int: Float], integers: [Int: Int], colors: [Int: UInt32], texts: [Int: String],
     matrices: [Int: ParsedMatrixExpression]
   ) throws
     -> NativeSwiftDrawCommandSnapshot
@@ -354,7 +354,7 @@ struct ParsedDrawCommand {
         nanSentinelIndices.contains(index)
           ? .nan : NativeSwiftFloatExpression.resolve(word, values: values)
       }
-    let resolvedPath = try path?.resolve(values: values) ?? []
+    let resolvedPath = try path?.resolve(values: values, integers: integers) ?? []
     // MATRIX_FROM_PATH draws as the matrix measured off its path, not as the path itself.
     let isPathMatrix = kind == NativeSwiftDrawKind.matrixFromPath
     return NativeSwiftDrawCommandSnapshot(
@@ -376,7 +376,7 @@ struct ParsedDrawCommand {
       strokeJoin: paint.strokeJoin,
       blendMode: paint.blendMode,
       path: isPathMatrix ? [] : resolvedPath,
-      pathWinding: path?.winding ?? NativeSwiftPathWinding.nonZero,
+      pathWinding: path?.winding(integers: integers) ?? NativeSwiftPathWinding.nonZero,
       image: image?.resolve(values: values, texts: texts),
       textureImageID: paint.textureImageID,
       textureTileModeX: paint.textureTileModeX,

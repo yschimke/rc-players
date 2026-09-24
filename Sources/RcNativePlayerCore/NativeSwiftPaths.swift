@@ -19,13 +19,17 @@ struct ParsedPath {
     case expression(ParsedPathExpression)
     /// A `PATH_TWEEN` or `DRAW_TWEEN_PATH`: two paths as they stood when the operation ran.
     case tween(ParsedPathTween)
+    /// A `DRAW_PATH` or `DRAW_TWEEN_PATH` path id that names an integer variable: whichever path
+    /// that variable holds when the operation paints.
+    case dereferenced(ParsedPathDereference)
   }
 
   let winding: NativeSwiftPathWinding
   let source: Source
   /// The paths of its own this path's geometry reads: one for a path with its own geometry, both
-  /// sides' for a tween. Every one is resolved on every frame the path draws, so a tween of tweens
-  /// is bounded by it (`ParsedPathTween.maximumSources`).
+  /// sides' for a tween, and the most any one candidate reads for a dereferenced path, which
+  /// resolves only the one its variable picks. Every one is resolved on every frame the path
+  /// draws, so a tween of tweens is bounded by it (`ParsedPathTween.maximumSources`).
   let sourceCount: Int
   private(set) var words: [UInt32]
   /// Never empty: every path starts with the operation that declared it.
@@ -46,6 +50,7 @@ struct ParsedPath {
     switch source {
     case .words, .expression: sourceCount = 1
     case .tween(let tween): sourceCount = tween.first.sourceCount + tween.second.sourceCount
+    case .dereferenced(let dereference): sourceCount = dereference.sourceCount
     }
     words = []
     origins = [Origin(firstWord: 0, opcode: opcode, offset: offset)]
@@ -120,10 +125,30 @@ struct ParsedPath {
     case .words: return false
     case .expression(let expression): return expression.references(anyOf: ids)
     case .tween(let tween): return tween.references(anyOf: ids)
+    case .dereferenced(let dereference):
+      return dereference.candidates.values.contains { $0.references(anyOf: ids) }
     }
   }
 
-  func resolve(values: [Int: Float]) throws -> [NativeSwiftPathElementSnapshot] {
+  /// The path that draws for this frame: itself, or for a dereferenced path the candidate its
+  /// variable holds in `integers` — nil when that names no path.
+  func selected(integers: [Int: Int]) -> ParsedPath? {
+    guard case .dereferenced(let dereference) = source else { return self }
+    return dereference.path(integers: integers)
+  }
+
+  /// The winding this frame fills with: a dereferenced path fills as the path it picks does.
+  func winding(integers: [Int: Int]) -> NativeSwiftPathWinding {
+    guard case .dereferenced = source else { return winding }
+    return selected(integers: integers)?.winding ?? winding
+  }
+
+  /// The path's elements for a frame. `integers` is the frame's integer state, which a
+  /// dereferenced path id reads; a variable that names no path draws nothing, as the reference's
+  /// canvas player skips a path its state does not hold.
+  func resolve(values: [Int: Float], integers: [Int: Int]) throws
+    -> [NativeSwiftPathElementSnapshot]
+  {
     switch source {
     case .words:
       return try resolveWords(values: values)
@@ -132,21 +157,27 @@ struct ParsedPath {
         fromData: expression.data(values: values), opcode: expression.opcode,
         offset: expression.offset) + resolveWords(values: values)
     case .tween(let tween):
-      return try tween.resolve(values: values) + resolveWords(values: values)
+      return try tween.resolve(values: values, integers: integers) + resolveWords(values: values)
+    case .dereferenced(let dereference):
+      guard let path = dereference.path(integers: integers) else { return [] }
+      return try path.resolve(values: values, integers: integers)
     }
   }
 
   /// The path as AndroidX holds it in its state: the float array `PATH_DATA` carries, with each
   /// command token kept and every argument resolved. A tween interpolates two of these word by
   /// word, so it has to see the legacy padding words as well.
-  func data(values: [Int: Float]) throws -> [Float] {
+  func data(values: [Int: Float], integers: [Int: Int]) throws -> [Float] {
     switch source {
     case .words:
       return try wordData(values: values)
     case .expression(let expression):
       return try expression.data(values: values) + wordData(values: values)
     case .tween(let tween):
-      return try tween.data(values: values) + wordData(values: values)
+      return try tween.data(values: values, integers: integers) + wordData(values: values)
+    case .dereferenced(let dereference):
+      guard let path = dereference.path(integers: integers) else { return [] }
+      return try path.data(values: values, integers: integers)
     }
   }
 
@@ -582,13 +613,18 @@ struct ParsedPathTween {
 
   /// The interpolated path data. At exactly 0 or 1 it is one side's data as it stands; otherwise
   /// every number in the second path's length is interpolated from the first's, and every command
-  /// token is the first path's, so the first path must be at least as long as the second.
-  func data(values: [Int: Float]) throws -> [Float] {
+  /// token is the first path's, so the first path must be at least as long as the second. A side
+  /// whose dereferenced id names no path this frame leaves nothing to draw, as the reference's
+  /// canvas player draws nothing for a tween it cannot find both paths of.
+  func data(values: [Int: Float], integers: [Int: Int]) throws -> [Float] {
+    guard let first = first.selected(integers: integers),
+      let second = second.selected(integers: integers)
+    else { return [] }
     let tween = NativeSwiftFloatExpression.resolve(fraction, values: values)
-    if tween == 0 { return try first.data(values: values) }
-    if tween == 1 { return try second.data(values: values) }
-    let from = try first.data(values: values)
-    let to = try second.data(values: values)
+    if tween == 0 { return try first.data(values: values, integers: integers) }
+    if tween == 1 { return try second.data(values: values, integers: integers) }
+    let from = try first.data(values: values, integers: integers)
+    let to = try second.data(values: values, integers: integers)
     guard from.count >= to.count else {
       throw NativeSwiftCoreError.malformed(
         offset: offset, reason: "A path tween's first path is shorter than its second")
@@ -602,9 +638,11 @@ struct ParsedPathTween {
 
   /// The interpolated path, trimmed as `FloatsToPath.genPath` trims: to its first contour's
   /// `[start, stop]` fraction, unless the range covers the whole path.
-  func resolve(values: [Int: Float]) throws -> [NativeSwiftPathElementSnapshot] {
+  func resolve(values: [Int: Float], integers: [Int: Int]) throws
+    -> [NativeSwiftPathElementSnapshot]
+  {
     let elements = try ParsedPath.elements(
-      fromData: data(values: values), opcode: opcode, offset: offset)
+      fromData: data(values: values, integers: integers), opcode: opcode, offset: offset)
     let trimStart = NativeSwiftFloatExpression.resolve(start, values: values)
     let trimStop = NativeSwiftFloatExpression.resolve(stop, values: values)
     guard trimStart > 0 || trimStop < 1 else { return elements }
@@ -612,6 +650,29 @@ struct ParsedPathTween {
     let measure = NativeSwiftPathMeasure(elements)
     return measure.segment(
       from: max(trimStart, 0) * measure.length, to: min(trimStop, 1) * measure.length)
+  }
+}
+
+/// A path id word with `NativeSwiftPaintOperationID.pointerDereference` set, as AndroidX
+/// `PaintOperation.getId` reads it when the operation paints: the id's low sixteen bits name an
+/// integer variable, and that variable's value names the path. `candidates` are the document's
+/// paths as they stood when the operation ran, as every other path an operation reads is.
+struct ParsedPathDereference {
+  let variableID: Int
+  let candidates: [Int: ParsedPath]
+  /// The most paths of their own any one candidate reads: only the one picked is resolved.
+  let sourceCount: Int
+
+  init(variableID: Int, candidates: [Int: ParsedPath]) {
+    self.variableID = variableID
+    self.candidates = candidates
+    sourceCount = max(candidates.values.map(\.sourceCount).max() ?? 1, 1)
+  }
+
+  /// The candidate the variable holds in `integers`; an unset variable reads 0, as the
+  /// reference's integer state does.
+  func path(integers: [Int: Int]) -> ParsedPath? {
+    candidates[integers[variableID] ?? 0]
   }
 }
 
@@ -877,7 +938,9 @@ struct NativeSwiftPathMeasure {
     guard !segments.isEmpty else { return [] }
     let from = max(Double(startDistance), 0)
     let to = min(Double(stopDistance), total)
-    guard from <= to else { return [] }
+    // `PathMeasure.getSegment` returns false, leaving the destination empty, once the clamped
+    // start is not before the stop: an equal pair is a zero-length piece that draws nothing.
+    guard from < to else { return [] }
     let start = locate(from)
     let stop = locate(to)
     let origin = Self.position(segments[start.segment], start.t)

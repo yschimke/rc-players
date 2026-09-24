@@ -981,7 +981,11 @@ import Testing
     staticBounds.u8(Op.floatList).int(measureBounds).int(6)
     for value: Float in [1, 2, 3, 4, 5, 6] { staticBounds.float(value) }
     staticBounds.u8(Op.layoutRoot).int(1).u8(Op.layoutBox).int(3).int(-1).int(1).int(1)
-    staticBounds.u8(Op.layoutCompute).int(0).int(measureBounds).u8(0).u8(Op.containerEnd)
+    // `UpdateDynamicFloatList` only changes a list the reference holds as dynamic, so the body's
+    // write into the static list is ignored rather than altering the bounds read back.
+    staticBounds.u8(Op.layoutCompute).int(0).int(measureBounds).u8(0)
+    staticBounds.u8(Op.updateDynamicFloatList).int(measureBounds).float(2).float(99)
+    staticBounds.u8(Op.containerEnd)
     staticBounds.u8(Op.containerEnd).u8(Op.containerEnd)
     let staticBox = try #require(
       findNode(3, in: try NativeSwiftDocumentSession.open(data: staticBounds.data).snapshot().root))
@@ -1016,6 +1020,26 @@ import Testing
     truncated.u8(Op.dynamicFloatList).int(measureBounds)
     expectMalformed(
       truncated.data, containing: "Unexpected end", "a truncated LayoutCompute body")
+  }
+
+  /// A `CanvasContent` (207) is a content node like the one at 201, but the snapshot says which it
+  /// is: a `CanvasLayout` holding one fills its children instead of laying them out as a box.
+  @Test func canvasContentIsDistinguishedFromContent() throws {
+    typealias Op = NativeSwiftWireOpcode
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(Op.layoutRoot).int(1).u8(Op.layoutContent).int(6)
+    document.u8(Op.layoutCanvas).int(2).int(-1)
+    document.u8(Op.layoutCanvasContent).int(3)
+    document.u8(Op.drawRect).float(0).float(0).float(5).float(5)
+    document.u8(Op.containerEnd).u8(Op.containerEnd)
+    document.u8(Op.containerEnd).u8(Op.containerEnd)
+    let root = try NativeSwiftDocumentSession.open(data: document.data).snapshot().root
+    let canvasContent = try #require(findNode(3, in: root), "the canvas content was not decoded")
+    let content = try #require(findNode(6, in: root), "the content was not decoded")
+    #expect(canvasContent.kind == .content && canvasContent.isCanvasContent)
+    #expect(content.kind == .content && !content.isCanvasContent)
+    #expect(findNode(2, in: root)?.isCanvasContent == false)
   }
 
   @Test func macroBlocksOutsideAndInsideNestedCalls() throws {
@@ -2252,6 +2276,58 @@ import Testing
     let trimmed = try tween(0, start: 0.25, stop: 0.75)
     #expect(trimmed == [[5, 0], [10, 0], [10, 5]], Comment(rawValue: "trimmed: \(trimmed)"))
     #expect(try tween(0, start: 0.75, stop: 0.25).isEmpty)
+    // `PathMeasure.getSegment` leaves its destination empty once the clamped distances meet, so a
+    // range wholly past either end draws nothing rather than a move and a zero-length line.
+    let pastEnd = try tween(0, start: 1, stop: 2)
+    #expect(pastEnd.isEmpty, Comment(rawValue: "trimmed past the end: \(pastEnd)"))
+    let beforeStart = try tween(0, start: -1, stop: 0)
+    #expect(beforeStart.isEmpty, Comment(rawValue: "trimmed before the start: \(beforeStart)"))
+  }
+
+  /// A path id with `NativeSwiftPaintOperationID.pointerDereference` set names an integer variable
+  /// that AndroidX's `PaintOperation.getId` reads each time the operation paints: the path drawn
+  /// follows the variable, and a variable naming no path draws nothing. A literal id is its low
+  /// sixteen bits. `DRAW_TWEEN_PATH` and `DRAW_PATH` read their ids the same way.
+  @Test func drawTweenPathDereferencesIntegerPathIDs() throws {
+    let move = NativeSwiftPathCommand.move
+    let line = NativeSwiftPathCommand.line
+    let pointer = NativeSwiftPaintOperationID.pointerDereference
+    let selector = 200
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(NativeSwiftWireOpcode.dataInt).int(selector).int(1)
+    document.namedVariable(id: selector, type: NativeSwiftNamedVariableType.int, name: "path")
+    pathData(document, id: 1, [(move, [0, 0]), (line, [10, 0])])
+    pathData(document, id: 2, [(move, [0, 20]), (line, [30, 20])])
+    pathData(document, id: 3, [(move, [0, 40]), (line, [50, 40])])
+    document.u8(NativeSwiftWireOpcode.drawTweenPath).int(pointer | selector).int(0x1_0000 | 3)
+      .float(0.5).float(0).float(1)
+    document.u8(NativeSwiftWireOpcode.drawPath).int(pointer | selector)
+    let session = try NativeSwiftDocumentSession.open(data: document.data)
+    func drawn() throws -> (tween: [[Float]], path: [[Float]]) {
+      let commands = try session.snapshot().root.commands
+      let tween = try #require(commands.first { $0.kind == NativeSwiftDrawKind.tweenPath })
+      let path = try #require(commands.first { $0.kind == NativeSwiftDrawKind.path })
+      return (tween.path.map(\.values), path.path.map(\.values))
+    }
+    let first = try drawn()
+    #expect(first.tween == [[0, 20], [30, 20]], Comment(rawValue: "path 1 to 3: \(first.tween)"))
+    #expect(first.path == [[0, 0], [10, 0]], Comment(rawValue: "path 1: \(first.path)"))
+    #expect(session.setInteger(2, for: "path"))
+    let second = try drawn()
+    #expect(
+      second.tween == [[0, 30], [40, 30]], Comment(rawValue: "path 2 to 3: \(second.tween)"))
+    #expect(second.path == [[0, 20], [30, 20]], Comment(rawValue: "path 2: \(second.path)"))
+    #expect(session.setInteger(9, for: "path"))
+    let missing = try drawn()
+    #expect(missing.tween.isEmpty && missing.path.isEmpty, "a variable naming no path drew")
+
+    // A literal id that names no path is still refused on open.
+    let literal = Writer()
+    literal.header(width: 100, height: 100)
+    pathData(literal, id: 1, [(move, [0, 0]), (line, [10, 0])])
+    literal.u8(NativeSwiftWireOpcode.drawTweenPath).int(1).int(7).float(0.5).float(0).float(1)
+    expectMalformed(literal.data, containing: "Missing path 7", "a tween of an undeclared path")
   }
 
   /// A trim through a curve splits it where its arc length says, not at the parameter: a cubic

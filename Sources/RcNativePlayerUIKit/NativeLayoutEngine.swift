@@ -79,6 +79,10 @@ struct NativeLayoutNode: Equatable {
   var acceptsPointerAction: Bool = false
   /// The component's `LayoutComputeOperation` modifiers, which a box parent runs over its box.
   var layoutComputes: [NativeSwiftLayoutComputeSnapshot] = []
+  /// Whether a canvas holds a `CanvasContent`, directly or inside its content wrapper — the
+  /// reference's `mHasCanvasLayoutContent`, which makes `CanvasLayout` fill every child to its
+  /// content size instead of laying them out as a `BoxLayout`.
+  var hasCanvasContent: Bool = false
 }
 
 extension NativeLayoutNode {
@@ -120,6 +124,12 @@ extension NativeLayoutNode {
     let isEnabled = snapshot.accessibility?.isEnabled ?? true
     acceptsPointerAction = hasSemantics && isEnabled && !snapshot.supportedGestures.isEmpty
     layoutComputes = snapshot.layoutComputes
+    hasCanvasContent =
+      snapshot.kind == .canvas
+      && snapshot.children.contains { child in
+        child.isCanvasContent
+          || (child.kind == .content && child.children.contains { $0.isCanvasContent })
+      }
   }
 }
 
@@ -237,10 +247,13 @@ struct NativeLayoutEngine {
   }
 
   /// Whether a container runs its children's `LayoutComputeOperation`s. The reference's
-  /// `BoxLayout` does, from its measure and layout passes, and `CanvasLayout` inherits it; no other
-  /// layout manager calls `applyComputedLayout`, so a computation under a row or column is inert.
+  /// `BoxLayout` does, from its measure and layout passes, and `CanvasLayout` inherits it only
+  /// when it delegates to `BoxLayout`: a canvas holding a `CanvasContent` sizes every child to its
+  /// content and never runs the computations. No other layout manager calls
+  /// `applyComputedLayout`, so a computation under a row or column is inert.
   static func runsLayoutComputes(_ container: NativeLayoutNode) -> Bool {
-    container.componentKind == "BoxLayout" || container.componentKind == "CanvasLayout"
+    if container.componentKind == "BoxLayout" { return true }
+    return container.componentKind == "CanvasLayout" && !container.hasCanvasContent
   }
 
   /// The components a container lays out: its non-GONE children, looking through structural ones.
@@ -721,8 +734,8 @@ struct NativeLayoutEngine {
         : CGRect(origin: content.origin, size: content.size)
       if runsComputes, !child.layoutNode.layoutComputes.isEmpty {
         // `BoxLayout` measures the child, applies its measure computations, aligns the result and
-        // then applies its position computations. A canvas lays such a child out the same way,
-        // as `CanvasLayout` does when it holds components rather than a canvas content.
+        // then applies its position computations. A canvas without a canvas content lays such a
+        // child out the same way, as `CanvasLayout` delegates to `BoxLayout` then.
         let computed = computedSize(of: child.layoutNode, measured: size, parent: bounds.size)
         frame = computedFrame(
           of: child.layoutNode, frame: alignedFrame(size: computed, in: space, container: node),

@@ -386,13 +386,21 @@ public enum NativeSwiftDrawToBitmapMode {
   public static let noInitialize = 1
 }
 
-/// How `DrawToBitmap`'s bitmap-id word is read, from AndroidX `PaintOperation.getId`: the low
-/// sixteen bits are the id, and the dereference bit makes that id an integer variable holding it.
+/// How a paint operation's path or bitmap id word is read, from AndroidX `PaintOperation`
+/// (`VALUE_MASK`, `PTR_DEREFERENCE`) and its `getId`: the low sixteen bits are the id, and the
+/// dereference bit makes those bits an integer variable whose value, read when the operation
+/// paints, is the id.
+public enum NativeSwiftPaintOperationID {
+  public static let valueMask = 0xffff
+  public static let pointerDereference = 1 << 30
+}
+
+/// How `DrawToBitmap`'s bitmap-id word is read: as every `NativeSwiftPaintOperationID` is.
 public enum NativeSwiftDrawToBitmapID {
   /// The id that returns drawing to the main canvas rather than naming a bitmap.
   public static let mainCanvas = 0
-  public static let valueMask = 0xffff
-  public static let pointerDereference = 1 << 30
+  public static let valueMask = NativeSwiftPaintOperationID.valueMask
+  public static let pointerDereference = NativeSwiftPaintOperationID.pointerDereference
 }
 
 /// AndroidX `PathExpression`'s flag bits: every value it defines. The two interpolation bits are

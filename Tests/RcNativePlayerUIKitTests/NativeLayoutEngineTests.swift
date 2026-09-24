@@ -308,6 +308,73 @@ import Testing
     expectFrame(tree, 2, CGRect(x: 0, y: 0, width: 20, height: 10))
   }
 
+  @Test func canvasWithCanvasContentFillsAndSkipsComputations() {
+    // `CanvasLayout` with a `CanvasContent` sizes every child to its content and never calls
+    // `applyComputedLayout`; without one it lays its children out as `BoxLayout` does.
+    func canvas(hasCanvasContent: Bool) -> Item {
+      let child = fixed(2, width: 20, height: 10) {
+        $0.layoutComputes = [Self.halfParentWidth(), Self.endAlignedWithInset(10)]
+      }
+      return item(.canvas, id: 1, children: [child]) {
+        $0.componentKind = "CanvasLayout"
+        $0.drawsContent = true
+        $0.hasCanvasContent = hasCanvasContent
+      }
+    }
+    let engine = NativeLayoutEngine()
+    let size = CGSize(width: 200, height: 100)
+    let filled = engine.frameTree(root: canvas(hasCanvasContent: true), size: size)
+    expectFrame(filled, 2, CGRect(x: 0, y: 0, width: 200, height: 100))
+    #expect(engine.preferredSize(of: canvas(hasCanvasContent: true), in: size).width == 20)
+    let boxed = engine.frameTree(root: canvas(hasCanvasContent: false), size: size)
+    expectFrame(boxed, 2, CGRect(x: 90, y: 0, width: 100, height: 10))
+    #expect(engine.preferredSize(of: canvas(hasCanvasContent: false), in: size).width == 100)
+  }
+
+  @Test func canvasContentIsReadFromTheSnapshot() throws {
+    typealias Op = NativeSwiftWireOpcode
+    // root { canvas 2 { [content 5 {] canvas content 3 { rect } [}] } }, and a canvas holding a
+    // plain content 4 instead.
+    func document(nestInContent: Bool, canvasContent: Bool) -> Data {
+      var words: [Int] = [0, 1, 0, 0, 100, 100, 0, 0]
+      var bytes: [UInt8] = []
+      func u8(_ value: Int) { bytes.append(UInt8(truncatingIfNeeded: value)) }
+      func int(_ value: Int) {
+        let raw = UInt32(bitPattern: Int32(value))
+        for shift in [24, 16, 8, 0] { u8(Int(raw >> UInt32(shift))) }
+      }
+      u8(words.removeFirst())
+      for word in words { int(word) }
+      u8(Op.layoutRoot)
+      int(1)
+      u8(Op.layoutCanvas)
+      int(2)
+      int(-1)
+      if nestInContent {
+        u8(Op.layoutContent)
+        int(5)
+      }
+      u8(canvasContent ? Op.layoutCanvasContent : Op.layoutContent)
+      int(canvasContent ? 3 : 4)
+      u8(Op.drawRect)
+      for value: Float in [0, 0, 5, 5] { int(Int(Int32(bitPattern: value.bitPattern))) }
+      u8(Op.containerEnd)
+      if nestInContent { u8(Op.containerEnd) }
+      u8(Op.containerEnd)
+      u8(Op.containerEnd)
+      return Data(bytes)
+    }
+    func canvasNode(_ data: Data) throws -> NativeLayoutNode {
+      let root = try NativeSwiftDocumentSession.open(data: data).snapshot().root
+      let canvas = try #require(root.children.first { $0.componentID == 2 })
+      return NativeLayoutNode(snapshot: canvas)
+    }
+    #expect(try canvasNode(document(nestInContent: false, canvasContent: true)).hasCanvasContent)
+    #expect(try canvasNode(document(nestInContent: true, canvasContent: true)).hasCanvasContent)
+    #expect(
+      try !canvasNode(document(nestInContent: false, canvasContent: false)).hasCanvasContent)
+  }
+
   private static let boundsID = NativeSwiftIDRegion.array + 42
 
   private static func word(_ value: Float) -> UInt32 { value.bitPattern }
@@ -330,7 +397,7 @@ import Testing
         .float(id: 50, words: bound(4) + [word(2), divide], offset: 0),
         .update(listID: boundsID, index: word(2), value: reference(50)),
       ],
-      seedsBounds: true, lists: [:], values: [:])
+      dynamicListIDs: [boundsID], lists: [:], values: [:])
   }
 
   /// Position: x = parent width - width - inset.
@@ -343,7 +410,7 @@ import Testing
           id: 51, words: bound(4) + bound(2) + [subtract, word(inset), subtract], offset: 0),
         .update(listID: boundsID, index: word(0), value: reference(51)),
       ],
-      seedsBounds: true, lists: [:], values: [:])
+      dynamicListIDs: [boundsID], lists: [:], values: [:])
   }
 
   // MARK: - Fixtures
