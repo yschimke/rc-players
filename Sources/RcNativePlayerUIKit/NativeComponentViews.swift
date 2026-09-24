@@ -298,8 +298,11 @@
     /// The children of a scrolled container are laid out against their content, not against the
     /// viewport that clips them, so this is what decides a container's layout space.
     let scrollDirection: NativeSwiftScrollDirection?
+    /// What the shared layout engine reads of this node.
+    let layout: NativeLayoutNode
 
     init(swiftSnapshot snapshot: NativeSwiftNodeSnapshot, densityBehavior: Int) {
+      layout = NativeLayoutNode(snapshot: snapshot)
       switch snapshot.kind {
       case .root: kind = .root
       case .content: kind = .content
@@ -772,12 +775,9 @@
   /// One UIView per Remote Compose component, with a deliberately small frame-based implementation
   /// of Box, Row, and Column. Structural content wrappers remain visible in the UIKit hierarchy but
   /// are transparent to layout.
-  final class NativeComponentView: UIView, UIGestureRecognizerDelegate {
-    private struct PreferredSizeKey: Hashable {
-      let width: CGFloat
-      let height: CGFloat
-    }
-
+  final class NativeComponentView: UIView, UIGestureRecognizerDelegate,
+    @preconcurrency NativeLayoutItem
+  {
     private var node: NativeNode
     private var canvasView: NativeCanvasView?
     private var textLabels: [NativeTextLabel]
@@ -786,9 +786,9 @@
     private var componentChildren: [NativeComponentView]
     private var semanticElement: NativeSemanticElement?
     // Repeated requests with the same constraint occur while rows and flows first determine
-    // natural sizes and then place siblings. This cache deliberately keys only identical
+    // natural sizes and then place siblings. The cache deliberately keys only identical
     // constraints; a weighted child's final width remains a separate measurement.
-    private var preferredSizeCache: [PreferredSizeKey: CGSize] = [:]
+    let layoutCache = NativeLayoutSizeCache()
     private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
     var documentScale: CGFloat = 1 {
       didSet {
@@ -1255,18 +1255,6 @@
       }
 
       switch node.kind {
-      case .column: layoutColumn()
-      case .row: node.flowMaximumItems == nil ? layoutRow() : layoutFlow()
-      // The root arranges its children the way a box does: a child that fills still covers the
-      // canvas, and a child that wraps takes its own size instead of being stretched to the frame.
-      case .box, .root:
-        // A FitBox is the one box that does not stack what it holds: it shows the first alternative
-        // whose natural size fits, and nothing at all when none does.
-        if isFitBox {
-          layoutFitBox()
-        } else {
-          layoutOverlay(aligned: true)
-        }
       case .text:
         textLabels.forEach {
           $0.layoutInComponent(
@@ -1274,124 +1262,57 @@
         }
       case .image: imageViews.forEach { $0.frame = bounds }
       case .custom: customView?.frame = bounds
-      default: layoutOverlay(aligned: false)
+      // Rows, columns, flows, boxes, FitBoxes and the root: the shared engine decides, this view
+      // only writes the result onto its children.
+      default: apply(layoutEngine.arrange(self, in: bounds))
       }
       semanticElement?.frameInOwner = bounds
       updateStructuralSemanticFrames()
     }
 
-    func preferredSize(in available: CGSize) -> CGSize {
-      // A registered custom view can change its fitting size independently of the decoded node
-      // (asynchronous content and internal state are both normal). Do not retain an ancestor's
-      // measurement either: its WRAP size depends on that mutable descendant and there is no
-      // document update through which it could otherwise invalidate this cache.
-      if hasMutableCustomContent { return preferredSizeUncached(in: available) }
-      let key = PreferredSizeKey(width: available.width, height: available.height)
-      if let cached = preferredSizeCache[key] { return cached }
-      let size = preferredSizeUncached(in: available)
-      preferredSizeCache[key] = size
-      return size
-    }
+    // MARK: NativeLayoutItem
 
-    private func preferredSizeUncached(in available: CGSize) -> CGSize {
-      let insets = scaledPadding
-      // Every width type, `WRAP` included. A wrapping component still carries its `widthIn`
-      // bounds, and passing children the full available width instead let an edge button's label
-      // measure 209px wide against a 161px bound. `resolve` with the available width as the
-      // intrinsic degrades to exactly that width when there are no bounds to apply.
-      let widthConstraint =
-        NativeLayoutDimension(
-          type: node.widthType,
-          value: node.widthValue
-            * (node.widthType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
-          minimum: node.minimumWidth * dimensionConstraintScale,
-          maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
-        ).resolve(intrinsic: available.width, available: available.width)
-      // The container's own height, resolved the same way, because a collapsible container's
-      // retention decision is about *its* bound and not about the space its parent offered: a
-      // 50-point collapsible column holding a 60-point child keeps nothing, whatever the parent
-      // has to spare.
-      let heightConstraint =
-        NativeLayoutDimension(
-          type: node.heightType,
-          value: node.heightValue
-            * (node.heightType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
-          minimum: node.minimumHeight * dimensionConstraintScale,
-          maximum: node.maximumHeight.map { $0 * dimensionConstraintScale }
-        ).resolve(intrinsic: available.height, available: available.height)
-      let contentAvailable = CGSize(
-        width: max(min(available.width, widthConstraint) - insets.left - insets.right, 0),
-        height: max(min(available.height, heightConstraint) - insets.top - insets.bottom, 0))
-      // A FitBox wraps to the alternative it shows, not to the largest of everything it holds.
-      if isFitBox {
-        let fitting = fitBoxAlternativesAndSizes(in: contentAvailable).first {
-          $0.size.width <= contentAvailable.width + 0.5
-            && $0.size.height <= contentAvailable.height + 0.5
-        }
-        // Nothing fits: the box is GONE and takes no space, the way a collapsible container that
-        // keeps nothing does, so its parent does not reserve a box the reference hides.
-        let intrinsic = fitting?.size ?? .zero
-        return applyDimensions(
-          to: CGSize(
-            width: intrinsic.width + insets.left + insets.right,
-            height: intrinsic.height + insets.top + insets.bottom),
-          available: available)
-      }
-      let allItems = flattenedLayoutItems
-      // A collapsible container wraps to what it keeps, not to everything it holds — and reports
-      // nothing at all when it keeps nothing, so a parent does not reserve a box the reference
-      // treats as GONE.
-      let items: [NativeComponentView]
-      if node.isCollapsible,
-        let kept = collapsibleKeptFlags(
-          items: allItems, available: contentAvailable,
-          axis: node.kind == .column ? .vertical : .horizontal)
-      {
-        let keptItems = allItems.enumerated().filter { kept[$0.offset] }.map(\.element)
-        // A collapsible container that keeps nothing is the reference's GONE container: it takes no
-        // space at all, so its parent does not reserve a box for it.
-        if keptItems.isEmpty { return .zero }
-        items = keptItems
-      } else {
-        items = allItems
-      }
-      let intrinsic: CGSize
+    var layoutNode: NativeLayoutNode { node.layout }
+
+    var layoutChildren: [NativeComponentView] { componentChildren }
+
+    /// What this view draws itself, for the engine's text, image and custom measurements.
+    func layoutContentSize(fitting available: CGSize) -> CGSize {
       switch node.kind {
       case .text:
-        intrinsic =
-          textLabels.first?.preferredSize(
-            maximumWidth: contentAvailable.width, documentScale: documentScale) ?? .zero
+        return textLabels.first?.preferredSize(
+          maximumWidth: available.width, documentScale: documentScale) ?? .zero
       case .image:
-        intrinsic = imageViews.first?.image?.size ?? .zero
+        return imageViews.first?.image?.size ?? .zero
       case .custom:
-        intrinsic = customView?.sizeThatFits(contentAvailable) ?? .zero
-      case .column:
-        let sizes = items.map { $0.preferredSize(in: contentAvailable) }
-        intrinsic = CGSize(
-          width: sizes.map(\.width).max() ?? 0,
-          height: sizes.reduce(0) { $0 + $1.height }
-            + scaledSpacing * CGFloat(max(sizes.count - 1, 0)))
-      case .row:
-        if node.flowMaximumItems != nil {
-          intrinsic = wrappedFlowSize(items, in: contentAvailable)
-        } else {
-          let sizes = items.map { $0.preferredSize(in: contentAvailable) }
-          intrinsic = CGSize(
-            width: sizes.reduce(0) { $0 + $1.width }
-              + scaledSpacing * CGFloat(max(sizes.count - 1, 0)),
-            height: sizes.map(\.height).max() ?? 0)
-        }
+        // A registered custom view can change its fitting size independently of the decoded node
+        // (asynchronous content and internal state are both normal), which is why the engine never
+        // caches a measurement of it or of any ancestor.
+        return customView?.sizeThatFits(available) ?? .zero
       default:
-        let sizes = items.map { $0.preferredSize(in: contentAvailable) }
-        intrinsic = CGSize(
-          width: sizes.map(\.width).max() ?? 0,
-          height: sizes.map(\.height).max() ?? 0)
+        return .zero
       }
-      return applyDimensions(
-        to: CGSize(
-          width: intrinsic.width + insets.left + insets.right,
-          height: intrinsic.height + insets.top + insets.bottom),
-        available: available)
+    }
+
+    /// The shared layout engine, at this view's scales and direction.
+    private var layoutEngine: NativeLayoutEngine {
+      NativeLayoutEngine(
+        context: NativeLayoutContext(
+          documentScale: documentScale,
+          layoutDensityScale: layoutDensityScale,
+          layoutUnitScale: layoutUnitScale,
+          dimensionConstraintScale: dimensionConstraintScale,
+          layoutDirection: layoutDirection))
+    }
+
+    /// Writes an arrangement the engine produced for this container onto its children.
+    private func apply(_ arrangement: NativeLayoutArrangement<NativeComponentView>) {
+      for change in arrangement.visibilityChanges {
+        change.item.isHidden = change.isHidden
+        if change.resetsAlpha { change.item.alpha = 1 }
+      }
+      if let containerIsHidden = arrangement.containerIsHidden { isHidden = containerIsHidden }
+      for placement in arrangement.placements { placement.item.frame = placement.frame }
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -1402,39 +1323,15 @@
     }
 
     private func invalidatePreferredSizes() {
-      preferredSizeCache.removeAll(keepingCapacity: true)
-    }
-
-    private var hasMutableCustomContent: Bool {
-      node.kind == .custom || componentChildren.contains { $0.hasMutableCustomContent }
+      layoutCache.removeAll()
     }
 
     private var isStructural: Bool {
-      (node.kind == .content || node.kind == .group || node.kind == .canvas)
-        && (canvasView == nil || node.kind == .content || node.kind == .group)
-        && textLabels.isEmpty && imageViews.isEmpty
-        && customView == nil
-        && node.semanticBehavior?.acceptsPointerAction != true
-        && node.backgroundColor == nil
-        && node.visibility == NativeSwiftVisibility.visible
-        && node.widthType == NativeSwiftDimensionType.wrap && node.heightType == NativeSwiftDimensionType.wrap
-        && node.minimumWidth == 0 && node.minimumHeight == 0
-        && node.maximumWidth == nil && node.maximumHeight == nil
-        && node.padding == .zero && node.offset == .zero && node.zIndex == 0
+      NativeLayoutEngine.isStructural(node.layout)
     }
 
     private var flattenedLayoutItems: [NativeComponentView] {
-      componentChildren.filter { $0.node.visibility != NativeSwiftVisibility.gone }.flatMap { child in
-        child.isStructural ? child.flattenedLayoutItems : [child]
-      }
-    }
-
-    private var scaledPadding: UIEdgeInsets {
-      UIEdgeInsets(
-        top: node.padding.top * layoutUnitScale,
-        left: node.padding.left * layoutUnitScale,
-        bottom: node.padding.bottom * layoutUnitScale,
-        right: node.padding.right * layoutUnitScale)
+      NativeLayoutEngine.flattenedLayoutItems(of: self)
     }
 
     private var layoutUnitScale: CGFloat {
@@ -1448,8 +1345,6 @@
         layoutDensityScale: layoutDensityScale,
         documentScale: documentScale)
     }
-
-    private var scaledSpacing: CGFloat { node.spacing * layoutUnitScale }
 
     private func prepareStructuralChildren() {
       componentChildren.forEach { child in
@@ -1471,477 +1366,6 @@
         .reduce(CGRect.null) { $0.union($1) }
       let clippedBounds = renderedBounds.intersection(bounds)
       semanticElement.frameInOwner = clippedBounds.isNull ? .zero : clippedBounds
-    }
-
-    /// The size a child contributes to its container.
-    ///
-    /// Inside a **scrolled** container the axis that scrolls is measured unbounded: the viewport
-    /// clips the content, it does not size it. A child that fills that axis is the exception — it has
-    /// no natural size, so it keeps the viewport's bound.
-    private func measuredSize(
-      of child: NativeComponentView, in available: CGSize, axis: CollapsibleAxis
-    ) -> CGSize {
-      guard node.scrollDirection != nil else { return child.preferredSize(in: available) }
-      let type = axis == .vertical ? child.node.heightType : child.node.widthType
-      guard NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(type)) else {
-        return child.preferredSize(in: available)
-      }
-      let space =
-        axis == .vertical
-        ? CGSize(width: available.width, height: .greatestFiniteMagnitude)
-        : CGSize(width: .greatestFiniteMagnitude, height: available.height)
-      return child.preferredSize(in: space)
-    }
-
-    /// The extent a scrolled container arranges its children in along one axis, or nil when it does
-    /// not scroll.
-    ///
-    /// A scrolled container's children are laid out against the content they make, not against the
-    /// viewport that clips them: the corpus's `collapsible_column_scroll` records its survivors
-    /// centred in the pre-collapse 240 points even though the viewport is 200 — the collapse frees no
-    /// space, it only moves the content — and `box_child_scroll` records a 250-point child in a
-    /// 150-point viewport. The viewport decides what is *visible*; the content decides where things
-    /// sit. Every child counts towards it, including the ones a collapse dropped.
-    ///
-    /// A row or column **stacks** its children, so the content is their sum; a box overlays them, so
-    /// it is the largest. Summing an overlay's children inflated the extent and misaligned every
-    /// centred or end-aligned child in it.
-    private func scrolledExtent(
-      of items: [NativeComponentView], in viewport: CGSize, axis: CollapsibleAxis, stacking: Bool
-    ) -> CGFloat? {
-      guard node.scrollDirection != nil else { return nil }
-      let extents = items.map { child -> CGFloat in
-        let size = measuredSize(of: child, in: viewport, axis: axis)
-        return axis == .vertical ? size.height : size.width
-      }
-      guard stacking else { return extents.max() ?? 0 }
-      return extents.reduce(0, +) + scaledSpacing * CGFloat(max(extents.count - 1, 0))
-    }
-
-    private func layoutOverlay(aligned: Bool) {
-      let insets = scaledPadding
-      let content = bounds.inset(by: insets)
-      let items = flattenedLayoutItems
-      let axis: CollapsibleAxis = node.scrollDirection == .horizontal ? .horizontal : .vertical
-      let extent = scrolledExtent(of: items, in: content.size, axis: axis, stacking: false)
-      let space =
-        node.scrollDirection == .horizontal
-        ? CGRect(
-          x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
-        : CGRect(
-          x: content.minX, y: content.minY, width: content.width, height: extent ?? content.height)
-      items.forEach { child in
-        let size = measuredSize(of: child, in: content.size, axis: axis)
-        child.frame = child.offsetFrame(
-          aligned
-            ? alignedFrame(size: size, in: space)
-            : CGRect(origin: content.origin, size: content.size))
-      }
-    }
-
-    /// A `FitBox`: it shows the first alternative whose natural size fits, and shows nothing at all
-    /// when none does.
-    private var isFitBox: Bool { node.componentKind == "FitBoxLayout" }
-
-    /// Whether this view is a `FitBox`'s own content node — the wrapper the box looks through.
-    ///
-    /// `isStructural` is a *layout* classification and it requires the wrapper to be visible, so a
-    /// content switched off is not structural by that test. A FitBox has to recognise its content by
-    /// kind instead: otherwise a GONE wrapper is treated as an alternative, selected, and unhidden,
-    /// and content that is meant to switch the whole box off is rendered.
-    private var isFitBoxContent: Bool {
-      node.kind == .content || (node.kind == .canvas && node.commands.isEmpty)
-    }
-
-    /// A `FitBox`'s alternatives, in document order.
-    ///
-    /// Unlike every other container this does **not** drop the children whose own visibility
-    /// modifier hides them: a document switches between alternatives with that modifier, and the
-    /// reference ignores it — the fit test sees the alternative's real size and the winner is drawn.
-    /// Taking the modifier at face value measured a hidden child as 0x0, so it "fitted" and displaced
-    /// the alternative that actually fits (`fitbox_child_visibility`).
-    private var fitBoxAlternatives: [NativeComponentView] {
-      componentChildren.flatMap { child in
-        child.isFitBoxContent ? child.fitBoxAlternatives : [child]
-      }
-    }
-
-    /// Whether the box's *content* is switched on. An alternative's own modifier is ignored, but the
-    /// content's is the box's own switch: a GONE content shows nothing.
-    private var fitBoxContentVisible: Bool {
-      !componentChildren.contains { $0.isFitBoxContent && $0.node.visibility == NativeSwiftVisibility.gone }
-    }
-
-    /// An alternative's natural size: the size it asks for when nothing forces it to fill.
-    private func fitBoxNaturalSize(_ child: NativeComponentView, in available: CGSize) -> CGSize {
-      // The rule the collapsible fit test also uses: a dimension that fills has no natural size, so
-      // it keeps the box's bound rather than resolving to infinity.
-      child.preferredSize(
-        in: CGSize(
-          width: NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(child.node.widthType))
-            ? .greatestFiniteMagnitude : available.width,
-          height: NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(child.node.heightType))
-            ? .greatestFiniteMagnitude : available.height))
-    }
-
-    private func fitBoxAlternativesAndSizes(in available: CGSize) -> [(
-      view: NativeComponentView, size: CGSize
-    )] {
-      fitBoxAlternatives.map { ($0, fitBoxNaturalSize($0, in: available)) }
-    }
-
-    /// Lays a `FitBox` out: the first alternative whose natural size fits is drawn, aligned inside
-    /// the box; the others are hidden. When none fits the box shows nothing at all — the box itself
-    /// is GONE, which is what the reference does and what `fitbox_fit` asserts.
-    private func layoutFitBox() {
-      let insets = scaledPadding
-      let content = bounds.inset(by: insets)
-      isHidden = node.visibility == NativeSwiftVisibility.gone
-      let measured = fitBoxAlternativesAndSizes(in: content.size)
-      for (alternative, _) in measured {
-        // The reference ignores an alternative's own visibility modifier: it is the document's
-        // switch between alternatives, not something the box obeys.
-        alternative.isHidden = true
-        if alternative.node.visibility != NativeSwiftVisibility.gone { alternative.alpha = 1 }
-      }
-      let fitting = measured.first {
-        $0.size.width <= content.width + 0.5 && $0.size.height <= content.height + 0.5
-      }
-      // A content that is switched off is the box's own switch: the box stays, its content does not.
-      guard fitBoxContentVisible, let (winner, size) = fitting else {
-        // Nothing fits: the reference hides the box, background included. The alternative keeps the
-        // geometry it would have had, which the corpus does not compare for a gone node.
-        if let (first, size) = measured.first {
-          placeFitBoxAlternative(first, size: size, in: content)
-        }
-        if fitting == nil { isHidden = true }
-        return
-      }
-      winner.isHidden = false
-      winner.alpha = 1
-      placeFitBoxAlternative(winner, size: size, in: content)
-    }
-
-    private func placeFitBoxAlternative(
-      _ view: NativeComponentView, size: CGSize, in content: CGRect
-    ) {
-      view.frame = view.offsetFrame(alignedFrame(size: size, in: content))
-    }
-
-    /// The children this container lays out.
-    ///
-    /// A collapsible container hides the children that do not fit, in the order their
-    /// `CollapsiblePriority` modifiers give, and is itself hidden when nothing fits — the
-    /// reference's container GONE. Every other container returns its children unchanged.
-    private func collapsibleItems(in content: CGRect, axis: CollapsibleAxis) -> [NativeComponentView]
-    {
-      let items = flattenedLayoutItems
-      guard let kept = collapsibleKeptFlags(items: items, available: content.size, axis: axis)
-      else { return items }
-      for (index, child) in items.enumerated() { child.isHidden = !kept[index] }
-      let visible = items.enumerated().filter { kept[$0.offset] }.map(\.element)
-      isHidden = node.visibility == NativeSwiftVisibility.gone || visible.isEmpty
-      return visible
-    }
-
-    /// Which of `items` a collapsible container keeps, or nil when it is not collapsible.
-    private func collapsibleKeptFlags(
-      items: [NativeComponentView], available: CGSize, axis: CollapsibleAxis
-    ) -> [Bool]? {
-      guard node.isCollapsible else { return nil }
-      let orientation = axis == .vertical ? 1 : 0
-      let children = items.map { child -> NativeSwiftCollapsible.Child in
-        // The fit test measures each child with its *main* axis unbounded: the reference measures
-        // with the constraints the container received from its parent, so a child taller than the
-        // container is measured at its natural size and then dropped, rather than clamped to fit and
-        // kept. A child that *fills* that axis is the exception — it has no natural size, so an
-        // unbounded measurement resolves it to infinity and it would be dropped from any container.
-        let mainAxisType = axis == .vertical ? child.node.heightType : child.node.widthType
-        let measuring: CGSize
-        if NativeSwiftCollapsible.measuresUnbounded(mainAxisType: mainAxisType) {
-          measuring =
-            axis == .vertical
-            ? CGSize(width: available.width, height: .greatestFiniteMagnitude)
-            : CGSize(width: .greatestFiniteMagnitude, height: available.height)
-        } else {
-          measuring = available
-        }
-        let size = child.preferredSize(in: measuring)
-        let weightType = axis == .vertical ? child.node.heightType : child.node.widthType
-        let weightValue = axis == .vertical ? child.node.heightValue : child.node.widthValue
-        let priority =
-          child.node.collapsiblePriorityOrientation == orientation
-          ? child.node.collapsiblePriority.map(Float.init) : nil
-        return NativeSwiftCollapsible.Child(
-          mainSize: Float(axis == .vertical ? size.height : size.width),
-          weight: weightType == NativeSwiftDimensionType.weight ? Float(max(weightValue, 0)) : 0,
-          priority: priority)
-      }
-      let extent = axis == .vertical ? available.height : available.width
-      return NativeSwiftCollapsible.keptChildren(
-        children, available: Float(extent), spacing: Float(scaledSpacing))
-    }
-
-    private enum CollapsibleAxis {
-      case horizontal, vertical
-    }
-
-    private func layoutColumn() {
-      let content = bounds.inset(by: scaledPadding)
-      let items = collapsibleItems(in: content, axis: .vertical)
-      // A scrolled column arranges against its content rather than its viewport, and the extent
-      // counts every child — including the ones a collapse dropped, which is why the survivors are
-      // centred in the pre-collapse total. The axis that scrolls is the *modifier's*, which need not
-      // be the arrangement axis: a horizontally scrolled column still stacks, but each child is
-      // measured unbounded in width.
-      let scrollAxis: CollapsibleAxis =
-        node.scrollDirection == .horizontal ? .horizontal : .vertical
-      let extent = node.scrollDirection == .vertical
-        ? (scrolledExtent(
-          of: flattenedLayoutItems, in: content.size, axis: .vertical, stacking: true)
-          ?? content.height)
-        : content.height
-      let sizes = items.map { measuredSize(of: $0, in: content.size, axis: scrollAxis) }
-      let weightedHeights = NativeLinearLayout.allocateWeighted(
-        available: NativeLinearLayout.collapsibleWeightSpace(
-          extent: extent, count: items.count,
-          spacing: node.isCollapsible ? scaledSpacing : 0),
-        naturalSizes: sizes.map(\.height),
-        weights: items.map { child in
-          guard child.node.heightType == NativeSwiftDimensionType.weight else { return nil }
-          return max(child.node.heightValue, .leastNonzeroMagnitude)
-        })
-      let heights = zip(items, zip(sizes, weightedHeights)).map { child, values in
-        child.applyDimensions(
-          to: values.0,
-          available: CGSize(width: content.width, height: values.1)
-        ).height
-      }
-      let positions = NativeLinearLayout.positions(
-        total: extent,
-        sizes: heights,
-        positioning: node.verticalPositioning,
-        spacing: scaledSpacing)
-      for (index, child) in items.enumerated() {
-        let size = CGSize(width: sizes[index].width, height: heights[index])
-        let x = horizontalOrigin(for: size.width, in: content)
-        child.frame = child.offsetFrame(
-          CGRect(
-            x: x, y: content.minY + positions[index], width: size.width, height: size.height))
-      }
-    }
-
-    /// A flow container's children: left to right, wrapping onto a further line when the next one
-    /// does not fit, bounded by the layout's maximum items per line and maximum lines.
-    ///
-    /// Two passes, because an item is aligned within *its line* and the block of lines is aligned
-    /// within the container: the first measures the lines, the second places each item at the
-    /// line's top, centre or bottom according to the container's vertical positioning.
-    ///
-    /// A weighted child does not force a wrap — its main-axis size is the row's leftover, not the
-    /// whole container — so it is measured with its siblings and allocated a share of the space
-    /// they left, exactly as the reference's `FlowRow` does.
-    private func layoutFlow() {
-      let content = bounds.inset(by: scaledPadding)
-      let maximumItems = node.flowMaximumItems.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-      let maximumLines = node.flowMaximumLines.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-      let wrapped = wrappedFlow(
-        items: flattenedLayoutItems, in: content.size, maximumItems: maximumItems,
-        maximumLines: maximumLines)
-      for child in wrapped.discarded { child.isHidden = true }
-      // Lines are stacked without a gap, matching the reference's `FlowRow`, which passes 0 as its
-      // vertical arrangement spacing while the horizontal `spacedBy` separates items on a line.
-      let blockHeight = wrapped.lines.map(\.height).reduce(0, +)
-      var y = content.minY
-      switch node.verticalPositioning {
-      case 2: y += (content.height - blockHeight) / 2
-      case 5: y += content.height - blockHeight
-      default: break
-      }
-      for line in wrapped.lines {
-        let positions = NativeLinearLayout.positions(
-          total: content.width, sizes: line.items.map(\.size.width),
-          positioning: node.horizontalPositioning, spacing: scaledSpacing,
-          direction: layoutDirection)
-        for (index, item) in line.items.enumerated() {
-          let offset: CGFloat
-          switch node.verticalPositioning {
-          case 2: offset = (line.height - item.size.height) / 2
-          case 5: offset = line.height - item.size.height
-          default: offset = 0
-          }
-          item.view.isHidden = false
-          item.view.frame = item.view.offsetFrame(
-            CGRect(
-              x: content.minX + positions[index], y: y + offset, width: item.size.width,
-              height: item.size.height))
-        }
-        y += line.height
-      }
-    }
-
-    /// The block a flow's children occupy when wrapped within `available`, for wrap sizing.
-    private func wrappedFlowSize(_ items: [NativeComponentView], in available: CGSize) -> CGSize {
-      let maximumItems = node.flowMaximumItems.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-      let maximumLines = node.flowMaximumLines.flatMap { $0 > 0 ? $0 : nil } ?? Int.max
-      let wrapped = wrappedFlow(
-        items: items, in: available, maximumItems: maximumItems, maximumLines: maximumLines)
-      // No vertical gap between lines: the horizontal `spacedBy` is not a line height.
-      return CGSize(
-        width: wrapped.lines.map(\.width).max() ?? 0,
-        height: wrapped.lines.map(\.height).reduce(0, +))
-    }
-
-    private typealias FlowLine = (
-      items: [(view: NativeComponentView, size: CGSize)], width: CGFloat, height: CGFloat
-    )
-
-    /// Wraps `items` into lines, measuring weighted children against their row's leftover space.
-    ///
-    /// The line breaks come from `NativeSwiftFlow`, which reserves a weighted child's `widthIn`
-    /// minimum; a weighted child is then measured at its share of what the row left, never below
-    /// that minimum.
-    private func wrappedFlow(
-      items: [NativeComponentView], in available: CGSize, maximumItems: Int, maximumLines: Int
-    ) -> (lines: [FlowLine], discarded: [NativeComponentView]) {
-      let children = items.map { child in
-        NativeSwiftFlow.Child(
-          measuredWidth: Float(child.preferredSize(in: available).width),
-          weight: child.node.widthType == NativeSwiftDimensionType.weight ? Float(max(child.node.widthValue, 0)) : 0,
-          minimumWidth: Float(child.node.minimumWidth * child.dimensionConstraintScale))
-      }
-      let segmented = NativeSwiftFlow.segment(
-        children, available: Float(available.width), spacing: Float(scaledSpacing),
-        maximumItems: maximumItems, maximumLines: maximumLines)
-      var lines: [FlowLine] = []
-      for indices in segmented.lines {
-        var lineItems: [(view: NativeComponentView, size: CGSize)] = []
-        let gaps = scaledSpacing * CGFloat(max(indices.count - 1, 0))
-        let weights = indices.map { index -> CGFloat? in
-          children[index].weight > 0
-            ? max(CGFloat(children[index].weight), .leastNonzeroMagnitude) : nil
-        }
-        let allocated = NativeLinearLayout.allocateWeighted(
-          available: max(available.width - gaps, 0),
-          naturalSizes: indices.map { CGFloat(children[$0].measuredWidth) },
-          weights: weights)
-        var width = gaps
-        for (position, index) in indices.enumerated() {
-          let child = items[index]
-          let size: CGSize
-          if weights[position] != nil {
-            // The allocator splits the leftover; the child's own minimum still bounds it, because a
-            // weighted child that cannot reach its minimum has to overflow its row rather than be
-            // drawn narrower than the document allows.
-            let minimum = CGFloat(children[index].minimumWidth)
-            let share = max(max(allocated[position], minimum), 0)
-            let measured = child.preferredSize(
-              in: CGSize(width: share, height: available.height))
-            size = CGSize(width: share, height: measured.height)
-          } else {
-            size = child.preferredSize(in: available)
-          }
-          child.isHidden = false
-          lineItems.append((child, size))
-          width += size.width
-        }
-        let height = lineItems.map(\.size.height).max() ?? 0
-        lines.append((items: lineItems, width: width, height: height))
-      }
-      return (lines, segmented.discarded.map { items[$0] })
-    }
-
-    private func layoutRow() {
-      let content = bounds.inset(by: scaledPadding)
-      let items = collapsibleItems(in: content, axis: .horizontal)
-      // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport, and the
-      // axis that scrolls is the modifier's — a vertically scrolled row still places left to right.
-      let scrollAxis: CollapsibleAxis =
-        node.scrollDirection == .horizontal ? .horizontal : .vertical
-      let extent = node.scrollDirection == .horizontal
-        ? (scrolledExtent(
-          of: flattenedLayoutItems, in: content.size, axis: .horizontal, stacking: true)
-          ?? content.width)
-        : content.width
-      let natural = items.map { measuredSize(of: $0, in: content.size, axis: scrollAxis) }
-      let allocatedWidths = NativeLinearLayout.allocateWeighted(
-        available: NativeLinearLayout.collapsibleWeightSpace(
-          extent: extent, count: items.count,
-          spacing: node.isCollapsible ? scaledSpacing : 0),
-        naturalSizes: natural.map(\.width),
-        weights: items.map { child in
-          guard child.node.widthType == NativeSwiftDimensionType.weight else { return nil }
-          return max(child.node.widthValue, .leastNonzeroMagnitude)
-        })
-      let widths = zip(items, zip(natural, allocatedWidths)).map { child, values in
-        child.applyDimensions(
-          to: values.0,
-          available: CGSize(width: values.1, height: content.height)
-        ).width
-      }
-      let positions = NativeLinearLayout.positions(
-        total: extent,
-        sizes: widths,
-        positioning: node.horizontalPositioning,
-        spacing: scaledSpacing,
-        direction: layoutDirection)
-      for (index, child) in items.enumerated() {
-        // Weighted children must see their final main-axis constraint before cross-axis placement;
-        // wrapping text can be taller at its allocated width than at the row's full width.
-        let remeasured =
-          child.preferredSize(in: CGSize(width: widths[index], height: content.height))
-        let size = CGSize(width: widths[index], height: remeasured.height)
-        let y: CGFloat
-        switch node.verticalPositioning {
-        case 2: y = content.midY - size.height / 2
-        case 5: y = content.maxY - size.height
-        default: y = content.minY
-        }
-        child.frame = child.offsetFrame(
-          CGRect(
-            x: content.minX + positions[index], y: y, width: size.width, height: size.height))
-      }
-    }
-
-    private func alignedFrame(size: CGSize, in rect: CGRect) -> CGRect {
-      let x = horizontalOrigin(for: size.width, in: rect)
-      let y: CGFloat
-      switch node.verticalPositioning {
-      case 2: y = rect.midY - size.height / 2
-      case 5: y = rect.maxY - size.height
-      default: y = rect.minY
-      }
-      return CGRect(origin: CGPoint(x: x, y: y), size: size)
-    }
-
-    private func horizontalOrigin(for width: CGFloat, in rect: CGRect) -> CGFloat {
-      switch node.horizontalPositioning {
-      case 2: return rect.midX - width / 2
-      case 3: return layoutDirection == .rightToLeft ? rect.minX : rect.maxX - width
-      default: return layoutDirection == .rightToLeft ? rect.maxX - width : rect.minX
-      }
-    }
-
-    private func applyDimensions(to intrinsic: CGSize, available: CGSize) -> CGSize {
-      return CGSize(
-        width: NativeLayoutDimension(
-          type: node.widthType,
-          value: node.widthValue * (node.widthType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
-          minimum: node.minimumWidth * dimensionConstraintScale,
-          maximum: node.maximumWidth.map { $0 * dimensionConstraintScale }
-        ).resolve(intrinsic: intrinsic.width, available: available.width),
-        height: NativeLayoutDimension(
-          type: node.heightType,
-          value: node.heightValue * (node.heightType == NativeSwiftDimensionType.exactDp ? layoutDensityScale : documentScale),
-          minimum: node.minimumHeight * dimensionConstraintScale,
-          maximum: node.maximumHeight.map { $0 * dimensionConstraintScale }
-        ).resolve(intrinsic: intrinsic.height, available: available.height))
-    }
-
-    private func offsetFrame(_ frame: CGRect) -> CGRect {
-      frame.offsetBy(
-        dx: node.offset.x * documentScale,
-        dy: node.offset.y * documentScale)
     }
 
     private func makeSemanticElement(for node: NativeNode) -> NativeSemanticElement? {
