@@ -2275,12 +2275,14 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     for (view, item) in zip(imageViews, Self.imageItems(for: next, images: images)) {
       Self.configure(view, image: item.image, draw: item.draw, alpha: item.alpha)
     }
-    configureSemanticElement()
     reconcileChildren(
       next.children, images: images, fontNames: fontNames,
       conformanceFontName: conformanceFontName)
     applyLayerStyle()
     applyVisibility()
+    // After the children: a merging or unlabeled node resolves its label, role and action from
+    // its descendants' views, which now hold the new snapshot.
+    configureSemanticElement()
     needsLayout = true
   }
 
