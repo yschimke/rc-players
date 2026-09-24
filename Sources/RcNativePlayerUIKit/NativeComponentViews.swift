@@ -775,7 +775,9 @@
   /// One UIView per Remote Compose component, with a deliberately small frame-based implementation
   /// of Box, Row, and Column. Structural content wrappers remain visible in the UIKit hierarchy but
   /// are transparent to layout.
-  final class NativeComponentView: UIView, UIGestureRecognizerDelegate, NativeLayoutItem {
+  final class NativeComponentView: UIView, UIGestureRecognizerDelegate,
+    @preconcurrency NativeLayoutItem
+  {
     private var node: NativeNode
     private var canvasView: NativeCanvasView?
     private var textLabels: [NativeTextLabel]
