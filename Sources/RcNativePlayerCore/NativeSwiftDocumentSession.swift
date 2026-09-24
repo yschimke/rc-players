@@ -839,13 +839,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return try node.children.enumerated().map { position, child in
         try resolve(
           child, values: values, colors: resolvedColors,
-          visibilityOverride: position == active ? 1 : 0)
+          visibilityOverride: position == active
+            ? NativeSwiftVisibility.visible : NativeSwiftVisibility.gone)
       }
     }
     return try node.children.enumerated().map { position, child in
       try resolve(
         child, values: values, colors: resolvedColors,
-        visibilityOverride: stateBranchActive.map { position == $0 ? 1 : 0 })
+        visibilityOverride: stateBranchActive.map {
+          position == $0 ? NativeSwiftVisibility.visible : NativeSwiftVisibility.gone
+        })
     }
   }
 
@@ -1186,7 +1189,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       guard let matrix = resolvedMatrix(operation.matrixID, values: result) else { continue }
       let input = operation.inputWords.map { NativeSwiftFloatExpression.resolve($0, values: result) }
       var output = [Float](repeating: 0, count: operation.outputIDs.count)
-      if operation.type == 0 {
+      if operation.type == NativeSwiftMatrixVectorMathType.multiply {
         for row in output.indices {
           var value = matrix[3 + row * 4]
           for column in input.indices { value += matrix[column + row * 4] * input[column] }
@@ -1339,7 +1342,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // Defaulting to visible instead looks safer and is wrong; a component whose visibility nobody
     // has decided is hidden, not shown.
     let value = integers[id] ?? NativeSwiftVisibility.gone
-    if value >> 4 > 0 {
+    if value >= NativeSwiftVisibility.overrideGone {
       if value & NativeSwiftVisibility.overrideVisible == NativeSwiftVisibility.overrideVisible {
         return NativeSwiftVisibility.visible
       }
@@ -1398,8 +1401,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       let mode = expression.modeAndAlpha & 0xff
       switch mode {
       case NativeSwiftColorExpressionMode.colorColorInterpolate...NativeSwiftColorExpressionMode.idIDInterpolate:
-        let first = mode & 1 != 0 ? result[expression.first] ?? 0 : UInt32(bitPattern: Int32(expression.first))
-        let second = mode & 2 != 0 ? result[expression.second] ?? 0 : UInt32(bitPattern: Int32(expression.second))
+        // The interpolation modes are two bits: `idColorInterpolate` marks the first colour an id,
+        // `colorIDInterpolate` the second, and `idIDInterpolate` both.
+        typealias Mode = NativeSwiftColorExpressionMode
+        let first = mode & Mode.idColorInterpolate != 0
+          ? result[expression.first] ?? 0 : UInt32(bitPattern: Int32(expression.first))
+        let second = mode & Mode.colorIDInterpolate != 0
+          ? result[expression.second] ?? 0 : UInt32(bitPattern: Int32(expression.second))
         let tween = NativeSwiftFloatExpression.resolve(
           UInt32(bitPattern: Int32(expression.third)), values: values)
         result[expression.outputID] = interpolateColor(first, second, tween: tween)
