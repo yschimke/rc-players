@@ -806,14 +806,15 @@ enum NativeSwiftDocumentDecoder {
         let value = try input.int("skip value")
         let length = try input.count("skip length", maximum: maximumStringBytes)
         let shouldSkip: Bool
+        typealias Condition = NativeSwiftSkipCondition
         switch condition {
-        case 1: shouldSkip = 7 < value  // AndroidX's current player API baseline.
-        case 2: shouldSkip = 7 > value
-        case 3: shouldSkip = 7 == value
-        case 4: shouldSkip = 7 != value
-        case 5: shouldSkip = (0 & value) != 0
-        case 6: shouldSkip = (0 & value) == 0
-        default: shouldSkip = false
+        case Condition.apiLessThan: shouldSkip = Condition.libraryAPILevel < value
+        case Condition.apiGreaterThan: shouldSkip = Condition.libraryAPILevel > value
+        case Condition.apiEqualTo: shouldSkip = Condition.libraryAPILevel == value
+        case Condition.apiNotEqualTo: shouldSkip = Condition.libraryAPILevel != value
+        case Condition.profileIncludes: shouldSkip = (Condition.profile & value) != 0
+        case Condition.profileExcludes: shouldSkip = (Condition.profile & value) == 0
+        default: shouldSkip = false  // An unknown condition never skips, as in AndroidX.
         }
         if shouldSkip { _ = try input.rawData("skipped operation section", length: length) }
       case NativeSwiftWireOpcode.referencedOperations:

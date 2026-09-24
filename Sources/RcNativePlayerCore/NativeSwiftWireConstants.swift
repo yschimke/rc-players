@@ -202,6 +202,23 @@ public enum NativeSwiftWireOpcode {
   public static let extendedOpcode = 255
 }
 
+/// `SKIP`'s condition types: every value AndroidX's `Skip` defines (the vendored
+/// `third_party/remote-compose-player` `Skip.ts`). Any other condition never skips.
+enum NativeSwiftSkipCondition {
+  static let apiLessThan = 1
+  static let apiGreaterThan = 2
+  static let apiEqualTo = 3
+  static let apiNotEqualTo = 4
+  static let profileIncludes = 5
+  static let profileExcludes = 6
+
+  /// The library API level a `SKIP` condition is compared against: AndroidX's current player
+  /// baseline, `Skip.ts`'s default `sLibraryApiLevel`.
+  static let libraryAPILevel = 7
+  /// The profile bits a `SKIP` condition is compared against: `Skip.ts`'s default `sProfile`.
+  static let profile = 0
+}
+
 /// `ATTRIBUTE_TIME`'s type field: every value AndroidX's `TimeAttribute` defines. 13 is unassigned.
 public enum NativeSwiftTimeAttributeType {
   public static let fromNowSeconds = 0
