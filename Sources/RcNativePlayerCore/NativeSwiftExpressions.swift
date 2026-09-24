@@ -148,8 +148,14 @@ enum NativeSwiftFloatExpression {
   ///   - opcode: the operation that declared `words` -- `ANIMATED_FLOAT`, a `DATA_FLOAT` alias, or
   ///     a particle definition or loop -- reported by any error.
   ///   - offset: that operation's byte offset.
+  ///   - arrays: the float lists the array operators may read, by id. When nil — everywhere but a
+  ///     `LayoutComputeOperation` body today — an array operator refuses the expression as it
+  ///     always has. When given, an operand in `NativeSwiftIDRegion.array` stays an id on the stack
+  ///     for `A_DEREF`, `A_MAX`, `A_MIN`, `A_SUM`, `A_AVG` and `A_LEN` to read, as the reference's
+  ///     `AnimatedFloatExpression.eval(CollectionsAccess, …)` keeps it.
   static func evaluate(
-    _ words: [UInt32], values: [Int: Float], variables: [Float] = [], opcode: Int, offset: Int
+    _ words: [UInt32], values: [Int: Float], variables: [Float] = [],
+    arrays: [Int: [Float]]? = nil, opcode: Int, offset: Int
   ) throws -> Float {
     var stack: [Float] = []
     stack.reserveCapacity(min(words.count, 128))
@@ -188,7 +194,11 @@ enum NativeSwiftFloatExpression {
       guard isEncoded(word), payload > operatorOffset,
         payload <= operatorOffset + NativeSwiftFloatOperator.last
       else {
-        stack.append(resolve(word, values: values))
+        if arrays != nil, isArrayReference(word) {
+          stack.append(Float(bitPattern: word))
+        } else {
+          stack.append(resolve(word, values: values))
+        }
         guard stack.count <= 128 else {
           throw NativeSwiftCoreError.malformed(
             offset: offset, reason: "Float expression stack overflow")
@@ -298,6 +308,27 @@ enum NativeSwiftFloatExpression {
       case NativeSwiftFloatOperator.cubic:
         let (x1, y1, x2, y2, x) = try pop5()
         stack.append(cubicEasing(x1, y1, x2, y2, x))
+      case NativeSwiftFloatOperator.arrayDeref where arrays != nil:
+        let (array, indexValue) = try pop2()
+        let index = nativeSwiftClampedInt(indexValue)
+        guard let list = arrayOperand(array, arrays), list.indices.contains(index) else {
+          throw NativeSwiftCoreError.malformed(
+            offset: offset, reason: "Float expression reads past a list or a missing list")
+        }
+        stack.append(list[index])
+      case NativeSwiftFloatOperator.arrayMax...NativeSwiftFloatOperator.arrayLength
+      where arrays != nil:
+        // The reference answers 0 for a missing or empty list rather than failing.
+        let list = arrayOperand(try pop1(), arrays) ?? []
+        let sum: Float = list.reduce(0, +)
+        switch operation {
+        case NativeSwiftFloatOperator.arrayMax: stack.append(list.max() ?? 0)
+        case NativeSwiftFloatOperator.arrayMin: stack.append(list.min() ?? 0)
+        case NativeSwiftFloatOperator.arraySum: stack.append(sum)
+        case NativeSwiftFloatOperator.arrayAverage:
+          stack.append(list.isEmpty ? 0 : sum / Float(list.count))
+        default: stack.append(Float(list.count))
+        }
       default:
         throw NativeSwiftCoreError.unsupported(
           opcode: opcode, offset: offset, reason: "float expression operator \(operation)")
@@ -308,6 +339,19 @@ enum NativeSwiftFloatExpression {
         offset: offset, reason: "Invalid float expression result")
     }
     return result
+  }
+
+  /// Whether `word` names an id in AndroidX's array region rather than a value.
+  private static func isArrayReference(_ word: UInt32) -> Bool {
+    guard isEncoded(word), Int(word & payloadMask) <= operatorOffset else { return false }
+    return Int(word & referenceMask) & NativeSwiftIDRegion.mask == NativeSwiftIDRegion.array
+  }
+
+  /// The list an array operand names, when it is one.
+  private static func arrayOperand(_ value: Float, _ arrays: [Int: [Float]]?) -> [Float]? {
+    let word = value.bitPattern
+    guard isArrayReference(word) else { return nil }
+    return arrays?[Int(word & referenceMask)]
   }
 
   private static func isEncoded(_ word: UInt32) -> Bool {

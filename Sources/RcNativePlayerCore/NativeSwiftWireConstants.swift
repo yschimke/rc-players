@@ -281,6 +281,40 @@ enum NativeSwiftLoomID {
   static let lastMacroLocal = 0x4fff
 }
 
+/// AndroidX `NanMap`'s id regions: bits 20-22 of a NaN-encoded id say what the id names
+/// (`ID_REGION_MASK`, `TYPE_SYSTEM` ... `TYPE_OPERATION` shifted into place). An array id stays an
+/// id on the expression stack, where the array operators (`A_DEREF`, `A_LEN`, ...) read it; every
+/// other region is a value.
+enum NativeSwiftIDRegion {
+  static let mask = 0x70_0000
+  static let system = 0x00_0000
+  static let variable = 0x10_0000
+  static let array = 0x20_0000
+  static let operation = 0x30_0000
+}
+
+/// AndroidX `LayoutComputeOperation`'s `type`: which half of the bounds a computation writes back.
+/// Any other value is kept as read and never applied, since the reference only ever applies
+/// computations of these two types.
+public enum NativeSwiftLayoutComputeType {
+  /// `TYPE_MEASURE`: the width and height, bounds 2 and 3.
+  public static let measure = 0
+  /// `TYPE_POSITION`: the x and y, bounds 0 and 1.
+  public static let position = 1
+}
+
+/// The six slots of a `LayoutComputeOperation`'s bounds array, in the order the reference writes
+/// them before the computation runs.
+public enum NativeSwiftLayoutComputeBound {
+  public static let x = 0
+  public static let y = 1
+  public static let width = 2
+  public static let height = 3
+  public static let parentWidth = 4
+  public static let parentHeight = 5
+  public static let count = 6
+}
+
 /// Opcode groups that share one fixed payload shape inside a LOOM macro body. The capture walk and
 /// the parameter-remapping walk both switch on them, so each group is spelled once here.
 struct NativeSwiftOpcodeGroup {

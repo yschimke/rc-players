@@ -483,6 +483,73 @@ enum NativeSwiftDocumentDecoder {
       preconditionFailure("the outermost body frame returns when it closes")
     }
 
+    /// Reads a `LayoutComputeOperation`'s body up to its `ContainerEnd`.
+    ///
+    /// The body runs each time the host measures or places the component, so its expressions are
+    /// kept here rather than joining the document's frame-time evaluation: they read the bounds
+    /// array through `A_DEREF`, which only a layout pass supplies. A float constant is also loaded
+    /// into the document's values and a `DynamicFloatList` registered with the document's lists,
+    /// as the reference's data pass does for every operation in every container.
+    func readLayoutComputeBody() throws -> [NativeSwiftLayoutComputeStep] {
+      var steps: [NativeSwiftLayoutComputeStep] = []
+      while true {
+        operationCount += 1
+        guard operationCount <= maximumOperations else {
+          throw input.malformed("Operation count exceeds \(maximumOperations)")
+        }
+        let opcodeOffset = input.offset
+        let opcode = try input.u8("layout compute operation")
+        census(opcode)
+        switch opcode {
+        case NativeSwiftWireOpcode.containerEnd:
+          return steps
+        case NativeSwiftWireOpcode.dataFloat:
+          let id = try input.int("layout compute float id")
+          let word = try input.word("layout compute float value")
+          if NativeSwiftFloatExpression.referenceID(word) == nil {
+            let value = Float(bitPattern: word)
+            guard value.isFinite else { throw input.malformed("float value must be finite") }
+            floats[id] = value
+          }
+          steps.append(.float(id: id, words: [word], offset: opcodeOffset))
+        case NativeSwiftWireOpcode.animatedFloat:
+          let id = try input.int("layout compute expression id")
+          let lengths = try input.int("layout compute expression lengths")
+          let valueCount = lengths & 0xffff
+          let animationCount = (lengths >> 16) & 0xffff
+          guard animationCount == 0 else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: opcode, offset: opcodeOffset,
+              reason: "an animated float inside LayoutCompute is not migrated")
+          }
+          expressionWordCount += valueCount
+          guard expressionWordCount <= 200_000 else {
+            throw input.malformed("Float expression work exceeds 200000 words")
+          }
+          var words: [UInt32] = []
+          words.reserveCapacity(valueCount)
+          for _ in 0..<valueCount { words.append(try input.word("layout compute expression word")) }
+          steps.append(.float(id: id, words: words, offset: opcodeOffset))
+        case NativeSwiftWireOpcode.dynamicFloatList:
+          let id = try input.int("dynamic float list id")
+          let length = try input.word("dynamic float list length")
+          guard dynamicFloatLists[id] == nil else {
+            throw input.malformed("Duplicate dynamic float list \(id)")
+          }
+          dynamicFloatLists[id] = ParsedDynamicFloatList(lengthWord: length, updates: [])
+        case NativeSwiftWireOpcode.updateDynamicFloatList:
+          let id = try input.int("dynamic float list id")
+          let index = try input.word("dynamic float list index")
+          let value = try input.word("dynamic float list value")
+          steps.append(.update(listID: id, index: index, value: value))
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "operation inside LayoutCompute is not migrated")
+        }
+      }
+    }
+
     func skipMacroCallHeader() throws {
       _ = try input.int("nested macro id")
       let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
@@ -537,6 +604,10 @@ enum NativeSwiftDocumentDecoder {
       case NativeSwiftOpcodeGroup.matrixStack:
         break
       case NativeSwiftWireOpcode.canvasOperations:
+        return true
+      case NativeSwiftWireOpcode.macroBlock:
+        // A block outside a MacroCall: a container like any other, inert when it executes.
+        _ = try input.int("macro block index")
         return true
       default:
         throw NativeSwiftCoreError.unsupported(
@@ -686,6 +757,10 @@ enum NativeSwiftDocumentDecoder {
           let id = try reader.int("macro path id")
           if let replacement = mappings[id] { replaceID(at: idOffset, with: replacement) }
         case NativeSwiftWireOpcode.macroCall:
+          // The nested call's own expansion performs the next level of parameter rewrite after
+          // this parent body is resumed. Its MacroBlock children and their contents follow inline
+          // and are rewritten by this same walk: the reference inflates a block's operations with
+          // the enclosing body's remap context, and a MacroArgument later inserts them as they are.
           _ = try reader.int("nested macro id")
           let argumentCount = try reader.count("nested macro argument count", maximum: maximumProperties)
           for _ in 0..<argumentCount {
@@ -695,13 +770,9 @@ enum NativeSwiftDocumentDecoder {
               replaceID(at: argumentOffset, with: replacement)
             }
           }
-          // The nested call has no blocks in the forwarding form. Its own expansion performs the
-          // next level of parameter rewrite after this parent body is resumed.
-          guard try reader.u8("nested macro call end") == NativeSwiftWireOpcode.containerEnd else {
-            throw NativeSwiftCoreError.unsupported(
-              opcode: opcode, offset: opcodeOffset,
-              reason: "LOOM nested macro-call blocks are not migrated for parameter remapping")
-          }
+        case NativeSwiftWireOpcode.macroBlock:
+          // Only the slot index, which names a parameter position rather than an id.
+          _ = try reader.int("macro block index")
         case NativeSwiftWireOpcode.paintValues:
           let count = try reader.count("macro paint word count", maximum: 1_024)
           for _ in 0..<count { _ = try reader.int("macro paint word") }
@@ -2612,6 +2683,28 @@ enum NativeSwiftDocumentDecoder {
         let words = try (0..<6).map { _ in try input.word("draw arc value") }
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: NativeSwiftDrawKind.arc, words: words, paint: paint))
+      case NativeSwiftWireOpcode.layoutCompute:
+        // INT type, INT bounds id, BOOLEAN animateChanges, then a container body up to its
+        // ContainerEnd. The reference makes it a modifier of the component whose operations it
+        // sits among; anywhere else — top level, an action body — it is an inert container.
+        let type = try input.int("layout compute type")
+        let boundsID = try input.int("layout compute bounds id")
+        let animateChanges = try input.u8("layout compute animate changes") != 0
+        let steps = try readLayoutComputeBody()
+        if let owner = stack.last, let opened = componentOpenDepths[ObjectIdentifier(owner)],
+          opened.expansion == suspendedInputs.count, opened.modifiers == modifierContainers.count
+        {
+          owner.layoutComputes.append(
+            ParsedLayoutCompute(
+              type: type, boundsID: boundsID, animateChanges: animateChanges, steps: steps))
+        }
+      case NativeSwiftWireOpcode.macroBlock:
+        // A MacroBlock is a MacroCall's slot argument, and the call captures its own. One read
+        // here is outside any call: the reference keeps it as a container whose `apply` does
+        // nothing, so nothing in it draws or lays out. Its body is walked (bounded, and counted
+        // in the census) and dropped.
+        _ = try input.int("macro block index")
+        _ = try captureMacroBody()
       default:
         throw NativeSwiftCoreError.unsupported(
           opcode: opcode, offset: opcodeOffset, reason: "operation family not migrated")
@@ -3003,6 +3096,8 @@ final class ParsedNode {
   fileprivate(set) var collapsiblePriorityOrientation: Int?
   fileprivate(set) var text: ParsedText?
   fileprivate(set) var custom: ParsedCustom?
+  /// The component's `LayoutComputeOperation` modifiers, in wire order.
+  fileprivate(set) var layoutComputes: [ParsedLayoutCompute] = []
 
   init(kind: NativeSwiftNodeSnapshot.Kind, componentID: Int) {
     self.kind = kind
