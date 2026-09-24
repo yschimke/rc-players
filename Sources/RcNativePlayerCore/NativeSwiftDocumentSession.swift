@@ -798,15 +798,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       scrollMaximum: node.scrollMaximumWord.map {
         NativeSwiftFloatExpression.resolve($0, values: values)
       } ?? 0,
-      marquee: node.marqueeVelocityWord.map {
+      // Refused as the Kotlin player's support check refuses it: every float finite and the
+      // velocity positive. A zero velocity would hold the content still while the document kept
+      // asking for frames.
+      marquee: try node.marqueeVelocityWord.map {
         NativeSwiftMarqueeSnapshot(
           iterations: node.marqueeIterations, animationMode: node.marqueeAnimationMode,
-          repeatDelayMillis: NativeSwiftFloatExpression.resolve(
-            node.marqueeRepeatDelayWord, values: values),
-          initialDelayMillis: NativeSwiftFloatExpression.resolve(
-            node.marqueeInitialDelayWord, values: values),
-          spacing: NativeSwiftFloatExpression.resolve(node.marqueeSpacingWord, values: values),
-          velocity: NativeSwiftFloatExpression.resolve($0, values: values))
+          repeatDelayMillis: try resolvedFloat(
+            node.marqueeRepeatDelayWord, "marquee repeat delay", values: values),
+          initialDelayMillis: try resolvedFloat(
+            node.marqueeInitialDelayWord, "marquee initial delay", values: values),
+          spacing: try resolvedFloat(node.marqueeSpacingWord, "marquee spacing", values: values),
+          velocity: try resolvedFloat($0, "marquee velocity", values: values, positive: true))
       },
       text: text,
       custom: custom)

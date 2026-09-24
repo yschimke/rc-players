@@ -2462,6 +2462,29 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
       }
     default: layoutOverlay(aligned: false)
     }
+    applyContainerMarquee()
+  }
+
+  /// A marquee on anything but text: the children are measured unbounded along x, the way
+  /// `applyAndroidXMarquee` measures its content, and every child slides by the overflow under the
+  /// component's clip. A canvas or image has no content wider than its box, so it stays still.
+  private func applyContainerMarquee() {
+    guard node.kind != .text else { return }
+    marqueeOffset = 0
+    guard let marquee = node.marquee, !componentChildren.isEmpty else { return }
+    let content = contentRect
+    let unbounded = CGSize(width: CGFloat.greatestFiniteMagnitude, height: content.height)
+    let widths = visibleChildren.map { $0.preferredSize(in: unbounded).width }
+    let natural =
+      node.kind == .row
+      ? widths.reduce(0, +) + spacing * CGFloat(max(widths.count - 1, 0)) : widths.max() ?? 0
+    let overflow = natural + CGFloat(marquee.spacing) - content.width
+    marqueeOffset = CGFloat(
+      marquee.offset(
+        overflowDistance: Float(max(overflow, 0)), density: 1,
+        elapsedSeconds: documentView?.marqueeElapsedSeconds ?? 0))
+    guard marqueeOffset != 0 else { return }
+    for child in componentChildren { child.frame.origin.x += marqueeOffset }
   }
 
   func preferredSize(in available: CGSize) -> CGSize {

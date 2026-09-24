@@ -1804,6 +1804,17 @@ import Testing
     let live = try NativeSwiftDocumentSession.open(data: document)
     #expect(try live.snapshot(timeSeconds: 3).marqueeElapsedSeconds == 0)
     #expect(try live.snapshot(timeSeconds: 4.5).marqueeElapsedSeconds == 1.5)
+
+    // A velocity of zero never moves the content, yet would keep a host painting forever; the
+    // Kotlin player refuses it, and so does this one. The velocity is the modifier's last word.
+    var stalled = [UInt8](document)
+    let velocity: [UInt8] = [0x42, 0x70, 0x00, 0x00]
+    let at = try #require(
+      (0...(stalled.count - velocity.count)).last { Array(stalled[$0..<$0 + 4]) == velocity })
+    stalled.replaceSubrange(at..<at + 4, with: [0, 0, 0, 0])
+    #expect(throws: NativeSwiftCoreError.self) {
+      try NativeSwiftDocumentSession.open(data: Data(stalled)).snapshot(timeSeconds: 0)
+    }
   }
 
   @Test func amplifyingLoopIsMalformed() {
