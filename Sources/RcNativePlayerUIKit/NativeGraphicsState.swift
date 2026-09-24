@@ -245,8 +245,11 @@ enum NativeGradientRenderer {
       let span = NativeGradientTiling.periods(
         lower: Double(nearest / radius), upper: Double(farthest / radius))
     else { return false }
-    let deviceRadius = context.convertToDeviceSpace(CGSize(width: radius, height: radius))
-    guard min(abs(deviceRadius.width), abs(deviceRadius.height)) >= 1 else {
+    // The radius's device length along each user axis, measured separately: a rotation keeps the
+    // radius but can zero one component of a transformed diagonal.
+    let device = context.userSpaceToDeviceSpaceTransform
+    let deviceRadius = radius * min(hypot(device.a, device.b), hypot(device.c, device.d))
+    guard deviceRadius >= 1 else {
       context.setFillColor(average)
       context.fill(clip)
       return true

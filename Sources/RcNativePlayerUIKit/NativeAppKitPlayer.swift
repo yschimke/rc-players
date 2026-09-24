@@ -3155,11 +3155,15 @@ private final class NativeMacCanvasView: NSView {
   /// Bitmaps already resampled for a bilinear upscale, keyed by what they were resampled from and
   /// to. `images` never changes for a canvas, so an entry stays valid for the view's lifetime.
   private var resampledImages: [ResampledImageKey: ResampledImage] = [:]
-  /// The pixel bytes `resampledImages` holds, bounded by `resampledCacheBytes`.
+  /// The pixel bytes `resampledImages` holds; its share of `resampledBytesInUse`.
   private var resampledBytes = 0
-  /// What one canvas keeps resampled: 32 MiB, two of the largest resamples. Bounded by bytes, not
-  /// entries, because a canvas animating an image's size makes a new entry per size.
-  private static let resampledCacheBytes = 32 << 20
+  /// What every canvas together keeps resampled: 64 MiB, four of the largest resamples. Bounded by
+  /// bytes, not entries, because a canvas animating an image's size makes a new entry per size;
+  /// and shared, so a document of many canvases is bounded as a whole rather than per view.
+  private static let resampledBudgetBytes = 64 << 20
+  /// The pixel bytes every canvas's resamples hold between them. Canvases are AppKit views, so
+  /// this is only touched on the main thread.
+  private static var resampledBytesInUse = 0
   /// Counts draw passes, so the cache can tell the entries this frame draws from the ones an
   /// animation has left behind.
   private var drawPass = 0
@@ -3171,6 +3175,17 @@ private final class NativeMacCanvasView: NSView {
     super.init(frame: .zero)
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+
+  deinit {
+    // Hand this canvas's share of the shared budget back, on the main thread that owns it.
+    let bytes = resampledBytes
+    guard bytes > 0 else { return }
+    if Thread.isMainThread {
+      MainActor.assumeIsolated { Self.resampledBytesInUse -= bytes }
+    } else {
+      Task { @MainActor in Self.resampledBytesInUse -= bytes }
+    }
+  }
 
   /// A newer frame's commands for the same component. Draw commands carry no equality, so the
   /// canvas simply redraws; its backing store is kept.
@@ -3421,21 +3436,25 @@ private final class NativeMacCanvasView: NSView {
     else { return nil }
     resampledImages[key] = ResampledImage(image: result, bytes: bytes, lastDrawn: drawPass)
     resampledBytes += bytes
+    Self.resampledBytesInUse += bytes
     return result
   }
 
-  /// Makes room for a resample of `bytes`, evicting only entries this draw pass has not used.
+  /// Makes room in the shared budget for a resample of `bytes`, evicting only this canvas's
+  /// entries that the current draw pass has not used.
   ///
   /// False leaves the draw to Core Graphics. Evicting what the frame still draws instead would
-  /// make a frame with more large resamples than the budget holds redo them on every pass.
+  /// make a frame with more large resamples than the budget holds redo them on every pass, and
+  /// another canvas's entries are its own to keep.
   private func admitResample(bytes: Int) -> Bool {
-    if resampledBytes + bytes > Self.resampledCacheBytes {
+    if Self.resampledBytesInUse + bytes > Self.resampledBudgetBytes {
       for (key, entry) in resampledImages where entry.lastDrawn != drawPass {
         resampledImages[key] = nil
         resampledBytes -= entry.bytes
+        Self.resampledBytesInUse -= entry.bytes
       }
     }
-    return resampledBytes + bytes <= Self.resampledCacheBytes
+    return Self.resampledBytesInUse + bytes <= Self.resampledBudgetBytes
   }
 
   /// AppKit's name for a Core Graphics interpolation quality.
