@@ -550,6 +550,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       NativeSwiftWireOpcode.matrixRestore: "restore",
       NativeSwiftWireOpcode.drawBitmapScaled: "drawBitmapScaled",
       NativeSwiftWireOpcode.drawArc: "drawArc",
+      NativeSwiftWireOpcode.matrixFromPath: "matrixFromPath",
     ]
     return try NativeSwiftDocumentSession.operationSpans(
       in: data, toleratingRootlessData: true
@@ -899,10 +900,10 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     }
     collectGlyphRuns(snapshot.root)
     // Keyed by the core's `ParsedDrawCommand` kind, named as the reference names the opcode that
-    // produced it (`RcOperationInventory` stable names, which the CMP lane records). Kinds 0-7 are
-    // save/restore, translate, scale, rotate, skew, clipRect and clipPath: matrix and clip state,
-    // not draws, so they are not recorded. Kind 17 is left out because the core emits it for both
-    // DrawTextRun and DrawTextAnchor and the snapshot cannot tell the two apart.
+    // produced it (`RcOperationInventory` stable names, which the CMP lane records). Kinds 0-8 are
+    // save/restore, translate, scale, rotate, skew, clipRect, clipPath and the path matrix: matrix
+    // and clip state, not draws, so they are not recorded. Kind 17 is left out because the core
+    // emits it for both DrawTextRun and DrawTextAnchor and the snapshot cannot tell the two apart.
     let drawNames: [Int: String] = [
       NativeSwiftDrawKind.rect: "DrawRect",
       NativeSwiftDrawKind.oval: "DrawOval",
@@ -916,6 +917,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       NativeSwiftDrawKind.textOnPath: "DrawTextOnPath",
       NativeSwiftDrawKind.textOnCircle: "DrawTextOnCircle",
       NativeSwiftDrawKind.drawToBitmap: "DrawToBitmap",
+      NativeSwiftDrawKind.tweenPath: "DrawTweenPath",
     ]
     var drawComponents: [String] = []
     func collectDrawComponents(_ node: NativeSwiftNodeSnapshot) {
@@ -3174,7 +3176,7 @@ private final class NativeMacCanvasView: NSView {
       to: context, strokeWidth: CGFloat(command.strokeWidth), strokeCap: command.strokeCap,
       strokeJoin: command.strokeJoin, blendMode: command.blendMode)
     // DESTINATION leaves the buffer unchanged, so a draw under it paints nothing (UIKit's canvas
-    // skips it the same way). Kinds 0-7 are matrix, clip and save/restore state, which must still
+    // skips it the same way). Kinds 0-8 are matrix, clip and save/restore state, which must still
     // apply; every kind from 10 up is a draw.
     if command.kind >= NativeSwiftDrawKind.rect,
       command.blendMode == NativeSwiftPaintBlendMode.destination
@@ -3197,6 +3199,10 @@ private final class NativeMacCanvasView: NSView {
       context.translateBy(x: -pivot.x, y: -pivot.y)
     case NativeSwiftDrawKind.matrixSkew:
       context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
+    case NativeSwiftDrawKind.matrixFromPath:
+      // The core measured the path; its six values are the affine matrix, in this order.
+      context.concatenate(
+        CGAffineTransform(a: v[0], b: v[1], c: v[2], d: v[3], tx: v[4], ty: v[5]))
     case NativeSwiftDrawKind.clipRect:
       context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
     case NativeSwiftDrawKind.clipPath:
@@ -3241,7 +3247,8 @@ private final class NativeMacCanvasView: NSView {
       if command.kind == NativeSwiftDrawKind.sector { path.closeSubpath() }
       paint(path, command, context)
     case NativeSwiftDrawKind.text: drawText(command, context)
-    case NativeSwiftDrawKind.path: paint(path(command.path), command, context)
+    case NativeSwiftDrawKind.path, NativeSwiftDrawKind.tweenPath:
+      paint(path(command.path), command, context)
     case NativeSwiftDrawKind.bitmap: drawImage(command, context)
     default: break
     }

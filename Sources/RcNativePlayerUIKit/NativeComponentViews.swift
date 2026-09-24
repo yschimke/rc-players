@@ -2013,6 +2013,10 @@
         context.translateBy(x: -pivot.x, y: -pivot.y)
       case NativeSwiftDrawKind.matrixSkew:
         context.concatenate(CGAffineTransform(a: 1, b: v[1], c: v[0], d: 1, tx: 0, ty: 0))
+      case NativeSwiftDrawKind.matrixFromPath:
+        // The core measured the path; its six values are the affine matrix, in this order.
+        context.concatenate(
+          CGAffineTransform(a: v[0], b: v[1], c: v[2], d: v[3], tx: v[4], ty: v[5]))
       case NativeSwiftDrawKind.clipRect:
         context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
       case NativeSwiftDrawKind.clipPath:
@@ -2042,7 +2046,7 @@
         paint(path.cgPath, command, context)
       case NativeSwiftDrawKind.arc, NativeSwiftDrawKind.sector: drawArc(command, context)
       case NativeSwiftDrawKind.text: drawText(command)
-      case NativeSwiftDrawKind.path:
+      case NativeSwiftDrawKind.path, NativeSwiftDrawKind.tweenPath:
         paint(
           NativePathBuilder.make(command.path), command, context,
           fillRule: NativeGraphicsState.fillRule(command.pathWinding))

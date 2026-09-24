@@ -355,6 +355,26 @@ enum NativeSwiftDocumentDecoder {
       return merged
     }
 
+    /// The interpolation between `first` and `second`, which `PATH_TWEEN` stores and
+    /// `DRAW_TWEEN_PATH` draws. It fills non-zero, as the reference's fresh `Path` does. A tween
+    /// that would read more than `ParsedPathTween.maximumSources` paths of their own is refused.
+    func tweenPath(
+      _ first: ParsedPath, _ second: ParsedPath, fraction: UInt32, start: UInt32, stop: UInt32,
+      opcode: Int, offset: Int
+    ) throws -> ParsedPath {
+      guard first.sourceCount + second.sourceCount <= ParsedPathTween.maximumSources else {
+        throw NativeSwiftCoreError.malformed(
+          offset: offset,
+          reason: "Path tween reads more than \(ParsedPathTween.maximumSources) paths")
+      }
+      let tween = ParsedPathTween(
+        first: first, second: second, fraction: fraction, start: start, stop: stop,
+        opcode: opcode, offset: offset)
+      return ParsedPath(
+        winding: NativeSwiftPathWinding.nonZero, source: .tween(tween), opcode: opcode,
+        offset: offset)
+    }
+
     func drawingNode() throws -> ParsedNode {
       let node = try drawingTarget()
       if !impulseScopes.isEmpty, !impulseDrawTargets.contains(where: { $0.node === node }) {
@@ -1586,12 +1606,50 @@ enum NativeSwiftDocumentDecoder {
           opcode: opcode, offset: opcodeOffset)
         pathIDs.insert(idAndWinding & 0x00ff_ffff)
       case NativeSwiftWireOpcode.pathTween:
-        // Path tween; retained for the decoded-operation record probe.
+        // A path interpolated between two others, each as it stands here, at a fraction resolved
+        // on every frame. A missing source is not an error: both reference players record such a
+        // tween without morphing anything, so the output simply stays undeclared.
         let outID = try input.int("path tween output id")
-        _ = try input.int("path tween first path id")
-        _ = try input.int("path tween second path id")
-        _ = try input.word("path tween factor")
+        let firstID = try input.int("path tween first path id")
+        let secondID = try input.int("path tween second path id")
+        let fraction = try input.word("path tween factor")
         pathTweenIDs.insert(outID)
+        if let first = paths[firstID], let second = paths[secondID] {
+          paths[outID] = try tweenPath(
+            first, second, fraction: fraction, start: Float(0).bitPattern,
+            stop: Float(1).bitPattern, opcode: opcode, offset: opcodeOffset)
+        }
+      case NativeSwiftWireOpcode.pathExpression:
+        // A path sampled from two float expressions over a parameter range (AndroidX
+        // `PathExpression`): id, flags, min, max and count, then each expression's length-prefixed
+        // words. The path is generated on every frame, as its expressions may read variables.
+        let id = try input.int("path expression id")
+        let flags = try input.int("path expression flags")
+        let minimum = try input.word("path expression minimum")
+        let maximum = try input.word("path expression maximum")
+        let count = try input.word("path expression count")
+        let xCount = try input.count(
+          "path expression x length", maximum: ParsedPathExpression.maximumExpressionWords)
+        let expressionX = try (0..<xCount).map { _ in try input.word("path expression x word") }
+        let yCount = try input.count(
+          "path expression y length", maximum: ParsedPathExpression.maximumExpressionWords)
+        let expressionY = try (0..<yCount).map { _ in try input.word("path expression y word") }
+        let expression = ParsedPathExpression(
+          flags: flags, minimum: minimum, maximum: maximum, count: count, expressionX: expressionX,
+          expressionY: expressionY, opcode: opcode, offset: opcodeOffset)
+        // What AndroidX refuses when it first applies the operation is refused here while it can
+        // be: a literal count below one point, and a polar path without its centre.
+        if NativeSwiftFloatExpression.referenceID(count) == nil {
+          _ = try ParsedPathExpression.pointCount(Float(bitPattern: count), offset: opcodeOffset)
+        }
+        if expression.isPolar, expressionY.count < 2 {
+          throw NativeSwiftCoreError.malformed(
+            offset: opcodeOffset, reason: "A polar PathExpression needs a centre")
+        }
+        paths[id] = ParsedPath(
+          winding: expression.winding, source: .expression(expression), opcode: opcode,
+          offset: opcodeOffset)
+        pathIDs.insert(id)
       case NativeSwiftWireOpcode.pathCreate:
         // A path built in steps: a move to the start point, which later appends extend. It is a
         // path like any `PATH_DATA`, so drawing and text on a path can name it.
@@ -1625,6 +1683,37 @@ enum NativeSwiftDocumentDecoder {
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
         try drawingNode().commands.append(
           ParsedDrawCommand(kind: NativeSwiftDrawKind.path, words: [], paint: paint, path: path))
+      case NativeSwiftWireOpcode.drawTweenPath:
+        // Draws the interpolation between two paths, trimmed to the [start, stop] fraction of its
+        // length (AndroidX `DrawTweenPath`): both path ids, then the tween, start and stop.
+        let firstID = try input.int("tween path first path id")
+        let secondID = try input.int("tween path second path id")
+        let fraction = try input.word("tween path fraction")
+        let start = try input.word("tween path start")
+        let stop = try input.word("tween path stop")
+        guard let first = paths[firstID] else { throw input.malformed("Missing path \(firstID)") }
+        guard let second = paths[secondID] else {
+          throw input.malformed("Missing path \(secondID)")
+        }
+        let path = try tweenPath(
+          first, second, fraction: fraction, start: start, stop: stop, opcode: opcode,
+          offset: opcodeOffset)
+        try drawingNode().commands.append(
+          ParsedDrawCommand(
+            kind: NativeSwiftDrawKind.tweenPath, words: [], paint: paint, path: path))
+      case NativeSwiftWireOpcode.matrixFromPath:
+        // Concatenates the matrix at a fraction along a path (AndroidX `MatrixFromPath`): the path
+        // id, the fraction, a vertical offset, then the position and tangent flags. The reference
+        // measures the path when it paints and never reads the offset; neither does this. Its
+        // missing path leaves the identity, as the reference's empty path does.
+        let pathID = try input.int("matrix from path id")
+        let fraction = try input.word("matrix from path fraction")
+        let verticalOffset = try input.word("matrix from path vertical offset")
+        let flags = try input.int("matrix from path flags")
+        try drawingNode().commands.append(
+          ParsedDrawCommand(
+            kind: NativeSwiftDrawKind.matrixFromPath, words: [fraction, verticalOffset],
+            paint: paint, path: paths[pathID], matrixFlags: flags))
       case NativeSwiftWireOpcode.namedVariable:  // Named variable
         let id = try input.int("named variable id")
         let type = try input.int("named variable type")

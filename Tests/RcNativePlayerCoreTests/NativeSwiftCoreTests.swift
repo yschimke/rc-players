@@ -1789,6 +1789,266 @@ import Testing
     #expect(clips.allSatisfy { $0.path.count == 2 })
   }
 
+  // MARK: - Path expressions, tween-path draws and path matrices
+
+  /// Whether each value is within `tolerance` of its expectation, element for element.
+  private func close(_ actual: [Float], _ expected: [Float], tolerance: Float = 1e-3) -> Bool {
+    actual.count == expected.count
+      && zip(actual, expected).allSatisfy { abs($0 - $1) <= tolerance }
+  }
+
+  /// A `PATH_DATA` operation writing `words`: `(command, arguments)` pairs, each line and curve
+  /// preceded by the two legacy padding words AndroidX's layout carries.
+  private func pathData(_ document: Writer, id: Int, _ commands: [(Int, [Float])]) {
+    var words: [Int] = []
+    for (command, arguments) in commands {
+      words.append(Writer.nanReference(command))
+      if command != NativeSwiftPathCommand.move, !arguments.isEmpty {
+        words += [0, 0]
+      }
+      words += arguments.map { Int(Int32(bitPattern: $0.bitPattern)) }
+    }
+    document.u8(NativeSwiftWireOpcode.dataPath).int(id).int(words.count)
+    for word in words { document.int(word) }
+  }
+
+  /// The first command of `kind` an implicit-canvas document draws.
+  private func drawn(_ document: Writer, kind: Int, timeSeconds: TimeInterval = 0) throws
+    -> NativeSwiftDrawCommandSnapshot
+  {
+    let commands = try NativeSwiftDocumentSession.open(data: document.data)
+      .snapshot(timeSeconds: timeSeconds).root.commands
+    return try #require(
+      commands.first(where: { $0.kind == kind }),
+      Comment(rawValue: "drew \(commands.map(\.kind)), not \(kind)"))
+  }
+
+  /// `PATH_EXPRESSION` samples its X and Y expressions over `[min, max]`, reading the parameter as
+  /// VAR1 and any other reference as a variable, and joins the points as AndroidX's
+  /// `PathGenerator` does: a move, then a cubic per segment. LINEAR makes each segment's ends its
+  /// control points.
+  @Test func pathExpressionSamplesItsExpressions() throws {
+    let var1 = Writer.floatOperator(NativeSwiftFloatOperator.var1)
+    let multiply = Writer.floatOperator(NativeSwiftFloatOperator.mul)
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(NativeSwiftWireOpcode.dataFloat).int(40).float(10)
+    document.u8(NativeSwiftWireOpcode.pathExpression).int(7)
+      .int(NativeSwiftPathExpressionFlag.linear).float(0).float(2).float(3)
+      .int(3).int(var1).int(Writer.nanReference(40)).int(multiply)
+      .int(1).int(var1)
+    document.u8(NativeSwiftWireOpcode.drawPath).int(7)
+    let path = try drawn(document, kind: NativeSwiftDrawKind.path).path
+    #expect(
+      path.map(\.kind) == [
+        NativeSwiftPathCommand.move, NativeSwiftPathCommand.cubic, NativeSwiftPathCommand.cubic,
+      ], Comment(rawValue: "generated \(path.map(\.kind))"))
+    #expect(
+      path.map(\.values) == [[0, 0], [0, 0, 10, 1, 10, 1], [10, 1, 20, 2, 20, 2]],
+      Comment(rawValue: "generated \(path.map(\.values))"))
+  }
+
+  /// A polar expression is a radius over the angle, around the centre its Y words give; LOOP
+  /// divides the range by the point count and closes the path, and the flags' high byte is its
+  /// winding.
+  @Test func pathExpressionPolarLoopClosesAroundItsCentre() throws {
+    let flags =
+      NativeSwiftPathExpressionFlag.polar | NativeSwiftPathExpressionFlag.loop
+      | NativeSwiftPathExpressionFlag.linear
+      | NativeSwiftPathWinding.evenOdd.rawValue << NativeSwiftPathExpressionFlag.windingShift
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(NativeSwiftWireOpcode.pathExpression).int(8).int(flags)
+      .float(0).float(2 * Float.pi).float(4)
+      .int(1).float(10)
+      .int(2).float(50).float(60)
+    document.u8(NativeSwiftWireOpcode.drawPath).int(8)
+    let command = try drawn(document, kind: NativeSwiftDrawKind.path)
+    let path = command.path
+    #expect(command.pathWinding == .evenOdd)
+    let cubics = Array(repeating: NativeSwiftPathCommand.cubic, count: 4)
+    #expect(
+      path.map(\.kind)
+        == [NativeSwiftPathCommand.move] + cubics + [NativeSwiftPathCommand.close],
+      Comment(rawValue: "generated \(path.map(\.kind))"))
+    let ends = path.compactMap { $0.values.count >= 2 ? Array($0.values.suffix(2)) : nil }
+    let expected: [[Float]] = [[60, 60], [50, 70], [40, 60], [50, 50], [60, 60]]
+    #expect(
+      ends.count == expected.count && zip(ends, expected).allSatisfy { close($0, $1) },
+      Comment(rawValue: "a polar loop passed through \(ends)"))
+  }
+
+  /// SPLINE and MONOTONIC place their control points from the chord-weighted tangents
+  /// `PathGenerator` computes; the expectations are its own arithmetic, run in Float.
+  @Test func pathExpressionCurvesMatchPathGenerator() throws {
+    let var1 = Writer.floatOperator(NativeSwiftFloatOperator.var1)
+    let multiply = Writer.floatOperator(NativeSwiftFloatOperator.mul)
+    func curve(_ flags: Int) throws -> [[Float]] {
+      let document = Writer()
+      document.header(width: 100, height: 100)
+      document.u8(NativeSwiftWireOpcode.pathExpression).int(9).int(flags)
+        .float(0).float(2).float(3)
+        .int(3).int(var1).float(10).int(multiply)
+        .int(3).int(var1).int(var1).int(multiply)
+      document.u8(NativeSwiftWireOpcode.drawPath).int(9)
+      return try drawn(document, kind: NativeSwiftDrawKind.path).path.map(\.values)
+    }
+    let spline = try curve(NativeSwiftPathExpressionFlag.spline)
+    #expect(
+      spline.count == 3 && close(spline[1], [3.333333, 0.333333, 6.727806, 0.358027, 10, 1])
+        && close(spline[2], [13.399316, 1.666914, 16.666666, 3, 20, 4]),
+      Comment(rawValue: "a spline generated \(spline)"))
+    let monotonic = try curve(NativeSwiftPathExpressionFlag.monotonic)
+    #expect(
+      monotonic.count == 3 && close(monotonic[1], [3.333333, 0.333333, 6.729786, 0.506332, 10, 1])
+        && close(monotonic[2], [13.397260, 1.512847, 16.666666, 3, 20, 4]),
+      Comment(rawValue: "a monotonic curve generated \(monotonic)"))
+  }
+
+  /// What AndroidX refuses when it first applies a `PATH_EXPRESSION` refuses on open: a literal
+  /// count below one point, and a polar path with no centre. A path that reads the clock asks for
+  /// continuous frames.
+  @Test func pathExpressionRefusesWhatAndroidXRefuses() throws {
+    let var1 = Writer.floatOperator(NativeSwiftFloatOperator.var1)
+    func document(flags: Int, count: Float, y: [Int]) -> Data {
+      let writer = Writer()
+      writer.header(width: 100, height: 100)
+      writer.u8(NativeSwiftWireOpcode.pathExpression).int(10).int(flags)
+        .float(0).float(1).float(count).int(1).int(var1).int(y.count)
+      for word in y { writer.int(word) }
+      writer.u8(NativeSwiftWireOpcode.drawPath).int(10)
+      return writer.data
+    }
+    #expect(throws: NativeSwiftCoreError.self) {
+      try NativeSwiftDocumentSession.open(data: document(flags: 0, count: 0, y: [var1]))
+    }
+    #expect(throws: NativeSwiftCoreError.self) {
+      try NativeSwiftDocumentSession.open(
+        data: document(flags: NativeSwiftPathExpressionFlag.polar, count: 4, y: [var1]))
+    }
+    let clock = Writer()
+    clock.header(width: 100, height: 100)
+    clock.u8(NativeSwiftWireOpcode.pathExpression).int(11).int(0)
+      .float(0).float(1).float(2)
+      .int(1).int(Writer.nanReference(NativeSwiftSystemVariables.continuousSeconds))
+      .int(1).int(var1)
+    clock.u8(NativeSwiftWireOpcode.drawPath).int(11)
+    #expect(try NativeSwiftDocumentSession.open(data: clock.data).snapshot().needsContinuousFrames)
+  }
+
+  /// `DRAW_TWEEN_PATH` draws the interpolation of two paths' numbers under the first path's
+  /// commands, trimmed to `[start, stop]` of its length.
+  @Test func drawTweenPathInterpolatesAndTrims() throws {
+    let move = NativeSwiftPathCommand.move
+    let line = NativeSwiftPathCommand.line
+    func tween(_ fraction: Float, start: Float, stop: Float) throws -> [[Float]] {
+      let document = Writer()
+      document.header(width: 100, height: 100)
+      pathData(document, id: 1, [(move, [0, 0]), (line, [10, 0]), (line, [10, 10])])
+      pathData(document, id: 2, [(move, [0, 20]), (line, [30, 20]), (line, [30, 50])])
+      document.u8(NativeSwiftWireOpcode.drawTweenPath).int(1).int(2)
+        .float(fraction).float(start).float(stop)
+      let command = try drawn(document, kind: NativeSwiftDrawKind.tweenPath)
+      #expect(command.pathWinding == .nonZero)
+      return command.path.map(\.values)
+    }
+    let halfway = try tween(0.5, start: 0, stop: 1)
+    #expect(halfway == [[0, 10], [20, 10], [20, 30]], Comment(rawValue: "halfway: \(halfway)"))
+    let first = try tween(0, start: 0, stop: 1)
+    #expect(first == [[0, 0], [10, 0], [10, 10]], Comment(rawValue: "at 0: \(first)"))
+    // The first path is 20 long; its middle half runs from (5, 0) round the corner to (10, 5).
+    let trimmed = try tween(0, start: 0.25, stop: 0.75)
+    #expect(trimmed == [[5, 0], [10, 0], [10, 5]], Comment(rawValue: "trimmed: \(trimmed)"))
+    #expect(try tween(0, start: 0.75, stop: 0.25).isEmpty)
+  }
+
+  /// A trim through a curve splits it where its arc length says, not at the parameter: a cubic
+  /// whose control points crowd its start covers its first half in well over half its parameter.
+  @Test func drawTweenPathTrimsCurvesByLength() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    let move = NativeSwiftPathCommand.move
+    let cubic = NativeSwiftPathCommand.cubic
+    pathData(document, id: 1, [(move, [0, 0]), (cubic, [0, 0, 0, 0, 40, 0])])
+    document.u8(NativeSwiftWireOpcode.drawTweenPath).int(1).int(1).float(0).float(0).float(0.5)
+    let path = try drawn(document, kind: NativeSwiftDrawKind.tweenPath).path
+    #expect(path.map(\.kind) == [NativeSwiftPathCommand.move, NativeSwiftPathCommand.cubic])
+    let end = path.last?.values.suffix(2).map { $0 } ?? []
+    #expect(
+      close(end, [20, 0], tolerance: 0.05), Comment(rawValue: "half the curve ends at \(end)"))
+  }
+
+  /// `PATH_TWEEN` stores its interpolation as a path `DRAW_PATH` can draw; a tween of paths the
+  /// document never declares is recorded and draws nothing, and a tween fed back into itself is
+  /// refused once it would read more than `ParsedPathTween.maximumSources` paths.
+  @Test func pathTweenDeclaresADrawablePath() throws {
+    let move = NativeSwiftPathCommand.move
+    let line = NativeSwiftPathCommand.line
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    pathData(document, id: 1, [(move, [0, 0]), (line, [10, 0])])
+    pathData(document, id: 2, [(move, [0, 20]), (line, [30, 20])])
+    document.u8(NativeSwiftWireOpcode.pathTween).int(3).int(1).int(2).float(0.25)
+    document.u8(NativeSwiftWireOpcode.pathTween).int(4).int(98).int(99).float(0.5)
+    document.u8(NativeSwiftWireOpcode.drawPath).int(3)
+    let session = try NativeSwiftDocumentSession.open(data: document.data)
+    let snapshot = try session.snapshot()
+    #expect(snapshot.pathTweenIDs == [3, 4])
+    let path = try #require(
+      snapshot.root.commands.first(where: { $0.kind == NativeSwiftDrawKind.path }))
+    #expect(path.path.map(\.values) == [[0, 5], [15, 5]], Comment(rawValue: "\(path.path)"))
+
+    func chained(_ tweens: Int) -> Data {
+      let document = Writer()
+      document.header(width: 100, height: 100)
+      pathData(document, id: 1, [(move, [0, 0]), (line, [10, 0])])
+      for _ in 0..<tweens {
+        document.u8(NativeSwiftWireOpcode.pathTween).int(1).int(1).int(1).float(0.5)
+      }
+      return document.data
+    }
+    _ = try NativeSwiftDocumentSession.open(data: chained(6), toleratingRootlessData: true)
+    #expect(throws: NativeSwiftCoreError.self) {
+      try NativeSwiftDocumentSession.open(data: chained(7), toleratingRootlessData: true)
+    }
+  }
+
+  /// `MATRIX_FROM_PATH` becomes the matrix `PathMeasure.getMatrix` gives at `(length * fraction) %
+  /// length`, as `[a, b, c, d, tx, ty]`: rotated onto the tangent and translated to the point, per
+  /// its flags. A missing path leaves the identity.
+  @Test func matrixFromPathMeasuresItsPath() throws {
+    let both = NativeSwiftMatrixFromPathFlag.position | NativeSwiftMatrixFromPathFlag.tangent
+    func matrix(_ fraction: Float, flags: Int, pathID: Int = 1) throws -> [Float] {
+      let document = Writer()
+      document.header(width: 100, height: 100)
+      pathData(
+        document, id: 1,
+        [(NativeSwiftPathCommand.move, [0, 0]), (NativeSwiftPathCommand.line, [0, 100])])
+      pathData(
+        document, id: 2,
+        [
+          (NativeSwiftPathCommand.move, [0, 0]),
+          (NativeSwiftPathCommand.cubic, [10, 0, 20, 0, 30, 0]),
+        ])
+      document.u8(NativeSwiftWireOpcode.matrixFromPath).int(pathID).float(fraction).float(0)
+        .int(flags)
+      let command = try drawn(document, kind: NativeSwiftDrawKind.matrixFromPath)
+      #expect(command.path.isEmpty)
+      return command.values
+    }
+    let quarter = try matrix(0.25, flags: both)
+    #expect(close(quarter, [0, 1, -1, 0, 0, 25]), Comment(rawValue: "at 0.25: \(quarter)"))
+    let positioned = try matrix(0.25, flags: NativeSwiftMatrixFromPathFlag.position)
+    #expect(close(positioned, [1, 0, 0, 1, 0, 25]), Comment(rawValue: "position: \(positioned)"))
+    // The whole length wraps to the start, as the reference's `%` does.
+    let wrapped = try matrix(1, flags: both)
+    #expect(close(wrapped, [0, 1, -1, 0, 0, 0]), Comment(rawValue: "at 1: \(wrapped)"))
+    let curved = try matrix(0.5, flags: both, pathID: 2)
+    #expect(close(curved, [1, 0, 0, 1, 15, 0]), Comment(rawValue: "along a cubic: \(curved)"))
+    let missing = try matrix(0.5, flags: both, pathID: 77)
+    #expect(missing == [1, 0, 0, 1, 0, 0], Comment(rawValue: "a missing path gave \(missing)"))
+  }
+
   // MARK: - Graphics-layer attribute ids (#423)
   //
   // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:
