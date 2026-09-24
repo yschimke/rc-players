@@ -210,6 +210,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
+import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHapticFeedback
 import ee.schimke.composeai.rcplayer.protocol.RcHapticType
@@ -278,7 +279,6 @@ import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcGraphicsLayerAnimator
-import ee.schimke.composeai.rcplayer.runtime.RcGraphicsLayerValues
 import ee.schimke.composeai.rcplayer.runtime.RcImpulsePhase
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
@@ -3622,6 +3622,7 @@ private fun Modifier.applyGraphicsLayer(
 ): Modifier {
   val animator = remember(state) { RcGraphicsLayerAnimator() }
   val values = animator.evaluate(operation, state)
+  val extras = RcGraphicsLayerExtras.of(operation, state)
   val frameDemand = LocalRcFrameDemand.current
   DisposableEffect(frameDemand, values.isAnimating) {
     if (values.isAnimating) frameDemand.acquire()
@@ -3639,42 +3640,71 @@ private fun Modifier.applyGraphicsLayer(
     shadowElevation = values.shadowElevation
     alpha = values.alpha
     cameraDistance = values.cameraDistance
-    shape = values.layerShape()
-    compositingStrategy =
-      when (values.compositingStrategy) {
-        1 -> CompositingStrategy.Offscreen
-        2 -> CompositingStrategy.ModulateAlpha
-        else -> CompositingStrategy.Auto
-      }
-    values.ambientShadowColor?.let { ambientShadowColor = Color(it) }
-    values.spotShadowColor?.let { spotShadowColor = Color(it) }
-    renderEffect =
-      if (values.blurRadiusX > 0f || values.blurRadiusY > 0f) {
-        BlurEffect(values.blurRadiusX, values.blurRadiusY, values.blurTileMode())
-      } else {
-        null
-      }
+    shape = extras.shape
+    compositingStrategy = extras.compositingStrategy
+    extras.ambientShadowColor?.let { ambientShadowColor = it }
+    extras.spotShadowColor?.let { spotShadowColor = it }
+    renderEffect = extras.renderEffect
   }
 }
 
 /**
- * The layer's outline. Compose uses it for the shadow; the layer is not clipped to it, since the
- * document has no clip attribute and neither AndroidX player clips there.
+ * The graphics-layer attributes beyond the animated floats `RcGraphicsLayerValues` carries: shape,
+ * compositing, blur and shadow colours. They are read as written, without the implicit tween.
  */
-private fun RcGraphicsLayerValues.layerShape(): Shape =
-  when (shape) {
-    RcGraphicsLayerModifier.SHAPE_ROUND_RECT -> RoundedCornerShape(CornerSize(shapeRadius))
-    RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
-    else -> RectangleShape
+private class RcGraphicsLayerExtras(
+  val shape: Shape,
+  val compositingStrategy: CompositingStrategy,
+  val renderEffect: BlurEffect?,
+  val ambientShadowColor: Color?,
+  val spotShadowColor: Color?,
+) {
+  companion object {
+    fun of(operation: RcGraphicsLayerModifier, state: RcPlayerState): RcGraphicsLayerExtras {
+      val attributes = operation.attributes.associateBy { it.index }
+      fun int(index: Int): Int? = (attributes[index] as? RcGraphicsLayerAttribute.IntValue)?.value
+      fun float(index: Int): Float =
+        (attributes[index] as? RcGraphicsLayerAttribute.FloatValue)?.let { state.resolve(it.value) }
+          ?: 0f
+      val blurX = float(RcGraphicsLayerModifier.BLUR_RADIUS_X)
+      val blurY = float(RcGraphicsLayerModifier.BLUR_RADIUS_Y)
+      return RcGraphicsLayerExtras(
+        // The layer's outline. Compose uses it for the shadow; the layer is not clipped to it,
+        // since the document has no clip attribute and neither AndroidX player clips there.
+        shape =
+          when (int(RcGraphicsLayerModifier.SHAPE)) {
+            RcGraphicsLayerModifier.SHAPE_ROUND_RECT ->
+              RoundedCornerShape(CornerSize(float(RcGraphicsLayerModifier.SHAPE_RADIUS)))
+            RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
+            else -> RectangleShape
+          },
+        compositingStrategy =
+          when (int(RcGraphicsLayerModifier.COMPOSITING_STRATEGY)) {
+            1 -> CompositingStrategy.Offscreen
+            2 -> CompositingStrategy.ModulateAlpha
+            else -> CompositingStrategy.Auto
+          },
+        renderEffect =
+          if (blurX > 0f || blurY > 0f) {
+            BlurEffect(
+              blurX,
+              blurY,
+              when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
+                RcGraphicsLayerModifier.TILE_MODE_REPEATED -> TileMode.Repeated
+                RcGraphicsLayerModifier.TILE_MODE_MIRROR -> TileMode.Mirror
+                RcGraphicsLayerModifier.TILE_MODE_DECAL -> TileMode.Decal
+                else -> TileMode.Clamp
+              },
+            )
+          } else {
+            null
+          },
+        ambientShadowColor = int(RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR)?.let(::Color),
+        spotShadowColor = int(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR)?.let(::Color),
+      )
+    }
   }
-
-private fun RcGraphicsLayerValues.blurTileMode(): TileMode =
-  when (blurTileMode) {
-    RcGraphicsLayerModifier.TILE_MODE_REPEATED -> TileMode.Repeated
-    RcGraphicsLayerModifier.TILE_MODE_MIRROR -> TileMode.Mirror
-    RcGraphicsLayerModifier.TILE_MODE_DECAL -> TileMode.Decal
-    else -> TileMode.Clamp
-  }
+}
 
 private fun Modifier.applyDimensionConstraint(
   operation: ee.schimke.composeai.rcplayer.protocol.RcOperation,
