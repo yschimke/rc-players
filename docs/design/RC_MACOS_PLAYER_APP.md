@@ -46,16 +46,19 @@ NSApplication / RemoteComposeMacAppDelegate
 
 Selected renderer
 ├── CMP → RcComposeWindow (existing Kotlin/Native macOS entry point)
-└── Native AppKit POC → NSWindow / NSScrollView / NativeMacDocumentView
+└── Native AppKit POC → NSWindow / NSScrollView / NativeMacDocumentView (accessibility group)
     └── NativeMacComponentView per Remote Compose node
         ├── NSTextField for text components
-        ├── NSButton for clickable semantic components
+        ├── NativeMacSemanticElement (NSAccessibilityElement) for semantic components
         ├── NativeMacCanvasView for draw commands
         └── child NativeMacComponentView instances
 ```
 
-Text and controls intentionally use AppKit elements. They remain discoverable as text and buttons
-instead of becoming anonymous pixels. Canvas primitives use Core Graphics. `Row`, `Column`, `Box`,
+Text uses AppKit text fields, and each semantic node is an `NSAccessibilityElement` the document
+view publishes through `accessibilityChildren()`, with the role, label, state and merge/hide rules
+of the shared `NativeAccessibilityPolicy` — the same model the UIKit host publishes through
+`accessibilityElements`. They remain discoverable as text and controls instead of becoming
+anonymous pixels. Canvas primitives use Core Graphics. `Row`, `Column`, `Box`,
 padding, alignment, fixed/fill/wrap dimensions, weights, offsets, visibility, background and corner
 radius have a small frame-based implementation matching the UIKit POC's philosophy.
 
@@ -63,9 +66,9 @@ radius have a small frame-based implementation matching the UIKit POC's philosop
 
 The host reads bytes with `Data(contentsOf:)`. CMP passes those bytes to `RcComposeWindow`. The
 native path creates a `NativeSwiftDocumentSession`, builds AppKit views from its immutable
-`NativeSwiftDocumentSnapshot`, and asks the retained session for a new snapshot when an `NSButton`
-is activated. Events are delivered to the host in wire order and shown in the control window. CMP
-events use the same host event feed. Both native renderers therefore exercise one pure-Swift state
+`NativeSwiftDocumentSnapshot`, and asks the retained session for a new snapshot when a component is
+clicked or its accessibility element is pressed. Events are delivered to the host in wire order and
+shown in the control window. CMP events use the same host event feed. Both native renderers therefore exercise one pure-Swift state
 runtime while keeping their platform views independent.
 
 The native document view reads the continuous-animation requirement from every immutable snapshot. On macOS 14+
