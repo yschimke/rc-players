@@ -1989,6 +1989,20 @@ private final class NativeMacDisplayLinkDriver: NSObject {
 
 private typealias NativeMacNode = NativeSwiftNodeSnapshot
 
+/// The accessibility policy reads each component as it is displayed rather than as the document
+/// wrote it: a FitBox shows an alternative whose own visibility modifier is GONE, and a merging
+/// ancestor has to take that alternative's label and action. Everything else is the node's.
+extension NativeMacComponentView: @preconcurrency NativeAccessibilityNode {
+  var semanticComponentID: Int { node.semanticComponentID }
+  var semanticDescriptor: NativeAccessibilityDescriptor? { node.semanticDescriptor }
+  var semanticLocalLabels: [String] { node.semanticLocalLabels }
+  var semanticClickActionTypes: [NativeSwiftGestureKind] { node.semanticClickActionTypes }
+  var isSemanticallyVisible: Bool {
+    !isHidden && (node.isSemanticallyVisible || ignoresOwnVisibility)
+  }
+  var semanticChildren: [NativeMacComponentView] { componentChildren }
+}
+
 private extension NativeSwiftNodeSnapshot {
   func component(withID id: Int) -> NativeSwiftNodeSnapshot? {
     if componentID == id { return self }
@@ -2508,7 +2522,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     let local: [Any] =
       labels.filter { $0.isAccessibilityElement() }.map { $0 as Any }
       + imageViews.filter { $0.isAccessibilityElement() }.map { $0 as Any }
-    guard let semanticElement, let behavior = node.semanticBehavior else {
+    guard let semanticElement, let behavior = semanticBehavior else {
       return local + descendants
     }
     let owner: [Any] = semanticElement.isPublished ? [semanticElement] : []
@@ -2540,9 +2554,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   /// pointer path does: this component's own through `dispatchTap`, or, for a merging node whose
   /// action belongs to a descendant, that descendant's.
   private func configureSemanticElement() {
-    guard let semanticElement, let behavior = node.semanticBehavior else { return }
+    guard let semanticElement, let behavior = semanticBehavior else { return }
     let descriptor = behavior.descriptor
-    let label = node.resolvedSemanticLabel
+    let label = resolvedSemanticLabel
     if behavior.activatesTap {
       let target = behavior.componentID
       let ownsTap = target == node.componentID
@@ -2880,6 +2894,20 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     }
     if let containerIsHidden = arrangement.containerIsHidden { isHidden = containerIsHidden }
     for placement in arrangement.placements { placement.item.frame = placement.frame }
+    if arrangement.visibilityChanges.contains(where: \.isFitBoxAlternative) {
+      refreshSemanticElements()
+    }
+  }
+
+  /// A FitBox decides at layout which alternative it displays, and a merging ancestor's label and
+  /// action come from that alternative, so every semantic element from here up is re-resolved
+  /// once the decision is made.
+  private func refreshSemanticElements() {
+    var view: NSView? = self
+    while let current = view {
+      (current as? NativeMacComponentView)?.configureSemanticElement()
+      view = current.superview
+    }
   }
 
   private var isStructural: Bool {
