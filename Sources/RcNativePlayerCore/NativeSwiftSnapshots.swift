@@ -820,13 +820,14 @@ public struct NativeSwiftTextSnapshot: Sendable {
   public let weight: Float
   public let familyID: Int
   public let familyName: String?
-  public let alignment: Int
+  public let alignment: NativeSwiftTextAlignment
   public let overflow: Int
   public let maximumLines: Int
 
   public init(
     value: String, colorARGB: UInt32, size: Float, style: Int, weight: Float,
-    familyID: Int, familyName: String? = nil, alignment: Int, overflow: Int, maximumLines: Int
+    familyID: Int, familyName: String? = nil, alignment: NativeSwiftTextAlignment, overflow: Int,
+    maximumLines: Int
   ) {
     self.value = value
     self.colorARGB = colorARGB

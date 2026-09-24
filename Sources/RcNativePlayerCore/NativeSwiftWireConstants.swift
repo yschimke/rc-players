@@ -732,14 +732,26 @@ public enum NativeSwiftBitmapEncoding {
   public static let inline = 0
 }
 
-/// `RcTextLayout`'s text alignment values.
-public enum NativeSwiftTextAlignment {
-  public static let left = 1
-  public static let right = 2
-  public static let center = 3
-  public static let justify = 4
-  public static let start = 5
-  public static let end = 6
+/// A text's alignment: the low half of `TextLayout`'s alignment word, and the `CoreText` /
+/// `TextStyle` `textAlign` property. Every value `RcTextLayout.ALIGN_*` in `rc-player-protocol`'s
+/// `RcModel.kt` defines, which are AndroidX's `CoreText.TEXT_ALIGN_*` as the vendored
+/// `third_party/rc-embedded-player` `RcPlayerTextLayout.kt` and
+/// `third_party/remote-compose-player`'s `CoreText.ts` read them. `justify` aligns to the start
+/// (justification is `CoreText`'s separate `justificationMode`), and the reference aligns any
+/// other value to the start too, which `init(wireValue:)` applies. `TextLayout` refuses a value
+/// outside 1...6 before it gets here.
+public enum NativeSwiftTextAlignment: Int, Sendable, Equatable {
+  case left = 1
+  case right = 2
+  case center = 3
+  case justify = 4
+  case start = 5
+  case end = 6
+
+  /// The alignment a wire value lays out with: its own case, or `start` for a value outside 1...6.
+  public init(wireValue: Int) {
+    self = NativeSwiftTextAlignment(rawValue: wireValue) ?? .start
+  }
 }
 
 /// `RcTextLayout`'s text overflow values.

@@ -72,7 +72,7 @@ struct ParsedText {
   let style: Int
   let weightWord: UInt32
   let familyID: Int
-  let alignment: Int
+  let alignment: NativeSwiftTextAlignment
   let overflow: Int
   let maximumLines: Int
 }

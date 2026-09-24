@@ -33,15 +33,16 @@ enum NativeResolvedLineBreak: Equatable {
 
 enum NativeTextPolicy {
   static func alignment(
-    value: Int, justified: Bool, direction: NativeTextDirection
+    value: NativeSwiftTextAlignment, justified: Bool, direction: NativeTextDirection
   ) -> NativeResolvedTextAlignment {
     if justified { return .justified }
     switch value {
-    case NativeSwiftTextAlignment.left: return .left
-    case NativeSwiftTextAlignment.right: return .right
-    case NativeSwiftTextAlignment.center: return .center
-    case NativeSwiftTextAlignment.end: return direction == .rightToLeft ? .left : .right
-    default: return direction == .rightToLeft ? .right : .left
+    case .left: return .left
+    case .right: return .right
+    case .center: return .center
+    case .end: return direction == .rightToLeft ? .left : .right
+    // `justify` aligns to the start: justification is the separate `isJustified` switch.
+    case .start, .justify: return direction == .rightToLeft ? .right : .left
     }
   }
 

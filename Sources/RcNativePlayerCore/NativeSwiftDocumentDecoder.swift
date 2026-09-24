@@ -1993,13 +1993,13 @@ enum NativeSwiftDocumentDecoder {
         // `size` is no longer checked here: it may be a reference, and `resolvedFloat` applies the
         // same `> 0` rule once there is a number to apply it to.
         guard (0...3).contains(style),
-          (NativeSwiftTextAlignment.left...NativeSwiftTextAlignment.end).contains(alignmentAndFlags & 0xffff),
+          let alignment = NativeSwiftTextAlignment(rawValue: alignmentAndFlags & 0xffff),
           maximumLines > 0
         else { throw input.malformed("Invalid text layout values") }
         node.text = ParsedText(
           textID: textID, colorARGB: color, colorID: nil, sizeWord: size, style: style,
           weightWord: weight,
-          familyID: familyID, alignment: alignmentAndFlags & 0xffff, overflow: overflow,
+          familyID: familyID, alignment: alignment, overflow: overflow,
           maximumLines: maximumLines)
         try begin(node)
       case NativeSwiftWireOpcode.layoutImage:  // Image layout
@@ -2119,7 +2119,8 @@ enum NativeSwiftDocumentDecoder {
           style: integers[NativeSwiftTextProperty.fontStyle] ?? 0,
           weightWord: floats[NativeSwiftTextProperty.fontWeight] ?? Float(400).bitPattern,
           familyID: integers[NativeSwiftTextProperty.fontFamily] ?? -1,
-          alignment: integers[NativeSwiftTextProperty.textAlign] ?? NativeSwiftTextAlignment.left,
+          alignment: integers[NativeSwiftTextProperty.textAlign].map(
+            NativeSwiftTextAlignment.init(wireValue:)) ?? .left,
           overflow: integers[NativeSwiftTextProperty.overflow] ?? NativeSwiftTextOverflow.clip,
           maximumLines: integers[NativeSwiftTextProperty.maxLines] ?? Int.max)
         try begin(node)

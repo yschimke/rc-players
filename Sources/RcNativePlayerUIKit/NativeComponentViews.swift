@@ -583,7 +583,7 @@
     let fontStyle: Int
     let fontFamilyID: Int
     let fontFamilyName: String?
-    let alignment: Int
+    let alignment: NativeSwiftTextAlignment
     let overflow: Int
     let maxLines: Int
     let letterSpacing: CGFloat
@@ -598,7 +598,7 @@
     static let `default` = NativeTextStyle(
       swiftSnapshot: NativeSwiftTextSnapshot(
         value: "", colorARGB: 0xff00_0000, size: 16, style: 0, weight: 400,
-        familyID: -1, alignment: NativeSwiftTextAlignment.left, overflow: NativeSwiftTextOverflow.clip,
+        familyID: -1, alignment: .left, overflow: NativeSwiftTextOverflow.clip,
         maximumLines: Int.max))
 
     init(swiftSnapshot snapshot: NativeSwiftTextSnapshot) {
