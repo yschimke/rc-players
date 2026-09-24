@@ -1114,7 +1114,7 @@ enum NativeSwiftDocumentDecoder {
           let tag = try input.int("graphics layer tag")
           let word = try input.word("graphics layer value")
           let attribute = tag & 0x3ff
-          let isFloat = (tag >> 10) & 0x3 == 1
+          let isFloat = (tag >> 10) & 0x3 == NativeSwiftGraphicsLayerValueType.float
           let value =
             isFloat
             ? NativeSwiftFloatExpression.resolve(word, values: [:])
@@ -1133,9 +1133,9 @@ enum NativeSwiftDocumentDecoder {
         let raw = try input.int("multi-click type")
         let gesture: NativeSwiftGestureKind
         switch raw {
-        case 0: gesture = .tap
-        case 1: gesture = .longPress
-        case 2: gesture = .doubleTap
+        case NativeSwiftMultiClickType.single: gesture = .tap
+        case NativeSwiftMultiClickType.long: gesture = .longPress
+        case NativeSwiftMultiClickType.double: gesture = .doubleTap
         default: throw input.malformed("Unknown multi-click type \(raw)")
         }
         node.isClickable = true
@@ -2105,9 +2105,12 @@ enum NativeSwiftDocumentDecoder {
         // with it the whole document, including everything it draws. `icon`, `button-compact` and
         // `button-loading` were refused on that alone. -1 is the unspecified role the UIKit side
         // already falls back to, so an unrecognised one resolves there too.
+        typealias Role = NativeSwiftAccessibilityRole
+        typealias Mode = NativeSwiftAccessibilityMode
         let semantics = ParsedAccessibility(
-          contentDescriptionID: contentDescriptionID, role: role <= 9 ? role : -1, textID: textID,
-          stateDescriptionID: stateDescriptionID, mode: mode <= 2 ? mode : 0,
+          contentDescriptionID: contentDescriptionID,
+          role: role <= Role.unknown ? role : Role.unspecified, textID: textID,
+          stateDescriptionID: stateDescriptionID, mode: mode <= Mode.merge ? mode : Mode.set,
           isEnabled: enabled != 0, isClickable: clickable != 0)
         if let node { node.accessibility = semantics } else { documentAccessibility = semantics }
         accessibilityRecords.append(semantics)

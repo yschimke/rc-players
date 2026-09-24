@@ -839,13 +839,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return try node.children.enumerated().map { position, child in
         try resolve(
           child, values: values, colors: resolvedColors,
-          visibilityOverride: position == active ? 1 : 0)
+          visibilityOverride: position == active
+            ? NativeSwiftVisibility.visible : NativeSwiftVisibility.gone)
       }
     }
     return try node.children.enumerated().map { position, child in
       try resolve(
         child, values: values, colors: resolvedColors,
-        visibilityOverride: stateBranchActive.map { position == $0 ? 1 : 0 })
+        visibilityOverride: stateBranchActive.map {
+          position == $0 ? NativeSwiftVisibility.visible : NativeSwiftVisibility.gone
+        })
     }
   }
 

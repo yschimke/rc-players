@@ -541,6 +541,49 @@ enum NativeSwiftGraphicsLayerAttribute {
   static let attributeCount = 22
 }
 
+/// The value type of a graphics-layer attribute: bits 10-11 of its tag. Every type
+/// `rc-player-protocol`'s `GraphicsLayerModifierCodec` accepts (AndroidX
+/// `GraphicsLayerModifierOperation`); the core reads any other type as an int, as the vendored
+/// `third_party/remote-compose-player` player does.
+enum NativeSwiftGraphicsLayerValueType {
+  static let int = 0
+  static let float = 1
+}
+
+/// `MODIFIER_MULTI_CLICK`'s click types: every value AndroidX's `MultiClickModifier` defines
+/// (`RcMultiClickType`, and the vendored `third_party/remote-compose-player` `MultiClickModifier`).
+enum NativeSwiftMultiClickType {
+  static let single = 0
+  static let long = 1
+  static let double = 2
+}
+
+/// `ACCESSIBILITY_SEMANTICS`' roles: every value AndroidX's `CoreSemantics` defines
+/// (`RcAccessibilitySemantics.ROLE_*`).
+enum NativeSwiftAccessibilityRole {
+  static let button = 0
+  static let checkbox = 1
+  static let switchRole = 2
+  static let radioButton = 3
+  static let tab = 4
+  static let image = 5
+  static let dropdownList = 6
+  static let picker = 7
+  static let carousel = 8
+  static let unknown = 9
+  /// Not a wire value: what the core records for a role outside `button...unknown` (the catalog
+  /// writes 255 for "no role"), and the unspecified role the native hosts fall back to.
+  static let unspecified = -1
+}
+
+/// `ACCESSIBILITY_SEMANTICS`' merge modes: every value AndroidX's `CoreSemantics` defines
+/// (`RcAccessibilitySemantics.MODE_*`).
+enum NativeSwiftAccessibilityMode {
+  static let set = 0
+  static let clearAndSet = 1
+  static let merge = 2
+}
+
 /// AndroidX `Component.Visibility`: the plain states, and the override bits that apply above 15.
 public enum NativeSwiftVisibility {
   public static let gone = 0
