@@ -8,15 +8,15 @@
   "gold_count": 364
  },
  "summary": {
-  "passed": 314,
-  "failed": 47,
+  "passed": 316,
+  "failed": 45,
   "errored": 0,
   "skipped": 0,
   "suspicious": 3,
   "checks_total": 1140,
-  "checks_failed": 115,
+  "checks_failed": 106,
   "advisory_total": 612,
-  "advisory_failed": 229
+  "advisory_failed": 224
  },
  "results": [
   {
@@ -155,12 +155,16 @@
    "name": "canvas_bitmap_scaled",
    "category": "canvas",
    "profile": "core",
-   "status": "PASS",
+   "status": "FAIL",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 0,
-   "diffs_by_probe": {},
-   "raster_failures": []
+   "checks_failed": 1,
+   "diffs_by_probe": {
+    "raster": 1
+   },
+   "raster_failures": [
+    "initial"
+   ]
   },
   {
    "name": "canvas_clip_path_and_skew",
@@ -251,13 +255,12 @@
    "name": "text_anchored_pan_alignment",
    "category": "canvas",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 1,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 1,
-    "relation:anchor_runs": 1
+    "raster": 1
    },
    "raster_failures": [
     "initial"
@@ -1970,19 +1973,12 @@
    "name": "core_text_autosize_basic",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
-   "diffs_by_probe": {
-    "raster": 3,
-    "tree": 6
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "core_text_autosize_height_driven",
@@ -1991,14 +1987,12 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 2,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 4
+    "raster": 1,
+    "tree": 2
    },
    "raster_failures": [
-    "initial",
-    "resize_0",
     "resize_1"
    ]
   },
@@ -2012,7 +2006,7 @@
    "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 6
+    "tree": 3
    },
    "raster_failures": [
     "initial",
@@ -2048,7 +2042,7 @@
    "checks_failed": 3,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 6
+    "tree": 3
    },
    "raster_failures": [
     "initial",
@@ -2081,10 +2075,10 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 1,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 6
+    "tree": 1
    },
    "raster_failures": [
     "initial",
@@ -2096,13 +2090,12 @@
    "name": "core_text_simple",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 3,
-    "tree": 3
+    "raster": 3
    },
    "raster_failures": [
     "initial",
