@@ -1731,7 +1731,17 @@ private final class NativeMacDocumentView: NSView {
 
   /// The innermost listed element under a screen point. Semantic elements are not views, so
   /// AppKit's default view-based hit test cannot find them.
+  ///
+  /// The SDK declares this override nonisolated while the children and their frames are main-actor
+  /// state. AppKit asks on the main thread, so the search runs there, and the non-Sendable result
+  /// is handed out through a local rather than returned across the isolation boundary.
   override func accessibilityHitTest(_ point: NSPoint) -> Any? {
+    nonisolated(unsafe) var hit: Any?
+    MainActor.assumeIsolated { hit = semanticElement(at: point) }
+    return hit ?? super.accessibilityHitTest(point)
+  }
+
+  private func semanticElement(at point: NSPoint) -> Any? {
     for child in (accessibilityChildren() ?? []).reversed() {
       if let element = child as? NativeMacSemanticElement,
         element.accessibilityFrame().contains(point)
@@ -1742,7 +1752,7 @@ private final class NativeMacDocumentView: NSView {
         return view
       }
     }
-    return super.accessibilityHitTest(point)
+    return nil
   }
 
   override func viewDidMoveToWindow() {
@@ -2157,7 +2167,9 @@ private final class NativeMacSemanticElement: NSAccessibilityElement {
   /// Resolved on every read, in screen coordinates, so a scrolled ancestor or a moved window is
   /// never stale.
   override func accessibilityFrame() -> NSRect {
-    owner?.semanticScreenFrame ?? .zero
+    // Nonisolated in the SDK; the owning view's geometry is main-actor state, read on AppKit's
+    // main-thread accessibility query.
+    MainActor.assumeIsolated { owner?.semanticScreenFrame ?? .zero }
   }
 
   override func accessibilityPerformPress() -> Bool {
