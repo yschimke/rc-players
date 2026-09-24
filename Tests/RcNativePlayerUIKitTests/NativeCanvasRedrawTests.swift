@@ -17,7 +17,8 @@
       pathValues: [Float] = [0, 0],
       gradientStops: [Float] = [0, 1],
       shaderMatrix: [Float]? = nil,
-      unsetValueIndices: [Int] = [3]
+      unsetValueIndices: [Int] = [3],
+      offscreenTarget: NativeSwiftOffscreenTargetSnapshot? = nil
     ) -> NativeSwiftDrawCommandSnapshot {
       NativeSwiftDrawCommandSnapshot(
         kind: kind, values: values, colorARGB: 0xff00_00ff, alpha: alpha, strokeWidth: 1,
@@ -31,7 +32,8 @@
         gradient: NativeSwiftGradientSnapshot(
           kind: 0, colorsARGB: [0xff00_0000, 0xffff_ffff], stops: gradientStops,
           values: [0, 0, 10, 10], tileMode: 0),
-        text: "anchored", textSize: 14, textFlags: 0, unsetValueIndices: unsetValueIndices)
+        text: "anchored", textSize: 14, textFlags: 0, unsetValueIndices: unsetValueIndices,
+        offscreenTarget: offscreenTarget)
     }
 
     private func commands(_ snapshots: NativeSwiftDrawCommandSnapshot...) -> [NativeDrawCommand] {
@@ -67,12 +69,22 @@
       #expect(base != NativeDrawCommand(snapshot(gradientStops: [0, 0.5])))
       #expect(base != NativeDrawCommand(snapshot(shaderMatrix: [1, 0, 0])))
       #expect(commands(snapshot()) != commands(snapshot(), snapshot()))
+      let target = NativeSwiftOffscreenTargetSnapshot(
+        bitmapID: 7, mode: 0, colorARGB: 0xff00_ff00, width: 8, height: 8)
+      #expect(base != NativeDrawCommand(snapshot(offscreenTarget: target)))
+      #expect(
+        NativeDrawCommand(snapshot(offscreenTarget: target))
+          != NativeDrawCommand(
+            snapshot(
+              offscreenTarget: NativeSwiftOffscreenTargetSnapshot(
+                bitmapID: 7, mode: NativeSwiftDrawToBitmapMode.noInitialize,
+                colorARGB: 0xff00_ff00, width: 8, height: 8))))
     }
 
     /// `NativeDrawCommand.==` is written out member by member; a new stored property must be
     /// compared there too. Update this count only after doing so.
     @Test func equalityCoversEveryStoredProperty() {
-      #expect(Mirror(reflecting: NativeDrawCommand(snapshot())).children.count == 23)
+      #expect(Mirror(reflecting: NativeDrawCommand(snapshot())).children.count == 24)
     }
   }
 #endif

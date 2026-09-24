@@ -250,12 +250,14 @@ struct ParsedDrawCommand {
   /// resolves to NaN: `DrawTextAnchored`'s `panY`, which the reference reads that way to leave the
   /// baseline where it is.
   let nanSentinelIndices: Set<Int>
+  /// A `DrawToBitmap` redirect's target. It holds no expression words, so it is final at decode.
+  let offscreenTarget: NativeSwiftOffscreenTargetSnapshot?
 
   init(
     kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
     image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil,
     textStart: Int? = nil, textEnd: Int? = nil, textFlags: Int = 0,
-    nanSentinelIndices: Set<Int> = []
+    nanSentinelIndices: Set<Int> = [], offscreenTarget: NativeSwiftOffscreenTargetSnapshot? = nil
   ) {
     self.kind = kind
     self.words = words
@@ -272,6 +274,7 @@ struct ParsedDrawCommand {
     self.textStart = textStart
     self.textEnd = textEnd
     self.textFlags = textFlags
+    self.offscreenTarget = offscreenTarget
   }
 
   /// Decides `usesComponentGeometry` against the document's component-value output ids. The words
@@ -353,7 +356,7 @@ struct ParsedDrawCommand {
         return String(decoding: units[lower..<upper], as: UTF16.self)
       }, textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values),
       textFlags: textFlags,
-      unsetValueIndices: nanSentinelIndices.sorted())
+      unsetValueIndices: nanSentinelIndices.sorted(), offscreenTarget: offscreenTarget)
   }
 }
 
