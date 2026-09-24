@@ -32,6 +32,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathCommands
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import java.io.File
+import kotlinx.coroutines.runBlocking
 import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -55,7 +56,7 @@ class RcAndroidRenderTest {
 
   @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  private var content by mutableStateOf<RcDocument?>(null)
+  private var content by mutableStateOf<Pair<RcDocument, RcTypefaceLoader>?>(null)
   private var size = 0
 
   private fun render(
@@ -63,19 +64,24 @@ class RcAndroidRenderTest {
     px: Int = 8,
     density: Float = 1f,
     manualClock: Boolean = false,
-): Bitmap {
+    typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  ): Bitmap {
     if (size == 0) {
       size = px
       composeRule.setContent {
         val scene = Density(density, 1f)
         CompositionLocalProvider(LocalDensity provides scene) {
           Box(Modifier.size(with(scene) { size.toDp() })) {
-            content?.let { key(it) { RcComposePlayer(it, modifier = Modifier.fillMaxSize()) } }
+            content?.let { (document, typefaces) ->
+              key(document, typefaces) {
+                RcComposePlayer(document, modifier = Modifier.fillMaxSize(), typefaces = typefaces)
+              }
+            }
           }
         }
       }
     }
-    content = document
+    content = document to typefaces
     if (manualClock) {
       // A document that animates forever (an interactive page indicator, a pulsing icon button)
       // asks for a frame every frame, so with auto-advance on Compose never goes idle. Stepping a
@@ -186,15 +192,25 @@ class RcAndroidRenderTest {
         .map { it.first() }
     assertTrue("no catalog corpus under ${corpus.absolutePath}", samples.size > 50)
 
+    // Fonts as a host would supply them: each document's `google:` families from the shared
+    // cache (the wasm host's vendored files, which use its names), everything else — `default` is
+    // Roboto Flex — from the same directory's manifest.
+    val fonts = File("../wasm/dist-assets/fonts")
+    val manifest = runBlocking {
+      RcManifestTypefaceLoader { url -> File(url).readBytes() }.load(fonts.path)
+    }
     val failures = mutableListOf<String>()
     var blank = 0
     for (file in samples) {
       val outcome = runCatching {
+        val document = RcDocumentCodec.decode(file.readBytes())
+        val families = rcDownloadableFontRequests(document).map { it.family }
         render(
-          RcDocumentCodec.decode(file.readBytes()),
+          document,
           px = 384,
           density = 2f,
           manualClock = true,
+          typefaces = RcGoogleFontsTypefaceLoader(families, manifest, RcSharedFontCache(fonts)),
         )
       }
       val bitmap = outcome.getOrNull()
@@ -217,6 +233,59 @@ class RcAndroidRenderTest {
     // colour; most must not.
     assertTrue("$blank of ${samples.size} catalog documents rendered blank", blank * 10 < samples.size)
   }
+
+  @Test
+  fun drawsAGoogleFamilyFromTheSharedFontCache() {
+    // The shared Google Fonts cache the embedded player reads, pointed offline at the files the
+    // wasm host vendors — they use the cache's `<slug>-<weight>.ttf` names. The branded text
+    // sticker names `google:Orbitron`; with the loader it must draw differently from the default
+    // face.
+    val cache = RcSharedFontCache(File("../wasm/dist-assets/fonts"))
+    val document =
+      RcDocumentCodec.decode(catalogDocument("text-branded__ideal__default__compact.rc"))
+    val families = rcDownloadableFontRequests(document).map { it.family }
+    assertEquals(listOf("Orbitron"), families)
+    val loader = RcGoogleFontsTypefaceLoader(families, RcTypefaceLoader.Default, cache)
+    assertTrue("orbitron" in loader.families)
+    assertTrue(
+      document.composeSupportReport(availableFontFamilies = loader.families).fullyRenderable
+    )
+
+    val plain = render(document, px = 384, density = 2f).pixels()
+    val branded = render(document, px = 384, density = 2f, typefaces = loader).pixels()
+    val changed = plain.indices.count { plain[it] != branded[it] }
+    assertTrue("Orbitron drew the same pixels as the default face", changed > 200)
+  }
+
+  @Test
+  fun leavesFamiliesItWasNotGivenToTheFallback() {
+    val loader =
+      RcGoogleFontsTypefaceLoader(
+        listOf("Orbitron"),
+        RcTypefaceLoader.Empty,
+        RcSharedFontCache(File("../wasm/dist-assets/fonts")),
+      )
+    assertEquals(null, loader.typeface("lobster two"))
+    assertTrue(loader.typeface("orbitron") != null)
+  }
+
+  @Test
+  fun readsTheSharedCacheByGoogleFontKeyNames() {
+    // `GoogleFontKey.slugify`'s rules, pinned: the two players must read the same file.
+    assertEquals("roboto-flex", RcSharedFontCache.slug("Roboto Flex"))
+    assertEquals("jetbrains-mono", RcSharedFontCache.slug("  JetBrains   Mono! "))
+    assertEquals("font", RcSharedFontCache.slug("***"))
+    val cache = RcSharedFontCache(File("../wasm/dist-assets/fonts"))
+    assertEquals("orbitron-700.ttf", cache.static("Orbitron", 700, italic = false)?.name)
+    assertEquals(null, cache.static("Orbitron", 700, italic = true))
+    assertEquals(null, cache.variable("Orbitron", italic = false))
+  }
+
+  private fun Bitmap.pixels(): IntArray =
+    IntArray(width * height).also { getPixels(it, 0, width, 0, 0, width, height) }
+
+  private fun catalogDocument(name: String): ByteArray =
+    File("../../scripts/rc-catalog-corpus/corpus", name).readBytes()
 
   private fun document(vararg operations: RcOperation, size: Int = 8) =
     RcDocument(

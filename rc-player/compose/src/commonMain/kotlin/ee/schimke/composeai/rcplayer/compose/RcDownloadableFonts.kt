@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
+import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
@@ -24,8 +25,11 @@ public class RcDownloadedFont(
  * adapter does not need a second partial wire parser and never fetches a string that merely happens
  * to look like a font name.
  */
-public fun rcDownloadableFontRequests(bytes: ByteArray): List<RcDownloadableFontRequest> {
-  val document = decodeCmpDocument(bytes)
+public fun rcDownloadableFontRequests(bytes: ByteArray): List<RcDownloadableFontRequest> =
+  rcDownloadableFontRequests(decodeCmpDocument(bytes))
+
+/** As [rcDownloadableFontRequests], for a host that already holds the decoded [document]. */
+public fun rcDownloadableFontRequests(document: RcDocument): List<RcDownloadableFontRequest> {
   val texts = document.operations.filterIsInstance<RcTextData>().associate { it.id to it.text }
   val embedded =
     document.operations.filterIsInstance<RcFontData>().mapTo(mutableSetOf()) { it.fontId }
