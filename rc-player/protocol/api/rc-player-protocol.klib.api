@@ -5145,8 +5145,12 @@ final object ee.schimke.composeai.rcplayer.protocol/RcSystemVariables { // ee.sc
 
     final val ALL // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.ALL|{}ALL[0]
         final fun <get-ALL>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.ALL.<get-ALL>|<get-ALL>(){}[0]
+    final val CONTINUOUS // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.CONTINUOUS|{}CONTINUOUS[0]
+        final fun <get-CONTINUOUS>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.CONTINUOUS.<get-CONTINUOUS>|<get-CONTINUOUS>(){}[0]
     final val MOVING // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.MOVING|{}MOVING[0]
         final fun <get-MOVING>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.MOVING.<get-MOVING>|<get-MOVING>(){}[0]
+    final val PER_SECOND // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.PER_SECOND|{}PER_SECOND[0]
+        final fun <get-PER_SECOND>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rcplayer.protocol/RcSystemVariables.PER_SECOND.<get-PER_SECOND>|<get-PER_SECOND>(){}[0]
 }
 
 final object ee.schimke.composeai.rcplayer.protocol/RcTouchCancelModifier : ee.schimke.composeai.rcplayer.protocol/RcOperation { // ee.schimke.composeai.rcplayer.protocol/RcTouchCancelModifier|null[0]
@@ -5183,5 +5187,6 @@ final object ee.schimke.composeai.rcplayer.protocol/RcWireProfiles { // ee.schim
         final fun <get-ANDROIDX_EXPERIMENTAL>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcWireProfiles.ANDROIDX_EXPERIMENTAL.<get-ANDROIDX_EXPERIMENTAL>|<get-ANDROIDX_EXPERIMENTAL>(){}[0]
 }
 
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.protocol/referencesContinuousSystemVariable(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/referencesContinuousSystemVariable|referencesContinuousSystemVariable@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.protocol/referencesMovingSystemVariable(): kotlin/Boolean // ee.schimke.composeai.rcplayer.protocol/referencesMovingSystemVariable|referencesMovingSystemVariable@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.protocol/supportReport(): ee.schimke.composeai.rcplayer.protocol/RcDocumentSupport // ee.schimke.composeai.rcplayer.protocol/supportReport|supportReport@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]

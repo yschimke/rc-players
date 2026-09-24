@@ -1168,7 +1168,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         // that does not exist, or an index outside it, leaves the slot as it was.
         for lookup in document.idLookups {
           guard let ids = document.idLists[lookup.listID] else { continue }
-          let index = Int(NativeSwiftFloatExpression.resolve(lookup.index, values: result))
+          let index = nativeSwiftClampedInt(
+            NativeSwiftFloatExpression.resolve(lookup.index, values: result))
           guard ids.indices.contains(index), integers[lookup.outputID] != ids[index] else {
             continue
           }
@@ -1278,10 +1279,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case .subtext(let subtext):
         let units = Array((texts[subtext.textID] ?? "").utf16)
         let start = min(
-          max(Int(NativeSwiftFloatExpression.resolve(subtext.start, values: values)), 0),
+          max(nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(subtext.start, values: values)), 0),
           units.count)
-        let length = Int(NativeSwiftFloatExpression.resolve(subtext.length, values: values))
-        let end = length == -1 ? units.count : min(start + max(length, 0), units.count)
+        let length = nativeSwiftClampedInt(
+          NativeSwiftFloatExpression.resolve(subtext.length, values: values))
+        // Clamp against the remaining units before adding, so a saturated length cannot overflow.
+        let end = length == -1 ? units.count : start + min(max(length, 0), units.count - start)
         texts[subtext.outputID] = String(decoding: units[start..<end], as: UTF16.self)
       }
     }
