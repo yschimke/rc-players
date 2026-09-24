@@ -160,6 +160,32 @@ class GoogleFontFamiliesTest {
     )
   }
 
+  @Test
+  fun `an axis request keeps the requested weight`() {
+    // The edge button's label: Medium, plus a `pnum` axis. Instanced at `pnum` alone the file sits
+    // at its default `wght 400`, and the label drew Regular beside a device's Medium.
+    val axes = GoogleFontFamilies.variationAxes(FontWeight(500), UPRIGHT, listOf(PNUM to 1f))
+
+    assertEquals(500f, axes.single { it.first == WGHT }.second)
+    assertEquals(1f, axes.single { it.first == PNUM }.second)
+  }
+
+  @Test
+  fun `a document wght replaces the requested weight`() {
+    // A specimen sweeping the axis names the value it wants; the style weight beside it only
+    // picks a face for a non-variable fallback.
+    val axes = GoogleFontFamilies.variationAxes(FontWeight(500), UPRIGHT, listOf(WGHT to 900f))
+
+    assertEquals(listOf(900f), axes.filter { it.first == WGHT }.map { it.second })
+  }
+
+  @Test
+  fun `an italic request keeps its slant`() {
+    val axes = GoogleFontFamilies.variationAxes(FontWeight(400), FontStyle.Italic, emptyList())
+
+    assertEquals(1f, axes.single { it.first == "ital" }.second)
+  }
+
   private fun robotoFlex(): File {
     val file = File(VENDORED_ROBOTO_FLEX)
     assertTrue("vendored Roboto Flex not found at $VENDORED_ROBOTO_FLEX", file.isFile)
@@ -170,6 +196,7 @@ class GoogleFontFamiliesTest {
     const val GOOGLE_ROBOTO_FLEX = "google:Roboto Flex"
     const val WGHT = "wght"
     const val WDTH = "wdth"
+    const val PNUM = "pnum"
     val WEIGHT = FontWeight(400)
     val UPRIGHT = FontStyle.Normal
 
