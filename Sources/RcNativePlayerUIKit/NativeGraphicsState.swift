@@ -246,9 +246,10 @@ enum NativeGradientRenderer {
         lower: Double(nearest / radius), upper: Double(farthest / radius))
     else { return false }
     // The radius's device length along each user axis, measured separately: a rotation keeps the
-    // radius but can zero one component of a transformed diagonal.
+    // radius but can zero one component of a transformed diagonal. The rings stay visible while
+    // either direction spans a pixel, so only a period sub-pixel both ways falls back.
     let device = context.userSpaceToDeviceSpaceTransform
-    let deviceRadius = radius * min(hypot(device.a, device.b), hypot(device.c, device.d))
+    let deviceRadius = radius * max(hypot(device.a, device.b), hypot(device.c, device.d))
     guard deviceRadius >= 1 else {
       context.setFillColor(average)
       context.fill(clip)
