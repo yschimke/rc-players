@@ -14,18 +14,18 @@ enum NativePathBuilder {
     elements.forEach { segment in
       let v = segment.values
       switch segment.kind {
-      case NativeSwiftPathVerb.move: path.move(to: CGPoint(x: v[0], y: v[1]))
-      case NativeSwiftPathVerb.line: path.addLine(to: CGPoint(x: v[0], y: v[1]))
-      case NativeSwiftPathVerb.quadratic, NativeSwiftPathVerb.conic:
+      case NativeSwiftPathCommand.move: path.move(to: CGPoint(x: v[0], y: v[1]))
+      case NativeSwiftPathCommand.line: path.addLine(to: CGPoint(x: v[0], y: v[1]))
+      case NativeSwiftPathCommand.quadratic, NativeSwiftPathCommand.conic:
         path.addQuadCurve(
           to: CGPoint(x: v[2], y: v[3]),
           control: CGPoint(x: v[0], y: v[1]))
-      case NativeSwiftPathVerb.cubic:
+      case NativeSwiftPathCommand.cubic:
         path.addCurve(
           to: CGPoint(x: v[4], y: v[5]),
           control1: CGPoint(x: v[0], y: v[1]),
           control2: CGPoint(x: v[2], y: v[3]))
-      case NativeSwiftPathVerb.close: path.closeSubpath()
+      case NativeSwiftPathCommand.close: path.closeSubpath()
       default: break
       }
     }

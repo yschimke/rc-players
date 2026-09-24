@@ -10,12 +10,12 @@ struct ParsedPath {
     let offset: Int
   }
 
-  let winding: Int
+  let winding: NativeSwiftPathWinding
   private(set) var words: [UInt32]
   /// Never empty: every path starts with the operation that declared it.
   private(set) var origins: [Origin]
 
-  init(winding: Int, words: [UInt32], opcode: Int, offset: Int) {
+  init(winding: NativeSwiftPathWinding, words: [UInt32], opcode: Int, offset: Int) {
     self.winding = winding
     self.words = words
     origins = [Origin(firstWord: 0, opcode: opcode, offset: offset)]
@@ -51,25 +51,25 @@ struct ParsedPath {
       let padding: Int
       let argumentCount: Int
       switch command {
-      case NativeSwiftPathVerb.move:
+      case NativeSwiftPathCommand.move:
         padding = 0
         argumentCount = 2
-      case NativeSwiftPathVerb.line:
+      case NativeSwiftPathCommand.line:
         padding = 2
         argumentCount = 2
-      case NativeSwiftPathVerb.quadratic:
+      case NativeSwiftPathCommand.quadratic:
         padding = 2
         argumentCount = 4
-      case NativeSwiftPathVerb.conic:
+      case NativeSwiftPathCommand.conic:
         padding = 2
         argumentCount = 5
-      case NativeSwiftPathVerb.cubic:
+      case NativeSwiftPathCommand.cubic:
         padding = 2
         argumentCount = 6
-      case NativeSwiftPathVerb.close:
+      case NativeSwiftPathCommand.close:
         padding = 0
         argumentCount = 0
-      case NativeSwiftPathVerb.done:
+      case NativeSwiftPathCommand.done:
         return false
       default:
         return false
@@ -107,27 +107,27 @@ struct ParsedPath {
       }
       index += 1
       switch command {
-      case NativeSwiftPathVerb.move:
+      case NativeSwiftPathCommand.move:
         result.append(NativeSwiftPathElementSnapshot(kind: command, values: try arguments(2)))
-      case NativeSwiftPathVerb.line:
+      case NativeSwiftPathCommand.line:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(2, skippingLegacyPadding: true)))
-      case NativeSwiftPathVerb.quadratic:
+      case NativeSwiftPathCommand.quadratic:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(4, skippingLegacyPadding: true)))
-      case NativeSwiftPathVerb.conic:
+      case NativeSwiftPathCommand.conic:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(5, skippingLegacyPadding: true)))
-      case NativeSwiftPathVerb.cubic:
+      case NativeSwiftPathCommand.cubic:
         result.append(
           NativeSwiftPathElementSnapshot(
             kind: command, values: try arguments(6, skippingLegacyPadding: true)))
-      case NativeSwiftPathVerb.close:
+      case NativeSwiftPathCommand.close:
         result.append(NativeSwiftPathElementSnapshot(kind: command, values: []))
-      case NativeSwiftPathVerb.done: return result
+      case NativeSwiftPathCommand.done: return result
       default:
         let source = origin(ofWord: commandIndex)
         throw NativeSwiftCoreError.unsupported(

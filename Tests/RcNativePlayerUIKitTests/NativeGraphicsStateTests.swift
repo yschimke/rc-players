@@ -7,12 +7,17 @@ import Testing
 
 @Suite struct NativeGraphicsStateTests {
   @Test func graphicsState() {
-    #expect(NativeGraphicsState.lineCap(0) == .butt)
-    #expect(NativeGraphicsState.lineCap(1) == .round)
-    #expect(NativeGraphicsState.lineCap(2) == .square)
-    #expect(NativeGraphicsState.lineJoin(0) == .miter)
-    #expect(NativeGraphicsState.lineJoin(1) == .round)
-    #expect(NativeGraphicsState.lineJoin(2) == .bevel)
+    #expect(NativeGraphicsState.lineCap(NativeSwiftStrokeCap(wireValue: 0)) == .butt)
+    #expect(NativeGraphicsState.lineCap(NativeSwiftStrokeCap(wireValue: 1)) == .round)
+    #expect(NativeGraphicsState.lineCap(NativeSwiftStrokeCap(wireValue: 2)) == .square)
+    #expect(NativeGraphicsState.lineCap(NativeSwiftStrokeCap(wireValue: 3)) == .butt)
+    #expect(NativeGraphicsState.lineJoin(NativeSwiftStrokeJoin(wireValue: 0)) == .miter)
+    #expect(NativeGraphicsState.lineJoin(NativeSwiftStrokeJoin(wireValue: 1)) == .round)
+    #expect(NativeGraphicsState.lineJoin(NativeSwiftStrokeJoin(wireValue: 2)) == .bevel)
+    #expect(NativeGraphicsState.lineJoin(NativeSwiftStrokeJoin(wireValue: -1)) == .miter)
+    #expect(NativeGraphicsState.fillRule(NativeSwiftPathWinding(wireValue: 0)) == .winding)
+    #expect(NativeGraphicsState.fillRule(NativeSwiftPathWinding(wireValue: 1)) == .evenOdd)
+    #expect(NativeGraphicsState.fillRule(NativeSwiftPathWinding(wireValue: 2)) == .winding)
 
     #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.clear) == .clear)
     #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.source) == .copy)

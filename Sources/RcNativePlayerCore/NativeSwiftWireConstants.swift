@@ -322,18 +322,9 @@ public enum NativeSwiftDrawKind {
   public static let textOnCircle = 21
 }
 
-/// `RcPathCommands`: the NaN-boxed verbs of a `PATH_DATA` word stream, and the kinds of
-/// `NativeSwiftPathElementSnapshot`.
-public enum NativeSwiftPathVerb {
-  public static let move = 10
-  public static let line = 11
-  public static let quadratic = 12
-  public static let conic = 13
-  public static let cubic = 14
-  public static let close = 15
-  public static let done = 16
-  public static let reset = 17
-}
+/// The former name of `NativeSwiftPathCommand`, which carries the same values.
+@available(*, deprecated, renamed: "NativeSwiftPathCommand")
+public typealias NativeSwiftPathVerb = NativeSwiftPathCommand
 
 /// AndroidX `AnimatedFloatExpression` operators, as offsets from its NaN-boxed operator base.
 /// 64...69 are unassigned.
@@ -637,11 +628,48 @@ public enum NativeSwiftLayoutAnimation {
   public static let particle = 7
 }
 
-/// The winding of a `PATH_DATA` path, the top byte of its id word. AndroidX fills even-odd for 1
-/// and non-zero otherwise.
-public enum NativeSwiftPathWinding {
-  public static let nonZero = 0
-  public static let evenOdd = 1
+/// The winding of a `PATH_DATA` path, the top byte of its id word (`RcPathData.winding` in
+/// `rc-player-protocol`'s `RcModel.kt`). AndroidX fills even-odd for 1 and non-zero otherwise
+/// (`RcComposePlayer.kt`'s `PathFillType` mapping), so `init(wireValue:)` reads any other value
+/// as `nonZero`.
+public enum NativeSwiftPathWinding: Int, Sendable, Equatable {
+  case nonZero = 0
+  case evenOdd = 1
+
+  /// The winding a wire value fills with: `evenOdd` for 1, `nonZero` for anything else.
+  public init(wireValue: Int) {
+    self = NativeSwiftPathWinding(rawValue: wireValue) ?? .nonZero
+  }
+}
+
+/// A paint's `STROKE_CAP` value (the high half of the paint command word): every value AndroidX's
+/// `Paint.Cap` defines, as `rc-player`'s `RcComposePlayer.kt` and the vendored
+/// `third_party/rc-embedded-player` `RcPlayerPaint.kt` `mapStrokeCap` read it. Any other value
+/// draws as `butt`, which `init(wireValue:)` applies.
+public enum NativeSwiftStrokeCap: Int, Sendable, Equatable {
+  case butt = 0
+  case round = 1
+  case square = 2
+
+  /// The cap a wire value draws with: its own case, or `butt` for a value outside 0...2.
+  public init(wireValue: Int) {
+    self = NativeSwiftStrokeCap(rawValue: wireValue) ?? .butt
+  }
+}
+
+/// A paint's `STROKE_JOIN` value (the high half of the paint command word): every value AndroidX's
+/// `Paint.Join` defines, as `rc-player`'s `RcComposePlayer.kt` and the vendored
+/// `third_party/rc-embedded-player` `RcPlayerPaint.kt` `mapStrokeJoin` read it. Any other value
+/// draws as `miter`, which `init(wireValue:)` applies.
+public enum NativeSwiftStrokeJoin: Int, Sendable, Equatable {
+  case miter = 0
+  case round = 1
+  case bevel = 2
+
+  /// The join a wire value draws with: its own case, or `miter` for a value outside 0...2.
+  public init(wireValue: Int) {
+    self = NativeSwiftStrokeJoin(rawValue: wireValue) ?? .miter
+  }
 }
 
 /// `RcDrawTextAnchored`'s flag bits.

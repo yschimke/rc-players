@@ -2828,8 +2828,7 @@ private final class NativeMacCanvasView: NSView {
       context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
     case NativeSwiftDrawKind.clipPath:
       context.addPath(path(command.path))
-      context.clip(
-        using: command.pathWinding == NativeSwiftPathWinding.evenOdd ? .evenOdd : .winding)
+      context.clip(using: NativeGraphicsState.fillRule(command.pathWinding))
     case NativeSwiftDrawKind.rect:
       paint(
         CGPath(
@@ -2882,8 +2881,7 @@ private final class NativeMacCanvasView: NSView {
     if let imageID = command.textureImageID, let image = images[imageID], !stroke {
       context.saveGState()
       context.addPath(path)
-      context.clip(
-        using: command.pathWinding == NativeSwiftPathWinding.evenOdd ? .evenOdd : .winding)
+      context.clip(using: NativeGraphicsState.fillRule(command.pathWinding))
       // `respectFlipped` because this view is flipped: without it the texture paints upside down.
       // Fraction 1 because the paint alpha is already the context's alpha (`draw` sets it).
       image.draw(
@@ -3116,20 +3114,20 @@ private final class NativeMacCanvasView: NSView {
     let path = CGMutablePath()
     for item in commands {
       switch item.kind {
-      case NativeSwiftPathVerb.move:
+      case NativeSwiftPathCommand.move:
         path.move(to: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
-      case NativeSwiftPathVerb.line:
+      case NativeSwiftPathCommand.line:
         path.addLine(to: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
-      case NativeSwiftPathVerb.quadratic, NativeSwiftPathVerb.conic:
+      case NativeSwiftPathCommand.quadratic, NativeSwiftPathCommand.conic:
         path.addQuadCurve(
           to: CGPoint(x: CGFloat(item.third), y: CGFloat(item.fourth)),
           control: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)))
-      case NativeSwiftPathVerb.cubic:
+      case NativeSwiftPathCommand.cubic:
         path.addCurve(
           to: CGPoint(x: CGFloat(item.fifth), y: CGFloat(item.sixth)),
           control1: CGPoint(x: CGFloat(item.first), y: CGFloat(item.second)),
           control2: CGPoint(x: CGFloat(item.third), y: CGFloat(item.fourth)))
-      case NativeSwiftPathVerb.close: path.closeSubpath()
+      case NativeSwiftPathCommand.close: path.closeSubpath()
       default: break
       }
     }

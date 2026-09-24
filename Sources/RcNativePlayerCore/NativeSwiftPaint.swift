@@ -102,8 +102,8 @@ struct ParsedPaint {
   var alpha: Float = 1
   var strokeWidth: UInt32 = Float(1).bitPattern
   var isStroke = false
-  var strokeCap = 0
-  var strokeJoin = 0
+  var strokeCap = NativeSwiftStrokeCap.butt
+  var strokeJoin = NativeSwiftStrokeJoin.miter
   var blendMode = NativeSwiftPaintBlendMode.sourceOver
   var textureImageID: Int?
   var textureTileModeX = 0

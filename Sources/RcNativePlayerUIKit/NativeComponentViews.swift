@@ -465,14 +465,14 @@
     let alpha: CGFloat
     let strokeWidth: CGFloat
     let isStroke: Bool
-    let strokeCap: Int
-    let strokeJoin: Int
+    let strokeCap: NativeSwiftStrokeCap
+    let strokeJoin: NativeSwiftStrokeJoin
     let blendMode: Int
     let textSize: CGFloat
     let textWeight: CGFloat
     let text: String?
     let path: [NativePathElement]
-    let pathWinding: Int
+    let pathWinding: NativeSwiftPathWinding
     let gradient: NativeGradient?
     let textStyle: NativeTextStyle
     let image: NativeImageDraw?
@@ -538,14 +538,14 @@
       alpha = 1
       strokeWidth = 1
       isStroke = false
-      strokeCap = 0
-      strokeJoin = 0
+      strokeCap = .butt
+      strokeJoin = .miter
       blendMode = NativeSwiftPaintBlendMode.sourceOver
       textSize = CGFloat(snapshot.size)
       textWeight = CGFloat(snapshot.weight)
       text = snapshot.value
       path = []
-      pathWinding = 0
+      pathWinding = .nonZero
       gradient = nil
       textStyle = NativeTextStyle(swiftSnapshot: snapshot)
       image = nil
@@ -1924,7 +1924,7 @@
         context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
       case NativeSwiftDrawKind.clipPath:
         context.addPath(NativePathBuilder.make(command.path))
-        context.clip(using: command.pathWinding == 1 ? .evenOdd : .winding)
+        context.clip(using: NativeGraphicsState.fillRule(command.pathWinding))
       case NativeSwiftDrawKind.rect:
         paint(CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]), command, context)
       case NativeSwiftDrawKind.oval:
@@ -1951,7 +1951,7 @@
       case NativeSwiftDrawKind.path:
         paint(
           NativePathBuilder.make(command.path), command, context,
-          fillRule: command.pathWinding == 1 ? .evenOdd : .winding)
+          fillRule: NativeGraphicsState.fillRule(command.pathWinding))
       case NativeSwiftDrawKind.bitmap: drawImage(command, context)
       default: break
       }
