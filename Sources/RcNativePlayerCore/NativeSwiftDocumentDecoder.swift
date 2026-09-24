@@ -627,7 +627,15 @@ enum NativeSwiftDocumentDecoder {
         let opcodeOffset = reader.offset
         let opcode = try reader.u8("macro body opcode")
         switch opcode {
-        case NativeSwiftWireOpcode.clipPath, NativeSwiftWireOpcode.drawPath:
+        case NativeSwiftWireOpcode.clipPath:
+          // Only the packed path id is remapped; the region operation above it is kept.
+          let operandOffset = reader.offset
+          let operand = try reader.int("macro clip path operand")
+          let mask = NativeSwiftClipPathOperand.pathIDMask
+          if let replacement = mappings[operand & mask] {
+            replaceID(at: operandOffset, with: (operand & ~mask) | (replacement & mask))
+          }
+        case NativeSwiftWireOpcode.drawPath:
           let idOffset = reader.offset
           let id = try reader.int("macro path id")
           if let replacement = mappings[id] { replaceID(at: idOffset, with: replacement) }
@@ -1003,10 +1011,18 @@ enum NativeSwiftDocumentDecoder {
         }
         shaderUniformNames[shaderID] = names
       case NativeSwiftWireOpcode.clipPath:  // Clip path
-        let id = try input.int("clip path id")
+        // One packed operand: the path id below the region operation. Reading the whole word as
+        // the id found no path for any region but REPLACE (0), which refused the document.
+        let operand = try input.int("clip path operand")
+        let id = operand & NativeSwiftClipPathOperand.pathIDMask
+        let regionOp = operand >> NativeSwiftClipPathOperand.regionOpShift
         guard let path = paths[id] else { throw input.malformed("Missing path \(id)") }
+        // The region operation travels as the command's one literal value, so the hosts read it
+        // beside the path the way the other clip and matrix commands read their operands.
         try drawingNode().commands.append(
-          ParsedDrawCommand(kind: NativeSwiftDrawKind.clipPath, words: [], paint: paint, path: path))
+          ParsedDrawCommand(
+            kind: NativeSwiftDrawKind.clipPath, words: [Float(regionOp).bitPattern], paint: paint,
+            path: path))
       case NativeSwiftWireOpcode.clipRect:  // Clip rectangle
         let words = try (0..<4).map { _ in try input.word("clip rectangle value") }
         try drawingNode().commands.append(

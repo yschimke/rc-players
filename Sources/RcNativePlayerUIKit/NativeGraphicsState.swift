@@ -70,6 +70,34 @@ enum NativeGraphicsState {
     }
   }
 
+  /// Narrows `context`'s clip by `path` under `CLIP_PATH`'s region operation, as the reference
+  /// does: `difference` clips the path *out*, and every other value intersects with it.
+  ///
+  /// Core Graphics has no clip-out, so a difference clips to the current clip's bounds with the
+  /// path cut from it by the even-odd rule. The path is first reduced to the area its own fill rule
+  /// covers, without overlaps, so a non-zero path whose contours overlap or nest in the same
+  /// direction is cut out whole rather than by parity. Before iOS 16 and macOS 13 there is no such
+  /// reduction and the path is cut as written, which is the same for any path that does not
+  /// overlap itself.
+  static func clip(
+    _ context: CGContext, to path: CGPath, winding: NativeSwiftPathWinding, regionOp: Int
+  ) {
+    guard regionOp == NativeSwiftClipRegionOp.difference else {
+      context.addPath(path)
+      context.clip(using: fillRule(winding))
+      return
+    }
+    var covered = path
+    if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+      covered = path.normalized(using: fillRule(winding))
+    }
+    let outside = CGMutablePath()
+    outside.addRect(context.boundingBoxOfClipPath.insetBy(dx: -1, dy: -1))
+    outside.addPath(covered)
+    context.addPath(outside)
+    context.clip(using: .evenOdd)
+  }
+
   /// The Core Graphics fill rule a path's winding fills with.
   static func fillRule(_ winding: NativeSwiftPathWinding) -> CGPathFillRule {
     switch winding {

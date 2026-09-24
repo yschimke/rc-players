@@ -3175,8 +3175,9 @@ private final class NativeMacCanvasView: NSView {
     case NativeSwiftDrawKind.clipRect:
       context.clip(to: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]))
     case NativeSwiftDrawKind.clipPath:
-      context.addPath(path(command.path))
-      context.clip(using: NativeGraphicsState.fillRule(command.pathWinding))
+      NativeGraphicsState.clip(
+        context, to: path(command.path), winding: command.pathWinding,
+        regionOp: command.values.first.map { Int($0) } ?? NativeSwiftClipRegionOp.intersect)
     case NativeSwiftDrawKind.rect:
       paint(
         CGPath(
