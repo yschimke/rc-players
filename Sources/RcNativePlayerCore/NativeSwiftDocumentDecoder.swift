@@ -10,6 +10,11 @@ enum NativeSwiftDocumentDecoder {
   private static let maximumNestingDepth = 256
   /// AndroidX's own bound on one loop's passes.
   private static let maximumLoopPasses = 10_000
+  /// The bytes every LOOM loop and for-each expansion in one document may unroll to, together.
+  /// Their bodies are small drawing and structural operations, so this is far above anything a real
+  /// template produces; it exists because an unrolled body is held in memory before it runs, and a
+  /// 100 KB document could otherwise build gigabytes of it.
+  private static let maximumExpandedBytes = 16 * 1024 * 1024
   /// AndroidX's own bounds for a sound resource and a sound expression's parameters.
   private static let maximumSoundBytes = 256 * 1024
   private static let maximumSoundParameters = 64
@@ -206,6 +211,8 @@ enum NativeSwiftDocumentDecoder {
     // 22-bit NaN-reference payloads and cannot be mistaken for a template-local declaration on a
     // later nested expansion.
     var nextMacroGeneratedID = 0x5000
+    /// Bytes unrolled by loop and for-each expansions so far; see `maximumExpandedBytes`.
+    var expandedBytes = 0
 
     func begin(_ node: ParsedNode) throws {
       guard nodes.count < maximumNodes else {
@@ -288,27 +295,41 @@ enum NativeSwiftDocumentDecoder {
     /// A style's properties with its parent chain folded in, nearest last. The identity fields —
     /// component, animation, style and parent ids — describe the declaration, not the text, and
     /// are not inherited.
-    func inheritedTextProperties(
-      _ styleID: Int, visiting: Set<Int> = []
-    ) throws -> ParsedTextProperties {
-      guard !visiting.contains(styleID) else {
-        throw input.malformed("Cyclic TextStyle parent at id \(styleID)")
-      }
-      guard let style = textStyles[styleID] else {
-        throw input.malformed("Missing TextStyle id \(styleID)")
-      }
-      var merged = ParsedTextProperties()
-      if let parent = style.integers[NativeSwiftTextProperty.textStyleID], parent != -1 {
-        merged = try inheritedTextProperties(parent, visiting: visiting.union([styleID]))
+    ///
+    /// The chain is collected iteratively and at most `maximumNestingDepth` styles deep: it is as
+    /// long as the document makes it, and folding it by recursion overflowed a 512 KiB
+    /// secondary-thread stack on a few thousand chained styles.
+    func inheritedTextProperties(_ styleID: Int) throws -> ParsedTextProperties {
+      var chain: [ParsedTextProperties] = []  // Nearest first.
+      var visiting: Set<Int> = []
+      var currentID = styleID
+      while true {
+        guard !visiting.contains(currentID) else {
+          throw input.malformed("Cyclic TextStyle parent at id \(currentID)")
+        }
+        guard let style = textStyles[currentID] else {
+          throw input.malformed("Missing TextStyle id \(currentID)")
+        }
+        guard chain.count < maximumNestingDepth else {
+          throw input.malformed("TextStyle inheritance exceeds \(maximumNestingDepth)")
+        }
+        visiting.insert(currentID)
+        chain.append(style)
+        guard let parent = style.integers[NativeSwiftTextProperty.textStyleID], parent != -1
+        else { break }
+        currentID = parent
       }
       let identity = [
         NativeSwiftTextProperty.componentID, NativeSwiftTextProperty.animationID,
         NativeSwiftTextProperty.flags, NativeSwiftTextProperty.textStyleID,
       ]
-      for (id, value) in style.integers where !identity.contains(id) {
-        merged.integers[id] = value
+      var merged = ParsedTextProperties()
+      for style in chain.reversed() {
+        for (id, value) in style.integers where !identity.contains(id) {
+          merged.integers[id] = value
+        }
+        merged.floats.merge(style.floats) { _, own in own }
       }
-      merged.floats.merge(style.floats) { _, own in own }
       return merged
     }
 
@@ -469,7 +490,19 @@ enum NativeSwiftDocumentDecoder {
     /// Walks a conditional's captured body without running it: counts its direct child
     /// operations, and when `tracePath` is given, traces each nested conditional under it as not
     /// executed, as the reference records every conditional in a branch that did not run.
+    ///
+    /// Nested skipped bodies are walked with an explicit stack of the bodies they interrupt rather
+    /// than by recursion, and no deeper than `maximumNestingDepth`, the bound an executed chain of
+    /// conditionals already has: a malformed document can nest them as deep as its length allows,
+    /// and recursing once per level overflows a 512 KiB secondary-thread stack. Traces are emitted
+    /// in the same depth-first order the recursive walk produced.
     func walkConditionalBody(_ body: Data, tracePath: String?) throws -> Int {
+      /// A body whose walk is suspended while a nested conditional's body is walked.
+      struct SuspendedBody {
+        let input: WireReader
+        let path: String
+        let nestedIndex: Int
+      }
       let saved = input
       let savedRewalking = rewalkingCapturedBody
       input = WireReader(body)
@@ -478,12 +511,22 @@ enum NativeSwiftDocumentDecoder {
         input = saved
         rewalkingCapturedBody = savedRewalking
       }
-      var children = 0
+      var suspended: [SuspendedBody] = []
+      var path = tracePath
       var nestedIndex = 0
-      while !input.isAtEnd {
+      var children = 0
+      while true {
+        if input.isAtEnd {
+          guard let outer = suspended.popLast() else { break }
+          input = outer.input
+          path = outer.path
+          nestedIndex = outer.nestedIndex
+          continue
+        }
         let opcodeOffset = input.offset
         let opcode = try input.u8("conditional body opcode")
-        children += 1
+        // Only the outermost body's direct children are counted, as the recursive walk returned.
+        if suspended.isEmpty { children += 1 }
         if opcode == NativeSwiftWireOpcode.conditionalOperations {
           let type = try input.u8("conditional type")
           let left = NativeSwiftFloatExpression.resolve(
@@ -491,13 +534,19 @@ enum NativeSwiftDocumentDecoder {
           let right = NativeSwiftFloatExpression.resolve(
             try input.word("conditional right"), values: floats)
           let inner = try captureMacroBody()
-          guard let tracePath else { continue }
-          let path = "\(tracePath).\(nestedIndex)"
+          guard let parentPath = path else { continue }
+          let innerPath = "\(parentPath).\(nestedIndex)"
           nestedIndex += 1
           conditionalTraces.append(NativeSwiftConditionalTraceSnapshot(
             type: type, left: left, right: right, executed: false, executedChildOps: 0,
-            path: path))
-          _ = try walkConditionalBody(inner, tracePath: path)
+            path: innerPath))
+          guard suspended.count < maximumNestingDepth else {
+            throw input.malformed("Conditional nesting exceeds \(maximumNestingDepth)")
+          }
+          suspended.append(SuspendedBody(input: input, path: parentPath, nestedIndex: nestedIndex))
+          input = WireReader(inner)
+          path = innerPath
+          nestedIndex = 0
         } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: 0) {
           _ = try captureMacroBody()
         }
@@ -635,8 +684,29 @@ enum NativeSwiftDocumentDecoder {
         throw input.malformed(
           "Macro expects \(definition.parameterIDs.count) arguments, got \(arguments.count)")
       }
-      let mappings = Dictionary(uniqueKeysWithValues: zip(definition.parameterIDs, arguments))
+      // A definition may name the same parameter id twice; `uniqueKeysWithValues` trapped on it.
+      var mappings: [Int: Int] = [:]
+      for (parameterID, argument) in zip(definition.parameterIDs, arguments) {
+        guard mappings.updateValue(argument, forKey: parameterID) == nil else {
+          throw input.malformed("Macro parameter id \(parameterID) is repeated")
+        }
+      }
       return try remappedMacroBody(definition.body, mappings: mappings)
+    }
+
+    /// Charges an expansion being unrolled against the document's budgets as it grows, so an
+    /// amplifying loop fails while it is still small rather than after it has been built.
+    ///
+    /// `operations` is a floor on what the expansion will execute: every non-empty pass runs at
+    /// least one operation, and each one counts against `maximumOperations` when it runs. Failing
+    /// here therefore reports the same limit the document would reach later, only sooner.
+    func chargeExpansion(operations: Int, bytes: Int) throws {
+      guard operations <= maximumOperations - operationCount else {
+        throw input.malformed("Operation count exceeds \(maximumOperations)")
+      }
+      guard bytes <= maximumExpandedBytes - expandedBytes else {
+        throw input.malformed("LOOM expansion exceeds \(maximumExpandedBytes) bytes")
+      }
     }
 
     while true {
@@ -773,9 +843,14 @@ enum NativeSwiftDocumentDecoder {
           throw input.malformed("Missing pattern foreach collection \(collectionID)")
         }
         var expanded = Data()
+        var expandedOperations = 0
         for id in ids {
-          expanded.append(try remappedMacroBody(body, mappings: [localItemID: id]))
+          let pass = try remappedMacroBody(body, mappings: [localItemID: id])
+          if !pass.isEmpty { expandedOperations += 1 }
+          try chargeExpansion(operations: expandedOperations, bytes: expanded.count + pass.count)
+          expanded.append(pass)
         }
+        expandedBytes += expanded.count
         guard suspendedInputs.count < maximumNestingDepth else {
           throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
         }
@@ -813,11 +888,13 @@ enum NativeSwiftDocumentDecoder {
           guard step > 0 else { throw input.malformed("Loop step must be positive") }
           var value = from
           var passes = 0
+          var expandedOperations = 0
           while value < until {
             passes += 1
             guard passes <= maximumLoopPasses else {
               throw input.malformed("Loop exceeds \(maximumLoopPasses) passes")
             }
+            let passStart = expanded.count
             if indexID == 0 {
               expanded.append(body)
             } else {
@@ -833,9 +910,12 @@ enum NativeSwiftDocumentDecoder {
             guard next > value else { throw input.malformed("Loop step does not advance") }
             // After the loop the index holds the last value it was given, as in the reference.
             if indexID != 0, next >= until { appendConstant(indexID, value) }
+            if expanded.count > passStart { expandedOperations += 1 }
+            try chargeExpansion(operations: expandedOperations, bytes: expanded.count)
             value = next
           }
         }
+        expandedBytes += expanded.count
         guard suspendedInputs.count < maximumNestingDepth else {
           throw input.malformed("LOOM expansion nesting exceeds \(maximumNestingDepth)")
         }
@@ -1102,10 +1182,14 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.int("background reserved1")
         _ = try input.int("background reserved2")
         let usesColorID = flags & 2 != 0
-        let red = try input.floatWord("background red", requireLiteral: !usesColorID)
-        let green = try input.floatWord("background green", requireLiteral: !usesColorID)
-        let blue = try input.floatWord("background blue", requireLiteral: !usesColorID)
-        let alpha = try input.floatWord("background alpha", requireLiteral: !usesColorID)
+        let red = try input.floatWord(
+          "background red", requireLiteral: !usesColorID, opcode: opcode)
+        let green = try input.floatWord(
+          "background green", requireLiteral: !usesColorID, opcode: opcode)
+        let blue = try input.floatWord(
+          "background blue", requireLiteral: !usesColorID, opcode: opcode)
+        let alpha = try input.floatWord(
+          "background alpha", requireLiteral: !usesColorID, opcode: opcode)
         let shape = try input.int("background shape")
         guard shape == 0 else {
           throw NativeSwiftCoreError.unsupported(
@@ -1138,7 +1222,9 @@ enum NativeSwiftDocumentDecoder {
           // one-word expression runs it through the same ordered evaluation as any other computed
           // value, instead of freezing a reference's raw NaN bits into the seed map.
           expressions.append(
-            ParsedFloatExpression(id: floatID, words: [constantWord], animationWords: nil))
+            ParsedFloatExpression(
+              id: floatID, words: [constantWord], animationWords: nil, opcode: opcode,
+              offset: opcodeOffset))
           expressionIDs.insert(floatID)
         } else {
           let value = Float(bitPattern: constantWord)
@@ -1186,7 +1272,8 @@ enum NativeSwiftDocumentDecoder {
         }
         expressions.append(
           ParsedFloatExpression(
-            id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords))
+            id: id, words: Array(words.prefix(valueCount)), animationWords: animationWords,
+            opcode: opcode, offset: opcodeOffset))
         expressionIDs.insert(id)
       case NativeSwiftWireOpcode.layoutCustom:  // Custom
         let id = try input.int("custom component id")
@@ -1224,7 +1311,8 @@ enum NativeSwiftDocumentDecoder {
         }
         let node = ParsedNode(kind: .custom, componentID: id)
         node.componentKind = "CustomLayout"
-        node.custom = ParsedCustom(configID: configID, properties: properties)
+        node.custom = ParsedCustom(
+          configID: configID, properties: properties, offset: opcodeOffset)
         try begin(node)
       case NativeSwiftWireOpcode.dataText:  // Text data
         let id = try input.int("text id")
@@ -1265,14 +1353,15 @@ enum NativeSwiftDocumentDecoder {
         var tokens: [Int] = []
         tokens.reserveCapacity(count)
         for _ in 0..<count { tokens.append(try input.int("integer expression value")) }
-        integerExpressions[outputID] = ParsedIntegerExpression(mask: mask, tokens: tokens)
+        integerExpressions[outputID] = ParsedIntegerExpression(
+          mask: mask, tokens: tokens, offset: opcodeOffset)
         // The order is what `probeValues` re-evaluates in: an expression may read another's result,
         // so the wire's own declaration order is the one that converges. Without this the refresh
         // pass had nothing to iterate and a probe kept reporting the decode-time value however a
         // gesture had moved its inputs.
         integerExpressionOrder.append(outputID)
         integers[outputID] = try NativeSwiftIntegerExpression.evaluate(
-          mask: mask, tokens: tokens, values: integers)
+          mask: mask, tokens: tokens, values: integers, offset: opcodeOffset)
       case NativeSwiftWireOpcode.idList:  // List of resource ids
         let id = try input.int("id list id")
         let count = try input.count("id list count", maximum: maximumProperties)
@@ -1325,7 +1414,8 @@ enum NativeSwiftDocumentDecoder {
         let mapID = try input.int("data map lookup map id")
         let keyTextID = try input.int("data map lookup key text id")
         dataMapLookups.append(
-          ParsedDataMapLookup(outputID: outputID, mapID: mapID, keyTextID: keyTextID))
+          ParsedDataMapLookup(
+            outputID: outputID, mapID: mapID, keyTextID: keyTextID, offset: opcodeOffset))
       case NativeSwiftWireOpcode.colorExpressions:  // Dynamic color expression
         let expression = ParsedColorExpression(
           outputID: try input.int("color expression output id"),
@@ -1395,7 +1485,7 @@ enum NativeSwiftDocumentDecoder {
         words.reserveCapacity(count)
         for _ in 0..<count { words.append(try input.word("path word")) }
         paths[idAndWinding & 0x00ff_ffff] = ParsedPath(
-          winding: idAndWinding >> 24, words: words)
+          winding: idAndWinding >> 24, words: words, opcode: opcode, offset: opcodeOffset)
         pathIDs.insert(idAndWinding & 0x00ff_ffff)
       case NativeSwiftWireOpcode.pathTween:
         // Path tween; retained for the decoded-operation record probe.
@@ -1410,7 +1500,9 @@ enum NativeSwiftDocumentDecoder {
         let id = try input.int("path create id")
         let x = try input.word("path create x")
         let y = try input.word("path create y")
-        paths[id] = ParsedPath(winding: 0, words: [pathCommandWord(NativeSwiftPathCommand.move), x, y])
+        paths[id] = ParsedPath(
+          winding: 0, words: [pathCommandWord(NativeSwiftPathCommand.move), x, y], opcode: opcode,
+          offset: opcodeOffset)
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.pathAdd:
         // Appends path commands in `PATH_DATA`'s encoding; a leading RESET empties the path first.
@@ -1418,10 +1510,12 @@ enum NativeSwiftDocumentDecoder {
         let count = try input.count("path append word count", maximum: 2_000)
         let words = try (0..<count).map { _ in try input.word("path append word") }
         if words.first.flatMap(NativeSwiftFloatExpression.referenceID) == NativeSwiftPathCommand.reset {
-          paths[id] = ParsedPath(winding: paths[id]?.winding ?? 0, words: [])
-        } else {
           paths[id] = ParsedPath(
-            winding: paths[id]?.winding ?? 0, words: (paths[id]?.words ?? []) + words)
+            winding: paths[id]?.winding ?? 0, words: [], opcode: opcode, offset: opcodeOffset)
+        } else if paths[id] != nil {
+          paths[id]?.append(words, opcode: opcode, offset: opcodeOffset)
+        } else {
+          paths[id] = ParsedPath(winding: 0, words: words, opcode: opcode, offset: opcodeOffset)
         }
         pathIDs.insert(id)
       case NativeSwiftWireOpcode.drawPath:
@@ -1558,10 +1652,10 @@ enum NativeSwiftDocumentDecoder {
         //
         let id = try input.int("animation spec id")
         let motionDuration = try input.floatWord(
-          "animation spec motion duration", requireLiteral: true)
+          "animation spec motion duration", requireLiteral: true, opcode: opcode)
         let motionEasingType = try input.int("animation spec motion easing")
         let visibilityDuration = try input.floatWord(
-          "animation spec visibility duration", requireLiteral: true)
+          "animation spec visibility duration", requireLiteral: true, opcode: opcode)
         let visibilityEasingType = try input.int("animation spec visibility easing")
         let enterAnimation = try input.int("animation spec enter animation")
         let exitAnimation = try input.int("animation spec exit animation")
@@ -1630,7 +1724,7 @@ enum NativeSwiftDocumentDecoder {
         particleDefinitions.append(
           ParsedParticleDefinition(
             id: particleID, particleCount: particleCount, variableIDs: variableIDs,
-            initializationEquations: initializationEquations))
+            initializationEquations: initializationEquations, offset: opcodeOffset))
       case NativeSwiftWireOpcode.particleLoop:  // Particle loop
         // ParticlesLoop.read: an id, one length-prefixed expression for the loop itself, then a
         // variable count and a length-prefixed expression per variable. Same bounds as above.
@@ -1665,7 +1759,8 @@ enum NativeSwiftDocumentDecoder {
         }
         particleLoops.append(
           ParsedParticleLoop(
-            id: particleID, restartEquation: restartEquation, updateEquations: updateEquations))
+            id: particleID, restartEquation: restartEquation, updateEquations: updateEquations,
+            offset: opcodeOffset))
       case NativeSwiftWireOpcode.rootContentDescription:  // Root content description
         _ = try input.int("root content description id")
       case NativeSwiftWireOpcode.layoutCanvasContent:  // Canvas content
@@ -1761,10 +1856,14 @@ enum NativeSwiftDocumentDecoder {
         let width = try input.word("border width")
         _ = try input.word("border corner")
         let usesColorID = flags & 2 != 0
-        let red = try input.floatWord("border red", requireLiteral: !usesColorID)
-        let green = try input.floatWord("border green", requireLiteral: !usesColorID)
-        let blue = try input.floatWord("border blue", requireLiteral: !usesColorID)
-        let alpha = try input.floatWord("border alpha", requireLiteral: !usesColorID)
+        let red = try input.floatWord(
+          "border red", requireLiteral: !usesColorID, opcode: opcode)
+        let green = try input.floatWord(
+          "border green", requireLiteral: !usesColorID, opcode: opcode)
+        let blue = try input.floatWord(
+          "border blue", requireLiteral: !usesColorID, opcode: opcode)
+        let alpha = try input.floatWord(
+          "border alpha", requireLiteral: !usesColorID, opcode: opcode)
         _ = try input.int("border shape type")
         node.borderARGB = !usesColorID ? argb(red: red, green: green, blue: blue, alpha: alpha) : nil
         node.borderColorID = usesColorID ? colorID : nil
@@ -2269,6 +2368,33 @@ enum NativeSwiftDocumentDecoder {
     ]
     let needsWallClockRefresh = references(discreteWallClockIDs)
       || timeAttributes.contains { longConstants[$0.timeID] == nil }
+    // Which draw commands read a component-value binding is fixed by now; settle it once here
+    // rather than on every frame. The walk is iterative: the tree is up to `maximumNestingDepth`
+    // deep and decode may run on a small secondary-thread stack.
+    let componentValueIDs = Set(componentValues.map(\.valueID))
+    if !componentValueIDs.isEmpty {
+      var pending = [root]
+      while let node = pending.popLast() {
+        for index in node.commands.indices {
+          node.commands[index].markComponentGeometry(componentValueIDs)
+        }
+        pending.append(contentsOf: node.children)
+      }
+    }
+    // An expression reads "forward" when an id it reads is written by the same or a later
+    // expression, which is what makes the tolerant first pass observable without a binding.
+    var lastExpressionIndex: [Int: Int] = [:]
+    for (index, expression) in expressions.enumerated() {
+      lastExpressionIndex[expression.id] = index
+    }
+    let expressionsReadForward = expressions.enumerated().contains { index, expression in
+      expression.words.contains { word in
+        guard let id = NativeSwiftFloatExpression.referenceID(word),
+          let writer = lastExpressionIndex[id]
+        else { return false }
+        return writer >= index
+      }
+    }
     return ParsedDocument(
       width: width, height: height, density: density, densityBehavior: densityBehavior,
       root: root, nodes: nodes, texts: texts, floats: floats,
@@ -2295,7 +2421,12 @@ enum NativeSwiftDocumentDecoder {
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,
       linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0),
-      operationCensus: operationCensus)
+      operationCensus: operationCensus,
+      imageSnapshots: images.values.sorted { $0.id < $1.id }.map(\.snapshot),
+      boundComponentIDs: Set(componentValues.map(\.componentID)),
+      needsTolerantExpressionPass: !componentValues.isEmpty || expressionsReadForward,
+      layoutReadsComponentValues: !componentValueIDs.isEmpty
+        && root.references(anyOf: componentValueIDs))
   }
 
   private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)
@@ -2445,5 +2576,85 @@ enum NativeSwiftDocumentDecoder {
       UInt32((min(max(value, 0), 1) * 255).rounded())
     }
     return channel(alpha) << 24 | channel(red) << 16 | channel(green) << 8 | channel(blue)
+  }
+}
+
+/// One component of a decoded document.
+///
+/// Ownership: a node is built and mutated only while `NativeSwiftDocumentDecoder.decode` runs --
+/// every setter is `fileprivate`, so nothing outside this file can write one -- and is effectively
+/// immutable once `decode` returns its `ParsedDocument`. That is what lets `detachedCopy` share the
+/// tree between sessions and threads without copying it.
+///
+/// It stays a class rather than a struct because the decoder attaches children through an open
+/// stack of parents and records every node in an id table as it goes, and the frame resolver walks
+/// `parent` links upwards when it measures a fill; a value type would need that whole construction
+/// rewritten around indices.
+final class ParsedNode {
+  let kind: NativeSwiftNodeSnapshot.Kind
+  let componentID: Int
+  fileprivate(set) weak var parent: ParsedNode?
+  fileprivate(set) var children: [ParsedNode] = []
+  fileprivate(set) var commands: [ParsedDrawCommand] = []
+  fileprivate(set) var isClickable = false
+  fileprivate(set) var actions: [NativeSwiftGestureKind: [ParsedAction]] = [:]
+  fileprivate(set) var accessibility: ParsedAccessibility?
+  fileprivate(set) var widthType = NativeSwiftDimensionType.wrap
+  fileprivate(set) var widthWord: UInt32 = 0
+  fileprivate(set) var heightType = NativeSwiftDimensionType.wrap
+  fileprivate(set) var heightWord: UInt32 = 0
+  fileprivate(set) var paddingWords = ParsedInsetWords()
+  fileprivate(set) var minimumWidthWord: UInt32 = 0
+  fileprivate(set) var maximumWidthWord: UInt32 = nativeSwiftNegativeOneWord
+  fileprivate(set) var minimumHeightWord: UInt32 = 0
+  fileprivate(set) var maximumHeightWord: UInt32 = nativeSwiftNegativeOneWord
+  // Four words rather than one: a rounded clip states a radius per corner, and the maximum of four
+  // references is not itself a word, so the reduction has to wait until they resolve.
+  fileprivate(set) var cornerRadiusWords: [UInt32] = []
+  /// Set by MODIFIER_CLIP_RECT, which clips a component to its own laid-out bounds and carries no
+  /// payload to say so. Separate from `cornerRadiusWords` because a square clip is not a zero-radius
+  /// rounded clip: the rounded modifier states radii, this one states nothing at all.
+  fileprivate(set) var clipsToBounds = false
+  fileprivate(set) var graphicsLayer: [Int: Float] = [:]
+  fileprivate(set) var offsetXWord: UInt32?
+  fileprivate(set) var offsetYWord: UInt32?
+  fileprivate(set) var zIndexWord: UInt32?
+  fileprivate(set) var visibilityID: Int?
+  fileprivate(set) var backgroundARGB: UInt32?
+  fileprivate(set) var backgroundColorID: Int?
+  fileprivate(set) var borderARGB: UInt32?
+  fileprivate(set) var borderColorID: Int?
+  fileprivate(set) var borderWidthWord: UInt32 = 0
+  fileprivate(set) var horizontalPositioning = NativeSwiftPositioning.start
+  fileprivate(set) var verticalPositioning = NativeSwiftPositioning.top
+  fileprivate(set) var animationID: Int?
+  fileprivate(set) var spacingWord: UInt32 = 0
+  /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
+  /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
+  fileprivate(set) var componentKind = ""
+  /// Set by the scroll modifier (226).
+  fileprivate(set) var scrollDirection: NativeSwiftScrollDirection?
+  /// The float word holding the scroll position, and the one holding how far it may travel. The
+  /// notch maximum is consumed by the decoder and dropped: nothing here snaps a scroll yet.
+  fileprivate(set) var scrollPositionWord: UInt32?
+  fileprivate(set) var scrollMaximumWord: UInt32?
+  /// Set by `StateLayout` (217): the integer holding the index of the child to show.
+  fileprivate(set) var stateIndexID: Int?
+  /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and
+  /// this many lines in total. Both default to unlimited.
+  fileprivate(set) var flowMaximumItems: Int?
+  fileprivate(set) var flowMaximumLines: Int?
+  /// Set by the collapsible row/column family; see `NativeSwiftCollapsible`.
+  fileprivate(set) var isCollapsible = false
+  /// A `CollapsiblePriority` modifier's payload, held as a word so it resolves with the frame's
+  /// values like every other float field.
+  fileprivate(set) var collapsiblePriorityWord: UInt32?
+  fileprivate(set) var collapsiblePriorityOrientation: Int?
+  fileprivate(set) var text: ParsedText?
+  fileprivate(set) var custom: ParsedCustom?
+
+  init(kind: NativeSwiftNodeSnapshot.Kind, componentID: Int) {
+    self.kind = kind
+    self.componentID = componentID
   }
 }

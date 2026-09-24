@@ -1,8 +1,39 @@
 import Foundation
 
 struct ParsedPath {
+  /// The operation that wrote a run of `words`: from `firstWord` up to the next origin's. A path
+  /// can be declared by one operation and extended by others, and a word that fails to resolve is
+  /// reported against the operation that wrote it.
+  struct Origin {
+    let firstWord: Int
+    let opcode: Int
+    let offset: Int
+  }
+
   let winding: Int
-  let words: [UInt32]
+  private(set) var words: [UInt32]
+  /// Never empty: every path starts with the operation that declared it.
+  private(set) var origins: [Origin]
+
+  init(winding: Int, words: [UInt32], opcode: Int, offset: Int) {
+    self.winding = winding
+    self.words = words
+    origins = [Origin(firstWord: 0, opcode: opcode, offset: offset)]
+  }
+
+  /// Appends `more` words written by the operation at `offset`.
+  ///
+  /// In place, so a path built by a run of `PATH_ADD`s grows in amortised constant time rather than
+  /// being copied whole by each one; a draw that already holds the path keeps its own copy.
+  mutating func append(_ more: [UInt32], opcode: Int, offset: Int) {
+    origins.append(Origin(firstWord: words.count, opcode: opcode, offset: offset))
+    words.append(contentsOf: more)
+  }
+
+  /// The operation that wrote the word at `index`.
+  private func origin(ofWord index: Int) -> Origin {
+    origins.last { $0.firstWord <= index } ?? origins[0]
+  }
 
   /// Whether any of this path's *argument* words references one of `ids`.
   ///
@@ -54,10 +85,13 @@ struct ParsedPath {
   func resolve(values: [Int: Float]) throws -> [NativeSwiftPathElementSnapshot] {
     var result: [NativeSwiftPathElementSnapshot] = []
     var index = 0
+    // The command word being resolved; a failure is reported against the operation that wrote it.
+    var commandIndex = 0
     func arguments(_ count: Int, skippingLegacyPadding: Bool = false) throws -> [Float] {
       if skippingLegacyPadding { index += 2 }
       guard index >= 0, index + count <= words.count else {
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Truncated path data")
+        throw NativeSwiftCoreError.malformed(
+          offset: origin(ofWord: commandIndex).offset, reason: "Truncated path data")
       }
       let resolved = words[index..<(index + count)].map {
         NativeSwiftFloatExpression.resolve($0, values: values)
@@ -66,8 +100,10 @@ struct ParsedPath {
       return resolved
     }
     while index < words.count {
+      commandIndex = index
       guard let command = NativeSwiftFloatExpression.referenceID(words[index]) else {
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Path command is not encoded")
+        throw NativeSwiftCoreError.malformed(
+          offset: origin(ofWord: index).offset, reason: "Path command is not encoded")
       }
       index += 1
       switch command {
@@ -93,8 +129,9 @@ struct ParsedPath {
         result.append(NativeSwiftPathElementSnapshot(kind: command, values: []))
       case NativeSwiftPathVerb.done: return result
       default:
+        let source = origin(ofWord: commandIndex)
         throw NativeSwiftCoreError.unsupported(
-          opcode: NativeSwiftWireOpcode.dataPath, offset: 0, reason: "path command \(command)")
+          opcode: source.opcode, offset: source.offset, reason: "path command \(command)")
       }
     }
     return result

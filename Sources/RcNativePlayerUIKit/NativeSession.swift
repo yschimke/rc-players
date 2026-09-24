@@ -234,7 +234,7 @@
     func returnCustomFloat(
       _ value: Float, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      let accepted = try session.returnCustomFloat(
+      let accepted = session.returnCustomFloat(
         value, componentID: componentID, propertyID: propertyID)
       return try update(accepted: accepted, timeSeconds: timeSeconds)
     }
@@ -242,7 +242,7 @@
     func returnCustomText(
       _ value: String, componentID: Int, propertyID: Int, at timeSeconds: TimeInterval
     ) throws -> Update {
-      let accepted = try session.returnCustomText(
+      let accepted = session.returnCustomText(
         value, componentID: componentID, propertyID: propertyID)
       return try update(accepted: accepted, timeSeconds: timeSeconds)
     }

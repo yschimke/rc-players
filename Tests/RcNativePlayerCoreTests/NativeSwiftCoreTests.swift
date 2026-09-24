@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import RcNativePlayerCore
+@_spi(Conformance) @testable import RcNativePlayerCore
 
 @Suite struct NativeSwiftCoreTests {
   @Test func documentCore() throws {
@@ -151,7 +151,7 @@ import Testing
     #expect(content.children[2].text?.value == "Hello from the document")
 
     #expect(session.setColor(0xff12_3456, for: "accent"))
-    let accepted = try session.returnCustomText(
+    let accepted = session.returnCustomText(
       "Edited in Swift", componentID: 5, propertyID: 2)
     #expect(accepted)
     let updated = try session.snapshot()
@@ -161,17 +161,17 @@ import Testing
       updatedContent.children[0].custom?.properties[2].integerValue
         == Int(Int32(bitPattern: 0xff12_3456)))
     #expect(updatedContent.children[2].text?.value == "Edited in Swift")
-    let rejected = try session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
+    let rejected = session.returnCustomText("Ignored", componentID: 5, propertyID: 99)
     #expect(!rejected)
 
     let floatSession = try NativeSwiftDocumentSession.open(data: dynamicCustomFloatDocument())
     let initialFloat = try floatSession.snapshot().root.children[0].children[0]
     #expect(initialFloat.custom?.properties[0].floatValue == 0.4)
-    let acceptedFloat = try floatSession.returnCustomFloat(0.85, componentID: 3, propertyID: 2)
+    let acceptedFloat = floatSession.returnCustomFloat(0.85, componentID: 3, propertyID: 2)
     #expect(acceptedFloat, "declared float return should be accepted")
     let returnedFloat = try floatSession.snapshot().root.children[0].children[0]
     #expect(abs((returnedFloat.custom?.properties[0].floatValue ?? 0) - 0.85) < 0.001)
-    let rejectedFloat = try floatSession.returnCustomFloat(0.5, componentID: 3, propertyID: 99)
+    let rejectedFloat = floatSession.returnCustomFloat(0.5, componentID: 3, propertyID: 99)
     #expect(!rejectedFloat, "an undeclared return channel should be rejected")
 
     // A Row whose spacing is computed rather than stated. Before float words were carried to
@@ -1672,6 +1672,100 @@ import Testing
       "an unbounded nested macro-call chain")
   }
 
+  /// A conditional that does not run still traces the conditionals nested in its body, and that
+  /// walk recursed once per level with no bound: a debug build overflows swift-testing's 512 KiB
+  /// worker stack long before a document this size runs out of bytes. It is now iterative and
+  /// bounded like an executed chain, so the document is refused rather than crashing the host.
+  @Test func unboundedNestedSkippedConditionalIsMalformed() {
+    expectMalformed(
+      nestedSkippedConditionalDocument(depth: 300), containing: "Conditional nesting",
+      "an unbounded chain of conditionals inside one that does not run")
+  }
+
+  /// Time-attribute intervals between two document-chosen instants were Int64 differences, and
+  /// `LongConstant`s of Int64.max and Int64.min overflowed them: a 55-byte document trapped. They
+  /// are taken in Double now, and every interval form resolves to a finite value.
+  @Test func extremeTimeAttributeIntervalsDoNotTrap() throws {
+    typealias TimeType = NativeSwiftTimeAttributeType
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(NativeSwiftWireOpcode.dataLong).int(1).int64(.max)
+    document.u8(NativeSwiftWireOpcode.dataLong).int(2).int64(.min)
+    // ATTRIBUTE_TIME(output, time id, type, argument count, arguments...).
+    document.u8(NativeSwiftWireOpcode.attributeTime).int(60).int(1)
+      .u16(TimeType.fromArgumentSeconds).u16(1).int(2)
+    document.u8(NativeSwiftWireOpcode.attributeTime).int(61).int(1)
+      .u16(TimeType.fromNowSeconds).u16(0)
+    document.u8(NativeSwiftWireOpcode.attributeTime).int(62).int(1)
+      .u16(TimeType.fromLoadSeconds).u16(0)
+    let values = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: .min))
+    for id in 60...62 {
+      let value = values.floats[id]
+      #expect(
+        value.map { $0.isFinite && $0 > 0 } == true,
+        Comment(rawValue: "interval \(id): \(String(describing: value))"))
+    }
+  }
+
+  /// A MacroDefine that names one parameter id twice built its argument mapping with
+  /// `Dictionary(uniqueKeysWithValues:)`, which traps on the duplicate as soon as the macro is
+  /// called. The call is refused instead.
+  @Test func repeatedMacroParameterIsMalformed() {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    // MacroDefine(id 1, parameters [7, 7], body size 0 = container body), with an empty body.
+    document.u8(NativeSwiftWireOpcode.macroDefine).int(1).int(2).int(7).int(7).int(0)
+    document.u8(NativeSwiftWireOpcode.containerEnd)
+    // MacroCall(id 1, arguments [10, 11]) with no blocks.
+    document.u8(NativeSwiftWireOpcode.macroCall).int(1).int(2).int(10).int(11)
+    document.u8(NativeSwiftWireOpcode.containerEnd)
+    expectMalformed(
+      document.data, containing: "Macro parameter id 7 is repeated",
+      "a macro that repeats a parameter id")
+  }
+
+  /// `CoreText` folds a `TextStyle`'s parent chain, which the document makes as long as it likes;
+  /// folding it by recursion overflowed a 512 KiB stack on a few thousand styles. It is iterative
+  /// and bounded now.
+  @Test func unboundedTextStyleChainIsMalformed() {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    let depth = 300
+    for id in 1...depth {
+      // TextStyle(two properties: its own id, and its parent's, -1 for none).
+      document.u8(NativeSwiftWireOpcode.textStyle).u16(2)
+      document.u8(NativeSwiftTextProperty.componentID).int(id)
+      document.u8(NativeSwiftTextProperty.textStyleID).int(id == 1 ? -1 : id - 1)
+    }
+    // CoreText(text id 5, one property: the deepest style).
+    document.u8(NativeSwiftWireOpcode.coreText).int(5).u16(1)
+    document.u8(NativeSwiftTextProperty.textStyleID).int(depth)
+    expectMalformed(
+      document.data, containing: "TextStyle inheritance exceeds",
+      "a TextStyle chain deeper than the nesting bound")
+  }
+
+  /// A LoopStart unrolls every pass into memory before any of it runs. Ten thousand passes of a
+  /// 4 KB body -- a skipped conditional around a 1,024-word paint -- would build 40 MB from a
+  /// document a few kilobytes long; the expansion is charged against a byte budget as it grows and
+  /// refused once it passes it.
+  @Test func amplifyingLoopIsMalformed() {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    // LoopStart(index id 0, from 0, step 1, until 10,000).
+    document.u8(NativeSwiftWireOpcode.loopStart).int(0).float(0).float(1).float(10_000)
+    document.u8(NativeSwiftWireOpcode.conditionalOperations).u8(NativeSwiftConditionalType.equal)
+      .float(0).float(1)
+    document.u8(NativeSwiftWireOpcode.paintValues).int(1_024)
+    for _ in 0..<1_024 { document.int(0) }
+    document.u8(NativeSwiftWireOpcode.containerEnd)  // The conditional.
+    document.u8(NativeSwiftWireOpcode.containerEnd)  // The loop body.
+    expectMalformed(
+      document.data, containing: "LOOM expansion exceeds", "a loop that amplifies its body")
+  }
+
   private func expectMalformed(
     _ data: Data, containing reason: String, _ label: String,
     sourceLocation: SourceLocation = #_sourceLocation
@@ -1755,6 +1849,19 @@ import Testing
     output.header(width: 100, height: 100)
     output.u8(246).int(1).int(0).int(0)
     for _ in 0..<depth { output.u8(247).int(2).int(0).u8(249).int(0) }
+    return output.data
+  }
+
+  /// A top-level conditional that does not run (0 == 1), wrapping `depth` nested conditionals.
+  private func nestedSkippedConditionalDocument(depth: Int) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    let conditional = NativeSwiftWireOpcode.conditionalOperations
+    output.u8(conditional).u8(NativeSwiftConditionalType.equal).float(0).float(1)
+    for _ in 0..<depth {
+      output.u8(conditional).u8(NativeSwiftConditionalType.equal).float(0).float(0)
+    }
+    for _ in 0...depth { output.u8(NativeSwiftWireOpcode.containerEnd) }
     return output.data
   }
 

@@ -63,7 +63,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ///
   /// Data-only documents remain strict by default. The conformance value lane can deliberately
   /// opt into the same rootless mode as ``open(data:toleratingRootlessData:)``.
-  public static func operationSpans(
+  @_spi(Conformance) public static func operationSpans(
     in data: Data, toleratingRootlessData: Bool = false
   ) throws -> [NativeSwiftOperationSpan] {
     var spans: [NativeSwiftOperationSpan] = []
@@ -74,13 +74,13 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// The linked document's top-level operation census, with the header included. This is the
   /// operation model conformance exposes; it intentionally differs from raw wire spans.
-  public var linkedOperationCount: Int { document.linkedOperationCount }
+  @_spi(Conformance) public var linkedOperationCount: Int { document.linkedOperationCount }
 
   /// Every operation the document carries on the wire, by opcode, once each and in wire order,
   /// header excluded — the census the reference takes of `document.operations`. Unlike
   /// ``operationSpans(in:toleratingRootlessData:)`` it counts a branch that does not run, and a
   /// macro body once however often it is called.
-  public var operationCensus: [Int] { document.operationCensus }
+  @_spi(Conformance) public var operationCensus: [Int] { document.operationCensus }
 
   private init(copying other: NativeSwiftDocumentSession) {
     document = other.document
@@ -202,7 +202,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+        throw NativeSwiftCoreError.malformed(
+          offset: lookup.offset, reason: "Unknown data-map type")
       }
     }
     let resolvedColors = resolveColors(values: values)
@@ -212,15 +213,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       density: document.density,
       densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
-      images: document.images.values.sorted { $0.id < $1.id }.map(\.snapshot),
+      images: document.imageSnapshots,
       needsContinuousFrames: document.needsContinuousFrames || !document.particleLoops.isEmpty
         || floatAnimationRuntimes.contains {
           floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
         },
       needsWallClockRefresh: document.needsWallClockRefresh,
-      boundComponents: Set(document.componentValues.map(\.componentID)),
-      animationSpecs: document.animationSpecs, animationSpecOrder: document.animationSpecOrder,
-      pathIDs: document.pathIDs, pathTweenIDs: document.pathTweenIDs,
+      boundComponents: document.boundComponentIDs,
+      animationSpecs: document.animationSpecs,
       accessibilityRecords: document.accessibilityRecords.map {
         NativeSwiftAccessibilitySnapshot(
           contentDescriptionID: $0.contentDescriptionID, role: $0.role, textID: $0.textID,
@@ -228,14 +228,17 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           contentDescription: texts[$0.contentDescriptionID], text: texts[$0.textID],
           stateDescription: texts[$0.stateDescriptionID], isEnabled: $0.isEnabled,
           isClickable: $0.isClickable)
-      }, shaderUniformNames: document.shaderUniformNames,
-      conditionalTraces: document.conditionalTraces,
+      },
       impulses: document.impulses.map {
         NativeSwiftImpulseSnapshot(
           duration: NativeSwiftFloatExpression.resolve($0.durationWord, values: values),
           startAt: NativeSwiftFloatExpression.resolve($0.startAtWord, values: values))
       },
-      wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds))
+      wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds),
+      conformanceAnimationSpecOrder: document.animationSpecOrder,
+      conformancePathIDs: document.pathIDs, conformancePathTweenIDs: document.pathTweenIDs,
+      conformanceShaderUniformNames: document.shaderUniformNames,
+      conformanceConditionalTraces: document.conditionalTraces)
     if canReuseStaticSnapshot(timeSeconds: timeSeconds, wallClock: wallClock) {
       staticSnapshotCache = StaticSnapshotCache(
         measuredComponents: measuredComponents, snapshot: snapshot)
@@ -293,7 +296,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// Advances retained particle systems to this frame and returns one system's current state.
   /// Rendering a particle loop uses the same retained state; this accessor additionally makes the
   /// behaviour observable to the native conformance host without exposing decoder internals.
-  public func particleSnapshot(id: Int, timeSeconds: TimeInterval = 0) throws
+  @_spi(Conformance) public func particleSnapshot(id: Int, timeSeconds: TimeInterval = 0) throws
     -> NativeSwiftParticleSystemSnapshot?
   {
     stateLock.lock()
@@ -306,7 +309,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// Advances retained particle systems to this frame and returns every decoded system in stable
   /// wire order. Conformance documents can declare more than one system, so callers that observe
   /// particle state must not depend on dictionary iteration order.
-  public func particleSnapshots(timeSeconds: TimeInterval = 0) throws
+  @_spi(Conformance) public func particleSnapshots(timeSeconds: TimeInterval = 0) throws
     -> [NativeSwiftParticleSystemSnapshot]
   {
     stateLock.lock()
@@ -357,7 +360,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           storeInteger(
             targetID,
             try NativeSwiftIntegerExpression.evaluate(
-              mask: expression.mask, tokens: expression.tokens, values: integers))
+              mask: expression.mask, tokens: expression.tokens, values: integers,
+              offset: expression.offset))
         } else if let value = integers[expressionID] {
           storeInteger(targetID, value)
         }
@@ -365,7 +369,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         guard let expression = document.expressions.first(where: { $0.id == expressionID })
         else { continue }
         storeFloat(
-          targetID, try NativeSwiftFloatExpression.evaluate(expression.words, values: values))
+          targetID,
+          try NativeSwiftFloatExpression.evaluate(
+            expression.words, values: values, opcode: expression.opcode,
+            offset: expression.offset))
       case .integerValue(let targetID, let value):
         storeInteger(targetID, value)
       case .floatValue(let targetID, let value):
@@ -394,7 +401,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ///
   /// Called after `snapshot` so the text-from-float conversions and merges it performs are visible
   /// here too; the two reads then describe one instant rather than two.
-  public func probeValues(
+  @_spi(Conformance) public func probeValues(
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil
   ) throws -> NativeSwiftProbeValues {
     stateLock.lock()
@@ -417,7 +424,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       case NativeSwiftDataMapType.float:
         values[lookup.outputID] = values[entry.valueID] ?? floats[entry.valueID] ?? 0
       default:
-        throw NativeSwiftCoreError.malformed(offset: 0, reason: "Unknown data-map type")
+        throw NativeSwiftCoreError.malformed(
+          offset: lookup.offset, reason: "Unknown data-map type")
       }
     }
     // Text operations and lookups update retained state, so a previously cached static frame is
@@ -433,7 +441,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   }
 
   /// Resolves a static or dynamic float list for conformance state probes.
-  public func probeFloatList(id: Int, dynamic: Bool, timeSeconds: TimeInterval) throws -> [Float]? {
+  @_spi(Conformance) public func probeFloatList(
+    id: Int, dynamic: Bool, timeSeconds: TimeInterval
+  ) throws -> [Float]? {
     stateLock.lock()
     defer { stateLock.unlock() }
     let values = try resolvedFloats(timeSeconds: timeSeconds, wallClock: nil, measuredComponents: [:])
@@ -467,6 +477,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   /// Returns a matrix in the exact shape the wire declares (nine values for a 3x3 constant,
   /// sixteen for a 4x4 constant or expression).
+  @_spi(Conformance)
   public func probeMatrix(id: Int, timeSeconds: TimeInterval) throws -> [Float]? {
     stateLock.lock()
     defer { stateLock.unlock() }
@@ -482,6 +493,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// A probe that names a variable the document never declared is genuinely unobservable; one that
   /// addresses a numeric slot the document left empty is an observation, and the caller has to keep
   /// the two apart.
+  @_spi(Conformance)
   public func namedVariableID(_ name: String) -> Int? { namedVariable(for: name)?.id }
 
   /// The authoring API addresses user values without the wire format's `USER:` prefix. Keep the
@@ -551,7 +563,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return true
   }
 
-  public func returnCustomText(_ value: String, componentID: Int, propertyID: Int) throws -> Bool {
+  public func returnCustomText(_ value: String, componentID: Int, propertyID: Int) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
     guard value.utf8.count <= NativeSwiftDocumentDecoder.maximumStringBytes,
@@ -565,7 +577,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return true
   }
 
-  public func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) throws -> Bool {
+  public func returnCustomFloat(_ value: Float, componentID: Int, propertyID: Int) -> Bool {
     stateLock.lock()
     defer { stateLock.unlock() }
     guard value.isFinite, let node = document.nodes[componentID], node.kind == .custom,
@@ -621,7 +633,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     if let source = node.custom {
       guard let config = texts[source.configID] else {
         throw NativeSwiftCoreError.malformed(
-          offset: 0, reason: "Custom component \(node.componentID) has no config text")
+          offset: source.offset,
+          reason: "Custom component \(node.componentID) has no config text")
       }
       let properties = source.properties.map { property in
         let floatValue =
@@ -665,10 +678,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       children: try resolvedChildren(
         of: node, values: values, colors: resolvedColors,
         stateBranchActive: stateBranchActive),
-      commands: try node.commands.filter { impulseAllows($0.impulseGate) }.map {
-        try $0.resolve(
+      commands: try node.commands.compactMap { command -> NativeSwiftDrawCommandSnapshot? in
+        guard impulseAllows(command.impulseGate) else { return nil }
+        return try command.resolve(
           values: values, colors: resolvedColors, texts: texts,
-          componentValueIDs: Set(document.componentValues.map(\.valueID)),
           matrices: document.matrixExpressions)
       },
       isClickable: node.isClickable,
@@ -863,7 +876,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     for id in document.integerExpressionOrder {
       guard let expression = document.integerExpressions[id] else { continue }
       integers[id] = try NativeSwiftIntegerExpression.evaluate(
-        mask: expression.mask, tokens: expression.tokens, values: integers)
+        mask: expression.mask, tokens: expression.tokens, values: integers,
+        offset: expression.offset)
     }
   }
 
@@ -885,20 +899,26 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       offsetSeconds: wallClock?.offsetSeconds(atEpochMillis: selectedMillis) ?? 0)
     let fields = selected.fields
     typealias TimeType = NativeSwiftTimeAttributeType
-    func interval(_ millis: Int64, unit: Double) -> Float { Float(Double(millis) * 0.001 / unit) }
+    // Intervals are taken in Double, not Int64: a document picks both instants, and two
+    // `LongConstant`s as far apart as Int64.max and Int64.min overflow -- and trap -- an Int64
+    // subtraction. Epoch milliseconds are exact in Double well beyond any real date, so an ordinary
+    // instant gives exactly what the integer difference did.
+    func interval(since start: Double, unit: Double) -> Float {
+      Float((Double(selectedMillis) - start) * 0.001 / unit)
+    }
     switch attribute.type {
     case TimeType.fromNowSeconds, TimeType.fromNowMinutes, TimeType.fromNowHours:
       guard let now = wallClock?.epochMillis else { return nil }
       let unit: Double = attribute.type == TimeType.fromNowSeconds
         ? 1 : attribute.type == TimeType.fromNowMinutes ? 60 : 3600
-      return interval(selectedMillis - now, unit: unit)
+      return interval(since: Double(now), unit: unit)
     case TimeType.fromArgumentSeconds, TimeType.fromArgumentMinutes, TimeType.fromArgumentHours:
       guard let argumentID = attribute.argumentIDs.first,
         let argument = document.longConstants[argumentID]
       else { return nil }
       let unit: Double = attribute.type == TimeType.fromArgumentSeconds
         ? 1 : attribute.type == TimeType.fromArgumentMinutes ? 60 : 3600
-      return interval(selectedMillis - argument, unit: unit)
+      return interval(since: Double(argument), unit: unit)
     case TimeType.second: return Float(fields.second)
     case TimeType.minute: return Float(fields.minute)
     case TimeType.hour: return Float(fields.hour)
@@ -909,8 +929,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     case TimeType.fromLoadSeconds:
       // The document loaded `timeSeconds` before the wall clock's instant.
       guard let now = wallClock?.epochMillis else { return nil }
-      let loadMillis = now - Int64((timeSeconds * 1000).rounded())
-      return interval(selectedMillis - loadMillis, unit: 1)
+      // In Double too: `Int64(_:)` traps on a non-finite or out-of-range elapsed time.
+      let loadMillis = Double(now) - (timeSeconds * 1000).rounded()
+      return interval(since: loadMillis, unit: 1)
     case TimeType.dayOfYear: return Float(fields.dayOfYear)
     default: return nil
     }
@@ -946,12 +967,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
     // A copied dynamic colour is encoded as colour expression → channel attributes → colour
     // expression. Resolve the source colours before extracting their channels so the final colour
-    // pass can preserve copies such as a selected tint with reduced alpha.
-    let preliminaryColors = resolveColors(values: result)
-    for attribute in document.colorAttributes {
-      guard floatOverrides[attribute.outputID] == nil else { continue }
-      result[attribute.outputID] = colorAttribute(
-        attribute.type, of: preliminaryColors[attribute.colorID] ?? 0)
+    // pass can preserve copies such as a selected tint with reduced alpha. Only a channel attribute
+    // reads this preliminary table, so a document without one does not pay for a second colour
+    // resolution per frame; `resolveColors` has no side effects to preserve.
+    if !document.colorAttributes.isEmpty {
+      let preliminaryColors = resolveColors(values: result)
+      for attribute in document.colorAttributes {
+        guard floatOverrides[attribute.outputID] == nil else { continue }
+        result[attribute.outputID] = colorAttribute(
+          attribute.type, of: preliminaryColors[attribute.colorID] ?? 0)
+      }
     }
     // Player-supplied clocks. A document that declares its own value at one of these ids keeps it,
     // matching the reference player's claimed-id rule — `floats` seeds `result`.
@@ -1044,11 +1069,20 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     // result that `evaluate` rejects — correctly, but not yet. Dropping it here leaves the id
     // unset, exactly as it was before this pass existed; the authoritative pass after the
     // measurement evaluates it for real and throws if it is still bad.
-    for expression in document.expressions {
+    //
+    // The first pass only changes what the second computes when something sits between them to
+    // read it -- a component-value binding -- or when an expression reads an id that the same or a
+    // later expression writes, which the second pass then sees updated. Without either, the second
+    // pass reads exactly what the first did and recomputes the same values (animation runtimes
+    // return the same value for the same target at the same instant), so the decoder decides once
+    // per document whether the first pass is needed at all.
+    for expression in document.expressions where document.needsTolerantExpressionPass {
       guard floatOverrides[expression.id] == nil else { continue }
-      if let value = try? NativeSwiftFloatExpression.evaluate(expression.words, values: result) {
-        if resolveAnimatedValues, let animationWords = expression.animationWords,
-          let runtime = try? animationRuntime(for: expression.id, animationWords: animationWords)
+      if let value = try? NativeSwiftFloatExpression.evaluate(
+        expression.words, values: result, opcode: expression.opcode, offset: expression.offset)
+      {
+        if resolveAnimatedValues, expression.animationWords != nil,
+          let runtime = try? animationRuntime(for: expression)
         {
           // Geometry bindings are measured immediately below. They must see the same animated
           // value the final resolver will draw, not the expression's raw target.
@@ -1058,6 +1092,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         }
       }
     }
+    // Subtree estimates are pure in (node, dimension) for one `values` table, so they are shared
+    // across bindings -- a parent and child both bound, or a width and height binding on one node,
+    // walk the same subtree. A binding writes `result`, though, so when any layout word reads a
+    // bound value the table is dropped before each binding's estimate instead.
+    var estimates: [NativeSwiftEstimateKey: Float] = [:]
     for binding in document.componentValues {
       guard floatOverrides[binding.valueID] == nil else { continue }
       // A real measurement wins over any estimate. Width and height are the only two types this
@@ -1085,15 +1124,18 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         continue
       }
       let measuredNode = node.parent ?? node
+      if document.layoutReadsComponentValues { estimates.removeAll(keepingCapacity: true) }
       result[binding.valueID] = estimatedDimension(
-        of: measuredNode, type: binding.type, available: available, values: result)
+        of: measuredNode, type: binding.type, available: available, values: result,
+        estimates: &estimates)
     }
     func evaluateExpressions() throws {
       for expression in document.expressions {
         guard floatOverrides[expression.id] == nil else { continue }
-        let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
-        if resolveAnimatedValues, let animationWords = expression.animationWords {
-          let runtime = try animationRuntime(for: expression.id, animationWords: animationWords)
+        let target = try NativeSwiftFloatExpression.evaluate(
+          expression.words, values: result, opcode: expression.opcode, offset: expression.offset)
+        if resolveAnimatedValues, expression.animationWords != nil {
+          let runtime = try animationRuntime(for: expression)
           result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
         } else {
           result[expression.id] = target
@@ -1178,12 +1220,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     }
   }
 
+  /// The retained runtime for an expression that carries animation words.
   private func animationRuntime(
-    for id: Int, animationWords: [UInt32]
+    for expression: ParsedFloatExpression
   ) throws -> NativeSwiftFloatAnimationRuntime {
-    if let existing = floatAnimationRuntimes[id] { return existing }
-    let runtime = try NativeSwiftFloatAnimationRuntime(animationWords: animationWords)
-    floatAnimationRuntimes[id] = runtime
+    if let existing = floatAnimationRuntimes[expression.id] { return existing }
+    let runtime = try NativeSwiftFloatAnimationRuntime(
+      animationWords: expression.animationWords ?? [], offset: expression.offset)
+    floatAnimationRuntimes[expression.id] = runtime
     return runtime
   }
 
@@ -1446,8 +1490,25 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return argbColor(alpha: alpha, red: rgb.0, green: rgb.1, blue: rgb.2)
   }
 
+  /// A node's estimated width or height, memoised in `estimates`.
+  ///
+  /// The estimate is a pure function of the node, the dimension, `available` (fixed per dimension)
+  /// and `values`, so a caller may keep `estimates` for as long as `values` does not change.
   private func estimatedDimension(
-    of node: ParsedNode, type: Int, available: Float, values: [Int: Float]
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float],
+    estimates: inout [NativeSwiftEstimateKey: Float]
+  ) -> Float {
+    let key = NativeSwiftEstimateKey(node: ObjectIdentifier(node), type: type)
+    if let cached = estimates[key] { return cached }
+    let estimate = uncachedEstimatedDimension(
+      of: node, type: type, available: available, values: values, estimates: &estimates)
+    estimates[key] = estimate
+    return estimate
+  }
+
+  private func uncachedEstimatedDimension(
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float],
+    estimates: inout [NativeSwiftEstimateKey: Float]
   ) -> Float {
     // Measurement runs before the final resolution pass and must not throw: an unresolvable field
     // reads as zero here and is rejected properly by `resolvedFloat` when the snapshot is built.
@@ -1465,7 +1526,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       // A bare fill writes the canonical NaN, which `float` would resolve to 0; the reference
       // reads it as a fraction of 1.
       let fraction = dimensionWord == Float.nan.bitPattern ? 1 : max(dimensionValue, 0)
-      return ancestorDimension(of: node, type: type, available: available, values: values)
+      return ancestorDimension(
+        of: node, type: type, available: available, values: values, estimates: &estimates)
         * fraction
     }
     // A fill child contributes nothing to a wrapping parent's intrinsic size: the parent decides
@@ -1476,8 +1538,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       !NativeSwiftDimensionType.isFill(
         type == NativeSwiftComponentValueType.width ? $0.widthType : $0.heightType)
     }
-    let childDimensions = children.map {
-      estimatedDimension(of: $0, type: type, available: available, values: values)
+    var childDimensions: [Float] = []
+    childDimensions.reserveCapacity(children.count)
+    for child in children {
+      childDimensions.append(
+        estimatedDimension(
+          of: child, type: type, available: available, values: values, estimates: &estimates))
     }
     let intrinsic: Float
     if let text = node.text {
@@ -1510,7 +1576,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// an icon inside a 52-unit button measure the 454-unit canvas; the reference measures the
   /// component the layout actually gave it. Falls back to the document when no ancestor decides.
   private func ancestorDimension(
-    of node: ParsedNode, type: Int, available: Float, values: [Int: Float]
+    of node: ParsedNode, type: Int, available: Float, values: [Int: Float],
+    estimates: inout [NativeSwiftEstimateKey: Float]
   ) -> Float {
     func float(_ word: UInt32) -> Float {
       let value = NativeSwiftFloatExpression.resolve(word, values: values)
@@ -1528,7 +1595,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
       if !NativeSwiftDimensionType.isFill(dimensionType) {
         let intrinsic = estimatedDimension(
-          of: candidate, type: type, available: available, values: values)
+          of: candidate, type: type, available: available, values: values,
+          estimates: &estimates)
         if intrinsic > 0 { return intrinsic }
       }
       current = candidate.parent
@@ -1558,4 +1626,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return [child]
     }
   }
+}
+
+/// Memo key for `estimatedDimension`: one parsed node's width or height estimate.
+struct NativeSwiftEstimateKey: Hashable {
+  let node: ObjectIdentifier
+  let type: Int
 }
