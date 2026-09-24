@@ -18,7 +18,8 @@
     private func makeView(_ snapshot: NativeSwiftNodeSnapshot) -> NativeComponentView {
       NativeComponentView(
         node: NativeNode(swiftSnapshot: snapshot, densityBehavior: 0), images: [:],
-        fontNames: [:], customComponents: RemoteComposeNativeCustomComponentRegistry(),
+        fontNames: [:], offscreenTargets: NativeOffscreenTargets(),
+        customComponents: RemoteComposeNativeCustomComponentRegistry(),
         onGesture: { _, _, _ in }, onCustomReturn: { _, _, _ in })
     }
 

@@ -1357,6 +1357,10 @@ private final class NativeMacDocumentView: NSView {
   private let fonts: NativeMacFontRegistry
   private let conformanceFontName: String?
   private var reportedDiagnostics: RemoteComposeNativePlayerDiagnostics?
+  /// The document's `DrawToBitmap` targets, shared by every canvas in the component tree (and a
+  /// StateLayout's outgoing branch) so a bitmap id is one target for the whole document, as the
+  /// core's resource budget counts it.
+  private let offscreenTargets = NativeOffscreenTargets()
   private var component: NativeMacComponentView!
   /// The outgoing StateLayout branch during a native transition. AppKit owns the interpolation here
   /// — this is intentionally a view transition, not a second implementation of Android's layout
@@ -1638,7 +1642,7 @@ private final class NativeMacDocumentView: NSView {
     }
     component = NativeMacComponentView(
       node: snapshot.root, images: images, fontNames: fonts.namesByID,
-      conformanceFontName: conformanceFontName
+      conformanceFontName: conformanceFontName, offscreenTargets: offscreenTargets
     ) {
       [weak self] componentID, gesture, sample in
       self?.gesture(gesture, componentID: componentID, sample: sample)
@@ -2199,6 +2203,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   /// view: the document view publishes it, and this view only supplies its frame and activation.
   private var semanticElement: NativeMacSemanticElement?
   private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
+  /// The document view's `DrawToBitmap` targets, handed to this view's canvas and to every child,
+  /// including children built when an update replaces one.
+  private let offscreenTargets: NativeOffscreenTargets
   private weak var tapRecognizer: NSClickGestureRecognizer?
   private weak var doubleClickRecognizer: NSClickGestureRecognizer?
   private var lastTapTimestamp: TimeInterval = -.infinity
@@ -2216,22 +2223,25 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     images: [Int: NSImage],
     fontNames: [Int: String],
     conformanceFontName: String?,
+    offscreenTargets: NativeOffscreenTargets,
     onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
   ) {
     self.node = node
     layoutNode = NativeLayoutNode(snapshot: node)
     self.onGesture = onGesture
+    self.offscreenTargets = offscreenTargets
     componentChildren = node.children.map {
       NativeMacComponentView(
         node: $0, images: images, fontNames: fontNames, conformanceFontName: conformanceFontName,
-        onGesture: onGesture)
+        offscreenTargets: offscreenTargets, onGesture: onGesture)
     }
     let drawCommands = Self.canvasCommands(for: node)
     canvas =
       drawCommands.isEmpty
       ? nil
       : NativeMacCanvasView(
-        commands: drawCommands, images: images, conformanceFontName: conformanceFontName)
+        commands: drawCommands, images: images, conformanceFontName: conformanceFontName,
+        offscreenTargets: offscreenTargets)
     labels = Self.labelTexts(for: node).map {
       Self.makeLabel($0, fontNames: fontNames, conformanceFontName: conformanceFontName)
     }
@@ -2345,7 +2355,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
       next.append(
         NativeMacComponentView(
           node: childNode, images: images, fontNames: fontNames,
-          conformanceFontName: conformanceFontName, onGesture: onGesture))
+          conformanceFontName: conformanceFontName, offscreenTargets: offscreenTargets,
+          onGesture: onGesture))
     }
     componentChildren = next
     if next.count == previous.count, zip(next, previous).allSatisfy({ $0 === $1 }) { return }
@@ -3118,13 +3129,18 @@ private final class NativeMacCanvasView: NSView {
   /// the paint's typeface command, so a draw-command snapshot carries no family ID. UIKit's canvas
   /// looks one up with the default style's family (-1), which never matches.
   let conformanceFontName: String?
-  /// The bitmaps this canvas's `DrawToBitmap` commands draw into, kept between draws.
-  private let offscreenTargets = NativeOffscreenTargets()
+  /// The bitmaps `DrawToBitmap` commands draw into: the document view's pool, shared by every
+  /// canvas in its tree and kept between draws.
+  private let offscreenTargets: NativeOffscreenTargets
   override var isFlipped: Bool { true }
-  init(commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?) {
+  init(
+    commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?,
+    offscreenTargets: NativeOffscreenTargets
+  ) {
     self.commands = commands
     self.images = images
     self.conformanceFontName = conformanceFontName
+    self.offscreenTargets = offscreenTargets
     super.init(frame: .zero)
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
@@ -3144,24 +3160,28 @@ private final class NativeMacCanvasView: NSView {
     // drawing returns to this canvas at the end of the node's commands, as the CMP player's
     // draw-target scope does. The target becomes AppKit's current context, flipped as this view
     // is, because image draws go through `NSGraphicsContext.current` rather than the context
-    // passed.
-    var target: CGContext?
+    // passed. A target that cannot be allocated drops its commands rather than drawing them here.
+    var redirect = NativeOffscreenRedirect.canvas
     for command in commands {
       guard command.kind == NativeSwiftDrawKind.drawToBitmap else {
-        draw(command, target ?? context)
+        switch redirect {
+        case .canvas: draw(command, context)
+        case .offscreen(let target): draw(command, target)
+        case .dropped: break
+        }
         continue
       }
-      if target != nil { NSGraphicsContext.restoreGraphicsState() }
-      target = command.offscreenTarget.flatMap { redirect in
-        offscreenTargets.begin(
-          redirect, seed: images[redirect.bitmapID].flatMap { Self.cgImage($0) })
-      }
-      if let target {
+      if case .offscreen = redirect { NSGraphicsContext.restoreGraphicsState() }
+      redirect =
+        command.offscreenTarget.map { next in
+          offscreenTargets.begin(next, seed: images[next.bitmapID].flatMap { Self.cgImage($0) })
+        } ?? NativeOffscreenRedirect.canvas
+      if case .offscreen(let target) = redirect {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: target, flipped: true)
       }
     }
-    if target != nil { NSGraphicsContext.restoreGraphicsState() }
+    if case .offscreen = redirect { NSGraphicsContext.restoreGraphicsState() }
   }
 
   private func draw(_ command: NativeMacDrawCommand, _ context: CGContext) {
