@@ -1587,7 +1587,9 @@ enum NativeSwiftDocumentDecoder {
           id: matrixID, type: matrixType, words: matrixWords)
       case NativeSwiftWireOpcode.matrixVectorMath:
         let type = Int(try input.u16("matrix vector math type"))
-        guard type == 0 || type == 1 else {
+        guard type == NativeSwiftMatrixVectorMathType.multiply
+          || type == NativeSwiftMatrixVectorMathType.perspective
+        else {
           throw input.malformed("Unknown matrix vector math type")
         }
         let matrixID = try input.int("matrix vector math matrix id")

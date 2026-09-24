@@ -470,6 +470,14 @@ enum NativeSwiftMatrixOperator {
   static let last = 54
 }
 
+/// `MATRIX_VECTOR_MATH`'s types: the two the vendored `third_party/remote-compose-player`
+/// `MatrixVectorMath.ts` applies -- 0 multiplies the vector by the matrix, and 1 evaluates it with
+/// the perspective divide. The core refuses any other type.
+enum NativeSwiftMatrixVectorMathType {
+  static let multiply = 0
+  static let perspective = 1
+}
+
 /// `RcHeader`'s modern property-map keys: the low 10 bits of a property tag. Every key AndroidX's
 /// `Header` defines (the vendored `third_party/remote-compose-player` `Header.ts`); the core reads
 /// only the size, density and density-behaviour keys and reads past the rest by their type.
