@@ -1046,6 +1046,11 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       var labels = 0
       var controls = 0
       nativeAppKitCount(player, views: &views, labels: &labels, controls: &controls)
+      // Activatable semantic nodes are accessibility elements rather than NSControls now; count
+      // them as the controls they replace.
+      controls += (player.accessibilityChildren() ?? []).filter {
+        ($0 as? NativeMacSemanticElement)?.action != nil
+      }.count
       viewCount = max(viewCount, views)
       labelCount = max(labelCount, labels)
       controlCount = max(controlCount, controls)
@@ -1484,6 +1489,11 @@ private final class NativeMacDocumentView: NSView {
         height: CGFloat(snapshot.height)))
     timeline.resume(at: Self.now)
     try install(snapshot, report: report)
+    // The document is the one accessibility container, as on UIKit: it lists every element its
+    // components publish, and each semantic element names it as its parent.
+    setAccessibilityElement(true)
+    setAccessibilityRole(.group)
+    setAccessibilityIdentifier("rc-native-document")
     NotificationCenter.default.addObserver(
       self, selector: #selector(applicationDidBecomeActive),
       name: NSApplication.didBecomeActiveNotification, object: nil)
@@ -1669,6 +1679,32 @@ private final class NativeMacDocumentView: NSView {
       onError("Native input failed: \(error.localizedDescription)")
       NSSound.beep()
     }
+  }
+
+  /// The active component tree's elements in document order. An outgoing StateLayout branch is a
+  /// transient presentation and is not listed, as it is not in the tree dump.
+  override func accessibilityChildren() -> [Any]? {
+    let children = component?.accessibilityOrder ?? []
+    for case let element as NativeMacSemanticElement in children {
+      element.setAccessibilityParent(self)
+    }
+    return children
+  }
+
+  /// The innermost listed element under a screen point. Semantic elements are not views, so
+  /// AppKit's default view-based hit test cannot find them.
+  override func accessibilityHitTest(_ point: NSPoint) -> Any? {
+    for child in (accessibilityChildren() ?? []).reversed() {
+      if let element = child as? NativeMacSemanticElement,
+        element.accessibilityFrame().contains(point)
+      {
+        return element
+      }
+      if let view = child as? NSView, view.accessibilityFrame().contains(point) {
+        return view
+      }
+    }
+    return super.accessibilityHitTest(point)
   }
 
   override func viewDidMoveToWindow() {
@@ -1953,6 +1989,20 @@ private final class NativeMacDisplayLinkDriver: NSObject {
 
 private typealias NativeMacNode = NativeSwiftNodeSnapshot
 
+/// The accessibility policy reads each component as it is displayed rather than as the document
+/// wrote it: a FitBox shows an alternative whose own visibility modifier is GONE, and a merging
+/// ancestor has to take that alternative's label and action. Everything else is the node's.
+extension NativeMacComponentView: @preconcurrency NativeAccessibilityNode {
+  var semanticComponentID: Int { node.semanticComponentID }
+  var semanticDescriptor: NativeAccessibilityDescriptor? { node.semanticDescriptor }
+  var semanticLocalLabels: [String] { node.semanticLocalLabels }
+  var semanticClickActionTypes: [NativeSwiftGestureKind] { node.semanticClickActionTypes }
+  var isSemanticallyVisible: Bool {
+    !isHidden && (node.isSemanticallyVisible || ignoresOwnVisibility)
+  }
+  var semanticChildren: [NativeMacComponentView] { componentChildren }
+}
+
 private extension NativeSwiftNodeSnapshot {
   func component(withID id: Int) -> NativeSwiftNodeSnapshot? {
     if componentID == id { return self }
@@ -1966,9 +2016,6 @@ private typealias NativeMacDrawCommand = NativeSwiftDrawCommandSnapshot
 private typealias NativeMacPathCommand = NativeSwiftPathElementSnapshot
 
 private extension NativeSwiftNodeSnapshot {
-  var clickable: Bool { isClickable || accessibility?.isClickable == true }
-  var semanticLabel: String? { accessibility?.contentDescription }
-  var semanticText: String? { accessibility?.text ?? text?.value }
   var componentId: Int { componentID }
   var paddingTop: Float { padding.top }
   var paddingLeft: Float { padding.left }
@@ -2000,6 +2047,88 @@ private extension NativeSwiftPathElementSnapshot {
 
 private extension Collection {
   subscript(safe index: Index) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+
+/// How the shared accessibility policy reads on AppKit: the role, subrole and identifier each
+/// element kind announces, and whether a node publishes an element at all. Kept apart from the
+/// views so it is testable without a window.
+@MainActor
+enum NativeAppKitAccessibility {
+  static func role(for descriptor: NativeAccessibilityDescriptor) -> NSAccessibility.Role {
+    switch descriptor.elementKind {
+    case .button: return .button
+    case .checkbox, .toggle: return .checkBox
+    case .radioButton, .tab: return .radioButton
+    case .dropdownList, .picker: return .popUpButton
+    case .image: return descriptor.isClickable ? .button : .image
+    case .carousel: return descriptor.isClickable ? .button : .group
+    case .generic: return descriptor.isClickable ? .button : .staticText
+    }
+  }
+
+  /// A toggle is a switch-styled checkbox and a tab a tab-styled radio button, as AppKit's own
+  /// `NSSwitch` and `NSTabView` report them.
+  static func subrole(for kind: NativeAccessibilityElementKind) -> NSAccessibility.Subrole? {
+    switch kind {
+    case .toggle: return NSAccessibility.Subrole(rawValue: "AXSwitch")
+    case .tab: return NSAccessibility.Subrole(rawValue: "AXTabButton")
+    case .button, .checkbox, .radioButton, .image, .dropdownList, .picker, .carousel, .generic:
+      return nil
+    }
+  }
+
+  /// The same identifier the UIKit host gives the node's element, e.g. `rc-native-button-12`.
+  static func identifier(
+    for descriptor: NativeAccessibilityDescriptor, componentID: Int
+  ) -> String {
+    "rc-native-\(String(describing: descriptor.elementKind))-\(componentID)"
+  }
+
+  /// Whether the node's element is worth announcing — the UIKit host's rule: it has something to
+  /// say, a state, an action, or a role beyond a plain container.
+  static func publishes(
+    _ descriptor: NativeAccessibilityDescriptor, label: String?, activates: Bool
+  ) -> Bool {
+    if label != nil || descriptor.stateDescription != nil || activates { return true }
+    if descriptor.isClickable || !descriptor.isEnabled { return true }
+    switch descriptor.elementKind {
+    case .button, .checkbox, .toggle, .radioButton, .tab, .image, .dropdownList: return true
+    case .picker, .carousel, .generic: return false
+    }
+  }
+}
+
+/// A component's VoiceOver identity: role, label, value and activation, without a view.
+///
+/// The document owns every pixel and every pointer gesture, so the semantic node is a plain
+/// accessibility element rather than a control overlaid on the component. It announces the owning
+/// component view's area (the structural union for a flattened component), and activation
+/// dispatches the same tap event the pointer path does.
+private final class NativeMacSemanticElement: NSAccessibilityElement {
+  let kind: NativeAccessibilityElementKind
+  /// Dispatches the node's tap; nil when it has none or is disabled.
+  var action: (() -> Void)?
+  /// Whether the document lists this element; mirrors `isAccessibilityElement()`.
+  var isPublished = false
+  private weak var owner: NativeMacComponentView?
+
+  init(owner: NativeMacComponentView, kind: NativeAccessibilityElementKind) {
+    self.owner = owner
+    self.kind = kind
+    super.init()
+  }
+
+  /// Resolved on every read, in screen coordinates, so a scrolled ancestor or a moved window is
+  /// never stale.
+  override func accessibilityFrame() -> NSRect {
+    owner?.semanticScreenFrame ?? .zero
+  }
+
+  override func accessibilityPerformPress() -> Bool {
+    guard let action else { return false }
+    action()
+    return true
+  }
 }
 
 /// `NativeLayoutItem` is nonisolated so the shared engine runs in tests without views. This view
@@ -2034,7 +2163,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
   private let imageViews: [NSImageView]
-  private let semanticButton: NSButton?
+  /// This component's VoiceOver identity, when the node has semantics of its own. It is not a
+  /// view: the document view publishes it, and this view only supplies its frame and activation.
+  private var semanticElement: NativeMacSemanticElement?
   private let onGesture: (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void
   private weak var tapRecognizer: NSClickGestureRecognizer?
   private weak var doubleClickRecognizer: NSClickGestureRecognizer?
@@ -2075,16 +2206,11 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     imageViews = Self.imageItems(for: node, images: images).map {
       Self.makeImageView($0.image, draw: $0.draw, alpha: $0.alpha)
     }
-    if node.clickable {
-      let button = NSButton(title: "", target: nil, action: nil)
-      button.isBordered = false
-      button.isTransparent = true
-      button.toolTip = node.semanticLabel ?? node.semanticText
-      semanticButton = button
-    } else {
-      semanticButton = nil
-    }
     super.init(frame: .zero)
+    semanticElement = node.semanticBehavior.map {
+      NativeMacSemanticElement(owner: self, kind: $0.descriptor.elementKind)
+    }
+    configureSemanticElement()
     wantsLayer = true
     applyLayerStyle()
     applyVisibility()
@@ -2093,11 +2219,6 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     labels.forEach(addSubview)
     imageViews.forEach(addSubview)
     componentChildren.forEach(addSubview)
-    if let semanticButton {
-      semanticButton.target = self
-      semanticButton.action = #selector(activate(_:))
-      addSubview(semanticButton)
-    }
     installGestureRecognizers()
   }
 
@@ -2105,7 +2226,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   ///
   /// Only this view's own identity is compared: the same component ID, the same kind and class,
   /// the same gestures (so the installed recognizers stay right), and the same helper subviews —
-  /// canvas, promoted text label, promoted images, accessibility button. Children are reconciled
+  /// canvas, promoted text label, promoted images, semantic element kind. Children are reconciled
   /// one by one in `update(node:…)`, so a child whose identity changed is rebuilt on its own
   /// without discarding this view or its siblings.
   func canUpdate(with next: NativeMacNode, images: [Int: NSImage]) -> Bool {
@@ -2114,7 +2235,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
       node.kind == next.kind,
       node.componentKind == next.componentKind,
       node.supportedGestures == next.supportedGestures,
-      node.clickable == next.clickable,
+      semanticElement?.kind == next.semanticBehavior?.descriptor.elementKind,
       (canvas != nil) == !Self.canvasCommands(for: next).isEmpty,
       labels.count == Self.labelTexts(for: next).count
     else { return false }
@@ -2154,15 +2275,14 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     for (view, item) in zip(imageViews, Self.imageItems(for: next, images: images)) {
       Self.configure(view, image: item.image, draw: item.draw, alpha: item.alpha)
     }
-    if let semanticButton {
-      let toolTip = next.semanticLabel ?? next.semanticText
-      if semanticButton.toolTip != toolTip { semanticButton.toolTip = toolTip }
-    }
     reconcileChildren(
       next.children, images: images, fontNames: fontNames,
       conformanceFontName: conformanceFontName)
     applyLayerStyle()
     applyVisibility()
+    // After the children: a merging or unlabeled node resolves its label, role and action from
+    // its descendants' views, which now hold the new snapshot.
+    configureSemanticElement()
     needsLayout = true
   }
 
@@ -2217,15 +2337,9 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     for child in previous where !keptIDs.contains(ObjectIdentifier(child)) {
       child.removeFromSuperview()
     }
-    // Children paint above the canvas, labels and images and below the accessibility button;
-    // re-adding an existing subview only moves it, so this restores document order.
-    for child in next {
-      if let semanticButton {
-        addSubview(child, positioned: .below, relativeTo: semanticButton)
-      } else {
-        addSubview(child)
-      }
-    }
+    // Children paint above the canvas, labels and images; re-adding an existing subview only
+    // moves it, so this restores document order.
+    for child in next { addSubview(child) }
   }
 
   /// The document view this component is installed in, for the document-wide clock.
@@ -2375,7 +2489,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
   /// Finds a document component without depending on the AppKit subview order, which also contains
-  /// text, image, canvas and accessibility helper views.
+  /// text, image and canvas helper views.
   func component(withID id: Int) -> NativeMacComponentView? {
     if node.componentId == id { return self }
     for child in componentChildren {
@@ -2398,8 +2512,78 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     }
   }
 
-  @objc private func activate(_ sender: Any?) {
-    dispatchTap(sample: nil)
+  /// The elements VoiceOver reaches in this subtree, in document order, the same list the UIKit
+  /// host publishes: promoted text and described images, and each semantic element. A node that
+  /// merges, clears or derives its label from its descendants hides them behind its own element.
+  var accessibilityOrder: [Any] {
+    // The *effective* state, not the document's field: a FitBox displays an alternative whose own
+    // visibility modifier is GONE, and a displayed button has to be reachable by VoiceOver rather
+    // than filtered out by the modifier the box deliberately ignored.
+    guard !isHidden, alphaValue > 0.01 else { return [] }
+    let descendants = componentChildren.flatMap { $0.accessibilityOrder }
+    let local: [Any] =
+      labels.filter { $0.isAccessibilityElement() }.map { $0 as Any }
+      + imageViews.filter { $0.isAccessibilityElement() }.map { $0 as Any }
+    guard let semanticElement, let behavior = semanticBehavior else {
+      return local + descendants
+    }
+    let owner: [Any] = semanticElement.isPublished ? [semanticElement] : []
+    return behavior.descriptor.hidesDescendants ? owner : owner + local + descendants
+  }
+
+  /// The area this component's semantic element announces, in screen coordinates: its bounds, or
+  /// for a flattened structural component, the union of what it lays out, clipped to its bounds.
+  /// Resolved on every read so a scrolled ancestor or a moved window is always current.
+  var semanticScreenFrame: NSRect {
+    guard let window else { return .zero }
+    let local = isStructural ? structuralSemanticBounds : bounds
+    guard !local.isEmpty else { return .zero }
+    return window.convertToScreen(convert(local, to: nil))
+  }
+
+  private var structuralSemanticBounds: NSRect {
+    let rendered =
+      flattenedLayoutItems
+      .filter { !$0.isHidden && $0.alphaValue > 0.01 }
+      .map { convert($0.bounds, from: $0) }
+      .filter { !$0.isEmpty && !$0.isNull }
+      .reduce(NSRect.null) { $0.union($1) }
+    let clipped = rendered.intersection(bounds)
+    return clipped.isNull ? .zero : clipped
+  }
+
+  /// Writes the node's resolved semantics onto its element. Activation dispatches the same tap the
+  /// pointer path does: this component's own through `dispatchTap`, or, for a merging node whose
+  /// action belongs to a descendant, that descendant's.
+  private func configureSemanticElement() {
+    guard let semanticElement, let behavior = semanticBehavior else { return }
+    let descriptor = behavior.descriptor
+    let label = resolvedSemanticLabel
+    if behavior.activatesTap {
+      let target = behavior.componentID
+      let ownsTap = target == node.componentID
+      semanticElement.action = { [weak self] in
+        guard let self else { return }
+        if ownsTap {
+          self.dispatchTap(sample: nil)
+        } else {
+          self.onGesture(target, .tap, nil)
+        }
+      }
+    } else {
+      semanticElement.action = nil
+    }
+    semanticElement.isPublished = NativeAppKitAccessibility.publishes(
+      descriptor, label: label, activates: behavior.activatesTap)
+    semanticElement.setAccessibilityElement(semanticElement.isPublished)
+    semanticElement.setAccessibilityRole(NativeAppKitAccessibility.role(for: descriptor))
+    semanticElement.setAccessibilitySubrole(
+      NativeAppKitAccessibility.subrole(for: descriptor.elementKind))
+    semanticElement.setAccessibilityLabel(label)
+    semanticElement.setAccessibilityValue(descriptor.stateDescription)
+    semanticElement.setAccessibilityEnabled(descriptor.isEnabled)
+    semanticElement.setAccessibilityIdentifier(
+      NativeAppKitAccessibility.identifier(for: descriptor, componentID: node.componentID))
   }
 
   private func installGestureRecognizers() {
@@ -2571,7 +2755,6 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     super.layout()
     canvas?.frame = bounds
     imageViews.forEach { $0.frame = bounds }
-    semanticButton?.frame = bounds
     prepareStructuralChildren()
     if isStructural { return }
     if node.kind == .text {
@@ -2713,6 +2896,20 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     }
     if let containerIsHidden = arrangement.containerIsHidden { isHidden = containerIsHidden }
     for placement in arrangement.placements { placement.item.frame = placement.frame }
+    if arrangement.visibilityChanges.contains(where: \.isFitBoxAlternative) {
+      refreshSemanticElements()
+    }
+  }
+
+  /// A FitBox decides at layout which alternative it displays, and a merging ancestor's label and
+  /// action come from that alternative, so every semantic element from here up is re-resolved
+  /// once the decision is made.
+  private func refreshSemanticElements() {
+    var view: NSView? = self
+    while let current = view {
+      (current as? NativeMacComponentView)?.configureSemanticElement()
+      view = current.superview
+    }
   }
 
   private var isStructural: Bool {
