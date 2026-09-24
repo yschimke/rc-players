@@ -23,6 +23,10 @@ agp = "9.4.1"
 # stack's Compose artifacts compile against; minSdk is Compose's own floor, so the player adds none.
 rc-player-compileSdk = "36"
 rc-player-minSdk = "23"
+# The androidx Compose that Compose Multiplatform `compose-multiplatform` resolves to on Android.
+# `:rc-player-compose`'s Robolectric host tests pin their ui-test artifacts to it, so the test
+# rule drives the same Compose the player compiles against. Bump together with CMP.
+androidx-compose-for-cmp = "1.11.2"
 ktfmt = "0.27.0"
 tapmoc = "0.4.2"
 # Released versions only. Robolectric publishes `4.17-SNAPSHOT` to Sonatype, and Renovate ranks it
@@ -231,6 +235,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+androidx-compose-ui-test-junit4-cmp = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-for-cmp" }
+androidx-compose-ui-test-manifest-cmp = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-for-cmp" }
 junit = { module = "junit:junit", version.ref = "junit" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 # ASM — used by `:daemon:harness`'s `S3_5RecompileSaveLoopRealModeTest` to mint two

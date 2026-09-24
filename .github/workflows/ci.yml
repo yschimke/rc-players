@@ -213,8 +213,8 @@ jobs:
       # `:third-party-rc-embedded-player` is an Android library, and the four published modules
       # carry an Android target, so this lane needs an SDK. The runner image ships one; AGP resolves
       # it from ANDROID_HOME. The published stack's `commonTest` also runs on the Android host JVM
-      # (`testAndroidHostTest`); compose's tests draw through Skiko, so its Android half is compiled
-      # rather than run.
+      # (`testAndroidHostTest`); compose's run under Robolectric's native graphics, which is where
+      # its `androidMain` drawing — and a sample of the remote-m3 catalog — renders.
       - name: Run the JVM and Android player suites
         run: |
           ./gradlew \
@@ -225,7 +225,7 @@ jobs:
             :rc-player-trace:testAndroidHostTest \
             :rc-player-protocol:testAndroidHostTest \
             :rc-player-runtime:testAndroidHostTest \
-            :rc-player-compose:compileAndroidMain \
+            :rc-player-compose:testAndroidHostTest \
             :rc-player-compat-tests:test \
             :rc-player-metrics:test \
             :rc-player-profile:test \
@@ -239,7 +239,7 @@ jobs:
             rc-player/trace:jvmTest,testAndroidHostTest \
             rc-player/protocol:jvmTest,testAndroidHostTest \
             rc-player/runtime:jvmTest,testAndroidHostTest \
-            rc-player/compose:jvmTest \
+            rc-player/compose:jvmTest,testAndroidHostTest \
             rc-player/compat-tests:test \
             rc-player/metrics:test \
             rc-player/profile:test \

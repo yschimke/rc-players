@@ -80,6 +80,10 @@ kotlin {
     namespace = "ee.schimke.composeai.rcplayer.compose"
     compileSdk = libs.versions.rc.player.compileSdk.get().toInt()
     minSdk = libs.versions.rc.player.minSdk.get().toInt()
+    // Robolectric host tests (`androidHostTest`) draw documents through `android.graphics` with
+    // `@GraphicsMode(NATIVE)` — the only place the Android actuals actually render. They need the
+    // merged manifest (for the test activity), hence Android resources.
+    withHostTest { isIncludeAndroidResources = true }
   }
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
@@ -119,6 +123,12 @@ kotlin {
       // asserted on every target, not just the browser (#4061). Test-scope, so it never reaches a
       // consumer's POM.
       implementation(libs.kotlinx.coroutines.test)
+    }
+    named("androidHostTest").dependencies {
+      implementation(libs.robolectric)
+      implementation(libs.junit)
+      implementation(libs.androidx.compose.ui.test.junit4.cmp)
+      implementation(libs.androidx.compose.ui.test.manifest.cmp)
     }
     jvmTest.dependencies {
       @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
@@ -166,11 +176,27 @@ composeAiMavenPublishing {
 //
 //   ./gradlew :rc-player-compose:jvmTest --rerun --tests '*RcCmpRenderHarness*' \
 //     -Prc.cmp.input=<abs dir> -Prc.cmp.output=<abs dir>
+// The Android host test task runs only the Robolectric suite (`androidHostTest`). `commonTest`
+// still compiles for Android — that is the check it is useful for — but its Compose-touching tests
+// assume a real graphics stack, which on the Android host exists only under Robolectric's
+// `@RunWith`; common code cannot carry that annotation. The same tests run on the JVM, wasm and
+// Apple targets.
+tasks
+  .matching { it.name == "testAndroidHostTest" }
+  .configureEach { (this as Test).filter { includeTestsMatching("*.RcAndroid*") } }
+
 tasks.withType<Test>().configureEach {
   (project.findProperty("rc.textOnCircle.out") as String?)?.let {
     systemProperty("rc.textOnCircle.out", it)
   }
-  for (name in listOf("rc.cmp.input", "rc.cmp.output", "rc.cmp.fonts", "rc.bitmapFilter.out")) {
+  for (name in
+    listOf(
+      "rc.cmp.input",
+      "rc.cmp.output",
+      "rc.cmp.fonts",
+      "rc.bitmapFilter.out",
+      "rc.android.out",
+    )) {
     (project.findProperty(name) as String?)?.let { systemProperty(name, it) }
   }
 }
