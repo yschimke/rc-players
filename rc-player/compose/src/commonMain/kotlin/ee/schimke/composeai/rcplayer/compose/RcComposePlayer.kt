@@ -630,6 +630,7 @@ private fun RcComposePlayerResolved(
     interactiveModifier
       .drawWithContent {
         invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
+        drawObserver?.onFrame()
         drawContent()
       }
       // Published here rather than on the root layout component, because a canvas-only document has
@@ -1671,9 +1672,13 @@ private fun animateRcVisibility(
     }
   }
 
+  // Turned off mid-transition: finish it now rather than let the running one play out.
+  LaunchedEffect(enabled) { if (!enabled) elapsedMillis.snapTo(maxDurationMillis) }
+
   // AndroidX INVISIBLE participates in measure/layout exactly like VISIBLE, but skips paint.
   // It does not run the GONE visibility transition.
   if (targetVisibility == 2) return RcAnimatedVisibility(true, modifier.alpha(0f))
+  if (!enabled) return RcAnimatedVisibility(targetVisibility == 1, modifier)
 
   val shouldRender =
     when (targetVisibility) {
@@ -1917,7 +1922,12 @@ private fun RcCollapsibleLayout(
       else constraints.maxHeight
     val retained = selectCollapsibleChildren(mainSizes, priorities, maximumMain)
     val retainedIndices = retained.indices.filter { retained[it] }
-    collapse.collapsed = retainedIndices.isEmpty()
+    // A GONE child measures zero on the main axis, so it always "fits" and is always retained; it
+    // still shows nothing. The container collapses when nothing it kept is visible.
+    collapse.collapsed = retainedIndices.none { index ->
+      val visibility = children[index].modifiers.visibility
+      visibility == null || androidXVisibility(state.integer(visibility.visibilityId) ?: 0) != 0
+    }
     // Distribute the main-axis space the retained unweighted children left, in proportion to each
     // retained weighted child's weight, and measure those children at their share.
     val totalWeight =
@@ -2959,11 +2969,12 @@ private fun Modifier.applyAndroidXMarquee(
   // AndroidX times the marquee off the wall clock from the frame it was first painted in, not off
   // the document's animation time.
   val nowMillis = state.frameWallClockMillis
-  val firstPaintMillis = remember { longArrayOf(nowMillis) }
+  // Keyed to the document's state: a host swapping documents gets a new marquee, with its own hold.
+  val firstPaintMillis = remember(state, operation) { longArrayOf(nowMillis) }
   val timeSeconds = (nowMillis - firstPaintMillis[0]) / 1_000f
   // How far the content overflows is only known once it has been measured, so the layout reports
   // it back. It moves only when the content or the viewport does.
-  var overflowDistance by remember { mutableFloatStateOf(0f) }
+  var overflowDistance by remember(state, operation) { mutableFloatStateOf(0f) }
   fun offsetFor(distance: Float): Float =
     androidXMarqueeOffset(
       overflowDistance = distance,
@@ -3464,7 +3475,10 @@ private fun Modifier.applyAccessibilitySemantics(
       ?.let { id -> state.text(id)?.let { stateDescription = it } }
     androidXSemanticsRole(operation.role)?.let { role = it }
     if (!operation.enabled) disabled()
-    if (operation.clickable && !hasClickAction) onClick { false }
+    if (operation.clickable && !hasClickAction) {
+      onClick { false }
+      rcAccessibilityOnlyClick = true
+    }
   }
   return when (operation.mode) {
     RcAccessibilitySemantics.MODE_SET -> semantics(properties = properties)
@@ -4103,7 +4117,16 @@ private fun DrawScope.drawOperationsRouted(
           RcOpcodes.RUN_ACTION -> state.executeRunAction(node.children)
           RcOpcodes.CONDITIONAL_OPERATIONS -> {
             val conditional = node.operation as RcConditionalOperations
-            if (state.evaluateConditional(conditional)) {
+            val holds = state.evaluateConditional(conditional)
+            paint.observer?.onConditional(
+              RcBranch(
+                conditional,
+                state.resolve(conditional.left),
+                state.resolve(conditional.right),
+                holds,
+              )
+            )
+            if (holds) {
               drawOperations(
                 node.children,
                 state,
@@ -4808,6 +4831,12 @@ private fun DrawScope.drawTextAnchored(
 }
 
 /** [local] in device pixels, through every transform the canvas is under — for [RcDrawObserver]. */
+/** The angle the current transform turns the local x-axis to on the device, in degrees. */
+private fun DrawScope.deviceRotationDegrees(): Float {
+  val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
+  return atan2(m[3], m[0]) * (180f / PI.toFloat())
+}
+
 private fun DrawScope.toDevice(local: Offset): Offset {
   val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
   return Offset(
@@ -4995,7 +5024,8 @@ private fun DrawScope.drawTextSegmentsOnPath(
     val advance = segment.advance
     val center = distance + advance / 2f
     if (center > contourLength) {
-      if (!measure.nextContour()) return
+      // Out of path: stop drawing, but still report the glyphs that were drawn.
+      if (!measure.nextContour()) break
       contourLength = measure.length
       distance = 0f
     }
@@ -5019,11 +5049,11 @@ private fun DrawScope.drawTextSegmentsOnPath(
           style = style,
           blendMode = paint.blendMode,
         )
-        // The glyph's baseline origin, read inside its own rotation so the device position is
-        // where it was actually drawn.
+        // The glyph's baseline origin and angle, read inside its own rotation so both are where
+        // and how it was actually drawn — including any rotation the canvas was already under.
         glyphs?.add(
           toDevice(placement.topLeft + Offset(0f, segment.firstBaseline)).let {
-            RcGlyphPlacement(it.x, it.y, placement.angleDegrees)
+            RcGlyphPlacement(it.x, it.y, deviceRotationDegrees())
           }
         )
       }

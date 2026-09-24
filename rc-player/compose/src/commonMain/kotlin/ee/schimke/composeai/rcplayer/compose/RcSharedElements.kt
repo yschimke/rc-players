@@ -77,7 +77,8 @@ internal fun RcAnimatedAlternatives(
   sharedElements: (Int) -> Map<Int, Int>,
   content: @Composable (Int) -> Unit,
 ) {
-  val duration = spec.rcMotionDurationMillis()
+  // A host that turns layout animations off gets the new alternative at once.
+  val duration = if (LocalRcLayoutAnimations.current) spec.rcMotionDurationMillis() else 0
   val easing = spec.rcMotionEasing()
   SharedTransitionLayout {
     AnimatedContent(
@@ -127,7 +128,7 @@ internal fun rcSharedElementModifier(
   if (animationId == null || animationId == 0 || animationId == -1) return null
   if (selectedComponents[animationId] != componentId) return null
   val resolved = spec ?: DefaultRcAnimationSpec
-  val duration = resolved.rcMotionDurationMillis()
+  val duration = if (LocalRcLayoutAnimations.current) resolved.rcMotionDurationMillis() else 0
   val easing = resolved.rcMotionEasing()
   val boundsTransform =
     remember(duration, easing) {
