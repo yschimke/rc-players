@@ -75,7 +75,7 @@ struct NativeLayoutNode: Equatable {
   var hasCustom: Bool = false
   var hasBackground: Bool = false
   /// Whether the component takes pointer actions of its own — the UIKit renderer's
-  /// `NativeNode.semanticBehavior?.acceptsPointerAction`.
+  /// `NativeAccessibilityNode.semanticBehavior?.acceptsPointerAction`.
   var acceptsPointerAction: Bool = false
 }
 
