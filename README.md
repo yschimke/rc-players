@@ -2,7 +2,7 @@
 
 Published by the scheduled `Conformance` workflow. This branch carries **only** reports — no source, no corpus — so a score can be linked to and compared over time without the run artifacts, which expire.
 
-**Latest run: [`2026-09-23`](runs/2026-09-23/README.md)**
+**Latest run: [`2026-09-24`](runs/2026-09-24/README.md)**
 
 |  | `cmp` |
 | --- | ---: |
@@ -16,6 +16,7 @@ Of 125 frames where `cmp` disagrees with the reference image, 125 are frames a r
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [`2026-09-24`](runs/2026-09-24/README.md) | 132 / 353 | 307 / 353 | 300 / 353 | 352 / 353 | `ee9ffe3` |
 | [`2026-09-23`](runs/2026-09-23/README.md) | 132 / 353 | 307 / 353 | — | 352 / 353 | `b07924d` |
 | [`2026-09-22`](runs/2026-09-22/README.md) | 132 / 353 | — | 178 / 353 | 352 / 353 | `e25cf90` |
 | [`2026-09-21`](runs/2026-09-21/README.md) | 132 / 241 | 196 / 241 | 177 / 241 | 199 / 241 | `f68cd47` |
