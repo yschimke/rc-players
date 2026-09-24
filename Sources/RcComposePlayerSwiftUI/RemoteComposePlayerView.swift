@@ -402,7 +402,8 @@
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
       install(native)
       playerController.installNativeUpdateHandler { [weak native] name, value in
-        Task { @MainActor in
+        // The task takes its own weak reference rather than sharing the handler's capture.
+        Task { @MainActor [weak native] in
           // The first native frame is asynchronous. Retry a bounded time so values supplied before
           // view creation are applied once its retained document session becomes available.
           for _ in 0..<50 {

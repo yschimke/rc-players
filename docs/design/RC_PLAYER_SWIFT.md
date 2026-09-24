@@ -26,6 +26,10 @@ Implements #4068.
 > bare tag — their asset is on the release page and can be pinned by URL and checksum by hand, but
 > `from:` will not find them.
 
+The manifest is `swift-tools-version: 6.0` and compiles every target in the Swift 6 language mode,
+so resolving it needs a Swift 6 toolchain: Xcode 16 or newer. The deployment floor is unchanged —
+iOS 13, macOS 12 and visionOS 1.
+
 ```swift
 // Package.swift
 .package(url: "https://github.com/yschimke/rc-players.git", from: "1.60.0")

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum NativeSwiftCoreError: Error, CustomStringConvertible, LocalizedError {
+public enum NativeSwiftCoreError: Error, CustomStringConvertible, LocalizedError, Sendable {
   case unsupported(opcode: Int, offset: Int, reason: String)
   case malformed(offset: Int, reason: String)
 

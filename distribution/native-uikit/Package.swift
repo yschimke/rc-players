@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -27,5 +27,7 @@ let package = Package(
       dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"],
       resources: [.copy("Fixtures")]
     ),
-  ]
+  ],
+  // The repository package's sources, in its Swift 6 language mode (complete strict concurrency).
+  swiftLanguageModes: [.v6]
 )

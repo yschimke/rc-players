@@ -10,7 +10,8 @@ Hosts that only need the renderer-neutral decoder and retained session may selec
 iOS 13 or newer on arm64 devices and Apple-silicon simulators. It includes
 retained state, named values and click actions, UIKit accessibility semantics, and demand-driven
 animation for the operation families declared in `PROFILE.json`. It is not a claim of full CMP
-compatibility; unlisted behavior remains outside the native profile.
+compatibility; unlisted behavior remains outside the native profile. The package is
+`swift-tools-version: 6.0` and builds in the Swift 6 language mode, so it needs Xcode 16 or newer.
 
 The archive also includes the optional `RcPlayerAppleFonts` product. Add that product to the host
 target and pass its `RemoteComposeGoogleFontsResolver` to the UIKit player to opt into downloading
