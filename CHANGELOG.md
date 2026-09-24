@@ -1,5 +1,63 @@
 # Changelog
 
+## [1.73.0](https://github.com/yschimke/rc-players/compare/v1.72.0...v1.73.0) (2026-09-24)
+
+
+### Features
+
+* add an Android target to the CMP player stack ([#475](https://github.com/yschimke/rc-players/issues/475)) ([d2d30e3](https://github.com/yschimke/rc-players/commit/d2d30e382ccbb916a92286484de82f71c927d866))
+* build the native Swift player for visionOS, ship privacy manifests, and test the core on Linux ([#451](https://github.com/yschimke/rc-players/issues/451)) ([fec4ede](https://github.com/yschimke/rc-players/commit/fec4ede46683a597f552d7ca8778fa598a574cb9))
+* canvas text uses the host's default face; RcDrawObserver for text-run probes ([#425](https://github.com/yschimke/rc-players/issues/425)) ([da805ec](https://github.com/yschimke/rc-players/commit/da805eca91ee5e7f94a4869b4d4126f8c98d830e))
+* **compose:** layout changes animate by default, as in AndroidX ([#437](https://github.com/yschimke/rc-players/issues/437)) ([d208047](https://github.com/yschimke/rc-players/commit/d208047b0c1d6159f2934950da29dff972b6142a))
+* decode the marquee modifier in the native Swift player ([#464](https://github.com/yschimke/rc-players/issues/464)) ([0cadf85](https://github.com/yschimke/rc-players/commit/0cadf852be6498d4f478257269327e4938fb0830))
+* LocalRcAnimationClock, and a marquee timed as AndroidX times it ([#436](https://github.com/yschimke/rc-players/issues/436)) ([fa23773](https://github.com/yschimke/rc-players/commit/fa23773243dc65f5e77982798087edf9c03ea5bb))
+* port embedded-player fixes — literal low ids, indirect draw ids, per-second frames ([#453](https://github.com/yschimke/rc-players/issues/453)) ([8ef85e5](https://github.com/yschimke/rc-players/commit/8ef85e5a4a15d329286fff99ea905e9d87c25afb))
+* port the remaining embedded-player fixes — bitmap filtering and named-value overrides ([#470](https://github.com/yschimke/rc-players/issues/470)) ([3d6bfa8](https://github.com/yschimke/rc-players/commit/3d6bfa8c249c829f459c5027ec8d0d848d426fe1))
+* **swift:** build the Swift package in the Swift 6 language mode ([#471](https://github.com/yschimke/rc-players/issues/471)) ([147b739](https://github.com/yschimke/rc-players/commit/147b739545e63f0df31f96e3b770889a246553e6))
+* **swift:** CoreText autosize on the AppKit host ([#472](https://github.com/yschimke/rc-players/issues/472)) ([b27aa80](https://github.com/yschimke/rc-players/commit/b27aa801865093485b7b673c7213a5dcc74ce83c))
+* **swift:** decode and run the remaining operations the conformance corpus exercises ([#428](https://github.com/yschimke/rc-players/issues/428)) ([b07924d](https://github.com/yschimke/rc-players/commit/b07924d0b92608592b9ead50e775cb56aa5d5d47))
+* type native draw stroke cap, stroke join and path winding ([#466](https://github.com/yschimke/rc-players/issues/466)) ([816a63d](https://github.com/yschimke/rc-players/commit/816a63d58060c0adadb6bb490ae2e92bcac99bd3))
+
+
+### Bug Fixes
+
+* adaptive conic subdivision and SHA-256-keyed font files on Android ([#478](https://github.com/yschimke/rc-players/issues/478)) ([1f825e4](https://github.com/yschimke/rc-players/commit/1f825e4520f67d7bdb1a1add21a8499bc563b2e8))
+* address review findings on the conformance rounds ([#448](https://github.com/yschimke/rc-players/issues/448)) ([1a80e1a](https://github.com/yschimke/rc-players/commit/1a80e1ac47710cf4d18dcbd54fcace8edd64a35a))
+* **appkit:** measure CoreText components with TextKit ([#468](https://github.com/yschimke/rc-players/issues/468)) ([45290a5](https://github.com/yschimke/rc-players/commit/45290a5849e5eca02c1e52771b41d5dbe03872d3))
+* clamp the remaining float-to-int conversions in the native core ([#439](https://github.com/yschimke/rc-players/issues/439)) ([8f8c8a4](https://github.com/yschimke/rc-players/commit/8f8c8a4165d459769fcdc04272384abfe53690c2))
+* compare native canvas commands exactly instead of by hash ([#414](https://github.com/yschimke/rc-players/issues/414)) ([aac654a](https://github.com/yschimke/rc-players/commit/aac654a486793350b87eef0ce7a8b32120b764a4))
+* **compose:** gone collapsible containers, and gradients on circles, ovals, lines and arcs ([#419](https://github.com/yschimke/rc-players/issues/419)) ([4853c0c](https://github.com/yschimke/rc-players/commit/4853c0cf184721c450f55fb97b3a4c569067f662))
+* **compose:** size truncated and autosized CoreText by the closed-form Ahem model ([#440](https://github.com/yschimke/rc-players/issues/440)) ([8a4fcc7](https://github.com/yschimke/rc-players/commit/8a4fcc74efd74d2ff963ed3cb0619d9d3b503bcd))
+* **conformance:** compare string expectations as strings ([#433](https://github.com/yschimke/rc-players/issues/433)) ([ea122c5](https://github.com/yschimke/rc-players/commit/ea122c5c7e84bcac05fff7680c436b5bcc456e4d))
+* **conformance:** observe relation:anchor_runs on the native lane ([#473](https://github.com/yschimke/rc-players/issues/473)) ([c4685b2](https://github.com/yschimke/rc-players/commit/c4685b2d5a6a116f5abf50c0af3a5d3ef06bba3f))
+* **conformance:** report float arrays and replayed host actions on the native lane ([#457](https://github.com/yschimke/rc-players/issues/457)) ([e2d29d9](https://github.com/yschimke/rc-players/commit/e2d29d9910860d6ce5b920941c6415f5c97bf103))
+* correct AppKit native renderer canvas and conformance bugs ([#407](https://github.com/yschimke/rc-players/issues/407)) ([12076f2](https://github.com/yschimke/rc-players/commit/12076f2ace2c461526282e8a87463a00d51bc92c))
+* fill a plain-NaN FILL box, and observe specs, lists, taps and host actions in the conformance lane ([#410](https://github.com/yschimke/rc-players/issues/410)) ([df1e0fa](https://github.com/yschimke/rc-players/commit/df1e0fa073bc441ff8c3b31b50b2d41881843273))
+* five conformance findings for the CMP player, and a corpus pushback log ([#404](https://github.com/yschimke/rc-players/issues/404)) ([823d0ed](https://github.com/yschimke/rc-players/commit/823d0ed4ea925b208d939cc823da37aa3f05d11c))
+* guard native renderers against document-driven crashes ([#447](https://github.com/yschimke/rc-players/issues/447)) ([78be5e0](https://github.com/yschimke/rc-players/commit/78be5e0a2bbd5da76713f37258b423393b825591))
+* harden and speed up the native core decoder and frame resolution ([#450](https://github.com/yschimke/rc-players/issues/450)) ([0a3f317](https://github.com/yschimke/rc-players/commit/0a3f317a354cc952978cb4256a16fd6c901c9e31))
+* keep automatic native density after an invalid configureHostDensity value ([#452](https://github.com/yschimke/rc-players/issues/452)) ([f209b02](https://github.com/yschimke/rc-players/commit/f209b026260cbb073ee54fdad95ef81dbc139ac7))
+* keep host float-array overrides through dynamic-list replays; add FILTER_BITMAP evidence ([#476](https://github.com/yschimke/rc-players/issues/476)) ([8736225](https://github.com/yschimke/rc-players/commit/87362251022387a32e149fb23ae8170c730dc0fc))
+* map AppKit text overflow and alignment through the shared text policy ([#429](https://github.com/yschimke/rc-players/issues/429)) ([a90c3a8](https://github.com/yschimke/rc-players/commit/a90c3a824b3a7371c21c6f7bcd009c030c11383f)), closes [#427](https://github.com/yschimke/rc-players/issues/427)
+* map native graphics-layer attributes to their AndroidX ids ([#424](https://github.com/yschimke/rc-players/issues/424)) ([65ac66a](https://github.com/yschimke/rc-players/commit/65ac66ac3b1f377766ee088cc269a585776e7f92)), closes [#423](https://github.com/yschimke/rc-players/issues/423)
+* refresh direct clock and calendar reads once a second ([#455](https://github.com/yschimke/rc-players/issues/455)) ([2c274eb](https://github.com/yschimke/rc-players/commit/2c274eb9f4acd1de79b405cef51d09d2d9e6f9be))
+* register native player fonts from memory instead of temp files ([#403](https://github.com/yschimke/rc-players/issues/403)) ([92ef57a](https://github.com/yschimke/rc-players/commit/92ef57a971fdb10017cff89e431ded93a4558394))
+* repair AndroidX state player runtime ([#394](https://github.com/yschimke/rc-players/issues/394)) ([ba47bcf](https://github.com/yschimke/rc-players/commit/ba47bcfd7f8a176d83a0da9a3c6a24dd99aa404b))
+* size text to its lines, publish touch position, wrap StateLayout; trace branches ([#416](https://github.com/yschimke/rc-players/issues/416)) ([eb55b96](https://github.com/yschimke/rc-players/commit/eb55b96e0e3e92166be3b0355b609465f4883a9b))
+* stop malformed documents crashing the native Swift core ([#405](https://github.com/yschimke/rc-players/issues/405)) ([734288c](https://github.com/yschimke/rc-players/commit/734288c84884c26f1458cfaf9654d68751ecb144))
+* **swift:** AppKit canvas bitmap filtering and gradient shaders match the reference ([#459](https://github.com/yschimke/rc-players/issues/459)) ([af46d52](https://github.com/yschimke/rc-players/commit/af46d522b852227403f4d164f3884d2bd39b5fd5))
+* **swift:** capture nested macro bodies without recursing ([#442](https://github.com/yschimke/rc-players/issues/442)) ([871624b](https://github.com/yschimke/rc-players/commit/871624bc58a58d2da7b38799b03350563d8264a1))
+* **swift:** decode refused operations and name the full ops census ([#396](https://github.com/yschimke/rc-players/issues/396)) ([84c0ea7](https://github.com/yschimke/rc-players/commit/84c0ea70df65a259fdb00d1e6ad8d659f126792d))
+* **swift:** format TEXT_FROM_FLOAT as AndroidX does ([#430](https://github.com/yschimke/rc-players/issues/430)) ([403ea72](https://github.com/yschimke/rc-players/commit/403ea7297839ec990455a74dd95597dff8288b27))
+* **swift:** formatter traps, Java float spelling, and value evaluation order ([#438](https://github.com/yschimke/rc-players/issues/438)) ([18c84d0](https://github.com/yschimke/rc-players/commit/18c84d0833feaaae53e43105ee43c068a12c2508))
+* **swift:** keep an unchanged NaN draw value from redrawing the canvas every frame ([#480](https://github.com/yschimke/rc-players/issues/480)) ([372db78](https://github.com/yschimke/rc-players/commit/372db787f47649dc18662ec7d6dafd3b2cf37572)), closes [#402](https://github.com/yschimke/rc-players/issues/402)
+* **swift:** load documents with ClickArea and AlignBy modifiers ([#435](https://github.com/yschimke/rc-players/issues/435)) ([0265a88](https://github.com/yschimke/rc-players/commit/0265a88fdacc97529e6787301567403d30b521b6))
+* **swift:** records match the reference for bindings, anchored text and glyph runs ([#456](https://github.com/yschimke/rc-players/issues/456)) ([ef24327](https://github.com/yschimke/rc-players/commit/ef24327be7730d446632b80c0b7e52973263f367))
+* **swift:** refine AppKit bound geometry at the frame's own instant, once ([#484](https://github.com/yschimke/rc-players/issues/484)) ([4157ee6](https://github.com/yschimke/rc-players/commit/4157ee611da4af2d9118f185cd5c59bd9f614ff6)), closes [#483](https://github.com/yschimke/rc-players/issues/483)
+* **swift:** trace nested conditionals with hierarchical paths ([#434](https://github.com/yschimke/rc-players/issues/434)) ([ee9ffe3](https://github.com/yschimke/rc-players/commit/ee9ffe37d8f854d74e718077fcb59175c57a2c29))
+* **swift:** wire census, action order, theme and time-zone review findings ([#443](https://github.com/yschimke/rc-players/issues/443)) ([8fb57c9](https://github.com/yschimke/rc-players/commit/8fb57c9600a1cc1956ef3820a8323c07fe83348e))
+* update the AppKit native renderer in place instead of rebuilding every frame ([#417](https://github.com/yschimke/rc-players/issues/417)) ([b8f99e1](https://github.com/yschimke/rc-players/commit/b8f99e17e7ef4faaf96fb4a18e208638d6602414))
+
 ## [1.72.0](https://github.com/yschimke/rc-players/compare/v1.71.0...v1.72.0) (2026-09-23)
 
 
