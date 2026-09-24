@@ -2539,7 +2539,8 @@ enum NativeSwiftDocumentDecoder {
         paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
       case NativeSwiftPaintCommand.strokeJoin:
         paint.strokeJoin = NativeSwiftStrokeJoin(wireValue: highBits)
-      case NativeSwiftPaintCommand.blendMode: paint.blendMode = highBits
+      case NativeSwiftPaintCommand.blendMode:
+        paint.blendMode = NativeSwiftPaintBlendMode(wireValue: highBits)
       case NativeSwiftPaintCommand.imageFilterQuality:
         // Image filter quality: 0 none, 1 low, 2 medium, 3 high. Anything else is the reference's
         // low fallback.
@@ -2555,11 +2556,11 @@ enum NativeSwiftDocumentDecoder {
       case NativeSwiftPaintCommand.colorFilter:
         paint.colorFilterARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorFilterID = nil
-        paint.colorFilterMode = highBits
+        paint.colorFilterMode = NativeSwiftPaintBlendMode(wireValue: highBits)
       case NativeSwiftPaintCommand.colorFilterID:
         paint.colorFilterID = words[index]
         paint.colorFilterARGB = nil
-        paint.colorFilterMode = highBits
+        paint.colorFilterMode = NativeSwiftPaintBlendMode(wireValue: highBits)
       case NativeSwiftPaintCommand.clearColorFilter:
         paint.colorFilterARGB = nil
         paint.colorFilterID = nil

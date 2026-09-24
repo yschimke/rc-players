@@ -467,7 +467,7 @@
     let isStroke: Bool
     let strokeCap: NativeSwiftStrokeCap
     let strokeJoin: NativeSwiftStrokeJoin
-    let blendMode: Int
+    let blendMode: NativeSwiftPaintBlendMode
     let textSize: CGFloat
     let textWeight: CGFloat
     let text: String?
@@ -540,7 +540,7 @@
       isStroke = false
       strokeCap = .butt
       strokeJoin = .miter
-      blendMode = NativeSwiftPaintBlendMode.sourceOver
+      blendMode = .sourceOver
       textSize = CGFloat(snapshot.size)
       textWeight = CGFloat(snapshot.weight)
       text = snapshot.value

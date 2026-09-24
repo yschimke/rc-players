@@ -26,6 +26,11 @@ import Testing
     #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.screen) == .screen)
     #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.multiply) == .multiply)
     #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode.luminosity) == .luminosity)
+    #expect(NativeSwiftPaintBlendMode(wireValue: 2) == .destination)
+    #expect(NativeSwiftPaintBlendMode(wireValue: 28) == .luminosity)
+    #expect(NativeSwiftPaintBlendMode(wireValue: 29) == .sourceOver)
+    #expect(NativeSwiftPaintBlendMode(wireValue: -1) == .sourceOver)
+    #expect(NativeGraphicsState.blendMode(NativeSwiftPaintBlendMode(wireValue: 30)) == .normal)
 
     let path = NativePathBuilder.make([
       NativePathElement(kind: 10, values: [2, 3]),

@@ -603,7 +603,7 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let isStroke: Bool
   public let strokeCap: NativeSwiftStrokeCap
   public let strokeJoin: NativeSwiftStrokeJoin
-  public let blendMode: Int
+  public let blendMode: NativeSwiftPaintBlendMode
   public let path: [NativeSwiftPathElementSnapshot]
   public let pathWinding: NativeSwiftPathWinding
   public let image: NativeSwiftImageDrawSnapshot?
