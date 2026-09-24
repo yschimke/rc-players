@@ -2,15 +2,15 @@
 
 Every player in this repository, scored against the AndroidX RemoteCompose conformance corpus. The corpus comes from an unmerged AOSP Gerrit change and is held on `vendor/androidx-rc-conformance`; it is deliberately not in the main line.
 
-Measured at `ee9ffe37d8f854d74e718077fcb59175c57a2c29` on `main`.
+Measured at `af46d522b852227403f4d164f3884d2bd39b5fd5` on `main`.
 
 ## Lanes
 
 | lane | core golds | pass rate | extended | raster disagreements | errored |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `cmp` | 307 / 353 | 87.0% | 7 / 8 | 125 | 20 |
+| `cmp` | 316 / 353 | 89.5% | 7 / 8 | 116 | 20 |
 | `androidx-jvm` | 132 / 353 | 37.4% | 0 / 8 | 269 | 43 |
-| `native-appkit` | 300 / 353 | 85.0% | 5 / 8 | 236 | 0 |
+| `native-appkit` | 308 / 353 | 87.3% | 6 / 8 | 231 | 0 |
 | `typescript` | 352 / 353 | 99.7% | 8 / 8 | 174 | 0 |
 
 ## Where the subject lane stands alone
@@ -25,45 +25,36 @@ The corpus was generated *by* AndroidX, from its own player. So a gold both lane
 | --- | ---: | --- |
 | both pass | 132 | Settled. Neither lane disagrees. |
 | only `androidx-jvm` passes | **0** | **The work list**, split below into the player's gaps and this runner's. |
-| only `cmp` passes | 182 | The subject is ahead here, or the reference cannot drive the timeline. |
-| both fail | 47 | An expectation that survives neither implementation, or a probe neither lane has. |
+| only `cmp` passes | 191 | The subject is ahead here, or the reference cannot drive the timeline. |
+| both fail | 38 | An expectation that survives neither implementation, or a probe neither lane has. |
 
 ### Golds, against `typescript`
 
 | outcome | golds | what it means |
 | --- | ---: | --- |
-| both pass | 314 | Settled. Neither lane disagrees. |
-| only `typescript` passes | **46** | **The work list**, split below into the player's gaps and this runner's. |
+| both pass | 323 | Settled. Neither lane disagrees. |
+| only `typescript` passes | **37** | **The work list**, split below into the player's gaps and this runner's. |
 | only `cmp` passes | 0 | The subject is ahead here, or the reference cannot drive the timeline. |
 | both fail | 1 | An expectation that survives neither implementation, or a probe neither lane has. |
 
-**26 the player: the reference draws or reports it and this one does not.**
+**17 the player: the reference draws or reports it and this one does not.**
 
-- `animation_box_offset` — tree ×12, raster ×2
-- `animation_measure_transition` — tree ×6, raster ×3
+- `animation_box_offset` — tree ×24, raster ×2
+- `animation_measure_transition` — tree ×12, raster ×2
 - `animation_state_3_states` — tree ×39, raster ×4
 - `animation_state_row_to_column` — tree ×58, raster ×4
 - `animation_state_transition` — tree ×19, raster ×4
 - `conditional_skip_api_gate` — ops:present ×1, ops:absent ×1, ops:counts ×4
-- `core_text_autosize_min_clamped` — tree ×6, raster ×3
-- `core_text_overflow_ellipsis` — raster ×3, tree ×1
-- `expr_animation_waveforms` — float ×18
 - `expr_integer_bitwise_ops` — int ×8
 - `fitbox_fit` — tree ×8
-- `interaction_click_toggle_visibility` — tree ×1
-- `interaction_scroll_column` — tree ×2, raster ×2
-- `interaction_scroll_row` — tree ×2, raster ×2
-- `interaction_swipe_scroll_decay` — tree ×6, raster ×6
-- `interaction_touch_down_up_press` — tree ×1
-- `interaction_touch_drag_sequence` — tree ×3, raster ×3
+- `interaction_swipe_scroll_decay` — raster ×5, tree ×4
 - `interactivity_hit_testing_bounds` — trace:handled ×2
-- `modifier_marquee_ticker` — raster ×8, tree ×5
-- `modifier_multi_click` — raster ×7, tree ×7
+- `modifier_multi_click` — raster ×7, tree ×8
 - `state_layout_expandable_card` — tree ×12
 - `state_layout_nested_boxes_control` — tree ×8
 - `state_layout_row_to_column` — tree ×29
 - `state_layout_shared_element_across_states` — tree ×6
-- `state_layout_switch_visibility` — tree ×16
+- `state_layout_switch_visibility` — tree ×15
 - `text_on_circle_stream_alignment` — records:glyph_runs ×1, ops:present ×1, ops:total_glyphs ×1
 
 **20 this runner: every disagreement is a probe it cannot observe.** Not a player finding — the lane has no seam for these channels and says so rather than scoring them as passes.
@@ -93,18 +84,18 @@ The corpus was generated *by* AndroidX, from its own player. So a gold both lane
 
 | compared against | shared failures | unique to `cmp` |
 | --- | ---: | ---: |
-| `androidx-jvm` | 125 | 0 |
-| `typescript` | 85 | 40 |
+| `androidx-jvm` | 116 | 0 |
+| `typescript` | 85 | 31 |
 
 ## `cmp` by subsystem
 
 | subsystem |  | passed | pass rate |
 | --- | --- | ---: | ---: |
-| layout | `██████████████████··` | 157 / 179 | 87.7% |
+| layout | `██████████████████··` | 165 / 179 | 92.2% |
 | canvas | `█████████████·······` | 8 / 12 | 66.7% |
 | pathoperations | `████████████········` | 6 / 10 | 60.0% |
-| expressions | `████████████████····` | 13 / 16 | 81.3% |
 | interactivity | `███████████████·····` | 9 / 12 | 75.0% |
+| expressions | `██████████████████··` | 14 / 16 | 87.5% |
 | loom | `████████████████····` | 8 / 10 | 80.0% |
 | matrixmath | `████████████████····` | 9 / 11 | 81.8% |
 | particles | `████████████████····` | 8 / 10 | 80.0% |
@@ -125,10 +116,10 @@ Counted as **diffs**, not checks: one `particles` check compares a whole emitter
 
 | probe | diffs | of which the lane cannot observe |
 | --- | ---: | ---: |
-| `tree` | 293 | — |
-| `raster` | 125 | — |
-| `float` | 36 | — |
+| `tree` | 288 | — |
+| `raster` | 116 | — |
 | `ops:present` | 20 | — |
+| `float` | 18 | — |
 | `int` | 8 | — |
 | `ops:counts` | 4 | — |
 | `text` | 2 | — |

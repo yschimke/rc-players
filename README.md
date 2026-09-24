@@ -6,17 +6,17 @@ Published by the scheduled `Conformance` workflow. This branch carries **only** 
 
 |  | `cmp` |
 | --- | ---: |
-| Core golds passed | **307 / 353** (87.0%) |
-| Raster disagreements | 125 |
+| Core golds passed | **316 / 353** (89.5%) |
+| Raster disagreements | 116 |
 | …not shared with a reference lane | **0** |
 
-Of 125 frames where `cmp` disagrees with the reference image, 125 are frames a reference lane fails too. 0 are the subject lane's alone — and that is the number worth acting on.
+Of 116 frames where `cmp` disagrees with the reference image, 116 are frames a reference lane fails too. 0 are the subject lane's alone — and that is the number worth acting on.
 
 ## Trend
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
-| [`2026-09-24`](runs/2026-09-24/README.md) | 132 / 353 | 307 / 353 | 300 / 353 | 352 / 353 | `ee9ffe3` |
+| [`2026-09-24`](runs/2026-09-24/README.md) | 132 / 353 | 316 / 353 | 308 / 353 | 352 / 353 | `af46d52` |
 | [`2026-09-23`](runs/2026-09-23/README.md) | 132 / 353 | 307 / 353 | — | 352 / 353 | `b07924d` |
 | [`2026-09-22`](runs/2026-09-22/README.md) | 132 / 353 | — | 178 / 353 | 352 / 353 | `e25cf90` |
 | [`2026-09-21`](runs/2026-09-21/README.md) | 132 / 241 | 196 / 241 | 177 / 241 | 199 / 241 | `f68cd47` |

@@ -8,15 +8,15 @@
   "gold_count": 364
  },
  "summary": {
-  "passed": 305,
-  "failed": 56,
+  "passed": 314,
+  "failed": 47,
   "errored": 0,
   "skipped": 0,
   "suspicious": 3,
   "checks_total": 1140,
-  "checks_failed": 137,
+  "checks_failed": 115,
   "advisory_total": 612,
-  "advisory_failed": 232
+  "advisory_failed": 229
  },
  "results": [
   {
@@ -34,13 +34,11 @@
    "name": "animation_spec_component_binding",
    "category": "animationspec",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "records:component_bindings": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -80,13 +78,11 @@
    "name": "animation_spec_defaults_and_disable",
    "category": "animationspec",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 1,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "records:component_bindings": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -159,16 +155,12 @@
    "name": "canvas_bitmap_scaled",
    "category": "canvas",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "raster": 1
-   },
-   "raster_failures": [
-    "initial"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "canvas_clip_path_and_skew",
@@ -262,10 +254,9 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 2,
+   "checks_failed": 1,
    "diffs_by_probe": {
     "raster": 1,
-    "records:anchor_runs": 3,
     "relation:anchor_runs": 1
    },
    "raster_failures": [
@@ -279,11 +270,10 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
+   "checks_failed": 2,
    "diffs_by_probe": {
     "ops:present": 1,
-    "ops:total_glyphs": 1,
-    "records:glyph_runs": 1
+    "ops:total_glyphs": 1
    },
    "raster_failures": []
   },
@@ -294,10 +284,9 @@
    "status": "FAIL",
    "suspicious": false,
    "checks_total": 4,
-   "checks_failed": 2,
+   "checks_failed": 1,
    "diffs_by_probe": {
-    "raster": 1,
-    "records:glyph_runs": 2
+    "raster": 1
    },
    "raster_failures": [
     "initial"
@@ -689,13 +678,11 @@
    "name": "data_float_array_indexing",
    "category": "dataoperations",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 1,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "float_array": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -947,27 +934,22 @@
    "name": "interactivity_click_area_and_haptic",
    "category": "interactivity",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 2,
-   "diffs_by_probe": {
-    "float": 1,
-    "ops:present": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
    "name": "interactivity_click_host_action",
    "category": "interactivity",
    "profile": "extended",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "trace:host_actions": 1
-   },
+   "checks_failed": 0,
+   "diffs_by_probe": {},
    "raster_failures": []
   },
   {
@@ -2539,19 +2521,12 @@
    "name": "modifier_align_by_baseline",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 3,
-   "checks_failed": 3,
-   "diffs_by_probe": {
-    "raster": 3,
-    "tree": 3
-   },
-   "raster_failures": [
-    "initial",
-    "resize_0",
-    "resize_1"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "modifier_background",
@@ -2657,13 +2632,12 @@
    "name": "modifier_marquee_ticker",
    "category": "layout",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 8,
-   "checks_failed": 8,
+   "checks_failed": 0,
    "diffs_by_probe": {
-    "raster": 8,
-    "tree": 8
+    "raster": 8
    },
    "raster_failures": [
     "frame_0",
@@ -4234,16 +4208,12 @@
    "name": "canvas_shader_gradient",
    "category": "shaders",
    "profile": "core",
-   "status": "FAIL",
+   "status": "PASS",
    "suspicious": false,
    "checks_total": 2,
-   "checks_failed": 1,
-   "diffs_by_probe": {
-    "raster": 1
-   },
-   "raster_failures": [
-    "initial"
-   ]
+   "checks_failed": 0,
+   "diffs_by_probe": {},
+   "raster_failures": []
   },
   {
    "name": "shader_agsl_radial_gradient",
