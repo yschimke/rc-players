@@ -59,6 +59,8 @@ private fun RcNamedValue.matchesType(type: Int?): Boolean =
     is RcNamedValue.Color -> type == RcNamedVariable.COLOR_TYPE
     is RcNamedValue.Integer -> type == RcNamedVariable.INT_TYPE
     is RcNamedValue.LongValue -> type == RcNamedVariable.LONG_TYPE
+    is RcNamedValue.BooleanValue -> type == RcNamedVariable.INT_TYPE
+    is RcNamedValue.FloatArrayValue -> type == RcNamedVariable.FLOAT_ARRAY_TYPE
   }
 
 private var didWarnAboutHighRefreshRatePlist = false

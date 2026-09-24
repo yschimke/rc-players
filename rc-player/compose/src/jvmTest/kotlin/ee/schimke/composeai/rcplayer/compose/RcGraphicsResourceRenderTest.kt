@@ -150,6 +150,40 @@ class RcGraphicsResourceRenderTest {
     }
   }
 
+  @Test
+  fun filterBitmapOffSamplesScaledBitmapsWithoutBlending() {
+    // Black beside white, stretched to 8 px. Sampled with filtering, the pixel just left of the
+    // middle is a blend; with FILTER_BITMAP off it is the black source pixel itself.
+    fun drawn(vararg paint: Int): Bitmap =
+      render(
+        document(
+          RcBitmapData(
+            20,
+            2,
+            1,
+            RcBitmapData.TYPE_RAW8888,
+            RcBitmapData.ENCODING_INLINE,
+            byteArrayOf(0, 0, 0, -1, -1, -1, -1, -1),
+          ),
+          RcPaintData(paint.toList()),
+          RcDrawBitmap(
+            20,
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0f),
+            RcFloatWord.literal(8f),
+            RcFloatWord.literal(8f),
+            0,
+          ),
+        ),
+        8,
+        8,
+      )
+
+    val black = 0xff000000.toInt()
+    assertEquals(black, drawn(FILTER_BITMAP).getColor(3, 4))
+    assertTrue(drawn(FILTER_BITMAP or (1 shl 16)).getColor(3, 4) != black)
+  }
+
   private fun document(vararg operations: ee.schimke.composeai.rcplayer.protocol.RcOperation) =
     RcDocument(
       RcHeader(RcVersion(1, 0, 0), legacyWidth = 8, legacyHeight = 8, modern = false),
@@ -183,5 +217,7 @@ class RcGraphicsResourceRenderTest {
   private companion object {
     const val RED = 0xffff0000.toInt()
     const val BLUE = 0xff0000ff.toInt()
+    /** `PaintBundle.FILTER_BITMAP`; its on/off value rides in the high 16 bits. */
+    const val FILTER_BITMAP = 17
   }
 }
