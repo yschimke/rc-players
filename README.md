@@ -262,7 +262,7 @@ rather than by what the change touched:
 | | Linux (`ubuntu-latest`) | macOS (`macos-15`) |
 | --- | --- | --- |
 | JVM suites for the four published modules, `compat-tests`, `metrics`, `profile` | ✅ | ✅ (via `allTests`) |
-| Android host tests for `trace`, `protocol`, `runtime`; Android compile of `compose` | ✅ | |
+| Android host tests for all four published modules (`compose` under Robolectric, including a remote-m3 catalog sample) | ✅ | |
 | Vendored Android player, Robolectric (`testDebugUnitTest`) | ✅ | |
 | Vendored JVM and TypeScript players | ✅ | |
 | `macosArm64Test`, `iosSimulatorArm64Test`, `wasmJsBrowserTest` | | ✅ |
