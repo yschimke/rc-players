@@ -130,6 +130,11 @@ enum NativeSwiftFloatExpression {
     return values[Int(word & referenceMask)] ?? 0
   }
 
+  /// The exact word AndroidX writes for an operator, `asNan(OFFSET + operation)`: a negative NaN.
+  static func operatorWord(_ operation: Int) -> UInt32 {
+    0xff80_0000 | UInt32(operatorOffset + operation)
+  }
+
   static func referenceID(_ word: UInt32) -> Int? {
     guard isEncoded(word) else { return nil }
     let payload = Int(word & payloadMask)

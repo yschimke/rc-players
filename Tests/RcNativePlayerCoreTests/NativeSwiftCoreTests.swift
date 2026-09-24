@@ -2189,6 +2189,238 @@ import Testing
     return output.data
   }
 
+  @Test func particleCompareUpdatesMatchingParticles() throws {
+    let v = Writer.nanReference(70)
+    func op(_ operation: Int) -> Int { Writer.floatOperator(operation) }
+    func literal(_ value: Float) -> Int { Int(Int32(bitPattern: value.bitPattern)) }
+
+    // One-particle form: every particle above 0.5 gains 10, on every frame, in place.
+    let single = try NativeSwiftDocumentSession.open(
+      data: particleCompareDocument(
+        condition: [v, literal(0.5), op(NativeSwiftFloatOperator.step)],
+        first: [[v, literal(10), op(NativeSwiftFloatOperator.add)]]))
+    let firstFrame = try single.particleSnapshot(id: 9, timeSeconds: 0)
+    #expect(
+      firstFrame?.particles == [[0], [11], [12]],
+      "compare did not update the passing particles: \(String(describing: firstFrame))")
+    let secondFrame = try single.particleSnapshot(id: 9, timeSeconds: 1)
+    #expect(
+      secondFrame?.particles == [[0], [21], [22]],
+      "compare did not run again on the next frame: \(String(describing: secondFrame))")
+    // The registers keep the last particle the comparison loaded, as the reference leaves them.
+    #expect(try single.probeValues(timeSeconds: 1).floats[70] == 22)
+    // A particle comparison asks for frames only while something passes.
+    #expect(try single.snapshot(timeSeconds: 2).needsContinuousFrames)
+
+    // A literal index range selects particles [1, 2) only.
+    let ranged = try NativeSwiftDocumentSession.open(
+      data: particleCompareDocument(
+        minimum: 1, maximum: 2,
+        condition: [v, literal(-1), op(NativeSwiftFloatOperator.step)],
+        first: [[v, literal(10), op(NativeSwiftFloatOperator.add)]]))
+    #expect(try ranged.particleSnapshot(id: 9, timeSeconds: 0)?.particles == [[0], [11], [2]])
+
+    // Nothing passes, so nothing changes and no frame is requested.
+    let idle = try NativeSwiftDocumentSession.open(
+      data: particleCompareDocument(
+        condition: [v, literal(5), op(NativeSwiftFloatOperator.step)],
+        first: [[literal(-1)]]))
+    let idleSnapshot = try idle.snapshot(timeSeconds: 0)
+    #expect(!idleSnapshot.needsContinuousFrames)
+    #expect(try idle.particleSnapshot(id: 9, timeSeconds: 0)?.particles == [[0], [1], [2]])
+
+    // Pair form. A reference followed by CMD1 reads the first particle, by CMD2 the second; a
+    // bare one reads the first in the condition and first set, the second in the second set.
+    // Pairs run (second 0, first 1), (0, 2), (1, 2), each seeing the updates before it:
+    //   (0, 1): 1 - 0 > 0, so first = second + 100 = 100 and second = second + 2 = 2.
+    //   (0, 2): 2 - 2 is not > 0.
+    //   (1, 2): 2 - 100 is not > 0.
+    let cmd1 = op(NativeSwiftFloatOperator.cmd1)
+    let cmd2 = op(NativeSwiftFloatOperator.cmd2)
+    let pairs = try NativeSwiftDocumentSession.open(
+      data: particleCompareDocument(
+        condition: [v, cmd1, v, cmd2, op(NativeSwiftFloatOperator.sub)],
+        first: [[v, cmd2, literal(100), op(NativeSwiftFloatOperator.add)]],
+        second: [[v, literal(2), op(NativeSwiftFloatOperator.add)]]))
+    let paired = try pairs.particleSnapshot(id: 9, timeSeconds: 0)
+    #expect(
+      paired?.particles == [[2], [100], [2]],
+      "pair compare did not update the passing pair: \(String(describing: paired))")
+    // The last pair tested, (1, 2), failed, so its first particle is what stays loaded.
+    #expect(try pairs.probeValues(timeSeconds: 0).floats[70] == 2)
+  }
+
+  @Test func particleCompareRejectsMalformedInput() throws {
+    let v = Writer.nanReference(70)
+    let add = Writer.floatOperator(NativeSwiftFloatOperator.add)
+    func expectMalformed(_ data: Data, _ reason: String) {
+      do {
+        _ = try NativeSwiftDocumentSession.open(data: data)
+        Issue.record(Comment(rawValue: "accepted \(reason)"))
+      } catch let error as NativeSwiftCoreError {
+        #expect(!error.isUnsupported, Comment(rawValue: "\(reason): \(error)"))
+      } catch {
+        Issue.record(Comment(rawValue: "\(reason) threw an untyped error: \(error)"))
+      }
+    }
+    // An undefined system, a first set that does not cover every variable, and a missing
+    // condition in the one-particle form are all dereferenced unconditionally by the reference.
+    let undefined = Writer()
+    undefined.header(width: 10, height: 10)
+    undefined.u8(NativeSwiftWireOpcode.particleCompare).int(3).u16(0).float(-1).float(-1)
+      .int(1).int(v).int(1).int(1).float(0).int(0)
+    expectMalformed(undefined.data, "an undefined particle system")
+    expectMalformed(
+      particleCompareDocument(condition: [v], first: []), "no equation for the variable")
+    expectMalformed(
+      particleCompareDocument(condition: [], first: [[v]]),
+      "a one-particle compare without a condition")
+    // The reader's own bound is 46 words per expression.
+    expectMalformed(
+      particleCompareDocument(
+        condition: Array(repeating: v, count: 47), first: [[v, v, add]]),
+      "a 47-word condition")
+    // The TypeScript-written gold writes the flags as an int, so its lengths are garbage.
+    let gold = Data(
+      base64Encoded:
+        "AASMAAEAAAABAAAAAAAAAAIABQAEAAABLAAGAAQAAAEswgAAAAEAAAAAAABCyAAAAAAAAT+AAAAAAAABAAAAAUAAAAAAAAABAAAAAUBAAADWUAAAAFpDQgAA"
+    )!
+    expectMalformed(gold, "particle_compare_conditional_respawn's misaligned payload")
+  }
+
+  @Test func runActionRunsOnEachPaintedFrame() throws {
+    // A RUN_ACTION inside a component runs its actions each frame: a value set, an integer
+    // counter incremented once per frame instant, and a host action that it never runs.
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(NativeSwiftWireOpcode.dataInt).int(20).int(1)
+    output.u8(NativeSwiftWireOpcode.integerExpression).int(31).int(3).int(2).int(20)
+      .int(NativeSwiftIntegerOperator.offset + NativeSwiftIntegerOperator.incr)
+    output.u8(NativeSwiftWireOpcode.dataFloat).int(40).float(1)
+    output.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    output.u8(NativeSwiftWireOpcode.runAction)
+    output.u8(NativeSwiftWireOpcode.valueFloatChangeAction).int(40).float(7)
+    output.u8(NativeSwiftWireOpcode.valueIntegerExpressionChangeAction).long(20).long(31)
+    output.u8(NativeSwiftWireOpcode.hostAction).int(4)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    let session = try NativeSwiftDocumentSession.open(data: output.data)
+    _ = try session.snapshot(timeSeconds: 0)
+    let first = try session.probeValues(timeSeconds: 0)
+    #expect(
+      first.floats[40] == 7 && first.integers[20] == 2,
+      Comment(
+        rawValue: "run action did not run once: \(first.floats[40] ?? -1), \(first.integers)"))
+    _ = try session.snapshot(timeSeconds: 1)
+    #expect(try session.probeValues(timeSeconds: 1).integers[20] == 3)
+
+    // Before any component the reference has no component to run it for, and it stays inert.
+    let early = Writer()
+    early.header(width: 100, height: 100)
+    early.u8(NativeSwiftWireOpcode.dataFloat).int(40).float(1)
+    early.u8(NativeSwiftWireOpcode.runAction)
+    early.u8(NativeSwiftWireOpcode.valueFloatChangeAction).int(40).float(7)
+    early.u8(NativeSwiftWireOpcode.containerEnd)
+    early.u8(NativeSwiftWireOpcode.layoutRoot).int(1).u8(NativeSwiftWireOpcode.containerEnd)
+    let inert = try NativeSwiftDocumentSession.open(data: early.data)
+    _ = try inert.snapshot(timeSeconds: 0)
+    #expect(try inert.probeValues(timeSeconds: 0).floats[40] == 1)
+  }
+
+  @Test func eventActionHandlesMatchingEvents() throws {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.text(id: 10, "evt")
+    output.u8(NativeSwiftWireOpcode.dataFloat).int(40).float(1)
+    output.u8(NativeSwiftWireOpcode.dataInt).int(20).int(0)
+    // Type 5, filter 7, handler flags 3, conditional, with data: event slot 0 goes to float 40,
+    // slot 1 nowhere. Condition: float 40 > 2.
+    output.u8(NativeSwiftWireOpcode.eventAction).int(NativeSwiftEventActionWire.version)
+      .int(5).int(7).u16(NativeSwiftEventActionWire.flagNone).u16(3)
+      .int(2).int(40).int(0)
+      .int(3).int(Writer.nanReference(40)).float(2)
+      .int(Writer.floatOperator(NativeSwiftFloatOperator.step))
+    output.u8(NativeSwiftWireOpcode.valueIntegerChangeAction).int(20).int(9)
+    output.u8(NativeSwiftWireOpcode.hapticFeedback).int(1)
+    output.u8(NativeSwiftWireOpcode.hostNamedAction).int(10).int(-1).int(-1)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    // A second handler for the same type and filter, unconditional and without data.
+    output.u8(NativeSwiftWireOpcode.eventAction).int(NativeSwiftEventActionWire.version)
+      .int(5).int(7)
+      .u16(NativeSwiftEventActionWire.flagUnconditional | NativeSwiftEventActionWire.flagNoData)
+      .u16(1)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    output.u8(NativeSwiftWireOpcode.layoutRoot).int(1).u8(NativeSwiftWireOpcode.containerEnd)
+    let session = try NativeSwiftDocumentSession.open(data: output.data)
+
+    let otherType = try session.dispatchEvent(type: 6, metadata: 7, data: [5], timeSeconds: 0)
+    let otherFilter = try session.dispatchEvent(type: 5, metadata: 8, data: [5], timeSeconds: 0)
+    #expect(otherType.handledFlags.isEmpty && otherFilter.handledFlags.isEmpty)
+    #expect(try session.probeValues(timeSeconds: 0).floats[40] == 1)
+
+    // The data is written before the condition is tested, whether or not it then passes.
+    let failing = try session.dispatchEvent(
+      type: 5, metadata: 7, data: [1.5, 99], timeSeconds: 0)
+    #expect(failing == NativeSwiftEventDispatch(handledFlags: [1], events: []))
+    let afterFailing = try session.probeValues(timeSeconds: 0)
+    #expect(afterFailing.floats[40] == 1.5 && afterFailing.integers[20] == 0)
+
+    let passing = try session.dispatchEvent(type: 5, metadata: 7, data: [3], timeSeconds: 0)
+    #expect(
+      passing
+        == NativeSwiftEventDispatch(
+          handledFlags: [3, 1], events: [.namedAction(name: "evt", value: .none)]))
+    let afterPassing = try session.probeValues(timeSeconds: 0)
+    #expect(afterPassing.floats[40] == 3 && afterPassing.integers[20] == 9)
+
+    // Only version 0 exists.
+    let future = Writer()
+    future.header(width: 10, height: 10)
+    future.u8(NativeSwiftWireOpcode.eventAction).int(1).int(5).int(7).u16(3).u16(0)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: future.data)
+      Issue.record("an event action of an unknown version was accepted")
+    } catch let error as NativeSwiftCoreError {
+      #expect(error.isUnsupported)
+    }
+    // A negative data count is malformed, not an allocation.
+    let negative = Writer()
+    negative.header(width: 10, height: 10)
+    negative.u8(NativeSwiftWireOpcode.eventAction).int(0).int(5).int(7)
+      .u16(NativeSwiftEventActionWire.flagUnconditional).u16(0).int(-1)
+    do {
+      _ = try NativeSwiftDocumentSession.open(data: negative.data)
+      Issue.record("a negative event action data count was accepted")
+    } catch let error as NativeSwiftCoreError {
+      #expect(!error.isUnsupported)
+    }
+  }
+
+  /// A three-particle system (id 9, one variable, 70, seeded with the particle's index) and one
+  /// closed `PARTICLE_COMPARE` over it, before an empty root.
+  private func particleCompareDocument(
+    minimum: Float = -1, maximum: Float = -1, condition: [Int], first: [[Int]],
+    second: [[Int]] = []
+  ) -> Data {
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.u8(NativeSwiftWireOpcode.particleDefine).int(9).int(3).int(1)
+      .int(70).int(1).int(Writer.floatOperator(NativeSwiftFloatOperator.var1))
+    output.u8(NativeSwiftWireOpcode.particleCompare).int(9).u16(0).float(minimum).float(maximum)
+    output.int(condition.count)
+    for word in condition { output.int(word) }
+    for set in [first, second] {
+      output.int(set.count)
+      for equation in set {
+        output.int(equation.count)
+        for word in equation { output.int(word) }
+      }
+    }
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    output.u8(NativeSwiftWireOpcode.layoutRoot).int(1).u8(NativeSwiftWireOpcode.containerEnd)
+    return output.data
+  }
+
   private func particleDocument() -> Data {
     let output = Writer()
     output.header(width: 100, height: 100)

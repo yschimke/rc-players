@@ -154,7 +154,9 @@ enum NativeSwiftDocumentDecoder {
     }
     var conditionalScopes: [ConditionalScope] = []
     var particleDefinitions: [ParsedParticleDefinition] = []
-    var particleLoops: [ParsedParticleLoop] = []
+    var particleOperations: [ParsedParticleOperation] = []
+    var eventHandlers: [ParsedEventHandler] = []
+    var runActions: [ParsedRunAction] = []
     var nodes: [Int: ParsedNode] = [:]
     var stack: [ParsedNode] = []
     var root: ParsedNode?
@@ -162,6 +164,8 @@ enum NativeSwiftDocumentDecoder {
     var operationCount = 0
     var linkedTopLevelOperationCount = 0
     var syntheticRootWasAdded = false
+    /// Whether any layout component has been read yet: what a `RUN_ACTION` needs before it runs.
+    var componentSeen = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
     // A marquee moves with the clock, so a document holding one is never served from the static
@@ -233,6 +237,7 @@ enum NativeSwiftDocumentDecoder {
         throw input.malformed("Duplicate component id \(node.componentID)")
       }
       componentOpenDepths[ObjectIdentifier(node)] = (suspendedInputs.count, modifierContainers.count)
+      componentSeen = true
       if let parent = stack.last {
         node.parent = parent
         parent.children.append(node)
@@ -368,6 +373,23 @@ enum NativeSwiftDocumentDecoder {
         return canvas
       }
       return try currentNode(stack, input: input)
+    }
+
+    /// The innermost container an action operation belongs to: a click, multi-click or touch
+    /// modifier, for its component's gesture, or an `EVENT_ACTION` or `RUN_ACTION` body. Other
+    /// modifier containers (canvas operations, impulses, particle comparisons) are transparent.
+    func actionContainer() -> ParsedModifierContainer? {
+      modifierContainers.reversed().first { $0.node != nil || $0.actionSink != nil }
+    }
+
+    func appendAction(_ action: ParsedAction, to container: ParsedModifierContainer) {
+      switch container.actionSink {
+      case .eventHandler(let index): eventHandlers[index].actions.append(action)
+      case .runAction(let index): runActions[index].actions.append(action)
+      case nil:
+        guard let node = container.node, let gesture = container.gesture else { return }
+        node.actions[gesture, default: []].append(action)
+      }
     }
 
     // A MacroCall nests further MacroBlock bodies, and a malformed chain of 247 -> 249 would nest
@@ -1805,10 +1827,74 @@ enum NativeSwiftDocumentDecoder {
             throw input.malformed("Particle loop exceeds 20000 units of work per frame")
           }
         }
-        particleLoops.append(
-          ParsedParticleLoop(
-            id: particleID, restartEquation: restartEquation, updateEquations: updateEquations,
-            offset: opcodeOffset))
+        particleOperations.append(
+          .loop(
+            ParsedParticleLoop(
+              id: particleID, restartEquation: restartEquation, updateEquations: updateEquations,
+              offset: opcodeOffset)))
+      case NativeSwiftWireOpcode.particleCompare:
+        // ParticlesCompare.read: an id, a 16-bit flags field, the index range's two float words,
+        // a length-prefixed condition, then two counted sets of length-prefixed equations. The
+        // reader's own bounds are kept: at most 46 words per expression and 2000 equations per
+        // set; a negative length throws there too. It is a container, closed by CONTAINER_END,
+        // whose body the reference paints once per particle it changes.
+        let particleID = try input.int("particle compare id")
+        let flags = Int(try input.u16("particle compare flags"))
+        let minimumWord = try input.word("particle compare minimum")
+        let maximumWord = try input.word("particle compare maximum")
+        func expression(_ label: String) throws -> [UInt32] {
+          let length = try input.count("\(label) length", maximum: 46)
+          return try (0..<length).map { _ in try input.word("\(label) word") }
+        }
+        let condition = try expression("particle compare expression")
+        var equationSets: [[[UInt32]]] = []
+        for which in ["first", "second"] {
+          let count = try input.count("particle compare \(which) equation count", maximum: 2000)
+          equationSets.append(
+            try (0..<count).map { _ in try expression("particle compare \(which) equation") })
+        }
+        let compare = ParsedParticleCompare(
+          id: particleID, flags: flags, minimumWord: minimumWord, maximumWord: maximumWord,
+          condition: condition, firstEquations: equationSets[0], secondEquations: equationSets[1],
+          offset: opcodeOffset)
+        // The reference dereferences the system, the condition of the one-particle form, and one
+        // first equation per variable (and one second equation per variable when it compares
+        // pairs) unconditionally, and fails on any of them missing; so does this decoder, before
+        // the first frame rather than during one.
+        guard let definition = particleDefinitions.first(where: { $0.id == particleID }) else {
+          throw input.malformed("Particle compare names undefined particle system \(particleID)")
+        }
+        let variableCount = definition.variableIDs.count
+        guard compare.comparesPairs || !condition.isEmpty else {
+          throw input.malformed("Particle compare has no condition")
+        }
+        guard compare.firstEquations.count == variableCount,
+          !compare.comparesPairs || compare.secondEquations.count == variableCount
+        else {
+          throw input.malformed(
+            "Particle compare equations do not match \(variableCount) variables")
+        }
+        // A bound that is a reference may select the whole system; a literal one is what it says.
+        func literalBound(_ word: UInt32, negative: Int) -> Int {
+          guard NativeSwiftFloatExpression.referenceID(word) == nil else { return negative }
+          let value = Float(bitPattern: word)
+          guard value >= 0 else { return value.isNaN ? 0 : negative }
+          return min(Int(min(value, Float(Int32.max))), definition.particleCount)
+        }
+        let selected = Int64(
+          max(
+            0,
+            literalBound(maximumWord, negative: definition.particleCount)
+              - literalBound(minimumWord, negative: 0)))
+        let visits = compare.comparesPairs ? selected * (selected - 1) / 2 : selected
+        let evaluations = Int64(
+          1 + condition.count + compare.firstEquations.reduce(0) { $0 + $1.count }
+            + compare.secondEquations.reduce(0) { $0 + $1.count })
+        guard visits * evaluations <= 20_000 else {
+          throw input.malformed("Particle compare exceeds 20000 units of work per frame")
+        }
+        particleOperations.append(.compare(compare))
+        modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
       case NativeSwiftWireOpcode.rootContentDescription:  // Root content description
         _ = try input.int("root content description id")
       case NativeSwiftWireOpcode.layoutCanvasContent:  // Canvas content
@@ -2046,50 +2132,45 @@ enum NativeSwiftDocumentDecoder {
           nameTextID: try input.int("host action name text id"),
           valueType: try input.int("host action value type"),
           valueID: try input.int("host action value id"))
-        guard
-          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
-          let target = container.node, let gesture = container.gesture
-        else {
+        guard let container = actionContainer() else {
           throw input.malformed("Host named action is outside a click modifier")
         }
-        target.actions[gesture, default: []].append(.named(action))
+        // A RUN_ACTION body never runs a host action; see `ParsedRunAction`.
+        if case .runAction = container.actionSink { break }
+        appendAction(.named(action), to: container)
       case NativeSwiftWireOpcode.valueIntegerExpressionChangeAction:
         // Integer expression change action
         let targetID = try input.longAsInt("integer action target id")
         let expressionID = try input.longAsInt("integer action expression id")
-        guard
-          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
-          let target = container.node, let gesture = container.gesture
-        else { throw input.malformed("Integer action is outside a click modifier") }
+        guard let container = actionContainer() else {
+          throw input.malformed("Integer action is outside a click modifier")
+        }
         guard integerExpressions[expressionID] != nil || integers[expressionID] != nil else {
           throw input.malformed("Missing integer action expression \(expressionID)")
         }
-        target.actions[gesture, default: []].append(
-          .integerExpression(targetID: targetID, expressionID: expressionID))
+        appendAction(
+          .integerExpression(targetID: targetID, expressionID: expressionID), to: container)
       case NativeSwiftWireOpcode.valueFloatExpressionChangeAction:
         // Float expression change action
         // How a document mutates its own state: `score = score + 1`. Two ints, not longs -- the
         // integer-expression sibling at 218 reads longs, and the widths are not interchangeable.
         let targetID = try input.int("float action target id")
         let expressionID = try input.int("float action expression id")
-        guard
-          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
-          let target = container.node, let gesture = container.gesture
-        else { throw input.malformed("Float action is outside a click modifier") }
+        guard let container = actionContainer() else {
+          throw input.malformed("Float action is outside a click modifier")
+        }
         guard expressionIDs.contains(expressionID) else {
           throw input.malformed("Missing float action expression \(expressionID)")
         }
-        target.actions[gesture, default: []].append(
-          .floatExpression(targetID: targetID, expressionID: expressionID))
+        appendAction(
+          .floatExpression(targetID: targetID, expressionID: expressionID), to: container)
       case NativeSwiftWireOpcode.valueIntegerChangeAction:  // Integer value change action
         let targetID = try input.int("integer value action target id")
         let value = try input.int("integer value action value")
-        guard
-          let container = modifierContainers.reversed().first(where: { $0.node != nil }),
-          let target = container.node, let gesture = container.gesture
-        else { throw input.malformed("Integer value action is outside a click modifier") }
-        target.actions[gesture, default: []].append(
-          .integerValue(targetID: targetID, value: value))
+        guard let container = actionContainer() else {
+          throw input.malformed("Integer value action is outside a click modifier")
+        }
+        appendAction(.integerValue(targetID: targetID, value: value), to: container)
       case NativeSwiftWireOpcode.containerEnd:  // Container end
         if !modifierContainers.isEmpty {
           if let scope = impulseScopes.last, scope.depth == modifierContainers.count {
@@ -2266,8 +2347,10 @@ enum NativeSwiftDocumentDecoder {
         // Actions run when the click modifier that encloses them fires. Outside one there is
         // nothing to fire them, and the reference leaves them inert rather than rejecting the
         // document. Host actions and haptics need an event the hosts do not have yet, so inside a
-        // click modifier they still refuse rather than being dropped silently.
-        let container = modifierContainers.reversed().first(where: { $0.node != nil })
+        // click modifier they still refuse rather than being dropped silently. An EVENT_ACTION or
+        // RUN_ACTION body runs only action operations, which haptic feedback is not, so there it
+        // is inert; and a RUN_ACTION body never runs a host action (see `ParsedRunAction`).
+        let container = actionContainer()
         let action: ParsedAction?
         switch opcode {
         case NativeSwiftWireOpcode.valueFloatChangeAction:
@@ -2289,14 +2372,59 @@ enum NativeSwiftDocumentDecoder {
           _ = try input.int("haptic feedback type")
           action = nil
         }
-        if let container, let target = container.node, let gesture = container.gesture {
-          guard let action else {
-            throw NativeSwiftCoreError.unsupported(
-              opcode: opcode, offset: opcodeOffset,
-              reason: "host actions and haptics need a host event")
-          }
-          target.actions[gesture, default: []].append(action)
+        guard let container else { break }
+        if let action {
+          appendAction(action, to: container)
+          break
         }
+        switch container.actionSink {
+        case .runAction: break
+        case .eventHandler where opcode == NativeSwiftWireOpcode.hapticFeedback: break
+        default:
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset,
+            reason: "host actions and haptics need a host event")
+        }
+      case NativeSwiftWireOpcode.eventAction:
+        // EventActionOperation.read: a payload version (0 is the only one), the event type, the
+        // event metadata it filters on, 16 bits of common flags and 16 of the handler's own.
+        // Unless the common flags rule them out, a counted list of data ids and a length-prefixed
+        // condition follow. It is a container, closed by CONTAINER_END, of the actions the handler
+        // runs. The reference does not bound the data-id count; this decoder bounds it like other
+        // lists.
+        let version = try input.int("event action version")
+        guard version == NativeSwiftEventActionWire.version else {
+          throw NativeSwiftCoreError.unsupported(
+            opcode: opcode, offset: opcodeOffset, reason: "event action version \(version)")
+        }
+        let type = try input.int("event action type")
+        let filter = try input.int("event action filter")
+        let commonFlags = Int(try input.u16("event action common flags"))
+        let flags = Int(try input.u16("event action flags"))
+        var dataIDs: [Int] = []
+        if commonFlags & NativeSwiftEventActionWire.flagNoData == 0 {
+          let count = try input.count("event action data count", maximum: maximumProperties)
+          dataIDs = try (0..<count).map { _ in try input.int("event action data id") }
+        }
+        var condition: [UInt32]?
+        if commonFlags & NativeSwiftEventActionWire.flagUnconditional == 0 {
+          let length = try input.count("event action condition length", maximum: 32)
+          condition = try (0..<length).map { _ in try input.word("event action condition word") }
+        }
+        eventHandlers.append(
+          ParsedEventHandler(
+            type: type, filter: filter, flags: flags, dataIDs: dataIDs, condition: condition,
+            offset: opcodeOffset))
+        modifierContainers.append(
+          ParsedModifierContainer(
+            node: nil, gesture: nil, actionSink: .eventHandler(eventHandlers.count - 1)))
+      case NativeSwiftWireOpcode.runAction:
+        // RunActionOperation.read: no payload. A container, closed by CONTAINER_END, of actions
+        // run on every paint; see `ParsedRunAction`.
+        runActions.append(ParsedRunAction(followsComponent: componentSeen))
+        modifierContainers.append(
+          ParsedModifierContainer(
+            node: nil, gesture: nil, actionSink: .runAction(runActions.count - 1)))
       case NativeSwiftWireOpcode.textStyle:
         let style = try textProperties("TextStyle")
         // A style names itself with the property that names a component in CoreText.
@@ -2489,7 +2617,8 @@ enum NativeSwiftDocumentDecoder {
       accessibilityRecords: accessibilityRecords,
       shaderUniformNames: shaderUniformNames, conditionalTraces: conditionalTraces,
       impulses: impulses, darkColors: darkColors, wakeWords: wakeWords,
-      particleDefinitions: particleDefinitions, particleLoops: particleLoops,
+      particleDefinitions: particleDefinitions, particleOperations: particleOperations,
+      eventHandlers: eventHandlers, runActions: runActions,
       needsContinuousFrames: needsContinuousFrames,
       hasMarquee: hasMarquee,
       needsWallClockRefresh: needsWallClockRefresh,

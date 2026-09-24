@@ -77,6 +77,7 @@ public enum NativeSwiftWireOpcode {
   public static let rootContentDescription = 103
   public static let modifierBorder = 107
   public static let modifierClipRect = 108
+  public static let eventAction = 110
   public static let dataPath = 123
   public static let drawPath = 124
   public static let drawTweenPath = 125
@@ -200,6 +201,17 @@ public enum NativeSwiftWireOpcode {
   public static let extensionRangeReserved2 = 253
   public static let extensionRangeReserved1 = 254
   public static let extendedOpcode = 255
+}
+
+/// `EVENT_ACTION`'s wire values: its one payload version, and its common flags -- every value
+/// AndroidX's `EventActionOperation.CommonFlagsUtil` defines. A set flag leaves its field out.
+enum NativeSwiftEventActionWire {
+  static let version = 0
+  static let flagNone = 0
+  /// No condition follows; the handler always runs.
+  static let flagUnconditional = 1
+  /// No data ids follow; the event's data is not written anywhere.
+  static let flagNoData = 2
 }
 
 /// `SKIP`'s condition types: every value AndroidX's `Skip` defines (the vendored
@@ -327,7 +339,7 @@ public enum NativeSwiftDrawKind {
 public typealias NativeSwiftPathVerb = NativeSwiftPathCommand
 
 /// AndroidX `AnimatedFloatExpression` operators, as offsets from its NaN-boxed operator base.
-/// 64...69 are unassigned.
+/// 68 and 69 are unassigned.
 enum NativeSwiftFloatOperator {
   static let add = 1
   static let sub = 2
@@ -392,6 +404,13 @@ enum NativeSwiftFloatOperator {
   static let loadR1 = 61
   static let loadR2 = 62
   static let loadR3 = 63
+  /// Commands reserved for an operation's own use. `PARTICLE_COMPARE` reads a particle variable
+  /// followed by `cmd1` as the first particle's value and by `cmd2` as the second's; nothing
+  /// assigns `cmd3` or `cmd4` yet, and the evaluator itself runs none of the four.
+  static let cmd1 = 64
+  static let cmd2 = 65
+  static let cmd3 = 66
+  static let cmd4 = 67
   static let var1 = 70
   static let var2 = 71
   static let var3 = 72

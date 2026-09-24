@@ -57,7 +57,18 @@ struct ParsedDocument {
   /// `WAKE_IN` requests, as the words the document wrote.
   let wakeWords: [UInt32]
   let particleDefinitions: [ParsedParticleDefinition]
-  let particleLoops: [ParsedParticleLoop]
+  /// `PARTICLE_LOOP` and `PARTICLE_COMPARE`, in wire order: each frame runs them in that order,
+  /// and a comparison sees the state the loops before it left.
+  let particleOperations: [ParsedParticleOperation]
+  var hasParticleLoop: Bool {
+    particleOperations.contains {
+      if case .loop = $0 { true } else { false }
+    }
+  }
+  /// `EVENT_ACTION` handlers in wire order, which is the order a dispatched event visits them.
+  let eventHandlers: [ParsedEventHandler]
+  /// `RUN_ACTION` bodies in wire order; see `ParsedRunAction`.
+  let runActions: [ParsedRunAction]
   let needsContinuousFrames: Bool
   /// Whether any component carries a marquee. It does not by itself ask for frames — only a host's
   /// measurement knows whether the content overflows — but its offset reads the clock, so a frame
@@ -193,6 +204,41 @@ enum ParsedAction {
 struct ParsedModifierContainer {
   let node: ParsedNode?
   let gesture: NativeSwiftGestureKind?
+  /// Set when the container is an `EVENT_ACTION` or `RUN_ACTION` body, which collects the action
+  /// operations inside it for itself rather than for a component's gesture.
+  var actionSink: ParsedActionSink?
+}
+
+/// A document-level container that owns the action operations read inside it, by its index in
+/// `ParsedDocument.eventHandlers` or `ParsedDocument.runActions`.
+enum ParsedActionSink {
+  case eventHandler(Int)
+  case runAction(Int)
+}
+
+/// AndroidX's `EventActionOperation`: a handler for host-dispatched events of one type. An event
+/// whose metadata equals `filter` writes its data into `dataIDs` (a zero id skips that slot), then,
+/// when `condition` is absent or evaluates non-zero, runs `actions` and reports `flags`.
+struct ParsedEventHandler {
+  let type: Int
+  let filter: Int
+  let flags: Int
+  let dataIDs: [Int]
+  let condition: [UInt32]?
+  var actions: [ParsedAction] = []
+  /// The `EVENT_ACTION` operation's byte offset, for evaluation failures.
+  let offset: Int
+}
+
+/// AndroidX's `RunActionOperation`: actions run each time the document is painted, rather than on
+/// a gesture. The reference runs them only once a component has been painted, and never runs a
+/// host action from one (`Limits.ENABLE_RUN_ACTION_HOST_ACTIONS` is off), so a host action read
+/// inside is dropped rather than stored.
+struct ParsedRunAction {
+  /// Whether a component was open, or had already been read, when the operation was: the
+  /// reference's `mLastComponent` is null until one has, and the body is then inert.
+  let followsComponent: Bool
+  var actions: [ParsedAction] = []
 }
 
 struct ParsedAccessibility {
