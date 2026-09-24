@@ -1282,8 +1282,10 @@
     func layoutContentSize(fitting available: CGSize) -> CGSize {
       switch node.kind {
       case .text:
-        return textLabels.first?.preferredSize(
-          maximumWidth: available.width, documentScale: documentScale) ?? .zero
+        // Measuring only reads the label, so the scale it is measured at is applied first.
+        guard let label = textLabels.first else { return .zero }
+        label.apply(documentScale: documentScale)
+        return label.preferredSize(maximumWidth: available.width)
       case .image:
         return imageViews.first?.image?.size ?? .zero
       case .custom:
@@ -1536,6 +1538,11 @@
 
   /// A Remote Compose text primitive promoted to a real UIKit text element. Geometry and font
   /// selection remain approximate until the native lane has a resolved layout/text profile.
+  ///
+  /// Configuring and measuring are separate steps. `apply(documentScale:)` builds the font and
+  /// attributed string the label draws; `preferredSize(maximumWidth:)` only reads them, so a
+  /// measurement never changes what the label shows. The owner applies the scale before it
+  /// measures, at the same points in layout where measuring used to configure the label itself.
   final class NativeTextLabel: UILabel {
     private var command: NativeDrawCommand
     private var fontNames: [Int: String]
@@ -1543,8 +1550,13 @@
     private var layoutDirection: NativeLayoutDirection = .leftToRight
     // Text labels are measured while determining their parent's natural size and again after row
     // and flow layouts assign their final width. Keep the TextKit result only for an identical
-    // width and invalidate it whenever the attributed string's inputs can change.
+    // width and drop every entry whenever the attributed string or its line limits change, so the
+    // width is the whole key. Bounded: a label measured at many widths starts over, not grows.
     private var measurementCache: [CGFloat: CGSize] = [:]
+    private static let measurementCacheLimit = 16
+    /// The TextKit stack the current text is measured with, built at the first measurement after
+    /// the text changes and reused for every width until it changes again.
+    private var textLayout: NativeTextKitLayout?
     private var configuredTextScale: CGFloat?
     private var configuredInterfaceDirection: UIUserInterfaceLayoutDirection?
     private var configuredParagraph = false
@@ -1581,25 +1593,34 @@
       setNeedsLayout()
     }
 
-    func preferredSize(maximumWidth: CGFloat, documentScale: CGFloat) -> CGSize {
+    /// Builds the label's font and attributed string at `documentScale`, unless they were already
+    /// built at that scale and the current layout direction. Call it before `preferredSize`.
+    func apply(documentScale: CGFloat) {
       self.documentScale = documentScale
       configureFont(documentScale: documentScale)
+    }
+
+    /// The size the label's configured text takes within `maximumWidth`, laid out by TextKit 1
+    /// with no line-fragment padding, the label's line cap and its line-break mode.
+    ///
+    /// Reads the label and changes nothing a caller can observe: it does not configure the font
+    /// or the attributed string (see `apply(documentScale:)`), and only fills its own cache.
+    func preferredSize(maximumWidth: CGFloat) -> CGSize {
       guard let attributedText, maximumWidth > 0 else { return .zero }
       if let cached = measurementCache[maximumWidth] { return cached }
-      let storage = NSTextStorage(attributedString: attributedText)
-      let manager = NSLayoutManager()
-      let container = NSTextContainer(
-        size: CGSize(width: maximumWidth, height: .greatestFiniteMagnitude))
-      container.lineFragmentPadding = 0
-      container.maximumNumberOfLines = numberOfLines
-      container.lineBreakMode = lineBreakMode
-      manager.addTextContainer(container)
-      storage.addLayoutManager(manager)
-      manager.ensureLayout(for: container)
-      let measured = manager.usedRect(for: container)
+      let layout =
+        textLayout
+        ?? NativeTextKitLayout(
+          text: attributedText, maximumNumberOfLines: numberOfLines,
+          lineBreakMode: lineBreakMode)
+      textLayout = layout
+      let measured = layout.usedRect(width: maximumWidth)
       let size = CGSize(
         width: min(ceil(measured.width), maximumWidth),
         height: ceil(measured.height))
+      if measurementCache.count >= Self.measurementCacheLimit {
+        measurementCache.removeAll(keepingCapacity: true)
+      }
       measurementCache[maximumWidth] = size
       return size
     }
@@ -1608,7 +1629,8 @@
       bounds: CGRect, documentScale: CGFloat, layoutDirection: NativeLayoutDirection
     ) {
       configureParagraph(layoutDirection: layoutDirection)
-      let preferred = preferredSize(maximumWidth: bounds.width, documentScale: documentScale)
+      apply(documentScale: documentScale)
+      let preferred = preferredSize(maximumWidth: bounds.width)
       frame = CGRect(
         origin: .zero,
         size: CGSize(width: bounds.width, height: min(preferred.height, bounds.height)))
@@ -1627,7 +1649,7 @@
         layoutDirection: interfaceDirection)
       configuredTextScale = documentScale
       configuredInterfaceDirection = interfaceDirection
-      measurementCache.removeAll(keepingCapacity: true)
+      discardMeasurements()
     }
 
     private func configureParagraph(layoutDirection: NativeLayoutDirection) {
@@ -1662,7 +1684,44 @@
     private func invalidateTextLayout() {
       configuredTextScale = nil
       configuredInterfaceDirection = nil
+      discardMeasurements()
+    }
+
+    /// Forgets every measurement and the stack they came from, for a new string or line limits.
+    private func discardMeasurements() {
       measurementCache.removeAll(keepingCapacity: true)
+      textLayout = nil
+    }
+  }
+
+  /// One TextKit 1 stack for one attributed string, laid out at whatever width is asked.
+  ///
+  /// Built exactly as the label used to build one per measurement — the storage from the string,
+  /// a layout manager, and a container without line-fragment padding capped at the label's line
+  /// count and line-break mode — and then reused across widths: setting the container's size
+  /// invalidates its layout, so each width is laid out afresh. A new string gets a new stack
+  /// rather than an edit of this one, so text-storage editing never enters the measurement.
+  @MainActor final class NativeTextKitLayout {
+    private let storage: NSTextStorage
+    private let manager: NSLayoutManager
+    private let container: NSTextContainer
+
+    init(text: NSAttributedString, maximumNumberOfLines: Int, lineBreakMode: NSLineBreakMode) {
+      storage = NSTextStorage(attributedString: text)
+      manager = NSLayoutManager()
+      container = NSTextContainer(size: .zero)
+      container.lineFragmentPadding = 0
+      container.maximumNumberOfLines = maximumNumberOfLines
+      container.lineBreakMode = lineBreakMode
+      manager.addTextContainer(container)
+      storage.addLayoutManager(manager)
+    }
+
+    /// The rectangle the text uses laid out within `width` and an unbounded height.
+    func usedRect(width: CGFloat) -> CGRect {
+      container.size = CGSize(width: width, height: .greatestFiniteMagnitude)
+      manager.ensureLayout(for: container)
+      return manager.usedRect(for: container)
     }
   }
 
