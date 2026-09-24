@@ -545,6 +545,19 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcLinkedNode { // ee.schi
 }
 
 sealed interface ee.schimke.composeai.rcplayer.runtime/RcNamedValue { // ee.schimke.composeai.rcplayer.runtime/RcNamedValue|null[0]
+    final class BooleanValue : ee.schimke.composeai.rcplayer.runtime/RcNamedValue { // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue|null[0]
+        constructor <init>(kotlin/Boolean) // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.<init>|<init>(kotlin.Boolean){}[0]
+
+        final val value // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.value|{}value[0]
+            final fun <get-value>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.component1|component1(){}[0]
+        final fun copy(kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.copy|copy(kotlin.Boolean){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.BooleanValue.toString|toString(){}[0]
+    }
+
     final class Color : ee.schimke.composeai.rcplayer.runtime/RcNamedValue { // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color|null[0]
         constructor <init>(kotlin/Int) // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color.<init>|<init>(kotlin.Int){}[0]
 
@@ -556,6 +569,19 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcNamedValue { // ee.schi
         final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.Color.toString|toString(){}[0]
+    }
+
+    final class FloatArrayValue : ee.schimke.composeai.rcplayer.runtime/RcNamedValue { // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue|null[0]
+        constructor <init>(kotlin.collections/List<kotlin/Float>) // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.<init>|<init>(kotlin.collections.List<kotlin.Float>){}[0]
+
+        final val values // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.values|{}values[0]
+            final fun <get-values>(): kotlin.collections/List<kotlin/Float> // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.values.<get-values>|<get-values>(){}[0]
+
+        final fun component1(): kotlin.collections/List<kotlin/Float> // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.component1|component1(){}[0]
+        final fun copy(kotlin.collections/List<kotlin/Float> = ...): ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.copy|copy(kotlin.collections.List<kotlin.Float>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatArrayValue.toString|toString(){}[0]
     }
 
     final class FloatValue : ee.schimke.composeai.rcplayer.runtime/RcNamedValue { // ee.schimke.composeai.rcplayer.runtime/RcNamedValue.FloatValue|null[0]

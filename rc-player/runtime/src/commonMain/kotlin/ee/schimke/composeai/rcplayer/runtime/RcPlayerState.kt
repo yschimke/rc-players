@@ -150,6 +150,11 @@ public class RcPlayerState(
   private val basePaths = mutableMapOf<Int, RcPathData>()
   private val paths = mutableMapOf<Int, RcPathData>()
   private val variableNames = mutableMapOf<String, RcNamedVariable>()
+
+  /** Float lists the document declares as data, recomputed on read — see [clearNamedValue]. */
+  private val staticFloatListIds: Set<Int> by lazy {
+    document.operations.filterIsInstance<RcFloatList>().map { it.id }.toSet()
+  }
   private val documentNamedValues = mutableMapOf<String, RcNamedValue>()
   private val matrices = mutableMapOf<Int, RcMatrixConstant>()
   private val computedMatrices = mutableMapOf<Int, FloatArray>()
@@ -1105,7 +1110,18 @@ public class RcPlayerState(
     }
   }
 
-  public fun namedVariable(name: String): RcNamedVariable? = variableNames[name]
+  public fun namedVariable(name: String): RcNamedVariable? = variableNames[resolveName(name)]
+
+  /**
+   * The declared name a host's [name] refers to, as AndroidX's `RcPlayerState` resolves it: a name
+   * with a `:` is used exactly; otherwise `USER:name` if the document declares it, then `name`.
+   */
+  private fun resolveName(name: String): String =
+    when {
+      ':' in name -> name
+      "$USER_PREFIX:$name" in variableNames -> "$USER_PREFIX:$name"
+      else -> name
+    }
 
   public fun executeClick(block: RcClickActionBlock) {
     executeActions(
@@ -1437,7 +1453,7 @@ public class RcPlayerState(
    * action inside the document can change one — and this is also how [clearNamedValue] knows what
    * the document recorded before any override.
    */
-  public fun namedValue(name: String): RcNamedValue = readNamedValue(name)
+  public fun namedValue(name: String): RcNamedValue = readNamedValue(resolveName(name))
 
   /**
    * Restore [name] to the value the document recorded, discarding any host override.
@@ -1448,8 +1464,17 @@ public class RcPlayerState(
    * original has been overwritten. Values a document action changed are *not* restored: those are
    * the document's own, not the host's, and the host never overrode them.
    */
-  public fun clearNamedValue(name: String) {
+  public fun clearNamedValue(hostName: String) {
+    val name = resolveName(hostName)
     val variable = requireNotNull(variableNames[name]) { "Unknown named variable '$name'" }
+    if (variable.type == RcNamedVariable.FLOAT_ARRAY_TYPE) {
+      // A declared static list is recomputed from its words on every read; a host override sat on
+      // top of it as a dynamic list. Removing that is the restore. A list the document itself keeps
+      // dynamic goes back to what it held when the document loaded.
+      if (variable.id in staticFloatListIds) dynamicFloatLists.remove(variable.id)
+      else documentNamedValues[name]?.let { setNamedValue(name, it) }
+      return
+    }
     if (variable.type == RcNamedVariable.STRING_TYPE) {
       // A text override outlives the frame it was set in: `beginFrame` rebuilds `texts` from
       // `baseTexts` and then re-applies `textOverrides` on top, every frame. So clearing one means
@@ -1477,16 +1502,17 @@ public class RcPlayerState(
    * Whether an `RcNamedVariable.type` is one [RcNamedValue] models, and therefore one a host can
    * read or override.
    *
-   * `IMAGE_TYPE` and `FLOAT_ARRAY_TYPE` are valid AndroidX types with no host-value counterpart.
-   * They stay loadable — a document declaring one renders — but neither [namedValue] nor
-   * [setNamedValue] can speak about them.
+   * `IMAGE_TYPE` is a valid AndroidX type with no host-value counterpart here — overriding a bitmap
+   * needs the host to decode one. It stays loadable — a document declaring one renders — but
+   * neither [namedValue] nor [setNamedValue] can speak about it.
    */
   private fun Int.namedVariableCarriesHostValue(): Boolean =
     this == RcNamedVariable.STRING_TYPE ||
       this == RcNamedVariable.FLOAT_TYPE ||
       this == RcNamedVariable.COLOR_TYPE ||
       this == RcNamedVariable.INT_TYPE ||
-      this == RcNamedVariable.LONG_TYPE
+      this == RcNamedVariable.LONG_TYPE ||
+      this == RcNamedVariable.FLOAT_ARRAY_TYPE
 
   private fun readNamedValue(name: String): RcNamedValue {
     val variable = requireNotNull(variableNames[name]) { "Unknown named variable '$name'" }
@@ -1499,6 +1525,8 @@ public class RcPlayerState(
       RcNamedVariable.COLOR_TYPE -> RcNamedValue.Color(colors[variable.id] ?: 0)
       RcNamedVariable.INT_TYPE -> RcNamedValue.Integer(integers[variable.id] ?: 0)
       RcNamedVariable.LONG_TYPE -> RcNamedValue.LongValue(longs[variable.id] ?: 0L)
+      RcNamedVariable.FLOAT_ARRAY_TYPE ->
+        RcNamedValue.FloatArrayValue(floatValues(variable.id)?.toList().orEmpty())
       else ->
         throw IllegalArgumentException(
           "Named variable '$name' has AndroidX type ${variable.type}, which carries no host value"
@@ -1506,7 +1534,8 @@ public class RcPlayerState(
     }
   }
 
-  public fun setNamedValue(name: String, value: RcNamedValue) {
+  public fun setNamedValue(hostName: String, value: RcNamedValue) {
+    val name = resolveName(hostName)
     val variable = requireNotNull(variableNames[name]) { "Unknown named variable '$name'" }
     when {
       variable.type == RcNamedVariable.STRING_TYPE && value is RcNamedValue.Text ->
@@ -1523,6 +1552,11 @@ public class RcPlayerState(
       }
       variable.type == RcNamedVariable.LONG_TYPE && value is RcNamedValue.LongValue ->
         longs[variable.id] = value.value
+      // AndroidX's `setNamedBooleanOverride` is an integer override of 1 or 0.
+      variable.type == RcNamedVariable.INT_TYPE && value is RcNamedValue.BooleanValue ->
+        setNamedValue(name, RcNamedValue.Integer(if (value.value) 1 else 0))
+      variable.type == RcNamedVariable.FLOAT_ARRAY_TYPE && value is RcNamedValue.FloatArrayValue ->
+        dynamicFloatLists[variable.id] = value.values.toFloatArray()
       else ->
         throw IllegalArgumentException(
           "Named variable '$name' has AndroidX type ${variable.type}, incompatible with ${value::class.simpleName}"
@@ -1600,6 +1634,12 @@ public sealed interface RcNamedValue {
   public data class Integer(val value: Int) : RcNamedValue
 
   public data class LongValue(val value: Long) : RcNamedValue
+
+  /** A boolean, which AndroidX keeps as an integer-typed name holding 1 or 0. */
+  public data class BooleanValue(val value: Boolean) : RcNamedValue
+
+  /** A float array — `FLOAT_ARRAY_TYPE` — the list the document reads at that name's id. */
+  public data class FloatArrayValue(val values: List<Float>) : RcNamedValue
 }
 
 public sealed interface RcPlayerEvent {
@@ -1644,3 +1684,6 @@ private const val DRAW_ID_MASK = 0xffff
 
 /** `PaintOperation.PTR_DEREFERENCE`. */
 private const val DRAW_ID_DEREFERENCE = 0x40000000
+
+/** The namespace AndroidX's `RcPlayerState` resolves an unqualified host name into first. */
+private const val USER_PREFIX = "USER"

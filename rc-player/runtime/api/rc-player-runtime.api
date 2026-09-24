@@ -669,6 +669,17 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcMatrixEvaluator {
 public abstract interface class ee/schimke/composeai/rcplayer/runtime/RcNamedValue {
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcNamedValue$BooleanValue : ee/schimke/composeai/rcplayer/runtime/RcNamedValue {
+	public fun <init> (Z)V
+	public final fun component1 ()Z
+	public final fun copy (Z)Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$BooleanValue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$BooleanValue;ZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$BooleanValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcNamedValue$Color : ee/schimke/composeai/rcplayer/runtime/RcNamedValue {
 	public fun <init> (I)V
 	public final fun component1 ()I
@@ -676,6 +687,17 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcNamedValue$Color : ee
 	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$Color;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$Color;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getArgb ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/runtime/RcNamedValue$FloatArrayValue : ee/schimke/composeai/rcplayer/runtime/RcNamedValue {
+	public fun <init> (Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;)Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$FloatArrayValue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$FloatArrayValue;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcNamedValue$FloatArrayValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValues ()Ljava/util/List;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

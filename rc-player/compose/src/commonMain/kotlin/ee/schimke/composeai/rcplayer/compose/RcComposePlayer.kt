@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Matrix
@@ -3973,6 +3974,8 @@ private class RcPaintState(
   var runtimeShaderOwner: RuntimeShaderBuilder? = null
   var runtimeShader: Shader? = null
   var colorFilter: ColorFilter? = null
+  /** How bitmaps are sampled when scaled — `FILTER_BITMAP` / `IMAGE_FILTER_QUALITY`. */
+  var filterQuality: FilterQuality = FilterQuality.Low
   var textSize: Float = 16f
   /** Until a `PaintData` names a font type, the host's default face — as `CoreText` gets it. */
   var fontFamily: FontFamily = rcResolveTypeface(null, -1, emptyMap(), typefaces)
@@ -4578,11 +4581,13 @@ private fun DrawScope.drawBitmap(
     translate(left, top)
     scale(width / image.width, height / image.height, Offset.Zero)
   }) {
+    // The rect overload: it is the one that takes a sampling quality.
     drawImage(
       image = image,
-      topLeft = Offset.Zero,
+      dstSize = IntSize(image.width, image.height),
       alpha = paint.alpha,
       blendMode = paint.blendMode,
+      filterQuality = paint.filterQuality,
     )
   }
 }
@@ -4677,6 +4682,7 @@ private fun DrawScope.drawBitmapRegion(
     dstSize = IntSize(dstWidth, dstHeight),
     alpha = paint.alpha,
     blendMode = paint.blendMode,
+    filterQuality = paint.filterQuality,
   )
 }
 
@@ -5734,14 +5740,22 @@ private fun applyPaint(
         state.blendModeValue = command ushr 16
         state.blendMode = blendMode(state.blendModeValue)
       }
-      // IMAGE_FILTER_QUALITY, ANTI_ALIAS, FILTER_BITMAP: sampling hints whose value is packed in
-      // the command's high bits, with no operand word. Compose's DrawScope owns anti-aliasing and
-      // bitmap filtering, so these are consumed and ignored -- the same treatment the embedded
-      // player gives them. A container painter emits FILTER_BITMAP ahead of its TEXTURE, so
-      // rejecting it here rejected the whole document.
-      10,
-      14,
-      17 -> Unit
+      // Sampling hints whose value is packed in the command's high bits, with no operand word. A
+      // container painter emits FILTER_BITMAP ahead of its TEXTURE, so rejecting one rejected the
+      // whole document. The bitmap ones set how scaled bitmaps are sampled, as the embedded player
+      // maps them; ANTI_ALIAS is Compose's to decide and is consumed.
+      10 ->
+        state.filterQuality =
+          when (command ushr 16) {
+            0 -> FilterQuality.None
+            1 -> FilterQuality.Low
+            2 -> FilterQuality.Medium
+            3 -> FilterQuality.High
+            else -> FilterQuality.Low
+          }
+      17 ->
+        state.filterQuality = if (command ushr 16 != 0) FilterQuality.Low else FilterQuality.None
+      14 -> Unit
       19 -> state.color = values.color(operation.words[index++])
       13 -> {
         state.colorFilter =
