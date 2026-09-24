@@ -150,17 +150,19 @@ public class RcPlayerState(
   private val basePaths = mutableMapOf<Int, RcPathData>()
   private val paths = mutableMapOf<Int, RcPathData>()
   private val variableNames = mutableMapOf<String, RcNamedVariable>()
-
-  /** Float lists the document declares as data, recomputed on read — see [clearNamedValue]. */
-  private val staticFloatListIds: Set<Int> by lazy {
-    document.operations.filterIsInstance<RcFloatList>().map { it.id }.toSet()
-  }
   private val documentNamedValues = mutableMapOf<String, RcNamedValue>()
   private val matrices = mutableMapOf<Int, RcMatrixConstant>()
   private val computedMatrices = mutableMapOf<Int, FloatArray>()
   private val idLists = mutableMapOf<Int, RcIdList>()
   private val floatLists = mutableMapOf<Int, RcFloatList>()
   private val dynamicFloatLists = mutableMapOf<Int, FloatArray>()
+
+  /**
+   * Host float-array overrides, kept apart from [dynamicFloatLists] so the document cannot undo
+   * them: replaying a `DynamicFloatList` declaration resizes the list it owns, and an override of
+   * another length would otherwise be zero-filled away on the next frame. Reads check here first.
+   */
+  private val floatArrayOverrides = mutableMapOf<Int, FloatArray>()
   private val idMaps = mutableMapOf<Int, RcIdMap>()
   private val bitmaps = mutableMapOf<Int, RcBitmapData>()
   private val floatExpressionEvaluator = RcFloatExpressionEvaluator(arrays = ::floatArray)
@@ -861,7 +863,9 @@ public class RcPlayerState(
   public fun floatList(id: Int): RcFloatList? = floatLists[id]
 
   public fun floatValues(id: Int): FloatArray? =
-    dynamicFloatLists[id]?.copyOf() ?: floatLists[id]?.values?.map(::resolve)?.toFloatArray()
+    floatArrayOverrides[id]?.copyOf()
+      ?: dynamicFloatLists[id]?.copyOf()
+      ?: floatLists[id]?.values?.map(::resolve)?.toFloatArray()
 
   public fun setDynamicFloatValues(id: Int, values: FloatArray) {
     val target = requireNotNull(dynamicFloatLists[id]) { "Missing dynamic float list $id" }
@@ -1034,7 +1038,9 @@ public class RcPlayerState(
   }
 
   private fun floatArray(id: Int): FloatArray? =
-    dynamicFloatLists[id] ?: floatLists[id]?.values?.map(::resolve)?.toFloatArray()
+    floatArrayOverrides[id]
+      ?: dynamicFloatLists[id]
+      ?: floatLists[id]?.values?.map(::resolve)?.toFloatArray()
 
   public fun applyPathExpression(operation: RcPathExpression) {
     setPath(operation.id, pathExpressionGenerator.generate(operation, ::resolve))
@@ -1468,11 +1474,8 @@ public class RcPlayerState(
     val name = resolveName(hostName)
     val variable = requireNotNull(variableNames[name]) { "Unknown named variable '$name'" }
     if (variable.type == RcNamedVariable.FLOAT_ARRAY_TYPE) {
-      // A declared static list is recomputed from its words on every read; a host override sat on
-      // top of it as a dynamic list. Removing that is the restore. A list the document itself keeps
-      // dynamic goes back to what it held when the document loaded.
-      if (variable.id in staticFloatListIds) dynamicFloatLists.remove(variable.id)
-      else documentNamedValues[name]?.let { setNamedValue(name, it) }
+      // The override sits on top of whatever list the document keeps; removing it is the restore.
+      floatArrayOverrides.remove(variable.id)
       return
     }
     if (variable.type == RcNamedVariable.STRING_TYPE) {
@@ -1556,7 +1559,7 @@ public class RcPlayerState(
       variable.type == RcNamedVariable.INT_TYPE && value is RcNamedValue.BooleanValue ->
         setNamedValue(name, RcNamedValue.Integer(if (value.value) 1 else 0))
       variable.type == RcNamedVariable.FLOAT_ARRAY_TYPE && value is RcNamedValue.FloatArrayValue ->
-        dynamicFloatLists[variable.id] = value.values.toFloatArray()
+        floatArrayOverrides[variable.id] = value.values.toFloatArray()
       else ->
         throw IllegalArgumentException(
           "Named variable '$name' has AndroidX type ${variable.type}, incompatible with ${value::class.simpleName}"
