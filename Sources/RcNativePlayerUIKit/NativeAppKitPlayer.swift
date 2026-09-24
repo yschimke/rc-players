@@ -3129,6 +3129,13 @@ private struct ResampledImageKey: Hashable {
   }
 }
 
+/// A resampled bitmap, its size, and the last draw pass that used it.
+private struct ResampledImage {
+  let image: CGImage
+  let bytes: Int
+  var lastDrawn: Int
+}
+
 /// A constraint `NativeMacComponentView.preferredSize(in:)` has already answered.
 private struct MacPreferredSizeKey: Hashable {
   let width: CGFloat
@@ -3147,12 +3154,15 @@ private final class NativeMacCanvasView: NSView {
   override var isFlipped: Bool { true }
   /// Bitmaps already resampled for a bilinear upscale, keyed by what they were resampled from and
   /// to. `images` never changes for a canvas, so an entry stays valid for the view's lifetime.
-  private var resampledImages: [ResampledImageKey: CGImage] = [:]
+  private var resampledImages: [ResampledImageKey: ResampledImage] = [:]
   /// The pixel bytes `resampledImages` holds, bounded by `resampledCacheBytes`.
   private var resampledBytes = 0
   /// What one canvas keeps resampled: 32 MiB, two of the largest resamples. Bounded by bytes, not
   /// entries, because a canvas animating an image's size makes a new entry per size.
   private static let resampledCacheBytes = 32 << 20
+  /// Counts draw passes, so the cache can tell the entries this frame draws from the ones an
+  /// animation has left behind.
+  private var drawPass = 0
 
   init(commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?) {
     self.commands = commands
@@ -3173,6 +3183,7 @@ private final class NativeMacCanvasView: NSView {
 
   override func draw(_ dirtyRect: NSRect) {
     guard let context = NSGraphicsContext.current?.cgContext else { return }
+    drawPass &+= 1
     for command in commands { draw(command, context) }
   }
 
@@ -3373,7 +3384,13 @@ private final class NativeMacCanvasView: NSView {
     var key = partial
     key.width = width
     key.height = height
-    if let cached = resampledImages[key] { return cached }
+    if var cached = resampledImages[key] {
+      cached.lastDrawn = drawPass
+      resampledImages[key] = cached
+      return cached.image
+    }
+    let bytes = width * height * 4
+    guard admitResample(bytes: bytes) else { return nil }
 
     let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
     let info = CGImageAlphaInfo.premultipliedLast.rawValue
@@ -3402,14 +3419,23 @@ private final class NativeMacCanvasView: NSView {
         bytesPerRow: width * 4, space: space, bitmapInfo: CGBitmapInfo(rawValue: info),
         provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
     else { return nil }
-    let bytes = width * height * 4
-    if resampledBytes + bytes > Self.resampledCacheBytes {
-      resampledImages.removeAll()
-      resampledBytes = 0
-    }
-    resampledImages[key] = result
+    resampledImages[key] = ResampledImage(image: result, bytes: bytes, lastDrawn: drawPass)
     resampledBytes += bytes
     return result
+  }
+
+  /// Makes room for a resample of `bytes`, evicting only entries this draw pass has not used.
+  ///
+  /// False leaves the draw to Core Graphics. Evicting what the frame still draws instead would
+  /// make a frame with more large resamples than the budget holds redo them on every pass.
+  private func admitResample(bytes: Int) -> Bool {
+    if resampledBytes + bytes > Self.resampledCacheBytes {
+      for (key, entry) in resampledImages where entry.lastDrawn != drawPass {
+        resampledImages[key] = nil
+        resampledBytes -= entry.bytes
+      }
+    }
+    return resampledBytes + bytes <= Self.resampledCacheBytes
   }
 
   /// AppKit's name for a Core Graphics interpolation quality.
