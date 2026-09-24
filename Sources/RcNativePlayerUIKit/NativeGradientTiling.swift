@@ -11,8 +11,8 @@ enum NativeGradientTiling {
   static let decal = 3
 
   /// The whole periods covering the gradient parameter range `lower...upper`, or nil when the range
-  /// is not finite. There is no cap on the count: the renderer only tiles when a period spans at
-  /// least a device pixel, so the count is bounded by the canvas.
+  /// is not finite. There is no cap here: the renderer bounds the count against the device, with
+  /// `ringBudget` for a radial gradient.
   static func periods(lower: Double, upper: Double) -> (first: Int, last: Int)? {
     guard lower.isFinite, upper.isFinite, lower <= upper,
       abs(lower) < Double(Int32.max), abs(upper) < Double(Int32.max)
@@ -20,6 +20,31 @@ enum NativeGradientTiling {
     let first = lower.rounded(.down)
     let last = max(upper.rounded(.up), first + 1)
     return (Int(first), Int(last))
+  }
+
+  /// The largest factor the 2×2 part of an affine transform stretches any direction by: its
+  /// largest singular value. The column lengths are not enough under shear — `a = d = 0.6`,
+  /// `b = c = 0.54` has columns of about 0.81 but stretches the diagonal by 1.14.
+  static func largestStretch(a: Double, b: Double, c: Double, d: Double) -> Double {
+    let sumOfSquares = a * a + b * b + c * c + d * d
+    let determinant = a * d - b * c
+    let spread = (max(sumOfSquares * sumOfSquares - 4 * determinant * determinant, 0)).squareRoot()
+    return ((sumOfSquares + spread) / 2).squareRoot()
+  }
+
+  /// The most rings a radial gradient draws one by one in a clip whose device bounding box is
+  /// `deviceWidth` × `deviceHeight` pixels.
+  ///
+  /// Under a transform that scales every direction alike, a ring a device pixel wide or more can
+  /// only repeat across the clip's diagonal as many times as that diagonal has pixels, so every
+  /// such case fits and is drawn exactly. Only a strongly anisotropic or sheared transform exceeds
+  /// it — a million-unit-wide clip under `scale(0.001, 1)` holds a million rings a thousandth of a
+  /// pixel wide across x — and the renderer then paints the period average rather than spending a
+  /// million clips on the main thread.
+  static func ringBudget(deviceWidth: Double, deviceHeight: Double) -> Int {
+    let diagonal = (deviceWidth * deviceWidth + deviceHeight * deviceHeight).squareRoot()
+    guard diagonal.isFinite else { return 0 }
+    return Int(min(diagonal.rounded(.up), Double(Int32.max))) + 2
   }
 
   /// The colour a repeated or mirrored gradient averages to over one period: what a period smaller

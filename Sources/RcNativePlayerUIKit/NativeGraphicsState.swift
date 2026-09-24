@@ -245,12 +245,21 @@ enum NativeGradientRenderer {
       let span = NativeGradientTiling.periods(
         lower: Double(nearest / radius), upper: Double(farthest / radius))
     else { return false }
-    // The radius's device length along each user axis, measured separately: a rotation keeps the
-    // radius but can zero one component of a transformed diagonal. The rings stay visible while
-    // either direction spans a pixel, so only a period sub-pixel both ways falls back.
+    // The radius's device length in the direction the transform stretches most — its largest
+    // singular value, which a rotation keeps and a shear can raise above either column. The rings
+    // stay visible while any direction spans a pixel, so only a period sub-pixel every way falls
+    // back. So does a ring count the device cannot resolve (`ringBudget`), which only a strongly
+    // anisotropic or sheared transform reaches.
     let device = context.userSpaceToDeviceSpaceTransform
-    let deviceRadius = radius * max(hypot(device.a, device.b), hypot(device.c, device.d))
-    guard deviceRadius >= 1 else {
+    let deviceRadius =
+      radius
+      * CGFloat(
+        NativeGradientTiling.largestStretch(
+          a: Double(device.a), b: Double(device.b), c: Double(device.c), d: Double(device.d)))
+    let deviceClip = clip.applying(device)
+    let budget = NativeGradientTiling.ringBudget(
+      deviceWidth: Double(deviceClip.width), deviceHeight: Double(deviceClip.height))
+    guard deviceRadius >= 1, span.last - max(span.first, 0) <= budget else {
       context.setFillColor(average)
       context.fill(clip)
       return true
