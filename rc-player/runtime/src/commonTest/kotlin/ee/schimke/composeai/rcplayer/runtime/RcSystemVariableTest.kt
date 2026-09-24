@@ -5,6 +5,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
@@ -13,6 +14,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
+import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -196,6 +198,48 @@ class RcSystemVariableTest {
     // The write survives the next frame rather than being silently replaced by the zone offset.
     assertEquals(2f, state.system(RcSystemVariables.OFFSET_TO_UTC))
     assertEquals(1845.25f, state.system(RcSystemVariables.CONTINUOUS_SEC))
+  }
+
+  @Test
+  fun aDocumentThatReadsOnlyWholeSecondsDoesNotNeedEveryFrame() {
+    fun documentReading(id: Int) =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(RcFloatExpression(100, listOf(RcFloatWord(NAN_REFERENCE or id)), null)),
+      )
+
+    // A digital clock moves, but only once a second.
+    val seconds = documentReading(RcSystemVariables.TIME_IN_SEC)
+    assertTrue(seconds.referencesMovingSystemVariable())
+    assertFalse(seconds.referencesContinuousSystemVariable())
+    assertFalse(
+      documentReading(RcSystemVariables.EPOCH_SECOND).referencesContinuousSystemVariable()
+    )
+    // A sweep over continuous seconds needs every frame.
+    assertTrue(
+      documentReading(RcSystemVariables.CONTINUOUS_SEC).referencesContinuousSystemVariable()
+    )
+  }
+
+  @Test
+  fun anUnsetIdBelowFortyTwoIsItsOwnValue() {
+    // Creation code writes some enum constants as bare ids. 40 is below 42 and nothing writes it.
+    val state = RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()))
+    assertEquals(40, state.integer(40))
+    // Id 1 is also the continuous-seconds clock, but a float one: loading the clock must not make
+    // `Visibility.VISIBLE` read as the seconds into the hour.
+    state.beginFrame(0f, epochMillis = 1_787_157_045_000L)
+    assertEquals(1, state.integer(RcSystemVariables.CONTINUOUS_SEC))
+    assertEquals(null, state.integer(142))
+  }
+
+  @Test
+  fun aDrawIdWithTheDereferenceBitIsReadThroughAnInteger() {
+    val state =
+      RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(RcIntegerConstant(150, 77))))
+    assertEquals(77, state.drawId(0x40000000 or 150))
+    // Without the bit it is the id itself, masked to 16 bits.
+    assertEquals(150, state.drawId(150))
   }
 
   @Test
