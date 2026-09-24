@@ -3,9 +3,14 @@ import CoreGraphics
   import RcNativePlayerCore
 #endif
 
+/// `==` compares `values` NaN-stably (`NativeRedrawEquality`) so an unchanged path never redraws.
 struct NativePathElement: Equatable {
   let kind: Int
   let values: [CGFloat]
+
+  static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.kind == rhs.kind && NativeRedrawEquality.same(lhs.values, rhs.values)
+  }
 }
 
 enum NativePathBuilder {

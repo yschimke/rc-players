@@ -458,6 +458,11 @@
     }
   }
 
+  /// `==` decides whether a `NativeCanvasView` redraws, so it is written out rather than
+  /// synthesised: every float member compares NaN-stably (`NativeRedrawEquality`), since
+  /// `values` carries the anchored-text `panY` NaN sentinel and IEEE `==` would call an unchanged
+  /// command different every frame. Every other member uses its own `==`, `UIColor`'s being
+  /// `isEqual`. A new stored property must be added to `==`; `NativeCanvasRedrawTests` counts them.
   struct NativeDrawCommand: Equatable {
     let kind: Int
     let values: [CGFloat]
@@ -555,6 +560,24 @@
       shaderMatrix = nil
       filterQuality = nil
       usesComponentGeometry = false
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+      typealias Floats = NativeRedrawEquality
+      return lhs.kind == rhs.kind && Floats.same(lhs.values, rhs.values)
+        && lhs.color == rhs.color && Floats.same(lhs.alpha, rhs.alpha)
+        && Floats.same(lhs.strokeWidth, rhs.strokeWidth) && lhs.isStroke == rhs.isStroke
+        && lhs.strokeCap == rhs.strokeCap && lhs.strokeJoin == rhs.strokeJoin
+        && lhs.blendMode == rhs.blendMode && Floats.same(lhs.textSize, rhs.textSize)
+        && Floats.same(lhs.textWeight, rhs.textWeight) && lhs.text == rhs.text
+        && lhs.path == rhs.path && lhs.pathWinding == rhs.pathWinding
+        && lhs.gradient == rhs.gradient && lhs.textStyle == rhs.textStyle
+        && lhs.image == rhs.image && lhs.textureImageID == rhs.textureImageID
+        && lhs.textureTileModeX == rhs.textureTileModeX
+        && lhs.textureTileModeY == rhs.textureTileModeY
+        && Floats.same(lhs.shaderMatrix, rhs.shaderMatrix)
+        && lhs.filterQuality == rhs.filterQuality
+        && lhs.usesComponentGeometry == rhs.usesComponentGeometry
     }
 
     /// The shader's local matrix as a Core Graphics affine transform, or identity when the paint
