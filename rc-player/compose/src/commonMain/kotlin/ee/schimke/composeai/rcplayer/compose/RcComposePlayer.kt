@@ -273,6 +273,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
+import ee.schimke.composeai.rcplayer.runtime.RcAnimatableFloat
 import ee.schimke.composeai.rcplayer.runtime.RcAnimationTimeline
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
@@ -3622,11 +3623,13 @@ private fun Modifier.applyGraphicsLayer(
 ): Modifier {
   val animator = remember(state) { RcGraphicsLayerAnimator() }
   val values = animator.evaluate(operation, state)
-  val extras = RcGraphicsLayerExtras.of(operation, state)
+  val extraAnimatables = remember(state) { mutableMapOf<Int, RcAnimatableFloat>() }
+  val extras = RcGraphicsLayerExtras.of(operation, state, extraAnimatables)
+  val animating = values.isAnimating || extras.isAnimating
   val frameDemand = LocalRcFrameDemand.current
-  DisposableEffect(frameDemand, values.isAnimating) {
-    if (values.isAnimating) frameDemand.acquire()
-    onDispose { if (values.isAnimating) frameDemand.release() }
+  DisposableEffect(frameDemand, animating) {
+    if (animating) frameDemand.acquire()
+    onDispose { if (animating) frameDemand.release() }
   }
   return graphicsLayer {
     scaleX = values.scaleX
@@ -3650,7 +3653,8 @@ private fun Modifier.applyGraphicsLayer(
 
 /**
  * The graphics-layer attributes beyond the animated floats `RcGraphicsLayerValues` carries: shape,
- * compositing, blur and shadow colours. They are read as written, without the implicit tween.
+ * compositing, blur and shadow colours. Its floats ease like the others, through [animatables], one
+ * per attribute and held per component.
  */
 private class RcGraphicsLayerExtras(
   val shape: Shape,
@@ -3658,14 +3662,30 @@ private class RcGraphicsLayerExtras(
   val renderEffect: BlurEffect?,
   val ambientShadowColor: Color?,
   val spotShadowColor: Color?,
+  val isAnimating: Boolean,
 ) {
   companion object {
-    fun of(operation: RcGraphicsLayerModifier, state: RcPlayerState): RcGraphicsLayerExtras {
+    fun of(
+      operation: RcGraphicsLayerModifier,
+      state: RcPlayerState,
+      animatables: MutableMap<Int, RcAnimatableFloat>,
+    ): RcGraphicsLayerExtras {
       val attributes = operation.attributes.associateBy { it.index }
+      var animating = false
       fun int(index: Int): Int? = (attributes[index] as? RcGraphicsLayerAttribute.IntValue)?.value
-      fun float(index: Int): Float =
-        (attributes[index] as? RcGraphicsLayerAttribute.FloatValue)?.let { state.resolve(it.value) }
-          ?: 0f
+      fun float(index: Int): Float {
+        val word = (attributes[index] as? RcGraphicsLayerAttribute.FloatValue)?.value ?: return 0f
+        val referencedId = word.referencedId
+        val animatable = animatables.getOrPut(index) { RcAnimatableFloat() }
+        val resolved =
+          animatable.evaluate(
+            target = state.resolve(word),
+            animatable = referencedId != null && !state.isContinuouslyDriven(referencedId),
+            nowSeconds = state.animationTimeSeconds,
+          )
+        if (animatable.isAnimating) animating = true
+        return resolved
+      }
       val blurX = float(RcGraphicsLayerModifier.BLUR_RADIUS_X)
       val blurY = float(RcGraphicsLayerModifier.BLUR_RADIUS_Y)
       return RcGraphicsLayerExtras(
@@ -3701,6 +3721,7 @@ private class RcGraphicsLayerExtras(
           },
         ambientShadowColor = int(RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR)?.let(::Color),
         spotShadowColor = int(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR)?.let(::Color),
+        isAnimating = animating,
       )
     }
   }
