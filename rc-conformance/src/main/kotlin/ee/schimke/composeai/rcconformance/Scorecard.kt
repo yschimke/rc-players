@@ -123,6 +123,30 @@ public object Scorecard {
         appendLine()
       }
 
+      // The rows a fix starts from. The results file carries every diff, but it only leaves CI as
+      // an artifact; this puts the binding disagreements in the job log, where a branch dispatch
+      // can be read without downloading anything.
+      val failing = results.filter { it.status == "FAIL" }
+      if (failing.isNotEmpty()) {
+        appendLine("## Failing checks")
+        appendLine()
+        failing.forEach { result ->
+          val shown = result.diffs.filter { it.probe != "raster" }
+          if (shown.isEmpty()) return@forEach
+          appendLine("- `${result.gold.name}`")
+          shown.take(DIFF_SAMPLE).forEach { diff ->
+            appendLine(
+              "  - `${diff.at}` `${diff.probe}`" +
+                (diff.target?.let { " `$it`" } ?: "") +
+                " ${diff.property}: expected ${clip(diff.expected.toString())}, " +
+                "actual ${clip(diff.actual.toString())}"
+            )
+          }
+          if (shown.size > DIFF_SAMPLE) appendLine("  - …and ${shown.size - DIFF_SAMPLE} more")
+        }
+        appendLine()
+      }
+
       val errors = results.filter { it.status == "ERROR" }
       if (errors.isNotEmpty()) {
         appendLine("## Errors")
@@ -137,6 +161,11 @@ public object Scorecard {
   }
 
   private const val ERROR_SAMPLE = 10
+  private const val DIFF_SAMPLE = 6
+  private const val VALUE_LIMIT = 160
+
+  private fun clip(value: String): String =
+    if (value.length <= VALUE_LIMIT) value else value.take(VALUE_LIMIT) + "…"
 
   private fun row(label: String, group: List<GoldResult>): String {
     val passed = group.count { it.status == "PASS" }
