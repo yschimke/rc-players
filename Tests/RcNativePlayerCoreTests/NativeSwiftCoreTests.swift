@@ -1767,6 +1767,45 @@ import Testing
   /// 4 KB body -- a skipped conditional around a 1,024-word paint -- would build 40 MB from a
   /// document a few kilobytes long; the expansion is charged against a byte budget as it grows and
   /// refused once it passes it.
+  @Test func marqueeModifierFollowsTheFirstPaintClock() throws {
+    // `modifier_marquee_ticker`: a 240-wide text carrying MODIFIER_MARQUEE (228), which used to
+    // refuse the whole document. Its offset runs on the wall clock from the first paint; the corpus
+    // harness holds that clock a second before the sequence's base, which a host pins here.
+    let document = Data(
+      base64Encoded:
+        "AASMAAEAAAABAAAAAAAAAAQABQAEAAABLAAGAAQAAABkDAkAGwAAABdtb2RpZmllcl9tYXJxdWVlX3RpY2tlcgAOAAQAAAIByP////7L/////f////8AAAABAAAABAAAAAAQAAAAAT+AAABDAAAAAT+AAAA3AAAAAAAAAAAAAAAAAAAAAD3w8PE+JKSlPmzs7T+AAAAAAAAAyf////xmAAAAKgAAABxSZW1vdGVDb21wb3NlIE1hcnF1ZWUgVGlja2Vy7wAAACoABQH////7BUGAAAAJAAAABQoAAAACCwAAAAEQAAAAAENwAABDAAAAAEIgAAA3AAAAAAAAAAAAAAAAAAAAAD8Tk5Q/RcXGP339/j+AAAAAAAAA5P////8AAAAAAAAAAEP6AABCAAAAQnAAAMn////61tbW1tY="
+    )!
+    let session = try NativeSwiftDocumentSession.open(data: document)
+    session.setFirstPaintTime(9)
+    func marquee(in node: NativeSwiftNodeSnapshot) -> NativeSwiftMarqueeSnapshot? {
+      node.marquee ?? node.children.lazy.compactMap(marquee(in:)).first
+    }
+    let first = try session.snapshot(timeSeconds: 10)
+    let decoded = try #require(marquee(in: first.root))
+    #expect(
+      decoded
+        == NativeSwiftMarqueeSnapshot(
+          iterations: -1, animationMode: 0, repeatDelayMillis: 0, initialDelayMillis: 500,
+          spacing: 32, velocity: 60),
+      "the marquee's fields did not decode: \(decoded)")
+    #expect(first.needsContinuousFrames, "a marquee has to keep the frames coming")
+    // Ahem at 16 sets the 28-character line 448 wide; with its 32 spacing it overruns 240 by 240.
+    // Frame n of the sequence is 10 + n/60 seconds; the corpus's `scroll_x` at each capture:
+    let expected: [(frame: Double, offset: Float)] = [
+      (0, 0), (30, -120), (60, -204.85), (90, -240), (150, -120), (210, 0), (240, -35.15),
+    ]
+    for (frame, offset) in expected {
+      let snapshot = try session.snapshot(timeSeconds: 10 + frame / 60)
+      let actual = decoded.offset(
+        overflowDistance: 240, density: 1, elapsedSeconds: snapshot.marqueeElapsedSeconds)
+      #expect(abs(actual - offset) < 0.5, "frame \(frame): \(actual), expected \(offset)")
+    }
+    // Unpinned, the first snapshot is the first paint.
+    let live = try NativeSwiftDocumentSession.open(data: document)
+    #expect(try live.snapshot(timeSeconds: 3).marqueeElapsedSeconds == 0)
+    #expect(try live.snapshot(timeSeconds: 4.5).marqueeElapsedSeconds == 1.5)
+  }
+
   @Test func amplifyingLoopIsMalformed() {
     let document = Writer()
     document.header(width: 100, height: 100)

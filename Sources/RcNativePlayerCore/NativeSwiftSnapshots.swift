@@ -332,6 +332,10 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   /// `WAKE_IN`, an impulse still waiting for its window, or 0 for one inside it. Nil when nothing
   /// asked.
   public let wakeAfter: TimeInterval?
+  /// Seconds since this session was first painted, which is the clock AndroidX's marquee runs on:
+  /// it latches the wall clock at the first paint rather than reading the document's animation
+  /// time. Zero on the first frame.
+  public let marqueeElapsedSeconds: TimeInterval
 
   // Storage for the conformance-only records above. They are `@_spi(Conformance)` computed
   // properties over internal storage rather than SPI stored properties, so the struct's layout
@@ -459,6 +463,9 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// How far the scroll may travel, from the modifier's own maximum. Zero means the document
   /// has not had its measured travel written yet; a renderer can derive it from content measurement.
   public let scrollMaximum: Float
+  /// The marquee modifier this component carries, or nil. A marquee is a scroll the clock drives:
+  /// like a scroll it moves the paint, not the layout, and the corpus reads its offset as `scroll_x`.
+  public let marquee: NativeSwiftMarqueeSnapshot?
   public let text: NativeSwiftTextSnapshot?
   public let custom: NativeSwiftCustomSnapshot?
 }
@@ -662,6 +669,54 @@ public enum NativeSwiftGestureKind: Int, CaseIterable, Equatable, Sendable {
 }
 
 /// The axis a scroll modifier moves along.
+/// AndroidX's `MarqueeModifierOperation`, with its float fields resolved for the frame.
+public struct NativeSwiftMarqueeSnapshot: Equatable, Sendable {
+  /// How many sweeps to run; -1 repeats forever. The reference's sinusoidal timeline ignores it.
+  public let iterations: Int
+  /// 0 starts immediately, 1 only while focused.
+  public let animationMode: Int
+  public let repeatDelayMillis: Float
+  public let initialDelayMillis: Float
+  /// The gap after the content before it repeats, in the document's dimension units.
+  public let spacing: Float
+  /// Speed in dp per second.
+  public let velocity: Float
+
+  public init(
+    iterations: Int, animationMode: Int, repeatDelayMillis: Float, initialDelayMillis: Float,
+    spacing: Float, velocity: Float
+  ) {
+    self.iterations = iterations
+    self.animationMode = animationMode
+    self.repeatDelayMillis = repeatDelayMillis
+    self.initialDelayMillis = initialDelayMillis
+    self.spacing = spacing
+    self.velocity = velocity
+  }
+
+  /// The horizontal offset the content is drawn at, `elapsedSeconds` after the first paint.
+  ///
+  /// The reference's (`androidXMarqueeOffset` in `RcMarqueeTimeline.kt`) sinusoidal timeline:
+  /// `MarqueeModifierOperation` latches its start as *first paint + initial delay*, holds still
+  /// until a further initial delay has passed, and then takes its phase from that latched start —
+  /// so the content rests for twice the delay, and the cycle it then joins is already one delay in.
+  /// Rebasing the phase to the moment motion begins would run a delay behind AndroidX throughout.
+  ///
+  /// - Parameter overflowDistance: how far the content, plus `spacing`, overruns the component.
+  public func offset(
+    overflowDistance: Float, density: Float, elapsedSeconds: TimeInterval
+  ) -> Float {
+    guard overflowDistance > 0 else { return 0 }
+    let initialDelaySeconds = initialDelayMillis / 1_000
+    let sinceStartSeconds = Float(elapsedSeconds) - initialDelaySeconds
+    guard sinceStartSeconds > initialDelaySeconds else { return 0 }
+    let durationSeconds = overflowDistance / (density * velocity)
+    guard durationSeconds.isFinite, durationSeconds > 0 else { return 0 }
+    let phase = sinceStartSeconds.truncatingRemainder(dividingBy: durationSeconds) / durationSeconds
+    return -overflowDistance * ((1 - cos(phase * 2 * Float.pi)) / 2)
+  }
+}
+
 public enum NativeSwiftScrollDirection: Int, Sendable {
   case vertical = 0
   case horizontal = 1

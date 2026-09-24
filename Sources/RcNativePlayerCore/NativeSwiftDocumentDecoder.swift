@@ -164,6 +164,8 @@ enum NativeSwiftDocumentDecoder {
     var syntheticRootWasAdded = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
+    // A marquee moves with the clock by itself, so a document holding one keeps the frames coming.
+    var hasMarquee = false
     var impulses: [ParsedImpulse] = []
     /// A `ColorTheme`'s dark fallback, by colour id; its light one seeds `colors`.
     var darkColors: [Int: UInt32] = [:]
@@ -1852,6 +1854,19 @@ enum NativeSwiftDocumentDecoder {
         node.scrollMaximumWord = try input.word("scroll maximum")
         _ = try input.word("scroll notch maximum")
         modifierContainers.append(ParsedModifierContainer(node: nil, gesture: nil))
+      case NativeSwiftWireOpcode.modifierMarquee:  // Marquee modifier
+        // INT iterations, INT animation mode, then repeat delay, initial delay, spacing and velocity
+        // as float words (`MarqueeModifierOperation`). A plain modifier, not a container: it lets
+        // the component's content measure unbounded along x and scrolls it, on the clock, by the
+        // distance it overflows the component.
+        let node = try currentNode(stack, input: input)
+        node.marqueeIterations = try input.int("marquee iterations")
+        node.marqueeAnimationMode = try input.int("marquee animation mode")
+        node.marqueeRepeatDelayWord = try input.word("marquee repeat delay")
+        node.marqueeInitialDelayWord = try input.word("marquee initial delay")
+        node.marqueeSpacingWord = try input.word("marquee spacing")
+        node.marqueeVelocityWord = try input.word("marquee velocity")
+        hasMarquee = true
       case NativeSwiftWireOpcode.modifierBorder:  // Border modifier
         // INT flags, INT color id, two reserved ints, then width, corner radius and r/g/b/a as
         // float words, then INT shape type.
@@ -2366,7 +2381,7 @@ enum NativeSwiftDocumentDecoder {
       NativeSwiftTimeAttributeType.fromNowHours, NativeSwiftTimeAttributeType.fromLoadSeconds,
     ]
     let needsContinuousFrames = references(continuousClockIDs)
-      || timeAttributes.contains { continuousTimeTypes.contains($0.type & 0xFF) }
+      || timeAttributes.contains { continuousTimeTypes.contains($0.type & 0xFF) } || hasMarquee
     // The discrete wall-clock fields are constant within a second, so a document that reads one has
     // to be re-resolved at least once a second or its clock freezes on the first frame.
     let discreteWallClockIDs: Set<Int> = [
@@ -2648,6 +2663,14 @@ final class ParsedNode {
   /// notch maximum is consumed by the decoder and dropped: nothing here snaps a scroll yet.
   fileprivate(set) var scrollPositionWord: UInt32?
   fileprivate(set) var scrollMaximumWord: UInt32?
+  /// Set by the marquee modifier (228). The float fields stay words so a variable resolves with the
+  /// frame's values; `marqueeVelocityWord` being set is what marks the node as a marquee.
+  fileprivate(set) var marqueeIterations = 0
+  fileprivate(set) var marqueeAnimationMode = 0
+  fileprivate(set) var marqueeRepeatDelayWord: UInt32 = 0
+  fileprivate(set) var marqueeInitialDelayWord: UInt32 = 0
+  fileprivate(set) var marqueeSpacingWord: UInt32 = 0
+  fileprivate(set) var marqueeVelocityWord: UInt32?
   /// Set by `StateLayout` (217): the integer holding the index of the child to show.
   fileprivate(set) var stateIndexID: Int?
   /// Set by `FlowLayout` (240): children wrap onto further lines, at most this many per line and

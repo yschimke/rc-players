@@ -31,6 +31,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var impulsePhases: [Int: NativeSwiftImpulsePhase] = [:]
   private var lastImpulseFrameTime: TimeInterval?
   private var lastParticleFrameTime: TimeInterval?
+  /// The instant this session was first painted at, on the clock its frames are resolved against;
+  /// what a marquee times itself from. Latched by the first snapshot unless a host pinned it.
+  private var firstPaintSeconds: TimeInterval?
   // A host may request another frame for a document that has no clock-driven state. Preserve the
   // public value snapshot while sharing its copy-on-write storage instead of re-resolving the
   // complete parsed tree each time. Measurements remain part of the cache key because they are the
@@ -100,6 +103,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     impulsePhases = other.impulsePhases
     lastImpulseFrameTime = other.lastImpulseFrameTime
     lastParticleFrameTime = other.lastParticleFrameTime
+    firstPaintSeconds = other.firstPaintSeconds
     staticSnapshotCache = other.staticSnapshotCache
   }
 
@@ -144,6 +148,25 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// otherwise. Unspecified stays light rather than following the TypeScript reference's dark,
   /// because light is what the reference JVM lane renders for a player with no theme (see the
   /// `ColorTheme` decode). Operations a `THEME` marker scopes are not filtered by it yet.
+  /// Pins the instant the document was first painted, on the `timeSeconds` clock.
+  ///
+  /// A host that renders frames from a fresh session each time — the conformance batch — would
+  /// otherwise latch every frame as the first, and a marquee would never move. The reference
+  /// harness holds its clock one second before a frame sequence's base through the warm-up paints,
+  /// so that is the instant it names here.
+  public func setFirstPaintTime(_ seconds: TimeInterval) {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    firstPaintSeconds = seconds
+    staticSnapshotCache = nil
+  }
+
+  /// Seconds since the first paint; the first snapshot latches it.
+  private func marqueeElapsedSeconds(at timeSeconds: TimeInterval) -> TimeInterval {
+    if firstPaintSeconds == nil { firstPaintSeconds = timeSeconds }
+    return max(timeSeconds - (firstPaintSeconds ?? timeSeconds), 0)
+  }
+
   public func setRequestedTheme(_ theme: Int) {
     stateLock.lock()
     defer { stateLock.unlock() }
@@ -235,6 +258,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           startAt: NativeSwiftFloatExpression.resolve($0.startAtWord, values: values))
       },
       wakeAfter: wakeAfter(values: values, timeSeconds: timeSeconds),
+      marqueeElapsedSeconds: marqueeElapsedSeconds(at: timeSeconds),
       conformanceAnimationSpecOrder: document.animationSpecOrder,
       conformancePathIDs: document.pathIDs, conformancePathTweenIDs: document.pathTweenIDs,
       conformanceShaderUniformNames: document.shaderUniformNames,
@@ -774,6 +798,16 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       scrollMaximum: node.scrollMaximumWord.map {
         NativeSwiftFloatExpression.resolve($0, values: values)
       } ?? 0,
+      marquee: node.marqueeVelocityWord.map {
+        NativeSwiftMarqueeSnapshot(
+          iterations: node.marqueeIterations, animationMode: node.marqueeAnimationMode,
+          repeatDelayMillis: NativeSwiftFloatExpression.resolve(
+            node.marqueeRepeatDelayWord, values: values),
+          initialDelayMillis: NativeSwiftFloatExpression.resolve(
+            node.marqueeInitialDelayWord, values: values),
+          spacing: NativeSwiftFloatExpression.resolve(node.marqueeSpacingWord, values: values),
+          velocity: NativeSwiftFloatExpression.resolve($0, values: values))
+      },
       text: text,
       custom: custom)
   }
