@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
@@ -52,6 +53,9 @@ class RcGraphicsLayerAnimationRenderTest {
       assertEquals(0, scene.blockLeftEdge(nanos = 0L), "the block starts at the left")
 
       namedValues["USER:offset"] = RcNamedValue.FloatValue(TRAVEL)
+      // Written outside composition: deliver it now, or the first timed frame may not see it and
+      // the tween starts late — on a slow runner, late enough never to move (#283).
+      Snapshot.sendApplyNotifications()
       val positions = (1..STEPS).map { scene.blockLeftEdge(nanos = it * FRAME) }
 
       assertEquals(
@@ -87,6 +91,7 @@ class RcGraphicsLayerAnimationRenderTest {
     try {
       scene.render(0L)
       namedValues["USER:offset"] = RcNamedValue.FloatValue(TRAVEL)
+      Snapshot.sendApplyNotifications()
       // A fixed frame count rather than a wall-clock instant, so the image is the same every run.
       repeat(EVIDENCE_FRAMES - 1) { scene.render((it + 1) * FRAME) }
       val frame = scene.render(EVIDENCE_FRAMES * FRAME)
