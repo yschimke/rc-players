@@ -15,8 +15,8 @@ enum NativeGraphicsState {
   static func apply(
     to context: CGContext,
     strokeWidth: CGFloat,
-    strokeCap: Int,
-    strokeJoin: Int,
+    strokeCap: NativeSwiftStrokeCap,
+    strokeJoin: NativeSwiftStrokeJoin,
     blendMode: Int
   ) {
     context.setLineWidth(max(strokeWidth, 0.5))
@@ -25,19 +25,27 @@ enum NativeGraphicsState {
     context.setBlendMode(self.blendMode(blendMode))
   }
 
-  static func lineCap(_ value: Int) -> CGLineCap {
+  static func lineCap(_ value: NativeSwiftStrokeCap) -> CGLineCap {
     switch value {
-    case 1: .round
-    case 2: .square
-    default: .butt
+    case .butt: .butt
+    case .round: .round
+    case .square: .square
     }
   }
 
-  static func lineJoin(_ value: Int) -> CGLineJoin {
+  static func lineJoin(_ value: NativeSwiftStrokeJoin) -> CGLineJoin {
     switch value {
-    case 1: .round
-    case 2: .bevel
-    default: .miter
+    case .miter: .miter
+    case .round: .round
+    case .bevel: .bevel
+    }
+  }
+
+  /// The Core Graphics fill rule a path's winding fills with.
+  static func fillRule(_ winding: NativeSwiftPathWinding) -> CGPathFillRule {
+    switch winding {
+    case .nonZero: .winding
+    case .evenOdd: .evenOdd
     }
   }
 

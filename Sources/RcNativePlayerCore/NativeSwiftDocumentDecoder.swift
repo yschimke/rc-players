@@ -1491,7 +1491,8 @@ enum NativeSwiftDocumentDecoder {
         words.reserveCapacity(count)
         for _ in 0..<count { words.append(try input.word("path word")) }
         paths[idAndWinding & 0x00ff_ffff] = ParsedPath(
-          winding: idAndWinding >> 24, words: words, opcode: opcode, offset: opcodeOffset)
+          winding: NativeSwiftPathWinding(wireValue: idAndWinding >> 24), words: words,
+          opcode: opcode, offset: opcodeOffset)
         pathIDs.insert(idAndWinding & 0x00ff_ffff)
       case NativeSwiftWireOpcode.pathTween:
         // Path tween; retained for the decoded-operation record probe.
@@ -2512,12 +2513,14 @@ enum NativeSwiftDocumentDecoder {
         paint.colorID = nil
       case NativeSwiftPaintCommand.strokeWidth:
         paint.strokeWidth = UInt32(bitPattern: Int32(words[index]))
-      case NativeSwiftPaintCommand.strokeCap: paint.strokeCap = highBits
+      case NativeSwiftPaintCommand.strokeCap:
+        paint.strokeCap = NativeSwiftStrokeCap(wireValue: highBits)
       case NativeSwiftPaintCommand.style:
         paint.isStroke = highBits == NativeSwiftPaintStyle.stroke
       case NativeSwiftPaintCommand.alpha:
         paint.alpha = min(max(Float(bitPattern: UInt32(bitPattern: Int32(words[index]))), 0), 1)
-      case NativeSwiftPaintCommand.strokeJoin: paint.strokeJoin = highBits
+      case NativeSwiftPaintCommand.strokeJoin:
+        paint.strokeJoin = NativeSwiftStrokeJoin(wireValue: highBits)
       case NativeSwiftPaintCommand.blendMode: paint.blendMode = highBits
       case NativeSwiftPaintCommand.imageFilterQuality:
         // Image filter quality: 0 none, 1 low, 2 medium, 3 high. Anything else is the reference's

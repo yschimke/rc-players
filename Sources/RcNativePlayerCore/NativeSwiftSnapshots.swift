@@ -11,7 +11,8 @@ public enum NativeSwiftTextAttributeType {
   public static let length = 6
 }
 
-/// Path data's command tokens: every value AndroidX's `PathData` defines, NaN-boxed in the stream.
+/// Path data's command tokens (`RcPathCommands`): every value AndroidX's `PathData` defines,
+/// NaN-boxed in a `PATH_DATA` word stream, and the kinds of `NativeSwiftPathElementSnapshot`.
 public enum NativeSwiftPathCommand {
   public static let move = 10
   public static let line = 11
@@ -593,11 +594,11 @@ public struct NativeSwiftDrawCommandSnapshot: Sendable {
   public let alpha: Float
   public let strokeWidth: Float
   public let isStroke: Bool
-  public let strokeCap: Int
-  public let strokeJoin: Int
+  public let strokeCap: NativeSwiftStrokeCap
+  public let strokeJoin: NativeSwiftStrokeJoin
   public let blendMode: Int
   public let path: [NativeSwiftPathElementSnapshot]
-  public let pathWinding: Int
+  public let pathWinding: NativeSwiftPathWinding
   public let image: NativeSwiftImageDrawSnapshot?
   public let textureImageID: Int?
   public let textureTileModeX: Int
