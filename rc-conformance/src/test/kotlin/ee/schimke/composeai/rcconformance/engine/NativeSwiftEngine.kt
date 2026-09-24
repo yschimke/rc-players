@@ -345,7 +345,10 @@ private class NativeSwiftSession(
       "records:semantics",
       "records:paths",
       "records:tweens",
-      "records:uniforms" -> records(check)
+      "records:uniforms",
+      // A relation between records (§4.2) is asserted over the same records channel; the shared
+      // comparator evaluates the relation, so the lane only has to observe the records.
+      "relation:anchor_runs" -> records(check)
       else -> Observation.NotImplemented
     }
 
