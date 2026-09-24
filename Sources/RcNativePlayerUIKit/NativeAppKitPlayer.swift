@@ -3110,6 +3110,25 @@ private typealias MacFlowLine = (
   }
 }
 
+/// What a canvas resampled for a bilinear upscale: which bitmap, which part of it, at what size.
+private struct ResampledImageKey: Hashable {
+  let imageID: Int
+  let sourceX: CGFloat
+  let sourceY: CGFloat
+  let sourceWidth: CGFloat
+  let sourceHeight: CGFloat
+  var width = 0
+  var height = 0
+
+  init(imageID: Int, source: CGRect) {
+    self.imageID = imageID
+    sourceX = source.minX
+    sourceY = source.minY
+    sourceWidth = source.width
+    sourceHeight = source.height
+  }
+}
+
 /// A constraint `NativeMacComponentView.preferredSize(in:)` has already answered.
 private struct MacPreferredSizeKey: Hashable {
   let width: CGFloat
@@ -3126,6 +3145,9 @@ private final class NativeMacCanvasView: NSView {
   /// looks one up with the default style's family (-1), which never matches.
   let conformanceFontName: String?
   override var isFlipped: Bool { true }
+  /// Bitmaps already resampled for a bilinear upscale, keyed by what they were resampled from and
+  /// to. `images` never changes for a canvas, so an entry stays valid for the view's lifetime.
+  private var resampledImages: [ResampledImageKey: CGImage] = [:]
 
   init(commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?) {
     self.commands = commands
@@ -3299,19 +3321,83 @@ private final class NativeMacCanvasView: NSView {
     // overflow it, while a malformed or fixed draw must never leak outside it.
     context.saveGState()
     context.clip(to: destination)
+    let target = scaledImageDestination(
+      source: source, destination: destination, scaleType: draw.scaleType,
+      scaleFactor: CGFloat(draw.scaleFactor))
     // The paint's filter quality, bilinear when it named none, as the reference players sample.
-    // NSImage takes its interpolation from the hint rather than the context, so both are set.
-    let quality = NativeTexturePolicy.interpolationQuality(
+    // Core Graphics' own levels are not that filter, so a bilinear upscale is resampled here and
+    // drawn one to one; anything else is left to Core Graphics. NSImage takes its interpolation
+    // from the hint rather than the context, so both are set.
+    var quality = NativeTexturePolicy.interpolationQuality(
       forFilterQuality: command.filterQuality)
+    var drawn = cropped
+    if quality == .low,
+      let resampled = resampledImage(
+        cropped, key: ResampledImageKey(imageID: draw.imageID, source: source), into: target,
+        context: context)
+    {
+      drawn = resampled
+      quality = CGInterpolationQuality.none
+    }
     context.interpolationQuality = quality
     // Fraction 1: the paint alpha is already the context's alpha, as it is for UIKit's image draw.
-    NSImage(cgImage: cropped, size: NSSize(width: cropped.width, height: cropped.height)).draw(
-      in: scaledImageDestination(
-        source: source, destination: destination, scaleType: draw.scaleType,
-        scaleFactor: CGFloat(draw.scaleFactor)), from: .zero, operation: .sourceOver,
-      fraction: 1, respectFlipped: true,
+    NSImage(cgImage: drawn, size: target.size).draw(
+      in: target, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true,
       hints: [.interpolation: NSNumber(value: Self.imageInterpolation(quality).rawValue)])
     context.restoreGState()
+  }
+
+  /// `image` resampled bilinearly to the device pixels `rect` covers, when the draw is an
+  /// axis-aligned upscale; nil leaves the draw to Core Graphics.
+  private func resampledImage(
+    _ image: CGImage, key partial: ResampledImageKey, into rect: CGRect, context: CGContext
+  ) -> CGImage? {
+    let device = context.userSpaceToDeviceSpaceTransform
+    guard abs(device.b) < 1e-6, abs(device.c) < 1e-6 else { return nil }
+    let deviceWidth = (rect.width * abs(device.a)).rounded()
+    let deviceHeight = (rect.height * abs(device.d)).rounded()
+    guard deviceWidth.isFinite, deviceHeight.isFinite,
+      deviceWidth >= CGFloat(image.width), deviceHeight >= CGFloat(image.height),
+      deviceWidth * deviceHeight <= CGFloat(NativeBilinearScaler.maximumPixels)
+    else { return nil }
+    let width = Int(deviceWidth)
+    let height = Int(deviceHeight)
+    guard width > image.width || height > image.height else { return nil }
+    var key = partial
+    key.width = width
+    key.height = height
+    if let cached = resampledImages[key] { return cached }
+
+    let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+    let info = CGImageAlphaInfo.premultipliedLast.rawValue
+    guard
+      let input = CGContext(
+        data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
+        bytesPerRow: 0, space: space, bitmapInfo: info)
+    else { return nil }
+    input.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    guard let data = input.data else { return nil }
+    let rowBytes = input.bytesPerRow
+    let bytes = data.assumingMemoryBound(to: UInt8.self)
+    var pixels = [UInt8]()
+    pixels.reserveCapacity(image.width * image.height * 4)
+    for row in 0..<image.height {
+      pixels.append(
+        contentsOf: UnsafeBufferPointer(start: bytes + row * rowBytes, count: image.width * 4))
+    }
+    guard
+      let scaled = NativeBilinearScaler.scale(
+        pixels, width: image.width, height: image.height, targetWidth: width,
+        targetHeight: height),
+      let provider = CGDataProvider(data: Data(scaled) as CFData),
+      let result = CGImage(
+        width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+        bytesPerRow: width * 4, space: space, bitmapInfo: CGBitmapInfo(rawValue: info),
+        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+    else { return nil }
+    if resampledImages.count >= 32 { resampledImages.removeAll() }
+    resampledImages[key] = result
+    return result
   }
 
   /// AppKit's name for a Core Graphics interpolation quality.
