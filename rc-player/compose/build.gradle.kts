@@ -200,6 +200,7 @@ tasks.withType<Test>().configureEach {
       "rc.cmp.fonts",
       "rc.bitmapFilter.out",
       "rc.android.out",
+      "rc.android.settleFrames",
     )) {
     (project.findProperty(name) as String?)?.let { systemProperty(name, it) }
   }
