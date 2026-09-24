@@ -1268,21 +1268,31 @@
 
     /// Writes an arrangement the engine produced for this container onto its children.
     private func apply(_ arrangement: NativeLayoutArrangement<NativeComponentView>) {
+      // Semantic elements resolve from the displayed views, so any change layout makes to what is
+      // displayed (a collapsed or restored child, a flow's discarded item, a FitBox's choice) is
+      // re-resolved here rather than at the next document update.
+      var displayedStateChanged = false
       for change in arrangement.visibilityChanges {
-        change.item.isHidden = change.isHidden
+        if change.item.isHidden != change.isHidden {
+          change.item.isHidden = change.isHidden
+          displayedStateChanged = true
+        }
         if change.resetsAlpha { change.item.alpha = 1 }
-        if change.isFitBoxAlternative { change.item.ignoresOwnVisibility = true }
+        if change.isFitBoxAlternative, !change.item.ignoresOwnVisibility {
+          change.item.ignoresOwnVisibility = true
+          displayedStateChanged = true
+        }
       }
-      if let containerIsHidden = arrangement.containerIsHidden { isHidden = containerIsHidden }
+      if let containerIsHidden = arrangement.containerIsHidden, isHidden != containerIsHidden {
+        isHidden = containerIsHidden
+        displayedStateChanged = true
+      }
       for placement in arrangement.placements { placement.item.frame = placement.frame }
-      if arrangement.visibilityChanges.contains(where: \.isFitBoxAlternative) {
-        refreshSemanticElements()
-      }
+      if displayedStateChanged { refreshSemanticElements() }
     }
 
-    /// A FitBox decides at layout which alternative it displays, and a merging ancestor's label and
-    /// action come from that alternative, so every semantic element from here up is re-resolved
-    /// once the decision is made.
+    /// Re-resolves every semantic element from here up: a merging ancestor's label, role and
+    /// action come from its displayed descendants.
     func refreshSemanticElements() {
       var view: UIView? = self
       while let current = view {
