@@ -3,12 +3,41 @@ import CoreGraphics
   import RcNativePlayerCore
 #endif
 
+/// Float equality for deciding whether a canvas must redraw: `==`, except that NaN equals NaN.
+///
+/// A draw value can legitimately be NaN — `DrawTextAnchored`'s `panY` sentinel, see
+/// `NativeSwiftDrawCommandSnapshot.unsetValueIndices` — and IEEE `==` never holds for NaN, so a
+/// synthesised `==` would call an unchanged command different and redraw it every frame.
+enum NativeRedrawEquality {
+  static func same<T: FloatingPoint>(_ lhs: T, _ rhs: T) -> Bool {
+    lhs == rhs || (lhs.isNaN && rhs.isNaN)
+  }
+
+  static func same<T: FloatingPoint>(_ lhs: [T], _ rhs: [T]) -> Bool {
+    guard lhs.count == rhs.count else { return false }
+    return zip(lhs, rhs).allSatisfy { same($0, $1) }
+  }
+
+  static func same<T: FloatingPoint>(_ lhs: [T]?, _ rhs: [T]?) -> Bool {
+    guard let lhs, let rhs else { return lhs == nil && rhs == nil }
+    return same(lhs, rhs)
+  }
+}
+
+/// `==` is written out only so `stops` and `values` compare NaN-stably (`NativeRedrawEquality`);
+/// every other member uses its own `==`, `CGColor`'s being `CFEqual`.
 struct NativeGradient: Equatable {
   let kind: Int
   let colors: [CGColor]
   let stops: [CGFloat]
   let values: [CGFloat]
   let tileMode: Int
+
+  static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.kind == rhs.kind && lhs.colors == rhs.colors
+      && NativeRedrawEquality.same(lhs.stops, rhs.stops)
+      && NativeRedrawEquality.same(lhs.values, rhs.values) && lhs.tileMode == rhs.tileMode
+  }
 }
 
 enum NativeGraphicsState {
