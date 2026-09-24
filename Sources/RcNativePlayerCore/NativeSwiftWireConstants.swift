@@ -672,6 +672,51 @@ public enum NativeSwiftStrokeJoin: Int, Sendable, Equatable {
   }
 }
 
+/// A paint's `BLEND_MODE` value, and the mode of a `COLOR_FILTER` / `COLOR_FILTER_ID` tint (both
+/// the high half of the paint command word): every AndroidX `PaintBundle.BLEND_MODE_*` value,
+/// 0...28, in the order `rc-player`'s `RcComposePlayer.kt` `blendMode`, the vendored
+/// `third_party/rc-embedded-player` `RcPlayerPaint.kt` `mapBlendMode` and
+/// `third_party/remote-compose-player`'s `CanvasPaintContext.ts` `mapBlendMode` read it, for the
+/// paint and the colour filter alike. Those players draw any other value as `SrcOver` (the
+/// TypeScript player alone also reads `PORTER_MODE_ADD`, 30, which none of the others do), so
+/// `init(wireValue:)` reads any value outside 0...28 as `sourceOver`.
+public enum NativeSwiftPaintBlendMode: Int, Sendable, Equatable {
+  case clear = 0
+  case source = 1
+  case destination = 2
+  case sourceOver = 3
+  case destinationOver = 4
+  case sourceIn = 5
+  case destinationIn = 6
+  case sourceOut = 7
+  case destinationOut = 8
+  case sourceAtop = 9
+  case destinationAtop = 10
+  case xor = 11
+  case plus = 12
+  case modulate = 13
+  case screen = 14
+  case overlay = 15
+  case darken = 16
+  case lighten = 17
+  case colorDodge = 18
+  case colorBurn = 19
+  case hardLight = 20
+  case softLight = 21
+  case difference = 22
+  case exclusion = 23
+  case multiply = 24
+  case hue = 25
+  case saturation = 26
+  case color = 27
+  case luminosity = 28
+
+  /// The mode a wire value blends with: its own case, or `sourceOver` for a value outside 0...28.
+  public init(wireValue: Int) {
+    self = NativeSwiftPaintBlendMode(rawValue: wireValue) ?? .sourceOver
+  }
+}
+
 /// `RcDrawTextAnchored`'s flag bits.
 public enum NativeSwiftDrawTextAnchoredFlag {
   public static let textRTL = 1
@@ -687,14 +732,26 @@ public enum NativeSwiftBitmapEncoding {
   public static let inline = 0
 }
 
-/// `RcTextLayout`'s text alignment values.
-public enum NativeSwiftTextAlignment {
-  public static let left = 1
-  public static let right = 2
-  public static let center = 3
-  public static let justify = 4
-  public static let start = 5
-  public static let end = 6
+/// A text's alignment: the low half of `TextLayout`'s alignment word, and the `CoreText` /
+/// `TextStyle` `textAlign` property. Every value `RcTextLayout.ALIGN_*` in `rc-player-protocol`'s
+/// `RcModel.kt` defines, which are AndroidX's `CoreText.TEXT_ALIGN_*` as the vendored
+/// `third_party/rc-embedded-player` `RcPlayerTextLayout.kt` and
+/// `third_party/remote-compose-player`'s `CoreText.ts` read them. `justify` aligns to the start
+/// (justification is `CoreText`'s separate `justificationMode`), and the reference aligns any
+/// other value to the start too, which `init(wireValue:)` applies. `TextLayout` refuses a value
+/// outside 1...6 before it gets here.
+public enum NativeSwiftTextAlignment: Int, Sendable, Equatable {
+  case left = 1
+  case right = 2
+  case center = 3
+  case justify = 4
+  case start = 5
+  case end = 6
+
+  /// The alignment a wire value lays out with: its own case, or `start` for a value outside 1...6.
+  public init(wireValue: Int) {
+    self = NativeSwiftTextAlignment(rawValue: wireValue) ?? .start
+  }
 }
 
 /// `RcTextLayout`'s text overflow values.

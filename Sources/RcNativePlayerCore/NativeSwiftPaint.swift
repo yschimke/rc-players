@@ -59,45 +59,12 @@ enum NativeSwiftPaintFilterQuality {
   static let high = 3
 }
 
-/// Blend-mode ids encoded in a paint command's high word.
-public enum NativeSwiftPaintBlendMode {
-  public static let clear = 0
-  public static let source = 1
-  public static let destination = 2
-  public static let sourceOver = 3
-  public static let destinationOver = 4
-  public static let sourceIn = 5
-  public static let destinationIn = 6
-  public static let sourceOut = 7
-  public static let destinationOut = 8
-  public static let sourceAtop = 9
-  public static let destinationAtop = 10
-  public static let xor = 11
-  public static let plus = 12
-  public static let modulate = 13
-  public static let screen = 14
-  public static let overlay = 15
-  public static let darken = 16
-  public static let lighten = 17
-  public static let colorDodge = 18
-  public static let colorBurn = 19
-  public static let hardLight = 20
-  public static let softLight = 21
-  public static let difference = 22
-  public static let exclusion = 23
-  public static let multiply = 24
-  public static let hue = 25
-  public static let saturation = 26
-  public static let color = 27
-  public static let luminosity = 28
-}
-
 struct ParsedPaint {
   var colorARGB: UInt32 = 0xff00_0000
   var colorID: Int?
   var colorFilterARGB: UInt32?
   var colorFilterID: Int?
-  var colorFilterMode: Int?
+  var colorFilterMode: NativeSwiftPaintBlendMode?
   var gradient: ParsedGradient?
   var alpha: Float = 1
   var strokeWidth: UInt32 = Float(1).bitPattern

@@ -2641,7 +2641,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   /// The shared `NativeTextPolicy` alignment, so AppKit and UIKit resolve start/end, RTL and the
   /// explicit values identically.
   private static func alignment(
-    _ value: Int, direction: NSUserInterfaceLayoutDirection
+    _ value: NativeSwiftTextAlignment, direction: NSUserInterfaceLayoutDirection
   ) -> NSTextAlignment {
     switch NativeTextPolicy.alignment(
       value: value, justified: false,

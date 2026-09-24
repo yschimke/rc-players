@@ -7,13 +7,22 @@ import Testing
 @Suite struct NativeTextPolicyTests {
   @Test func textPolicy() {
     #expect(
-      NativeTextPolicy.alignment(value: 5, justified: false, direction: .leftToRight) == .left)
+      NativeTextPolicy.alignment(value: .start, justified: false, direction: .leftToRight) == .left)
     #expect(
-      NativeTextPolicy.alignment(value: 5, justified: false, direction: .rightToLeft) == .right)
+      NativeTextPolicy.alignment(value: .start, justified: false, direction: .rightToLeft)
+        == .right)
     #expect(
-      NativeTextPolicy.alignment(value: 6, justified: false, direction: .rightToLeft) == .left)
+      NativeTextPolicy.alignment(value: .end, justified: false, direction: .rightToLeft) == .left)
     #expect(
-      NativeTextPolicy.alignment(value: 1, justified: true, direction: .leftToRight) == .justified)
+      NativeTextPolicy.alignment(value: .left, justified: true, direction: .leftToRight)
+        == .justified)
+    // `justify` and any value outside 1...6 align to the start.
+    #expect(
+      NativeTextPolicy.alignment(value: .justify, justified: false, direction: .rightToLeft)
+        == .right)
+    #expect(NativeSwiftTextAlignment(wireValue: 3) == .center)
+    #expect(NativeSwiftTextAlignment(wireValue: 0) == .start)
+    #expect(NativeSwiftTextAlignment(wireValue: 7) == .start)
     #expect(NativeTextPolicy.overflow(3) == .tail)
     #expect(NativeTextPolicy.overflow(4) == .head)
     #expect(NativeTextPolicy.overflow(5) == .middle)
