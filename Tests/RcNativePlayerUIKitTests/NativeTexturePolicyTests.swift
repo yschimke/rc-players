@@ -35,14 +35,14 @@ import Testing
     #expect(!NativeTexturePolicy.isDecal(1))
     #expect(!NativeTexturePolicy.isDecal(2))
 
-    // Filter quality: AndroidX's 0..3, and nil for a paint that never named one so the renderer's
-    // own default stands.
+    // Filter quality: AndroidX's 0..3, and bilinear for a paint that never named one or named an
+    // unknown level, as both reference players do.
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 0) == CGInterpolationQuality.none)
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 1) == .low)
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 2) == .medium)
     #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 3) == .high)
-    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: nil) == nil)
-    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 9) == nil)
+    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: nil) == .low)
+    #expect(NativeTexturePolicy.interpolationQuality(forFilterQuality: 9) == .low)
   }
 
   /// The pattern must land where the clipped path is, under a scaled CTM.
@@ -110,5 +110,22 @@ import Testing
       space: colorSpace,
       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
       provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
+  }
+
+  /// A scaled bitmap is sampled at destination pixel centres and clamped at the edges, as Skia's
+  /// bilinear filter samples it: black-to-white over two pixels becomes 0, 64, 191, 255 over four.
+  @Test func bilinearScalerSamplesPixelCentres() {
+    let row: [UInt8] = [0, 0, 0, 255, 255, 255, 255, 255]
+    let scaled = NativeBilinearScaler.scale(
+      row, width: 2, height: 1, targetWidth: 4, targetHeight: 1)
+    #expect(scaled == [0, 0, 0, 255, 64, 64, 64, 255, 191, 191, 191, 255, 255, 255, 255, 255])
+    let unscaled = NativeBilinearScaler.scale(
+      row, width: 2, height: 1, targetWidth: 2, targetHeight: 1)
+    #expect(unscaled == row)
+    #expect(
+      NativeBilinearScaler.scale([1, 2, 3], width: 2, height: 1, targetWidth: 4, targetHeight: 1)
+        == nil)
+    #expect(
+      NativeBilinearScaler.scale(row, width: 2, height: 1, targetWidth: 0, targetHeight: 1) == nil)
   }
 }

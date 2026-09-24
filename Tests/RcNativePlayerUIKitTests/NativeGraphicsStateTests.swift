@@ -76,4 +76,32 @@ import Testing
       in: sweepContext)
     #expect(sweepContext.makeImage() != nil)
   }
+
+  /// Repeat and mirror are drawn one period at a time over the periods a shape reaches, and a
+  /// period too small to see fills with the colour the gradient averages to.
+  @Test func gradientTilingPeriodsAndAverage() {
+    #expect(NativeGradientTiling.periods(lower: -0.5, upper: 1.2)! == (first: -1, last: 2))
+    #expect(NativeGradientTiling.periods(lower: 0, upper: 300)! == (first: 0, last: 300))
+    #expect(NativeGradientTiling.periods(lower: 0, upper: .infinity) == nil)
+
+    let blackToWhite: [[Double]] = [[0, 0, 0, 1], [1, 1, 1, 1]]
+    #expect(
+      NativeGradientTiling.averageColor(colors: blackToWhite, stops: [0, 1]) == [0.5, 0.5, 0.5, 1])
+    #expect(
+      NativeGradientTiling.averageColor(colors: blackToWhite, stops: [0.25, 0.75])
+        == [0.5, 0.5, 0.5, 1])
+    #expect(
+      NativeGradientTiling.averageColor(
+        colors: [[1, 0, 0, 1], [0, 0, 1, 1], [0, 1, 0, 1]], stops: [0, 0.5, 1])
+        == [0.25, 0.25, 0.5, 1])
+
+    // The largest singular value: a rotation keeps 1, a shear can exceed both columns.
+    #expect(abs(NativeGradientTiling.largestStretch(a: 0, b: 1, c: -1, d: 0) - 1) < 1e-9)
+    #expect(abs(NativeGradientTiling.largestStretch(a: 0.001, b: 0, c: 0, d: 1) - 1) < 1e-9)
+    let sheared = NativeGradientTiling.largestStretch(a: 0.6, b: 0.54, c: 0.54, d: 0.6)
+    #expect(abs(sheared - 1.14) < 1e-9)
+    // A 300 × 400 device clip resolves at most its 500-pixel diagonal of rings, plus the two ends.
+    #expect(NativeGradientTiling.ringBudget(deviceWidth: 300, deviceHeight: 400) == 502)
+    #expect(NativeGradientTiling.ringBudget(deviceWidth: .infinity, deviceHeight: 1) == 0)
+  }
 }

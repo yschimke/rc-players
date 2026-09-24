@@ -125,21 +125,41 @@ enum NativeGradientRenderer {
         locations: normalizedStops)
     else { return }
 
+    // Clamp extends the end colours; decal stops at them. Repeat and mirror draw the gradient once
+    // per period the clip reaches, each in its own band.
+    let extend: CGGradientDrawingOptions =
+      value.tileMode == NativeGradientTiling.decal
+      ? [] : [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+    let tiles =
+      value.tileMode == NativeGradientTiling.repeated
+      || value.tileMode == NativeGradientTiling.mirror
     switch value.kind {
     case 0:
-      context.drawLinearGradient(
-        gradient,
-        start: CGPoint(x: value.values[0], y: value.values[1]),
-        end: CGPoint(x: value.values[2], y: value.values[3]),
-        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+      let start = CGPoint(x: value.values[0], y: value.values[1])
+      let end = CGPoint(x: value.values[2], y: value.values[3])
+      if tiles,
+        drawTiledLinear(
+          gradient, start: start, end: end,
+          mirror: value.tileMode == NativeGradientTiling.mirror,
+          average: averageColor(spaceColors, stops: normalizedStops ?? []), in: context)
+      {
+        return
+      }
+      context.drawLinearGradient(gradient, start: start, end: end, options: extend)
     case 1:
+      let center = CGPoint(x: value.values[0], y: value.values[1])
+      let radius = value.values[2]
+      if tiles,
+        drawTiledRadial(
+          gradient, center: center, radius: radius,
+          mirror: value.tileMode == NativeGradientTiling.mirror,
+          average: averageColor(spaceColors, stops: normalizedStops ?? []), in: context)
+      {
+        return
+      }
       context.drawRadialGradient(
-        gradient,
-        startCenter: CGPoint(x: value.values[0], y: value.values[1]),
-        startRadius: 0,
-        endCenter: CGPoint(x: value.values[0], y: value.values[1]),
-        endRadius: value.values[2],
-        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+        gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius,
+        options: extend)
     case 2:
       drawSweep(
         colors: normalizedColors,
@@ -148,6 +168,142 @@ enum NativeGradientRenderer {
         in: context)
     default: break
     }
+  }
+
+  /// Draws a repeated or mirrored linear gradient: the one-period gradient once per period the
+  /// clip reaches, each clipped to the strip between its two ends, reversed in a mirror's odd
+  /// periods. False leaves the draw to the clamped path.
+  ///
+  /// A period under a device pixel cannot show its pattern, so the clip is filled with the
+  /// gradient's average colour instead; otherwise the band count is bounded by the canvas. Bands
+  /// are clipped aliased, so neighbours share their edge pixels rather than both half-covering them.
+  private static func drawTiledLinear(
+    _ gradient: CGGradient, start: CGPoint, end: CGPoint, mirror: Bool, average: CGColor,
+    in context: CGContext
+  ) -> Bool {
+    let axis = CGPoint(x: end.x - start.x, y: end.y - start.y)
+    let length = hypot(axis.x, axis.y)
+    let clip = context.boundingBoxOfClipPath
+    guard length > 0, !clip.isNull, !clip.isInfinite else { return false }
+    // The gradient parameter at each corner of the clip: its projection onto the axis.
+    let parameters = corners(of: clip).map {
+      Double((($0.x - start.x) * axis.x + ($0.y - start.y) * axis.y) / (length * length))
+    }
+    guard let lower = parameters.min(), let upper = parameters.max(),
+      let span = NativeGradientTiling.periods(lower: lower, upper: upper)
+    else { return false }
+    let devicePeriod = context.convertToDeviceSpace(CGSize(width: axis.x, height: axis.y))
+    guard hypot(devicePeriod.width, devicePeriod.height) >= 1 else {
+      context.setFillColor(average)
+      context.fill(clip)
+      return true
+    }
+    // Half-width of each band across the axis: enough to cover the clip from any point on it.
+    let reach = hypot(clip.width, clip.height) + length
+    let across = CGPoint(x: -axis.y / length * reach, y: axis.x / length * reach)
+    context.saveGState()
+    defer { context.restoreGState() }
+    context.setShouldAntialias(false)
+    for period in span.first..<span.last {
+      let from = CGPoint(
+        x: start.x + axis.x * CGFloat(period), y: start.y + axis.y * CGFloat(period))
+      let to = CGPoint(x: from.x + axis.x, y: from.y + axis.y)
+      let band = CGMutablePath()
+      band.addLines(between: [
+        CGPoint(x: from.x + across.x, y: from.y + across.y),
+        CGPoint(x: to.x + across.x, y: to.y + across.y),
+        CGPoint(x: to.x - across.x, y: to.y - across.y),
+        CGPoint(x: from.x - across.x, y: from.y - across.y),
+      ])
+      band.closeSubpath()
+      let flipped = mirror && period % 2 != 0
+      context.saveGState()
+      context.addPath(band)
+      context.clip()
+      context.drawLinearGradient(
+        gradient, start: flipped ? to : from, end: flipped ? from : to,
+        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+      context.restoreGState()
+    }
+    return true
+  }
+
+  /// Draws a repeated or mirrored radial gradient: the one-period gradient once per ring the clip
+  /// reaches, each clipped to its ring, running outward-in in a mirror's odd periods. The same
+  /// sub-pixel and aliasing rules as `drawTiledLinear` apply.
+  private static func drawTiledRadial(
+    _ gradient: CGGradient, center: CGPoint, radius: CGFloat, mirror: Bool, average: CGColor,
+    in context: CGContext
+  ) -> Bool {
+    let clip = context.boundingBoxOfClipPath
+    guard radius > 0, !clip.isNull, !clip.isInfinite else { return false }
+    let farthest = corners(of: clip).map { hypot($0.x - center.x, $0.y - center.y) }.max() ?? 0
+    let nearest = hypot(
+      max(clip.minX - center.x, 0, center.x - clip.maxX),
+      max(clip.minY - center.y, 0, center.y - clip.maxY))
+    guard
+      let span = NativeGradientTiling.periods(
+        lower: Double(nearest / radius), upper: Double(farthest / radius))
+    else { return false }
+    // The radius's device length in the direction the transform stretches most — its largest
+    // singular value, which a rotation keeps and a shear can raise above either column. The rings
+    // stay visible while any direction spans a pixel, so only a period sub-pixel every way falls
+    // back. So does a ring count the device cannot resolve (`ringBudget`), which only a strongly
+    // anisotropic or sheared transform reaches.
+    let device = context.userSpaceToDeviceSpaceTransform
+    let deviceRadius =
+      radius
+      * CGFloat(
+        NativeGradientTiling.largestStretch(
+          a: Double(device.a), b: Double(device.b), c: Double(device.c), d: Double(device.d)))
+    let deviceClip = clip.applying(device)
+    let budget = NativeGradientTiling.ringBudget(
+      deviceWidth: Double(deviceClip.width), deviceHeight: Double(deviceClip.height))
+    guard deviceRadius >= 1, span.last - max(span.first, 0) <= budget else {
+      context.setFillColor(average)
+      context.fill(clip)
+      return true
+    }
+    context.saveGState()
+    defer { context.restoreGState() }
+    context.setShouldAntialias(false)
+    for period in max(span.first, 0)..<span.last {
+      let inner = radius * CGFloat(period)
+      let outer = inner + radius
+      let ring = CGMutablePath()
+      ring.addEllipse(
+        in: CGRect(x: center.x - outer, y: center.y - outer, width: outer * 2, height: outer * 2))
+      if inner > 0 {
+        ring.addEllipse(
+          in: CGRect(
+            x: center.x - inner, y: center.y - inner, width: inner * 2, height: inner * 2))
+      }
+      let flipped = mirror && period % 2 != 0
+      context.saveGState()
+      context.addPath(ring)
+      context.clip(using: .evenOdd)
+      context.drawRadialGradient(
+        gradient, startCenter: center, startRadius: flipped ? outer : inner, endCenter: center,
+        endRadius: flipped ? inner : outer,
+        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+      context.restoreGState()
+    }
+    return true
+  }
+
+  /// The colour a period too small to see averages to, in sRGB.
+  private static func averageColor(_ colors: [CGColor], stops: [CGFloat]) -> CGColor {
+    let components = NativeGradientTiling.averageColor(
+      colors: colors.map { rgbaComponents($0).map(Double.init) }, stops: stops.map(Double.init))
+    return CGColor(colorSpace: rgbColorSpace, components: components.map { CGFloat($0) })
+      ?? colors[0]
+  }
+
+  private static func corners(of rect: CGRect) -> [CGPoint] {
+    [
+      CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
+      CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY),
+    ]
   }
 
   private static func drawSweep(
@@ -159,6 +315,13 @@ enum NativeGradientRenderer {
       CGPoint(x: clip.maxX, y: clip.maxY), CGPoint(x: clip.minX, y: clip.maxY),
     ].map { hypot($0.x - center.x, $0.y - center.y) }.max() ?? 0
     guard radius > 0 else { return }
+    // The wedges are drawn aliased. Each is about a pixel wide at the rim, and two antialiased
+    // neighbours only cover a shared edge pixel a·(1−a) of the way between them, so the backdrop
+    // showed through almost every seam. The clip set before this call keeps the shape's own edge
+    // antialiased.
+    context.saveGState()
+    defer { context.restoreGState() }
+    context.setShouldAntialias(false)
     let steps = 360
     for index in 0..<steps {
       let start = CGFloat(index) / CGFloat(steps)

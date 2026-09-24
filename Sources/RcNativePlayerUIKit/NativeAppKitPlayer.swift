@@ -2703,6 +2703,32 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
   }
 }
 
+/// What a canvas resampled for a bilinear upscale: which bitmap, which part of it, at what size.
+private struct ResampledImageKey: Hashable {
+  let imageID: Int
+  let sourceX: CGFloat
+  let sourceY: CGFloat
+  let sourceWidth: CGFloat
+  let sourceHeight: CGFloat
+  var width = 0
+  var height = 0
+
+  init(imageID: Int, source: CGRect) {
+    self.imageID = imageID
+    sourceX = source.minX
+    sourceY = source.minY
+    sourceWidth = source.width
+    sourceHeight = source.height
+  }
+}
+
+/// A resampled bitmap, its size, and the last draw pass that used it.
+private struct ResampledImage {
+  let image: CGImage
+  let bytes: Int
+  var lastDrawn: Int
+}
+
 private final class NativeMacCanvasView: NSView {
   private(set) var commands: [NativeMacDrawCommand]
   let images: [Int: NSImage]
@@ -2713,6 +2739,21 @@ private final class NativeMacCanvasView: NSView {
   /// looks one up with the default style's family (-1), which never matches.
   let conformanceFontName: String?
   override var isFlipped: Bool { true }
+  /// Bitmaps already resampled for a bilinear upscale, keyed by what they were resampled from and
+  /// to. `images` never changes for a canvas, so an entry stays valid for the view's lifetime.
+  private var resampledImages: [ResampledImageKey: ResampledImage] = [:]
+  /// The pixel bytes `resampledImages` holds; its share of `resampledBytesInUse`.
+  private var resampledBytes = 0
+  /// What every canvas together keeps resampled: 64 MiB, four of the largest resamples. Bounded by
+  /// bytes, not entries, because a canvas animating an image's size makes a new entry per size;
+  /// and shared, so a document of many canvases is bounded as a whole rather than per view.
+  private static let resampledBudgetBytes = 64 << 20
+  /// The pixel bytes every canvas's resamples hold between them. Canvases are AppKit views, so
+  /// this is only touched on the main thread.
+  private static var resampledBytesInUse = 0
+  /// Counts draw passes, so the cache can tell the entries this frame draws from the ones an
+  /// animation has left behind.
+  private var drawPass = 0
 
   init(commands: [NativeMacDrawCommand], images: [Int: NSImage], conformanceFontName: String?) {
     self.commands = commands
@@ -2721,6 +2762,17 @@ private final class NativeMacCanvasView: NSView {
     super.init(frame: .zero)
   }
   @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+
+  deinit {
+    // Hand this canvas's share of the shared budget back, on the main thread that owns it.
+    let bytes = resampledBytes
+    guard bytes > 0 else { return }
+    if Thread.isMainThread {
+      MainActor.assumeIsolated { Self.resampledBytesInUse -= bytes }
+    } else {
+      Task { @MainActor in Self.resampledBytesInUse -= bytes }
+    }
+  }
 
   /// A newer frame's commands for the same component. Draw commands carry no equality, so the
   /// canvas simply redraws; its backing store is kept.
@@ -2733,6 +2785,7 @@ private final class NativeMacCanvasView: NSView {
 
   override func draw(_ dirtyRect: NSRect) {
     guard let context = NSGraphicsContext.current?.cgContext else { return }
+    drawPass &+= 1
     for command in commands { draw(command, context) }
   }
 
@@ -2796,10 +2849,9 @@ private final class NativeMacCanvasView: NSView {
       let path = CGMutablePath()
       path.move(to: CGPoint(x: v[0], y: v[1]))
       path.addLine(to: CGPoint(x: v[2], y: v[3]))
-      // DrawLine is a stroke operation regardless of the current paint style.  Routing it through
-      // `paint` used a fill for the common fill-style paint, and an open path has no fill area.
-      context.addPath(path)
-      context.strokePath()
+      // DrawLine is a stroke operation regardless of the current paint style: an open path has no
+      // fill area. It still goes through `paint` so a gradient shader strokes it, as in UIKit.
+      paint(path, command, context, forceStroke: true)
     case NativeSwiftDrawKind.roundRect:
       paint(
         NativeGraphicsState.roundedRectPath(
@@ -2822,8 +2874,12 @@ private final class NativeMacCanvasView: NSView {
     }
   }
 
-  private func paint(_ path: CGPath, _ command: NativeMacDrawCommand, _ context: CGContext) {
-    if let imageID = command.textureImageID, let image = images[imageID], !command.stroke {
+  private func paint(
+    _ path: CGPath, _ command: NativeMacDrawCommand, _ context: CGContext,
+    forceStroke: Bool = false
+  ) {
+    let stroke = command.stroke || forceStroke
+    if let imageID = command.textureImageID, let image = images[imageID], !stroke {
       context.saveGState()
       context.addPath(path)
       context.clip(
@@ -2837,9 +2893,33 @@ private final class NativeMacCanvasView: NSView {
       return
     }
     context.addPath(path)
-    context.drawPath(
-      using: command.stroke
-        ? .stroke : (command.pathWinding == NativeSwiftPathWinding.evenOdd ? .eoFill : .fill))
+    let fillRule: CGPathFillRule =
+      command.pathWinding == NativeSwiftPathWinding.evenOdd ? .evenOdd : .winding
+    // A gradient shader paints inside the shape, or inside its stroke outline, as UIKit's canvas
+    // does. Without this every gradient drew as the paint's flat colour.
+    if let gradient = command.gradient {
+      context.saveGState()
+      if stroke { context.replacePathWithStrokedPath() }
+      context.clip(using: stroke ? .winding : fillRule)
+      NativeGradientRenderer.draw(Self.gradient(gradient), in: context)
+      context.restoreGState()
+      return
+    }
+    context.drawPath(using: stroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
+  }
+
+  /// The renderer's gradient for a decoded shader, its colours in sRGB as the reference's are.
+  private static func gradient(_ snapshot: NativeSwiftGradientSnapshot) -> NativeGradient {
+    NativeGradient(
+      kind: snapshot.kind,
+      colors: snapshot.colorsARGB.map { argb in
+        CGColor(
+          srgbRed: CGFloat((argb >> 16) & 0xff) / 255, green: CGFloat((argb >> 8) & 0xff) / 255,
+          blue: CGFloat(argb & 0xff) / 255, alpha: CGFloat((argb >> 24) & 0xff) / 255)
+      },
+      stops: snapshot.stops.map { CGFloat($0) },
+      values: snapshot.values.map { CGFloat($0) },
+      tileMode: snapshot.tileMode)
   }
 
   private func drawImage(_ command: NativeMacDrawCommand, _ context: CGContext) {
@@ -2861,13 +2941,120 @@ private final class NativeMacCanvasView: NSView {
     // overflow it, while a malformed or fixed draw must never leak outside it.
     context.saveGState()
     context.clip(to: destination)
+    let target = scaledImageDestination(
+      source: source, destination: destination, scaleType: draw.scaleType,
+      scaleFactor: CGFloat(draw.scaleFactor))
+    // The paint's filter quality, bilinear when it named none, as the reference players sample.
+    // Core Graphics' own levels are not that filter, so a bilinear upscale is resampled here and
+    // drawn one to one; anything else is left to Core Graphics. NSImage takes its interpolation
+    // from the hint rather than the context, so both are set.
+    var quality = NativeTexturePolicy.interpolationQuality(
+      forFilterQuality: command.filterQuality)
+    var drawn = cropped
+    if quality == .low,
+      let resampled = resampledImage(
+        cropped, key: ResampledImageKey(imageID: draw.imageID, source: source), into: target,
+        context: context)
+    {
+      drawn = resampled
+      quality = CGInterpolationQuality.none
+    }
+    context.interpolationQuality = quality
     // Fraction 1: the paint alpha is already the context's alpha, as it is for UIKit's image draw.
-    NSImage(cgImage: cropped, size: NSSize(width: cropped.width, height: cropped.height)).draw(
-      in: scaledImageDestination(
-        source: source, destination: destination, scaleType: draw.scaleType,
-        scaleFactor: CGFloat(draw.scaleFactor)), from: .zero, operation: .sourceOver,
-      fraction: 1, respectFlipped: true, hints: nil)
+    NSImage(cgImage: drawn, size: target.size).draw(
+      in: target, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true,
+      hints: [.interpolation: NSNumber(value: Self.imageInterpolation(quality).rawValue)])
     context.restoreGState()
+  }
+
+  /// `image` resampled bilinearly to the device pixels `rect` covers, when the draw is an
+  /// axis-aligned upscale; nil leaves the draw to Core Graphics.
+  private func resampledImage(
+    _ image: CGImage, key partial: ResampledImageKey, into rect: CGRect, context: CGContext
+  ) -> CGImage? {
+    let device = context.userSpaceToDeviceSpaceTransform
+    guard abs(device.b) < 1e-6, abs(device.c) < 1e-6 else { return nil }
+    let deviceWidth = (rect.width * abs(device.a)).rounded()
+    let deviceHeight = (rect.height * abs(device.d)).rounded()
+    guard deviceWidth.isFinite, deviceHeight.isFinite,
+      deviceWidth >= CGFloat(image.width), deviceHeight >= CGFloat(image.height),
+      deviceWidth * deviceHeight <= CGFloat(NativeBilinearScaler.maximumPixels)
+    else { return nil }
+    let width = Int(deviceWidth)
+    let height = Int(deviceHeight)
+    guard width > image.width || height > image.height else { return nil }
+    var key = partial
+    key.width = width
+    key.height = height
+    if var cached = resampledImages[key] {
+      cached.lastDrawn = drawPass
+      resampledImages[key] = cached
+      return cached.image
+    }
+    let bytes = width * height * 4
+    guard admitResample(bytes: bytes) else { return nil }
+
+    let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+    let info = CGImageAlphaInfo.premultipliedLast.rawValue
+    guard
+      let input = CGContext(
+        data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
+        bytesPerRow: 0, space: space, bitmapInfo: info)
+    else { return nil }
+    input.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    guard let data = input.data else { return nil }
+    let rowBytes = input.bytesPerRow
+    let base = data.assumingMemoryBound(to: UInt8.self)
+    var pixels = [UInt8]()
+    pixels.reserveCapacity(image.width * image.height * 4)
+    for row in 0..<image.height {
+      pixels.append(
+        contentsOf: UnsafeBufferPointer(start: base + row * rowBytes, count: image.width * 4))
+    }
+    guard
+      let scaled = NativeBilinearScaler.scale(
+        pixels, width: image.width, height: image.height, targetWidth: width,
+        targetHeight: height),
+      let provider = CGDataProvider(data: Data(scaled) as CFData),
+      let result = CGImage(
+        width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+        bytesPerRow: width * 4, space: space, bitmapInfo: CGBitmapInfo(rawValue: info),
+        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+    else { return nil }
+    resampledImages[key] = ResampledImage(image: result, bytes: bytes, lastDrawn: drawPass)
+    resampledBytes += bytes
+    Self.resampledBytesInUse += bytes
+    return result
+  }
+
+  /// Makes room in the shared budget for a resample of `bytes`, evicting only this canvas's
+  /// entries that the current draw pass has not used.
+  ///
+  /// False leaves the draw to Core Graphics. Evicting what the frame still draws instead would
+  /// make a frame with more large resamples than the budget holds redo them on every pass, and
+  /// another canvas's entries are its own to keep.
+  private func admitResample(bytes: Int) -> Bool {
+    if Self.resampledBytesInUse + bytes > Self.resampledBudgetBytes {
+      for (key, entry) in resampledImages where entry.lastDrawn != drawPass {
+        resampledImages[key] = nil
+        resampledBytes -= entry.bytes
+        Self.resampledBytesInUse -= entry.bytes
+      }
+    }
+    return Self.resampledBytesInUse + bytes <= Self.resampledBudgetBytes
+  }
+
+  /// AppKit's name for a Core Graphics interpolation quality.
+  private static func imageInterpolation(
+    _ quality: CGInterpolationQuality
+  ) -> NSImageInterpolation {
+    switch quality {
+    case CGInterpolationQuality.none: return NSImageInterpolation.none
+    case .low: return .low
+    case .medium: return .medium
+    case .high: return .high
+    default: return .default
+    }
   }
 
   /// The pixel image behind a decoded bitmap, at its native pixel size rather than its point size.

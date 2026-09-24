@@ -564,10 +564,7 @@
     }
 
     /// How Core Graphics should sample this paint's image or texture.
-    ///
-    /// Nil when the paint never said, which leaves the context's own default in place rather than
-    /// this renderer inventing a preference.
-    var interpolationQuality: CGInterpolationQuality? {
+    var interpolationQuality: CGInterpolationQuality {
       NativeTexturePolicy.interpolationQuality(forFilterQuality: filterQuality)
     }
   }
@@ -1531,11 +1528,8 @@
         destination: bounds,
         scaleType: drawCommand.scaleType,
         scaleFactor: drawCommand.scaleFactor)
-      if let quality = NativeTexturePolicy.interpolationQuality(forFilterQuality: filterQuality),
-        let context = UIGraphicsGetCurrentContext()
-      {
-        context.interpolationQuality = quality
-      }
+      UIGraphicsGetCurrentContext()?.interpolationQuality =
+        NativeTexturePolicy.interpolationQuality(forFilterQuality: filterQuality)
       image.draw(in: destination)
     }
   }
@@ -1892,12 +1886,8 @@
     override func draw(_ rect: CGRect) {
       guard let context = UIGraphicsGetCurrentContext() else { return }
       context.scaleBy(x: documentScale, y: documentScale)
-      defaultInterpolationQuality = context.interpolationQuality
       commands.forEach { draw($0, in: context) }
     }
-
-    /// The context's own interpolation, captured before any command changes it.
-    private var defaultInterpolationQuality: CGInterpolationQuality = .default
 
     private func draw(_ command: NativeDrawCommand, in context: CGContext) {
       let v = command.values
@@ -1910,9 +1900,9 @@
         strokeCap: command.strokeCap,
         strokeJoin: command.strokeJoin,
         blendMode: command.blendMode)
-      // Filter quality is paint state, so a command that does not name one takes the context's
+      // Filter quality is paint state, so a command that does not name one takes the reference
       // default rather than whatever the previous command left behind.
-      context.interpolationQuality = command.interpolationQuality ?? defaultInterpolationQuality
+      context.interpolationQuality = command.interpolationQuality
 
       switch command.kind {
       case NativeSwiftDrawKind.matrixSave: context.saveGState()
