@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.74.0](https://github.com/yschimke/rc-players/compare/v1.73.0...v1.74.0) (2026-09-24)
+
+
+### Features
+
+* resolve google: fonts on Android from the shared font cache or GMS ([#495](https://github.com/yschimke/rc-players/issues/495)) ([e28eea7](https://github.com/yschimke/rc-players/commit/e28eea7fdd1fe058f4f395723c8e3c22959240af))
+* **swift:** decode and run PARTICLE_COMPARE, EVENT_ACTION and RUN_ACTION ([#488](https://github.com/yschimke/rc-players/issues/488)) ([376eea8](https://github.com/yschimke/rc-players/commit/376eea8bcdd613dd06373c02b0b40937bdf1416d))
+* **swift:** decode path expressions, tween-path draws and path matrices ([#489](https://github.com/yschimke/rc-players/issues/489)) ([ce5f109](https://github.com/yschimke/rc-players/commit/ce5f1090f04df50a59db04b45aa4973226fc401e))
+* **swift:** draw into offscreen bitmaps with DrawToBitmap ([#486](https://github.com/yschimke/rc-players/issues/486)) ([84ed1a4](https://github.com/yschimke/rc-players/commit/84ed1a483ff3fcafd0dd35280eef00a8dce04cfa))
+* **swift:** run LAYOUT_COMPUTE and accept MACRO_BLOCK outside calls ([#490](https://github.com/yschimke/rc-players/issues/490)) ([98d2032](https://github.com/yschimke/rc-players/commit/98d2032ddeefba3a7eb8760fdff6cd6d59396538))
+
+
+### Bug Fixes
+
+* **swift:** arrange a canvas without CanvasContent as a box ([#493](https://github.com/yschimke/rc-players/issues/493)) ([c68f29c](https://github.com/yschimke/rc-players/commit/c68f29c9a04db7545f92eb7cd84c56d870afdba5))
+* **swift:** dereference tween path ids, empty equal trims, keep canvas-content fill layout, update only dynamic lists ([#492](https://github.com/yschimke/rc-players/issues/492)) ([aa65476](https://github.com/yschimke/rc-players/commit/aa6547638a0e304a31857e8a3722109ac96bb68b))
+* **swift:** run the AppKit accessibility hit test on the main actor ([#494](https://github.com/yschimke/rc-players/issues/494)) ([79638f5](https://github.com/yschimke/rc-players/commit/79638f511aa6232d1c65dba3c491bec71c8fe9ac))
+* **swift:** share offscreen targets per document and parse DrawToBitmap in captured bodies ([#491](https://github.com/yschimke/rc-players/issues/491)) ([593ffc1](https://github.com/yschimke/rc-players/commit/593ffc1ab8659d4f570d5ed35dfd4451f2533af8))
+
 ## [1.73.0](https://github.com/yschimke/rc-players/compare/v1.72.0...v1.73.0) (2026-09-24)
 
 
