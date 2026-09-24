@@ -116,7 +116,9 @@ internal class GoogleFontFamilies(private val fonts: GoogleFontSource?) {
     val file = resolveFile(name, italic) ?: return null
     val settings =
       FontVariation.Settings(
-        *axes.map { (tag, value) -> FontVariation.Setting(tag, value) }.toTypedArray()
+        *variationAxes(weight, style, axes)
+          .map { (tag, value) -> FontVariation.Setting(tag, value) }
+          .toTypedArray()
       )
     val resolved =
       runCatching {
@@ -151,6 +153,31 @@ internal class GoogleFontFamilies(private val fonts: GoogleFontSource?) {
   }
 
   companion object {
+    /**
+     * The axes a variable file is instanced at: the requested face's own weight and slant first,
+     * then the document's axes, which replace them when they name the same tag.
+     *
+     * A variable file instanced at the document's axes alone sits at the file's *default* on every
+     * axis the document left out — for Roboto Flex that is `wght 400`. The `remote-m3` edge
+     * button's label asks for weight 500 and carries a `pnum` axis, so this path drew it Regular
+     * while a device, whose downloadable-font provider serves the weight-500 face and never sees
+     * the axes, draws it Medium — and so does the CMP player, whose Android loader already builds
+     * the settings this way. `FontVariation.Settings(weight, style)` is Compose's own mapping of a
+     * weight and style onto `wght` and `ital`.
+     */
+    internal fun variationAxes(
+      weight: FontWeight,
+      style: FontStyle,
+      axes: List<Pair<String, Float>>,
+    ): List<Pair<String, Float>> {
+      val own =
+        FontVariation.Settings(weight, style)
+          .settings
+          .map { it.axisName to it.toVariationValue(null) }
+          .filter { (tag, _) -> axes.none { it.first == tag } }
+      return own + axes
+    }
+
     /** The namespace marking a family as one to fetch from Google Fonts. */
     const val GOOGLE_PREFIX = "google:"
 
