@@ -51,6 +51,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -659,26 +660,41 @@ private fun RcComposePlayerResolved(
     // beginFrame resets derived text to the document's literals, so the ids the layout's own data
     // operations publish must be recomputed before this same composition measures and draws.
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
-    LookaheadScope {
-      CompositionLocalProvider(
-        LocalRcLookaheadScope provides this,
-        LocalRcLayoutVersion provides invalidationVersion,
-        LocalRcFonts provides fonts,
-        LocalRcTypefaces provides typefaces,
-        LocalRcCustomComponents provides customComponents,
-        LocalRcInvalidate provides { invalidationVersion += 1 },
-        LocalRcFrameDemand provides frameDemand,
-        LocalRcOffscreenTargets provides offscreenTargets,
-      ) {
-        RenderLayoutNode(
-          node = layout,
-          modifier = redrawModifier,
-          state = state,
-          textMeasurer = textMeasurer,
-          images = images,
-          theme = theme,
-        )
+    val version = invalidationVersion
+    val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
+      LookaheadScope {
+        CompositionLocalProvider(
+          LocalRcLookaheadScope provides this,
+          LocalRcLayoutVersion provides version,
+          LocalRcGeometryProbe provides probe,
+          LocalRcFonts provides fonts,
+          LocalRcTypefaces provides typefaces,
+          LocalRcCustomComponents provides customComponents,
+          LocalRcInvalidate provides { invalidationVersion += 1 },
+          LocalRcFrameDemand provides frameDemand,
+          LocalRcOffscreenTargets provides offscreenTargets,
+        ) {
+          RenderLayoutNode(
+            node = layout,
+            // A settling pass is never placed, so it carries none of the player's input, semantics
+            // or draw hooks — none of them measure.
+            modifier = if (probe == null) redrawModifier else Modifier,
+            state = state,
+            textMeasurer = textMeasurer,
+            images = images,
+            theme = theme,
+          )
+        }
       }
+    }
+    if (state.hasAnyComponentValues) {
+      RcSettledLayout(
+        settle = remember(state) { RcFirstLayoutSettle() },
+        onSettled = { state.applyLayoutContentStateOperations(linkedDocument.operations, theme) },
+        tree = tree,
+      )
+    } else {
+      tree(null)
     }
   } else
     Canvas(redrawModifier) {
@@ -739,6 +755,7 @@ private fun RenderLayoutNode(
 ) {
   val layoutVersion = LocalRcLayoutVersion.current
   val lookaheadScope = LocalRcLookaheadScope.current
+  val geometryProbe = LocalRcGeometryProbe.current
   val fontFamilies = LocalRcFonts.current
   val typefaces = LocalRcTypefaces.current
   val drawObserver = LocalRcDrawObserver.current
@@ -805,7 +822,7 @@ private fun RenderLayoutNode(
       // and "not in the tree" the same observation, and they are not: the corpus asserts `isGone`
       // on nodes it still expects to find.
       Layout(
-        Modifier.trackComponentGeometry(geometryIds, state)
+        Modifier.trackComponentGeometry(geometryIds, state, geometryProbe)
           .inspectComponent(node, visibility, inspecting, contentInset)
       ) { _, _ ->
         layout(0, 0) {}
@@ -822,7 +839,7 @@ private fun RenderLayoutNode(
   val effectiveModifier =
     (collapse?.let { Modifier.goneWhenCollapsed(it).then(animatedVisibility.modifier) }
         ?: animatedVisibility.modifier)
-      .trackComponentGeometry(geometryIds, state)
+      .trackComponentGeometry(geometryIds, state, geometryProbe)
       .inspectComponent(
         node,
         if (collapse?.collapsed == true) 0 else visibility,
@@ -1168,12 +1185,16 @@ private fun RenderLayoutNode(
           }
         }
         if (contentVisibility == 0) {
-          Layout(Modifier.trackComponentGeometry(listOf(node.content.componentId), state)) { _, _ ->
+          Layout(
+            Modifier.trackComponentGeometry(listOf(node.content.componentId), state, geometryProbe)
+          ) { _, _ ->
             layout(0, 0) {}
           }
           renderChildren()
         } else {
-          Box(Modifier.trackComponentGeometry(listOf(node.content.componentId), state)) {
+          Box(
+            Modifier.trackComponentGeometry(listOf(node.content.componentId), state, geometryProbe)
+          ) {
             renderChildren()
           }
         }
@@ -1591,6 +1612,7 @@ private data class RcAnimatedVisibility(val shouldRender: Boolean, val modifier:
 
 private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
 private val LocalRcLayoutVersion = compositionLocalOf { 0 }
+private val LocalRcGeometryProbe = staticCompositionLocalOf<RcGeometryProbe?> { null }
 private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap() }
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
@@ -3134,9 +3156,24 @@ private fun RcLayoutNode.geometryComponentIds(): List<Int> =
 private fun Modifier.trackComponentGeometry(
   componentIds: List<Int>,
   state: RcPlayerState,
+  probe: RcGeometryProbe?,
 ): Modifier {
   val tracked = componentIds.distinct().filter(state::hasComponentValues)
   if (tracked.isEmpty()) return this
+  // A settling pass is measured and thrown away, never placed, so it publishes the one thing a
+  // measure pass knows. The size is the node's own from this point of the chain inward — the same
+  // size `coordinates.size` reports below — so the pass the player keeps measures against it.
+  if (probe != null) {
+    return layout { measurable, constraints ->
+      val placeable = measurable.measure(constraints)
+      tracked.forEach { id ->
+        probe.onPublished(
+          state.publishComponentSize(id, placeable.width.toFloat(), placeable.height.toFloat())
+        )
+      }
+      layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+  }
   return onGloballyPositioned { coordinates ->
     val local = coordinates.positionInParent()
     val root = coordinates.positionInRoot()
