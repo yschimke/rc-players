@@ -191,21 +191,22 @@ assert distribution == {
 
 source_checks = {
     "Package.swift": [
-        "platforms: [.iOS(.v13), .macOS(.v12)]",
+        "platforms: [.iOS(.v13), .macOS(.v12), .visionOS(.v1)]",
         '.library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"])',
         '.library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"])',
         '.library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"])',
         'name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]',
     ],
     "distribution/native-uikit/Package.swift": [
-        "platforms: [.iOS(.v13), .macOS(.v12)]",
+        "platforms: [.iOS(.v13), .macOS(.v12), .visionOS(.v1)]",
         '.library(name: "RcPlayerAppleFonts", targets: ["RcPlayerAppleFonts"])',
         '.library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"])',
         'name: "RcNativePlayerUIKit", dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"]',
     ],
 }
+# Compared with whitespace collapsed, so a manifest reflowed across lines is not drift.
 for relative, fragments in source_checks.items():
-    source = (repo / relative).read_text()
+    source = " ".join((repo / relative).read_text().split())
     for fragment in fragments:
         assert fragment in source, f"profile drift: {fragment!r} missing from {relative}"
 
