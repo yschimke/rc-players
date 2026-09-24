@@ -697,6 +697,31 @@ class RcLayoutRenderTest {
   }
 
   @Test
+  fun aVisibilityNamingTheLiteralVisibleIdShowsTheComponent() {
+    // `Visibility.VISIBLE` written as the bare id 1, with no integer declared there: AndroidX reads
+    // an unset id below 42 as its own value, so the component shows.
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 40, modern = false),
+        listOf(RcRootLayout(1), RcLayoutContent(2)) +
+          visibilityCanvas(5, 0xffff0000.toInt(), visibilityId = 1) +
+          List(2) { RcNoArg(RcOpcodes.CONTAINER_END) },
+      )
+    val scene =
+      ImageComposeScene(width = 40, height = 40, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 40) }
+      check(scene.render().readPixels(bitmap))
+
+      assertEquals(0xffff0000.toInt(), bitmap.getColor(5, 5))
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
   fun aCollapsibleRowWhoseChildrenAreAllGoneIsGoneToo() {
     // A GONE child measures nothing, so it always "fits" and is kept — but it shows nothing, so a
     // row that keeps only GONE children has nothing to show and must not paint its background.

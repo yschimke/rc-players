@@ -265,6 +265,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcWakeIn
 import ee.schimke.composeai.rcplayer.protocol.RcWidthInModifier
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
+import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
 import ee.schimke.composeai.rcplayer.runtime.RcAnimationTimeline
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
@@ -525,8 +526,13 @@ private fun RcComposePlayerResolved(
         // anything: `remote-m3`'s indeterminate circular progress builds its sweep from a float
         // expression over the player-supplied `CONTINUOUS_SEC` (#4264). Without this the state's
         // per-frame variables would be loaded exactly once and the arc would hold its first pose.
-        document.referencesMovingSystemVariable()
+        document.referencesContinuousSystemVariable()
     }
+  // A document that reads the clock only in whole seconds — a digital watch face — changes once a
+  // second, and redrawing it at the display rate in between draws the same frame again. AndroidX
+  // sleeps such a document to the next second; so does this.
+  val ticksEverySecond =
+    remember(document) { !documentDeclaresAnimation && document.referencesMovingSystemVariable() }
   // `frameDemand` is snapshot-backed, so a tween starting or finishing recomposes the player and
   // starts or stops the loop below with it.
   val needsContinuousFrames = documentDeclaresAnimation || frameDemand.isActive
@@ -548,6 +554,15 @@ private fun RcComposePlayerResolved(
         // is skipped on a recomposition whose inputs have not changed, so a running tween needs the
         // layout version to move with the clock. Only while one is running.
         if (frameDemand.isActive) invalidationVersion += 1
+      }
+    }
+  }
+  LaunchedEffect(ticksEverySecond, needsContinuousFrames) {
+    if (ticksEverySecond && !needsContinuousFrames) {
+      while (true) {
+        delay(MILLIS_PER_SECOND - latestTimeSource.currentTimeMillis().mod(MILLIS_PER_SECOND))
+        withFrameNanos(recordFrame)
+        invalidationVersion += 1
       }
     }
   }
@@ -4003,16 +4018,14 @@ private class RcDrawTargetState(
     if (depth == 0) restoreMain(scope)
   }
 
-  fun redirect(scope: DrawScope, operation: RcDrawToBitmap) {
-    if (operation.bitmapId == 0) {
+  fun redirect(scope: DrawScope, operation: RcDrawToBitmap, bitmapId: Int) {
+    if (bitmapId == 0) {
       restoreMain(scope)
       return
     }
     val source =
-      requireNotNull(images[operation.bitmapId]) {
-        "DrawToBitmap references missing bitmap ${operation.bitmapId}"
-      }
-    val canvas = offscreenTargets.canvasFor(operation.bitmapId, source, images)
+      requireNotNull(images[bitmapId]) { "DrawToBitmap references missing bitmap $bitmapId" }
+    val canvas = offscreenTargets.canvasFor(bitmapId, source, images)
     scope.drawContext.canvas = canvas
     scope.drawContext.size = Size(source.width.toFloat(), source.height.toFloat())
     if (operation.mode and RcDrawToBitmap.MODE_NO_INITIALIZE == 0) {
@@ -4383,7 +4396,7 @@ private fun DrawScope.drawOperationsRouted(
       is RcDrawTextOnPath -> drawTextOnPath(operation, state, paint, computedPaths, textMeasurer)
       is RcDrawTextOnCircle -> drawTextOnCircle(operation, state, paint, textMeasurer)
       is RcDrawBitmap -> drawBitmap(operation, state, paint, images)
-      is RcDrawBitmapInt -> drawBitmapInt(operation, paint, images)
+      is RcDrawBitmapInt -> drawBitmapInt(operation, state, paint, images)
       is RcDrawBitmapScaled -> drawBitmapScaled(operation, state, paint, images)
       is RcDrawBitmapFontTextRun ->
         drawBitmapFontTextRun(operation, state, images, paint.alpha, paint.blendMode)
@@ -4410,7 +4423,7 @@ private fun DrawScope.drawOperationsRouted(
           textMeasurer,
         )
       is RcDrawTweenPath -> drawTweenPath(operation, paint, state)
-      is RcDrawToBitmap -> targets.redirect(this, operation)
+      is RcDrawToBitmap -> targets.redirect(this, operation, state.drawId(operation.bitmapId))
       is RcShaderData -> functions.shaders[operation.shaderId] = operation
       is RcNoArg ->
         when (operation.opcode) {
@@ -4547,7 +4560,7 @@ private fun DrawScope.drawBitmap(
   paint: RcPaintState,
   images: Map<Int, ImageBitmap>,
 ) {
-  val image = images[operation.imageId] ?: return
+  val image = images[state.drawId(operation.imageId)] ?: return
   val left = state.resolve(operation.left)
   val top = state.resolve(operation.top)
   val width = state.resolve(operation.right) - left
@@ -4568,10 +4581,11 @@ private fun DrawScope.drawBitmap(
 
 private fun DrawScope.drawBitmapInt(
   operation: RcDrawBitmapInt,
+  state: RcPlayerState,
   paint: RcPaintState,
   images: Map<Int, ImageBitmap>,
 ) {
-  val image = images[operation.imageId] ?: return
+  val image = images[state.drawId(operation.imageId)] ?: return
   drawBitmapRegion(
     image,
     operation.srcLeft,
@@ -4592,7 +4606,7 @@ private fun DrawScope.drawBitmapScaled(
   paint: RcPaintState,
   images: Map<Int, ImageBitmap>,
 ) {
-  val image = images[operation.imageId] ?: return
+  val image = images[state.drawId(operation.imageId)] ?: return
   val sl = state.resolve(operation.srcLeft)
   val st = state.resolve(operation.srcTop)
   val sr = state.resolve(operation.srcRight)
@@ -4947,7 +4961,7 @@ private fun DrawScope.drawTextOnPath(
 ) {
   val text = state.text(operation.textId).orEmpty()
   if (text.isEmpty()) return
-  val path = pathForId(operation.pathId, state, computedPaths)
+  val path = pathForId(state.drawId(operation.pathId), state, computedPaths)
   val measure = org.jetbrains.skia.PathMeasure(path.asSkiaPath(), false)
   if (measure.length <= 0f) return
   drawTextOnPathWithCompose(
@@ -5220,8 +5234,13 @@ private fun DrawScope.drawTweenPath(
   state: RcPlayerState,
 ) {
   val data =
-    tweenPathData(-1, operation.path1Id, operation.path2Id, state.resolve(operation.tween), state)
-      ?: return
+    tweenPathData(
+      -1,
+      state.drawId(operation.path1Id),
+      state.drawId(operation.path2Id),
+      state.resolve(operation.tween),
+      state,
+    ) ?: return
   val path = buildPath(data, state)
   val start = state.resolve(operation.start)
   val stop = state.resolve(operation.stop)
@@ -5315,7 +5334,7 @@ private fun DrawScope.drawIdOperation(
 ) {
   when (operation.opcode) {
     RcOpcodes.DRAW_PATH -> {
-      drawRcPath(pathForId(operation.id, state, computedPaths), paint)
+      drawRcPath(pathForId(state.drawId(operation.id), state, computedPaths), paint)
     }
     RcOpcodes.CLIP_PATH -> {
       // AndroidX packs the path id in the low 20 bits and the Region.Op in the high byte.
@@ -5969,3 +5988,5 @@ private fun blendMode(value: Int): BlendMode =
     28 -> BlendMode.Luminosity
     else -> BlendMode.SrcOver
   }
+
+private const val MILLIS_PER_SECOND = 1_000L
