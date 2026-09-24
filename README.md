@@ -75,6 +75,9 @@ XCFramework is uploaded. The copy on `main` is a permanent placeholder: a manife
 checksum of an asset that does not exist yet, so `main` and the `v`-prefixed tag both fail the
 checksum check by design. Editing the two values by hand is never right. Usage is documented, and
 type-checked in CI, in [`docs/design/RC_PLAYER_SWIFT.md`](docs/design/RC_PLAYER_SWIFT.md).
+The manifest is `swift-tools-version: 6.0` and builds every target in the Swift 6 language mode
+(complete strict concurrency), so it needs a Swift 6 toolchain — Xcode 16 or newer; the deployment
+floor stays iOS 13, macOS 12 and visionOS 1.
 Application targets normally select the `RcComposePlayerSwiftUI` product for direct `Data`, typed
 events/errors, and SwiftUI/UIKit entry points; the `RcComposePlayer` product remains the raw binary
 interop surface.

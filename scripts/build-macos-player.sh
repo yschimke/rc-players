@@ -27,9 +27,14 @@ mkdir -p "$build_root/module-cache"
 cp "$repo_root/samples/macos-player/Info.plist" "$app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$app/Contents/Info.plist"
 
+# `-swift-version 5`, stated rather than defaulted: this is one module holding the sample app, which
+# drives the Kotlin/Native framework's non-Sendable API from detached tasks and blocking bridges.
+# The player sources it shares are held to the Swift 6 language mode by `Package.swift` — `swift
+# test` compiles them that way on every Apple lane — so their checking does not depend on this app.
 CLANG_MODULE_CACHE_PATH="$build_root/module-cache" \
 SWIFT_MODULECACHE_PATH="$build_root/module-cache" \
 xcrun swiftc \
+  -swift-version 5 \
   -parse-as-library \
   -target arm64-apple-macos12.0 \
   "${optimization[@]}" \
