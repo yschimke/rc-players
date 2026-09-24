@@ -2674,8 +2674,12 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     if label.font != font { label.font = font }
     let textColor = color(Int32(bitPattern: text.colorARGB))
     if label.textColor != textColor { label.textColor = textColor }
-    if label.maximumNumberOfLines != text.maximumLines {
-      label.maximumNumberOfLines = text.maximumLines
+    // The same line count the component is measured with (`measuredText`), so the field paints
+    // every line it was given room for: a multi-line clip or visible layout is not capped.
+    let maximumLines = NativeTextPolicy.numberOfLines(
+      overflow: text.overflow, maximum: text.maximumLines)
+    if label.maximumNumberOfLines != maximumLines {
+      label.maximumNumberOfLines = maximumLines
     }
     let lineBreakMode = Self.lineBreakMode(
       overflow: text.overflow, maximumLines: text.maximumLines)
