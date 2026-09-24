@@ -639,7 +639,10 @@
 
     /// The document is the one accessibility container: every semantic element it lists names it as
     /// its container, so VoiceOver and XCUITest walk the same parent chain they enumerate.
-    private func publishAccessibilityElements() {
+    ///
+    /// Layout republishes it too, through the component views' refresh, because a container that
+    /// hides or restores a child at layout changes which elements are listed.
+    func publishAccessibilityElements() {
       let elements = componentView.accessibilityOrder
       for case let element as NativeSemanticElement in elements {
         element.accessibilityContainer = self
@@ -1310,11 +1313,17 @@
     }
 
     /// Re-resolves every semantic element from here up: a merging ancestor's label, role and
-    /// action come from its displayed descendants.
+    /// action come from its displayed descendants. The document then republishes the elements it
+    /// lists, since what is displayed decides that too.
     func refreshSemanticElements() {
       var view: UIView? = self
       while let current = view {
-        (current as? NativeComponentView)?.configureSemanticElement()
+        if let component = current as? NativeComponentView {
+          component.configureSemanticElement()
+        } else if let document = current as? NativeDocumentView {
+          document.publishAccessibilityElements()
+          return
+        }
         view = current.superview
       }
     }
