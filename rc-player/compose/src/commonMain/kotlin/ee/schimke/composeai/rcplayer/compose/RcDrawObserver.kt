@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
+import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 
 /**
  * What the player draws, reported as it draws it.
@@ -13,7 +14,29 @@ import androidx.compose.runtime.staticCompositionLocalOf
  */
 public fun interface RcDrawObserver {
   public fun onTextRun(run: RcTextRun)
+
+  /**
+   * The player began drawing a frame. What is reported after this belongs to it, so a frame that
+   * draws no text is distinguishable from one that was never drawn.
+   */
+  public fun onFrame() {}
+
+  /**
+   * A conditional was evaluated while drawing, with the operand values it compared then.
+   *
+   * Reported as it happens because its children can write to the very ids it compares, after which
+   * the values it decided on are gone.
+   */
+  public fun onConditional(branch: RcBranch) {}
 }
+
+/** One evaluation of [operation]: its operands as compared, and whether its children ran. */
+public class RcBranch(
+  public val operation: RcConditionalOperations,
+  public val left: Float,
+  public val right: Float,
+  public val holds: Boolean,
+)
 
 /**
  * One drawn text run, in device pixels.

@@ -62,6 +62,8 @@ struct ParsedDocument {
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
   let linkedOperationCount: Int
+  /// The opcodes of every operation on the wire, once each, header excluded.
+  let operationCensus: [Int]
 }
 
 struct ParsedDynamicFloatList {

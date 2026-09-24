@@ -537,14 +537,17 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     ).compactMap { names[$0.opcode] }
   }
 
-  /// The operation census the corpus's `ops` probes read: every decoded operation, by name.
+  /// The operation census the corpus's `ops` probes read: every operation on the wire, by name,
+  /// once each — as the reference counts `document.operations`, so a branch that does not run
+  /// still counts and a macro called twice does not count its body twice.
   ///
   /// The header is an operation on the wire like any other, and every document that decodes has
-  /// one, so it leads the list; the decoder consumes it before the operation loop records spans.
+  /// one, so it leads the list; the decoder consumes it before the operation loop starts.
   private static func operationNames(in data: Data) throws -> [String] {
-    let spans = try NativeSwiftDocumentSession.operationSpans(
-      in: data, toleratingRootlessData: true)
-    return ([NativeSwiftWireOpcode.header] + spans.map(\.opcode)).flatMap { censusNames[$0] ?? [] }
+    let census = try NativeSwiftDocumentSession.open(
+      data: data, toleratingRootlessData: true
+    ).operationCensus
+    return ([NativeSwiftWireOpcode.header] + census).flatMap { censusNames[$0] ?? [] }
   }
 
   /// `ops:counts` over the whole vocabulary. An operation the document does not contain is counted
@@ -3204,9 +3207,9 @@ private final class NativeMacCanvasView: NSView {
       context.strokePath()
     case NativeSwiftDrawKind.roundRect:
       paint(
-        CGPath(
-          roundedRect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
-          cornerWidth: v[4], cornerHeight: v[5], transform: nil), command,
+        NativeGraphicsState.roundedRectPath(
+          CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
+          cornerWidth: v[4], cornerHeight: v[5]), command,
         context)
     case NativeSwiftDrawKind.arc, NativeSwiftDrawKind.sector:
       let center = CGPoint(x: (v[0] + v[2]) / 2, y: (v[1] + v[3]) / 2)
@@ -3502,6 +3505,6 @@ private func nativeSystemWallClock() -> NativeSwiftWallClock {
   let date = Date()
   return NativeSwiftWallClock(
     epochMillis: Int64((date.timeIntervalSince1970 * 1000).rounded()),
-    offsetSeconds: TimeZone.current.secondsFromGMT(for: date))
+    offsetSeconds: TimeZone.current.secondsFromGMT(for: date), timeZone: .current)
 }
 #endif

@@ -630,6 +630,7 @@ private fun RcComposePlayerResolved(
     interactiveModifier
       .drawWithContent {
         invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
+        drawObserver?.onFrame()
         drawContent()
       }
       // Published here rather than on the root layout component, because a canvas-only document has
@@ -748,6 +749,7 @@ private fun RenderLayoutNode(
   // its bounds are interpolated between the outgoing and incoming branch by the shared transition,
   // so it must not also drive `animateRcBounds` — two approach-layout animations chasing the same
   // node fight each other. Outside a switcher this is null and nothing changes.
+  val layoutAnimations = LocalRcLayoutAnimations.current
   val sharedElementModifier =
     if (node is RcLayoutNode.Content) null
     else rcSharedElementModifier(node.componentId, node.animationId, node.modifiers.animationSpec)
@@ -757,20 +759,22 @@ private fun RenderLayoutNode(
     } else if (node is RcLayoutNode.Content || lookaheadScope == null) {
       modifier
     } else {
-      // Only when the document asked for it. Falling back to `DefaultRcAnimationSpec` here made
-      // every layout node animate its bounds over 300ms, so a viewport change crossed the screen
-      // instead of taking effect -- and the conformance corpus asserts the opposite in 119 golds:
-      // a `resize` lands immediately, while `animation_box_offset`, whose document *does* declare a
-      // spec, interpolates across its 18 captured frames. The default still applies to shared
-      // elements inside a `StateLayout` (see RcSharedElements), which is the case upstream declares
-      // it for.
-      node.modifiers.animationSpec?.let { modifier.animateRcBounds(lookaheadScope, it) } ?: modifier
+      // AndroidX animates every component but layout content to its new measure, over the
+      // component's spec or the 300 ms default (`Component.layout`). A resize lands at once only
+      // because the host turns animation off for it, which is what `LocalRcLayoutAnimations` is.
+      val spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec
+      if (layoutAnimations) modifier.animateRcBounds(lookaheadScope, spec) else modifier
     }
   val animatedVisibility =
     if (node is RcLayoutNode.Content) {
       RcAnimatedVisibility(visibility != 0, if (visibility == 2) modifier.alpha(0f) else modifier)
     } else {
-      animateRcVisibility(visibility, node.modifiers.animationSpec, boundsModifier)
+      animateRcVisibility(
+        visibility,
+        node.modifiers.animationSpec,
+        boundsModifier,
+        layoutAnimations,
+      )
     }
   val geometryIds = node.geometryComponentIds()
   val inspecting = LocalRcInspection.current
@@ -1338,8 +1342,26 @@ private fun RenderLayoutNode(
             properties.floatArrayProperty(CORE_TEXT_FONT_AXIS_VALUES).map { state.resolve(it) },
         )
       val lines = remember { RcTextLines() }
+      val text = state.text(node.operation.textId).orEmpty()
+      val overflow = properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)
+      val maxLines = androidXMaxLines(overflow, properties.intProperty(11, Int.MAX_VALUE))
+      // Under the closed-form Ahem model a truncated run is sized as the model sizes it (§2.3):
+      // its kept lines, the last one ellipsized. Without the model it keeps the full width.
+      // The model keeps `maxLines` lines whatever the overflow, one font size each.
+      val truncatedBlock: ((Float, Float) -> Size)? =
+        if (LocalRcAhemTextMetrics.current && lineHeightAdd == 0f && lineHeightMultiplier == 1f) {
+          { maxWidth, laidOutFontSize ->
+            rcAhemTruncatedBlock(
+              text,
+              maxWidth,
+              laidOutFontSize,
+              properties.intProperty(11, Int.MAX_VALUE),
+              ellipsis = overflow == RcTextLayout.OVERFLOW_ELLIPSIS,
+            )
+          }
+        } else null
       BasicText(
-        text = state.text(node.operation.textId).orEmpty(),
+        text = text,
         modifier =
           effectiveModifier
             .applyComponentModifiers(
@@ -1352,7 +1374,7 @@ private fun RenderLayoutNode(
               images,
               theme,
             )
-            .fitToLines(lines),
+            .fitToLines(lines, truncatedBlock),
         onTextLayout = { lines.result = it },
         style =
           TextStyle(
@@ -1417,11 +1439,8 @@ private fun RenderLayoutNode(
             RcAhemAutoSize(
               minPx = resolvedMinFontSize,
               maxPx = resolvedMaxFontSize,
-              maxLines =
-                androidXMaxLines(
-                  properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP),
-                  properties.intProperty(11, Int.MAX_VALUE),
-                ),
+              // The declared cap, whatever the overflow: the model keeps `maxLines` lines.
+              maxLines = properties.intProperty(11, Int.MAX_VALUE),
             )
           else if (autosize)
             TextAutoSize.StepBased(
@@ -1619,6 +1638,7 @@ private fun animateRcVisibility(
   targetVisibility: Int,
   operation: RcAnimationSpec?,
   modifier: Modifier,
+  enabled: Boolean = true,
 ): RcAnimatedVisibility {
   val spec = operation ?: DefaultRcAnimationSpec
   val maxDurationMillis =
@@ -1642,7 +1662,7 @@ private fun animateRcVisibility(
     previousVisibility = animationTarget
     animationTarget = targetVisibility
     elapsedMillis.snapTo(0f)
-    if (spec.isEnabled && maxDurationMillis > 0f) {
+    if (enabled && spec.isEnabled && maxDurationMillis > 0f) {
       elapsedMillis.animateTo(
         maxDurationMillis,
         tween(maxDurationMillis.roundToInt(), easing = LinearEasing),
@@ -1652,9 +1672,13 @@ private fun animateRcVisibility(
     }
   }
 
+  // Turned off mid-transition: finish it now rather than let the running one play out.
+  LaunchedEffect(enabled) { if (!enabled) elapsedMillis.snapTo(maxDurationMillis) }
+
   // AndroidX INVISIBLE participates in measure/layout exactly like VISIBLE, but skips paint.
   // It does not run the GONE visibility transition.
   if (targetVisibility == 2) return RcAnimatedVisibility(true, modifier.alpha(0f))
+  if (!enabled) return RcAnimatedVisibility(targetVisibility == 1, modifier)
 
   val shouldRender =
     when (targetVisibility) {
@@ -1898,7 +1922,12 @@ private fun RcCollapsibleLayout(
       else constraints.maxHeight
     val retained = selectCollapsibleChildren(mainSizes, priorities, maximumMain)
     val retainedIndices = retained.indices.filter { retained[it] }
-    collapse.collapsed = retainedIndices.isEmpty()
+    // A GONE child measures zero on the main axis, so it always "fits" and is always retained; it
+    // still shows nothing. The container collapses when nothing it kept is visible.
+    collapse.collapsed = retainedIndices.none { index ->
+      val visibility = children[index].modifiers.visibility
+      visibility == null || androidXVisibility(state.integer(visibility.visibilityId) ?: 0) != 0
+    }
     // Distribute the main-axis space the retained unweighted children left, in proportion to each
     // retained weighted child's weight, and measure those children at their share.
     val totalWeight =
@@ -2940,11 +2969,12 @@ private fun Modifier.applyAndroidXMarquee(
   // AndroidX times the marquee off the wall clock from the frame it was first painted in, not off
   // the document's animation time.
   val nowMillis = state.frameWallClockMillis
-  val firstPaintMillis = remember { longArrayOf(nowMillis) }
+  // Keyed to the document's state: a host swapping documents gets a new marquee, with its own hold.
+  val firstPaintMillis = remember(state, operation) { longArrayOf(nowMillis) }
   val timeSeconds = (nowMillis - firstPaintMillis[0]) / 1_000f
   // How far the content overflows is only known once it has been measured, so the layout reports
   // it back. It moves only when the content or the viewport does.
-  var overflowDistance by remember { mutableFloatStateOf(0f) }
+  var overflowDistance by remember(state, operation) { mutableFloatStateOf(0f) }
   fun offsetFor(distance: Float): Float =
     androidXMarqueeOffset(
       overflowDistance = distance,
@@ -3191,11 +3221,29 @@ private class RcTextLines {
  * end-aligned lines keep their positions within that span. It never goes below the incoming
  * minimum, so an explicit width still wins.
  *
- * Truncated text keeps the full width: it was cut because it did not fit.
+ * Truncated text keeps the full width — it was cut because it did not fit — unless [truncatedWidth]
+ * says how a truncated run is sized.
  */
-private fun Modifier.fitToLines(lines: RcTextLines): Modifier = layout { measurable, constraints ->
+private fun Modifier.fitToLines(
+  lines: RcTextLines,
+  truncatedBlock: ((maxWidth: Float, fontSize: Float) -> Size)? = null,
+): Modifier = layout { measurable, constraints ->
   val placeable = measurable.measure(constraints)
   val result = lines.result
+  if (result != null && result.hasVisualOverflow && truncatedBlock != null) {
+    // The size the paragraph was laid out at, which autosize chose.
+    val laidOutFontSize = with(this) { result.layoutInput.style.fontSize.toPx() }
+    val block = truncatedBlock(placeable.width.toFloat(), laidOutFontSize)
+    val width =
+      constraints
+        .constrainWidth(ceil(block.width - LINE_EXTENT_EPSILON).toInt())
+        .coerceAtMost(placeable.width)
+    val height =
+      constraints
+        .constrainHeight(ceil(block.height - LINE_EXTENT_EPSILON).toInt())
+        .coerceAtMost(placeable.height)
+    return@layout layout(width, height) { placeable.place(0, 0) }
+  }
   if (result == null || result.lineCount == 0 || result.hasVisualOverflow) {
     return@layout layout(placeable.width, placeable.height) { placeable.place(0, 0) }
   }
@@ -3217,21 +3265,61 @@ private const val LINE_EXTENT_EPSILON = 0.01f
 
 internal fun rcAhemWrap(text: String, availableWidthPx: Float, fontSizePx: Float): List<String> {
   if (fontSizePx <= 0f || availableWidthPx <= 0f) return listOf(text)
-  val perLine = floor(availableWidthPx / fontSizePx).toInt()
-  if (perLine <= 0) return listOf(text)
+  val perLine = floor(availableWidthPx / fontSizePx).toInt().coerceAtLeast(1)
   val lines = mutableListOf<String>()
-  var line = ""
-  text.split(' ').forEach { word ->
-    val candidate = if (line.isEmpty()) word else "$line $word"
-    if (candidate.length <= perLine || line.isEmpty()) line = candidate
-    else {
-      lines += line
-      line = word
+  text.split('\n').forEach { paragraph ->
+    if (paragraph.isEmpty()) {
+      lines += ""
+      return@forEach
     }
+    var line = ""
+    paragraph.split(' ').forEach { word ->
+      if (line.isNotEmpty() && line.length + 1 + word.length <= perLine) {
+        line = "$line $word"
+        return@forEach
+      }
+      if (line.isNotEmpty()) lines += line
+      // A word longer than a line is cut into line-sized pieces; the last piece, if it is short,
+      // starts the next line rather than taking one of its own.
+      val pieces = word.chunked(perLine).ifEmpty { listOf("") }
+      lines += pieces.dropLast(1)
+      line = pieces.last()
+      if (line.length == perLine && pieces.size > 1) {
+        lines += line
+        line = ""
+      }
+    }
+    if (line.isNotEmpty()) lines += line
   }
-  if (line.isNotEmpty()) lines += line
   return lines
 }
+
+/**
+ * The block a truncated run fills under the closed-form Ahem model (`CONFORMANCE_FORMAT.md` §2.3):
+ * greedy word wrap, the first [maxLines] lines kept and, for an [ellipsis], `"..."` appended to the
+ * last kept line — cutting it back to three short of a full line when the dots would not fit. As
+ * wide as the widest kept line and as tall as the kept lines, one font size a character and a line.
+ */
+internal fun rcAhemTruncatedBlock(
+  text: String,
+  availableWidthPx: Float,
+  fontSizePx: Float,
+  maxLines: Int,
+  ellipsis: Boolean = true,
+): Size {
+  val perLine = floor(availableWidthPx / fontSizePx).toInt().coerceAtLeast(1)
+  val wrapped = rcAhemWrap(text, availableWidthPx, fontSizePx)
+  val kept = wrapped.take(maxLines.coerceAtLeast(1)).toMutableList()
+  if (ellipsis && wrapped.size > kept.size && kept.isNotEmpty()) {
+    val last = kept.last()
+    kept[kept.lastIndex] =
+      if (last.length + ELLIPSIS.length <= perLine) last + ELLIPSIS
+      else last.take((perLine - ELLIPSIS.length).coerceAtLeast(0)) + ELLIPSIS
+  }
+  return Size((kept.maxOfOrNull { it.length } ?: 0) * fontSizePx, kept.size * fontSizePx)
+}
+
+private const val ELLIPSIS = "..."
 
 /**
  * Autosize under the closed-form Ahem model, resolved where Compose resolves it.
@@ -3241,19 +3329,12 @@ internal fun rcAhemWrap(text: String, availableWidthPx: Float, fontSizePx: Float
  * space by wrapping `CoreText` in a `BoxWithConstraints` or a `SubcomposeLayout`; both reported the
  * host's size rather than the text run's. No host is needed.
  *
- * The predicate is derived from the corpus, and each clause is load-bearing — it reproduces all
- * four autosize golds exactly, and dropping any one of them breaks at least one:
- *
- * * **the search starts strictly below `maxFontSize`.** `core_text_autosize_max_clamped` clamps at
- *   18 and the reference settles at 17.5 even though 18 fits;
- * * **width must fit, inclusively** (`widest × size <= availableWidth`). A single unsplittable word
- *   can overflow the line the wrap computed, which is what `core_text_autosize_basic` turns on: at
- *   39.5 the one word measures 316 in a 200 box, and only `<= 200` steps it down to 25;
- * * **height must fit, strictly** (`lines × size < availableHeight`).
- *   `core_text_autosize_height_driven` has a 24px box where a 24px line fits exactly, and the
- *   reference still steps to 23.5;
- * * **`maxLines` caps the line count before the height test**, which is the whole of
- *   `core_text_autosize_min_clamped`.
+ * The search is the reference harness's own (`CoreText.computeWrapSize` over its Ahem text layout):
+ * bisect `[minFontSize, maxFontSize]` on whether the block is *strictly* shorter than the box, snap
+ * down to the half-point grid, then take one half-step more if that still fits. The block is the
+ * first `maxLines` lines of [rcAhemWrap] — the declared cap, whatever the overflow — and width
+ * never enters it: a word too long for a line is cut into more lines, which is what makes a narrow
+ * box pick a smaller size.
  *
  * Every line is one em tall (`0.8em` ascent + `0.2em` descent), so a block is `lines × size`.
  */
@@ -3269,13 +3350,19 @@ private class RcAhemAutoSize(
   ): TextUnit {
     val width = constraints.maxWidth.toFloat()
     val height = constraints.maxHeight.toFloat()
-    var size = maxPx - stepPx
-    while (size > minPx) {
-      val lines = rcAhemWrap(text.text, width, size).take(maxLines)
-      val widest = (lines.maxOfOrNull { it.length } ?: 0) * size
-      if (widest <= width && lines.size * size < height) break
-      size -= stepPx
+    fun fits(size: Float): Boolean =
+      rcAhemWrap(text.text, width, size).take(maxLines).size * size < height
+    // A bisection on height alone, then one half-step up if that still fits — the reference's
+    // `CoreText.computeWrapSize`. Width never enters it: a word too long for a line is cut into
+    // more lines, which is what makes a narrow box choose a smaller size.
+    var low = minPx
+    var high = maxPx
+    while (high - low >= stepPx) {
+      val current = (low + high) / 2f
+      if (fits(current)) low = current else high = current
     }
+    var size = floor((low - minPx) / stepPx) * stepPx + minPx
+    if (size + stepPx < maxPx && fits(size + stepPx)) size += stepPx
     return with(this) { size.coerceAtLeast(minPx).toSp() }
   }
 
@@ -3388,7 +3475,10 @@ private fun Modifier.applyAccessibilitySemantics(
       ?.let { id -> state.text(id)?.let { stateDescription = it } }
     androidXSemanticsRole(operation.role)?.let { role = it }
     if (!operation.enabled) disabled()
-    if (operation.clickable && !hasClickAction) onClick { false }
+    if (operation.clickable && !hasClickAction) {
+      onClick { false }
+      rcAccessibilityOnlyClick = true
+    }
   }
   return when (operation.mode) {
     RcAccessibilitySemantics.MODE_SET -> semantics(properties = properties)
@@ -4027,7 +4117,16 @@ private fun DrawScope.drawOperationsRouted(
           RcOpcodes.RUN_ACTION -> state.executeRunAction(node.children)
           RcOpcodes.CONDITIONAL_OPERATIONS -> {
             val conditional = node.operation as RcConditionalOperations
-            if (state.evaluateConditional(conditional)) {
+            val holds = state.evaluateConditional(conditional)
+            paint.observer?.onConditional(
+              RcBranch(
+                conditional,
+                state.resolve(conditional.left),
+                state.resolve(conditional.right),
+                holds,
+              )
+            )
+            if (holds) {
               drawOperations(
                 node.children,
                 state,
@@ -4732,6 +4831,12 @@ private fun DrawScope.drawTextAnchored(
 }
 
 /** [local] in device pixels, through every transform the canvas is under — for [RcDrawObserver]. */
+/** The angle the current transform turns the local x-axis to on the device, in degrees. */
+private fun DrawScope.deviceRotationDegrees(): Float {
+  val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
+  return atan2(m[3], m[0]) * (180f / PI.toFloat())
+}
+
 private fun DrawScope.toDevice(local: Offset): Offset {
   val m = drawContext.canvas.nativeCanvas.localToDeviceAsMatrix33.mat
   return Offset(
@@ -4919,7 +5024,8 @@ private fun DrawScope.drawTextSegmentsOnPath(
     val advance = segment.advance
     val center = distance + advance / 2f
     if (center > contourLength) {
-      if (!measure.nextContour()) return
+      // Out of path: stop drawing, but still report the glyphs that were drawn.
+      if (!measure.nextContour()) break
       contourLength = measure.length
       distance = 0f
     }
@@ -4943,11 +5049,11 @@ private fun DrawScope.drawTextSegmentsOnPath(
           style = style,
           blendMode = paint.blendMode,
         )
-        // The glyph's baseline origin, read inside its own rotation so the device position is
-        // where it was actually drawn.
+        // The glyph's baseline origin and angle, read inside its own rotation so both are where
+        // and how it was actually drawn — including any rotation the canvas was already under.
         glyphs?.add(
           toDevice(placement.topLeft + Offset(0f, segment.firstBaseline)).let {
-            RcGlyphPlacement(it.x, it.y, placement.angleDegrees)
+            RcGlyphPlacement(it.x, it.y, deviceRotationDegrees())
           }
         )
       }

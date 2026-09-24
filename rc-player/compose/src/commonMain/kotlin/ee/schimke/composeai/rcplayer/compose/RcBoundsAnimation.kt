@@ -65,13 +65,22 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
   override fun Placeable.PlacementScope.isPlacementApproachInProgress(
     lookaheadCoordinates: LayoutCoordinates
   ): Boolean {
-    val target =
-      with(lookaheadScope) {
-        lookaheadScopeCoordinates.localLookaheadPositionOf(lookaheadCoordinates).round()
-      }
-    offsetAnimation.updateTarget(target, coroutineScope, offsetSpec())
+    offsetAnimation.updateTarget(targetInParent(lookaheadCoordinates), coroutineScope, offsetSpec())
     return !offsetAnimation.isIdle
   }
+
+  /**
+   * Where the lookahead pass puts this component within its parent.
+   *
+   * Within the parent, not the scope: AndroidX animates a component's own x/y, which a parent's
+   * move or scroll does not change. Measured across the scope instead, scrolling a column read as
+   * every child moving, and each eased back toward where it had been.
+   */
+  private fun Placeable.PlacementScope.targetInParent(coordinates: LayoutCoordinates): IntOffset =
+    with(lookaheadScope) {
+      val parent = coordinates.parentLayoutCoordinates ?: lookaheadScopeCoordinates
+      parent.localLookaheadPositionOf(coordinates).round()
+    }
 
   override fun ApproachMeasureScope.approachMeasure(
     measurable: Measurable,
@@ -84,15 +93,15 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
       if (coordinates == null) {
         placeable.place(0, 0)
       } else {
-        val target =
-          with(lookaheadScope) {
-            lookaheadScopeCoordinates.localLookaheadPositionOf(coordinates).round()
-          }
-        val animatedOffset = offsetAnimation.updateTarget(target, coroutineScope, offsetSpec())
+        val animatedOffset =
+          offsetAnimation.updateTarget(targetInParent(coordinates), coroutineScope, offsetSpec())
+        val parent = coordinates.parentLayoutCoordinates
         val placementOffset =
-          with(lookaheadScope) {
-            lookaheadScopeCoordinates.localPositionOf(coordinates, Offset.Zero).round()
-          }
+          if (parent != null) parent.localPositionOf(coordinates, Offset.Zero).round()
+          else
+            with(lookaheadScope) {
+              lookaheadScopeCoordinates.localPositionOf(coordinates, Offset.Zero).round()
+            }
         val delta = animatedOffset - placementOffset
         placeable.place(delta.x, delta.y)
       }

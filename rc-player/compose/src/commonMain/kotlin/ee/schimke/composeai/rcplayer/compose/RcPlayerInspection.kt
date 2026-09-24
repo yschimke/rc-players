@@ -158,5 +158,20 @@ public var SemanticsPropertyReceiver.rcContentInset: Offset by RcContentInsetKey
 /** Sets [RcScrollOffsetKey]. */
 public var SemanticsPropertyReceiver.rcScrollOffset: Offset by RcScrollOffsetKey
 
+/**
+ * Marks a click action that only accessibility services can trigger.
+ *
+ * A document can declare itself clickable to assistive technology without attaching a click
+ * modifier. The player then publishes an `OnClick` action so the node is announced as clickable,
+ * but installs no pointer handler, so a touch at that spot does nothing. A reader asking whether a
+ * gesture lands on something that handles it must not count these.
+ */
+public val RcAccessibilityOnlyClickKey: SemanticsPropertyKey<Boolean> =
+  SemanticsPropertyKey("RcAccessibilityOnlyClick")
+
+/** Sets [RcAccessibilityOnlyClickKey]. */
+public var SemanticsPropertyReceiver.rcAccessibilityOnlyClick: Boolean by
+  RcAccessibilityOnlyClickKey
+
 /** Sets [RcDocumentStateKey]. */
 public var SemanticsPropertyReceiver.rcDocumentState: RcPlayerState by RcDocumentStateKey

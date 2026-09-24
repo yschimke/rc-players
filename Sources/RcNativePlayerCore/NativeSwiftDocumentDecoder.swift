@@ -191,6 +191,14 @@ enum NativeSwiftDocumentDecoder {
     var macroDefinitions: [Int: MacroDefinition] = [:]
     var referencedOperations: [Int: Data] = [:]
     var suspendedInputs: [MacroExpansionFrame] = []
+    /// Every operation on the source wire, once each, in wire order: what the reference's
+    /// `document.operations` holds. Bytes replayed by an expansion (a macro call, an unrolled loop,
+    /// a branch that runs) or re-walked for a trace were counted when they were first read.
+    var operationCensus: [Int] = []
+    var rewalkingCapturedBody = false
+    func census(_ opcode: Int) {
+      if suspendedInputs.isEmpty, !rewalkingCapturedBody { operationCensus.append(opcode) }
+    }
     var macroBlocks: [Int: Data] = [:]
     // Tier-two LOOM IDs (0x4000...0x4fff) are local declarations.  A macro call must
     // materialise a fresh ID for each one, or two otherwise independent calls try to add the
@@ -328,26 +336,77 @@ enum NativeSwiftDocumentDecoder {
       return try currentNode(stack, input: input)
     }
 
-    // Capture recurses once per nested MacroCall block, so a malformed chain of 247 -> 249 would
-    // otherwise exhaust the stack. Captured operations are not charged to the operation budget
-    // here: a captured body is counted when it executes, and the capture itself is bounded by the
-    // input length.
+    // A MacroCall nests further MacroBlock bodies, and a malformed chain of 247 -> 249 would nest
+    // them without end. The capture walks that nesting with an explicit frame stack rather than
+    // recursing, so a chain up to the cap costs no call-stack depth: a debug build recursing 256
+    // bodies deep overflows a 512 KiB secondary-thread stack (SIGBUS), which is where hosts and
+    // swift-testing decode. Captured operations are not charged to the operation budget here: a
+    // captured body is counted when it executes, and the capture itself is bounded by the input
+    // length.
     func captureMacroBody(depth: Int = 0) throws -> Data {
       guard depth < maximumNestingDepth else {
         throw input.malformed("Macro body nesting exceeds \(maximumNestingDepth)")
       }
+      enum Frame {
+        /// A body being captured, with the containers opened inside it and not yet closed.
+        case body(nesting: Int)
+        /// A nested MacroCall, whose remaining children are MacroBlocks up to its end.
+        case call
+      }
       let start = input.offset
-      var nesting = 0
-      while true {
-        let opcodeOffset = input.offset
-        let opcode = try input.u8("macro body opcode")
-        if opcode == NativeSwiftWireOpcode.containerEnd {
-          if nesting == 0 { return input.rawBytes(from: start, to: opcodeOffset) }
-          nesting -= 1
-        } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: depth) {
-          nesting += 1
+      var frames: [Frame] = [.body(nesting: 0)]
+      var bodyDepth = depth
+      while let frame = frames.last {
+        switch frame {
+        case .call:
+          let childOpcode = try input.u8("nested macro call operation")
+          census(childOpcode)
+          if childOpcode == NativeSwiftWireOpcode.containerEnd {
+            frames.removeLast()
+            continue
+          }
+          guard childOpcode == NativeSwiftWireOpcode.macroBlock else {
+            throw NativeSwiftCoreError.unsupported(
+              opcode: childOpcode, offset: input.offset - 1,
+              reason: "LOOM nested macro calls only support MacroBlock children")
+          }
+          _ = try input.int("nested macro block index")
+          guard bodyDepth + 1 < maximumNestingDepth else {
+            throw input.malformed("Macro body nesting exceeds \(maximumNestingDepth)")
+          }
+          bodyDepth += 1
+          frames.append(.body(nesting: 0))
+        case .body(let nesting):
+          let opcodeOffset = input.offset
+          let opcode = try input.u8("macro body opcode")
+          census(opcode)
+          if opcode == NativeSwiftWireOpcode.containerEnd {
+            frames.removeLast()
+            if nesting > 0 {
+              frames.append(.body(nesting: nesting - 1))
+            } else if frames.isEmpty {
+              return input.rawBytes(from: start, to: opcodeOffset)
+            } else {
+              bodyDepth -= 1
+            }
+          } else if opcode == NativeSwiftWireOpcode.macroCall {
+            // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
+            // matching end so the surrounding definition's end remains the capture terminator.
+            try skipMacroCallHeader()
+            frames.append(.call)
+          } else if try skipOperationPayload(opcode, at: opcodeOffset, depth: bodyDepth) {
+            frames.removeLast()
+            frames.append(.body(nesting: nesting + 1))
+          }
         }
       }
+      preconditionFailure("the outermost body frame returns when it closes")
+    }
+
+    func skipMacroCallHeader() throws {
+      _ = try input.int("nested macro id")
+      let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
+      for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
     }
 
     /// Reads past one captured operation's payload, returning whether it opens a container. The
@@ -361,13 +420,12 @@ enum NativeSwiftDocumentDecoder {
         NativeSwiftWireOpcode.macroArgument:
         _ = try input.int("macro clip path id")
       case NativeSwiftWireOpcode.macroCall:
-        _ = try input.int("nested macro id")
-        let argumentCount = try input.count("nested macro argument count", maximum: maximumProperties)
-        for _ in 0..<argumentCount { _ = try input.int("nested macro argument") }
-        // A MacroCall is itself a container: preserve its supplied MacroBlocks and consume its
-        // matching end so the surrounding definition's end remains the capture terminator.
+        // captureMacroBody walks nested calls itself; this path serves callers skipping a single
+        // top-level operation, so it recurses at most once into the iterative capture.
+        try skipMacroCallHeader()
         while true {
           let childOpcode = try input.u8("nested macro call operation")
+          census(childOpcode)
           if childOpcode == NativeSwiftWireOpcode.containerEnd { break }
           guard childOpcode == NativeSwiftWireOpcode.macroBlock else {
             throw NativeSwiftCoreError.unsupported(
@@ -413,8 +471,13 @@ enum NativeSwiftDocumentDecoder {
     /// executed, as the reference records every conditional in a branch that did not run.
     func walkConditionalBody(_ body: Data, tracePath: String?) throws -> Int {
       let saved = input
+      let savedRewalking = rewalkingCapturedBody
       input = WireReader(body)
-      defer { input = saved }
+      rewalkingCapturedBody = true
+      defer {
+        input = saved
+        rewalkingCapturedBody = savedRewalking
+      }
       var children = 0
       var nestedIndex = 0
       while !input.isAtEnd {
@@ -447,6 +510,7 @@ enum NativeSwiftDocumentDecoder {
       while true {
         let opcodeOffset = input.offset
         let opcode = try input.u8("macro call operation")
+        census(opcode)
         if opcode == NativeSwiftWireOpcode.containerEnd { return blocks }
         guard opcode == NativeSwiftWireOpcode.macroBlock else {
           throw NativeSwiftCoreError.unsupported(
@@ -546,6 +610,13 @@ enum NativeSwiftDocumentDecoder {
           _ = try reader.int("macro box vertical positioning")
         case NativeSwiftOpcodeGroup.matrixStack:
           break
+        case NativeSwiftWireOpcode.conditionalOperations:
+          // A conditional opens a container whose body follows inline; only its two condition
+          // words can name a parameter (a loop conditioning on its own index is the usual case).
+          _ = try reader.u8("macro conditional type")
+          for _ in 0..<2 { let offset = reader.offset; try remapFloatReference(at: offset) }
+        case NativeSwiftWireOpcode.canvasOperations:
+          break
         case NativeSwiftWireOpcode.containerEnd:
           // Container ends carry no IDs. Component containers inside a macro body retain their
           // own terminator after capture, so the expanded stream must preserve it verbatim.
@@ -584,6 +655,7 @@ enum NativeSwiftDocumentDecoder {
       }
       let opcodeOffset = input.offset
       let opcode = try input.u8("opcode")
+      census(opcode)
       let impulseScope = impulseScopes.last
       // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
       // own their children; macro definitions and calls expand into those children; neither is an
@@ -1634,6 +1706,21 @@ enum NativeSwiftDocumentDecoder {
         node.flowMaximumItems = try input.int("flow maximum items in each row")
         node.flowMaximumLines = try input.int("flow maximum lines")
         try begin(node)
+      case NativeSwiftWireOpcode.modifierAlignBy:  // Align-by (baseline) modifier
+        // FLOAT line, INT flags. It aligns a Row child by a text baseline; a child with no text has
+        // no baseline, and the reference then leaves it at the row's own vertical positioning. That
+        // is all this player does with it: baseline alignment of text children is not modelled yet.
+        _ = try currentNode(stack, input: input)
+        _ = try input.word("align by line")
+        _ = try input.int("align by flags")
+      case NativeSwiftWireOpcode.clickArea:  // Legacy click area
+        // INT id, INT content description id, four FLOAT bounds words, INT metadata id. A
+        // pre-layout document registers these for the host to hit-test. They draw nothing, and
+        // hosts do not hit-test them yet, so a click inside one is not reported.
+        _ = try input.int("click area id")
+        _ = try input.int("click area content description id")
+        for _ in 0..<4 { _ = try input.word("click area bounds") }
+        _ = try input.int("click area metadata id")
       case NativeSwiftWireOpcode.modifierZindex:  // Z-index modifier
         try currentNode(stack, input: input).zIndexWord = try input.word("z-index")
       case NativeSwiftWireOpcode.modifierOffset:  // Offset modifier
@@ -2079,10 +2166,10 @@ enum NativeSwiftDocumentDecoder {
         // for a selector it cannot serve, rather than refusing everything else the document draws.
         _ = try input.int("text measure output id")
         _ = try input.int("text measure text id")
-        let type = try input.int("text measure type")
-        guard (NativeSwiftTextAttributeType.measureWidth...NativeSwiftTextAttributeType.measureBottom)
-          .contains(type & 0xff)
-        else { throw input.malformed("Unknown text measurement \(type & 0xff)") }
+        // Known selectors run `measureWidth...measureBottom`. An unknown one is not malformed: the
+        // reference's `TextMeasure.paint` has no default branch and leaves the output untouched,
+        // which is also all this core does for the known ones until it has host metrics.
+        _ = try input.int("text measure type")
       case NativeSwiftWireOpcode.theme:
         // Operations after a THEME belong to that theme until the next one. A host that requests
         // no theme — the only kind this player is today — shows every theme's operations, as the
@@ -2163,13 +2250,14 @@ enum NativeSwiftDocumentDecoder {
       NativeSwiftSystemVariables.continuousSeconds, NativeSwiftSystemVariables.animationTime,
     ]
     // A time attribute measured from now, or from load, moves with the clock by itself; the
-    // reference asks for continuous frames for exactly those three types.
+    // reference (`RcPlayerPreprocess`) asks for continuous frames for exactly those four types,
+    // reading the type's low byte.
     let continuousTimeTypes: Set<Int> = [
       NativeSwiftTimeAttributeType.fromNowSeconds, NativeSwiftTimeAttributeType.fromNowMinutes,
-      NativeSwiftTimeAttributeType.fromLoadSeconds,
+      NativeSwiftTimeAttributeType.fromNowHours, NativeSwiftTimeAttributeType.fromLoadSeconds,
     ]
     let needsContinuousFrames = references(continuousClockIDs)
-      || timeAttributes.contains { continuousTimeTypes.contains($0.type) }
+      || timeAttributes.contains { continuousTimeTypes.contains($0.type & 0xFF) }
     // The discrete wall-clock fields are constant within a second, so a document that reads one has
     // to be re-resolved at least once a second or its clock freezes on the first frame.
     let discreteWallClockIDs: Set<Int> = [
@@ -2206,7 +2294,8 @@ enum NativeSwiftDocumentDecoder {
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
       needsWallClockRefresh: needsWallClockRefresh,
-      linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0))
+      linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0),
+      operationCensus: operationCensus)
   }
 
   private static func applyPaint(_ words: [Int], to paint: inout ParsedPaint, input: WireReader)

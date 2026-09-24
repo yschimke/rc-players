@@ -459,7 +459,32 @@ import Testing
       (-123.456, 3, 1, 256, "(123.5)"),
       (0.999, 1, 2, 1024, "0.  "),
       (7.1, 2, 3, 15, "07.100"),
+      // Java's own spelling of a tiny fraction, and digit counts past what an Int64 power holds:
+      // the reference's quirks are kept, and nothing traps.
+      (0.0001, 0, 4, 5, ".0"),
+      (0.0001, 1, 4, 0, "0.0   "),
+      (0.00012, 1, 5, 3, "0.20000"),
+      (1.5, 2, 19, 0, " 1.5                  "),
+      (1.5, 2, 20, 3, " 1.50000000000000000000"),
+      (1.5, 2, 25, 1, " 1.5"),
+      (1.5, 2, 20, 1024, " 1.1474848E-11         "),
+      (2.25, 3, 30, 515, "  2.250000000000000000000000000000"),
+      (0.0005, 0, 5, 1024, ".0E-4 "),
+      // FULL_FORMAT is Java's Float.toString.
+      (0.0001, 0, 0, 4096, "1.0E-4"),
+      (1.0e7, 0, 0, 4096, "1.0E7"),
+      (12345678, 0, 0, 4096, "1.2345678E7"),
+      (1234567, 0, 0, 4096, "1234567.0"),
+      (0.001, 0, 0, 4096, "0.001"),
+      (0.00012345, 0, 0, 4096, "1.2345E-4"),
+      (3.4e38, 0, 0, 4096, "3.4E38"),
+      (-0.0, 0, 0, 4096, "-0.0"),
+      (100, 0, 0, 4096, "100.0"),
+      (.infinity, 0, 0, 4096, "Infinity"),
     ]
+    // A negative digit count, which the reference's substring would throw on, formats instead.
+    _ = NativeSwiftTextFormatter.format(1.5, digitsBefore: -3, digitsAfter: -2, flags: 0)
+    _ = NativeSwiftTextFormatter.format(1.5, digitsBefore: -3, digitsAfter: -2, flags: 1024)
     for (value, before, after, flags, expected) in formatted {
       let actual = NativeSwiftTextFormatter.format(
         value, digitsBefore: before, digitsAfter: after, flags: flags)
@@ -1381,6 +1406,20 @@ import Testing
           + "\(String(describing: describedSnapshot.root.accessibility))"))
   }
 
+  /// A pre-layout `ClickArea` draws nothing and must not stop the document loading.
+  @Test func legacyClickAreaLoads() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(64).int(7).int(0).float(0).float(0).float(50).float(50).int(0)
+    document.u8(80).int(60).float(101)
+    let values = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true
+    ).probeValues(timeSeconds: 0)
+    #expect(
+      values.floats[60] == 101,
+      Comment(rawValue: "float 60: \(String(describing: values.floats[60]))"))
+  }
+
   /// `conditional_nested_branches`: paths number conditionals within their own nesting, one in a
   /// branch that did not run is still traced as not executed, and `executedChildOps` counts the
   /// direct children of a branch that ran.
@@ -1397,6 +1436,119 @@ import Testing
     #expect(
       actual == ["0:false:0", "0.0:false:0", "1:true:2", "1.0:true:1", "1.1:false:0"],
       Comment(rawValue: "conditional traces: \(actual)"))
+  }
+
+  /// Values that feed expressions but are produced after them — a derived text's length, an
+  /// `ID_LOOKUP`, `EPOCH_SECOND` — reach those expressions in the same resolution, and the epoch
+  /// keeps moving after the first frame.
+  @Test func producedValuesReachTheirReadersInOneResolution() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.text(id: 1, "Hello RemoteCompose")
+    document.u8(182).int(44).int(1).float(6).float(6)
+    document.u8(156).int(50).int(44)
+    document.u8(81).int(51).int(3)
+      .int(Writer.nanReference(50)).float(2).int(Writer.floatOperator(3))
+    document.u8(146).int(2).int(3).int(7).int(8).int(9)
+    document.u8(192).int(40).int(2).float(1)
+    document.u8(81).int(52).int(3)
+      .int(Writer.nanReference(40)).float(1).int(Writer.floatOperator(1))
+    document.u8(144).int(60).int(5).int(3).int(32).int(1).int(65_538)
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let first = try session.probeValues(
+      timeSeconds: 0, wallClock: NativeSwiftWallClock(epochMillis: 1_789_050_600_999))
+    #expect(
+      first.floats[51] == 12 && first.floats[52] == 9 && first.integers[60] == 1_789_050_599,
+      Comment(rawValue:
+        "first resolution read length×2 \(String(describing: first.floats[51])), lookup+1 "
+          + "\(String(describing: first.floats[52])), epoch-1 "
+          + "\(String(describing: first.integers[60]))"))
+    let later = try session.probeValues(
+      timeSeconds: 5, wallClock: NativeSwiftWallClock(epochMillis: 1_789_050_605_000))
+    #expect(
+      later.integers[32] == 1_789_050_605 && later.integers[60] == 1_789_050_604,
+      Comment(rawValue:
+        "a later frame's epoch resolved to \(String(describing: later.integers[32])), "
+          + "epoch-1 to \(String(describing: later.integers[60]))"))
+  }
+
+  /// A loop whose body conditions on its own index unrolls, with each pass's condition reading
+  /// that pass's index, instead of refusing the document.
+  @Test func loopBodyConditionsOnItsIndex() throws {
+    let looped = Writer()
+    looped.header(width: 100, height: 100)
+    looped.u8(80).int(70).float(0)
+    looped.u8(215).int(70).float(0).float(1).float(3)
+    looped.u8(178).u8(4).int(Writer.nanReference(70)).float(0)
+    looped.u8(42).int(Writer.nanReference(70)).float(0).float(10).float(10)
+    looped.u8(214)
+    looped.u8(214)
+    let commands = try NativeSwiftDocumentSession.open(data: looped.data).snapshot().root.commands
+    #expect(
+      commands.filter { $0.kind == 10 }.map { $0.values[0] } == [1, 2],
+      Comment(rawValue: "a conditioned loop drew at \(commands.map { ($0.kind, $0.values) })"))
+  }
+
+  /// A colour the host has set by name stays the host's under a dark theme, even when it equals
+  /// the document's light fallback.
+  @Test func hostColourSurvivesAThemeSwitch() throws {
+    let themed = Writer()
+    themed.header(width: 100, height: 100)
+    themed.u8(196).int(10).int(1).u16(0).u16(0).int(Int(Int32(bitPattern: 0xFF11_1111)))
+      .int(Int(Int32(bitPattern: 0xFF22_2222)))
+    themed.namedVariable(id: 10, type: NativeSwiftNamedVariableType.color, name: "tint")
+    let session = try NativeSwiftDocumentSession.open(
+      data: themed.data, toleratingRootlessData: true)
+    #expect(session.setColor(0xFF11_1111, for: "tint"))
+    session.setRequestedTheme(NativeSwiftTheme.dark)
+    let color = try session.probeValues(timeSeconds: 0).colors[10]
+    #expect(
+      color == 0xFF11_1111,
+      Comment(rawValue: "a host colour became \(String(describing: color)) under a dark theme"))
+  }
+
+  /// A click's actions run in order against live state: a float action reads the integer an
+  /// earlier action wrote, and a float write is visible, truncated, as an integer.
+  @Test func clickActionsSeeEarlierWrites() throws {
+    let clicked = Writer()
+    clicked.header(width: 100, height: 100)
+    clicked.u8(200).int(1).u8(202).int(3).int(-1).int(1).int(4)
+    clicked.u8(59)
+      .u8(212).int(20).int(3)
+      .u8(222).int(21).int(Writer.nanReference(20))
+      .u8(222).int(22).float(2.7)
+      .u8(214).u8(214).u8(214)
+    let session = try NativeSwiftDocumentSession.open(data: clicked.data)
+    _ = try session.click(componentID: 3, timeSeconds: 0)
+    let values = try session.probeValues(timeSeconds: 0)
+    #expect(
+      values.floats[21] == 3 && values.integers[22] == 2,
+      Comment(rawValue:
+        "after a click, float 21 is \(String(describing: values.floats[21])) and integer 22 is "
+          + "\(String(describing: values.integers[22]))"))
+  }
+
+  /// A stored instant is read in its own offset: January in London is GMT even when the wall clock
+  /// is in summer time. And an interval measured in hours from now moves with the clock.
+  @Test func storedInstantsUseTheirOwnOffset() throws {
+    let document = Writer()
+    document.header(width: 100, height: 100)
+    document.u8(148).int(1).int64(1_768_478_400_000)
+    document.u8(172).int(40).int(1).u16(8).u16(0)
+    document.u8(172).int(41).int(1).u16(2).u16(0)
+    let session = try NativeSwiftDocumentSession.open(
+      data: document.data, toleratingRootlessData: true)
+    let london = try #require(TimeZone(identifier: "Europe/London"))
+    let summer = NativeSwiftWallClock(
+      epochMillis: 1_782_907_200_000, offsetSeconds: 3600, timeZone: london)
+    let hour = try session.probeValues(timeSeconds: 0, wallClock: summer).floats[40]
+    #expect(
+      hour == 12,
+      Comment(rawValue: "a January noon UTC read as hour \(String(describing: hour))"))
+    #expect(
+      try session.snapshot(wallClock: summer).needsContinuousFrames,
+      "an hours-from-now interval did not ask for continuous frames")
   }
 
   // MARK: - Graphics-layer attribute ids (#423)

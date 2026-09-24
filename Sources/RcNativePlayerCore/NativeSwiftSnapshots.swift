@@ -30,6 +30,8 @@ func pathCommandWord(_ command: Int) -> UInt32 {
 
 /// The themes a host can request and a `THEME` operation can scope to: every value AndroidX defines.
 public enum NativeSwiftTheme {
+  /// Follow the platform's own light or dark setting.
+  public static let system = 0
   public static let unspecified = -1
   public static let dark = -2
   public static let light = -3
@@ -66,7 +68,7 @@ public enum NativeSwiftTextFormatter {
   public static func format(
     _ input: Float, digitsBefore: Int, digitsAfter: Int, flags: Int
   ) -> String {
-    if flags & Flag.fullFormat != 0 { return "\(input)" }
+    if flags & Flag.fullFormat != 0 { return javaFloatString(input) }
     let post: Character? =
       switch flags & 3 {
       case Flag.padAfterNone: nil
@@ -133,15 +135,17 @@ public enum NativeSwiftTextFormatter {
   }
 
   /// The reference rounds the fraction to `digits` places in Float arithmetic, prints the Float
-  /// and keeps up to `keep` characters after its "0.".
+  /// and keeps up to `keep` characters after its "0.". A negative count repeats nothing, as
+  /// Kotlin's `repeat` does; where the reference's `substring` would then throw, this keeps none.
   private static func fractionDigits(_ value: Float, digits: Int, keep: Int) -> String {
     var fraction = value.truncatingRemainder(dividingBy: 1)
-    for _ in 0..<digits { fraction *= 10 }
+    for _ in 0..<max(digits, 0) { fraction *= 10 }
     fraction = Float(javaRound(fraction))
-    for _ in 0..<digits { fraction *= 0.1 }
+    for _ in 0..<max(digits, 0) { fraction *= 0.1 }
     let text = Array(javaFloatString(fraction))
-    guard text.count > 2 else { return "" }
-    return String(text[2..<min(text.count, keep + 2)])
+    let end = min(text.count, keep + 2)
+    guard end > 2 else { return "" }
+    return String(text[2..<end])
   }
 
   private static func pad(_ text: String, to width: Int, with character: Character?) -> String {
@@ -170,8 +174,9 @@ public enum NativeSwiftTextFormatter {
 
   private static func characters(_ value: Float, before: Int, after: Int, rounding: Bool) -> String {
     var adjusted = value
+    // Kotlin's Long arithmetic wraps; a document asking for 19 or more places must not trap here.
     var power: Int64 = 1
-    for _ in 0..<max(after, 0) { power *= 10 }
+    for _ in 0..<max(after, 0) { power = power &* 10 }
     if rounding {
       var factor: Float = 0.5
       for _ in 0..<max(after, 0) { factor /= 10 }
@@ -196,7 +201,9 @@ public enum NativeSwiftTextFormatter {
     let count = min(after, fractionLength)
     var digits = [Character](repeating: "0", count: max(count, 0))
     for index in stride(from: count - 1, through: 0, by: -1) {
-      digits[index] = Character(String(fractional % 10))
+      // `'0' + remainder`, as the reference writes it: a wrapped, negative power gives a negative
+      // remainder and so a character below '0', never a trap.
+      digits[index] = Character(UnicodeScalar(UInt8(48 + Int(fractional % 10))))
       fractional /= 10
     }
     return integerText + "." + String(digits)
@@ -218,18 +225,43 @@ public enum NativeSwiftTextFormatter {
     return Int64(value.rounded(.towardZero))
   }
 
-  /// `Float.toString` for a fraction in [0, 1): the shortest round-tripping digits, which Swift's
-  /// description also produces there. Java switches to scientific notation below 1e-3; so does
-  /// this, so a tiny fraction keeps the reference's (odd) digits.
-  private static func javaFloatString(_ value: Float) -> String {
-    if value == 0 { return "0.0" }
-    if abs(value) >= 1e-3 { return "\(value)" }
-    let text = "\(value)"
-    guard let exponent = text.firstIndex(where: { $0 == "e" }) else { return text }
-    var mantissa = String(text[..<exponent])
-    if !mantissa.contains(".") { mantissa += ".0" }
-    let power = Int(text[text.index(after: exponent)...]) ?? 0
-    return "\(mantissa)E\(power)"
+  /// Java's `Float.toString`: the shortest round-tripping digits (which Swift's `description` also
+  /// finds), spelled as Java does. Fixed notation for magnitudes in [1e-3, 1e7), always with a
+  /// fractional digit; otherwise one leading digit and an unsigned-if-positive `E` exponent.
+  static func javaFloatString(_ value: Float) -> String {
+    if value.isNaN { return "NaN" }
+    if value.isInfinite { return value < 0 ? "-Infinity" : "Infinity" }
+    if value == 0 { return value.sign == .minus ? "-0.0" : "0.0" }
+    var text = "\(value.magnitude)"
+    var exponent = 0
+    if let marker = text.firstIndex(where: { $0 == "e" || $0 == "E" }) {
+      exponent = Int(text[text.index(after: marker)...]) ?? 0
+      text = String(text[..<marker])
+    }
+    let point = text.firstIndex(of: ".").map { text.distance(from: text.startIndex, to: $0) }
+    var digits = Array(text.filter { $0 != "." })
+    // The decimal exponent of the digit string read as 0.d1d2d3...
+    var decimalExponent = (point ?? digits.count) + exponent
+    while digits.count > 1, digits.first == "0" {
+      digits.removeFirst()
+      decimalExponent -= 1
+    }
+    while digits.count > 1, digits.last == "0" { digits.removeLast() }
+    let sign = value < 0 ? "-" : ""
+    let magnitude = value.magnitude
+    if magnitude >= 1e-3, magnitude < 1e7 {
+      if decimalExponent <= 0 {
+        return sign + "0." + String(repeating: "0", count: -decimalExponent) + String(digits)
+      }
+      let integerCount = min(decimalExponent, digits.count)
+      let integer =
+        String(digits[..<integerCount])
+        + String(repeating: "0", count: decimalExponent - integerCount)
+      let fraction = integerCount < digits.count ? String(digits[integerCount...]) : "0"
+      return sign + integer + "." + fraction
+    }
+    let fraction = digits.count > 1 ? String(digits[1...]) : "0"
+    return sign + String(digits[0]) + "." + fraction + "E" + String(decimalExponent - 1)
   }
 }
 

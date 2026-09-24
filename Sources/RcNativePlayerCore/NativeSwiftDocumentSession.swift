@@ -19,6 +19,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   private var requestedTheme = NativeSwiftTheme.unspecified
   private var colors: [Int: UInt32]
   private var integers: [Int: Int]
+  /// Set once a document operation is seen writing `EPOCH_SECOND`'s id itself.
+  private var documentClaimsEpochSecond = false
+  /// The colours a host has set by name, which a theme switch leaves alone.
+  private var hostSetColors: Set<Int> = []
   private var floatAnimationRuntimes: [Int: NativeSwiftFloatAnimationRuntime] = [:]
   private var particleSystems: [Int: NativeSwiftParticleSystemRuntime] = [:]
   /// AndroidX's per-impulse "first frame in the window" bit, and each impulse's phase at the frame
@@ -72,6 +76,12 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// operation model conformance exposes; it intentionally differs from raw wire spans.
   public var linkedOperationCount: Int { document.linkedOperationCount }
 
+  /// Every operation the document carries on the wire, by opcode, once each and in wire order,
+  /// header excluded — the census the reference takes of `document.operations`. Unlike
+  /// ``operationSpans(in:toleratingRootlessData:)`` it counts a branch that does not run, and a
+  /// macro body once however often it is called.
+  public var operationCensus: [Int] { document.operationCensus }
+
   private init(copying other: NativeSwiftDocumentSession) {
     document = other.document
     texts = other.texts
@@ -79,6 +89,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     floatOverrides = other.floatOverrides
     colors = other.colors
     integers = other.integers
+    documentClaimsEpochSecond = other.documentClaimsEpochSecond
+    hostSetColors = other.hostSetColors
     hostDensity = other.hostDensity
     hostFontScale = other.hostFontScale
     floatAnimationRuntimes = other.floatAnimationRuntimes.mapValues { $0.detachedCopy() }
@@ -320,7 +332,20 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       node.accessibility?.isEnabled != false, let actions = node.actions[kind]
     else { return nil }
     try resolveIntegerExpressions()
-    let values = try resolvedFloats(timeSeconds: timeSeconds)
+    // Actions run in order against live state, as the reference's `executeActionsUnchecked` does:
+    // each write is visible to the actions after it in the same click.
+    var values = try resolvedFloats(timeSeconds: timeSeconds)
+    func storeInteger(_ id: Int, _ value: Int) {
+      integers[id] = value
+      values[id] = Float(value)
+    }
+    // A float write is published into the integer view too, truncated, as
+    // `RcPlayerState.storeFloat` does: the two numeric views share ids.
+    func storeFloat(_ id: Int, _ value: Float) {
+      floatOverrides[id] = value
+      values[id] = value
+      integers[id] = Int(Int32(clamping: nativeSwiftClampedInt(value)))
+    }
     // A sequence can mutate state before a later expression fails. Invalidate before executing the
     // first action so an error cannot leave a stale static snapshot cached over that mutation.
     staticSnapshotCache = nil
@@ -329,21 +354,23 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       switch action {
       case .integerExpression(let targetID, let expressionID):
         if let expression = document.integerExpressions[expressionID] {
-          integers[targetID] = try NativeSwiftIntegerExpression.evaluate(
-            mask: expression.mask, tokens: expression.tokens, values: integers)
+          storeInteger(
+            targetID,
+            try NativeSwiftIntegerExpression.evaluate(
+              mask: expression.mask, tokens: expression.tokens, values: integers))
         } else if let value = integers[expressionID] {
-          integers[targetID] = value
+          storeInteger(targetID, value)
         }
       case .floatExpression(let targetID, let expressionID):
         guard let expression = document.expressions.first(where: { $0.id == expressionID })
         else { continue }
-        floatOverrides[targetID] = try NativeSwiftFloatExpression.evaluate(
-          expression.words, values: values)
+        storeFloat(
+          targetID, try NativeSwiftFloatExpression.evaluate(expression.words, values: values))
       case .integerValue(let targetID, let value):
-        integers[targetID] = value
+        storeInteger(targetID, value)
       case .floatValue(let targetID, let value):
         let resolved = NativeSwiftFloatExpression.resolve(value, values: values)
-        if resolved.isFinite { floatOverrides[targetID] = resolved }
+        if resolved.isFinite { storeFloat(targetID, resolved) }
       case .textValue(let targetID, let textID):
         if let text = texts[textID] { texts[targetID] = text }
       case .named(let action):
@@ -506,6 +533,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       return false
     }
     colors[variable.id] = value
+    hostSetColors.insert(variable.id)
     staticSnapshotCache = nil
     return true
   }
@@ -853,7 +881,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     guard let selectedMillis = document.longConstants[attribute.timeID] ?? wallClock?.epochMillis
     else { return nil }
     let selected = NativeSwiftWallClock(
-      epochMillis: selectedMillis, offsetSeconds: wallClock?.offsetSeconds ?? 0)
+      epochMillis: selectedMillis,
+      offsetSeconds: wallClock?.offsetSeconds(atEpochMillis: selectedMillis) ?? 0)
     let fields = selected.fields
     typealias TimeType = NativeSwiftTimeAttributeType
     func interval(_ millis: Int64, unit: Double) -> Float { Float(Double(millis) * 0.001 / unit) }
@@ -891,13 +920,30 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     timeSeconds: TimeInterval, wallClock: NativeSwiftWallClock? = nil,
     measuredComponents: [Int: NativeSwiftMeasuredSize] = [:], resolveAnimatedValues: Bool = true
   ) throws -> [Int: Float] {
+    // `EPOCH_SECOND` is an integer the player owns, so it is installed before the integer
+    // expressions that read it, not after them. Whether the document claims the id instead is
+    // learned below from what the document itself writes there, not from the slot being empty:
+    // after the first frame the slot holds the previous frame's epoch.
+    let epochSecond = NativeSwiftSystemVariables.epochSecond
+    let hostOwnsEpochSecond =
+      !documentClaimsEpochSecond && document.integers[epochSecond] == nil
+      && document.integerExpressions[epochSecond] == nil && floatOverrides[epochSecond] == nil
+    if hostOwnsEpochSecond, let wallClock {
+      integers[epochSecond] = Int(NativeSwiftWallClock.floorDiv(wallClock.epochMillis, 1000))
+    }
     try resolveIntegerExpressions()
     var result = floats
     result.merge(floatOverrides) { _, override in override }
     // RemoteBoolean is encoded as a named RemoteInt, then projected into float/color expressions by
     // RemoteInt.toRemoteFloat(). Expose integer slots to the float evaluator without overriding a
     // real float that deliberately shares an id.
-    for (id, value) in integers where result[id] == nil { result[id] = Float(value) }
+    var projectedIntegers: Set<Int> = []
+    for (id, value) in integers where result[id] == nil {
+      // The player's own epoch is published after the document's producers have had their say.
+      if hostOwnsEpochSecond, id == epochSecond { continue }
+      result[id] = Float(value)
+      projectedIntegers.insert(id)
+    }
     // A copied dynamic colour is encoded as colour expression → channel attributes → colour
     // expression. Resolve the source colours before extracting their channels so the final colour
     // pass can preserve copies such as a selected tint with reduced alpha.
@@ -952,10 +998,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       if result[NativeSwiftSystemVariables.year] == nil {
         result[NativeSwiftSystemVariables.year] = Float(fields.year)
       }
-      if result[NativeSwiftSystemVariables.epochSecond] == nil {
-        let seconds = NativeSwiftWallClock.floorDiv(wallClock.epochMillis, 1000)
-        integers[NativeSwiftSystemVariables.epochSecond] = Int(seconds)
-        result[NativeSwiftSystemVariables.epochSecond] = Float(seconds)
+      if hostOwnsEpochSecond {
+        if result[epochSecond] == nil {
+          result[epochSecond] = Float(NativeSwiftWallClock.floorDiv(wallClock.epochMillis, 1000))
+        } else {
+          // A document operation wrote the id first (the reference's claimed-id rule): it is the
+          // document's from now on, and the integer this resolution installed is withdrawn.
+          documentClaimsEpochSecond = true
+          integers.removeValue(forKey: epochSecond)
+        }
       }
     } else if result[NativeSwiftSystemVariables.continuousSeconds] == nil {
       result[NativeSwiftSystemVariables.continuousSeconds] = animationTime
@@ -971,9 +1022,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       result[NativeSwiftSystemVariables.fontSize] =
         NativeSwiftSystemVariables.defaultFontSizeSp * hostFontScale * hostDensity
     }
-    // A length reads the text as the session last resolved it. Text operations resolve after
-    // floats, so the length of a *derived* text follows it by one resolution; a declared text's
-    // is exact.
+    // A length reads the text as the session last resolved it; the settle pass below brings a
+    // derived text's length up to date within the same resolution.
     for length in document.textLengths where floatOverrides[length.outputID] == nil {
       guard let text = texts[length.textID] else { continue }
       result[length.outputID] = Float(text.utf16.count)
@@ -1038,24 +1088,57 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       result[binding.valueID] = estimatedDimension(
         of: measuredNode, type: binding.type, available: available, values: result)
     }
-    for expression in document.expressions {
-      guard floatOverrides[expression.id] == nil else { continue }
-      let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
-      if resolveAnimatedValues, let animationWords = expression.animationWords {
-        let runtime = try animationRuntime(for: expression.id, animationWords: animationWords)
-        result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
-      } else {
-        result[expression.id] = target
+    func evaluateExpressions() throws {
+      for expression in document.expressions {
+        guard floatOverrides[expression.id] == nil else { continue }
+        let target = try NativeSwiftFloatExpression.evaluate(expression.words, values: result)
+        if resolveAnimatedValues, let animationWords = expression.animationWords {
+          let runtime = try animationRuntime(for: expression.id, animationWords: animationWords)
+          result[expression.id] = runtime.evaluate(target: target, at: Float(timeSeconds))
+        } else {
+          result[expression.id] = target
+        }
       }
     }
-    // `ID_LOOKUP` publishes an integer, and integers are visible to float expressions. A list that
-    // does not exist, or an index outside it, leaves the slot as it was.
-    for lookup in document.idLookups {
-      guard let ids = document.idLists[lookup.listID] else { continue }
-      let index = nativeSwiftClampedInt(NativeSwiftFloatExpression.resolve(lookup.index, values: result))
-      guard ids.indices.contains(index) else { continue }
-      integers[lookup.outputID] = ids[index]
-      if floatOverrides[lookup.outputID] == nil { result[lookup.outputID] = Float(ids[index]) }
+    try evaluateExpressions()
+    // Text lengths and `ID_LOOKUP` feed expressions but are produced from state the expressions
+    // themselves decide (a derived text, a computed index). The reference runs them in wire order;
+    // this settles them instead: produce, and if any output moved, re-run what reads it. Chains are
+    // short, so a few rounds reach the fixed point wire order would.
+    if !document.textLengths.isEmpty || !document.idLookups.isEmpty {
+      for _ in 0..<4 {
+        var changed = false
+        if !document.textLengths.isEmpty {
+          resolveTextOperations(values: result)
+          for length in document.textLengths where floatOverrides[length.outputID] == nil {
+            guard let text = texts[length.textID] else { continue }
+            let value = Float(text.utf16.count)
+            if result[length.outputID] != value {
+              result[length.outputID] = value
+              changed = true
+            }
+          }
+        }
+        // `ID_LOOKUP` publishes an integer, and integers are visible to float expressions. A list
+        // that does not exist, or an index outside it, leaves the slot as it was.
+        for lookup in document.idLookups {
+          guard let ids = document.idLists[lookup.listID] else { continue }
+          let index = nativeSwiftClampedInt(
+            NativeSwiftFloatExpression.resolve(lookup.index, values: result))
+          guard ids.indices.contains(index), integers[lookup.outputID] != ids[index] else {
+            continue
+          }
+          integers[lookup.outputID] = ids[index]
+          if floatOverrides[lookup.outputID] == nil { result[lookup.outputID] = Float(ids[index]) }
+          changed = true
+        }
+        guard changed else { break }
+        try resolveIntegerExpressions()
+        for id in projectedIntegers {
+          if let value = integers[id] { result[id] = Float(value) }
+        }
+        try evaluateExpressions()
+      }
     }
     for operation in document.matrixVectorMath {
       guard let matrix = resolvedMatrix(operation.matrixID, values: result) else { continue }
@@ -1260,10 +1343,10 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
 
   private func resolveColors(values: [Int: Float]) -> [Int: UInt32] {
     var result = colors
-    // Only where the colour still holds the document's own light fallback: a value the host has
-    // since set on the slot is the host's, whatever the theme.
+    // Not where the host has set the slot: that value is the host's, whatever the theme, even when
+    // it happens to equal the document's light fallback.
     if requestedTheme == NativeSwiftTheme.dark {
-      for (id, dark) in document.darkColors where colors[id] == document.colors[id] {
+      for (id, dark) in document.darkColors where !hostSetColors.contains(id) {
         result[id] = dark
       }
     }

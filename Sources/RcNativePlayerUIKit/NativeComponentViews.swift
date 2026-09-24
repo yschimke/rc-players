@@ -670,13 +670,13 @@
       else { return false }
       guard
         componentView.canUpdate(
-          with: document.root, images: resources.images, fontNames: resources.fontNames)
+          with: document.root, images: resources.images, fontNames: resources.fontNames),
+        componentView.update(
+          node: document.root, images: resources.images, fontNames: resources.fontNames)
       else { return false }
       self.document = document
       self.resources = resources
       appliedMeasurements = [:]
-      componentView.update(
-        node: document.root, images: resources.images, fontNames: resources.fontNames)
       publishAccessibilityElements()
       setNeedsLayout()
       return true
@@ -991,8 +991,15 @@
       }
     }
 
-    func update(node next: NativeNode, images: [Int: UIImage], fontNames: [Int: String]) {
-      precondition(canUpdate(with: next, images: images, fontNames: fontNames))
+    /// Updates this view in place and returns true, or returns false without changing anything when
+    /// `next` cannot be applied here, so the caller rebuilds instead. Callers check `canUpdate`
+    /// first; a refusal here is a bug, but not one worth terminating a release build over.
+    @discardableResult
+    func update(node next: NativeNode, images: [Int: UIImage], fontNames: [Int: String]) -> Bool {
+      guard canUpdate(with: next, images: images, fontNames: fontNames) else {
+        assertionFailure("update(node:) called with a node canUpdate(with:) rejects")
+        return false
+      }
       let local = Self.localContent(for: next, images: images)
       node = next
       invalidatePreferredSizes()
@@ -1017,6 +1024,7 @@
       clipsToBounds =
         next.cornerRadius > 0 || next.clipsToBounds || next.scrollDirection != nil
       setNeedsLayout()
+      return true
     }
 
     private static func localContent(
@@ -2511,11 +2519,13 @@
         let path = CGMutablePath()
         path.move(to: CGPoint(x: v[0], y: v[1]))
         path.addLine(to: CGPoint(x: v[2], y: v[3]))
-        paint(path, command, context)
+        // DrawLine is a stroke regardless of the paint style: a fill of an open path draws nothing.
+        paint(path, command, context, forceStroke: true)
       case NativeSwiftDrawKind.roundRect:
-        let path = UIBezierPath(
-          roundedRect: CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1]),
-          cornerRadius: max(v[4], v[5]))
+        let rect = CGRect(x: v[0], y: v[1], width: v[2] - v[0], height: v[3] - v[1])
+        let radii = NativeGraphicsState.clampedCornerRadii(
+          in: rect, cornerWidth: v[4], cornerHeight: v[5])
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: max(radii.width, radii.height))
         paint(path.cgPath, command, context)
       case NativeSwiftDrawKind.arc, NativeSwiftDrawKind.sector: drawArc(command, context)
       case NativeSwiftDrawKind.text: drawText(command)
@@ -2540,8 +2550,10 @@
       _ path: CGPath,
       _ command: NativeDrawCommand,
       _ context: CGContext,
-      fillRule: CGPathFillRule = .winding
+      fillRule: CGPathFillRule = .winding,
+      forceStroke: Bool = false
     ) {
+      let isStroke = command.isStroke || forceStroke
       // Destination leaves the existing buffer unchanged, but must not suppress ordered
       // transforms, clipping, or save/restore commands around the draw.
       guard command.blendMode != NativeSwiftPaintBlendMode.destination else { return }
@@ -2562,11 +2574,11 @@
       // alone.
       let pathBounds = path.boundingBoxOfPath
       let isDeferredComponentBackground =
-        !command.isStroke && command.usesComponentGeometry
+        !isStroke && command.usesComponentGeometry
         && abs(pathBounds.minX - bounds.minX) <= 1 && abs(pathBounds.minY - bounds.minY) <= 1
         && (abs(pathBounds.width - bounds.width) > 1 || abs(pathBounds.height - bounds.height) > 1)
       let isDeferredShaderBackground =
-        !command.isStroke && (command.textureImageID != nil || command.gradient != nil)
+        !isStroke && (command.textureImageID != nil || command.gradient != nil)
         && (pathBounds.width <= 0 || pathBounds.height <= 0) && !bounds.isEmpty
       let effectivePath =
         isDeferredComponentBackground || isDeferredShaderBackground
@@ -2574,8 +2586,8 @@
       context.addPath(effectivePath)
       if let textureImageID = command.textureImageID, let image = images[textureImageID]?.cgImage {
         context.saveGState()
-        if command.isStroke { context.replacePathWithStrokedPath() }
-        context.clip(using: command.isStroke ? .winding : fillRule)
+        if isStroke { context.replacePathWithStrokedPath() }
+        context.clip(using: isStroke ? .winding : fillRule)
         NativeTexturePolicy.paint(
           image: image,
           transform: command.textureTransform,
@@ -2587,12 +2599,12 @@
       }
       guard let gradient = command.gradient else {
         context.drawPath(
-          using: command.isStroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
+          using: isStroke ? .stroke : (fillRule == .evenOdd ? .eoFill : .fill))
         return
       }
       context.saveGState()
-      if command.isStroke { context.replacePathWithStrokedPath() }
-      context.clip(using: command.isStroke ? .winding : fillRule)
+      if isStroke { context.replacePathWithStrokedPath() }
+      context.clip(using: isStroke ? .winding : fillRule)
       NativeGradientRenderer.draw(gradient, in: context)
       context.restoreGState()
     }

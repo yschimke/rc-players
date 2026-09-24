@@ -181,7 +181,7 @@ the animation the document asks for.
 **Ask:** make mid-transition layout checks advisory, or record them from a clock that advances 1/60 s
 per frame.
 
-## 9. Value checks that read back the document's own constant
+## 12. Value checks that read back the document's own constant
 
 These entries came out of the native-appkit review of the 2026-09-23 run (`ee18643`).
 
@@ -203,14 +203,14 @@ none.
 long and boolean values through a typed probe, debug and sound as recorded events.
 **Settled by:** checks that fail for a parse-only implementation.
 
-## 10. `clock_time_attribute_from_load` tests the month
+## 13. `clock_time_attribute_from_load` tests the month
 
 Its `TimeAttribute` uses type 10, `TIME_MONTH_VALUE`, and expects 10 (November, zero-based).
 `TIME_FROM_LOAD_SEC` is type 14, and no gold tests it.
 
 **Ask:** rename this gold, and add one for `TIME_FROM_LOAD_SEC`.
 
-## 11. Clock golds with no `clock_snapshot` still depend on the host's zone
+## 14. Clock golds with no `clock_snapshot` still depend on the host's zone
 
 `clock_time_attribute_calendar_date` and `clock_time_attribute_day_of_week` read the instant
 1 700 000 000 000 ms, 2023-11-14T22:13:20Z, from a `LongConstant`, and expect day 14 and weekday 1
@@ -220,7 +220,7 @@ east of UTC that instant is the 15th, a Wednesday. §5's missing zone applies he
 
 **Ask:** declare the zone in `harness`, or pick an instant near midday UTC.
 
-## 12. `text_attribute_and_transform` cannot fail
+## 15. `text_attribute_and_transform` cannot fail
 
 It asserts 110.7421875 for the width of "TransformSample". That depends on the font, and the harness
 declares no `text_metrics`. It also carries `"tolerance": 1000`, so any value from −890 to 1111
@@ -228,7 +228,7 @@ passes — including the 0 a player with no text metrics reports.
 
 **Ask:** declare `text_metrics: "ahem"` and a real tolerance, or assert the length selector.
 
-## 13. `colortheme_theme_light_dark_switch` sets no theme and switches nothing
+## 16. `colortheme_theme_light_dark_switch` sets no theme and switches nothing
 
 Its document is `THEME(1)` followed by one `ColorConstant`. AndroidX's themes are `UNSPECIFIED` (-1),
 `DARK` (-2) and `LIGHT` (-3); 1 is none of them, and the timeline is a single paint, so nothing
@@ -236,7 +236,7 @@ switches. The check asserts the constant's own value.
 
 **Ask:** use `THEME_DARK`/`THEME_LIGHT`, and add `theme` steps as `color_theme_mode_switching` does.
 
-## 14. `matrix_constant_3x3_and_4x4` expands a 3×3 matrix inconsistently
+## 17. `matrix_constant_3x3_and_4x4` expands a 3×3 matrix inconsistently
 
 The gold declares the 3×3 matrix `[2, 0, 5, 0, 3, 7, 0, 0, 1]` and applies it to `(1, 1, 0)` with
 `MATRIX_VECTOR_MATH` type 0, which adds each row's translation. It expects `(7, 3, 0)`: row 0 adds
@@ -250,3 +250,57 @@ the standard embedding and fails this check.
 or use a 4×4 matrix in this gold.
 **Settled by:** a stated layout. If upstream says the asymmetric one is intended, the native player
 adopts it.
+
+## 18. Drags assume no touch slop
+
+The harness hands a drag straight to `CoreDocument.touchDrag`, so a scroll follows the pointer from
+its first pixel: a 40 px drag scrolls 40 px. A player that recognises drags the way its platform
+does (Compose, Android views, UIKit) scrolls nothing until the pointer has passed the platform's
+touch slop, and then only the movement beyond it. Affects `interaction_scroll_column`,
+`interaction_scroll_row`, `interaction_touch_drag_sequence` and `interaction_swipe_scroll_decay`.
+
+**What the CMP lane does:** when a gesture goes down on a scroll container, it pays the slop up
+front, in the direction of the first drag, so a document still sees the declared movement. Touch
+expressions read the raw pointer and get no allowance. The player keeps platform slop.
+**Ask:** say in the format that gesture positions are positions *after recognition*. Or give
+`touch_drag` a `slop` the harness applies, so every player is measured the same way.
+
+## 19. A fling's velocity is handed to the document, not produced by the gesture
+
+`interaction_swipe_scroll_decay` releases with `dy: -1200`, which the harness passes to
+`TouchExpression.touchUp` as the release velocity. A player driven by pointer events derives
+velocity from the pointer's history. The timeline's own history, 100 px in one step followed by a
+20 ms hold, gives a release velocity near zero on any platform tracker. The expected decay follows
+AndroidX's `VelocityEasing` exactly (stop at `pos + v/2`, ramp down over `2·distance/v`), so it is
+only reachable by a player that takes the declared velocity as given.
+
+**Ask:** make the touch-up velocity a declared host input that players are expected to honour, or
+generate the drag as timed samples whose tracked velocity is the one asserted.
+
+## 20. `StateLayout` golds assert AndroidX's bookkeeping for hidden states
+
+In `state_layout_expandable_card`, the children (-10, -11) of the hidden state's container (-8,
+`GONE`) are expected at `initial` as `VISIBLE`, at y = 0. -11's laid-out position is y = 76. After
+one switch there and back (`step_3`), the same children are expected `GONE`, keeping the geometry
+they last had. So whether a hidden state's descendants read visible or gone depends on whether that
+state has ever been shown, not on what is on screen. `state_layout_nested_boxes_control`,
+`state_layout_switch_visibility`, `state_layout_row_to_column`,
+`state_layout_shared_element_across_states`, `state_layout_shared_element_nested_ids` and the
+three `animation_state_*` golds assert the same bookkeeping. Several also bind to the instant of a
+switch, with the outgoing state's container `VISIBLE` at full size and its children `GONE`.
+
+The CMP player reports what is laid out: the shown state's subtree, and the hidden state's
+container as `GONE` at zero size.
+**Ask:** specify what the tree reports for components inside a state that is not shown. For
+example: absent, or `GONE` with no geometry. Avoid a value that depends on history.
+
+## 21. `fitbox_fit`: the two AndroidX players disagree when nothing fits
+
+When no alternative fits, remote-core hides the FitBox: the box and its child both report `GONE`,
+and `fitbox_fit` asserts that. AndroidX's embedded Compose player shows the smallest alternative,
+clipped, instead ("Add FitBox shared element transitions using Compose Intrinsics", androidx-main
+`6fb763d3fe4`). The CMP player follows the embedded player, on the view that a clipped component
+says more than a blank one.
+
+**Ask:** say which behaviour the format specifies. If it is hiding, the embedded player should
+change too. If it is either, tag the gold `host-specific`.
