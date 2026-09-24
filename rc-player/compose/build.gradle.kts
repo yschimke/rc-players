@@ -4,6 +4,7 @@ plugins {
   id("composeai.base-conventions")
   id("composeai.jvm-conventions")
   id("org.jetbrains.kotlin.multiplatform")
+  id("com.android.kotlin.multiplatform.library")
   id("composeai.maven-publishing")
   alias(libs.plugins.compose.multiplatform)
   id("org.jetbrains.kotlin.plugin.compose")
@@ -23,8 +24,9 @@ kotlin {
   // Kotlin Gradle plugin from 2.2 (still `@ExperimentalAbiValidation` at 2.4), so this needs no
   // extra plugin on the classpath — which is why the player stack gets the gate first rather than
   // waiting for a repo-wide rollout (docs/API_STABILITY.md notes no module had one until now).
-  // Both dumps are written: `<module>.api` for the JVM target and `<module>.klib.api` covering the
-  // klib-based targets (Apple + wasmJs) together. Regenerate with `./gradlew updateKotlinAbi`.
+  // Three dumps are written: `jvm/<module>.api` and `android/<module>.api` for the two JVM-bytecode
+  // targets, and `<module>.klib.api` covering the klib-based targets (Apple + wasmJs) together.
+  // Regenerate with `./gradlew updateKotlinAbi`.
   @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
 
   // Unnamed `jvm()`, not `jvm("desktop")`. This module is published, and the JVM artifact should
@@ -70,6 +72,27 @@ kotlin {
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 
+  // Android, through AGP's KMP library plugin — see `:rc-player-trace` for the SDK levels. Compose
+  // on Android draws through `android.graphics`, not Skiko, so the few primitives common Compose
+  // lacks (conics, path measuring, raw bitmaps, runtime shaders) have an `androidMain` actual; the
+  // other targets share one Skia implementation in `skikoMain` (the group below).
+  android {
+    namespace = "ee.schimke.composeai.rcplayer.compose"
+    compileSdk = libs.versions.rc.player.compileSdk.get().toInt()
+    minSdk = libs.versions.rc.player.minSdk.get().toInt()
+  }
+
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
+  applyDefaultHierarchyTemplate {
+    common {
+      group("skiko") {
+        withJvm()
+        withWasmJs()
+        withApple()
+      }
+    }
+  }
+
   sourceSets {
     commonMain.dependencies {
       api(project(":rc-player-runtime"))
@@ -113,7 +136,7 @@ composeAiMavenPublishing {
     artifactId = "rc-player-compose",
     displayName = "Remote Compose Player — Compose Multiplatform",
     description =
-      "RcComposePlayer, a Compose Multiplatform renderer for Remote Compose (.rc) documents on JVM, wasmJs, iOS and macOS.",
+      "RcComposePlayer, a Compose Multiplatform renderer for Remote Compose (.rc) documents on Android, JVM, wasmJs, iOS and macOS.",
   )
 }
 
