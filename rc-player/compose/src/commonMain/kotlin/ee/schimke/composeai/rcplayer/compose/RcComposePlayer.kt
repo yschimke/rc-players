@@ -661,6 +661,7 @@ private fun RcComposePlayerResolved(
     // operations publish must be recomputed before this same composition measures and draws.
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
     val version = invalidationVersion
+    val settles = state.hasAnyComponentValues
     val tree: @Composable (probe: RcGeometryProbe?) -> Unit = { probe ->
       LookaheadScope {
         CompositionLocalProvider(
@@ -676,9 +677,11 @@ private fun RcComposePlayerResolved(
         ) {
           RenderLayoutNode(
             node = layout,
-            // A settling pass is never placed, so it carries none of the player's input, semantics
-            // or draw hooks — none of them measure.
-            modifier = if (probe == null) redrawModifier else Modifier,
+            // When the tree settles, the host's modifier and the player's own hooks sit on the
+            // settling layout instead — the node the host's parent actually sees, so parent data
+            // like `weight` still reaches it, and host padding or sizing shapes the constraints
+            // the probes measure under as well as the kept tree's.
+            modifier = if (settles) Modifier else redrawModifier,
             state = state,
             textMeasurer = textMeasurer,
             images = images,
@@ -687,8 +690,10 @@ private fun RcComposePlayerResolved(
         }
       }
     }
-    if (state.hasAnyComponentValues) {
+    if (settles) {
       RcSettledLayout(
+        modifier = redrawModifier,
+        documentSize = IntSize(document.header.width, document.header.height),
         settle = remember(state) { RcFirstLayoutSettle() },
         onSettled = { state.applyLayoutContentStateOperations(linkedDocument.operations, theme) },
         tree = tree,
