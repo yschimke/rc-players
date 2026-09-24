@@ -159,12 +159,27 @@ evidence, in [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md).
 
 ### Native AppKit text and transition policy
 
-Native AppKit deliberately does not promise pixel-identical glyph antialiasing or Android View's
-sampled layout-transition interpolation: Core Text rasterization and Core Animation timing are
-host behaviours.  A native transition must still reach the documented state and remain a valid
-real-time animation.  This exemption does not cover text geometry or semantics: the Ahem-backed
-conformance layout, anchored/text-path placement, and CoreText autosize are supported-player
-behaviours and regressions there are bugs to fix.
+The native players use the platform's own rendering, and a difference that comes from that is
+accepted rather than imitated. **Do not reimplement drawing below the platform's own primitives to
+match Android or Skia.** Keep Core Graphics sampling, Core Text / TextKit line breaking and
+rasterization, and Core Animation timing, and record the golds they move rather than porting
+Android's algorithms into the renderer. In particular:
+
+- **Glyphs and line breaking.** Text is measured and wrapped by TextKit. Where it breaks a line
+  differently from Android's `StaticLayout` — how a wrapped line's trailing space counts toward its
+  width, say — the gold stays failing.
+- **Bitmap sampling.** A bitmap draws with Core Graphics' interpolation at the paint's filter level.
+  Its bilinear filter is not Skia's, so a raster of a strongly scaled bitmap
+  (`canvas_bitmap_scaled`) can differ at the edges of each source pixel.
+- **Animation timing.** A transition uses the document's spec on the host's clock. AndroidX's own
+  frame sampling (`RC_CONFORMANCE_PUSHBACK.md` §11) and easing differences are not reproduced; a
+  native transition must still reach the documented state and remain a valid real-time animation.
+
+This is not an exemption for semantics. What a document *asks for* is still the player's job, and
+a regression there is a bug: component geometry that is not down to line breaking (a host's own
+padding counted as the component's, a line cap ignored), the Ahem-backed conformance layout,
+anchored and text-path placement, CoreText autosize, gradient tile modes, and transitions that do
+not happen at all.
 
 ### Scores
 
