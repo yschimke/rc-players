@@ -53,6 +53,7 @@ xcrun swiftc \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeTextPolicy.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeGraphicsState.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeTexturePolicy.swift" \
+  "$repo_root/Sources/RcNativePlayerUIKit/NativeOffscreenTargets.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeGradientTiling.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeLayout.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeLayoutEngine.swift" \
