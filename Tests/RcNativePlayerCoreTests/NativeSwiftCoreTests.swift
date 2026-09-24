@@ -101,7 +101,9 @@ import Testing
       "a float slot update did not survive resolution")
     #expect(
       !dataOnly.setFloat(.nan, forID: 99), "a non-finite float slot update was accepted")
+  }
 
+  @Test func dataMapsParticlesAndAnimationDescriptors() throws {
     // AndroidX data maps resolve a key text through a typed resource-id table. This is a rootless
     // conformance document, so it also proves that scalar-only captures do not need a draw root.
     let dataMap = Data(
@@ -237,7 +239,9 @@ import Testing
     #expect(
       abs((fillScale ?? 0) - 26.0 / 24.0) < 0.001,
       "a fill inside a fixed box measured the document, got scale \(String(describing: fillScale))")
+  }
 
+  @Test func wallClockDataTextAndScheduling() throws {
     // The wall clock a document's calendar and time-of-day variables read. The reference publishes
     // these from its clock every frame; this core leaves them unset unless a host supplies an
     // absolute instant, so a test and a corpus capture stay deterministic.
@@ -514,7 +518,9 @@ import Testing
     #expect(
       animatedSnapshot.needsContinuousFrames,
       "an animation-only document did not ask for continuous frames")
+  }
 
+  @Test func clockTextColourExpressionsAndStateLayout() throws {
     // A clock display that converts a system variable straight to text names it in the
     // text-from-float operation, not in an expression or a draw command. That store has to be
     // scanned too, or the display freezes after the first frame.
@@ -631,7 +637,9 @@ import Testing
       Comment(
         rawValue: "the second branch reported index "
           + "\(String(describing: secondSnapshot.root.children.first?.stateIndex))"))
+  }
 
+  @Test func flowLayout() throws {
     // A flow container's wrap bounds reach the snapshot, so a renderer can wrap rather than lay
     // every child out on one line.
     let flow = Writer()
@@ -727,7 +735,9 @@ import Testing
     canvasOperations.u8(214).u8(214).u8(214)
     let canvasSnapshot = try NativeSwiftDocumentSession.open(data: canvasOperations.data).snapshot()
     #expect(canvasSnapshot.root.children[0].children[0].commands.count == 2)
+  }
 
+  @Test func loomCanvasesAndMacros() throws {
     // AndroidX LOOM streams are also allowed to paint directly into the document canvas before
     // any structural definition.  That is a real drawable document, unlike a rootless data-only
     // stream, and must therefore gain an implicit canvas root at the first draw operation.
@@ -861,7 +871,9 @@ import Testing
         .commands
     #expect(drawingCommands.map(\.kind) == [6, 2, 3, 5, 10, 12, 13, 14, 16, 11, 7])
     #expect(drawingCommands.last?.path.count == 2)
+  }
 
+  @Test func filterQualityAndCollapsibleLayout() throws {
     // Filter quality is paint state: an IMAGE_FILTER_QUALITY field (10) names a quality, the
     // legacy FILTER_BITMAP flag (17) names two, and a command that never saw either leaves it unset
     // so the renderer's own default stands.
@@ -1015,7 +1027,9 @@ import Testing
     }
     let missingTap = try gestureSession.click(componentID: 3, timeSeconds: 0)
     #expect(missingTap == nil)
+  }
 
+  @Test func clickActionsAndMalformedInput() throws {
     // A click can set a float and copy a text. The same actions, and host actions, outside any
     // click modifier are inert rather than refusing the document, as in the reference.
     let valueActions = Writer()
@@ -1069,7 +1083,7 @@ import Testing
     }
 
     do {
-      _ = try NativeSwiftDocumentSession.open(data: wire.dropLast())
+      _ = try NativeSwiftDocumentSession.open(data: editableTextDocument().dropLast())
       Issue.record("truncated input was accepted")
     } catch let error as NativeSwiftCoreError {
       #expect(!error.isUnsupported)
@@ -1106,7 +1120,9 @@ import Testing
     let staticUpdate = try staticSession.snapshot(timeSeconds: 0.5)
     #expect(staticUpdate.root.commands[0].values[0] == 10)
     #expect(!staticUpdate.needsContinuousFrames)
+  }
 
+  @Test func floatAnimationSamples() throws {
     // These samples are from the Kotlin RcFloatAnimation reference at 250ms intervals, scaled from
     // 0 to 10. They exercise the descriptor's packed type/parameter fields as well as each curve.
     let easingCases: [(type: Int, parameters: [Float], values: [Float])] = [
