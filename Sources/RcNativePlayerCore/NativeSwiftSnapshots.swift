@@ -670,6 +670,10 @@ public enum NativeSwiftGestureKind: Int, CaseIterable, Equatable, Sendable {
 
 /// The axis a scroll modifier moves along.
 /// AndroidX's `MarqueeModifierOperation`, with its float fields resolved for the frame.
+///
+/// A marquee does not set `needsContinuousFrames`: content that fits its box never moves, and only
+/// the host's measurement knows whether it does. A host keeps the frames coming while a marquee's
+/// overflow is positive, as the Compose player acquires frame demand only then.
 public struct NativeSwiftMarqueeSnapshot: Equatable, Sendable {
   /// How many sweeps to run; -1 repeats forever. The reference's sinusoidal timeline ignores it.
   public let iterations: Int

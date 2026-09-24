@@ -1317,6 +1317,12 @@ private final class NativeMacDocumentView: NSView {
   private var snapshot: NativeSwiftDocumentSnapshot
   /// How long the document has been on screen, which a marquee's component reads during layout.
   var marqueeElapsedSeconds: TimeInterval { snapshot.marqueeElapsedSeconds }
+
+  /// A marquee started or stopped overflowing. Re-decided after the layout pass that noticed, so the
+  /// frame driver is not rebuilt from inside it.
+  func marqueeDemandChanged() {
+    DispatchQueue.main.async { [weak self] in self?.updateFrameDriver() }
+  }
   private let images: [Int: NSImage]
   private let fonts: NativeMacFontRegistry
   private let conformanceFontName: String?
@@ -1741,7 +1747,8 @@ private final class NativeMacDocumentView: NSView {
     delayedWakeTimer?.invalidate()
     delayedWakeTimer = nil
     let mode = NativeMacFrameDriverMode.resolve(
-      needsContinuousFrames: snapshot.needsContinuousFrames,
+      needsContinuousFrames: snapshot.needsContinuousFrames
+        || component?.hasMovingMarquee == true,
       requestsNextFrame: false,
       wakeAfter: remainingWake,
       isActive: NSApplication.shared.isActive,
@@ -1958,6 +1965,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// The horizontal offset a marquee draws its text at, placed by `layout()`. The tree reports it as
   /// `scroll_x`.
   private(set) var marqueeOffset: CGFloat = 0
+  /// Whether the marquee's content overflows, so it moves and needs frames.
+  private var marqueeMoves = false
   private(set) var componentChildren: [NativeMacComponentView]
   private let canvas: NativeMacCanvasView?
   private let labels: [NSTextField]
@@ -2432,16 +2441,18 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
           // clip, by the distance the content and its spacing overrun the box
           // (`applyAndroidXMarquee`). AppKit points are the document's dp, so density is 1.
           let natural = Self.unboundedWidth(of: label)
-          let overflow = natural + CGFloat(marquee.spacing) - content.width
-          marqueeOffset = CGFloat(
-            marquee.offset(
-              overflowDistance: Float(max(overflow, 0)), density: 1,
-              elapsedSeconds: documentView?.marqueeElapsedSeconds ?? 0))
+          let overflow = Float(natural + CGFloat(marquee.spacing) - content.width)
+          setMarquee(
+            offset: CGFloat(
+              marquee.offset(
+                overflowDistance: max(overflow, 0), density: 1,
+                elapsedSeconds: documentView?.marqueeElapsedSeconds ?? 0)),
+            moves: overflow > 0 && overflow.isFinite)
           label.frame = NSRect(
             x: content.minX + marqueeOffset, y: content.minY,
             width: max(content.width, natural), height: height)
         } else {
-          marqueeOffset = 0
+          setMarquee(offset: 0, moves: false)
           label.frame = NSRect(
             x: content.minX, y: content.minY, width: content.width, height: height)
         }
@@ -2470,21 +2481,39 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   /// component's clip. A canvas or image has no content wider than its box, so it stays still.
   private func applyContainerMarquee() {
     guard node.kind != .text else { return }
-    marqueeOffset = 0
-    guard let marquee = node.marquee, !componentChildren.isEmpty else { return }
+    guard let marquee = node.marquee, !componentChildren.isEmpty else {
+      setMarquee(offset: 0, moves: false)
+      return
+    }
+    // The children were already laid out unbounded along x (`unboundedAxis`); this is how far
+    // what they make, plus the spacing, runs past the box.
     let content = contentRect
-    let unbounded = CGSize(width: CGFloat.greatestFiniteMagnitude, height: content.height)
-    let widths = visibleChildren.map { $0.preferredSize(in: unbounded).width }
     let natural =
-      node.kind == .row
-      ? widths.reduce(0, +) + spacing * CGFloat(max(widths.count - 1, 0)) : widths.max() ?? 0
-    let overflow = natural + CGFloat(marquee.spacing) - content.width
-    marqueeOffset = CGFloat(
+      scrolledExtent(
+        of: visibleChildren, in: content.size, axis: .horizontal, stacking: node.kind == .row)
+      ?? 0
+    let overflow = Float(natural + CGFloat(marquee.spacing) - content.width)
+    let offset = CGFloat(
       marquee.offset(
-        overflowDistance: Float(max(overflow, 0)), density: 1,
+        overflowDistance: max(overflow, 0), density: 1,
         elapsedSeconds: documentView?.marqueeElapsedSeconds ?? 0))
-    guard marqueeOffset != 0 else { return }
-    for child in componentChildren { child.frame.origin.x += marqueeOffset }
+    setMarquee(offset: offset, moves: overflow > 0 && overflow.isFinite)
+    guard offset != 0 else { return }
+    for child in componentChildren { child.frame.origin.x += offset }
+  }
+
+  /// Records where the marquee is and whether it can move, telling the document view when the
+  /// latter changes: frames are requested only while some marquee overflows.
+  private func setMarquee(offset: CGFloat, moves: Bool) {
+    marqueeOffset = offset
+    guard marqueeMoves != moves else { return }
+    marqueeMoves = moves
+    documentView?.marqueeDemandChanged()
+  }
+
+  /// Whether this component or any below it has a marquee whose content overflows.
+  var hasMovingMarquee: Bool {
+    marqueeMoves || componentChildren.contains { $0.hasMovingMarquee }
   }
 
   func preferredSize(in available: CGSize) -> CGSize {
@@ -2682,6 +2711,12 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     case horizontal, vertical
   }
 
+  /// The axis this container's content is measured unbounded along: its scroll modifier's, or x
+  /// under a marquee, which lets its content run past the box and slides it into view.
+  private var unboundedAxis: NativeSwiftScrollDirection? {
+    node.scrollDirection ?? (node.marquee != nil ? .horizontal : nil)
+  }
+
   /// The size a child contributes to its container.
   ///
   /// Inside a **scrolled** container the axis that scrolls is measured unbounded: the viewport clips
@@ -2690,7 +2725,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
   private func measuredSize(
     of child: NativeMacComponentView, in available: CGSize, axis: NativeCollapsibleAxis
   ) -> CGSize {
-    guard node.scrollDirection != nil else { return child.preferredSize(in: available) }
+    guard unboundedAxis != nil else { return child.preferredSize(in: available) }
     let type = axis == .vertical ? child.node.heightType : child.node.widthType
     guard NativeSwiftCollapsible.measuresUnbounded(mainAxisType: Int(type)) else {
       return child.preferredSize(in: available)
@@ -2719,7 +2754,7 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     of items: [NativeMacComponentView], in viewport: CGSize, axis: NativeCollapsibleAxis,
     stacking: Bool
   ) -> CGFloat? {
-    guard node.scrollDirection != nil else { return nil }
+    guard unboundedAxis != nil else { return nil }
     let extents = items.map { child -> CGFloat in
       let size = measuredSize(of: child, in: viewport, axis: axis)
       return axis == .vertical ? size.height : size.width
@@ -2732,10 +2767,10 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     let content = contentRect
     let items = visibleChildren
     let axis: NativeCollapsibleAxis =
-      node.scrollDirection == .horizontal ? .horizontal : .vertical
+      unboundedAxis == .horizontal ? .horizontal : .vertical
     let extent = scrolledExtent(of: items, in: content.size, axis: axis, stacking: false)
     let space =
-      node.scrollDirection == .horizontal
+      unboundedAxis == .horizontal
       ? CGRect(
         x: content.minX, y: content.minY, width: extent ?? content.width, height: content.height)
       : CGRect(
@@ -2866,8 +2901,8 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate 
     // arrangement axis: a horizontally scrolled column still stacks, but each child is measured
     // unbounded in width.
     let scrollAxis: NativeCollapsibleAxis =
-      node.scrollDirection == .horizontal ? .horizontal : .vertical
-    let extent = node.scrollDirection == .vertical
+      unboundedAxis == .horizontal ? .horizontal : .vertical
+    let extent = unboundedAxis == .vertical
       ? (scrolledExtent(
         of: visibleChildren, in: content.size, axis: .vertical, stacking: true)
         ?? content.height)
@@ -3022,8 +3057,8 @@ private typealias MacFlowLine = (
     // As in `layoutColumn`: a scrolled row arranges against its content, not its viewport, and the
     // axis that scrolls is the modifier's — a vertically scrolled row still places left to right.
     let scrollAxis: NativeCollapsibleAxis =
-      node.scrollDirection == .horizontal ? .horizontal : .vertical
-    let extent = node.scrollDirection == .horizontal
+      unboundedAxis == .horizontal ? .horizontal : .vertical
+    let extent = unboundedAxis == .horizontal
       ? (scrolledExtent(
         of: visibleChildren, in: content.size, axis: .horizontal, stacking: true)
         ?? content.width)

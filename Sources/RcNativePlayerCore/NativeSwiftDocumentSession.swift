@@ -621,6 +621,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   ) -> Bool {
     wallClock == nil
       && !document.needsContinuousFrames
+      && !document.hasMarquee
       && document.impulses.isEmpty
       && document.particleLoops.isEmpty
       && !floatAnimationRuntimes.contains {

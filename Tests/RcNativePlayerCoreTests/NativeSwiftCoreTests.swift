@@ -1788,7 +1788,12 @@ import Testing
           iterations: -1, animationMode: 0, repeatDelayMillis: 0, initialDelayMillis: 500,
           spacing: 32, velocity: 60),
       "the marquee's fields did not decode: \(decoded)")
-    #expect(first.needsContinuousFrames, "a marquee has to keep the frames coming")
+    // Frames are the host's to ask for, once it has measured an overflow; the core only makes sure
+    // the clock-driven offset is never served from its static snapshot cache.
+    #expect(!first.needsContinuousFrames, "a marquee that may fit asked for frames by itself")
+    #expect(
+      try session.snapshot(timeSeconds: 11).marqueeElapsedSeconds == 2,
+      "a marquee's clock was served from the static snapshot cache")
     // Ahem at 16 sets the 28-character line 448 wide; with its 32 spacing it overruns 240 by 240.
     // Frame n of the sequence is 10 + n/60 seconds; the corpus's `scroll_x` at each capture:
     let expected: [(frame: Double, offset: Float)] = [

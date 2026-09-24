@@ -59,6 +59,10 @@ struct ParsedDocument {
   let particleDefinitions: [ParsedParticleDefinition]
   let particleLoops: [ParsedParticleLoop]
   let needsContinuousFrames: Bool
+  /// Whether any component carries a marquee. It does not by itself ask for frames — only a host's
+  /// measurement knows whether the content overflows — but its offset reads the clock, so a frame
+  /// can never be served from the static snapshot cache.
+  let hasMarquee: Bool
   /// See `NativeSwiftDocumentSnapshot.needsWallClockRefresh`.
   let needsWallClockRefresh: Bool
   let linkedOperationCount: Int

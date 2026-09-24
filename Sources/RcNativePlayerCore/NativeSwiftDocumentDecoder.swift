@@ -164,7 +164,9 @@ enum NativeSwiftDocumentDecoder {
     var syntheticRootWasAdded = false
     var expressionWordCount = 0
     var modifierContainers: [ParsedModifierContainer] = []
-    // A marquee moves with the clock by itself, so a document holding one keeps the frames coming.
+    // A marquee moves with the clock, so a document holding one is never served from the static
+    // snapshot cache. Whether it asks for frames is the host's call: only its measurement knows
+    // whether the content overflows (`applyAndroidXMarquee` acquires frame demand the same way).
     var hasMarquee = false
     var impulses: [ParsedImpulse] = []
     /// A `ColorTheme`'s dark fallback, by colour id; its light one seeds `colors`.
@@ -2381,7 +2383,7 @@ enum NativeSwiftDocumentDecoder {
       NativeSwiftTimeAttributeType.fromNowHours, NativeSwiftTimeAttributeType.fromLoadSeconds,
     ]
     let needsContinuousFrames = references(continuousClockIDs)
-      || timeAttributes.contains { continuousTimeTypes.contains($0.type & 0xFF) } || hasMarquee
+      || timeAttributes.contains { continuousTimeTypes.contains($0.type & 0xFF) }
     // The discrete wall-clock fields are constant within a second, so a document that reads one has
     // to be re-resolved at least once a second or its clock freezes on the first frame.
     let discreteWallClockIDs: Set<Int> = [
@@ -2444,6 +2446,7 @@ enum NativeSwiftDocumentDecoder {
       impulses: impulses, darkColors: darkColors, wakeWords: wakeWords,
       particleDefinitions: particleDefinitions, particleLoops: particleLoops,
       needsContinuousFrames: needsContinuousFrames,
+      hasMarquee: hasMarquee,
       needsWallClockRefresh: needsWallClockRefresh,
       linkedOperationCount: 1 + linkedTopLevelOperationCount + (syntheticRootWasAdded ? 1 : 0),
       operationCensus: operationCensus,
