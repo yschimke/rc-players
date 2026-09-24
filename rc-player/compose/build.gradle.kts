@@ -170,7 +170,7 @@ tasks.withType<Test>().configureEach {
   (project.findProperty("rc.textOnCircle.out") as String?)?.let {
     systemProperty("rc.textOnCircle.out", it)
   }
-  for (name in listOf("rc.cmp.input", "rc.cmp.output", "rc.cmp.fonts")) {
+  for (name in listOf("rc.cmp.input", "rc.cmp.output", "rc.cmp.fonts", "rc.bitmapFilter.out")) {
     (project.findProperty(name) as String?)?.let { systemProperty(name, it) }
   }
 }

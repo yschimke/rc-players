@@ -174,6 +174,12 @@ Android's algorithms into the renderer. In particular:
 - **Animation timing.** A transition uses the document's spec on the host's clock. AndroidX's own
   frame sampling (`RC_CONFORMANCE_PUSHBACK.md` §11) and easing differences are not reproduced; a
   native transition must still reach the documented state and remain a valid real-time animation.
+- **Layout changes at the instant of input.** AndroidX animates a component's bounds by default, so
+  a tree read at the instant of a click or touch still shows the layout from before it. The native
+  players apply the new layout at once; only a `StateLayout` switch is a Core Animation
+  cross-fade. `interaction_click_button`, `interaction_click_toggle_visibility`,
+  `interaction_touch_down_up_press` and `state_layout_state_switch` bind to that instant and stay
+  failing on native-appkit; their settled frames match.
 
 This is not an exemption for semantics. What a document *asks for* is still the player's job, and
 a regression there is a bug: component geometry that is not down to line breaking (a host's own
