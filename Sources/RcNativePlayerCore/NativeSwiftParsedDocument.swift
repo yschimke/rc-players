@@ -242,14 +242,22 @@ struct ParsedDrawCommand {
   let textStart: Int?
   let textEnd: Int?
   let textFlags: Int
+  /// Word positions where the id-0 NaN is a "no value" sentinel rather than a reference, and so
+  /// resolves to NaN: `DrawTextAnchored`'s `panY`, which the reference reads that way to leave the
+  /// baseline where it is.
+  let nanSentinelIndices: Set<Int>
 
   init(
     kind: Int, words: [UInt32], paint: ParsedPaint, path: ParsedPath? = nil,
     image: ParsedImageDraw? = nil, alphaWord: UInt32? = nil, textID: Int? = nil,
-    textStart: Int? = nil, textEnd: Int? = nil, textFlags: Int = 0
+    textStart: Int? = nil, textEnd: Int? = nil, textFlags: Int = 0,
+    nanSentinelIndices: Set<Int> = []
   ) {
     self.kind = kind
     self.words = words
+    self.nanSentinelIndices = nanSentinelIndices.filter {
+      words.indices.contains($0) && NativeSwiftFloatExpression.referenceID(words[$0]) == 0
+    }
     staticValues = words.contains { NativeSwiftFloatExpression.referenceID($0) != nil }
       ? nil : words.map(Float.init(bitPattern:))
     self.paint = paint
@@ -284,7 +292,11 @@ struct ParsedDrawCommand {
   {
     return NativeSwiftDrawCommandSnapshot(
       kind: kind,
-      values: staticValues ?? words.map { NativeSwiftFloatExpression.resolve($0, values: values) },
+      values: staticValues
+        ?? words.enumerated().map { index, word in
+          nanSentinelIndices.contains(index)
+            ? .nan : NativeSwiftFloatExpression.resolve(word, values: values)
+        },
       // SRC_IN is the vector-tint path emitted by Remote Compose. Its source is the filter colour,
       // while the glyph alpha remains in the path rasterization performed by Core Graphics.
       colorARGB:

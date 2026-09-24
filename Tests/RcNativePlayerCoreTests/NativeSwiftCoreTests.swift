@@ -1558,6 +1558,50 @@ import Testing
       "an hours-from-now interval did not ask for continuous frames")
   }
 
+  /// `animation_spec_component_binding`: a component adopts the `AnimationSpec` among its own
+  /// operations, as the reference binds it, whatever animation id it declares.
+  @Test func componentsAdoptTheirOwnAnimationSpec() throws {
+    let document = try #require(
+      Data(
+        base64Encoded:
+          "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAJAAAACBhbmltYXRpb25fc3BlY19jb21wb25lbnRf"
+          + "YmluZGluZwAOAAQAAAIByP////7M/////f////8AAAABAAAABAAAAAAQAAAAAX/AAABDAAAAAX/AAADJ/////Mr/"
+          + "///7/////wAAAAIAAAACEAAAAABCyAAAQwAAAABCSAAADgAAAAtC8AAAAAAAAkQgAAAAAAAEAAAABAAAAAXWyv//"
+          + "//r/////AAAAAgAAAAIQAAAAAELIAABDAAAAAEJIAAAOAAAAFkRhAAAAAAADQiAAAAAAAAUAAAAAAAAAB9bW1tY="))
+    let root = try NativeSwiftDocumentSession.open(data: document).snapshot().root
+    var adopted: [Int?] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      if node.componentKind == "BoxLayout" { adopted.append(node.animationSpecID) }
+      node.children.forEach(collect)
+    }
+    collect(root)
+    #expect(adopted == [11, 22], Comment(rawValue: "boxes adopted specs \(adopted)"))
+  }
+
+  /// `text_anchored_pan_alignment`: a `panY` of the id-0 NaN is the reference's "no vertical pan"
+  /// and stays NaN, so the text keeps its baseline; a numeric `panY` resolves as it is.
+  @Test func anchoredTextKeepsTheNoPanSentinel() throws {
+    let document = try #require(
+      Data(
+        base64Encoded:
+          "AASMAAEAAAABAAAAAAAAAAQABQAEAAABkAAGAAQAAAGQDAkAHwAAABt0ZXh0X2FuY2hvcmVkX3Bhbl9hbGlnbm1l"
+          + "bnQADgAEAAACAcj////+zf////3/////EAAAAAF/wAAAQwAAAAF/wAAAyf////woAAAABQAAAAT/OL34AAAACAAA"
+          + "AAFBwAAAZgAAACoAAAAGQW5jaG9yhQAAACpDSAAAQ0gAAL+AAAB/wAAAAAAAAIUAAAAqQ0gAAENIAAAAAAAAf8AA"
+          + "AAAAAACFAAAAKkNIAABDSAAAP4AAAH/AAAAAAAAAhQAAACpCyAAAQ5YAAAAAAAC/gAAAAAAAAIUAAAAqQsgAAEOW"
+          + "AAAAAAAAAAAAAAAAAACFAAAAKkLIAABDlgAAAAAAAD+AAAAAAAAA1tbW"))
+    var pans: [Float] = []
+    func collect(_ node: NativeSwiftNodeSnapshot) {
+      for command in node.commands where command.kind == NativeSwiftDrawKind.text {
+        pans.append(command.values[3])
+      }
+      node.children.forEach(collect)
+    }
+    collect(try NativeSwiftDocumentSession.open(data: document).snapshot().root)
+    #expect(
+      pans.count == 6 && pans.prefix(3).allSatisfy(\.isNaN) && Array(pans.suffix(3)) == [-1, 0, 1],
+      Comment(rawValue: "anchored panY values \(pans)"))
+  }
+
   // MARK: - Graphics-layer attribute ids (#423)
   //
   // Each attribute is read from the id AndroidX's `GraphicsLayerModifierOperation` gives it:

@@ -417,6 +417,10 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   public let verticalPositioning: Int
   /// The animation specification this component names, if it has one.
   public let animationID: Int?
+  /// The `AnimationSpec` this component adopts: the last one among its own operations, as the
+  /// reference binds a spec by position rather than by id. Nil when it has none and so uses the
+  /// default.
+  public let animationSpecID: Int?
   public let spacing: Float
   /// The child a `StateLayout` is showing, clamped to its children, or nil when this node is not a
   /// state layout. The inactive children arrive GONE, which is what the reference does.

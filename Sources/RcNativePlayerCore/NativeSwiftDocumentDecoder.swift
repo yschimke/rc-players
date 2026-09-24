@@ -1022,7 +1022,7 @@ enum NativeSwiftDocumentDecoder {
         try drawingNode().commands.append(
           ParsedDrawCommand(
             kind: NativeSwiftDrawKind.text, words: words, paint: paint, textID: textID,
-            textFlags: flags))
+            textFlags: flags, nanSentinelIndices: [3]))
       case NativeSwiftWireOpcode.drawTextOnPath:
         let textID = try input.int("draw text path text id")
         let pathID = try input.int("draw text path id")
@@ -1669,6 +1669,13 @@ enum NativeSwiftDocumentDecoder {
           visibilityDuration: visibilityDuration, visibilityEasingType: visibilityEasingType,
           enterAnimation: enterAnimation, exitAnimation: exitAnimation)
         animationSpecOrder.append(id)
+        // A spec among a component's own operations is that component's, the last one winning, as
+        // the reference binds it. Inside one of the component's modifier containers it is not.
+        if let owner = stack.last, owner.kind != .root,
+          modifierContainers.last.map({ $0.node !== owner }) ?? true
+        {
+          owner.animationSpecID = id
+        }
       case NativeSwiftWireOpcode.touchExpression:  // Touch expression
         // An id, four float words (start value, minimum, maximum, velocity id), the touch effects,
         // then three length-prefixed float arrays. Each length is the low 16 bits of its word --
@@ -2628,6 +2635,7 @@ final class ParsedNode {
   fileprivate(set) var horizontalPositioning = NativeSwiftPositioning.start
   fileprivate(set) var verticalPositioning = NativeSwiftPositioning.top
   fileprivate(set) var animationID: Int?
+  fileprivate(set) var animationSpecID: Int?
   fileprivate(set) var spacingWord: UInt32 = 0
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
   /// `tree` probe. Empty for a structural wrapper, which the corpus never names.
