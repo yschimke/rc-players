@@ -331,6 +331,24 @@ import Testing
     #expect(engine.preferredSize(of: canvas(hasCanvasContent: false), in: size).width == 100)
   }
 
+  @Test func canvasWithoutCanvasContentAlignsAPlainChild() {
+    // Without a `CanvasContent` the canvas is a box: a child with no computation keeps its
+    // measured size and is aligned rather than stretched to the canvas.
+    func canvas(hasCanvasContent: Bool) -> Item {
+      item(.canvas, id: 1, children: [fixed(2, width: 20, height: 10)]) {
+        $0.componentKind = "CanvasLayout"
+        $0.drawsContent = true
+        $0.hasCanvasContent = hasCanvasContent
+      }
+    }
+    let engine = NativeLayoutEngine()
+    let size = CGSize(width: 200, height: 100)
+    let boxed = engine.frameTree(root: canvas(hasCanvasContent: false), size: size)
+    expectFrame(boxed, 2, CGRect(x: 0, y: 0, width: 20, height: 10))
+    let filled = engine.frameTree(root: canvas(hasCanvasContent: true), size: size)
+    expectFrame(filled, 2, CGRect(x: 0, y: 0, width: 200, height: 100))
+  }
+
   @Test func canvasContentIsReadFromTheSnapshot() throws {
     typealias Op = NativeSwiftWireOpcode
     // root { canvas 2 { [content 5 {] canvas content 3 { rect } [}] } }, and a canvas holding a

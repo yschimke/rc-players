@@ -703,6 +703,10 @@ struct NativeLayoutEngine {
         ? arrangeFitBox(item, in: bounds) : arrangeOverlay(item, in: bounds, aligned: true)
     case .text, .image, .custom:
       return NativeLayoutArrangement()
+    // A `CanvasLayout` without a `CanvasContent` delegates to `BoxLayout`, so its children keep
+    // their measured size and are aligned; with one, every child fills the canvas.
+    case .canvas where node.componentKind == "CanvasLayout" && !node.hasCanvasContent:
+      return arrangeOverlay(item, in: bounds, aligned: true)
     default:
       return arrangeOverlay(item, in: bounds, aligned: false)
     }
