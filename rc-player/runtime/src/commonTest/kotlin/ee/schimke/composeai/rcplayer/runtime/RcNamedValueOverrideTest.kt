@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.runtime
 
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -74,5 +75,27 @@ class RcNamedValueOverrideTest {
 
     assertEquals(RcNamedValue.FloatValue(8f), state.namedValue("plain"))
     assertEquals(RcNamedValue.FloatValue(9f), state.namedValue("OTHER:plain"))
+  }
+
+  @Test
+  fun anOverrideOfADynamicListSurvivesTheDocumentReplayingItsDeclaration() {
+    // The document owns a 2-slot dynamic list; the host overrides it with three values. Replaying
+    // the declaration each frame resizes the document's list, and must not resize the override.
+    val declaration = RcDynamicFloatList(60, RcFloatWord.literal(2f))
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(0, 1, 0)),
+          listOf(declaration, RcNamedVariable(60, RcNamedVariable.FLOAT_ARRAY_TYPE, "USER:dyn")),
+        ),
+        mapOf("USER:dyn" to RcNamedValue.FloatArrayValue(listOf(1f, 2f, 3f))),
+      )
+
+    state.applyDataOperation(declaration)
+    assertEquals(listOf(1f, 2f, 3f), state.floatValues(60)?.toList())
+
+    state.clearNamedValue("dyn")
+    state.applyDataOperation(declaration)
+    assertEquals(listOf(0f, 0f), state.floatValues(60)?.toList())
   }
 }
