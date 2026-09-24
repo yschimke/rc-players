@@ -1669,6 +1669,17 @@ public data class RcGraphicsLayerModifier(val attributes: List<RcGraphicsLayerAt
     public const val SHAPE: Int = 20
     public const val SHAPE_RADIUS: Int = 21
     public const val ATTRIBUTE_COUNT: Int = 22
+
+    /** [SHAPE] values. */
+    public const val SHAPE_RECT: Int = 0
+    public const val SHAPE_ROUND_RECT: Int = 1
+    public const val SHAPE_CIRCLE: Int = 2
+
+    /** [BLUR_TILE_MODE] values. */
+    public const val TILE_MODE_CLAMP: Int = 0
+    public const val TILE_MODE_REPEATED: Int = 1
+    public const val TILE_MODE_MIRROR: Int = 2
+    public const val TILE_MODE_DECAL: Int = 3
   }
 }
 

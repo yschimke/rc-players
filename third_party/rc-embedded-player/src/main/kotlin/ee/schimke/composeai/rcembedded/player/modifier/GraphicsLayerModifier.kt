@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import ee.schimke.composeai.rcembedded.player.GraphicsLayerAttributeValueData
 import ee.schimke.composeai.rcembedded.player.LocalComponentValueStateMap
 import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
 import ee.schimke.composeai.rcembedded.player.getFloatExpressionsReflection
@@ -69,11 +70,11 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
     rememberGraphicsLayerFloatAsState(values[GraphicsLayerModifierOperation.CAMERA_DISTANCE].source)
   val transformOriginX =
     rememberGraphicsLayerFloatAsState(
-      values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_X].source
+      values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_X].originOrCenter()
     )
   val transformOriginY =
     rememberGraphicsLayerFloatAsState(
-      values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_Y].source
+      values[GraphicsLayerModifierOperation.TRANSFORM_ORIGIN_Y].originOrCenter()
     )
 
   return this.graphicsLayer {
@@ -90,6 +91,17 @@ internal fun Modifier.graphicsLayer(op: GraphicsLayerModifierOperation): Modifie
     this.transformOrigin = TransformOrigin(transformOriginX.value, transformOriginY.value)
   }
 }
+
+/**
+ * A transform origin, or the layer's centre when the document did not write one.
+ *
+ * `remote-core` declares `TRANSFORM_ORIGIN_X/Y` with a default of 0, the top-left corner, while
+ * `remote-creation-compose` omits the attribute when it is the centre. Reading the table's default
+ * would turn every unauthored scale, mirror or rotation into one about the corner, which can move
+ * the content out of its own bounds (#153). An absent origin means Compose's
+ * [TransformOrigin.Center], as it does for the writer and for the CMP player.
+ */
+private fun GraphicsLayerAttributeValueData.originOrCenter(): Float = if (isSet) source else 0.5f
 
 private val GraphicsLayerImplicitAnimationSpec =
   tween<Float>(durationMillis = 300, easing = mapEasing(GeneralEasing.CUBIC_STANDARD))

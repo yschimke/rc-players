@@ -1402,8 +1402,15 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcGraphicsLayerModifie
 	public static final field SCALE_Y I
 	public static final field SHADOW_ELEVATION I
 	public static final field SHAPE I
+	public static final field SHAPE_CIRCLE I
 	public static final field SHAPE_RADIUS I
+	public static final field SHAPE_RECT I
+	public static final field SHAPE_ROUND_RECT I
 	public static final field SPOT_SHADOW_COLOR I
+	public static final field TILE_MODE_CLAMP I
+	public static final field TILE_MODE_DECAL I
+	public static final field TILE_MODE_MIRROR I
+	public static final field TILE_MODE_REPEATED I
 	public static final field TRANSFORM_ORIGIN_X I
 	public static final field TRANSFORM_ORIGIN_Y I
 	public static final field TRANSLATION_X I

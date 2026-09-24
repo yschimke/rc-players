@@ -166,6 +166,23 @@ public data class RcGraphicsLayerValues(
   val cameraDistance: Float = 8f,
   /** Whether any attribute is mid-tween, and the player therefore owes this layer another frame. */
   val isAnimating: Boolean = false,
+  /**
+   * The layer's outline, one of `RcGraphicsLayerModifier.SHAPE_*`, or -1 when the document set
+   * none. It shapes the shadow; the layer does not clip to it.
+   */
+  val shape: Int = -1,
+  /** The corner radius of a `SHAPE_ROUND_RECT` outline, in pixels. */
+  val shapeRadius: Float = 0f,
+  /** Compose's `CompositingStrategy` value: 0 auto, 1 offscreen, 2 modulate alpha. */
+  val compositingStrategy: Int = 0,
+  /** A blur applied to the layer's content, when either radius is positive. */
+  val blurRadiusX: Float = 0f,
+  val blurRadiusY: Float = 0f,
+  /** One of `RcGraphicsLayerModifier.TILE_MODE_*`, for the blur's edges. */
+  val blurTileMode: Int = 0,
+  /** Shadow colours as ARGB, or null for Compose's default black. */
+  val ambientShadowColor: Int? = null,
+  val spotShadowColor: Int? = null,
 )
 
 /**
@@ -200,6 +217,8 @@ public class RcGraphicsLayerAnimator {
       return resolved
     }
 
+    fun int(index: Int): Int? = (attributes[index] as? RcGraphicsLayerAttribute.IntValue)?.value
+
     val values =
       RcGraphicsLayerValues(
         scaleX = attribute(RcGraphicsLayerModifier.SCALE_X, 1f),
@@ -214,6 +233,14 @@ public class RcGraphicsLayerAnimator {
         shadowElevation = attribute(RcGraphicsLayerModifier.SHADOW_ELEVATION, 0f),
         alpha = attribute(RcGraphicsLayerModifier.ALPHA, 1f),
         cameraDistance = attribute(RcGraphicsLayerModifier.CAMERA_DISTANCE, 8f),
+        shape = int(RcGraphicsLayerModifier.SHAPE) ?: -1,
+        shapeRadius = attribute(RcGraphicsLayerModifier.SHAPE_RADIUS, 0f),
+        compositingStrategy = int(RcGraphicsLayerModifier.COMPOSITING_STRATEGY) ?: 0,
+        blurRadiusX = attribute(RcGraphicsLayerModifier.BLUR_RADIUS_X, 0f),
+        blurRadiusY = attribute(RcGraphicsLayerModifier.BLUR_RADIUS_Y, 0f),
+        blurTileMode = int(RcGraphicsLayerModifier.BLUR_TILE_MODE) ?: 0,
+        ambientShadowColor = int(RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR),
+        spotShadowColor = int(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR),
       )
     return values.copy(isAnimating = animating)
   }

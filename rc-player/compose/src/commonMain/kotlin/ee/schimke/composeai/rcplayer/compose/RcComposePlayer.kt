@@ -28,6 +28,9 @@ import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
@@ -65,10 +68,12 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
@@ -79,8 +84,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
@@ -271,6 +278,7 @@ import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcGraphicsLayerAnimator
+import ee.schimke.composeai.rcplayer.runtime.RcGraphicsLayerValues
 import ee.schimke.composeai.rcplayer.runtime.RcImpulsePhase
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
@@ -3631,8 +3639,42 @@ private fun Modifier.applyGraphicsLayer(
     shadowElevation = values.shadowElevation
     alpha = values.alpha
     cameraDistance = values.cameraDistance
+    shape = values.layerShape()
+    compositingStrategy =
+      when (values.compositingStrategy) {
+        1 -> CompositingStrategy.Offscreen
+        2 -> CompositingStrategy.ModulateAlpha
+        else -> CompositingStrategy.Auto
+      }
+    values.ambientShadowColor?.let { ambientShadowColor = Color(it) }
+    values.spotShadowColor?.let { spotShadowColor = Color(it) }
+    renderEffect =
+      if (values.blurRadiusX > 0f || values.blurRadiusY > 0f) {
+        BlurEffect(values.blurRadiusX, values.blurRadiusY, values.blurTileMode())
+      } else {
+        null
+      }
   }
 }
+
+/**
+ * The layer's outline. Compose uses it for the shadow; the layer is not clipped to it, since the
+ * document has no clip attribute and neither AndroidX player clips there.
+ */
+private fun RcGraphicsLayerValues.layerShape(): Shape =
+  when (shape) {
+    RcGraphicsLayerModifier.SHAPE_ROUND_RECT -> RoundedCornerShape(CornerSize(shapeRadius))
+    RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
+    else -> RectangleShape
+  }
+
+private fun RcGraphicsLayerValues.blurTileMode(): TileMode =
+  when (blurTileMode) {
+    RcGraphicsLayerModifier.TILE_MODE_REPEATED -> TileMode.Repeated
+    RcGraphicsLayerModifier.TILE_MODE_MIRROR -> TileMode.Mirror
+    RcGraphicsLayerModifier.TILE_MODE_DECAL -> TileMode.Decal
+    else -> TileMode.Clamp
+  }
 
 private fun Modifier.applyDimensionConstraint(
   operation: ee.schimke.composeai.rcplayer.protocol.RcOperation,
