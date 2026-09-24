@@ -1664,10 +1664,11 @@ enum NativeSwiftDocumentDecoder {
         else {
           throw input.malformed("Invalid animation spec duration")
         }
-        animationSpecs[id] = NativeSwiftAnimationSpec(
+        let spec = NativeSwiftAnimationSpec(
           motionDuration: motionDuration, motionEasingType: motionEasingType,
           visibilityDuration: visibilityDuration, visibilityEasingType: visibilityEasingType,
           enterAnimation: enterAnimation, exitAnimation: exitAnimation)
+        animationSpecs[id] = spec
         animationSpecOrder.append(id)
         // A spec among a component's own operations is that component's, the last one winning, as
         // the reference binds it. Inside one of the component's modifier containers it is not.
@@ -1675,6 +1676,7 @@ enum NativeSwiftDocumentDecoder {
           modifierContainers.last.map({ $0.node !== owner }) ?? true
         {
           owner.animationSpecID = id
+          owner.animationSpec = spec
         }
       case NativeSwiftWireOpcode.touchExpression:  // Touch expression
         // An id, four float words (start value, minimum, maximum, velocity id), the touch effects,
@@ -2636,6 +2638,9 @@ final class ParsedNode {
   fileprivate(set) var verticalPositioning = NativeSwiftPositioning.top
   fileprivate(set) var animationID: Int?
   fileprivate(set) var animationSpecID: Int?
+  /// The adopted spec itself: two components may each carry a spec under the same id, and the
+  /// document-wide table keeps only the last one read.
+  fileprivate(set) var animationSpec: NativeSwiftAnimationSpec?
   fileprivate(set) var spacingWord: UInt32 = 0
   /// The AndroidX class name of the operation that produced this node, for the conformance corpus's
   /// `tree` probe. Empty for a structural wrapper, which the corpus never names.

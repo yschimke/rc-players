@@ -783,8 +783,8 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     collectLeaves(snapshot.root)
     let bindings: [[String: Any]] = leaves.enumerated().map { index, node in
       let id = node.animationSpecID ?? -1
-      let usesDefaultSpec = node.animationSpecID.flatMap { snapshot.animationSpecs[$0] } == nil
-      let spec = node.animationSpecID.flatMap { snapshot.animationSpecs[$0] } ?? defaultSpec
+      let usesDefaultSpec = node.animationSpec == nil
+      let spec = node.animationSpec ?? defaultSpec
       var record = specRecord(id, spec)
       record["componentAnimationId"] = id
       record["componentIndex"] = index
@@ -1704,7 +1704,7 @@ private final class NativeMacDocumentView: NSView {
     // The spec the state layout adopts among its own operations, as the reference binds it; the
     // id it names is the fallback.
     let spec = snapshot.root.component(withID: stateLayoutID).flatMap { node in
-      (node.animationSpecID ?? node.animationID).flatMap { snapshot.animationSpecs[$0] }
+      node.animationSpec ?? node.animationID.flatMap { snapshot.animationSpecs[$0] }
     }
     let duration = TimeInterval(spec?.motionDuration ?? 300) / 1_000
     return NativeMacStateTransition(

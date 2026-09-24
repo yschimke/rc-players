@@ -750,6 +750,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       verticalPositioning: node.verticalPositioning,
       animationID: node.animationID,
       animationSpecID: node.animationSpecID,
+      animationSpec: node.animationSpec,
       spacing: try resolvedFloat(node.spacingWord, "spacing", values: values),
       stateIndex: node.stateIndexID.flatMap { indexID in
         // Clamped against the *branches*, not the wrapper: the normal shape wraps every

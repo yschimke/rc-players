@@ -421,6 +421,8 @@ public struct NativeSwiftNodeSnapshot: Sendable {
   /// reference binds a spec by position rather than by id. Nil when it has none and so uses the
   /// default.
   public let animationSpecID: Int?
+  /// The spec adopted under `animationSpecID`, as this component read it.
+  public let animationSpec: NativeSwiftAnimationSpec?
   public let spacing: Float
   /// The child a `StateLayout` is showing, clamped to its children, or nil when this node is not a
   /// state layout. The inactive children arrive GONE, which is what the reference does.
