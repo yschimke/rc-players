@@ -304,7 +304,7 @@ public fun RcComposePlayer(
   namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
   onEvent: (RcPlayerEvent) -> Unit = {},
   typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
-  systemColors: (name: String) -> Color? = { null },
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
 ) {
   RcComposePlayer(
     bytes = bytes,
@@ -326,7 +326,7 @@ public fun RcComposePlayer(
   namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
   onEvent: (RcPlayerEvent) -> Unit = {},
   typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
-  systemColors: (name: String) -> Color? = { null },
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
   customComponents: RcCustomComponentRegistry,
 ) {
   val document = remember(bytes) { decodeCmpDocument(bytes) }
@@ -353,7 +353,7 @@ public fun RcComposePlayer(
   namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
   onEvent: (RcPlayerEvent) -> Unit = {},
   typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
-  systemColors: (name: String) -> Color? = { null },
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
 ) {
   RcComposePlayer(
     document = document,
@@ -375,7 +375,7 @@ public fun RcComposePlayer(
   namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
   onEvent: (RcPlayerEvent) -> Unit = {},
   typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
-  systemColors: (name: String) -> Color? = { null },
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
   customComponents: RcCustomComponentRegistry,
 ) {
   // Resolve once, at the only place that can: `RcPlayerTheme.System` is a question for the host,

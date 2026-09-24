@@ -4,6 +4,10 @@ public final class ee/schimke/composeai/rcplayer/compose/ComposableSingletons$Rc
 	public final fun getLambda$1404208809$ee_schimke_composeai_rc_player_compose ()Lkotlin/jvm/functions/Function4;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcAndroidSystemColors_androidKt {
+	public static final fun rememberRcAndroidSystemColors (Landroidx/compose/runtime/Composer;I)Lkotlin/jvm/functions/Function1;
+}
+
 public abstract interface class ee/schimke/composeai/rcplayer/compose/RcAnimationClock {
 	public abstract fun seconds ()F
 }
