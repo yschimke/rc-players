@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.0](https://github.com/yschimke/rc-players/compare/v1.75.0...v2.0.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* ee.schimke.composeai:third-party-rc-embedded-player-jvm is no longer published. Consumers that need a JVM Remote Compose player should depend on rc-player-compose.
+
+### Features
+
+* **compose:** draw exact conics with Path.conicTo on Android 14+ ([#529](https://github.com/yschimke/rc-players/issues/529)) ([11c7226](https://github.com/yschimke/rc-players/commit/11c7226812a608f5d60ddb26602c976c86a5ba73))
+
+
+### Bug Fixes
+
+* apply every graphics-layer attribute Compose supports, and centre an unauthored origin ([#505](https://github.com/yschimke/rc-players/issues/505)) ([074dd50](https://github.com/yschimke/rc-players/commit/074dd5035138286d5e8aa9e315a99a095a97a121))
+* **compose:** keep hidden content hidden and ROTATE unturned on exit ([#519](https://github.com/yschimke/rc-players/issues/519)) ([2f057dc](https://github.com/yschimke/rc-players/commit/2f057dc2d0f782061992f92dd6155b1bd4f96544))
+* **compose:** round mixed baseline and fractional alignBy anchors once ([#528](https://github.com/yschimke/rc-players/issues/528)) ([7d0fee1](https://github.com/yschimke/rc-players/commit/7d0fee172cd8ab931c39f2fac2125791b562b55b))
+* keep an animating CMP root at the origin, and animate visibility with AnimatedVisibility ([#514](https://github.com/yschimke/rc-players/issues/514)) ([abdc478](https://github.com/yschimke/rc-players/commit/abdc478a7c3bed4b7a997460e099a12ffa36750c))
+* **release:** republish wasm-dist and js-dist when the code they package changes ([#513](https://github.com/yschimke/rc-players/issues/513)) ([447f190](https://github.com/yschimke/rc-players/commit/447f1909e5b89eb813b738bf03a338d4e02b3bc4)), closes [#512](https://github.com/yschimke/rc-players/issues/512)
+* **release:** upload nothing to Maven Central when the publish plan is empty ([#516](https://github.com/yschimke/rc-players/issues/516)) ([990e24e](https://github.com/yschimke/rc-players/commit/990e24e5b10e888a25aa1a699e7e65d5a5aefac4))
+
+
+### Code Refactoring
+
+* converge on AndroidX: graphics layers, a re-vendored embedded player, and no JVM cut ([#508](https://github.com/yschimke/rc-players/issues/508)) ([b90f0ef](https://github.com/yschimke/rc-players/commit/b90f0efe9a108c60d065768ebd5baf6b79253d41))
+
 ## [1.75.0](https://github.com/yschimke/rc-players/compare/v1.74.0...v1.75.0) (2026-09-24)
 
 
