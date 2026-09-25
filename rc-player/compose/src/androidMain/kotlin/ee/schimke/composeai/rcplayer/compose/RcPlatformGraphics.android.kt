@@ -6,6 +6,7 @@ import android.graphics.BitmapShader
 import android.graphics.PathMeasure
 import android.graphics.RuntimeShader
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -160,6 +161,19 @@ internal actual fun Path.rcConicTo(
   y2: Float,
   weight: Float,
 ) {
-  // `android.graphics.Path` has no conic; Skia's own chop into quads stands in.
-  rcConicAsQuads(x0, y0, x1, y1, x2, y2, weight) { cx, cy, ex, ey -> quadraticTo(cx, cy, ex, ey) }
+  // Android 14 (API 34) exposes Skia's conic on `android.graphics.Path`, which draws it exactly as
+  // the Skia-backed targets do. Older releases have no conic, so Skia's own chop into quads stands in.
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+    RcPathConicApi34.conicTo(this, x1, y1, x2, y2, weight)
+  } else {
+    rcConicAsQuads(x0, y0, x1, y1, x2, y2, weight) { cx, cy, ex, ey -> quadraticTo(cx, cy, ex, ey) }
+  }
+}
+
+/** Keeps the API 34 call out of [rcConicTo]'s body, so older releases never resolve it. */
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+private object RcPathConicApi34 {
+  fun conicTo(path: Path, x1: Float, y1: Float, x2: Float, y2: Float, weight: Float) {
+    path.asAndroidPath().conicTo(x1, y1, x2, y2, weight)
+  }
 }
