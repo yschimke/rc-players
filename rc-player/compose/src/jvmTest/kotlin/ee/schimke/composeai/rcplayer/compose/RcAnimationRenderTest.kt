@@ -206,4 +206,120 @@ class RcAnimationRenderTest {
         "expected the red component to be gone, got $finalColor",
       )
     }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun anInvisibleComponentThatTurnsGoneExitsUnpainted() =
+    runSkikoComposeUiTest(size = Size(20f, 20f), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      setContent {
+        RcComposePlayer(
+          visibilityDocument(
+            initialVisibility = 2,
+            enter = RcLayoutAnimation.FadeIn,
+            exit = RcLayoutAnimation.SlideLeft,
+            redWidth = 20f,
+          )
+        )
+      }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      mainClock.advanceTimeBy(350)
+      waitForIdle()
+      assertTrue(onRoot().captureToImage().toPixelMap()[10, 10].red < .05f, "starts invisible")
+
+      onNode(hasClickAction()).performTouchInput { click() }
+      for (step in 1..6) {
+        mainClock.advanceTimeBy(50)
+        waitForIdle()
+        val pixels = onRoot().captureToImage().toPixelMap()
+        for (x in listOf(2, 10, 18)) {
+          assertTrue(pixels[x, 10].red < .05f, "painted ${step * 50}ms into its exit")
+        }
+      }
+    }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aRotateEnterDoesNotTurnBackDuringTheExit() =
+    runSkikoComposeUiTest(size = Size(20f, 20f), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      // Red on the left half only, so a turn shows up as red on the right.
+      setContent {
+        RcComposePlayer(
+          visibilityDocument(
+            initialVisibility = 1,
+            enter = RcLayoutAnimation.Rotate,
+            exit = RcLayoutAnimation.FadeOut,
+            redWidth = 10f,
+          )
+        )
+      }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      mainClock.advanceTimeBy(350)
+      waitForIdle()
+
+      onNode(hasClickAction()).performTouchInput { click() }
+      for (step in 1..2) {
+        mainClock.advanceTimeBy(50)
+        waitForIdle()
+        val pixels = onRoot().captureToImage().toPixelMap()
+        val at = "${step * 50}ms into the exit"
+        assertTrue(pixels[5, 10].alpha > .1f, "the left half is still fading out $at")
+        for (y in 0 until 20) {
+          val right = pixels[15, y]
+          assertTrue(
+            right.alpha < .1f || right.red < .05f,
+            "turned into the right half at y=$y, $at",
+          )
+        }
+      }
+    }
+
+  private fun visibilityDocument(
+    initialVisibility: Int,
+    enter: RcLayoutAnimation,
+    exit: RcLayoutAnimation,
+    redWidth: Float,
+  ): RcDocument {
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+    return RcDocument(
+      RcHeader(RcVersion(1, 0, 0), legacyWidth = 20, legacyHeight = 20, modern = false),
+      listOf(
+        RcIntegerConstant(10, initialVisibility),
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcCanvasLayout(3, 30),
+        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+        RcAnimationSpec(
+          animationId = 1,
+          motionDurationMillis = RcFloatWord.literal(300f),
+          motionEasingType = 4,
+          visibilityDurationMillis = RcFloatWord.literal(300f),
+          visibilityEasingType = 4,
+          enterAnimation = enter,
+          exitAnimation = exit,
+        ),
+        RcVisibilityModifier(10),
+        RcClickModifier,
+        RcValueIntegerChangeAction(10, 0),
+        end,
+        RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+        RcPaintData(listOf(4, 0xffff0000.toInt())),
+        RcDraw4(
+          RcOpcodes.DRAW_RECT,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(redWidth),
+          RcFloatWord.literal(20f),
+        ),
+        end,
+        end,
+        end,
+        end,
+      ),
+    )
+  }
 }
