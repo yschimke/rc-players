@@ -189,6 +189,12 @@ jobs:
       # declared stuck, and getting it wrong costs a fifteen-minute macOS job that reports nothing.
       - name: Test the lane progress helper
         run: scripts/lane-progress.test.sh
+      # The release's publish plan decides which coordinates reach Maven Central, and a module it
+      # wrongly skips is unrepairable (Central refuses a second upload of a version). #512 was two
+      # dist modules going stale because the plan could not see what they package; these fixtures
+      # hold it to following those inputs, and to publishing whenever it cannot tell.
+      - name: Test the Maven publish plan
+        run: .github/scripts/test-maven-publish-plan.sh
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
