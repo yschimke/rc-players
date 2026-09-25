@@ -10,11 +10,15 @@ import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -88,6 +92,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
@@ -96,6 +101,7 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
@@ -2960,34 +2966,53 @@ private fun Modifier.applyAndroidXScroll(
         }
       }
   }
-  LaunchedEffect(scrollState, touchRuntime, touch, state) {
-    var wasScrolling = false
-    snapshotFlow { scrollState.isScrollInProgress }
-      .collect { scrolling ->
-        if (scrolling) {
-          wasScrolling = true
-        } else if (wasScrolling && touchRuntime != null) {
-          wasScrolling = false
-          val target =
-            touchRuntime
-              .stopTarget(
-                currentValue = scrollState.value.toFloat(),
-                minimum = 0f,
-                maximum = scrollState.maxValue.toFloat(),
-                resolve = state::resolve,
-              )
-              .roundToInt()
-              .coerceIn(0, scrollState.maxValue)
-          if (target != scrollState.value) scrollState.animateScrollTo(target)
+  // A snapping stop mode settles the fling on the stop the touch expression picks, through
+  // Compose's own snap fling rather than a second animation launched once the scroll goes idle.
+  // AndroidX's embedded player maps the scroll's even-notch stop the same way
+  // (third_party/rc-embedded-player `ScrollModifier.kt`); the stop itself stays the runtime's, so
+  // ends, percent, absolute and single-notch stops keep their wire semantics.
+  val snaps = touch != null && touch.stopMode in SnappingStopModes
+  if (snaps && touchRuntime != null) {
+    // A single-notch stop is bounded by the value the gesture started from.
+    LaunchedEffect(scrollState, touchRuntime, state) {
+      scrollState.interactionSource.interactions.collect { interaction ->
+        if (interaction is DragInteraction.Start) {
+          touchRuntime.onDown(scrollState.value.toFloat(), 0f, 0f, state::resolve)
         }
       }
+    }
   }
+  val flingBehavior =
+    if (snaps && touchRuntime != null) {
+      val snapProvider =
+        remember(scrollState, touchRuntime, state) {
+          object : SnapLayoutInfoProvider {
+            override fun calculateSnapOffset(velocity: Float): Float {
+              val current = scrollState.value.toFloat()
+              val target =
+                touchRuntime
+                  .stopTarget(
+                    currentValue = current,
+                    minimum = 0f,
+                    maximum = scrollState.maxValue.toFloat(),
+                    resolve = state::resolve,
+                  )
+                  .roundToInt()
+                  .coerceIn(0, scrollState.maxValue)
+              return target - current
+            }
+          }
+        }
+      rememberSnapFlingBehavior(snapProvider)
+    } else {
+      ScrollableDefaults.flingBehavior()
+    }
 
   val scrolled =
     if (operation.direction == RcScrollModifier.VERTICAL) {
-      verticalScroll(scrollState)
+      verticalScroll(scrollState, flingBehavior = flingBehavior)
     } else {
-      horizontalScroll(scrollState)
+      horizontalScroll(scrollState, flingBehavior = flingBehavior)
     }
   if (!LocalRcInspection.current) return scrolled
   // The offset the children are drawn under, published so the tree reader can take it back out of
@@ -3006,6 +3031,16 @@ private fun Modifier.applyAndroidXScroll(
     }
   return scrolled.semantics { rcScrollOffset = scrollOffset }
 }
+
+/** Stop modes whose release settles on a stop other than where the fling leaves the value. */
+private val SnappingStopModes =
+  setOf(
+    ee.schimke.composeai.rcplayer.protocol.RcTouchExpression.STOP_ENDS,
+    ee.schimke.composeai.rcplayer.protocol.RcTouchExpression.STOP_NOTCHES_EVEN,
+    ee.schimke.composeai.rcplayer.protocol.RcTouchExpression.STOP_NOTCHES_PERCENTS,
+    ee.schimke.composeai.rcplayer.protocol.RcTouchExpression.STOP_NOTCHES_ABSOLUTE,
+    ee.schimke.composeai.rcplayer.protocol.RcTouchExpression.STOP_NOTCHES_SINGLE_EVEN,
+  )
 
 private fun RcLayoutNode.geometryComponentIds(): List<Int> =
   when (this) {
@@ -3750,37 +3785,50 @@ private fun Modifier.applyPaintDecorator(
           }
         }
       }
-    RcClipRectModifier ->
-      drawWithContent {
-        val contentScope = this
-        clipRect { contentScope.drawContent() }
-      }
+    // Component clips are Compose's own layer clip — what `Modifier.clip` expands to — so the
+    // content (and hit testing) is clipped by the layer rather than by a hand-rolled draw pass.
+    // The lambda form of `graphicsLayer` keeps the radius reads in the layer phase: an animated
+    // corner re-clips without recomposing.
+    RcClipRectModifier -> clipToBounds()
     is RcRoundedClipRectModifier ->
-      drawWithContent {
-        val topStart = state.dpTypedPixels(state.resolve(operation.topStart), localDensity)
-        val topEnd = state.dpTypedPixels(state.resolve(operation.topEnd), localDensity)
-        val bottomStart = state.dpTypedPixels(state.resolve(operation.bottomStart), localDensity)
-        val bottomEnd = state.dpTypedPixels(state.resolve(operation.bottomEnd), localDensity)
-        val path =
-          Path().apply {
-            addRoundRect(
-              RoundRect(
-                left = 0f,
-                top = 0f,
-                right = size.width,
-                bottom = size.height,
-                topLeftCornerRadius = CornerRadius(topStart),
-                topRightCornerRadius = CornerRadius(topEnd),
-                bottomRightCornerRadius = CornerRadius(bottomEnd),
-                bottomLeftCornerRadius = CornerRadius(bottomStart),
-              )
-            )
-          }
-        val contentScope = this
-        clipPath(path) { contentScope.drawContent() }
+      graphicsLayer {
+        shape =
+          RcCornerClipShape(
+            topLeft = state.dpTypedPixels(state.resolve(operation.topStart), localDensity),
+            topRight = state.dpTypedPixels(state.resolve(operation.topEnd), localDensity),
+            bottomRight = state.dpTypedPixels(state.resolve(operation.bottomEnd), localDensity),
+            bottomLeft = state.dpTypedPixels(state.resolve(operation.bottomStart), localDensity),
+          )
+        clip = true
       }
     else -> this
   }
+}
+
+/**
+ * A rounded-rect clip in pixels. Not `RoundedCornerShape`: that one mirrors start/end under RTL,
+ * while AndroidX's own `RemoteRoundedClipShape` always maps the wire's "start" corners to the left.
+ * `Outline.Rounded` scales oversized radii the same way Skia's `addRoundRect` does.
+ */
+private data class RcCornerClipShape(
+  val topLeft: Float,
+  val topRight: Float,
+  val bottomRight: Float,
+  val bottomLeft: Float,
+) : Shape {
+  override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
+    Outline.Rounded(
+      RoundRect(
+        left = 0f,
+        top = 0f,
+        right = size.width,
+        bottom = size.height,
+        topLeftCornerRadius = CornerRadius(topLeft.coerceAtLeast(0f)),
+        topRightCornerRadius = CornerRadius(topRight.coerceAtLeast(0f)),
+        bottomRightCornerRadius = CornerRadius(bottomRight.coerceAtLeast(0f)),
+        bottomLeftCornerRadius = CornerRadius(bottomLeft.coerceAtLeast(0f)),
+      )
+    )
 }
 
 private fun RcPlayerState.borderWidthPixels(word: RcFloatWord, density: Density): Float {
