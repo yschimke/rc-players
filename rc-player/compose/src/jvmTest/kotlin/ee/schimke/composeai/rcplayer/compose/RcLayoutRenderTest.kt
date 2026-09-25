@@ -1,15 +1,23 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
 import ee.schimke.composeai.rcplayer.protocol.RcAlignByModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
@@ -1840,6 +1848,39 @@ class RcLayoutRenderTest {
       scene.close()
     }
   }
+
+  /**
+   * A root animating toward a window that has just grown stays at the window's origin, as AndroidX
+   * draws it. Measured under the new window's fixed constraints, a root still at its old size would
+   * otherwise be coerced up and centred in the difference.
+   */
+  @OptIn(ExperimentalTestApi::class, InternalComposeUiApi::class)
+  @Test
+  fun aRootAnimatingTowardAResizeStaysAtTheOrigin() =
+    runSkikoComposeUiTest(size = Size(100f, 100f), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      val document =
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0), legacyWidth = 100, legacyHeight = 100, modern = false),
+          listOf(
+            RcRootLayout(1),
+            RcLayoutContent(2),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          ),
+        )
+      setContent {
+        CompositionLocalProvider(LocalRcInspection provides true) {
+          RcComposePlayer(document, Modifier.fillMaxSize())
+        }
+      }
+      waitForIdle()
+      scene.size = IntSize(300, 200)
+      mainClock.advanceTimeByFrame()
+
+      val root = onNode(SemanticsMatcher.keyIsDefined(RcComponentIdKey)).fetchSemanticsNode()
+      assertEquals(Offset.Zero, root.positionInRoot, "the root starts at the window's top-left")
+    }
 
   @Test
   fun graphicsLayerUsesTheComposeCenterPivotWhenOriginIsAbsent() {
