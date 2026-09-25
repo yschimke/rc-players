@@ -44,85 +44,85 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "mdpi")
 class LayoutDimensionBehaviorTest {
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun requiredMinimumCanOverrideTheIncomingParentConstraint() {
-    val operation =
-      DimensionConstraintsModifierOperation(
-        DimensionConstraintsModifierOperation.REQUIRED_HORIZONTAL_CONSTRAINTS,
-        80f,
-        -1f,
-      )
+    @Test
+    fun requiredMinimumCanOverrideTheIncomingParentConstraint() {
+        val operation =
+            DimensionConstraintsModifierOperation(
+                DimensionConstraintsModifierOperation.REQUIRED_HORIZONTAL_CONSTRAINTS,
+                80f,
+                -1f,
+            )
 
-    assertMeasuredWidth(80) { Modifier.dimensionConstraints(operation).size(10.dp) }
-  }
-
-  @Test
-  fun requiredVerticalMinimumCanOverrideTheIncomingParentConstraint() {
-    val operation =
-      DimensionConstraintsModifierOperation(
-        DimensionConstraintsModifierOperation.REQUIRED_VERTICAL_CONSTRAINTS,
-        80f,
-        -1f,
-      )
-
-    assertMeasuredHeight(80) { Modifier.dimensionConstraints(operation).size(10.dp) }
-  }
-
-  @Test
-  fun fillParentMaxWidthUsesTheAvailableWidth() {
-    val operation =
-      WidthModifierOperation(DimensionModifierOperation.Type.FILL_PARENT_MAX_WIDTH, 1f)
-
-    assertMeasuredWidth(100) { Modifier.width(operation).size(10.dp) }
-  }
-
-  @Test
-  fun fillMaxWidthPreservesItsFraction() {
-    val operation = WidthModifierOperation(DimensionModifierOperation.Type.FILL, 0.5f)
-
-    assertMeasuredWidth(50) { Modifier.width(operation).size(10.dp) }
-  }
-
-  @Test
-  fun fillParentMaxHeightUsesTheAvailableHeight() {
-    val operation =
-      HeightModifierOperation(DimensionModifierOperation.Type.FILL_PARENT_MAX_HEIGHT, 1f)
-
-    assertMeasuredHeight(100) { Modifier.height(operation).size(10.dp) }
-  }
-
-  @Test
-  fun fillMaxHeightPreservesItsFraction() {
-    val operation = HeightModifierOperation(DimensionModifierOperation.Type.FILL, 0.5f)
-
-    assertMeasuredHeight(50) { Modifier.height(operation).size(10.dp) }
-  }
-
-  private fun assertMeasuredWidth(expected: Int, childModifier: @Composable () -> Modifier) {
-    val measuredWidth = AtomicInteger()
-    composeRule.setContent {
-      CompositionLocalProvider(LocalCoreDocument provides CoreDocument()) {
-        Box(Modifier.size(100.dp, 50.dp)) {
-          Box(childModifier().onSizeChanged { measuredWidth.set(it.width) })
-        }
-      }
+        assertMeasuredWidth(80) { Modifier.dimensionConstraints(operation).size(10.dp) }
     }
-    composeRule.waitForIdle()
-    assertEquals(expected, measuredWidth.get())
-  }
 
-  private fun assertMeasuredHeight(expected: Int, childModifier: @Composable () -> Modifier) {
-    val measuredHeight = AtomicInteger()
-    composeRule.setContent {
-      CompositionLocalProvider(LocalCoreDocument provides CoreDocument()) {
-        Box(Modifier.size(50.dp, 100.dp)) {
-          Box(childModifier().onSizeChanged { measuredHeight.set(it.height) })
-        }
-      }
+    @Test
+    fun requiredVerticalMinimumCanOverrideTheIncomingParentConstraint() {
+        val operation =
+            DimensionConstraintsModifierOperation(
+                DimensionConstraintsModifierOperation.REQUIRED_VERTICAL_CONSTRAINTS,
+                80f,
+                -1f,
+            )
+
+        assertMeasuredHeight(80) { Modifier.dimensionConstraints(operation).size(10.dp) }
     }
-    composeRule.waitForIdle()
-    assertEquals(expected, measuredHeight.get())
-  }
+
+    @Test
+    fun fillParentMaxWidthUsesTheAvailableWidth() {
+        val operation =
+            WidthModifierOperation(DimensionModifierOperation.Type.FILL_PARENT_MAX_WIDTH, 1f)
+
+        assertMeasuredWidth(100) { Modifier.width(operation).size(10.dp) }
+    }
+
+    @Test
+    fun fillMaxWidthPreservesItsFraction() {
+        val operation = WidthModifierOperation(DimensionModifierOperation.Type.FILL, 0.5f)
+
+        assertMeasuredWidth(50) { Modifier.width(operation).size(10.dp) }
+    }
+
+    @Test
+    fun fillParentMaxHeightUsesTheAvailableHeight() {
+        val operation =
+            HeightModifierOperation(DimensionModifierOperation.Type.FILL_PARENT_MAX_HEIGHT, 1f)
+
+        assertMeasuredHeight(100) { Modifier.height(operation).size(10.dp) }
+    }
+
+    @Test
+    fun fillMaxHeightPreservesItsFraction() {
+        val operation = HeightModifierOperation(DimensionModifierOperation.Type.FILL, 0.5f)
+
+        assertMeasuredHeight(50) { Modifier.height(operation).size(10.dp) }
+    }
+
+    private fun assertMeasuredWidth(expected: Int, childModifier: @Composable () -> Modifier) {
+        val measuredWidth = AtomicInteger()
+        composeRule.setContent {
+            CompositionLocalProvider(LocalCoreDocument provides CoreDocument()) {
+                Box(Modifier.size(100.dp, 50.dp)) {
+                    Box(childModifier().onSizeChanged { measuredWidth.set(it.width) })
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        assertEquals(expected, measuredWidth.get())
+    }
+
+    private fun assertMeasuredHeight(expected: Int, childModifier: @Composable () -> Modifier) {
+        val measuredHeight = AtomicInteger()
+        composeRule.setContent {
+            CompositionLocalProvider(LocalCoreDocument provides CoreDocument()) {
+                Box(Modifier.size(50.dp, 100.dp)) {
+                    Box(childModifier().onSizeChanged { measuredHeight.set(it.height) })
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        assertEquals(expected, measuredHeight.get())
+    }
 }

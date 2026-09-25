@@ -38,15 +38,15 @@
 // that lets this render headlessly without Robolectric is tracked in `PROVENANCE.md`.
 
 plugins {
-  id("composeai.base-conventions")
-  // Published for TESTING only — see `composeAiMavenPublishing` below. This is the repo's pinned,
-  // locally patched AndroidX player, not a supported API. Publishing it lets consumers and parity
-  // jobs select the vendored implementation independently from the newer embedded player now
-  // shipped inside androidx.dev's `remote-player-compose` snapshot.
-  id("composeai.maven-publishing")
-  alias(libs.plugins.android.library)
-  alias(libs.plugins.compose.compiler)
-  alias(libs.plugins.kotlin.serialization)
+    id("composeai.base-conventions")
+    // Published for TESTING only — see `composeAiMavenPublishing` below. This is the repo's pinned,
+    // locally patched AndroidX player, not a supported API. Publishing it lets consumers and parity
+    // jobs select the vendored implementation independently from the newer embedded player now
+    // shipped inside androidx.dev's `remote-player-compose` snapshot.
+    id("composeai.maven-publishing")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Deliberately published under the compose-ai-tools group, not `androidx.*`: this is the vendored
@@ -55,48 +55,52 @@ plugins {
 // default, or the androidx.dev snapshot when built with `-Pcomposeai.remoteCompose=snapshot`, in
 // which case a consumer also needs that repository. The coordinate is intended for player
 // experiments and parity testing, not as a stable library API.
+// AndroidX formats with ktfmt's kotlinlang style (4-space), and these sources are a direct copy of
+// upstream plus marked patches. Formatting them the way AndroidX does keeps every upstream file
+// byte-identical after the package rename, so `diff -r` against a newer checkout shows only real
+// changes. Overrides the Google style `composeai.base-conventions` sets.
+ktfmt { kotlinLangStyle() }
+
 composeAiMavenPublishing {
-  coordinates(
-    artifactId = "third-party-rc-embedded-player",
-    displayName = "Compose Preview — AndroidX Embedded Player (vendored, Android)",
-    description =
-      "Vendored and locally patched Android implementation of AndroidX's experimental Compose " +
-        "embedded Remote Compose player. Published for parity testing alongside the upstream " +
-        "androidx.dev implementation; not a supported API.",
-  )
-  inceptionYear.set("2026")
+    coordinates(
+        artifactId = "third-party-rc-embedded-player",
+        displayName = "Compose Preview — AndroidX Embedded Player (vendored, Android)",
+        description =
+            "Vendored and locally patched Android implementation of AndroidX's experimental Compose " +
+                "embedded Remote Compose player. Published for parity testing alongside the upstream " +
+                "androidx.dev implementation; not a supported API.",
+    )
+    inceptionYear.set("2026")
 }
 
 android {
-  // Keep the upstream package so the vendored sources stay a verbatim snapshot — diffing against a
-  // newer androidx checkout is a plain `diff -r`, with no rename noise to sift through.
-  namespace = "ee.schimke.composeai.rcembedded.player"
+    // Keep the upstream package so the vendored sources stay a verbatim snapshot — diffing against
+    // a
+    // newer androidx checkout is a plain `diff -r`, with no rename noise to sift through.
+    namespace = "ee.schimke.composeai.rcembedded.player"
 
-  // The alpha `compose-remote` AARs declare `minCompileSdk = 37`; same override the
-  // `:data-remotecompose-connector` and `:samples:remotecompose` modules carry.
-  compileSdk = 37
+    // The alpha `compose-remote` AARs declare `minCompileSdk = 37`; same override the
+    // `:data-remotecompose-connector` and `:samples:remotecompose` modules carry.
+    compileSdk = 37
 
-  defaultConfig {
-    // `AndroidRemoteContext` + the alpha player artifacts require API 29.
-    minSdk = 29
-    // Consumable from our compileSdk-36 modules (see the connector for the full rationale).
-    aarMetadata { minCompileSdk = 36 }
-  }
+    defaultConfig {
+        // `AndroidRemoteContext` + the alpha player artifacts require API 29.
+        minSdk = 29
+        // Consumable from our compileSdk-36 modules (see the connector for the full rationale).
+        aarMetadata { minCompileSdk = 36 }
+    }
 
-  // No `androidResources` here, deliberately: this module owns no resource table. The GMS
-  // font-provider certificates used to come from a vendored `font_certs.xml` read through an `R`
-  // class, which forced resource processing on (AGP 9 defaults it off for libraries). They are now
-  // source constants — see `GmsFontProviderCertificates.kt` — so nothing needs an `R`. Keeping it
-  // off means the CMP restructure can adopt the KMP-Android library plugin without first settling
-  // whether that plugin supports resource processing (see PROVENANCE.md).
+    // No `androidResources` here: this module owns no resource table. `google:` fonts on a device
+    // take their GMS certificates from the host (`GmsFontTypefaceResolver`), as upstream intends.
 
-  // The render harness is a Robolectric test that inflates real Compose content, so it needs the
-  // *dependencies'* merged resources (Compose's own themes) on the unit-test classpath.
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+    // The render harness is a Robolectric test that inflates real Compose content, so it needs the
+    // *dependencies'* merged resources (Compose's own themes) on the unit-test classpath.
+    testOptions { unitTests { isIncludeAndroidResources = true } }
 
-  // The player reaches `androidx.compose.remote.core.*` members marked `@RestrictTo(LIBRARY_GROUP)`
-  // — unavoidable for an out-of-tree copy of in-tree code. Upstream's module disables it too.
-  lint { disable += "RestrictedApi" }
+    // The player reaches `androidx.compose.remote.core.*` members marked
+    // `@RestrictTo(LIBRARY_GROUP)`
+    // — unavoidable for an out-of-tree copy of in-tree code. Upstream's module disables it too.
+    lint { disable += "RestrictedApi" }
 }
 
 // Hand the render harness its input/output directories. Gradle properties rather than ambient env,
@@ -107,123 +111,132 @@ android {
 //
 // Absent either property the harness skips, so `check` stays green without a staged catalog.
 tasks.withType<Test>().configureEach {
-  for (key in
-    listOf(
-      "rc.embedded.input",
-      "rc.embedded.output",
-      "rc.androidx.embedded.input",
-      "rc.androidx.embedded.output",
-      "rc.view.output",
-      "rc.semantics.report",
-      // `composeai.fonts.*` are what turn a document's `google:` family into the real face: with a
-      // cache directory the player resolves it from the shared machine-local Google Fonts cache,
-      // the same one the snapshot renderer and the jvm lane read (which forwards the identical
-      // pair). Without one every branded family renders in the platform default, and the
-      // rc-compare row shows this lane in Roboto next to four lanes showing Orbitron
-      // (compose-ai-tools#4170). Unset — the default — keeps the render hermetic, which is what
-      // `check` wants.
-      "composeai.fonts.cacheDir",
-      "composeai.fonts.offline",
-    )) {
-    (project.findProperty(key) as String?)?.let { systemProperty(key, it) }
-  }
-  val dynamicColorReport =
-    (project.findProperty("rc.dynamic-color.report") as String?)?.let(project::file)
-      ?: layout.buildDirectory.file("reports/dynamic-color-diag.txt").get().asFile
-  systemProperty("rc.dynamic-color.report", dynamicColorReport.absolutePath)
-  // The diagnostic skips without staged input, so normal test runs advertise no missing output.
-  // When the documented diagnostic command is active, however, the report is part of the task's
-  // contract: Gradle must rerun (or restore it from the build cache) after the file is deleted.
-  if (project.findProperty("rc.embedded.input") != null) {
-    val embeddedInput = project.file(project.property("rc.embedded.input").toString())
-    inputs
-      .files(
-        project.fileTree(embeddedInput) {
-          include("manifest.json")
-          include("**/*.rc")
-        }
-      )
-      .withPropertyName("embeddedDiagnosticInputs")
-      .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
-    outputs.file(dynamicColorReport).withPropertyName("dynamicColorReport")
-  }
-  // Robolectric's NATIVE graphics mode needs a real heap to rasterize into.
-  maxHeapSize = "2g"
+    for (key in
+        listOf(
+            "rc.embedded.input",
+            "rc.embedded.output",
+            "rc.androidx.embedded.input",
+            "rc.androidx.embedded.output",
+            "rc.view.output",
+            "rc.semantics.report",
+            // `composeai.fonts.*` are what turn a document's `google:` family into the real face:
+            // with a
+            // cache directory the player resolves it from the shared machine-local Google Fonts
+            // cache,
+            // the same one the snapshot renderer and the jvm lane read (which forwards the
+            // identical
+            // pair). Without one every branded family renders in the platform default, and the
+            // rc-compare row shows this lane in Roboto next to four lanes showing Orbitron
+            // (compose-ai-tools#4170). Unset — the default — keeps the render hermetic, which is
+            // what
+            // `check` wants.
+            "composeai.fonts.cacheDir",
+            "composeai.fonts.offline",
+        )) {
+        (project.findProperty(key) as String?)?.let { systemProperty(key, it) }
+    }
+    val dynamicColorReport =
+        (project.findProperty("rc.dynamic-color.report") as String?)?.let(project::file)
+            ?: layout.buildDirectory.file("reports/dynamic-color-diag.txt").get().asFile
+    systemProperty("rc.dynamic-color.report", dynamicColorReport.absolutePath)
+    // The diagnostic skips without staged input, so normal test runs advertise no missing output.
+    // When the documented diagnostic command is active, however, the report is part of the task's
+    // contract: Gradle must rerun (or restore it from the build cache) after the file is deleted.
+    if (project.findProperty("rc.embedded.input") != null) {
+        val embeddedInput = project.file(project.property("rc.embedded.input").toString())
+        inputs
+            .files(
+                project.fileTree(embeddedInput) {
+                    include("manifest.json")
+                    include("**/*.rc")
+                }
+            )
+            .withPropertyName("embeddedDiagnosticInputs")
+            .withPathSensitivity(org.gradle.api.tasks.PathSensitivity.RELATIVE)
+        outputs.file(dynamicColorReport).withPropertyName("dynamicColorReport")
+    }
+    // Robolectric's NATIVE graphics mode needs a real heap to rasterize into.
+    maxHeapSize = "2g"
 
-  // `AndroidColorTableDriftTest` compares this module's `ColorTheme` index table against the CMP
-  // player's copy, which lives in another project and is therefore not otherwise an input to these
-  // tests. Without this the task stays UP-TO-DATE when only the sibling changes, and the guard
-  // silently stops guarding — which is the exact failure mode it exists to catch.
-  inputs
-    .file(
-      layout.settingsDirectory.file(
-        "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/" +
-          "RcAndroidSystemColors.kt"
-      )
-    )
-    .withPropertyName("cmpAndroidColorTable")
-    .withPathSensitivity(PathSensitivity.RELATIVE)
+    // `AndroidColorTableDriftTest` compares this module's `ColorTheme` index table against the CMP
+    // player's copy, which lives in another project and is therefore not otherwise an input to
+    // these
+    // tests. Without this the task stays UP-TO-DATE when only the sibling changes, and the guard
+    // silently stops guarding — which is the exact failure mode it exists to catch.
+    inputs
+        .file(
+            layout.settingsDirectory.file(
+                "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/" +
+                    "RcAndroidSystemColors.kt"
+            )
+        )
+        .withPropertyName("cmpAndroidColorTable")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 dependencies {
-  // Document model + operation tree. `remote-core` is a plain `java-library` upstream, which is
-  // what makes the planned jvm target of the CMP split viable at all.
-  api(libs.compose.remote.core)
-  // `RemoteDocument`, `StateUpdater`, and `AndroidRemoteContext` (the platform `RemoteContext`).
-  api(libs.compose.remote.player.core)
-  // `ExperimentalRemotePlayerApi` opt-in marker only.
-  implementation(libs.compose.remote.player.compose)
-  // `LambdaAction` / `PendingIntentAction` (the click-action types `RcPlayer` dispatches) and
-  // `CapturedDocument` (the `rememberRemoteDocument` capture result). The player *consumes* these
-  // creation-side types even though it never authors a document itself.
-  implementation(libs.compose.remote.creation.compose)
+    // Document model + operation tree. `remote-core` is a plain `java-library` upstream, which is
+    // what makes the planned jvm target of the CMP split viable at all.
+    api(libs.compose.remote.core)
+    // `RemoteDocument`, `StateUpdater`, and `AndroidRemoteContext` (the platform `RemoteContext`).
+    api(libs.compose.remote.player.core)
+    // `ExperimentalRemotePlayerApi` opt-in marker only.
+    implementation(libs.compose.remote.player.compose)
+    // `LambdaAction` / `PendingIntentAction` (the click-action types `RcPlayer` dispatches) and
+    // `CapturedDocument` (the `rememberRemoteDocument` capture result). The player *consumes* these
+    // creation-side types even though it never authors a document itself.
+    implementation(libs.compose.remote.creation.compose)
 
-  implementation(platform(libs.compose.bom.compat))
-  implementation(libs.compose.runtime)
-  implementation(libs.compose.ui)
-  implementation(libs.compose.foundation)
-  implementation(libs.compose.animation)
-  // `Text` in the text-layout path and `ripple` in `RippleModifier` — the player leans on Material3
-  // for those two rather than reimplementing them.
-  implementation(libs.compose.material3)
-  // Downloadable Google Fonts: `GoogleFont` and the `Font` factory. Only the classes — the
-  // certificates this artifact's resource table was supposed to carry are source constants here,
-  // because the published AAR ships an empty one.
-  implementation(libs.compose.ui.text.google.fonts)
-  // `FontRequest` / `FontsContractCompat` behind the resolver's `google:` font prefix.
-  implementation(libs.androidx.core)
-  // The *variable* file behind a `google:` family carrying font-variation axes
-  // (`GoogleVariableFontFamilies`). Compose's downloadable-font factory resolves the family but
-  // takes no variation settings, so applying axes needs the face's bytes — and the pre-instancing
-  // file, which the CSS API never serves. Shared with the Robolectric downloadable-font shadow, the
-  // figma-svg embed path and the jvm player on purpose: one cache, one resolution rule.
-  // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
-  // was extracted into this repository.
-  implementation(libs.composeai.data.fonts.google)
-  implementation(libs.androidx.collection)
+    implementation(platform(libs.compose.bom.compat))
+    implementation(libs.compose.runtime)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.animation)
+    // `Text` in the text-layout path and `ripple` in `RippleModifier` — the player leans on
+    // Material3
+    // for those two rather than reimplementing them.
+    implementation(libs.compose.material3)
+    // Downloadable Google Fonts: `GoogleFont` and the `Font` factory. Only the classes — the
+    // certificates this artifact's resource table was supposed to carry are source constants here,
+    // because the published AAR ships an empty one.
+    implementation(libs.compose.ui.text.google.fonts)
+    // `FontRequest` / `FontsContractCompat` behind the resolver's `google:` font prefix.
+    implementation(libs.androidx.core)
+    // The *variable* file behind a `google:` family carrying font-variation axes
+    // (`GoogleVariableFontFamilies`). Compose's downloadable-font factory resolves the family but
+    // takes no variation settings, so applying axes needs the face's bytes — and the pre-instancing
+    // file, which the CSS API never serves. Shared with the Robolectric downloadable-font shadow,
+    // the
+    // figma-svg embed path and the jvm player on purpose: one cache, one resolution rule.
+    // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
+    // was extracted into this repository.
+    implementation(libs.composeai.data.fonts.google)
+    implementation(libs.androidx.collection)
 
-  // `RcEmbeddedRenderHarness` — rasterizes `.rc` documents through the player for the rc-compare
-  // lane. Robolectric with `@GraphicsMode(NATIVE)` is the stopgap until the CMP jvm target lets it
-  // run on a plain JVM (see PROVENANCE.md).
-  testImplementation(platform(libs.compose.bom.compat))
-  testImplementation(libs.ui.test.junit4)
-  testImplementation(libs.ui.test.manifest)
-  testImplementation(libs.robolectric)
-  testImplementation(libs.junit)
-  testImplementation(libs.kotlinx.serialization.json)
-  // `RcViewPlayerRenderHarness` — the control lane. Renders the same documents through the
-  // `remote-player-view`-backed `RemoteDocumentPlayer` in an identical harness, so a divergence can
-  // be attributed to the embedded player rather than to software-canvas rasterization.
-  testImplementation(libs.compose.remote.player.view)
-  // ColorTheme conformance fixtures are authored through the same public writer API applications
-  // use. Keeping this explicit makes the test's creation-side contract visible even though the
-  // player dependencies currently bring it in transitively.
-  testImplementation(libs.compose.remote.creation)
-  // `RcFigmaSvgExportTest` — runs the production `compose/figma-svg` export over each player's
-  // captured tree, so it needs the producers themselves (`ComposeSemanticsDataProducer`,
-  // `LayoutInspectorDataProducer`, `ComposeFigmaSvgDataProducer`). The connector `api`-exposes
-  // `:data-layoutinspector-core`, which carries the payload DTOs the test walks.
-  // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
-  // was extracted into this repository.
-  testImplementation(libs.composeai.data.layoutinspector.connector)
+    // `RcEmbeddedRenderHarness` — rasterizes `.rc` documents through the player for the rc-compare
+    // lane. Robolectric with `@GraphicsMode(NATIVE)` is the stopgap until the CMP jvm target lets
+    // it
+    // run on a plain JVM (see PROVENANCE.md).
+    testImplementation(platform(libs.compose.bom.compat))
+    testImplementation(libs.ui.test.junit4)
+    testImplementation(libs.ui.test.manifest)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.serialization.json)
+    // `RcViewPlayerRenderHarness` — the control lane. Renders the same documents through the
+    // `remote-player-view`-backed `RemoteDocumentPlayer` in an identical harness, so a divergence
+    // can
+    // be attributed to the embedded player rather than to software-canvas rasterization.
+    testImplementation(libs.compose.remote.player.view)
+    // ColorTheme conformance fixtures are authored through the same public writer API applications
+    // use. Keeping this explicit makes the test's creation-side contract visible even though the
+    // player dependencies currently bring it in transitively.
+    testImplementation(libs.compose.remote.creation)
+    // `RcFigmaSvgExportTest` — runs the production `compose/figma-svg` export over each player's
+    // captured tree, so it needs the producers themselves (`ComposeSemanticsDataProducer`,
+    // `LayoutInspectorDataProducer`, `ComposeFigmaSvgDataProducer`). The connector `api`-exposes
+    // `:data-layoutinspector-core`, which carries the payload DTOs the test walks.
+    // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
+    // was extracted into this repository.
+    testImplementation(libs.composeai.data.layoutinspector.connector)
 }

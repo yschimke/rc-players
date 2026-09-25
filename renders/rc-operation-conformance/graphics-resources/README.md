@@ -9,10 +9,10 @@ density 1 from the same `.rc` files in every lane.
 `DrawToBitmap`, paints a green surface and coral inset, restores bitmap id zero, and draws the
 result onto the main canvas.
 
-![Offscreen drawing across six lanes](offscreen-composite.png)
+![Offscreen drawing across five lanes](offscreen-composite.png)
 
 Left to right: AndroidX View, upstream embedded alpha18, upstream embedded snapshot, vendored
-embedded Android, vendored embedded JVM, and CMP JVM. All six outputs are pixel-identical. The
+embedded Android, and CMP JVM. All five outputs are pixel-identical. The
 individual source PNGs are committed beside the composite.
 
 ## Runtime shader
@@ -22,9 +22,8 @@ uses that shader to fill the inset rectangle.
 
 ![Runtime shader in executable lanes](shader-composite.png)
 
-Left to right: AndroidX View, vendored embedded JVM, and CMP JVM. View and vendored JVM produce the
-same black rectangle. CMP resolves the requested uniform and produces `#3b6b21`; it differs from
-those references over 62.50% of the canvas. This is recorded as a behavioral difference, not as an
+Left to right: AndroidX View and CMP JVM. View produces a black rectangle. CMP resolves the
+requested uniform and produces `#3b6b21`; it differs from View over 62.50% of the canvas. This is recorded as a behavioral difference, not as an
 assumption that either renderer is the sole oracle.
 
 The upstream-release, upstream-snapshot, and vendored Android embedded lanes do not have valid PNG
@@ -49,8 +48,8 @@ After copying the named source PNGs from their lane directories, regenerate the 
 ```shell
 node scripts/design-artifacts/rc-compose-lanes.mjs \
   renders/rc-operation-conformance/graphics-resources/offscreen-composite.png \
-  renders/rc-operation-conformance/graphics-resources/offscreen-{view,upstream-release,upstream-snapshot,vendored-android,vendored-jvm,cmp-jvm}.png
+  renders/rc-operation-conformance/graphics-resources/offscreen-{view,upstream-release,upstream-snapshot,vendored-android,cmp-jvm}.png
 node scripts/design-artifacts/rc-compose-lanes.mjs \
   renders/rc-operation-conformance/graphics-resources/shader-composite.png \
-  renders/rc-operation-conformance/graphics-resources/shader-{view,vendored-jvm,cmp-jvm}.png
+  renders/rc-operation-conformance/graphics-resources/shader-{view,cmp-jvm}.png
 ```

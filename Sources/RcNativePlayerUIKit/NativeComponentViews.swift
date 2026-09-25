@@ -1101,43 +1101,13 @@
     /// ### The transform origin
     ///
     /// The snapshot carries `TRANSFORM_ORIGIN_X`/`_Y` (ids 5/6) as fractions of the component's
-    /// size, the way Compose's `TransformOrigin` reads them, and 0.5 when the document does not
+    /// size, the way Compose's `TransformOrigin` reads them, and 0 when the document does not
     /// state one.
     ///
-    /// `TRANSFORM_ORIGIN` looked contested — `remote-core` declares a default of `0f` while
-    /// `remote-creation-compose` omitted the attribute at `0.5f` (#155, #153) — and this centred
-    /// on measured evidence while the disagreement stood. The disagreement has since resolved, in
-    /// favour of centring, and for a reason rather than a preference:
-    ///
-    /// * `GraphicsLayerModifierOperation.fillInAttributes` records an attribute only when its value
-    ///   differs from the declared default, and `PaintContext.setGraphicsLayer` applies only the
-    ///   keys it is handed. An absent origin therefore never reaches the layer, which keeps its own
-    ///   pivot — its centre. The declared `0f` is what makes the attribute absent; it is not a
-    ///   value any lane applies.
-    /// * androidx-main `4969cdd96c6` then fixed the writer to omit `0f` rather than `0.5f`, so a
-    ///   document that means top-left now says so explicitly and arrives with the attribute
-    ///   present. Nothing is lost by defaulting to the centre.
-    ///
-    /// The measurement that first forced this remains the check on it. The only attribute any
-    /// catalog document sets is `SCALE_X = -1`, a horizontal mirror, on the 50
-    /// `pageindicator-vertical__ideal__left-*` variants:
-    ///
-    /// | origin | those 50 documents |
-    /// | --- | --- |
-    /// | `0` | 0 opaque pixels — content mirrors to negative x, off-canvas |
-    /// | centre | x 10..26, the exact mirror of the untransformed sibling's 359..373 |
-    ///
-    /// Worse than wrong, `0` is *invisible*: those documents score 0.26% different while drawing
-    /// nothing, because the indicator is ~518 pixels on a 384x384 canvas. No lane output flags it.
-    ///
-    /// ### The one thing that would change this
-    ///
-    /// An AndroidX lane that pivots an absent origin at the top-left. `remote-player-compose`'s
-    /// embedded player now reads the attribute's source directly and does pivot there — it does
-    /// not consult `needsToWrite` — so it and the `RenderNode` lanes disagree on documents captured
-    /// before `4969cdd96c6`. If that reading becomes the one AndroidX settles on, change the
-    /// absent-origin default in `NativeSwiftDocumentSession` to 0; `rc-player-compose` carries the
-    /// same default, in `RcGraphicsLayerValues`, and would move with it.
+    /// That is `remote-core`'s declared default and what AndroidX's embedded Compose player reads.
+    /// This used to centre an absent origin (#155, #153), because writers before androidx-main
+    /// `4969cdd96c6` omitted the attribute at `0.5f`. The current writer writes a centre origin
+    /// explicitly and omits only `0f`, so the players now follow AndroidX rather than guess.
     private static func graphicsLayerTransformOrigin(
       of graphicsLayer: NativeSwiftGraphicsLayerSnapshot, in size: CGSize
     ) -> CGPoint {

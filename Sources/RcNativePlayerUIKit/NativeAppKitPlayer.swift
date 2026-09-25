@@ -2168,8 +2168,10 @@ private final class NativeMacSemanticElement: NSAccessibilityElement {
   /// never stale.
   override func accessibilityFrame() -> NSRect {
     // Nonisolated in the SDK; the owning view's geometry is main-actor state, read on AppKit's
-    // main-thread accessibility query.
-    MainActor.assumeIsolated { owner?.semanticScreenFrame ?? .zero }
+    // main-thread accessibility query. Capture the view, not `self`, so nothing non-Sendable
+    // crosses into the main-actor closure.
+    let owner = self.owner
+    return MainActor.assumeIsolated { owner?.semanticScreenFrame ?? .zero }
   }
 
   override func accessibilityPerformPress() -> Bool {

@@ -18,6 +18,7 @@
 
 package ee.schimke.composeai.rcembedded.player.modifier
 
+import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.operations.layout.modifiers.ClipRectModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.RoundedClipRectModifierOperation
@@ -41,127 +42,105 @@ import kotlin.math.min
 
 @Composable
 internal fun Modifier.clipRect(op: ClipRectModifierOperation): Modifier {
-  return this.clip(RectangleShape)
+    return this.clip(RectangleShape)
 }
 
-/**
- * @param hoistPastDrawContent whether a `DrawContentOperation` has already been folded into the
- *   chain. Only then is the clip moved to the front — see the note at the return.
- */
 @Composable
 internal fun Modifier.roundedClipRect(
-  op: RoundedClipRectModifierOperation,
-  hoistPastDrawContent: Boolean = false,
+    op: RoundedClipRectModifierOperation,
+    hoistBeforeDraw: Boolean = false,
 ): Modifier {
-  val densityBehavior = LocalCoreDocument.current.densityBehavior
-  val data = op.readDataReflection()
-  val shape =
-    RemoteRoundedClipShape(
-      topStart = rememberRemoteFloatAsState(data.x1Value),
-      topEnd = rememberRemoteFloatAsState(data.y1Value),
-      bottomEnd = rememberRemoteFloatAsState(data.y2Value),
-      bottomStart = rememberRemoteFloatAsState(data.x2Value),
-      densityBehavior = densityBehavior,
-    )
+    val behavior = LocalCoreDocument.current.densityBehavior
+    val data = op.readDataReflection()
 
-  // remote-core applies the rounded clip to the component's complete paint output, so the clip has
-  // to sit *outside* the draw — but *inside* the layout modifiers, at the position the wire list
-  // gives it.
-  //
-  // This used to prepend unconditionally, which put the clip ahead of `PaddingModifierOperation`
-  // too. On a switch thumb — `padding(35.4dp, 7.9dp).size(16.dp)` then this clip then a background
-  // — that clipped the padded 51x24dp box while the background painted the 16x16dp content well
-  // inside it, so the rounded shape never touched the thing it was meant to round and the thumb
-  // rendered square (compose-ai-tools#3992). The track beside it carries no padding, which is
-  // exactly why it looked correct and the thumb did not.
-  //
-  // A `Modifier.clip` clips whatever the modifiers *after* it draw, so list order already puts the
-  // draw inside: an explicit `DrawContentOperation` later in the list, or the implicit draw
-  // `toModifier` appends when a component carries no marker. The one case list order cannot serve
-  // is a `DrawContentOperation` that comes *before* this operation — there the clip still has to be
-  // hoisted past it, and [hoistPastDrawContent] says so. No document in the 164-document catalog
-  // sweep exercises that branch; it is kept because the wire format permits it, not because
-  // anything observed needs it.
-  return if (hoistPastDrawContent) Modifier.clip(shape).then(this) else this.clip(shape)
+    val shape =
+        RemoteRoundedClipShape(
+            topStart = rememberRemoteFloatAsState(data.x1Value),
+            topEnd = rememberRemoteFloatAsState(data.y1Value),
+            bottomEnd = rememberRemoteFloatAsState(data.y2Value),
+            bottomStart = rememberRemoteFloatAsState(data.x2Value),
+            densityBehavior = behavior,
+        )
+    // When draw content has already been processed in the modifier list (hoistBeforeDraw == true),
+    // hoist the clip modifier before the draw node so content is clipped. If no draw node was
+    // processed yet, preserve the existing modifier order so preceding padding is not bypassed.
+    return if (hoistBeforeDraw) {
+        Modifier.clip(shape).then(this)
+    } else {
+        this.clip(shape)
+    }
 }
 
-internal data class RemoteRoundedClipShape(
-  val topStart: State<Float>,
-  val topEnd: State<Float>,
-  val bottomEnd: State<Float>,
-  val bottomStart: State<Float>,
-  val densityBehavior: Int,
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public data class RemoteRoundedClipShape(
+    val topStart: State<Float>,
+    val topEnd: State<Float>,
+    val bottomEnd: State<Float>,
+    val bottomStart: State<Float>,
+    val densityBehavior: Int = CoreDocument.DENSITY_BEHAVIOR_DP,
 ) : Shape {
-  override fun createOutline(
-    size: Size,
-    layoutDirection: LayoutDirection,
-    density: Density,
-  ): Outline {
-    val minDimension = size.minDimension
-    val fallback = minDimension / 2f
-    fun radius(corner: State<Float>) =
-      corner.value.resolveRadius(fallback, minDimension, density.density, densityBehavior)
-    val topStartRadius = radius(topStart)
-    val topEndRadius = radius(topEnd)
-    val bottomEndRadius = radius(bottomEnd)
-    val bottomStartRadius = radius(bottomStart)
-    val radiusScale =
-      roundedRectRadiusScale(
-        size,
-        topStartRadius,
-        topEndRadius,
-        bottomEndRadius,
-        bottomStartRadius,
-      )
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val fallback = size.minDimension / 2f
+        val topStartRadius = topStart.resolveRadius(fallback, density.density, densityBehavior)
+        val topEndRadius = topEnd.resolveRadius(fallback, density.density, densityBehavior)
+        val bottomEndRadius = bottomEnd.resolveRadius(fallback, density.density, densityBehavior)
+        val bottomStartRadius =
+            bottomStart.resolveRadius(fallback, density.density, densityBehavior)
 
-    return Outline.Rounded(
-      RoundRect(
-        rect = Rect(0f, 0f, size.width, size.height),
-        topLeft = CornerRadius(topStartRadius * radiusScale),
-        topRight = CornerRadius(topEndRadius * radiusScale),
-        bottomRight = CornerRadius(bottomEndRadius * radiusScale),
-        bottomLeft = CornerRadius(bottomStartRadius * radiusScale),
-      )
-    )
-  }
+        val radiusScale =
+            roundedRectRadiusScale(
+                size,
+                topStartRadius,
+                topEndRadius,
+                bottomEndRadius,
+                bottomStartRadius,
+            )
+
+        return Outline.Rounded(
+            RoundRect(
+                rect = Rect(0f, 0f, size.width, size.height),
+                topLeft = CornerRadius(topStartRadius * radiusScale),
+                topRight = CornerRadius(topEndRadius * radiusScale),
+                bottomRight = CornerRadius(bottomEndRadius * radiusScale),
+                bottomLeft = CornerRadius(bottomStartRadius * radiusScale),
+            )
+        )
+    }
 }
 
 /** Matches the radius normalization performed by Android's Path.addRoundRect in remote-core. */
 private fun roundedRectRadiusScale(
-  size: Size,
-  topStart: Float,
-  topEnd: Float,
-  bottomEnd: Float,
-  bottomStart: Float,
+    size: Size,
+    topStart: Float,
+    topEnd: Float,
+    bottomEnd: Float,
+    bottomStart: Float,
 ): Float {
-  fun scaleFor(limit: Float, first: Float, second: Float): Float {
-    val sum = first + second
-    return if (sum > limit && sum != 0f) limit / sum else 1f
-  }
-
-  return min(
-    min(scaleFor(size.width, topStart, topEnd), scaleFor(size.width, bottomStart, bottomEnd)),
-    min(scaleFor(size.height, topStart, bottomStart), scaleFor(size.height, topEnd, bottomEnd)),
-  )
+    fun scaleFor(limit: Float, first: Float, second: Float): Float {
+        val sum = first + second
+        return if (sum > limit && sum != 0f) limit / sum else 1f
+    }
+    return min(
+        min(scaleFor(size.width, topStart, topEnd), scaleFor(size.width, bottomStart, bottomEnd)),
+        min(scaleFor(size.height, topStart, bottomStart), scaleFor(size.height, topEnd, bottomEnd)),
+    )
 }
 
-/**
- * Resolves one corner of a `RoundedClipRectModifierOperation` to a **pixel** radius.
- *
- * Alpha19 records DP-behavior corners in dp and pixel/legacy corners in pixels. This mirrors
- * remote-core's density conversion while retaining the percent-corner fallback used by older
- * documents whose component-size expression has not settled yet.
- */
-internal fun Float.resolveRadius(
-  fallback: Float,
-  minDimension: Float,
-  density: Float = 1f,
-  densityBehavior: Int = CoreDocument.DENSITY_BEHAVIOR_LEGACY,
+internal fun State<Float>.resolveRadius(
+    fallback: Float,
+    density: Float,
+    densityBehavior: Int,
 ): Float {
-  if (!isFinite()) return fallback
-
-  // Percent corners can briefly arrive as 0..1 fractions before the component-size expression
-  // settles. RoundRect normalizes an oversized result, so this remains safe.
-  if (this > 0f && this <= 1f) return this * minDimension
-  return if (densityBehavior == CoreDocument.DENSITY_BEHAVIOR_DP) this * density else this
+    val v = value
+    return when {
+        !v.isFinite() -> fallback
+        // Under DENSITY_BEHAVIOR_DP, both literal and variable-backed corner radii represent DP
+        // values and must be scaled by density to match remote-core behavior.
+        densityBehavior == CoreDocument.DENSITY_BEHAVIOR_DP -> v * density
+        else -> v
+    }
 }

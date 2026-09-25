@@ -20,7 +20,7 @@ package ee.schimke.composeai.rcembedded.player.modifier
 
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material3.ripple as material3Ripple
+import androidx.compose.material3.ripple
 import androidx.compose.remote.core.operations.layout.modifiers.RippleModifierOperation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -28,10 +28,10 @@ import androidx.compose.ui.Modifier
 
 @Composable
 internal fun Modifier.ripple(op: RippleModifierOperation): Modifier {
-  // Provide ripple visual feedback via Modifier.indication rather than a no-op `clickable {}`.
-  // A bare clickable would create a focusable, actionable accessibility node that announces and
-  // does nothing; `indication` attaches the ripple without a spurious a11y action. A co-located
-  // ClickModifier supplies the press interactions that actually drive the ripple.
-  val interactionSource = remember { MutableInteractionSource() }
-  return this.indication(interactionSource, material3Ripple())
+    // Provide ripple visual feedback via Modifier.indication rather than a no-op `clickable {}`.
+    // A bare clickable would create a focusable, actionable accessibility node that announces and
+    // does nothing; `indication` attaches the ripple without a spurious a11y action. A co-located
+    // ClickModifier supplies the press interactions that actually drive the ripple.
+    val interactionSource = remember { MutableInteractionSource() }
+    return this.indication(interactionSource, ripple())
 }

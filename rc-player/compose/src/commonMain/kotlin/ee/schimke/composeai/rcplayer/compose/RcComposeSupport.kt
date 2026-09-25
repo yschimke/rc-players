@@ -1808,9 +1808,9 @@ private fun fontAxisName(tag: Int): String =
   }
 
 /**
- * Graphics-layer attributes the CMP backend applies, by the value kind each is written as. Every
- * one maps onto Compose's `graphicsLayer`. `TRANSLATION_Z` has no counterpart there and stays
- * refused.
+ * Graphics-layer attributes the CMP backend accepts, by the value kind each is written as: every
+ * attribute AndroidX's `AndroidPaintContext.setGraphicsLayer` reads, plus `COMPOSITING_STRATEGY`,
+ * which both AndroidX players ignore and so does this one.
  */
 private val SUPPORTED_LAYER_FLOATS =
   setOf(
@@ -1823,6 +1823,7 @@ private val SUPPORTED_LAYER_FLOATS =
     RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y,
     RcGraphicsLayerModifier.TRANSLATION_X,
     RcGraphicsLayerModifier.TRANSLATION_Y,
+    RcGraphicsLayerModifier.TRANSLATION_Z,
     RcGraphicsLayerModifier.SHADOW_ELEVATION,
     RcGraphicsLayerModifier.ALPHA,
     RcGraphicsLayerModifier.CAMERA_DISTANCE,

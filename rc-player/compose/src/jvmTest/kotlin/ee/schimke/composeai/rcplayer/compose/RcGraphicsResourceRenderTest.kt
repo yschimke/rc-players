@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
@@ -95,6 +96,35 @@ class RcGraphicsResourceRenderTest {
     val bitmap = render(document, 8, 8)
 
     assertEquals(0xff00ff00.toInt(), bitmap.getColor(4, 4))
+  }
+
+  /**
+   * A shader matrix moves a runtime shader too, as it does a gradient or an image shader. Runtime
+   * shaders used to draw through their own paint, which on Skia kept the untransformed shader and
+   * dropped the matrix: the red half stayed at x < 4 instead of moving 4 px right.
+   */
+  @Test
+  fun aShaderMatrixMovesARuntimeShader() {
+    val document =
+      document(
+        RcTextData(
+          10,
+          "half4 main(float2 p) { return p.x < 4.0 ? half4(1, 0, 0, 1) : half4(0, 0, 1, 1); }",
+        ),
+        RcShaderData(11, 10),
+        RcMatrixConstant(
+          30,
+          0,
+          listOf(1f, 0f, 4f, 0f, 1f, 0f, 0f, 0f, 1f).map(RcFloatWord::literal),
+        ),
+        RcPaintData(listOf(9, 11, 22, 0x7fc00000 or 30)),
+        rect(0f, 0f, 8f, 8f),
+      )
+
+    val bitmap = render(document, 8, 8)
+
+    // Unshifted, x = 6 is in the blue half. Shifted 4 px right, the red half reaches it.
+    assertEquals(RED, bitmap.getColor(6, 4), "the shader matrix moved the red half right")
   }
 
   @Test

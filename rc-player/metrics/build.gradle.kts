@@ -10,9 +10,8 @@ plugins {
 // answers as guide lines, so every player lane renders *its own* metrics. There is deliberately no
 // renderer here: the output is `<id>.rc` + `manifest.json` in the shape the existing harnesses
 // already read (`RcViewPlayerRenderHarness` for the Java reference lane, `RcEmbeddedRenderHarness`,
-// `RcJvmRenderHarness`, and `rc-compare`'s staged inputs), which is what keeps a fixture change
-// from
-// touching five render paths.
+// `:rc-player-compose`'s `RcCmpRenderHarness`, and `rc-compare`'s staged inputs), which is what
+// keeps a fixture change from touching five render paths.
 
 dependencies {
   implementation(project(":rc-player-protocol"))

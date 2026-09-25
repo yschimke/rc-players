@@ -53,7 +53,6 @@ if (options.lanes.length === 0) usage("at least one lane is required");
 /** What each lane observes, which is the difference between a score and a reference number. */
 const CHANNELS = {
   cmp: "every probe",
-  "androidx-jvm": "tree + raster",
   "native-appkit": "tree + scalar values + raster",
   typescript: "reported by upstream",
 };

@@ -60,22 +60,25 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RobolectricCaptureToImageProbeTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun captureToImageStillCannotDrawUnderRobolectric() {
-    composeRule.setContent { Box(Modifier.testTag(TAG).size(10.dp).background(Color.Red)) }
-    composeRule.waitForIdle()
+    @Test
+    fun captureToImageStillCannotDrawUnderRobolectric() {
+        composeRule.setContent { Box(Modifier.testTag(TAG).size(10.dp).background(Color.Red)) }
+        composeRule.waitForIdle()
 
-    val failure = runCatching { composeRule.onNodeWithTag(TAG).captureToImage() }.exceptionOrNull()
+        val failure = runCatching {
+            composeRule.onNodeWithTag(TAG).captureToImage()
+        }
+            .exceptionOrNull()
 
-    assert(failure is ComposeTimeoutException) {
-      "captureToImage() no longer times out under Robolectric (got ${failure ?: "a real image"}) — " +
-        "the render harnesses can stop drawing the view by hand; see this test's KDoc"
+        assert(failure is ComposeTimeoutException) {
+            "captureToImage() no longer times out under Robolectric (got ${failure ?: "a real image"}) — " +
+                "the render harnesses can stop drawing the view by hand; see this test's KDoc"
+        }
     }
-  }
 
-  private companion object {
-    const val TAG = "probe"
-  }
+    private companion object {
+        const val TAG = "probe"
+    }
 }

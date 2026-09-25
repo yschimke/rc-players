@@ -7,11 +7,11 @@ and density 1. The definition paints a green rectangle over the lavender backgro
 | --- | --- | --- |
 | ![AndroidX View macro](view.png) | ![Upstream embedded macro](upstream-embedded.png) | ![Vendored embedded Android macro](vendored-embedded.png) |
 
-| Vendored embedded JVM | CMP JVM |
-| --- | --- |
-| ![Vendored embedded JVM macro](vendored-jvm.png) | ![CMP JVM macro](cmp-jvm.png) |
+| CMP JVM |
+| --- |
+| ![CMP JVM macro](cmp-jvm.png) |
 
-All four AndroidX-core-backed players parse the experimental-profile stream but leave the macro
+All three AndroidX-core-backed players parse the experimental-profile stream but leave the macro
 body unexpanded in this top-level form. CMP materializes it and paints the rectangle. This is
 recorded as an upstream behavioral difference rather than hiding it behind an Android reference
 chosen as the sole oracle. The repository's pinned AndroidX snapshot produces the same pixels as

@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcembedded.player.ExperimentalRemoteDocumentPlayer
-import ee.schimke.composeai.rcembedded.player.enableEncodedImageReferences
+import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
 import java.io.File
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -85,138 +85,148 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcEmbeddedRenderHarness(private val entry: Entry) {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  /** One document to rasterize: `<id>.rc` in the input dir, rendered at the baked PNG's size. */
-  @Serializable
-  data class Entry(
-    val id: String,
-    val width: Int,
-    val height: Int,
-    val density: Float = 2f,
-    val embeddedSoftwareCanvasLimitation: String? = null,
-  ) {
-    /** Drives the JUnit case name. */
-    override fun toString(): String = id
-  }
+    /** One document to rasterize: `<id>.rc` in the input dir, rendered at the baked PNG's size. */
+    @Serializable
+    data class Entry(
+        val id: String,
+        val width: Int,
+        val height: Int,
+        val density: Float = 2f,
+        val embeddedSoftwareCanvasLimitation: String? = null,
+    ) {
+        /** Drives the JUnit case name. */
+        override fun toString(): String = id
+    }
 
-  @Test
-  fun render() {
-    val inputDir = inputDir()
-    assumeTrue("no $INPUT_PROPERTY configured — nothing to rasterize", inputDir != null)
-    val outputDir =
-      File(
-        requireNotNull(System.getProperty(OUTPUT_PROPERTY)) {
-          "$OUTPUT_PROPERTY must be set alongside $INPUT_PROPERTY"
+    @Test
+    fun render() {
+        val inputDir = inputDir()
+        assumeTrue("no $INPUT_PROPERTY configured — nothing to rasterize", inputDir != null)
+        val outputDir =
+            File(
+                requireNotNull(System.getProperty(OUTPUT_PROPERTY)) {
+                    "$OUTPUT_PROPERTY must be set alongside $INPUT_PROPERTY"
+                }
+            )
+        outputDir.mkdirs()
+
+        // A document the player cannot render is a *result*, not a reason to fail the run: the
+        // driver
+        // turns a missing PNG plus this note into an "unrendered" row on the compare page, which is
+        // exactly the signal worth surfacing.
+        val png = File(outputDir, "${entry.id}.png")
+        val err = File(outputDir, "${entry.id}.error")
+        // Clear both before rendering. Output directories get reused across runs, and a document
+        // that
+        // succeeded last time but fails now would otherwise leave its stale PNG in place — the
+        // driver
+        // checks for the PNG first, so it would diff last run's pixels and report them as a current
+        // render. That is precisely the stale-capture failure this harness already had once, in a
+        // form
+        // that survives across runs rather than within one.
+        png.delete()
+        err.delete()
+
+        runCatching { renderToBitmap(File(inputDir, "${entry.id}.rc").readBytes()) }
+            .onSuccess { bitmap ->
+                png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
+            .onFailure { t -> err.writeText(entry.classify(t)) }
+    }
+
+    private fun renderToBitmap(bytes: ByteArray): Bitmap {
+        composeRule.setContent {
+            val hostDensity = LocalDensity.current
+            val documentDensity = Density(entry.density, hostDensity.fontScale)
+            CompositionLocalProvider(LocalDensity provides documentDensity) {
+                Box(
+                    // Sized in px routed through the document density, so the capture is exactly
+                    // the baked
+                    // PNG's pixel size — pixelmatch needs both sides equal, and dp rounding drifts.
+                    Modifier.size(
+                        with(documentDensity) { entry.width.toDp() },
+                        with(documentDensity) { entry.height.toDp() },
+                    )
+                ) {
+                    // Before the constructor, not after: `RemoteDocument(bytes)` parses inside it,
+                    // so a
+                    // document carrying a URL-encoded bitmap fails here — and takes the whole
+                    // document with
+                    // it — unless the globals are already set. This lane never enters the
+                    // `RcPlayer(CapturedDocument)` overload, so it has to opt in for itself.
+                    RemoteImageSupport.enableEncodedImageReferences()
+                    val document = remember { RemoteDocument(bytes) }
+                    ExperimentalRemoteDocumentPlayer(
+                        document = document,
+                        // A still comparison against a still baked PNG.
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
-      )
-    outputDir.mkdirs()
 
-    // A document the player cannot render is a *result*, not a reason to fail the run: the driver
-    // turns a missing PNG plus this note into an "unrendered" row on the compare page, which is
-    // exactly the signal worth surfacing.
-    val png = File(outputDir, "${entry.id}.png")
-    val err = File(outputDir, "${entry.id}.error")
-    // Clear both before rendering. Output directories get reused across runs, and a document that
-    // succeeded last time but fails now would otherwise leave its stale PNG in place — the driver
-    // checks for the PNG first, so it would diff last run's pixels and report them as a current
-    // render. That is precisely the stale-capture failure this harness already had once, in a form
-    // that survives across runs rather than within one.
-    png.delete()
-    err.delete()
+        // The player's frame loop used to keep the composition busy forever, so this harness pumped
+        // a
+        // fixed number of frames off a manually driven clock. #2945 fixed that, so settling is now
+        // just
+        // `waitForIdle()` and the render is whatever the document itself came to rest at.
+        composeRule.waitForIdle()
 
-    runCatching { renderToBitmap(File(inputDir, "${entry.id}.rc").readBytes()) }
-      .onSuccess { bitmap ->
-        png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-      }
-      .onFailure { t -> err.writeText(entry.classify(t)) }
-  }
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        // Force measure/layout at the document's exact size before drawing, so the draw can't land
+        // at
+        // the window's bounds instead of the document's.
+        root.measure(
+            MeasureSpec.makeMeasureSpec(entry.width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(entry.height, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, entry.width, entry.height)
 
-  private fun renderToBitmap(bytes: ByteArray): Bitmap {
-    composeRule.setContent {
-      val hostDensity = LocalDensity.current
-      val documentDensity = Density(entry.density, hostDensity.fontScale)
-      CompositionLocalProvider(LocalDensity provides documentDensity) {
-        Box(
-          // Sized in px routed through the document density, so the capture is exactly the baked
-          // PNG's pixel size — pixelmatch needs both sides equal, and dp rounding drifts.
-          Modifier.size(
-            with(documentDensity) { entry.width.toDp() },
-            with(documentDensity) { entry.height.toDp() },
-          )
-        ) {
-          // Before the constructor, not after: `RemoteDocument(bytes)` parses inside it, so a
-          // document carrying a URL-encoded bitmap fails here — and takes the whole document with
-          // it — unless the globals are already set. This lane never enters the
-          // `RcPlayer(CapturedDocument)` overload, so it has to opt in for itself.
-          enableEncodedImageReferences()
-          val document = remember { RemoteDocument(bytes) }
-          ExperimentalRemoteDocumentPlayer(
-            document = document,
-            // A still comparison against a still baked PNG.
-            modifier = Modifier.fillMaxSize(),
-          )
+        val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
+        root.draw(Canvas(bitmap))
+        // Compose reports some draw failures through the test dispatcher after View.draw returns.
+        // Drain it while still inside runCatching so a failed capture becomes a lane result rather
+        // than a delayed JUnit failure paired with an invalid blank PNG.
+        composeRule.waitForIdle()
+        return bitmap
+    }
+
+    companion object {
+        private const val INPUT_PROPERTY = "rc.embedded.input"
+        private const val OUTPUT_PROPERTY = "rc.embedded.output"
+
+        private fun inputDir(): File? =
+            System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
+
+        private fun Entry.classify(failure: Throwable): String {
+            val details =
+                generateSequence(failure) { it.cause }.joinToString(": ") { it.message.orEmpty() }
+            return if (
+                embeddedSoftwareCanvasLimitation != null &&
+                    details.contains("Software rendering doesn't support RuntimeShader")
+            ) {
+                "Harness limitation: $embeddedSoftwareCanvasLimitation"
+            } else {
+                "${failure::class.java.simpleName}: ${failure.message?.take(500)}"
+            }
         }
-      }
+
+        /**
+         * One case per staged document. With nothing staged this yields a single placeholder so the
+         * runner still has a case to skip — an empty parameter list is an error in `Parameterized`,
+         * which would read as a harness failure rather than a no-op.
+         */
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun documents(): List<Array<Any>> {
+            val dir = inputDir() ?: return listOf(arrayOf(Entry("<none staged>", 1, 1)))
+            val manifest = File(dir, "manifest.json")
+            if (!manifest.isFile) return listOf(arrayOf(Entry("<no manifest.json>", 1, 1)))
+            return Json.decodeFromString<List<Entry>>(manifest.readText())
+                .filter { File(dir, "${it.id}.rc").isFile }
+                .map { arrayOf(it) }
+        }
     }
-
-    // The player's frame loop used to keep the composition busy forever, so this harness pumped a
-    // fixed number of frames off a manually driven clock. #2945 fixed that, so settling is now just
-    // `waitForIdle()` and the render is whatever the document itself came to rest at.
-    composeRule.waitForIdle()
-
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    // Force measure/layout at the document's exact size before drawing, so the draw can't land at
-    // the window's bounds instead of the document's.
-    root.measure(
-      MeasureSpec.makeMeasureSpec(entry.width, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(entry.height, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, entry.width, entry.height)
-
-    val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
-    root.draw(Canvas(bitmap))
-    // Compose reports some draw failures through the test dispatcher after View.draw returns.
-    // Drain it while still inside runCatching so a failed capture becomes a lane result rather
-    // than a delayed JUnit failure paired with an invalid blank PNG.
-    composeRule.waitForIdle()
-    return bitmap
-  }
-
-  companion object {
-    private const val INPUT_PROPERTY = "rc.embedded.input"
-    private const val OUTPUT_PROPERTY = "rc.embedded.output"
-
-    private fun inputDir(): File? =
-      System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
-
-    private fun Entry.classify(failure: Throwable): String {
-      val details =
-        generateSequence(failure) { it.cause }.joinToString(": ") { it.message.orEmpty() }
-      return if (
-        embeddedSoftwareCanvasLimitation != null &&
-          details.contains("Software rendering doesn't support RuntimeShader")
-      ) {
-        "Harness limitation: $embeddedSoftwareCanvasLimitation"
-      } else {
-        "${failure::class.java.simpleName}: ${failure.message?.take(500)}"
-      }
-    }
-
-    /**
-     * One case per staged document. With nothing staged this yields a single placeholder so the
-     * runner still has a case to skip — an empty parameter list is an error in `Parameterized`,
-     * which would read as a harness failure rather than a no-op.
-     */
-    @JvmStatic
-    @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-    fun documents(): List<Array<Any>> {
-      val dir = inputDir() ?: return listOf(arrayOf(Entry("<none staged>", 1, 1)))
-      val manifest = File(dir, "manifest.json")
-      if (!manifest.isFile) return listOf(arrayOf(Entry("<no manifest.json>", 1, 1)))
-      return Json.decodeFromString<List<Entry>>(manifest.readText())
-        .filter { File(dir, "${it.id}.rc").isFile }
-        .map { arrayOf(it) }
-    }
-  }
 }

@@ -32,7 +32,8 @@ which already reads `density` and `androidCompatibility` per entry and already w
 
 **The catalog drives its columns from those harnesses.** `wear-m3-catalog`'s
 `.github/workflows/design-artifacts.yml` turns columns on with `rc-cmp-wasm-lane`,
-`rc-embedded-lane` and `rc-embedded-jvm-lane` inputs to a reusable workflow in
+`rc-embedded-lane` and a JVM-embedded lane input (whose harness went with the vendored player's JVM
+cut, removed on 2026-09-25) to a reusable workflow in
 `yschimke/compose-ai-tools`, and its own comment records that those harnesses "had moved to
 yschimke/rc-players, where the workflow was not looking".
 

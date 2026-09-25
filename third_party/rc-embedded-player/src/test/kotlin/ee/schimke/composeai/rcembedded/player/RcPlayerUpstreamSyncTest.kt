@@ -28,35 +28,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RcPlayerUpstreamSyncTest {
-  @Test
-  fun offsetDensityBehaviorMatchesTheWireUnits() {
-    assertEquals(16.dp, rawDimensionDp(16f, CoreDocument.DENSITY_BEHAVIOR_DP, 2.5f))
-    assertEquals(10.dp, rawDimensionDp(25f, CoreDocument.DENSITY_BEHAVIOR_PIXELS, 2.5f))
-  }
-
-  @Test
-  fun preprocessingRecognizesEveryContinuouslyChangingTimeId() {
-    val timeIds =
-      intArrayOf(
-        RemoteContext.ID_CONTINUOUS_SEC,
-        RemoteContext.ID_EPOCH_SECOND,
-        RemoteContext.ID_TIME_IN_SEC,
-        RemoteContext.ID_TIME_IN_MIN,
-        RemoteContext.ID_TIME_IN_HR,
-      )
-    timeIds.forEach { id ->
-      assertTrue(
-        isExpressionTimeDependent(FloatExpression(id, floatArrayOf(Utils.asNan(id)), null))
-      )
+    @Test
+    fun offsetDensityBehaviorMatchesTheWireUnits() {
+        assertEquals(16.dp, rawDimensionDp(16f, CoreDocument.DENSITY_BEHAVIOR_DP, 2.5f))
+        assertEquals(10.dp, rawDimensionDp(25f, CoreDocument.DENSITY_BEHAVIOR_PIXELS, 2.5f))
     }
-    assertFalse(
-      isExpressionTimeDependent(
-        FloatExpression(
-          99,
-          floatArrayOf(1f, 2f, AnimatedFloatExpression.ADD),
-          null,
+
+    @Test
+    fun preprocessingRecognizesEveryContinuouslyChangingTimeId() {
+        val timeIds =
+            intArrayOf(
+                RemoteContext.ID_CONTINUOUS_SEC,
+                RemoteContext.ID_EPOCH_SECOND,
+                RemoteContext.ID_TIME_IN_SEC,
+                RemoteContext.ID_TIME_IN_MIN,
+                RemoteContext.ID_TIME_IN_HR,
+            )
+        timeIds.forEach { id ->
+            assertTrue(
+                isExpressionTimeDependent(FloatExpression(id, floatArrayOf(Utils.asNan(id)), null))
+            )
+        }
+        assertFalse(
+            isExpressionTimeDependent(
+                FloatExpression(
+                    99,
+                    floatArrayOf(1f, 2f, AnimatedFloatExpression.ADD),
+                    null,
+                )
+            )
         )
-      )
-    )
-  }
+    }
 }

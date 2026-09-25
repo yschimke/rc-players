@@ -27,84 +27,88 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ClipModifierTest {
-  @Test
-  fun dpCornerScalesWithPlaybackDensity() {
-    assertEquals(
-      52f,
-      26f.resolveRadius(
-        fallback = 42f,
-        minDimension = 84f,
-        density = 2f,
-        densityBehavior = CoreDocument.DENSITY_BEHAVIOR_DP,
-      ),
-    )
-  }
+    @Test
+    fun dpCornerScalesWithPlaybackDensity() {
+        assertEquals(
+            52f,
+            mutableStateOf(26f)
+                .resolveRadius(
+                    fallback = 42f,
+                    density = 2f,
+                    densityBehavior = CoreDocument.DENSITY_BEHAVIOR_DP,
+                ),
+        )
+    }
 
-  @Test
-  fun nonFiniteCornerFallsBack() {
-    assertEquals(42f, Float.NaN.resolveRadius(fallback = 42f, minDimension = 84f))
-  }
+    @Test
+    fun nonFiniteCornerFallsBack() {
+        assertEquals(
+            42f,
+            mutableStateOf(Float.NaN)
+                .resolveRadius(
+                    fallback = 42f,
+                    density = 1f,
+                    densityBehavior = CoreDocument.DENSITY_BEHAVIOR_LEGACY,
+                ),
+        )
+    }
 
-  @Test
-  fun fractionalCornerIsReadAsAProportionOfTheMinDimension() {
-    assertEquals(42f, 0.5f.resolveRadius(fallback = 7f, minDimension = 84f))
-  }
+    /**
+     * The regression that motivated the fix, in the shape that actually renders.
+     *
+     * A 26dp corner on a 195 × 121dp card is `52` px at density 2. It is genuinely smaller than
+     * half the box, so [roundedRectRadiusScale] does not clamp it — which is exactly why the old
+     * double scaling survived here and was invisible on every stadium-shaped button beside it.
+     * Clipping a card to a 104px radius cut the corners off the border its content drew
+     * (wear-m3-catalog#89).
+     */
+    @Test
+    fun cardSizedDpCornerScalesOnceAtDensityTwo() {
+        val corner = mutableStateOf(26f)
+        val shape =
+            RemoteRoundedClipShape(
+                topStart = corner,
+                topEnd = corner,
+                bottomEnd = corner,
+                bottomStart = corner,
+                densityBehavior = CoreDocument.DENSITY_BEHAVIOR_DP,
+            )
 
-  /**
-   * The regression that motivated the fix, in the shape that actually renders.
-   *
-   * A 26dp corner on a 195 × 121dp card is `52` px at density 2. It is genuinely smaller than half
-   * the box, so [roundedRectRadiusScale] does not clamp it — which is exactly why the old double
-   * scaling survived here and was invisible on every stadium-shaped button beside it. Clipping a
-   * card to a 104px radius cut the corners off the border its content drew (wear-m3-catalog#89).
-   */
-  @Test
-  fun cardSizedDpCornerScalesOnceAtDensityTwo() {
-    val corner = mutableStateOf(26f)
-    val shape =
-      RemoteRoundedClipShape(
-        topStart = corner,
-        topEnd = corner,
-        bottomEnd = corner,
-        bottomStart = corner,
-        densityBehavior = CoreDocument.DENSITY_BEHAVIOR_DP,
-      )
+        val outline =
+            shape.createOutline(
+                size = Size(390f, 242f),
+                layoutDirection = LayoutDirection.Ltr,
+                density = Density(2f),
+            )
 
-    val outline =
-      shape.createOutline(
-        size = Size(390f, 242f),
-        layoutDirection = LayoutDirection.Ltr,
-        density = Density(2f),
-      )
+        assertTrue(outline is Outline.Rounded)
+        assertEquals(52f, (outline as Outline.Rounded).roundRect.topLeftCornerRadius.x)
+    }
 
-    assertTrue(outline is Outline.Rounded)
-    assertEquals(52f, (outline as Outline.Rounded).roundRect.topLeftCornerRadius.x)
-  }
+    /**
+     * The clamp that hid the bug, kept explicit. An oversized corner still normalizes to the box,
+     * so stadium and circle shapes are unaffected by the fix above.
+     */
+    @Test
+    fun oversizedCornerStillNormalizesToTheBox() {
+        val corner = mutableStateOf(64f)
+        val shape =
+            RemoteRoundedClipShape(
+                topStart = corner,
+                topEnd = corner,
+                bottomEnd = corner,
+                bottomStart = corner,
+                densityBehavior = CoreDocument.DENSITY_BEHAVIOR_PIXELS,
+            )
 
-  /**
-   * The clamp that hid the bug, kept explicit. An oversized corner still normalizes to the box, so
-   * stadium and circle shapes are unaffected by the fix above.
-   */
-  @Test
-  fun oversizedCornerStillNormalizesToTheBox() {
-    val corner = mutableStateOf(64f)
-    val shape =
-      RemoteRoundedClipShape(
-        topStart = corner,
-        topEnd = corner,
-        bottomEnd = corner,
-        bottomStart = corner,
-        densityBehavior = CoreDocument.DENSITY_BEHAVIOR_PIXELS,
-      )
+        val outline =
+            shape.createOutline(
+                size = Size(268f, 84f),
+                layoutDirection = LayoutDirection.Ltr,
+                density = Density(2f),
+            )
 
-    val outline =
-      shape.createOutline(
-        size = Size(268f, 84f),
-        layoutDirection = LayoutDirection.Ltr,
-        density = Density(2f),
-      )
-
-    assertTrue(outline is Outline.Rounded)
-    assertEquals(42f, (outline as Outline.Rounded).roundRect.topLeftCornerRadius.x)
-  }
+        assertTrue(outline is Outline.Rounded)
+        assertEquals(42f, (outline as Outline.Rounded).roundRect.topLeftCornerRadius.x)
+    }
 }

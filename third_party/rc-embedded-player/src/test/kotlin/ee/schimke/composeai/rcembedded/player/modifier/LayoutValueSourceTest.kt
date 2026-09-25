@@ -27,40 +27,43 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LayoutValueSourceTest {
-  @Test
-  fun offsetKeepsVariableIdsAfterCoreResolvesIt() {
-    val op = OffsetModifierOperation(Utils.asNan(41), Utils.asNan(42))
-    setFloat(op, "mXValue", 18f)
-    setFloat(op, "mYValue", 24f)
+    @Test
+    fun offsetKeepsVariableIdsAfterCoreResolvesIt() {
+        val op = OffsetModifierOperation(Utils.asNan(41), Utils.asNan(42))
+        setFloat(op, "mXValue", 18f)
+        setFloat(op, "mYValue", 24f)
 
-    val (x, y) = offsetRawValues(op)
+        val (x, y) = offsetRawValues(op)
 
-    assertEquals(41, Utils.idFromNan(x))
-    assertEquals(42, Utils.idFromNan(y))
-    assertEquals(18f, op.x, 0f)
-    assertEquals(24f, op.y, 0f)
-  }
+        assertEquals(41, Utils.idFromNan(x))
+        assertEquals(42, Utils.idFromNan(y))
+        assertEquals(18f, op.x, 0f)
+        assertEquals(24f, op.y, 0f)
+    }
 
-  @Test
-  fun graphicsLayerKeepsTheVariableSourceInsteadOfItsCurrentValue() {
-    val operation = GraphicsLayerModifierOperation()
-    val valuesField =
-      GraphicsLayerModifierOperation::class.java.getDeclaredField("mValues").apply {
-        isAccessible = true
-      }
-    val values = valuesField.get(operation) as Array<*>
-    val alpha = requireNotNull(values[GraphicsLayerModifierOperation.ALPHA])
-    alpha.javaClass
-      .getDeclaredMethod("setValue", Float::class.javaPrimitiveType)
-      .apply { isAccessible = true }
-      .invoke(alpha, Utils.asNan(43))
+    @Test
+    fun graphicsLayerKeepsTheVariableSourceInsteadOfItsCurrentValue() {
+        val operation = GraphicsLayerModifierOperation()
+        val valuesField =
+            GraphicsLayerModifierOperation::class.java.getDeclaredField("mValues").apply {
+                isAccessible = true
+            }
+        val values = valuesField.get(operation) as Array<*>
+        val alpha = requireNotNull(values[GraphicsLayerModifierOperation.ALPHA])
+        alpha.javaClass
+            .getDeclaredMethod("setValue", Float::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+            .invoke(alpha, Utils.asNan(43))
 
-    val source = operation.getValuesReflection()[GraphicsLayerModifierOperation.ALPHA].source
+        val source = operation.getValuesReflection()[GraphicsLayerModifierOperation.ALPHA].source
 
-    assertEquals(43, Utils.idFromNan(source))
-  }
+        assertEquals(43, Utils.idFromNan(source))
+    }
 
-  private fun setFloat(target: Any, name: String, value: Float) {
-    target.javaClass.getDeclaredField(name).apply { isAccessible = true }.setFloat(target, value)
-  }
+    private fun setFloat(target: Any, name: String, value: Float) {
+        target.javaClass
+            .getDeclaredField(name)
+            .apply { isAccessible = true }
+            .setFloat(target, value)
+    }
 }

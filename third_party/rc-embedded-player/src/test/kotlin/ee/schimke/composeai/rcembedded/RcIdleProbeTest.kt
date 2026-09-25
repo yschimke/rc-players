@@ -58,30 +58,29 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcIdleProbeTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test(timeout = 120_000)
-  fun compositionReachesIdleWithThePlayerRunning() {
-    val bytes =
-      checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/TitleCardRemote-640x480.rc")).use {
-        it.readBytes()
-      }
+    @Test(timeout = 120_000)
+    fun compositionReachesIdleWithThePlayerRunning() {
+        val bytes =
+            checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/TitleCardRemote-640x480.rc"))
+                .use { it.readBytes() }
 
-    composeRule.setContent {
-      Box(
-        Modifier.size(
-          with(LocalDensity.current) { 640.toDp() },
-          with(LocalDensity.current) { 480.toDp() },
-        )
-      ) {
-        ExperimentalRemoteDocumentPlayer(
-          document = RemoteDocument(bytes),
-          modifier = Modifier.fillMaxSize(),
-        )
-      }
+        composeRule.setContent {
+            Box(
+                Modifier.size(
+                    with(LocalDensity.current) { 640.toDp() },
+                    with(LocalDensity.current) { 480.toDp() },
+                )
+            ) {
+                ExperimentalRemoteDocumentPlayer(
+                    document = RemoteDocument(bytes),
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        // The assertion is that this returns at all.
+        composeRule.waitForIdle()
     }
-
-    // The assertion is that this returns at all.
-    composeRule.waitForIdle()
-  }
 }

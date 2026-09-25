@@ -28,8 +28,8 @@ question:
 | **CMP Android** — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + `Font(File, …, variationSettings)` | ❌ canvas ops |
 | **`rc-player-compose` on Android** (this repo's player, `android.graphics`) | ✅ from the host loader | ⚠️ host loader | ✅ `RcGoogleFontsTypefaceLoader`: the shared `composeai.fonts.cacheDir` cache, else the GMS provider | ✅ `decodeInlineFonts`, via a temp file per payload |
 | **`rc-player-compose` on Android** — font-variation axes | ✅ layout ops | — | ✅ on the cache's variable file; ❌ on the GMS path | ❌ canvas ops |
-| **CMP JVM** (embedded player over Skiko, server-side) | ✅ | ⚠️ host families, else nearest standard | ✅ downloaded via `GoogleFontTypefaceResolver` | ❌ ignored |
-| **CMP JVM** — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + an axis-carrying font identity | ❌ canvas ops |
+| **CMP JVM** (vendored embedded player's JVM cut over Skiko, server-side — **removed 2026-09-25**) | ✅ | ⚠️ host families, else nearest standard | ✅ downloaded via `GoogleFontTypefaceResolver` | ❌ ignored |
+| **CMP JVM** (removed) — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + an axis-carrying font identity | ❌ canvas ops |
 | **CMP Apple Swift API** | ✅ Compose families | ⚠️ host loader | ✅ opt-in `RemoteComposeGoogleFontsResolver` | ✅ `decodeInlineFonts` |
 | **Native UIKit** | ✅ native system designs | ⚠️ deterministic system fallback | ✅ opt-in `RemoteComposeGoogleFontsResolver` + CoreText registration | ✅ bounded CoreText registration |
 
@@ -330,47 +330,15 @@ sets, and without it the resolver returns null and the provider path runs exactl
 `rc-compare` lanes are handed the property by
 [`design-artifacts-reusable.yml`](../../.github/workflows/design-artifacts-reusable.yml).
 
-### CMP JVM — embedded player over Skiko, server-side
+### CMP JVM — embedded player over Skiko, server-side (removed)
 
-Built-in ids map to the multiplatform `FontFamily.SansSerif`/`Serif`/`Monospace` (layout ops) and to
-a list of host family candidates skiko can match (canvas ops — skia has no notion of a generic
-family, so `sans-serif`/`Helvetica`/`DejaVu Sans`/… are tried in order).
-
-A `google:` family is **downloaded**. There is no font *provider* off Android — which is why
-substituting a local face is the obvious wrong answer here — but there is a downloader: `GoogleFontTypefaceResolver` (in
-`:third-party-rc-embedded-player-jvm`) resolves the family through `:data-fonts-google` — the same
-`(family, weight, italic) -> File` machine-local cache the Robolectric downloadable-font shadow and
-the figma-svg embed path use — and serves both jvm text seams from that one file: a Compose
-`FontFamily` for the layout ops (`RcPlayerTextLayoutJvm`), a skiko `Typeface` for the canvas ops
-(`RcPlayerTextPlatformJvm`). Sharing the cache is the point: `Orbitron` at 400 is the *same file*
-here as in every other lane, not a second face that merely shares a name.
-
-**Font-variation axes** reach the layout seam: a `CoreText` op's axis arrays become a Compose
-`FontVariation.Settings`, and a request carrying any is served from the family's **variable** file
-(`loadVariable`) rather than the static instance the unvaried path resolves — see
-[Where the files come from](#where-the-files-come-from). The static path remains the fallback for a
-family that has no variable file, and there a `wght` axis decides *which instance to fetch*, since
-applying `wght 1000` to the 400 file would vary nothing.
-
-Two things about instancing here are easy to get wrong and both were:
-
-- The face is built through the `Font(identity, data, …)` overload with **the axes folded into the
-  identity**, not `Font(file = …)`. Compose's skiko font cache keys on a font's identity and a
-  `FileFont`'s identity is its path alone, so every instance of one variable file otherwise shares a
-  cache entry and the first one built is handed to all of them.
-- That failure is *invisible on a `wght` ramp* — weight alone can be synthesised, so the lines still
-  look different — and obvious on `wdth`. Measured ink widths for the three-line `wdth` specimen:
-  368 / 393 / 386 px before (no progression; the deltas are just the digits in the label) and
-  329 / 393 / 438 px after. Which is why the catalog carries a width specimen at all.
-
-Canvas text ops carry no axes in the shared paint state, so they are unaffected.
-
-The resolver is switched on by `-Dcomposeai.fonts.cacheDir`, which `serve`'s cmp-jvm subprocess
-(`RcJvmServerRenderer`) passes; without it — and on an offline miss, a failed fetch, a `device:`
-family, or a bare local name — the lane keeps its previous behaviour: try the host's families, then
-the default face. A substitution, never a failure. Beyond fonts, the ±1px text metrics remain the
-documented parity limit of this lane (its `PROVENANCE.md` § "text"): Skia's shaping is reachable
-from both targets, Android's font stack is not.
+This lane was the vendored AndroidX player's desktop-JVM cut, which resolved `google:` families
+through `:data-fonts-google` and served both its text seams (Compose `FontFamily` for layout ops, a
+skiko `Typeface` for canvas ops) from the same cached file as the other server-side lanes. The cut was
+**removed on 2026-09-25**: where a JVM player is needed, the CMP player (`:rc-player-compose` on
+desktop) is it, and its typeface handling is the host-loader model described for CMP Wasm above.
+The matrix rows and the `cmp-jvm` findings above describe the removed lane; its section is in git
+history before that date.
 
 ### Apple-only system families
 

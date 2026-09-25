@@ -854,8 +854,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         ? nil
         : NativeSwiftGraphicsLayerSnapshot(
           // AndroidX's `GraphicsLayerModifierOperation` ids (#423): 5/6 are the transform origin,
-          // 7/8 the translation and 11 the alpha. An absent origin is the centre, as
-          // `RcGraphicsLayerValues` in `rc-player-runtime` reads it.
+          // 7/8 the translation and 11 the alpha. An absent origin is the declared 0, the
+          // top-left, as AndroidX's embedded player and `RcGraphicsLayerValues` in
+          // `rc-player-runtime` read it.
           scaleX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.scaleX] ?? 1,
           scaleY: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.scaleY] ?? 1,
           translationX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.translationX] ?? 0,
@@ -863,9 +864,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           rotationZ: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.rotationZ] ?? 0,
           alpha: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.alpha] ?? 1,
           transformOriginX: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.transformOriginX]
-            ?? 0.5,
+            ?? 0,
           transformOriginY: node.graphicsLayer[NativeSwiftGraphicsLayerAttribute.transformOriginY]
-            ?? 0.5),
+            ?? 0),
       offsetX: node.offsetXWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       offsetY: node.offsetYWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,
       zIndex: node.zIndexWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? 0,

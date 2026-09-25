@@ -35,33 +35,35 @@ import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.height(op: HeightModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  return when (op.type) {
-    DimensionModifierOperation.Type.EXACT,
-    DimensionModifierOperation.Type.EXACT_DP -> {
-      // See WidthModifier.width: resolve the raw source value (`mValue`, the variable id for
-      // dynamic dimensions) reactively rather than the core-flattened `getValue()`, so
-      // time-/animation-/host-driven heights update like normal Compose.
-      val resolved = rememberRemoteFloatAsState(dimensionRawValue(op)).value
-      val heightDp =
-        if (op.type == DimensionModifierOperation.Type.EXACT) resolved / density else resolved
-      this.height(heightDp.dp)
+    val density = LocalDensity.current.density
+    return when (op.type) {
+        DimensionModifierOperation.Type.EXACT,
+        DimensionModifierOperation.Type.EXACT_DP -> {
+            // See WidthModifier.width: resolve the raw source value (`mValue`, the variable id for
+            // dynamic dimensions) reactively rather than the core-flattened `getValue()`, so
+            // time-/animation-/host-driven heights update like normal Compose.
+            val resolved = rememberRemoteFloatAsState(dimensionRawValue(op)).value
+            val heightDp =
+                if (op.type == DimensionModifierOperation.Type.EXACT) resolved / density
+                else resolved
+            this.height(heightDp.dp)
+        }
+        DimensionModifierOperation.Type.FILL,
+        DimensionModifierOperation.Type.FILL_PARENT_MAX_HEIGHT ->
+            this.fillMaxHeight(op.fillFraction())
+        DimensionModifierOperation.Type.WRAP -> this // Default
+        else -> this
     }
-    DimensionModifierOperation.Type.FILL,
-    DimensionModifierOperation.Type.FILL_PARENT_MAX_HEIGHT -> this.fillMaxHeight(op.fillFraction())
-    DimensionModifierOperation.Type.WRAP -> this // Default
-    else -> this
-  }
 }
 
 @Composable
 internal fun Modifier.heightIn(op: HeightInModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val behavior = LocalCoreDocument.current.densityBehavior
-  val (minSource, maxSource) = dimensionInRawValues(op)
-  val heightMinDp =
-    rememberRemoteFloatAsState(minSource).value.constraintDimensionToDp(behavior, density)
-  val heightMaxDp =
-    rememberRemoteFloatAsState(maxSource).value.constraintDimensionToDp(behavior, density)
-  return this.heightIn(heightMinDp, heightMaxDp)
+    val density = LocalDensity.current.density
+    val behavior = LocalCoreDocument.current.densityBehavior
+    val (minDimension, maxDimension) = dimensionInRawValues(op)
+    val heightMinDp =
+        rememberRemoteFloatAsState(minDimension).value.constraintDimensionToDp(behavior, density)
+    val heightMaxDp =
+        rememberRemoteFloatAsState(maxDimension).value.constraintDimensionToDp(behavior, density)
+    return this.heightIn(heightMinDp, heightMaxDp)
 }

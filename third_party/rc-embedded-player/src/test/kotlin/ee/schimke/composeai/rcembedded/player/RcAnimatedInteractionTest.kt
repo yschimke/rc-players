@@ -59,59 +59,65 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RcAnimatedInteractionTest {
-  @get:Rule val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule()
 
-  @Test
-  fun valueChangeAnimatesRemoteFloatToItsNewTarget() = runBlocking {
-    val context = ApplicationProvider.getApplicationContext<Context>()
-    val documentBytes =
-      captureSingleRemoteDocument(
-          context = context,
-          content = {
-            val progress = rememberMutableRemoteFloat { 0.25f.rf }
-            val animatedProgress = animateRemoteFloat(progress, 0.25f)
-            val advanceProgress = valueChange(progress, ((progress + 0.25f) % 1f).createReference())
+    @Test
+    fun valueChangeAnimatesRemoteFloatToItsNewTarget() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val documentBytes =
+            captureSingleRemoteDocument(
+                    context = context,
+                    content = {
+                        val progress = rememberMutableRemoteFloat { 0.25f.rf }
+                        val animatedProgress = animateRemoteFloat(progress, 0.25f)
+                        val advanceProgress =
+                            valueChange(progress, ((progress + 0.25f) % 1f).createReference())
 
-            RemoteColumn(modifier = RemoteModifier.size(160.rdp)) {
-              RemoteBox(modifier = RemoteModifier.size(160.rdp, 40.rdp).clickable(advanceProgress))
-              RemoteBox(
-                modifier =
-                  RemoteModifier.semantics { contentDescription = "animated-progress".rs }
-                    .width(animatedProgress * 200f)
-                    .height(20.rdp)
-              )
+                        RemoteColumn(modifier = RemoteModifier.size(160.rdp)) {
+                            RemoteBox(
+                                modifier =
+                                    RemoteModifier.size(160.rdp, 40.rdp).clickable(advanceProgress)
+                            )
+                            RemoteBox(
+                                modifier =
+                                    RemoteModifier.semantics {
+                                            contentDescription = "animated-progress".rs
+                                        }
+                                        .width(animatedProgress * 200f)
+                                        .height(20.rdp)
+                            )
+                        }
+                    },
+                )
+                .bytes
+        val document =
+            CoreDocument(RemoteClock.SYSTEM).apply {
+                ByteArrayInputStream(documentBytes).use {
+                    initFromBuffer(RemoteComposeBuffer.fromInputStream(it))
+                }
             }
-          },
-        )
-        .bytes
-    val document =
-      CoreDocument(RemoteClock.SYSTEM).apply {
-        ByteArrayInputStream(documentBytes).use {
-          initFromBuffer(RemoteComposeBuffer.fromInputStream(it))
+
+        rule.mainClock.autoAdvance = false
+        rule.setContent { Box(modifier = Modifier.size(200.dp)) { RcPlayer(document = document) } }
+
+        rule.mainClock.advanceTimeBy(300)
+        val progressNode = rule.onNodeWithContentDescription("animated-progress")
+        fun progressWidth() =
+            progressNode.getUnclippedBoundsInRoot().let { it.right.value - it.left.value }
+
+        val initialWidth = progressWidth()
+        rule.onNode(hasClickAction()).performClick()
+        rule.waitForIdle()
+        rule.mainClock.advanceTimeBy(100)
+        val animatingWidth = progressWidth()
+        rule.mainClock.advanceTimeBy(200)
+        val settledWidth = progressWidth()
+
+        assert(animatingWidth > initialWidth) {
+            "Expected the click animation to grow past $initialWidth, but was $animatingWidth"
         }
-      }
-
-    rule.mainClock.autoAdvance = false
-    rule.setContent { Box(modifier = Modifier.size(200.dp)) { RcPlayer(document = document) } }
-
-    rule.mainClock.advanceTimeBy(300)
-    val progressNode = rule.onNodeWithContentDescription("animated-progress")
-    fun progressWidth() =
-      progressNode.getUnclippedBoundsInRoot().let { it.right.value - it.left.value }
-
-    val initialWidth = progressWidth()
-    rule.onNode(hasClickAction()).performClick()
-    rule.waitForIdle()
-    rule.mainClock.advanceTimeBy(100)
-    val animatingWidth = progressWidth()
-    rule.mainClock.advanceTimeBy(200)
-    val settledWidth = progressWidth()
-
-    assert(animatingWidth > initialWidth) {
-      "Expected the click animation to grow past $initialWidth, but was $animatingWidth"
+        assert(settledWidth > animatingWidth) {
+            "Expected the animation to settle past $animatingWidth, but was $settledWidth"
+        }
     }
-    assert(settledWidth > animatingWidth) {
-      "Expected the animation to settle past $animatingWidth, but was $settledWidth"
-    }
-  }
 }
