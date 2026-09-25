@@ -54,6 +54,10 @@ internal fun RcVisibilityTransition(
 ) {
   val visibleState = remember { MutableTransitionState(visibility != 0) }
   visibleState.targetState = visibility != 0
+  // What the component was last shown as: an invisible component that turns GONE exits unpainted,
+  // rather than being painted for the length of its exit.
+  val shown = remember { RcShownVisibility(visibility) }
+  if (visibility != 0) shown.value = visibility
   if (!visibleState.currentState && !visibleState.targetState) {
     gone()
     return
@@ -74,9 +78,12 @@ internal fun RcVisibilityTransition(
       if (animate && resolved.enterAnimation.androidXValue == RcLayoutAnimation.Rotate.wireValue) {
         rcEnterRotation(durationMillis, easing)
       } else Modifier
-    content(if (visibility == 2) rotation.alpha(0f) else rotation)
+    content(if (shown.value == 2) rotation.alpha(0f) else rotation)
   }
 }
+
+/** Plain holder, not state: it is written and read in the same composition. */
+private class RcShownVisibility(var value: Int)
 
 /**
  * The spec's visibility curve as a Compose [Easing], sampled from the same [RcAnimationTimeline]
@@ -132,12 +139,15 @@ private fun RcAnimationSpec.rcExitTransition(durationMillis: Int, easing: Easing
     else -> fadeOut(tween(durationMillis, easing = HiddenAtOnce))
   }
 
-/** `ROTATE`'s full turn as it enters, on the enter transition's own clock. */
+/**
+ * `ROTATE`'s full turn as it enters, on the enter transition's own clock. Only the enter turns: the
+ * exit keeps the finished angle, so whatever exit the spec names runs without a reverse turn.
+ */
 @Composable
 private fun AnimatedVisibilityScope.rcEnterRotation(durationMillis: Int, easing: Easing): Modifier {
   val degrees by
     transition.animateFloat(transitionSpec = { tween(durationMillis, easing = easing) }) {
-      if (it == EnterExitState.Visible) 360f else 0f
+      if (it == EnterExitState.PreEnter) 0f else 360f
     }
   return Modifier.graphicsLayer { rotationZ = degrees }
 }
