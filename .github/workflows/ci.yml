@@ -338,9 +338,18 @@ jobs:
       # `allTests` does not imply `check`, so the ABI gate has to be named explicitly. Regenerate
       # the dumps with `./gradlew :rc-player-<module>:updateKotlinAbi` when a surface change is
       # intended.
+      #
+      # `allTests` also takes in each module's Android host suite (`testAndroidHostTest`). The JVM
+      # and Android lane already runs those, on the runner that has the SDK and Robolectric's
+      # runtime jars, so here they are excluded rather than run twice: on macOS, Robolectric has to
+      # fetch its android-all jar from Maven at class setup, and that fetch is what failed.
       - name: Run the Apple player tests and the ABI gate
         run: |
           ./gradlew \
+            -x :rc-player-trace:testAndroidHostTest \
+            -x :rc-player-protocol:testAndroidHostTest \
+            -x :rc-player-runtime:testAndroidHostTest \
+            -x :rc-player-compose:testAndroidHostTest \
             :rc-player-trace:checkKotlinAbi \
             :rc-player-protocol:checkKotlinAbi \
             :rc-player-runtime:checkKotlinAbi \
