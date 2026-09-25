@@ -150,12 +150,10 @@ private fun RcPlayerContent(
           // BitmapData (decoding every image before the document can compose).
           document.initializeContext(it, emptyMap())
 
-          // Seed the density built-ins AFTER initializeContext, not before — see the matching note
-          // in
-          // the JVM player's initDrawContext. `loadFloat` writes into `mRemoteComposeState`, and
-          // `initializeContext` ends by repointing that field at the document's freshly `reset()`
-          // store, so seeding first wrote both values into a store that was discarded moments
-          // later.
+          // Seed the density built-ins AFTER initializeContext, not before. `loadFloat` writes into
+          // `mRemoteComposeState`, and `initializeContext` ends by repointing that field at the
+          // document's freshly `reset()` store, so seeding first wrote both values into a store
+          // that was discarded moments later.
           // A `RemoteDensity.from(displayInfo)` capture folds density and font scale into constants
           // and
           // never reads `[27]` / `[33]`, which is why this went unnoticed; a `RemoteDensity.Host`

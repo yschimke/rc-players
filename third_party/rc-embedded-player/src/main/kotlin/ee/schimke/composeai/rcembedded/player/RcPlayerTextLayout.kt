@@ -59,10 +59,11 @@ import ee.schimke.composeai.rcembedded.player.state.rememberRemoteStringAsState
  * context's resolver and overridable by a host (e.g. a test harness supplying concrete
  * `android.graphics.Typeface` instances). Null when the built-in families below apply.
  *
- * Declared here rather than in `RcPlayerCompositionLocals.kt` on purpose: that file is shared with
- * the JVM half of the fork, and `remote-player-core`'s `TypefaceResolver` names
- * `android.graphics.Typeface`, which a JVM compile cannot see. Upstream declares it there; this
- * file is Android-only, which is also where the only reader (`resolveFontFamily`) lives.
+ * Declared here rather than in `RcPlayerCompositionLocals.kt` on purpose: that file was kept
+ * platform-neutral for a JVM cut of the player (since removed), and `remote-player-core`'s
+ * `TypefaceResolver` names `android.graphics.Typeface`, which a JVM compile cannot see. Upstream
+ * declares it there; this file is Android-only, which is also where the only reader
+ * (`resolveFontFamily`) lives.
  */
 internal val LocalTypefaceResolver: ProvidableCompositionLocal<TypefaceResolver?> =
   compositionLocalOf {
@@ -479,7 +480,7 @@ private fun fontVariationAxes(
  * The paint bundle's `setTextAxis` op instead carries the **raw OpenType tag** packed into four
  * bytes (`0x77676874` = `wght`). Reading the text table first and falling back to unpacking the
  * bytes covers both without having to know which writer produced the document; anything that is
- * neither is dropped rather than guessed at. Mirrors the jvm player's seam.
+ * neither is dropped rather than guessed at.
  */
 private fun axisName(tag: Int, context: RemoteContext): String? =
   context.getText(tag)?.takeIf { it.isNotBlank() }

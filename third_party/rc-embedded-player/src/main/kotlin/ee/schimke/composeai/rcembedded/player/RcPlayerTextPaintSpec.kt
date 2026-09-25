@@ -18,15 +18,14 @@ package ee.schimke.composeai.rcembedded.player
 
 /*
  * The vocabulary the canvas text seam speaks: what to draw text *with* ([TextPaintSpec]) and what
- * came back from measuring it ([TextInkBounds]). Both are plain values, so this file is shared by
- * the android and jvm halves rather than replicated — it is the reason `RcPlayerTextPlatform.kt`'s
+ * came back from measuring it ([TextInkBounds]). Both are plain values, so this file names no
+ * platform — it is the reason `RcPlayerTextPlatform.kt`'s
  * four functions can be implemented twice without their signatures mentioning either platform.
  *
  * Kept apart from `RcPlayerPaint.kt` deliberately. `ComposeLocalPaint` carries the whole paint state
  * — brushes, colour filters, blend modes, a framework `Shader` — and stays Android-coupled until the
  * AGSL and image-decode seams land (issue #2954). The text ops need six fields out of it, so taking
- * a projection rather than the paint state itself is what lets the jvm sibling exist now instead of
- * after those seams.
+ * a projection rather than the paint state itself is what let a jvm sibling exist before those seams.
  */
 
 /**

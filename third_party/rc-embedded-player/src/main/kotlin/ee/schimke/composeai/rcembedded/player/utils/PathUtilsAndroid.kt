@@ -16,11 +16,11 @@
 
 // WRITTEN HERE (compose-ai-tools), not vendored — the Android half of the path seam.
 //
-// `RcPlayerDrawing.kt` is compiled into both this module and the jvm sibling, and it needs
-// `RemoteComposeState.getPath` / `getTweenPath`. The two targets need *different* implementations:
-// upstream's Android version reaches `(path as AndroidPath).internalPath.conicTo(...)` behind an
-// SDK-34 gate, which a `kotlin("jvm")` module cannot call, so the jvm side vendors a copy routing
-// CONIC through skiko instead (see the jvm module's `utils/FloatsToPath.kt`).
+// `RcPlayerDrawing.kt` was compiled into both this module and a desktop-JVM sibling (removed on
+// 2026-09-25; the CMP player is now the JVM player), and it needs `RemoteComposeState.getPath` /
+// `getTweenPath`. The two targets needed *different* implementations: upstream's Android version
+// reaches `(path as AndroidPath).internalPath.conicTo(...)` behind an SDK-34 gate, which a
+// `kotlin("jvm")` module cannot call, so the jvm side vendored a copy routing CONIC through skiko.
 //
 // That per-target split used to be arranged by *package squatting*: the jvm copy declared itself in
 // `androidx.compose.remote.player.compose.utils`, so the one import string in the shared source
@@ -29,9 +29,9 @@
 // took `remote-m3`'s render lane down when upstream started publishing the embedded player into the
 // package this module vendors into (#4464).
 //
-// So the seam is explicit now: both targets import
-// `ee.schimke.composeai.rcembedded.player.utils.getPath`, and each module supplies it — the jvm one
-// from its adapted copy, this one by forwarding to upstream right here. Nothing about the Android
+// So the seam is explicit: the shared source imports
+// `ee.schimke.composeai.rcembedded.player.utils.getPath`, and this module supplies it by forwarding
+// to upstream right here. Nothing about the Android
 // rendering path changes; it is the same upstream function it always called.
 package ee.schimke.composeai.rcembedded.player.utils
 

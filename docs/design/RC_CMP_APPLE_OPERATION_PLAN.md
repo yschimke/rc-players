@@ -88,11 +88,11 @@ scheduled snapshot canary remain follow-on conformance work.
 
 The checked-in AndroidX-writer corpus currently covers the new structural/reference, Loom macro,
 bitmap-font, sound, shader/offscreen, and particle families. The multi-player driver sends the
-same bytes through View, released embedded, snapshot embedded, vendored Android embedded, vendored
-JVM embedded, and CMP JVM. Its first classified findings are committed under
+same bytes through View, released embedded, snapshot embedded, vendored Android embedded, and CMP
+JVM. Its first classified findings are committed under
 [`renders/rc-operation-conformance`](../../renders/rc-operation-conformance): exact offscreen
 parity; bitmap-font parity apart from View edge filtering; a missing particle body in the vendored
-JVM cut; a software-canvas limitation for Android embedded runtime shaders; and different Loom
+player's JVM cut (since removed); a software-canvas limitation for Android embedded runtime shaders; and different Loom
 top-level macro behavior between AndroidX-backed players and CMP.
 
 `LoadBitmap`, `MatrixSet`, `ParticleProcess`, and `Update` remain unavailable until an upstream
@@ -160,7 +160,7 @@ record with one row per operation and these dimensions:
 - runtime: state, expressions, time, invalidation, and actions;
 - `cmp-macos`: supported, blocked, or supported with a declared tolerance;
 - `cmp-ios`: the same three states;
-- reference coverage: View, released embedded, snapshot embedded, and vendored JVM embedded;
+- reference coverage: View, released embedded, snapshot embedded, and vendored Android embedded;
 - fixture ids, upstream source revision, and issue/report links.
 
 Variant coverage belongs under the operation row. Examples include every paint-bundle command,
@@ -264,7 +264,6 @@ Render every conformance fixture through as many applicable lanes as possible:
 | Released AndroidX embedded player | Consumer-visible upstream behavior |
 | Pinned AndroidX snapshot embedded player | Early warning for behavior that has landed upstream |
 | Vendored AndroidX embedded player | Reproducible, locally diagnosed baseline with documented patches |
-| Vendored embedded JVM cut | Platform-neutral AndroidX interpreter against Compose Desktop |
 | CMP desktop on macOS | Product result on macOS |
 | CMP iOS simulator | Product result on iOS |
 | CMP desktop on Linux and CMP Wasm | Triangulation for shared-code versus backend failures |

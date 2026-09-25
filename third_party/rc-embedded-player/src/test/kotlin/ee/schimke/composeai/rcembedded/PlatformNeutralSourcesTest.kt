@@ -48,11 +48,9 @@ import org.junit.Test
  * `GraphContext` spent a while import-clean but still unmovable, because it held a `Drawable`-typed
  * `RcImageLoader`; listing it as ready then would have certified a move that could not compile.
  *
- * **This test is now the fast check, not the real one.** `:third-party-rc-embedded-player-jvm`
- * compiles every [READY_FOR_JVM_COMMON] file against Compose Desktop, which settles the question by
- * construction — a file that isn't really neutral fails to build there. What this test still buys
- * is speed and a precise message, plus [IMPORT_CLEAN] coverage for files not yet pulled into that
- * module. [readyFilesAreActuallyCompiledForTheJvm] keeps the two from drifting apart.
+ * The desktop-JVM cut that used to compile every [READY_FOR_JVM_COMMON] file against Compose
+ * Desktop was removed on 2026-09-25 — the CMP player (`:rc-player-compose`) is this repository's
+ * JVM player — so this scan is once again the only check on these claims.
  */
 class PlatformNeutralSourcesTest {
 
@@ -134,37 +132,6 @@ class PlatformNeutralSourcesTest {
   }
 
   /**
-   * Every file claimed ready must actually be compiled for the JVM by
-   * `:third-party-rc-embedded-player-jvm`.
-   *
-   * Without this the two lists drift, and they drift in the dangerous direction: a file added here
-   * but not there reads as "verified for the jvm target" while nothing has ever built it off
-   * Android. The build file's list is the source of truth precisely because a wrong entry there
-   * fails a compile rather than a scan.
-   */
-  @Test
-  fun readyFilesAreActuallyCompiledForTheJvm() {
-    // Walk up rather than count `..` segments — the same reason `playerSourceRoot` does.
-    var dir: File? = playerSourceRoot()
-    var buildFile: File? = null
-    while (dir != null && buildFile == null) {
-      val candidate = File(dir, "rc-embedded-player-jvm/build.gradle.kts")
-      if (candidate.isFile) buildFile = candidate
-      dir = dir.parentFile
-    }
-    assertTrue("could not locate the jvm module's build file by walking up", buildFile != null)
-    val declared = buildFile!!.readText()
-    val missing = READY_FOR_JVM_COMMON.filterNot { declared.contains("$PLAYER_PATH/$it") }
-    assertEquals(
-      "Declared ready for jvmCommonMain but not in :third-party-rc-embedded-player-jvm's " +
-        "sharedPlayerSources, so nothing has ever compiled them off Android. Add them there — and " +
-        "if they don't compile, they aren't ready.",
-      emptyList<String>(),
-      missing,
-    )
-  }
-
-  /**
    * Feeds every `import` line of each declared file to [block] as (relative path, FQN, raw line).
    */
   private fun forEachDeclaredFile(
@@ -201,7 +168,6 @@ class PlatformNeutralSourcesTest {
 
   private companion object {
     const val PLAYER_PACKAGE = "ee.schimke.composeai.rcembedded.player"
-    val PLAYER_PATH = PLAYER_PACKAGE.replace('.', '/')
 
     /**
      * Declarations that stay in `androidMain` — they name an Android type in their signature or
@@ -291,17 +257,15 @@ class PlatformNeutralSourcesTest {
         "RcPlayerCompositionLocals.kt",
         "RcPlayerEasing.kt",
         // Custom (host-extension) components: schemas, the property reader, the plugin registry and
-        // the dispatch leaf — all neutral Compose + remote-core, so genuinely movable and compiled
-        // by the jvm module (`sharedPlayerSources`). Its Android-only siblings on the dispatch
-        // `when`
-        // (RcPlayerText / RcPlayerImageLayout) are answered by jvm siblings, not by this file.
+        // the dispatch leaf — all neutral Compose + remote-core, so genuinely movable. Its
+        // Android-only siblings on the dispatch `when` (RcPlayerText / RcPlayerImageLayout) would
+        // need jvm siblings, not this file.
         "RcPlayerCustom.kt",
         "state/RcPlayerState.kt",
         "state/RcPlayerExpression.kt",
         // The canvas text seam's vocabulary — the paint projection its four functions take and the
         // ink-bounds carrier they return. Plain values, which is what lets the seam be implemented
-        // twice (android here, skiko in `:third-party-rc-embedded-player-jvm`) without either
-        // signature naming a platform.
+        // per platform without its signature naming one.
         "RcPlayerTextPaintSpec.kt",
       )
   }

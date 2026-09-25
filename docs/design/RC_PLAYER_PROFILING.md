@@ -28,12 +28,10 @@ the player decides whether they are *recorded* — that is the embedding process
 There is also an `rc:operations` counter carrying the document's operation count, so a timeline shows
 document size next to the phases it drives.
 
-The vendored JVM embedded player ([`:third-party-rc-embedded-player-jvm`](../../third_party/rc-embedded-player-jvm))
-writes to the *same* tracer under `rc-embedded.document` / `rc-embedded.frame`
-(`rcEmbedded:parseDocument`, `rcEmbedded:initContext`, `rcEmbedded:renderFrame`,
-`rcEmbedded:encodePng`), so one capture can hold both render lanes side by side. It calls
-`androidx.tracing` directly rather than through our facade — it renders AndroidX's player, so it
-should not acquire a dependency on ours.
+The vendored AndroidX player's desktop-JVM cut used to write to the same tracer under
+`rc-embedded.*` sections, so one capture could hold both render lanes side by side. That cut was
+removed on 2026-09-25; the CMP player is this repository's JVM player, and the sections above are
+the ones a JVM capture carries.
 
 ## Why there is a facade rather than direct `androidx.tracing` calls
 

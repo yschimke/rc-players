@@ -97,8 +97,8 @@ rework stays deferred — see the 2026-09-17 note):
 
 Upstream's new test files are **not** vendored: they need upstream's `RcPlayerTestRule` /
 `EnableEmbeddedPlayerRule` and Google Truth, none of which this module carries. `GraphContextTimeTest`
-was rewritten (not ported) for the same reason. `:third-party-rc-embedded-player-jvm`'s shared list
-gains `GraphTimeState.kt`.
+was rewritten (not ported) for the same reason. The JVM cut's shared source list (that module was
+removed on 2026-09-25) gained `GraphTimeState.kt`.
 
 ### 2026-09-17 refresh
 
@@ -204,7 +204,9 @@ under either, which is why it went first. Tracked as a follow-up to
 
 ### The path seam, and why it exists
 
-`RcPlayerDrawing.kt` is compiled into both this module and the jvm sibling, and calls
+*Historical since 2026-09-25, when the JVM cut was removed; the Android half described here stays.*
+
+`RcPlayerDrawing.kt` was compiled into both this module and the jvm sibling, and calls
 `RemoteComposeState.getPath` / `getTweenPath`. The two targets need different implementations:
 upstream's Android version reaches `(path as AndroidPath).internalPath.conicTo(...)` behind an
 SDK-34 gate, which a `kotlin("jvm")` module cannot call, so the jvm side vendors an adapted copy
@@ -273,8 +275,8 @@ the upstream tracking issue it was reported under.
 
 **Each delta that is a genuine upstream fix now has an issue on this repository**, so the patch has a
 home and a place to be retired from. They are the ones to work off — the rest of what `diff -r`
-shows against an androidx checkout is this repo's own restructuring (the platform seams that make the
-JVM cut possible, and a few file splits), not something upstream owes anyone:
+shows against an androidx checkout is this repo's own restructuring (the platform seams that made
+the since-removed JVM cut possible, and a few file splits), not something upstream owes anyone:
 
 | Issue | Delta |
 | --- | --- |
@@ -541,7 +543,7 @@ alpha closes the gap.
   evaluator to `SuppressLint`/`PendingIntent`.
 
   Together these are what let `GraphContext`, `RcPlayerState.kt` and `RcPlayerExpression.kt` compile
-  for the jvm target — see "Done: it runs on the desktop JVM" below.
+  for the jvm target (the JVM cut, removed on 2026-09-25 — see "Removed: the desktop-JVM cut" below).
 
 - **`rememberRemoteBitmapAsState` moved to its own file** (`state/RcPlayerBitmapState.kt`, out of
   `state/RcPlayerState.kt`). Not a behaviour change and not an upstream gap — a refactor in service
@@ -588,7 +590,11 @@ restructure uncertain.
 the *dependencies'* merged resources (Compose's own themes) on the unit-test classpath, which the
 Robolectric render harness needs to inflate real Compose content.
 
-## Planned: CMP android/jvm
+## Planned: CMP android/jvm (superseded)
+
+**Superseded on 2026-09-25.** The desktop-JVM cut this plan produced was removed; the CMP player
+(`:rc-player-compose`) is the JVM player, and this module is to be re-vendored as a direct copy of
+upstream AndroidX with patches. What follows is kept as the record of the decoupling that was done.
 
 Goal: a `jvm` target that renders through Compose Desktop's Skia backend, so the `rc-compare` lane
 rasterizes `.rc` documents headlessly **without Robolectric** — and, as a side effect, without the
@@ -617,10 +623,9 @@ what actually couples them:
 
 The parenthesised "was also" entries are coupling this branch has already moved out, not coupling
 removed: it now lives in `RcPlayerTextPlatform.kt`, which is written here rather than vendored and so
-is not one of the 42 — alongside its neutral vocabulary in `RcPlayerTextPaintSpec.kt` and its skiko
-counterpart `RcPlayerTextPlatformJvm.kt` in the jvm module. Concentrating it there is the point: it is
-the one file a jvm sibling had to replace, that sibling now exists, and the two vendored files above
-never needed one.
+is not one of the 42 — alongside its neutral vocabulary in `RcPlayerTextPaintSpec.kt`. Concentrating
+it there is the point: it is the one file a jvm sibling had to replace (the JVM cut carried one until
+its removal), and the two vendored files above never needed one.
 
 #### 32/10 is a coupling *surface*, not a partition
 
@@ -687,194 +692,15 @@ This clears the *import* half of the largest chain, not the whole chain: the fou
 read `LocalGraphContext`, so `state/` moves when `GraphContext` is split. Verified by compile, not by
 a render — see the sequencing note on the staged catalog.
 
-#### Done: the canvas text seam has both halves
+#### Removed: the desktop-JVM cut
 
-`:third-party-rc-embedded-player-jvm` carries **`RcPlayerTextPlatformJvm.kt`** — the same four
-functions over skiko.
-
-**Everything goes through the shaper, not through `SkFont` directly.** `Font.measureText` /
-`Canvas.drawString` are the obvious one-line counterparts to `Paint.getTextBounds` /
-`Canvas.drawText` and are wrong for anything but plain Latin: no shaping, so kerning and ligatures
-are skipped, Arabic and Indic come out unjoined, RTL is not reordered, and a missing glyph becomes a
-box instead of falling back. Android's `Canvas.drawText` does all of it via Minikin, so the direct
-calls would be visibly wrong text — and **invisibly** wrong here, since measure and draw would agree
-with each other while both disagreed with Android, leaving the seam's own cross-checks green.
-`Shaper.make(FontMgr)` (HarfBuzz + ICU bidi, fallback through the font manager) supplies
-`TextBlob.tightBounds` for ink bounds, `TextLine.width` for the advance, and the blob for the origin
-draw. A shaped blob's origin is *not* its baseline — `shape` puts the first baseline an ascent below
-the offset it is given — so both sides correct by `TextBlob.firstBaseline`.
-
-`drawTextOnPath` is built on Skia's own primitive: a `TextBlob` of per-glyph `RSXform`s, which is
-what the framework assembles internally. It reproduces the framework's behaviour — each glyph centred
-half an advance along the path and rotated to the tangent there, `hOffset` along and `vOffset`
-perpendicular, glyphs past the end dropped and the run continuing onto the next contour.
-
-It is the **one place the seam is not fully shaped**, for a mechanical reason. Placing glyphs
-individually needs each glyph's *font*, which the flattened `TextLine`/`TextBlob` views do not
-expose; the API that does is skiko's `RunHandler` callback, and that path **segfaults** — a
-use-after-free inside skiko's own ICU run iterator, reproducible with a minimal handler and unrelated
-to this code. (`RunInfo.font` is also only borrowed for the callback, so it needs `makeWithSize` to
-copy — worth knowing if anyone retries this.) So glyphs on a path are resolved per character *with*
-fallback (glyph id 0 means the face cannot draw it) but without cross-character shaping. Drawing from
-a flattened shaped line instead would silently draw fallback ids against the primary face, which is
-worse. Curved text is where this matters least, but it is a real gap pending a usable handler.
-
-Font resolution mirrors `EmbeddedPlayerTypefaceResolver` branch for branch, with two divergences.
-`google:` is a `FontsContractCompat` download on Android with no JVM equivalent, so the name is tried
-locally and substituted if absent (the "downloadable fonts" limit below — a substitution, not an
-error). And Skia has no generic families, so the core ids map through a candidate list: CSS-style
-names first, which is what fontconfig resolves on Linux, then concrete faces. One trap:
-`matchFamilyStyle(null, …)` returns **null** on Linux and `Font(null, size)` measures zero rather
-than falling back, so the resolver never yields null while the host has any font at all.
-
-`DesktopTextPlatformTest` rasterizes for real and asserts relationships, not numbers — the font
-stacks differ across the seam, so any pinned width would pin the host's fonts. The strongest check is
-that measured ink bounds predict where the drawn glyphs land, which is the invariant
-`DrawTextAnchored` rests on and the one a face mismatch would break while every other test passed.
-Two of the eighteen discriminate against the unshaped implementation above: a kerned pair (`AV`) must
-measure *narrower* than its glyphs apart — exactly equal is the signature of no shaping — and a CJK
-string must measure about an em per ideograph rather than a missing-glyph box.
-
-**It needs skiko's natives**: the per-OS `skiko-awt-runtime-*` artifact (via
-`testRuntimeOnly(compose.desktop.currentOs)`) *and* a loadable GL library, since `libskiko` links it
-even for raster-only drawing. Where that is missing the class skips loudly; the environment needs
-`libgl1` on `LD_LIBRARY_PATH`, and Gradle test workers inherit the *daemon's* environment, so
-`./gradlew --stop` after exporting it.
-
-Not finished: the ops that call these four still live in `RcPlayerDrawing.kt`, which needs
-`Bitmap`/`BitmapDrawable`, so no draw op runs on the JVM yet.
-
-#### Done: the jvm draw context decodes bitmaps
-
-`:third-party-rc-embedded-player-jvm` now carries **`JvmRemoteContext.kt`** — the desktop/JVM draw
-`RemoteContext`, the counterpart of `remote-player-core`'s `AndroidRemoteContext` for the pixel path.
-As the "What a `JvmRemoteContext` actually costs" section predicted, it is `StoreBackedRemoteContext`
-(the whole neutral variable/state store, already shared) plus the **one** genuinely platform-bound
-member, `loadBitmap` — decoding a document's encoded bytes to a raster — over skiko.
-
-It handles the inline PNG types through `Image.makeFromEncoded` and the raw types (`TYPE_RAW8888`,
-`TYPE_RAW8`) by building a raster straight from the pixel bytes, rejecting a buffer too short for the
-declared size and swallowing any decode failure to a blank rather than crashing the render — the same
-never-throw posture as the text seam. Where Android caches an `android.graphics.Bitmap` under the id,
-this caches a Compose `ImageBitmap`; the store is untyped, so the jvm image seam's `resolveImage`
-reads its own concrete type back. Two documented parity nuances: `TYPE_PNG_ALPHA_8` decodes to RGBA
-here rather than an alpha mask, and `ENCODING_URL`/`ENCODING_FILE` are the deferred host loader's job.
-
-`JvmRemoteContextBitmapTest` exercises it for real — PNG + raw round-trips to an `ImageBitmap` of the
-declared size, plus the reject-short-buffer / reject-malformed / skip-non-inline paths. Like
-`DesktopTextPlatformTest` it **needs skiko's natives** (`skiko-awt-runtime-*` + a loadable GL lib) and
-skips loudly where they are absent, so it is a CI check, not a bare-working-tree one.
-
-This is step 3's `RemoteContext` half. What it does **not** finish: the jvm `resolveImage`/
-`resolveCanvasImage` seam siblings (which read this cache back) and putting the draw files on the jvm
-source list — those wait on the `Drawable` image loader and googlefonts text layout being split, the
-remaining androidMain callees of the dispatch.
-
-#### Done: it runs on the desktop JVM
-
-`:third-party-rc-embedded-player-jvm` compiles the neutral subset of this module's sources against
-**Compose Desktop** and runs them on a plain JVM — no Android, no Robolectric.
-`DesktopRemoteContextTest` exercises the value layer: float/int/colour/text round-trips through the
-shared store, and — the one that matters — that a store read registers with Compose's snapshot
-system, without which `GraphContext`'s whole `derivedStateOf` design silently degrades to "never
-invalidates".
-
-The sources are **shared by path, not copied**: the jvm module adds the Android module's
-`src/main/kotlin` as a source directory and names an explicit file list, so there is one copy of each
-file and no way for the two to drift.
-
-That inverts what `PlatformNeutralSourcesTest` is for — the scan stood in for a missing compiler, and
-the compiler is now here, so a file that is not really neutral fails to build. The test remains as
-the fast check with the precise message, and `readyFilesAreActuallyCompiledForTheJvm` ties its
-`READY_FOR_JVM_COMMON` list to the build file's, so a file cannot be claimed ready without something
-having actually compiled it off Android.
-
-**This makes 1b optional rather than blocking.** A separate jvm module was chosen precisely because
-converting the Android module to KMP still carries an unsettled risk (Robolectric under the
-KMP-Android plugin), and nothing here needs that resolved. If the conversion happens, this module's
-file list is the migration order; if it never does, the desktop lane still works.
-
-#### Done: the whole draw path runs on the desktop JVM, and renders a document to PNG
-
-The draw path now compiles and runs off Android end to end. `:third-party-rc-embedded-player-jvm`
-shares the entire op interpreter / paint decoder / component-tree dispatch (`RcPlayerDrawing.kt`,
-`RcPlayerPaint.kt`, `RcPlayerDispatch.kt`, `RcPlayerCanvas.kt`, the modifiers, and every layout
-composable) and answers the three Android-only draw seams with jvm siblings: image decode over skiko
-(`RcPlayerImagePlatformJvm.kt`, reading back the `ImageBitmap` the jvm draw context caches), the text
-layout composables (`RcPlayerTextLayoutJvm.kt` — a `google:` family is downloaded through
-`GoogleFontTypefaceResolver`; everything else resolves to the nearest standard family, the documented
-parity limit), the image layout composable (`layout/RcPlayerImageLayoutJvm.kt` — the
-embedded `ImageBitmap` decode in place of the `Drawable` host loader), and no-op stubs for the
-deferred AGSL shaders and particles. The two path utilities the draw path calls (`PathUtils.kt`,
-`FloatsToPath.kt`) are vendored from the `remote-player-compose` AAR a `kotlin("jvm")` module cannot
-consume, with the one Android-only op (conic) swapped to skiko. `RcPlayerCustom.kt` turned out fully
-neutral and joined the shared list directly.
-
-On top of that, **`RcJvmRenderer.kt`** (`ee/…/rcembedded/jvm`) is the desktop render entry point:
-`renderRemoteDocumentToPng(bytes, w, h, density)` parses a captured `.rc` into a `CoreDocument`,
-stands it up on a `JvmRemoteContext` — a line-for-line mirror of the neutral half of the Android
-`RcPlayer`'s `remember(document)` init, minus the framework typeface resolver / choreographer / action
-handlers a still capture never exercises — builds the `GraphContext`, provides the composition locals
-the shared dispatch reads, and drives `RcPlayerRootLayoutComponent` / `RcPlayerRawDocument` through an
-`ImageComposeScene` to PNG. `RcJvmRendererTest` rasterizes the shared `TitleCardRemote-640x480.rc`
-fixture (the same captured document the Android embedded lane renders) and asserts a decodable,
-non-blank PNG of the requested size; like the other skiko tests it needs the natives and skips loudly
-without them. Verified locally against skiko: the whole embedded draw path produces a correct preview
-off Android.
-
-This closes the sequencing's step 3 draw half. What remains is wiring the renderer into a delivery
-surface (the `compose-preview serve` `cmp-jvm` chip and/or an `rc-compare` jvm lane), not any missing
-player capability.
-
-#### Done: the `compose/figma-svg` export runs over the jvm player, and matches the Android one
-
-The vector export's second pass rests on a claim about the *player*, not the platform: the embedded
-player interprets a document into real Compose layout/draw nodes, so the layout-inspector walk sees
-interior structure and the export emits real vector content, where the View player is one opaque
-`AndroidView` that can only crop out as a flat `<image>` (`RcFigmaSvgExportTest`, above). The whole
-export pipeline that claim runs through — `LayoutInspectorDataProducer`,
-`ComposeSemanticsDataProducer`, `ComposeFigmaSvgDataProducer` — is a CMP/JVM module the desktop
-`RenderEngine` already calls, so nothing about it is Android-bound either.
-
-`RcJvmFigmaSvgExportTest` (in the jvm module) executes exactly that on the desktop: it composes
-`RcPlayerJvm` into an `ImageComposeScene`, reads the semantics root off `scene.semanticsOwners` (the
-same handle the desktop `RenderEngine` uses after `scene.render()` — desktop has no `RootForTest`),
-and runs the **production** export over the result, over the *same* committed
-`TitleCardRemote-640x480.rc` fixture at the same xhdpi density as the Android lanes. It asserts the
-same qualitative half the embedded lane does: real `<text>`, not-just-raster, issue #2937's drawn
-chrome present, that chrome *beneath* the editable text, and a canvas that covers the document.
-
-**What a run shows — the jvm export is the Android embedded export, to within text metrics.** Same
-tree shape (10 layout-inspector nodes, 2 semantics text nodes), same element mix (10 elements: 2
-`<text>`, 1 `<image>`, 6 `<g>`, 0 `<path>`/`<rect>`), same layer order (the isolated draw capture
-under both text runs). Everything that differs is downstream of skiko-vs-Robolectric text
-measurement, which decides the ink bounds the canvas and the drawn-content crop are sized from:
-
-| | CMP Android (embedded) | CMP JVM |
-| --- | --- | --- |
-| canvas | 672×206 | 672×204 |
-| drawn-content crop | 640×174 at y=153 | 640×172 at y=154 |
-| text baselines | 230.76 / 271.35 | 231.76 / 270.35 |
-| `font-family` | `sans-serif` (was `FontFamily.Default, sans-serif`) | `sans-serif` |
-| SVG bytes | 814 | 774 |
-
-The ±1px baselines / ±2px canvas are the documented text-parity limit
-(`RcPlayerTextLayoutJvm.kt` resolves the nearest standard family; the host's own faces measure it)
-— the same reason no test in this module pins text pixels.
-
-The `font-family` row **was** the Android side being worse, and is the one difference that has since
-been closed (issue #3209). The Android text style carries `FontFamily.Default`, whose `toString()`
-the capture used to write verbatim into `layoutTextFontFamily`, so the export emitted a font stack
-whose first name no importer can resolve and which was only saved by the `, sans-serif` generic
-`withGenericFallback` appends; the jvm text seam resolves a real `GenericFontFamily`, so the same
-document already exported the clean `sans-serif`. The sentinel is now read as "no family stated" at
-both ends — dropped at capture (`ComposeSemanticsDataProducer`) and folded into the classifiers
-(`FigmaLayeredSvg.resolveFamily` / `embedFamily`, so payloads baked before the fix classify
-correctly too) — and both lanes emit `sans-serif`.
-
-Rendered from each lane's `compose-figma.svg` (figma-raster crop inlined), for what the three
-actually look like: [`docs/renders/figma-svg-lanes.png`](../rc-embedded-player-jvm/docs/renders/figma-svg-lanes.png)
-in the jvm module.
+Five subsections used to follow here, recording how a separate `kotlin("jvm")` module compiled the
+neutral subset of this module's sources against Compose Desktop: the skiko half of the canvas text
+seam, a desktop draw context that decoded bitmaps, the whole draw path rendering a document to PNG,
+and the figma-svg export running over it. That JVM cut was **removed on 2026-09-25**. The CMP player
+(`rc-player/compose`, `:rc-player-compose`) is this repository's JVM player, and this module will be
+re-vendored as a direct copy of upstream AndroidX plus patches, so a JVM-specific split of it no
+longer has a purpose. The removed text is in git history before that date.
 
 ### The source-set shape is `jvmCommon`, not `common`
 
@@ -914,7 +740,7 @@ Android-only in a first cut rather than forcing a Skia `PaintContext` port.
 
 - **Text.** The canvas text ops measure and draw through a framework `android.graphics.Paint`. That
   is behind one seam (`RcPlayerTextPlatform.kt`, four functions) and the skiko half is **written**
-  (`RcPlayerTextPlatformJvm.kt` — see "Done: the canvas text seam has both halves"), so what is left
+  (in the JVM cut — see "Removed: the desktop-JVM cut"), so what is left
   here is not a port but the parity limit itself: metrics will not be bit-identical across targets,
   because Skia's shaping is reachable from both but Android's font stack is not. The seam makes that a
   *measurable* difference — both sides answer the same four questions about the same
@@ -927,7 +753,7 @@ Android-only in a first cut rather than forcing a Skia `PaintContext` port.
 - **Downloadable fonts — closed.** `google:`-prefixed fonts go through
   `FontRequest`/`FontsContractCompat`, which is Android-only, so the jvm side used to substitute a
   local face and render such a document in the wrong face. There is no font *provider* off Android,
-  but there is a *downloader*: `GoogleFontTypefaceResolver` (in the jvm module) resolves a `google:`
+  but there is a *downloader*: `GoogleFontTypefaceResolver` (in the since-removed JVM cut) resolves a `google:`
   family through `:data-fonts-google` — the same `(family, weight, italic) -> File` machine-local
   cache the Robolectric downloadable-font shadow and the figma-svg embed path use — and hands the
   file to both jvm text seams (a Compose `FontFamily` for the layout ops, a skiko `Typeface` for the
@@ -937,8 +763,8 @@ Android-only in a first cut rather than forcing a Skia `PaintContext` port.
   `device:` family still substitutes a local face rather than failing.
 - **Shaping on a path.** Three of the four seam functions shape through HarfBuzz with fallback; the
   text-on-path one resolves glyphs per character instead, so cross-character kerning and joining are
-  not applied along a path. Blocked on a skiko crash rather than on design — details in the seam
-  section above.
+  not applied along a path. Blocked on a skiko crash rather than on design — details were in the
+  removed seam section (git history before 2026-09-25).
 
 ### Sequencing
 
@@ -1011,8 +837,7 @@ single-target milestone it cannot be verified. It splits into 1a/1b.
 3. Add the `jvm` target and the `expect`/`actual` seams, starting with `RemoteContext`
    (`GraphContext`'s `AndroidRemoteContext` base) and image decode. This is where the remaining
    chains in the table are actually paid for, not step 1. **Partly done:** the draw `RemoteContext`
-   and its bitmap decode are in place (`JvmRemoteContext.kt` — see "Done: the jvm draw context decodes
-   bitmaps"). What remains here is the jvm `resolveImage`/`resolveCanvasImage` seam siblings that read
+   and its bitmap decode are in place (in the JVM cut — see "Removed: the desktop-JVM cut"). What remains here is the jvm `resolveImage`/`resolveCanvasImage` seam siblings that read
    that decode back, and the `Drawable`-typed host loader.
 4. ~~Port text off framework `Paint`.~~ — **done ahead of order**, both halves. Pulled forward
    because it was the step with an actual unknown in it (does Skia answer the same four questions?),

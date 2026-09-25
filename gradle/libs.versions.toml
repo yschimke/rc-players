@@ -88,8 +88,8 @@ compose-bom-compat = "2025.12.01"
 #     a repo-wide platform move, not a version-ref edit.
 #   * skiko 0.150.1 (what 1.12.0 resolves) REMOVES the mutating `org.jetbrains.skia.Path` API that
 #     m144 had only deprecated at `DeprecationLevel.ERROR`. `Path.conicTo` is gone, which breaks
-#     `PathConic.{jvm,wasm,ios}.kt` and the vendored `FloatsToPath.kt`; the replacement
-#     (`PathBuilder`) is build-then-`snapshot()`, so those seams have to be restructured.
+#     `PathConic.skiko.kt`; the replacement (`PathBuilder`) is build-then-`snapshot()`, so that
+#     seam has to be restructured.
 #   * `compose-multiplatform-material3` (1.11.0-alpha07) and `compottie` (built against foundation
 #     1.11.0) move in lockstep with this ref — see their comments below.
 # The Renovate rule for `org.jetbrains.compose**` in `.github/renovate.json` now tracks the 1.11.x
@@ -182,7 +182,6 @@ composeai-preview-daemon = "3.8.3"
 
 [libraries]
 
-composeai-data-layoutinspector-core = { module = "ee.schimke.composeai:data-layoutinspector-core", version.ref = "composeai-contracts" }
 composeai-common-io = { module = "ee.schimke.composeai:common-io", version.ref = "composeai-contracts" }
 
 # compose-preview-daemon modules (see `composeai-preview-daemon`).

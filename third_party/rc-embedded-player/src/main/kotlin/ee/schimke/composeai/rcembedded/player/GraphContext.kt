@@ -68,7 +68,8 @@ internal class GraphContext(
 ) : StoreBackedRemoteContext(clock) {
 
   // NOTE: upstream's `setTypefaceResolver` on GraphContext (2cebbfbd6) is deliberately not ported
-  // here — the JVM half of the fork shares this file, and `remote-player-core`'s
+  // here — this file was kept platform-neutral for a JVM cut of the player (since removed), and
+  // `remote-player-core`'s
   // `TypefaceResolver` names `android.graphics.Typeface`, which a JVM compile cannot see. The
   // resolver seam lives on the Android-only side instead: `LocalTypefaceResolver` (in
   // RcPlayerTextLayout.kt), provided by `RcPlayer` from the context's resolver.

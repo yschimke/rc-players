@@ -17,8 +17,9 @@ The compatibility hierarchy is strict:
 
 - AndroidX `remote-core` and the Android Java player are the authoritative wire and behaviour spec.
   Conformance fixtures and expected operation behaviour come from them.
-- `third_party/rc-embedded-player-jvm` is a useful cross-platform pixel comparison, but a mismatch is
-  resolved against the AndroidX Java player rather than assuming the JVM embedded result is correct.
+- `third_party/rc-embedded-player` (the vendored embedded player, Android under Robolectric) is a
+  useful pixel comparison, but a mismatch is resolved against the AndroidX Java player rather than
+  assuming the embedded result is correct. Its former desktop-JVM cut was removed on 2026-09-25.
 - `third_party/remote-compose-player` is the currently shipped client-side JavaScript player used
   by `compose-preview serve` and a useful inventory of browser concerns. It is not a protocol or
   behavioural oracle: local fixes and incomplete operations mean its output cannot establish

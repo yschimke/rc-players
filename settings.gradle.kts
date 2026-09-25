@@ -169,13 +169,6 @@ include(":third-party-remote-compose-player-dist")
 project(":third-party-remote-compose-player-dist").projectDir =
   file("third_party/remote-compose-player-dist")
 
-// The desktop-JVM cut of the same vendored player. See
-// `third_party/rc-embedded-player/PROVENANCE.md`.
-include(":third-party-rc-embedded-player-jvm")
-
-project(":third-party-rc-embedded-player-jvm").projectDir =
-  file("third_party/rc-embedded-player-jvm")
-
 // Horologist's Lottie → Remote Compose compiler, vendored because Horologist publishes no artifact
 // for it. It is what the UI builder's Wear `LottiePlayer` export compiles against. See
 

@@ -70,7 +70,7 @@ test("separates the frames only the subject lane fails from the ones every lane 
     gold("mine", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
     gold("clean"),
   ]);
-  const reference = writeResults(root, "androidx-jvm", [
+  const reference = writeResults(root, "typescript", [
     gold("shared", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
     gold("mine"),
     gold("clean"),
@@ -79,7 +79,7 @@ test("separates the frames only the subject lane fails from the ones every lane 
   render(root, out, [subject, reference]);
   const run = fs.readFileSync(path.join(out, "runs", "2026-01-01", "README.md"), "utf8");
 
-  assert.match(run, /\| `androidx-jvm` \| 1 \| 1 \|/);
+  assert.match(run, /\| `typescript` \| 1 \| 1 \|/);
   // Named, not just counted: a count of one is only actionable if the reader can see which one.
   assert.match(run, /- `mine` at `initial`/);
   assert.doesNotMatch(run, /- `shared` at `initial`/);
@@ -152,7 +152,7 @@ test("a lane excluded from --reference cannot mask the subject's unique failures
   const subject = writeResults(root, "cmp", [
     gold("mine", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
   ]);
-  const reference = writeResults(root, "androidx-jvm", [gold("mine")]);
+  const reference = writeResults(root, "typescript", [gold("mine")]);
   const weak = writeResults(root, "native-appkit", [
     gold("mine", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
   ]);
@@ -165,7 +165,7 @@ test("a lane excluded from --reference cannot mask the subject's unique failures
   );
 
   const narrowed = path.join(root, "narrowed");
-  render(root, narrowed, [subject, reference, weak], ["--reference", "androidx-jvm"]);
+  render(root, narrowed, [subject, reference, weak], ["--reference", "typescript"]);
   const index = fs.readFileSync(path.join(narrowed, "README.md"), "utf8");
   const run = fs.readFileSync(path.join(narrowed, "runs", "2026-01-01", "README.md"), "utf8");
 
@@ -189,7 +189,7 @@ test("names the golds the reference reproduces and the subject does not", () => 
     gold("neither", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
     gold("disputed", { status: "SUSPICIOUS", suspicious: true }),
   ]);
-  const reference = writeResults(root, "androidx-jvm", [
+  const reference = writeResults(root, "typescript", [
     gold("settled"),
     gold("ours"),
     gold("ahead", { status: "FAIL", diffs: [{ probe: "raster", at: "initial" }] }),
@@ -201,7 +201,7 @@ test("names the golds the reference reproduces and the subject does not", () => 
   const run = fs.readFileSync(path.join(out, "runs", "2026-01-01", "README.md"), "utf8");
 
   assert.match(run, /\| both pass \| 1 \|/);
-  assert.match(run, /\| only `androidx-jvm` passes \| \*\*1\*\* \|/);
+  assert.match(run, /\| only `typescript` passes \| \*\*1\*\* \|/);
   assert.match(run, /\| only `cmp` passes \| 1 \|/);
   assert.match(run, /\| both fail \| 1 \|/);
   // Named with its probes: "which gold" without "which probe" is not yet a bug report.

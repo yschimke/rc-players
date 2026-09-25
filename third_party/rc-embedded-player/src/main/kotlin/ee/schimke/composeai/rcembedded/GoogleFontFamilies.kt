@@ -50,8 +50,7 @@ import java.util.concurrent.ConcurrentHashMap
  * render must carry the `FontsContractCompat` shadow — the daemon does, the `rc-compare` harness
  * does not — so an unvaried branded family rendered in the platform default on that lane while four
  * other lanes drew the real face (compose-ai-tools#4170). A request with no axes therefore resolves
- * the ordinary static face from the same cache, which is what the jvm player's resolver already
- * does with the same request.
+ * the ordinary static face from the same cache.
  *
  * Nothing here can fail a render. No cache directory configured, an offline miss, a family with no
  * variable file (Lobster Two ships static faces only), a file the platform won't decode — every one

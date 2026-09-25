@@ -2,7 +2,6 @@ package ee.schimke.composeai.rcconformance
 
 import ee.schimke.composeai.rcconformance.corpus.Results
 import ee.schimke.composeai.rcconformance.corpus.parseGold
-import ee.schimke.composeai.rcconformance.engine.AndroidxJvmEngine
 import ee.schimke.composeai.rcconformance.engine.CmpEngine
 import ee.schimke.composeai.rcconformance.engine.NativeSwiftEngine
 import ee.schimke.composeai.rcconformance.runner.ConformanceEngine
@@ -130,11 +129,10 @@ private const val PROGRESS_WIDTH = 48
 private fun engineFor(player: String, specDir: File): ConformanceEngine =
   when (player) {
     "cmp" -> CmpEngine(specDir)
-    "androidx-jvm" -> AndroidxJvmEngine()
     "native-appkit" -> NativeSwiftEngine(NativeSwiftEngine.defaultBinary(), specDir)
     else ->
       error(
-        "unknown player '$player'. Known lanes: cmp, androidx-jvm, native-appkit. " +
+        "unknown player '$player'. Known lanes: cmp, native-appkit. " +
           "A new lane is a new ConformanceEngine in the engine package."
       )
   }

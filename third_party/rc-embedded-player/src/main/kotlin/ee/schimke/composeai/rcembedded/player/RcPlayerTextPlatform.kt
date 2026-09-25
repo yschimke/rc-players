@@ -36,19 +36,15 @@ import kotlin.math.roundToInt
  * `RcPlayerDrawing.kt` and `RcPlayerPaint.kt` no longer mention `android.graphics`, so a jvm sibling
  * of *this file alone* is what the draw path needs to run off Android.
  *
- * `RcPlayerTextPlatformJvm.kt` in `:third-party-rc-embedded-player-jvm` is that sibling: the same
- * four functions over skiko (`org.jetbrains.skia.Font` for both measurements, `Canvas.drawString`
- * for the origin draw, and manual `PathMeasure` glyph placement for text-on-path, which Skia has no
- * single call for). Choosing skiko over Compose's own multiplatform text APIs is the point:
- * `DrawTextAnchored` anchors against *ink* bounds and reads `left`/`top` directly (mirroring
- * `DrawTextAnchored.getHorizontalOffset`/`getVerticalOffset` in remote-core), while Compose exposes
- * layout bounds — side bearings and line spacing included — so substituting them would shift every
- * anchored string. See the CMP section of PROVENANCE.md.
+ * A desktop-JVM cut of this player once carried that sibling over skiko; it was removed on
+ * 2026-09-25, and the CMP player (`:rc-player-compose`) is this repository's JVM player. A sibling
+ * would have to anchor against *ink* bounds, as `DrawTextAnchored` does (mirroring
+ * `DrawTextAnchored.getHorizontalOffset`/`getVerticalOffset` in remote-core), rather than Compose's
+ * layout bounds — side bearings and line spacing included — or every anchored string would shift.
  *
  * The four take a [TextPaintSpec] rather than `ComposeLocalPaint`: the paint state stays
  * Android-coupled through its framework `Shader` (the AGSL path, issue #2954), and the text ops need
- * six fields out of it. `RcPlayerTextPaintSpec.kt` holds that projection and is shared by both
- * halves.
+ * six fields out of it. `RcPlayerTextPaintSpec.kt` holds that projection.
  */
 
 /**

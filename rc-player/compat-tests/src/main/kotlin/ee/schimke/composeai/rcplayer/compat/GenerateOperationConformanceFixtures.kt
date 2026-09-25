@@ -81,7 +81,7 @@ public fun main(args: Array<String>) {
                 "comparison":"events",
                 "operations":["DATA_SOUND","SOUND_EXPRESSION","PLAY_SOUND"],
                 "eventLanes":["cmp-jvm"],
-                "parseOnlyLanes":["view","upstream-release","upstream-snapshot","vendored-android","vendored-jvm"],
+                "parseOnlyLanes":["view","upstream-release","upstream-snapshot","vendored-android"],
                 "limitation":"Android raster harnesses do not install a SoundEngine recorder; pixels can prove parse/render survival, not playback scheduling."
               }
             }

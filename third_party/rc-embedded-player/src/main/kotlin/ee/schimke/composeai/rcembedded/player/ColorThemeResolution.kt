@@ -258,8 +258,8 @@ internal val ANDROID_COLOR_NAMES: List<String> =
  * table it indexes, so another vendor's group keeps its fallbacks rather than being resolved
  * against Android's.
  *
- * Platform-neutral on purpose — the JVM lane shares this file and supplies its own [lookup] (or
- * none, which is the honest answer for a headless renderer with no system palette).
+ * Platform-neutral on purpose — a host with no system palette supplies its own [lookup] (or none,
+ * which is the honest answer for a headless renderer).
  */
 internal fun resolveThemedColors(document: CoreDocument, lookup: (name: String) -> Int?): Int {
   var resolved = 0
