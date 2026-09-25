@@ -4,6 +4,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.MarqueeAnimationMode
+import androidx.compose.foundation.MarqueeSpacing
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -43,7 +46,6 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -291,7 +293,6 @@ import ee.schimke.composeai.rcplayer.runtime.RcScrollBlock
 import ee.schimke.composeai.rcplayer.runtime.RcTouchActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcTouchActionType
 import ee.schimke.composeai.rcplayer.runtime.RcTouchExpressionRuntime
-import ee.schimke.composeai.rcplayer.runtime.androidXMarqueeOffset
 import ee.schimke.composeai.rcplayer.trace.RcTraceCategory
 import ee.schimke.composeai.rcplayer.trace.rcTrace
 import kotlin.math.PI
@@ -517,9 +518,8 @@ private fun RcComposePlayerResolved(
   val documentDeclaresAnimation =
     remember(document) {
       document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null } ||
-        document.operations.any {
-          it is RcMarqueeModifier || (it is RcTimeAttribute && it.type.requiresContinuousFrames)
-        } ||
+        // A marquee is not here: `basicMarquee` runs its own animation.
+        document.operations.any { it is RcTimeAttribute && it.type.requiresContinuousFrames } ||
         // A document can also animate by reading the clock directly, with no animation attached to
         // anything: `remote-m3`'s indeterminate circular progress builds its sweep from a float
         // expression over the player-supplied `CONTINUOUS_SEC` (#4264). Without this the state's
@@ -2947,62 +2947,28 @@ private class RcTouchActionsNode(var actions: List<RcTouchActionBlock>, var stat
   }
 }
 
+/**
+ * `MarqueeModifierOperation` carries exactly `basicMarquee`'s parameters, and AndroidX's embedded
+ * Compose player maps it onto `basicMarquee` unconditionally; so does this. Spacing is a dp-typed
+ * field (pixels in LEGACY/PIXELS documents) that may be a variable; velocity is dp per second.
+ */
 @Composable
 private fun Modifier.applyAndroidXMarquee(
   operation: RcMarqueeModifier,
   state: RcPlayerState,
 ): Modifier {
-  val localDensity = androidx.compose.ui.platform.LocalDensity.current
-  val density = localDensity.density
-  // AndroidX times the marquee off the wall clock from the frame it was first painted in, not off
-  // the document's animation time.
-  val nowMillis = state.frameWallClockMillis
-  // Keyed to the document's state: a host swapping documents gets a new marquee, with its own hold.
-  val firstPaintMillis = remember(state, operation) { longArrayOf(nowMillis) }
-  val timeSeconds = (nowMillis - firstPaintMillis[0]) / 1_000f
-  // How far the content overflows is only known once it has been measured, so the layout reports
-  // it back. It moves only when the content or the viewport does.
-  var overflowDistance by remember(state, operation) { mutableFloatStateOf(0f) }
-  fun offsetFor(distance: Float): Float =
-    androidXMarqueeOffset(
-      overflowDistance = distance,
-      density = density,
-      velocity = operation.velocity.value,
-      initialDelayMillis = operation.initialDelayMillis.value,
-      timeSeconds = timeSeconds,
-    )
-  // The offset is placed in layout, which only a recomposition re-runs, so a marquee that has
-  // somewhere to scroll keeps the frames coming — as AndroidX's asks for a repaint every paint.
-  val frameDemand = LocalRcFrameDemand.current
-  val scrolling = overflowDistance > 0f
-  DisposableEffect(frameDemand, scrolling) {
-    if (scrolling) frameDemand.acquire()
-    onDispose { if (scrolling) frameDemand.release() }
-  }
-  // The offset the content is drawn under, for the tree reader's `scroll_x` (§4.3): a marquee is
-  // a scroll the clock drives. Computed here rather than published from the layout, which would
-  // leave it a frame behind the pixels.
-  val marquee =
-    if (LocalRcInspection.current) {
-      val scrollOffset = Offset(offsetFor(overflowDistance), 0f)
-      semantics { rcScrollOffset = scrollOffset }
-    } else this
-  return marquee.clipToBounds().layout { measurable, constraints ->
-    val placeable =
-      measurable.measure(
-        constraints.copy(minWidth = 0, maxWidth = androidx.compose.ui.unit.Constraints.Infinity)
-      )
-    val viewportWidth =
-      if (constraints.maxWidth == androidx.compose.ui.unit.Constraints.Infinity) placeable.width
-      else constraints.maxWidth
-    val width = constraints.constrainWidth(viewportWidth)
-    val height = constraints.constrainHeight(placeable.height)
-    val contentWidth = placeable.width + state.dpTypedPixels(operation.spacing.value, localDensity)
-    val distance = (contentWidth - width).coerceAtLeast(0f)
-    overflowDistance = distance
-    val offset = offsetFor(distance)
-    layout(width, height) { placeable.placeWithLayer(0, 0) { translationX = offset } }
-  }
+  val density = androidx.compose.ui.platform.LocalDensity.current
+  val spacing = state.dpTypedDp(state.resolve(operation.spacing), density)
+  return basicMarquee(
+    iterations = if (operation.iterations == -1) Int.MAX_VALUE else operation.iterations,
+    animationMode =
+      if (operation.animationMode == 0) MarqueeAnimationMode.Immediately
+      else MarqueeAnimationMode.WhileFocused,
+    repeatDelayMillis = state.resolve(operation.repeatDelayMillis).toInt().coerceAtLeast(0),
+    initialDelayMillis = state.resolve(operation.initialDelayMillis).toInt().coerceAtLeast(0),
+    spacing = MarqueeSpacing(spacing),
+    velocity = state.resolve(operation.velocity).dp,
+  )
 }
 
 @Composable

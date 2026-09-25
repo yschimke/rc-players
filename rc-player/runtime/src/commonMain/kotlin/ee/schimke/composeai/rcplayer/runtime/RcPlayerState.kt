@@ -242,7 +242,7 @@ public class RcPlayerState(
 
   /**
    * The wall clock this frame was begun at, in epoch milliseconds — the [RcTimeSource]'s reading,
-   * which is what AndroidX operations that time themselves off `RemoteClock` (the marquee) read.
+   * which is what AndroidX operations that time themselves off `RemoteClock` read.
    */
   public val frameWallClockMillis: Long
     get() = frameEpochMillis
