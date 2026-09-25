@@ -1997,6 +1997,120 @@ class RcLayoutRenderTest {
     }
   }
 
+  /**
+   * Pins where each AndroidX `ImageScaling` type places a left-red / right-green bitmap inside a
+   * 40×40 `ImageLayout`: the painted bounds and the column where red turns green. The expected
+   * rects are AndroidX's `ImageScaling.adjustDrawToType` results, which the Compose `ContentScale`
+   * mapping reproduces exactly for these even-sized cases.
+   */
+  @Test
+  fun imageLayoutPlacesEachScaleType() {
+    data class Placement(
+      val left: Int,
+      val top: Int,
+      val right: Int,
+      val bottom: Int,
+      val split: Int,
+    )
+    // A 20×10 bitmap: smaller than the box, wider than tall.
+    val small =
+      mapOf(
+        0 to Placement(10, 15, 30, 25, split = 20), // NONE: 1:1, centred
+        1 to Placement(10, 15, 30, 25, split = 20), // INSIDE: fits already, so 1:1
+        2 to Placement(0, 10, 40, 30, split = 20), // FILL_WIDTH: 40×20
+        3 to Placement(0, 0, 40, 40, split = 20), // FILL_HEIGHT: 80×40, clipped
+        4 to Placement(0, 10, 40, 30, split = 20), // FIT: 40×20
+        5 to Placement(0, 0, 40, 40, split = 20), // CROP: 80×40, clipped
+        6 to Placement(0, 0, 40, 40, split = 20), // FILL_BOUNDS: stretched
+        7 to Placement(10, 15, 30, 25, split = 20), // FIXED_SCALE: no factor on the wire, so 1:1
+      )
+    // An 80×20 bitmap: wider than the box, which separates NONE / INSIDE / FILL_HEIGHT / CROP.
+    val wide =
+      mapOf(
+        0 to Placement(0, 10, 40, 30, split = 20), // NONE: 80×20 centred, clipped
+        1 to Placement(0, 15, 40, 25, split = 20), // INSIDE: shrinks to fit, 40×10
+        2 to Placement(0, 15, 40, 25, split = 20), // FILL_WIDTH: 40×10
+        3 to Placement(0, 0, 40, 40, split = 20), // FILL_HEIGHT: 160×40, clipped
+        4 to Placement(0, 15, 40, 25, split = 20), // FIT: 40×10
+        5 to Placement(0, 0, 40, 40, split = 20), // CROP: 160×40, clipped
+        6 to Placement(0, 0, 40, 40, split = 20), // FILL_BOUNDS: stretched
+        7 to Placement(0, 10, 40, 30, split = 20), // FIXED_SCALE: 1:1
+      )
+    for ((bitmapWidth, bitmapHeight, expected) in
+      listOf(Triple(20, 10, small), Triple(80, 20, wide))) {
+      for ((scaleType, placement) in expected) {
+        val pixels = renderImageLayout(bitmapWidth, bitmapHeight, scaleType, alpha = 1f)
+        val label = "${bitmapWidth}x$bitmapHeight scaleType=$scaleType"
+        val painted = (0 until 40 * 40).filter { pixels[it] != 0 }
+        assertEquals(placement.left, painted.minOf { it % 40 }, "$label left")
+        assertEquals(placement.right, painted.maxOf { it % 40 } + 1, "$label right")
+        assertEquals(placement.top, painted.minOf { it / 40 }, "$label top")
+        assertEquals(placement.bottom, painted.maxOf { it / 40 } + 1, "$label bottom")
+        // Sampled a few pixels either side of the split: upscaled draws filter bilinearly, so
+        // the columns straddling it are a blend.
+        val row = (placement.top + placement.bottom) / 2
+        assertEquals(RED, pixels[row * 40 + placement.split - 3], "$label red before split")
+        assertEquals(GREEN, pixels[row * 40 + placement.split + 2], "$label green after split")
+      }
+    }
+  }
+
+  @Test
+  fun imageLayoutAppliesAlphaThroughThePainter() {
+    val pixels = renderImageLayout(20, 10, scaleType = 6, alpha = 0.5f)
+    val alpha = pixels[20 * 40 + 5] ushr 24
+    assertTrue(alpha in 126..129, "alpha was $alpha")
+  }
+
+  private fun renderImageLayout(
+    bitmapWidth: Int,
+    bitmapHeight: Int,
+    scaleType: Int,
+    alpha: Float,
+  ): IntArray {
+    val data = ByteArray(bitmapWidth * bitmapHeight * 4)
+    for (y in 0 until bitmapHeight) {
+      for (x in 0 until bitmapWidth) {
+        val i = (y * bitmapWidth + x) * 4
+        if (x < bitmapWidth / 2) data[i] = 0xff.toByte() else data[i + 1] = 0xff.toByte()
+        data[i + 3] = 0xff.toByte()
+      }
+    }
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0), legacyWidth = 40, legacyHeight = 40, modern = false),
+        listOf(
+          RcBitmapData(
+            imageId = 10,
+            width = bitmapWidth,
+            height = bitmapHeight,
+            type = RcBitmapData.TYPE_RAW8888,
+            encoding = RcBitmapData.ENCODING_INLINE,
+            data = data,
+          ),
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcImageLayout(3, 30, bitmapId = 10, scaleType, alpha = RcFloatWord.literal(alpha)),
+          width(40f),
+          height(40f),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val scene =
+      ImageComposeScene(width = 40, height = 40, density = Density(1f)) {
+        RcComposePlayer(document)
+      }
+    try {
+      val bitmap = Bitmap().apply { allocN32Pixels(40, 40) }
+      check(scene.render().readPixels(bitmap))
+      return IntArray(40 * 40) { bitmap.getColor(it % 40, it / 40) }
+    } finally {
+      scene.close()
+    }
+  }
+
   private fun canvas(componentId: Int, size: Float, color: Int): List<RcOperation> =
     listOf(
       RcCanvasLayout(componentId, componentId * 10),
@@ -2176,6 +2290,11 @@ class RcLayoutRenderTest {
       alpha = RcFloatWord.literal(1f),
       shapeType = RcBackgroundModifier.SHAPE_RECTANGLE,
     )
+
+  private companion object {
+    const val RED = 0xffff0000.toInt()
+    const val GREEN = 0xff00ff00.toInt()
+  }
 
   private fun width(value: Float) =
     RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(value))

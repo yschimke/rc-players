@@ -4,6 +4,14 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
@@ -26,6 +34,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import ee.schimke.composeai.rcplayer.runtime.RcNamedValue
 import java.io.File
+import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -75,6 +84,75 @@ class RcGraphicsLayerAnimationRenderTest {
     } finally {
       scene.close()
     }
+  }
+
+  /**
+   * The tween runs on Compose's frame clock as an `Animatable`, so it is pinned on the test clock
+   * with nothing advancing it but the test: mid-flight it sits on AndroidX's 300ms standard curve,
+   * a retarget mid-flight eases on from where the layer is rather than jumping, and each run lands
+   * exactly on the value the host asked for.
+   */
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun theTweenFollowsTheStandardCurveOnTheComposeFrameClock() =
+    runSkikoComposeUiTest(size = Size(WIDTH.toFloat(), HEIGHT.toFloat()), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      val namedValues = mutableStateMapOf<String, RcNamedValue>()
+      setContent { RcComposePlayer(translationDocument(), namedValues = namedValues) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertEquals(0, blockLeftEdge(), "no tween on the opening pose")
+
+      namedValues["USER:offset"] = RcNamedValue.FloatValue(TRAVEL)
+      waitForIdle()
+      assertEquals(0, blockLeftEdge(), "the tween starts from where the layer was")
+
+      mainClock.advanceTimeBy(HALF_TWEEN_MILLIS)
+      waitForIdle()
+      val halfway = blockLeftEdge()
+      // The tween's zero is the first frame after the write, so by now it has run at most
+      // HALF_TWEEN_MILLIS and at least two frames less.
+      val easing = DefaultRcAnimationSpec.rcMotionEasing()
+      val earliest = (TRAVEL * easing.transform((HALF_TWEEN_MILLIS - 32f) / 300f)).toInt()
+      val latest = ceil(TRAVEL * easing.transform(HALF_TWEEN_MILLIS / 300f)).toInt()
+      assertTrue(
+        halfway in earliest..latest,
+        "mid-tween the layer is on the standard curve: $halfway not in $earliest..$latest",
+      )
+
+      // Back to 0 mid-flight: the layer turns around from where it is.
+      namedValues["USER:offset"] = RcNamedValue.FloatValue(0f)
+      waitForIdle()
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      // The running tween may take one more step on the frame that delivers the retarget, so the
+      // turn starts within a frame of where the layer was — never back at either end.
+      val turned = blockLeftEdge()
+      assertTrue(
+        turned in halfway until TRAVEL.toInt(),
+        "a retarget eases on from the current value, not from either end: $turned vs $halfway",
+      )
+      // The standard curve starts slowly, so give it a few frames to move a whole pixel.
+      repeat(8) { mainClock.advanceTimeByFrame() }
+      waitForIdle()
+      val returning = blockLeftEdge()
+      assertTrue(returning in 1 until turned, "and heads back towards 0: $returning vs $turned")
+
+      mainClock.advanceTimeBy(SETTLE_MILLIS)
+      waitForIdle()
+      assertEquals(0, blockLeftEdge(), "the retargeted tween lands where the host asked")
+
+      namedValues["USER:offset"] = RcNamedValue.FloatValue(TRAVEL)
+      waitForIdle()
+      mainClock.advanceTimeBy(SETTLE_MILLIS)
+      waitForIdle()
+      assertEquals(TRAVEL.toInt(), blockLeftEdge(), "and a settled tween sits on its target")
+    }
+
+  @OptIn(ExperimentalTestApi::class)
+  private fun ComposeUiTest.blockLeftEdge(): Int {
+    val pixels = onRoot().captureToImage().toPixelMap()
+    return (0 until WIDTH).firstOrNull { pixels[it, HEIGHT / 2].toArgb() == RED } ?: -1
   }
 
   /** Writes PR evidence when explicitly requested; ordinary test runs remain side-effect free. */
@@ -160,6 +238,8 @@ class RcGraphicsLayerAnimationRenderTest {
     const val FRAME = 16_000_000L
     /** Comfortably past the 300ms tween, so the last frame is the settled pose. */
     const val STEPS = 30
+    const val HALF_TWEEN_MILLIS = 150L
+    const val SETTLE_MILLIS = 400L
     /** Mid-flight, and reproducible because it counts frames rather than wall-clock time. */
     const val EVIDENCE_FRAMES = 8
   }

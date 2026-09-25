@@ -72,6 +72,11 @@ means small differences from AndroidX's hand-written version:
   `sharedBounds`.
 - **Visibility:** a component's enter and exit are `AnimatedVisibility`, with the document's
   `AnimationSpec` mapped onto Compose's enter and exit transitions (`RcVisibilityTransition`).
+- **Press feedback:** a `RippleModifier` is a `Modifier.indication` driven by the component's
+  clickable through a shared `MutableInteractionSource`, so nothing ripples unless the document
+  asks. The multi-click recogniser stays hand-rolled: `combinedClickable` enforces
+  `doubleTapMinTimeMillis` and cannot long-press inside the double-tap window, which fails
+  `interactivity_multi_click_types`.
 
 This gets the player Compose's accessibility, text handling, lookahead and interruption for free,
 and keeps it looking and behaving like the Compose UI around it. A divergence this causes is
