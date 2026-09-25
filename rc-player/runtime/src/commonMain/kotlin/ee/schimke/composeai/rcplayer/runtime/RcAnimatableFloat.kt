@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package ee.schimke.composeai.rcplayer.runtime
 
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -40,9 +42,11 @@ import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
  * between successive targets — where upstream infers it statically from the expression graph,
  * because a player with a frame clock can observe the cadence it would otherwise have to predict.
  *
- * Kept outside Compose so the Wasm and Apple hosts run the same curve and a conformance trace can
- * step it frame by frame.
+ * The Compose player no longer uses this: it eases graphics-layer attributes with Compose's own
+ * `Animatable`, read in the layer block so a tween does not recompose. This stays, deprecated, for
+ * binary compatibility until the next major release.
  */
+@Deprecated(RC_LAYER_TWEEN_DEPRECATION)
 public class RcAnimatableFloat(
   private val durationSeconds: Float = DEFAULT_DURATION_SECONDS,
   private val easingType: Int = CUBIC_STANDARD,
@@ -143,6 +147,7 @@ public class RcAnimatableFloat(
  * current writer (androidx-main `4969cdd96c6` onwards) writes a centre origin explicitly and omits
  * only `0f`, so a document that means the centre says so.
  */
+@Deprecated(RC_LAYER_TWEEN_DEPRECATION)
 public data class RcGraphicsLayerValues(
   val scaleX: Float = 1f,
   val scaleY: Float = 1f,
@@ -160,12 +165,16 @@ public data class RcGraphicsLayerValues(
   val isAnimating: Boolean = false,
 )
 
+internal const val RC_LAYER_TWEEN_DEPRECATION: String =
+  "The Compose player eases graphics layers with Compose's Animatable; nothing uses this."
+
 /**
  * Per-component holder for a graphics layer's [RcAnimatableFloat]s.
  *
  * One per component instance rather than per operation: two components can share an identical
  * `RcGraphicsLayerModifier` and still be mid-tween at different points.
  */
+@Deprecated(RC_LAYER_TWEEN_DEPRECATION)
 public class RcGraphicsLayerAnimator {
   private val animatables = mutableMapOf<Int, RcAnimatableFloat>()
 
