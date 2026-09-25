@@ -5,13 +5,19 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +60,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -125,6 +130,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.PointerInputModifierNode
@@ -2242,6 +2248,11 @@ private fun Modifier.applyComponentModifiers(
   val offscreenTargets = LocalRcOffscreenTargets.current
   val typefaces = LocalRcTypefaces.current
   val drawObserver = LocalRcDrawObserver.current
+  // A `RippleModifier` is an `Indication` at its wire position, driven by the presses of the
+  // component's clickable through this shared source (see `applyAndroidXRipple`).
+  val rippleInteractions =
+    if (modifiers.ordered.any { it is RcRippleModifier }) remember { MutableInteractionSource() }
+    else null
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
     else {
@@ -2360,9 +2371,14 @@ private fun Modifier.applyComponentModifiers(
         is RcBackgroundModifier,
         is RcBorderModifier,
         is RcClipRectModifier,
-        is RcRoundedClipRectModifier,
-        is RcRippleModifier ->
+        is RcRoundedClipRectModifier ->
           applyPendingGraphicsLayer(result).applyPaintDecorator(operation, state)
+        is RcRippleModifier ->
+          applyPendingGraphicsLayer(result)
+            .applyAndroidXRipple(
+              interactions = checkNotNull(rippleInteractions),
+              emitOwnPresses = modifiers.clicks.isEmpty(),
+            )
         is RcGraphicsLayerModifier -> result
         is RcMarqueeModifier -> result.applyAndroidXMarquee(operation, state)
         is RcNoArg ->
@@ -2387,13 +2403,15 @@ private fun Modifier.applyComponentModifiers(
     // stream leaves the drawing untransformed.
     result = applyCanvasOperations(applyPendingGraphicsLayer(result))
   }
+  // No indication on the clickable itself: AndroidX draws no press feedback unless the document
+  // asks for a ripple, and Compose's default indication would wash the component on press, hover
+  // and focus. When it does ask, the clickable's presses reach the ripple's `Indication` through
+  // `rippleInteractions`.
   if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
-    result = result.applyAndroidXMultiClick(modifiers.clicks, state)
+    result = result.applyAndroidXMultiClick(modifiers.clicks, state, rippleInteractions)
   } else if (modifiers.clicks.isNotEmpty()) {
-    // No indication: AndroidX draws no press feedback unless the document asks for a ripple, and
-    // Compose's default indication would wash the component on press, hover and focus.
     result =
-      result.clickable(interactionSource = null, indication = null) {
+      result.clickable(interactionSource = rippleInteractions, indication = null) {
         modifiers.clicks.forEach(state::executeClick)
       }
   }
@@ -2679,26 +2697,44 @@ internal fun HapticFeedback.performAndroidXHaptic(type: RcHapticType) {
   if (composeType != null) performHapticFeedback(composeType)
 }
 
+/**
+ * `MultiClickModifier`s: one recogniser for every block of a component, so single, long and double
+ * clicks cannot compete, with `CLICK` blocks running as the single click.
+ *
+ * This stays hand-rolled rather than `combinedClickable`, which was tried and broke two binding
+ * conformance checks (`interactivity_multi_click_types`): `combinedClickable` ignores a second tap
+ * that lands within `doubleTapMinTimeMillis` of the first, and treats a press that starts inside
+ * the double-tap window as a second-tap candidate that can no longer long-press. The reference
+ * player has neither rule. Press feedback still goes through Compose: presses are emitted into
+ * [interactionSource], which drives the ripple `Indication` when the document asks for one.
+ */
 @Composable
 private fun Modifier.applyAndroidXMultiClick(
   blocks: List<RcClickActionBlock>,
   state: RcPlayerState,
+  interactionSource: MutableInteractionSource?,
 ): Modifier {
   val hapticFeedback = LocalHapticFeedback.current
-  return then(RcMultiClickElement(blocks, state, hapticFeedback))
+  return then(RcMultiClickElement(blocks, state, hapticFeedback, interactionSource))
 }
 
 private data class RcMultiClickElement(
   val blocks: List<RcClickActionBlock>,
   val state: RcPlayerState,
   val hapticFeedback: HapticFeedback,
+  val interactionSource: MutableInteractionSource?,
 ) : ModifierNodeElement<RcMultiClickNode>() {
-  override fun create(): RcMultiClickNode = RcMultiClickNode(blocks, state, hapticFeedback)
+  override fun create(): RcMultiClickNode =
+    RcMultiClickNode(blocks, state, hapticFeedback, interactionSource)
 
   override fun update(node: RcMultiClickNode) {
     node.blocks = blocks
     node.state = state
     node.hapticFeedback = hapticFeedback
+    if (node.interactionSource != interactionSource) {
+      node.cancelPress()
+      node.interactionSource = interactionSource
+    }
     node.invalidateSemantics()
   }
 
@@ -2711,10 +2747,10 @@ private class RcMultiClickNode(
   var blocks: List<RcClickActionBlock>,
   var state: RcPlayerState,
   var hapticFeedback: HapticFeedback,
+  var interactionSource: MutableInteractionSource?,
 ) :
   Modifier.Node(),
   PointerInputModifierNode,
-  DrawModifierNode,
   SemanticsModifierNode,
   CompositionLocalConsumerModifierNode {
   private var pressed = false
@@ -2723,8 +2759,7 @@ private class RcMultiClickNode(
   private var waitingForSecondClick = false
   private var longPressJob: Job? = null
   private var singleClickJob: Job? = null
-  private val rippleColorProgress = Animatable(1f)
-  private val rippleRadiusProgress = Animatable(1f)
+  private var press: PressInteraction.Press? = null
 
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
     if (pass != PointerEventPass.Main) return
@@ -2733,6 +2768,7 @@ private class RcMultiClickNode(
       pressed = true
       longPressDispatched = false
       downPosition = down.position
+      startPress(down.position)
       longPressJob?.cancel()
       if (longActions.isNotEmpty()) {
         longPressJob = coroutineScope.launch {
@@ -2742,7 +2778,7 @@ private class RcMultiClickNode(
             longPressDispatched = true
             waitingForSecondClick = false
             singleClickJob?.cancel()
-            startRipple()
+            endPress()
             dispatch(longActions)
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
           }
@@ -2759,10 +2795,12 @@ private class RcMultiClickNode(
     ) {
       pressed = false
       longPressJob?.cancel()
+      cancelPress()
     }
     if (pressed && pointerEvent.changes.isNotEmpty() && pointerEvent.changes.all { !it.pressed }) {
       pressed = false
       longPressJob?.cancel()
+      endPress()
       if (!longPressDispatched && pointerEvent.changes.all { it.changedToUpIgnoreConsumed() }) {
         completeClick()
       }
@@ -2772,6 +2810,7 @@ private class RcMultiClickNode(
   override fun onCancelPointerInput() {
     pressed = false
     longPressJob?.cancel()
+    cancelPress()
   }
 
   override fun onDetach() {
@@ -2779,28 +2818,34 @@ private class RcMultiClickNode(
     singleClickJob?.cancel()
     pressed = false
     waitingForSecondClick = false
+    cancelPress()
   }
 
-  override fun ContentDrawScope.draw() {
-    drawContent()
-    if (rippleColorProgress.value < 1f || rippleRadiusProgress.value < 1f) {
-      val color = lerp(Color(0xb4fafafa.toInt()), Color(0x00c8c8c8), rippleColorProgress.value)
-      val radius = maxOf(size.width, size.height) * rippleRadiusProgress.value
-      clipRect { drawCircle(color = color, radius = radius, center = downPosition) }
-    }
+  private fun startPress(position: Offset) {
+    cancelPress()
+    val source = interactionSource ?: return
+    press = PressInteraction.Press(position).also(source::tryEmit)
+  }
+
+  private fun endPress() {
+    press?.let { interactionSource?.tryEmit(PressInteraction.Release(it)) }
+    press = null
+  }
+
+  fun cancelPress() {
+    press?.let { interactionSource?.tryEmit(PressInteraction.Cancel(it)) }
+    press = null
   }
 
   override fun SemanticsPropertyReceiver.applySemantics() {
     role = Role.Button
     onClick {
-      startRipple()
       dispatch(singleActions)
       performSingleHaptic()
       true
     }
     if (longActions.isNotEmpty()) {
       onLongClick {
-        startRipple()
         dispatch(longActions)
         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
         true
@@ -2810,13 +2855,11 @@ private class RcMultiClickNode(
 
   private fun completeClick() {
     if (doubleActions.isEmpty()) {
-      startRipple()
       dispatch(singleActions)
       performSingleHaptic()
     } else if (waitingForSecondClick) {
       waitingForSecondClick = false
       singleClickJob?.cancel()
-      startRipple()
       dispatch(doubleActions)
       hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
     } else {
@@ -2825,7 +2868,6 @@ private class RcMultiClickNode(
         delay(currentValueOf(LocalViewConfiguration).doubleTapTimeoutMillis)
         if (waitingForSecondClick) {
           waitingForSecondClick = false
-          startRipple()
           dispatch(singleActions)
           performSingleHaptic()
         }
@@ -2840,18 +2882,6 @@ private class RcMultiClickNode(
   private fun performSingleHaptic() {
     if (singleActions.any { it.type == RcClickActionType.SINGLE }) {
       hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-    }
-  }
-
-  private fun startRipple() {
-    val easing = CubicBezierEasing(.4f, 0f, .2f, 1f)
-    coroutineScope.launch {
-      rippleColorProgress.snapTo(0f)
-      rippleColorProgress.animateTo(1f, tween(durationMillis = 1_000, easing = easing))
-    }
-    coroutineScope.launch {
-      rippleRadiusProgress.snapTo(0f)
-      rippleRadiusProgress.animateTo(1f, tween(durationMillis = 500, easing = easing))
     }
   }
 
@@ -3768,7 +3798,6 @@ private fun Modifier.applyPaintDecorator(
           }
         }
       }
-    RcRippleModifier -> applyAndroidXRipple()
     RcClipRectModifier ->
       drawWithContent {
         val contentScope = this
@@ -3812,36 +3841,80 @@ private fun RcPlayerState.borderWidthPixels(word: RcFloatWord, density: Density)
   }
 }
 
-@Composable
-private fun Modifier.applyAndroidXRipple(): Modifier {
-  val hapticFeedback = LocalHapticFeedback.current
-  val colorProgress = remember { Animatable(1f) }
-  val radiusProgress = remember { Animatable(1f) }
-  val animationScope = rememberCoroutineScope()
-  var origin by remember { mutableStateOf(Offset.Zero) }
-  val standard = CubicBezierEasing(.4f, 0f, .2f, 1f)
-  return drawWithContent {
-      drawContent()
-      val color = lerp(Color(0xb4fafafa.toInt()), Color(0x00c8c8c8), colorProgress.value)
-      val radius = maxOf(size.width, size.height) * radiusProgress.value
-      val scope = this
-      clipRect { scope.drawCircle(color = color, radius = radius, center = origin) }
+/**
+ * AndroidX's `RippleModifier`, as a Compose [Modifier.indication] at the modifier's wire position.
+ *
+ * The component's clickable (or multi-click recogniser) emits its presses into [interactions]; a
+ * component that asks for a ripple but has no click action of its own gets a press observer in its
+ * place, because AndroidX ripples on every touch down whether or not the component is clickable.
+ */
+private fun Modifier.applyAndroidXRipple(
+  interactions: MutableInteractionSource,
+  emitOwnPresses: Boolean,
+): Modifier {
+  val ripple = indication(interactions, RcRippleIndication)
+  if (!emitOwnPresses) return ripple
+  return ripple.pointerInput(interactions) {
+    awaitEachGesture {
+      val down = awaitFirstDown(requireUnconsumed = false)
+      val press = PressInteraction.Press(down.position)
+      interactions.tryEmit(press)
+      val up = waitForUpOrCancellation()
+      interactions.tryEmit(
+        if (up != null) PressInteraction.Release(press) else PressInteraction.Cancel(press)
+      )
     }
-    .pointerInput(Unit) {
-      awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        origin = down.position
-        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-        animationScope.launch {
-          colorProgress.snapTo(0f)
-          colorProgress.animateTo(1f, tween(durationMillis = 1_000, easing = standard))
-        }
-        animationScope.launch {
-          radiusProgress.snapTo(0f)
-          radiusProgress.animateTo(1f, tween(durationMillis = 500, easing = standard))
-        }
+  }
+}
+
+/**
+ * The Java player's clipped two-phase ripple, drawn as a Compose [IndicationNodeFactory] rather
+ * than Material's ripple: the colour fades from `0xb4fafafa` to transparent over a second while the
+ * radius grows to the component's larger side in half that, from the press position. Material's
+ * `ripple()` is not in this module's dependency set, and its look is theme-derived rather than the
+ * one the document's reference draws.
+ */
+private data object RcRippleIndication : IndicationNodeFactory {
+  override fun create(interactionSource: InteractionSource): DelegatableNode =
+    RcRippleNode(interactionSource)
+}
+
+private class RcRippleNode(private val interactionSource: InteractionSource) :
+  Modifier.Node(), DrawModifierNode, CompositionLocalConsumerModifierNode {
+  private val colorProgress = Animatable(1f)
+  private val radiusProgress = Animatable(1f)
+  private var origin = Offset.Zero
+
+  override fun onAttach() {
+    coroutineScope.launch {
+      interactionSource.interactions.collect { interaction ->
+        if (interaction is PressInteraction.Press) start(interaction.pressPosition)
       }
     }
+  }
+
+  private fun start(position: Offset) {
+    origin = position
+    currentValueOf(LocalHapticFeedback).performHapticFeedback(HapticFeedbackType.LongPress)
+    val standard = CubicBezierEasing(.4f, 0f, .2f, 1f)
+    coroutineScope.launch {
+      colorProgress.snapTo(0f)
+      colorProgress.animateTo(1f, tween(durationMillis = 1_000, easing = standard))
+    }
+    coroutineScope.launch {
+      radiusProgress.snapTo(0f)
+      radiusProgress.animateTo(1f, tween(durationMillis = 500, easing = standard))
+    }
+  }
+
+  override fun ContentDrawScope.draw() {
+    drawContent()
+    if (colorProgress.value < 1f || radiusProgress.value < 1f) {
+      val color = lerp(Color(0xb4fafafa.toInt()), Color(0x00c8c8c8), colorProgress.value)
+      val radius = maxOf(size.width, size.height) * radiusProgress.value
+      clipRect { drawCircle(color = color, radius = radius, center = origin) }
+    }
+  }
 }
 
 private fun Modifier.applyWidth(
