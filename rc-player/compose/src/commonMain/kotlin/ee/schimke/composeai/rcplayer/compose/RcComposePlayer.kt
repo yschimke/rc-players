@@ -2,8 +2,10 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.basicMarquee
@@ -13,8 +15,13 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +30,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,7 +64,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -69,6 +76,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.paint
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -92,7 +100,6 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
@@ -106,6 +113,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEvent
@@ -114,6 +122,7 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
@@ -125,6 +134,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.PointerInputModifierNode
@@ -279,12 +289,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
-import ee.schimke.composeai.rcplayer.runtime.RcAnimatableFloat
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
-import ee.schimke.composeai.rcplayer.runtime.RcGraphicsLayerAnimator
 import ee.schimke.composeai.rcplayer.runtime.RcImpulsePhase
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
@@ -519,7 +527,6 @@ private fun RcComposePlayerResolved(
         invalidationVersion += 1
       }
   }
-  val frameDemand = remember(document) { RcFrameDemand() }
   val documentDeclaresAnimation =
     remember(document) {
       document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null } ||
@@ -542,9 +549,9 @@ private fun RcComposePlayerResolved(
         (document.referencesMovingSystemVariable() ||
           document.referencesAnyOf(RcSystemVariables.CLOCK))
     }
-  // `frameDemand` is snapshot-backed, so a tween starting or finishing recomposes the player and
-  // starts or stops the loop below with it.
-  val needsContinuousFrames = documentDeclaresAnimation || frameDemand.isActive
+  // An implicit graphics-layer tween needs no document frames: it runs on Compose's own frame clock
+  // and updates only its layer (see `applyGraphicsLayer`).
+  val needsContinuousFrames = documentDeclaresAnimation
   var frameNanos by remember { mutableLongStateOf(0L) }
   val animationClock = LocalRcAnimationClock.current
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
@@ -555,15 +562,7 @@ private fun RcComposePlayerResolved(
   LaunchedEffect(document) { withFrameNanos(recordFrame) }
   LaunchedEffect(needsContinuousFrames) {
     if (needsContinuousFrames) {
-      while (true) {
-        withFrameNanos(recordFrame)
-        // A document that animates by drawing does not need this: its draw layers read the state
-        // directly and a new frame time redraws them. An implicit graphics-layer tween is resolved
-        // during *composition* — that is where a modifier chain is built — and the layout subtree
-        // is skipped on a recomposition whose inputs have not changed, so a running tween needs the
-        // layout version to move with the clock. Only while one is running.
-        if (frameDemand.isActive) invalidationVersion += 1
-      }
+      while (true) withFrameNanos(recordFrame)
     }
   }
   LaunchedEffect(ticksEverySecond, needsContinuousFrames) {
@@ -683,7 +682,6 @@ private fun RcComposePlayerResolved(
           LocalRcTypefaces provides typefaces,
           LocalRcCustomComponents provides customComponents,
           LocalRcInvalidate provides { invalidationVersion += 1 },
-          LocalRcFrameDemand provides frameDemand,
           LocalRcOffscreenTargets provides offscreenTargets,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
@@ -1310,33 +1308,25 @@ private fun RenderLayoutNode(
         if (image != null && (node.modifiers.height == null || wrapsHeight)) {
           imageModifier = imageModifier.height(with(density) { image.height.toDp() })
         }
-        Canvas(imageModifier) {
-          if (image == null) return@Canvas
-          val scaled =
-            computeImageScaling(
-              0f,
-              0f,
-              image.width.toFloat(),
-              image.height.toFloat(),
-              0f,
-              0f,
-              size.width,
-              size.height,
-              node.operation.scaleType,
-              1f,
-            ) ?: return@Canvas
-          clipRect(0f, 0f, size.width, size.height) {
-            drawImage(
-              image,
-              srcOffset = IntOffset(0, 0),
-              srcSize = IntSize(image.width, image.height),
-              dstOffset = IntOffset(scaled.left.toInt(), scaled.top.toInt()),
-              dstSize =
-                IntSize((scaled.right - scaled.left).toInt(), (scaled.bottom - scaled.top).toInt()),
-              alpha = state.resolve(node.operation.alpha),
-            )
-          }
+        // Drawn through Compose's painter pipeline (`Modifier.paint` + `ContentScale`, the mapping
+        // AndroidX's embedded player uses) rather than a hand-computed scaled rect.
+        // `sizeToIntrinsics = false` keeps the sizing above authoritative — a `Spacer` measures
+        // to its modifiers exactly as a `Canvas` does — and the clip matches `Image`'s.
+        val painter = remember(image) { image?.let(::BitmapPainter) }
+        var drawModifier = imageModifier
+        if (painter != null) {
+          drawModifier =
+            drawModifier
+              .clipToBounds()
+              .paint(
+                painter,
+                sizeToIntrinsics = false,
+                alignment = Alignment.Center,
+                contentScale = imageLayoutContentScale(node.operation.scaleType),
+                alpha = state.resolve(node.operation.alpha),
+              )
         }
+        Spacer(drawModifier)
       }
       is RcLayoutNode.Text -> {
         val density = androidx.compose.ui.platform.LocalDensity.current
@@ -1678,42 +1668,6 @@ private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap()
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
 private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
-/**
- * "This subtree owes the document another frame."
- *
- * [LocalRcInvalidate] redraws with the clock where it is; this keeps the clock running. A modifier
- * that is mid-tween needs the second one, and needs it without the document declaring an animation
- * the player could have detected up front — an implicit graphics-layer tween starts because a
- * *host* or an action moved a variable. Holding the demand only while a tween runs is what keeps a
- * document whose layers are idle from holding the frame loop open.
- */
-private val LocalRcFrameDemand = compositionLocalOf { RcFrameDemand() }
-
-/**
- * How many things in this document currently need the frame loop running.
- *
- * The player decides up front whether a document animates, by looking at its shape — declared
- * animations, marquees, clock reads. An implicit graphics-layer tween cannot be found that way: it
- * starts because a *host* or an action moved a variable, at a moment the document's shape says
- * nothing about. Registering here turns the loop on for as long as one is running, and lets it go
- * idle again afterwards, rather than choosing between a permanently hot loop and a tween that
- * advances every other frame.
- */
-internal class RcFrameDemand {
-  private var count by mutableIntStateOf(0)
-
-  val isActive: Boolean
-    get() = count > 0
-
-  fun acquire() {
-    count += 1
-  }
-
-  fun release() {
-    count -= 1
-  }
-}
-
 private val LocalRcOffscreenTargets =
   compositionLocalOf<RcOffscreenTargetPool> { error("No document-scoped offscreen target pool") }
 
@@ -2298,6 +2252,11 @@ private fun Modifier.applyComponentModifiers(
   val offscreenTargets = LocalRcOffscreenTargets.current
   val typefaces = LocalRcTypefaces.current
   val drawObserver = LocalRcDrawObserver.current
+  // A `RippleModifier` is an `Indication` at its wire position, driven by the presses of the
+  // component's clickable through this shared source (see `applyAndroidXRipple`).
+  val rippleInteractions =
+    if (modifiers.ordered.any { it is RcRippleModifier }) remember { MutableInteractionSource() }
+    else null
   var result =
     if (modifiers.layoutComputes.isEmpty()) this
     else {
@@ -2416,9 +2375,14 @@ private fun Modifier.applyComponentModifiers(
         is RcBackgroundModifier,
         is RcBorderModifier,
         is RcClipRectModifier,
-        is RcRoundedClipRectModifier,
-        is RcRippleModifier ->
+        is RcRoundedClipRectModifier ->
           applyPendingGraphicsLayer(result).applyPaintDecorator(operation, state)
+        is RcRippleModifier ->
+          applyPendingGraphicsLayer(result)
+            .applyAndroidXRipple(
+              interactions = checkNotNull(rippleInteractions),
+              emitOwnPresses = modifiers.clicks.isEmpty(),
+            )
         is RcGraphicsLayerModifier -> result
         is RcMarqueeModifier -> result.applyAndroidXMarquee(operation, state)
         is RcNoArg ->
@@ -2443,13 +2407,15 @@ private fun Modifier.applyComponentModifiers(
     // stream leaves the drawing untransformed.
     result = applyCanvasOperations(applyPendingGraphicsLayer(result))
   }
+  // No indication on the clickable itself: AndroidX draws no press feedback unless the document
+  // asks for a ripple, and Compose's default indication would wash the component on press, hover
+  // and focus. When it does ask, the clickable's presses reach the ripple's `Indication` through
+  // `rippleInteractions`.
   if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
-    result = result.applyAndroidXMultiClick(modifiers.clicks, state)
+    result = result.applyAndroidXMultiClick(modifiers.clicks, state, rippleInteractions)
   } else if (modifiers.clicks.isNotEmpty()) {
-    // No indication: AndroidX draws no press feedback unless the document asks for a ripple, and
-    // Compose's default indication would wash the component on press, hover and focus.
     result =
-      result.clickable(interactionSource = null, indication = null) {
+      result.clickable(interactionSource = rippleInteractions, indication = null) {
         modifiers.clicks.forEach(state::executeClick)
       }
   }
@@ -2735,26 +2701,44 @@ internal fun HapticFeedback.performAndroidXHaptic(type: RcHapticType) {
   if (composeType != null) performHapticFeedback(composeType)
 }
 
+/**
+ * `MultiClickModifier`s: one recogniser for every block of a component, so single, long and double
+ * clicks cannot compete, with `CLICK` blocks running as the single click.
+ *
+ * This stays hand-rolled rather than `combinedClickable`, which was tried and broke two binding
+ * conformance checks (`interactivity_multi_click_types`): `combinedClickable` ignores a second tap
+ * that lands within `doubleTapMinTimeMillis` of the first, and treats a press that starts inside
+ * the double-tap window as a second-tap candidate that can no longer long-press. The reference
+ * player has neither rule. Press feedback still goes through Compose: presses are emitted into
+ * [interactionSource], which drives the ripple `Indication` when the document asks for one.
+ */
 @Composable
 private fun Modifier.applyAndroidXMultiClick(
   blocks: List<RcClickActionBlock>,
   state: RcPlayerState,
+  interactionSource: MutableInteractionSource?,
 ): Modifier {
   val hapticFeedback = LocalHapticFeedback.current
-  return then(RcMultiClickElement(blocks, state, hapticFeedback))
+  return then(RcMultiClickElement(blocks, state, hapticFeedback, interactionSource))
 }
 
 private data class RcMultiClickElement(
   val blocks: List<RcClickActionBlock>,
   val state: RcPlayerState,
   val hapticFeedback: HapticFeedback,
+  val interactionSource: MutableInteractionSource?,
 ) : ModifierNodeElement<RcMultiClickNode>() {
-  override fun create(): RcMultiClickNode = RcMultiClickNode(blocks, state, hapticFeedback)
+  override fun create(): RcMultiClickNode =
+    RcMultiClickNode(blocks, state, hapticFeedback, interactionSource)
 
   override fun update(node: RcMultiClickNode) {
     node.blocks = blocks
     node.state = state
     node.hapticFeedback = hapticFeedback
+    if (node.interactionSource != interactionSource) {
+      node.cancelPress()
+      node.interactionSource = interactionSource
+    }
     node.invalidateSemantics()
   }
 
@@ -2767,10 +2751,10 @@ private class RcMultiClickNode(
   var blocks: List<RcClickActionBlock>,
   var state: RcPlayerState,
   var hapticFeedback: HapticFeedback,
+  var interactionSource: MutableInteractionSource?,
 ) :
   Modifier.Node(),
   PointerInputModifierNode,
-  DrawModifierNode,
   SemanticsModifierNode,
   CompositionLocalConsumerModifierNode {
   private var pressed = false
@@ -2779,8 +2763,7 @@ private class RcMultiClickNode(
   private var waitingForSecondClick = false
   private var longPressJob: Job? = null
   private var singleClickJob: Job? = null
-  private val rippleColorProgress = Animatable(1f)
-  private val rippleRadiusProgress = Animatable(1f)
+  private var press: PressInteraction.Press? = null
 
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
     if (pass != PointerEventPass.Main) return
@@ -2789,6 +2772,7 @@ private class RcMultiClickNode(
       pressed = true
       longPressDispatched = false
       downPosition = down.position
+      startPress(down.position)
       longPressJob?.cancel()
       if (longActions.isNotEmpty()) {
         longPressJob = coroutineScope.launch {
@@ -2798,7 +2782,7 @@ private class RcMultiClickNode(
             longPressDispatched = true
             waitingForSecondClick = false
             singleClickJob?.cancel()
-            startRipple()
+            endPress()
             dispatch(longActions)
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
           }
@@ -2815,10 +2799,12 @@ private class RcMultiClickNode(
     ) {
       pressed = false
       longPressJob?.cancel()
+      cancelPress()
     }
     if (pressed && pointerEvent.changes.isNotEmpty() && pointerEvent.changes.all { !it.pressed }) {
       pressed = false
       longPressJob?.cancel()
+      endPress()
       if (!longPressDispatched && pointerEvent.changes.all { it.changedToUpIgnoreConsumed() }) {
         completeClick()
       }
@@ -2828,6 +2814,7 @@ private class RcMultiClickNode(
   override fun onCancelPointerInput() {
     pressed = false
     longPressJob?.cancel()
+    cancelPress()
   }
 
   override fun onDetach() {
@@ -2835,28 +2822,34 @@ private class RcMultiClickNode(
     singleClickJob?.cancel()
     pressed = false
     waitingForSecondClick = false
+    cancelPress()
   }
 
-  override fun ContentDrawScope.draw() {
-    drawContent()
-    if (rippleColorProgress.value < 1f || rippleRadiusProgress.value < 1f) {
-      val color = lerp(Color(0xb4fafafa.toInt()), Color(0x00c8c8c8), rippleColorProgress.value)
-      val radius = maxOf(size.width, size.height) * rippleRadiusProgress.value
-      clipRect { drawCircle(color = color, radius = radius, center = downPosition) }
-    }
+  private fun startPress(position: Offset) {
+    cancelPress()
+    val source = interactionSource ?: return
+    press = PressInteraction.Press(position).also(source::tryEmit)
+  }
+
+  private fun endPress() {
+    press?.let { interactionSource?.tryEmit(PressInteraction.Release(it)) }
+    press = null
+  }
+
+  fun cancelPress() {
+    press?.let { interactionSource?.tryEmit(PressInteraction.Cancel(it)) }
+    press = null
   }
 
   override fun SemanticsPropertyReceiver.applySemantics() {
     role = Role.Button
     onClick {
-      startRipple()
       dispatch(singleActions)
       performSingleHaptic()
       true
     }
     if (longActions.isNotEmpty()) {
       onLongClick {
-        startRipple()
         dispatch(longActions)
         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
         true
@@ -2866,13 +2859,11 @@ private class RcMultiClickNode(
 
   private fun completeClick() {
     if (doubleActions.isEmpty()) {
-      startRipple()
       dispatch(singleActions)
       performSingleHaptic()
     } else if (waitingForSecondClick) {
       waitingForSecondClick = false
       singleClickJob?.cancel()
-      startRipple()
       dispatch(doubleActions)
       hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
     } else {
@@ -2881,7 +2872,6 @@ private class RcMultiClickNode(
         delay(currentValueOf(LocalViewConfiguration).doubleTapTimeoutMillis)
         if (waitingForSecondClick) {
           waitingForSecondClick = false
-          startRipple()
           dispatch(singleActions)
           performSingleHaptic()
         }
@@ -2896,18 +2886,6 @@ private class RcMultiClickNode(
   private fun performSingleHaptic() {
     if (singleActions.any { it.type == RcClickActionType.SINGLE }) {
       hapticFeedback.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-    }
-  }
-
-  private fun startRipple() {
-    val easing = CubicBezierEasing(.4f, 0f, .2f, 1f)
-    coroutineScope.launch {
-      rippleColorProgress.snapTo(0f)
-      rippleColorProgress.animateTo(1f, tween(durationMillis = 1_000, easing = easing))
-    }
-    coroutineScope.launch {
-      rippleRadiusProgress.snapTo(0f)
-      rippleRadiusProgress.animateTo(1f, tween(durationMillis = 500, easing = easing))
     }
   }
 
@@ -3570,126 +3548,127 @@ private fun Modifier.applyLayoutComputes(
 
 /**
  * AndroidX wraps every graphics-layer float in an `AnimatableValue`, so a variable this modifier
- * reads eases to its new value instead of jumping there. [RcGraphicsLayerAnimator] holds that state
- * — per component, because two components can share one identical modifier operation and still be
- * mid-tween at different points — and the values are resolved here, in composition, where the
- * player's per-frame recomposition already lands.
+ * reads eases to its new value instead of jumping there. Here each such float is a Compose
+ * [Animatable] (see [rcLayerFloat]) — held per component, because two components can share one
+ * identical modifier operation and still be mid-tween at different points.
  *
- * The tween is not something the player can see coming: it starts when a host write or a document
- * action moves the variable, which is why a running one registers with [LocalRcFrameDemand] rather
- * than relying on the document-shape check that drives `needsContinuousFrames`. A layer that is not
- * animating registers nothing.
+ * The targets are resolved in composition, which a host write or a document action already
+ * recomposes; the eased values are read inside the [graphicsLayer] block, so a running tween only
+ * updates the layer's properties each frame instead of recomposing the component or holding the
+ * player's document frame loop open. Compose's own frame clock drives it, as it drives the player's
+ * other layout transitions.
  */
 @Composable
 private fun Modifier.applyGraphicsLayer(
   operation: RcGraphicsLayerModifier,
   state: RcPlayerState,
 ): Modifier {
-  val animator = remember(state) { RcGraphicsLayerAnimator() }
-  val values = animator.evaluate(operation, state)
-  val extraAnimatables = remember(state) { mutableMapOf<Int, RcAnimatableFloat>() }
-  val extras = RcGraphicsLayerExtras.of(operation, state, extraAnimatables)
-  val animating = values.isAnimating || extras.isAnimating
-  val frameDemand = LocalRcFrameDemand.current
-  DisposableEffect(frameDemand, animating) {
-    if (animating) frameDemand.acquire()
-    onDispose { if (animating) frameDemand.release() }
-  }
+  val attributes = remember(operation) { operation.attributes.associateBy { it.index } }
+  fun float(index: Int) = attributes[index]
+  fun int(index: Int): Int? = (attributes[index] as? RcGraphicsLayerAttribute.IntValue)?.value
+
+  val scaleX = rcLayerFloat(float(RcGraphicsLayerModifier.SCALE_X), 1f, state)
+  val scaleY = rcLayerFloat(float(RcGraphicsLayerModifier.SCALE_Y), 1f, state)
+  val rotationX = rcLayerFloat(float(RcGraphicsLayerModifier.ROTATION_X), 0f, state)
+  val rotationY = rcLayerFloat(float(RcGraphicsLayerModifier.ROTATION_Y), 0f, state)
+  val rotationZ = rcLayerFloat(float(RcGraphicsLayerModifier.ROTATION_Z), 0f, state)
+  // `GraphicsLayerModifierOperation`'s own default, so an absent origin pivots at the top-left as
+  // it does in AndroidX's embedded Compose player; the current writer writes a centre explicitly.
+  val transformOriginX = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X), 0f, state)
+  val transformOriginY = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y), 0f, state)
+  val translationX = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSLATION_X), 0f, state)
+  val translationY = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSLATION_Y), 0f, state)
+  val translationZ = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSLATION_Z), 0f, state)
+  val shadowElevation = rcLayerFloat(float(RcGraphicsLayerModifier.SHADOW_ELEVATION), 0f, state)
+  val alpha = rcLayerFloat(float(RcGraphicsLayerModifier.ALPHA), 1f, state)
+  val cameraDistance = rcLayerFloat(float(RcGraphicsLayerModifier.CAMERA_DISTANCE), 8f, state)
+  val shapeRadius = rcLayerFloat(float(RcGraphicsLayerModifier.SHAPE_RADIUS), 0f, state)
+  val blurX = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_X), 0f, state)
+  val blurY = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_Y), 0f, state)
+  // `COMPOSITING_STRATEGY` is accepted and ignored, as both AndroidX players ignore it (a
+  // RenderNode layer composites like Compose's `Auto`).
+  val shapeType = int(RcGraphicsLayerModifier.SHAPE)
+  val blurTileMode =
+    when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
+      RcGraphicsLayerModifier.TILE_MODE_REPEATED -> TileMode.Repeated
+      RcGraphicsLayerModifier.TILE_MODE_MIRROR -> TileMode.Mirror
+      RcGraphicsLayerModifier.TILE_MODE_DECAL -> TileMode.Decal
+      else -> TileMode.Clamp
+    }
+  val ambientShadow = int(RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR)?.let(::Color)
+  val spotShadow = int(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR)?.let(::Color)
   return graphicsLayer {
-    scaleX = values.scaleX
-    scaleY = values.scaleY
-    rotationX = values.rotationX
-    rotationY = values.rotationY
-    rotationZ = values.rotationZ
-    transformOrigin = TransformOrigin(values.transformOriginX, values.transformOriginY)
-    translationX = values.translationX
-    translationY = values.translationY
+    this.scaleX = scaleX()
+    this.scaleY = scaleY()
+    this.rotationX = rotationX()
+    this.rotationY = rotationY()
+    this.rotationZ = rotationZ()
+    transformOrigin = TransformOrigin(transformOriginX(), transformOriginY())
+    this.translationX = translationX()
+    this.translationY = translationY()
     // A RenderNode's shadow sits at elevation + translationZ, which is what AndroidX's paint
-    // context
-    // sets; Compose has no translationZ, so the sum goes into shadowElevation.
-    shadowElevation = values.shadowElevation + extras.translationZ
-    alpha = values.alpha
-    cameraDistance = values.cameraDistance
-    shape = extras.shape
-    extras.ambientShadowColor?.let { ambientShadowColor = it }
-    extras.spotShadowColor?.let { spotShadowColor = it }
-    renderEffect = extras.renderEffect
+    // context sets; Compose has no translationZ, so the sum goes into shadowElevation.
+    this.shadowElevation = shadowElevation() + translationZ()
+    this.alpha = alpha()
+    this.cameraDistance = cameraDistance()
+    // The layer's outline. Compose uses it for the shadow; the layer is not clipped to it, since
+    // the document has no clip attribute and neither AndroidX player clips there.
+    shape =
+      when (shapeType) {
+        RcGraphicsLayerModifier.SHAPE_ROUND_RECT -> RoundedCornerShape(CornerSize(shapeRadius()))
+        RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
+        else -> RectangleShape
+      }
+    ambientShadow?.let { ambientShadowColor = it }
+    spotShadow?.let { spotShadowColor = it }
+    val radiusX = blurX()
+    val radiusY = blurY()
+    renderEffect =
+      if (radiusX > 0f || radiusY > 0f) BlurEffect(radiusX, radiusY, blurTileMode) else null
   }
 }
 
 /**
- * The graphics-layer attributes beyond the animated floats `RcGraphicsLayerValues` carries: shape,
- * translationZ, blur and shadow colours, applied as AndroidX's
- * `AndroidPaintContext.setGraphicsLayer` applies them. `COMPOSITING_STRATEGY` is accepted and
- * ignored, as both AndroidX players ignore it (a RenderNode layer composites like Compose's
- * `Auto`). Its floats ease like the others, through [animatables], one per attribute and held per
- * component.
+ * One graphics-layer float, as a reader for the [graphicsLayer] block.
+ *
+ * A variable the document or a host moves eases to its new value over AndroidX `AnimatableValue`'s
+ * 300ms standard curve — [DefaultRcAnimationSpec]'s motion, sampled through [rcMotionEasing] — and
+ * a change mid-tween eases on from wherever the value is. Two rules come with it, and they matter
+ * more than the curve does:
+ * * **No animation on first appearance.** The [Animatable] starts at the first value the variable
+ *   takes, the document's opening pose.
+ * * **A source the document keeps moving is followed, not chased.** A literal cannot change, and a
+ *   clock-driven or dragged value (see [RcPlayerState.isContinuouslyDriven]) moves every frame;
+ *   easing towards each new target in turn would draw it a third of a second behind itself, so both
+ *   are read straight through.
  */
-private class RcGraphicsLayerExtras(
-  val shape: Shape,
-  val translationZ: Float,
-  val renderEffect: BlurEffect?,
-  val ambientShadowColor: Color?,
-  val spotShadowColor: Color?,
-  val isAnimating: Boolean,
-) {
-  companion object {
-    fun of(
-      operation: RcGraphicsLayerModifier,
-      state: RcPlayerState,
-      animatables: MutableMap<Int, RcAnimatableFloat>,
-    ): RcGraphicsLayerExtras {
-      val attributes = operation.attributes.associateBy { it.index }
-      var animating = false
-      fun int(index: Int): Int? = (attributes[index] as? RcGraphicsLayerAttribute.IntValue)?.value
-      fun float(index: Int): Float {
-        val word = (attributes[index] as? RcGraphicsLayerAttribute.FloatValue)?.value ?: return 0f
-        val referencedId = word.referencedId
-        val animatable = animatables.getOrPut(index) { RcAnimatableFloat() }
-        val resolved =
-          animatable.evaluate(
-            target = state.resolve(word),
-            animatable = referencedId != null && !state.isContinuouslyDriven(referencedId),
-            nowSeconds = state.animationTimeSeconds,
-          )
-        if (animatable.isAnimating) animating = true
-        return resolved
-      }
-      val blurX = float(RcGraphicsLayerModifier.BLUR_RADIUS_X)
-      val blurY = float(RcGraphicsLayerModifier.BLUR_RADIUS_Y)
-      return RcGraphicsLayerExtras(
-        // The layer's outline. Compose uses it for the shadow; the layer is not clipped to it,
-        // since the document has no clip attribute and neither AndroidX player clips there.
-        shape =
-          when (int(RcGraphicsLayerModifier.SHAPE)) {
-            RcGraphicsLayerModifier.SHAPE_ROUND_RECT ->
-              RoundedCornerShape(CornerSize(float(RcGraphicsLayerModifier.SHAPE_RADIUS)))
-            RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
-            else -> RectangleShape
-          },
-        translationZ = float(RcGraphicsLayerModifier.TRANSLATION_Z),
-        renderEffect =
-          if (blurX > 0f || blurY > 0f) {
-            BlurEffect(
-              blurX,
-              blurY,
-              when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
-                RcGraphicsLayerModifier.TILE_MODE_REPEATED -> TileMode.Repeated
-                RcGraphicsLayerModifier.TILE_MODE_MIRROR -> TileMode.Mirror
-                RcGraphicsLayerModifier.TILE_MODE_DECAL -> TileMode.Decal
-                else -> TileMode.Clamp
-              },
-            )
-          } else {
-            null
-          },
-        ambientShadowColor = int(RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR)?.let(::Color),
-        spotShadowColor = int(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR)?.let(::Color),
-        isAnimating = animating,
-      )
+@Composable
+private fun rcLayerFloat(
+  attribute: RcGraphicsLayerAttribute?,
+  default: Float,
+  state: RcPlayerState,
+): () -> Float {
+  val word = (attribute as? RcGraphicsLayerAttribute.FloatValue)?.value ?: return { default }
+  val target = state.resolve(word)
+  val referencedId = word.referencedId
+  if (referencedId == null || state.isContinuouslyDriven(referencedId)) return { target }
+  val animatable = remember(state) { Animatable(target) }
+  LaunchedEffect(animatable, target) {
+    when {
+      // A value with nothing to ease from lands, as the first one does.
+      !target.isFinite() || !animatable.value.isFinite() -> animatable.snapTo(target)
+      animatable.targetValue != target -> animatable.animateTo(target, RcLayerTween)
     }
   }
+  return remember(animatable) { { animatable.value } }
 }
+
+/** AndroidX `AnimatableValue`'s tween: 300ms along `GeneralEasing.CUBIC_STANDARD`. */
+private val RcLayerTween: FiniteAnimationSpec<Float> =
+  tween(
+    durationMillis = DefaultRcAnimationSpec.rcMotionDurationMillis(),
+    easing = DefaultRcAnimationSpec.rcMotionEasing(),
+  )
 
 private fun Modifier.applyDimensionConstraint(
   operation: ee.schimke.composeai.rcplayer.protocol.RcOperation,
@@ -3852,7 +3831,6 @@ private fun Modifier.applyPaintDecorator(
           }
         }
       }
-    RcRippleModifier -> applyAndroidXRipple()
     RcClipRectModifier ->
       drawWithContent {
         val contentScope = this
@@ -3896,36 +3874,80 @@ private fun RcPlayerState.borderWidthPixels(word: RcFloatWord, density: Density)
   }
 }
 
-@Composable
-private fun Modifier.applyAndroidXRipple(): Modifier {
-  val hapticFeedback = LocalHapticFeedback.current
-  val colorProgress = remember { Animatable(1f) }
-  val radiusProgress = remember { Animatable(1f) }
-  val animationScope = rememberCoroutineScope()
-  var origin by remember { mutableStateOf(Offset.Zero) }
-  val standard = CubicBezierEasing(.4f, 0f, .2f, 1f)
-  return drawWithContent {
-      drawContent()
-      val color = lerp(Color(0xb4fafafa.toInt()), Color(0x00c8c8c8), colorProgress.value)
-      val radius = maxOf(size.width, size.height) * radiusProgress.value
-      val scope = this
-      clipRect { scope.drawCircle(color = color, radius = radius, center = origin) }
+/**
+ * AndroidX's `RippleModifier`, as a Compose [Modifier.indication] at the modifier's wire position.
+ *
+ * The component's clickable (or multi-click recogniser) emits its presses into [interactions]; a
+ * component that asks for a ripple but has no click action of its own gets a press observer in its
+ * place, because AndroidX ripples on every touch down whether or not the component is clickable.
+ */
+private fun Modifier.applyAndroidXRipple(
+  interactions: MutableInteractionSource,
+  emitOwnPresses: Boolean,
+): Modifier {
+  val ripple = indication(interactions, RcRippleIndication)
+  if (!emitOwnPresses) return ripple
+  return ripple.pointerInput(interactions) {
+    awaitEachGesture {
+      val down = awaitFirstDown(requireUnconsumed = false)
+      val press = PressInteraction.Press(down.position)
+      interactions.tryEmit(press)
+      val up = waitForUpOrCancellation()
+      interactions.tryEmit(
+        if (up != null) PressInteraction.Release(press) else PressInteraction.Cancel(press)
+      )
     }
-    .pointerInput(Unit) {
-      awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        origin = down.position
-        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-        animationScope.launch {
-          colorProgress.snapTo(0f)
-          colorProgress.animateTo(1f, tween(durationMillis = 1_000, easing = standard))
-        }
-        animationScope.launch {
-          radiusProgress.snapTo(0f)
-          radiusProgress.animateTo(1f, tween(durationMillis = 500, easing = standard))
-        }
+  }
+}
+
+/**
+ * The Java player's clipped two-phase ripple, drawn as a Compose [IndicationNodeFactory] rather
+ * than Material's ripple: the colour fades from `0xb4fafafa` to transparent over a second while the
+ * radius grows to the component's larger side in half that, from the press position. Material's
+ * `ripple()` is not in this module's dependency set, and its look is theme-derived rather than the
+ * one the document's reference draws.
+ */
+private data object RcRippleIndication : IndicationNodeFactory {
+  override fun create(interactionSource: InteractionSource): DelegatableNode =
+    RcRippleNode(interactionSource)
+}
+
+private class RcRippleNode(private val interactionSource: InteractionSource) :
+  Modifier.Node(), DrawModifierNode, CompositionLocalConsumerModifierNode {
+  private val colorProgress = Animatable(1f)
+  private val radiusProgress = Animatable(1f)
+  private var origin = Offset.Zero
+
+  override fun onAttach() {
+    coroutineScope.launch {
+      interactionSource.interactions.collect { interaction ->
+        if (interaction is PressInteraction.Press) start(interaction.pressPosition)
       }
     }
+  }
+
+  private fun start(position: Offset) {
+    origin = position
+    currentValueOf(LocalHapticFeedback).performHapticFeedback(HapticFeedbackType.LongPress)
+    val standard = CubicBezierEasing(.4f, 0f, .2f, 1f)
+    coroutineScope.launch {
+      colorProgress.snapTo(0f)
+      colorProgress.animateTo(1f, tween(durationMillis = 1_000, easing = standard))
+    }
+    coroutineScope.launch {
+      radiusProgress.snapTo(0f)
+      radiusProgress.animateTo(1f, tween(durationMillis = 500, easing = standard))
+    }
+  }
+
+  override fun ContentDrawScope.draw() {
+    drawContent()
+    if (colorProgress.value < 1f || radiusProgress.value < 1f) {
+      val color = lerp(Color(0xb4fafafa.toInt()), Color(0x00c8c8c8), colorProgress.value)
+      val radius = maxOf(size.width, size.height) * radiusProgress.value
+      clipRect { drawCircle(color = color, radius = radius, center = origin) }
+    }
+  }
 }
 
 private fun Modifier.applyWidth(
@@ -4749,6 +4771,24 @@ private fun DrawScope.drawBitmapRegion(
     filterQuality = paint.filterQuality,
   )
 }
+
+/**
+ * Maps an `ImageLayout`'s AndroidX `ImageScaling` type onto Compose's [ContentScale], as AndroidX's
+ * embedded player does. The `ImageLayout` operation carries no scale factor, so `SCALE_FIXED_SCALE`
+ * (7) draws 1:1 — [ContentScale.None], which is `FixedScale(1f)`.
+ */
+internal fun imageLayoutContentScale(scaleType: Int): ContentScale =
+  when (scaleType) {
+    0 -> ContentScale.None
+    1 -> ContentScale.Inside
+    2 -> ContentScale.FillWidth
+    3 -> ContentScale.FillHeight
+    4 -> ContentScale.Fit
+    5 -> ContentScale.Crop
+    6 -> ContentScale.FillBounds
+    7 -> ContentScale.None
+    else -> error("Unknown AndroidX image scale type $scaleType")
+  }
 
 internal data class RcScaledRect(
   val left: Float,
