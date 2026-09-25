@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,6 +66,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.paint
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -102,6 +104,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEvent
@@ -110,6 +113,7 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
@@ -1306,33 +1310,25 @@ private fun RenderLayoutNode(
         if (image != null && (node.modifiers.height == null || wrapsHeight)) {
           imageModifier = imageModifier.height(with(density) { image.height.toDp() })
         }
-        Canvas(imageModifier) {
-          if (image == null) return@Canvas
-          val scaled =
-            computeImageScaling(
-              0f,
-              0f,
-              image.width.toFloat(),
-              image.height.toFloat(),
-              0f,
-              0f,
-              size.width,
-              size.height,
-              node.operation.scaleType,
-              1f,
-            ) ?: return@Canvas
-          clipRect(0f, 0f, size.width, size.height) {
-            drawImage(
-              image,
-              srcOffset = IntOffset(0, 0),
-              srcSize = IntSize(image.width, image.height),
-              dstOffset = IntOffset(scaled.left.toInt(), scaled.top.toInt()),
-              dstSize =
-                IntSize((scaled.right - scaled.left).toInt(), (scaled.bottom - scaled.top).toInt()),
-              alpha = state.resolve(node.operation.alpha),
-            )
-          }
+        // Drawn through Compose's painter pipeline (`Modifier.paint` + `ContentScale`, the mapping
+        // AndroidX's embedded player uses) rather than a hand-computed scaled rect.
+        // `sizeToIntrinsics = false` keeps the sizing above authoritative — a `Spacer` measures
+        // to its modifiers exactly as a `Canvas` does — and the clip matches `Image`'s.
+        val painter = remember(image) { image?.let(::BitmapPainter) }
+        var drawModifier = imageModifier
+        if (painter != null) {
+          drawModifier =
+            drawModifier
+              .clipToBounds()
+              .paint(
+                painter,
+                sizeToIntrinsics = false,
+                alignment = Alignment.Center,
+                contentScale = imageLayoutContentScale(node.operation.scaleType),
+                alpha = state.resolve(node.operation.alpha),
+              )
         }
+        Spacer(drawModifier)
       }
       is RcLayoutNode.Text -> {
         val density = androidx.compose.ui.platform.LocalDensity.current
@@ -4716,6 +4712,24 @@ private fun DrawScope.drawBitmapRegion(
     filterQuality = paint.filterQuality,
   )
 }
+
+/**
+ * Maps an `ImageLayout`'s AndroidX `ImageScaling` type onto Compose's [ContentScale], as AndroidX's
+ * embedded player does. The `ImageLayout` operation carries no scale factor, so `SCALE_FIXED_SCALE`
+ * (7) draws 1:1 — [ContentScale.None], which is `FixedScale(1f)`.
+ */
+internal fun imageLayoutContentScale(scaleType: Int): ContentScale =
+  when (scaleType) {
+    0 -> ContentScale.None
+    1 -> ContentScale.Inside
+    2 -> ContentScale.FillWidth
+    3 -> ContentScale.FillHeight
+    4 -> ContentScale.Fit
+    5 -> ContentScale.Crop
+    6 -> ContentScale.FillBounds
+    7 -> ContentScale.None
+    else -> error("Unknown AndroidX image scale type $scaleType")
+  }
 
 internal data class RcScaledRect(
   val left: Float,
