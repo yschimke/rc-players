@@ -16,6 +16,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
 import kotlin.test.Test
@@ -181,6 +183,38 @@ class RcAlignByRowRenderTest {
     assertEquals(0, pixels.topOf(GREEN))
   }
 
+  @Test
+  fun fractionalAnchorsBelowALargerBaselineRoundAgainstTheBaseline() {
+    // The text's first baseline sits at 6 px: a fixed anchor 0 box lines its top up with it.
+    val baseline =
+      render(
+          rowWidth = 60f,
+          rowHeight = 40f,
+          verticalPositioning = TOP,
+          children =
+            text(5, TEXT_ID, BASELINE_FONT_SIZE, alignBy = FIRST_BASELINE) +
+              box(6, RED, 20f, 10f, alignBy = RcFloatWord.literal(0f)),
+        )
+        .topOf(RED)
+    assertEquals(6, baseline)
+
+    // AndroidX: maxAnchor is the baseline, 6, so the tops are round(6 - 4.4) = 2 and
+    // round(6 - 4.6) = 1. Snapping the fixed anchors before the baseline is known gives 1 and 1.
+    val pixels =
+      render(
+        rowWidth = 80f,
+        rowHeight = 40f,
+        verticalPositioning = TOP,
+        children =
+          box(5, RED, 20f, 10f, alignBy = RcFloatWord.literal(4.4f)) +
+            box(6, GREEN, 20f, 10f, alignBy = RcFloatWord.literal(4.6f)) +
+            text(7, TEXT_ID, BASELINE_FONT_SIZE, alignBy = FIRST_BASELINE),
+      )
+
+    assertEquals(2, pixels.topOf(RED))
+    assertEquals(1, pixels.topOf(GREEN))
+  }
+
   private class Pixels(val bitmap: Bitmap, val width: Int, val height: Int) {
     private fun points(color: Int) =
       (0 until height).flatMap { y ->
@@ -208,6 +242,7 @@ class RcAlignByRowRenderTest {
       RcDocument(
         RcHeader(RcVersion(1, 0, 0), legacyWidth = width, legacyHeight = height, modern = false),
         listOf(
+          RcTextData(TEXT_ID, "x"),
           RcRootLayout(1),
           RcLayoutContent(2),
           RcRowLayout(
@@ -257,6 +292,30 @@ class RcAlignByRowRenderTest {
     add(RcNoArg(RcOpcodes.CONTAINER_END))
   }
 
+  private fun text(
+    componentId: Int,
+    textId: Int,
+    fontSize: Float,
+    alignBy: RcFloatWord,
+  ): List<RcOperation> =
+    listOf(
+      RcTextLayout(
+        componentId = componentId,
+        animationId = componentId * 10,
+        textId = textId,
+        color = 0xff000000.toInt(),
+        fontSize = RcFloatWord.literal(fontSize),
+        fontStyle = 0,
+        fontWeight = RcFloatWord.literal(400f),
+        fontFamilyId = -1,
+        textAlignAndFlags = RcTextLayout.ALIGN_LEFT,
+        overflow = RcTextLayout.OVERFLOW_CLIP,
+        maxLines = 1,
+      ),
+      RcAlignByModifier(alignBy, 0),
+      RcNoArg(RcOpcodes.CONTAINER_END),
+    )
+
   private fun background(color: Int) =
     RcBackgroundModifier(
       flags = 0,
@@ -284,6 +343,8 @@ class RcAlignByRowRenderTest {
     const val RED = 0xffff0000.toInt()
     const val GREEN = 0xff00ff00.toInt()
     const val BLUE = 0xff0000ff.toInt()
+    const val TEXT_ID = 90
+    const val BASELINE_FONT_SIZE = 6f
     val FIRST_BASELINE = RcFloatWord(0x7fc00000 or RcAlignByModifier.FIRST_BASELINE_ID)
     val LAST_BASELINE = RcFloatWord(0x7fc00000 or RcAlignByModifier.LAST_BASELINE_ID)
   }
