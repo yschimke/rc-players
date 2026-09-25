@@ -11,7 +11,11 @@ import kotlin.math.cos
  * content holds for twice the delay, and the cycle it then joins is already one delay in. The phase
  * is not rebased to the moment motion begins; a player that rebased it would run a delay behind
  * AndroidX for the whole animation.
+ *
+ * The Compose player no longer uses this: it drives a marquee with Compose's `basicMarquee`, as
+ * AndroidX's embedded player does. It stays for binary compatibility until the next major release.
  */
+@Deprecated("The Compose player drives a marquee with Compose's basicMarquee; this has no user.")
 public fun androidXMarqueeOffset(
   overflowDistance: Float,
   density: Float,

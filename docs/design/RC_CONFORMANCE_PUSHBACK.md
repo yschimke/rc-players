@@ -125,7 +125,7 @@ second before** `base_time_millis` through its warm-up paints. Anything that lat
 instant at first paint inherits that second. `modifier_marquee_ticker` is the case: its `scroll_x` is
 still 0 at frame 0 and -120 at frame 30 only because the marquee's first paint happened one second
 before the sequence began. The CMP and native lanes both hard-code the offset (`WARM_UP_MILLIS`,
-`WARM_UP_SECONDS`) to match.
+`WARM_UP_SECONDS`) to match. (The CMP player no longer reproduces this gold's offsets at all; see §25.)
 
 **Ask:** document all three points.
 
@@ -371,3 +371,31 @@ bookkeeping cases. Its `step_0` diffs are that, but its `initial` diffs are not.
 **Ask:** regenerate the gold from a player that keeps each nested box's own geometry, or correct
 the description if the stamping is intended.
 **Settled by:** a regenerated gold.
+
+## 25. `modifier_marquee_ticker` asserts the View player's marquee, not Compose's
+
+`MarqueeModifierOperation` carries exactly the parameters of Compose foundation's
+`Modifier.basicMarquee` (iterations, animation mode, repeat delay, initial delay, spacing,
+velocity), and AndroidX's embedded Compose player maps it onto `basicMarquee` unconditionally
+(`MarqueeModifier.kt` in `third_party/rc-embedded-player`). The CMP player does the same, so a
+document's marquee looks and behaves like any other Compose marquee on the platform.
+
+The gold records remote-core's own marquee. Its `-5` text (240 wide, `iterations = -1`,
+`initialDelayMillis = 500`, `spacing = 32`, `velocity = 60`) holds for twice the initial delay after
+first paint, then swings sinusoidally out to the full overflow and back: `scroll_x` -120 at
+`frame_30`, -204.85 at `frame_60`, -240 at `frame_90`, -120 at `frame_150`, -35.15 at `frame_240`.
+`basicMarquee` scrolls one way at a constant 60 dp/s after a single initial delay and wraps the
+content round with a 32 dp gap, so no frame of that curve is reproducible. It also keeps its offset
+private, so the CMP tree reports no `scroll_x` for `-5`. The five `scroll_x` checks fail (the
+binding checks failing go from 108 to 113); the gold's eight rasters were already advisory
+disagreements before the change and still are.
+
+The CMP player reproduced the curve until 2026-09-25 with a hand-rolled layout modifier. It was
+dropped because it matched one recorder's timeline (including §6's warm-up second) rather than
+anything the format specifies, and diverged from the Compose player AndroidX ships.
+
+**Ask:** say whether the marquee's timeline is part of the format. If it is, specify the curve (and
+what `iterations`, `repeatDelayMillis` and `spacing` mean for it) so that Compose hosts can decide
+to implement it; if it is host behaviour, tag the gold `host-specific` or reduce it to "the content
+moves and stays clipped".
+**Settled by:** a spec statement either way.

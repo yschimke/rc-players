@@ -195,9 +195,9 @@ run these figures used to quote (241 core golds then, 353 now), so the two are n
 
 | | `cmp` | `native-appkit` | `typescript` |
 | --- | ---: | ---: | ---: |
-| Golds passed (core profile) | **316 / 353** | 216 / 353 | 352 / 353 |
-| Binding checks failing | 108 / 1140 | 266 / 1140 | 9 / 1140 |
-| Advisory (raster) disagreeing | 116 / 612 | 232 / 612 | 174 / 612 |
+| Golds passed (core profile) | **315 / 353** | 216 / 353 | 352 / 353 |
+| Binding checks failing | 113 / 1140 | 266 / 1140 | 9 / 1140 |
+| Advisory (raster) disagreeing | 113 / 612 | 232 / 612 | 174 / 612 |
 | Golds errored | 20 | 0 | 0 |
 
 The 2026-09-23 run also scored the since-removed JVM cut of the vendored AndroidX player: 132 / 353
@@ -205,7 +205,7 @@ golds, 690 binding checks failing, 261 advisory rasters disagreeing, 43 golds er
 
 The `cmp` column is the 2026-09-25 run on the same corpus. Every gold it still fails is logged in
 [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md). The 20 errors are the TypeScript-written
-golds of §1, and the rest are §§4, 8–11 and 18–24; the three `suspicious` golds are excluded by the
+golds of §1, and the rest are §§4, 8–11 and 18–25; the three `suspicious` golds are excluded by the
 corpus itself. The other columns are still the 2026-09-23 figures.
 
 The published run is on
@@ -404,8 +404,10 @@ three ways a runner loses a check, all of which make the score look *better*.
 
 ## The work list
 
-**CMP: nothing open in the player or the runner.** Measured on 2026-09-24 against
-`vendor/androidx-rc-conformance`: 316 / 353 core golds pass and 20 error. Every gold that still
+**CMP: nothing open in the player or the runner.** Measured on 2026-09-25 against
+`vendor/androidx-rc-conformance`: 315 / 353 core golds pass and 20 error. (The one gold lost since
+316 is `modifier_marquee_ticker`: the player now drives marquees with Compose's `basicMarquee`, as
+AndroidX's embedded player does; pushback §25.) Every gold that still
 fails or errors has an entry in [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md), and
 #504 maps each one to its entry. The issues this list used to carry are closed: #182 (four
 document shapes that crashed the player), #198 (collapsibles not collapsing to `GONE`), #202
