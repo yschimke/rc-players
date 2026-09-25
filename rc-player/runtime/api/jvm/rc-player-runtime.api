@@ -653,6 +653,10 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcLinkedNode$Operation 
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcMarqueeTimelineKt {
+	public static final fun androidXMarqueeOffset (FFFFF)F
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcMatrixEvaluator {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/runtime/RcMatrixEvaluator;
 	public static final field LAST_OPERATOR I
