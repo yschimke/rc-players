@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.MarqueeAnimationMode
@@ -90,7 +91,6 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
@@ -279,12 +279,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcZIndexModifier
 import ee.schimke.composeai.rcplayer.protocol.referencesAnyOf
 import ee.schimke.composeai.rcplayer.protocol.referencesContinuousSystemVariable
 import ee.schimke.composeai.rcplayer.protocol.referencesMovingSystemVariable
-import ee.schimke.composeai.rcplayer.runtime.RcAnimatableFloat
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionBlock
 import ee.schimke.composeai.rcplayer.runtime.RcClickActionType
 import ee.schimke.composeai.rcplayer.runtime.RcComponentGeometry
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
-import ee.schimke.composeai.rcplayer.runtime.RcGraphicsLayerAnimator
 import ee.schimke.composeai.rcplayer.runtime.RcImpulsePhase
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
@@ -519,7 +517,6 @@ private fun RcComposePlayerResolved(
         invalidationVersion += 1
       }
   }
-  val frameDemand = remember(document) { RcFrameDemand() }
   val documentDeclaresAnimation =
     remember(document) {
       document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null } ||
@@ -542,9 +539,9 @@ private fun RcComposePlayerResolved(
         (document.referencesMovingSystemVariable() ||
           document.referencesAnyOf(RcSystemVariables.CLOCK))
     }
-  // `frameDemand` is snapshot-backed, so a tween starting or finishing recomposes the player and
-  // starts or stops the loop below with it.
-  val needsContinuousFrames = documentDeclaresAnimation || frameDemand.isActive
+  // An implicit graphics-layer tween needs no document frames: it runs on Compose's own frame clock
+  // and updates only its layer (see `applyGraphicsLayer`).
+  val needsContinuousFrames = documentDeclaresAnimation
   var frameNanos by remember { mutableLongStateOf(0L) }
   val animationClock = LocalRcAnimationClock.current
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
@@ -555,15 +552,7 @@ private fun RcComposePlayerResolved(
   LaunchedEffect(document) { withFrameNanos(recordFrame) }
   LaunchedEffect(needsContinuousFrames) {
     if (needsContinuousFrames) {
-      while (true) {
-        withFrameNanos(recordFrame)
-        // A document that animates by drawing does not need this: its draw layers read the state
-        // directly and a new frame time redraws them. An implicit graphics-layer tween is resolved
-        // during *composition* — that is where a modifier chain is built — and the layout subtree
-        // is skipped on a recomposition whose inputs have not changed, so a running tween needs the
-        // layout version to move with the clock. Only while one is running.
-        if (frameDemand.isActive) invalidationVersion += 1
-      }
+      while (true) withFrameNanos(recordFrame)
     }
   }
   LaunchedEffect(ticksEverySecond, needsContinuousFrames) {
@@ -683,7 +672,6 @@ private fun RcComposePlayerResolved(
           LocalRcTypefaces provides typefaces,
           LocalRcCustomComponents provides customComponents,
           LocalRcInvalidate provides { invalidationVersion += 1 },
-          LocalRcFrameDemand provides frameDemand,
           LocalRcOffscreenTargets provides offscreenTargets,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
@@ -1670,42 +1658,6 @@ private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap()
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
 private val LocalRcCustomComponents = compositionLocalOf { RcCustomComponentRegistry.Empty }
 private val LocalRcInvalidate = compositionLocalOf<() -> Unit> { {} }
-/**
- * "This subtree owes the document another frame."
- *
- * [LocalRcInvalidate] redraws with the clock where it is; this keeps the clock running. A modifier
- * that is mid-tween needs the second one, and needs it without the document declaring an animation
- * the player could have detected up front — an implicit graphics-layer tween starts because a
- * *host* or an action moved a variable. Holding the demand only while a tween runs is what keeps a
- * document whose layers are idle from holding the frame loop open.
- */
-private val LocalRcFrameDemand = compositionLocalOf { RcFrameDemand() }
-
-/**
- * How many things in this document currently need the frame loop running.
- *
- * The player decides up front whether a document animates, by looking at its shape — declared
- * animations, marquees, clock reads. An implicit graphics-layer tween cannot be found that way: it
- * starts because a *host* or an action moved a variable, at a moment the document's shape says
- * nothing about. Registering here turns the loop on for as long as one is running, and lets it go
- * idle again afterwards, rather than choosing between a permanently hot loop and a tween that
- * advances every other frame.
- */
-internal class RcFrameDemand {
-  private var count by mutableIntStateOf(0)
-
-  val isActive: Boolean
-    get() = count > 0
-
-  fun acquire() {
-    count += 1
-  }
-
-  fun release() {
-    count -= 1
-  }
-}
-
 private val LocalRcOffscreenTargets =
   compositionLocalOf<RcOffscreenTargetPool> { error("No document-scoped offscreen target pool") }
 
@@ -3533,126 +3485,127 @@ private fun Modifier.applyLayoutComputes(
 
 /**
  * AndroidX wraps every graphics-layer float in an `AnimatableValue`, so a variable this modifier
- * reads eases to its new value instead of jumping there. [RcGraphicsLayerAnimator] holds that state
- * — per component, because two components can share one identical modifier operation and still be
- * mid-tween at different points — and the values are resolved here, in composition, where the
- * player's per-frame recomposition already lands.
+ * reads eases to its new value instead of jumping there. Here each such float is a Compose
+ * [Animatable] (see [rcLayerFloat]) — held per component, because two components can share one
+ * identical modifier operation and still be mid-tween at different points.
  *
- * The tween is not something the player can see coming: it starts when a host write or a document
- * action moves the variable, which is why a running one registers with [LocalRcFrameDemand] rather
- * than relying on the document-shape check that drives `needsContinuousFrames`. A layer that is not
- * animating registers nothing.
+ * The targets are resolved in composition, which a host write or a document action already
+ * recomposes; the eased values are read inside the [graphicsLayer] block, so a running tween only
+ * updates the layer's properties each frame instead of recomposing the component or holding the
+ * player's document frame loop open. Compose's own frame clock drives it, as it drives the player's
+ * other layout transitions.
  */
 @Composable
 private fun Modifier.applyGraphicsLayer(
   operation: RcGraphicsLayerModifier,
   state: RcPlayerState,
 ): Modifier {
-  val animator = remember(state) { RcGraphicsLayerAnimator() }
-  val values = animator.evaluate(operation, state)
-  val extraAnimatables = remember(state) { mutableMapOf<Int, RcAnimatableFloat>() }
-  val extras = RcGraphicsLayerExtras.of(operation, state, extraAnimatables)
-  val animating = values.isAnimating || extras.isAnimating
-  val frameDemand = LocalRcFrameDemand.current
-  DisposableEffect(frameDemand, animating) {
-    if (animating) frameDemand.acquire()
-    onDispose { if (animating) frameDemand.release() }
-  }
+  val attributes = remember(operation) { operation.attributes.associateBy { it.index } }
+  fun float(index: Int) = attributes[index]
+  fun int(index: Int): Int? = (attributes[index] as? RcGraphicsLayerAttribute.IntValue)?.value
+
+  val scaleX = rcLayerFloat(float(RcGraphicsLayerModifier.SCALE_X), 1f, state)
+  val scaleY = rcLayerFloat(float(RcGraphicsLayerModifier.SCALE_Y), 1f, state)
+  val rotationX = rcLayerFloat(float(RcGraphicsLayerModifier.ROTATION_X), 0f, state)
+  val rotationY = rcLayerFloat(float(RcGraphicsLayerModifier.ROTATION_Y), 0f, state)
+  val rotationZ = rcLayerFloat(float(RcGraphicsLayerModifier.ROTATION_Z), 0f, state)
+  // `GraphicsLayerModifierOperation`'s own default, so an absent origin pivots at the top-left as
+  // it does in AndroidX's embedded Compose player; the current writer writes a centre explicitly.
+  val transformOriginX = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X), 0f, state)
+  val transformOriginY = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y), 0f, state)
+  val translationX = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSLATION_X), 0f, state)
+  val translationY = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSLATION_Y), 0f, state)
+  val translationZ = rcLayerFloat(float(RcGraphicsLayerModifier.TRANSLATION_Z), 0f, state)
+  val shadowElevation = rcLayerFloat(float(RcGraphicsLayerModifier.SHADOW_ELEVATION), 0f, state)
+  val alpha = rcLayerFloat(float(RcGraphicsLayerModifier.ALPHA), 1f, state)
+  val cameraDistance = rcLayerFloat(float(RcGraphicsLayerModifier.CAMERA_DISTANCE), 8f, state)
+  val shapeRadius = rcLayerFloat(float(RcGraphicsLayerModifier.SHAPE_RADIUS), 0f, state)
+  val blurX = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_X), 0f, state)
+  val blurY = rcLayerFloat(float(RcGraphicsLayerModifier.BLUR_RADIUS_Y), 0f, state)
+  // `COMPOSITING_STRATEGY` is accepted and ignored, as both AndroidX players ignore it (a
+  // RenderNode layer composites like Compose's `Auto`).
+  val shapeType = int(RcGraphicsLayerModifier.SHAPE)
+  val blurTileMode =
+    when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
+      RcGraphicsLayerModifier.TILE_MODE_REPEATED -> TileMode.Repeated
+      RcGraphicsLayerModifier.TILE_MODE_MIRROR -> TileMode.Mirror
+      RcGraphicsLayerModifier.TILE_MODE_DECAL -> TileMode.Decal
+      else -> TileMode.Clamp
+    }
+  val ambientShadow = int(RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR)?.let(::Color)
+  val spotShadow = int(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR)?.let(::Color)
   return graphicsLayer {
-    scaleX = values.scaleX
-    scaleY = values.scaleY
-    rotationX = values.rotationX
-    rotationY = values.rotationY
-    rotationZ = values.rotationZ
-    transformOrigin = TransformOrigin(values.transformOriginX, values.transformOriginY)
-    translationX = values.translationX
-    translationY = values.translationY
+    this.scaleX = scaleX()
+    this.scaleY = scaleY()
+    this.rotationX = rotationX()
+    this.rotationY = rotationY()
+    this.rotationZ = rotationZ()
+    transformOrigin = TransformOrigin(transformOriginX(), transformOriginY())
+    this.translationX = translationX()
+    this.translationY = translationY()
     // A RenderNode's shadow sits at elevation + translationZ, which is what AndroidX's paint
-    // context
-    // sets; Compose has no translationZ, so the sum goes into shadowElevation.
-    shadowElevation = values.shadowElevation + extras.translationZ
-    alpha = values.alpha
-    cameraDistance = values.cameraDistance
-    shape = extras.shape
-    extras.ambientShadowColor?.let { ambientShadowColor = it }
-    extras.spotShadowColor?.let { spotShadowColor = it }
-    renderEffect = extras.renderEffect
+    // context sets; Compose has no translationZ, so the sum goes into shadowElevation.
+    this.shadowElevation = shadowElevation() + translationZ()
+    this.alpha = alpha()
+    this.cameraDistance = cameraDistance()
+    // The layer's outline. Compose uses it for the shadow; the layer is not clipped to it, since
+    // the document has no clip attribute and neither AndroidX player clips there.
+    shape =
+      when (shapeType) {
+        RcGraphicsLayerModifier.SHAPE_ROUND_RECT -> RoundedCornerShape(CornerSize(shapeRadius()))
+        RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
+        else -> RectangleShape
+      }
+    ambientShadow?.let { ambientShadowColor = it }
+    spotShadow?.let { spotShadowColor = it }
+    val radiusX = blurX()
+    val radiusY = blurY()
+    renderEffect =
+      if (radiusX > 0f || radiusY > 0f) BlurEffect(radiusX, radiusY, blurTileMode) else null
   }
 }
 
 /**
- * The graphics-layer attributes beyond the animated floats `RcGraphicsLayerValues` carries: shape,
- * translationZ, blur and shadow colours, applied as AndroidX's
- * `AndroidPaintContext.setGraphicsLayer` applies them. `COMPOSITING_STRATEGY` is accepted and
- * ignored, as both AndroidX players ignore it (a RenderNode layer composites like Compose's
- * `Auto`). Its floats ease like the others, through [animatables], one per attribute and held per
- * component.
+ * One graphics-layer float, as a reader for the [graphicsLayer] block.
+ *
+ * A variable the document or a host moves eases to its new value over AndroidX `AnimatableValue`'s
+ * 300ms standard curve — [DefaultRcAnimationSpec]'s motion, sampled through [rcMotionEasing] — and
+ * a change mid-tween eases on from wherever the value is. Two rules come with it, and they matter
+ * more than the curve does:
+ * * **No animation on first appearance.** The [Animatable] starts at the first value the variable
+ *   takes, the document's opening pose.
+ * * **A source the document keeps moving is followed, not chased.** A literal cannot change, and a
+ *   clock-driven or dragged value (see [RcPlayerState.isContinuouslyDriven]) moves every frame;
+ *   easing towards each new target in turn would draw it a third of a second behind itself, so both
+ *   are read straight through.
  */
-private class RcGraphicsLayerExtras(
-  val shape: Shape,
-  val translationZ: Float,
-  val renderEffect: BlurEffect?,
-  val ambientShadowColor: Color?,
-  val spotShadowColor: Color?,
-  val isAnimating: Boolean,
-) {
-  companion object {
-    fun of(
-      operation: RcGraphicsLayerModifier,
-      state: RcPlayerState,
-      animatables: MutableMap<Int, RcAnimatableFloat>,
-    ): RcGraphicsLayerExtras {
-      val attributes = operation.attributes.associateBy { it.index }
-      var animating = false
-      fun int(index: Int): Int? = (attributes[index] as? RcGraphicsLayerAttribute.IntValue)?.value
-      fun float(index: Int): Float {
-        val word = (attributes[index] as? RcGraphicsLayerAttribute.FloatValue)?.value ?: return 0f
-        val referencedId = word.referencedId
-        val animatable = animatables.getOrPut(index) { RcAnimatableFloat() }
-        val resolved =
-          animatable.evaluate(
-            target = state.resolve(word),
-            animatable = referencedId != null && !state.isContinuouslyDriven(referencedId),
-            nowSeconds = state.animationTimeSeconds,
-          )
-        if (animatable.isAnimating) animating = true
-        return resolved
-      }
-      val blurX = float(RcGraphicsLayerModifier.BLUR_RADIUS_X)
-      val blurY = float(RcGraphicsLayerModifier.BLUR_RADIUS_Y)
-      return RcGraphicsLayerExtras(
-        // The layer's outline. Compose uses it for the shadow; the layer is not clipped to it,
-        // since the document has no clip attribute and neither AndroidX player clips there.
-        shape =
-          when (int(RcGraphicsLayerModifier.SHAPE)) {
-            RcGraphicsLayerModifier.SHAPE_ROUND_RECT ->
-              RoundedCornerShape(CornerSize(float(RcGraphicsLayerModifier.SHAPE_RADIUS)))
-            RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
-            else -> RectangleShape
-          },
-        translationZ = float(RcGraphicsLayerModifier.TRANSLATION_Z),
-        renderEffect =
-          if (blurX > 0f || blurY > 0f) {
-            BlurEffect(
-              blurX,
-              blurY,
-              when (int(RcGraphicsLayerModifier.BLUR_TILE_MODE)) {
-                RcGraphicsLayerModifier.TILE_MODE_REPEATED -> TileMode.Repeated
-                RcGraphicsLayerModifier.TILE_MODE_MIRROR -> TileMode.Mirror
-                RcGraphicsLayerModifier.TILE_MODE_DECAL -> TileMode.Decal
-                else -> TileMode.Clamp
-              },
-            )
-          } else {
-            null
-          },
-        ambientShadowColor = int(RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR)?.let(::Color),
-        spotShadowColor = int(RcGraphicsLayerModifier.SPOT_SHADOW_COLOR)?.let(::Color),
-        isAnimating = animating,
-      )
+@Composable
+private fun rcLayerFloat(
+  attribute: RcGraphicsLayerAttribute?,
+  default: Float,
+  state: RcPlayerState,
+): () -> Float {
+  val word = (attribute as? RcGraphicsLayerAttribute.FloatValue)?.value ?: return { default }
+  val target = state.resolve(word)
+  val referencedId = word.referencedId
+  if (referencedId == null || state.isContinuouslyDriven(referencedId)) return { target }
+  val animatable = remember(state) { Animatable(target) }
+  LaunchedEffect(animatable, target) {
+    when {
+      // A value with nothing to ease from lands, as the first one does.
+      !target.isFinite() || !animatable.value.isFinite() -> animatable.snapTo(target)
+      animatable.targetValue != target -> animatable.animateTo(target, RcLayerTween)
     }
   }
+  return remember(animatable) { { animatable.value } }
 }
+
+/** AndroidX `AnimatableValue`'s tween: 300ms along `GeneralEasing.CUBIC_STANDARD`. */
+private val RcLayerTween: FiniteAnimationSpec<Float> =
+  tween(
+    durationMillis = DefaultRcAnimationSpec.rcMotionDurationMillis(),
+    easing = DefaultRcAnimationSpec.rcMotionEasing(),
+  )
 
 private fun Modifier.applyDimensionConstraint(
   operation: ee.schimke.composeai.rcplayer.protocol.RcOperation,
