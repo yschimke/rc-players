@@ -27,6 +27,6 @@ import ee.schimke.composeai.rcembedded.player.valueReflection
 
 @Composable
 internal fun Modifier.zIndex(op: ZIndexModifierOperation): Modifier {
-  val zIndexValue = rememberRemoteFloatAsState(op.valueReflection).value
-  return this.zIndex(zIndexValue)
+    val zIndexValue = rememberRemoteFloatAsState(op.valueReflection).value
+    return this.zIndex(zIndexValue)
 }

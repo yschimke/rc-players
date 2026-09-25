@@ -36,8 +36,8 @@ import android.util.Base64
  * `compose/ui/ui-text-google-fonts/src/androidTest/res/values/font_certs.xml` at the pinned commit,
  * with the XML's line-wrapping whitespace removed.
  *
- * Copied from `third_party/rc-embedded-player` (`GmsFontProviderCertificates.kt`), which carries
- * the provenance above, so the two players ask the same provider with the same certificates.
+ * Originally copied from `third_party/rc-embedded-player`, which carried the provenance above. That
+ * copy has since dropped its own certificates: like upstream, it takes them from its host.
  * Decoded with `android.util.Base64` here: this module's `minSdk` is 23 and `java.util.Base64`
  * needs 26.
  */

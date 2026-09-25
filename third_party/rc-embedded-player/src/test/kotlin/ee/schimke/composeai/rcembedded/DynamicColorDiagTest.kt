@@ -24,8 +24,8 @@ import androidx.compose.remote.core.VariableProvider
 import androidx.compose.remote.core.operations.layout.Container
 import androidx.compose.remote.core.operations.layout.LayoutComponent
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
 import ee.schimke.composeai.rcembedded.player.buildComputedOpIndex
-import ee.schimke.composeai.rcembedded.player.enableEncodedImageReferences
 import ee.schimke.composeai.rcembedded.player.getOperationsReflection
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -60,65 +60,69 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class DynamicColorDiagTest {
 
-  @Test
-  fun reportDynamicColourChain() {
-    val configuredDir =
-      System.getProperty("rc.embedded.input")?.let(::File)?.takeIf { it.isDirectory }
-    assumeTrue("no rc.embedded.input staged", configuredDir != null)
-    val dir = checkNotNull(configuredDir)
-    val manifest = File(dir, "manifest.json")
-    assumeTrue("no manifest.json staged", manifest.isFile)
-    val output = File(checkNotNull(System.getProperty("rc.dynamic-color.report")))
-    output.parentFile?.mkdirs()
+    @Test
+    fun reportDynamicColourChain() {
+        val configuredDir =
+            System.getProperty("rc.embedded.input")?.let(::File)?.takeIf { it.isDirectory }
+        assumeTrue("no rc.embedded.input staged", configuredDir != null)
+        val dir = checkNotNull(configuredDir)
+        val manifest = File(dir, "manifest.json")
+        assumeTrue("no manifest.json staged", manifest.isFile)
+        val output = File(checkNotNull(System.getProperty("rc.dynamic-color.report")))
+        output.parentFile?.mkdirs()
 
-    val entries = Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
+        val entries =
+            Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
 
-    val report = StringBuilder()
-    entries
-      .sortedBy { it.id }
-      .forEach { entry ->
-        val rc = File(dir, "${entry.id}.rc")
-        require(rc.isFile) { "manifest document has no staged input: ${entry.id}" }
-        enableEncodedImageReferences()
-        val document =
-          CoreDocument(RemoteClock.SYSTEM).apply {
-            ByteArrayInputStream(rc.readBytes()).use {
-              initFromBuffer(RemoteComposeBuffer.fromInputStream(it))
+        val report = StringBuilder()
+        entries
+            .sortedBy { it.id }
+            .forEach { entry ->
+                val rc = File(dir, "${entry.id}.rc")
+                require(rc.isFile) { "manifest document has no staged input: ${entry.id}" }
+                RemoteImageSupport.enableEncodedImageReferences()
+                val document =
+                    CoreDocument(RemoteClock.SYSTEM).apply {
+                        ByteArrayInputStream(rc.readBytes()).use {
+                            initFromBuffer(RemoteComposeBuffer.fromInputStream(it))
+                        }
+                    }
+                val index = buildComputedOpIndex(document.getOperationsReflection())
+
+                // Where every op of interest actually sits: top level, inside a container, or only
+                // reachable through a component's canvas operations.
+                val located = LinkedHashMap<String, MutableList<Pair<Int?, String>>>()
+                fun visit(ops: Collection<Operation>, path: String) {
+                    for (op in ops) {
+                        val name = op.javaClass.simpleName
+                        if (name.startsWith("Color")) {
+                            val id = (op as? VariableProvider)?.id
+                            located.getOrPut(name) { mutableListOf() }.add(id to path)
+                        }
+                        if (op is Container) visit(op.getList(), "$path/container")
+                        if (op is LayoutComponent) {
+                            op.getCanvasOperations()?.let { visit(listOf(it), "$path/canvasOps") }
+                        }
+                    }
+                }
+                visit(document.getOperationsReflection(), "root")
+
+                report.appendLine("=== ${entry.id}")
+                report.appendLine(
+                    "  computed-op index size = ${index.size}; ids = ${buildList { index.forEachKey { add(it) } }.sorted()}"
+                )
+                located.forEach { (name, operations) ->
+                    report.appendLine(
+                        "  $name -> " +
+                            operations.joinToString { (id, path) -> "id=${id ?: "none"}@$path" }
+                    )
+                }
+                report.appendLine(
+                    "  indexed op types = ${sortedSetOf<String>().also { types -> index.forEachValue { types.add(it.javaClass.simpleName) } }}"
+                )
             }
-          }
-        val index = buildComputedOpIndex(document.getOperationsReflection())
-
-        // Where every op of interest actually sits: top level, inside a container, or only
-        // reachable through a component's canvas operations.
-        val located = LinkedHashMap<String, MutableList<Pair<Int?, String>>>()
-        fun visit(ops: Collection<Operation>, path: String) {
-          for (op in ops) {
-            val name = op.javaClass.simpleName
-            if (name.startsWith("Color")) {
-              val id = (op as? VariableProvider)?.id
-              located.getOrPut(name) { mutableListOf() }.add(id to path)
-            }
-            if (op is Container) visit(op.getList(), "$path/container")
-            if (op is LayoutComponent) {
-              op.getCanvasOperations()?.let { visit(listOf(it), "$path/canvasOps") }
-            }
-          }
-        }
-        visit(document.getOperationsReflection(), "root")
-
-        report.appendLine("=== ${entry.id}")
-        report.appendLine("  computed-op index size = ${index.size}; ids = ${index.keys.sorted()}")
-        located.forEach { (name, operations) ->
-          report.appendLine(
-            "  $name -> " + operations.joinToString { (id, path) -> "id=${id ?: "none"}@$path" }
-          )
-        }
-        report.appendLine(
-          "  indexed op types = ${index.values.map { it.javaClass.simpleName }.toSortedSet()}"
-        )
-      }
-    // Written to a file rather than stdout: Gradle does not surface test stdout here, and the
-    // point of a diagnostic is that its output survives the harness.
-    output.writeText(report.toString())
-  }
+        // Written to a file rather than stdout: Gradle does not surface test stdout here, and the
+        // point of a diagnostic is that its output survives the harness.
+        output.writeText(report.toString())
+    }
 }

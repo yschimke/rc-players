@@ -16,22 +16,22 @@
 
 package ee.schimke.composeai.rcembedded
 
-import android.view.View
-import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.remote.player.core.RemoteDocument
-import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
-import ee.schimke.composeai.rcembedded.player.ExperimentalRemoteDocumentPlayer
-import ee.schimke.composeai.rcembedded.player.LocalRcPlayerInspector
+import ee.schimke.composeai.rcembedded.player.RcPlayer
 import ee.schimke.composeai.rcembedded.player.RcPlayerInspector
+import ee.schimke.composeai.rcembedded.player.RcPlayerState
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -45,99 +45,74 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * The inspection seam, exercised through a **composed** player.
  *
- * `RcPlayerInspector` is the player's zero-cost inspection hook (`a209d5ebe`): null by default, so
- * an ordinary player allocates nothing and pays no layout/draw overhead; installed through
- * `LocalRcPlayerInspector`, it records the Compose-native layout coordinates and exposes the
- * laid-out component tree and the document's state probes.
- *
- * It exists for the conformance harness: the corpus asserts a laid-out `tree` and a set of scalar
- * values, and a composed player is the only place those are real. This test proves the seam carries
- * that data in this tree — a real fixture, composed for real, with the tree read back out of the
- * inspector.
+ * The seam is upstream's [RcPlayerInspector]: with [isDebugInspectorInfoEnabled] on, the player
+ * attaches inspectable modifier elements, and [RcPlayerInspector.captureTreeSnapshot] reads the
+ * laid-out component tree back out of the Compose layout tree. With it off the player attaches
+ * nothing. A host that wants the player's actions passes its own `onAction` / `onNamedAction`.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcPlayerInspectorTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  private fun renderWithInspector(fixture: String): Pair<RcPlayerInspector, RemoteDocument> {
-    val bytes =
-      checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
-          "missing fixture /rc-fixtures/$fixture"
-        }
-        .use { it.readBytes() }
-
-    val inspector = RcPlayerInspector()
-    val remoteDocument = RemoteDocument(bytes)
-    composeRule.setContent {
-      val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
-      CompositionLocalProvider(
-        LocalDensity provides documentDensity,
-        LocalRcPlayerInspector provides inspector,
-      ) {
-        Box(
-          Modifier.size(
-            with(documentDensity) { WIDTH.toDp() },
-            with(documentDensity) { HEIGHT.toDp() },
-          )
-        ) {
-          ExperimentalRemoteDocumentPlayer(
-            document = remoteDocument,
-            modifier = Modifier.fillMaxSize(),
-          )
-        }
-      }
+    @After
+    fun disableInspectorInfo() {
+        isDebugInspectorInfoEnabled = false
     }
-    composeRule.waitForIdle()
 
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY),
-      View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, WIDTH, HEIGHT)
-    composeRule.waitForIdle()
-    return inspector to remoteDocument
-  }
-
-  @Test
-  fun theInspectorCapturesTheLaidOutTreeFromAComposedPlayer() {
-    val (inspector, remoteDocument) = renderWithInspector("ImageBackgroundRemoteButton-454x200.rc")
-
-    val tree =
-      inspector.captureTreeSnapshot(
-        document = remoteDocument.document,
-        remoteContext = AndroidRemoteContext(),
-      )
-
-    assertTrue("the inspector captured no tree at all", tree.isNotEmpty())
-    val root = tree.first()
-    assertTrue("root geometry is not laid out: $root", root.width > 0f && root.height > 0f)
-    assertEquals("root node should not be reported gone", false, root.isGone)
-    // Every node carries a real id, kind and visibility, which is what the corpus's tree assertion
-    // reads.
-    tree.forEach { node ->
-      assertTrue("node has no kind: $node", node.kind.isNotEmpty())
-      assertNotNull(node.visibility)
+    private fun render(fixture: String, inspect: Boolean): RcPlayerState {
+        val bytes =
+            checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
+                    "missing fixture /rc-fixtures/$fixture"
+                }
+                .use { it.readBytes() }
+        isDebugInspectorInfoEnabled = inspect
+        val state = RcPlayerState(RemoteDocument(bytes).document)
+        composeRule.setContent {
+            val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
+            CompositionLocalProvider(LocalDensity provides documentDensity) {
+                Box(
+                    Modifier.size(
+                        with(documentDensity) { WIDTH.toDp() },
+                        with(documentDensity) { HEIGHT.toDp() },
+                    )
+                ) {
+                    RcPlayer(state = state, modifier = Modifier.fillMaxSize())
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        return state
     }
-  }
 
-  @Test
-  fun anUninstalledInspectorIsNull() {
-    // The zero-cost claim: with no inspector provided, the local is null and no recording happens.
-    // Pinned because the design rests on it — an inspector threaded through every component would
-    // be a per-frame cost on documents that never inspect anything.
-    var seen: RcPlayerInspector? = null
-    composeRule.setContent { seen = LocalRcPlayerInspector.current }
-    composeRule.waitForIdle()
-    assertEquals(null, seen)
-  }
+    @Test
+    fun theInspectorCapturesTheLaidOutTreeFromAComposedPlayer() {
+        val state = render("ImageBackgroundRemoteButton-454x200.rc", inspect = true)
 
-  private companion object {
-    const val WIDTH = 454
-    const val HEIGHT = 200
-    const val DENSITY = 1f
-  }
+        val tree =
+            RcPlayerInspector.captureTreeSnapshot(
+                composeRule.onRoot(useUnmergedTree = true).fetchSemanticsNode(),
+                state,
+            )
+
+        assertTrue("the inspector captured no tree at all", tree.isNotEmpty())
+        val root = tree.first()
+        assertTrue("root geometry is not laid out: $root", root.width > 0f && root.height > 0f)
+        assertEquals("root node should not be reported gone", false, root.isGone)
+        // Every node carries a real id, kind and visibility, which is what the corpus's tree
+        // assertion
+        // reads.
+        tree.forEach { node ->
+            assertTrue("node has no kind: $node", node.kind.isNotEmpty())
+            assertNotNull(node.visibility)
+        }
+    }
+
+    private companion object {
+        const val WIDTH = 454
+        const val HEIGHT = 200
+        const val DENSITY = 1f
+    }
 }

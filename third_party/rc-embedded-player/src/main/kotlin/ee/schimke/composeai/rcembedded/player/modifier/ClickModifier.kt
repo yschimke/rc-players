@@ -24,6 +24,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.RemoteContext
+import androidx.compose.remote.core.operations.Theme
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.ClickModifierOperation
 import androidx.compose.remote.core.operations.layout.MultiClickModifier
@@ -55,105 +56,109 @@ import ee.schimke.composeai.rcembedded.player.valueReflection
 
 @Composable
 internal fun Modifier.click(op: ClickModifierOperation): Modifier {
-  val coreDocument = LocalCoreDocument.current
-  val remoteContext = LocalRemoteContext.current
-  val onAction = LocalRemoteActionHandler.current
-  val onNamedAction = LocalRemoteNamedActionHandler.current
-  val contentDescription = op.contentDescriptionId?.let { rememberRemoteStringAsState(it).value }
+    val coreDocument = LocalCoreDocument.current
+    val remoteContext = LocalRemoteContext.current
+    val onAction = LocalRemoteActionHandler.current
+    val onNamedAction = LocalRemoteNamedActionHandler.current
+    val contentDescription = op.contentDescriptionId?.let { rememberRemoteStringAsState(it).value }
 
-  return this.clickable(onClickLabel = contentDescription) {
-    op.mList.fastForEach {
-      applyClickAction(it, coreDocument, remoteContext, onAction, onNamedAction)
+    return this.clickable(onClickLabel = contentDescription) {
+        op.mList.fastForEach {
+            applyClickAction(it, coreDocument, remoteContext, onAction, onNamedAction)
+        }
+        coreDocument.updateVariablesReflection(
+            remoteContext,
+            Theme.SYSTEM,
+            coreDocument.getOperationsReflection(),
+        )
     }
-    coreDocument.updateVariablesReflection(
-      remoteContext,
-      androidx.compose.remote.core.operations.Theme.SYSTEM,
-      coreDocument.getOperationsReflection(),
-    )
-  }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun Modifier.multiClick(ops: List<MultiClickModifier>): Modifier {
-  val coreDocument = LocalCoreDocument.current
-  val remoteContext = LocalRemoteContext.current
-  val onAction = LocalRemoteActionHandler.current
-  val onNamedAction = LocalRemoteNamedActionHandler.current
+    val coreDocument = LocalCoreDocument.current
+    val remoteContext = LocalRemoteContext.current
+    val onAction = LocalRemoteActionHandler.current
+    val onNamedAction = LocalRemoteNamedActionHandler.current
 
-  val singleOps = ops.fastFilter { it.clickTypeReflection == MultiClickModifier.CLICK_TYPE_SINGLE }
-  val doubleOps = ops.fastFilter { it.clickTypeReflection == MultiClickModifier.CLICK_TYPE_DOUBLE }
-  val longOps = ops.fastFilter { it.clickTypeReflection == MultiClickModifier.CLICK_TYPE_LONG }
-
-  fun dispatchOps(targetOps: List<MultiClickModifier>) {
-    targetOps.fastForEach { modifierOp ->
-      modifierOp.mList.fastForEach { action ->
-        applyClickAction(action, coreDocument, remoteContext, onAction, onNamedAction)
-      }
+    val singleOps = ops.fastFilter {
+        it.clickTypeReflection == MultiClickModifier.CLICK_TYPE_SINGLE
     }
-    coreDocument.updateVariablesReflection(
-      remoteContext,
-      androidx.compose.remote.core.operations.Theme.SYSTEM,
-      coreDocument.getOperationsReflection(),
-    )
-  }
+    val doubleOps = ops.fastFilter {
+        it.clickTypeReflection == MultiClickModifier.CLICK_TYPE_DOUBLE
+    }
+    val longOps = ops.fastFilter { it.clickTypeReflection == MultiClickModifier.CLICK_TYPE_LONG }
 
-  return this.combinedClickable(
-    onClick = { dispatchOps(singleOps) },
-    onDoubleClick = if (doubleOps.isNotEmpty()) ({ dispatchOps(doubleOps) }) else null,
-    onLongClick = if (longOps.isNotEmpty()) ({ dispatchOps(longOps) }) else null,
-  )
+    fun dispatchOps(targetOps: List<MultiClickModifier>) {
+        targetOps.fastForEach { modifierOp ->
+            modifierOp.mList.fastForEach { action ->
+                applyClickAction(action, coreDocument, remoteContext, onAction, onNamedAction)
+            }
+        }
+        coreDocument.updateVariablesReflection(
+            remoteContext,
+            Theme.SYSTEM,
+            coreDocument.getOperationsReflection(),
+        )
+    }
+
+    return this.combinedClickable(
+        onClick = { dispatchOps(singleOps) },
+        onDoubleClick = if (doubleOps.isNotEmpty()) ({ dispatchOps(doubleOps) }) else null,
+        onLongClick = if (longOps.isNotEmpty()) ({ dispatchOps(longOps) }) else null,
+    )
 }
 
 private fun applyClickAction(
-  action: Operation,
-  coreDocument: CoreDocument,
-  remoteContext: RemoteContext,
-  onAction: (Int, String?) -> Unit,
-  onNamedAction: (String, Any?) -> Unit,
+    action: Operation,
+    coreDocument: CoreDocument,
+    remoteContext: RemoteContext,
+    onAction: (Int, String?) -> Unit,
+    onNamedAction: (String, Any?) -> Unit,
 ) {
-  when (action) {
-    is ValueIntegerChangeActionOperation ->
-      remoteContext.overrideInteger(action.targetValueIdReflection, action.valueReflection)
-    is ValueFloatChangeActionOperation ->
-      remoteContext.overrideFloat(action.targetValueIdReflection, action.valueReflection)
-    is ValueStringChangeActionOperation ->
-      remoteContext.overrideText(action.targetValueIdReflection, action.valueIdReflection)
-    is ValueIntegerExpressionChangeActionOperation -> {
-      val targetId = Utils.idFromLong(action.targetValueIdReflection).toInt()
-      val expressionId = Utils.idFromLong(action.valueExpressionIdReflection)
-      coreDocument.evaluateIntExpression(expressionId, targetId, remoteContext)
-    }
-    is ValueFloatExpressionChangeActionOperation -> {
-      val targetId = action.targetValueIdReflection
-      val expressionId = action.valueExpressionIdReflection
-      coreDocument.evaluateFloatExpression(expressionId, targetId, remoteContext)
-    }
-    // Host callback (id only; HostActionOperation carries no value).
-    is HostActionOperation -> onAction(action.actionId, null)
-    // Named host action (what the public hostAction(name, value) authors): resolve the name
-    // and the typed value, then notify the host.
-    is HostNamedActionOperation -> {
-      val data = action.readData()
-      val name = remoteContext.getText(data.textId) ?: ""
-      val valueId = data.valueId
-      val value: Any? =
-        if (valueId == -1) {
-          null
-        } else {
-          when (data.type) {
-            HostNamedActionOperation.FLOAT_TYPE -> remoteContext.getFloat(valueId)
-            HostNamedActionOperation.INT_TYPE -> remoteContext.getInteger(valueId)
-            HostNamedActionOperation.STRING_TYPE -> remoteContext.getText(valueId)
-            else -> null
-          }
+    when (action) {
+        is ValueIntegerChangeActionOperation ->
+            remoteContext.overrideInteger(action.targetValueIdReflection, action.valueReflection)
+        is ValueFloatChangeActionOperation ->
+            remoteContext.overrideFloat(action.targetValueIdReflection, action.valueReflection)
+        is ValueStringChangeActionOperation ->
+            remoteContext.overrideText(action.targetValueIdReflection, action.valueIdReflection)
+        is ValueIntegerExpressionChangeActionOperation -> {
+            val targetId = Utils.idFromLong(action.targetValueIdReflection).toInt()
+            val expressionId = Utils.idFromLong(action.valueExpressionIdReflection)
+            coreDocument.evaluateIntExpression(expressionId, targetId, remoteContext)
         }
-      onNamedAction(name, value)
+        is ValueFloatExpressionChangeActionOperation -> {
+            val targetId = action.targetValueIdReflection
+            val expressionId = action.valueExpressionIdReflection
+            coreDocument.evaluateFloatExpression(expressionId, targetId, remoteContext)
+        }
+        // Host callback (id only; HostActionOperation carries no value).
+        is HostActionOperation -> onAction(action.actionId, null)
+        // Named host action (what the public hostAction(name, value) authors): resolve the name
+        // and the typed value, then notify the host.
+        is HostNamedActionOperation -> {
+            val data = action.readData()
+            val name = remoteContext.getText(data.textId) ?: ""
+            val valueId = data.valueId
+            val value: Any? =
+                if (valueId == -1) {
+                    null
+                } else {
+                    when (data.type) {
+                        HostNamedActionOperation.FLOAT_TYPE -> remoteContext.getFloat(valueId)
+                        HostNamedActionOperation.INT_TYPE -> remoteContext.getInteger(valueId)
+                        HostNamedActionOperation.STRING_TYPE -> remoteContext.getText(valueId)
+                        else -> null
+                    }
+                }
+            onNamedAction(name, value)
+        }
+        // A container of nested actions — run each.
+        is RunActionOperation ->
+            action.getList().fastForEach {
+                applyClickAction(it, coreDocument, remoteContext, onAction, onNamedAction)
+            }
     }
-    // A container of nested actions — run each.
-    is RunActionOperation ->
-      action.getList().fastForEach {
-        applyClickAction(it, coreDocument, remoteContext, onAction, onNamedAction)
-      }
-  }
 }

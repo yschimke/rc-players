@@ -30,18 +30,18 @@ import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.padding(op: PaddingModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val behavior = LocalCoreDocument.current.densityBehavior
-  val (leftSource, topSource, rightSource, bottomSource) = paddingRawValues(op)
-  val left = rememberRemoteFloatAsState(leftSource).value
-  val top = rememberRemoteFloatAsState(topSource).value
-  val right = rememberRemoteFloatAsState(rightSource).value
-  val bottom = rememberRemoteFloatAsState(bottomSource).value
+    val density = LocalDensity.current.density
+    val behavior = LocalCoreDocument.current.densityBehavior
+    val (leftSource, topSource, rightSource, bottomSource) = paddingRawValues(op)
+    val left = rememberRemoteFloatAsState(leftSource).value
+    val top = rememberRemoteFloatAsState(topSource).value
+    val right = rememberRemoteFloatAsState(rightSource).value
+    val bottom = rememberRemoteFloatAsState(bottomSource).value
 
-  return this.padding(
-    start = rawDimensionDp(left, behavior, density),
-    top = rawDimensionDp(top, behavior, density),
-    end = rawDimensionDp(right, behavior, density),
-    bottom = rawDimensionDp(bottom, behavior, density),
-  )
+    return this.padding(
+        start = rawDimensionDp(left, behavior, density),
+        top = rawDimensionDp(top, behavior, density),
+        end = rawDimensionDp(right, behavior, density),
+        bottom = rawDimensionDp(bottom, behavior, density),
+    )
 }

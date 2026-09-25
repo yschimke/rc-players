@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.remote.core.CoreDocument
+import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionConstraintsModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.DimensionModifierOperation
 import androidx.compose.remote.core.operations.layout.modifiers.WidthInModifierOperation
@@ -42,84 +43,91 @@ import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.width(op: WidthModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  return when (op.type) {
-    DimensionModifierOperation.Type.EXACT,
-    DimensionModifierOperation.Type.EXACT_DP -> {
-      // Resolve the *raw* source value (`mValue`) rather than the core-resolved `getValue()`
-      // (`mOutValue`). For a variable-, time-, or animation-backed dimension, `mValue` is the
-      // NaN-encoded variable id, whereas `getValue()` has already been flattened to a plain
-      // float by the core's updateVariables and carries no id — feeding that to
-      // rememberRemoteFloatAsState yields a non-reactive snapshot that never tracks the
-      // source.
-      // Resolving the id routes through the reactive state graph (time bridge, component
-      // values, animatables, or the rememberRemoteExpression derivedStateOf tree) so dynamic
-      // sizes update like normal Compose. (`mValue` is package private in remote-core, which
-      // we
-      // leave unchanged, so read it reflectively — same approach as RcPlayerColumnLayout.)
-      val resolved = rememberRemoteFloatAsState(dimensionRawValue(op)).value
-      // EXACT stores px (getFloat resolves to px); EXACT_DP stores dp (the core multiplies by
-      // density into mOutValue, which we deliberately bypass by reading mValue).
-      val widthDp =
-        if (op.type == DimensionModifierOperation.Type.EXACT) resolved / density else resolved
-      this.width(widthDp.dp)
+    val density = LocalDensity.current.density
+    return when (op.type) {
+        DimensionModifierOperation.Type.EXACT,
+        DimensionModifierOperation.Type.EXACT_DP -> {
+            // Resolve the *raw* source value (`mValue`) rather than the core-resolved `getValue()`
+            // (`mOutValue`). For a variable-, time-, or animation-backed dimension, `mValue` is the
+            // NaN-encoded variable id, whereas `getValue()` has already been flattened to a plain
+            // float by the core's updateVariables and carries no id — feeding that to
+            // rememberRemoteFloatAsState yields a non-reactive snapshot that never tracks the
+            // source.
+            // Resolving the id routes through the reactive state graph (time bridge, component
+            // values, animatables, or the rememberRemoteExpression derivedStateOf tree) so dynamic
+            // sizes update like normal Compose. (`mValue` is package private in remote-core, which
+            // we
+            // leave unchanged, so read it reflectively — same approach as RcPlayerColumnLayout.)
+            val resolved = rememberRemoteFloatAsState(dimensionRawValue(op)).value
+            // EXACT stores px (getFloat resolves to px); EXACT_DP stores dp (the core multiplies by
+            // density into mOutValue, which we deliberately bypass by reading mValue).
+            val widthDp =
+                if (op.type == DimensionModifierOperation.Type.EXACT) resolved / density
+                else resolved
+            this.width(widthDp.dp)
+        }
+        DimensionModifierOperation.Type.FILL,
+        DimensionModifierOperation.Type.FILL_PARENT_MAX_WIDTH ->
+            this.fillMaxWidth(op.fillFraction())
+        DimensionModifierOperation.Type.WRAP -> this // Default
+        else -> this
     }
-    DimensionModifierOperation.Type.FILL,
-    DimensionModifierOperation.Type.FILL_PARENT_MAX_WIDTH -> this.fillMaxWidth(op.fillFraction())
-    DimensionModifierOperation.Type.WRAP -> this // Default
-    else -> this
-  }
 }
 
 @Composable
 internal fun Modifier.widthIn(op: WidthInModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val behavior = LocalCoreDocument.current.densityBehavior
-  val (minSource, maxSource) = dimensionInRawValues(op)
-  val widthMinDp =
-    rememberRemoteFloatAsState(minSource).value.constraintDimensionToDp(behavior, density)
-  val widthMaxDp =
-    rememberRemoteFloatAsState(maxSource).value.constraintDimensionToDp(behavior, density)
-  return this.widthIn(widthMinDp, widthMaxDp)
+    val density = LocalDensity.current.density
+    val behavior = LocalCoreDocument.current.densityBehavior
+    val (minDimension, maxDimension) = dimensionInRawValues(op)
+    val widthMinDp =
+        rememberRemoteFloatAsState(minDimension).value.constraintDimensionToDp(behavior, density)
+    val widthMaxDp =
+        rememberRemoteFloatAsState(maxDimension).value.constraintDimensionToDp(behavior, density)
+    return this.widthIn(widthMinDp, widthMaxDp)
 }
 
 internal fun Float.constraintDimensionToDp(behavior: Int, density: Float): Dp =
-  when {
-    this == -1f -> Dp.Unspecified
-    behavior == CoreDocument.DENSITY_BEHAVIOR_PIXELS -> (this / density).dp
-    else -> this.dp
-  }
+    if (this == -1f) {
+        Dp.Unspecified
+    } else if (behavior == CoreDocument.DENSITY_BEHAVIOR_PIXELS) {
+        (this / density).dp
+    } else {
+        this.dp
+    }
 
 /**
  * Maps a [DimensionConstraintsModifierOperation] (emitted by `widthIn`/`heightIn`) to a Compose
  * width/height-in constraint. Without this, such constraints were silently dropped (the dispatch
- * `when` only matched the [WidthInModifierOperation]/[HeightInModifierOperation] siblings). Min/max
- * follow the same dp convention as [widthIn]/[heightIn]; -1 means "unspecified".
+ * `when` only matched the
+ * [WidthInModifierOperation]/[androidx.compose.remote.core.operations.layout.modifiers.HeightInModifierOperation]
+ * siblings). Min/max follow the same dp convention as [widthIn]/[heightIn]; -1 means "unspecified".
  */
 @Composable
 internal fun Modifier.dimensionConstraints(op: DimensionConstraintsModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val behavior = LocalCoreDocument.current.densityBehavior
-  val (minSource, maxSource) = dimensionInRawValues(op)
-  val minDp = rememberRemoteFloatAsState(minSource).value.constraintDimensionToDp(behavior, density)
-  val maxDp = rememberRemoteFloatAsState(maxSource).value.constraintDimensionToDp(behavior, density)
-  return when (dimensionConstraintsType(op)) {
-    DimensionConstraintsModifierOperation.HORIZONTAL_CONSTRAINTS -> this.widthIn(minDp, maxDp)
-    DimensionConstraintsModifierOperation.REQUIRED_HORIZONTAL_CONSTRAINTS ->
-      this.requiredWidthIn(minDp, maxDp)
-    DimensionConstraintsModifierOperation.VERTICAL_CONSTRAINTS -> this.heightIn(minDp, maxDp)
-    DimensionConstraintsModifierOperation.REQUIRED_VERTICAL_CONSTRAINTS ->
-      this.requiredHeightIn(minDp, maxDp)
-    else -> this
-  }
+    val density = LocalDensity.current.density
+    val behavior = LocalCoreDocument.current.densityBehavior
+    val (minDimension, maxDimension) = dimensionInRawValues(op)
+    val minDp =
+        rememberRemoteFloatAsState(minDimension).value.constraintDimensionToDp(behavior, density)
+    val maxDp =
+        rememberRemoteFloatAsState(maxDimension).value.constraintDimensionToDp(behavior, density)
+    return when (dimensionConstraintsType(op)) {
+        DimensionConstraintsModifierOperation.HORIZONTAL_CONSTRAINTS -> this.widthIn(minDp, maxDp)
+        DimensionConstraintsModifierOperation.REQUIRED_HORIZONTAL_CONSTRAINTS ->
+            this.requiredWidthIn(minDp, maxDp)
+        DimensionConstraintsModifierOperation.VERTICAL_CONSTRAINTS -> this.heightIn(minDp, maxDp)
+        DimensionConstraintsModifierOperation.REQUIRED_VERTICAL_CONSTRAINTS ->
+            this.requiredHeightIn(minDp, maxDp)
+        else -> this
+    }
 }
 
 @Composable
 internal fun DimensionModifierOperation.fillFraction(): Float {
-  val source = dimensionRawValue(this)
-  return if (source.isNaN() && !androidx.compose.remote.core.operations.Utils.isVariable(source)) {
-    1f
-  } else {
-    rememberRemoteFloatAsState(source).value
-  }
+    val source = dimensionRawValue(this)
+    return if (source.isNaN() && !Utils.isVariable(source)) {
+        1f
+    } else {
+        rememberRemoteFloatAsState(source).value
+    }
 }

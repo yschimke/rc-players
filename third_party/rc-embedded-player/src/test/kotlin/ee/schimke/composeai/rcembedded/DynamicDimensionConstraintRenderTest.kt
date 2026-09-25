@@ -45,69 +45,69 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class DynamicDimensionConstraintRenderTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun edgeButtonKeepsContentConstrainedByComponentWidth() {
-    val bitmap = render("EdgeButtonDynamicWidth-384x112.rc")
+    @Test
+    fun edgeButtonKeepsContentConstrainedByComponentWidth() {
+        val bitmap = render("EdgeButtonDynamicWidth-384x112.rc")
 
-    val darkContentPixels =
-      (0 until bitmap.height).sumOf { y ->
-        (0 until bitmap.width).count { x ->
-          val pixel = bitmap.getPixel(x, y)
-          val alpha = pixel ushr 24
-          val red = (pixel ushr 16) and 0xff
-          val green = (pixel ushr 8) and 0xff
-          val blue = pixel and 0xff
-          alpha > 128 && maxOf(red, green, blue) < 100
-        }
-      }
+        val darkContentPixels =
+            (0 until bitmap.height).sumOf { y ->
+                (0 until bitmap.width).count { x ->
+                    val pixel = bitmap.getPixel(x, y)
+                    val alpha = pixel ushr 24
+                    val red = (pixel ushr 16) and 0xff
+                    val green = (pixel ushr 8) and 0xff
+                    val blue = pixel and 0xff
+                    alpha > 128 && maxOf(red, green, blue) < 100
+                }
+            }
 
-    assertTrue(
-      "the EdgeButton label disappeared because its expression-backed max width resolved to zero",
-      darkContentPixels > 100,
-    )
-  }
-
-  private fun render(fixture: String): Bitmap {
-    val bytes =
-      checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
-          "missing fixture /rc-fixtures/$fixture"
-        }
-        .use { it.readBytes() }
-
-    composeRule.setContent {
-      val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
-      CompositionLocalProvider(LocalDensity provides documentDensity) {
-        Box(
-          Modifier.size(
-            with(documentDensity) { WIDTH.toDp() },
-            with(documentDensity) { HEIGHT.toDp() },
-          )
-        ) {
-          ExperimentalRemoteDocumentPlayer(
-            document = RemoteDocument(bytes),
-            modifier = Modifier.fillMaxSize(),
-          )
-        }
-      }
+        assertTrue(
+            "the EdgeButton label disappeared because its expression-backed max width resolved to zero",
+            darkContentPixels > 100,
+        )
     }
-    composeRule.waitForIdle()
 
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, WIDTH, HEIGHT)
-    return Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also {
-      root.draw(Canvas(it))
+    private fun render(fixture: String): Bitmap {
+        val bytes =
+            checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
+                    "missing fixture /rc-fixtures/$fixture"
+                }
+                .use { it.readBytes() }
+
+        composeRule.setContent {
+            val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
+            CompositionLocalProvider(LocalDensity provides documentDensity) {
+                Box(
+                    Modifier.size(
+                        with(documentDensity) { WIDTH.toDp() },
+                        with(documentDensity) { HEIGHT.toDp() },
+                    )
+                ) {
+                    ExperimentalRemoteDocumentPlayer(
+                        document = RemoteDocument(bytes),
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        root.measure(
+            MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, WIDTH, HEIGHT)
+        return Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also {
+            root.draw(Canvas(it))
+        }
     }
-  }
 
-  private companion object {
-    const val WIDTH = 384
-    const val HEIGHT = 112
-    const val DENSITY = 2f
-  }
+    private companion object {
+        const val WIDTH = 384
+        const val HEIGHT = 112
+        const val DENSITY = 2f
+    }
 }

@@ -62,65 +62,67 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RcNamedActionDispatchTest {
-  @get:Rule val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule()
 
-  @Test
-  fun clickInvokesTheHostLambdaCarriedByTheCapturedDocument() = runBlocking {
-    val context = ApplicationProvider.getApplicationContext<Context>()
-    var clicks = 0
+    @Test
+    fun clickInvokesTheHostLambdaCarriedByTheCapturedDocument() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        var clicks = 0
 
-    val captured =
-      captureSingleRemoteDocument(
-        context = context,
-        content = {
-          val onClick = lambdaAction { clicks++ }
-          RemoteBox(modifier = RemoteModifier.size(120.rdp, 40.rdp).clickable(onClick))
-        },
-      )
+        val captured =
+            captureSingleRemoteDocument(
+                context = context,
+                content = {
+                    val onClick = lambdaAction { clicks++ }
+                    RemoteBox(modifier = RemoteModifier.size(120.rdp, 40.rdp).clickable(onClick))
+                },
+            )
 
-    // The lambda has to survive capture as a document-side id -> host-lambda entry; if it doesn't,
-    // the click below can't resolve to anything and the failure would look like a dispatch bug.
-    assert(captured.lambdas.isNotEmpty()) {
-      "Expected capture to record the host lambda, but CapturedDocument.lambdas was empty"
+        // The lambda has to survive capture as a document-side id -> host-lambda entry; if it
+        // doesn't,
+        // the click below can't resolve to anything and the failure would look like a dispatch bug.
+        assert(captured.lambdas.isNotEmpty()) {
+            "Expected capture to record the host lambda, but CapturedDocument.lambdas was empty"
+        }
+
+        rule.setContent {
+            Box(modifier = Modifier.size(200.dp)) { RcPlayer(capturedDocument = captured) }
+        }
+
+        rule.onNode(hasClickAction()).performClick()
+        rule.waitForIdle()
+
+        assert(clicks == 1) {
+            "Expected the captured host lambda to run exactly once, but ran $clicks times"
+        }
     }
 
-    rule.setContent {
-      Box(modifier = Modifier.size(200.dp)) { RcPlayer(capturedDocument = captured) }
+    @Test
+    fun statePlayerDispatchesTheCapturedHostLambdasItIsGiven() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        var clicks = 0
+        val captured =
+            captureSingleRemoteDocument(
+                context = context,
+                content = {
+                    val onClick = lambdaAction { clicks++ }
+                    RemoteBox(modifier = RemoteModifier.size(120.rdp, 40.rdp).clickable(onClick))
+                },
+            )
+        val playerState = RcPlayerState(captured)
+
+        // Upstream's state keeps only the document; the host hands its lambdas to the player.
+        rule.setContent {
+            Box(modifier = Modifier.size(200.dp)) {
+                RcPlayer(state = playerState, lambdas = captured.lambdas)
+            }
+        }
+
+        rule.onNode(hasClickAction()).performClick()
+        rule.waitForIdle()
+
+        assert(clicks == 1) {
+            "Expected the state player to invoke its captured host lambda exactly once, but ran $clicks times"
+        }
     }
-
-    rule.onNode(hasClickAction()).performClick()
-    rule.waitForIdle()
-
-    assert(clicks == 1) {
-      "Expected the captured host lambda to run exactly once, but ran $clicks times"
-    }
-  }
-
-  @Test
-  fun statePlayerPreservesAndDispatchesCapturedHostLambdas() = runBlocking {
-    val context = ApplicationProvider.getApplicationContext<Context>()
-    var clicks = 0
-    val captured =
-      captureSingleRemoteDocument(
-        context = context,
-        content = {
-          val onClick = lambdaAction { clicks++ }
-          RemoteBox(modifier = RemoteModifier.size(120.rdp, 40.rdp).clickable(onClick))
-        },
-      )
-    val playerState = RcPlayerState(captured)
-
-    assert(playerState.lambdas.isNotEmpty()) {
-      "Expected RcPlayerState to retain captured host lambdas"
-    }
-
-    rule.setContent { Box(modifier = Modifier.size(200.dp)) { RcPlayer(state = playerState) } }
-
-    rule.onNode(hasClickAction()).performClick()
-    rule.waitForIdle()
-
-    assert(clicks == 1) {
-      "Expected the state player to invoke its captured host lambda exactly once, but ran $clicks times"
-    }
-  }
 }

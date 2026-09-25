@@ -31,7 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcembedded.player.ExperimentalRemoteDocumentPlayer
-import ee.schimke.composeai.rcembedded.player.enableEncodedImageReferences
+import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -69,135 +69,139 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcDerivedColorRenderTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun aSecondaryLabelBuiltFromColorAttributesKeepsItsContrast() {
-    val bitmap = render("FilledVariantRemoteButton-454x200.rc")
+    @Test
+    fun aSecondaryLabelBuiltFromColorAttributesKeepsItsContrast() {
+        val bitmap = render("FilledVariantRemoteButton-454x200.rc")
 
-    // The band the secondary label occupies, inside the container and clear of the icon.
-    val samples =
-      (104 until 124).flatMap { y -> (120 until 300).map { x -> bitmap.getPixel(it@ x, y) } }
-    val container = samples.groupingBy { it }.eachCount().maxBy { it.value }.key
-    val label =
-      samples
-        .filter { it != container && it ushr 24 != 0 }
-        .groupingBy { it }
-        .eachCount()
-        .maxByOrNull { it.value }
-        ?.key
-    assertTrue("the secondary label drew nothing over its container", label != null)
+        // The band the secondary label occupies, inside the container and clear of the icon.
+        val samples =
+            (104 until 124).flatMap { y -> (120 until 300).map { x -> bitmap.getPixel(it@ x, y) } }
+        val container = samples.groupingBy { it }.eachCount().maxBy { it.value }.key
+        val label =
+            samples
+                .filter { it != container && it ushr 24 != 0 }
+                .groupingBy { it }
+                .eachCount()
+                .maxByOrNull { it.value }
+                ?.key
+        assertTrue("the secondary label drew nothing over its container", label != null)
 
-    val ratio = contrast(container, label!!)
-    // 2.07:1 was the defect; the View, JS and CMP players all resolve 5.95:1. Asserting the WCAG AA
-    // floor rather than the exact number keeps this about the defect and not about the theme.
-    assertTrue(
-      "secondary label resolved to ${hex(label)} on ${hex(container)} — ${"%.2f".format(ratio)}:1, " +
-        "which is the derived colour collapsing to black rather than the colour the document names",
-      ratio >= 4.5,
-    )
-  }
+        val ratio = contrast(container, label!!)
+        // 2.07:1 was the defect; the View, JS and CMP players all resolve 5.95:1. Asserting the
+        // WCAG AA
+        // floor rather than the exact number keeps this about the defect and not about the theme.
+        assertTrue(
+            "secondary label resolved to ${hex(label)} on ${hex(container)} — ${"%.2f".format(ratio)}:1, " +
+                "which is the derived colour collapsing to black rather than the colour the document names",
+            ratio >= 4.5,
+        )
+    }
 
-  @Test
-  fun aDisabledTextButtonDrawsItsLabel() {
-    val bitmap = render("DisabledRemoteTextButton-454x200.rc")
-    val ink =
-      (0 until bitmap.width).sumOf { x ->
-        (0 until bitmap.height).count { y -> bitmap.getPixel(x, y) ushr 24 != 0 }
-      }
-    // The defect was a byte-for-byte transparent capture, so any ink at all is the regression line;
-    // the View player draws ~915 pixels of it.
-    assertTrue("the disabled text button drew a fully transparent capture", ink > 100)
-  }
+    @Test
+    fun aDisabledTextButtonDrawsItsLabel() {
+        val bitmap = render("DisabledRemoteTextButton-454x200.rc")
+        val ink =
+            (0 until bitmap.width).sumOf { x ->
+                (0 until bitmap.height).count { y -> bitmap.getPixel(x, y) ushr 24 != 0 }
+            }
+        // The defect was a byte-for-byte transparent capture, so any ink at all is the regression
+        // line;
+        // the View player draws ~915 pixels of it.
+        assertTrue("the disabled text button drew a fully transparent capture", ink > 100)
+    }
 
-  @Test
-  fun aDisabledLabelBuiltFromTheCanvasStreamDrawsAtItsFullContentAlpha() {
-    val bitmap = render("DisabledRemoteButton-454x200.rc")
-    val maxAlpha =
-      (0 until bitmap.width).maxOf { x ->
-        (0 until bitmap.height).maxOf { y -> bitmap.getPixel(x, y) ushr 24 }
-      }
-    // 31 is the container's own 12% alpha and was all this drew: the label's colour is built in the
-    // layout tree from `ColorAttribute`s declared in the component's *canvas* stream, which the
-    // computed-op index never walked, so its channels resolved against a store nothing had written.
-    // The View player draws 116 here.
-    assertTrue(
-      "the disabled button peaked at alpha $maxAlpha — the container only, with its label built " +
-        "from canvas-stream channels that resolved to nothing",
-      maxAlpha > 100,
-    )
-  }
+    @Test
+    fun aDisabledLabelBuiltFromTheCanvasStreamDrawsAtItsFullContentAlpha() {
+        val bitmap = render("DisabledRemoteButton-454x200.rc")
+        val maxAlpha =
+            (0 until bitmap.width).maxOf { x ->
+                (0 until bitmap.height).maxOf { y -> bitmap.getPixel(x, y) ushr 24 }
+            }
+        // 31 is the container's own 12% alpha and was all this drew: the label's colour is built in
+        // the
+        // layout tree from `ColorAttribute`s declared in the component's *canvas* stream, which the
+        // computed-op index never walked, so its channels resolved against a store nothing had
+        // written.
+        // The View player draws 116 here.
+        assertTrue(
+            "the disabled button peaked at alpha $maxAlpha — the container only, with its label built " +
+                "from canvas-stream channels that resolved to nothing",
+            maxAlpha > 100,
+        )
+    }
 
-  @Test
-  fun aDisabledCheckboxButtonDrawsItsLabels() {
-    val bitmap = render("DisabledRemoteCheckboxButton-454x200.rc")
-    // The label band, clear of the container edges and of the checkbox on the trailing edge.
-    val labelInk =
-      (60 until 300).sumOf { x ->
-        (60 until 140).count { y -> (bitmap.getPixel(x, y) ushr 24) > 70 }
-      }
-    assertTrue(
-      "the disabled checkbox button drew its container and its box but no labels (ink=$labelInk)",
-      labelInk > 200,
-    )
-  }
+    @Test
+    fun aDisabledCheckboxButtonDrawsItsLabels() {
+        val bitmap = render("DisabledRemoteCheckboxButton-454x200.rc")
+        // The label band, clear of the container edges and of the checkbox on the trailing edge.
+        val labelInk =
+            (60 until 300).sumOf { x ->
+                (60 until 140).count { y -> (bitmap.getPixel(x, y) ushr 24) > 70 }
+            }
+        assertTrue(
+            "the disabled checkbox button drew its container and its box but no labels (ink=$labelInk)",
+            labelInk > 200,
+        )
+    }
 
-  private fun render(fixture: String): Bitmap {
-    val bytes =
-      checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
-          "missing fixture /rc-fixtures/$fixture"
+    private fun render(fixture: String): Bitmap {
+        val bytes =
+            checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
+                    "missing fixture /rc-fixtures/$fixture"
+                }
+                .use { it.readBytes() }
+
+        composeRule.setContent {
+            val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
+            CompositionLocalProvider(LocalDensity provides documentDensity) {
+                Box(
+                    Modifier.size(
+                        with(documentDensity) { WIDTH.toDp() },
+                        with(documentDensity) { HEIGHT.toDp() },
+                    )
+                ) {
+                    RemoteImageSupport.enableEncodedImageReferences()
+                    ExperimentalRemoteDocumentPlayer(
+                        document = RemoteDocument(bytes),
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
-        .use { it.readBytes() }
+        composeRule.waitForIdle()
 
-    composeRule.setContent {
-      val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
-      CompositionLocalProvider(LocalDensity provides documentDensity) {
-        Box(
-          Modifier.size(
-            with(documentDensity) { WIDTH.toDp() },
-            with(documentDensity) { HEIGHT.toDp() },
-          )
-        ) {
-          enableEncodedImageReferences()
-          ExperimentalRemoteDocumentPlayer(
-            document = RemoteDocument(bytes),
-            modifier = Modifier.fillMaxSize(),
-          )
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        root.measure(
+            MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, WIDTH, HEIGHT)
+        return Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also {
+            root.draw(Canvas(it))
         }
-      }
     }
-    composeRule.waitForIdle()
 
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, WIDTH, HEIGHT)
-    return Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also {
-      root.draw(Canvas(it))
+    private fun contrast(a: Int, b: Int): Double {
+        val la = relativeLuminance(a)
+        val lb = relativeLuminance(b)
+        return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
     }
-  }
 
-  private fun contrast(a: Int, b: Int): Double {
-    val la = relativeLuminance(a)
-    val lb = relativeLuminance(b)
-    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
-  }
-
-  private fun relativeLuminance(argb: Int): Double {
-    fun channel(shift: Int): Double {
-      val v = ((argb shr shift) and 0xff) / 255.0
-      return if (v <= 0.03928) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4)
+    private fun relativeLuminance(argb: Int): Double {
+        fun channel(shift: Int): Double {
+            val v = ((argb shr shift) and 0xff) / 255.0
+            return if (v <= 0.03928) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4)
+        }
+        return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
     }
-    return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
-  }
 
-  private fun hex(argb: Int): String = "#%08x".format(argb)
+    private fun hex(argb: Int): String = "#%08x".format(argb)
 
-  private companion object {
-    const val WIDTH = 454
-    const val HEIGHT = 200
-    const val DENSITY = 2f
-  }
+    private companion object {
+        const val WIDTH = 454
+        const val HEIGHT = 200
+        const val DENSITY = 2f
+    }
 }

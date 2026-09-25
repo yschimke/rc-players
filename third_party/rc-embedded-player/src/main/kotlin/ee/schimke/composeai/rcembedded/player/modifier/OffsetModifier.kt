@@ -30,14 +30,14 @@ import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 
 @Composable
 internal fun Modifier.offset(op: OffsetModifierOperation): Modifier {
-  val density = LocalDensity.current.density
-  val behavior = LocalCoreDocument.current.densityBehavior
-  val (xSource, ySource) = offsetRawValues(op)
-  val x = rememberRemoteFloatAsState(xSource).value
-  val y = rememberRemoteFloatAsState(ySource).value
+    val density = LocalDensity.current.density
+    val behavior = LocalCoreDocument.current.densityBehavior
+    val (xSource, ySource) = offsetRawValues(op)
+    val x = rememberRemoteFloatAsState(xSource).value
+    val y = rememberRemoteFloatAsState(ySource).value
 
-  return this.offset(
-    x = rawDimensionDp(x, behavior, density),
-    y = rawDimensionDp(y, behavior, density),
-  )
+    return this.offset(
+        x = rawDimensionDp(x, behavior, density),
+        y = rawDimensionDp(y, behavior, density),
+    )
 }

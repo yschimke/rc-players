@@ -117,294 +117,323 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcFigmaSvgExportTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun embeddedPlayerExportsVectorContent() {
-    val doc = document()
-    val lane =
-      export("embedded", doc) { bytes ->
-        ExperimentalRemoteDocumentPlayer(
-          document = remember { RemoteDocument(bytes) },
-          modifier = Modifier.fillMaxSize(),
-        )
-      }
-    report(doc, lane)
+    @Test
+    fun embeddedPlayerExportsVectorContent() {
+        val doc = document()
+        val lane =
+            export("embedded", doc) { bytes ->
+                ExperimentalRemoteDocumentPlayer(
+                    document = remember { RemoteDocument(bytes) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        report(doc, lane)
 
-    assert(lane.svg.isNotEmpty()) { "the embedded lane wrote no compose-figma.svg at all" }
-    assert(lane.texts > 0) {
-      "the embedded lane's SVG carries no <text> — the export got nothing vector out of the " +
-        "embedded player:\n${lane.head()}"
-    }
-    assert(lane.elements > lane.images + 1) {
-      "the embedded lane's SVG is essentially just raster crops (${lane.images} <image> of " +
-        "${lane.elements} elements):\n${lane.head()}"
-    }
-    // Issue #2937: text alone was never enough. The document's *drawn* content — the card's fill
-    // and
-    // shape — has to reach the SVG too, or the export is a cropped fragment that loses everything
-    // that isn't a string (a gradient sticker exported as invisible white text on transparent).
-    assert(lane.paths + lane.rects + lane.images > 0) {
-      "the embedded lane exported no drawn content at all (path=${lane.paths} rect=${lane.rects} " +
-        "image=${lane.images}) — the document's fills and shapes are missing:\n${lane.head()}"
-    }
-    // …and it must not have bought that back by collapsing to a raster: an isolated capture sits
-    // *under* the still-editable text, where a frame crop of the same node would have replaced it.
-    assert(lane.texts > 0 && lane.svg.indexOf("<image") < lane.svg.indexOf("<text")) {
-      "the drawn chrome must be exported beneath the editable text, not instead of it:\n" +
-        lane.head()
-    }
-    // The canvas has to cover what is drawn. It used to shrink-wrap to the text runs, cropping the
-    // card out of its own export and leaving a negative translate to compensate.
-    val (w, h) = lane.canvas()
-    assert(w >= doc.width) {
-      "the exported canvas is ${w}x$h — narrower than the ${doc.width}px document, so the drawn " +
-        "card is clipped out of its own SVG:\n${lane.head()}"
-    }
-  }
-
-  @Test
-  fun viewPlayerExportsOneFlatRaster() {
-    val doc = document()
-    val lane =
-      export("view", doc) { bytes ->
-        val document = remember { RemoteDocument(bytes) }
-        RemoteDocumentPlayer(
-          document = document.document,
-          documentWidth = doc.width,
-          documentHeight = doc.height,
-        )
-      }
-    report(doc, lane)
-
-    // Pinned tightly, because this lane is the *control*: the embedded lane's result is only
-    // meaningful relative to "one flat raster covering the whole document". A weaker assertion
-    // (merely `images > 0`) would keep passing if the control drifted into several crops, grew
-    // vector layers of its own, or started cropping its canvas — and the comparison would quietly
-    // stop meaning what it says.
-    assert(lane.svg.isNotEmpty()) { "the view lane wrote no compose-figma.svg at all" }
-    assert(lane.texts == 0) {
-      "the view lane surfaced ${lane.texts} <text> element(s) — the AndroidView bridge was " +
-        "expected to be opaque:\n${lane.head()}"
-    }
-    assert(lane.images == 1) {
-      "expected exactly one <image> from the opaque AndroidView, got ${lane.images} — the control " +
-        "is no longer a single flat raster:\n${lane.head()}"
-    }
-    assert(lane.paths == 0 && lane.rects == 0) {
-      "the view lane emitted drawn vector content (path=${lane.paths} rect=${lane.rects}); the " +
-        "raster crop was expected to be all of it:\n${lane.head()}"
-    }
-    val (w, h) = lane.canvas()
-    assert(w >= doc.width && h >= doc.height) {
-      "the view lane's canvas is ${w}x$h, smaller than the ${doc.width}x${doc.height} document — " +
-        "the control is expected to cover the whole frame, not shrink-wrap to its content"
-    }
-  }
-
-  /** One staged catalog document. */
-  private data class Doc(val id: String, val width: Int, val height: Int, val bytes: ByteArray)
-
-  /** What one lane's `compose-figma.svg` came out as. */
-  private data class Lane(
-    val name: String,
-    val svg: String,
-    val elements: Int,
-    val texts: Int,
-    val images: Int,
-    val paths: Int,
-    val rects: Int,
-    val groups: Int,
-    val layoutNodes: Int,
-    val semanticsTexts: Int,
-    val note: String,
-  ) {
-    fun head(): String = svg.take(1600)
-
-    /** The exported canvas, in px — how much of the document the export actually covers. */
-    fun canvas(): Pair<Int, Int> {
-      val w = Regex("""<svg[^>]*\bwidth="(\d+)"""").find(svg)?.groupValues?.get(1)?.toInt() ?: 0
-      val h = Regex("""<svg[^>]*\bheight="(\d+)"""").find(svg)?.groupValues?.get(1)?.toInt() ?: 0
-      return w to h
-    }
-  }
-
-  /**
-   * Composes [content] with the staged document's bytes, forces a real measure/layout/draw (the
-   * layout-inspector walk reflects over `LayoutNode.getZSortedChildren`, empty until a draw z-sorts
-   * them), then runs the production capture + hybrid figma-svg export and reads the SVG back.
-   *
-   * The frame PNG is drawn straight off the content view rather than through `captureToImage()`,
-   * which under Robolectric times out waiting for a draw pass that never runs — see
-   * [RobolectricCaptureToImageProbeTest] and the note on [RcEmbeddedRenderHarness]. The composition
-   * still settles with `waitForIdle()`, the manual frame pumping having gone with #2945.
-   */
-  private fun export(name: String, doc: Doc, content: @Composable (ByteArray) -> Unit): Lane {
-    val rootDir = Files.createTempDirectory("rc-figma-svg-$name").toFile()
-
-    val slotTables = mutableSetOf<CompositionData>()
-    var density = 1f
-    composeRule.setContent {
-      density = LocalDensity.current.density
-      InspectableContent(slotTables) {
-        Box(
-          Modifier.size(
-            with(LocalDensity.current) { doc.width.toDp() },
-            with(LocalDensity.current) { doc.height.toDp() },
-          )
-        ) {
-          content(doc.bytes)
+        assert(lane.svg.isNotEmpty()) { "the embedded lane wrote no compose-figma.svg at all" }
+        assert(lane.texts > 0) {
+            "the embedded lane's SVG carries no <text> — the export got nothing vector out of the " +
+                "embedded player:\n${lane.head()}"
         }
-      }
-    }
-    composeRule.waitForIdle()
-
-    val view = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    view.measure(
-      MeasureSpec.makeMeasureSpec(doc.width, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(doc.height, MeasureSpec.EXACTLY),
-    )
-    view.layout(0, 0, doc.width, doc.height)
-    val bitmap = Bitmap.createBitmap(doc.width, doc.height, Bitmap.Config.ARGB_8888)
-    view.draw(Canvas(bitmap))
-    val framePng = File(rootDir, "$name-frame.png")
-    framePng.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-
-    val semanticsRoot = composeRule.onRoot(useUnmergedTree = true).fetchSemanticsNode()
-    val semantics = ComposeSemanticsDataProducer.buildPayload(semanticsRoot, density = density)
-    val layout =
-      LayoutInspectorDataProducer.buildPayload(
-        root = semanticsRoot,
-        slotTables = slotTables.toList(),
-        density = density,
-      )
-
-    if (layout == null) {
-      return Lane(name, "", 0, 0, 0, 0, 0, 0, 0, countSemanticsTexts(semantics), "layout was null")
-    }
-
-    ComposeFigmaSvgDataProducer.writeSvg(
-      rootDir = rootDir,
-      previewId = name,
-      layout = layout,
-      semantics = semantics,
-      density = density,
-      frameImage = framePng,
-    )
-    val svg = File(rootDir, "$name/compose-figma.svg").takeIf { it.isFile }?.readText().orEmpty()
-    // Keep the whole export (SVG + its `figma-raster/` sidecars) beside the report when one is
-    // asked for: reading element counts tells you *that* a lane changed, opening the SVG tells you
-    // what it now looks like — which is the evidence a coverage claim like #2937's rests on.
-    System.getProperty(REPORT_PROPERTY)?.let { report ->
-      File(rootDir, name).copyRecursively(File("$report.$name.export"), overwrite = true)
-    }
-
-    return Lane(
-      name = name,
-      svg = svg,
-      elements = Regex("<[a-zA-Z]").findAll(svg).count(),
-      texts = Regex("<text[ >]").findAll(svg).count(),
-      images = Regex("<image[ >]").findAll(svg).count(),
-      paths = Regex("<path[ >]").findAll(svg).count(),
-      rects = Regex("<rect[ >]").findAll(svg).count(),
-      groups = Regex("<g[ >]").findAll(svg).count(),
-      layoutNodes = countLayoutNodes(layout),
-      semanticsTexts = countSemanticsTexts(semantics),
-      note = "density=$density slotTables=${slotTables.size}",
-    )
-  }
-
-  private fun report(doc: Doc, lane: Lane) {
-    val text = buildString {
-      appendLine("document: ${doc.id}  (${doc.width}x${doc.height})")
-      appendLine("lane: ${lane.name}  [${lane.note}]")
-      appendLine("layout-inspector nodes: ${lane.layoutNodes}")
-      appendLine("semantics text nodes: ${lane.semanticsTexts}")
-      appendLine(
-        "svg elements=${lane.elements} text=${lane.texts} image=${lane.images} " +
-          "path=${lane.paths} rect=${lane.rects} g=${lane.groups} bytes=${lane.svg.length}"
-      )
-      val (w, h) = lane.canvas()
-      appendLine("svg canvas: ${w}x$h  (document is ${doc.width}x${doc.height})")
-      appendLine("--- svg head ---")
-      appendLine(lane.head())
-    }
-    System.getProperty(REPORT_PROPERTY)?.let { File("$it.${lane.name}.svg-report").writeText(text) }
-    println(text)
-  }
-
-  private fun countLayoutNodes(payload: LayoutInspectorPayload?): Int {
-    fun walk(node: LayoutInspectorNode): Int = 1 + node.children.sumOf { walk(it) }
-    return payload?.let { walk(it.root) } ?: 0
-  }
-
-  private fun countSemanticsTexts(payload: ComposeSemanticsPayload?): Int {
-    fun walk(node: ComposeSemanticsNode): Int =
-      (if (node.text != null || node.layoutText != null) 1 else 0) +
-        node.children.sumOf { walk(it) }
-    return payload?.let { walk(it.root) } ?: 0
-  }
-
-  /**
-   * The document to export, preferring a staged catalog and otherwise falling back to the committed
-   * fixture — so this **always runs**, including on a plain `check` in CI.
-   *
-   * The sibling render harnesses legitimately skip without `rc.embedded.input`: they rasterize the
-   * whole catalog for the `rc-compare` page, which is inherently a bulk operation over artefacts
-   * too large to commit. This test isn't that. It pins one qualitative property of the export, one
-   * document is enough to pin it, and a document is 1 KB — so skipping without a staged catalog
-   * would mean the regression coverage silently never runs, which is the same as not having it.
-   *
-   * `rc.embedded.input` still wins when set, so the same assertions can be swept across a whole
-   * catalog locally without touching the fixture.
-   */
-  private fun document(): Doc = stagedDocument() ?: fixtureDocument()
-
-  private fun stagedDocument(): Doc? {
-    val dir =
-      System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory } ?: return null
-    val manifest = File(dir, "manifest.json").takeIf { it.isFile } ?: return null
-    val entries = Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
-    // Prefer a text-heavy card: text is the discriminator the export claim turns on.
-    val pick =
-      entries.firstOrNull { it.id.contains("TitleCardRemote") }
-        ?: entries.firstOrNull { it.id.contains("Text") }
-        ?: entries.firstOrNull()
-        ?: return null
-    val rc = File(dir, "${pick.id}.rc").takeIf { it.isFile } ?: return null
-    return Doc(pick.id, pick.width, pick.height, rc.readBytes())
-  }
-
-  /**
-   * `TitleCardRemote` as the `remote-m3` catalog bakes it — the same document a staged run picks,
-   * captured from `design-artifacts/remote-m3` and committed at 1 KB. Its size is in the filename
-   * because a `.rc` carries its own layout but not the frame it was captured for, and the export
-   * needs the frame to compare the canvas against.
-   */
-  private fun fixtureDocument(): Doc {
-    val bytes =
-      checkNotNull(javaClass.getResourceAsStream("/$FIXTURE")) {
-          "missing committed fixture $FIXTURE — this test must never silently skip"
+        assert(lane.elements > lane.images + 1) {
+            "the embedded lane's SVG is essentially just raster crops (${lane.images} <image> of " +
+                "${lane.elements} elements):\n${lane.head()}"
         }
-        .use { it.readBytes() }
-    return Doc(FIXTURE.substringAfterLast('/'), 640, 480, bytes)
-  }
+        // Issue #2937: text alone was never enough. The document's *drawn* content — the card's
+        // fill
+        // and
+        // shape — has to reach the SVG too, or the export is a cropped fragment that loses
+        // everything
+        // that isn't a string (a gradient sticker exported as invisible white text on transparent).
+        assert(lane.paths + lane.rects + lane.images > 0) {
+            "the embedded lane exported no drawn content at all (path=${lane.paths} rect=${lane.rects} " +
+                "image=${lane.images}) — the document's fills and shapes are missing:\n${lane.head()}"
+        }
+        // …and it must not have bought that back by collapsing to a raster: an isolated capture
+        // sits
+        // *under* the still-editable text, where a frame crop of the same node would have replaced
+        // it.
+        assert(lane.texts > 0 && lane.svg.indexOf("<image") < lane.svg.indexOf("<text")) {
+            "the drawn chrome must be exported beneath the editable text, not instead of it:\n" +
+                lane.head()
+        }
+        // The canvas has to cover what is drawn. It used to shrink-wrap to the text runs, cropping
+        // the
+        // card out of its own export and leaving a negative translate to compensate.
+        val (w, h) = lane.canvas()
+        assert(w >= doc.width) {
+            "the exported canvas is ${w}x$h — narrower than the ${doc.width}px document, so the drawn " +
+                "card is clipped out of its own SVG:\n${lane.head()}"
+        }
+    }
 
-  private companion object {
-    const val INPUT_PROPERTY = "rc.embedded.input"
-    const val REPORT_PROPERTY = "rc.semantics.report"
-    const val FIXTURE = "rc-fixtures/TitleCardRemote-640x480.rc"
-  }
+    @Test
+    fun viewPlayerExportsOneFlatRaster() {
+        val doc = document()
+        val lane =
+            export("view", doc) { bytes ->
+                val document = remember { RemoteDocument(bytes) }
+                RemoteDocumentPlayer(
+                    document = document.document,
+                    documentWidth = doc.width,
+                    documentHeight = doc.height,
+                )
+            }
+        report(doc, lane)
+
+        // Pinned tightly, because this lane is the *control*: the embedded lane's result is only
+        // meaningful relative to "one flat raster covering the whole document". A weaker assertion
+        // (merely `images > 0`) would keep passing if the control drifted into several crops, grew
+        // vector layers of its own, or started cropping its canvas — and the comparison would
+        // quietly
+        // stop meaning what it says.
+        assert(lane.svg.isNotEmpty()) { "the view lane wrote no compose-figma.svg at all" }
+        assert(lane.texts == 0) {
+            "the view lane surfaced ${lane.texts} <text> element(s) — the AndroidView bridge was " +
+                "expected to be opaque:\n${lane.head()}"
+        }
+        assert(lane.images == 1) {
+            "expected exactly one <image> from the opaque AndroidView, got ${lane.images} — the control " +
+                "is no longer a single flat raster:\n${lane.head()}"
+        }
+        assert(lane.paths == 0 && lane.rects == 0) {
+            "the view lane emitted drawn vector content (path=${lane.paths} rect=${lane.rects}); the " +
+                "raster crop was expected to be all of it:\n${lane.head()}"
+        }
+        val (w, h) = lane.canvas()
+        assert(w >= doc.width && h >= doc.height) {
+            "the view lane's canvas is ${w}x$h, smaller than the ${doc.width}x${doc.height} document — " +
+                "the control is expected to cover the whole frame, not shrink-wrap to its content"
+        }
+    }
+
+    /** One staged catalog document. */
+    private data class Doc(val id: String, val width: Int, val height: Int, val bytes: ByteArray)
+
+    /** What one lane's `compose-figma.svg` came out as. */
+    private data class Lane(
+        val name: String,
+        val svg: String,
+        val elements: Int,
+        val texts: Int,
+        val images: Int,
+        val paths: Int,
+        val rects: Int,
+        val groups: Int,
+        val layoutNodes: Int,
+        val semanticsTexts: Int,
+        val note: String,
+    ) {
+        fun head(): String = svg.take(1600)
+
+        /** The exported canvas, in px — how much of the document the export actually covers. */
+        fun canvas(): Pair<Int, Int> {
+            val w =
+                Regex("""<svg[^>]*\bwidth="(\d+)"""").find(svg)?.groupValues?.get(1)?.toInt() ?: 0
+            val h =
+                Regex("""<svg[^>]*\bheight="(\d+)"""").find(svg)?.groupValues?.get(1)?.toInt() ?: 0
+            return w to h
+        }
+    }
+
+    /**
+     * Composes [content] with the staged document's bytes, forces a real measure/layout/draw (the
+     * layout-inspector walk reflects over `LayoutNode.getZSortedChildren`, empty until a draw
+     * z-sorts them), then runs the production capture + hybrid figma-svg export and reads the SVG
+     * back.
+     *
+     * The frame PNG is drawn straight off the content view rather than through `captureToImage()`,
+     * which under Robolectric times out waiting for a draw pass that never runs — see
+     * [RobolectricCaptureToImageProbeTest] and the note on [RcEmbeddedRenderHarness]. The
+     * composition still settles with `waitForIdle()`, the manual frame pumping having gone
+     * with #2945.
+     */
+    private fun export(name: String, doc: Doc, content: @Composable (ByteArray) -> Unit): Lane {
+        val rootDir = Files.createTempDirectory("rc-figma-svg-$name").toFile()
+
+        val slotTables = mutableSetOf<CompositionData>()
+        var density = 1f
+        composeRule.setContent {
+            density = LocalDensity.current.density
+            InspectableContent(slotTables) {
+                Box(
+                    Modifier.size(
+                        with(LocalDensity.current) { doc.width.toDp() },
+                        with(LocalDensity.current) { doc.height.toDp() },
+                    )
+                ) {
+                    content(doc.bytes)
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        val view = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        view.measure(
+            MeasureSpec.makeMeasureSpec(doc.width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(doc.height, MeasureSpec.EXACTLY),
+        )
+        view.layout(0, 0, doc.width, doc.height)
+        val bitmap = Bitmap.createBitmap(doc.width, doc.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        val framePng = File(rootDir, "$name-frame.png")
+        framePng.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+        val semanticsRoot = composeRule.onRoot(useUnmergedTree = true).fetchSemanticsNode()
+        val semantics = ComposeSemanticsDataProducer.buildPayload(semanticsRoot, density = density)
+        val layout =
+            LayoutInspectorDataProducer.buildPayload(
+                root = semanticsRoot,
+                slotTables = slotTables.toList(),
+                density = density,
+            )
+
+        if (layout == null) {
+            return Lane(
+                name,
+                "",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                countSemanticsTexts(semantics),
+                "layout was null",
+            )
+        }
+
+        ComposeFigmaSvgDataProducer.writeSvg(
+            rootDir = rootDir,
+            previewId = name,
+            layout = layout,
+            semantics = semantics,
+            density = density,
+            frameImage = framePng,
+        )
+        val svg =
+            File(rootDir, "$name/compose-figma.svg").takeIf { it.isFile }?.readText().orEmpty()
+        // Keep the whole export (SVG + its `figma-raster/` sidecars) beside the report when one is
+        // asked for: reading element counts tells you *that* a lane changed, opening the SVG tells
+        // you
+        // what it now looks like — which is the evidence a coverage claim like #2937's rests on.
+        System.getProperty(REPORT_PROPERTY)?.let { report ->
+            File(rootDir, name).copyRecursively(File("$report.$name.export"), overwrite = true)
+        }
+
+        return Lane(
+            name = name,
+            svg = svg,
+            elements = Regex("<[a-zA-Z]").findAll(svg).count(),
+            texts = Regex("<text[ >]").findAll(svg).count(),
+            images = Regex("<image[ >]").findAll(svg).count(),
+            paths = Regex("<path[ >]").findAll(svg).count(),
+            rects = Regex("<rect[ >]").findAll(svg).count(),
+            groups = Regex("<g[ >]").findAll(svg).count(),
+            layoutNodes = countLayoutNodes(layout),
+            semanticsTexts = countSemanticsTexts(semantics),
+            note = "density=$density slotTables=${slotTables.size}",
+        )
+    }
+
+    private fun report(doc: Doc, lane: Lane) {
+        val text = buildString {
+            appendLine("document: ${doc.id}  (${doc.width}x${doc.height})")
+            appendLine("lane: ${lane.name}  [${lane.note}]")
+            appendLine("layout-inspector nodes: ${lane.layoutNodes}")
+            appendLine("semantics text nodes: ${lane.semanticsTexts}")
+            appendLine(
+                "svg elements=${lane.elements} text=${lane.texts} image=${lane.images} " +
+                    "path=${lane.paths} rect=${lane.rects} g=${lane.groups} bytes=${lane.svg.length}"
+            )
+            val (w, h) = lane.canvas()
+            appendLine("svg canvas: ${w}x$h  (document is ${doc.width}x${doc.height})")
+            appendLine("--- svg head ---")
+            appendLine(lane.head())
+        }
+        System.getProperty(REPORT_PROPERTY)?.let {
+            File("$it.${lane.name}.svg-report").writeText(text)
+        }
+        println(text)
+    }
+
+    private fun countLayoutNodes(payload: LayoutInspectorPayload?): Int {
+        fun walk(node: LayoutInspectorNode): Int = 1 + node.children.sumOf { walk(it) }
+        return payload?.let { walk(it.root) } ?: 0
+    }
+
+    private fun countSemanticsTexts(payload: ComposeSemanticsPayload?): Int {
+        fun walk(node: ComposeSemanticsNode): Int =
+            (if (node.text != null || node.layoutText != null) 1 else 0) +
+                node.children.sumOf { walk(it) }
+        return payload?.let { walk(it.root) } ?: 0
+    }
+
+    /**
+     * The document to export, preferring a staged catalog and otherwise falling back to the
+     * committed fixture — so this **always runs**, including on a plain `check` in CI.
+     *
+     * The sibling render harnesses legitimately skip without `rc.embedded.input`: they rasterize
+     * the whole catalog for the `rc-compare` page, which is inherently a bulk operation over
+     * artefacts too large to commit. This test isn't that. It pins one qualitative property of the
+     * export, one document is enough to pin it, and a document is 1 KB — so skipping without a
+     * staged catalog would mean the regression coverage silently never runs, which is the same as
+     * not having it.
+     *
+     * `rc.embedded.input` still wins when set, so the same assertions can be swept across a whole
+     * catalog locally without touching the fixture.
+     */
+    private fun document(): Doc = stagedDocument() ?: fixtureDocument()
+
+    private fun stagedDocument(): Doc? {
+        val dir =
+            System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
+                ?: return null
+        val manifest = File(dir, "manifest.json").takeIf { it.isFile } ?: return null
+        val entries =
+            Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
+        // Prefer a text-heavy card: text is the discriminator the export claim turns on.
+        val pick =
+            entries.firstOrNull { it.id.contains("TitleCardRemote") }
+                ?: entries.firstOrNull { it.id.contains("Text") }
+                ?: entries.firstOrNull()
+                ?: return null
+        val rc = File(dir, "${pick.id}.rc").takeIf { it.isFile } ?: return null
+        return Doc(pick.id, pick.width, pick.height, rc.readBytes())
+    }
+
+    /**
+     * `TitleCardRemote` as the `remote-m3` catalog bakes it — the same document a staged run picks,
+     * captured from `design-artifacts/remote-m3` and committed at 1 KB. Its size is in the filename
+     * because a `.rc` carries its own layout but not the frame it was captured for, and the export
+     * needs the frame to compare the canvas against.
+     */
+    private fun fixtureDocument(): Doc {
+        val bytes =
+            checkNotNull(javaClass.getResourceAsStream("/$FIXTURE")) {
+                    "missing committed fixture $FIXTURE — this test must never silently skip"
+                }
+                .use { it.readBytes() }
+        return Doc(FIXTURE.substringAfterLast('/'), 640, 480, bytes)
+    }
+
+    private companion object {
+        const val INPUT_PROPERTY = "rc.embedded.input"
+        const val REPORT_PROPERTY = "rc.semantics.report"
+        const val FIXTURE = "rc-fixtures/TitleCardRemote-640x480.rc"
+    }
 }
 
 /** Captures the composition's slot tables so the layout tree keeps its composable names. */
 @OptIn(InternalComposeApi::class)
 @Composable
 private fun InspectableContent(
-  capture: MutableSet<CompositionData>,
-  content: @Composable () -> Unit,
+    capture: MutableSet<CompositionData>,
+    content: @Composable () -> Unit,
 ) {
-  currentComposer.collectParameterInformation()
-  capture.add(currentComposer.compositionData)
-  CompositionLocalProvider(LocalInspectionTables provides capture, content = content)
+    currentComposer.collectParameterInformation()
+    capture.add(currentComposer.compositionData)
+    CompositionLocalProvider(LocalInspectionTables provides capture, content = content)
 }

@@ -16,28 +16,52 @@
 
 package ee.schimke.composeai.rcembedded.player
 
-import android.annotation.SuppressLint
 import android.content.Context
+import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.CoreDocument
+import androidx.compose.remote.core.operations.ColorTheme
 
 /**
- * Resolves the indexed `android` `ColorTheme` group against framework resources — the embedded
- * player's equivalent of `ThemeSupport.AndroidColorEngine` in `remote-player-view`.
+ * Resolves Android system color resources for [ColorTheme] operations.
  *
- * Resolved by *name* rather than through `android.R.color.<name>`: the table spans resources
- * introduced across API 31–34, so a name lookup degrades to "not found" on a device that predates
- * one instead of tying this module to the compileSdk that first declared it.
+ * In remote-core documents, Android theme colors are stored as indexed tokens referencing framework
+ * color resources. This resolver maps the 196 standard [android.R.color] resources into the
+ * document's [ColorTheme] operations to match the View player's theme resolution.
  */
-@SuppressLint("DiscouragedApi")
-internal fun resolveAndroidThemeColors(context: Context, document: CoreDocument) {
-  val resources = context.resources
-  resolveThemedColors(document) { name ->
-    when (val id = resources.getIdentifier(name, "color", "android")) {
-      0 -> null
-      // `getColor(id, null)`: these are plain colour resources, not theme attributes, so there is
-      // no theme to resolve against — and supplying one would let the *device's* night mode pick
-      // between them, which is the choice the document's own light/dark indices exist to make.
-      else -> runCatching { resources.getColor(id, null) }.getOrNull()
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+internal object AndroidColorThemeResolver {
+    fun mapColors(context: Context, document: CoreDocument) {
+        val themedColors = document.themedColors ?: return
+        mapColors(context, themedColors)
     }
-  }
+
+    fun mapColors(context: Context, themedColors: List<ColorTheme>) {
+        for (i in themedColors.indices) {
+            val theme = themedColors[i]
+            // Skip non-Android color groups (or null group names) to match View player's
+            // mColorEngineMap lookup.
+            if (theme.mColorGroupName != "android") {
+                continue
+            }
+            val darkIndex = theme.mDarkModeIndex.toInt()
+            if (AndroidSystemColorMap.isValidIndex(darkIndex)) {
+                try {
+                    theme.mDarkMode =
+                        context.getColor(AndroidSystemColorMap.getResourceId(darkIndex))
+                } catch (_: Exception) {
+                    // Fall back to authored color
+                }
+            }
+            val lightIndex = theme.mLightModeIndex.toInt()
+            if (AndroidSystemColorMap.isValidIndex(lightIndex)) {
+                try {
+                    theme.mLightMode =
+                        context.getColor(AndroidSystemColorMap.getResourceId(lightIndex))
+                } catch (_: Exception) {
+                    // Fall back to authored color
+                }
+            }
+            theme.markDirty()
+        }
+    }
 }

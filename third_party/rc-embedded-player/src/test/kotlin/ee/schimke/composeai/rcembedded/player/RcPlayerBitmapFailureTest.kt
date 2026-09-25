@@ -19,12 +19,12 @@
 package ee.schimke.composeai.rcembedded.player
 
 import androidx.compose.remote.core.CoreDocument
-import androidx.compose.remote.core.Operation
-import androidx.compose.remote.core.RemoteContext
-import androidx.compose.remote.core.WireBuffer
+import androidx.compose.remote.core.RemoteClock
 import androidx.compose.remote.core.operations.BitmapData
-import androidx.compose.remote.core.operations.layout.Container
+import androidx.compose.remote.core.operations.layout.managers.BoxLayout
 import androidx.compose.remote.player.core.platform.AndroidRemoteContext
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,64 +35,60 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class RcPlayerBitmapFailureTest {
 
-  @Test
-  fun relativeUriLeavesBitmapSlotEmpty() {
-    val context = AndroidRemoteContext()
-    val state = SnapshotRemoteComposeState()
-    context.mRemoteComposeState = state
-    context.putObject(
-      IMAGE_ID,
-      BitmapData(
-        IMAGE_ID,
-        BitmapData.TYPE_PNG,
-        64,
-        BitmapData.ENCODING_URL,
-        64,
-        "camera/current".toByteArray(),
-      ),
-    )
+    @Test
+    fun relativeUriLeavesBitmapSlotEmpty() {
+        val context = AndroidRemoteContext()
+        val state = SnapshotRemoteComposeState()
+        context.mRemoteComposeState = state
+        context.putObject(
+            IMAGE_ID,
+            BitmapData(
+                IMAGE_ID,
+                BitmapData.TYPE_PNG,
+                64,
+                BitmapData.ENCODING_URL,
+                64,
+                "camera/current".toByteArray(),
+            ),
+        )
 
-    assertNull(resolveBitmap(context, IMAGE_ID))
-    // The failed decode is memoized, so another frame remains empty without retrying or throwing.
-    assertNull(resolveBitmap(context, IMAGE_ID))
-  }
+        assertNull(resolveBitmap(context, IMAGE_ID))
+        // The failed decode is memoized, so another frame remains empty without retrying or
+        // throwing.
+        assertNull(resolveBitmap(context, IMAGE_ID))
+    }
 
-  @Test
-  fun nestedRelativeUriIsSkippedDuringSetupTraversal() {
-    val context = AndroidRemoteContext()
-    val state = SnapshotRemoteComposeState()
-    context.mRemoteComposeState = state
-    val bitmap = relativeUriBitmap()
-    context.putObject(IMAGE_ID, bitmap)
-    val operations = arrayListOf<Operation>(TestContainer(arrayListOf(bitmap)))
+    /** Upstream's `RcPlayerBitmapFailureTest`, over the same relative URI as above. */
+    @Test
+    fun nestedRelativeUriIsSkippedDuringSetupTraversal() {
+        val document = CoreDocument(RemoteClock.SYSTEM)
+        val context = AndroidRemoteContext(RemoteClock.SYSTEM)
+        val bitmap = relativeUriBitmap()
+        val boxLayout = BoxLayout(null, 1, 0, 0f, 0f, 100f, 100f, BoxLayout.START, BoxLayout.TOP)
+        boxLayout.getList().add(bitmap)
+        document.getOperationsReflection().add(boxLayout)
 
-    CoreDocument().applyOperationsWithoutBitmaps(context, operations)
+        document.initializeContext(context, null)
+        document.applyDataOperationsWithoutBitmaps(context)
 
-    assertNull("setup must not decode the nested bitmap", state.getFromId(IMAGE_ID))
-  }
+        assertFalse(
+            "setup must not decode the nested bitmap",
+            context.mRemoteComposeState.containsId(IMAGE_ID),
+        )
+        assertEquals(bitmap, context.getObject(IMAGE_ID))
+    }
 
-  private fun relativeUriBitmap(): BitmapData =
-    BitmapData(
-      IMAGE_ID,
-      BitmapData.TYPE_PNG,
-      64,
-      BitmapData.ENCODING_URL,
-      64,
-      "camera/current".toByteArray(),
-    )
+    private fun relativeUriBitmap(): BitmapData =
+        BitmapData(
+            IMAGE_ID,
+            BitmapData.TYPE_PNG,
+            64,
+            BitmapData.ENCODING_URL,
+            64,
+            "camera/current".toByteArray(),
+        )
 
-  private class TestContainer(private val operations: ArrayList<Operation>) :
-    Operation(), Container {
-    override fun getList(): ArrayList<Operation> = operations
-
-    override fun write(buffer: WireBuffer) = Unit
-
-    override fun apply(context: RemoteContext) = Unit
-
-    override fun deepToString(indent: String): String = "${indent}TestContainer"
-  }
-
-  private companion object {
-    const val IMAGE_ID = 42
-  }
+    private companion object {
+        const val IMAGE_ID = 42
+    }
 }

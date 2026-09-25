@@ -41,62 +41,69 @@ import org.junit.Test
  */
 class GraphContextPaintOperationTest {
 
-  @Test
-  fun aColourAttributeResolvesItsChannel() {
-    val graph = graphOver(ColorAttribute(CHANNEL_ID, SOURCE_ID, ColorAttribute.COLOR_RED))
+    @Test
+    fun aColourAttributeResolvesItsChannel() {
+        val graph = graphOver(ColorAttribute(CHANNEL_ID, SOURCE_ID, ColorAttribute.COLOR_RED))
 
-    assertEquals(0x3f / 255f, graph.getFloat(CHANNEL_ID), TOLERANCE)
-  }
-
-  @Test
-  fun everyChannelReadsOffTheSourceColour() {
-    // One assertion per channel because the op switches on the type, and a fix that reached only
-    // the channel a fixture happens to use would look like a fix.
-    val channels =
-      listOf(
-        ColorAttribute.COLOR_ALPHA to 0xff / 255f,
-        ColorAttribute.COLOR_RED to 0x3f / 255f,
-        ColorAttribute.COLOR_GREEN to 0x51 / 255f,
-        ColorAttribute.COLOR_BLUE to 0xb5 / 255f,
-      )
-    for ((type, expected) in channels) {
-      val graph = graphOver(ColorAttribute(CHANNEL_ID, SOURCE_ID, type))
-      assertEquals("channel $type", expected, graph.getFloat(CHANNEL_ID), TOLERANCE)
+        assertEquals(0x3f / 255f, graph.getFloat(CHANNEL_ID), TOLERANCE)
     }
-  }
 
-  /**
-   * Evaluating through the paint channel must stay a *read*: the graph captures the op's write as
-   * the value of a `derivedStateOf`, and a write that reached the shared store instead would be a
-   * snapshot mutation during a snapshot read — and would let one op's evaluation clobber another's
-   * value.
-   */
-  @Test
-  fun evaluatingThroughPaintDoesNotWriteToTheStore() {
-    val state = SnapshotRemoteComposeState().apply { updateColor(SOURCE_ID, SOURCE_COLOR) }
-    val graph = graphOver(ColorAttribute(CHANNEL_ID, SOURCE_ID, ColorAttribute.COLOR_RED), state)
+    @Test
+    fun everyChannelReadsOffTheSourceColour() {
+        // One assertion per channel because the op switches on the type, and a fix that reached
+        // only
+        // the channel a fixture happens to use would look like a fix.
+        val channels =
+            listOf(
+                ColorAttribute.COLOR_ALPHA to 0xff / 255f,
+                ColorAttribute.COLOR_RED to 0x3f / 255f,
+                ColorAttribute.COLOR_GREEN to 0x51 / 255f,
+                ColorAttribute.COLOR_BLUE to 0xb5 / 255f,
+            )
+        for ((type, expected) in channels) {
+            val graph = graphOver(ColorAttribute(CHANNEL_ID, SOURCE_ID, type))
+            assertEquals("channel $type", expected, graph.getFloat(CHANNEL_ID), TOLERANCE)
+        }
+    }
 
-    assertEquals(0x3f / 255f, graph.getFloat(CHANNEL_ID), TOLERANCE)
-    assertEquals("store was written during evaluation", 0f, state.getFloat(CHANNEL_ID), TOLERANCE)
-  }
+    /**
+     * Evaluating through the paint channel must stay a *read*: the graph captures the op's write as
+     * the value of a `derivedStateOf`, and a write that reached the shared store instead would be a
+     * snapshot mutation during a snapshot read — and would let one op's evaluation clobber
+     * another's value.
+     */
+    @Test
+    fun evaluatingThroughPaintDoesNotWriteToTheStore() {
+        val state = SnapshotRemoteComposeState().apply { updateColor(SOURCE_ID, SOURCE_COLOR) }
+        val graph =
+            graphOver(ColorAttribute(CHANNEL_ID, SOURCE_ID, ColorAttribute.COLOR_RED), state)
 
-  private fun graphOver(
-    attribute: ColorAttribute,
-    state: SnapshotRemoteComposeState =
-      SnapshotRemoteComposeState().apply { updateColor(SOURCE_ID, SOURCE_COLOR) },
-  ): GraphContext =
-    GraphContext(
-      state,
-      buildComputedOpIndex(listOf(attribute)),
-      mutableFloatStateOf(0f),
-      RemoteClock.SYSTEM,
-    )
+        assertEquals(0x3f / 255f, graph.getFloat(CHANNEL_ID), TOLERANCE)
+        assertEquals(
+            "store was written during evaluation",
+            0f,
+            state.getFloat(CHANNEL_ID),
+            TOLERANCE,
+        )
+    }
 
-  private companion object {
-    /** Distinct in every channel, so a channel read off the wrong byte cannot pass. */
-    const val SOURCE_COLOR = 0xff3f51b5.toInt()
-    const val SOURCE_ID = 42
-    const val CHANNEL_ID = 43
-    const val TOLERANCE = 1e-4f
-  }
+    private fun graphOver(
+        attribute: ColorAttribute,
+        state: SnapshotRemoteComposeState =
+            SnapshotRemoteComposeState().apply { updateColor(SOURCE_ID, SOURCE_COLOR) },
+    ): GraphContext =
+        GraphContext(
+            state,
+            buildComputedOpIndex(listOf(attribute)),
+            mutableFloatStateOf(0f),
+            RemoteClock.SYSTEM,
+        )
+
+    private companion object {
+        /** Distinct in every channel, so a channel read off the wrong byte cannot pass. */
+        const val SOURCE_COLOR = 0xff3f51b5.toInt()
+        const val SOURCE_ID = 42
+        const val CHANNEL_ID = 43
+        const val TOLERANCE = 1e-4f
+    }
 }
