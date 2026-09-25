@@ -108,11 +108,29 @@ private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: 
     }
   }
 
-  private fun sizeSpec(): FiniteAnimationSpec<IntSize> =
-    tween(spec.rcMotionDurationMillis(), easing = spec.rcMotionEasing())
+  // Built once per spec rather than on every measure and placement of every animating node.
+  private var cachedFor: RcAnimationSpec? = null
+  private var cachedSize: FiniteAnimationSpec<IntSize>? = null
+  private var cachedOffset: FiniteAnimationSpec<IntOffset>? = null
 
-  private fun offsetSpec(): FiniteAnimationSpec<IntOffset> =
-    tween(spec.rcMotionDurationMillis(), easing = spec.rcMotionEasing())
+  private fun ensureSpecs() {
+    if (cachedFor == spec) return
+    val duration = spec.rcMotionDurationMillis()
+    val easing = spec.rcMotionEasing()
+    cachedSize = tween(duration, easing = easing)
+    cachedOffset = tween(duration, easing = easing)
+    cachedFor = spec
+  }
+
+  private fun sizeSpec(): FiniteAnimationSpec<IntSize> {
+    ensureSpecs()
+    return cachedSize!!
+  }
+
+  private fun offsetSpec(): FiniteAnimationSpec<IntOffset> {
+    ensureSpecs()
+    return cachedOffset!!
+  }
 }
 
 /** The spec's motion duration in whole milliseconds, or 0 when it is unset or not a finite time. */

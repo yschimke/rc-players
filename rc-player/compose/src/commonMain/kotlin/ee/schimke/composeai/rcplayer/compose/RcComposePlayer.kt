@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
@@ -78,7 +80,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.PathMeasure
@@ -158,6 +159,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
@@ -712,8 +714,18 @@ private fun RcComposePlayerResolved(
     } else {
       tree(null)
     }
-  } else
-    Canvas(redrawModifier) {
+  } else {
+    // A host that sizes nothing gets the document's own size, as the View player's wrap-content
+    // does. A 0x0 scope draws its colours (nothing clips them) but no brush: a `ShaderBrush` makes
+    // no shader for an empty size, so every gradient and runtime shader would vanish.
+    val documentSize =
+      with(androidx.compose.ui.platform.LocalDensity.current) {
+        DpSize(
+          document.header.width.coerceAtLeast(0).toDp(),
+          document.header.height.coerceAtLeast(0).toDp(),
+        )
+      }
+    Canvas(redrawModifier.defaultMinSize(documentSize.width, documentSize.height)) {
       val width = document.header.width.coerceAtLeast(1)
       val height = document.header.height.coerceAtLeast(1)
       val rootTransform =
@@ -745,6 +757,7 @@ private fun RcComposePlayerResolved(
         }
       }
     }
+  }
 }
 
 @Composable
@@ -2387,7 +2400,7 @@ private fun Modifier.applyComponentModifiers(
             next++
           }
           operationIndex = next - 1
-          result.rcPaddingPixels(left = left, top = top, right = right, bottom = bottom)
+          result.rcPaddingPixels(left = left, top = top, right = right, bottom = bottom, density)
         }
         is RcOffsetModifier ->
           result.offset {
@@ -2430,7 +2443,12 @@ private fun Modifier.applyComponentModifiers(
   if (modifiers.clicks.any { it.type != RcClickActionType.CLICK }) {
     result = result.applyAndroidXMultiClick(modifiers.clicks, state)
   } else if (modifiers.clicks.isNotEmpty()) {
-    result = result.clickable { modifiers.clicks.forEach(state::executeClick) }
+    // No indication: AndroidX draws no press feedback unless the document asks for a ripple, and
+    // Compose's default indication would wash the component on press, hover and focus.
+    result =
+      result.clickable(interactionSource = null, indication = null) {
+        modifiers.clicks.forEach(state::executeClick)
+      }
   }
   if (modifiers.touchActions.isNotEmpty()) {
     result = result.applyAndroidXTouchActions(modifiers, state)
@@ -2447,25 +2465,33 @@ private fun Modifier.applyComponentModifiers(
 }
 
 /**
+ * Compose's `padding`, fed whole-pixel edges.
+ *
  * AndroidX keeps padding in physical pixels until measure, then rounds the combined inset on each
  * axis. Compose's Dp padding rounds each edge independently, which adds a pixel whenever both wire
- * edges end in .5 (for example 31.5px + 31.5px must occupy 63px, not 64px).
+ * edges end in .5 (for example 31.5px + 31.5px must occupy 63px, not 64px). So the start edge is
+ * rounded on its own and the end edge takes the rest of the rounded total. Whole pixels survive the
+ * Dp round trip exactly, and the combined inset matches AndroidX.
  */
 private fun Modifier.rcPaddingPixels(
   left: Float,
   top: Float,
   right: Float,
   bottom: Float,
-): Modifier = layout { measurable, constraints ->
-  val safeLeft = left.coerceAtLeast(0f)
-  val safeTop = top.coerceAtLeast(0f)
-  val horizontal = rcCombinedPaddingPixels(left, right)
-  val vertical = rcCombinedPaddingPixels(top, bottom)
-  val placeable =
-    measurable.measure(constraints.offset(horizontal = -horizontal, vertical = -vertical))
-  val width = constraints.constrainWidth(placeable.width + horizontal)
-  val height = constraints.constrainHeight(placeable.height + vertical)
-  layout(width, height) { placeable.placeRelative(safeLeft.roundToInt(), safeTop.roundToInt()) }
+  density: Density,
+): Modifier {
+  val start = left.coerceAtLeast(0f).roundToInt()
+  val topEdge = top.coerceAtLeast(0f).roundToInt()
+  val end = rcCombinedPaddingPixels(left, right) - start
+  val bottomEdge = rcCombinedPaddingPixels(top, bottom) - topEdge
+  return with(density) {
+    this@rcPaddingPixels.padding(
+      start = start.toDp(),
+      top = topEdge.toDp(),
+      end = end.toDp(),
+      bottom = bottomEdge.toDp(),
+    )
+  }
 }
 
 internal fun rcCombinedPaddingPixels(first: Float, second: Float): Int =
@@ -4035,7 +4061,6 @@ private class RcPaintState(
   var brush: Brush? = null
   var baseShader: Shader? = null
   var runtimeShaderOwner: Any? = null
-  var runtimeShader: Shader? = null
   var colorFilter: ColorFilter? = null
   /** How bitmaps are sampled when scaled — `FILTER_BITMAP` / `IMAGE_FILTER_QUALITY`. */
   var filterQuality: FilterQuality = FilterQuality.Low
@@ -4053,18 +4078,6 @@ private class RcPaintState(
 
   fun style() =
     if (stroke) Stroke(width = strokeWidth, cap = strokeCap, join = strokeJoin) else Fill
-
-  fun runtimeShaderPaint(shader: Shader): Paint =
-    Paint().also { target ->
-      target.shader = shader
-      target.alpha = alpha
-      target.blendMode = blendMode
-      target.colorFilter = colorFilter
-      target.style = if (stroke) PaintingStyle.Stroke else PaintingStyle.Fill
-      target.strokeWidth = strokeWidth
-      target.strokeCap = strokeCap
-      target.strokeJoin = strokeJoin
-    }
 }
 
 private class RcFloatFunctionRuntime {
@@ -4832,13 +4845,44 @@ private fun DrawScope.drawTextOperation(
         layoutDirection = if (operation.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
       )
     }
-  drawText(
-    textMeasurer = textMeasurer,
-    text = text,
-    topLeft = Offset(state.resolve(operation.x), state.resolve(operation.y) - layout.firstBaseline),
-    style = style,
-    blendMode = paint.blendMode,
+  drawRcTextLayout(
+    layout,
+    Offset(state.resolve(operation.x), state.resolve(operation.y) - layout.firstBaseline),
+    paint,
   )
+}
+
+/**
+ * Draws an already-measured text layout with the paint's brush or colour, alpha, stroke and blend
+ * mode, as AndroidX's `Canvas.drawText` takes them all from its `Paint`.
+ *
+ * Drawing the measured [layout] rather than handing the text back to `drawText(textMeasurer, …)`
+ * saves a second layout per text per frame.
+ */
+private fun DrawScope.drawRcTextLayout(
+  layout: TextLayoutResult,
+  topLeft: Offset,
+  paint: RcPaintState,
+) {
+  val brush = paint.brush
+  if (brush != null) {
+    drawText(
+      layout,
+      brush = brush,
+      topLeft = topLeft,
+      alpha = paint.alpha,
+      drawStyle = paint.style(),
+      blendMode = paint.blendMode,
+    )
+  } else {
+    drawText(
+      layout,
+      color = paint.composeColor(),
+      topLeft = topLeft,
+      drawStyle = paint.style(),
+      blendMode = paint.blendMode,
+    )
+  }
 }
 
 internal data class RcAnchoredTextPosition(val x: Float, val baselineY: Float)
@@ -4898,13 +4942,7 @@ private fun DrawScope.drawTextAnchored(
       bottom,
       operation.flags and RcDrawTextAnchored.BASELINE_RELATIVE != 0,
     )
-  drawText(
-    textMeasurer = textMeasurer,
-    text = text,
-    topLeft = Offset(position.x, position.baselineY - layout.firstBaseline),
-    style = style,
-    blendMode = paint.blendMode,
-  )
+  drawRcTextLayout(layout, Offset(position.x, position.baselineY - layout.firstBaseline), paint)
   paint.observer?.let { observer ->
     val origin = toDevice(Offset(position.x, position.baselineY))
     observer.onTextRun(RcTextRun(text, unicodeScalars(text).size, origin.x, origin.y))
@@ -5416,11 +5454,6 @@ private fun DrawScope.drawIdOperation(
 }
 
 private fun DrawScope.drawRcPath(path: Path, paint: RcPaintState) {
-  val runtimeShader = paint.runtimeShader
-  if (runtimeShader != null) {
-    drawContext.canvas.drawPath(path, paint.runtimeShaderPaint(runtimeShader))
-    return
-  }
   val brush = paint.brush
   if (brush == null) {
     drawPath(
@@ -5532,11 +5565,6 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
     RcOpcodes.DRAW_RECT -> {
       val topLeft = Offset(a, b)
       val size = Size(c - a, d - b)
-      val runtimeShader = paint.runtimeShader
-      if (runtimeShader != null) {
-        drawContext.canvas.drawRect(a, b, c, d, paint.runtimeShaderPaint(runtimeShader))
-        return
-      }
       val brush = paint.brush
       if (brush == null) {
         drawRect(
@@ -5560,61 +5588,51 @@ private fun DrawScope.draw4(operation: RcDraw4, paint: RcPaintState, state: RcPl
       }
     }
     RcOpcodes.DRAW_OVAL -> {
-      val shader = paint.runtimeShader
-      if (shader != null) {
-        drawContext.canvas.drawOval(a, b, c, d, paint.runtimeShaderPaint(shader))
+      val brush = paint.brush
+      if (brush == null) {
+        drawOval(
+          paint.composeColor(),
+          Offset(a, b),
+          Size(c - a, d - b),
+          style = paint.style(),
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       } else {
-        val brush = paint.brush
-        if (brush == null) {
-          drawOval(
-            paint.composeColor(),
-            Offset(a, b),
-            Size(c - a, d - b),
-            style = paint.style(),
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        } else {
-          drawOval(
-            brush,
-            Offset(a, b),
-            Size(c - a, d - b),
-            alpha = paint.alpha,
-            style = paint.style(),
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        }
+        drawOval(
+          brush,
+          Offset(a, b),
+          Size(c - a, d - b),
+          alpha = paint.alpha,
+          style = paint.style(),
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       }
     }
     RcOpcodes.DRAW_LINE -> {
-      val shader = paint.runtimeShader
-      if (shader != null) {
-        drawContext.canvas.drawLine(Offset(a, b), Offset(c, d), paint.runtimeShaderPaint(shader))
+      val brush = paint.brush
+      if (brush == null) {
+        drawLine(
+          paint.composeColor(),
+          Offset(a, b),
+          Offset(c, d),
+          strokeWidth = paint.strokeWidth,
+          cap = paint.strokeCap,
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       } else {
-        val brush = paint.brush
-        if (brush == null) {
-          drawLine(
-            paint.composeColor(),
-            Offset(a, b),
-            Offset(c, d),
-            strokeWidth = paint.strokeWidth,
-            cap = paint.strokeCap,
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        } else {
-          drawLine(
-            brush,
-            Offset(a, b),
-            Offset(c, d),
-            strokeWidth = paint.strokeWidth,
-            cap = paint.strokeCap,
-            alpha = paint.alpha,
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        }
+        drawLine(
+          brush,
+          Offset(a, b),
+          Offset(c, d),
+          strokeWidth = paint.strokeWidth,
+          cap = paint.strokeCap,
+          alpha = paint.alpha,
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       }
     }
     RcOpcodes.CLIP_RECT -> drawContext.canvas.clipRect(a, b, c, d)
@@ -5628,33 +5646,28 @@ private fun DrawScope.draw3(operation: RcDraw3, paint: RcPaintState, state: RcPl
   val c = state.resolve(operation.third)
   when (operation.opcode) {
     RcOpcodes.DRAW_CIRCLE -> {
-      val shader = paint.runtimeShader
-      if (shader != null) {
-        drawContext.canvas.drawCircle(Offset(a, b), c, paint.runtimeShaderPaint(shader))
+      // A gradient set on the paint shades a circle as it does a rect: drawing the flat colour
+      // instead painted `canvas_shader_gradient`'s sweep-gradient disc solid black.
+      val brush = paint.brush
+      if (brush == null) {
+        drawCircle(
+          paint.composeColor(),
+          c,
+          Offset(a, b),
+          style = paint.style(),
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       } else {
-        // A gradient set on the paint shades a circle as it does a rect: drawing the flat colour
-        // instead painted `canvas_shader_gradient`'s sweep-gradient disc solid black.
-        val brush = paint.brush
-        if (brush == null) {
-          drawCircle(
-            paint.composeColor(),
-            c,
-            Offset(a, b),
-            style = paint.style(),
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        } else {
-          drawCircle(
-            brush,
-            c,
-            Offset(a, b),
-            alpha = paint.alpha,
-            style = paint.style(),
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        }
+        drawCircle(
+          brush,
+          c,
+          Offset(a, b),
+          alpha = paint.alpha,
+          style = paint.style(),
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       }
     }
     RcOpcodes.MATRIX_ROTATE -> drawContext.transform.rotate(a, rcMatrixPivot(b, c))
@@ -5677,11 +5690,6 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
       val topLeft = Offset(a, b)
       val size = Size(c - a, d - b)
       val cornerRadius = CornerRadius(e, f)
-      val runtimeShader = paint.runtimeShader
-      if (runtimeShader != null) {
-        drawContext.canvas.drawRoundRect(a, b, c, d, e, f, paint.runtimeShaderPaint(runtimeShader))
-        return
-      }
       val brush = paint.brush
       if (brush == null) {
         drawRoundRect(
@@ -5709,37 +5717,32 @@ private fun DrawScope.draw6(operation: RcDraw6, paint: RcPaintState, state: RcPl
     RcOpcodes.DRAW_ARC,
     RcOpcodes.DRAW_SECTOR -> {
       val useCenter = operation.opcode == RcOpcodes.DRAW_SECTOR
-      val shader = paint.runtimeShader
-      if (shader != null) {
-        drawContext.canvas.drawArc(a, b, c, d, e, f, useCenter, paint.runtimeShaderPaint(shader))
+      val brush = paint.brush
+      if (brush == null) {
+        drawArc(
+          paint.composeColor(),
+          e,
+          f,
+          useCenter = useCenter,
+          topLeft = Offset(a, b),
+          size = Size(c - a, d - b),
+          style = paint.style(),
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       } else {
-        val brush = paint.brush
-        if (brush == null) {
-          drawArc(
-            paint.composeColor(),
-            e,
-            f,
-            useCenter = useCenter,
-            topLeft = Offset(a, b),
-            size = Size(c - a, d - b),
-            style = paint.style(),
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        } else {
-          drawArc(
-            brush,
-            e,
-            f,
-            useCenter = useCenter,
-            topLeft = Offset(a, b),
-            size = Size(c - a, d - b),
-            alpha = paint.alpha,
-            style = paint.style(),
-            colorFilter = paint.colorFilter,
-            blendMode = paint.blendMode,
-          )
-        }
+        drawArc(
+          brush,
+          e,
+          f,
+          useCenter = useCenter,
+          topLeft = Offset(a, b),
+          size = Size(c - a, d - b),
+          alpha = paint.alpha,
+          style = paint.style(),
+          colorFilter = paint.colorFilter,
+          blendMode = paint.blendMode,
+        )
       }
     }
   }
@@ -5796,13 +5799,11 @@ private fun applyPaint(
         if (shaderId == 0) {
           state.baseShader = null
           state.runtimeShaderOwner = null
-          state.runtimeShader = null
           state.brush = null
         } else {
           val runtimeShader = buildRuntimeShader(shaderId, values, images, shaders)
           state.runtimeShaderOwner = runtimeShader.owner
           state.baseShader = runtimeShader.shader
-          state.runtimeShader = runtimeShader.shader
           state.brush = constantShaderBrush(runtimeShader.shader)
         }
       }
@@ -5891,7 +5892,6 @@ private fun applyPaint(
             )
           }
         state.brush = state.baseShader?.let(::constantShaderBrush)
-        state.runtimeShader = null
       }
       16 -> {
         val style = command ushr 16
@@ -5983,7 +5983,6 @@ private fun applyGradient(
   // A gradient replaces the preceding shader, so a following SHADER_MATRIX clear must not
   // resurrect an image texture from an earlier PaintData operation.
   state.baseShader = null
-  state.runtimeShader = null
   state.brush =
     when (command ushr 16) {
       0 -> {
