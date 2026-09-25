@@ -80,9 +80,9 @@ def git(*args):
 
 settings = open("settings.gradle.kts", encoding="utf-8").read()
 # `\s*=\s*` rather than a literal " = ": ktfmt wraps a long assignment onto the next line, and
-# `:third-party-remote-compose-player-dist` and `:third-party-rc-embedded-player-jvm` are both
-# wrapped. A regex that missed them fell back to deriving the directory from the project path,
-# which does not exist on disk — and the module then vanished from the plan without a word.
+# `:third-party-remote-compose-player-dist` is wrapped. A regex that missed it fell back to
+# deriving the directory from the project path, which does not exist on disk — and the module then
+# vanished from the plan without a word.
 dirs = dict(
     re.findall(r'project\("(:[^"]+)"\)\.projectDir\s*=\s*file\("([^"]+)"\)', settings)
 )

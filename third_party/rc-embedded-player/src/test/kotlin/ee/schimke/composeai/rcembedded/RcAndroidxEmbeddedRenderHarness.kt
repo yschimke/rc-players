@@ -56,109 +56,117 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcAndroidxEmbeddedRenderHarness(private val entry: RcEmbeddedRenderHarness.Entry) {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun render() {
-    val inputDir = inputDir()
-    assumeTrue("no $INPUT_PROPERTY configured — nothing to rasterize", inputDir != null)
-    val outputDir =
-      File(
-        requireNotNull(System.getProperty(OUTPUT_PROPERTY)) {
-          "$OUTPUT_PROPERTY must be set alongside $INPUT_PROPERTY"
+    @Test
+    fun render() {
+        val inputDir = inputDir()
+        assumeTrue("no $INPUT_PROPERTY configured — nothing to rasterize", inputDir != null)
+        val outputDir =
+            File(
+                requireNotNull(System.getProperty(OUTPUT_PROPERTY)) {
+                    "$OUTPUT_PROPERTY must be set alongside $INPUT_PROPERTY"
+                }
+            )
+        outputDir.mkdirs()
+
+        val png = File(outputDir, "${entry.id}.png")
+        val err = File(outputDir, "${entry.id}.error")
+        png.delete()
+        err.delete()
+
+        runCatching { renderToBitmap(File(inputDir, "${entry.id}.rc").readBytes()) }
+            .onSuccess { bitmap ->
+                png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
+            .onFailure { t -> err.writeText(entry.classify(t)) }
+    }
+
+    @OptIn(ExperimentalRemotePlayerApi::class)
+    private fun renderToBitmap(bytes: ByteArray): Bitmap {
+        // AndroidX ships the embedded player behind a flag that is OFF by default, so
+        // `ExperimentalRemoteDocumentPlayer` throws `IllegalStateException: Embedded player is
+        // disabled` for every document until it is set. That is a difference from the vendored
+        // player
+        // next door, which has no such gate — and it is why this lane published nothing at all
+        // while
+        // its twin published a full column: every document failed identically, the harness wrote
+        // 476
+        // `.error` files and no PNGs, and `design-artifacts-reusable.yml` saw an empty output
+        // directory and dropped the column with "upstream embedded-player lane produced no
+        // renders".
+        //
+        // Set per render rather than once in a `@Before`: it is a plain mutable static on the
+        // artifact, the runner gives each parameterised case its own Robolectric environment, and a
+        // flag that has to be true for this call is clearest beside the call that needs it.
+        RemoteComposePlayerFlags.isEmbeddedPlayerEnabled = true
+        composeRule.setContent {
+            val hostDensity = LocalDensity.current
+            val documentDensity = Density(entry.density, hostDensity.fontScale)
+            CompositionLocalProvider(LocalDensity provides documentDensity) {
+                Box(
+                    Modifier.size(
+                        with(documentDensity) { entry.width.toDp() },
+                        with(documentDensity) { entry.height.toDp() },
+                    )
+                ) {
+                    RemoteImageSupport.enableEncodedImageReferences()
+                    val document = remember { RemoteDocument(bytes) }
+                    ExperimentalRemoteDocumentPlayer(
+                        document = document,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
-      )
-    outputDir.mkdirs()
 
-    val png = File(outputDir, "${entry.id}.png")
-    val err = File(outputDir, "${entry.id}.error")
-    png.delete()
-    err.delete()
+        composeRule.waitForIdle()
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        root.measure(
+            MeasureSpec.makeMeasureSpec(entry.width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(entry.height, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, entry.width, entry.height)
 
-    runCatching { renderToBitmap(File(inputDir, "${entry.id}.rc").readBytes()) }
-      .onSuccess { bitmap ->
-        png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-      }
-      .onFailure { t -> err.writeText(entry.classify(t)) }
-  }
+        val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
+        root.draw(Canvas(bitmap))
+        composeRule.waitForIdle()
+        return bitmap
+    }
 
-  @OptIn(ExperimentalRemotePlayerApi::class)
-  private fun renderToBitmap(bytes: ByteArray): Bitmap {
-    // AndroidX ships the embedded player behind a flag that is OFF by default, so
-    // `ExperimentalRemoteDocumentPlayer` throws `IllegalStateException: Embedded player is
-    // disabled` for every document until it is set. That is a difference from the vendored player
-    // next door, which has no such gate — and it is why this lane published nothing at all while
-    // its twin published a full column: every document failed identically, the harness wrote 476
-    // `.error` files and no PNGs, and `design-artifacts-reusable.yml` saw an empty output
-    // directory and dropped the column with "upstream embedded-player lane produced no renders".
-    //
-    // Set per render rather than once in a `@Before`: it is a plain mutable static on the
-    // artifact, the runner gives each parameterised case its own Robolectric environment, and a
-    // flag that has to be true for this call is clearest beside the call that needs it.
-    RemoteComposePlayerFlags.isEmbeddedPlayerEnabled = true
-    composeRule.setContent {
-      val hostDensity = LocalDensity.current
-      val documentDensity = Density(entry.density, hostDensity.fontScale)
-      CompositionLocalProvider(LocalDensity provides documentDensity) {
-        Box(
-          Modifier.size(
-            with(documentDensity) { entry.width.toDp() },
-            with(documentDensity) { entry.height.toDp() },
-          )
-        ) {
-          RemoteImageSupport.enableEncodedImageReferences()
-          val document = remember { RemoteDocument(bytes) }
-          ExperimentalRemoteDocumentPlayer(document = document, modifier = Modifier.fillMaxSize())
+    companion object {
+        private const val INPUT_PROPERTY = "rc.androidx.embedded.input"
+        private const val OUTPUT_PROPERTY = "rc.androidx.embedded.output"
+
+        private fun inputDir(): File? =
+            System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
+
+        private fun RcEmbeddedRenderHarness.Entry.classify(failure: Throwable): String {
+            val details =
+                generateSequence(failure) { it.cause }.joinToString(": ") { it.message.orEmpty() }
+            return if (
+                embeddedSoftwareCanvasLimitation != null &&
+                    details.contains("Software rendering doesn't support RuntimeShader")
+            ) {
+                "Harness limitation: $embeddedSoftwareCanvasLimitation"
+            } else {
+                "${failure::class.java.simpleName}: ${failure.message?.take(500)}"
+            }
         }
-      }
+
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun documents(): List<Array<Any>> {
+            val dir =
+                inputDir()
+                    ?: return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<none staged>", 1, 1)))
+            val manifest = File(dir, "manifest.json")
+            if (!manifest.isFile) {
+                return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<no manifest.json>", 1, 1)))
+            }
+            return Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
+                .filter { File(dir, "${it.id}.rc").isFile }
+                .map { arrayOf(it) }
+        }
     }
-
-    composeRule.waitForIdle()
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      MeasureSpec.makeMeasureSpec(entry.width, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(entry.height, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, entry.width, entry.height)
-
-    val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
-    root.draw(Canvas(bitmap))
-    composeRule.waitForIdle()
-    return bitmap
-  }
-
-  companion object {
-    private const val INPUT_PROPERTY = "rc.androidx.embedded.input"
-    private const val OUTPUT_PROPERTY = "rc.androidx.embedded.output"
-
-    private fun inputDir(): File? =
-      System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
-
-    private fun RcEmbeddedRenderHarness.Entry.classify(failure: Throwable): String {
-      val details =
-        generateSequence(failure) { it.cause }.joinToString(": ") { it.message.orEmpty() }
-      return if (
-        embeddedSoftwareCanvasLimitation != null &&
-          details.contains("Software rendering doesn't support RuntimeShader")
-      ) {
-        "Harness limitation: $embeddedSoftwareCanvasLimitation"
-      } else {
-        "${failure::class.java.simpleName}: ${failure.message?.take(500)}"
-      }
-    }
-
-    @JvmStatic
-    @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-    fun documents(): List<Array<Any>> {
-      val dir =
-        inputDir() ?: return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<none staged>", 1, 1)))
-      val manifest = File(dir, "manifest.json")
-      if (!manifest.isFile) {
-        return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<no manifest.json>", 1, 1)))
-      }
-      return Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
-        .filter { File(dir, "${it.id}.rc").isFile }
-        .map { arrayOf(it) }
-    }
-  }
 }

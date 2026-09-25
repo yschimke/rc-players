@@ -58,111 +58,115 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class ComposePathColorFilterRobolectricReproTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun srcInTintRequiresAnOpaqueSourceColor() {
-    composeRule.setContent {
-      CompositionLocalProvider(LocalDensity provides Density(1f)) {
-        Canvas(Modifier.size(WIDTH.dp, HEIGHT.dp)) {
-          drawRect(BACKGROUND)
+    @Test
+    fun srcInTintRequiresAnOpaqueSourceColor() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                Canvas(Modifier.size(WIDTH.dp, HEIGHT.dp)) {
+                    drawRect(BACKGROUND)
 
-          // Control: the same path painted directly with the desired color.
-          translate(left = LEFT_X, top = TOP_Y) { drawPath(star(), color = TINT) }
+                    // Control: the same path painted directly with the desired color.
+                    translate(left = LEFT_X, top = TOP_Y) { drawPath(star(), color = TINT) }
 
-          // Control: SrcIn tint works under Robolectric when there is opaque source content.
-          translate(left = RIGHT_X, top = TOP_Y) {
-            drawPath(
-              path = star(),
-              color = Color.Black,
-              colorFilter = ColorFilter.tint(TINT, BlendMode.SrcIn),
-            )
-          }
+                    // Control: SrcIn tint works under Robolectric when there is opaque source
+                    // content.
+                    translate(left = RIGHT_X, top = TOP_Y) {
+                        drawPath(
+                            path = star(),
+                            color = Color.Black,
+                            colorFilter = ColorFilter.tint(TINT, BlendMode.SrcIn),
+                        )
+                    }
 
-          // Exact reduction of the former embedded-player input. ComposeLocalPaint started at
-          // ARGB 0, making the source fully transparent; SrcIn therefore had no pixels to tint.
-          translate(left = TRANSPARENT_X, top = TOP_Y) {
-            drawPath(
-              path = star(),
-              color = Color.Transparent,
-              colorFilter = ColorFilter.tint(TINT, BlendMode.SrcIn),
-            )
-          }
+                    // Exact reduction of the former embedded-player input. ComposeLocalPaint
+                    // started at
+                    // ARGB 0, making the source fully transparent; SrcIn therefore had no pixels to
+                    // tint.
+                    translate(left = TRANSPARENT_X, top = TOP_Y) {
+                        drawPath(
+                            path = star(),
+                            color = Color.Transparent,
+                            colorFilter = ColorFilter.tint(TINT, BlendMode.SrcIn),
+                        )
+                    }
+                }
+            }
         }
-      }
-    }
-    composeRule.waitForIdle()
+        composeRule.waitForIdle()
 
-    val bitmap = drawActivityToBitmap(WIDTH, HEIGHT)
-    val directPixels = bitmap.countPixelsNear(TINT, 0, WIDTH / 3)
-    val tintedPixels = bitmap.countPixelsNear(TINT, WIDTH / 3, 2 * WIDTH / 3)
-    val transparentPixels = bitmap.countPixelsNear(TINT, 2 * WIDTH / 3, WIDTH)
+        val bitmap = drawActivityToBitmap(WIDTH, HEIGHT)
+        val directPixels = bitmap.countPixelsNear(TINT, 0, WIDTH / 3)
+        val tintedPixels = bitmap.countPixelsNear(TINT, WIDTH / 3, 2 * WIDTH / 3)
+        val transparentPixels = bitmap.countPixelsNear(TINT, 2 * WIDTH / 3, WIDTH)
 
-    assertTrue("control path did not render: direct=$directPixels", directPixels > 100)
-    assertTrue(
-      "opaque ColorFilter.tint(..., SrcIn) path did not render: tinted=$tintedPixels",
-      tintedPixels > 100,
-    )
-    assertEquals(
-      "transparent SrcIn source unexpectedly produced tinted pixels",
-      0,
-      transparentPixels,
-    )
+        assertTrue("control path did not render: direct=$directPixels", directPixels > 100)
+        assertTrue(
+            "opaque ColorFilter.tint(..., SrcIn) path did not render: tinted=$tintedPixels",
+            tintedPixels > 100,
+        )
+        assertEquals(
+            "transparent SrcIn source unexpectedly produced tinted pixels",
+            0,
+            transparentPixels,
+        )
 
-    // This is the semantic mismatch between the two RC renderers, independent of Compose drawing.
-    assertEquals(0xff000000.toInt(), android.graphics.Paint().color)
-  }
-
-  private fun drawActivityToBitmap(width: Int, height: Int): Bitmap {
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, width, height)
-    return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
-      root.draw(AndroidCanvas(it))
-    }
-  }
-
-  private fun Bitmap.countPixelsNear(color: Color, minX: Int, maxX: Int): Int {
-    val expected = color.toArgb()
-    return (0 until height).sumOf { y ->
-      (minX until maxX).count { x ->
-        val actual = getPixel(x, y)
-        channelDistance(actual, expected) <= 12
-      }
-    }
-  }
-
-  private fun channelDistance(a: Int, b: Int): Int =
-    kotlin.math.abs(android.graphics.Color.red(a) - android.graphics.Color.red(b)) +
-      kotlin.math.abs(android.graphics.Color.green(a) - android.graphics.Color.green(b)) +
-      kotlin.math.abs(android.graphics.Color.blue(a) - android.graphics.Color.blue(b))
-
-  private fun star() =
-    Path().apply {
-      moveTo(12f, 2f)
-      lineTo(15.09f, 8.26f)
-      lineTo(22f, 9.27f)
-      lineTo(17f, 14.14f)
-      lineTo(18.18f, 21.02f)
-      lineTo(12f, 17.77f)
-      lineTo(5.82f, 21.02f)
-      lineTo(7f, 14.14f)
-      lineTo(2f, 9.27f)
-      lineTo(8.91f, 8.26f)
-      close()
+        // This is the semantic mismatch between the two RC renderers, independent of Compose
+        // drawing.
+        assertEquals(0xff000000.toInt(), android.graphics.Paint().color)
     }
 
-  private companion object {
-    const val WIDTH = 192
-    const val HEIGHT = 48
-    const val LEFT_X = 20f
-    const val RIGHT_X = 84f
-    const val TRANSPARENT_X = 148f
-    const val TOP_Y = 12f
-    val BACKGROUND = Color(0xff332e3c)
-    val TINT = Color(0xffcac4d0)
-  }
+    private fun drawActivityToBitmap(width: Int, height: Int): Bitmap {
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        root.measure(
+            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, width, height)
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            root.draw(AndroidCanvas(it))
+        }
+    }
+
+    private fun Bitmap.countPixelsNear(color: Color, minX: Int, maxX: Int): Int {
+        val expected = color.toArgb()
+        return (0 until height).sumOf { y ->
+            (minX until maxX).count { x ->
+                val actual = getPixel(x, y)
+                channelDistance(actual, expected) <= 12
+            }
+        }
+    }
+
+    private fun channelDistance(a: Int, b: Int): Int =
+        kotlin.math.abs(android.graphics.Color.red(a) - android.graphics.Color.red(b)) +
+            kotlin.math.abs(android.graphics.Color.green(a) - android.graphics.Color.green(b)) +
+            kotlin.math.abs(android.graphics.Color.blue(a) - android.graphics.Color.blue(b))
+
+    private fun star() =
+        Path().apply {
+            moveTo(12f, 2f)
+            lineTo(15.09f, 8.26f)
+            lineTo(22f, 9.27f)
+            lineTo(17f, 14.14f)
+            lineTo(18.18f, 21.02f)
+            lineTo(12f, 17.77f)
+            lineTo(5.82f, 21.02f)
+            lineTo(7f, 14.14f)
+            lineTo(2f, 9.27f)
+            lineTo(8.91f, 8.26f)
+            close()
+        }
+
+    private companion object {
+        const val WIDTH = 192
+        const val HEIGHT = 48
+        const val LEFT_X = 20f
+        const val RIGHT_X = 84f
+        const val TRANSPARENT_X = 148f
+        const val TOP_Y = 12f
+        val BACKGROUND = Color(0xff332e3c)
+        val TINT = Color(0xffcac4d0)
+    }
 }

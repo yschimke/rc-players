@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-@file:Suppress("RestrictedApiAndroidX", "PrimitiveInCollection", "AutoboxingStateCreation")
-
 package ee.schimke.composeai.rcembedded.player
 
+import androidx.annotation.RestrictTo
+import androidx.collection.IntObjectMap
+import androidx.collection.mutableIntObjectMapOf
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -30,19 +31,15 @@ import androidx.compose.remote.core.operations.ComponentValue
 import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.layout.Container
 import androidx.compose.remote.core.operations.layout.LayoutComponent
+import androidx.compose.remote.player.core.platform.TypefaceResolver
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.staticCompositionLocalOf
-
-internal val LocalRcPlayerInspector: ProvidableCompositionLocal<RcPlayerInspector?> =
-  staticCompositionLocalOf {
-    null
-  }
+import androidx.compose.runtime.mutableFloatStateOf
 
 internal val LocalCoreDocument: ProvidableCompositionLocal<CoreDocument> = compositionLocalOf {
-  throw IllegalStateException("No document")
+    throw IllegalStateException("No document")
 }
 
 /**
@@ -52,7 +49,7 @@ internal val LocalCoreDocument: ProvidableCompositionLocal<CoreDocument> = compo
  * happen inside [RcPlayer]).
  */
 internal val LocalGraphContext: ProvidableCompositionLocal<GraphContext?> = compositionLocalOf {
-  null
+    null
 }
 
 /**
@@ -62,71 +59,82 @@ internal val LocalGraphContext: ProvidableCompositionLocal<GraphContext?> = comp
  * `FloatExpression`/`IntegerExpression`, is included so the graph can resolve them when a derived
  * op reads them as an input (chains).
  */
-internal fun buildComputedOpIndex(operations: Collection<Operation>): Map<Int, Operation> {
-  val map = HashMap<Int, Operation>()
-  fun walk(ops: Collection<Operation>) {
-    for (op in ops) {
-      if (op is VariableSupport && op is VariableProvider) {
-        val animated = op is FloatExpression && op.mFloatAnimation != null
-        val id = op.id
-        if (!animated && id > 0 && !map.containsKey(id)) map[id] = op
-      }
-      if (op is Container) walk(op.getList())
-      // A component's draw-content operations hang off it as a *field* rather than as a child, so
-      // a walk that only follows `Container.getList()` never reaches them — and the values they
-      // produce are not private to the draw pass. `remote-m3` builds a disabled label's colour in
-      // the layout tree from `ColorAttribute`s declared in the component's canvas stream, so
-      // leaving them out of the index made the expression resolve its channels against a store
-      // nothing had written: `rgb(alpha, 0, 0, 0)`, a fully transparent label, and a control that
-      // drew its container and its box and no text at all.
-      if (op is LayoutComponent) op.getCanvasOperations()?.let { walk(listOf(it)) }
+internal fun buildComputedOpIndex(operations: Collection<Operation>): IntObjectMap<Operation> {
+    val map = mutableIntObjectMapOf<Operation>()
+    fun walk(ops: Collection<Operation>) {
+        for (op in ops) {
+            if (op is VariableSupport && op is VariableProvider) {
+                val animated = op is FloatExpression && op.mFloatAnimation != null
+                val id = op.id
+                if (!animated && id > 0 && !map.containsKey(id)) map[id] = op as Operation
+            }
+            if (op is Container) walk(op.getList())
+            if (op is LayoutComponent) {
+                val canvasOps = op.getCanvasOperations()
+                if (canvasOps != null) {
+                    walk(listOf(canvasOps))
+                }
+            }
+        }
     }
-  }
-  walk(operations)
-  return map
+    walk(operations)
+    return map
 }
 
-internal val LocalRemoteContext: ProvidableCompositionLocal<RemoteContext> = compositionLocalOf {
-  throw IllegalStateException("No remote context")
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public val LocalRemoteContext: ProvidableCompositionLocal<RemoteContext> = compositionLocalOf {
+    throw IllegalStateException("No remote context")
 }
 
 internal val LocalComponentValueMap: ProvidableCompositionLocal<Map<Int, List<ComponentValue>>> =
-  compositionLocalOf {
-    emptyMap()
-  }
+    compositionLocalOf {
+        emptyMap()
+    }
 
 internal val LocalComponentValueStateMap:
-  ProvidableCompositionLocal<Map<Int, MutableState<Float>>> =
-  compositionLocalOf {
-    emptyMap()
-  }
+    ProvidableCompositionLocal<Map<Int, MutableState<Float>>> =
+    compositionLocalOf {
+        emptyMap()
+    }
 
 internal val LocalCurrentTimeMillis: ProvidableCompositionLocal<State<Float>> = compositionLocalOf {
-  androidx.compose.runtime.mutableFloatStateOf(0f)
+    mutableFloatStateOf(0f)
 }
 
 /** Host-action callback (id, value) for `HostAction`/`RunAction` clicks. Default no-op. */
 internal val LocalRemoteActionHandler: ProvidableCompositionLocal<(Int, String?) -> Unit> =
-  compositionLocalOf {
-    { _, _ -> }
-  }
+    compositionLocalOf {
+        { _, _ -> }
+    }
 
 /**
  * Host named-action callback (name, resolved value) for `HostNamedAction` clicks. Default no-op.
  */
 internal val LocalRemoteNamedActionHandler: ProvidableCompositionLocal<(String, Any?) -> Unit> =
-  compositionLocalOf {
-    { _, _ -> }
-  }
+    compositionLocalOf {
+        { _, _ -> }
+    }
+
+/**
+ * [TypefaceResolver] for resolving typefaces in the player. Null when using the default built-in
+ * resolver.
+ */
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public val LocalTypefaceResolver: ProvidableCompositionLocal<TypefaceResolver?> =
+    compositionLocalOf {
+        null
+    }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
-internal val LocalSharedTransitionScope: ProvidableCompositionLocal<SharedTransitionScope?> =
-  compositionLocalOf {
-    null
-  }
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public val LocalSharedTransitionScope: ProvidableCompositionLocal<SharedTransitionScope?> =
+    compositionLocalOf {
+        null
+    }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
-internal val LocalAnimatedVisibilityScope: ProvidableCompositionLocal<AnimatedVisibilityScope?> =
-  compositionLocalOf {
-    null
-  }
+@get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public val LocalAnimatedVisibilityScope: ProvidableCompositionLocal<AnimatedVisibilityScope?> =
+    compositionLocalOf {
+        null
+    }

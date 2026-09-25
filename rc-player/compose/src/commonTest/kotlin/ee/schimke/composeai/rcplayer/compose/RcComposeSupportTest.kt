@@ -704,6 +704,10 @@ class RcComposeSupportTest {
                 1,
               ),
               RcGraphicsLayerAttribute.FloatValue(
+                RcGraphicsLayerModifier.TRANSLATION_Z,
+                RcFloatWord.literal(4f),
+              ),
+              RcGraphicsLayerAttribute.FloatValue(
                 RcGraphicsLayerModifier.BLUR_RADIUS_X,
                 RcFloatWord.literal(4f),
               ),
@@ -730,29 +734,20 @@ class RcComposeSupportTest {
     )
   }
 
-  /**
-   * Compose has no `translationZ`, and an attribute written as the wrong kind is not guessed at.
-   */
+  /** An attribute written as the wrong kind is not guessed at. */
   @Test
-  fun aLayerAttributeComposeCannotApplyIsStillRefused() {
-    for (attribute in
-      listOf(
-        RcGraphicsLayerAttribute.FloatValue(
-          RcGraphicsLayerModifier.TRANSLATION_Z,
-          RcFloatWord.literal(4f),
-        ),
-        RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.SHAPE, RcFloatWord.literal(1f)),
-      )) {
-      val issue =
-        RcDocument(header, listOf(RcGraphicsLayerModifier(listOf(attribute))))
-          .composeSupportReport(RcOperationProfiles.CMP_DESKTOP_ALPHA18)
-          .issues
-          .single()
-      assertEquals(
-        "attribute ${attribute.index} is not implemented by the CMP graphics backend",
-        issue.detail,
-      )
-    }
+  fun aLayerAttributeOfTheWrongKindIsStillRefused() {
+    val attribute =
+      RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.SHAPE, RcFloatWord.literal(1f))
+    val issue =
+      RcDocument(header, listOf(RcGraphicsLayerModifier(listOf(attribute))))
+        .composeSupportReport(RcOperationProfiles.CMP_DESKTOP_ALPHA18)
+        .issues
+        .single()
+    assertEquals(
+      "attribute ${attribute.index} is not implemented by the CMP graphics backend",
+      issue.detail,
+    )
   }
 
   @Test

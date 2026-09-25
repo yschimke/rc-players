@@ -51,102 +51,102 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "night-xhdpi")
 class RcColorThemePlayerTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun viewPlayer_coldStart_darkTheme_resolvesSystemColors() {
-    assertThemeColorResolved(render(Player.VIEW))
-  }
+    @Test
+    fun viewPlayer_coldStart_darkTheme_resolvesSystemColors() {
+        assertThemeColorResolved(render(Player.VIEW))
+    }
 
-  @Test
-  fun embeddedPlayer_coldStart_darkTheme_resolvesSystemColors() {
-    assertThemeColorResolved(render(Player.EMBEDDED))
-  }
+    @Test
+    fun embeddedPlayer_coldStart_darkTheme_resolvesSystemColors() {
+        assertThemeColorResolved(render(Player.EMBEDDED))
+    }
 
-  private fun assertThemeColorResolved(result: RenderResult) {
-    val expected = expectedDarkColor()
-    assertEquals("mapped dark system color", expected, result.mappedDarkColor)
-    assertEquals("color loaded into player state", expected, result.resolvedColor)
-  }
+    private fun assertThemeColorResolved(result: RenderResult) {
+        val expected = expectedDarkColor()
+        assertEquals("mapped dark system color", expected, result.mappedDarkColor)
+        assertEquals("color loaded into player state", expected, result.resolvedColor)
+    }
 
-  private fun render(player: Player): RenderResult {
-    val fixture = colorThemeDocument()
-    lateinit var remoteDocument: RemoteDocument
-    composeRule.setContent {
-      val density = LocalDensity.current
-      Box(Modifier.size(with(density) { WIDTH.toDp() }, with(density) { HEIGHT.toDp() })) {
-        val document = remember { RemoteDocument(fixture.bytes) }
-        remoteDocument = document
-        when (player) {
-          Player.VIEW ->
-            RemoteDocumentPlayer(
-              document = document.document,
-              documentWidth = WIDTH,
-              documentHeight = HEIGHT,
-            )
-          Player.EMBEDDED ->
-            ExperimentalRemoteDocumentPlayer(
-              document = document,
-              modifier = Modifier.fillMaxSize(),
-              theme = Theme.DARK,
-            )
+    private fun render(player: Player): RenderResult {
+        val fixture = colorThemeDocument()
+        lateinit var remoteDocument: RemoteDocument
+        composeRule.setContent {
+            val density = LocalDensity.current
+            Box(Modifier.size(with(density) { WIDTH.toDp() }, with(density) { HEIGHT.toDp() })) {
+                val document = remember { RemoteDocument(fixture.bytes) }
+                remoteDocument = document
+                when (player) {
+                    Player.VIEW ->
+                        RemoteDocumentPlayer(
+                            document = document.document,
+                            documentWidth = WIDTH,
+                            documentHeight = HEIGHT,
+                        )
+                    Player.EMBEDDED ->
+                        ExperimentalRemoteDocumentPlayer(
+                            document = document,
+                            modifier = Modifier.fillMaxSize(),
+                            theme = Theme.DARK,
+                        )
+                }
+            }
         }
-      }
+        composeRule.waitForIdle()
+
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        root.measure(
+            MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, WIDTH, HEIGHT)
+        Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also { root.draw(Canvas(it)) }
+        val coreDocument = remoteDocument.document
+        return RenderResult(
+            mappedDarkColor = checkNotNull(coreDocument.themedColors).single().mDarkMode,
+            resolvedColor = coreDocument.remoteComposeState.getColor(fixture.colorId.toInt()),
+        )
     }
-    composeRule.waitForIdle()
 
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, WIDTH, HEIGHT)
-    Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also { root.draw(Canvas(it)) }
-    val coreDocument = remoteDocument.document
-    return RenderResult(
-      mappedDarkColor = checkNotNull(coreDocument.themedColors).single().mDarkMode,
-      resolvedColor = coreDocument.remoteComposeState.getColor(fixture.colorId.toInt()),
-    )
-  }
+    private fun expectedDarkColor(): Int =
+        composeRule.activity.getColor(android.R.color.system_accent2_800)
 
-  private fun expectedDarkColor(): Int =
-    composeRule.activity.getColor(android.R.color.system_accent2_800)
-
-  private fun colorThemeDocument(): DocumentFixture {
-    val writer = RemoteComposeWriter.obtain(WIDTH, HEIGHT, RcPlatformProfiles.ANDROIDX)
-    val fallbackColor = 0xffff00ff.toInt()
-    val colorId =
-      writer.addThemedColor(
-        Rc.AndroidColors.GROUP,
-        Rc.AndroidColors.SYSTEM_ACCENT2_50,
-        Rc.AndroidColors.SYSTEM_ACCENT2_800,
-        fallbackColor,
-        fallbackColor,
-      )
-    writer.root {
-      writer.box(
-        RecordingModifier().backgroundId(colorId).fillMaxSize(),
-        BoxLayout.CENTER,
-        BoxLayout.CENTER,
-      ) {}
+    private fun colorThemeDocument(): DocumentFixture {
+        val writer = RemoteComposeWriter.obtain(WIDTH, HEIGHT, RcPlatformProfiles.ANDROIDX)
+        val fallbackColor = 0xffff00ff.toInt()
+        val colorId =
+            writer.addThemedColor(
+                Rc.AndroidColors.GROUP,
+                Rc.AndroidColors.SYSTEM_ACCENT2_50,
+                Rc.AndroidColors.SYSTEM_ACCENT2_800,
+                fallbackColor,
+                fallbackColor,
+            )
+        writer.root {
+            writer.box(
+                RecordingModifier().backgroundId(colorId).fillMaxSize(),
+                BoxLayout.CENTER,
+                BoxLayout.CENTER,
+            ) {}
+        }
+        return DocumentFixture(writer.encodeToByteArray(), colorId)
     }
-    return DocumentFixture(writer.encodeToByteArray(), colorId)
-  }
 
-  private data class DocumentFixture(val bytes: ByteArray, val colorId: Short)
+    private data class DocumentFixture(val bytes: ByteArray, val colorId: Short)
 
-  private data class RenderResult(
-    val mappedDarkColor: Int,
-    val resolvedColor: Int,
-  )
+    private data class RenderResult(
+        val mappedDarkColor: Int,
+        val resolvedColor: Int,
+    )
 
-  private enum class Player {
-    VIEW,
-    EMBEDDED,
-  }
+    private enum class Player {
+        VIEW,
+        EMBEDDED,
+    }
 
-  private companion object {
-    const val WIDTH = 100
-    const val HEIGHT = 100
-  }
+    private companion object {
+        const val WIDTH = 100
+        const val HEIGHT = 100
+    }
 }

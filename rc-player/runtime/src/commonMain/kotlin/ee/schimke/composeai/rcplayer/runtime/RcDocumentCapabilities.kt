@@ -78,10 +78,10 @@ public data class RcDocumentCapabilities(
    *
    * A name with no namespace is resolved **only** in the `USER:` domain, never as a literal. That
    * is the round trip a request actually makes: `ServeOverrides` parses `rc.shaderColor` to the
-   * bare key `shaderColor`, and both `RcJvmRenderer.applySeeds` and the daemon's `setUserLocal*`
-   * qualify it to `USER:shaderColor` before applying. Matching the raw key first would answer for a
-   * declaration the seed can never reach — and report its type instead of the reachable one when a
-   * document declares both. An explicitly namespaced name is matched exactly.
+   * bare key `shaderColor`, and the daemon's `setUserLocal*` qualifies it to `USER:shaderColor`
+   * before applying. Matching the raw key first would answer for a declaration the seed can never
+   * reach — and report its type instead of the reachable one when a document declares both. An
+   * explicitly namespaced name is matched exactly.
    */
   public fun namedValueType(name: String): Int? =
     namedValues[if (name.contains(':')) name else "USER:" + name]

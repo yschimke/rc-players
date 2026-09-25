@@ -2433,7 +2433,7 @@ import Testing
     #expect(layer.rotationZ == 45)
     #expect(layer.translationX == 0 && layer.translationY == 0)
     #expect(layer.alpha == 1)
-    #expect(layer.transformOriginX == 0.5 && layer.transformOriginY == 0.5)
+    #expect(layer.transformOriginX == 0 && layer.transformOriginY == 0)
   }
 
   @Test func graphicsLayerTranslationIsSevenAndEight() throws {
@@ -2444,7 +2444,7 @@ import Testing
     #expect(layer.translationX == 12)
     #expect(layer.translationY == -7)
     #expect(layer.alpha == 1, "TRANSLATION_Y (8) was read as the alpha")
-    #expect(layer.transformOriginX == 0.5 && layer.transformOriginY == 0.5)
+    #expect(layer.transformOriginX == 0 && layer.transformOriginY == 0)
     #expect(!layer.isIdentity)
   }
 
@@ -2462,14 +2462,14 @@ import Testing
     #expect(layer.isIdentity)
   }
 
-  @Test func graphicsLayerWrittenTopLeftOriginIsKept() throws {
-    // A written 0 is a pivot, not a missing attribute; only an absent one is the centre.
+  @Test func graphicsLayerWrittenCentreOriginIsKept() throws {
+    // The current writer writes a centre origin explicitly; only an absent one is the top-left.
     let layer = try graphicsLayerSnapshot([
-      (NativeSwiftGraphicsLayerAttribute.transformOriginX, 0),
+      (NativeSwiftGraphicsLayerAttribute.transformOriginX, 0.5),
       (NativeSwiftGraphicsLayerAttribute.scaleX, -1),
     ])
-    #expect(layer.transformOriginX == 0)
-    #expect(layer.transformOriginY == 0.5)
+    #expect(layer.transformOriginX == 0.5)
+    #expect(layer.transformOriginY == 0)
     #expect(layer.scaleX == -1)
   }
 
@@ -2494,14 +2494,14 @@ import Testing
       layer
         == NativeSwiftGraphicsLayerSnapshot(
           scaleX: 1, scaleY: 1, translationX: 0, translationY: 0, rotationZ: 0, alpha: 1,
-          transformOriginX: 0.5, transformOriginY: 0.5))
+          transformOriginX: 0, transformOriginY: 0))
     #expect(layer.isIdentity)
   }
 
-  @Test func graphicsLayerSnapshotInitDefaultsToACentredOrigin() {
+  @Test func graphicsLayerSnapshotInitDefaultsToATopLeftOrigin() {
     let layer = NativeSwiftGraphicsLayerSnapshot(
       scaleX: 1, scaleY: 1, translationX: 0, translationY: 0, rotationZ: 0, alpha: 1)
-    #expect(layer.transformOriginX == 0.5 && layer.transformOriginY == 0.5)
+    #expect(layer.transformOriginX == 0 && layer.transformOriginY == 0)
   }
 
   /// Decodes a column carrying one MODIFIER_GRAPHICS_LAYER of float attributes and returns the

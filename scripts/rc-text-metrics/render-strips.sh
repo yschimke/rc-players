@@ -60,11 +60,14 @@ echo "==> java + cmp-android lanes"
   "-Prc.view.output=$lanes_dir/java" \
   "-Prc.embedded.output=$lanes_dir/cmp-android"
 
+# The real CMP player on the desktop JVM. `RcCmpRenderHarness` reads the same `<id>.rc` +
+# `manifest.json` contract the Android harnesses above do, and loads the Wasm distribution's
+# vendored fonts so the lane shapes text with known faces.
 echo "==> cmp-jvm lane"
-./gradlew --quiet :third-party-rc-embedded-player-jvm:test --rerun \
-  --tests '*RcJvmRenderHarness*' \
-  "-Prc.jvm.input=$fixtures_dir" \
-  "-Prc.jvm.output=$lanes_dir/cmp-jvm"
+./gradlew --quiet :rc-player-compose:jvmTest --rerun \
+  --tests '*RcCmpRenderHarness*' \
+  "-Prc.cmp.input=$fixtures_dir" \
+  "-Prc.cmp.output=$lanes_dir/cmp-jvm"
 
 # A lane that rendered nothing — or rendered only some of the set — is the failure this script
 # exists to make loud, because the composed strip would otherwise come out narrower, or built from

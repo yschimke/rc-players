@@ -17,7 +17,6 @@ internal actual fun Path.rcConicTo(
   // `Java_org_jetbrains_skia_PathKt__1nConicTo`, so the geometry is unchanged. This seam exists
   // precisely because `androidx.compose.ui.graphics.Path` exposes no conic; migrating it to
   // `PathBuilder` would mean returning a *new* path rather than mutating the receiver, which is the
-  // opposite of what the `expect` contract promises its caller. Mirrors the same suppression in the
-  // vendored `FloatsToPath.kt`.
+  // opposite of what the `expect` contract promises its caller.
   @Suppress("DEPRECATION_ERROR") asSkiaPath().conicTo(x1, y1, x2, y2, weight)
 }

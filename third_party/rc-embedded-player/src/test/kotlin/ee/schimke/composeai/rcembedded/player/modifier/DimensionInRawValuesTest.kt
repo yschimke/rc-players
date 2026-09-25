@@ -26,27 +26,27 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class DimensionInRawValuesTest {
-  @Test
-  fun keepsVariableIdsAfterCoreResolvesTheConstraint() {
-    val maxSource = Utils.asNan(42)
-    val op = WidthInModifierOperation(12f, maxSource)
-    setResolved(op, 24f, 0f)
+    @Test
+    fun keepsVariableIdsAfterCoreResolvesTheConstraint() {
+        val maxSource = Utils.asNan(42)
+        val op = WidthInModifierOperation(12f, maxSource)
+        setResolved(op, 24f, 0f)
 
-    val (min, max) = dimensionInRawValues(op)
+        val (min, max) = dimensionInRawValues(op)
 
-    assertEquals(12f, min, 0f)
-    assertEquals(42, Utils.idFromNan(max))
-    assertEquals(24f, op.min, 0f)
-    assertEquals(0f, op.max, 0f)
-  }
-
-  private fun setResolved(op: WidthInModifierOperation, min: Float, max: Float) {
-    for ((name, value) in listOf("mV1" to min, "mV2" to max)) {
-      DimensionInModifierOperation::class
-        .java
-        .getDeclaredField(name)
-        .apply { isAccessible = true }
-        .setFloat(op, value)
+        assertEquals(12f, min, 0f)
+        assertEquals(42, Utils.idFromNan(max))
+        assertEquals(24f, op.min, 0f)
+        assertEquals(0f, op.max, 0f)
     }
-  }
+
+    private fun setResolved(op: WidthInModifierOperation, min: Float, max: Float) {
+        for ((name, value) in listOf("mV1" to min, "mV2" to max)) {
+            DimensionInModifierOperation::class
+                .java
+                .getDeclaredField(name)
+                .apply { isAccessible = true }
+                .setFloat(op, value)
+        }
+    }
 }

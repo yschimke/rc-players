@@ -113,8 +113,8 @@ the line, against where the player thinks the line ends, is a picture rather tha
 | `text-metrics-layout-style-*` | Underline, strikethrough and bounded autosize. |
 
 The manifest shape is not new: it is exactly what `rc-compare --stage-embedded` produces and what
-`RcViewPlayerRenderHarness`, `RcEmbeddedRenderHarness` and `RcJvmRenderHarness` already read, so the
-fixtures reach three lanes with no harness change:
+`RcViewPlayerRenderHarness`, `RcEmbeddedRenderHarness` and `:rc-player-compose`'s
+`RcCmpRenderHarness` already read, so the fixtures reach three lanes with no harness change:
 
 ```bash
 scripts/rc-text-metrics/render-strips.sh

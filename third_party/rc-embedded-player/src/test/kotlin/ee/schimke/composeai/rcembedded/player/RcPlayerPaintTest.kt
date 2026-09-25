@@ -34,71 +34,71 @@ import org.junit.Test
 
 class RcPlayerPaintTest {
 
-  @Test
-  fun defaultColorMatchesFrameworkPaint() {
-    val paint = ComposeLocalPaint()
+    @Test
+    fun defaultColorMatchesFrameworkPaint() {
+        val paint = ComposeLocalPaint()
 
-    assertEquals(Color.Black.toArgb(), paint.color)
-    assertEquals(Color.Black, paint.effectiveColor())
-    assertFalse(
-      "default color must not masquerade as an explicit COLOR operation",
-      paint.isColorSet,
-    )
-  }
-
-  @Test
-  fun nanBoxedGradientStopsResolve() {
-    val context = AndroidRemoteContext(RemoteClock.SYSTEM)
-    context.loadFloat(51, 0.2f)
-    context.loadFloat(52, 0.8f)
-    val bundle =
-      PaintBundle().apply {
-        setLinearGradient(
-          intArrayOf(Color.Black.toArgb(), Color.White.toArgb()),
-          0,
-          floatArrayOf(Utils.asNan(51), Utils.asNan(52)),
-          0f,
-          0f,
-          100f,
-          100f,
-          0,
+        assertEquals(Color.Black.toArgb(), paint.color)
+        assertEquals(Color.Black, paint.effectiveColor())
+        assertFalse(
+            "default color must not masquerade as an explicit COLOR operation",
+            paint.isColorSet,
         )
-      }
-    val paint = ComposeLocalPaint()
+    }
 
-    updatePaintFromBundle(bundle, paint, context)
+    @Test
+    fun nanBoxedGradientStopsResolve() {
+        val context = AndroidRemoteContext(RemoteClock.SYSTEM)
+        context.loadFloat(51, 0.2f)
+        context.loadFloat(52, 0.8f)
+        val bundle =
+            PaintBundle().apply {
+                setLinearGradient(
+                    intArrayOf(Color.Black.toArgb(), Color.White.toArgb()),
+                    0,
+                    floatArrayOf(Utils.asNan(51), Utils.asNan(52)),
+                    0f,
+                    0f,
+                    100f,
+                    100f,
+                    0,
+                )
+            }
+        val paint = ComposeLocalPaint()
 
-    assertNotNull(paint.brush)
-  }
+        updatePaintFromBundle(bundle, paint, context)
 
-  @Test
-  fun circleAndOvalCoordinatesResolve() {
-    val context = AndroidRemoteContext(RemoteClock.SYSTEM)
-    (101..107).forEach { context.loadFloat(it, it.toFloat()) }
-    val circle =
-      DrawCircle(Utils.asNan(101), Utils.asNan(102), Utils.asNan(103)).readDataReflection()
-    val oval =
-      DrawOval(Utils.asNan(104), Utils.asNan(105), Utils.asNan(106), Utils.asNan(107))
-        .readDataReflection()
+        assertNotNull(paint.brush)
+    }
 
-    assertEquals(101f, resolveFloat(circle.value1, circle.v1, context))
-    assertEquals(102f, resolveFloat(circle.value2, circle.v2, context))
-    assertEquals(103f, resolveFloat(circle.value3, circle.v3, context))
-    assertEquals(104f, resolveFloat(oval.x1Value, oval.x1, context))
-    assertEquals(105f, resolveFloat(oval.y1Value, oval.y1, context))
-    assertEquals(106f, resolveFloat(oval.x2Value, oval.x2, context))
-    assertEquals(107f, resolveFloat(oval.y2Value, oval.y2, context))
-  }
+    @Test
+    fun circleAndOvalCoordinatesResolve() {
+        val context = AndroidRemoteContext(RemoteClock.SYSTEM)
+        (101..107).forEach { context.loadFloat(it, it.toFloat()) }
+        val circle =
+            DrawCircle(Utils.asNan(101), Utils.asNan(102), Utils.asNan(103)).readDataReflection()
+        val oval =
+            DrawOval(Utils.asNan(104), Utils.asNan(105), Utils.asNan(106), Utils.asNan(107))
+                .readDataReflection()
 
-  @Test
-  fun pathIdsDereferencePointers() {
-    val context = AndroidRemoteContext(RemoteClock.SYSTEM)
-    context.mRemoteComposeState.updateInteger(201, 301)
-    val encoded = (201 and PaintOperation.VALUE_MASK) or PaintOperation.PTR_DEREFERENCE
-    val drawPath = DrawPath(encoded).readDataReflection()
-    val clipPath = ClipPath(encoded, ClipPath.PATH_CLIP_INTERSECT).readData()
+        assertEquals(101f, resolveFloat(circle.value1, circle.v1, context))
+        assertEquals(102f, resolveFloat(circle.value2, circle.v2, context))
+        assertEquals(103f, resolveFloat(circle.value3, circle.v3, context))
+        assertEquals(104f, resolveFloat(oval.x1Value, oval.x1, context))
+        assertEquals(105f, resolveFloat(oval.y1Value, oval.y1, context))
+        assertEquals(106f, resolveFloat(oval.x2Value, oval.x2, context))
+        assertEquals(107f, resolveFloat(oval.y2Value, oval.y2, context))
+    }
 
-    assertEquals(301, derefId(drawPath.id, context))
-    assertEquals(301, derefId(clipPath.id, context))
-  }
+    @Test
+    fun pathIdsDereferencePointers() {
+        val context = AndroidRemoteContext(RemoteClock.SYSTEM)
+        context.mRemoteComposeState.updateInteger(201, 301)
+        val encoded = (201 and PaintOperation.VALUE_MASK) or PaintOperation.PTR_DEREFERENCE
+        val drawPath = DrawPath(encoded).readDataReflection()
+        val clipPath = ClipPath(encoded, ClipPath.PATH_CLIP_INTERSECT).readData()
+
+        assertEquals(301, derefId(drawPath.id, context))
+        assertEquals(301, derefId(clipPath.id, context))
+    }
 }

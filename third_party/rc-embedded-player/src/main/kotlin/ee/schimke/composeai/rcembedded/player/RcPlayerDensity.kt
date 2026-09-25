@@ -18,6 +18,7 @@
 
 package ee.schimke.composeai.rcembedded.player
 
+import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.CoreDocument
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -36,8 +37,10 @@ import androidx.compose.ui.unit.dp
  * re-multiplied by [density], a DP-mode value maps to itself and a pixel-mode value is divided by
  * [density] — reproducing the View player's pixels.
  *
- * Padding, offsets, and dimension constraints also use this rule after their raw source fields are
- * recovered, so variable ids remain reactive without discarding the document's unit contract.
+ * Ops that instead read a *core-resolved* field (padding via `getLeft`, `widthIn`/`heightIn` via
+ * `getMin`/`getMax`) need no behavior logic: remote-core's `updateVariables` already folded the
+ * density into that field, so the reader simply converts pixels→dp by dividing by [density].
  */
-internal fun rawDimensionDp(value: Float, behavior: Int, density: Float): Dp =
-  if (behavior == CoreDocument.DENSITY_BEHAVIOR_DP) value.dp else (value / density).dp
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public fun rawDimensionDp(value: Float, behavior: Int, density: Float): Dp =
+    if (behavior == CoreDocument.DENSITY_BEHAVIOR_DP) value.dp else (value / density).dp

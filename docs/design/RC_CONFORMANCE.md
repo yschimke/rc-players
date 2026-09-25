@@ -94,7 +94,6 @@ to an assertion that only passes because the implementation contorted itself to 
 | lane | what it is | what it observes |
 | --- | --- | --- |
 | `cmp` | `rc-player-compose`, headless through `SkikoComposeUiTest` | `tree`, `raster`, the scalar state probes, `ops:*` |
-| `androidx-jvm` | the vendored AndroidX player, desktop cut — a **reference** | `tree`, `raster` |
 | `native-appkit` | the Swift core with the macOS sample's AppKit renderer | `raster`, `tree`, the scalar value probes (`float`, `int`, `text`, `color`) |
 | `typescript` | upstream's own run, shipped in the corpus — a **reference** | everything, scored by upstream's runner |
 
@@ -102,9 +101,10 @@ The reference lanes are what make the first interpretable. The corpus was genera
 engine, so a gold the CMP player fails has two very different explanations — our player is wrong, or
 the gold encodes something specific to how AndroidX does it — and one lane cannot tell them apart.
 
-`androidx-jvm` reports a tree because `CoreDocument.paint` is run headless against a measure-only
-paint context; the Compose renderer this module ships never assigns `Component` geometry, so before
-that the lane could answer `raster` and nothing else, and passed no gold by construction.
+A second reference lane, the vendored AndroidX player's desktop-JVM cut, was **removed on
+2026-09-25** together with that module: the CMP player is this repository's JVM player, and
+`typescript` is the independent reference the report compares against. Findings below that cite
+"the reference lane" or "AndroidX's own JVM player" were measured while it existed.
 
 `native-appkit` answers `raster` and `tree`. The tree comes from the packaged macOS player: the
 batch protocol returns each frame's laid-out component tree beside its PNG, taken from the same view,
@@ -193,12 +193,15 @@ Measured against the corpus as vendored on `vendor/androidx-rc-conformance`, wit
 honoured — the 2026-09-23 published run at `ee18643`. The corpus has grown since the 2026-09-19
 run these figures used to quote (241 core golds then, 353 now), so the two are not comparable:
 
-| | `cmp` | `androidx-jvm` | `native-appkit` | `typescript` |
-| --- | ---: | ---: | ---: | ---: |
-| Golds passed (core profile) | **316 / 353** | 132 / 353 | 216 / 353 | 352 / 353 |
-| Binding checks failing | 108 / 1140 | 690 / 1140 | 266 / 1140 | 9 / 1140 |
-| Advisory (raster) disagreeing | 116 / 612 | 261 / 612 | 232 / 612 | 174 / 612 |
-| Golds errored | 20 | 43 | 0 | 0 |
+| | `cmp` | `native-appkit` | `typescript` |
+| --- | ---: | ---: | ---: |
+| Golds passed (core profile) | **316 / 353** | 216 / 353 | 352 / 353 |
+| Binding checks failing | 108 / 1140 | 266 / 1140 | 9 / 1140 |
+| Advisory (raster) disagreeing | 116 / 612 | 232 / 612 | 174 / 612 |
+| Golds errored | 20 | 0 | 0 |
+
+The 2026-09-23 run also scored the since-removed JVM cut of the vendored AndroidX player: 132 / 353
+golds, 690 binding checks failing, 261 advisory rasters disagreeing, 43 golds errored.
 
 The `cmp` column is the 2026-09-25 run on the same corpus. Every gold it still fails is logged in
 [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md). The 20 errors are the TypeScript-written
@@ -291,6 +294,8 @@ roughly 11 came from player fixes and 39 from measurement.
 player: of 208 failing raster checks, one is attributable to this player.
 
 ### The finding that matters
+
+*Measured while the vendored player's JVM cut was a reference lane (removed 2026-09-25).*
 
 Cross-referencing the two lanes, check by check, and **excluding every check the reference lane could
 not run**:
@@ -411,9 +416,9 @@ up in the CMP lane.
 
 **The advisory rasters.** 116 of 612 disagree. Each was checked on 2026-09-24: the rest are the
 text stack, and every one that is not is a recorded frame that contradicts the same gold's binding
-checks (pushback §23). That review found two real bugs, fixed together: CMP refused the int-valued
-graphics-layer attributes `remote-creation-compose` writes (`SHAPE` in particular), and the embedded
-player pivoted an unauthored transform origin at the corner (#153).
+checks (pushback §23). That review found a real bug: CMP refused the int-valued graphics-layer
+attributes `remote-creation-compose` writes (`SHAPE` in particular). An absent transform origin is
+the declared 0, the top-left, in every player, as AndroidX's embedded player reads it.
 
 **Elsewhere.** The native Swift lane's remaining work needs an AppKit or UIKit host and is tracked
 in #431. The reference lane's own gap, the `graphicsLayer` applying only to the modifiers after it

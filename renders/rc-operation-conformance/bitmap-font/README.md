@@ -9,11 +9,11 @@ interpretation.
 | --- | --- | --- |
 | ![AndroidX View bitmap font](view.png) | ![Upstream embedded bitmap font](upstream-embedded.png) | ![Vendored embedded Android bitmap font](vendored-embedded.png) |
 
-| Upstream snapshot | Vendored embedded JVM | CMP JVM |
-| --- | --- | --- |
-| ![Upstream snapshot bitmap font](upstream-snapshot.png) | ![Vendored embedded JVM bitmap font](vendored-jvm.png) | ![CMP JVM bitmap font](cmp-jvm.png) |
+| Upstream snapshot | CMP JVM |
+| --- | --- |
+| ![Upstream snapshot bitmap font](upstream-snapshot.png) | ![CMP JVM bitmap font](cmp-jvm.png) |
 
-Upstream release, upstream snapshot, vendored Android, vendored JVM, and CMP are pixel-identical.
+Upstream release, upstream snapshot, vendored Android, and CMP are pixel-identical.
 View differs by 0.08%: it filters 24 purple and 24 coral edge pixels rather than drawing those
 pixels at their solid source colors. Every lane preserves both intended glyph colors. The dominant
 histogram entries are:

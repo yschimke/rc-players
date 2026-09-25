@@ -1883,7 +1883,7 @@ class RcLayoutRenderTest {
     }
 
   @Test
-  fun graphicsLayerUsesTheComposeCenterPivotWhenOriginIsAbsent() {
+  fun graphicsLayerRotatesAboutAWrittenCentreOrigin() {
     val red = 0xffff0000.toInt()
     val document = centerPivotDocument()
     val scene =
@@ -1931,7 +1931,16 @@ class RcLayoutRenderTest {
             RcGraphicsLayerAttribute.FloatValue(
               RcGraphicsLayerModifier.ROTATION_Z,
               RcFloatWord.literal(180f),
-            )
+            ),
+            // The writer writes a centre origin explicitly; an absent one is the top-left.
+            RcGraphicsLayerAttribute.FloatValue(
+              RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X,
+              RcFloatWord.literal(0.5f),
+            ),
+            RcGraphicsLayerAttribute.FloatValue(
+              RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y,
+              RcFloatWord.literal(0.5f),
+            ),
           )
         ),
         solidBackground(1f, 0f, 0f),

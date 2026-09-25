@@ -26,90 +26,96 @@ import org.junit.Test
  * agree.
  *
  * A document records an *index*, so the table is how a player decides which resource that index
- * meant. The embedded player carries it in `ColorThemeResolution.kt` and the CMP player carries it
- * in `:rc-player-protocol`'s `RcAndroidSystemColors`; neither module can depend on the other (one
- * is an Android library in a vendored AOSP package, the other is KMP with no Android target), so
- * the duplication is structural. What must not be structural is *drift*: two players reading the
- * same index as different resources would show up as a colour difference between render lanes, with
+ * meant. The embedded player carries upstream's `AndroidSystemColorMap` (vendored into
+ * `AndroidSystemColorMap.kt` until the pinned release ships it) and the CMP player carries it in
+ * `:rc-player-protocol`'s `RcAndroidSystemColors`; neither module can depend on the other (one is
+ * an Android library in a vendored AOSP package, the other is KMP with no Android target), so the
+ * duplication is structural. What must not be structural is *drift*: two players reading the same
+ * index as different resources would show up as a colour difference between render lanes, with
  * nothing in either file looking wrong.
  *
  * Compared as source text rather than as loaded classes because only one of the two is on this
- * module's classpath. Reading sources off disk is the same technique `PlatformNeutralSourcesTest`
- * uses here.
+ * module's classpath.
  */
 class AndroidColorTableDriftTest {
 
-  @Test
-  fun bothPlayersReadAnIndexAsTheSameResource() {
-    val embedded =
-      names(
-        repoFile(
-          "third_party/rc-embedded-player/src/main/kotlin/ee/schimke/composeai/" +
-            "rcembedded/player/ColorThemeResolution.kt"
-        ),
-        marker = "internal val ANDROID_COLOR_NAMES",
-      )
-    val cmp =
-      names(
-        repoFile(
-          "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/" +
-            "RcAndroidSystemColors.kt"
-        ),
-        marker = "public val NAMES",
-      )
+    @Test
+    fun bothPlayersReadAnIndexAsTheSameResource() {
+        val embedded =
+            names(
+                repoFile(
+                    "third_party/rc-embedded-player/src/main/kotlin/ee/schimke/composeai/" +
+                        "rcembedded/player/AndroidSystemColorMap.kt"
+                ),
+                marker = "val colorResourceIds",
+                opener = "intArrayOf(",
+                entry = Regex("R\\.color\\.([a-z0-9_]+)"),
+            )
+        val cmp =
+            names(
+                repoFile(
+                    "rc-player/protocol/src/commonMain/kotlin/ee/schimke/composeai/rcplayer/protocol/" +
+                        "RcAndroidSystemColors.kt"
+                ),
+                marker = "public val NAMES",
+                opener = "listOf(",
+                entry = Regex("\"([a-z0-9_]+)\""),
+            )
 
-    assertTrue("embedded table looks empty — did the marker or the file move?", embedded.size > 100)
-    assertEquals("the two tables disagree on their length", embedded.size, cmp.size)
-    embedded.indices.forEach { index ->
-      assertEquals(
-        "index $index names a different resource in each player",
-        embedded[index],
-        cmp[index],
-      )
+        assertTrue(
+            "embedded table looks empty — did the marker or the file move?",
+            embedded.size > 100,
+        )
+        assertEquals("the two tables disagree on their length", embedded.size, cmp.size)
+        embedded.indices.forEach { index ->
+            assertEquals(
+                "index $index names a different resource in each player",
+                embedded[index],
+                cmp[index],
+            )
+        }
     }
-  }
 
-  /**
-   * The quoted string literals of the `listOf(...)` that follows [marker]. Deliberately dumb: it
-   * reads the same characters a reviewer would, so a table edited in one file and not the other
-   * fails here rather than in a render.
-   */
-  private fun names(file: File, marker: String): List<String> {
-    val text = file.readText()
-    val start = text.indexOf(marker)
-    require(start >= 0) { "no `$marker` in ${file.path}" }
-    val open = text.indexOf("listOf(", start)
-    require(open >= 0) { "no listOf(...) after `$marker` in ${file.path}" }
-    // Balanced scan rather than a closing-brace pattern: the two files indent their tables
-    // differently, and a test that only works at one indentation is a test that stops running the
-    // first time someone reformats.
-    var depth = 0
-    var close = -1
-    for (i in text.indices.drop(open + "listOf".length)) {
-      when (text[i]) {
-        '(' -> depth++
-        ')' -> if (--depth == 0) close = i
-      }
-      if (close >= 0) break
+    /**
+     * The [entry] matches inside the `[opener]...)` that follows [marker]. Deliberately dumb: it
+     * reads the same characters a reviewer would, so a table edited in one file and not the other
+     * fails here rather than in a render.
+     */
+    private fun names(file: File, marker: String, opener: String, entry: Regex): List<String> {
+        val text = file.readText()
+        val start = text.indexOf(marker)
+        require(start >= 0) { "no `$marker` in ${file.path}" }
+        val open = text.indexOf(opener, start)
+        require(open >= 0) { "no $opener...) after `$marker` in ${file.path}" }
+        // Balanced scan rather than a closing-brace pattern: the two files indent their tables
+        // differently, and a test that only works at one indentation is a test that stops running
+        // the
+        // first time someone reformats.
+        var depth = 0
+        var close = -1
+        for (i in text.indices.drop(open + opener.length - 1)) {
+            when (text[i]) {
+                '(' -> depth++
+                ')' -> if (--depth == 0) close = i
+            }
+            if (close >= 0) break
+        }
+        require(close > open) { "unbalanced $opener...) after `$marker` in ${file.path}" }
+        return entry.findAll(text.substring(open, close)).map { it.groupValues[1] }.toList()
     }
-    require(close > open) { "unbalanced listOf(...) after `$marker` in ${file.path}" }
-    return Regex("\"([a-z0-9_]+)\"")
-      .findAll(text.substring(open, close))
-      .map { it.groupValues[1] }
-      .toList()
-  }
 
-  /**
-   * Walk up from the working directory to the repository root. Gradle runs unit tests with the
-   * *module* directory as the working directory, and this test reads a file from a sibling module.
-   */
-  private fun repoFile(relative: String): File {
-    var dir: File? = File("").absoluteFile
-    while (dir != null) {
-      val candidate = File(dir, relative)
-      if (candidate.isFile) return candidate
-      dir = dir.parentFile
+    /**
+     * Walk up from the working directory to the repository root. Gradle runs unit tests with the
+     * *module* directory as the working directory, and this test reads a file from a sibling
+     * module.
+     */
+    private fun repoFile(relative: String): File {
+        var dir: File? = File("").absoluteFile
+        while (dir != null) {
+            val candidate = File(dir, relative)
+            if (candidate.isFile) return candidate
+            dir = dir.parentFile
+        }
+        throw AssertionError("could not locate $relative from ${File("").absolutePath}")
     }
-    throw AssertionError("could not locate $relative from ${File("").absolutePath}")
-  }
 }

@@ -42,77 +42,79 @@ import org.junit.Test
  */
 class GraphContextComponentValueTest {
 
-  @Test
-  fun anExpressionOverMeasuredSizeUsesTheMeasuredSize() {
-    val width = mutableFloatStateOf(TRACK_WIDTH)
-    val height = mutableFloatStateOf(TRACK_HEIGHT)
-    val graph = graphOverCircleRadius(mapOf(WIDTH_ID to width, HEIGHT_ID to height))
+    @Test
+    fun anExpressionOverMeasuredSizeUsesTheMeasuredSize() {
+        val width = mutableFloatStateOf(TRACK_WIDTH)
+        val height = mutableFloatStateOf(TRACK_HEIGHT)
+        val graph = graphOverCircleRadius(mapOf(WIDTH_ID to width, HEIGHT_ID to height))
 
-    assertEquals(TRACK_HEIGHT / 2f, graph.getFloat(RADIUS_ID), TOLERANCE)
-  }
+        assertEquals(TRACK_HEIGHT / 2f, graph.getFloat(RADIUS_ID), TOLERANCE)
+    }
 
-  /**
-   * The map is read through Compose state, so a component that is measured again — a resize, or
-   * simply the first layout arriving after the initial composition — has to change the result. A
-   * radius captured once at 0 would leave the thumb square for the life of the document.
-   */
-  @Test
-  fun aResizeChangesTheResult() {
-    val width = mutableFloatStateOf(0f)
-    val height = mutableFloatStateOf(0f)
-    val graph = graphOverCircleRadius(mapOf(WIDTH_ID to width, HEIGHT_ID to height))
-    assertEquals("before layout", 0f, graph.getFloat(RADIUS_ID), TOLERANCE)
+    /**
+     * The map is read through Compose state, so a component that is measured again — a resize, or
+     * simply the first layout arriving after the initial composition — has to change the result. A
+     * radius captured once at 0 would leave the thumb square for the life of the document.
+     */
+    @Test
+    fun aResizeChangesTheResult() {
+        val width = mutableFloatStateOf(0f)
+        val height = mutableFloatStateOf(0f)
+        val graph = graphOverCircleRadius(mapOf(WIDTH_ID to width, HEIGHT_ID to height))
+        assertEquals("before layout", 0f, graph.getFloat(RADIUS_ID), TOLERANCE)
 
-    width.floatValue = TRACK_WIDTH
-    height.floatValue = TRACK_HEIGHT
+        width.floatValue = TRACK_WIDTH
+        height.floatValue = TRACK_HEIGHT
 
-    assertEquals("after layout", TRACK_HEIGHT / 2f, graph.getFloat(RADIUS_ID), TOLERANCE)
-  }
+        assertEquals("after layout", TRACK_HEIGHT / 2f, graph.getFloat(RADIUS_ID), TOLERANCE)
+    }
 
-  /**
-   * With no component values wired in, the inputs are unresolvable and the radius is 0 — the
-   * behaviour that produced the square thumb. Kept as a test so the wiring in `RcPlayer` cannot be
-   * dropped silently: without it, this is what every player gets.
-   */
-  @Test
-  fun withoutTheComponentValuesTheRadiusCollapsesToZero() {
-    val graph = graphOverCircleRadius(componentValues = null)
+    /**
+     * With no component values wired in, the inputs are unresolvable and the radius is 0 — the
+     * behaviour that produced the square thumb. Kept as a test so the wiring in `RcPlayer` cannot
+     * be dropped silently: without it, this is what every player gets.
+     */
+    @Test
+    fun withoutTheComponentValuesTheRadiusCollapsesToZero() {
+        val graph = graphOverCircleRadius(componentValues = emptyMap())
 
-    assertEquals(0f, graph.getFloat(RADIUS_ID), TOLERANCE)
-  }
+        assertEquals(0f, graph.getFloat(RADIUS_ID), TOLERANCE)
+    }
 
-  /** `min([WIDTH_ID], [HEIGHT_ID]) / 2` — the same RPN a switch's clip radius is recorded as. */
-  private fun graphOverCircleRadius(
-    componentValues: Map<Int, androidx.compose.runtime.State<Float>>?
-  ): GraphContext {
-    val radius =
-      FloatExpression(
-        RADIUS_ID,
-        floatArrayOf(
-          Utils.asNan(WIDTH_ID),
-          Utils.asNan(HEIGHT_ID),
-          AnimatedFloatExpression.MIN,
-          2f,
-          AnimatedFloatExpression.DIV,
-        ),
-        null,
-      )
-    return GraphContext(
-        SnapshotRemoteComposeState(),
-        buildComputedOpIndex(listOf(radius)),
-        mutableFloatStateOf(0f),
-        RemoteClock.SYSTEM,
-      )
-      .also { it.componentValues = componentValues }
-  }
+    /** `min([WIDTH_ID], [HEIGHT_ID]) / 2` — the same RPN a switch's clip radius is recorded as. */
+    private fun graphOverCircleRadius(
+        componentValues: Map<Int, androidx.compose.runtime.State<Float>>
+    ): GraphContext {
+        val radius =
+            FloatExpression(
+                RADIUS_ID,
+                floatArrayOf(
+                    Utils.asNan(WIDTH_ID),
+                    Utils.asNan(HEIGHT_ID),
+                    AnimatedFloatExpression.MIN,
+                    2f,
+                    AnimatedFloatExpression.DIV,
+                ),
+                null,
+            )
+        return GraphContext(
+                SnapshotRemoteComposeState(),
+                buildComputedOpIndex(listOf(radius)),
+                mutableFloatStateOf(0f),
+                RemoteClock.SYSTEM,
+            )
+            .also { it.componentValues = componentValues }
+    }
 
-  private companion object {
-    const val WIDTH_ID = 44
-    const val HEIGHT_ID = 45
-    const val RADIUS_ID = 46
-    /** The switch track's own dp size, so the expected radius is a number from a real document. */
-    const val TRACK_WIDTH = 36f
-    const val TRACK_HEIGHT = 22f
-    const val TOLERANCE = 1e-4f
-  }
+    private companion object {
+        const val WIDTH_ID = 44
+        const val HEIGHT_ID = 45
+        const val RADIUS_ID = 46
+        /**
+         * The switch track's own dp size, so the expected radius is a number from a real document.
+         */
+        const val TRACK_WIDTH = 36f
+        const val TRACK_HEIGHT = 22f
+        const val TOLERANCE = 1e-4f
+    }
 }

@@ -63,7 +63,7 @@ if [ ! -d "$repo_root/scripts/design-artifacts/node_modules/pixelmatch" ]; then
   npm --prefix "$repo_root/scripts/design-artifacts" ci --no-audit --no-fund --silent
 fi
 
-lanes=(view vendored-android vendored-jvm cmp-jvm)
+lanes=(view vendored-android cmp-jvm)
 primary_line="$upstream"
 if [ "$upstream" = "both" ]; then
   primary_line=release
@@ -108,13 +108,6 @@ if [ "$upstream" = "both" ]; then
     "-Prc.androidx.embedded.input=$input_dir" \
     "-Prc.androidx.embedded.output=$lanes_dir/upstream-snapshot"
 fi
-
-echo "==> vendored embedded JVM"
-./gradlew --quiet :third-party-rc-embedded-player-jvm:test --rerun \
-  --tests '*RcJvmRenderHarness*' \
-  "${gradle_line[@]}" \
-  "-Prc.jvm.input=$input_dir" \
-  "-Prc.jvm.output=$lanes_dir/vendored-jvm"
 
 echo "==> CMP JVM"
 ./gradlew --quiet :rc-player-compose:jvmTest --rerun \

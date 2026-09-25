@@ -9,7 +9,7 @@ the vendored AndroidX player they are all measured against.
 
 ## The players
 
-Seven lanes are listed because implementation, packaging, hosting, and comparison answer different
+Six lanes are listed because implementation, packaging, hosting, and comparison answer different
 questions. The supported renderer remains CMP; UIKit is an explicitly experimental second renderer.
 
 | Player | Target | Language / runtime | Supported? | Why it exists |
@@ -20,13 +20,14 @@ questions. The supported renderer remains CMP; UIKit is an explicitly experiment
 | **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Pure Swift + UIKit/Core Graphics/Core Text | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **macOS player app** (`samples/macos-player`) | Apple-silicon macOS | SwiftUI host + CMP or experimental AppKit-native rendering | **Release utility** | Opens local `.rc` files and persists a renderer preference, so both Apple desktop paths can be exercised from one downloadable app. |
 | **Vendored AndroidX player** (`third_party/rc-embedded-player`) | Android (Robolectric) | Kotlin + Compose, vendored from androidx-main | **No** — testing only | The comparison lane. AndroidX's own embedded player, pinned to one commit and locally patched, so a parity number is attributable to a *known* player rather than to whichever alpha resolved that day. |
-| **Vendored AndroidX player, JVM cut** (`third_party/rc-embedded-player-jvm`) | Desktop JVM (Skia) | The platform-neutral subset of the above, against Compose Desktop | **No** — testing/tooling only | Runs the same comparison headlessly, without Robolectric — and, by compiling the shared files against a non-Android target, makes "platform-neutral" a compiled fact rather than a claim. AndroidX publishes no desktop cut, so this one has no upstream to switch to. |
 | **Vendored TypeScript player** (`third_party/remote-compose-player`) | Browser · Node · VS Code webview | TypeScript → Canvas2D, WebGL for shader ops | **No** — vendored, upstream elsewhere | A client-side lane that needs no Kotlin at all, so a viewer can render a captured `.rc` without a server-side daemon. Upstream is [yschimke/remotecompose-experiments](https://github.com/yschimke/remotecompose-experiments); changes are filed there. |
 
 The shape of the whole thing: **one supported implementation, one experimental renderer, two CMP
-hosts, and three references.** The CMP player is the product; the Wasm bundle and XCFramework are it
-in different wrappers. The native UIKit POC sits beside it, while the two AndroidX cuts and the
-TypeScript player remain comparison lanes.
+hosts, and two references.** The CMP player is the product; the Wasm bundle and XCFramework are it
+in different wrappers. The native UIKit POC sits beside it, while the vendored AndroidX player and
+the TypeScript player remain comparison lanes. There is no separate JVM reference player: the
+vendored player's JVM cut was removed on 2026-09-25, and where a JVM player is needed, the CMP player
+is it.
 
 ## What is here
 
@@ -122,8 +123,8 @@ of the original five were dropped when alpha17 restored them upstream.
 
 `scripts/rc-lane-ab/` renders the focused Android View/vendored-embedded A/B, while
 `scripts/rc-operation-conformance/render-lanes.sh` sends one manifest and the same `.rc` bytes
-through AndroidX View, released and/or snapshot AndroidX embedded, vendored Android embedded,
-vendored embedded JVM, and CMP JVM, then validates every result and writes all pairwise pixel
+through AndroidX View, released and/or snapshot AndroidX embedded, vendored Android embedded, and
+CMP JVM, then validates every result and writes all pairwise pixel
 scores to `comparison.json`. On macOS, `--native-uikit` adds the packaged simulator player to that
 same manifest contract. `scripts/check-native-uikit-comparison.sh` is the focused five-document
 CMP/UIKit regression used by CI. `scripts/rc-text-metrics/` does the same for the focused
@@ -264,7 +265,7 @@ rather than by what the change touched:
 | JVM suites for the four published modules, `compat-tests`, `metrics`, `profile` | ✅ | ✅ (via `allTests`) |
 | Android host tests for all four published modules (`compose` under Robolectric, including a remote-m3 catalog sample) | ✅ | |
 | Vendored Android player, Robolectric (`testDebugUnitTest`) | ✅ | |
-| Vendored JVM and TypeScript players | ✅ | |
+| Vendored TypeScript player | ✅ | |
 | `macosArm64Test`, `iosSimulatorArm64Test`, `wasmJsBrowserTest` | | ✅ |
 | `iosArm64` — device | | compiled only; a hosted runner has no device to run it on |
 | The shipped Wasm bundle, in a real browser | ✅ `scripts/wasm-smoke` | |
@@ -289,7 +290,7 @@ source set, so one would boot an emulator to run nothing. Its drawing behaviour 
 for want of a device: the suite is Robolectric-backed and rasterizes through
 `RcEmbeddedRenderHarness` / `RcAndroidxEmbeddedRenderHarness`, the same lane
 `scripts/rc-operation-conformance/render-lanes.sh` compares pixel-for-pixel against the AndroidX
-View player and the JVM cut. Revisit this only alongside instrumented tests that assert something
+View player and the CMP player. Revisit this only alongside instrumented tests that assert something
 Robolectric cannot — real Skia text shaping, or hardware-accelerated `RenderNode` behaviour.
 
 ### The Wasm browser smoke run
@@ -325,9 +326,11 @@ equivalent.
 `-compose` and `third-party-rc-embedded-player` were published from there through `1.54.0`, so this
 repository's manifest starts at `1.54.0` and the first release cut here is `1.55.0`. Restarting at
 `0.1.0` would have published a version *below* what consumers already resolve — a downgrade to
-anything using a range or a BOM, and silently invisible to everything else. `rc-player-wasm-dist`,
-`third-party-rc-embedded-player-jvm` and `remote-compose-player-js-dist` are new coordinates and
-first appear at that release. The version comes from `PLUGIN_VERSION` in the environment, or from
+anything using a range or a BOM, and silently invisible to everything else. `rc-player-wasm-dist`
+and `remote-compose-player-js-dist` are new coordinates and first appear at that release.
+`third-party-rc-embedded-player-jvm` was published from here for a while and no longer is: the
+vendored player's JVM cut was removed, and a consumer that needs a JVM player should depend on
+`rc-player-compose`. The version comes from `PLUGIN_VERSION` in the environment, or from
 `.release-please-manifest.json` bumped to the next patch `-SNAPSHOT` for local builds. The npm bundle
 and the XCFramework are assembled by the release workflow, which is the only thing that should write
 `Package.swift`.

@@ -50,8 +50,7 @@ import java.util.concurrent.ConcurrentHashMap
  * render must carry the `FontsContractCompat` shadow — the daemon does, the `rc-compare` harness
  * does not — so an unvaried branded family rendered in the platform default on that lane while four
  * other lanes drew the real face (compose-ai-tools#4170). A request with no axes therefore resolves
- * the ordinary static face from the same cache, which is what the jvm player's resolver already
- * does with the same request.
+ * the ordinary static face from the same cache.
  *
  * Nothing here can fail a render. No cache directory configured, an offline miss, a family with no
  * variable file (Lobster Two ships static faces only), a file the platform won't decode — every one
@@ -61,170 +60,175 @@ import java.util.concurrent.ConcurrentHashMap
  */
 internal class GoogleFontFamilies(private val fonts: GoogleFontSource?) {
 
-  /**
-   * Resolved families by request. The axis list is part of the key, not just the family: a variable
-   * file serves many instances and they are different faces, so a cache keyed on the family alone
-   * would hand a `wght 100` line the `wght 1000` family the previous line built.
-   */
-  private val families = ConcurrentHashMap<Request, FontFamily>()
-
-  /**
-   * Files by family, including misses — ask the (possibly network-backed) source once, not per op.
-   */
-  private val files = ConcurrentHashMap<Pair<String, Boolean>, File>()
-
-  /** Static faces by `(family, weight, italic)` — the no-axes request, one file per instance. */
-  private val staticFiles = ConcurrentHashMap<GoogleFontKey, File>()
-
-  private data class Request(
-    val family: String,
-    val italic: Boolean,
-    val weight: Int,
-    val axes: List<Pair<String, Float>>,
-  )
-
-  /**
-   * The [FontFamily] drawing [family] at [axes], or null when this isn't a request it can serve —
-   * not a `google:` family, or no file for it.
-   *
-   * With no [axes] this is the family's ordinary static face; with axes it is an instance of its
-   * variable file. See the class doc for why both are served from the cache rather than left to the
-   * downloadable-font path.
-   */
-  fun composeFontFamily(
-    family: String?,
-    weight: FontWeight,
-    style: FontStyle,
-    axes: List<Pair<String, Float>>,
-  ): FontFamily? {
-    val name = googleFamilyName(family) ?: return null
-    val italic = style == FontStyle.Italic
-    val request = Request(name, italic, weight.weight, axes)
-    families[request]?.let {
-      return it
-    }
-    if (axes.isEmpty()) {
-      // No axes: the static instance the cache serves for this exact (family, weight, italic) is
-      // the whole answer, and there is nothing to vary it with.
-      val staticFile = resolveStaticFile(name, weight.weight, italic) ?: return null
-      val resolved =
-        runCatching { FontFamily(Font(file = staticFile, weight = weight, style = style)) }
-          .getOrNull() ?: return null
-      families[request] = resolved
-      return resolved
-    }
-    val file = resolveFile(name, italic) ?: return null
-    val settings =
-      FontVariation.Settings(
-        *variationAxes(weight, style, axes)
-          .map { (tag, value) -> FontVariation.Setting(tag, value) }
-          .toTypedArray()
-      )
-    val resolved =
-      runCatching {
-        FontFamily(Font(file = file, weight = weight, style = style, variationSettings = settings))
-      }
-        .getOrNull() ?: return null
-    families[request] = resolved
-    return resolved
-  }
-
-  /** The static face for one `(family, weight, italic)`, cached including misses like [files]. */
-  private fun resolveStaticFile(name: String, weight: Int, italic: Boolean): File? {
-    val source = fonts ?: return null
-    val key = GoogleFontKey(name, weight, italic)
-    staticFiles[key]?.let {
-      return it.takeIf { cached -> cached !== NO_FILE }
-    }
-    val file = runCatching { source.load(key) }.getOrNull()
-    staticFiles[key] = file ?: NO_FILE
-    return file
-  }
-
-  private fun resolveFile(name: String, italic: Boolean): File? {
-    val source = fonts ?: return null
-    val key = name to italic
-    files[key]?.let {
-      return it.takeIf { cached -> cached !== NO_FILE }
-    }
-    val file = runCatching { source.loadVariable(name, italic) }.getOrNull()
-    files[key] = file ?: NO_FILE
-    return file
-  }
-
-  companion object {
     /**
-     * The axes a variable file is instanced at: the requested face's own weight and slant first,
-     * then the document's axes, which replace them when they name the same tag.
+     * Resolved families by request. The axis list is part of the key, not just the family: a
+     * variable file serves many instances and they are different faces, so a cache keyed on the
+     * family alone would hand a `wght 100` line the `wght 1000` family the previous line built.
+     */
+    private val families = ConcurrentHashMap<Request, FontFamily>()
+
+    /**
+     * Files by family, including misses — ask the (possibly network-backed) source once, not per
+     * op.
+     */
+    private val files = ConcurrentHashMap<Pair<String, Boolean>, File>()
+
+    /** Static faces by `(family, weight, italic)` — the no-axes request, one file per instance. */
+    private val staticFiles = ConcurrentHashMap<GoogleFontKey, File>()
+
+    private data class Request(
+        val family: String,
+        val italic: Boolean,
+        val weight: Int,
+        val axes: List<Pair<String, Float>>,
+    )
+
+    /**
+     * The [FontFamily] drawing [family] at [axes], or null when this isn't a request it can serve —
+     * not a `google:` family, or no file for it.
      *
-     * A variable file instanced at the document's axes alone sits at the file's *default* on every
-     * axis the document left out — for Roboto Flex that is `wght 400`. The `remote-m3` edge
-     * button's label asks for weight 500 and carries a `pnum` axis, so this path drew it Regular
-     * while a device, whose downloadable-font provider serves the weight-500 face and never sees
-     * the axes, draws it Medium — and so does the CMP player, whose Android loader already builds
-     * the settings this way. `FontVariation.Settings(weight, style)` is Compose's own mapping of a
-     * weight and style onto `wght` and `ital`.
+     * With no [axes] this is the family's ordinary static face; with axes it is an instance of its
+     * variable file. See the class doc for why both are served from the cache rather than left to
+     * the downloadable-font path.
      */
-    internal fun variationAxes(
-      weight: FontWeight,
-      style: FontStyle,
-      axes: List<Pair<String, Float>>,
-    ): List<Pair<String, Float>> {
-      val own =
-        FontVariation.Settings(weight, style)
-          .settings
-          .map { it.axisName to it.toVariationValue(null) }
-          .filter { (tag, _) -> axes.none { it.first == tag } }
-      return own + axes
+    fun composeFontFamily(
+        family: String?,
+        weight: FontWeight,
+        style: FontStyle,
+        axes: List<Pair<String, Float>>,
+    ): FontFamily? {
+        val name = googleFamilyName(family) ?: return null
+        val italic = style == FontStyle.Italic
+        val request = Request(name, italic, weight.weight, axes)
+        families[request]?.let {
+            return it
+        }
+        if (axes.isEmpty()) {
+            // No axes: the static instance the cache serves for this exact (family, weight, italic)
+            // is
+            // the whole answer, and there is nothing to vary it with.
+            val staticFile = resolveStaticFile(name, weight.weight, italic) ?: return null
+            val resolved =
+                runCatching { FontFamily(Font(file = staticFile, weight = weight, style = style)) }
+                    .getOrNull() ?: return null
+            families[request] = resolved
+            return resolved
+        }
+        val file = resolveFile(name, italic) ?: return null
+        val settings =
+            FontVariation.Settings(
+                *variationAxes(weight, style, axes)
+                    .map { (tag, value) -> FontVariation.Setting(tag, value) }
+                    .toTypedArray()
+            )
+        val resolved =
+            runCatching {
+                FontFamily(
+                    Font(file = file, weight = weight, style = style, variationSettings = settings)
+                )
+            }
+                .getOrNull() ?: return null
+        families[request] = resolved
+        return resolved
     }
 
-    /** The namespace marking a family as one to fetch from Google Fonts. */
-    const val GOOGLE_PREFIX = "google:"
-
-    /** Negative-cache marker — a family the source could not serve a variable file for. */
-    private val NO_FILE = File("")
-
-    /**
-     * The bare family name behind a `google:`-namespaced [family], or null when it isn't one.
-     *
-     * Only the `google:` prefix opts in, matching the resolvers in the other lanes. A `device:`
-     * family is the host's to supply and a bare name is local by definition; treating either as a
-     * Google Fonts request would turn a typo into a network fetch.
-     */
-    fun googleFamilyName(family: String?): String? {
-      val name = family?.trim() ?: return null
-      if (!name.startsWith(GOOGLE_PREFIX, ignoreCase = true)) return null
-      return name.substring(GOOGLE_PREFIX.length).trim().takeIf { it.isNotEmpty() }
+    /** The static face for one `(family, weight, italic)`, cached including misses like [files]. */
+    private fun resolveStaticFile(name: String, weight: Int, italic: Boolean): File? {
+        val source = fonts ?: return null
+        val key = GoogleFontKey(name, weight, italic)
+        staticFiles[key]?.let {
+            return it.takeIf { cached -> cached !== NO_FILE }
+        }
+        val file = runCatching { source.load(key) }.getOrNull()
+        staticFiles[key] = file ?: NO_FILE
+        return file
     }
 
-    /**
-     * The resolver the player's text seam uses, built once per process from the same two system
-     * properties the Robolectric downloadable-font shadow and the figma-svg embed path read:
-     * `composeai.fonts.cacheDir` (where resolved files live) and `composeai.fonts.offline` (turn a
-     * miss into a null instead of a fetch).
-     *
-     * No cache directory means no downloads — a render that was not given one keeps the previous
-     * axes-dropped behaviour rather than fetching into a directory it would throw away. The daemon
-     * launchers set the property for every server-side render.
-     */
-    val Default: GoogleFontFamilies by lazy {
-      testOverride ?: GoogleFontFamilies(systemPropertyGoogleFontSource())
+    private fun resolveFile(name: String, italic: Boolean): File? {
+        val source = fonts ?: return null
+        val key = name to italic
+        files[key]?.let {
+            return it.takeIf { cached -> cached !== NO_FILE }
+        }
+        val file = runCatching { source.loadVariable(name, italic) }.getOrNull()
+        files[key] = file ?: NO_FILE
+        return file
     }
 
-    /**
-     * Replaces [Default] before it is first read, so a test can drive the seam from a fake source
-     * without a cache directory or a network. Ignored once [Default] has been resolved.
-     */
-    internal var testOverride: GoogleFontFamilies? = null
+    companion object {
+        /**
+         * The axes a variable file is instanced at: the requested face's own weight and slant
+         * first, then the document's axes, which replace them when they name the same tag.
+         *
+         * A variable file instanced at the document's axes alone sits at the file's *default* on
+         * every axis the document left out — for Roboto Flex that is `wght 400`. The `remote-m3`
+         * edge button's label asks for weight 500 and carries a `pnum` axis, so this path drew it
+         * Regular while a device, whose downloadable-font provider serves the weight-500 face and
+         * never sees the axes, draws it Medium — and so does the CMP player, whose Android loader
+         * already builds the settings this way. `FontVariation.Settings(weight, style)` is
+         * Compose's own mapping of a weight and style onto `wght` and `ital`.
+         */
+        internal fun variationAxes(
+            weight: FontWeight,
+            style: FontStyle,
+            axes: List<Pair<String, Float>>,
+        ): List<Pair<String, Float>> {
+            val own =
+                FontVariation.Settings(weight, style)
+                    .settings
+                    .map { it.axisName to it.toVariationValue(null) }
+                    .filter { (tag, _) -> axes.none { it.first == tag } }
+            return own + axes
+        }
 
-    private fun systemPropertyGoogleFontSource(): GoogleFontSource? {
-      val cacheDir = System.getProperty("composeai.fonts.cacheDir")?.takeIf { it.isNotBlank() }
-      return cacheDir?.let {
-        GoogleFontCache(
-          cacheDir = File(it),
-          offline = System.getProperty("composeai.fonts.offline")?.lowercase() == "true",
-        )
-      }
+        /** The namespace marking a family as one to fetch from Google Fonts. */
+        const val GOOGLE_PREFIX = "google:"
+
+        /** Negative-cache marker — a family the source could not serve a variable file for. */
+        private val NO_FILE = File("")
+
+        /**
+         * The bare family name behind a `google:`-namespaced [family], or null when it isn't one.
+         *
+         * Only the `google:` prefix opts in, matching the resolvers in the other lanes. A `device:`
+         * family is the host's to supply and a bare name is local by definition; treating either as
+         * a Google Fonts request would turn a typo into a network fetch.
+         */
+        fun googleFamilyName(family: String?): String? {
+            val name = family?.trim() ?: return null
+            if (!name.startsWith(GOOGLE_PREFIX, ignoreCase = true)) return null
+            return name.substring(GOOGLE_PREFIX.length).trim().takeIf { it.isNotEmpty() }
+        }
+
+        /**
+         * The resolver the player's text seam uses, built once per process from the same two system
+         * properties the Robolectric downloadable-font shadow and the figma-svg embed path read:
+         * `composeai.fonts.cacheDir` (where resolved files live) and `composeai.fonts.offline`
+         * (turn a miss into a null instead of a fetch).
+         *
+         * No cache directory means no downloads — a render that was not given one keeps the
+         * previous axes-dropped behaviour rather than fetching into a directory it would throw
+         * away. The daemon launchers set the property for every server-side render.
+         */
+        val Default: GoogleFontFamilies by lazy {
+            testOverride ?: GoogleFontFamilies(systemPropertyGoogleFontSource())
+        }
+
+        /**
+         * Replaces [Default] before it is first read, so a test can drive the seam from a fake
+         * source without a cache directory or a network. Ignored once [Default] has been resolved.
+         */
+        internal var testOverride: GoogleFontFamilies? = null
+
+        private fun systemPropertyGoogleFontSource(): GoogleFontSource? {
+            val cacheDir =
+                System.getProperty("composeai.fonts.cacheDir")?.takeIf { it.isNotBlank() }
+            return cacheDir?.let {
+                GoogleFontCache(
+                    cacheDir = File(it),
+                    offline = System.getProperty("composeai.fonts.offline")?.lowercase() == "true",
+                )
+            }
+        }
     }
-  }
 }

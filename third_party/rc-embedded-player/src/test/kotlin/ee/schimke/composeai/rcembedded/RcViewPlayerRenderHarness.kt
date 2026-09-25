@@ -29,7 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import ee.schimke.composeai.rcembedded.player.enableEncodedImageReferences
+import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
 import java.io.File
 import kotlinx.serialization.json.Json
 import org.junit.Assume.assumeTrue
@@ -65,90 +65,99 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcViewPlayerRenderHarness(private val entry: RcEmbeddedRenderHarness.Entry) {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun render() {
-    val inputDir = inputDir()
-    val outputProperty = System.getProperty(OUTPUT_PROPERTY)
-    assumeTrue(
-      "no $INPUT_PROPERTY / $OUTPUT_PROPERTY configured — control lane not requested",
-      inputDir != null && outputProperty != null,
-    )
-    val outputDir = File(outputProperty!!).apply { mkdirs() }
-
-    val png = File(outputDir, "${entry.id}.png")
-    val err = File(outputDir, "${entry.id}.error")
-    // Clear both before rendering. Output directories get reused across runs, and a document that
-    // succeeded last time but fails now would otherwise leave its stale PNG in place — the driver
-    // checks for the PNG first, so it would diff last run's pixels and report them as a current
-    // render. That is precisely the stale-capture failure this harness already had once, in a form
-    // that survives across runs rather than within one.
-    png.delete()
-    err.delete()
-
-    runCatching { renderToBitmap(File(inputDir, "${entry.id}.rc").readBytes()) }
-      .onSuccess { bitmap ->
-        png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-      }
-      .onFailure { t -> err.writeText("${t::class.java.simpleName}: ${t.message?.take(500)}") }
-  }
-
-  private fun renderToBitmap(bytes: ByteArray): Bitmap {
-    composeRule.setContent {
-      val density = LocalDensity.current
-      Box(
-        Modifier.size(
-          with(density) { entry.width.toDp() },
-          with(density) { entry.height.toDp() },
+    @Test
+    fun render() {
+        val inputDir = inputDir()
+        val outputProperty = System.getProperty(OUTPUT_PROPERTY)
+        assumeTrue(
+            "no $INPUT_PROPERTY / $OUTPUT_PROPERTY configured — control lane not requested",
+            inputDir != null && outputProperty != null,
         )
-      ) {
-        // As in `RcEmbeddedRenderHarness`: `RemoteDocument(bytes)` parses in its constructor, so
-        // the globals have to be set before it or a URL-encoded bitmap fails the whole document.
-        enableEncodedImageReferences()
-        val document = remember { RemoteDocument(bytes) }
-        // The View player takes the document's pixel size directly rather than filling its parent.
-        RemoteDocumentPlayer(
-          document = document.document,
-          documentWidth = entry.width,
-          documentHeight = entry.height,
-        )
-      }
+        val outputDir = File(outputProperty!!).apply { mkdirs() }
+
+        val png = File(outputDir, "${entry.id}.png")
+        val err = File(outputDir, "${entry.id}.error")
+        // Clear both before rendering. Output directories get reused across runs, and a document
+        // that
+        // succeeded last time but fails now would otherwise leave its stale PNG in place — the
+        // driver
+        // checks for the PNG first, so it would diff last run's pixels and report them as a current
+        // render. That is precisely the stale-capture failure this harness already had once, in a
+        // form
+        // that survives across runs rather than within one.
+        png.delete()
+        err.delete()
+
+        runCatching { renderToBitmap(File(inputDir, "${entry.id}.rc").readBytes()) }
+            .onSuccess { bitmap ->
+                png.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
+            .onFailure { t ->
+                err.writeText("${t::class.java.simpleName}: ${t.message?.take(500)}")
+            }
     }
 
-    composeRule.waitForIdle()
+    private fun renderToBitmap(bytes: ByteArray): Bitmap {
+        composeRule.setContent {
+            val density = LocalDensity.current
+            Box(
+                Modifier.size(
+                    with(density) { entry.width.toDp() },
+                    with(density) { entry.height.toDp() },
+                )
+            ) {
+                // As in `RcEmbeddedRenderHarness`: `RemoteDocument(bytes)` parses in its
+                // constructor, so
+                // the globals have to be set before it or a URL-encoded bitmap fails the whole
+                // document.
+                RemoteImageSupport.enableEncodedImageReferences()
+                val document = remember { RemoteDocument(bytes) }
+                // The View player takes the document's pixel size directly rather than filling its
+                // parent.
+                RemoteDocumentPlayer(
+                    document = document.document,
+                    documentWidth = entry.width,
+                    documentHeight = entry.height,
+                )
+            }
+        }
 
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      MeasureSpec.makeMeasureSpec(entry.width, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(entry.height, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, entry.width, entry.height)
+        composeRule.waitForIdle()
 
-    val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
-    root.draw(Canvas(bitmap))
-    return bitmap
-  }
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        root.measure(
+            MeasureSpec.makeMeasureSpec(entry.width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(entry.height, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, entry.width, entry.height)
 
-  companion object {
-    private const val INPUT_PROPERTY = "rc.embedded.input"
-    private const val OUTPUT_PROPERTY = "rc.view.output"
-
-    private fun inputDir(): File? =
-      System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
-
-    /** Same documents the embedded lane renders, so the two output sets line up row for row. */
-    @JvmStatic
-    @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-    fun documents(): List<Array<Any>> {
-      val dir = inputDir() ?: return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<none>", 1, 1)))
-      val manifest = File(dir, "manifest.json")
-      if (!manifest.isFile) {
-        return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<no manifest.json>", 1, 1)))
-      }
-      return Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
-        .filter { File(dir, "${it.id}.rc").isFile }
-        .map { arrayOf(it) }
+        val bitmap = Bitmap.createBitmap(entry.width, entry.height, Bitmap.Config.ARGB_8888)
+        root.draw(Canvas(bitmap))
+        return bitmap
     }
-  }
+
+    companion object {
+        private const val INPUT_PROPERTY = "rc.embedded.input"
+        private const val OUTPUT_PROPERTY = "rc.view.output"
+
+        private fun inputDir(): File? =
+            System.getProperty(INPUT_PROPERTY)?.let(::File)?.takeIf { it.isDirectory }
+
+        /** Same documents the embedded lane renders, so the two output sets line up row for row. */
+        @JvmStatic
+        @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun documents(): List<Array<Any>> {
+            val dir =
+                inputDir() ?: return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<none>", 1, 1)))
+            val manifest = File(dir, "manifest.json")
+            if (!manifest.isFile) {
+                return listOf(arrayOf(RcEmbeddedRenderHarness.Entry("<no manifest.json>", 1, 1)))
+            }
+            return Json.decodeFromString<List<RcEmbeddedRenderHarness.Entry>>(manifest.readText())
+                .filter { File(dir, "${it.id}.rc").isFile }
+                .map { arrayOf(it) }
+        }
+    }
 }

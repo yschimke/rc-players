@@ -35,49 +35,53 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RcCustomPropertyTest {
-  @get:Rule val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule()
 
-  @Test
-  fun integerAndColorIdsAreObservedReactively() {
-    val state = SnapshotRemoteComposeState()
-    val document = CoreDocument().also { it.setRemoteComposeState(state) }
-    state.updateInteger(INT_VALUE_ID, 7)
-    state.updateColor(COLOR_VALUE_ID, Color.Red.toArgb())
-    val component =
-      RcCustomComponent(
-        config = "test",
-        componentId = 1,
-        rawProperties =
-          listOf(
-            Custom.CustomProperty(1, Custom.CustomProperty.INT_ID_PROP, INT_VALUE_ID),
-            Custom.CustomProperty(2, Custom.CustomProperty.COLOR_ID_PROP, COLOR_VALUE_ID),
-          ),
-        remoteContext = object : StoreBackedRemoteContext(RemoteClock.SYSTEM) {},
-      )
-    var observedInt = 0
-    var observedColor = Color.Unspecified
+    @Test
+    fun integerAndColorIdsAreObservedReactively() {
+        val state = SnapshotRemoteComposeState()
+        val document = CoreDocument().also { it.setRemoteComposeState(state) }
+        state.updateInteger(INT_VALUE_ID, 7)
+        state.updateColor(COLOR_VALUE_ID, Color.Red.toArgb())
+        val component =
+            RcCustomComponent(
+                config = "test",
+                componentId = 1,
+                rawProperties =
+                    listOf(
+                        Custom.CustomProperty(1, Custom.CustomProperty.INT_ID_PROP, INT_VALUE_ID),
+                        Custom.CustomProperty(
+                            2,
+                            Custom.CustomProperty.COLOR_ID_PROP,
+                            COLOR_VALUE_ID,
+                        ),
+                    ),
+                remoteContext = object : StoreBackedRemoteContext(RemoteClock.SYSTEM) {},
+            )
+        var observedInt = 0
+        var observedColor = Color.Unspecified
 
-    rule.setContent {
-      CompositionLocalProvider(LocalCoreDocument provides document) {
-        observedInt = component.intState(IntProperty(1)).value
-        observedColor = component.colorState(ColorProperty(2)).value
-      }
+        rule.setContent {
+            CompositionLocalProvider(LocalCoreDocument provides document) {
+                observedInt = component.intState(IntProperty(1)).value
+                observedColor = component.colorState(ColorProperty(2)).value
+            }
+        }
+        rule.waitForIdle()
+        assertEquals(7, observedInt)
+        assertEquals(Color.Red, observedColor)
+
+        rule.runOnIdle {
+            state.updateInteger(INT_VALUE_ID, 9)
+            state.updateColor(COLOR_VALUE_ID, Color.Blue.toArgb())
+        }
+        rule.waitForIdle()
+        assertEquals(9, observedInt)
+        assertEquals(Color.Blue, observedColor)
     }
-    rule.waitForIdle()
-    assertEquals(7, observedInt)
-    assertEquals(Color.Red, observedColor)
 
-    rule.runOnIdle {
-      state.updateInteger(INT_VALUE_ID, 9)
-      state.updateColor(COLOR_VALUE_ID, Color.Blue.toArgb())
+    private companion object {
+        const val INT_VALUE_ID = 100
+        const val COLOR_VALUE_ID = 101
     }
-    rule.waitForIdle()
-    assertEquals(9, observedInt)
-    assertEquals(Color.Blue, observedColor)
-  }
-
-  private companion object {
-    const val INT_VALUE_ID = 100
-    const val COLOR_VALUE_ID = 101
-  }
 }

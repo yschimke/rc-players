@@ -74,7 +74,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
@@ -3606,11 +3605,13 @@ private fun Modifier.applyGraphicsLayer(
     transformOrigin = TransformOrigin(values.transformOriginX, values.transformOriginY)
     translationX = values.translationX
     translationY = values.translationY
-    shadowElevation = values.shadowElevation
+    // A RenderNode's shadow sits at elevation + translationZ, which is what AndroidX's paint
+    // context
+    // sets; Compose has no translationZ, so the sum goes into shadowElevation.
+    shadowElevation = values.shadowElevation + extras.translationZ
     alpha = values.alpha
     cameraDistance = values.cameraDistance
     shape = extras.shape
-    compositingStrategy = extras.compositingStrategy
     extras.ambientShadowColor?.let { ambientShadowColor = it }
     extras.spotShadowColor?.let { spotShadowColor = it }
     renderEffect = extras.renderEffect
@@ -3619,12 +3620,15 @@ private fun Modifier.applyGraphicsLayer(
 
 /**
  * The graphics-layer attributes beyond the animated floats `RcGraphicsLayerValues` carries: shape,
- * compositing, blur and shadow colours. Its floats ease like the others, through [animatables], one
- * per attribute and held per component.
+ * translationZ, blur and shadow colours, applied as AndroidX's
+ * `AndroidPaintContext.setGraphicsLayer` applies them. `COMPOSITING_STRATEGY` is accepted and
+ * ignored, as both AndroidX players ignore it (a RenderNode layer composites like Compose's
+ * `Auto`). Its floats ease like the others, through [animatables], one per attribute and held per
+ * component.
  */
 private class RcGraphicsLayerExtras(
   val shape: Shape,
-  val compositingStrategy: CompositingStrategy,
+  val translationZ: Float,
   val renderEffect: BlurEffect?,
   val ambientShadowColor: Color?,
   val spotShadowColor: Color?,
@@ -3664,12 +3668,7 @@ private class RcGraphicsLayerExtras(
             RcGraphicsLayerModifier.SHAPE_CIRCLE -> CircleShape
             else -> RectangleShape
           },
-        compositingStrategy =
-          when (int(RcGraphicsLayerModifier.COMPOSITING_STRATEGY)) {
-            1 -> CompositingStrategy.Offscreen
-            2 -> CompositingStrategy.ModulateAlpha
-            else -> CompositingStrategy.Auto
-          },
+        translationZ = float(RcGraphicsLayerModifier.TRANSLATION_Z),
         renderEffect =
           if (blurX > 0f || blurY > 0f) {
             BlurEffect(

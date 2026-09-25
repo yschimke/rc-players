@@ -95,36 +95,35 @@ class RcAnimatableFloatTest {
   }
 
   @Test
-  fun absentAttributesTakeTheAndroidXDefaultsAndPivotAtTheCentre() {
+  fun absentAttributesTakeTheAndroidXDefaultsAndPivotAtTheTopLeft() {
     val state = RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()))
     val values = RcGraphicsLayerAnimator().evaluate(RcGraphicsLayerModifier(emptyList()), state)
 
     assertEquals(RcGraphicsLayerValues(), values)
-    // Spelled out because the declared `remote-core` default is 0f and this is deliberately not
-    // that: an absent attribute is never handed to `setGraphicsLayer`, so the layer keeps its own
-    // centre pivot. See `RcGraphicsLayerValues`.
-    assertEquals(0.5f, values.transformOriginX)
-    assertEquals(0.5f, values.transformOriginY)
+    // Spelled out because this used to be the centre: the declared `remote-core` default is 0f,
+    // and AndroidX's embedded player reads it. See `RcGraphicsLayerValues`.
+    assertEquals(0f, values.transformOriginX)
+    assertEquals(0f, values.transformOriginY)
     assertFalse(values.isAnimating)
   }
 
   @Test
-  fun anAuthoredTopLeftPivotIsHonouredBecauseItIsPresentOnTheWire() {
+  fun anAuthoredCentrePivotIsHonoured() {
     val state = RcPlayerState(RcDocument(RcHeader(RcVersion(1, 0, 0)), emptyList()))
     val modifier =
       RcGraphicsLayerModifier(
         listOf(
           RcGraphicsLayerAttribute.FloatValue(
             RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X,
-            RcFloatWord.literal(0f),
+            RcFloatWord.literal(0.5f),
           )
         )
       )
 
     val values = RcGraphicsLayerAnimator().evaluate(modifier, state)
 
-    assertEquals(0f, values.transformOriginX, "a written 0 is a pivot, not a missing attribute")
-    assertEquals(0.5f, values.transformOriginY)
+    assertEquals(0.5f, values.transformOriginX)
+    assertEquals(0f, values.transformOriginY)
   }
 
   @Test

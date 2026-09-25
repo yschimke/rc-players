@@ -59,7 +59,6 @@ val publishedProjects =
     ":rc-player-compose" to "rc-player-compose",
     ":rc-player-wasm-dist" to "rc-player-wasm-dist",
     ":third-party-rc-embedded-player" to "third-party-rc-embedded-player",
-    ":third-party-rc-embedded-player-jvm" to "third-party-rc-embedded-player-jvm",
     // Named for what it contains rather than for the project that wraps it. Kept in step with
     // `PublishedArtifactIds` in build-logic by `PublishedArtifactIdsTest`, which reads both.
     ":third-party-remote-compose-player-dist" to "remote-compose-player-js-dist",

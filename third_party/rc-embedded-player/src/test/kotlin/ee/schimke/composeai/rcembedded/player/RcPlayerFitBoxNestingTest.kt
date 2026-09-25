@@ -49,38 +49,39 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RcPlayerFitBoxNestingTest {
-  @get:Rule val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule()
 
-  @Test
-  fun aFitBoxNestedInsideAFitBoxLaysOut() {
-    // Each alternative is a FitBox WITH children of its own: an empty one short-circuits to a
-    // plain Box, which supports intrinsics, so it would not exercise the bug at all.
-    val outer = fitBox(componentId = 1)
-    outer.mList.add(nestedFitBox(componentId = 2, parent = outer, leafId = 20))
-    outer.mList.add(nestedFitBox(componentId = 3, parent = outer, leafId = 30))
+    @Test
+    fun aFitBoxNestedInsideAFitBoxLaysOut() {
+        // Each alternative is a FitBox WITH children of its own: an empty one short-circuits to a
+        // plain Box, which supports intrinsics, so it would not exercise the bug at all.
+        val outer = fitBox(componentId = 1)
+        outer.mList.add(nestedFitBox(componentId = 2, parent = outer, leafId = 20))
+        outer.mList.add(nestedFitBox(componentId = 3, parent = outer, leafId = 30))
 
-    val state = SnapshotRemoteComposeState()
-    val document = CoreDocument().also { it.setRemoteComposeState(state) }
-    rule.setContent {
-      CompositionLocalProvider(
-        LocalCoreDocument provides document,
-        LocalRemoteContext provides object : StoreBackedRemoteContext(RemoteClock.SYSTEM) {},
-      ) {
-        RcPlayerFitBoxLayout(outer, Modifier)
-      }
+        val state = SnapshotRemoteComposeState()
+        val document = CoreDocument().also { it.setRemoteComposeState(state) }
+        rule.setContent {
+            CompositionLocalProvider(
+                LocalCoreDocument provides document,
+                LocalRemoteContext provides
+                    object : StoreBackedRemoteContext(RemoteClock.SYSTEM) {},
+            ) {
+                RcPlayerFitBoxLayout(outer, Modifier)
+            }
+        }
+
+        // Reaching idle is the assertion: an intrinsic query against the nested alternatives throws
+        // out of the measure pass, which surfaces here rather than as a failed expectation.
+        rule.waitForIdle()
     }
 
-    // Reaching idle is the assertion: an intrinsic query against the nested alternatives throws
-    // out of the measure pass, which surfaces here rather than as a failed expectation.
-    rule.waitForIdle()
-  }
+    private fun fitBox(componentId: Int, parent: FitBoxLayout? = null): FitBoxLayout =
+        FitBoxLayout(parent, componentId, -1, FitBoxLayout.CENTER, FitBoxLayout.CENTER)
 
-  private fun fitBox(componentId: Int, parent: FitBoxLayout? = null): FitBoxLayout =
-    FitBoxLayout(parent, componentId, -1, FitBoxLayout.CENTER, FitBoxLayout.CENTER)
-
-  /** A FitBox that really subcomposes, because it has an alternative to choose between. */
-  private fun nestedFitBox(componentId: Int, parent: FitBoxLayout, leafId: Int): FitBoxLayout =
-    fitBox(componentId, parent).also { nested ->
-      nested.mList.add(Component(nested, leafId, 0, 0f, 0f, 8f, 8f))
-    }
+    /** A FitBox that really subcomposes, because it has an alternative to choose between. */
+    private fun nestedFitBox(componentId: Int, parent: FitBoxLayout, leafId: Int): FitBoxLayout =
+        fitBox(componentId, parent).also { nested ->
+            nested.mList.add(Component(nested, leafId, 0, 0f, 0f, 8f, 8f))
+        }
 }

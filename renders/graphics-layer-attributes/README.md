@@ -1,24 +1,23 @@
-# Graphics-layer attributes: an unauthored transform origin, and the int attributes CMP refused
+# Graphics-layer attributes: the transform-origin default, and the int attributes CMP refused
 
-## `transform-origin.png`: the embedded player (#153)
+## `transform-origin.png`: an absent origin is the top-left, as AndroidX reads it
 
 A 60×20 canvas with a 10px red bar at its left, under `graphicsLayer { scaleX = -1 }`, shown at
-4×. These are the fixtures from `RcJvmGraphicsLayerOriginTest`, rendered by `RcEmbeddedRenderHarness`
-(embedded before and after) and `RcCmpRenderHarness` (CMP).
+4×. These are the fixtures from `RcGraphicsLayerOriginRenderTest`, rendered by
+`RcEmbeddedRenderHarness` and `RcCmpRenderHarness`.
 
-| row | document | embedded before | embedded after | CMP |
-| --- | --- | ---: | ---: | ---: |
-| `mirror-no-origin` | no `TRANSFORM_ORIGIN` attribute | 0 red px | 200 | 200 |
-| `mirror-corner-origin` | origin written as (0, 0) | 0 | 0 | 0 |
+| row | document | embedded before | embedded after | CMP before | CMP after |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `mirror-no-origin` | no `TRANSFORM_ORIGIN` attribute | 200 red px | 0 | 200 | 0 |
+| `mirror-corner-origin` | origin written as (0, 0) | 0 | 0 | 0 | 0 |
+| `mirror-centre-origin` | origin written as (0.5, 0.5) | 200 | 200 | 200 | 200 |
 
-`remote-core` declares the origin's default as 0, the corner, while `remote-creation-compose` leaves
-the attribute out when it is the centre. The embedded player read the table's default, so an
-unauthored mirror flipped about the left edge and out of the layer. It now uses the centre when the
-attribute is absent, as CMP and the writer do, and still honours an origin the document writes.
-
-The current vendored writer always writes the origin, so recent captures (the wear-m3-catalog page
-indicator among them) render the same before and after. Documents from writers that omit it, like
-the ones in #153, are the ones this changes.
+`remote-core` declares the origin's default as 0, and AndroidX's embedded player reads it. #505 made
+an absent origin the centre instead, on the grounds that older writers omitted it at 0.5. The
+current `remote-creation-compose` writes a centre origin explicitly and omits only 0 (upstream's
+`RcPlayerGraphicsLayerTest` pins both), so the heuristic only mis-rendered documents from the
+current writer that do mean the corner. Every player now follows AndroidX: an absent origin pivots
+at the top-left, and a written one is honoured.
 
 ## CMP: `SHAPE`, `COMPOSITING_STRATEGY`, blur and shadow colours
 

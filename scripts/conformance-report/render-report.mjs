@@ -250,8 +250,8 @@ function renderRun(options, lanes) {
   // ---- lanes
   out.push("## Lanes");
   out.push("");
-  // Named rather than asserted of every reference lane: `androidx-jvm` observes `tree` and does
-  // pass golds, so the old blanket claim is now false for it and would read as a bug in the table.
+  // Named rather than asserted of every reference lane: a reference that observes `tree` does pass
+  // golds, so a blanket claim would be false for it and would read as a bug in the table.
   const rasterOnly = present
     .filter((lane) => {
       const counts = profiles(lane.results);

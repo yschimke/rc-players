@@ -31,7 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcembedded.player.ExperimentalRemoteDocumentPlayer
-import ee.schimke.composeai.rcembedded.player.enableEncodedImageReferences
+import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -73,73 +73,73 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], qualifiers = "xhdpi")
 class RcCanvasStreamBitmapRenderTest {
 
-  @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-  @Test
-  fun anImageBackgroundButtonDrawsItsTextureRatherThanTheScrimAlone() {
-    val bitmap = render("ImageBackgroundRemoteButton-454x200.rc")
+    @Test
+    fun anImageBackgroundButtonDrawsItsTextureRatherThanTheScrimAlone() {
+        val bitmap = render("ImageBackgroundRemoteButton-454x200.rc")
 
-    // The container's centre row, clear of its rounded ends. The document's bitmap is a uniform
-    // 8x8 of (236, 236, 236), and the scrim over it runs from (51, 46, 60) opaque to the same
-    // colour at alpha 0 — so the centre of the container is the image, undimmed.
-    val row = bitmap.height / 2
-    val counts = mutableMapOf<Int, Int>()
-    for (x in 0 until bitmap.width) {
-      val pixel = bitmap.getPixel(x, row)
-      if (pixel ushr 24 > 8) counts[pixel] = (counts[pixel] ?: 0) + 1
-    }
-    val dominant = counts.maxBy { it.value }.key
-    val rgb = Triple((dominant shr 16) and 0xff, (dominant shr 8) and 0xff, dominant and 0xff)
-
-    assertEquals(
-      "the container drew the scrim's own colour flat instead of the image it should fade across " +
-        "— the canvas-stream BitmapData was never registered, so both the texture and the " +
-        "ImageAttribute dimensions the gradient derives from resolved to nothing",
-      Triple(236, 236, 236),
-      rgb,
-    )
-  }
-
-  private fun render(fixture: String): Bitmap {
-    val bytes =
-      checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
-          "missing fixture /rc-fixtures/$fixture"
+        // The container's centre row, clear of its rounded ends. The document's bitmap is a uniform
+        // 8x8 of (236, 236, 236), and the scrim over it runs from (51, 46, 60) opaque to the same
+        // colour at alpha 0 — so the centre of the container is the image, undimmed.
+        val row = bitmap.height / 2
+        val counts = mutableMapOf<Int, Int>()
+        for (x in 0 until bitmap.width) {
+            val pixel = bitmap.getPixel(x, row)
+            if (pixel ushr 24 > 8) counts[pixel] = (counts[pixel] ?: 0) + 1
         }
-        .use { it.readBytes() }
+        val dominant = counts.maxBy { it.value }.key
+        val rgb = Triple((dominant shr 16) and 0xff, (dominant shr 8) and 0xff, dominant and 0xff)
 
-    composeRule.setContent {
-      val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
-      CompositionLocalProvider(LocalDensity provides documentDensity) {
-        Box(
-          Modifier.size(
-            with(documentDensity) { WIDTH.toDp() },
-            with(documentDensity) { HEIGHT.toDp() },
-          )
-        ) {
-          enableEncodedImageReferences()
-          ExperimentalRemoteDocumentPlayer(
-            document = RemoteDocument(bytes),
-            modifier = Modifier.fillMaxSize(),
-          )
+        assertEquals(
+            "the container drew the scrim's own colour flat instead of the image it should fade across " +
+                "— the canvas-stream BitmapData was never registered, so both the texture and the " +
+                "ImageAttribute dimensions the gradient derives from resolved to nothing",
+            Triple(236, 236, 236),
+            rgb,
+        )
+    }
+
+    private fun render(fixture: String): Bitmap {
+        val bytes =
+            checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
+                    "missing fixture /rc-fixtures/$fixture"
+                }
+                .use { it.readBytes() }
+
+        composeRule.setContent {
+            val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
+            CompositionLocalProvider(LocalDensity provides documentDensity) {
+                Box(
+                    Modifier.size(
+                        with(documentDensity) { WIDTH.toDp() },
+                        with(documentDensity) { HEIGHT.toDp() },
+                    )
+                ) {
+                    RemoteImageSupport.enableEncodedImageReferences()
+                    ExperimentalRemoteDocumentPlayer(
+                        document = RemoteDocument(bytes),
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
-      }
-    }
-    composeRule.waitForIdle()
+        composeRule.waitForIdle()
 
-    val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
-    root.measure(
-      MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
-      MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
-    )
-    root.layout(0, 0, WIDTH, HEIGHT)
-    return Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also {
-      root.draw(Canvas(it))
+        val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
+        root.measure(
+            MeasureSpec.makeMeasureSpec(WIDTH, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(HEIGHT, MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, WIDTH, HEIGHT)
+        return Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888).also {
+            root.draw(Canvas(it))
+        }
     }
-  }
 
-  private companion object {
-    const val WIDTH = 454
-    const val HEIGHT = 200
-    const val DENSITY = 2f
-  }
+    private companion object {
+        const val WIDTH = 454
+        const val HEIGHT = 200
+        const val DENSITY = 2f
+    }
 }

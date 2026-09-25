@@ -13,7 +13,10 @@ the image carries the numbers without a sidecar.
 ![text-metrics-card on java, cmp-android and cmp-jvm](card-three-lanes.png)
 
 The refreshed strip above comes from a 2026-08-11 run that generated 31/31 images on every
-server-side lane with no `.error` files. Its card values are:
+server-side lane with no `.error` files. In every committed strip the `cmp-jvm` column was rendered
+by the vendored player's JVM cut, which was removed on 2026-09-25; `render-strips.sh` now renders
+that lane through the CMP player (`:rc-player-compose`'s `RcCmpRenderHarness`), so the next
+regeneration will change that column and the numbers quoted for it below. Its card values are:
 
 | metric | `java` | `cmp-android` | `cmp-jvm` |
 | --- | ---: | ---: | ---: |

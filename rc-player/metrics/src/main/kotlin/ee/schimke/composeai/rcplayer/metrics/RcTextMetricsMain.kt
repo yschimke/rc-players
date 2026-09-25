@@ -10,8 +10,8 @@ import java.io.File
  * That shape is not a new convention — it is `<id>.rc` plus a `manifest.json` of `{id, width,
  * height}`, which is exactly what `rc-compare --stage-embedded` produces and what
  * `RcEmbeddedRenderHarness`, `RcViewPlayerRenderHarness` (the Java reference lane) and
- * `RcJvmRenderHarness` all consume. Emitting it means the fixtures reach three of the five lanes
- * with no harness change at all.
+ * `:rc-player-compose`'s `RcCmpRenderHarness` all consume. Emitting it means the fixtures reach
+ * three of the five lanes with no harness change at all.
  *
  * Don't invoke those harnesses by hand — run `scripts/rc-text-metrics/render-strips.sh`, which is
  * the one place the invocation lives. Three of its details are load-bearing and each of them fails
