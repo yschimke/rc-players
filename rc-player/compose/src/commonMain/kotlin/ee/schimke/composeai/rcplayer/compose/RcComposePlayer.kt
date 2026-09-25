@@ -92,6 +92,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
@@ -100,6 +101,7 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
@@ -3831,37 +3833,50 @@ private fun Modifier.applyPaintDecorator(
           }
         }
       }
-    RcClipRectModifier ->
-      drawWithContent {
-        val contentScope = this
-        clipRect { contentScope.drawContent() }
-      }
+    // Component clips are Compose's own layer clip — what `Modifier.clip` expands to — so the
+    // content (and hit testing) is clipped by the layer rather than by a hand-rolled draw pass.
+    // The lambda form of `graphicsLayer` keeps the radius reads in the layer phase: an animated
+    // corner re-clips without recomposing.
+    RcClipRectModifier -> clipToBounds()
     is RcRoundedClipRectModifier ->
-      drawWithContent {
-        val topStart = state.dpTypedPixels(state.resolve(operation.topStart), localDensity)
-        val topEnd = state.dpTypedPixels(state.resolve(operation.topEnd), localDensity)
-        val bottomStart = state.dpTypedPixels(state.resolve(operation.bottomStart), localDensity)
-        val bottomEnd = state.dpTypedPixels(state.resolve(operation.bottomEnd), localDensity)
-        val path =
-          Path().apply {
-            addRoundRect(
-              RoundRect(
-                left = 0f,
-                top = 0f,
-                right = size.width,
-                bottom = size.height,
-                topLeftCornerRadius = CornerRadius(topStart),
-                topRightCornerRadius = CornerRadius(topEnd),
-                bottomRightCornerRadius = CornerRadius(bottomEnd),
-                bottomLeftCornerRadius = CornerRadius(bottomStart),
-              )
-            )
-          }
-        val contentScope = this
-        clipPath(path) { contentScope.drawContent() }
+      graphicsLayer {
+        shape =
+          RcCornerClipShape(
+            topLeft = state.dpTypedPixels(state.resolve(operation.topStart), localDensity),
+            topRight = state.dpTypedPixels(state.resolve(operation.topEnd), localDensity),
+            bottomRight = state.dpTypedPixels(state.resolve(operation.bottomEnd), localDensity),
+            bottomLeft = state.dpTypedPixels(state.resolve(operation.bottomStart), localDensity),
+          )
+        clip = true
       }
     else -> this
   }
+}
+
+/**
+ * A rounded-rect clip in pixels. Not `RoundedCornerShape`: that one mirrors start/end under RTL,
+ * while AndroidX's own `RemoteRoundedClipShape` always maps the wire's "start" corners to the left.
+ * `Outline.Rounded` scales oversized radii the same way Skia's `addRoundRect` does.
+ */
+private data class RcCornerClipShape(
+  val topLeft: Float,
+  val topRight: Float,
+  val bottomRight: Float,
+  val bottomLeft: Float,
+) : Shape {
+  override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
+    Outline.Rounded(
+      RoundRect(
+        left = 0f,
+        top = 0f,
+        right = size.width,
+        bottom = size.height,
+        topLeftCornerRadius = CornerRadius(topLeft.coerceAtLeast(0f)),
+        topRightCornerRadius = CornerRadius(topRight.coerceAtLeast(0f)),
+        bottomRightCornerRadius = CornerRadius(bottomRight.coerceAtLeast(0f)),
+        bottomLeftCornerRadius = CornerRadius(bottomLeft.coerceAtLeast(0f)),
+      )
+    )
 }
 
 private fun RcPlayerState.borderWidthPixels(word: RcFloatWord, density: Density): Float {
