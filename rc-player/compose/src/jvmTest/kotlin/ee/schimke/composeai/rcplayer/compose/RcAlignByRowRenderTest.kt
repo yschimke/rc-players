@@ -130,6 +130,57 @@ class RcAlignByRowRenderTest {
     assertEquals(10, pixels.topOf(GREEN))
   }
 
+  @Test
+  fun centeredRowOffsetsDifferingAnchorsByTheTallestChild() {
+    // AndroidX: base = (60 - 20) / 2 = 20, then each child sits at base + maxAnchor - anchor.
+    val pixels =
+      render(
+        rowWidth = 60f,
+        rowHeight = 60f,
+        verticalPositioning = CENTER,
+        children =
+          box(5, RED, 20f, 20f, alignBy = RcFloatWord.literal(5f)) +
+            box(6, GREEN, 20f, 20f, alignBy = RcFloatWord.literal(15f)),
+      )
+
+    assertEquals(30, pixels.topOf(RED))
+    assertEquals(20, pixels.topOf(GREEN))
+  }
+
+  @Test
+  fun bottomRowOffsetsDifferingAnchorsByTheTallestChild() {
+    // AndroidX: base = 60 - 20 = 40; the lower child overflows the row's bottom edge.
+    val pixels =
+      render(
+        rowWidth = 60f,
+        rowHeight = 60f,
+        verticalPositioning = BOTTOM,
+        children =
+          box(5, RED, 20f, 10f, alignBy = RcFloatWord.literal(5f)) +
+            box(6, GREEN, 20f, 20f, alignBy = RcFloatWord.literal(15f)),
+      )
+
+    assertEquals(50, pixels.topOf(RED))
+    assertEquals(40, pixels.topOf(GREEN))
+  }
+
+  @Test
+  fun fractionalAnchorsRoundTheirSharedDeltaNotEachAnchor() {
+    // AndroidX rounds `maxAnchor - anchor`: 0.6 - 0.4 = 0.2 rounds to 0, so both tops are 0.
+    val pixels =
+      render(
+        rowWidth = 60f,
+        rowHeight = 40f,
+        verticalPositioning = TOP,
+        children =
+          box(5, RED, 20f, 20f, alignBy = RcFloatWord.literal(0.4f)) +
+            box(6, GREEN, 20f, 20f, alignBy = RcFloatWord.literal(0.6f)),
+      )
+
+    assertEquals(0, pixels.topOf(RED))
+    assertEquals(0, pixels.topOf(GREEN))
+  }
+
   private class Pixels(val bitmap: Bitmap, val width: Int, val height: Int) {
     private fun points(color: Int) =
       (0 until height).flatMap { y ->
