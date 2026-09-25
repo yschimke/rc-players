@@ -98,11 +98,9 @@ class RcStateLayoutTransitionTest {
 
       mainClock.advanceTimeBy(1000)
       waitForIdle()
-      // Channels, not an exact ARGB: the click that drove the switch leaves the player's press
-      // indication washing the component for as long as the pointer was down.
-      val settled = onRoot().captureToImage().toPixelMap()[30, 30]
-      assertTrue(settled.blue > 0.8f, "the incoming branch has fully faded in, was $settled")
-      assertTrue(settled.red < 0.05f, "and the outgoing one is gone, was $settled")
+      // Exact: a click draws no press indication, as in AndroidX, so nothing washes the settled
+      // branch.
+      assertEquals(BLUE, onRoot().captureToImage().toPixelMap()[30, 30].toArgb())
     }
 
   @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
