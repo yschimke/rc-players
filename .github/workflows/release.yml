@@ -130,17 +130,25 @@ jobs:
 
       # Which of the eight coordinates this release actually uploads.
       #
-      # `maven-publish-plan.sh` compares each module against the tag it last published at,
+      # `maven-publish-plan.sh` compares each module's inputs against the tag it last published at,
       # propagates to dependents, and resolves every uncertainty to "publish": Central refuses a
       # second upload of a version, so an unnecessary publish costs quota while a wrongly-skipped
       # one is unrepairable. Over v1.54.0..v1.63.0 these rules would have published 57 of 152
       # module-publications.
       #
+      # A module's inputs are its own directory plus every project in its transitive dependency
+      # closure, unpublished ones included, and any directory outside its own that it packages
+      # (#512): `rc-player-wasm-dist` republishes when `rc-player-compose` changes through the
+      # unpublished `:rc-player-wasm`, and `remote-compose-player-js-dist` when
+      # `third_party/remote-compose-player/` does. `.github/scripts/test-maven-publish-plan.sh`
+      # holds those rules to fixtures in CI.
+      #
       # Only the `workflow_call` path gets a plan. A `workflow_dispatch` or a manually pushed tag
       # is a recovery route whose baseline may not be trustworthy — that is usually why someone is
       # using it — and publishing everything is the safe answer there. An EMPTY set from a plan
-      # that DID run is a different thing, and the two must not collapse: it means "publish only
-      # the BOM", the right answer for a releasable change confined to `.github/` or the docs.
+      # that DID run is a different thing, and the two must not collapse: it means "upload
+      # nothing", the right answer for a releasable change confined to `.github/` or the docs.
+      # Not even the BOM — it would name exactly what the previous one did (#5532 upstream).
       #
       # `github.event_name` cannot express that condition: in a called workflow it carries the
       # CALLER's event, which for `release-please.yml` is `push`. Testing it against
@@ -167,13 +175,17 @@ jobs:
 
       # `publishPlayers` (root build) names the publishing projects explicitly, so a module that
       # does not publish can never be swept in by task-name matching — and it now filters them by
-      # the plan, keeping `:bom` whatever the plan says.
+      # the plan. `:bom` goes up whenever any module does, and not at all on an empty plan.
       - name: Publish
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
         run: |
           set -euo pipefail
+          if [ "$PUBLISH_PLANNED" = "true" ] && [ -z "$PUBLISH_SET" ]; then
+            echo "no Maven artifacts changed; skipping Central publication"
+            exit 0
+          fi
           PLAN_ARGS=()
           if [ "$PUBLISH_PLANNED" = "true" ]; then
             PLAN_ARGS+=("-Pcomposeai.publishSet=$PUBLISH_SET")

@@ -195,13 +195,18 @@ run these figures used to quote (241 core golds then, 353 now), so the two are n
 
 | | `cmp` | `native-appkit` | `typescript` |
 | --- | ---: | ---: | ---: |
-| Golds passed (core profile) | **236 / 353** | 216 / 353 | 352 / 353 |
-| Binding checks failing | 311 / 1140 | 266 / 1140 | 9 / 1140 |
-| Advisory (raster) disagreeing | 171 / 612 | 232 / 612 | 174 / 612 |
+| Golds passed (core profile) | **316 / 353** | 216 / 353 | 352 / 353 |
+| Binding checks failing | 108 / 1140 | 266 / 1140 | 9 / 1140 |
+| Advisory (raster) disagreeing | 116 / 612 | 232 / 612 | 174 / 612 |
 | Golds errored | 20 | 0 | 0 |
 
-That run also scored the since-removed JVM cut of the vendored AndroidX player: 132 / 353 golds,
-690 binding checks failing, 261 advisory rasters disagreeing, 43 golds errored.
+The 2026-09-23 run also scored the since-removed JVM cut of the vendored AndroidX player: 132 / 353
+golds, 690 binding checks failing, 261 advisory rasters disagreeing, 43 golds errored.
+
+The `cmp` column is the 2026-09-25 run on the same corpus. Every gold it still fails is logged in
+[`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md). The 20 errors are the TypeScript-written
+golds of §1, and the rest are §§4, 8–11 and 18–24; the three `suspicious` golds are excluded by the
+corpus itself. The other columns are still the 2026-09-23 figures.
 
 The published run is on
 [`reports/conformance`](https://github.com/yschimke/rc-players/tree/reports/conformance), and the

@@ -292,7 +292,7 @@ one switch there and back (`step_3`), the same children are expected `GONE`, kee
 they last had. So whether a hidden state's descendants read visible or gone depends on whether that
 state has ever been shown, not on what is on screen. `state_layout_nested_boxes_control`,
 `state_layout_switch_visibility`, `state_layout_row_to_column`,
-`state_layout_shared_element_across_states`, `state_layout_shared_element_nested_ids` and the
+`state_layout_shared_element_across_states`, `state_layout_shared_element_nested_ids` (see also §24) and the
 three `animation_state_*` golds assert the same bookkeeping. Several also bind to the instant of a
 switch, with the outgoing state's container `VISIBLE` at full size and its children `GONE`.
 
@@ -355,3 +355,19 @@ snapshot, so they can't be reproduced by any player and aren't listed.
 **Ask:** re-record these frames with the player that produced the tree, after the step has been
 applied, or drop the raster where it cannot be.
 **Settled by:** re-recorded frames.
+
+## 24. `state_layout_shared_element_nested_ids` expects what its description rules out
+
+The gold's description says state 0 is three concentric boxes (120×120, 60×60 and 24×24) that all
+carry animation id 700, and that the shared-element recopy "must not stamp an ancestor's position"
+onto the innermost one: "the inner boxes stay centered at (30,30) and (18,18)". The CMP player reports
+exactly that at `initial`: -8 at 120×120, -10 at (30, 30) 60×60, and -12 at (18, 18) 24×24.
+
+The checks expect something else. -8 (and the `StateLayout` -6) are 60×60, and -12 is 60×60 at
+(30, 30), which is the middle box's geometry stamped onto the innermost one. That is the very
+recopy the description says a player must not do. §20 lists this gold among the hidden-state
+bookkeeping cases. Its `step_0` diffs are that, but its `initial` diffs are not.
+
+**Ask:** regenerate the gold from a player that keeps each nested box's own geometry, or correct
+the description if the stamping is intended.
+**Settled by:** a regenerated gold.

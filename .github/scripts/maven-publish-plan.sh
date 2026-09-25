@@ -21,6 +21,22 @@
 #   2. a module it depends on is being published, or
 #   3. a shared build input changed, which can move every artifact at once.
 #
+# "A file under it" means every input the module packages, not just its own directory (#512). A
+# module's inputs are the directories of every project in its transitive project-dependency
+# closure — followed through UNPUBLISHED projects too — plus any path outside its directory that it
+# reads. Two published modules went stale on Central without this:
+#
+#   - `rc-player-wasm-dist` zips `:rc-player-wasm`, which is unpublished and depends on
+#     `:rc-player-compose`. Rule 2 only walks published edges, so a compose-only release (v1.71.0,
+#     v1.75.0) left Central's wasm-dist built from the previous compose code.
+#   - `remote-compose-player-js-dist` packages `../remote-compose-player/dist`, a sibling directory
+#     with no build file, so no project edge reaches it at all.
+#
+# Paths outside a project's directory are picked up from `"../…"` literals in its build file, and
+# anything a build file cannot express that way is declared in EXTRA_INPUTS below. A dependency on
+# a project path this script cannot resolve, or an input path that escapes the repository, makes
+# every published module that reaches it publish.
+#
 # Rule 2 is what keeps the POMs honest, and it is deliberately coarser than it needs to be. A
 # published POM names its project dependencies at *their* `project.version`, so a module may only
 # be skipped while everything it depends on is also skipped; otherwise it would name a sibling
@@ -51,7 +67,7 @@ done
 [ -z "$MANIFEST" ] || [ -f "$MANIFEST" ] || { echo "no manifest at $MANIFEST" >&2; exit 2; }
 
 python3 - "$HEAD_REF" "$MANIFEST" "$WRITE_MANIFEST" <<'PY'
-import json, re, subprocess, sys, collections, urllib.error, urllib.request
+import json, os, re, subprocess, sys, collections, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 GROUP_PATH = "ee/schimke/composeai"
@@ -72,9 +88,20 @@ dirs = dict(
 )
 paths = re.findall(r'^include\("(:[^"]+)"\)', settings, re.M)
 
+# Paths a published module packages that neither its own directory, its project dependencies nor a
+# `"../…"` literal in its build file reveal. Keyed by artifact id; repository-relative directories.
+# The js-dist entry is also found by the literal scan — it is declared here as well so the input
+# survives a rewrite of that build file into a form the scan cannot read.
+EXTRA_INPUTS = {
+    "remote-compose-player-js-dist": ["third_party/remote-compose-player"],
+}
+
 modules = {}   # artifactId -> directory
 deps = {}      # artifactId -> [artifactId]
 path_to_id = {}
+proj_dir = {}      # project path -> directory, for EVERY included project, published or not
+proj_deps = {}     # project path -> [project path], every `project(":…")` its build file names
+proj_inputs = {}   # project path -> [directory], `"../…"` paths outside its own directory
 for p in paths:
     d = dirs.get(p, p.lstrip(":").replace(":", "/"))
     try:
@@ -86,6 +113,14 @@ for p in paths:
         # costs a coordinate that never shipped.
         print(f"  cannot read {p}'s build file at {d}: {e}", file=sys.stderr)
         sys.exit(2)
+    proj_dir[p] = d
+    # Every `project(":…")` reference counts, not only dependency declarations: `:rc-player-wasm`
+    # reaches `:rc-player-compat-tests`' outputs through `project(...).layout`, and a coarser edge
+    # can only over-publish.
+    proj_deps[p] = sorted(set(re.findall(r'project\("(:[^"]+)"\)', text)))
+    proj_inputs[p] = sorted(
+        {os.path.normpath(os.path.join(d, lit)) for lit in re.findall(r'"(\.\./[^"]*)"', text)}
+    )
     if 'id("composeai.maven-publishing")' not in text:
         continue
     # The artifact id is the one the module DECLARES, not the project path flattened: seven of the
@@ -99,10 +134,37 @@ for p in paths:
     aid = declared.group(1)
     modules[aid] = d
     path_to_id[p] = aid
-    deps[aid] = re.findall(r'project\("(:[^"]+)"\)', text)
+    deps[aid] = proj_deps[p]
 # Dependencies are collected as PROJECT PATHS above and mapped to artifact ids here, once every
 # module has been seen — the same reason the ids are read from the declarations rather than derived.
 deps = {a: [path_to_id[d] for d in ds if d in path_to_id] for a, ds in deps.items()}
+
+def module_inputs(project_path):
+    """Every directory `project_path`'s artifact can be built from, or None if one is unresolvable.
+
+    Walks project dependencies transitively through published and unpublished projects alike, so
+    an unpublished middle module (`:rc-player-wasm`) cannot hide a change from the published module
+    that packages it. None means "cannot tell", which the caller resolves to "publish".
+    """
+    aid = path_to_id[project_path]
+    seen, stack, inputs = set(), [project_path], set(EXTRA_INPUTS.get(aid, ()))
+    while stack:
+        q = stack.pop()
+        if q in seen:
+            continue
+        seen.add(q)
+        if q not in proj_dir:
+            print(f"  {aid}: depends on {q}, which settings.gradle.kts does not include; "
+                  "publishing", file=sys.stderr)
+            return None
+        inputs.add(proj_dir[q])
+        inputs.update(proj_inputs[q])
+        stack.extend(proj_deps[q])
+    for i in inputs:
+        if i == ".." or i.startswith("../") or os.path.isabs(i):
+            print(f"  {aid}: input {i} is outside the repository; publishing", file=sys.stderr)
+            return None
+    return sorted(inputs)
 
 def central_release(aid):
     """The newest version of `aid` on Central, or None if it has never published there.
@@ -156,14 +218,15 @@ if write_manifest_path:
 # A shared build input can change any artifact, so it opens the gate for everything.
 SHARED = re.compile(r"^(build-logic/|gradle/|gradlew|settings\.gradle\.kts$|build\.gradle\.kts$)")
 
-def changed_since(version, directory):
-    """Did `directory` move between the tag for `version` and head?"""
+def changed_since(aid, version, inputs):
+    """Did any of `inputs` move between the tag for `version` and head?"""
     tag = f"v{version}"
     if subprocess.run(["git", "rev-parse", "--verify", "-q", tag + "^{commit}"],
                       capture_output=True).returncode != 0:
-        print(f"  {directory}: no tag {tag}; publishing", file=sys.stderr)
+        print(f"  {aid}: no tag {tag}; publishing", file=sys.stderr)
         return True
-    out = git("diff", "--name-only", f"{tag}..{head}", "--", directory)
+    # `:(top)` anchors each pathspec at the repository root whatever the working directory.
+    out = git("diff", "--name-only", f"{tag}..{head}", "--", *(f":(top){i}" for i in inputs))
     return bool(out.strip())
 
 shared_changed = False
@@ -185,11 +248,13 @@ if shared_changed:
     sys.exit(0)
 
 dirty = set()
-for aid, directory in modules.items():
+for p, aid in path_to_id.items():
     if aid not in recorded:
         print(f"  {aid}: never published; publishing", file=sys.stderr)
         dirty.add(aid)
-    elif changed_since(recorded[aid], directory):
+        continue
+    inputs = module_inputs(p)
+    if inputs is None or changed_since(aid, recorded[aid], inputs):
         dirty.add(aid)
 
 # Rule 2: anything depending on a dirty module is dirty too, transitively.

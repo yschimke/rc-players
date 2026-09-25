@@ -109,9 +109,12 @@ require(unknownPublishSetIds.isEmpty()) {
 tasks.register("publishPlayers") {
   group = "publishing"
   description = "Publishes the player artifacts this release changed to Maven Central."
-  // `:bom` is never filtered: it is the index of the release, and a consumer resolving it at the
-  // tag has to find it there whether or not any player changed.
-  dependsOn(":bom:publishToMavenCentral")
+  // `:bom` publishes whenever anything does: it is the index of the release, naming each skipped
+  // module at the version it is already on Central. A plan that ran and found nothing uploads
+  // nothing at all — a BOM identical to the previous one but for its own version is a Central
+  // deployment that ships no change (compose-ai-tools#5532). Consumers track the BOM through
+  // Central (Renovate), so they only ever see versions that were uploaded.
+  if (publishSet == null || publishSet.isNotEmpty()) dependsOn(":bom:publishToMavenCentral")
   projectsToPublish.forEach { dependsOn("$it:publishToMavenCentral") }
 }
 

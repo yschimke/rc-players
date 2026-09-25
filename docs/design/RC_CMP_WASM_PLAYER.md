@@ -62,6 +62,24 @@ contours, but uses Compose text layout so bundled browser fonts work. Every such
 fallback and a focused parity test. In particular, no Skia type belongs in the operation model or
 public player API.
 
+## Decision: prefer Compose UI features over re-implementing AndroidX, even where they diverge
+
+Where Compose has a feature for what a document asks for, the player uses it, even when that
+means small differences from AndroidX's hand-written version:
+
+- **Text:** a `CoreText` or `TextLayout` is a `BasicText`, not canvas draw calls.
+- **Shared elements:** a `StateLayout`'s shared elements are `SharedTransitionLayout` with
+  `sharedBounds`.
+- **Visibility:** a component's enter and exit are `AnimatedVisibility`, with the document's
+  `AnimationSpec` mapped onto Compose's enter and exit transitions (`RcVisibilityTransition`).
+
+This gets the player Compose's accessibility, text handling, lookahead and interruption for free,
+and keeps it looking and behaving like the Compose UI around it. A divergence this causes is
+recorded as a deliberate one, not a bug to chase. For example, a slide travels the component's own
+size rather than its parent's. If it fails a conformance gold, it goes in
+[`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md) with the reason. Hand-rolled behaviour
+is for the cases Compose has no feature for, like a canvas draw stream.
+
 ## Proposed modules
 
 Create original code outside `third_party`:
