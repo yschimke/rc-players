@@ -653,7 +653,6 @@ internal fun androidx.compose.remote.core.operations.layout.modifiers.GraphicsLa
       name = nameField.get(item) as String,
       id = idField.getInt(item),
       source = source,
-      isSet = animatable != null,
     )
   }
 }

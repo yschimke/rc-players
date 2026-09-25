@@ -127,8 +127,6 @@ internal data class GraphicsLayerAttributeValueData(
   val name: String,
   val id: Int,
   val source: Float,
-  /** Whether the document wrote this attribute, rather than [source] being the table's default. */
-  val isSet: Boolean,
 )
 
 internal data class HostNamedActionOperationData(val textId: Int, val type: Int, val valueId: Int)

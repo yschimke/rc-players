@@ -406,9 +406,9 @@ up in the CMP lane.
 
 **The advisory rasters.** 116 of 612 disagree. Each was checked on 2026-09-24: the rest are the
 text stack, and every one that is not is a recorded frame that contradicts the same gold's binding
-checks (pushback §23). That review found two real bugs, fixed together: CMP refused the int-valued
-graphics-layer attributes `remote-creation-compose` writes (`SHAPE` in particular), and the embedded
-player pivoted an unauthored transform origin at the corner (#153).
+checks (pushback §23). That review found a real bug: CMP refused the int-valued graphics-layer
+attributes `remote-creation-compose` writes (`SHAPE` in particular). An absent transform origin is
+the declared 0, the top-left, in every player, as AndroidX's embedded player reads it.
 
 **Elsewhere.** The native Swift lane's remaining work needs an AppKit or UIKit host and is tracked
 in #431. The reference lane's own gap, the `graphicsLayer` applying only to the modifiers after it

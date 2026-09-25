@@ -138,18 +138,10 @@ public class RcAnimatableFloat(
 /**
  * The graphics-layer attributes AndroidX animates, resolved for one frame.
  *
- * Defaults are `GraphicsLayerModifierOperation`'s own except the origin, which is **centred** — and
- * that is a reading of AndroidX's behaviour, not a deviation from it. `fillInAttributes` only
- * records an attribute whose value differs from its declared default, and `setGraphicsLayer`
- * applies only the keys it is handed, so an absent origin never reaches the layer at all and the
- * layer keeps its own pivot, which is its centre. Reading the declared `0f` back as a *value*
- * instead would pivot at the top-left, which no `RenderNode`-backed AndroidX lane does.
- *
- * Only an absent attribute is affected. Since androidx-main `4969cdd96c6` the creation side writes
- * a centre origin explicitly (it omits `0f` rather than `0.5f`), so a document that means top-left
- * says so, arrives here as a present attribute, and pivots at the top-left.
- *
- * Tracked as #155 and #153; `RcNativePlayerUIKit` reaches the same default from the same evidence.
+ * Every default is `GraphicsLayerModifierOperation`'s own, the transform origin's `0f` included, so
+ * an absent origin pivots at the top-left as it does in AndroidX's embedded Compose player. The
+ * current writer (androidx-main `4969cdd96c6` onwards) writes a centre origin explicitly and omits
+ * only `0f`, so a document that means the centre says so.
  */
 public data class RcGraphicsLayerValues(
   val scaleX: Float = 1f,
@@ -157,8 +149,8 @@ public data class RcGraphicsLayerValues(
   val rotationX: Float = 0f,
   val rotationY: Float = 0f,
   val rotationZ: Float = 0f,
-  val transformOriginX: Float = 0.5f,
-  val transformOriginY: Float = 0.5f,
+  val transformOriginX: Float = 0f,
+  val transformOriginY: Float = 0f,
   val translationX: Float = 0f,
   val translationY: Float = 0f,
   val shadowElevation: Float = 0f,
@@ -207,8 +199,8 @@ public class RcGraphicsLayerAnimator {
         rotationX = attribute(RcGraphicsLayerModifier.ROTATION_X, 0f),
         rotationY = attribute(RcGraphicsLayerModifier.ROTATION_Y, 0f),
         rotationZ = attribute(RcGraphicsLayerModifier.ROTATION_Z, 0f),
-        transformOriginX = attribute(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X, 0.5f),
-        transformOriginY = attribute(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y, 0.5f),
+        transformOriginX = attribute(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X, 0f),
+        transformOriginY = attribute(RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y, 0f),
         translationX = attribute(RcGraphicsLayerModifier.TRANSLATION_X, 0f),
         translationY = attribute(RcGraphicsLayerModifier.TRANSLATION_Y, 0f),
         shadowElevation = attribute(RcGraphicsLayerModifier.SHADOW_ELEVATION, 0f),

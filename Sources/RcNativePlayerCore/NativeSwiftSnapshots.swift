@@ -500,20 +500,19 @@ public struct NativeSwiftGraphicsLayerSnapshot: Sendable, Equatable {
   public let rotationZ: Float
   public let alpha: Float
   /// The pivot for scale and rotation as a fraction of the component's width: 0 is the left edge,
-  /// 1 the right. An absent attribute is the centre, 0.5 — `RcGraphicsLayerValues` in
-  /// `rc-player-runtime` explains why that, and not the declared `0f`, is what AndroidX draws.
+  /// 1 the right. An absent attribute is the declared 0, as AndroidX's embedded player reads it.
   public let transformOriginX: Float
   /// The pivot for scale and rotation as a fraction of the component's height.
   public let transformOriginY: Float
 
-  /// A layer pivoting about its centre.
+  /// A layer pivoting about its top-left, the origin a document that writes none gets.
   public init(
     scaleX: Float, scaleY: Float, translationX: Float, translationY: Float, rotationZ: Float,
     alpha: Float
   ) {
     self.init(
       scaleX: scaleX, scaleY: scaleY, translationX: translationX, translationY: translationY,
-      rotationZ: rotationZ, alpha: alpha, transformOriginX: 0.5, transformOriginY: 0.5)
+      rotationZ: rotationZ, alpha: alpha, transformOriginX: 0, transformOriginY: 0)
   }
 
   public init(

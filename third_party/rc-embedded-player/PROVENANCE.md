@@ -116,14 +116,10 @@ counterpart for yet, so the pin above still names the snapshot the rest of these
   the field non-null. `state/RcPlayerState.kt`'s `expressionDependsOnAnimation` becomes `internal`
   to match upstream, which is what the modifier imports.
 
-  One consequence is worth stating rather than discovering from a diff image: upstream's new code
-  reads `TRANSFORM_ORIGIN_X/Y` straight from the attribute's source, so an **absent** origin resolves
-  to `0f` and pivots at the top-left. The `RenderNode`-backed lanes never see an absent attribute at
-  all — `fillInAttributes` omits it and `setGraphicsLayer` applies only the keys it is handed, so the
-  layer keeps its centre pivot — and `rc-player-compose` and `RcNativePlayerUIKit` both centre for
-  that reason. So on documents captured before androidx-main `4969cdd96c6` fixed the writer, this
-  lane now pivots differently from the others. That divergence is upstream's, and this lane's job is
-  to show it.
+  Upstream's code reads `TRANSFORM_ORIGIN_X/Y` straight from the attribute's source, so an
+  **absent** origin resolves to `remote-core`'s declared `0f` and pivots at the top-left. That is
+  taken as is: the writer since `4969cdd96c6` writes a centre origin explicitly and omits only `0f`.
+  `rc-player-compose` and the native Swift core read an absent origin the same way.
 - **`RcPlayer.kt` theme initialisation** — androidx-main `6e43f08a938`. Resolved `ColorTheme`
   operations are now applied into the context during setup rather than only by the effect that runs
   after the first frame, so the opening frame is themed instead of showing authored defaults; the
