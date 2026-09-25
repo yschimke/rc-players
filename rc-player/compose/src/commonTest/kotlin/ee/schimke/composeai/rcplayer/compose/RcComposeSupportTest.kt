@@ -682,6 +682,79 @@ class RcComposeSupportTest {
     assertEquals("gradient stop count 1 does not match 2 colors", issue.detail)
   }
 
+  /**
+   * `remote-creation-compose` writes the layer's shape as an int attribute, `SHAPE_RECT` for
+   * Compose's default `RectangleShape`, so almost every layer it emits carries one. Refusing it
+   * refused every such document, a mirrored page indicator among them.
+   */
+  @Test
+  fun aLayerWithTheWritersShapeAndBlurAttributesIsRenderable() {
+    val document =
+      RcDocument(
+        header,
+        listOf(
+          RcGraphicsLayerModifier(
+            listOf(
+              RcGraphicsLayerAttribute.FloatValue(
+                RcGraphicsLayerModifier.SCALE_X,
+                RcFloatWord.literal(-1f),
+              ),
+              RcGraphicsLayerAttribute.IntValue(
+                RcGraphicsLayerModifier.COMPOSITING_STRATEGY,
+                1,
+              ),
+              RcGraphicsLayerAttribute.FloatValue(
+                RcGraphicsLayerModifier.BLUR_RADIUS_X,
+                RcFloatWord.literal(4f),
+              ),
+              RcGraphicsLayerAttribute.IntValue(
+                RcGraphicsLayerModifier.BLUR_TILE_MODE,
+                RcGraphicsLayerModifier.TILE_MODE_DECAL,
+              ),
+              RcGraphicsLayerAttribute.IntValue(
+                RcGraphicsLayerModifier.SHAPE,
+                RcGraphicsLayerModifier.SHAPE_ROUND_RECT,
+              ),
+              RcGraphicsLayerAttribute.FloatValue(
+                RcGraphicsLayerModifier.SHAPE_RADIUS,
+                RcFloatWord.literal(40f),
+              ),
+            )
+          )
+        ),
+      )
+
+    assertEquals(
+      emptyList(),
+      document.composeSupportReport(RcOperationProfiles.CMP_DESKTOP_ALPHA18).issues,
+    )
+  }
+
+  /**
+   * Compose has no `translationZ`, and an attribute written as the wrong kind is not guessed at.
+   */
+  @Test
+  fun aLayerAttributeComposeCannotApplyIsStillRefused() {
+    for (attribute in
+      listOf(
+        RcGraphicsLayerAttribute.FloatValue(
+          RcGraphicsLayerModifier.TRANSLATION_Z,
+          RcFloatWord.literal(4f),
+        ),
+        RcGraphicsLayerAttribute.FloatValue(RcGraphicsLayerModifier.SHAPE, RcFloatWord.literal(1f)),
+      )) {
+      val issue =
+        RcDocument(header, listOf(RcGraphicsLayerModifier(listOf(attribute))))
+          .composeSupportReport(RcOperationProfiles.CMP_DESKTOP_ALPHA18)
+          .issues
+          .single()
+      assertEquals(
+        "attribute ${attribute.index} is not implemented by the CMP graphics backend",
+        issue.detail,
+      )
+    }
+  }
+
   @Test
   fun wasmProfileRejectsGraphicsLayersBeforeRendering() {
     val document =

@@ -743,23 +743,13 @@ public fun RcDocument.composeSupportReport(
       }
     }
     if (operation is RcGraphicsLayerModifier) {
-      val supported =
-        setOf(
-          RcGraphicsLayerModifier.SCALE_X,
-          RcGraphicsLayerModifier.SCALE_Y,
-          RcGraphicsLayerModifier.ROTATION_X,
-          RcGraphicsLayerModifier.ROTATION_Y,
-          RcGraphicsLayerModifier.ROTATION_Z,
-          RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X,
-          RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y,
-          RcGraphicsLayerModifier.TRANSLATION_X,
-          RcGraphicsLayerModifier.TRANSLATION_Y,
-          RcGraphicsLayerModifier.SHADOW_ELEVATION,
-          RcGraphicsLayerModifier.ALPHA,
-          RcGraphicsLayerModifier.CAMERA_DISTANCE,
-        )
       operation.attributes
-        .firstOrNull { it.index !in supported || it !is RcGraphicsLayerAttribute.FloatValue }
+        .firstOrNull { attribute ->
+          when (attribute) {
+            is RcGraphicsLayerAttribute.FloatValue -> attribute.index !in SUPPORTED_LAYER_FLOATS
+            is RcGraphicsLayerAttribute.IntValue -> attribute.index !in SUPPORTED_LAYER_INTS
+          }
+        }
         ?.let { attribute ->
           issues +=
             RcComposeSupportIssue(
@@ -1816,3 +1806,37 @@ private fun fontAxisName(tag: Int): String =
     append((tag ushr 8 and 0xff).toChar())
     append((tag and 0xff).toChar())
   }
+
+/**
+ * Graphics-layer attributes the CMP backend applies, by the value kind each is written as. Every
+ * one maps onto Compose's `graphicsLayer`. `TRANSLATION_Z` has no counterpart there and stays
+ * refused.
+ */
+private val SUPPORTED_LAYER_FLOATS =
+  setOf(
+    RcGraphicsLayerModifier.SCALE_X,
+    RcGraphicsLayerModifier.SCALE_Y,
+    RcGraphicsLayerModifier.ROTATION_X,
+    RcGraphicsLayerModifier.ROTATION_Y,
+    RcGraphicsLayerModifier.ROTATION_Z,
+    RcGraphicsLayerModifier.TRANSFORM_ORIGIN_X,
+    RcGraphicsLayerModifier.TRANSFORM_ORIGIN_Y,
+    RcGraphicsLayerModifier.TRANSLATION_X,
+    RcGraphicsLayerModifier.TRANSLATION_Y,
+    RcGraphicsLayerModifier.SHADOW_ELEVATION,
+    RcGraphicsLayerModifier.ALPHA,
+    RcGraphicsLayerModifier.CAMERA_DISTANCE,
+    RcGraphicsLayerModifier.BLUR_RADIUS_X,
+    RcGraphicsLayerModifier.BLUR_RADIUS_Y,
+    RcGraphicsLayerModifier.SHAPE_RADIUS,
+  )
+
+private val SUPPORTED_LAYER_INTS =
+  setOf(
+    RcGraphicsLayerModifier.COMPOSITING_STRATEGY,
+    RcGraphicsLayerModifier.SPOT_SHADOW_COLOR,
+    RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR,
+    RcGraphicsLayerModifier.HAS_BLUR,
+    RcGraphicsLayerModifier.BLUR_TILE_MODE,
+    RcGraphicsLayerModifier.SHAPE,
+  )

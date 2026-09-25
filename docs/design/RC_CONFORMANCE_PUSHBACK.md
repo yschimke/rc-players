@@ -325,3 +325,33 @@ The native Swift player draws the circle text and reports 8. It is left failing 
 **Ask:** regenerate the gold from a player that implements `DRAW_TEXT_ON_CIRCLE`, or drop the glyph
 count and the `Stub` name from its checks.
 **Settled by:** a regenerated gold.
+
+## 23. Advisory rasters that contradict their own gold
+
+These came out of reviewing every advisory raster the CMP lane disagrees with on the 2026-09-24 run.
+Each frame below disagrees with the same gold's binding checks, which CMP passes, so matching the
+picture would mean failing the tree. They are advisory, so none of them fails a gold, but they are
+recorded because the audit report shows them as CMP differences.
+
+| gold @ step | the gold's own checks | the recorded frame | CMP |
+| --- | --- | --- | --- |
+| `modifier_graphics_layer`, `modifier_graphicslayer_scale`, `column_child_graphicslayer`, `row_child_graphicslayer`, `flow_child_graphicslayer`, `fitbox_child_graphicslayer`, `collapsible_*_child_graphicslayer` (every step) | the box is laid out and `VISIBLE` | no box at all | draws it. The TypeScript player draws it too. |
+| `interaction_click_button@step_0`, `@step_1` | the button (-5) at (0, 0) 100×50, the `StateLayout` at y = 50 | the pink state at y = 0 and no button | button at the top, state below |
+| `state_layout_state_switch@step_0` to `@step_3` | the same shape: a control row above the `StateLayout` | the active state at y = 0 and no control row | control row, state below. (At `step_4`, the instant of the switch back, CMP still paints the outgoing state; that is §20.) |
+| `collapsible_row_space_resize@resize_3`, `collapsible_column_space_resize@resize_3` | the container itself is `GONE` | the background and part of a child | nothing |
+| `resize_collapsible_column@resize_2` | only -5 is `VISIBLE`; -6 and -7 are `GONE` | a strip of the green child (-7) along the bottom | -5 only |
+| `clock_continuous_sweep@snap_1` | `sweep_sec` = 271.5, the hand's rotation | the hand at 12 o'clock (0°) | the hand at 9 o'clock |
+| `text_anchored_pan_alignment@initial` | the description: a NaN `panY` "must leave the baseline y untouched"; `anchor_runs` y = 200 | the first row's baseline about 8 px lower | baseline at 200 |
+| `image_layout_sizing_options@resize_1` | the root is 600 wide | a 400-wide frame | 600 wide |
+| `core_text_autosize_min_clamped@resize_1` | the `CoreText` is 118×59 | text across about 182 px | 118×59 |
+
+The first row is the recorder's graphics layer; the others look like frames captured before the
+step's change was applied, or at the previous size (the resize case is the View-player recording
+[`RC_CONFORMANCE.md`](RC_CONFORMANCE.md#the-raster-baselines-and-the-recorder-that-stamps-them)
+describes, on a step the correction missed). `clock_digital_calendar@initial` and
+`clock_analog_hands@initial` differ too, but those frames read the host's live clock before any
+snapshot, so they can't be reproduced by any player and aren't listed.
+
+**Ask:** re-record these frames with the player that produced the tree, after the step has been
+applied, or drop the raster where it cannot be.
+**Settled by:** re-recorded frames.

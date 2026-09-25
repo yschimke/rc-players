@@ -394,29 +394,22 @@ three ways a runner loses a check, all of which make the score look *better*.
 
 ## The work list
 
-**In the player.** Each is a measured divergence from the engine that generated the corpus, with a
-filed issue carrying the evidence:
+**CMP: nothing open in the player or the runner.** Measured on 2026-09-24 against
+`vendor/androidx-rc-conformance`: 316 / 353 core golds pass and 20 error. Every gold that still
+fails or errors has an entry in [`RC_CONFORMANCE_PUSHBACK.md`](RC_CONFORMANCE_PUSHBACK.md), and
+#504 maps each one to its entry. The issues this list used to carry are closed: #182 (four
+document shapes that crashed the player), #198 (collapsibles not collapsing to `GONE`), #202
+(`StateLayout` fill), #281 (weighted collapsible children), #183 (`canvas_shader_gradient`), and on
+the runner's side #203 (Ahem metrics) and #199 (gestures). The only "step not run" diffs left are in
+the twenty TypeScript-written documents of pushback §1, so #184's observability gaps no longer show
+up in the CMP lane.
 
-| | golds | issue |
-| --- | ---: | --- |
-| Four document shapes crash it — LOOM linking, box alignment `0/0`, `LayoutComponentContent`, a missing tween path | 9 (+202 downstream checks) | #182 |
-| Collapsible layouts do not collapse to `GONE` when nothing fits | ~18 | #198 |
-| ~~`StateLayout` honours fill modifiers~~ — **fixed**, +7 golds | — | #202 |
-| A weighted child of a collapsible layout measures to zero — tree and raster | 2 | #281 |
-| `canvas_shader_gradient` — the one raster difference attributable to this player alone | 1 | #183 |
+**The advisory rasters.** 116 of 612 disagree. Each was checked on 2026-09-24: the rest are the
+text stack, and every one that is not is a recorded frame that contradicts the same gold's binding
+checks (pushback §23). That review found two real bugs, fixed together: CMP refused the int-valued
+graphics-layer attributes `remote-creation-compose` writes (`SHAPE` in particular), and the embedded
+player pivoted an unauthored transform origin at the corner (#153).
 
-The reference lane has its own tracked gaps, and they belong upstream because that player *is*
-upstream's code: the `graphicsLayer` transform is not applied in either Compose port — the child
-alpha in particular — tracked in #207 for both ports and #98 for the vendored/upstream side.
-
-**In the runner.**
-
-| | golds | issue |
-| --- | ---: | --- |
-| The closed-form Ahem text-metrics model | 6 | #203 |
-| Gestures dispatched through `ImageComposeScene` have no effect | 5 (+14 `trace:handled` checks) | #199 |
-| The four transient-event channels, and scroll offsets | ~8 | #184 |
-
-Two of these were nearly filed the other way round, which is the argument for the reference lane
-existing at all: the collapsible and `StateLayout` divergences both *looked* like reporting gaps
-until the pixels were checked.
+**Elsewhere.** The native Swift lane's remaining work needs an AppKit or UIKit host and is tracked
+in #431. The reference lane's own gap, the `graphicsLayer` applying only to the modifiers after it
+in the embedded port, belongs upstream and is tracked in #98.
