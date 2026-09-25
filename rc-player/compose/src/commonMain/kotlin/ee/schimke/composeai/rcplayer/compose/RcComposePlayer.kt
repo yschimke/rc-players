@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
@@ -114,6 +115,7 @@ import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LookaheadScope
+import androidx.compose.ui.layout.Measured
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
@@ -1011,7 +1013,6 @@ private fun RenderLayoutNode(
       is RcLayoutNode.Row -> {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val spacingDp = state.dpTypedDp(state.resolve(node.operation.spacedBy), density)
-        val spacing = with(density) { spacingDp.roundToPx() }
         val rowModifier =
           effectiveModifier.applyComponentModifiers(
             node.modifiers,
@@ -1023,49 +1024,47 @@ private fun RenderLayoutNode(
             images,
             theme,
           )
-        if (node.content.children.any { it.modifiers.alignBy != null }) {
-          RcAlignedRow(
-            children = node.content.children,
-            horizontalPositioning = node.operation.horizontalPositioning,
-            verticalPositioning = node.operation.verticalPositioning,
-            spacing = spacing,
-            modifier = rowModifier,
-            state = state,
-            textMeasurer = textMeasurer,
-            images = images,
-            theme = theme,
-          )
-        } else {
-          val hasWeightedChildren =
-            node.content.children.any { child ->
-              child.modifiers.width?.type == RcDimensionType.WEIGHT &&
-                child.modifiers.visibility?.let {
-                  androidXVisibility(state.integer(it.visibilityId) ?: 0) != 0
-                } != false
-            }
-          Row(
-            rowModifier,
-            horizontalArrangement =
-              RcHorizontalArrangement(
-                node.operation.horizontalPositioning,
-                visualSpacing = spacingDp,
-                // AndroidX measures weighted children from all remaining row space, then adds the
-                // configured gaps while positioning. Compose normally reserves those gaps before
-                // distributing weight, which makes every weighted child too narrow.
-                spacing = if (hasWeightedChildren) 0.dp else spacingDp,
-              ),
-            verticalAlignment = rowAlignment(node.operation.verticalPositioning),
-          ) {
-            node.content.children.forEach { child ->
-              RenderLayoutNode(
-                child,
-                modifier = rowWeightModifier(child, state),
-                state = state,
-                textMeasurer = textMeasurer,
-                images = images,
-                theme = theme,
-              )
-            }
+        val hasAlignedChildren = node.content.children.any { it.modifiers.alignBy != null }
+        val hasWeightedChildren =
+          node.content.children.any { child ->
+            child.modifiers.width?.type == RcDimensionType.WEIGHT &&
+              child.modifiers.visibility?.let {
+                androidXVisibility(state.integer(it.visibilityId) ?: 0) != 0
+              } != false
+          }
+        Row(
+          // Compose's Row places an alignment-line-aligned group at the top of the row and ignores
+          // `verticalAlignment` for it. AndroidX offsets the aligned group by the row's vertical
+          // positioning, so the group is measured at its own height and positioned inside the
+          // row's bounds the same way.
+          if (hasAlignedChildren) {
+            rowModifier.wrapContentHeight(rowAlignment(node.operation.verticalPositioning))
+          } else {
+            rowModifier
+          },
+          horizontalArrangement =
+            RcHorizontalArrangement(
+              node.operation.horizontalPositioning,
+              visualSpacing = spacingDp,
+              // AndroidX measures weighted children from all remaining row space, then adds the
+              // configured gaps while positioning. Compose normally reserves those gaps before
+              // distributing weight, which makes every weighted child too narrow.
+              spacing = if (hasWeightedChildren) 0.dp else spacingDp,
+            ),
+          verticalAlignment = rowAlignment(node.operation.verticalPositioning),
+        ) {
+          node.content.children.forEach { child ->
+            RenderLayoutNode(
+              child,
+              modifier =
+                rowWeightModifier(child, state).let { weight ->
+                  if (hasAlignedChildren) weight.then(rowAlignByModifier(child, state)) else weight
+                },
+              state = state,
+              textMeasurer = textMeasurer,
+              images = images,
+              theme = theme,
+            )
           }
         }
       }
@@ -1723,51 +1722,6 @@ internal val DefaultRcAnimationSpec =
     enterAnimation = RcLayoutAnimation.FadeIn,
     exitAnimation = RcLayoutAnimation.FadeOut,
   )
-
-@Composable
-private fun RcAlignedRow(
-  children: List<RcLayoutNode>,
-  horizontalPositioning: Int,
-  verticalPositioning: Int,
-  spacing: Int,
-  modifier: Modifier,
-  state: RcPlayerState,
-  textMeasurer: TextMeasurer,
-  images: MutableMap<Int, ImageBitmap>,
-  theme: Int,
-) {
-  Layout(
-    content = {
-      children.forEach { child -> RcLayoutChild(child, state, textMeasurer, images, theme) }
-    },
-    modifier = modifier,
-  ) { measurables, constraints ->
-    val loose = constraints.copy(minWidth = 0, minHeight = 0)
-    val placeables = measurables.map { it.measure(loose) }
-    val widths = placeables.map { it.width }.toIntArray()
-    val naturalWidth = widths.sum() + spacing * (widths.size - 1).coerceAtLeast(0)
-    val width = constraints.constrainWidth(naturalWidth)
-    val maximumChildHeight = placeables.maxOfOrNull { it.height } ?: 0
-    val height = constraints.constrainHeight(maximumChildHeight)
-    val xPositions =
-      arrangeLinear(
-        width,
-        widths,
-        horizontalPositioning,
-        spacing,
-        reverse = layoutDirection == LayoutDirection.Rtl,
-      )
-    val anchors = children.mapIndexed { index, child ->
-      resolveAlignByAnchor(child.modifiers.alignBy, placeables[index], state)
-    }
-    val yPositions = alignByCrossPositions(height, maximumChildHeight, verticalPositioning, anchors)
-    layout(width, height) {
-      placeables.forEachIndexed { index, placeable ->
-        placeable.place(xPositions[index], yPositions[index])
-      }
-    }
-  }
-}
 
 @Composable
 private fun RcLayoutChild(
@@ -3920,6 +3874,27 @@ private fun RowScope.rowWeightModifier(node: RcLayoutNode, state: RcPlayerState)
     Modifier
   }
 }
+
+/**
+ * AndroidX's RowLayout aligns every child of a row that carries any `alignBy` to the largest
+ * anchor, treating a child without one — or a baseline request on a child with no text — as
+ * anchored at its top edge. Compose's `alignBy { }` expresses exactly that: each child reports its
+ * anchor and the Row lines them up, including the unanchored ones at 0.
+ */
+private fun RowScope.rowAlignByModifier(node: RcLayoutNode, state: RcPlayerState): Modifier {
+  val line = node.modifiers.alignBy?.line
+  return when (line?.referencedId) {
+    RcAlignByModifier.FIRST_BASELINE_ID -> Modifier.alignBy { it.baselineOrTop(FirstBaseline) }
+    RcAlignByModifier.LAST_BASELINE_ID -> Modifier.alignBy { it.baselineOrTop(LastBaseline) }
+    else -> {
+      val anchor = if (line == null) 0 else state.resolve(line).roundToInt()
+      Modifier.alignBy { anchor }
+    }
+  }
+}
+
+private fun Measured.baselineOrTop(line: AlignmentLine): Int =
+  this[line].takeUnless { it == AlignmentLine.Unspecified } ?: 0
 
 private fun ColumnScope.columnWeightModifier(node: RcLayoutNode, state: RcPlayerState): Modifier {
   val height = node.modifiers.height
