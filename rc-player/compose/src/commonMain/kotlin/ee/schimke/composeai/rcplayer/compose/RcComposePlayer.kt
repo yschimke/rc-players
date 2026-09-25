@@ -684,18 +684,23 @@ private fun RcComposePlayerResolved(
           LocalRcFrameDemand provides frameDemand,
           LocalRcOffscreenTargets provides offscreenTargets,
         ) {
-          RenderLayoutNode(
-            node = layout,
-            // When the tree settles, the host's modifier and the player's own hooks sit on the
-            // settling layout instead — the node the host's parent actually sees, so parent data
-            // like `weight` still reaches it, and host padding or sizing shapes the constraints
-            // the probes measure under as well as the kept tree's.
-            modifier = if (settles) Modifier else redrawModifier,
-            state = state,
-            textMeasurer = textMeasurer,
-            images = images,
-            theme = theme,
-          )
+          // The root sits at the window's origin at its own size. A root smaller than the window's
+          // minimum — one still animating toward a resize, or one the document sizes below the
+          // host — would otherwise be coerced up and centred in the difference.
+          Box(if (settles) Modifier else redrawModifier) {
+            RenderLayoutNode(
+              node = layout,
+              // When the tree settles, the host's modifier and the player's own hooks sit on the
+              // settling layout instead — the node the host's parent actually sees, so parent data
+              // like `weight` still reaches it, and host padding or sizing shapes the constraints
+              // the probes measure under as well as the kept tree's.
+              modifier = Modifier,
+              state = state,
+              textMeasurer = textMeasurer,
+              images = images,
+              theme = theme,
+            )
+          }
         }
       }
     }
