@@ -216,6 +216,12 @@ jobs:
       - name: Test the conformance report generator
         run: node --test scripts/conformance-report/render-report.test.mjs
 
+      # The release's other half: which Central uploads `publishPlayers` schedules for each shape of
+      # plan. An empty plan must upload nothing — not even the BOM (compose-ai-tools#5532) — and a
+      # recovery run with no plan must upload everything. Needs Gradle (and so the Android SDK).
+      - name: Test publishPlayers against the publish plan
+        run: .github/scripts/test-publish-players-tasks.sh
+
       # `:third-party-rc-embedded-player` is an Android library, and the four published modules
       # carry an Android target, so this lane needs an SDK. The runner image ships one; AGP resolves
       # it from ANDROID_HOME. The published stack's `commonTest` also runs on the Android host JVM
