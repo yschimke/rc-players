@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package ee.schimke.composeai.rcplayer.runtime
 
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
