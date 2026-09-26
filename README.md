@@ -2,11 +2,11 @@
 
 Published by the scheduled `Conformance` workflow. This branch carries **only** reports — no source, no corpus — so a score can be linked to and compared over time without the run artifacts, which expire.
 
-**Latest run: [`2026-09-25`](runs/2026-09-25/README.md)**
+**Latest run: [`2026-09-26`](runs/2026-09-26/README.md)**
 
 |  | `cmp` |
 | --- | ---: |
-| Core golds passed | **316 / 353** (89.5%) |
+| Core golds passed | **315 / 353** (89.2%) |
 | Raster disagreements | 113 |
 | …not shared with a reference lane | **28** |
 
@@ -16,6 +16,7 @@ Of 113 frames where `cmp` disagrees with the reference image, 85 are frames a re
 
 | run | `androidx-jvm` golds | `cmp` golds | `native-appkit` golds | `typescript` golds | commit |
 | --- | ---: | ---: | ---: | ---: | --- |
+| [`2026-09-26`](runs/2026-09-26/README.md) | — | 315 / 353 | 311 / 353 | 352 / 353 | `11c7226` |
 | [`2026-09-25`](runs/2026-09-25/README.md) | — | 316 / 353 | 311 / 353 | 352 / 353 | `b90f0ef` |
 | [`2026-09-24`](runs/2026-09-24/README.md) | 132 / 353 | 316 / 353 | 309 / 353 | 352 / 353 | `372db78` |
 | [`2026-09-23`](runs/2026-09-23/README.md) | 132 / 353 | 307 / 353 | — | 352 / 353 | `b07924d` |
