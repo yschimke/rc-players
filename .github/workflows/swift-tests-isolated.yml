@@ -1,0 +1,89 @@
+name: Swift tests (isolated)
+
+# Runs every native Swift test on a macOS host in its own `swift test` process, one after another,
+# and reports each result on its own (scripts/run-swift-tests-isolated.py).
+#
+# **On demand, not per-push, and never gating.** The per-push `players-macos` job already runs the
+# same tests together, which is what a pull request needs. This is the check for what that job
+# cannot show: a test that only passes because an earlier test left state behind, a crash that takes
+# every later test in the process down with it, and how long each test takes on its own. It rebuilds
+# nothing per test, but still starts ~140 processes, so it is not something every push should pay.
+#
+# It also runs once on a pull request that changes this workflow or the script, so a change to the
+# runner is exercised on a real Mac before it merges.
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "Only test ids matching this regex (blank = every test)"
+        required: false
+        default: ""
+      skip:
+        description: "Skip test ids matching this regex (blank = skip nothing)"
+        required: false
+        default: "NativeSwiftFuzzTests"
+      timeout:
+        description: "Seconds allowed per test"
+        required: false
+        default: "600"
+  pull_request:
+    paths:
+      - .github/workflows/swift-tests-isolated.yml
+      - scripts/run-swift-tests-isolated.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swift-tests-isolated-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated:
+    name: Each Swift test in its own process (macOS)
+    runs-on: macos-15
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The same Xcode the per-push `players-macos` job selects, so a difference between the two
+      # runs is the isolation and not the toolchain.
+      - name: Select the newest Xcode 26
+        run: |
+          set -euo pipefail
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$xcode" ]; then
+            echo "No Xcode 26 on this image." >&2
+            ls -d /Applications/Xcode*.app >&2
+            exit 1
+          fi
+          sudo xcode-select --switch "$xcode/Contents/Developer"
+          swift --version
+
+      # Native-only mode keeps the Kotlin binary target out of the package graph, as in `ci.yml`.
+      - name: Run each test in its own process
+        env:
+          RC_COMPOSE_PLAYER_NATIVE_ONLY: 1
+          EVENT: ${{ github.event_name }}
+          FILTER: ${{ inputs.filter }}
+          SKIP_INPUT: ${{ inputs.skip }}
+          TIMEOUT: ${{ inputs.timeout || '600' }}
+        run: |
+          set -euo pipefail
+          # A blank `skip` on a manual run means "skip nothing"; a pull-request run has no inputs
+          # and keeps the default, as the per-push job does.
+          if [ "$EVENT" = workflow_dispatch ]; then SKIP="$SKIP_INPUT"; else SKIP=NativeSwiftFuzzTests; fi
+          scripts/run-swift-tests-isolated.py \
+            --filter "$FILTER" --skip "$SKIP" --timeout "$TIMEOUT" \
+            --out build/swift-tests-isolated
+
+      - name: Upload per-test logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: swift-tests-isolated
+          path: build/swift-tests-isolated
+          if-no-files-found: warn
