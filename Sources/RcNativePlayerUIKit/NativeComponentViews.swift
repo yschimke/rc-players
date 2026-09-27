@@ -225,21 +225,6 @@
       case text
       case image
       case custom
-
-      init(rawValue: Int32) {
-        switch rawValue {
-        case 0: self = .root
-        case 1: self = .content
-        case 2: self = .canvas
-        case 4: self = .box
-        case 5: self = .row
-        case 6: self = .column
-        case 7: self = .text
-        case 8: self = .image
-        case 9: self = .custom
-        default: self = .group
-        }
-      }
     }
 
     let kind: Kind
@@ -588,6 +573,9 @@
     /// The document's `DrawToBitmap` targets, shared by every canvas in the component tree so a
     /// bitmap id is one target for the whole document, as the core's resource budget counts it.
     private let offscreenTargets: NativeOffscreenTargets
+    /// `RC_NATIVE_DUMP_TREE`, read once per process: `environment` rebuilds the whole dictionary on
+    /// every access, and `layoutSubviews` runs every frame.
+    private static let dumpTreePath = ProcessInfo.processInfo.environment["RC_NATIVE_DUMP_TREE"]
 
     init(
       document: NativeDocument,
@@ -686,7 +674,7 @@
       componentView.layoutDirection =
         effectiveUserInterfaceLayoutDirection == .rightToLeft ? .rightToLeft : .leftToRight
       refineBoundGeometry()
-      if var path = ProcessInfo.processInfo.environment["RC_NATIVE_DUMP_TREE"] {
+      if var path = Self.dumpTreePath {
         if !path.hasPrefix("/") {
           let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
           path = documents.first.map { $0.appendingPathComponent(path).path } ?? path

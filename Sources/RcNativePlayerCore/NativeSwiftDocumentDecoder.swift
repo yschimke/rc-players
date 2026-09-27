@@ -1427,7 +1427,7 @@ enum NativeSwiftDocumentDecoder {
         let node = try currentNode(stack, input: input)
         let heightType = try input.dimensionType("height type")
         let heightWord = try input.word("height")
-        // See `case 16`: the outer modifier of a chain decides, and `WRAP` is not a modifier.
+        // See `modifierWidth`: the outer modifier of a chain decides, and `WRAP` is not a modifier.
         if node.heightType == NativeSwiftDimensionType.wrap {
           node.heightType = heightType
           node.heightWord = heightWord
