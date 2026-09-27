@@ -66,6 +66,17 @@ def list_tests():
     return [line.strip() for line in stdout.splitlines() if re.fullmatch(r"\S+\.\S+/\S+", line.strip())]
 
 
+def exact_filter(test):
+    """A `--filter` that selects exactly `test`.
+
+    swift-testing matches the filter against the full test ID, which carries the source location
+    after the name (`Module.Suite/name()/File.swift:12:3`) even though `swift test list` prints it
+    without one, so a plain `$` anchor matches nothing. The optional `/…` tail allows the location;
+    the name itself still has to match whole, so `test()` never selects `testMore()`.
+    """
+    return f"^{re.escape(test)}(/.*)?$"
+
+
 def classify(code, timed_out, log):
     if timed_out:
         return "timeout"
@@ -101,7 +112,7 @@ def main():
     for index, test in enumerate(tests, 1):
         log_path = logs / (re.sub(r"[^A-Za-z0-9_.-]+", "_", test).strip("_") + ".log")
         code, _, timed_out, elapsed = run(
-            ["swift", "test", "--skip-build", "--filter", f"^{re.escape(test)}$"],
+            ["swift", "test", "--skip-build", "--filter", exact_filter(test)],
             log_path=log_path, timeout=args.timeout)
         status = classify(code, timed_out, log_path.read_text(errors="replace"))
         results.append((test, status, elapsed, log_path))
@@ -138,6 +149,11 @@ def main():
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as step_summary:
             step_summary.write(summary)
     print(summary)
+    # The first few problem logs inline, so the job log shows why without downloading the artifact.
+    for test, status, _, log_path in problems[:3]:
+        tail = log_path.read_text(errors="replace").splitlines()[-40:]
+        print(f"--- {status}: {test} (last {len(tail)} lines of {log_path.name})")
+        print("\n".join(tail))
     sys.exit(1 if problems else 0)
 
 
