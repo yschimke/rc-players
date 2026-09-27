@@ -1715,7 +1715,6 @@ private final class NativeMacDocumentView: NSView {
       for event in events { onEvent(event) }
     } catch {
       onError("Native input failed: \(error.localizedDescription)")
-      NSSound.beep()
     }
   }
 
@@ -1925,7 +1924,6 @@ private final class NativeMacDocumentView: NSView {
     } catch {
       stopDisplayFrames()
       onError("Native scheduled frame failed: \(error.localizedDescription)")
-      NSSound.beep()
     }
   }
 
@@ -1940,7 +1938,6 @@ private final class NativeMacDocumentView: NSView {
     } catch {
       stopDisplayFrames()
       onError("Native display frame failed: \(error.localizedDescription)")
-      NSSound.beep()
     }
   }
 
