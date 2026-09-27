@@ -330,6 +330,11 @@
     private var playerController: RemoteComposePlayerController
     private var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
     private var nativeController: RemoteComposeNativePlayerViewController?
+    /// The latest native value update for each name, as a token from `nextNativeUpdateToken`. A
+    /// retry loop gives up once a newer update for its name has started, so a stale value cannot
+    /// land last.
+    private var latestNativeUpdates: [String: Int] = [:]
+    private var nextNativeUpdateToken = 0
 
     public init(
       data: Data,
@@ -388,6 +393,7 @@
 
     private func rebuildContent() {
       playerController.installNativeUpdateHandler(nil)
+      latestNativeUpdates.removeAll()
       guard configuration.nativeFallbackSupportsTheme else {
         errorHandler(.playback("The native Swift fallback does not support an explicit dark theme yet."))
         return
@@ -401,12 +407,15 @@
         onDiagnostics: { _ in },
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
       install(native)
-      playerController.installNativeUpdateHandler { [weak native] name, value in
-        // The task takes its own weak reference rather than sharing the handler's capture.
-        Task { @MainActor [weak native] in
+      playerController.installNativeUpdateHandler { [weak self, weak native] name, value in
+        // The task takes its own weak references rather than sharing the handler's captures.
+        Task { @MainActor [weak self, weak native] in
+          guard let token = self?.beginNativeUpdate(for: name) else { return }
           // The first native frame is asynchronous. Retry a bounded time so values supplied before
-          // view creation are applied once its retained document session becomes available.
+          // view creation are applied once its retained document session becomes available. Stop
+          // early once the player is gone or rebuilt, or a newer value for this name has started.
           for _ in 0..<50 {
+            guard native != nil, self?.latestNativeUpdates[name] == token else { return }
             let accepted: Bool
             switch value {
             case .float(let value): accepted = await native?.setFloat(value, for: name) ?? false
@@ -419,6 +428,13 @@
           }
         }
       }
+    }
+
+    private func beginNativeUpdate(for name: String) -> Int {
+      let token = nextNativeUpdateToken
+      nextNativeUpdateToken += 1
+      latestNativeUpdates[name] = token
+      return token
     }
 
     private func install(_ controller: RemoteComposeNativePlayerViewController) {

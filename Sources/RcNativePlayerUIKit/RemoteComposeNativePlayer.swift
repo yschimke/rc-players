@@ -938,6 +938,11 @@
       insertSubview(nextView, belowSubview: errorLabel)
       documentView = nextView
       setNeedsLayout()
+      // A replaced tree drops every element VoiceOver knew; tell it to re-read the screen. An
+      // in-place update keeps the elements, so it does not announce anything.
+      if UIAccessibility.isVoiceOverRunning {
+        UIAccessibility.post(notification: .layoutChanged, argument: nil)
+      }
     }
 
     private func configureErrorLabel() {
