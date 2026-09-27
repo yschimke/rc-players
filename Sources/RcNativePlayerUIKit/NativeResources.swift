@@ -2,6 +2,10 @@ import CoreGraphics
 import CoreText
 import Foundation
 
+#if canImport(RcNativePlayerCore)
+  import RcNativePlayerCore
+#endif
+
 /// Resource limits applied before UIKit or Core Graphics decodes document-controlled bytes.
 public struct RemoteComposeNativeResourceLimits: Equatable, Sendable {
   public var maximumResourceBytes: Int
@@ -430,7 +434,7 @@ final class NativeFontRegistry {
           height: resource.height,
           runningTotal: &totalBytes,
           limits: limits)
-        if resource.encoding == 0 {
+        if resource.encoding == NativeSwiftBitmapEncoding.inline {
           try retain(
             try Self.decode(resource: resource, data: resource.data, limits: limits),
             id: resource.id)

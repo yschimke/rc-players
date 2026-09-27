@@ -57,21 +57,21 @@ enum NativeLinearLayout {
     var distributedGap: CGFloat = 0
     var current: CGFloat
     switch positioning {
-    case 2:
+    case NativeSwiftPositioning.center:
       current = (total - contentSize) / 2
-    case 3, 5:
+    case NativeSwiftPositioning.end, NativeSwiftPositioning.bottom:
       current = total - contentSize
-    case 6:
+    case NativeSwiftPositioning.spaceBetween:
       if sizes.count > 1 {
         distributedGap = (total - childSize) / CGFloat(sizes.count - 1)
         current = 0
       } else {
         current = (total - contentSize) / 2
       }
-    case 7:
+    case NativeSwiftPositioning.spaceEvenly:
       distributedGap = (total - childSize) / CGFloat(sizes.count + 1)
       current = distributedGap
-    case 8:
+    case NativeSwiftPositioning.spaceAround:
       distributedGap = (total - childSize) / CGFloat(sizes.count)
       current = distributedGap / 2
     default:

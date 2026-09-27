@@ -107,6 +107,9 @@ public actor RemoteComposeGoogleFontsResolver: RemoteComposeDownloadableFontReso
   private let limits: Limits
   private var cache: [String: RemoteComposeDownloadedFont] = [:]
   private var cacheOrder: [String] = []
+  /// Downloads under way, by cache key. The actor suspends across the network, so without this a
+  /// second request for the same family would start its own download before the first is cached.
+  private var inFlight: [String: Task<RemoteComposeDownloadedFont, Error>] = [:]
 
   public init(session: URLSession = .shared, limits: Limits = .default) {
     self.session = session
@@ -123,7 +126,16 @@ public actor RemoteComposeGoogleFontsResolver: RemoteComposeDownloadableFontReso
       limits.maximumStylesheetBytes > 0, limits.maximumFontBytes > 0,
       limits.maximumCachedFonts > 0
     else { throw RemoteComposeDownloadableFontError.invalidResponse }
+    if let pending = inFlight[key] { return try await pending.value }
 
+    let task = Task { try await self.fetch(family: family, key: key) }
+    inFlight[key] = task
+    defer { inFlight[key] = nil }
+    return try await task.value
+  }
+
+  /// Tries each candidate query in turn and caches the first face that resolves.
+  private func fetch(family: String, key: String) async throws -> RemoteComposeDownloadedFont {
     var lastError: Error = RemoteComposeDownloadableFontError.noCompatibleFont(family: family)
     for candidate in Self.candidates(for: family) {
       do {

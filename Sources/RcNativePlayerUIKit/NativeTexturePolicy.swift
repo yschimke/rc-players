@@ -18,12 +18,12 @@ public enum NativeTexturePolicy {
 
   /// Whether an axis tiles by mirroring. AndroidX: 0 clamp, 1 repeat, 2 mirror, 3 decal.
   public static func mirrors(tileModeX: Int, tileModeY: Int) -> (x: Bool, y: Bool) {
-    (x: tileModeX == 2, y: tileModeY == 2)
+    (x: tileModeX == NativeGradientTiling.mirror, y: tileModeY == NativeGradientTiling.mirror)
   }
 
   /// Whether a tile mode paints only where the bitmap is, rather than tiling it.
   public static func isDecal(_ tileMode: Int) -> Bool {
-    tileMode == 3
+    tileMode == NativeGradientTiling.decal
   }
 
   /// The Core Graphics interpolation for a paint's filter quality.
