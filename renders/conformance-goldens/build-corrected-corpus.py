@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Rebuild the corrected golden corpus from the CL3 regeneration.
 
-Run from a checkout of `vendor/androidx-rc-conformance` with both revisions present:
-    python3 build-corrected-corpus.py
+Run against a checkout of `vendor/androidx-rc-conformance` with both revisions present:
+    python3 build-corrected-corpus.py [CORPUS_CHECKOUT]
+
+CORPUS_CHECKOUT defaults to the current directory. The script fails, rather than reporting zero
+restored frames, when the checkout, either revision or the gold directory is missing.
 
 Restores 175 resize-affected frames plus the 3 animation `frame_0` regressions to the
 pre-CL3 recordings, keeping the 144 native-recorded frames that are genuine improvements.
@@ -11,12 +14,27 @@ result. It compares *parsed* values so `\/` escaping differences do not show up 
 """
 import json, re, subprocess, glob, os, sys
 
-CORPUS = '/home/yuri/workspace/rc-players-conformance-spec'
+CORPUS = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.getcwd())
 REL = 'third_party/rc-conformance-spec/compose/remote/specification/conformance/gold/'
+NEW_REV, OLD_REV = '40c0e9e', '0159a6e'
+
+def fail(message):
+    sys.exit(f"build-corrected-corpus: {message}")
+
+def git(*args):
+    return subprocess.run(['git', '-C', CORPUS, *args], capture_output=True, text=True)
+
+if git('rev-parse', '--git-dir').returncode != 0:
+    fail(f"{CORPUS} is not a git checkout; pass the corpus checkout as the first argument")
+for rev in (NEW_REV, OLD_REV):
+    if git('rev-parse', '--verify', '--quiet', f'{rev}^{{commit}}').returncode != 0:
+        fail(f"revision {rev} is missing from {CORPUS}; fetch it first")
 
 def show(rev, path):
-    return subprocess.run(['git', '-C', CORPUS, 'show', f'{rev}:{path}'],
-                          capture_output=True, text=True).stdout
+    # A gold absent at one revision is expected (added or removed between them); the revisions
+    # themselves were verified above, so a failure here means only that the file is not there.
+    result = git('show', f'{rev}:{path}')
+    return result.stdout if result.returncode == 0 else ''
 
 def raster_raw(text, at):
     m = re.search(r'"at":\s*"%s",[^}]*?"probe":\s*"raster",[^}]*?"expect":\s*("(?:[^"\\]|\\.)*")' % re.escape(at), text)
@@ -41,12 +59,16 @@ def resize_affected(gold):
             affected.add(s['id'])
     return affected
 
+gold_paths = sorted(glob.glob(os.path.join(CORPUS, REL, '*', '*.gold.json')))
+if not gold_paths:
+    fail(f"no *.gold.json under {os.path.join(CORPUS, REL)}")
+
 restored = kept = 0
 files = 0
-for path in sorted(glob.glob(os.path.join(CORPUS, REL, '*', '*.gold.json'))):
+for path in gold_paths:
     rel = os.path.relpath(path, CORPUS)
-    new_text = show('40c0e9e', rel)
-    old_text = show('0159a6e', rel)
+    new_text = show(NEW_REV, rel)
+    old_text = show(OLD_REV, rel)
     if not new_text or not old_text:
         continue
     new_g = json.loads(new_text)
