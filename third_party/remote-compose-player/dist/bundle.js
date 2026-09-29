@@ -13912,6 +13912,15 @@ var RC = (() => {
       context.loadInteger(this.mId, result);
     }
     /**
+     * Evaluate now, without waiting for this operation's turn in the frame — what
+     * `ValueIntegerExpressionChangeAction` needs at the moment the action runs. Reads the
+     * inputs afresh and does not load the result: the action decides where it goes.
+     */
+    evaluateNow(context) {
+      this.updateVariables(context);
+      return this.evaluate(this.mPreMask, this.mPreCalcValues || this.mValues);
+    }
+    /**
      * Evaluates the RPN program. [exp] is the *resolved* array (`mPreCalcValues`), where every id
      * slot already holds its variable's value.
      *
@@ -21237,7 +21246,16 @@ ${inner}`;
     }
     write(_buffer) {
     }
-    apply(_context) {
+    apply(context) {
+      if (context.mMode === "DATA" /* DATA */) return;
+      context.getDocument()?.evaluateIntegerExpression(
+        this.mValueExpressionId,
+        this.mTargetValueId,
+        context
+      );
+    }
+    runAction(context, document2, _component, _x, _y) {
+      document2?.evaluateIntegerExpression(this.mValueExpressionId, this.mTargetValueId, context);
     }
     deepToString(indent) {
       return `${indent}ValueIntegerExpressionChangeAction(${this.mTargetValueId}, ${this.mValueExpressionId})`;
@@ -22617,6 +22635,8 @@ ${inner}`;
        * Mirrors `CoreDocument.mFloatExpressions` / `evaluateFloatExpression`.
        */
       this.mFloatExpressions = /* @__PURE__ */ new Map();
+      /** Integer expressions by id, for `ValueIntegerExpressionChangeAction`. */
+      this.mIntegerExpressions = /* @__PURE__ */ new Map();
       this.mClock = clock;
       this.mTimeVariables = new TimeVariables(clock);
     }
@@ -22906,6 +22926,7 @@ ${inner}`;
         operations.push(op);
       }
       this.mFloatExpressions.clear();
+      this.mIntegerExpressions.clear();
       this.indexFloatExpressions(operations);
     }
     /** Collect every FloatExpression in the tree, including inside containers. */
@@ -22913,6 +22934,9 @@ ${inner}`;
       for (const op of operations) {
         if (op.constructor?.OP_CODE === 81 && typeof op.mId === "number") {
           this.mFloatExpressions.set(op.mId, op);
+        }
+        if (op.constructor?.OP_CODE === 144 && typeof op.mId === "number") {
+          this.mIntegerExpressions.set(op.mId, op);
         }
         if (typeof op.getList === "function") {
           this.indexFloatExpressions(op.getList());
@@ -22924,6 +22948,13 @@ ${inner}`;
       const expression = this.mFloatExpressions.get(expressionId);
       if (expression && typeof expression.evaluate === "function") {
         context.overrideFloat(targetId, expression.evaluate(context));
+      }
+    }
+    /** Evaluate integer `expressionId` and write the result into `targetId`. */
+    evaluateIntegerExpression(expressionId, targetId, context) {
+      const expression = this.mIntegerExpressions.get(expressionId);
+      if (expression && typeof expression.evaluateNow === "function") {
+        context.overrideInteger(targetId, expression.evaluateNow(context));
       }
     }
     isContainer(op) {

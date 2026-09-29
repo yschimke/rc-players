@@ -170,6 +170,21 @@ public class RcPlayerState(
   private val soundRuntime = RcSoundRuntime(::resolve, soundSink)
   private val particleRuntime: RcParticleRuntime
   private val floatExpressionRuntimes = mutableMapOf<Int, RcFloatExpressionRuntime>()
+
+  /**
+   * Ids a document action has written, which the document's own declarations must not rewrite.
+   *
+   * AndroidX's `RemoteComposeState.overrideFloat` / `overrideInteger` set a flag that makes every
+   * later `updateFloat` / `updateInteger` on that id a no-op, and `ValueFloatChange`,
+   * `ValueFloatExpressionChange` and their integer siblings write through the override. It is the
+   * whole mechanism behind a mutable remote value: `rememberMutableRemoteFloat(0.5f)` is *declared*
+   * as a constant `FloatExpression` that the flat operation list re-applies on every frame, so
+   * without the flag a click stores `value + step` and the very next frame's declaration puts `0.5`
+   * back — the stepper, slider and switch cells all "worked" for exactly one repaint and never
+   * showed it.
+   */
+  private val overriddenFloats = mutableSetOf<Int>()
+  private val overriddenIntegers = mutableSetOf<Int>()
   private val floatExpressions =
     document.operations.filterIsInstance<RcFloatExpression>().associateBy { it.id }
   private val integerExpressions =
@@ -730,6 +745,7 @@ public class RcPlayerState(
   }
 
   public fun applyIntegerExpression(operation: RcIntegerExpression) {
+    if (operation.outId in overriddenIntegers) return
     setInteger(
       operation.outId,
       RcIntegerExpressionEvaluator.evaluate(operation) { id -> integers[id] ?: 0 },
@@ -1047,6 +1063,7 @@ public class RcPlayerState(
   }
 
   public fun applyFloatExpression(operation: RcFloatExpression) {
+    if (operation.id in overriddenFloats) return
     val runtime =
       floatExpressionRuntimes.getOrPut(operation.id) {
         RcFloatExpressionRuntime(operation, ::floatArray)
@@ -1244,7 +1261,7 @@ public class RcPlayerState(
         // onClick. RcPlayerState already loaded the flat document's text before layout.
         is RcTextData -> Unit
         is RcValueIntegerChangeAction -> {
-          setInteger(operation.targetValueId, operation.value)
+          overrideInteger(operation.targetValueId, operation.value)
           changed = true
         }
         is RcValueIntegerExpressionChangeAction -> {
@@ -1253,7 +1270,7 @@ public class RcPlayerState(
             requireNotNull(integerExpressions[expressionId]) {
               "Missing integer action expression ${operation.expressionId}"
             }
-          setInteger(
+          overrideInteger(
             operation.targetValueId.toInt(),
             RcIntegerExpressionEvaluator.evaluate(expression) { id -> integers[id] ?: 0 },
           )
@@ -1267,7 +1284,7 @@ public class RcPlayerState(
           changed = true
         }
         is RcValueFloatChangeAction -> {
-          setFloat(operation.targetValueId, resolve(operation.value))
+          overrideFloat(operation.targetValueId, resolve(operation.value))
           changed = true
         }
         is RcValueFloatExpressionChangeAction -> {
@@ -1279,7 +1296,10 @@ public class RcPlayerState(
             floatExpressionRuntimes.getOrPut(expression.id) {
               RcFloatExpressionRuntime(expression, ::floatArray)
             }
-          setFloat(operation.targetValueId, runtime.evaluate(frameTimeSeconds, ::resolve))
+          overrideFloat(
+            operation.targetValueId,
+            runtime.evaluate(frameTimeSeconds, ::resolve),
+          )
           changed = true
         }
         else -> error("Opcode ${operation.opcode} cannot execute inside $containerName")
@@ -1475,6 +1495,19 @@ public class RcPlayerState(
     if (integers[id] == value) return
     integers[id] = value
     floats[id] = value.toFloat()
+  }
+
+  /**
+   * A document action's float write: it sticks, unlike a declaration replayed by the next frame.
+   */
+  private fun overrideFloat(id: Int, value: Float) {
+    overriddenFloats += id
+    setFloat(id, value)
+  }
+
+  private fun overrideInteger(id: Int, value: Int) {
+    overriddenIntegers += id
+    setInteger(id, value)
   }
 
   public fun setLong(id: Int, value: Long) {

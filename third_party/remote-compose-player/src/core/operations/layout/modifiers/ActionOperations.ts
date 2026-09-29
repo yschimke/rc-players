@@ -4,6 +4,7 @@
 
 import { Operation } from '../../../Operation';
 import type { WireBuffer } from '../../../WireBuffer';
+import { ContextMode } from '../../../RemoteContext';
 import type { RemoteContext } from '../../../RemoteContext';
 
 // ── HostActionOperation (209): INT actionId ───────────────────────────
@@ -157,8 +158,14 @@ export class ValueIntegerExpressionChangeAction extends Operation {
 
     write(_buffer: WireBuffer): void { /* stub */ }
 
-    apply(_context: RemoteContext): void {
-        // Requires document.evaluateIntExpression — stub for now
+    apply(context: RemoteContext): void {
+        if (context.mMode === ContextMode.DATA) return;
+        context.getDocument()?.evaluateIntegerExpression(
+            this.mValueExpressionId, this.mTargetValueId, context);
+    }
+
+    runAction(context: RemoteContext, document: any, _component: any, _x: number, _y: number): void {
+        document?.evaluateIntegerExpression(this.mValueExpressionId, this.mTargetValueId, context);
     }
 
     deepToString(indent: string): string {

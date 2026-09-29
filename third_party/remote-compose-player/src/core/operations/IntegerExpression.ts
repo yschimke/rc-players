@@ -69,6 +69,16 @@ export class IntegerExpression extends Operation implements VariableSupport {
     }
 
     /**
+     * Evaluate now, without waiting for this operation's turn in the frame — what
+     * `ValueIntegerExpressionChangeAction` needs at the moment the action runs. Reads the
+     * inputs afresh and does not load the result: the action decides where it goes.
+     */
+    evaluateNow(context: RemoteContext): number {
+        this.updateVariables(context);
+        return this.evaluate(this.mPreMask, this.mPreCalcValues || this.mValues);
+    }
+
+    /**
      * Evaluates the RPN program. [exp] is the *resolved* array (`mPreCalcValues`), where every id
      * slot already holds its variable's value.
      *
