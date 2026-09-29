@@ -59,6 +59,8 @@ typescript/
 │   ├── rc2json.ts         binary → JSON dumper (used by VS Code, debug)
 │   ├── debug_entry.ts     dev-only entry point for browser-side debugging
 │   └── node-entry.ts      headless Node entry (canvas via the `canvas` npm pkg)
+│   web/CustomHosts.ts     the custom-component host: embedded documents (persistent
+│                          across host documents, with step/time ids), videos, web frames
 ├── web-player/          interactive in-browser viewer
 │   ├── index.html         file picker + canvas + scrubber
 │   └── standalone-template.html   template the standalone builder fills in
@@ -159,11 +161,35 @@ So treat ids 1/2/3 (clock), 5/6 (window) and anything derived from them as harne
 parity until proven otherwise. The game's own state — on `flappy.rc` that is ids 44 and
 48-61 — is where a real divergence would show, and those are still differing.
 
+## Counting what executed: operation measurement
+
+The player can report, once per painted frame, how many operations executed — in total,
+per operation *type*, and per operation *instance*. It is off by default and costs
+nothing measurable when off (the disabled path is one null check on a call that already
+existed). Timing is deliberately not measured; see the doc for why.
+
+```bash
+node measure.mjs --verify path/to/*.rc   # invariants, exit 1 on failure
+node measure.mjs --top 12 DOC.rc         # hottest types and instances
+
+npm run bundle && python3 packaging/mkmeasure.py   # -> web-player/measure.html
+```
+
+`web-player/measure.html` is a self-contained drop-a-document page that consumes the hook
+and nothing else — if a profiler could not be built on what that page uses, the hook is
+inadequate, which is what the page is for. Full design, call-site map, cost measurements
+and a porting checklist for the C++/Java players:
+[../../docs/OPERATION_MEASUREMENT.md](../../docs/OPERATION_MEASUREMENT.md).
+
 ## Status, gaps and debugging
 
 - [../../STATUS.md](../../STATUS.md) — repo-wide state: what is verified, what is broken.
-- [GAPS.md](GAPS.md) — per-opcode: 11 unregistered, 14 that parse and do nothing, and the
-  21 corpus documents that still diverge from the reference.
+- [../../docs/MISSING_SUPPORT.md](../../docs/MISSING_SUPPORT.md) — every operation this
+  player does not implement: 15 unregistered opcodes (the reader desynchronises on those),
+  17 that parse and then do nothing, and the 18 whose empty `apply()` is correct and should
+  be left alone. Regenerate with `python3 support-audit.py`.
+- [GAPS.md](GAPS.md) — the corpus documents that still diverge, deliberate behaviour
+  differences, and androidx harness bugs. Its opcode sections are superseded by the above.
 - [DEBUGGING.md](DEBUGGING.md) — the tooling (`trace.mjs`, `sweep.mjs`, `whowrites.mjs`)
   and the plan for what is still missing.
 

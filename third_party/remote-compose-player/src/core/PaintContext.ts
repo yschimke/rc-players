@@ -25,6 +25,7 @@ export abstract class PaintContext {
     doesNeedsRepaint(): boolean { return this.mNeedsRepaint; }
     clearNeedsRepaint(): void { this.mNeedsRepaint = false; }
     needsRepaint(): void { this.mNeedsRepaint = true; }
+    setNeedsRepaint(v: boolean): void { this.mNeedsRepaint = v; }
 
     setMeasureVersion(v: number): void { this.mMeasureVersion = v; }
     getMeasureVersion(): number { return this.mMeasureVersion; }
@@ -32,6 +33,16 @@ export abstract class PaintContext {
     save(): void { this.matrixSave(); }
     restore(): void { this.matrixRestore(); }
     saveLayer(_x: number, _y: number, _w: number, _h: number): void { this.matrixSave(); }
+
+    /** Display density, from the underlying RemoteContext (mirrors Java's PaintContext). */
+    getDensity(): number { return this.mContext.getDensity(); }
+
+    /**
+     * The document's density behaviour. Layout managers need this to decide whether their
+     * dp-valued spacing scales; they only ever hold a PaintContext, so it has to be reachable
+     * from here.
+     */
+    getDensityBehavior(): number { return this.mContext.getDensityBehavior(); }
 
     getClock(): RemoteClock { return this.mContext.getClock(); }
 
@@ -62,6 +73,19 @@ export abstract class PaintContext {
     abstract drawLine(x1: number, y1: number, x2: number, y2: number): void;
     abstract drawOval(left: number, top: number, right: number, bottom: number): void;
     abstract drawPath(id: number, start: number, end: number): void;
+
+    // ── 2D vertex meshes ────────────────────────────────────────────────────────────────
+    //
+    // Deliberately not abstract: a backend that has not implemented meshes still compiles and
+    // draws nothing. Geometry arrives already in the layout drawVertices wants. An empty `uv`
+    // or `colors` means the channel is absent.
+    //
+    // drawMesh must leave the paint exactly as it found it.
+    setMesh(_meshId: number, _layout: number, _uCount: number, _vCount: number,
+            _verts: Float32Array, _uv: Float32Array,
+            _colors: Int32Array, _indices: Int32Array): void {}
+    drawMesh(_meshId: number, _blend: number, _imageId: number): void {}
+    matrixFromMesh(_meshId: number, _u: number, _v: number, _flags: number): void {}
     abstract drawRect(left: number, top: number, right: number, bottom: number): void;
     abstract drawRoundRect(left: number, top: number, right: number, bottom: number, radiusX: number, radiusY: number): void;
     abstract drawTextOnPath(textId: number, pathId: number, hOffset: number, vOffset: number): void;
@@ -73,7 +97,7 @@ export abstract class PaintContext {
                                useUnderline: boolean, strikethrough: boolean, flags: number): any;
     abstract drawTextRun(textId: number, start: number, end: number, contextStart: number, contextEnd: number,
                          x: number, y: number, rtl: boolean): void;
-    abstract drawComplexText(computedTextLayout: any): void;
+    abstract drawComplexText(computedTextLayout: any, targetWidth?: number): void;
     abstract drawTweenPath(path1Id: number, path2Id: number, tween: number, start: number, end: number): void;
     abstract tweenPath(out: number, path1: number, path2: number, tween: number): void;
     abstract combinePath(out: number, path1: number, path2: number, operation: number): void;

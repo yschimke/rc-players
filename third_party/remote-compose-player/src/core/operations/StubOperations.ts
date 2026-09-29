@@ -73,12 +73,12 @@ export class ImpulseOperation extends PaintOperation {
                     if (op.isDirty() && typeof (op as any).updateVariables === 'function') {
                         (op as any).updateVariables(remote);
                     }
-                    remote.incrementOpCount();
+                    remote.incrementOpCount(op);
                     op.apply(remote);
                 }
                 this.mInitialPass = false;
             } else {
-                remote.incrementOpCount();
+                remote.incrementOpCount(this);
                 if (this.mProcess) this.mProcess.paint(context);
             }
         } else {
@@ -112,7 +112,7 @@ export class ImpulseProcess extends PaintOperation {
             if (op.isDirty() && typeof (op as any).updateVariables === 'function') {
                 (op as any).updateVariables(remote);
             }
-            remote.incrementOpCount();
+            remote.incrementOpCount(op);
             op.apply(remote);
         }
     }
@@ -180,6 +180,7 @@ export class RunActionOperation extends PaintOperation {
     paint(context: PaintContext): void {
         const remote = context.getContext();
         for (const op of this.mList) {
+            remote.incrementOpCount(op);
             op.apply(remote);
         }
     }
@@ -212,15 +213,14 @@ export class ValueFloatExpressionChangeAction extends Operation {
     write(_buffer: WireBuffer): void { /* stub */ }
 
     apply(context: RemoteContext): void {
-        // Only while painting. The reference keeps `apply` empty and does the work in a
-        // separate `runAction`, which only the action-runners call — so the action fires
-        // exactly once per frame. Here the effect lives in `apply`, and a PaintOperation
-        // container also walks its children outside PAINT mode, so the DATA pass ran the
-        // action an extra time and every counter sat one increment ahead of the reference.
-        if (context.mMode !== ContextMode.PAINT) return;
+        if (context.mMode === ContextMode.DATA) return;
         const document = context.getDocument();
         if (!document) return;
         document.evaluateFloatExpression(this.mValueExpressionId, this.mTargetValueId, context);
+    }
+
+    runAction(context: RemoteContext, document: any, _component: any, _x: number, _y: number): void {
+        document?.evaluateFloatExpression(this.mValueExpressionId, this.mTargetValueId, context);
     }
 
     deepToString(indent: string): string {

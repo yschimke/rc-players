@@ -39,6 +39,20 @@ export class RootLayoutComponent extends Component {
         }
     }
 
+    override invalidateMeasure(): void {
+        this.mNeedsMeasure = true;
+        this.invalidateMeasureChildren(this);
+    }
+
+    private invalidateMeasureChildren(component: Component): void {
+        component.mNeedsMeasure = true;
+        for (const op of component.getList()) {
+            if (op instanceof Component) {
+                this.invalidateMeasureChildren(op);
+            }
+        }
+    }
+
     /** Measure then layout the tree of components */
     layoutTree(context: RemoteContext): void {
         if (!this.mNeedsMeasure) return;
@@ -106,7 +120,7 @@ export class RootLayoutComponent extends Component {
         for (const op of this.getList()) {
             if (op instanceof PaintOperation) {
                 op.paint(paintContext);
-                remoteContext.incrementOpCount();
+                remoteContext.incrementOpCount(op);
             }
         }
 

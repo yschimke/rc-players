@@ -32,6 +32,7 @@ export class LoopOperation extends Operation {
         if (context.mMode === ContextMode.DATA) {
             // During data pass, just apply children once to register variables
             for (const op of this.mList) {
+                context.incrementOpCount(op);
                 op.apply(context);
             }
             return;
@@ -45,14 +46,19 @@ export class LoopOperation extends Operation {
 
         if (this.mIndexId === 0) {
             for (let i = from; i < until; i += step) {
+                // One count per iteration for the loop itself, as the reference does
+                // (LoopOperation.java:126 / :135) — so a loop's cost scales with its
+                // iteration count even when its body is empty.
+                context.incrementOpCount(this);
                 for (const op of this.mList) {
-                    context.incrementOpCount();
+                    context.incrementOpCount(op);
                     op.apply(context);
                 }
             }
         } else {
             for (let i = from; i < until; i += step) {
                 context.loadFloat(this.mIndexId, i);
+                context.incrementOpCount(this);
                 for (const op of this.mList) {
                     // Refresh only what is dirty, as the reference does. Recomputing
                     // every operation on every iteration is not merely wasteful: an
@@ -62,12 +68,17 @@ export class LoopOperation extends Operation {
                     if (op.isDirty() && typeof (op as any).updateVariables === 'function') {
                         (op as any).updateVariables(context);
                     }
-                    context.incrementOpCount();
+                    context.incrementOpCount(op);
                     op.apply(context);
                 }
             }
         }
     }
+
+    getIndexId(): number { return this.mIndexId; }
+    getFrom(ctx: RemoteContext): number { return this.rv(this.mFromBits, ctx); }
+    getStep(ctx: RemoteContext): number { return this.rv(this.mStepBits, ctx); }
+    getUntil(ctx: RemoteContext): number { return this.rv(this.mUntilBits, ctx); }
 
     private rv(bits: number, ctx: RemoteContext): number {
         return isNaNBits(bits) ? ctx.getFloat(idFromBits(bits)) : intBitsToFloat(bits);

@@ -3,8 +3,7 @@
 
 import { LayoutComponent } from '../LayoutComponent';
 import type { PaintContext } from '../../../PaintContext';
-import type { RemoteContext } from '../../../RemoteContext';
-import { DENSITY_BEHAVIOR_DP } from '../../../RemoteContext';
+import { RemoteContext } from '../../../RemoteContext';
 import type { MeasurePass } from '../measure/MeasurePass';
 import { Size } from '../measure/Size';
 import { WidthModifier, HeightModifier, ScrollModifier } from '../modifiers/ModifierOperations';
@@ -25,9 +24,26 @@ function contentExtent(size: number, padding: number): number {
 
 export abstract class LayoutManager extends LayoutComponent {
     protected mCachedWrapSize = new Size();
+    protected mLastMeasurePass: MeasurePass | null = null;
+    protected mLastMinW = -1;
+    protected mLastMaxW = -1;
+    protected mLastMinH = -1;
+    protected mLastMaxH = -1;
 
     measure(context: PaintContext, minWidth: number, maxWidth: number,
             minHeight: number, maxHeight: number, measure: MeasurePass): void {
+        if (this.mLastMeasurePass === measure &&
+            this.mLastMinW === minWidth && this.mLastMaxW === maxWidth &&
+            this.mLastMinH === minHeight && this.mLastMaxH === maxHeight &&
+            !this.mNeedsMeasure) {
+            return;
+        }
+        this.mLastMeasurePass = measure;
+        this.mLastMinW = minWidth;
+        this.mLastMaxW = maxWidth;
+        this.mLastMinH = minHeight;
+        this.mLastMaxH = maxHeight;
+
         const selfMeasure = measure.get(this);
         // Refresh cached padding from the (now variable-resolved, density-scaled)
         // padding modifiers before it feeds the size computation below.
@@ -99,8 +115,21 @@ export abstract class LayoutManager extends LayoutComponent {
         selfMeasure.setW(w);
         selfMeasure.setH(h);
 
-        const horizontalWrap = wMod?.getType() === WidthModifier.WRAP;
-        const verticalWrap = hMod?.getType() === HeightModifier.WRAP;
+        // A weight only means something once the parent has distributed space for it, and it
+        // does that by pinning the axis — measure(share, share, ...). On the *cross* axis
+        // there is no distribution pass, so the branches above fall back to the padding
+        // alone: the component collapses to its border, its content box comes out zero, and
+        // everything inside is clipped away while the component's own background still
+        // draws. That is a table whose rows and header band are there with no text in them.
+        //
+        // An undistributed weight has no share to take, so the only size available is the
+        // one its content asks for — measure that axis as a wrap.
+        const widthWeightUnpinned = wMod?.getType() === WidthModifier.WEIGHT
+            && minWidth <= this.mPadBeforeWidth;
+        const heightWeightUnpinned = hMod?.getType() === HeightModifier.WEIGHT
+            && minHeight <= this.mPadBeforeHeight;
+        const horizontalWrap = wMod?.getType() === WidthModifier.WRAP || widthWeightUnpinned;
+        const verticalWrap = hMod?.getType() === HeightModifier.WRAP || heightWeightUnpinned;
 
         if (horizontalWrap || verticalWrap) {
             this.mCachedWrapSize.clear();
@@ -161,9 +190,16 @@ export abstract class LayoutManager extends LayoutComponent {
             if (isVertical) {
                 this.mScrollHostDimension = hostH;
                 this.mScrollContentDimension = this.mCachedWrapSize.getHeight();
+                // The modifier needs these too: they are what bound a direct-mode drag.
+                // Without them its max stays 0 and dragging is clamped to nothing, which
+                // looks exactly like scrolling not being implemented.
+                scrollMod.setVerticalScrollDimension(
+                    this.mScrollHostDimension, this.mScrollContentDimension);
             } else {
                 this.mScrollHostDimension = hostW;
                 this.mScrollContentDimension = this.mCachedWrapSize.getWidth();
+                scrollMod.setHorizontalScrollDimension(
+                    this.mScrollHostDimension, this.mScrollContentDimension);
             }
 
             // Re-measure children with unbounded content dimension
@@ -256,8 +292,26 @@ export abstract class LayoutManager extends LayoutComponent {
      *  PIXELS behavior so authored-in-px documents are untouched. */
     protected getDpBehaviorScale(context: PaintContext): number {
         const ctx = context.getContext();
-        if (ctx.getDensityBehavior() !== DENSITY_BEHAVIOR_DP) return 1;
+        if (ctx.getDensityBehavior() !== RemoteContext.DENSITY_BEHAVIOR_DP) return 1;
         const d = ctx.getDensity();
         return (Number.isNaN(d) || d <= 0) ? 1 : d;
+    }
+
+    /**
+     * `spacedBy` in physical pixels.
+     *
+     * Spacing is authored in dp but only scales when the document declares DENSITY_BEHAVIOR_DP
+     * — note `== DP`, not the `!= PIXELS` the dimension modifiers use. Under the default
+     * LEGACY behaviour the reference does not scale spacing either, so this returns the raw
+     * value for almost every document in the corpus.
+     *
+     * Takes a PaintContext because that is all the layout managers are handed.
+     */
+    protected spacedByPx(context: PaintContext, spacedBy: number): number {
+        if (context.getDensityBehavior?.() !== RemoteContext.DENSITY_BEHAVIOR_DP) {
+            return spacedBy;
+        }
+        const density = context.getDensity();
+        return (density > 0 && !Number.isNaN(density)) ? spacedBy * density : spacedBy;
     }
 }

@@ -289,7 +289,7 @@ export class ParticlesLoopOp extends PaintOperation implements VariableSupport {
                     child.markNotDirty();
                     (child as any).updateVariables(context);
                 }
-                context.incrementOpCount();
+                context.incrementOpCount(child);
                 child.apply(context);
             }
         }
@@ -443,7 +443,7 @@ export class ParticlesCompareOp extends PaintOperation implements VariableSuppor
                 child.markNotDirty();
                 (child as any).updateVariables(context);
             }
-            context.incrementOpCount();
+            context.incrementOpCount(child);
             child.apply(context);
         }
     }
@@ -467,7 +467,7 @@ export class ParticlesCompareOp extends PaintOperation implements VariableSuppor
 
                 const cond = resolvePairEquation(
                     this.mCondition, context, varIds, particle1, particle2);
-                context.incrementOpCount();
+                context.incrementOpCount(this);
                 if (!(FloatExpression.evalRPN(context, cond) > 0)) continue;
 
                 const eq1 = this.mEquations1.map((e) =>
@@ -481,12 +481,16 @@ export class ParticlesCompareOp extends PaintOperation implements VariableSuppor
                     context.loadFloat(varIds[j], particle1[j]);
                 }
                 this.runChildren(context);
+                // One count per matched pair, as ParticlesCompare does after each
+                // runChildren (ParticlesCompare.java:559 / :606).
+                context.incrementOpCount(this);
 
                 for (let j = 0; j < eq2.length && j < varCount; j++) {
                     particle2[j] = FloatExpression.evalRPN(context, eq2[j]);
                     context.loadFloat(varIds[j], particle2[j]);
                 }
                 this.runChildren(context);
+                context.incrementOpCount(this);
             }
         }
     }

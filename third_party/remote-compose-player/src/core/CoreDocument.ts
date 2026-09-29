@@ -83,6 +83,8 @@ export class CoreDocument implements ExpansionDocument {
     mVersion: Version | null = null;
     mWidth = 256;
     mHeight = 256;
+    mAuthorWidth: number | null = null;
+    mAuthorHeight: number | null = null;
     private mCapabilities = 0;
     private mProperties: IntMap<any> | null = null;
     private mContentDescription = '';
@@ -195,6 +197,19 @@ export class CoreDocument implements ExpansionDocument {
     setHeight(h: number): void {
         this.mHeight = h;
         this.mRemoteComposeState?.setWindowHeight(h);
+    }
+
+    getAuthorWidth(): number {
+        return this.mAuthorWidth ?? this.mHeader?.mWidth ?? this.mWidth;
+    }
+
+    getAuthorHeight(): number {
+        return this.mAuthorHeight ?? this.mHeader?.mHeight ?? this.mHeight;
+    }
+
+    setAuthorDimensions(w: number, h: number): void {
+        this.mAuthorWidth = w;
+        this.mAuthorHeight = h;
     }
 
     setProperties(properties: IntMap<any> | null): void { this.mProperties = properties; }
@@ -470,6 +485,32 @@ export class CoreDocument implements ExpansionDocument {
      * well. A zero font size is a legal float, so nothing errors — the text measures a
      * real width with zero height, takes up no space, and never paints.
      */
+    /**
+     * Push the document's declared density behaviour onto the context.
+     *
+     * Java keeps this on the document and has `RemoteContext.getDensityBehavior()` delegate
+     * to it; here the context owns the field, so the document has to hand it over. Absent
+     * from the header means LEGACY, and under LEGACY only the dimension modifiers scale —
+     * padding, spacing, borders and offsets deliberately do not.
+     *
+     * Seeded in both passes because layout runs in each: a behaviour applied only at paint
+     * would leave the data pass measuring against unscaled values.
+     */
+    /**
+     * Push the document's touch-coordinate convention onto the context, as Java does.
+     * Absent from the header means FIX_TOUCH_EVENT, not 0.
+     */
+    private seedTouchVersion(context: RemoteContext): void {
+        const declared = this.getProperty(Header.FEATURE_TOUCH_VERSION) as number | null;
+        context.setTouchVersion(typeof declared === 'number' ? declared : 1);
+    }
+
+    private seedDensityBehavior(context: RemoteContext): void {
+        const declared = this.getProperty(Header.DOC_DENSITY_BEHAVIOR) as number | null;
+        context.setDensityBehavior(
+            typeof declared === 'number' ? declared : RemoteContext.DENSITY_BEHAVIOR_LEGACY);
+    }
+
     private seedPlatformTextSize(context: RemoteContext): void {
         let density = context.getDensity();
         if (!(density > 0)) {
@@ -485,6 +526,8 @@ export class CoreDocument implements ExpansionDocument {
 
     applyDataOperations(context: RemoteContext): void {
         context.setMode(ContextMode.DATA);
+        this.seedDensityBehavior(context);
+        this.seedTouchVersion(context);
         // Seed the platform text size *before* the data pass: expressions that derive a
         // font size from it are evaluated here, so seeding later (in paint) is too late
         // and they resolve to 0. The Android view does the same, seeding ID_FONT_SIZE
@@ -503,7 +546,7 @@ export class CoreDocument implements ExpansionDocument {
                 (op as any).updateVariables(context);
             }
             op.markNotDirty();
-            context.incrementOpCount();
+            context.incrementOpCount(op);
             if (this.isContainer(op)) {
                 this.applyOperations(context, (op as any).getList());
             } else {
@@ -542,6 +585,19 @@ export class CoreDocument implements ExpansionDocument {
         this.mClickAreas.clear();
         this.mTimeVariables.updateTime(context);
 
+        // Ensure that variables that are dirty are updated before we do the layout pass
+        // (matches Java CoreDocument.java lines 2210-2220)
+        for (const operation of this.mOperations) {
+            if (operation.isDirty() && typeof (operation as any).updateVariables === 'function') {
+                operation.markNotDirty();
+                (operation as any).updateVariables(context);
+                operation.apply(context);
+            }
+            if (operation === this.mRootLayoutComponent) {
+                break;
+            }
+        }
+
         // Resolve layout-affecting operations (visibility, layout compute) before
         // measuring. The reference bounds this at two rounds because one evaluation can
         // dirty another; matching that bound keeps a cyclic document from spinning.
@@ -560,8 +616,19 @@ export class CoreDocument implements ExpansionDocument {
             this.mRootLayoutComponent.layoutTree(context);
         }
 
+        if (this.mRootLayoutComponent && this.mRootLayoutComponent.needsBoundsAnimation()) {
+            this.mNeedsRepaintFlag = 1;
+            this.mRootLayoutComponent.clearNeedsBoundsAnimation();
+            this.mRootLayoutComponent.animatingBounds(context);
+        }
+
         context.setMode(ContextMode.PAINT);
         context.clearLastOpCount();
+        // Measurement's frame window is exactly the window the op counter already used, so
+        // a report's `total` is the same number `getOpsPerFrame()` reports and the same
+        // number MAX_OP_COUNT is enforced against. Operations executed in the data pass and
+        // in layout fall outside it — they are outside the existing counter too.
+        context.beginMeasuredFrame();
 
         // Pre-load theme colors before painting (matches Java CoreDocument)
         const themeColors = this.getThemedColors();
@@ -581,6 +648,8 @@ export class CoreDocument implements ExpansionDocument {
             context.setDensity(density);
         }
         context.loadFloat(27 /* ID_DENSITY */, density);
+        this.seedDensityBehavior(context);
+        this.seedTouchVersion(context);
         this.seedPlatformTextSize(context);
         // The host is responsible for seeding the platform text size; the Android view
         // uses `14 * density * fontScale` (RemoteComposeView.getDefaultTextSize) and the
@@ -626,12 +695,13 @@ export class CoreDocument implements ExpansionDocument {
                     op.markNotDirty();
                     (op as any).updateVariables(context);
                 }
-                context.incrementOpCount();
+                context.incrementOpCount(op);
                 op.apply(context);
             }
         }
 
         this.mLastOpCount = context.getLastOpCount();
+        context.emitMeasuredFrame();
 
         // Restore canvas state (matches save before content scaling)
         if (pc) pc.restore();
@@ -640,7 +710,7 @@ export class CoreDocument implements ExpansionDocument {
 
         // Check if we need repaint
         const pc2 = context.getPaintContext();
-        if (pc && pc.doesNeedsRepaint()) {
+        if ((pc2 && pc2.doesNeedsRepaint()) || (this.mRootLayoutComponent && (this.mRootLayoutComponent.needsRepaint() || this.mRootLayoutComponent.needsBoundsAnimation()))) {
             this.mNeedsRepaintFlag = 1;
         } else {
             this.mNeedsRepaintFlag = this.mRemoteComposeState.getOpsToUpdate(context, this.mClock.millis());

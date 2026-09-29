@@ -14,16 +14,19 @@ without a server-side Robolectric daemon.
 - Repository: <https://github.com/yschimke/remotecompose-experiments> (fork of
   `camaelon/remotecompose-experiments`, which is where changes are filed)
 - Path: `players/typescript/`
-- Commit: `53e19e93` ("docs: record the layout/text conformance work and its traps")
+- Commit: `c2b2860b4ba43a754e5cafeb803a0e45cbbb3c12` ("json2rc: decode custom layout component")
 - License: Apache-2.0 (see `LICENSE`)
 
-Previously vendored at `d8b07da2ad540eaf2d0b7f59cb9d7fb4624719c0`. The refresh to `53e19e93` picked
-up five upstream commits, of which `c3a08e1` ("typescript: fix six layout and variable-resolution
-defects") independently implemented two ops we had carried as local deltas — `TEXT_LAYOUT` (208) and
-`ACCESSIBILITY_SEMANTICS` (250). Both now come from upstream: our `CoreSemantics.ts` was deleted in
-favour of upstream's `AccessibilitySemantics` (identical wire reads), and our `TextLayout` was
-replaced by upstream's, which additionally decodes the dynamic-colour flag. See the delta list below
-for the one part of ours that survived the swap.
+Previously vendored at `53e19e93b3fa6dd4ec31dbdb4e32717ce8c9735d` ("docs: record the layout/text conformance work and its traps").
+The refresh to `c2b2860b` incorporates:
+- 3D WebGL2 pipeline and software rasterizer (`src/core/d3/`, `src/core/operations/d3/`, `src/web/WebGL3DRenderer.ts`, opcodes 180-188)
+- Custom component host infrastructure: embedded documents, video players, and camera feeds (`src/core/CustomComponentHost.ts`, `src/web/CustomHosts.ts`)
+- Layout animation support (`src/core/operations/layout/animation/`, `AnimationSpec` opcode 209)
+- 2D Mesh operations and generators (`src/core/operations/Mesh2D.ts`, `Mesh2DGenerator.ts`)
+- Vector expressions and RPN evaluation (`src/core/operations/VectorExpression.ts`, `VectorRpn.ts`, `PathGenerator.ts`)
+- Operation measurement and execution counting hooks (`src/core/OperationMeasurement.ts`)
+- Stubs for unsupported/future opcodes (`src/core/operations/UnsupportedOperations.ts`)
+- Note: `src/json2rc/` is intentionally excluded from vendoring as it is authoring/tooling rather than player runtime. Real implementations of `TextLookupInt` (153), `DataDynamicListFloat` (189), and `UpdateDynamicFloatList` (190) are retained over upstream's stubs.
 
 ## Local modifications
 

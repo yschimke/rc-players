@@ -15,6 +15,12 @@ export class Header extends Operation {
     static readonly DOC_WIDTH: number = 5;
     static readonly DOC_HEIGHT: number = 6;
     static readonly DOC_DENSITY_AT_GENERATION: number = 7;
+    /**
+     * How the document wants dp handled: LEGACY (0), PIXELS (1) or DP (2). Absent means
+     * LEGACY, which is what almost every document in the corpus is — under LEGACY only the
+     * dimension modifiers scale, and padding/spacing do not.
+     */
+    static readonly DOC_DENSITY_BEHAVIOR: number = 27;
     static readonly DOC_DESIRED_FPS: number = 8;
     static readonly DOC_CONTENT_DESCRIPTION: number = 9;
     static readonly DOC_SOURCE: number = 11;
@@ -25,7 +31,6 @@ export class Header extends Operation {
     static readonly DEBUG: number = 16;
     static readonly FEATURE_MEASURE_VERSION: number = 17;
     static readonly FEATURE_TOUCH_VERSION: number = 18;
-    static readonly DOC_DENSITY_BEHAVIOR: number = 27;
 
     // Data types
     private static readonly DATA_TYPE_INT = 0;
@@ -80,6 +85,7 @@ export class Header extends Operation {
         doc.setVersion(this.mMajorVersion, this.mMinorVersion, this.mPatchVersion);
         doc.setWidth(this.mWidth);
         doc.setHeight(this.mHeight);
+        doc.setAuthorDimensions(this.mWidth, this.mHeight);
         doc.setRequiredCapabilities(this.mCapabilities);
         doc.setProperties(this.mProperties);
     }

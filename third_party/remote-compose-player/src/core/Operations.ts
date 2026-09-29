@@ -10,6 +10,7 @@ import { DrawOval } from './operations/DrawOval';
 import { DrawRoundRect } from './operations/DrawRoundRect';
 import { DrawArc } from './operations/DrawArc';
 import { DrawSector } from './operations/DrawSector';
+import { AddMesh2D, DrawMesh2D, MatrixFromMesh2D } from './operations/Mesh2D';
 import { DrawPath } from './operations/DrawPath';
 import { DrawTweenPath } from './operations/DrawTweenPath';
 import { DrawContent } from './operations/DrawContent';
@@ -31,6 +32,12 @@ import {
     FloatConstant, ColorConstant, Theme, ClickArea,
     NamedVariable, RootContentDescription, RootContentBehavior
 } from './operations/DataOperations';
+import {
+    DefineMesh3D, SetCamera3D, Matrix3DOp, DrawMesh3D,
+    Paint3DState, SetLights3D, SetTexture3D, MeshPrimitive,
+} from './operations/d3/Operations3D';
+import { MeshExpression } from './operations/d3/MeshExpression';
+import { VectorExpression } from './operations/VectorExpression';
 import { FloatExpression } from './operations/FloatExpression';
 import { ColorExpression } from './operations/ColorExpression';
 import { IntegerExpression } from './operations/IntegerExpression';
@@ -116,10 +123,24 @@ import { SoundData, SoundExpression, PlaySound } from './operations/SoundOperati
 import {
     ReferencedOperations, IncludeReferencedOperations,
     PatternInflation, PatternBlock, PatternForEach,
-    PatternArgument, PatternDefine
+    PatternArgument, PatternDefine,
 } from './operations/loom/PatternOperations';
 import { Custom } from './operations/layout/managers/Custom';
 import { FontData } from './operations/FontData';
+import { AnimationSpec } from './operations/layout/animation/AnimationSpec';
+import {
+    ComponentStartStub,
+    DrawBitmapFontTextStub,
+    DrawBitmapFontTextOnPathStub,
+    BitmapTextMeasureStub,
+    DrawBitmapTextAnchoredStub,
+    BitmapFontDataStub,
+    FloatFunctionCallStub,
+    FloatFunctionDefineStub,
+    DrawTextOnCircleStub,
+    PathCombineStub,
+    RemStub,
+} from './operations/UnsupportedOperations';
 
 export class Operations {
     private static readonly sMap = new Map<number, CompanionOperationFn>();
@@ -142,6 +163,9 @@ export class Operations {
         m.set(DrawRoundRect.OP_CODE, DrawRoundRect.read);
         m.set(DrawArc.OP_CODE, DrawArc.read);
         m.set(DrawSector.OP_CODE, DrawSector.read);
+        m.set(AddMesh2D.OP_CODE, AddMesh2D.read);
+        m.set(DrawMesh2D.OP_CODE, DrawMesh2D.read);
+        m.set(MatrixFromMesh2D.OP_CODE, MatrixFromMesh2D.read);
         m.set(DrawPath.OP_CODE, DrawPath.read);
         m.set(DrawTweenPath.OP_CODE, DrawTweenPath.read);
         m.set(DrawContent.OP_CODE, DrawContent.read);
@@ -264,6 +288,19 @@ export class Operations {
         m.set(ParticlesCompareOp.OP_CODE, ParticlesCompareOp.read);
         m.set(ParticlesLoopOp.OP_CODE, ParticlesLoopOp.read);
 
+        // 3D operations. The reference registers these in the experimental profiles only; they
+        // dispatch through Paint3DContext and no-op on a paint context without 3D capability.
+        m.set(DefineMesh3D.OP_CODE, DefineMesh3D.read);
+        m.set(SetCamera3D.OP_CODE, SetCamera3D.read);
+        m.set(Matrix3DOp.OP_CODE, Matrix3DOp.read);
+        m.set(DrawMesh3D.OP_CODE, DrawMesh3D.read);
+        m.set(Paint3DState.OP_CODE, Paint3DState.read);
+        m.set(SetLights3D.OP_CODE, SetLights3D.read);
+        m.set(SetTexture3D.OP_CODE, SetTexture3D.read);
+        m.set(MeshPrimitive.OP_CODE, MeshPrimitive.read);
+        m.set(MeshExpression.OP_CODE, MeshExpression.read);
+        m.set(VectorExpression.OP_CODE, VectorExpression.read);
+
         // Loop
         m.set(LoopOperation.OP_CODE, LoopOperation.read);
 
@@ -323,6 +360,24 @@ export class Operations {
 
         // Custom layout component (parse-only)
         m.set(Custom.OP_CODE, Custom.read);
+
+        // Animation
+        m.set(AnimationSpec.OP_CODE, AnimationSpec.read);
+
+        // Parsed-but-unimplemented operations. Registered so the reader stays
+        // aligned: the wire format has no length prefix, so an unregistered opcode
+        // truncates the rest of the document. See operations/UnsupportedOperations.ts.
+        m.set(ComponentStartStub.OP_CODE, ComponentStartStub.read);
+        m.set(DrawBitmapFontTextStub.OP_CODE, DrawBitmapFontTextStub.read);
+        m.set(DrawBitmapFontTextOnPathStub.OP_CODE, DrawBitmapFontTextOnPathStub.read);
+        m.set(BitmapTextMeasureStub.OP_CODE, BitmapTextMeasureStub.read);
+        m.set(DrawBitmapTextAnchoredStub.OP_CODE, DrawBitmapTextAnchoredStub.read);
+        m.set(BitmapFontDataStub.OP_CODE, BitmapFontDataStub.read);
+        m.set(FloatFunctionCallStub.OP_CODE, FloatFunctionCallStub.read);
+        m.set(FloatFunctionDefineStub.OP_CODE, FloatFunctionDefineStub.read);
+        m.set(DrawTextOnCircleStub.OP_CODE, DrawTextOnCircleStub.read);
+        m.set(PathCombineStub.OP_CODE, PathCombineStub.read);
+        m.set(RemStub.OP_CODE, RemStub.read);
     }
 
     static getOperations(): Map<number, CompanionOperationFn> {

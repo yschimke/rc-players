@@ -66,7 +66,7 @@ export class LayoutComponent extends Component {
     private mDrawContentOperations: Operation[] | null = null;
 
     // Component modifier operations (non-structural modifiers that need paint)
-    private mComponentModifiers: Operation[] = [];
+    protected mComponentModifiers: Operation[] = [];
 
     // Content operations (paint ops from LayoutComponentContent/CanvasContent)
     private mContentOps: Operation[] = [];
@@ -205,6 +205,9 @@ export class LayoutComponent extends Component {
                 this.mComponentModifiers.push(op);
             } else if (op instanceof ScrollModifier) {
                 this.mScrollModifier = op;
+                // Bind the TouchExpression the modifier carries. It lives in the modifier's
+                // own list, not in this component's children, so nothing else reaches it.
+                op.inflate(this);
                 this.mComponentModifiers.push(op);
             } else if (op instanceof MarqueeModifier) {
                 op.setComponent(this);
@@ -492,6 +495,15 @@ export class LayoutComponent extends Component {
         this.mPadBeforeHeight = ph;
     }
 
+    override animatingBounds(context: RemoteContext): void {
+        super.animatingBounds(context);
+        this.updateComponentValues(context, this.mWidth, this.mHeight);
+        this.layoutModifiers(this.mWidth, this.mHeight);
+        for (const child of this.mChildrenComponents) {
+            child.animatingBounds(context);
+        }
+    }
+
     /** Walk modifiers reducing dimensions by padding and passing to decorators.
      *  Matches Java ComponentModifiers.layout(). */
     layoutModifiers(w: number, h: number): void {
@@ -518,7 +530,13 @@ export class LayoutComponent extends Component {
         paintContext.matrixRestore();
     }
 
-    paint(paintContext: PaintContext): void {
+    override paint(paintContext: PaintContext): void {
+        if (this.applyAnimationAsNeeded(paintContext)) {
+            return;
+        }
+        if (Visibility.isGone(this.mVisibility)) return;
+        if (Visibility.isInvisible(this.mVisibility)) return;
+
         // The draw-content path (a `Modifier.drawWithContent` block) replaces the
         // component's normal painting with its own draw ops. Only take it when the
         // block actually contains a *drawing* op — a `DrawContentModifier` can be
@@ -534,12 +552,21 @@ export class LayoutComponent extends Component {
             paintContext.matrixTranslate(this.mX, this.mY);
             const context = paintContext.getContext();
             for (const op of drawContentOps!) {
-                context.incrementOpCount();
+                context.incrementOpCount(op);
                 if (op.isDirty() && typeof (op as any).updateVariables === 'function') {
                     op.markNotDirty();
                     (op as any).updateVariables(context);
                 }
                 op.apply(context);
+            }
+            paintContext.matrixRestore();
+        } else if (this.mGraphicsLayerMod) {
+            // GraphicsLayer wraps the entire painting (modifiers + content + children)
+            paintContext.matrixSave();
+            this.mGraphicsLayerMod.apply(paintContext.getContext());
+            this.paintingComponent(paintContext);
+            if (typeof (this.mGraphicsLayerMod as any).applyPostPaint === 'function') {
+                (this.mGraphicsLayerMod as any).applyPostPaint(paintContext);
             }
             paintContext.matrixRestore();
         } else {
@@ -548,7 +575,7 @@ export class LayoutComponent extends Component {
     }
 
     paintingComponent(paintContext: PaintContext): void {
-        if (Visibility.isGone(this.mVisibility)) return;
+        if (Visibility.isGone(this.mVisibility) && this.mAnimateMeasure === null) return;
         const context = paintContext.getContext();
 
         paintContext.matrixSave();
@@ -558,7 +585,7 @@ export class LayoutComponent extends Component {
         let tx = 0;
         let ty = 0;
         for (const mod of this.mComponentModifiers) {
-            context.incrementOpCount();
+            context.incrementOpCount(mod);
             if (mod.isDirty() && typeof (mod as any).updateVariables === 'function') {
                 mod.markNotDirty();
                 (mod as any).updateVariables(context);
@@ -590,7 +617,7 @@ export class LayoutComponent extends Component {
             if (isDecoration) {
                 paintContext.matrixTranslate(-this.mPaddingLeft, -this.mPaddingTop);
             }
-            context.incrementOpCount();
+            context.incrementOpCount(op);
             if (op.isDirty() && typeof (op as any).updateVariables === 'function') {
                 op.markNotDirty();
                 (op as any).updateVariables(context);
@@ -603,6 +630,10 @@ export class LayoutComponent extends Component {
 
         // Paint children sorted by z-index
         const children = this.mChildrenComponents;
+        const shouldPaintChild = (child: Component) => {
+            return (child.mAnimateMeasure !== null || !Visibility.isGone(child.mVisibility)) && this.isChildVisibleInViewport(child);
+        };
+
         if (children.length > 1) {
             // Check if z-index sorting is needed
             let needsSort = false;
@@ -612,26 +643,63 @@ export class LayoutComponent extends Component {
             if (needsSort) {
                 const sorted = [...children].sort((a, b) => a.mZIndex - b.mZIndex);
                 for (const child of sorted) {
-                    if (!Visibility.isGone(child.mVisibility)) {
+                    if (shouldPaintChild(child)) {
+                        context.incrementOpCount(child);
                         child.paint(paintContext);
                     }
                 }
             } else {
                 for (const child of children) {
-                    if (!Visibility.isGone(child.mVisibility)) {
+                    if (shouldPaintChild(child)) {
+                        context.incrementOpCount(child);
                         child.paint(paintContext);
                     }
                 }
             }
         } else {
             for (const child of children) {
-                if (!Visibility.isGone(child.mVisibility)) {
+                if (shouldPaintChild(child)) {
+                    context.incrementOpCount(child);
                     child.paint(paintContext);
                 }
             }
         }
 
         paintContext.matrixRestore();
+    }
+
+    protected isChildVisibleInViewport(child: Component): boolean {
+        const scrollMod = this.mScrollModifier;
+        if (!scrollMod) return true;
+
+        const childX = child.getX();
+        const childY = child.getY();
+        const childW = child.getWidth();
+        const childH = child.getHeight();
+
+        if (childW <= 0 && childH <= 0) return true;
+
+        if (scrollMod.isVertical()) {
+            const hostHeight = this.mHeight - this.mPaddingTop - this.mPaddingBottom;
+            if (hostHeight <= 0) return true;
+            const scrollY = scrollMod.getScrollY();
+            const viewportTop = -scrollY;
+            const viewportBottom = viewportTop + hostHeight;
+            if (childY + childH < viewportTop || childY > viewportBottom) {
+                return false;
+            }
+        } else {
+            const hostWidth = this.mWidth - this.mPaddingLeft - this.mPaddingRight;
+            if (hostWidth <= 0) return true;
+            const scrollX = scrollMod.getScrollX();
+            const viewportLeft = -scrollX;
+            const viewportRight = viewportLeft + hostWidth;
+            if (childX + childW < viewportLeft || childX > viewportRight) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Matches Java Component.updateVariables — re-push dimension/position values
@@ -647,8 +715,12 @@ export class LayoutComponent extends Component {
 
     // --- Scroll ---
 
-    getScrollX(): number { return 0; }
-    getScrollY(): number { return 0; }
+    getScrollX(): number {
+        return this.mScrollModifier ? this.mScrollModifier.getScrollX() : 0;
+    }
+    getScrollY(): number {
+        return this.mScrollModifier ? this.mScrollModifier.getScrollY() : 0;
+    }
 
     onClick(context: RemoteContext, doc: any, x: number, y: number): boolean {
         // Check children first
@@ -672,40 +744,166 @@ export class LayoutComponent extends Component {
         return false;
     }
 
+    /**
+     * Touch dispatch, ported from `Component.onTouchDown` in the reference.
+     *
+     * This class has to override the base implementation because the base walks `mChildren`
+     * — the raw operation list — while a layout component keeps its children in
+     * `mChildrenComponents`. That divergence is what broke drag: `onTouchDown` was
+     * overridden and found the children, `onTouchDrag`/`Up`/`Cancel` were inherited and
+     * walked a list that, for a ColumnLayout with 12 children, holds 6 unrelated ops. Down
+     * worked and nothing after it did.
+     *
+     * Three rules come from the reference and all three matter:
+     *
+     *  - **Children receive window coordinates**, not content-relative ones. The previous
+     *    code subtracted this component's origin before recursing, so every level of
+     *    nesting shifted the hit test further off; only `getLocationInWindow` knows the
+     *    real offset, and `contains` already works in window space.
+     *  - **Iterate backwards and let the first component win.** The top-most component
+     *    under the finger captures the gesture; without this, several overlapping
+     *    components all captured the same press and then all received the drags.
+     *  - **`force` skips the bounds test.** This is what locks a drag to the component the
+     *    press landed in: `CoreDocument` only forwards drag/up to components that captured
+     *    the press, and passes force, so they keep receiving events after the finger has
+     *    moved outside them.
+     */
     onTouchDown(context: RemoteContext, doc: any, x: number, y: number): boolean {
+        if (!this.contains(x, y)) return false;
+        return this.dispatchTouch(context, doc, x, y, 0, 0, true, 'down');
+    }
+
+    onTouchDrag(context: RemoteContext, doc: any, x: number, y: number,
+                force: boolean): boolean {
+        if (!force && !this.contains(x, y)) return false;
+        return this.dispatchTouch(context, doc, x, y, 0, 0, force, 'drag');
+    }
+
+    onTouchUp(context: RemoteContext, doc: any, x: number, y: number,
+              dx: number, dy: number, force: boolean): boolean {
+        if (!force && !this.contains(x, y)) return false;
+        return this.dispatchTouch(context, doc, x, y, dx, dy, force, 'up');
+    }
+
+    onTouchCancel(context: RemoteContext, doc: any, x: number, y: number,
+                  force: boolean): boolean {
+        if (!force && !this.contains(x, y)) return false;
+        return this.dispatchTouch(context, doc, x, y, 0, 0, force, 'cancel');
+    }
+
+    /**
+     * The shared body of all four, mirroring the reference's single loop.
+     *
+     * The reference keeps components, touch handlers and touch expressions in one list and
+     * switches on type; here they live in three collections, so the loop is unrolled but
+     * the order and the coordinate spaces are the same: children first (window coords),
+     * then this component's own consumers (local coords).
+     */
+    private dispatchTouch(context: RemoteContext, doc: any, x: number, y: number,
+                          dx: number, dy: number, force: boolean,
+                          phase: 'down' | 'drag' | 'up' | 'cancel'): boolean {
+        const loc = this.getLocationInWindow();
+        const lx = x - loc[0];
+        const ly = y - loc[1];
         let handled = false;
-        // Coordinates relative to this component's content area (for child dispatch)
-        const cx = x - this.mX - this.mPaddingLeft;
-        const cy = y - this.mY - this.mPaddingTop;
-        // Dispatch to child LayoutComponents
-        for (const child of this.mChildrenComponents) {
-            if (child instanceof LayoutComponent) {
-                handled = child.onTouchDown(context, doc, cx, cy) || handled;
-            }
+        let componentHandled = false;
+
+        // Backwards: the top-most child under the finger takes the gesture.
+        for (let i = this.mChildrenComponents.length - 1; i >= 0; i--) {
+            const child = this.mChildrenComponents[i];
+            if (!(child instanceof LayoutComponent)) continue;
+            if (componentHandled) continue;
+            const took = phase === 'down' ? child.onTouchDown(context, doc, x, y)
+                : phase === 'drag' ? child.onTouchDrag(context, doc, x, y, force)
+                : phase === 'up' ? child.onTouchUp(context, doc, x, y, dx, dy, force)
+                : child.onTouchCancel(context, doc, x, y, force);
+            if (took) componentHandled = true;
         }
-        if (x >= this.mX && x <= this.mX + this.mWidth &&
-            y >= this.mY && y <= this.mY + this.mHeight) {
-            // Coordinates relative to this component origin (for TouchExpression bounds)
-            const lx = x - this.mX;
-            const ly = y - this.mY;
-            // Check mContentOps for TouchExpression (direct content)
-            for (const op of this.mContentOps) {
-                if (op instanceof TouchExpression) {
-                    op.updateVariables(context);
-                    op.touchDown(context, lx, ly);
-                    doc.appliedTouchOperation(this);
+
+        // This component's own touch expressions, in content and in non-layout children.
+        for (const op of this.mContentOps) {
+            if (op instanceof TouchExpression) {
+                if (this.deliverToExpression(op, context, lx, ly, dx, dy, phase)) {
+                    if (phase === 'down') doc.appliedTouchOperation(this);
                     handled = true;
                 }
             }
-            // Check non-LayoutComponent children (e.g. CanvasContent) for nested TouchExpression
-            for (const child of this.mChildrenComponents) {
-                if (!(child instanceof LayoutComponent)) {
-                    handled = this.dispatchTouchDownToOps(child.getList(), context, doc, lx, ly) || handled;
+        }
+        for (const child of this.mChildrenComponents) {
+            if (!(child instanceof LayoutComponent)) {
+                if (this.dispatchToOps(child.getList(), context, doc, lx, ly, dx, dy, phase)) {
+                    handled = true;
                 }
             }
-            for (const mod of this.mComponentModifiers) {
-                if (mod instanceof TouchDownModifier) {
-                    mod.onTouchDown(context);
+        }
+
+        // Component modifiers that consume touch.
+        for (const mod of this.mComponentModifiers) {
+            if (phase === 'down' && mod instanceof TouchDownModifier) {
+                mod.onTouchDown(context);
+                handled = true;
+            } else if (phase === 'up' && mod instanceof TouchUpModifier) {
+                mod.onTouchUp(context);
+                handled = true;
+            } else if (phase === 'cancel' && mod instanceof TouchCancelModifier) {
+                mod.onTouchCancel(context);
+                handled = true;
+            }
+        }
+
+        // The scroll modifier carries its own TouchExpression in its operation list, so it
+        // is reached here rather than by the walks above.
+        if (this.mScrollModifier) {
+            if (phase === 'down') {
+                this.mScrollModifier.onTouchDown(context, lx, ly);
+                doc.appliedTouchOperation(this);
+                handled = true;
+            } else if (phase === 'drag') {
+                if (this.mScrollModifier.onTouchDrag(context, lx, ly)) {
+                    handled = true;
+                }
+            } else if (phase === 'up') {
+                if (this.mScrollModifier.onTouchUp(context, lx, ly, dx, dy)) {
+                    handled = true;
+                }
+            } else if (this.mScrollModifier.onTouchCancel(context, lx, ly)) {
+                handled = true;
+            }
+        }
+
+        return componentHandled || handled;
+    }
+
+    /** One touch phase on a single expression. Only `down` is bounds-checked, as upstream. */
+    private deliverToExpression(op: TouchExpression, context: RemoteContext,
+                                lx: number, ly: number, dx: number, dy: number,
+                                phase: 'down' | 'drag' | 'up' | 'cancel'): boolean {
+        op.updateVariables(context);
+        if (phase === 'down') {
+            op.touchDown(context, lx, ly);
+        } else if (phase === 'drag') {
+            op.touchDrag(context, lx, ly);
+        } else if (phase === 'up') {
+            op.touchUp(context, lx, ly, dx, dy);
+        } else {
+            op.touchUp(context, lx, ly, 0, 0);
+        }
+        return true;
+    }
+
+    /** Recurse into a non-layout child's operations looking for touch expressions. */
+    private dispatchToOps(ops: Operation[], context: RemoteContext, doc: any,
+                          lx: number, ly: number, dx: number, dy: number,
+                          phase: 'down' | 'drag' | 'up' | 'cancel'): boolean {
+        let handled = false;
+        for (const op of ops) {
+            if (op instanceof TouchExpression) {
+                this.deliverToExpression(op, context, lx, ly, dx, dy, phase);
+                if (phase === 'down') doc.appliedTouchOperation(this);
+                handled = true;
+            } else if (typeof (op as any).getList === 'function') {
+                if (this.dispatchToOps((op as any).getList(), context, doc,
+                                       lx, ly, dx, dy, phase)) {
                     handled = true;
                 }
             }

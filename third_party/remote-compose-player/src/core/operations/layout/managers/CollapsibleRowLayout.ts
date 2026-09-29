@@ -34,9 +34,9 @@ export class CollapsibleRowLayout extends RowLayout {
     }
 
     override internalLayoutMeasure(context: PaintContext, measure: MeasurePass): void {
-        super.internalLayoutMeasure(context, measure);
         const m = measure.get(this);
         this.computeVisibleChildren(context, m.getW(), m.getH(), false, measure, null);
+        super.internalLayoutMeasure(context, measure);
     }
 
     private computeVisibleChildren(context: PaintContext, maxWidth: number, maxHeight: number,
@@ -57,6 +57,7 @@ export class CollapsibleRowLayout extends RowLayout {
                 }
             }
             const m = measure.get(c);
+            m.clearVisibilityOverride();
             if (!m.isGone()) {
                 if (size !== null) {
                     size.setHeight(Math.max(size.getHeight(), m.getH()));
@@ -71,10 +72,8 @@ export class CollapsibleRowLayout extends RowLayout {
             }
         }
         if (this.mChildrenComponents.length > 0 && size !== null) {
-            // Match the density-scaled spacing the inherited positioning applies
-            // (RowLayout.internalLayoutMeasure) so the measured width and the child
-            // placement agree under DP density behavior.
-            size.setWidth(size.getWidth() + (this.mSpacedBy * this.getDpBehaviorScale(context) * (visibleChildren - 1)));
+            size.setWidth(size.getWidth()
+                + (this.spacedByPx(context, this.mSpacedBy) * (visibleChildren - 1)));
         }
 
         let childrenWidth = 0;
@@ -98,6 +97,7 @@ export class CollapsibleRowLayout extends RowLayout {
                 childMeasure.addVisibilityOverride(Visibility.OVERRIDE_GONE);
                 overflow = true;
             } else {
+                childMeasure.addVisibilityOverride(Visibility.OVERRIDE_VISIBLE);
                 childrenWidth += childWidth;
                 childrenHeight = Math.max(childrenHeight, childMeasure.getH());
                 visibleChildren++;
