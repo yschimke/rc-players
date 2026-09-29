@@ -2,7 +2,7 @@
 
 Every player in this repository, scored against the AndroidX RemoteCompose conformance corpus. The corpus comes from an unmerged AOSP Gerrit change and is held on `vendor/androidx-rc-conformance`; it is deliberately not in the main line.
 
-Measured at `f5803928fbc8ea124a71c933714c67a85eefabb1` on `main`.
+Measured at `21fcd37a2bfe622dcf37e0470999e7953b41dbc5` on `main`.
 
 ## Lanes
 
