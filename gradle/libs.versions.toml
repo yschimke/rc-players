@@ -21,12 +21,12 @@ kotlinCoreLibraries = "2.0.21"
 agp = "9.4.1"
 # Android levels for the published CMP player stack (`rc-player/*`). compileSdk follows the SDK the
 # stack's Compose artifacts compile against; minSdk is Compose's own floor, so the player adds none.
-rc-player-compileSdk = "36"
+rc-player-compileSdk = "37"
 rc-player-minSdk = "23"
 # The androidx Compose that Compose Multiplatform `compose-multiplatform` resolves to on Android.
 # `:rc-player-compose`'s Robolectric host tests pin their ui-test artifacts to it, so the test
 # rule drives the same Compose the player compiles against. Bump together with CMP.
-androidx-compose-for-cmp = "1.11.2"
+androidx-compose-for-cmp = "1.12.1"
 ktfmt = "0.27.0"
 tapmoc = "0.4.2"
 # Released versions only. Robolectric publishes `4.17-SNAPSHOT` to Sonatype, and Renovate ranks it
