@@ -3,11 +3,11 @@
 import { Operation } from '../../../Operation';
 import type { VariableSupport } from '../../../VariableSupport';
 import type { WireBuffer } from '../../../WireBuffer';
-import type { RemoteContext } from '../../../RemoteContext';
-import { ContextMode, DENSITY_BEHAVIOR_DP } from '../../../RemoteContext';
+import { ContextMode, RemoteContext } from '../../../RemoteContext';
 import { PaintBundle } from '../../paint/PaintBundle';
 import { isNaNBits, idFromBits, intBitsToFloat, isVariableBits } from '../../Utils';
 import { Visibility } from '../Component';
+import { TouchExpression } from '../../TouchExpression';
 
 /**
  * What the measure pass needs from a min/max constraint, regardless of which op it
@@ -50,9 +50,10 @@ export class WidthModifier extends Operation implements VariableSupport {
     }
     updateVariables(context: RemoteContext): void {
         if ((this.mType === WidthModifier.EXACT || this.mType === WidthModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
-            // Resolve to the raw value; EXACT_DP dp→px scaling is applied uniformly
-            // in LayoutManager.measure (so static and variable values scale once).
             this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
+            if (this.mType === WidthModifier.EXACT_DP) {
+                this.mOutValue *= context.getDensity();
+            }
         }
     }
     write(_buffer: WireBuffer): void { /* stub */ }
@@ -95,9 +96,10 @@ export class HeightModifier extends Operation implements VariableSupport {
     }
     updateVariables(context: RemoteContext): void {
         if ((this.mType === HeightModifier.EXACT || this.mType === HeightModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
-            // Resolve to the raw value; EXACT_DP dp→px scaling is applied uniformly
-            // in LayoutManager.measure (so static and variable values scale once).
             this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
+            if (this.mType === HeightModifier.EXACT_DP) {
+                this.mOutValue *= context.getDensity();
+            }
         }
     }
     write(_buffer: WireBuffer): void { /* stub */ }
@@ -128,6 +130,19 @@ export class WidthInModifier extends Operation implements VariableSupport {
     updateVariables(context: RemoteContext): void {
         if (isNaNBits(this.mMinBits)) this.mOutMin = context.getFloat(idFromBits(this.mMinBits));
         if (isNaNBits(this.mMaxBits)) this.mOutMax = context.getFloat(idFromBits(this.mMaxBits));
+        // These bounds are authored in dp, so they scale with density — the reference
+        // does the same in DimensionInModifierOperation.updateVariables, and scales unless
+        // the document explicitly says PIXELS (LEGACY, the default, still scales).
+        // Without it a `widthIn(120, MAX)` card was compared against a pixel viewport as
+        // if it were 120 physical pixels, so a Flow packed four cards into a row the
+        // device fits three into.
+        if (context.getDensityBehavior?.() !== RemoteContext.DENSITY_BEHAVIOR_PIXELS) {
+            const density = context.getDensity();
+            if (density > 0 && !Number.isNaN(density)) {
+                if (this.mOutMin !== -1) this.mOutMin *= density;
+                if (this.mOutMax !== -1 && Number.isFinite(this.mOutMax)) this.mOutMax *= density;
+            }
+        }
     }
     write(_buffer: WireBuffer): void { /* stub */ }
     apply(_context: RemoteContext): void { /* handled by layout */ }
@@ -157,6 +172,19 @@ export class HeightInModifier extends Operation implements VariableSupport {
     updateVariables(context: RemoteContext): void {
         if (isNaNBits(this.mMinBits)) this.mOutMin = context.getFloat(idFromBits(this.mMinBits));
         if (isNaNBits(this.mMaxBits)) this.mOutMax = context.getFloat(idFromBits(this.mMaxBits));
+        // These bounds are authored in dp, so they scale with density — the reference
+        // does the same in DimensionInModifierOperation.updateVariables, and scales unless
+        // the document explicitly says PIXELS (LEGACY, the default, still scales).
+        // Without it a `widthIn(120, MAX)` card was compared against a pixel viewport as
+        // if it were 120 physical pixels, so a Flow packed four cards into a row the
+        // device fits three into.
+        if (context.getDensityBehavior?.() !== RemoteContext.DENSITY_BEHAVIOR_PIXELS) {
+            const density = context.getDensity();
+            if (density > 0 && !Number.isNaN(density)) {
+                if (this.mOutMin !== -1) this.mOutMin *= density;
+                if (this.mOutMax !== -1 && Number.isFinite(this.mOutMax)) this.mOutMax *= density;
+            }
+        }
     }
     write(_buffer: WireBuffer): void { /* stub */ }
     apply(_context: RemoteContext): void { /* handled by layout */ }
@@ -318,24 +346,14 @@ export class BorderModifier extends Operation {
             const b = Math.trunc(this.mB * 255 + 0.5);
             argb = ((a << 24) | (r << 16) | (g << 8) | b) | 0;
         }
-        // Border width and corner radius are authored in dp; AndroidX
-        // BorderModifierOperation scales them by the doc density under DP density
-        // behavior (local copies → idempotent).
-        let borderWidth = this.mBorderWidth;
-        let roundedCorner = this.mRoundedCorner;
-        if (context.getDensityBehavior() === DENSITY_BEHAVIOR_DP) {
-            const d = context.getDensity();
-            if (!Number.isNaN(d) && d > 0) { borderWidth *= d; roundedCorner *= d; }
-        }
-
         pb.reset();
         pb.setStyle(PaintBundle.STROKE);
         pb.setColor(argb);
-        pb.setStrokeWidth(borderWidth);
+        pb.setStrokeWidth(this.mBorderWidth);
         pc.replacePaint(pb);
 
-        if (roundedCorner > 0) {
-            pc.drawRoundRect(0, 0, w, h, roundedCorner, roundedCorner);
+        if (this.mRoundedCorner > 0) {
+            pc.drawRoundRect(0, 0, w, h, this.mRoundedCorner, this.mRoundedCorner);
         } else {
             pc.drawRect(0, 0, w, h);
         }
@@ -381,24 +399,28 @@ export class PaddingModifier extends Operation implements VariableSupport {
         if (isNaNBits(this.mBottom)) context.listensTo(idFromBits(this.mBottom), this);
     }
     updateVariables(context: RemoteContext): void {
-        // Re-derive every side from its raw bits each call (NaN → variable lookup,
-        // else the literal float) so density scaling below is idempotent across the
-        // repeated updateVariables passes the engine runs (data + per-op paint).
-        this.mLeftValue = isNaNBits(this.mLeft) ? context.getFloat(idFromBits(this.mLeft)) : intBitsToFloat(this.mLeft);
-        this.mTopValue = isNaNBits(this.mTop) ? context.getFloat(idFromBits(this.mTop)) : intBitsToFloat(this.mTop);
-        this.mRightValue = isNaNBits(this.mRight) ? context.getFloat(idFromBits(this.mRight)) : intBitsToFloat(this.mRight);
-        this.mBottomValue = isNaNBits(this.mBottom) ? context.getFloat(idFromBits(this.mBottom)) : intBitsToFloat(this.mBottom);
-        // Padding is authored in dp. Under DP density behavior AndroidX's
-        // PaddingModifierOperation.updateVariables multiplies each side by the doc
-        // density to get pixels; replicate that so padded content matches the baked
-        // render at densities != 1 (e.g. the density-2.0 Wear-aligned catalog).
-        if (context.getDensityBehavior() === DENSITY_BEHAVIOR_DP) {
-            const d = context.getDensity();
-            if (!Number.isNaN(d) && d > 0) {
-                this.mLeftValue *= d;
-                this.mTopValue *= d;
-                this.mRightValue *= d;
-                this.mBottomValue *= d;
+        // Reassign from the source bits every time rather than only in the NaN branch, which
+        // is what Java does. It matters now that density scaling follows: leaving a literal
+        // in place and scaling it again on the next call would multiply the density in.
+        this.mLeftValue = isNaNBits(this.mLeft)
+            ? context.getFloat(idFromBits(this.mLeft)) : intBitsToFloat(this.mLeft);
+        this.mTopValue = isNaNBits(this.mTop)
+            ? context.getFloat(idFromBits(this.mTop)) : intBitsToFloat(this.mTop);
+        this.mRightValue = isNaNBits(this.mRight)
+            ? context.getFloat(idFromBits(this.mRight)) : intBitsToFloat(this.mRight);
+        this.mBottomValue = isNaNBits(this.mBottom)
+            ? context.getFloat(idFromBits(this.mBottom)) : intBitsToFloat(this.mBottom);
+
+        // Padding is dp only when the document says so — note this is `== DP`, not the
+        // `!= PIXELS` the dimension modifiers use. Under the default LEGACY behaviour Java
+        // does not scale padding either, so this is deliberately inert for most documents.
+        if (context.getDensityBehavior() === RemoteContext.DENSITY_BEHAVIOR_DP) {
+            const density = context.getDensity();
+            if (density > 0 && !Number.isNaN(density)) {
+                this.mLeftValue *= density;
+                this.mTopValue *= density;
+                this.mRightValue *= density;
+                this.mBottomValue *= density;
             }
         }
     }
@@ -412,68 +434,16 @@ export class PaddingModifier extends Operation implements VariableSupport {
 }
 
 // ── MODIFIER_ROUNDED_CLIP_RECT (54): FLOAT topStart, FLOAT topEnd, FLOAT bottomStart, FLOAT bottomEnd
-//
-// Each corner arrives as raw float32 bits that may be a NaN-encoded variable
-// reference rather than a literal: a *fixed* shape (`RemoteRoundedCornerShape(4.dp)`)
-// writes a dp literal, but a *size-relative* one — `RemoteCircleShape`, i.e. a 50%
-// corner — writes an expression id computed from the component's measured width and
-// height. Reading those bits as a float yields NaN, and `ctx.roundRect` ignores a
-// non-finite radius list entirely, leaving an empty path for the following `clip()`
-// — which clips away *everything drawn inside the component*, not just the corners.
-// That is why the round watch screen rendered as a blank canvas (#2930).
-export class RoundedClipRectModifier extends Operation implements VariableSupport {
+export class RoundedClipRectModifier extends Operation {
     static readonly OP_CODE = 54;
-    // Corners as raw float32 int bits (may be NaN-encoded variable refs).
     private mTopStart: number; private mTopEnd: number;
     private mBottomStart: number; private mBottomEnd: number;
-    // Resolved pixel radii, re-derived on every updateVariables pass.
-    mTopStartValue: number; mTopEndValue: number;
-    mBottomStartValue: number; mBottomEndValue: number;
     private mLayoutW = 0; private mLayoutH = 0;
     private mComponent: any = null;
     constructor(topStart: number, topEnd: number, bottomStart: number, bottomEnd: number) {
         super();
         this.mTopStart = topStart; this.mTopEnd = topEnd;
         this.mBottomStart = bottomStart; this.mBottomEnd = bottomEnd;
-        this.mTopStartValue = isNaNBits(topStart) ? 0 : intBitsToFloat(topStart);
-        this.mTopEndValue = isNaNBits(topEnd) ? 0 : intBitsToFloat(topEnd);
-        this.mBottomStartValue = isNaNBits(bottomStart) ? 0 : intBitsToFloat(bottomStart);
-        this.mBottomEndValue = isNaNBits(bottomEnd) ? 0 : intBitsToFloat(bottomEnd);
-    }
-    registerListening(context: RemoteContext): void {
-        if (isNaNBits(this.mTopStart)) context.listensTo(idFromBits(this.mTopStart), this);
-        if (isNaNBits(this.mTopEnd)) context.listensTo(idFromBits(this.mTopEnd), this);
-        if (isNaNBits(this.mBottomStart)) context.listensTo(idFromBits(this.mBottomStart), this);
-        if (isNaNBits(this.mBottomEnd)) context.listensTo(idFromBits(this.mBottomEnd), this);
-    }
-    updateVariables(context: RemoteContext): void {
-        // Re-derive every corner from its raw bits each call (NaN → variable lookup,
-        // else the literal float) so the density scaling below stays idempotent across
-        // the repeated updateVariables passes the engine runs — same shape as
-        // PaddingModifier above.
-        const ts = this.resolve(context, this.mTopStart);
-        const te = this.resolve(context, this.mTopEnd);
-        const bs = this.resolve(context, this.mBottomStart);
-        const be = this.resolve(context, this.mBottomEnd);
-        this.mTopStartValue = ts; this.mTopEndValue = te;
-        this.mBottomStartValue = bs; this.mBottomEndValue = be;
-    }
-    /**
-     * A literal corner is authored in dp, so under DP density behavior AndroidX's
-     * `RoundedClipRectModifierOperation.paint` scales it by the doc density — replicate
-     * that so the clipped corners match the baked render at densities != 1. A *variable*
-     * corner is deliberately left alone: it is computed from the component's measured
-     * width/height, which the engine already carries in generation pixels, so scaling it
-     * would double-apply the density and over-round the shape.
-     */
-    private resolve(context: RemoteContext, bits: number): number {
-        if (isNaNBits(bits)) return context.getFloat(idFromBits(bits));
-        let v = intBitsToFloat(bits);
-        if (context.getDensityBehavior() === DENSITY_BEHAVIOR_DP) {
-            const d = context.getDensity();
-            if (!Number.isNaN(d) && d > 0) v *= d;
-        }
-        return v;
     }
     setComponent(c: any): void { this.mComponent = c; }
     layoutDecorator(w: number, h: number): void { this.mLayoutW = w; this.mLayoutH = h; }
@@ -485,23 +455,13 @@ export class RoundedClipRectModifier extends Operation implements VariableSuppor
         const w = this.mLayoutW;
         const h = this.mLayoutH;
         if (w > 0 && h > 0) {
-            // Resolve here too: a modifier whose corner is an expression over the
-            // component's own size only gets its final value once the component has been
-            // measured, which happens after the data pass that ran updateVariables.
-            this.updateVariables(context);
-            pc.roundedClipRect(w, h, this.mTopStartValue, this.mTopEndValue,
-                this.mBottomStartValue, this.mBottomEndValue);
+            pc.roundedClipRect(w, h, this.mTopStart, this.mTopEnd, this.mBottomStart, this.mBottomEnd);
         }
     }
-    deepToString(indent: string): string {
-        return `${indent}RoundedClipRectModifier(${this.mTopStartValue}, ${this.mTopEndValue}, ` +
-            `${this.mBottomStartValue}, ${this.mBottomEndValue})`;
-    }
+    deepToString(indent: string): string { return `${indent}RoundedClipRectModifier`; }
     static read(buffer: WireBuffer, operations: Operation[]): void {
-        // readInt, not readFloat: the raw bits are kept so a NaN-encoded variable
-        // reference survives to be resolved against the context.
         operations.push(new RoundedClipRectModifier(
-            buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt()));
+            buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat()));
     }
 }
 
@@ -542,6 +502,7 @@ export class ClickModifier extends Operation {
     onClick(context: RemoteContext, _doc: any, _x: number, _y: number): boolean {
         // Execute action operations
         for (const op of this.mList) {
+            context.incrementOpCount(op);
             op.apply(context);
         }
         context.needsRepaint();
@@ -579,21 +540,21 @@ export class MultiClickModifier extends Operation {
 
     onClick(context: RemoteContext, _doc: any, _x: number, _y: number): boolean {
         if (this.mClickType !== MultiClickModifier.CLICK_TYPE_SINGLE) return false;
-        for (const op of this.mList) op.apply(context);
+        for (const op of this.mList) { context.incrementOpCount(op); op.apply(context); }
         context.needsRepaint();
         return true;
     }
 
     onLongPress(context: RemoteContext, _doc: any, _x: number, _y: number): boolean {
         if (this.mClickType !== MultiClickModifier.CLICK_TYPE_LONG) return false;
-        for (const op of this.mList) op.apply(context);
+        for (const op of this.mList) { context.incrementOpCount(op); op.apply(context); }
         context.needsRepaint();
         return true;
     }
 
     onDoubleClick(context: RemoteContext, _doc: any, _x: number, _y: number): boolean {
         if (this.mClickType !== MultiClickModifier.CLICK_TYPE_DOUBLE) return false;
-        for (const op of this.mList) op.apply(context);
+        for (const op of this.mList) { context.incrementOpCount(op); op.apply(context); }
         context.needsRepaint();
         return true;
     }
@@ -657,6 +618,7 @@ export class TouchDownModifier extends Operation {
 
     onTouchDown(context: RemoteContext): void {
         for (const op of this.mList) {
+            context.incrementOpCount(op);
             op.apply(context);
         }
     }
@@ -678,6 +640,7 @@ export class TouchUpModifier extends Operation {
 
     onTouchUp(context: RemoteContext): void {
         for (const op of this.mList) {
+            context.incrementOpCount(op);
             op.apply(context);
         }
     }
@@ -699,6 +662,7 @@ export class TouchCancelModifier extends Operation {
 
     onTouchCancel(context: RemoteContext): void {
         for (const op of this.mList) {
+            context.incrementOpCount(op);
             op.apply(context);
         }
     }
@@ -791,14 +755,7 @@ export class OffsetModifier extends Operation implements VariableSupport {
         if (context.mMode !== ContextMode.PAINT) return;
         const pc = context.getPaintContext();
         if (!pc) return;
-        // Offsets are authored in dp; AndroidX OffsetModifierOperation scales them by
-        // the doc density under DP density behavior (local copies → idempotent).
-        let ox = this.mOutX, oy = this.mOutY;
-        if (context.getDensityBehavior() === DENSITY_BEHAVIOR_DP) {
-            const d = context.getDensity();
-            if (!Number.isNaN(d) && d > 0) { ox *= d; oy *= d; }
-        }
-        pc.translate(ox, oy);
+        pc.translate(this.mOutX, this.mOutY);
     }
     deepToString(indent: string): string { return `${indent}OffsetModifier(${this.mOutX}, ${this.mOutY})`; }
     static read(buffer: WireBuffer, operations: Operation[]): void {
@@ -923,6 +880,8 @@ export class ScrollModifier extends Operation {
     static readonly OP_CODE = 226;
     static readonly VERTICAL = 0;
     static readonly HORIZONTAL = 1;
+    /** LayoutManager.FIX_TOUCH_EVENT — touch coordinates are component-local from here on. */
+    static readonly FIX_TOUCH_EVENT = 1;
     mList: Operation[] = [];
     private mDirection: number;
     // position/max/notchMax as raw float32 int bits (NaN-encoded variable refs;
@@ -937,24 +896,156 @@ export class ScrollModifier extends Operation {
         this.mMax = max;
         this.mNotchMax = notchMax;
     }
+
+    // ── Scroll state ────────────────────────────────────────────────────────────────
+    // Two ways a scroll position is driven, and a document picks one by whether its
+    // position field is a NaN-encoded variable reference:
+    //
+    //   expression-driven — the TouchExpression below computes the position and writes it
+    //       to that variable. The modifier only feeds it touch events. (stock.rc)
+    //   direct — no variable, so the modifier tracks the offset itself, clamped to
+    //       [-maxScroll, 0]. (dsl_ticker.rc, 02_ticker.rc)
+    //
+    // Both need touch events, which is what was missing: the TouchExpression lives in this
+    // modifier's own list rather than the component's children, so the component's touch
+    // walk never reached it and nothing ever moved.
+    private mTouchExpression: TouchExpression | null = null;
+    private mTouchDown = false;
+    private mTouchDownX = 0;
+    private mTouchDownY = 0;
+    private mInitialScrollX = 0;
+    private mInitialScrollY = 0;
+    private mScrollX = 0;
+    private mScrollY = 0;
+    private mMaxScrollX = 0;
+    private mMaxScrollY = 0;
+    private mContentDimension = 0;
+
     getList(): Operation[] { return this.mList; }
     getDirection(): number { return this.mDirection; }
     getMaxNan(): number { return this.mMax; }
     getNotchMaxNan(): number { return this.mNotchMax; }
+    getScrollX(): number { return this.mScrollX; }
+    getScrollY(): number { return this.mScrollY; }
+    isVertical(): boolean { return this.mDirection === ScrollModifier.VERTICAL; }
+
+    /** True when the position is a variable the contained TouchExpression writes. */
+    private isExpressionDriven(): boolean { return isNaNBits(this.mPositionId); }
+
+    /** Bind the contained TouchExpression to the component, as Java's inflate() does. */
+    inflate(component: any): void {
+        for (const op of this.mList) {
+            if (op instanceof TouchExpression) {
+                this.mTouchExpression = op;
+                op.setComponent(component);
+            }
+        }
+    }
+
+    updateVariables(context: RemoteContext): void {
+        this.mTouchExpression?.updateVariables(context);
+    }
+
+    /** Called by the layout pass once the host and content sizes are known. */
+    setVerticalScrollDimension(hostDimension: number, contentDimension: number): void {
+        this.mContentDimension = contentDimension;
+        this.mMaxScrollY = Math.max(0, contentDimension - hostDimension);
+    }
+
+    setHorizontalScrollDimension(hostDimension: number, contentDimension: number): void {
+        this.mContentDimension = contentDimension;
+        this.mMaxScrollX = Math.max(0, contentDimension - hostDimension);
+    }
+
+    onTouchDown(context: RemoteContext, x: number, y: number): boolean {
+        this.mTouchDown = true;
+        this.mTouchDownX = x;
+        this.mTouchDownY = y;
+        this.mInitialScrollX = this.mScrollX;
+        this.mInitialScrollY = this.mScrollY;
+        if (this.mTouchExpression) {
+            this.mTouchExpression.updateVariables(context);
+            if (context.getTouchVersion() === ScrollModifier.FIX_TOUCH_EVENT) {
+                this.mTouchExpression.touchDown(context, x, y);
+            } else {
+                this.mTouchExpression.touchDown(context, x + this.mScrollX, y + this.mScrollY);
+            }
+        }
+        return true;
+    }
+
+    onTouchDrag(context: RemoteContext, x: number, y: number): boolean {
+        this.mTouchDown = true;
+        if (this.mTouchExpression) {
+            this.mTouchExpression.updateVariables(context);
+            if (context.getTouchVersion() === ScrollModifier.FIX_TOUCH_EVENT) {
+                this.mTouchExpression.touchDrag(context, x, y);
+            } else {
+                this.mTouchExpression.touchDrag(context, x + this.mScrollX, y + this.mScrollY);
+            }
+        }
+        // Integrate the drag ourselves only when the position is a plain value. When it is
+        // a variable, apply() below recomputes the offset from it every frame and would
+        // overwrite anything set here.
+        if (!this.isExpressionDriven()) {
+            if (this.isVertical()) {
+                const dy = y - this.mTouchDownY;
+                this.mScrollY = Math.max(-this.mMaxScrollY,
+                    Math.min(0, this.mInitialScrollY + dy));
+            } else {
+                const dx = x - this.mTouchDownX;
+                this.mScrollX = Math.max(-this.mMaxScrollX,
+                    Math.min(0, this.mInitialScrollX + dx));
+            }
+        }
+        return true;
+    }
+
+    onTouchUp(context: RemoteContext, x: number, y: number, dx: number, dy: number): boolean {
+        const handled = this.mTouchDown;
+        this.mTouchDown = false;
+        if (this.mTouchExpression) {
+            this.mTouchExpression.updateVariables(context);
+            if (context.getTouchVersion() === ScrollModifier.FIX_TOUCH_EVENT) {
+                this.mTouchExpression.touchUp(context, x, y, dx, dy);
+            } else {
+                this.mTouchExpression.touchUp(context, x + this.mScrollX, y + this.mScrollY, dx, dy);
+            }
+        }
+        return handled;
+    }
+
+    onTouchCancel(context: RemoteContext, x: number, y: number): boolean {
+        const handled = this.mTouchDown;
+        this.mTouchDown = false;
+        this.mTouchExpression?.touchUp(context, x, y, 0, 0);
+        return handled;
+    }
+
     write(_buffer: WireBuffer): void { /* stub */ }
     apply(context: RemoteContext): void {
         if (context.mMode !== ContextMode.PAINT) return;
+        // Run the contained operations first. This is what gets the TouchExpression applied
+        // — and its apply() is what refreshes the bounds it rejects out-of-range touches
+        // against. Without it those bounds stay at 0x0 and every touchDown is discarded,
+        // which presents as scrolling being unimplemented rather than as an error.
+        for (const op of this.mList) {
+            op.apply(context);
+            context.incrementOpCount(op);
+        }
         const pc = context.getPaintContext();
         if (!pc) return;
-        // Read current scroll position from context
-        const pos = isNaNBits(this.mPositionId)
-            ? context.getFloat(idFromBits(this.mPositionId))
-            : 0;
-        if (this.mDirection === ScrollModifier.HORIZONTAL) {
-            pc.translate(-pos, 0);
-        } else {
-            pc.translate(0, -pos);
+        // With an expression, the position variable is authoritative and is recomputed here
+        // every frame. Without one, mScroll* is whatever the drag integrated.
+        if (this.mTouchExpression) {
+            const position = context.getFloat(idFromBits(this.mPositionId));
+            if (this.isVertical()) {
+                this.mScrollY = -Math.min(this.mMaxScrollY, position);
+            } else {
+                this.mScrollX = -Math.min(this.mMaxScrollX, position);
+            }
         }
+        pc.translate(this.mScrollX, this.mScrollY);
     }
     deepToString(indent: string): string { return `${indent}ScrollModifier(dir=${this.mDirection})`; }
     static read(buffer: WireBuffer, operations: Operation[]): void {

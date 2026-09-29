@@ -138,7 +138,8 @@ export class RowLayout extends LayoutManager {
         }
 
         if (visibleChildren > 0) {
-            size.setWidth(size.getWidth() + this.mSpacedBy * this.getDpBehaviorScale(context) * (visibleChildren - 1));
+            size.setWidth(size.getWidth()
+                + this.spacedByPx(context, this.mSpacedBy) * (visibleChildren - 1));
         }
     }
 
@@ -198,7 +199,6 @@ export class RowLayout extends LayoutManager {
         }
 
         if (hasWeights) {
-            const dp = this.getDpScale(context);
             const availableSpace = selfWidth - nonWeightWidth;
             for (const child of components) {
                 if (!(child instanceof LayoutComponent && child.hasWidthWeight())) continue;
@@ -206,20 +206,13 @@ export class RowLayout extends LayoutManager {
                 if (cm.isGone()) continue;
                 const weight = child.getWidthModValue();
                 let childWidth = (weight * availableSpace) / totalWeights;
-                // widthIn bounds are dp — scale to px by the generation density.
                 const wIn = child.getWidthInModifier();
                 if (wIn) {
-                    if (wIn.getMin() >= 0) childWidth = Math.max(wIn.getMin() * dp, childWidth);
-                    if (wIn.getMax() >= 0) childWidth = Math.min(wIn.getMax() * dp, childWidth);
+                    if (wIn.getMin() >= 0) childWidth = Math.max(wIn.getMin(), childWidth);
+                    if (wIn.getMax() >= 0) childWidth = Math.min(wIn.getMax(), childWidth);
                 }
                 cm.setW(childWidth);
-                // Cross axis stays free (0 .. selfHeight), matching the weighted branch of
-                // `computeWrapSize` above. Pinning it to `cm.getH()` re-imposed the height from an
-                // earlier pass — one taken while `computeSizeForComponents` was still shrinking the
-                // available width per child — so every cell after the first carried an
-                // under-measured height and then starved its own children to fit it. Only the main
-                // axis is decided by the weight.
-                child.measure(context, childWidth, childWidth, 0, selfHeight, measure);
+                child.measure(context, childWidth, childWidth, cm.getH(), cm.getH(), measure);
             }
         }
 
@@ -235,7 +228,8 @@ export class RowLayout extends LayoutManager {
             childrenHeight = Math.max(childrenHeight, cm.getH());
             visibleChildren++;
         }
-        childrenWidth += this.mSpacedBy * this.getDpBehaviorScale(context) * Math.max(0, visibleChildren - 1);
+        childrenWidth += this.spacedByPx(context, this.mSpacedBy)
+            * Math.max(0, visibleChildren - 1);
 
         // Compute horizontal starting position
         let tx = 0;
@@ -289,7 +283,7 @@ export class RowLayout extends LayoutManager {
                 || this.mHorizontalPositioning === RowLayout.SPACE_EVENLY) {
                 tx += horizontalGap;
             }
-            tx += this.mSpacedBy * this.getDpBehaviorScale(context);
+            tx += this.spacedByPx(context, this.mSpacedBy);
         }
 
         if (size !== null) {

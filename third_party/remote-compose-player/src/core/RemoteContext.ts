@@ -1,5 +1,6 @@
 // RemoteContext: abstract context used to playback RemoteCompose documents.
 
+import type { CustomComponentHost } from './CustomComponentHost';
 import { asNan, idFromNan } from './operations/Utils';
 import { RemoteComposeState } from './RemoteComposeState';
 import type { RemoteClock } from './RemoteClock';
@@ -8,6 +9,9 @@ import type { PaintContext } from './PaintContext';
 import type { CoreDocument } from './CoreDocument';
 import type { VariableSupport } from './VariableSupport';
 import type { IntMap } from './operations/utilities/IntMap';
+import type { Operation } from './Operation';
+import type { MeasurementSink } from './OperationMeasurement';
+import { OperationMeasurement } from './OperationMeasurement';
 
 export enum ContextMode {
     UNSET = 'UNSET',
@@ -38,6 +42,8 @@ export abstract class RemoteContext {
     mMode = ContextMode.UNSET;
     private mDebug = 0;
     private mOpCount = 0;
+    /** null while measurement is disabled — the disabled path is one null check. */
+    private mMeasurement: OperationMeasurement | null = null;
     private mTheme = -1; // Theme.UNSPECIFIED
     mWidth = 0;
     mHeight = 0;
@@ -47,7 +53,20 @@ export abstract class RemoteContext {
     private mAnimate = true;
     mLastComponent: any = null;
     currentTime = 0;
-    private mTouchVersion = 0;
+    /**
+     * Touch coordinate convention. 1 (FIX_TOUCH_EVENT) means component-local, which is what
+     * the dispatch code actually passes; 0 means absolute. The reference defaults to 1
+     * (LayoutManager.DEFAULT_TOUCH_VERSION) and CoreDocument overrides it from the header.
+     * Defaulting to 0 here paired local coordinates with absolute bounds, so a
+     * TouchExpression inside a component rejected touches that were within it.
+     */
+    private mTouchVersion = 1;
+
+    // Whoever draws custom components (LAYOUT_CUSTOM) for this platform, or null: with no
+    // host a custom component is an empty box, exactly as it was before hosts existed.
+    private mCustomHost: CustomComponentHost | null = null;
+    setCustomHost(host: CustomComponentHost | null): void { this.mCustomHost = host; }
+    getCustomHost(): CustomComponentHost | null { return this.mCustomHost; }
 
     constructor(clock: RemoteClock = SYSTEM_CLOCK) {
         this.mClock = clock;
@@ -59,15 +78,24 @@ export abstract class RemoteContext {
     }
 
     getDensity(): number { return this.mDensity; }
+
+    /**
+     * How the document's dimensions are meant to be interpreted.
+     *
+     * LEGACY(0) and DP(2) both mean "these are dp, scale them by density"; only
+     * PIXELS(1) means "already in pixels". The reference defaults to LEGACY, so scaling
+     * is the default — see DimensionInModifierOperation.updateVariables.
+     */
+    static readonly DENSITY_BEHAVIOR_LEGACY = 0;
+    static readonly DENSITY_BEHAVIOR_PIXELS = 1;
+    static readonly DENSITY_BEHAVIOR_DP = 2;
+    private mDensityBehavior = RemoteContext.DENSITY_BEHAVIOR_LEGACY;
+    getDensityBehavior(): number {
+        return this.mDensityBehavior || (this.mDocument?.getDensityBehavior() ?? RemoteContext.DENSITY_BEHAVIOR_LEGACY);
+    }
+    setDensityBehavior(v: number): void { this.mDensityBehavior = v; }
     setDensity(density: number): void {
         if (!Number.isNaN(density) && density > 0) this.mDensity = density;
-    }
-
-    /** The document's density behavior (DOC_DENSITY_BEHAVIOR, key 27). Mirrors
-     *  AndroidX RemoteContext.getDensityBehavior() → CoreDocument.mDensityBehavior.
-     *  Defaults to LEGACY (no scaling) when the header omits the property. */
-    getDensityBehavior(): number {
-        return this.mDocument?.getDensityBehavior() ?? DENSITY_BEHAVIOR_LEGACY;
     }
 
     getDocLoadTime(): number { return this.mDocLoadTime; }
@@ -110,11 +138,53 @@ export abstract class RemoteContext {
         if (this.mPaintContext) this.mPaintContext.needsRepaint();
     }
 
-    incrementOpCount(): void {
+    /**
+     * Count one executed operation, and — only while measurement is enabled — attribute it.
+     *
+     * `op` is optional and is a reference already in scope at every call site, so with
+     * measurement off this costs the argument push plus one null check on top of the
+     * counting that happened before measurement existed. See `OperationMeasurement`.
+     */
+    incrementOpCount(op?: Operation): void {
         this.mOpCount++;
+        if (this.mMeasurement !== null) {
+            this.mMeasurement.record(op);
+        }
         if (this.mOpCount > RemoteContext.MAX_OP_COUNT) {
             throw new Error('Too many operations executed');
         }
+    }
+
+    /**
+     * Turn per-frame operation measurement on or off.
+     *
+     * Pass a sink to enable: it is called once per painted frame with that frame's counts.
+     * Pass `null` to disable, which drops the collector entirely — the instrumented path
+     * is gone, not merely idle.
+     *
+     * Instance ids are assigned lazily and persist for the life of an operation object, so
+     * disabling and re-enabling keeps ids stable for operations already seen.
+     */
+    setMeasurementSink(sink: MeasurementSink | null): void {
+        if (sink === null) {
+            this.mMeasurement = null;
+        } else if (this.mMeasurement === null) {
+            this.mMeasurement = new OperationMeasurement(sink);
+        } else {
+            this.mMeasurement.setSink(sink);
+        }
+    }
+
+    isMeasurementEnabled(): boolean { return this.mMeasurement !== null; }
+
+    /** Mark where paint begins. Called by CoreDocument where it clears the op count. */
+    beginMeasuredFrame(): void {
+        if (this.mMeasurement !== null) this.mMeasurement.markFrameStart();
+    }
+
+    /** Hand the frame's counts to the sink. Called by CoreDocument at end of paint. */
+    emitMeasuredFrame(): void {
+        if (this.mMeasurement !== null) this.mMeasurement.emit();
     }
 
     getLastOpCount(): number {

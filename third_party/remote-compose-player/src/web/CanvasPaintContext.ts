@@ -1,6 +1,14 @@
 // CanvasPaintContext: concrete PaintContext that renders to an HTML5 Canvas 2D.
 
 import { PaintContext } from '../core/PaintContext';
+import { SoftwarePaint3DContext, createCanvasMesh } from '../core/d3/SoftwarePaint3DContext';
+import type { CanvasMesh } from '../core/d3/SoftwarePaint3DContext';
+import { WebGL3DRenderer } from './WebGL3DRenderer';
+import {
+    MODE_BACKEND_CANVAS, MODE_BACKEND_CANVAS_ZBUF, MODE_SMOOTH_MASK, MODE_WIREFRAME,
+} from '../core/d3/Paint3DContext';
+import type { RemoteContext } from '../core/RemoteContext';
+import { SoftwarePaint3DContext } from '../core/d3/SoftwarePaint3DContext';
 import { PaintBundle, intBitsToFloat } from '../core/operations/paint/PaintBundle';
 import { isNaNBits, idFromBits, floatToRawIntBits } from '../core/operations/Utils';
 import { transpileAgslToGlsl } from '../core/shader/AgslTranspiler';
@@ -9,6 +17,8 @@ import { RemoteComposeState } from '../core/RemoteComposeState';
 import { ensureWebFont, parseFamily, cssQuoted, registerEmbeddedFont, releaseEmbeddedFont } from './WebFonts';
 import type { ShaderData } from '../core/operations/ShaderData';
 import type { RemoteContext } from '../core/RemoteContext';
+import { BLEND_MODULATE as MESH_BLEND_MODULATE, sampleFrame as meshSampleFrame,
+         buildMatrix as meshBuildMatrix } from '../core/operations/Mesh2DGenerator';
 
 /** One font-variation axis of the current paint: an OpenType tag and the value asked for. */
 interface FontAxis {
@@ -126,11 +136,25 @@ const DESCENT_RATIO = 0.24;
 /** Mean advance per character as a fraction of text size, measured on a device. */
 const AVG_ADVANCE = 0.528;
 
+// One animated bitmap as it streams: the decoder kept open, the frame showing, and when
+// the document's clock passes the end of it.
+interface AnimatedBitmap {
+    decoder: any;            // WebCodecs ImageDecoder
+    count: number;
+    index: number;           // the frame showing, -1 before the first lands
+    frame: VideoFrame | null;   // drawn as it comes from the decoder; no bitmap in between
+    frameEnds: number;       // document seconds at which the frame showing ends
+    decoding: boolean;
+    failed: boolean;
+}
+
 export class CanvasPaintContext extends PaintContext {
     private ctx: CanvasRenderingContext2D;
 
     // Current paint state
     private color = 'rgba(0,0,0,1)';
+    /** The same paint color as a packed ARGB int — what drawMesh3D shades with. */
+    private colorArgb = 0xFF000000 | 0;
     private style = 0; // 0=FILL, 1=STROKE, 2=FILL_AND_STROKE
     private strokeWidth = 1;
     private textSize = 14;
@@ -201,7 +225,25 @@ export class CanvasPaintContext extends PaintContext {
 
     // Bitmap cache: id -> ImageBitmap or HTMLImageElement
     private bitmapCache = new Map<number, HTMLImageElement | ImageBitmap>();
+    // Animated bitmaps (a GIF embedded whole), streamed: one frame decoded at a time, the
+    // next asked for when the document's clock passes the end of the one showing. A long
+    // GIF at full size is hundreds of megabytes as bitmaps, so nothing is decoded ahead —
+    // the C++ player streams through one working buffer for the same reason.
+    private animatedBitmaps = new Map<number, AnimatedBitmap>();
+    private disposed = false;
+    // Bitmaps a host has supplied as video instead: a GIF transcoded once at export time,
+    // decoded by the browser's own video pipeline and drawn frame by frame from the element.
+    // Far cheaper than decoding GIF frames, and the preferred way to animate a bitmap.
+    private bitmapVideos = new Map<number, HTMLVideoElement>();
+
+    /// One stored 2D mesh. Canvas2D has no drawVertices, so drawMesh walks the triangle list.
+    private meshCache = new Map<number, {
+        layout: number; uCount: number; vCount: number;
+        verts: Float32Array; uv: Float32Array; colors: Int32Array; indices: Int32Array;
+    }>();
     private bitmapPromises = new Map<number, Promise<void>>();
+    /** Bitmaps converted to ARGB for 3D texturing, kept so the readback happens once. */
+    private texturePixels = new Map<number, { argb: Int32Array; width: number; height: number }>();
 
     // Text cache: id -> string
     private textCache = new Map<number, string>();
@@ -239,6 +281,9 @@ export class CanvasPaintContext extends PaintContext {
     }
 
     getCanvas(): CanvasRenderingContext2D { return this.ctx; }
+    // An embedded document paints on whatever canvas its host is painting on, which can
+    // change between frames (a resize, a new host document on the same page).
+    setCanvas(canvas: CanvasRenderingContext2D): void { this.ctx = canvas; }
 
     // --- Text cache ---
 
@@ -323,6 +368,19 @@ export class CanvasPaintContext extends PaintContext {
 
     loadBitmap(imageId: number, encoding: number, type: number,
                width: number, height: number, bitmap: Uint8Array): void {
+        // A bitmap's data operation is applied on every paint's data pass, with the same
+        // bytes each time. Decoding once is enough — and for an animated one, essential: a
+        // fresh decoder every frame is one that never gets to its first picture.
+        if (this.bitmapPromises.has(imageId)) return;
+        // A GIF: an <img> would draw its first frame forever, so its frames are decoded
+        // separately where the browser can (WebCodecs' ImageDecoder), and the <img> below
+        // stays as the still to show until they are, or on a browser that cannot.
+        const isGif = bitmap.length > 6 && bitmap[0] === 0x47 && bitmap[1] === 0x49
+                      && bitmap[2] === 0x46 && bitmap[3] === 0x38;
+        if (isGif && !this.bitmapVideos.has(imageId)
+            && typeof (globalThis as any).ImageDecoder !== 'undefined') {
+            this.loadAnimatedBitmap(imageId, bitmap);
+        }
         // Decode bitmap asynchronously and cache
         const blob = new Blob([bitmap.buffer as ArrayBuffer], { type: 'image/png' });
         const url = URL.createObjectURL(blob);
@@ -346,6 +404,117 @@ export class CanvasPaintContext extends PaintContext {
     /** Wait until every bitmap loaded by the document's data pass is paintable. */
     async bitmapsReady(): Promise<void> {
         await Promise.all(this.bitmapPromises.values());
+    }
+
+    // `videos` maps image ids to video URLs. Called before the document's data pass, so a
+    // bitmap with a video never starts a GIF decoder.
+    setBitmapVideos(videos: Record<string, string> | Map<number, string> | null): void {
+        for (const v of this.bitmapVideos.values()) { v.pause(); v.removeAttribute('src'); v.load(); v.remove(); }
+        this.bitmapVideos.clear();
+        if (!videos || typeof document === 'undefined') return;
+        const entries: Array<[number, string]> = videos instanceof Map
+            ? [...videos.entries()]
+            : Object.entries(videos).map(([k, v]) => [Number(k), v] as [number, string]);
+        for (const [id, url] of entries) {
+            const video = document.createElement('video');
+            video.muted = true;
+            video.loop = true;
+            video.playsInline = true;
+            video.preload = 'auto';
+            video.src = url;
+            // In the document, out of sight: a detached video element is loaded lazily and
+            // played reluctantly; one on the page, however small, streams like any other.
+            video.style.cssText = 'position:fixed;left:-4px;top:-4px;width:2px;height:2px;opacity:0;pointer-events:none';
+            document.body.appendChild(video);
+            video.play().catch(() => { /* until the page has been clicked */ });
+            this.bitmapVideos.set(id, video);
+        }
+    }
+
+    private async loadAnimatedBitmap(imageId: number, bytes: Uint8Array): Promise<void> {
+        try {
+            const Decoder = (globalThis as any).ImageDecoder;
+            const decoder = new Decoder({ data: bytes, type: 'image/gif' });
+            await decoder.tracks.ready;
+            const track = decoder.tracks.selectedTrack;
+            const count: number = track ? track.frameCount : 0;
+            if (count < 2 || this.disposed) { decoder.close(); return; }
+            const anim: AnimatedBitmap = { decoder, count, index: -1, frame: null, frameEnds: 0,
+                                           decoding: false, failed: false };
+            this.animatedBitmaps.set(imageId, anim);
+            this.needsRepaint();
+        } catch (e) {
+            console.warn(`CanvasPaintContext: cannot animate bitmap ${imageId}`, e);
+        }
+    }
+
+    // Decode the frame after the one showing, and make it the one showing when it lands.
+    // One decode in flight at a time: a clock that has run ahead is not chased through the
+    // frames in between (a GIF's frames build on each other, so every one would cost), the
+    // picture just plays late until it catches up.
+    private advanceAnimated(anim: AnimatedBitmap, now: number): void {
+        if (anim.decoding || anim.failed || anim.count < 1) return;
+        anim.decoding = true;
+        const next = (anim.index + 1) % anim.count;
+        anim.decoder.decode({ frameIndex: next }).then((result: any) => {
+            const image: VideoFrame = result.image;
+            // Durations come in microseconds; a frame that says nothing (or too little to
+            // see) gets the 100 ms browsers give such GIFs.
+            let seconds = (image.duration ?? 0) / 1e6;
+            if (!(seconds >= 0.02)) seconds = 0.1;
+            if (this.disposed) { image.close(); return; }
+            if (anim.frame) anim.frame.close();
+            anim.frame = image;
+            anim.index = next;
+            // The new frame lasts from now (or from when the last one ended, if that was a
+            // moment ago) rather than from a start the clock is far past.
+            anim.frameEnds = Math.max(now, anim.frameEnds) + seconds;
+            anim.decoding = false;
+            this.needsRepaint();
+        }).catch((e: unknown) => {
+            anim.failed = true;
+            anim.decoding = false;
+            console.warn('CanvasPaintContext: animated bitmap frame failed', e);
+        });
+    }
+
+    // The bitmap to draw now: for an animated one, the frame the document's clock is on —
+    // the next one is asked for once the clock passes the end of this one — and a repaint
+    // asked for so it follows.
+    private bitmapToDraw(imageId: number): CanvasImageSource | undefined {
+        const video = this.bitmapVideos.get(imageId);
+        if (video) {
+            this.needsRepaint();
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+                if (video.paused) video.play().catch(() => {});
+                return video;
+            }
+            return this.bitmapCache.get(imageId);     // the still, until the video is ready
+        }
+        const anim = this.animatedBitmaps.get(imageId);
+        if (!anim) return this.bitmapCache.get(imageId);
+        const context = this.getContext();
+        const now = context ? context.getAnimationTime() : 0;
+        if (anim.index < 0 || now >= anim.frameEnds) this.advanceAnimated(anim, now);
+        this.needsRepaint();
+        return anim.frame ?? this.bitmapCache.get(imageId);
+    }
+
+    // Let go of what animated bitmaps hold — decoders and frames are not cheap, and a paint
+    // context outlives its document only as garbage.
+    dispose(): void {
+        this.disposed = true;
+        for (const v of this.bitmapVideos.values()) { v.pause(); v.removeAttribute('src'); v.load(); v.remove(); }
+        this.bitmapVideos.clear();
+        for (const anim of this.animatedBitmaps.values()) {
+            try { anim.decoder.close(); } catch { /* already closed */ }
+            if (anim.frame) anim.frame.close();
+        }
+        this.animatedBitmaps.clear();
+        for (const img of this.bitmapCache.values()) {
+            if (typeof (img as ImageBitmap).close === 'function') (img as ImageBitmap).close();
+        }
+        this.bitmapCache.clear();
     }
 
     // --- Path cache ---
@@ -644,6 +813,22 @@ export class CanvasPaintContext extends PaintContext {
     applyPaint(paintData: PaintBundle): void {
         const arr = paintData.getArray();
         const len = paintData.getLength();
+        // A paint bundle is a *delta*: it carries only the properties it changes, and
+        // everything else stays as the previous bundle left it. So nothing is cleared on
+        // entry — not the shader, not anything else. `replacePaint` is the variant that
+        // resets first, and the host resets once per paint cycle (RcdPlayer.renderFrame),
+        // which is what stops state leaking from one frame into the next.
+        //
+        // This previously cleared `gradientStyle` here, which quietly broke that contract:
+        // a bundle setting only an alpha would drop a shader an earlier bundle had set.
+        // A float that is still a variable reference — a bundle painted before its
+        // variables were resolved — is looked up here rather than applied as NaN, which the
+        // canvas would silently ignore. The C++ paint context does the same.
+        const context = this.getContext();
+        const floatArg = (bits: number): number => {
+            if (isNaNBits(bits) && context) return context.getFloat(idFromBits(bits));
+            return intBitsToFloat(bits);
+        };
         let i = 0;
         while (i < len) {
             const cmd = arr[i++];
@@ -651,18 +836,33 @@ export class CanvasPaintContext extends PaintContext {
             const upper = (cmd >> 16) & 0xFFFF;
             switch (tag) {
                 case PaintBundle.TEXT_SIZE:
-                    this.textSize = intBitsToFloat(arr[i++]);
+                    this.textSize = floatArg(arr[i++]);
                     this.setFont();
                     break;
-                case PaintBundle.COLOR:
-                    this.color = argbToRgba(arr[i++]);
-                    this.gradientStyle = null;
+                case PaintBundle.COLOR: {
+                    // Does NOT clear the gradient: colour and shader are independent
+                    // properties of a Paint, and the shader wins when filling. This
+                    // document sets COLOR *after* its GRADIENT, and clearing here painted
+                    // the chart in the default opaque black.
+                    const argb = arr[i++] | 0;
+                    this.colorArgb = argb;
+                    // A paint bundle is a *delta*, so state carries from one bundle to the
+                    // next — but Paint.setColor takes a whole ARGB, alpha included, and so
+                    // replaces whatever alpha a previous setAlpha established. Without this
+                    // line one translucent fill tinted everything drawn after it, and the
+                    // player disagreed with both the Android reference and the C++ port.
+                    this.alpha = ((argb >>> 24) & 0xFF) / 255;
+                    // The alpha now lives in `alpha`, which is applied as globalAlpha.
+                    // Leaving it in the colour string as well would apply it twice.
+                    this.color = `rgb(${(argb >>> 16) & 0xFF},${(argb >>> 8) & 0xFF},`
+                               + `${argb & 0xFF})`;
                     break;
+                }
                 case PaintBundle.STROKE_WIDTH:
-                    this.strokeWidth = intBitsToFloat(arr[i++]);
+                    this.strokeWidth = floatArg(arr[i++]);
                     break;
                 case PaintBundle.STROKE_MITER:
-                    this.miterLimit = intBitsToFloat(arr[i++]);
+                    this.miterLimit = floatArg(arr[i++]);
                     break;
                 case PaintBundle.STROKE_CAP:
                     this.lineCap = upper === 0 ? 'butt' : upper === 1 ? 'round' : 'square';
@@ -743,7 +943,7 @@ export class CanvasPaintContext extends PaintContext {
                     break;
                 }
                 case PaintBundle.ALPHA:
-                    this.alpha = intBitsToFloat(arr[i++]);
+                    this.alpha = floatArg(arr[i++]);
                     break;
                 case PaintBundle.COLOR_FILTER: {
                     const cfArgb = arr[i++];
@@ -780,9 +980,9 @@ export class CanvasPaintContext extends PaintContext {
                     this.blendMode = this.mapBlendMode(upper);
                     break;
                 case PaintBundle.COLOR_ID: {
-                    // Value is already resolved to ARGB by PaintBundle.updateVariables()
+                    // Value is already resolved to ARGB by PaintBundle.updateVariables().
+                    // As with COLOR, this leaves any shader alone.
                     this.color = argbToRgba(arr[i++]);
-                    this.gradientStyle = null;
                     break;
                 }
                 case PaintBundle.COLOR_FILTER_ID: {
@@ -851,16 +1051,30 @@ export class CanvasPaintContext extends PaintContext {
                     break;
                 }
                 case PaintBundle.PATH_EFFECT: {
+                    // Payload (PaintPathEffects.dash): [type, phase, len, intervals…], `count`
+                    // ints in all; type and len are raw ints, phase and the intervals floats.
+                    // An empty payload clears the effect, as the C++ player's does.
                     const count = upper;
                     if (count === 0) {
                         this.ctx.setLineDash([]);
                         this.ctx.lineDashOffset = 0;
-                    } else {
+                    } else if (count >= 3) {
+                        const type = arr[i];
+                        const phase = floatArg(arr[i + 1]);
+                        const len = arr[i + 2];
+                        i += 3;
                         const intervals: number[] = [];
-                        for (let k = 0; k < count; k++) {
-                            intervals.push(intBitsToFloat(arr[i++]));
+                        for (let k = 0; k < len && k < count - 3; k++) intervals.push(floatArg(arr[i++]));
+                        for (let k = 3 + len; k < count; k++) i++;
+                        if (type === 1 && intervals.length >= 2 && intervals.length % 2 === 0) {
+                            this.ctx.setLineDash(intervals);
+                            this.ctx.lineDashOffset = phase;
+                        } else {
+                            this.ctx.setLineDash([]);
+                            this.ctx.lineDashOffset = 0;
                         }
-                        this.ctx.setLineDash(intervals);
+                    } else {
+                        i += count;
                     }
                     break;
                 }
@@ -969,6 +1183,7 @@ export class CanvasPaintContext extends PaintContext {
         if (state) {
             Object.assign(this, state);
             this.setFont();
+            this.ctx.globalAlpha = this.alpha;
         }
     }
 
@@ -1115,8 +1330,12 @@ export class CanvasPaintContext extends PaintContext {
     drawOval(left: number, top: number, right: number, bottom: number): void {
         const cx = (left + right) / 2;
         const cy = (top + bottom) / 2;
-        const rx = (right - left) / 2;
-        const ry = (bottom - top) / 2;
+        // Math.abs: an inverted rect (right < left) yields a negative radius, and Canvas2D's
+        // ellipse() throws IndexSizeError on that where Skia simply normalises the rect. One
+        // such rect kills the whole document — the exception escapes the paint and nothing
+        // after it draws. Normalising here matches every other player.
+        const rx = Math.abs(right - left) / 2;
+        const ry = Math.abs(bottom - top) / 2;
         this.ctx.beginPath();
         this.ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         this.fillOrStroke(
@@ -1139,8 +1358,12 @@ export class CanvasPaintContext extends PaintContext {
     drawArc(left: number, top: number, right: number, bottom: number, startAngle: number, sweepAngle: number): void {
         const cx = (left + right) / 2;
         const cy = (top + bottom) / 2;
-        const rx = (right - left) / 2;
-        const ry = (bottom - top) / 2;
+        // Math.abs: an inverted rect (right < left) yields a negative radius, and Canvas2D's
+        // ellipse() throws IndexSizeError on that where Skia simply normalises the rect. One
+        // such rect kills the whole document — the exception escapes the paint and nothing
+        // after it draws. Normalising here matches every other player.
+        const rx = Math.abs(right - left) / 2;
+        const ry = Math.abs(bottom - top) / 2;
         const start = (startAngle * Math.PI) / 180;
         const end = ((startAngle + sweepAngle) * Math.PI) / 180;
         this.ctx.beginPath();
@@ -1154,8 +1377,12 @@ export class CanvasPaintContext extends PaintContext {
     drawSector(left: number, top: number, right: number, bottom: number, startAngle: number, sweepAngle: number): void {
         const cx = (left + right) / 2;
         const cy = (top + bottom) / 2;
-        const rx = (right - left) / 2;
-        const ry = (bottom - top) / 2;
+        // Math.abs: an inverted rect (right < left) yields a negative radius, and Canvas2D's
+        // ellipse() throws IndexSizeError on that where Skia simply normalises the rect. One
+        // such rect kills the whole document — the exception escapes the paint and nothing
+        // after it draws. Normalising here matches every other player.
+        const rx = Math.abs(right - left) / 2;
+        const ry = Math.abs(bottom - top) / 2;
         const start = (startAngle * Math.PI) / 180;
         const end = ((startAngle + sweepAngle) * Math.PI) / 180;
         this.ctx.beginPath();
@@ -1166,6 +1393,139 @@ export class CanvasPaintContext extends PaintContext {
             () => { this.ctx.fill(); },
             () => { this.ctx.stroke(); }
         );
+    }
+
+    // ── 2D vertex meshes ────────────────────────────────────────────────────────────────
+    //
+    // Canvas2D has no drawVertices and no Gouraud shading, so the triangle list is walked
+    // here. Two consequences worth stating rather than discovering:
+    //
+    //   * Per-vertex colour is approximated by filling each triangle with the AVERAGE of its
+    //     three vertex colours. Skia and Android interpolate across the face, so a mesh used
+    //     as a smooth gradient shows faceting here, more visibly as uCount/vCount drop.
+    //   * A textured triangle is drawn by clipping to it and applying the affine that takes
+    //     its uv triangle to its screen triangle — three corresponding points determine that
+    //     exactly, which makes it a real texture map rather than a stretched blit.
+
+    setMesh(meshId: number, layout: number, uCount: number, vCount: number,
+            verts: Float32Array, uv: Float32Array,
+            colors: Int32Array, indices: Int32Array): void {
+        this.meshCache.set(meshId, { layout, uCount, vCount, verts, uv, colors, indices });
+    }
+
+    drawMesh(meshId: number, blend: number, imageId: number): void {
+        const m = this.meshCache.get(meshId);
+        if (!m) return;
+        const vertexCount = m.verts.length / 2;
+        if (vertexCount < 3 || m.indices.length < 3) return;
+
+        let texture: HTMLImageElement | ImageBitmap | undefined;
+        if (blend === MESH_BLEND_MODULATE && imageId !== 0
+            && m.uv.length === m.verts.length) {
+            texture = this.bitmapCache.get(imageId);
+        }
+
+        // save/restore brackets the whole walk: this must leave the context exactly as it
+        // found it, and the per-triangle fills below overwrite fillStyle.
+        this.ctx.save();
+        const texW = texture ? (texture as any).width : 0;
+        const texH = texture ? (texture as any).height : 0;
+
+        // Flat, untextured mesh: one path for the whole thing, filled once.
+        //
+        // Filling triangle by triangle is correct but ugly here — Canvas2D antialiases every
+        // edge, and two adjacent half-covered edges composite to a visible seam, so the mesh
+        // comes out drawn in a net of hairlines. Merging them into a single path removes the
+        // internal edges altogether rather than trying to hide them, and it is also markedly
+        // faster on a dense grid. Only possible when every triangle takes the same paint;
+        // per-vertex colour and texture still need a fill each.
+        if (!texture && m.colors.length !== vertexCount) {
+            const all = new Path2D();
+            for (let t = 0; t + 2 < m.indices.length; t += 3) {
+                const i0 = m.indices[t], i1 = m.indices[t + 1], i2 = m.indices[t + 2];
+                if (i0 < 0 || i1 < 0 || i2 < 0) continue;
+                if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount) continue;
+                all.moveTo(m.verts[i0 * 2], m.verts[i0 * 2 + 1]);
+                all.lineTo(m.verts[i1 * 2], m.verts[i1 * 2 + 1]);
+                all.lineTo(m.verts[i2 * 2], m.verts[i2 * 2 + 1]);
+                all.closePath();
+            }
+            this.applyFillStyle();
+            this.ctx.fill(all);
+            this.ctx.restore();
+            return;
+        }
+
+        for (let t = 0; t + 2 < m.indices.length; t += 3) {
+            const i0 = m.indices[t], i1 = m.indices[t + 1], i2 = m.indices[t + 2];
+            if (i0 < 0 || i1 < 0 || i2 < 0) continue;
+            if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount) continue;
+            const x0 = m.verts[i0 * 2], y0 = m.verts[i0 * 2 + 1];
+            const x1 = m.verts[i1 * 2], y1 = m.verts[i1 * 2 + 1];
+            const x2 = m.verts[i2 * 2], y2 = m.verts[i2 * 2 + 1];
+
+            const tri = new Path2D();
+            tri.moveTo(x0, y0);
+            tri.lineTo(x1, y1);
+            tri.lineTo(x2, y2);
+            tri.closePath();
+
+            if (texture) {
+                // uv is 0..1 with (0,0) at the TOP LEFT and there is no v flip — the 3D path
+                // flips for the GL convention, 2D deliberately does not.
+                const u0 = m.uv[i0 * 2] * texW, v0 = m.uv[i0 * 2 + 1] * texH;
+                const u1 = m.uv[i1 * 2] * texW, v1 = m.uv[i1 * 2 + 1] * texH;
+                const u2 = m.uv[i2 * 2] * texW, v2 = m.uv[i2 * 2 + 1] * texH;
+                const det = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0);
+                if (Math.abs(det) < 1e-9) continue;
+                const a = ((x1 - x0) * (v2 - v0) - (x2 - x0) * (v1 - v0)) / det;
+                const b = ((y1 - y0) * (v2 - v0) - (y2 - y0) * (v1 - v0)) / det;
+                const c = ((x2 - x0) * (u1 - u0) - (x1 - x0) * (u2 - u0)) / det;
+                const d = ((y2 - y0) * (u1 - u0) - (y1 - y0) * (u2 - u0)) / det;
+                const e = x0 - a * u0 - c * v0;
+                const f = y0 - b * u0 - d * v0;
+                this.ctx.save();
+                this.ctx.clip(tri);
+                this.ctx.transform(a, b, c, d, e, f);
+                this.ctx.drawImage(texture as any, 0, 0);
+                this.ctx.restore();
+                continue;
+            }
+
+            if (m.colors.length === vertexCount) {
+                // The mean of the three: with no interpolation available it is the least wrong
+                // single colour for the face.
+                const c0 = m.colors[i0], c1 = m.colors[i1], c2 = m.colors[i2];
+                const av = (sh: number) =>
+                    Math.round((((c0 >>> sh) & 0xff) + ((c1 >>> sh) & 0xff)
+                                + ((c2 >>> sh) & 0xff)) / 3);
+                const alpha = av(24) / 255;
+                this.ctx.fillStyle = 'rgba(' + av(16) + ',' + av(8) + ',' + av(0) + ','
+                                   + alpha + ')';
+                this.ctx.fill(tri);
+            } else {
+                // applyFillStyle, not a bare fill: fillStyle carries whatever the last text or
+                // shape left behind, so filling directly paints the mesh in the previous
+                // colour — grey from a label, or black on a dark background, which reads as the
+                // mesh having failed to draw at all.
+                this.applyFillStyle();
+                this.ctx.fill(tri);
+            }
+        }
+        this.ctx.restore();
+    }
+
+    matrixFromMesh(meshId: number, u: number, v: number, flags: number): void {
+        const m = this.meshCache.get(meshId);
+        if (!m) return;
+        const frame = new Float32Array(6);
+        if (!meshSampleFrame(m.layout, m.uCount, m.vCount, m.verts, u, v, frame)) return;
+        const out = new Float32Array(6);   // duX, duY, dvX, dvY, originX, originY
+        meshBuildMatrix(frame, flags, out);
+        // The affine maps the (u, v) basis: x' = duX*x + dvX*y + originX. ctx.transform takes
+        // (a, b, c, d, e, f) as x' = a*x + c*y + e, so du is (a, b) and dv is (c, d) — the
+        // same column convention buildMatrix emits.
+        this.ctx.transform(out[0], out[1], out[2], out[3], out[4], out[5]);
     }
 
     drawPath(id: number, start: number, end: number): void {
@@ -1224,6 +1584,22 @@ export class CanvasPaintContext extends PaintContext {
         }
     }
 
+    private mTextMeasureCache = new Map<string, any>();
+
+    private measureTextCached(text: string): any {
+        const key = `${this.ctx.font}:::${text}`;
+        let res = this.mTextMeasureCache.get(key);
+        if (!res) {
+            res = this.ctx.measureText(text);
+            this.mTextMeasureCache.set(key, res);
+            if (this.mTextMeasureCache.size > 2000) {
+                this.mTextMeasureCache.clear();
+                this.mTextMeasureCache.set(key, res);
+            }
+        }
+        return res;
+    }
+
     getTextBounds(textId: number, start: number, end: number, flags: number, bounds: Float32Array): void {
         const text = this.textCache.get(textId);
         if (!text) { bounds.fill(0); return; }
@@ -1231,7 +1607,7 @@ export class CanvasPaintContext extends PaintContext {
         const e = end >= 0 ? Math.min(end, text.length) : text.length;
         const substr = text.substring(s, e);
         this.setFont();
-        const metrics: any = this.ctx.measureText(substr);
+        const metrics: any = this.measureTextCached(substr);
 
         // Vertical extent, in order of preference:
         //   1. the font box, which is what TEXT_MEASURE_FONT_HEIGHT asks for and what
@@ -1334,7 +1710,7 @@ export class CanvasPaintContext extends PaintContext {
             let currentLine = '';
             for (const word of words) {
                 const testLine = currentLine + word;
-                const metrics = this.ctx.measureText(testLine);
+                const metrics = this.measureTextCached(testLine);
                 if (metrics.width > maxWidth && currentLine.length > 0) {
                     lines.push(currentLine);
                     currentLine = word.trimStart();
@@ -1402,7 +1778,7 @@ export class CanvasPaintContext extends PaintContext {
         // Compute total dimensions
         let totalWidth = 0;
         for (const line of lines) {
-            const w = this.ctx.measureText(line).width;
+            const w = this.measureTextCached(line).width;
             if (w > totalWidth) totalWidth = w;
         }
         const totalHeight = lines.length * lineHeight;
@@ -1411,23 +1787,28 @@ export class CanvasPaintContext extends PaintContext {
             lines, alignment, lineHeight,
             width: Math.min(totalWidth, maxWidth),
             height: Math.min(totalHeight, maxHeight),
-            naturalHeight: totalHeight, visibleLines: lines.length
+            naturalHeight: totalHeight, visibleLines: lines.length,
+            maxWidth,
+            maxHeight
         };
     }
 
-    drawComplexText(computedTextLayout: any): void {
+    drawComplexText(computedTextLayout: any, targetWidth?: number): void {
         if (!computedTextLayout) return;
         const { lines, alignment, lineHeight, width } = computedTextLayout;
+        const layoutWidth = (typeof targetWidth === 'number' && targetWidth > 0) ? targetWidth : width;
         this.setFont();
         this.ctx.textBaseline = 'top';
+        const align = (typeof alignment === 'number') ? (alignment & 0xFFFF) : 1;
         for (let i = 0; i < lines.length; i++) {
             let x = 0;
-            if (alignment === 2 || alignment === 6) {
-                // RIGHT / END
-                x = width - this.ctx.measureText(lines[i]).width;
-            } else if (alignment === 3) {
-                // CENTER
-                x = (width - this.ctx.measureText(lines[i]).width) / 2;
+            const lineW = this.measureTextCached(lines[i]).width;
+            if (align === 2 || align === 6) {
+                // RIGHT (2) / END (6)
+                x = layoutWidth - lineW;
+            } else if (align === 3) {
+                // CENTER (3)
+                x = (layoutWidth - lineW) / 2;
             }
             this.fillOrStroke(
                 () => { this.applyFillStyle(); this.ctx.fillText(lines[i], x, i * lineHeight); },
@@ -1438,7 +1819,7 @@ export class CanvasPaintContext extends PaintContext {
 
     drawBitmap(imageId: number, srcLeft: number, srcTop: number, srcRight: number, srcBottom: number,
                dstLeft: number, dstTop: number, dstRight: number, dstBottom: number, _cdId: number): void {
-        const img = this.bitmapCache.get(imageId);
+        const img = this.bitmapToDraw(imageId);
         if (!img) return;
         this.ctx.globalAlpha = this.alpha;
         this.ctx.globalCompositeOperation = this.blendMode;
@@ -1455,7 +1836,7 @@ export class CanvasPaintContext extends PaintContext {
     }
 
     drawBitmapSimple(id: number, left: number, top: number, right: number, bottom: number): void {
-        const img = this.bitmapCache.get(id);
+        const img = this.bitmapToDraw(id);
         if (!img) return;
         this.ctx.globalAlpha = this.alpha;
         this.ctx.globalCompositeOperation = this.blendMode;
@@ -1542,6 +1923,16 @@ export class CanvasPaintContext extends PaintContext {
 
     matrixSave(): void { this.ctx.save(); }
     matrixRestore(): void { this.ctx.restore(); }
+
+    override saveLayer(x: number, y: number, w: number, h: number): void {
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(x, y, w, h);
+        this.ctx.clip();
+        if (this.alpha < 1) {
+            this.ctx.globalAlpha *= this.alpha;
+        }
+    }
 
     matrixTranslate(tx: number, ty: number): void { this.ctx.translate(tx, ty); }
     matrixScale(sx: number, sy: number, cx: number, cy: number): void {
@@ -1881,4 +2272,196 @@ export class CanvasPaintContext extends PaintContext {
         this.resetPaintState();
         this.clearNeedsRepaint();
     }
+
+    // ---- 3D (Paint3DContext) -----------------------------------------------
+    //
+    // Only the software backend is implemented here. Every other backend in the mode word
+    // (canvas-vertices, drawMesh, GL) falls back to software, which is exactly what the
+    // reference does on a platform that lacks them — so a document renders the same picture
+    // rather than silently drawing nothing.
+
+    private d3: SoftwarePaint3DContext | null = null;
+    /** GPU rasterizer for the canvas backends; created on first use, null if WebGL2 is absent. */
+    private d3gl: WebGL3DRenderer | null = null;
+    private d3glMesh: CanvasMesh = createCanvasMesh();
+    /** Whether anything has been drawn into the GL canvas this 3D pass. */
+    private d3glDirty = false;
+    /** Texture generation last uploaded to GL, so an unchanged texture is not re-uploaded. */
+    private d3glTexGen = -1;
+    private d3Blit: CanvasRenderingContext2D | null = null;
+
+    private ensure3D(): SoftwarePaint3DContext {
+        const w = this.ctx.canvas.width;
+        const h = this.ctx.canvas.height;
+        if (this.d3 === null) {
+            this.d3 = new SoftwarePaint3DContext();
+        }
+        this.d3.setSize(w, h);
+        if (this.d3Blit === null
+            || this.d3Blit.canvas.width !== w || this.d3Blit.canvas.height !== h) {
+            this.d3Blit = this.createLayerCanvas(w, h);
+        }
+        return this.d3;
+    }
+
+    defineMesh3D(id: number, indices: Int32Array, verts: Float32Array,
+                 normals: Float32Array | null, uv: Float32Array | null = null): void {
+        this.ensure3D().defineMesh3D(id, indices, verts, normals, uv);
+    }
+
+    setCamera3D(projection: number, projParams: Float32Array | number[],
+                viewParams: Float32Array | number[]): void {
+        this.ensure3D().setCamera3D(projection, projParams, viewParams);
+    }
+
+    matrix3Op(sub: number, args: Float32Array | number[]): void {
+        this.ensure3D().matrix3Op(sub, args);
+    }
+
+    clearDepth3D(): void {
+        this.ensure3D().clearDepth3D();
+    }
+
+    setLights3D(types: Int32Array | number[], colors: Int32Array | number[],
+                params: Float32Array | number[]): void {
+        this.ensure3D().setLights3D(types, colors, params);
+    }
+
+    setTexture3D(bitmapId: number): void {
+        const ctx3d = this.ensure3D();
+        if (bitmapId === 0) {
+            ctx3d.setTextureData(null, 0, 0);
+            return;
+        }
+        // Decoded bitmaps live in bitmapCache, not in RemoteComposeState — this used to ask
+        // the state and always got null, so every textured mesh rendered untextured in both
+        // the software and WebGL paths while the document itself was fine.
+        const img = this.bitmapCache.get(bitmapId);
+        if (!img) {
+            // loadBitmap decodes asynchronously, so a texture can legitimately be missing on
+            // the first frame and present on the next. Drawing untextured now is right;
+            // caching the miss would make it permanent.
+            ctx3d.setTextureData(null, 0, 0);
+            return;
+        }
+        const cached = this.texturePixels.get(bitmapId);
+        if (cached) {
+            ctx3d.setTextureData(cached.argb, cached.width, cached.height);
+            return;
+        }
+        const w = (img as HTMLImageElement).naturalWidth || img.width;
+        const h = (img as HTMLImageElement).naturalHeight || img.height;
+        if (!w || !h) {
+            ctx3d.setTextureData(null, 0, 0);
+            return;
+        }
+        // Extracted once per bitmap and kept: setTexture3D runs per mesh per frame, and
+        // getImageData is a readback that would otherwise dominate a textured 3D document.
+        const scratch = document.createElement('canvas');
+        scratch.width = w;
+        scratch.height = h;
+        const sctx = scratch.getContext('2d', { willReadFrequently: true });
+        if (!sctx) {
+            ctx3d.setTextureData(null, 0, 0);
+            return;
+        }
+        sctx.drawImage(img as CanvasImageSource, 0, 0);
+        const data = sctx.getImageData(0, 0, w, h).data;
+        const argb = new Int32Array(w * h);
+        for (let i = 0; i < w * h; i++) {
+            argb[i] = ((data[i * 4 + 3] << 24) | (data[i * 4] << 16)
+                | (data[i * 4 + 1] << 8) | data[i * 4 + 2]) | 0;
+        }
+        this.texturePixels.set(bitmapId, { argb, width: w, height: h });
+        ctx3d.setTextureData(argb, w, h);
+    }
+
+    setMaterial3D(specStrength: number, shininess: number): void {
+        this.ensure3D().setMaterial3D(specStrength, shininess);
+    }
+
+    setDepthBias3D(constant: number, slope: number): void {
+        this.ensure3D().setDepthBias3D(constant, slope);
+    }
+
+    drawMesh3D(meshId: number, mode: number): void {
+        const ctx3d = this.ensure3D();
+        ctx3d.setBaseColorArgb(this.colorArgb);
+
+        // Wireframe is hidden-line and needs the depth buffer the software path owns, so the
+        // contract forces software regardless of the backend bits.
+        const backend = mode >> 1;
+        const wire = (mode & MODE_WIREFRAME) !== 0;
+        if (!wire && (backend === MODE_BACKEND_CANVAS || backend === MODE_BACKEND_CANVAS_ZBUF)) {
+            if (this.drawMesh3DGl(ctx3d, meshId, (mode & MODE_SMOOTH_MASK) !== 0,
+                                  backend === MODE_BACKEND_CANVAS_ZBUF)) {
+                return;
+            }
+            // WebGL2 unavailable — fall through to software rather than draw nothing.
+        }
+        ctx3d.drawMesh3D(meshId, mode);
+        this.blit3D();
+    }
+
+    /**
+     * Canvas backend: rasterize on the GPU and composite the result.
+     *
+     * Returns false if WebGL2 is not available, so the caller can fall back to software. Each
+     * mesh composites immediately rather than batching to the end of the pass, because the 3D
+     * content has to interleave correctly with the 2D drawing around it — a document that
+     * draws a mesh, then a label, then another mesh expects that order.
+     */
+    private drawMesh3DGl(ctx3d: SoftwarePaint3DContext, meshId: number,
+                         smooth: boolean, useDepth: boolean): boolean {
+        if (this.d3gl === null) this.d3gl = new WebGL3DRenderer();
+        const gl = this.d3gl;
+        if (!gl.isAvailable()) return false;
+
+        const n = ctx3d.buildCanvasVertices(meshId, this.d3glMesh, smooth);
+        if (n < 3) return true;   // nothing survived culling; not a failure
+
+        const w = ctx3d.getWidth(), h = ctx3d.getHeight();
+        gl.beginFrame(w, h);
+        const tex = ctx3d.getTextureData();
+        gl.setTexture(tex.pixels, tex.width, tex.height);
+        gl.draw(this.d3glMesh, useDepth);
+        this.ctx.drawImage(gl.getCanvas(), 0, 0, w, h);
+        this.d3glDirty = true;
+        // Published so a harness can assert the GPU path ran. A silent fall back to software
+        // produces a correct-looking image, so "it rendered" proves nothing on its own.
+        (globalThis as unknown as { __rcGl3dDraws?: number }).__rcGl3dDraws = gl.drawCount;
+        return true;
+    }
+
+    /**
+     * Composite the software color buffer onto the canvas. The reference blits after every
+     * software mesh rather than once per pass, so a 3D draw interleaves with 2D content in
+     * document order; matching that keeps mixed 2D/3D documents looking the same.
+     */
+    private blit3D(): void {
+        const ctx3d = this.d3;
+        const blit = this.d3Blit;
+        if (ctx3d === null || blit === null) {
+            return;
+        }
+        const argb = ctx3d.getColorBuffer();
+        if (argb === null) {
+            return;
+        }
+        const w = ctx3d.getWidth();
+        const h = ctx3d.getHeight();
+        const img = blit.createImageData(w, h);
+        const d = img.data;
+        for (let i = 0; i < w * h; i++) {
+            const p = argb[i];
+            d[i * 4] = (p >>> 16) & 0xFF;
+            d[i * 4 + 1] = (p >>> 8) & 0xFF;
+            d[i * 4 + 2] = p & 0xFF;
+            d[i * 4 + 3] = (p >>> 24) & 0xFF;
+        }
+        blit.putImageData(img, 0, 0);
+        // Drawn under the live transform, matching the reference's Canvas.drawBitmap(b, 0, 0).
+        this.ctx.drawImage(blit.canvas as unknown as CanvasImageSource, 0, 0);
+    }
+
 }
