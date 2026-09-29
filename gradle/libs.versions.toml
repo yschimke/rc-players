@@ -21,7 +21,7 @@ kotlinCoreLibraries = "2.0.21"
 agp = "9.4.1"
 # Android levels for the published CMP player stack (`rc-player/*`). compileSdk follows the SDK the
 # stack's Compose artifacts compile against; minSdk is Compose's own floor, so the player adds none.
-rc-player-compileSdk = "36"
+rc-player-compileSdk = "37"
 rc-player-minSdk = "23"
 # The androidx Compose that Compose Multiplatform `compose-multiplatform` resolves to on Android.
 # `:rc-player-compose`'s Robolectric host tests pin their ui-test artifacts to it, so the test
