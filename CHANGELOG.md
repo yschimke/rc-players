@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.1](https://github.com/yschimke/rc-players/compare/v2.0.0...v2.0.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **deps:** update androidx ([#535](https://github.com/yschimke/rc-players/issues/535)) ([2a79417](https://github.com/yschimke/rc-players/commit/2a79417a8b86f442c08c7a9de2a2b4375409f090))
+* **deps:** update androidx-compose to v1.12.1 ([#537](https://github.com/yschimke/rc-players/issues/537)) ([e2e55f7](https://github.com/yschimke/rc-players/commit/e2e55f749ae46510745a1a200f2d491a618c76cc))
+* **deps:** update compose-preview-daemon ([#538](https://github.com/yschimke/rc-players/issues/538)) ([f580392](https://github.com/yschimke/rc-players/commit/f5803928fbc8ea124a71c933714c67a85eefabb1))
+* **player:** keep a value an action wrote past the next frame's declaration ([#540](https://github.com/yschimke/rc-players/issues/540)) ([f11ef11](https://github.com/yschimke/rc-players/commit/f11ef11dca1426bde9e28654210dfd09a8559130))
+* **rc-player:** update vendored TypeScript player to c2b2860b ([#539](https://github.com/yschimke/rc-players/issues/539)) ([a1f856b](https://github.com/yschimke/rc-players/commit/a1f856badfbcbbb53f2b224d957c97fcd58db3b4))
+* **swift:** stale native updates, duplicate font downloads, VoiceOver tree swaps ([#531](https://github.com/yschimke/rc-players/issues/531)) ([79ee68b](https://github.com/yschimke/rc-players/commit/79ee68b4c32e59ea65c43b2f1f6e044ae07a031b))
+
 ## [2.0.0](https://github.com/yschimke/rc-players/compare/v1.75.0...v2.0.0) (2026-09-27)
 
 
