@@ -744,12 +744,39 @@ export class CanvasPaintContext extends PaintContext {
     private fillOrStroke(doFill: () => void, doStroke: () => void): void {
         if (this.style === 0 || this.style === 2) {
             this.applyFillStyle();
+            this.eraseBeneathForSrc(doFill, '#000');
             doFill();
         }
         if (this.style === 1 || this.style === 2) {
             this.applyStrokeStyle();
+            this.eraseBeneathForSrc(doStroke, '#000');
             doStroke();
         }
+    }
+
+    /**
+     * Skia's `SRC` blend replaces the destination **inside the drawn shape** and leaves everything
+     * else alone. Canvas2D's `copy` (the only operator with the same algebra) replaces the whole
+     * clip region instead: a single `SRC` dot wiped the pill, track and icons painted before it in
+     * the same clip, so every remote-m3 slider drew as one dot on nothing.
+     *
+     * Emulated by punching the shape out first (`destination-out`, opaque, so exactly the shape's
+     * coverage) and then drawing it `source-over`. Called after the style is applied so the caller's
+     * own fill/stroke colour is what ends up drawn; it restores the paint state it borrowed.
+     */
+    private eraseBeneathForSrc(draw: () => void, punchColor: string): void {
+        if (this.blendMode !== 'copy') return;
+        const ctx = this.ctx;
+        const fill = ctx.fillStyle, stroke = ctx.strokeStyle, alpha = ctx.globalAlpha;
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = punchColor;
+        ctx.strokeStyle = punchColor;
+        ctx.globalAlpha = 1;
+        draw();
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.globalAlpha = alpha;
+        ctx.globalCompositeOperation = 'source-over';
     }
 
     /**
