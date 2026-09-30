@@ -5443,9 +5443,6 @@ var RC = (() => {
     updateVariables(context) {
       if ((this.mType === _WidthModifier.EXACT || this.mType === _WidthModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
         this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
-        if (this.mType === _WidthModifier.EXACT_DP) {
-          this.mOutValue *= context.getDensity();
-        }
       }
     }
     write(_buffer) {
@@ -5497,9 +5494,6 @@ var RC = (() => {
     updateVariables(context) {
       if ((this.mType === _HeightModifier.EXACT || this.mType === _HeightModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
         this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
-        if (this.mType === _HeightModifier.EXACT_DP) {
-          this.mOutValue *= context.getDensity();
-        }
       }
     }
     write(_buffer) {
@@ -28924,6 +28918,13 @@ void main() {
     }
   };
 
+  // third_party/remote-compose-player/src/web/density.ts
+  function resolveDensity(explicit, generation, ambient) {
+    if (explicit !== null && explicit > 0) return explicit;
+    if (generation > 0) return generation;
+    return ambient > 0 ? ambient : 1;
+  }
+
   // third_party/remote-compose-player/src/web/RcPlayerElement.ts
   function base64ToArrayBuffer(base64) {
     const binary = atob(base64);
@@ -29082,6 +29083,9 @@ void main() {
        * tools take an explicit --density.
        */
       this.density = typeof window !== "undefined" && window.devicePixelRatio || 1;
+      // True once the host has called setDensity. Until then a document is laid out at its own
+      // generation density rather than at the ambient one — see resolveDensity.
+      this.densityExplicit = false;
       // Touch/pointer tracking
       this.pointerIsDown = false;
       this.pointerHistory = [];
@@ -29291,6 +29295,7 @@ void main() {
     setDensity(density) {
       if (density > 0 && !Number.isNaN(density)) {
         this.density = density;
+        this.densityExplicit = true;
         this.remoteContext?.setDensity(density);
         this.scheduleRepaint();
       }
@@ -29316,7 +29321,12 @@ void main() {
       this.document = doc;
       this.naturalWidth = doc.getWidth();
       this.naturalHeight = doc.getHeight();
-      const density = this.density || doc.getProperty(Header.DOC_DENSITY_AT_GENERATION) || 1;
+      const density = resolveDensity(
+        this.densityExplicit ? this.density : null,
+        doc.getProperty(Header.DOC_DENSITY_AT_GENERATION) || 0,
+        this.density
+      );
+      if (!this.densityExplicit) this.density = density;
       const docWidth = this.canvas.width;
       const docHeight = this.canvas.height;
       doc.setWidth(docWidth);
