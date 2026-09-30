@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.3](https://github.com/yschimke/rc-players/compare/v2.0.2...v2.0.3) (2026-09-30)
+
+
+### Bug Fixes
+
+* **embedded-player:** animate a spring-animated float from its target ([#553](https://github.com/yschimke/rc-players/issues/553)) ([cdc2298](https://github.com/yschimke/rc-players/commit/cdc2298c36afab459ecdaf02e9586709f9489592))
+* **embedded:** fall back to the static Google face when an axis request has no variable file ([#550](https://github.com/yschimke/rc-players/issues/550)) ([9e0cc48](https://github.com/yschimke/rc-players/commit/9e0cc48a2f3b82ffe64d543b7e90f6ae65fba334))
+
 ## [2.0.2](https://github.com/yschimke/rc-players/compare/v2.0.1...v2.0.2) (2026-09-30)
 
 
