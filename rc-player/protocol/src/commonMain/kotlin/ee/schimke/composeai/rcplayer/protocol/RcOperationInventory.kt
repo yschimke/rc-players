@@ -173,17 +173,9 @@ public object RcOperationProfiles {
   public val CMP_DESKTOP_ALPHA18: RcOperationProfile =
     RcOperationProfile("cmp-desktop-alpha18", cmpImplementedOpcodes)
 
-  /** Operations with executable semantics in the browser, excluding backend-specific gaps. */
+  /** Operations with executable semantics in the browser. */
   public val CMP_WASM_ALPHA18: RcOperationProfile =
-    RcOperationProfile(
-      "cmp-wasm-alpha18",
-      cmpImplementedOpcodes.filterTo(linkedSetOf()) {
-        // Compose's current Wasm graphics-layer surface disappears when this modifier is
-        // present. Keep it available to the shared/iOS renderer but never advertise it to
-        // browser producers until that backend behavior is fixed.
-        it != RcOpcodes.MODIFIER_GRAPHICS_LAYER
-      },
-    )
+    RcOperationProfile("cmp-wasm-alpha18", cmpImplementedOpcodes)
 
   @Deprecated("Use ANDROIDX_JAVA_ALPHA18", ReplaceWith("ANDROIDX_JAVA_ALPHA18"))
   public val ANDROIDX_JAVA_ALPHA16: RcOperationProfile = ANDROIDX_JAVA_ALPHA18

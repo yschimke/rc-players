@@ -51,6 +51,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMultiClickType
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcOperationProfile
 import ee.schimke.composeai.rcplayer.protocol.RcOperationProfiles
 import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
@@ -751,7 +752,7 @@ class RcComposeSupportTest {
   }
 
   @Test
-  fun wasmProfileRejectsGraphicsLayersBeforeRendering() {
+  fun wasmProfileAcceptsGraphicsLayers() {
     val document =
       RcDocument(
         header,
@@ -767,14 +768,8 @@ class RcComposeSupportTest {
         ),
       )
 
-    val issue = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).issues.single()
-
-    assertEquals("ModifierGraphicsLayer", issue.operation)
-    assertEquals("operation is excluded from the cmp-wasm-alpha18 profile", issue.detail)
-    assertTrue(
-      document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable,
-      "The shared iOS renderer supports graphics layers even though the Wasm backend does not",
-    )
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18).fullyRenderable)
+    assertTrue(document.composeSupportReport(RcOperationProfiles.CMP_IOS_ALPHA18).fullyRenderable)
   }
 
   @Test
@@ -1309,7 +1304,14 @@ class RcComposeSupportTest {
         ),
       )
 
-    val report = document.composeSupportReport(RcOperationProfiles.CMP_WASM_ALPHA18)
+    // A backend that advertises a subset; graphics layers were the wasm profile's own case until
+    // they were shown to render there.
+    val subset =
+      RcOperationProfile(
+        "subset",
+        RcOperationProfiles.CMP_WASM_ALPHA18.opcodes - RcOpcodes.MODIFIER_GRAPHICS_LAYER,
+      )
+    val report = document.composeSupportReport(subset)
 
     assertFalse(report.fullyRenderable)
     assertTrue(report.playable)

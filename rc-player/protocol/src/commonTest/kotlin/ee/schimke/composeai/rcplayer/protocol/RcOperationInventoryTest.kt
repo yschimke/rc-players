@@ -51,7 +51,7 @@ class RcOperationInventoryTest {
     assertTrue(reserved.none(RcOperationProfiles.CMP_MACOS_ALPHA18::supports))
     assertTrue(unavailable.none(RcOperationProfiles.CMP_DESKTOP_ALPHA18::supports))
     assertTrue(reserved.none(RcOperationProfiles.CMP_DESKTOP_ALPHA18::supports))
-    assertFalse(RcOperationProfiles.CMP_WASM_ALPHA18.supports(RcOpcodes.MODIFIER_GRAPHICS_LAYER))
+    assertTrue(RcOperationProfiles.CMP_WASM_ALPHA18.supports(RcOpcodes.MODIFIER_GRAPHICS_LAYER))
     assertTrue(
       RcOperationInventory.entries
         .filter { it.status == RcOperationStatus.PARSE_ONLY }
@@ -61,7 +61,7 @@ class RcOperationInventoryTest {
       RcOperationInventory.entries.count {
         it.status == RcOperationStatus.IMPLEMENTED ||
           it.status == RcOperationStatus.IMPLEMENTED_UPSTREAM_UNAVAILABLE
-      } - 1,
+      },
       RcOperationProfiles.CMP_WASM_ALPHA18.opcodes.size,
     )
   }
@@ -148,7 +148,7 @@ class RcOperationInventoryTest {
         )
         .supported
     )
-    assertFalse(
+    assertTrue(
       RcOperationSupportMatrix.entry(
           RcOpcodes.MODIFIER_GRAPHICS_LAYER,
           RcOperationTarget.CMP_WASM,
