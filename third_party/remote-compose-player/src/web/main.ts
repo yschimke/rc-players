@@ -11,6 +11,7 @@ import { Header } from '../core/operations/Header';
 import { Theme } from '../core/operations/DataOperations';
 import type { MeasurementSink } from '../core/OperationMeasurement';
 import { WebCustomHost, type EmbedResolver } from './CustomHosts';
+import { resolveDensity } from './density';
 
 /**
  * How far a press may travel and still count as a tap, in document units.
@@ -51,6 +52,10 @@ export class RcdPlayer {
      */
     private density: number =
         (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+
+    // True once the host has called setDensity. Until then a document is laid out at its own
+    // generation density rather than at the ambient one — see resolveDensity.
+    private densityExplicit = false;
 
     // Touch/pointer tracking
     private pointerIsDown = false;
@@ -255,6 +260,7 @@ export class RcdPlayer {
     setDensity(density: number): void {
         if (density > 0 && !Number.isNaN(density)) {
             this.density = density;
+            this.densityExplicit = true;
             this.remoteContext?.setDensity(density);
             this.scheduleRepaint();
         }
@@ -293,10 +299,14 @@ export class RcdPlayer {
         this.naturalWidth = doc.getWidth();
         this.naturalHeight = doc.getHeight();
 
-        // The document's own generation density is only a hint about how it was authored;
-        // what matters for layout is the density of the display it is being shown on.
-        const density = this.density
-            || (doc.getProperty(Header.DOC_DENSITY_AT_GENERATION) as number) || 1;
+        // A host-supplied density wins; otherwise the document's own generation density, which
+        // is what the baked render used. The ambient pixel ratio is the last resort.
+        const density = resolveDensity(
+            this.densityExplicit ? this.density : null,
+            (doc.getProperty(Header.DOC_DENSITY_AT_GENERATION) as number) || 0,
+            this.density,
+        );
+        if (!this.densityExplicit) this.density = density;
         // The viewport is in *physical pixels*, not dp — density is not divided out here.
         // Android hands RemoteComposeView its pixel width and sets the display density
         // alongside it; the dp→px conversion happens per-modifier in updateVariables, so

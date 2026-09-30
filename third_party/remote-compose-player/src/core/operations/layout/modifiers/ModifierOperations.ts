@@ -51,9 +51,9 @@ export class WidthModifier extends Operation implements VariableSupport {
     updateVariables(context: RemoteContext): void {
         if ((this.mType === WidthModifier.EXACT || this.mType === WidthModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
             this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
-            if (this.mType === WidthModifier.EXACT_DP) {
-                this.mOutValue *= context.getDensity();
-            }
+            // No density scaling here: LayoutManager.measure multiplies an EXACT_DP value by the
+            // dp scale, for a literal and a variable alike. Scaling in both places drew a
+            // variable-sized icon at density² times its dp size.
         }
     }
     write(_buffer: WireBuffer): void { /* stub */ }
@@ -97,9 +97,6 @@ export class HeightModifier extends Operation implements VariableSupport {
     updateVariables(context: RemoteContext): void {
         if ((this.mType === HeightModifier.EXACT || this.mType === HeightModifier.EXACT_DP) && isNaNBits(this.mValueBits)) {
             this.mOutValue = context.getFloat(idFromBits(this.mValueBits));
-            if (this.mType === HeightModifier.EXACT_DP) {
-                this.mOutValue *= context.getDensity();
-            }
         }
     }
     write(_buffer: WireBuffer): void { /* stub */ }
