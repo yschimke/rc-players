@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.2](https://github.com/yschimke/rc-players/compare/v2.0.1...v2.0.2) (2026-09-30)
+
+
+### Bug Fixes
+
+* **js-player:** emulate SRC blend inside the shape instead of Canvas2D copy ([#545](https://github.com/yschimke/rc-players/issues/545)) ([6eb0035](https://github.com/yschimke/rc-players/commit/6eb00358171baabd2ace9694a3cd21a5ff6d80da))
+* **js-player:** lay documents out at their own density and scale dp sizes once ([#548](https://github.com/yschimke/rc-players/issues/548)) ([44dcd85](https://github.com/yschimke/rc-players/commit/44dcd85f3b678794ea3fc3adda4e0b9146e2a1c7))
+* **wasm:** stop excluding ModifierGraphicsLayer from the cmp-wasm profile ([#547](https://github.com/yschimke/rc-players/issues/547)) ([8644d6e](https://github.com/yschimke/rc-players/commit/8644d6e64e65e70bd8c1a331642d2a37b939c5a3))
+
 ## [2.0.1](https://github.com/yschimke/rc-players/compare/v2.0.0...v2.0.1) (2026-09-30)
 
 
