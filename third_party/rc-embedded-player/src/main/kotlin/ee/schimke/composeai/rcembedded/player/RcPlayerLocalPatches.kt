@@ -22,13 +22,17 @@ package ee.schimke.composeai.rcembedded.player
 
 import android.graphics.Paint
 import android.graphics.Rect
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.remote.core.RemoteContext
+import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.layout.managers.CoreText
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * All values AndroidX's `PaintContext.getTextBounds` can select for `TextMeasure`.
@@ -158,3 +162,43 @@ internal fun javaPlayerMaxLines(overflow: Int, maxLines: Int): Int =
     } else {
         maxLines
     }
+
+/**
+ * A spring-animated float, as `remote-creation-compose`'s `RemoteSpringSpec` encodes it: `[0,
+ * stiffness, dampingCoefficient, stopThreshold, boundaryMode]`, with `dampingCoefficient` the
+ * unit-mass `2 * dampingRatio * sqrt(stiffness)`. `FloatExpression` routes the same shape to
+ * `SpringStopEngine`.
+ */
+internal class RemoteSpring(
+    val stiffness: Float,
+    val dampingCoefficient: Float,
+    val stopThreshold: Float,
+) {
+    /** The Compose spring with the same motion, converting the coefficient back to a ratio. */
+    fun toAnimationSpec(): SpringSpec<Float> =
+        spring(
+            dampingRatio = dampingCoefficient / (2f * sqrt(stiffness)),
+            stiffness = stiffness,
+            visibilityThreshold = stopThreshold,
+        )
+}
+
+/** The spring [animation] encodes, or null for a tween; the same test `FloatExpression` applies. */
+internal fun remoteSpringOrNull(animation: FloatArray?): RemoteSpring? =
+    if (animation != null && animation.size > 4 && animation[0] == 0f) {
+        RemoteSpring(
+            stiffness = animation[1],
+            dampingCoefficient = animation[2],
+            stopThreshold = animation[3],
+        )
+    } else {
+        null
+    }
+
+/**
+ * Whether this expression animates: a tween (`mFloatAnimation`) or a spring. Upstream tests
+ * `mFloatAnimation != null` alone, which the core leaves null for a spring (it builds `mSpring`
+ * instead), so a spring-animated value was evaluated as a plain expression.
+ */
+internal val FloatExpression.isAnimatedExpression: Boolean
+    get() = mFloatAnimation != null || remoteSpringOrNull(mSrcAnimation) != null

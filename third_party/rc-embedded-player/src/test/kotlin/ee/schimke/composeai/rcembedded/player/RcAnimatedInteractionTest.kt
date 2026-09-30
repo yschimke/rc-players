@@ -36,8 +36,10 @@ import androidx.compose.remote.creation.compose.modifier.semantics
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.modifier.width
 import androidx.compose.remote.creation.compose.state.animateRemoteFloat
+import androidx.compose.remote.creation.compose.state.animateRemoteFloatAsState
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.remote.creation.compose.state.rememberMutableRemoteFloat
+import androidx.compose.remote.creation.compose.state.remoteSpring
 import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
 import androidx.compose.ui.Modifier
@@ -49,6 +51,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import java.io.ByteArrayInputStream
+import kotlin.math.abs
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -118,6 +121,77 @@ class RcAnimatedInteractionTest {
         }
         assert(settledWidth > animatingWidth) {
             "Expected the animation to settle past $animatingWidth, but was $settledWidth"
+        }
+    }
+
+    /**
+     * A spring starts settled at its target, as the View player's `FloatExpression` starts one. The
+     * embedded player used to decode the spring array as a tween, seed the animation at a value
+     * taken from its other fields, and so draw a still that ignored the target entirely (#551).
+     */
+    @Test
+    fun springAnimatedRemoteFloatStartsAtItsTargetAndSpringsToTheNext() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val documentBytes =
+            captureSingleRemoteDocument(
+                    context = context,
+                    content = {
+                        val progress = rememberMutableRemoteFloat { 0.75f.rf }
+                        val animatedProgress =
+                            animateRemoteFloatAsState(
+                                targetValue = progress,
+                                animationSpec = remoteSpring(stiffness = 200f),
+                            )
+                        val shrink = valueChange(progress, 0.25f.rf)
+
+                        RemoteColumn(modifier = RemoteModifier.size(160.rdp)) {
+                            RemoteBox(
+                                modifier = RemoteModifier.size(160.rdp, 40.rdp).clickable(shrink)
+                            )
+                            RemoteBox(
+                                modifier =
+                                    RemoteModifier.semantics {
+                                            contentDescription = "spring-progress".rs
+                                        }
+                                        .width(animatedProgress * 200f)
+                                        .height(20.rdp)
+                            )
+                        }
+                    },
+                )
+                .bytes
+        val document =
+            CoreDocument(RemoteClock.SYSTEM).apply {
+                ByteArrayInputStream(documentBytes).use {
+                    initFromBuffer(RemoteComposeBuffer.fromInputStream(it))
+                }
+            }
+
+        rule.mainClock.autoAdvance = false
+        rule.setContent { Box(modifier = Modifier.size(200.dp)) { RcPlayer(document = document) } }
+
+        val progressNode = rule.onNodeWithContentDescription("spring-progress")
+        fun progressWidth() =
+            progressNode.getUnclippedBoundsInRoot().let { it.right.value - it.left.value }
+
+        // The first frame, before any animation clock has run: already at 0.75 of 200dp.
+        val firstFrameWidth = progressWidth()
+        assert(abs(firstFrameWidth - 150f) < 1f) {
+            "Expected the spring to start at its target width 150, but was $firstFrameWidth"
+        }
+
+        rule.onNode(hasClickAction()).performClick()
+        rule.waitForIdle()
+        rule.mainClock.advanceTimeBy(50)
+        val springingWidth = progressWidth()
+        rule.mainClock.advanceTimeBy(2_000)
+        val settledWidth = progressWidth()
+
+        assert(springingWidth < firstFrameWidth && springingWidth > settledWidth) {
+            "Expected the spring to be between $firstFrameWidth and $settledWidth, was $springingWidth"
+        }
+        assert(abs(settledWidth - 50f) < 1f) {
+            "Expected the spring to settle at 50, but was $settledWidth"
         }
     }
 }
