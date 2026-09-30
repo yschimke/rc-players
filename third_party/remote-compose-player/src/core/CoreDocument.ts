@@ -433,6 +433,7 @@ export class CoreDocument implements ExpansionDocument {
             operations.push(op);
         }
         this.mFloatExpressions.clear();
+        this.mIntegerExpressions.clear();
         this.indexFloatExpressions(operations);
     }
 
@@ -441,12 +442,17 @@ export class CoreDocument implements ExpansionDocument {
      * Mirrors `CoreDocument.mFloatExpressions` / `evaluateFloatExpression`.
      */
     mFloatExpressions: Map<number, any> = new Map();
+    /** Integer expressions by id, for `ValueIntegerExpressionChangeAction`. */
+    mIntegerExpressions: Map<number, any> = new Map();
 
     /** Collect every FloatExpression in the tree, including inside containers. */
     indexFloatExpressions(operations: Operation[]): void {
         for (const op of operations) {
             if ((op as any).constructor?.OP_CODE === 81 && typeof (op as any).mId === 'number') {
                 this.mFloatExpressions.set((op as any).mId, op);
+            }
+            if ((op as any).constructor?.OP_CODE === 144 && typeof (op as any).mId === 'number') {
+                this.mIntegerExpressions.set((op as any).mId, op);
             }
             if (typeof (op as any).getList === 'function') {
                 this.indexFloatExpressions((op as any).getList());
@@ -459,6 +465,14 @@ export class CoreDocument implements ExpansionDocument {
         const expression = this.mFloatExpressions.get(expressionId);
         if (expression && typeof expression.evaluate === 'function') {
             context.overrideFloat(targetId, expression.evaluate(context));
+        }
+    }
+
+    /** Evaluate integer `expressionId` and write the result into `targetId`. */
+    evaluateIntegerExpression(expressionId: number, targetId: number, context: RemoteContext): void {
+        const expression = this.mIntegerExpressions.get(expressionId);
+        if (expression && typeof expression.evaluateNow === 'function') {
+            context.overrideInteger(targetId, expression.evaluateNow(context));
         }
     }
 

@@ -645,6 +645,59 @@ class RcPlayerStateTest {
     assertEquals(1, invalidations)
   }
 
+  /**
+   * `rememberMutableRemoteFloat(0.5f)` is declared as a constant float expression that the flat
+   * operation list replays every frame. A value-change action writes through AndroidX's
+   * `overrideFloat`, which makes the id ignore the declaration from then on; without that the next
+   * frame put the declared value back and no stepper, slider or switch ever visibly moved.
+   */
+  @Test
+  fun anActionWriteSurvivesTheDeclarationsThatReplayEveryFrame() {
+    val declaredFloat = RcFloatExpression(50, listOf(RcFloatWord.literal(0.5f)), null)
+    val declaredInteger = RcIntegerExpression(51, 1 shl 2, listOf(2, 3, RcIntegerExpression.ADD))
+    val stepUp =
+      RcFloatExpression(
+        52,
+        listOf(
+          RcFloatWord(0x7fc00000 or 50),
+          RcFloatWord.literal(0.25f),
+          RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 1),
+        ),
+        null,
+      )
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(declaredFloat, declaredInteger, stepUp),
+        )
+      )
+    state.applyFloatExpression(declaredFloat)
+    state.applyIntegerExpression(declaredInteger)
+    assertEquals(0.5f, state.resolve(RcFloatWord(0x7fc00000 or 50)))
+    assertEquals(5, state.integer(51))
+
+    val click =
+      RcClickActionBlock(
+        listOf(
+          RcLinkedNode.Operation(RcValueFloatExpressionChangeAction(50, 52)),
+          RcLinkedNode.Operation(RcValueIntegerChangeAction(51, 9)),
+        )
+      )
+    state.executeClick(click)
+    // The next frame replays the declarations, exactly as the document's operation list does.
+    state.beginFrame()
+    state.applyFloatExpression(declaredFloat)
+    state.applyIntegerExpression(declaredInteger)
+    assertEquals(0.75f, state.resolve(RcFloatWord(0x7fc00000 or 50)))
+    assertEquals(9, state.integer(51))
+
+    // And it is a value the action keeps owning: the second press steps from the first.
+    state.executeClick(click)
+    state.applyFloatExpression(declaredFloat)
+    assertEquals(1.0f, state.resolve(RcFloatWord(0x7fc00000 or 50)))
+  }
+
   @Test
   fun dynamicFloatListsResolveReferencesUpdateAndResetWhenResized() {
     val state =
