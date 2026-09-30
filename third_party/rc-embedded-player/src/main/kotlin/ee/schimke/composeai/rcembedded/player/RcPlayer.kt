@@ -731,7 +731,8 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
                 op !is PathTween &&
                 op !is PathExpression
         ) {
-            val animated = op is FloatExpression && op.mFloatAnimation != null
+            // LOCAL PATCH (rc-players): a spring animates too (#551).
+            val animated = op is FloatExpression && op.isAnimatedExpression
             val id = op.id
             if (!animated && id > 0 && !computedOpIndex.containsKey(id)) {
                 computedOpIndex[id] = op

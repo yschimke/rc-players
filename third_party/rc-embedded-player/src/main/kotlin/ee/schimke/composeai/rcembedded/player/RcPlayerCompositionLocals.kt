@@ -64,7 +64,8 @@ internal fun buildComputedOpIndex(operations: Collection<Operation>): IntObjectM
     fun walk(ops: Collection<Operation>) {
         for (op in ops) {
             if (op is VariableSupport && op is VariableProvider) {
-                val animated = op is FloatExpression && op.mFloatAnimation != null
+                // LOCAL PATCH (rc-players): a spring animates too (#551).
+                val animated = op is FloatExpression && op.isAnimatedExpression
                 val id = op.id
                 if (!animated && id > 0 && !map.containsKey(id)) map[id] = op as Operation
             }

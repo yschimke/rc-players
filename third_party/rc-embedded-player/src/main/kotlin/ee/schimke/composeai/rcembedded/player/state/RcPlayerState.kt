@@ -42,6 +42,7 @@ import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.getFloatExpressionsReflection
 import ee.schimke.composeai.rcembedded.player.getRemoteContextReflection
 import ee.schimke.composeai.rcembedded.player.getVariableIdReflection
+import ee.schimke.composeai.rcembedded.player.isAnimatedExpression
 import ee.schimke.composeai.rcembedded.player.isTimeVariable
 import ee.schimke.composeai.rcembedded.player.resolveBitmap
 
@@ -136,7 +137,8 @@ internal fun rememberRemoteFloatAsState(id: Int): State<Float> {
     // (non-animated) FloatExpressions fall through to the graph below — one evaluation path.
     val expression = document.getFloatExpressionsReflection()[id]
     if (expression != null) {
-        if (expression.mFloatAnimation != null) return rememberAnimatedRemoteFloat(id)
+        // LOCAL PATCH (rc-players): a spring animates too (#551).
+        if (expression.isAnimatedExpression) return rememberAnimatedRemoteFloat(id)
         // GraphContext evaluates core FloatExpressions as pure target values, so routing an outer
         // expression through it would flatten an animated child.
         if (expressionDependsOnAnimation(document.getFloatExpressionsReflection(), id)) {
@@ -165,7 +167,8 @@ internal fun expressionDependsOnAnimation(
 ): Boolean {
     if (!visited.add(id)) return false
     val expr = expressions[id] ?: return false
-    if (expr.mFloatAnimation != null) return true
+    // LOCAL PATCH (rc-players): a spring animates too (#551).
+    if (expr.isAnimatedExpression) return true
     val src = expr.mSrcValue ?: return false
     for (v in src) {
         if (v.isNaN() && !AnimatedFloatExpression.isMathOperator(v) && !NanMap.isDataVariable(v)) {

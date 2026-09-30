@@ -38,6 +38,7 @@ import ee.schimke.composeai.rcembedded.player.LocalCoreDocument
 import ee.schimke.composeai.rcembedded.player.LocalRemoteContext
 import ee.schimke.composeai.rcembedded.player.getFloatExpressionsReflection
 import ee.schimke.composeai.rcembedded.player.mapEasing
+import ee.schimke.composeai.rcembedded.player.remoteSpringOrNull
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.asin
@@ -643,14 +644,25 @@ internal fun rememberAnimatedRemoteFloat(id: Int): State<Float> {
             )
         }
 
+    // LOCAL PATCH (rc-players): a spring is encoded differently from a tween, and decoding it as
+    // one
+    // seeds the animation at a value taken from its other fields. Like `FloatExpression`, start a
+    // spring settled at its target and spring toward later ones (#551).
+    val spring = remember(expr) { remoteSpringOrNull(expr.mSrcAnimation) }
+
     val animatable =
         remember(id) {
-            Animatable(if (spec.initialValue.isNaN()) targetState.value else spec.initialValue)
+            Animatable(
+                if (spring != null || spec.initialValue.isNaN()) targetState.value
+                else spec.initialValue
+            )
         }
 
     val target = targetState.value
     LaunchedEffect(animatable, target, spec) {
-        if (spec.durationMillis <= 0) {
+        if (spring != null) {
+            animatable.animateTo(target, spring.toAnimationSpec())
+        } else if (spec.durationMillis <= 0) {
             animatable.snapTo(target)
         } else {
             animatable.animateTo(
