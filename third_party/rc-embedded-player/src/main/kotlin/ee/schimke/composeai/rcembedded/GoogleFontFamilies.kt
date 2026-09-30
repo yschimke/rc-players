@@ -90,6 +90,14 @@ internal class GoogleFontFamilies(private val fonts: GoogleFontSource?) {
      * With no [axes] this is the family's ordinary static face; with axes it is an instance of its
      * variable file. See the class doc for why both are served from the cache rather than left to
      * the downloadable-font path.
+     *
+     * An axis request whose variable file the cache cannot serve falls back to the static face at
+     * the requested weight and style. The axes are lost, but the family is kept. Since the
+     * re-vendor (#508) the downloadable-font path below this seam needs a `HasFontCerts` resolver,
+     * so without this fallback such a request drew the platform default instead: an offline render
+     * whose cache holds only static faces, or a cache warmed by a lane that never asks for the
+     * variable file. This is the same fallback, in the other order, that the daemon's view-player
+     * resolver already takes.
      */
     fun composeFontFamily(
         family: String?,
@@ -105,16 +113,10 @@ internal class GoogleFontFamilies(private val fonts: GoogleFontSource?) {
         }
         if (axes.isEmpty()) {
             // No axes: the static instance the cache serves for this exact (family, weight, italic)
-            // is
-            // the whole answer, and there is nothing to vary it with.
-            val staticFile = resolveStaticFile(name, weight.weight, italic) ?: return null
-            val resolved =
-                runCatching { FontFamily(Font(file = staticFile, weight = weight, style = style)) }
-                    .getOrNull() ?: return null
-            families[request] = resolved
-            return resolved
+            // is the whole answer, and there is nothing to vary it with.
+            return staticFamily(request, name, weight, style)
         }
-        val file = resolveFile(name, italic) ?: return null
+        val file = resolveFile(name, italic) ?: return staticFamily(request, name, weight, style)
         val settings =
             FontVariation.Settings(
                 *variationAxes(weight, style, axes)
@@ -127,6 +129,21 @@ internal class GoogleFontFamilies(private val fonts: GoogleFontSource?) {
                     Font(file = file, weight = weight, style = style, variationSettings = settings)
                 )
             }
+                .getOrNull() ?: return null
+        families[request] = resolved
+        return resolved
+    }
+
+    /** The static face for [request], built into a family and cached under [request]. */
+    private fun staticFamily(
+        request: Request,
+        name: String,
+        weight: FontWeight,
+        style: FontStyle,
+    ): FontFamily? {
+        val staticFile = resolveStaticFile(name, weight.weight, request.italic) ?: return null
+        val resolved =
+            runCatching { FontFamily(Font(file = staticFile, weight = weight, style = style)) }
                 .getOrNull() ?: return null
         families[request] = resolved
         return resolved

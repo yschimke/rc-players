@@ -157,6 +157,24 @@ class GoogleFontFamiliesTest {
     }
 
     @Test
+    fun `an axis request with no variable file falls back to the static face`() {
+        // compose-preview-daemon's offline render of the Wear M3 edge button: Roboto Flex at 450
+        // with a `pnum` axis, and a cache holding only the static weight files. Returning null here
+        // drew the platform default, because the downloadable-font path now needs `HasFontCerts`.
+        val source = FakeSource(file = null, staticFile = robotoFlex())
+        val resolver = GoogleFontFamilies(source)
+        val axes = listOf(PNUM to 1f)
+
+        val first = resolver.composeFontFamily(GOOGLE_ROBOTO_FLEX, WEIGHT, UPRIGHT, axes)
+        val second = resolver.composeFontFamily(GOOGLE_ROBOTO_FLEX, WEIGHT, UPRIGHT, axes)
+
+        assertNotNull(first)
+        assertSame(first, second)
+        assertEquals(1, source.variableCalls)
+        assertEquals(1, source.staticCalls)
+    }
+
+    @Test
     fun `no configured font source resolves nothing`() {
         val resolver = GoogleFontFamilies(null)
         assertNull(
