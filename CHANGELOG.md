@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.4](https://github.com/yschimke/rc-players/compare/v2.0.3...v2.0.4) (2026-10-01)
+
+
+### Bug Fixes
+
+* draw text from RemoteDensity.Host captures at the host's density ([#559](https://github.com/yschimke/rc-players/issues/559)) ([5eb0d5a](https://github.com/yschimke/rc-players/commit/5eb0d5a017f924911851b9042382ad3d071191c8))
+* **player:** centre and trim a text run's line height ([#556](https://github.com/yschimke/rc-players/issues/556)) ([9d7d2a0](https://github.com/yschimke/rc-players/commit/9d7d2a017ab4915222a71c9ed8dd3e6c564e77e9))
+
 ## [2.0.3](https://github.com/yschimke/rc-players/compare/v2.0.2...v2.0.3) (2026-09-30)
 
 
