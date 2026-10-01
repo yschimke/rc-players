@@ -170,6 +170,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -1459,6 +1460,13 @@ private fun RenderLayoutNode(
                 else if (autosize)
                   (lineHeightMultiplier + lineHeightAdd / fontSize.coerceAtLeast(0.0001f)).em
                 else with(density) { (fontSize * lineHeightMultiplier + lineHeightAdd).toSp() },
+              // Half-leading above and below each line, trimmed at the paragraph's first and last
+              // line. The default style left the first baseline about 2px lower than the AndroidX
+              // frames for a 1.125 multiplier at 32px, in every remote-m3 card. Measured over the
+              // 703-document catalog against the baked frames: card 2.47% -> 1.72% mismatch,
+              // appcard 2.33% -> 1.76%, titlecard 2.45% -> 2.10%, with nothing else moving.
+              lineHeightStyle =
+                LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
               fontWeight = FontWeight(boldWeight),
               fontStyle = if (fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
               fontFamily =
