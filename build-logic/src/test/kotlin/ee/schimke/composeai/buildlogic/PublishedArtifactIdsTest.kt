@@ -63,9 +63,10 @@ class PublishedArtifactIdsTest {
   // a coordinate cannot be missing from a list — Central is asked about whatever this table names.
   @Test
   fun `the root build's publish list agrees with the table`() {
-    // `build.gradle.kts` keeps its own copy so `publishPlayers` can map ids back to project paths
-    // without a build-logic plugin on the root classpath. Three copies is two too many to trust.
-    val rootBuild = repoRoot.resolve("build.gradle.kts").readText()
+    // `root-tasks.gradle.kts` keeps its own copy so `publishPlayers` can map ids back to project
+    // paths without a build-logic plugin on the root classpath. Three copies is two too many to
+    // trust.
+    val rootBuild = repoRoot.resolve("root-tasks.gradle.kts").readText()
     val block = rootBuild.substringAfter("val publishedProjects =").substringBefore("\n\n")
     val pairs =
       Regex(""""(:[^"]+)"\s+to\s+"([^"]+)"""").findAll(block).associate {
