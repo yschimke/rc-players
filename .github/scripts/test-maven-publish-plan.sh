@@ -65,7 +65,7 @@ published lib lib
 # Unpublished, like `:rc-player-wasm`: no maven-publishing plugin, depends on a published module.
 mkdir -p "${fixture}/repo/app/src"
 echo '// app' >"${fixture}/repo/app/src/Main.kt"
-echo 'dependencies { implementation(project(":lib")) }' >"${fixture}/repo/app/build.gradle.kts"
+echo 'dependencies { implementation(project(":lib")); implementation(libs.okio) }' >"${fixture}/repo/app/build.gradle.kts"
 # Packages the unpublished module's output, like `:rc-player-wasm-dist`.
 published app-dist app-dist 'tasks.register("zip") { dependsOn(":app:dist"); from(project(":app").layout.buildDirectory) }'
 # Reads a sibling directory by a path the scan cannot see: covered only by EXTRA_INPUTS.
@@ -76,7 +76,33 @@ echo 'bundle v1' >"${fixture}/repo/third_party/remote-compose-player/dist/bundle
 published literal-dist literal-dist 'sourceSets { main { srcDir("../vendored/src") } }'
 mkdir -p "${fixture}/repo/vendored/src"
 echo '// vendored' >"${fixture}/repo/vendored/src/V.kt"
-published other other
+# Names `:lib` only in comments, which are not dependencies (compose-preview-daemon#197's
+# displayfilter connector): a `lib` change must not reach `other`.
+published other other '// mirrors api(project(":lib")) in its sibling' '/* project(":lib") */' 'dependencies { api(libs.composeai.daemon.protocol) }'
+mkdir -p "${fixture}/repo/gradle" "${fixture}/repo/build-logic/src/main/kotlin" "${fixture}/repo/build-logic/src/test/kotlin"
+cat >"${fixture}/repo/gradle/libs.versions.toml" <<'EOF'
+[versions]
+kotlinCore = "2.1.0"
+okio = "3.9.0"
+composeai-contracts = "3.0.0"
+unused = "1.0"
+
+[libraries]
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlinCore" }
+composeai-daemon-protocol = { module = "ee.schimke.composeai:daemon-protocol", version.ref = "composeai-contracts" }
+EOF
+cat >"${fixture}/repo/build-logic/src/main/kotlin/Conventions.kt" <<'EOF'
+// Reads the Kotlin version off the catalog.
+fun kotlinVersion(libs: Any) = find(libs, "kotlinCore")
+EOF
+echo 'class ConventionsTest' >"${fixture}/repo/build-logic/src/test/kotlin/ConventionsTest.kt"
+cat >"${fixture}/repo/build.gradle.kts" <<'EOF'
+// The root build.
+plugins { id("base") }
+apply(from = "root-tasks.gradle.kts")
+EOF
+echo 'tasks.register("publishPlayers")' >"${fixture}/repo/root-tasks.gradle.kts"
 mkdir -p "${fixture}/repo/docs"
 echo 'docs' >"${fixture}/repo/docs/README.md"
 g add -A
@@ -138,6 +164,23 @@ check --released "an unresolvable project edge fails open" "app-dist" \
   sh -c 'echo "dependencies { implementation(project(\":missing\")) }" >>app/build.gradle.kts'
 check --released "an input escaping the repository fails open" "other" \
   sh -c 'echo "val x = file(\"../../outside\")" >>other/build.gradle.kts'
+
+check "a catalog entry an unpublished module uses publishes the dist packaging it" "app-dist" \
+  sed -i 's/okio = "3.9.0"/okio = "3.10.0"/' gradle/libs.versions.toml
+check "a catalog entry nobody uses publishes nothing" "" \
+  sed -i 's/unused = "1.0"/unused = "2.0"/' gradle/libs.versions.toml
+check "a catalog entry build-logic reads publishes everything" "app-dist lib literal-dist other remote-compose-player-js-dist" \
+  sed -i 's/kotlinCore = "2.1.0"/kotlinCore = "2.2.0"/' gradle/libs.versions.toml
+check "a sibling coordinate is a floor, not an input (v2.0.3)" "" \
+  sed -i 's/composeai-contracts = "3.0.0"/composeai-contracts = "3.1.0"/' gradle/libs.versions.toml
+check "a build-logic test change publishes nothing" "" \
+  sh -c 'echo "class AnotherTest" >>build-logic/src/test/kotlin/ConventionsTest.kt'
+check "a build-logic main change publishes everything" "app-dist lib literal-dist other remote-compose-player-js-dist" \
+  sh -c 'echo "val x = 1" >>build-logic/src/main/kotlin/Conventions.kt'
+check "a comment-only root build edit publishes nothing" "" \
+  sed -i 's|// The root build.|// The root build, reworded.|' build.gradle.kts
+check "release wiring in root-tasks.gradle.kts publishes nothing" "" \
+  sh -c 'echo "tasks.register(\"printPublishSet\")" >>root-tasks.gradle.kts'
 
 if [ "${failures}" -ne 0 ]; then
   echo "${failures} publish-plan fixture case(s) failed" >&2
