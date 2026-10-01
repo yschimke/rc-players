@@ -26,11 +26,15 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.operations.FloatExpression
+import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.managers.CoreText
+import androidx.compose.remote.core.operations.layout.managers.TextLayout
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
+import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -202,3 +206,30 @@ internal fun remoteSpringOrNull(animation: FloatArray?): RemoteSpring? =
  */
 internal val FloatExpression.isAnimatedExpression: Boolean
     get() = mFloatAnimation != null || remoteSpringOrNull(mSrcAnimation) != null
+
+private val coreTextRawFontSizeField =
+    CoreText::class.java.getDeclaredField("mFontSize").apply { isAccessible = true }
+private val textLayoutRawFontSizeField =
+    TextLayout::class.java.getDeclaredField("mFontSize").apply { isAccessible = true }
+
+/** The font size as the document wrote it: a literal, or a NaN-boxed id. */
+internal val CoreText.rawFontSize: Float
+    get() = coreTextRawFontSizeField.getFloat(this)
+
+/** The font size as the document wrote it: a literal, or a NaN-boxed id. */
+internal val TextLayout.rawFontSize: Float
+    get() = textLayoutRawFontSizeField.getFloat(this)
+
+/**
+ * The font size to draw at, resolving one the document deferred to the host by id.
+ *
+ * A `RemoteDensity.Host` capture writes a text's size as an expression over the player's `DENSITY`
+ * and `FONT_SIZE` variables. The core resolves it into `mFontSizeValue` in `updateVariables`, but
+ * its constructor seeds that field with the same NaN-boxed word, and the text composables read it
+ * once, at composition — so the text was laid out at `NaN.sp` and drew nothing. [resolved] is still
+ * used for a literal: it carries the core's `DENSITY_BEHAVIOR_DP` scaling, which a deferred size
+ * has already applied through `DENSITY`.
+ */
+@Composable
+internal fun rememberTextFontSize(raw: Float, resolved: Float): Float =
+    if (Utils.isVariable(raw)) rememberRemoteFloatAsState(raw).value else resolved
