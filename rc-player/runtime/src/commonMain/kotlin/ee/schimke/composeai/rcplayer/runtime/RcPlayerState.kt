@@ -479,8 +479,7 @@ public class RcPlayerState(
     // Not clocks, but loaded on the same pass for the same reason: a document that reads them and
     // is handed nothing resolves the reference to its own raw NaN bits, and every size derived from
     // it becomes NaN. See RcSystemVariables.DENSITY.
-    loadSystem(RcSystemVariables.DENSITY, hostDensity)
-    loadSystem(RcSystemVariables.FONT_SIZE, DEFAULT_FONT_SIZE_SP * hostFontScale * hostDensity)
+    loadHostDensity()
     if (RcSystemVariables.EPOCH_SECOND !in claimedSystemIds) {
       setInteger(RcSystemVariables.EPOCH_SECOND, frameEpochMillis.floorDiv(1000L).toInt())
     }
@@ -507,6 +506,15 @@ public class RcPlayerState(
   public fun setHostDensity(density: Float, fontScale: Float = 1f) {
     if (density.isFinite() && density > 0f) hostDensity = density
     if (fontScale.isFinite() && fontScale > 0f) hostFontScale = fontScale
+    // Published now rather than at the next [beginFrame]: the constructor's own frame has already
+    // loaded the 1.0 placeholders, and a host telling the state its density before the first draw
+    // must not have that draw resolve against them.
+    loadHostDensity()
+  }
+
+  private fun loadHostDensity() {
+    loadSystem(RcSystemVariables.DENSITY, hostDensity)
+    loadSystem(RcSystemVariables.FONT_SIZE, DEFAULT_FONT_SIZE_SP * hostFontScale * hostDensity)
   }
 
   /** Evaluates AndroidX `TimeAttribute.paint` against one wall-clock snapshot for this frame. */

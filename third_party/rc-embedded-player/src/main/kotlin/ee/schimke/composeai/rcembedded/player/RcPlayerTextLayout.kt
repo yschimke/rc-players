@@ -72,7 +72,9 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
         } else {
             Color(data.colorValue)
         }
-    val fontSize = if (paintState.isTextSizeSet) paintState.textSize else data.fontSizeValue
+    // LOCAL PATCH (rc-players): a font size deferred to the host resolves by id (#558).
+    val layoutFontSize = rememberTextFontSize(layout.rawFontSize, data.fontSizeValue)
+    val fontSize = if (paintState.isTextSizeSet) paintState.textSize else layoutFontSize
     val fontSizeSp = with(LocalDensity.current) { fontSize.toSp() }
 
     val remoteContext = LocalRemoteContext.current
@@ -201,7 +203,9 @@ internal fun RcPlayerText(layout: TextLayout, modifier: Modifier) {
         } else {
             Color(data.colorValue)
         }
-    val fontSize = if (paintState.isTextSizeSet) paintState.textSize else data.fontSizeValue
+    // LOCAL PATCH (rc-players): a font size deferred to the host resolves by id (#558).
+    val layoutFontSize = rememberTextFontSize(layout.rawFontSize, data.fontSizeValue)
+    val fontSize = if (paintState.isTextSizeSet) paintState.textSize else layoutFontSize
     val fontSizeSp = with(LocalDensity.current) { fontSize.toSp() }
 
     val fontWeight =

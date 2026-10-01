@@ -486,6 +486,28 @@ private fun RcComposePlayerResolved(
         systemColorLookup = { name -> latestSystemColors(name)?.toRcArgb() },
       )
     }
+  // What the host is actually playing at, for a capture that deferred its density instead of
+  // folding it in. Handed to the state as soon as it is built, before anything is laid out: pushed
+  // only from a `SideEffect`, it arrived after the first frame had already resolved every deferred
+  // size against the 1.0 placeholder, and a still taken on that frame drew a `RemoteDensity.Host`
+  // document at `1 / density`.
+  //
+  // `state` is remembered on the document alone, so a rotation or an accessibility text change
+  // arrives as a recomposition around the same state rather than a new one. Whatever the document
+  // already laid out against the old values has to be redone, so a later change invalidates.
+  val hostDensity = androidx.compose.ui.platform.LocalDensity.current
+  val appliedHostDensity =
+    remember(state) {
+      state.setHostDensity(hostDensity.density, hostDensity.fontScale)
+      arrayOf(hostDensity)
+    }
+  SideEffect {
+    if (appliedHostDensity[0] != hostDensity) {
+      appliedHostDensity[0] = hostDensity
+      state.setHostDensity(hostDensity.density, hostDensity.fontScale)
+      invalidationVersion += 1
+    }
+  }
   // Apply host edits to the live state instead of rebuilding it. `setNamedValue` already applied a
   // single value incrementally against `variableNames`, type-checked against the AndroidX variable
   // type; nothing on the public path called it. A removal means "stop overriding this", which needs
@@ -508,12 +530,6 @@ private fun RcComposePlayerResolved(
   //    `RcPlayerState`, which is the whole point of this bridge; because `appliedNamedValues`
   //    outlives the restart, the new holder is diffed against what the state really has, so
   //    entries the old holder had and the new one does not are cleared rather than left applied.
-  // What the host is actually playing at, for a capture that deferred its density instead of
-  // folding it in. `state` is remembered on the document alone, so a rotation or an accessibility
-  // text change arrives here as a recomposition around the same state rather than a new one — which
-  // is why this is pushed on every composition instead of passed to the constructor.
-  val hostDensity = androidx.compose.ui.platform.LocalDensity.current
-  SideEffect { state.setHostDensity(hostDensity.density, hostDensity.fontScale) }
   val appliedNamedValues = remember(state) { seededNamedValues.toMutableMap() }
   LaunchedEffect(state, namedValues) {
     snapshotFlow { namedValues.toMap() }
