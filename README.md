@@ -29,6 +29,33 @@ the TypeScript player remain comparison lanes. There is no separate JVM referenc
 vendored player's JVM cut was removed on 2026-09-25, and where a JVM player is needed, the CMP player
 is it.
 
+### Player ids
+
+Every tool that lets you choose a player — `compose-preview serve`'s `?rcPlayer=`, the daemon's
+`RemoteComposeOverride.playerId`, a capture's `capturePlayer`, the `rc-compare` columns — names it
+with one of these ids. **The id names the implementation that draws**, and `cmp-` means the CMP
+player above and nothing else: `cmp-android`, `cmp-jvm` and `cmp-wasm` are one codebase on three
+hosts.
+
+| id | Implementation | Where it runs | Also accepted |
+| --- | --- | --- | --- |
+| `cmp-android` | CMP player (`rc-player-compose`) on Android | the preview daemon, under Robolectric | — |
+| `cmp-jvm` | CMP player on the desktop JVM, over Skiko | `compose-preview serve`'s `rc-render-jvm` subprocess | `rcplayer-jvm` |
+| `cmp-wasm` | CMP player compiled to Wasm (`rc-player/wasm`) | the browser | `rcplayer-wasm` |
+| `androidx-embedded` | Vendored AndroidX embedded player (`third_party/rc-embedded-player`) | the preview daemon, under Robolectric | `embedded` |
+| `androidx-view` | AndroidX `remote-player-view` `RemoteComposePlayer` (an Android `View`) | the preview daemon, under Robolectric | `java`, `view` |
+| `camaelon-js` | Vendored TypeScript player (`third_party/remote-compose-player`) | the browser | `js` |
+
+`androidx-view` is not in this repository: it is AndroidX's own published player, drawn by the
+daemon for comparison. The two AndroidX players are the only ones a capture bakes through, so a
+capture records `androidx-embedded` or `androidx-view`.
+
+**`cmp-android` used to mean the AndroidX embedded player**, and some published links and capture
+sidecars still say it with that meaning. As a request it now selects the CMP player. In a
+`capturePlayer` field the old meaning is still read as `androidx-embedded`, because the CMP player
+never captures, so that field cannot hold the new one. The same goes for the bare `cmp`, which is
+no longer accepted anywhere: it cannot say which of the three hosts it means.
+
 ## What is here
 
 ### The Compose Multiplatform player stack (`rc-player/`)
