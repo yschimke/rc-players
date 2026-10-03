@@ -103,6 +103,33 @@ class RcStateLayoutTransitionTest {
       assertEquals(BLUE, onRoot().captureToImage().toPixelMap()[30, 30].toArgb())
     }
 
+  /**
+   * A disabled spec (`animationId == 0`, `RemoteModifier.animationSpec(enabled = false)`) swaps the
+   * branch at once, as AndroidX `Component` and the embedded player's switcher
+   * (androidx/androidx@cffb71595) do. Reading only its duration cross-faded it for 300 ms.
+   */
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aDisabledAnimationSpecSwitchesBranchesAtOnce() =
+    runSkikoComposeUiTest(size = Size(60f, 60f), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      val document =
+        stateLayoutDocument(
+          canvas(componentId = 5, animationId = 0, size = 60f, color = RED),
+          canvas(componentId = 6, animationId = 0, size = 60f, color = BLUE),
+          specAnimationId = 0,
+        )
+      setContent { RcComposePlayer(document) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertEquals(RED, onRoot().captureToImage().toPixelMap()[30, 30].toArgb())
+
+      onNode(hasClickAction()).performTouchInput { click() }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertEquals(BLUE, onRoot().captureToImage().toPixelMap()[30, 30].toArgb())
+    }
+
   @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
   @Test
   fun aComponentSharedByBothBranchesMorphsBetweenItsTwoPositions() =
@@ -147,6 +174,7 @@ class RcStateLayoutTransitionTest {
   private fun stateLayoutDocument(
     first: List<RcOperation>,
     second: List<RcOperation>,
+    specAnimationId: Int = 30,
   ): RcDocument {
     val operations =
       listOf<RcOperation>(
@@ -162,7 +190,7 @@ class RcStateLayoutTransitionTest {
         ),
         RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
         RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
-        animationSpec(30),
+        animationSpec(specAnimationId),
         RcClickModifier,
         RcValueIntegerChangeAction(indexId, 1),
         end,

@@ -155,8 +155,8 @@ public fun RcDocument.referencesAnyOf(ids: Set<Int>): Boolean {
  * Whether this document reads a system variable whose value moves — i.e. whether painting it once
  * would freeze an animation.
  *
- * Float expressions and path expressions are the two places a document can name one of these ids
- * and turn it into geometry, and they are what the `remote-m3` progress indicators use.
+ * Float, path and integer expressions are the places a document can name one of these ids and turn
+ * it into geometry, and they are what the `remote-m3` progress indicators use.
  *
  * The particle operations carry expressions of their own, and one of them is here for a sharper
  * reason than completeness: a particle system that reads the clock and is not given frames cannot
@@ -222,6 +222,19 @@ private fun RcDocument.referencesSystemVariable(ids: Set<Int>): Boolean {
       is RcPathExpression ->
         operation.expressionX.movesWithSystemTime(ids, claimed) ||
           operation.expressionY.movesWithSystemTime(ids, claimed)
+      // An integer expression names a variable by marking the word, not by NaN-boxing it, so the
+      // word scan in [referencesAnyOf] cannot see it. AndroidX's embedded player schedules its
+      // clock
+      // for these too (androidx/androidx@c73c596e9); without it an integer read of the clock is
+      // evaluated once and never again.
+      is RcIntegerExpression ->
+        operation.values.indices.any { index ->
+          val value = operation.values[index]
+          operation.isMarked(index) &&
+            value < RcIntegerExpression.OFFSET &&
+            value in ids &&
+            value !in claimed
+        }
       // A range too small for the comparison's own shape is the third case that cannot deadlock.
       // `compare` reaches its condition only inside a loop over `system.particles`: one particle is
       // enough in single mode, but pair mode nests `firstIndex in secondIndex + 1 until end` and so

@@ -1562,7 +1562,7 @@ private fun RenderLayoutNode(
                   state,
                   fontFamilies,
                   typefaces,
-                  withWeightAxis(variations, boldWeight),
+                  withWeightAxis(withItalicAxis(variations, fontStyle and 2 != 0), boldWeight),
                 ),
               textAlign =
                 if (properties.intProperty(17, 0) == 1) TextAlign.Justify
@@ -4020,7 +4020,11 @@ private fun Modifier.applyWidth(
   density: Density,
 ): Modifier =
   when (width.type) {
-    RcDimensionType.EXACT -> width(with(density) { state.resolve(width.value).toDp() })
+    // EXACT is a dp-typed field: pixels in LEGACY and PIXELS documents, dp in DP ones, as AndroidX
+    // `DimensionModifierOperation.updateVariables` scales it — and as the embedded player reads it
+    // since androidx/androidx@65a3bf206. Dividing it by the density regardless drew a DP document's
+    // fixed-size components at 1/density.
+    RcDimensionType.EXACT -> width(state.dpTypedDp(state.resolve(width.value), density))
     RcDimensionType.EXACT_DP -> width(state.resolve(width.value).dp)
     RcDimensionType.FILL,
     RcDimensionType.FILL_PARENT_MAX_WIDTH -> fillMaxWidth(state.fillFraction(width.value))
@@ -4185,7 +4189,8 @@ private fun Modifier.applyHeight(
   density: Density,
 ): Modifier =
   when (height.type) {
-    RcDimensionType.EXACT -> height(with(density) { state.resolve(height.value).toDp() })
+    // A dp-typed field, like EXACT width: see [applyWidth].
+    RcDimensionType.EXACT -> height(state.dpTypedDp(state.resolve(height.value), density))
     RcDimensionType.EXACT_DP -> height(state.resolve(height.value).dp)
     RcDimensionType.FILL,
     RcDimensionType.FILL_PARENT_MAX_HEIGHT -> fillMaxHeight(state.fillFraction(height.value))
@@ -4827,6 +4832,21 @@ internal fun withWeightAxis(variations: RcFontVariations?, weight: Int): RcFontV
   val existing = variations?.axes.orEmpty()
   if (existing.any { it.tag == "wght" }) return variations
   return RcFontVariations(existing + RcFontAxis("wght", weight.coerceIn(1, 1000).toFloat()))
+}
+
+/**
+ * [variations] with `ital` set when the style is italic and the document declared axes of its own
+ * but not that one.
+ *
+ * Declared axes put the text on a variable instance, and an instance names every axis it moves: a
+ * `CoreText` asking for italic with only, say, `wdth` came out upright. The embedded player appends
+ * `FontVariation.italic(1f)` in exactly this case since androidx/androidx@530b47a2e (the `wght`
+ * half of that change is [withWeightAxis]). With no declared axes nothing is added — the italic
+ * face is then picked by `FontStyle`, as before.
+ */
+internal fun withItalicAxis(variations: RcFontVariations?, italic: Boolean): RcFontVariations? {
+  if (!italic || variations == null || variations.axes.any { it.tag == "ital" }) return variations
+  return RcFontVariations(variations.axes + RcFontAxis("ital", 1f))
 }
 
 private fun decodeInlineImage(bitmap: RcBitmapData): ImageBitmap =
