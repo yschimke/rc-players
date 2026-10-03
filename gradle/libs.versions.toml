@@ -55,22 +55,34 @@ androidx-tracing = "2.0.3"
 # one classpath. Note 2.x publishes only `androidJvm` + `jvm` variants — there is no wasmJs or Apple
 # klib, which is the whole reason `:rc-player-trace` is an `expect`/`actual` facade.
 androidx-tracing-kmp = "2.0.3"
-# The Android BOM for the VENDORED player only — `third_party/rc-embedded-player` is the sole
-# consumer (`implementation(platform(libs.compose.bom.compat))`, plus its own unit tests).
+# The Android BOM for the vendored player's unit tests and the unpublished
+# `prototypes/remote-apple-components`. The published `third_party/rc-embedded-player` does NOT
+# import it outside its tests — a platform in `implementation` is published as a BOM import that
+# floors every consumer's Compose — and pins `androidx-compose` / `androidx-compose-material3`
+# below instead.
 #
 # The name is inherited and the `-compat` half of it no longer means anything here. In
 # compose-preview-daemon this ref is a published-ABI FLOOR held at 2025.11.x, because
 # `renderer-android` there compiles its public API against it so the emitted bytecode only
 # references Compose 1.9.x signatures. `renderer-android` does not exist in this repository, and
-# nothing here publishes against this BOM: the vendored player is a measurement baseline, not a
-# published artifact. So there is no supported-Compose-minimum to protect and the ref is free to
-# track the current line — which is why it sits on 2025.12.01 and why `renovate.json` carries no
-# `androidx.compose:compose-bom` ceiling, unlike its siblings.
+# nothing here publishes against this BOM: the vendored player is published for parity testing,
+# but its POM names explicit Compose versions, never this BOM. So there is no
+# supported-Compose-minimum to protect and the ref is free to track the current line — which is
+# why it sits on 2025.12.01 and why `renovate.json` carries no `androidx.compose:compose-bom`
+# ceiling, unlike its siblings.
 #
 # What DOES constrain this repository is `compose-multiplatform` below (the skiko `PathConic`
 # seams), and that one is pinned in `renovate.json`. Do not copy the daemon's compose-bom rule
 # across on the strength of the shared ref name.
 compose-bom-compat = "2025.12.01"
+# The Compose versions `third_party/rc-embedded-player` publishes against, in place of importing
+# `compose-bom-compat` (see above). Held at what `compose-bom-compat` maps them to — runtime, ui,
+# foundation, animation, ui-text-google-fonts and material3's material-ripple on the 1.x core line,
+# material3 on its own — so the
+# player resolved exactly what it did under the BOM when they were introduced. A bump here raises
+# the floor the published player hands its consumers, and nothing else.
+androidx-compose = "1.10.0"
+androidx-compose-material3 = "1.4.0"
 # The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP
 # player. This version is also a CEILING CONSTRAINT ON EVERY CATALOG THE SERVE HOST RENDERS LIVE:
 # it must be >= the newest `compose-multiplatform` of any catalog served from this host. A catalog
@@ -169,6 +181,12 @@ maven-publish = "0.37.0"
 # here. This repository consumes them; it no longer owns these coordinates. A change to a contract
 # reaches this build only through a release there — see that repository's docs/VERSIONING.md.
 # A point pin, deliberately: a range would let a contract change arrive without a pull request.
+#
+# This pins the contracts' BOM, not the modules — the same rule as `composeai-preview-daemon` below.
+# A contracts release publishes only the modules that changed, so a coordinate is not guaranteed to
+# exist at the release version: `common-io` is published at 3.13.0 and absent at 3.15.0 and
+# 3.17.0, whose BOMs still map it to 3.13.0. Bumping this ref moves the BOM; the BOM moves the
+# modules.
 composeai-contracts = "3.13.0"
 
 # compose-preview-daemon, for the two modules this build consumes from it: `data-fonts-google`
@@ -177,7 +195,8 @@ composeai-contracts = "3.13.0"
 # trees are run through). Both were `project(...)` deps until the player stack was extracted into
 # this repository, and rode compose-ai-tools' release train (`composeai-tools`) until the data
 # extractors moved to yschimke/compose-preview-daemon in compose-ai-tools#5336; they ride that
-# repository's line now — 3.x, a different number from `composeai-contracts` above, which is on 2.x.
+# repository's line now — 3.x, like `composeai-contracts` above, but an independent version line:
+# the two numbers coincide only by accident.
 #
 # This pins the daemon's BOM, not the modules. A daemon release publishes only the modules
 # that changed, so a coordinate is not guaranteed to exist at the release version: 3.13.0 ships
@@ -187,7 +206,9 @@ composeai-preview-daemon = "3.13.0"
 
 [libraries]
 
-composeai-common-io = { module = "ee.schimke.composeai:common-io", version.ref = "composeai-contracts" }
+# compose-preview-contracts modules (see `composeai-contracts`): versionless, resolved through the BOM.
+composeai-preview-contracts-bom = { module = "ee.schimke.composeai:compose-preview-contracts-bom", version.ref = "composeai-contracts" }
+composeai-common-io = { module = "ee.schimke.composeai:common-io" }
 
 # compose-preview-daemon modules (see `composeai-preview-daemon`): versionless, resolved through the BOM.
 composeai-preview-daemon-bom = { module = "ee.schimke.composeai:compose-preview-daemon-bom", version.ref = "composeai-preview-daemon" }
@@ -196,19 +217,23 @@ composeai-data-layoutinspector-connector = { module = "ee.schimke.composeai:data
 
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 compose-bom-compat = { module = "androidx.compose:compose-bom", version.ref = "compose-bom-compat" }
-compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui = { module = "androidx.compose.ui:ui", version.ref = "androidx-compose" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 # Downloadable Google-Fonts faces (`Font(GoogleFont("Orbitron"), provider)`). Test-only here: the
 # fixture preview that proves the figma-svg export names a branded downloadable family instead of
-# collapsing to Roboto. Versioned by `compose-bom-compat`.
-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
-compose-material3 = { module = "androidx.compose.material3:material3" }
-compose-foundation = { module = "androidx.compose.foundation:foundation" }
+# collapsing to Roboto. Also the vendored player's `google:` font path; explicitly versioned, see
+# `androidx-compose`.
+compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts", version.ref = "androidx-compose" }
+compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "androidx-compose-material3" }
+# Never a direct dependency: `material3`'s transitive ripple, which the vendored player constrains to
+# the version `compose-bom-compat` gave it (see `androidx-compose`).
+compose-material-ripple = { module = "androidx.compose.material:material-ripple", version.ref = "androidx-compose" }
+compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "androidx-compose" }
 # `CubicBezierEasing`, which the vendored Horologist Lottie renderer evaluates keyframe easing
 # with. Versioned by `compose-bom-compat`, like every other unversioned Compose entry here.
 compose-animation-core = { module = "androidx.compose.animation:animation-core" }
-compose-animation = { module = "androidx.compose.animation:animation" }
-compose-runtime = { module = "androidx.compose.runtime:runtime" }
+compose-animation = { module = "androidx.compose.animation:animation", version.ref = "androidx-compose" }
+compose-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "androidx-compose" }
 androidx-tracing = { module = "androidx.tracing:tracing", version.ref = "androidx-tracing" }
 androidx-tracing-kmp = { module = "androidx.tracing:tracing", version.ref = "androidx-tracing-kmp" }
 androidx-tracing-wire = { module = "androidx.tracing:tracing-wire", version.ref = "androidx-tracing-kmp" }

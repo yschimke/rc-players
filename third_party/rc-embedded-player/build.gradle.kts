@@ -187,7 +187,15 @@ dependencies {
     // creation-side types even though it never authors a document itself.
     implementation(libs.compose.remote.creation.compose)
 
-    implementation(platform(libs.compose.bom.compat))
+    // Explicitly versioned (`androidx-compose` / `androidx-compose-material3` in the catalog), NOT
+    // through `platform(libs.compose.bom.compat)`. A platform in `implementation` is published: it
+    // lands in the POM as a `<scope>import</scope>` and in the `.module` as a platform dependency,
+    // and either way every consumer inherits `compose-bom:<compose-bom-compat>` as a floor on EVERY
+    // Compose artifact it uses — not just the half-dozen this player needs. A library names the
+    // versions it was built against; it does not pick the Compose line for its consumers. (AGP's
+    // published runtime variant extends `releaseRuntimeClasspath`, so there is no way to keep a
+    // platform on the runtime classpath without publishing it.) The pinned versions are exactly
+    // what the BOM mapped them to, so this build resolves what it did before.
     implementation(libs.compose.runtime)
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
@@ -196,6 +204,14 @@ dependencies {
     // Material3
     // for those two rather than reimplementing them.
     implementation(libs.compose.material3)
+    constraints {
+        // The one module the BOM used to lift that nothing here requests directly: `material3`
+        // 1.4.0 asks for `material-ripple` 1.8.x, and the BOM aligned it to the core line. A
+        // constraint keeps that without making ripple a dependency of the player.
+        implementation(libs.compose.material.ripple) {
+            because("compose-bom-compat aligned material3's ripple to the Compose core line")
+        }
+    }
     // Downloadable Google Fonts: `GoogleFont` and the `Font` factory. Only the classes — the
     // certificates this artifact's resource table was supposed to carry are source constants here,
     // because the published AAR ships an empty one.
@@ -212,6 +228,13 @@ dependencies {
     // stack was extracted into this repository.
     // Versions come from the compose-preview-daemon BOM (see `composeai-preview-daemon` in the
     // catalog); `testImplementation` extends `implementation`, so the connector below shares it.
+    //
+    // Unlike the Compose BOM above, this one IS published, on purpose: it is our own group's
+    // layer-1a BOM, and resolving `ee.schimke.composeai:*` through it is the contract across these
+    // repositories (compose-ai-tools and the ui-builder import it the same way). A daemon release
+    // publishes only the modules it changed, so a direct `data-fonts-google:<release>` pin can name
+    // a coordinate that does not exist; the BOM maps each module to the version it was actually
+    // published at. What a consumer inherits is a floor on our own daemon modules only.
     implementation(platform(libs.composeai.preview.daemon.bom))
     implementation(libs.composeai.data.fonts.google)
     implementation(libs.androidx.collection)
@@ -220,6 +243,7 @@ dependencies {
     // lane. Robolectric with `@GraphicsMode(NATIVE)` is the stopgap until the CMP jvm target lets
     // it
     // run on a plain JVM (see PROVENANCE.md).
+    // The Compose BOM stays here: test configurations are never published.
     testImplementation(platform(libs.compose.bom.compat))
     testImplementation(libs.ui.test.junit4)
     testImplementation(libs.ui.test.manifest)

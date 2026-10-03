@@ -55,7 +55,9 @@ object PublishedVersions {
    *  * **absent** (`null`) -- the release did not compute a plan, so publish everything. This is the
    *    old behaviour and the `workflow_dispatch` recovery path.
    *  * **present but empty** (`""`) -- the plan ran and found nothing to publish, which happens for
-   *    a releasable change confined to `.github/` or the docs. Publish nothing (bar the BOM).
+   *    a releasable change confined to `.github/` or the docs. Publish nothing -- not even the BOM,
+   *    which would name exactly what the previous one did (`publishPlayers` skips `:bom` too, and
+   *    `.github/scripts/test-publish-players-tasks.sh` pins that).
    *
    * Treating an empty property as "publish everything" would upload all 8 coordinates on exactly
    * the releases that need none of them, while `record-published.py` recorded none of them --
