@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/yschimke/rc-players/compare/v2.0.4...v2.1.0) (2026-10-03)
+
+
+### Features
+
+* **release:** only republish the players a change can reach ([#560](https://github.com/yschimke/rc-players/issues/560)) ([e3e79db](https://github.com/yschimke/rc-players/commit/e3e79db35cfbc35c95db92ebca5c70888ed097ae))
+
+
+### Bug Fixes
+
+* **deps:** compose-preview-daemon 3.13.0 ([#564](https://github.com/yschimke/rc-players/issues/564)) ([86d45af](https://github.com/yschimke/rc-players/commit/86d45af642f00e57a46db0a009c65264d8363157))
+
 ## [2.0.4](https://github.com/yschimke/rc-players/compare/v2.0.3...v2.0.4) (2026-10-01)
 
 
