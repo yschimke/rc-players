@@ -208,8 +208,11 @@ dependencies {
     // file, which the CSS API never serves. Shared with the Robolectric downloadable-font shadow,
     // the
     // figma-svg embed path and the jvm player on purpose: one cache, one resolution rule.
-    // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
-    // was extracted into this repository.
+    // Published from yschimke/compose-preview-daemon; a `project(...)` dep here before the player
+    // stack was extracted into this repository.
+    // Versions come from the compose-preview-daemon BOM (see `composeai-preview-daemon` in the
+    // catalog); `testImplementation` extends `implementation`, so the connector below shares it.
+    implementation(platform(libs.composeai.preview.daemon.bom))
     implementation(libs.composeai.data.fonts.google)
     implementation(libs.androidx.collection)
 
@@ -236,7 +239,7 @@ dependencies {
     // captured tree, so it needs the producers themselves (`ComposeSemanticsDataProducer`,
     // `LayoutInspectorDataProducer`, `ComposeFigmaSvgDataProducer`). The connector `api`-exposes
     // `:data-layoutinspector-core`, which carries the payload DTOs the test walks.
-    // Published from yschimke/compose-ai-tools; a `project(...)` dep here before the player stack
-    // was extracted into this repository.
+    // Published from yschimke/compose-preview-daemon; a `project(...)` dep here before the player
+    // stack was extracted into this repository.
     testImplementation(libs.composeai.data.layoutinspector.connector)
 }
