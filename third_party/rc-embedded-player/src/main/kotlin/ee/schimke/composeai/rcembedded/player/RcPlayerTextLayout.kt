@@ -154,9 +154,12 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
             else -> TextOverflow.Clip
         }
 
+    // LOCAL PATCH (rc-players): sized to its lines as `CoreText` sizes itself (#572).
+    val lines = remember { CoreTextLines() }
     BasicText(
         text = text,
-        modifier = modifier,
+        modifier = modifier.tightCoreTextWidth(lines),
+        onTextLayout = { lines.result = it },
         autoSize = autoSize,
         style =
             TextStyle(
