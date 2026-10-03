@@ -258,6 +258,28 @@ internal class RcSpringAnimation(description: List<RcFloatWord>) {
     target = value.toDouble()
   }
 
+  /**
+   * Places the spring at rest on [value] with its clock at [time], as AndroidX `FloatExpression`
+   * does for a spring's first evaluation (`setInitialValue` + `setTargetValue` + `get(t)`).
+   */
+  fun settleAt(value: Float, time: Float) {
+    target = value.toDouble()
+    position = value
+    velocity = 0f
+    lastTime = time
+  }
+
+  /**
+   * Moves the target. A spring at rest stopped requesting frames, so its clock is frozen at the
+   * last frame it was evaluated on; it is synced to [time] first — which cannot move a spring at
+   * equilibrium — or the next evaluation would integrate the whole idle gap in one step. This is
+   * AndroidX `FloatExpression.updateVariables`' handling of the same case.
+   */
+  fun retarget(value: Float, time: Float) {
+    if (isStopped()) value(time)
+    setTarget(value)
+  }
+
   fun target(): Float = target.toFloat()
 
   fun value(time: Float): Float {
@@ -277,7 +299,12 @@ internal class RcSpringAnimation(description: List<RcFloatWord>) {
 
   private fun compute(deltaSeconds: Double) {
     if (deltaSeconds <= 0) return
-    var steps = (1 + 9 / (kotlin.math.sqrt(stiffness / mass) * deltaSeconds * 4)).toInt()
+    // AndroidX `SpringStopEngine.compute`: over-sample in proportion to the spring's natural
+    // frequency times the step. This was ported as `9 / (…)`, which takes *fewer* sub-steps the
+    // longer the frame, so any frame longer than a few milliseconds on a stiff spring (the
+    // `remote-m3` selection controls use stiffness 1400) ran the midpoint integrator past its
+    // stability limit and the value diverged to ±infinity instead of settling.
+    var steps = (1 + 9 * (kotlin.math.sqrt(stiffness / mass) * deltaSeconds * 4)).toInt()
     steps = steps.coerceAtMost(1000)
     val dt = deltaSeconds / steps
     repeat(steps) {

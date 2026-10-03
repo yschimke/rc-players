@@ -151,7 +151,6 @@ import androidx.compose.remote.core.operations.utilities.PathGenerator
 import androidx.compose.remote.core.operations.utilities.StringUtils
 import androidx.compose.remote.core.operations.utilities.easing.Easing
 import androidx.compose.remote.core.operations.utilities.easing.FloatAnimation
-import androidx.compose.remote.core.operations.utilities.easing.SpringStopEngine
 import androidx.compose.remote.core.semantics.CoreSemantics
 import androidx.compose.remote.core.types.BooleanConstant
 import androidx.compose.remote.core.types.IntegerConstant
@@ -1962,20 +1961,58 @@ class AndroidxWireCompatibilityTest {
 
   @Test
   fun androidXSpringFloatAnimationMatchesAcrossFrameTimes() {
-    val description = floatArrayOf(0f, 40f, 8f, .001f, Float.fromBits(0))
-    val expected = SpringStopEngine(description).also { it.setTargetValue(1f) }
+    // A spring-animated `FloatExpression`, played the way AndroidX `FloatExpression` plays it:
+    // settled at its first target, then springing toward a later one from the frame it was
+    // retargeted on (`updateVariables` syncs a settled spring's clock first).
+    //
+    // The oracle is the spring's closed-form solution rather than the pinned alpha's
+    // `SpringStopEngine`. Up to and including the `compose-remote` alphas this module pins, that
+    // engine over-samples `1 + 9 / (sqrt(k / m) * dt * 4)` times, so a longer frame takes fewer
+    // midpoint sub-steps and a stiff spring diverges on a slow frame (remote-m3's selection
+    // controls
+    // reached -1.5e8). androidx-main fixed it to `1 + 9 * (…)` in ee028a946 ("Fix spring
+    // animations rendering huge/inverted values on slow frames") and added the clock sync in
+    // fe48962b1; the player follows androidx-main. Restore an exact comparison against
+    // `SpringStopEngine` once the pinned release carries both.
+    val stiffness = 40f
+    val damping = 8f
+    val description = floatArrayOf(0f, stiffness, damping, .001f, Float.fromBits(0))
+    val sourceId = 96
     val operation =
       PlayerFloatExpression(
         97,
-        listOf(RcFloatWord.literal(1f)),
+        listOf(RcFloatWord(0x7fc00000 or sourceId)),
         description.map { RcFloatWord(it.toRawBits()) },
       )
     val state = RcPlayerState(RcDocument(RcHeader(RcVersion(0, 1, 0)), listOf(operation)))
-    listOf(0f, .016f, .032f, .064f, .125f, .25f, .5f, 1f).forEach { time ->
+    fun valueAt(time: Float): Float {
       state.beginFrame(time)
       state.applyFloatExpression(operation)
-      val actual = state.resolve(RcFloatWord(0x7fc00000 or 97))
-      assertFloatCompatible(expected.get(time), actual, "spring at $time")
+      return state.resolve(RcFloatWord(0x7fc00000 or 97))
+    }
+
+    state.setFloat(sourceId, 0f)
+    assertFloatCompatible(0f, valueAt(0f), "spring settled at its first target")
+    assertFloatCompatible(0f, valueAt(.5f), "spring still settled")
+
+    // Retargeted after half a second of being settled: it starts from rest at 0 *now*.
+    val retargetedAt = 1f
+    state.setFloat(sourceId, 1f)
+    val omega = kotlin.math.sqrt(stiffness.toDouble())
+    val zeta = damping / (2 * omega)
+    val omegaD = omega * kotlin.math.sqrt(1 - zeta * zeta)
+    fun closedForm(elapsed: Float): Float =
+      (1 -
+          kotlin.math.exp(-zeta * omega * elapsed) *
+            (kotlin.math.cos(omegaD * elapsed) +
+              zeta * omega / omegaD * kotlin.math.sin(omegaD * elapsed)))
+        .toFloat()
+    listOf(0f, .016f, .032f, .064f, .125f, .25f, .5f, 1f, 2f, 4f).forEach { elapsed ->
+      val actual = valueAt(retargetedAt + elapsed)
+      assertTrue(
+        kotlin.math.abs(closedForm(elapsed) - actual) <= .002f,
+        "spring at $elapsed s after retarget: expected ${closedForm(elapsed)}, actual $actual",
+      )
     }
   }
 
