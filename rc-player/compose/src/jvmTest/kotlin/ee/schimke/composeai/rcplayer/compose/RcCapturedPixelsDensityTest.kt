@@ -92,6 +92,39 @@ class RcCapturedPixelsDensityTest {
     }
   }
 
+  /**
+   * An EXACT width or height is dp-typed too: AndroidX `DimensionModifierOperation` scales it by
+   * the density in a DP document, and the embedded player reads it as dp since
+   * androidx/androidx@65a3bf206. Dividing it by the density instead drew a 20dp box 10px wide at
+   * density 2.
+   */
+  @Test
+  fun aDpDocumentScalesExactDimensionsWithPlaybackDensity() {
+    for (density in listOf(1f, 2f)) {
+      val edge = (INSET * density).toInt()
+      val document = exactBox()
+      assertEquals(WHITE, colorAt(edge - 1, 1, Density(density), document), "width at $density")
+      assertEquals(0, colorAt(edge + 1, 1, Density(density), document), "past width at $density")
+      assertEquals(WHITE, colorAt(1, edge - 1, Density(density), document), "height at $density")
+      assertEquals(0, colorAt(1, edge + 1, Density(density), document), "past height at $density")
+    }
+  }
+
+  /** A white box sized EXACT [INSET] by [INSET] in the top-left corner. */
+  private fun exactBox(): RcDocument =
+    RcDocument(
+      dpHeader(),
+      listOf(
+        RcRootLayout(1),
+        RcLayoutContent(2),
+        RcBoxLayout(3, 30, 1, 4),
+        RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(INSET)),
+        RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(INSET)),
+        whiteBackground(),
+        RcLayoutContent(4),
+      ) + List(4) { RcNoArg(RcOpcodes.CONTAINER_END) },
+    )
+
   /** Writes PR evidence when explicitly requested; ordinary test runs remain side-effect free. */
   @Test
   fun writeDpPaddingEvidence() {

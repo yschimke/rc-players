@@ -7,11 +7,13 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.SharedTransitionScope.ResizeMode
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -77,8 +79,24 @@ internal fun RcAnimatedAlternatives(
   sharedElements: (Int) -> Map<Int, Int>,
   content: @Composable (Int) -> Unit,
 ) {
-  // A host that turns layout animations off gets the new alternative at once.
-  val duration = if (LocalRcLayoutAnimations.current) spec.rcMotionDurationMillis() else 0
+  // A host that turns layout animations off gets the new alternative at once, and so does a
+  // document whose spec is disabled (`animationId == 0`, `RemoteModifier.animationSpec(enabled =
+  // false)`): AndroidX `Component` checks `AnimationSpec.isAnimationEnabled` before animating, and
+  // the embedded player's `StateLayout` / `FitBox` switchers have done the same since
+  // androidx/androidx@cffb71595. Reading only the duration let a disabled spec cross-fade for its
+  // default 300 ms.
+  val duration =
+    if (LocalRcLayoutAnimations.current && spec.isEnabled) spec.rcMotionDurationMillis() else 0
+  if (duration <= 0) {
+    // No transition to run, so no `AnimatedContent` or shared-transition scope around it either:
+    // with nothing in flight there are no bounds for a shared element to morph between.
+    Box(contentAlignment = alignment) {
+      CompositionLocalProvider(LocalRcSharedElementComponents provides sharedElements(target)) {
+        content(target)
+      }
+    }
+    return
+  }
   // Remembered: a sampled `Easing` has no equality, so a fresh one per composition would restart
   // anything keyed on it.
   val easing = remember(spec) { spec.rcMotionEasing() }
@@ -88,8 +106,13 @@ internal fun RcAnimatedAlternatives(
       contentAlignment = alignment,
       label = label,
       transitionSpec = {
-        fadeIn(animationSpec = tween(durationMillis = duration, easing = easing)) togetherWith
-          fadeOut(animationSpec = tween(durationMillis = duration, easing = easing))
+        (fadeIn(animationSpec = tween(durationMillis = duration, easing = easing)) togetherWith
+            fadeOut(animationSpec = tween(durationMillis = duration, easing = easing)))
+          // The container's size follows the document's motion curve and is not clipped to it,
+          // as the embedded player's switchers do (androidx/androidx@cffb71595). Compose's default
+          // is a clipping spring, which cuts off an alternative larger than the one leaving and
+          // settles on a timeline the document never asked for.
+          .using(SizeTransform(clip = false) { _, _ -> tween(duration, easing = easing) })
       },
     ) { index ->
       CompositionLocalProvider(

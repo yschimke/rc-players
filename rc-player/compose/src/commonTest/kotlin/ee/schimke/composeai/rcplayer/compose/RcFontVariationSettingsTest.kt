@@ -70,6 +70,25 @@ class RcFontVariationSettingsTest {
     assertEquals(listOf("wght" to 1000f), withWeightAxis(null, 5000).pairs())
   }
 
+  @Test
+  fun anItalicStyleOnDeclaredAxesNamesTheItalAxis() {
+    // androidx/androidx@530b47a2e: a variable instance names every axis it moves, so italic text
+    // with only `wdth` declared rendered upright.
+    val declared = fontVariationSettings(listOf("wdth"), listOf(25f))
+    assertEquals(
+      listOf("wdth" to 25f, "ital" to 1f),
+      withItalicAxis(declared, italic = true).pairs(),
+    )
+    assertEquals(listOf("wdth" to 25f), withItalicAxis(declared, italic = false).pairs())
+  }
+
+  @Test
+  fun italWithoutDeclaredAxesOrAlreadyDeclaredIsLeftAlone() {
+    assertEquals(null, withItalicAxis(null, italic = true))
+    val explicit = fontVariationSettings(listOf("ital"), listOf(0.5f))
+    assertEquals(listOf("ital" to 0.5f), withItalicAxis(explicit, italic = true).pairs())
+  }
+
   private fun RcFontVariations?.pairs(): List<Pair<String, Float>> =
     this?.axes.orEmpty().map { it.tag to it.value }
 }

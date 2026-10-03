@@ -756,7 +756,7 @@ public class RcPlayerState(
     if (operation.outId in overriddenIntegers) return
     setInteger(
       operation.outId,
-      RcIntegerExpressionEvaluator.evaluate(operation) { id -> integers[id] ?: 0 },
+      RcIntegerExpressionEvaluator.evaluate(operation, ::integerVariable),
     )
   }
 
@@ -1280,7 +1280,7 @@ public class RcPlayerState(
             }
           overrideInteger(
             operation.targetValueId.toInt(),
-            RcIntegerExpressionEvaluator.evaluate(expression) { id -> integers[id] ?: 0 },
+            RcIntegerExpressionEvaluator.evaluate(expression, ::integerVariable),
           )
           changed = true
         }
@@ -1361,6 +1361,21 @@ public class RcPlayerState(
    * id 1 — so reading them as unset hid those components.
    */
   public fun integer(id: Int): Int? = integers[id] ?: id.takeIf { it in 0 until LITERAL_ID_LIMIT }
+
+  /**
+   * An id an integer expression marks as a *variable*, as AndroidX reads it.
+   *
+   * The player's clock and calendar are loaded as floats only (see [loadSystem]), so an
+   * `IntegerExpression` over `TIME_IN_SEC` — a digital clock's `seconds % 2` blink — resolved 0
+   * here however far the clock had moved. AndroidX `RemoteComposeState.updateFloat` mirrors every
+   * float into the integer map, and the embedded player resolves the same reads from its clock
+   * since androidx/androidx@c73c596e9, so a system value is read as its float truncated. The
+   * expression marks the word as a reference, which is what keeps this from colliding with the
+   * literal small ints [integer] protects.
+   */
+  private fun integerVariable(id: Int): Int =
+    integers[id]
+      ?: if (id in RcSystemVariables.ALL && id !in claimedSystemIds) floats[id]?.toInt() ?: 0 else 0
 
   /**
    * The resource id a draw operation names — AndroidX `PaintOperation.getId`.

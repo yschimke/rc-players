@@ -6,6 +6,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
+import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
@@ -267,6 +268,38 @@ class RcSystemVariableTest {
     state.beginFrame(0f, epochMillis = 1_787_157_045_000L)
     assertEquals(1, state.integer(RcSystemVariables.CONTINUOUS_SEC))
     assertEquals(null, state.integer(142))
+  }
+
+  /**
+   * An integer expression that marks a clock id as a variable reads the clock, truncated, as
+   * AndroidX `RemoteComposeState.updateFloat` mirrors it into the integers and the embedded player
+   * resolves it (androidx/androidx@c73c596e9). It resolved 0 here.
+   */
+  @Test
+  fun anIntegerExpressionOverTheClockReadsItTruncated() {
+    // `TIME_IN_SEC % 60`: the seconds digit of a digital clock.
+    val expression =
+      RcIntegerExpression(
+        outId = 150,
+        mask = 0b101,
+        values = listOf(RcSystemVariables.TIME_IN_SEC, 60, RcIntegerExpression.MOD),
+      )
+    val document = RcDocument(RcHeader(RcVersion(1, 0, 0)), listOf(expression))
+    val state = RcPlayerState(document, timeSource = clock)
+    state.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    state.applyIntegerExpression(expression)
+    assertEquals(45, state.integer(150))
+
+    // ...and a document that reads the clock that way asks for its once-a-second refresh.
+    assertTrue(document.referencesMovingSystemVariable())
+    assertFalse(document.referencesContinuousSystemVariable())
+    // An unmarked word is a literal, however small.
+    val literal =
+      RcDocument(
+        RcHeader(RcVersion(1, 0, 0)),
+        listOf(RcIntegerExpression(150, 0b100, listOf(2, 60, RcIntegerExpression.MOD))),
+      )
+    assertFalse(literal.referencesMovingSystemVariable())
   }
 
   @Test
