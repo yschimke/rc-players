@@ -9,6 +9,8 @@ can exercise the bytes a player actually receives rather than a hand-built appro
 | `AppCardRemote-640x480.rc.b64` | copied from `third_party/rc-embedded-player/src/test/resources/rc-fixtures/`, where it backs the embedded player's SVG export test |
 | `ImageBackgroundRemoteButton-454x200.rc` | `ComponentVariantPreviewsKt.ImageBackgroundRemoteButton_width_227dp_height_100dp_dpi_320.rc` from the remote-m3 catalog |
 | `TitleCardBackgroundImage-454x400.rc` | `CatalogPreviewsKt.TitleCardRemote_width_227dp_height_200dp_dpi_320_VARIANT_background_image.rc` from the remote-m3 catalog, snapshot lane |
+| `SwitchRowSplit-454x200.rc`, `CheckboxRowSplit-454x200.rc`, `RadioRowSplit-454x200.rc` | `SelectionPreviewsKt.{Switch,Checkbox,Radio}RowRemote_width_227dp_height_100dp_dpi_320_VARIANT_split.rc` from the remote-m3 catalog |
+| `TextRemoteButton-454x200.rc` | `CatalogPreviewsKt.TextRemoteButton_width_227dp_height_100dp_dpi_320.rc` from the remote-m3 catalog |
 
 The indeterminate indicator is here because it is the shape that broke: it animates by reading the
 player-supplied clock (`RcSystemVariables.CONTINUOUS_SEC`) rather than by carrying an animation, so
@@ -34,3 +36,9 @@ bundle is the image-background button's plus `FILTER_BITMAP` (17) between `BLEND
 exists. Both documents' bitmap is the catalog's solid `#ececec` 8x8 placeholder, so neither can be
 checked by looking for variation in the fill — the card is checked against the source colour under
 its own 50% black scrim instead.
+
+The three split selection rows are checked, and every colour in them interpolates on a spring-animated
+selection progress (`remoteSpring` over a constant `checked = 1`). They are what
+`RcSpringSelectionRenderTest` draws: a player that starts a spring anywhere but its first target, or
+lets it diverge, draws them unchecked or greyed. `TextRemoteButton-454x200.rc` declares a press spring
+and nothing else that moves, which is what the same test's idle check needs.

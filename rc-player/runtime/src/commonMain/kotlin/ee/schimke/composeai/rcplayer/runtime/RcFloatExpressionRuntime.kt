@@ -23,11 +23,16 @@ internal class RcFloatExpressionRuntime(
           animation.setTarget(target)
           if (animation.initialValue.isNaN()) animation.setInitial(target)
         }
+        // AndroidX `FloatExpression` starts a spring *settled* at its first target and only springs
+        // toward later ones. Starting it from rest at 0 instead animated every spring-driven value
+        // in from zero on the first frame: a `remote-m3` split toggle row, whose selection progress
+        // is a spring over a constant `checked` flag, drew unchecked and dimmed in a still.
+        spring?.settleAt(target, timeSeconds)
       } else {
         tween?.setInitial(tween.targetValue)
         tween?.setTarget(target)
+        spring?.retarget(target, timeSeconds)
       }
-      spring?.setTarget(target)
       lastTarget = target
       lastChange = timeSeconds
     }

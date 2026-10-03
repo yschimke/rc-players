@@ -546,11 +546,16 @@ private fun RcComposePlayerResolved(
         invalidationVersion += 1
       }
   }
-  val documentDeclaresAnimation =
+  val documentDeclaresFloatAnimation =
     remember(document) {
-      document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null } ||
-        // A marquee is not here: `basicMarquee` runs its own animation.
-        document.operations.any { it is RcTimeAttribute && it.type.requiresContinuousFrames } ||
+      document.operations.filterIsInstance<RcFloatExpression>().any { it.animation != null }
+    }
+  // What needs a frame on every vsync for as long as the document is shown, as opposed to a float
+  // tween or spring, which needs frames only while it is moving.
+  val documentReadsContinuousClock =
+    remember(document) {
+      // A marquee is not here: `basicMarquee` runs its own animation.
+      document.operations.any { it is RcTimeAttribute && it.type.requiresContinuousFrames } ||
         // A document can also animate by reading the clock directly, with no animation attached to
         // anything: `remote-m3`'s indeterminate circular progress builds its sweep from a float
         // expression over the player-supplied `CONTINUOUS_SEC` (#4264). Without this the state's
@@ -564,18 +569,28 @@ private fun RcComposePlayerResolved(
   // midnight — gets the same once-a-second refresh, found by scanning every field.
   val ticksEverySecond =
     remember(document) {
-      !documentDeclaresAnimation &&
+      !documentReadsContinuousClock &&
         (document.referencesMovingSystemVariable() ||
           document.referencesAnyOf(RcSystemVariables.CLOCK))
     }
   // An implicit graphics-layer tween needs no document frames: it runs on Compose's own frame clock
   // and updates only its layer (see `applyGraphicsLayer`).
-  val needsContinuousFrames = documentDeclaresAnimation
-  var frameNanos by remember { mutableLongStateOf(0L) }
+  //
+  // A host that drives the animation clock itself (`LocalRcAnimationClock`) owns time, so a
+  // document
+  // that declares any animation keeps redrawing for it as before: the player cannot tell from its
+  // own state when such a host will next move the clock.
   val animationClock = LocalRcAnimationClock.current
+  val needsContinuousFrames =
+    documentReadsContinuousClock || (animationClock != null && documentDeclaresFloatAnimation)
+  var frameNanos by remember { mutableLongStateOf(0L) }
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
+  // The latest frame time any loop below was handed, un-rebased, so a restarted animation loop can
+  // tell how long the player sat idle.
+  val lastFrameNanos = remember(document) { longArrayOf(Long.MIN_VALUE) }
   val recordFrame: (Long) -> Unit = { nanos ->
     if (frameOriginNanos == Long.MIN_VALUE) frameOriginNanos = nanos
+    lastFrameNanos[0] = nanos
     frameNanos = nanos - frameOriginNanos
   }
   LaunchedEffect(document) { withFrameNanos(recordFrame) }
@@ -584,6 +599,52 @@ private fun RcComposePlayerResolved(
       while (true) withFrameNanos(recordFrame)
     }
   }
+  // Float tweens and springs get frames only while one is moving, as AndroidX's `FloatExpression`
+  // requests a repaint only until its animation settles. Looping for as long as the document merely
+  // *declared* one kept every such document — every `remote-m3` button carries a press spring —
+  // scheduling frames forever: a static still never let a Compose test idle, and a capture paid for
+  // a recomposition per vsync.
+  //
+  // The loop runs one frame after each (re)start and stops at the first frame on which no
+  // animation is running. Whatever moves a target later — an action, a host value, a clock tick —
+  // re-evaluates the expression during composition or draw, and [wakeFloatAnimations] restarts the
+  // loop from there.
+  val floatAnimationLoop = remember(document) { RcFloatAnimationLoop() }
+  val wakeFloatAnimations: () -> Unit = {
+    if (
+      documentDeclaresFloatAnimation &&
+        !needsContinuousFrames &&
+        !floatAnimationLoop.running &&
+        state.hasActiveFloatAnimations
+    ) {
+      floatAnimationLoop.wake += 1
+    }
+  }
+  LaunchedEffect(floatAnimationLoop.wake, needsContinuousFrames) {
+    if (!documentDeclaresFloatAnimation || needsContinuousFrames) return@LaunchedEffect
+    floatAnimationLoop.running = true
+    try {
+      var first = true
+      while (true) {
+        withFrameNanos { nanos ->
+          // The target moved while the loop was asleep, so it was stamped with the last frame
+          // time the player had — possibly seconds ago. Resume the animation clock from there
+          // instead of jumping it across the idle gap, or a tween would start already finished.
+          // Nothing else reads this clock while the document is idle: a document that reads it
+          // directly is `needsContinuousFrames` and never sleeps.
+          if (first && floatAnimationLoop.wake > 0 && lastFrameNanos[0] != Long.MIN_VALUE) {
+            frameOriginNanos += nanos - lastFrameNanos[0]
+          }
+          recordFrame(nanos)
+        }
+        first = false
+        if (!state.hasActiveFloatAnimations) break
+      }
+    } finally {
+      floatAnimationLoop.running = false
+    }
+  }
+  SideEffect { wakeFloatAnimations() }
   LaunchedEffect(ticksEverySecond, needsContinuousFrames) {
     if (ticksEverySecond && !needsContinuousFrames) {
       while (true) {
@@ -674,6 +735,8 @@ private fun RcComposePlayerResolved(
         invalidationVersion // Subscribe the draw layer to action and WakeIn invalidations.
         drawObserver?.onFrame()
         drawContent()
+        // A canvas document evaluates its expressions here rather than in composition.
+        wakeFloatAnimations()
       }
       // Published here rather than on the root layout component, because a canvas-only document has
       // no layout tree at all — it takes the `Canvas` branch below — and hanging the state off a
@@ -778,6 +841,14 @@ private fun RcComposePlayerResolved(
       }
     }
   }
+}
+
+/** The on-demand frame loop behind a document's float tweens and springs. */
+private class RcFloatAnimationLoop {
+  /** Bumped to restart the loop once it has stopped. */
+  var wake by mutableIntStateOf(0)
+  /** Read and written on the composition's thread only: effects, composition and draw. */
+  var running = false
 }
 
 @Composable
