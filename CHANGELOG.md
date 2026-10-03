@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.2](https://github.com/yschimke/rc-players/compare/v2.1.1...v2.1.2) (2026-10-03)
+
+
+### Bug Fixes
+
+* **build:** stop leaking the AndroidX Compose BOM; resolve common-io through the contracts BOM ([#569](https://github.com/yschimke/rc-players/issues/569)) ([f900402](https://github.com/yschimke/rc-players/commit/f9004024bb4f01b21a64812f37da0acde8e92de6))
+* **deps:** compose-preview-daemon 3.13.1 ([#571](https://github.com/yschimke/rc-players/issues/571)) ([a4b8f63](https://github.com/yschimke/rc-players/commit/a4b8f63f212900b0fe3b6b51f91877bfcd56740f))
+
 ## [2.1.1](https://github.com/yschimke/rc-players/compare/v2.1.0...v2.1.1) (2026-10-03)
 
 
