@@ -48,6 +48,7 @@ import androidx.compose.remote.core.operations.DrawToBitmap
 import androidx.compose.remote.core.operations.DrawTweenPath
 import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.FloatFunctionCall
+import androidx.compose.remote.core.operations.FloatFunctionDefine
 import androidx.compose.remote.core.operations.ParticlesCreate
 import androidx.compose.remote.core.operations.ParticlesLoop
 import androidx.compose.remote.core.operations.PathCombine
@@ -451,11 +452,36 @@ internal fun CoreDocument.registerVariablesReflection(
     docRegisterVariablesMethod.invoke(this, context, operations)
 }
 
+internal inline fun <R> RemoteContext.withOpCountReset(block: () -> R): R {
+    val state = mRemoteComposeState as? SnapshotRemoteComposeState
+    val isOutermost = state == null || state.opCountDepth == 0
+    if (isOutermost) {
+        clearLastOpCount()
+    }
+    if (state != null) state.opCountDepth++
+    var primaryException: Throwable? = null
+    return try {
+        block()
+    } catch (t: Throwable) {
+        primaryException = t
+        throw t
+    } finally {
+        if (state != null) state.opCountDepth--
+        if (isOutermost) {
+            try {
+                clearLastOpCount()
+            } catch (t: Throwable) {
+                primaryException?.addSuppressed(t) ?: throw t
+            }
+        }
+    }
+}
+
 internal fun CoreDocument.applyOperationsReflection(
     context: RemoteContext,
     operations: ArrayList<Operation>,
 ) {
-    docApplyOperationsMethod.invoke(this, context, operations)
+    context.withOpCountReset { applyOperationsWithoutBitmaps(context, operations) }
 }
 
 /**
@@ -466,6 +492,20 @@ internal fun CoreDocument.applyOperationsReflection(
 internal fun applyOperationsWithoutBitmaps(context: RemoteContext, list: List<Operation>) {
     for (i in list.indices) {
         val op = list[i]
+        if (op is FloatFunctionDefine || op is LoopOperation) {
+            // FloatFunctionDefine and LoopOperation implement Container, but their child operations
+            // are function/loop bodies meant to run only when invoked or iterated during draw.
+            // Recursing into them or calling LoopOperation.updateVariables/apply during setup would
+            // prematurely increment mOpCount and evaluate body operations with uninitialized
+            // parameter or loop-index variables.
+            op.markNotDirty()
+            context.incrementOpCount()
+            if (op is FloatFunctionDefine) {
+                op.registerListening(context)
+            }
+            registerNestedBitmapMetadata(context, (op as Container).list)
+            continue
+        }
         if (op is VariableSupport) {
             op.updateVariables(context)
         }
@@ -482,22 +522,35 @@ internal fun applyOperationsWithoutBitmaps(context: RemoteContext, list: List<Op
                 op.apply(context)
             }
             applyOperationsWithoutBitmaps(context, (op as Container).list)
-            // LOCAL PATCH (rc-players): a component's canvas stream hangs off it as a field, not as
-            // a child, so the walk above never reaches a bitmap declared there. `remote-m3`
-            // declares an image-background button's bitmap exactly there, and both its texture and
-            // the `ImageAttribute` size its scrim derives from read this registration (#54).
-            if (op is LayoutComponent) registerCanvasBitmaps(context, op.getCanvasOperations())
+            // LOCAL PATCH (rc-players): upstream (3876c8b86) *applies* a component's canvas stream
+            // here to reach the BitmapData declared in it. Against the pinned core that evaluates
+            // the stream's expressions before layout — an edge button's width expression reads a
+            // component value that does not exist yet and throws — so only the bitmaps are
+            // registered, which is all the setup walk needs from the stream (#54).
+            if (op is LayoutComponent) {
+                op.getDrawContentOperationsListReflection()?.let { canvasOps ->
+                    registerNestedBitmapMetadata(context, canvasOps)
+                }
+            }
         } else {
             op.apply(context)
         }
     }
 }
 
-/** LOCAL PATCH (rc-players): registers every [BitmapData] under [operation], without decoding. */
-private fun registerCanvasBitmaps(context: RemoteContext, operation: Operation?) {
-    when (operation) {
-        is BitmapData -> context.putObject(operation.mImageId, operation)
-        is Container -> operation.list.forEach { registerCanvasBitmaps(context, it) }
+private fun registerNestedBitmapMetadata(context: RemoteContext, list: List<Operation>) {
+    for (i in list.indices) {
+        val op = list[i]
+        if (op is BitmapData) {
+            context.putObject(op.mImageId, op)
+        } else if (op is Container) {
+            registerNestedBitmapMetadata(context, op.list)
+            if (op is LayoutComponent) {
+                op.getDrawContentOperationsListReflection()?.let { canvasOps ->
+                    registerNestedBitmapMetadata(context, canvasOps)
+                }
+            }
+        }
     }
 }
 
@@ -509,13 +562,15 @@ private fun registerCanvasBitmaps(context: RemoteContext, operation: Operation?)
  * in CoreDocument.
  */
 internal fun CoreDocument.applyDataOperationsWithoutBitmaps(context: RemoteContext) {
-    context.mode = RemoteContext.ContextMode.DATA
-    try {
-        updateTimeReflection(context)
-        registerVariablesReflection(context, getOperationsReflection())
-        applyOperationsWithoutBitmaps(context, getOperationsReflection())
-    } finally {
-        context.mode = RemoteContext.ContextMode.UNSET
+    context.withOpCountReset {
+        context.mode = RemoteContext.ContextMode.DATA
+        try {
+            updateTimeReflection(context)
+            registerVariablesReflection(context, getOperationsReflection())
+            applyOperationsWithoutBitmaps(context, getOperationsReflection())
+        } finally {
+            context.mode = RemoteContext.ContextMode.UNSET
+        }
     }
 }
 
@@ -529,12 +584,6 @@ private val docRegisterVariablesMethod =
     CoreDocument::class
         .java
         .getDeclaredMethod("registerVariables", RemoteContext::class.java, ArrayList::class.java)
-        .apply { isAccessible = true }
-
-private val docApplyOperationsMethod =
-    CoreDocument::class
-        .java
-        .getDeclaredMethod("applyOperations", RemoteContext::class.java, ArrayList::class.java)
         .apply { isAccessible = true }
 
 // 2. RemoteComposeState Helpers

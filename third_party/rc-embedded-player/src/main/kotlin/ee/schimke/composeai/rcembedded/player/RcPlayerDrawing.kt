@@ -19,8 +19,6 @@
 package ee.schimke.composeai.rcembedded.player
 
 import android.graphics.Bitmap
-import android.graphics.Path as AndroidPath
-import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.remote.core.Operation
 import androidx.compose.remote.core.PaintOperation
@@ -87,6 +85,7 @@ import androidx.compose.remote.core.operations.layout.managers.CanvasLayout
 import androidx.compose.remote.core.operations.utilities.ImageScaling
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ClipOp
@@ -97,15 +96,10 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.util.fastForEach
@@ -134,20 +128,20 @@ internal fun derefId(rawId: Int, context: RemoteContext): Int =
 internal fun resolveBitmap(remoteContext: RemoteContext, id: Int): Bitmap? {
     val cached = remoteContext.mRemoteComposeState.getFromId(id)
     if (cached is Bitmap) return cached
+    // LOCAL PATCH (rc-players): a failed decode is remembered, so the draw loop does not retry the
+    // same broken reference every frame. Upstream (3876c8b86) now catches the failure but retries.
     if (cached === FailedBitmapDecode) return null
     // Not decoded yet: find the registered BitmapData and decode it now (apply = putObject +
     // loadBitmap, which caches the decoded Bitmap under the id).
     val data = remoteContext.mRemoteComposeState.getObject(id) as? BitmapData ?: return null
-    // LOCAL PATCH (rc-players): a bad or unresolvable image (a relative URI throws "URI is not
-    // absolute") costs one image slot, not the whole document, and the failure is remembered so the
-    // draw loop does not retry the same broken reference every frame.
-    try {
+    return try {
         data.apply(remoteContext)
+        remoteContext.mRemoteComposeState.getFromId(id) as? Bitmap
     } catch (_: Exception) {
+        // LOCAL PATCH (rc-players): see above.
         remoteContext.mRemoteComposeState.cacheData(id, FailedBitmapDecode)
-        return null
+        null
     }
-    return remoteContext.mRemoteComposeState.getFromId(id) as? Bitmap
 }
 
 /**
@@ -196,6 +190,27 @@ internal fun DrawScope.executeOperations(
     onDrawContent: () -> Unit = {},
     graph: GraphContext? = null,
 ) {
+    remoteContext.withOpCountReset {
+        graph?.clearLastOpCount()
+        executeOperationsInPass(
+            operations = operations,
+            remoteContext = remoteContext,
+            textMeasurer = textMeasurer,
+            paintState = paintState,
+            onDrawContent = onDrawContent,
+            graph = graph,
+        )
+    }
+}
+
+private fun DrawScope.executeOperationsInPass(
+    operations: List<Operation>,
+    remoteContext: RemoteContext,
+    textMeasurer: TextMeasurer,
+    paintState: ComposeLocalPaint = ComposeLocalPaint(),
+    onDrawContent: () -> Unit = {},
+    graph: GraphContext? = null,
+) {
     // Reads route through the GraphContext when present: it resolves time ids from the Compose
     // frame clock and computed ids via per-pass DAG memoization over reactive leaf states, and a
     // leaf id falls through to the same shared snapshot store. So reading a time/variable-driven
@@ -205,16 +220,23 @@ internal fun DrawScope.executeOperations(
     // suppresses writes during evaluation — so they stay on `remoteContext` (the real store).
     // GraphContext shares that store, so leaf reads are identical either way.
     val read: RemoteContext = graph ?: remoteContext
-    remoteContext.clearLastOpCount()
-    graph?.clearLastOpCount()
+    var paintEvalContext: GraphPaintContext? = null
+    fun evalPaintContext(): GraphPaintContext =
+        (paintEvalContext
+                ?: GraphPaintContext(remoteContext, read, textMeasurer).also {
+                    paintEvalContext = it
+                })
+            .also {
+                it.paintState = paintState
+                it.textMeasurer = textMeasurer
+            }
     var canvasLevel = 0
     // For DRAW_TO_BITMAP: the original on-screen canvas, saved the first time the draw target is
     // redirected to an offscreen bitmap so it can be restored (on a `bitmapId == 0` reset, and
     // defensively at the end of the op stream).
     var mainCanvas: Canvas? = null
-    // LOCAL PATCH (rc-players): allocated on demand for the value-producing ops below.
-    var evalPaintContext: GraphPaintContext? = null
     operations.fastForEach { op ->
+        remoteContext.incrementOpCount()
         if (op is VariableSupport) {
             op.updateVariables(read)
         }
@@ -241,30 +263,18 @@ internal fun DrawScope.executeOperations(
                 remoteContext.loadFloat(op.mId, v)
             }
             is ColorConstant -> op.apply(remoteContext)
-            is NamedVariable -> op.apply(remoteContext)
-            // LOCAL PATCH (rc-players): value-producing ops declared in a draw stream. Upstream's
-            // loop skips them, so their ids resolve against a store nothing wrote. `ColorAttribute`
-            // and `ImageAttribute` publish from `paint`, not `apply`, and `ImageAttribute` is never
-            // indexed by `buildComputedOpIndex`: an image-background button's scrim gradient,
-            // derived from the image's size, degenerated to its first stop (#54). `TextMeasure`
-            // publishes a text's measured bounds. See PROVENANCE.md.
             is ColorExpression -> op.apply(remoteContext)
-            is ColorAttribute,
-            is ImageAttribute -> {
-                val context =
-                    evalPaintContext
-                        ?: GraphPaintContext(remoteContext).also { evalPaintContext = it }
-                op.paint(context)
+            is ColorAttribute -> {
+                remoteContext.loadColor(op.mColorId, read.getColor(op.mColorId))
+                op.paint(evalPaintContext())
             }
+            is ImageAttribute -> op.paint(evalPaintContext())
             is TextMeasure -> {
-                if (!paintState.textSize.isNaN()) {
-                    val text = read.getText(op.mTextId).orEmpty()
-                    val bounds = measureTextBounds(text, paintState.toNativeTextPaint(read))
-                    selectTextMeasureResult(op.mType, bounds)?.let {
-                        remoteContext.loadFloat(op.mId, it)
-                    }
-                }
+                graph?.textMeasurer = textMeasurer
+                graph?.setTextMeasurePaint(op.mId, paintState.copy())
+                op.paint(evalPaintContext())
             }
+            is NamedVariable -> op.apply(remoteContext)
             is ParticlesLoop -> {
                 // Particle system: bridged to the core (View player) implementation. Needs the
                 // graph for seed state + frame-clock observation; without it skip.
@@ -281,7 +291,7 @@ internal fun DrawScope.executeOperations(
                 // /
                 // duration gating isn't modelled here — the children always run — so impulse-driven
                 // content (e.g. particles) renders continuously rather than on event.
-                executeOperations(
+                executeOperationsInPass(
                     (op as Container).list,
                     remoteContext,
                     textMeasurer,
@@ -307,7 +317,7 @@ internal fun DrawScope.executeOperations(
                         else -> a >= b // TYPE_GTE
                     }
                 if (run)
-                    executeOperations(
+                    executeOperationsInPass(
                         op.list,
                         remoteContext,
                         textMeasurer,
@@ -331,8 +341,9 @@ internal fun DrawScope.executeOperations(
                     var i = from
                     var guard = 0
                     while (i < until && guard < MAX_LOOP_ITERATIONS) {
+                        remoteContext.incrementOpCount()
                         if (indexId != 0) remoteContext.loadFloat(indexId, i)
-                        executeOperations(
+                        executeOperationsInPass(
                             op.list,
                             remoteContext,
                             textMeasurer,
@@ -364,14 +375,7 @@ internal fun DrawScope.executeOperations(
                 }
             }
             is DrawCircle -> {
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val data = op.readDataReflection()
                 val v1 = resolveFloat(data.value1, data.v1, read)
                 val v2 = resolveFloat(data.value2, data.v2, read)
@@ -393,19 +397,13 @@ internal fun DrawScope.executeOperations(
                         center = Offset(v1, v2),
                         radius = v3,
                         style = style,
+                        colorFilter = paintState.colorFilter,
                         blendMode = paintState.blendMode,
                     )
                 }
             }
             is DrawRect -> {
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val data = op.readDataReflection()
                 val x1 = resolveFloat(data.x1Value, data.x1, read)
                 val y1 = resolveFloat(data.y1Value, data.y1, read)
@@ -429,6 +427,7 @@ internal fun DrawScope.executeOperations(
                         topLeft = Offset(x1, y1),
                         size = Size(x2 - x1, y2 - y1),
                         style = style,
+                        colorFilter = paintState.colorFilter,
                         blendMode = paintState.blendMode,
                     )
                 }
@@ -440,24 +439,34 @@ internal fun DrawScope.executeOperations(
                 val x2 = resolveFloat(data.x2Value, data.x2, read)
                 val y2 = resolveFloat(data.y2Value, data.y2, read)
 
-                drawLine(
-                    color = paintState.effectiveColor(),
-                    start = Offset(x1, y1),
-                    end = Offset(x2, y2),
-                    strokeWidth = paintState.strokeWidth,
-                    cap = mapStrokeCap(paintState.strokeCap),
-                    blendMode = paintState.blendMode,
-                )
+                val brush = paintState.brush
+                if (brush != null) {
+                    drawLine(
+                        brush = brush,
+                        start = Offset(x1, y1),
+                        end = Offset(x2, y2),
+                        strokeWidth = paintState.strokeWidth,
+                        cap = mapStrokeCap(paintState.strokeCap),
+                        pathEffect = paintState.pathEffect,
+                        alpha = paintState.alpha,
+                        colorFilter = paintState.colorFilter,
+                        blendMode = paintState.blendMode,
+                    )
+                } else {
+                    drawLine(
+                        color = paintState.effectiveColor(),
+                        start = Offset(x1, y1),
+                        end = Offset(x2, y2),
+                        strokeWidth = paintState.strokeWidth,
+                        cap = mapStrokeCap(paintState.strokeCap),
+                        pathEffect = paintState.pathEffect,
+                        colorFilter = paintState.colorFilter,
+                        blendMode = paintState.blendMode,
+                    )
+                }
             }
             is DrawOval -> {
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val data = op.readDataReflection()
                 val x1 = resolveFloat(data.x1Value, data.x1, read)
                 val y1 = resolveFloat(data.y1Value, data.y1, read)
@@ -480,19 +489,13 @@ internal fun DrawScope.executeOperations(
                         topLeft = Offset(x1, y1),
                         size = Size(x2 - x1, y2 - y1),
                         style = style,
+                        colorFilter = paintState.colorFilter,
                         blendMode = paintState.blendMode,
                     )
                 }
             }
             is DrawRoundRect -> {
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val data = op.readDataReflection()
                 val v1 = resolveFloat(data.value1, data.v1, read)
                 val v2 = resolveFloat(data.value2, data.v2, read)
@@ -520,19 +523,13 @@ internal fun DrawScope.executeOperations(
                         size = Size(v3 - v1, v4 - v2),
                         cornerRadius = CornerRadius(v5, v6),
                         style = style,
+                        colorFilter = paintState.colorFilter,
                         blendMode = paintState.blendMode,
                     )
                 }
             }
             is DrawSector -> {
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val data = op.readDataReflection()
                 val v1 = resolveFloat(data.value1, data.v1, read)
                 val v2 = resolveFloat(data.value2, data.v2, read)
@@ -564,19 +561,13 @@ internal fun DrawScope.executeOperations(
                         topLeft = Offset(v1, v2),
                         size = Size(v3 - v1, v4 - v2),
                         style = style,
+                        colorFilter = paintState.colorFilter,
                         blendMode = paintState.blendMode,
                     )
                 }
             }
             is DrawArc -> {
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val data = op.readDataReflection()
                 val v1 = resolveFloat(data.value1, data.v1, read)
                 val v2 = resolveFloat(data.value2, data.v2, read)
@@ -608,6 +599,7 @@ internal fun DrawScope.executeOperations(
                         topLeft = Offset(v1, v2),
                         size = Size(v3 - v1, v4 - v2),
                         style = style,
+                        colorFilter = paintState.colorFilter,
                         blendMode = paintState.blendMode,
                     )
                 }
@@ -655,14 +647,7 @@ internal fun DrawScope.executeOperations(
                 val data = op.readDataReflection()
                 val pathId = derefId(data.id, read)
                 val path = remoteContext.mRemoteComposeState.getPath(pathId, data.start, data.end)
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val brush = paintState.brush
                 if (brush != null) {
                     drawPath(
@@ -757,49 +742,7 @@ internal fun DrawScope.executeOperations(
                     val text = full.substring(start, end)
                     val x = resolveFloat(op.mX, op.mOutX, read)
                     val y = resolveFloat(op.mY, op.mOutY, read)
-                    // textMeasurer is non-null
-                    val fontStyle = paintState.fontStyle
-                    val fontWeight = FontWeight(paintState.fontWeight)
-                    // TODO: Support proper font family resolution (see aosp/4187117)
-                    val fontFamily =
-                        when (paintState.fontFamily) {
-                            1 -> FontFamily.SansSerif
-                            2 -> FontFamily.Serif
-                            3 -> FontFamily.Monospace
-                            else -> FontFamily.Default
-                        }
-
-                    val style =
-                        if (paintState.isStroke)
-                            Stroke(
-                                width = paintState.strokeWidth,
-                                cap = mapStrokeCap(paintState.strokeCap),
-                                join = mapStrokeJoin(paintState.strokeJoin),
-                            )
-                        else Fill
-
-                    val textStyle =
-                        if (paintState.brush != null) {
-                            TextStyle(
-                                brush = paintState.brush,
-                                alpha = paintState.alpha,
-                                fontSize = paintState.textSize.toSp(),
-                                fontWeight = fontWeight,
-                                fontStyle = fontStyle,
-                                fontFamily = fontFamily,
-                                drawStyle = style,
-                            )
-                        } else {
-                            TextStyle(
-                                color = paintState.effectiveColor(),
-                                fontSize = paintState.textSize.toSp(),
-                                fontWeight = fontWeight,
-                                fontStyle = fontStyle,
-                                fontFamily = fontFamily,
-                                drawStyle = style,
-                            )
-                        }
-
+                    val textStyle = paintState.toTextStyle(this, read)
                     val textLayoutResult = textMeasurer.measure(text = text, style = textStyle)
 
                     // Assuming y is baseline
@@ -837,24 +780,30 @@ internal fun DrawScope.executeOperations(
                 // are package-private (read reflectively); updateVariables (run above) resolved
                 // them
                 // into mOut*. Replicates DrawTextAnchored.getHorizontalOffset/getVerticalOffset
-                // using
-                // measured text bounds.
+                // using Compose TextMeasurer and drawText.
                 val data = op.readData()
                 val textId = data.textId
                 val full = read.getText(textId)
                 if (full != null && !paintState.textSize.isNaN()) {
-                    val nativePaint = paintState.toNativeTextPaint(read)
                     val flags = data.flags
-                    val baseline = (flags and DrawTextAnchored.BASELINE_RELATIVE) != 0
-                    val bounds = Rect()
-                    nativePaint.getTextBounds(full, 0, full.length, bounds)
+                    val baselineRelative = (flags and DrawTextAnchored.BASELINE_RELATIVE) != 0
+                    val bounds = FloatArray(4)
+                    evalPaintContext().getTextBounds(textId, 0, -1, flags, bounds)
+                    val textStyle = paintState.toTextStyle(this, read)
+                    val textLayoutResult =
+                        textMeasurer.measure(
+                            text = full,
+                            style = textStyle,
+                            softWrap = false,
+                            maxLines = 1,
+                        )
                     val outX = data.x
                     val outY = data.y
                     val outPanX = data.panX
                     val outPanY = data.panY
-                    val textWidth = (bounds.right - bounds.left).toFloat()
-                    val textHeight = (bounds.bottom - bounds.top).toFloat()
-                    val hOffset = (0f - textWidth) * (1f + outPanX) / 2f - bounds.left
+                    val textWidth = bounds[2] - bounds[0]
+                    val textHeight = bounds[3] - bounds[1]
+                    val hOffset = (0f - textWidth) * (1f + outPanX) / 2f - bounds[0]
                     val x = outX + hOffset
                     val y =
                         if (outPanY.isNaN()) {
@@ -862,9 +811,13 @@ internal fun DrawScope.executeOperations(
                         } else {
                             outY +
                                 (0f - textHeight) * (1f - outPanY) / 2f +
-                                (if (baseline) textHeight / 2f else -bounds.top.toFloat())
+                                (if (baselineRelative) textHeight / 2f else -bounds[1])
                         }
-                    drawContext.canvas.nativeCanvas.drawText(full, x, y, nativePaint)
+                    val baseline = textLayoutResult.firstBaseline
+                    drawText(
+                        textLayoutResult = textLayoutResult,
+                        topLeft = Offset(x, y - baseline),
+                    )
                 }
             }
             is DrawBitmapScaled -> {
@@ -979,14 +932,7 @@ internal fun DrawScope.executeOperations(
                         start,
                         stop,
                     )
-                val style =
-                    if (paintState.isStroke)
-                        Stroke(
-                            width = paintState.strokeWidth,
-                            cap = mapStrokeCap(paintState.strokeCap),
-                            join = mapStrokeJoin(paintState.strokeJoin),
-                        )
-                    else Fill
+                val style = paintState.toDrawStyle()
                 val brush = paintState.brush
                 if (brush != null) {
                     drawPath(
@@ -1062,8 +1008,16 @@ internal fun DrawScope.executeOperations(
                     val warpRadiusOffset = data.warpRadiusOffset
                     val alignment = data.alignment
                     val placement = data.placement
+                    val textWidth =
+                        textMeasurer
+                            .measure(
+                                text = full,
+                                style = paintState.toTextStyle(this, read),
+                                softWrap = false,
+                                maxLines = 1,
+                            )
+                            .getLineRight(0)
                     val nativePaint = paintState.toNativeTextPaint(read)
-                    val textWidth = nativePaint.measureText(full)
                     val finalRadius = radius + warpRadiusOffset
                     val clockwise = placement == DrawTextOnCircle.Placement.OUTSIDE
                     var sweepDegrees =
@@ -1088,19 +1042,21 @@ internal fun DrawScope.executeOperations(
                         }
                     }
                     val textPath =
-                        AndroidPath().apply {
+                        Path().apply {
                             addArc(
-                                centerX - finalRadius,
-                                centerY - finalRadius,
-                                centerX + finalRadius,
-                                centerY + finalRadius,
+                                Rect(
+                                    centerX - finalRadius,
+                                    centerY - finalRadius,
+                                    centerX + finalRadius,
+                                    centerY + finalRadius,
+                                ),
                                 finalStartAngle,
                                 sweepDegrees,
                             )
                         }
                     drawContext.canvas.nativeCanvas.drawTextOnPath(
                         full,
-                        textPath,
+                        textPath.asAndroidPath(),
                         0f,
                         0f,
                         nativePaint,

@@ -18,11 +18,13 @@
 
 package ee.schimke.composeai.rcembedded.player
 
-import android.graphics.BitmapShader
+import android.graphics.DiscretePathEffect
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PathDashPathEffect
 import android.graphics.RuntimeShader
 import android.graphics.Shader
+import android.graphics.SumPathEffect
 import android.os.Build
 import androidx.annotation.RestrictTo
 import androidx.compose.remote.core.MatrixAccess
@@ -30,6 +32,7 @@ import androidx.compose.remote.core.RemoteContext
 import androidx.compose.remote.core.operations.ShaderData
 import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.paint.PaintBundle
+import androidx.compose.remote.core.operations.paint.PaintPathEffects
 import androidx.compose.remote.player.core.platform.AndroidRemoteContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -38,13 +41,26 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asAndroidPathEffect
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toComposePathEffect
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import ee.schimke.composeai.rcembedded.player.utils.getPath
+import ee.schimke.composeai.rcembedded.player.utils.toStampedPathEffectStyle
 
 /*
  * Paint state + PaintBundle decoding for the embedded player's canvas draw path. Splits the paint
@@ -60,18 +76,22 @@ public class ComposeLocalPaint {
     public var isColorSet: Boolean = false
     public var strokeWidth: Float = 1f
     public var isStrokeWidthSet: Boolean = false
+    public var strokeMiter: Float = Stroke.DefaultMiter
     public var isStroke: Boolean = false
     public var isStyleSet: Boolean = false
     public var strokeCap: Int = 0
     public var isStrokeCapSet: Boolean = false
     public var strokeJoin: Int = 0
     public var isStrokeJoinSet: Boolean = false
+    public var pathEffect: PathEffect? = null
     public var textSize: Float = Float.NaN
     public var isTextSizeSet: Boolean = false
     public var fontFamily: Int = 0
     public var isTypefaceSet: Boolean = false
     public var fontWeight: Int = 400
     public var fontStyle: FontStyle = FontStyle.Normal
+    internal var fontAxis: IntArray? = null
+    internal var fontAxisValues: FloatArray? = null
     public var brush: Brush? = null
     // The framework shader backing [brush] (SHADER/TEXTURE), kept so SHADER_MATRIX can set a local
     // matrix on it.
@@ -95,6 +115,19 @@ public class ComposeLocalPaint {
 
     /** The fill color with the paint's [alpha] folded into its alpha channel. */
     public fun effectiveColor(): Color = Color(color).let { it.copy(alpha = it.alpha * alpha) }
+
+    internal fun toDrawStyle(): DrawStyle =
+        if (isStroke) {
+            Stroke(
+                width = strokeWidth,
+                miter = strokeMiter,
+                cap = mapStrokeCap(strokeCap),
+                join = mapStrokeJoin(strokeJoin),
+                pathEffect = pathEffect,
+            )
+        } else {
+            Fill
+        }
 
     /**
      * Build a framework [android.graphics.Paint] for the canvas text draw ops (DRAW_TEXT and its
@@ -129,10 +162,127 @@ public class ComposeLocalPaint {
         return Paint().apply {
             isAntiAlias = true
             color = effectiveColor().toArgb()
-            textSize = this@ComposeLocalPaint.textSize
+            if (!this@ComposeLocalPaint.textSize.isNaN()) {
+                textSize = this@ComposeLocalPaint.textSize
+            }
             typeface = fontInstance.getTypeface()
         }
     }
+
+    internal fun toTextStyle(density: Density, context: RemoteContext): TextStyle {
+        val weight = FontWeight(fontWeight)
+        val resolver =
+            (context as? AndroidRemoteContext)?.typefaceResolver
+                ?: (context as? GraphContext)?.typefaceResolver
+        val fontCertsResId = (resolver as? HasFontCerts)?.fontCertsResId ?: 0
+        val effectiveFontFamilyType = if (isTypefaceSet) fontFamily else 0
+        val fontName =
+            when (effectiveFontFamilyType) {
+                0 -> "default"
+                1 -> "sans-serif"
+                2 -> "serif"
+                3 -> "monospace"
+                else -> context.getText(effectiveFontFamilyType)
+            }
+        val resolvedFontFamily =
+            resolveFontFamily(
+                fontFamilyType = effectiveFontFamilyType,
+                fontName = fontName,
+                fontWeight = weight,
+                fontStyle = fontStyle,
+                fontAxis = fontAxis,
+                fontAxisValues = fontAxisValues,
+                context = context,
+                fontCertsResId = fontCertsResId,
+                typefaceResolver = resolver,
+            )
+        val drawStyle = toDrawStyle()
+        val resolvedPx = if (textSize.isNaN()) 12f else textSize
+        val fontSizeSp = with(density) { resolvedPx.toSp() }
+        return if (brush != null) {
+            TextStyle(
+                brush = brush,
+                alpha = alpha,
+                fontSize = fontSizeSp,
+                fontWeight = weight,
+                fontStyle = fontStyle,
+                fontFamily = resolvedFontFamily,
+                drawStyle = drawStyle,
+            )
+        } else {
+            TextStyle(
+                color = effectiveColor(),
+                fontSize = fontSizeSp,
+                fontWeight = weight,
+                fontStyle = fontStyle,
+                fontFamily = resolvedFontFamily,
+                drawStyle = drawStyle,
+            )
+        }
+    }
+
+    public fun reset() {
+        color = 0xFF000000.toInt()
+        isColorSet = false
+        strokeWidth = 1f
+        isStrokeWidthSet = false
+        strokeMiter = Stroke.DefaultMiter
+        isStroke = false
+        isStyleSet = false
+        strokeCap = 0
+        isStrokeCapSet = false
+        strokeJoin = 0
+        isStrokeJoinSet = false
+        pathEffect = null
+        textSize = Float.NaN
+        isTextSizeSet = false
+        fontFamily = 0
+        isTypefaceSet = false
+        fontWeight = 400
+        fontStyle = FontStyle.Normal
+        fontAxis = null
+        fontAxisValues = null
+        brush = null
+        nativeShader = null
+        colorFilter = null
+        blendMode = BlendMode.SrcOver
+        isBlendModeSet = false
+        filterQuality = FilterQuality.Low
+        alpha = 1f
+        sourceBundles.clear()
+    }
+
+    internal fun copy(): ComposeLocalPaint =
+        ComposeLocalPaint().also { copy ->
+            copy.color = color
+            copy.isColorSet = isColorSet
+            copy.strokeWidth = strokeWidth
+            copy.isStrokeWidthSet = isStrokeWidthSet
+            copy.strokeMiter = strokeMiter
+            copy.isStroke = isStroke
+            copy.isStyleSet = isStyleSet
+            copy.strokeCap = strokeCap
+            copy.isStrokeCapSet = isStrokeCapSet
+            copy.strokeJoin = strokeJoin
+            copy.isStrokeJoinSet = isStrokeJoinSet
+            copy.pathEffect = pathEffect
+            copy.textSize = textSize
+            copy.isTextSizeSet = isTextSizeSet
+            copy.fontFamily = fontFamily
+            copy.isTypefaceSet = isTypefaceSet
+            copy.fontWeight = fontWeight
+            copy.fontStyle = fontStyle
+            copy.fontAxis = fontAxis?.copyOf()
+            copy.fontAxisValues = fontAxisValues?.copyOf()
+            copy.brush = brush
+            copy.nativeShader = nativeShader
+            copy.colorFilter = colorFilter
+            copy.blendMode = blendMode
+            copy.isBlendModeSet = isBlendModeSet
+            copy.filterQuality = filterQuality
+            copy.alpha = alpha
+            copy.sourceBundles.addAll(sourceBundles)
+        }
 }
 
 internal fun mapStrokeCap(cap: Int): StrokeCap =
@@ -154,14 +304,6 @@ internal fun mapTileMode(mode: Int): TileMode =
         1 -> TileMode.Repeated
         2 -> TileMode.Mirror
         else -> TileMode.Clamp
-    }
-
-/** Maps a packed tile-mode index to a framework [Shader.TileMode]. */
-private fun nativeTileMode(index: Int): Shader.TileMode =
-    when (index) {
-        1 -> Shader.TileMode.REPEAT
-        2 -> Shader.TileMode.MIRROR
-        else -> Shader.TileMode.CLAMP
     }
 
 /** Wraps a framework [Shader] as a Compose [Brush] for the DrawScope paint path. */
@@ -199,7 +341,7 @@ private fun buildRuntimeShader(shaderId: Int, remoteContext: RemoteContext): Sha
             if (bitmap != null) {
                 shader.setInputShader(
                     name,
-                    BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP),
+                    ImageShader(bitmap.asImageBitmap(), TileMode.Clamp, TileMode.Clamp),
                 )
             }
         }
@@ -337,7 +479,19 @@ public fun updatePaintFromBundle(
             }
             PaintBundle.FONT_AXIS -> {
                 val count = cmd shr 16
-                i += 2 * count
+                if (count > 0) {
+                    val tags = IntArray(count)
+                    val values = FloatArray(count)
+                    for (j in 0 until count) {
+                        tags[j] = array[i++]
+                        values[j] = resolvePaintFloat(array[i++], read)
+                    }
+                    paintState.fontAxis = tags
+                    paintState.fontAxisValues = values
+                } else {
+                    paintState.fontAxis = null
+                    paintState.fontAxisValues = null
+                }
             }
             PaintBundle.BLEND_MODE -> {
                 val mode = (cmd shr 16)
@@ -377,10 +531,10 @@ public fun updatePaintFromBundle(
                 // synced)
                 val bitmap = resolveBitmap(remoteContext, bitmapId)
                 val shader = bitmap?.let {
-                    BitmapShader(
-                        it,
-                        nativeTileMode(tileModes and 0xF),
-                        nativeTileMode((tileModes shr 16) and 0xF),
+                    ImageShader(
+                        it.asImageBitmap(),
+                        mapTileMode(tileModes and 0xF),
+                        mapTileMode((tileModes shr 16) and 0xF),
                     )
                 }
                 paintState.nativeShader = shader
@@ -412,13 +566,27 @@ public fun updatePaintFromBundle(
                 // Local matrix on the current shader (1 word: NaN-encoded MatrixAccess id).
                 applyShaderMatrix(paintState, array[i++], read)
             }
-            PaintBundle.STROKE_MITER,
+            PaintBundle.STROKE_MITER -> {
+                paintState.strokeMiter = resolvePaintFloat(array[i++], read)
+            }
             PaintBundle.FALLBACK_TYPEFACE -> {
-                i++ // 1 word each (PaintBundle.resolveIds); not applied yet, consumed to stay in
-                // sync.
+                i++ // 1 word (PaintBundle.resolveIds); not applied yet, consumed to stay in sync.
             }
             PaintBundle.PATH_EFFECT -> {
-                i += (cmd shr 16) // `count` float words (PaintBundle.resolveIds); not applied yet.
+                val pathEffectCount = cmd shr 16
+                if (pathEffectCount > 0) {
+                    val pathEffectData = FloatArray(pathEffectCount)
+                    for (j in 0 until pathEffectCount) {
+                        pathEffectData[j] = resolvePaintFloat(array[i++], read)
+                    }
+                    val parsed = runCatching {
+                        PaintPathEffects.parse(pathEffectData, 0)
+                    }
+                        .getOrNull()
+                    paintState.pathEffect = buildComposePathEffect(parsed, remoteContext)
+                } else {
+                    paintState.pathEffect = null
+                }
             }
             PaintBundle.GRADIENT -> {
                 val gradientType = (cmd shr 16)
@@ -553,5 +721,50 @@ public fun updatePaintFromBundle(
                 return
             }
         }
+    }
+}
+
+private fun buildComposePathEffect(
+    pe: PaintPathEffects?,
+    remoteContext: RemoteContext,
+): PathEffect? {
+    if (pe == null) return null
+    return when (pe) {
+        is PaintPathEffects.Dash -> {
+            PathEffect.dashPathEffect(pe.mIntervals, pe.mPhase)
+        }
+        is PaintPathEffects.Discrete -> {
+            DiscretePathEffect(pe.mSegmentLength, pe.mDeviation).toComposePathEffect()
+        }
+        is PaintPathEffects.PathDash -> {
+            val shape = remoteContext.mRemoteComposeState.getPath(pe.mShapeId, 0f, 1f)
+            val styles = PathDashPathEffect.Style.values()
+            val style = styles.getOrElse(pe.mStyle) { PathDashPathEffect.Style.TRANSLATE }
+            PathEffect.stampedPathEffect(
+                shape = shape,
+                advance = pe.mAdvance,
+                phase = pe.mPhase,
+                style = style.toStampedPathEffectStyle(),
+            )
+        }
+        is PaintPathEffects.Sum -> {
+            val first = buildComposePathEffect(pe.mFirst, remoteContext)?.asAndroidPathEffect()
+            val second = buildComposePathEffect(pe.mSecond, remoteContext)?.asAndroidPathEffect()
+            if (first != null && second != null) {
+                SumPathEffect(first, second).toComposePathEffect()
+            } else {
+                null
+            }
+        }
+        is PaintPathEffects.Compose -> {
+            val outer = buildComposePathEffect(pe.mOuterPE, remoteContext)
+            val inner = buildComposePathEffect(pe.mInnerPE, remoteContext)
+            if (outer != null && inner != null) {
+                PathEffect.chainPathEffect(outer, inner)
+            } else {
+                null
+            }
+        }
+        else -> null
     }
 }

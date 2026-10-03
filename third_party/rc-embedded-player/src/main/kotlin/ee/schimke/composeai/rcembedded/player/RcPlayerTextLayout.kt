@@ -49,6 +49,8 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
@@ -59,7 +61,7 @@ import ee.schimke.composeai.rcembedded.player.state.rememberRemoteStringAsState
 internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
     val textId = layout.textId ?: return
     val text by rememberRemoteStringAsState(textId)
-    val paintState = ComposeLocalPaint()
+    val paintState = remember { ComposeLocalPaint() }.apply { reset() }
     updatePaintFromBundle(layout.mPaint, paintState, LocalRemoteContext.current)
 
     val data = layout.readDataReflection()
@@ -75,7 +77,8 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
     // LOCAL PATCH (rc-players): a font size deferred to the host resolves by id (#558).
     val layoutFontSize = rememberTextFontSize(layout.rawFontSize, data.fontSizeValue)
     val fontSize = if (paintState.isTextSizeSet) paintState.textSize else layoutFontSize
-    val fontSizeSp = with(LocalDensity.current) { fontSize.toSp() }
+    val density = LocalDensity.current
+    val fontSizeSp = with(density) { fontSize.toSp() }
 
     val remoteContext = LocalRemoteContext.current
 
@@ -117,11 +120,9 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
     val autoSize =
         if (data.autosize) {
             val min =
-                if (data.minFontSize <= 0f) 4.sp
-                else with(LocalDensity.current) { data.minFontSize.toSp() }
+                if (data.minFontSize <= 0f) 4.sp else with(density) { data.minFontSize.toSp() }
             val max =
-                if (data.maxFontSize <= 0f) 400.sp
-                else with(LocalDensity.current) { data.maxFontSize.toSp() }
+                if (data.maxFontSize <= 0f) 400.sp else with(density) { data.maxFontSize.toSp() }
             TextAutoSize.StepBased(minFontSize = min, maxFontSize = max, stepSize = 0.5.sp)
         } else {
             null
@@ -168,15 +169,13 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
                 lineBreak = lineBreak,
                 hyphens = hyphens,
                 letterSpacing = data.letterSpacing.em,
-                // LOCAL PATCH (rc-players): the line height follows the size the text is drawn at
-                // (a paint override, or autosize), not the op's authored size.
                 lineHeight =
-                    coreTextLineHeight(
+                    resolveCoreTextLineHeight(
                         fontSize = fontSize,
-                        multiplier = data.lineHeightMultiplier,
-                        add = data.lineHeightAdd,
+                        lineHeightMultiplier = data.lineHeightMultiplier,
+                        lineHeightAdd = data.lineHeightAdd,
                         autosize = data.autosize,
-                        density = LocalDensity.current,
+                        density = density,
                     ),
                 textDecoration = textDecoration,
             ),
@@ -186,11 +185,24 @@ internal fun RcPlayerText(layout: CoreText, modifier: Modifier) {
     )
 }
 
+internal fun resolveCoreTextLineHeight(
+    fontSize: Float,
+    lineHeightMultiplier: Float,
+    lineHeightAdd: Float,
+    autosize: Boolean,
+    density: Density,
+): TextUnit =
+    when {
+        lineHeightMultiplier == 1f && lineHeightAdd == 0f -> TextUnit.Unspecified
+        autosize && lineHeightAdd == 0f -> lineHeightMultiplier.em
+        else -> with(density) { (fontSize * lineHeightMultiplier + lineHeightAdd).toSp() }
+    }
+
 @Composable
 internal fun RcPlayerText(layout: TextLayout, modifier: Modifier) {
     val textId = layout.textId ?: return
     val text by rememberRemoteStringAsState(textId)
-    val paintState = ComposeLocalPaint()
+    val paintState = remember { ComposeLocalPaint() }.apply { reset() }
     updatePaintFromBundle(layout.mPaint, paintState, LocalRemoteContext.current)
 
     val data = layout.readDataReflection()
@@ -290,23 +302,37 @@ private fun rememberCustomFontName(fontFamilyType: Int, context: RemoteContext):
     }
 }
 
-private fun buildFontVariationSettings(
+internal fun buildFontVariationSettings(
     fontAxis: IntArray?,
     fontAxisValues: FloatArray?,
+    fontWeight: FontWeight,
+    fontStyle: FontStyle,
     context: RemoteContext,
 ): FontVariation.Settings? {
     if (fontAxis == null || fontAxisValues == null) return null
     val list = ArrayList<FontVariation.Setting>()
-    for (i in 0 until fontAxis.size) {
+    var hasWght = false
+    var hasItal = false
+    val count = minOf(fontAxis.size, fontAxisValues.size)
+    for (i in 0 until count) {
         val name = context.getText(fontAxis[i])
         if (name != null) {
+            if (name == "wght") hasWght = true
+            if (name == "ital") hasItal = true
             list.add(FontVariation.Setting(name, fontAxisValues[i]))
         }
     }
-    return if (list.isNotEmpty()) FontVariation.Settings(*list.toTypedArray()) else null
+    if (list.isEmpty()) return null
+    if (!hasWght) {
+        list.add(FontVariation.weight(fontWeight.weight))
+    }
+    if (!hasItal && fontStyle == FontStyle.Italic) {
+        list.add(FontVariation.italic(1f))
+    }
+    return FontVariation.Settings(*list.toTypedArray())
 }
 
-private fun resolveFontFamily(
+internal fun resolveFontFamily(
     fontFamilyType: Int,
     fontName: String?,
     fontWeight: FontWeight,
@@ -346,35 +372,37 @@ private fun resolveFontFamily(
             }
         return FontFamily(fi.getTypeface())
     }
+    // LOCAL PATCH (rc-players): a render given the shared Google Fonts cache
+    // (`composeai.fonts.cacheDir`) resolves the family from it, at the document's
+    // variation axes, which the downloadable-font factory below cannot apply (#501).
+    // Null on a device, where no cache is configured, so upstream's path runs.
+    GoogleFontFamilies.Default.composeFontFamily(
+            family = fontName,
+            weight = fontWeight,
+            style = fontStyle,
+            axes = fontVariationAxes(fontAxis, fontAxisValues, context),
+        )
+        ?.let {
+            return it
+        }
     if (fontName != null) {
         when {
             fontName.startsWith("device:") -> {
                 val familyName = fontName.substring("device:".length)
-                return createDeviceFontFamily(
-                    familyName,
-                    fontWeight,
-                    fontStyle,
-                    fontAxis,
-                    fontAxisValues,
-                    context,
-                )
+                if (familyName.isNotEmpty()) {
+                    return createDeviceFontFamily(
+                        familyName,
+                        fontWeight,
+                        fontStyle,
+                        fontAxis,
+                        fontAxisValues,
+                        context,
+                    )
+                }
             }
             fontName.startsWith("google:") -> {
-                // LOCAL PATCH (rc-players): a render given the shared Google Fonts cache
-                // (`composeai.fonts.cacheDir`) resolves the family from it, at the document's
-                // variation axes, which the downloadable-font factory below cannot apply (#501).
-                // Null on a device, where no cache is configured, so upstream's path runs.
-                GoogleFontFamilies.Default.composeFontFamily(
-                        family = fontName,
-                        weight = fontWeight,
-                        style = fontStyle,
-                        axes = fontVariationAxes(fontAxis, fontAxisValues, context),
-                    )
-                    ?.let {
-                        return it
-                    }
-                if (fontCertsResId != 0) {
-                    val actualName = fontName.substring("google:".length)
+                val actualName = fontName.substring("google:".length)
+                if (fontCertsResId != 0 && actualName.isNotEmpty()) {
                     val googleFont = GoogleFont(actualName)
                     val provider =
                         GoogleFont.Provider(
@@ -382,7 +410,6 @@ private fun resolveFontFamily(
                             providerPackage = "com.google.android.gms",
                             certificates = fontCertsResId,
                         )
-                    // TODO: Support variation settings for Google fonts if needed
                     return FontFamily(
                         GoogleFontFactory(
                             googleFont = googleFont,
@@ -390,6 +417,15 @@ private fun resolveFontFamily(
                             weight = fontWeight,
                             style = fontStyle,
                         )
+                    )
+                } else if (actualName.isNotEmpty()) {
+                    return createDeviceFontFamily(
+                        actualName,
+                        fontWeight,
+                        fontStyle,
+                        fontAxis,
+                        fontAxisValues,
+                        context,
                     )
                 }
             }
@@ -407,17 +443,32 @@ private fun resolveFontFamily(
 
     val standardFontFamily =
         when (standardName) {
+            "default" -> FontFamily.Default
             "sans-serif" -> FontFamily.SansSerif
             "serif" -> FontFamily.Serif
             "monospace" -> FontFamily.Monospace
-            else -> FontFamily.Default
+            else ->
+                if (standardName.isNotEmpty()) {
+                    return createDeviceFontFamily(
+                        standardName,
+                        fontWeight,
+                        fontStyle,
+                        fontAxis,
+                        fontAxisValues,
+                        context,
+                    )
+                } else {
+                    FontFamily.Default
+                }
         }
 
-    val settings = buildFontVariationSettings(fontAxis, fontAxisValues, context)
+    val settings =
+        buildFontVariationSettings(fontAxis, fontAxisValues, fontWeight, fontStyle, context)
     if (settings != null) {
+        val systemFamilyName = if (standardName == "default") "sans-serif" else standardName
         return FontFamily(
             Font(
-                DeviceFontFamilyName(standardName),
+                DeviceFontFamilyName(systemFamilyName),
                 weight = fontWeight,
                 style = fontStyle,
                 variationSettings = settings,
@@ -437,7 +488,8 @@ private fun createDeviceFontFamily(
     context: RemoteContext,
 ): FontFamily {
     val settings =
-        buildFontVariationSettings(fontAxis, fontAxisValues, context) ?: FontVariation.Settings()
+        buildFontVariationSettings(fontAxis, fontAxisValues, fontWeight, fontStyle, context)
+            ?: FontVariation.Settings()
 
     return FontFamily(
         Font(
