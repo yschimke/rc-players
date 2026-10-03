@@ -34,6 +34,11 @@ dependencies {
   implementation(libs.androidx.tracing.kmp)
   implementation(libs.androidx.tracing.wire)
 
+  // Published from yschimke/compose-preview-contracts; versioned by its BOM (see
+  // `composeai-contracts` in the catalog), never pinned directly — a contracts release skips the
+  // modules it did not change, so `common-io:<release>` need not exist. This module is not
+  // published, so the platform reaches no POM.
+  implementation(platform(libs.composeai.preview.contracts.bom))
   implementation(libs.composeai.common.io)
   implementation(libs.okio)
 
