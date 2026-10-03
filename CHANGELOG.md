@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.1](https://github.com/yschimke/rc-players/compare/v2.1.0...v2.1.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **player:** port the embedded player's upstream fixes since a12036836c ([#567](https://github.com/yschimke/rc-players/issues/567)) ([fef4328](https://github.com/yschimke/rc-players/commit/fef43285da388c93802b369c5e7a33635afc44c7))
+* **player:** settle springs like AndroidX and stop idle frame requests ([#565](https://github.com/yschimke/rc-players/issues/565)) ([1dc342a](https://github.com/yschimke/rc-players/commit/1dc342aff977f5e155904ccccfbaeca29b640aaa))
+
 ## [2.1.0](https://github.com/yschimke/rc-players/compare/v2.0.4...v2.1.0) (2026-10-03)
 
 
