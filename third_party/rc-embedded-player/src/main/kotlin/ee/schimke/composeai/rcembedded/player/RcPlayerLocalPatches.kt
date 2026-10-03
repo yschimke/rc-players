@@ -28,8 +28,14 @@ import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.managers.CoreText
 import androidx.compose.remote.core.operations.layout.managers.TextLayout
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.constrainWidth
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
@@ -145,3 +151,46 @@ internal val TextLayout.rawFontSize: Float
 @Composable
 internal fun rememberTextFontSize(raw: Float, resolved: Float): Float =
     if (Utils.isVariable(raw)) rememberRemoteFloatAsState(raw).value else resolved
+
+/** The latest layout of one `CoreText`'s paragraph, written by `BasicText` during its measure. */
+internal class CoreTextLines {
+    var result: TextLayoutResult? = null
+}
+
+/**
+ * Sizes a `CoreText` node the way the core sizes the component: to the span its lines cover,
+ * `ceil(max lineRight) - floor(min lineLeft)` (`AndroidPaintContext.getTightBoundingBox`, which
+ * `CoreText.computeWrapSize` takes its width from).
+ *
+ * `BasicText` reports `ceil(maxIntrinsicWidth)` for a line that fits, and the whole available width
+ * for one that wraps. With letter spacing the intrinsic width runs up to a pixel past the line's
+ * right edge, so a 198.43 px label measured 200 where the core measures 199, and everything laid
+ * out against it — a wrap-width button, its centring — moved with it (#572).
+ *
+ * A truncated or overflowing run keeps the width it was laid out at: it was cut because it did not
+ * fit. The node never goes below the incoming minimum, and never grows.
+ */
+internal fun Modifier.tightCoreTextWidth(lines: CoreTextLines): Modifier =
+    layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        val result = lines.result
+        if (result == null || result.lineCount == 0 || result.hasVisualOverflow) {
+            return@layout layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+        }
+        var left = Float.MAX_VALUE
+        var right = 0f
+        for (line in 0 until result.lineCount) {
+            left = minOf(left, result.getLineLeft(line))
+            right = maxOf(right, result.getLineRight(line))
+        }
+        val start = floor(left).toInt()
+        val width =
+            constraints.constrainWidth(ceil(right).toInt() - start).coerceAtMost(placeable.width)
+        if (width == placeable.width) {
+            layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+        } else {
+            // The core draws the paragraph at `-bounds.left`, so centred and end-aligned lines
+            // keep their place within the narrowed span.
+            layout(width, placeable.height) { placeable.place(-start, 0) }
+        }
+    }
