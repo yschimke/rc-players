@@ -57,6 +57,8 @@ import androidx.compose.remote.core.operations.ComponentValue
 import androidx.compose.remote.core.operations.FloatConstant
 import androidx.compose.remote.core.operations.FloatExpression
 import androidx.compose.remote.core.operations.Header
+import androidx.compose.remote.core.operations.ImageAttribute
+import androidx.compose.remote.core.operations.IntegerExpression
 import androidx.compose.remote.core.operations.NamedVariable
 import androidx.compose.remote.core.operations.ParticlesCompare
 import androidx.compose.remote.core.operations.ParticlesLoop
@@ -66,6 +68,8 @@ import androidx.compose.remote.core.operations.PathData
 import androidx.compose.remote.core.operations.PathExpression
 import androidx.compose.remote.core.operations.PathTween
 import androidx.compose.remote.core.operations.TextFromFloat
+import androidx.compose.remote.core.operations.TextLookupInt
+import androidx.compose.remote.core.operations.TextMeasure
 import androidx.compose.remote.core.operations.Theme
 import androidx.compose.remote.core.operations.TimeAttribute
 import androidx.compose.remote.core.operations.Utils
@@ -230,8 +234,12 @@ public fun RcPlayer(
     // store / other computed States and captures its write as the result. No imperative recompute
     // pass, no dirty flags — changing an input invalidates exactly the dependent States, and chains
     // compose naturally.
+    val textMeasurer = rememberTextMeasurer()
     val graphContext =
-        state.graphContext.also { gc -> gc.setTypefaceResolver(remoteContext.typefaceResolver) }
+        state.graphContext.also { gc ->
+            gc.setTypefaceResolver(remoteContext.typefaceResolver)
+            gc.textMeasurer = textMeasurer
+        }
 
     val startClockMillis = remember(document, clock) { clock.millis() }
     val limiter = remember(document) { Limiter() }
@@ -538,6 +546,11 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
             }
         }
 
+        // Custom components whose plugin handles clicks itself (e.g. a native button) receive the
+        // click actions via RcCustomComponent instead of a wrapping clickable.
+        val customClickHandlers =
+            if (component is Custom) rememberCustomClickHandlers(component) else null
+
         var modifier =
             Modifier.sharedElementTransition(component)
                 .then(
@@ -554,6 +567,7 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
                     component.componentModifiers.toModifier(
                         component.getDrawContentOperationsListReflection(),
                         ignoreVisibility = visibilityDelegatedToParent,
+                        ignoreClicks = customClickHandlers != null,
                     )
                 )
                 .rcComponentContentInspector(component)
@@ -594,7 +608,7 @@ internal fun RcPlayerComponent(component: Component, modifier: Modifier = Modifi
             is FitBoxLayout -> RcPlayerFitBoxLayout(component, modifier)
             is StateLayout -> RcPlayerStateLayout(component, modifier)
             is ImageLayout -> RcPlayerImageLayout(component, modifier)
-            is Custom -> RcPlayerCustom(component, modifier)
+            is Custom -> RcPlayerCustom(component, modifier, customClickHandlers)
             // Last as others are often BoxLayout subclasses
             is BoxLayout -> RcPlayerBox(component, modifier)
             else -> {
@@ -665,11 +679,24 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
     var hasContinuousTime = false
     var hasDiscreteTime = false
 
+    val timeListenerCollector =
+        object : StoreBackedRemoteContext(document.clock) {
+            override fun listensTo(id: Int, variableSupport: VariableSupport) {
+                if (isContinuousTimeVariable(id)) {
+                    hasContinuousTime = true
+                } else if (isDiscreteTimeVariable(id)) {
+                    hasDiscreteTime = true
+                }
+            }
+        }
+
     fun visitOp(op: Operation) {
         val definedId =
             when (op) {
                 is NamedVariable -> op.mVarId
                 is VariableProvider -> op.id
+                is TextMeasure -> op.mId
+                is ImageAttribute -> op.mId
                 else -> -1
             }
         // Warn when a document operation defines an ID that collides with a reserved system
@@ -681,8 +708,19 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
             )
         }
 
-        if (op is TextFromFloat && Utils.isVariable(op.mValue)) {
-            val id = Utils.idFromNan(op.mValue)
+        // Collect direct references to continuous or discrete time variables from expressions and
+        // variable-reading operations so we know which clock loop (if any) needs to run.
+        if (
+            op is FloatExpression ||
+                op is IntegerExpression ||
+                op is TextFromFloat ||
+                op is TextLookupInt ||
+                op is ComponentVisibilityOperation
+        ) {
+            op.registerListening(timeListenerCollector)
+        } else if (op is StateLayout) {
+            // StateLayout does not implement VariableSupport, so inspect its indexId directly.
+            val id = op.indexIdReflection
             if (isContinuousTimeVariable(id)) {
                 hasContinuousTime = true
             } else if (isDiscreteTimeVariable(id)) {
@@ -737,6 +775,16 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
             if (!animated && id > 0 && !computedOpIndex.containsKey(id)) {
                 computedOpIndex[id] = op
             }
+        } else if (op is TextMeasure) {
+            val id = op.mId
+            if (id > 0 && !computedOpIndex.containsKey(id)) {
+                computedOpIndex[id] = op
+            }
+        } else if (op is ImageAttribute) {
+            val id = op.mId
+            if (id > 0 && !computedOpIndex.containsKey(id)) {
+                computedOpIndex[id] = op
+            }
         }
 
         if (op is ComponentValue) {
@@ -783,16 +831,6 @@ internal fun preprocessDocument(document: CoreDocument): DocumentPreprocessResul
             parent?.let { targetId = it.id }
         }
         componentValueMap.getOrPut(targetId) { ArrayList() }.add(op)
-    }
-
-    val floatExpressions = document.getFloatExpressionsReflection().values
-    for (expr in floatExpressions) {
-        if (isExpressionContinuousTimeDependent(expr)) {
-            hasContinuousTime = true
-        }
-        if (isExpressionDiscreteTimeDependent(expr)) {
-            hasDiscreteTime = true
-        }
     }
 
     return DocumentPreprocessResult(
@@ -853,13 +891,15 @@ internal fun initializePlayerRemoteContext(
         document.setRemoteComposeState(SnapshotRemoteComposeState())
         document.recollectCollectionsReflection()
     }
-    document.initializeContext(ctx, null)
-    document.applyDataOperationsWithoutBitmaps(ctx)
-    document.setLayoutCallback {}
-    document.applyOperationsReflection(ctx, preprocessed.globalOps)
-    document.applyOperationsReflection(ctx, preprocessed.constantOps)
-    val dataOps = ArrayList<Operation>()
-    document.rootLayoutComponent?.getData(dataOps, true)
-    document.applyOperationsReflection(ctx, dataOps)
+    ctx.withOpCountReset {
+        document.initializeContext(ctx, null)
+        document.applyDataOperationsWithoutBitmaps(ctx)
+        document.setLayoutCallback {}
+        document.applyOperationsReflection(ctx, preprocessed.globalOps)
+        document.applyOperationsReflection(ctx, preprocessed.constantOps)
+        val dataOps = ArrayList<Operation>()
+        document.rootLayoutComponent?.getData(dataOps, true)
+        document.applyOperationsReflection(ctx, dataOps)
+    }
     return ctx
 }

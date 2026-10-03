@@ -19,7 +19,7 @@ removed on 2026-09-25; the CMP player (`rc-player/compose`) is this repository's
 - Paths:
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/embedded`
   - `compose/remote/remote-player-compose/src/main/java/androidx/compose/remote/player/compose/utils`
-- Commit: `a12036836c464b39bde66b7e2a7c4238eef3b884` (`androidx-main`, 2026-09-24)
+- Commit: `11ece46a49d485c7644e53cb0684a611d7a0ec10` (`androidx-main`, 2026-10-02)
 - License: Apache-2.0
 
 ## How the copy is made
@@ -62,11 +62,10 @@ upstream and where it is retired from. The list is meant to shrink.
 | Where | Patch | Issue |
 | --- | --- | --- |
 | `RcPlayer.kt` | Drops the `RemoteComposePlayerFlags.isEmbeddedPlayerEnabled` check. That flag belongs to AndroidX's own `remote-player-compose` and also routes its `RemoteDocumentPlayer` onto AndroidX's embedded player, so enabling it for this copy would change the View-player control lane too. Depending on this copy is the opt-in. | — (local by design) |
-| `RcPlayerDrawing.kt` (`resolveBitmap`) | An image that fails to decode (for example a relative URI) leaves its slot empty, and the failure is cached so it is not retried every frame. Upstream throws out of the draw. | [#509](https://github.com/yschimke/rc-players/issues/509) |
-| `RcPlayerDrawing.kt` (`executeOperations`) | Runs the value-producing ops a draw stream can declare: `ColorExpression`, `ColorAttribute`, `ImageAttribute` and `TextMeasure`. Upstream's loop skips them, so their ids resolve against a store nothing wrote. | [#510](https://github.com/yschimke/rc-players/issues/510), [#54](https://github.com/yschimke/rc-players/issues/54) |
-| `CoreDataAccessors.kt` (`applyOperationsWithoutBitmaps`) | Registers a `BitmapData` declared in a component's canvas stream. The setup walk follows `Container` children only, and a canvas stream hangs off its component as a field. | [#54](https://github.com/yschimke/rc-players/issues/54) |
+| `CoreDataAccessors.kt` (`applyOperationsWithoutBitmaps`) | A component's canvas stream contributes only its `BitmapData` registrations to setup. Upstream (`3876c8b86`) applies the whole stream there, which against the pinned core evaluates its expressions before layout: an edge button's width expression reads a component value that does not exist yet and throws (`DynamicDimensionConstraintRenderTest`), taking the image-background button's bitmap registration down with it (`RcCanvasStreamBitmapRenderTest`). | [#54](https://github.com/yschimke/rc-players/issues/54) |
+| `RcPlayerDrawing.kt` (`resolveBitmap`) | A failed decode is cached so it is not retried every frame. Upstream now catches the failure and leaves the slot empty (`3876c8b86`), but retries it on every draw. | [#509](https://github.com/yschimke/rc-players/issues/509) |
 | `RcPlayerTextLayout.kt` (`resolveFontFamily`) | A `google:` family is resolved from the shared machine-local Google Fonts cache first, at the document's variation axes, which the downloadable-font factory cannot apply. There is no cache on a device, so this only affects test renders; upstream's path runs everywhere else. | — (render-side; see [#501](https://github.com/yschimke/rc-players/pull/501)) |
-| `RcPlayerTextLayout.kt` (`RcPlayerText`) | Line height follows the size the text is drawn at (a paint override, or autosize), and `maxLines` truncates only where the View player's does. | [#511](https://github.com/yschimke/rc-players/issues/511) |
+| `RcPlayerTextLayout.kt` (`RcPlayerText`, both overloads) | `maxLines` truncates only where the View player's does. (The line-height half of this patch is upstream now, `530b47a2e`.) | [#511](https://github.com/yschimke/rc-players/issues/511) |
 | `state/RcPlayerExpression.kt` (`rememberAnimatedRemoteFloat`), `state/RcPlayerState.kt`, `RcPlayer.kt`, `RcPlayerCompositionLocals.kt` | A spring-animated float (`remoteSpring`) animates. Upstream tests `mFloatAnimation != null`, which the core leaves null for a spring, and decodes every animation array as a tween, so a spring started from a value taken from its other fields and never reached its target in a still. It now starts settled at its target, as `FloatExpression` does, and springs toward later ones. | [#551](https://github.com/yschimke/rc-players/issues/551) |
 | `RcPlayerTextLayout.kt` (`RcPlayerText`, both overloads) | A font size the document deferred to the host (a `RemoteDensity.Host` capture, where it is an expression over `DENSITY` and `FONT_SIZE`) resolves by id. Upstream reads `mFontSizeValue` once, at composition, and the core's constructor seeds it with the raw NaN-boxed word, so such text was laid out at `NaN.sp` and drew nothing. | [#558](https://github.com/yschimke/rc-players/issues/558) |
 
@@ -77,7 +76,26 @@ Files that exist only here:
 - `../GoogleFontFamilies.kt`: the Google Fonts cache resolver behind the `google:` patch. It is null
   unless `composeai.fonts.cacheDir` is set, which is a render-side property no app sets.
 
-### Retired by this refresh
+### Retired by the 2026-10-02 refresh
+
+Upstream from `a12036836c` to `11ece46a49` took over three of the patches above, and this copy now
+runs upstream's version:
+
+- Value-producing ops in a draw stream (#510, #54): upstream evaluates `ColorExpression`,
+  `ColorAttribute`, `ImageAttribute` and `TextMeasure` itself (`2149117c4`). Its `TextMeasure`
+  measures with Compose's `TextMeasurer` rather than the framework `Paint` ink rectangle the local
+  patch read, so `TextMeasureBehaviorTest`, which pinned the patch's selectors, is gone with it.
+- A component's canvas-stream `BitmapData` (#54): upstream registers its metadata during setup (`3876c8b86`), so the local walk is gone; what is left of #54 is the narrower patch in the table above.
+- `CoreText` line height from the drawn size (#511): upstream's `resolveCoreTextLineHeight`
+  (`530b47a2e`). The only difference from the patch is autosize text with a non-zero `lineHeightAdd`,
+  which upstream sizes in pixels and the patch scaled in `em`.
+
+Also picked up: per-frame op-count resets (`b0376ab06`), `DENSITY_BEHAVIOR_DP` EXACT width/height
+(`65a3bf206`), font weight/style preserved under font axes (`530b47a2e`), standalone ripple press
+interactions (`d3a20802e`), disabled `AnimationSpec`s in `StateLayout`/`FitBox` (`cffb71595`) and
+time variables read as integers (`c73c596e9`).
+
+### Retired by the 2026-09-25 refresh
 
 The previous copy was pinned at `c36509dbc4a` and had drifted into a fork: it split files for the
 JVM cut, and carried its own versions of several fixes. Those have since landed upstream, or upstream

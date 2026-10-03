@@ -20,8 +20,6 @@
 
 package ee.schimke.composeai.rcembedded.player
 
-import android.graphics.Paint
-import android.graphics.Rect
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.remote.core.RemoteContext
@@ -30,78 +28,9 @@ import androidx.compose.remote.core.operations.Utils
 import androidx.compose.remote.core.operations.layout.managers.CoreText
 import androidx.compose.remote.core.operations.layout.managers.TextLayout
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.em
 import ee.schimke.composeai.rcembedded.GoogleFontFamilies
 import ee.schimke.composeai.rcembedded.player.state.rememberRemoteFloatAsState
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
-
-/**
- * All values AndroidX's `PaintContext.getTextBounds` can select for `TextMeasure`.
- *
- * [left], [top], [right], and [bottom] are the tight ink rectangle. [fontTop] and [fontBottom]
- * replace its vertical edges for `MEASURE_MAX_HEIGHT_FLAG`; [advance] replaces its horizontal
- * extent for the two advance-based flags.
- */
-internal class TextMeasureBounds(
-    val left: Float,
-    val top: Float,
-    val right: Float,
-    val bottom: Float,
-    val fontTop: Float,
-    val fontBottom: Float,
-    val advance: Float,
-)
-
-/** Measures the complete AndroidX `getTextBounds` input tuple with one framework [Paint]. */
-internal fun measureTextBounds(text: String, paint: Paint): TextMeasureBounds {
-    val ink = Rect()
-    paint.getTextBounds(text, 0, text.length, ink)
-    val font = paint.fontMetrics
-    return TextMeasureBounds(
-        left = ink.left.toFloat(),
-        top = ink.top.toFloat(),
-        right = ink.right.toFloat(),
-        bottom = ink.bottom.toFloat(),
-        fontTop = font.ascent.roundToInt().toFloat(),
-        fontBottom = font.descent.roundToInt().toFloat(),
-        advance = paint.measureText(text),
-    )
-}
-
-/**
- * Applies AndroidX `AndroidPaintContext.getTextBounds`' flag order and `TextMeasure.paint`'s
- * selector. Unknown selectors return null: the View player leaves the destination id untouched
- * rather than writing zero or failing the frame.
- */
-internal fun selectTextMeasureResult(type: Int, measured: TextMeasureBounds): Float? {
-    val flags = type shr 8
-    var left = measured.left
-    var right = measured.right
-    var top = measured.top
-    var bottom = measured.bottom
-    if (flags and 0x04 != 0) {
-        left = 0f
-        right = measured.advance
-    } else if (flags and 0x01 != 0) {
-        right = measured.advance - left
-    }
-    if (flags and 0x02 != 0) {
-        top = measured.fontTop
-        bottom = measured.fontBottom
-    }
-    return when (type and 0xff) {
-        0 -> right - left
-        1 -> bottom - top
-        2 -> left
-        3 -> right
-        4 -> top
-        5 -> bottom
-        else -> null
-    }
-}
 
 /**
  * The document's font-variation axes as `(tag, value)` pairs, empty when it declares none.
@@ -131,23 +60,6 @@ private fun axisName(tag: Int, context: RemoteContext): String? =
         ?: CharArray(4) { index -> ((tag shr (24 - index * 8)) and 0xff).toChar() }
             .concatToString()
             .takeIf { name -> name.all { it in '!'..'~' } }
-
-/**
- * A `CoreText` line height, from the size the text is actually drawn at. Under autosize that size
- * is chosen at layout, so the height is proportional (`em`) rather than fixed.
- */
-internal fun coreTextLineHeight(
-    fontSize: Float,
-    multiplier: Float,
-    add: Float,
-    autosize: Boolean,
-    density: Density,
-): TextUnit =
-    when {
-        multiplier == 1f && add == 0f -> TextUnit.Unspecified
-        autosize -> (multiplier + add / fontSize.coerceAtLeast(0.0001f)).em
-        else -> with(density) { (fontSize * multiplier + add).toSp() }
-    }
 
 /**
  * Match `AndroidPaintContext`'s `StaticLayout` result rather than Compose's stricter line cap.
