@@ -202,7 +202,7 @@ composeai-contracts = "3.13.0"
 # that changed, so a coordinate is not guaranteed to exist at the release version: 3.13.0 ships
 # `data-layoutinspector-connector:3.13.0` but `data-fonts-google` is still at 3.12.0. The BOM maps
 # every module to the version it is actually published at for that release.
-composeai-preview-daemon = "3.13.0"
+composeai-preview-daemon = "3.13.1"
 
 [libraries]
 
