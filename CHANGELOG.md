@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.3](https://github.com/yschimke/rc-players/compare/v2.1.2...v2.1.3) (2026-10-03)
+
+
+### Bug Fixes
+
+* **deps:** compose-preview-daemon 3.13.2 ([#576](https://github.com/yschimke/rc-players/issues/576)) ([895f625](https://github.com/yschimke/rc-players/commit/895f6256f136182f58df06b9b0cbe4e4bee7fdbb))
+* **embedded:** size CoreText to its lines as the core does ([#573](https://github.com/yschimke/rc-players/issues/573)) ([9e15b71](https://github.com/yschimke/rc-players/commit/9e15b71726dcc0e54b1add8fdd02dac80cf51338)), closes [#572](https://github.com/yschimke/rc-players/issues/572)
+
 ## [2.1.2](https://github.com/yschimke/rc-players/compare/v2.1.1...v2.1.2) (2026-10-03)
 
 
