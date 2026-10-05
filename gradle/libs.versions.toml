@@ -75,12 +75,13 @@ androidx-tracing-kmp = "2.0.3"
 # seams), and that one is pinned in `renovate.json`. Do not copy the daemon's compose-bom rule
 # across on the strength of the shared ref name.
 compose-bom-compat = "2025.12.01"
-# The Compose versions `third_party/rc-embedded-player` publishes against, in place of importing
-# `compose-bom-compat` (see above). Held at what `compose-bom-compat` maps them to — runtime, ui,
-# foundation, animation, ui-text-google-fonts and material3's material-ripple on the 1.x core line,
-# material3 on its own — so the
-# player resolved exactly what it did under the BOM when they were introduced. A bump here raises
-# the floor the published player hands its consumers, and nothing else.
+# Explicit Compose requirements published by `third_party/rc-embedded-player`, without a BOM.
+# Updating these is a consumer compatibility decision: 1.12.1 raises the resolved UI/core line
+# from 1.11.4 (already pulled by Remote Compose alpha19 despite the previous 1.10.0 pins).
+# Compose UI 1.12.1 requires compileSdk 37 / AGP 9.1.0. Older Compose declarations are upgraded
+# by normal resolution; strictly pinned older consumers can fail resolution. Do not force a
+# downgrade and assume binary compatibility. See README.md's consumer compatibility notes.
+# This ref does not control `rc-player-compose`, which uses CMP and `androidx-compose-for-cmp`.
 androidx-compose = "1.12.1"
 androidx-compose-material3 = "1.4.0"
 # The desktop/Skiko floor for `renderer-desktop`, `daemon-desktop`, `bundle-viewer` and the CMP

@@ -244,8 +244,8 @@ class RcFigmaSvgExportTest {
      * back.
      *
      * The frame PNG is drawn straight off the content view rather than through `captureToImage()`,
-     * which under Robolectric times out waiting for a draw pass that never runs — see
-     * [RobolectricCaptureToImageProbeTest] and the note on [RcEmbeddedRenderHarness]. The
+     * preserving the reference capture path. [RobolectricCaptureToImageProbeTest] now verifies that
+     * Compose 1.12.1 can capture pixels; see [RcEmbeddedRenderHarness] before migrating. The
      * composition still settles with `waitForIdle()`, the manual frame pumping having gone
      * with #2945.
      */

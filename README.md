@@ -194,6 +194,25 @@ dependencies {
 `rc-player-compose` pulls the rest of the stack transitively. Take `rc-player-protocol` on its own
 when you only need to read or write the wire format.
 
+Compose dependency versions are consumer requirements, including `implementation` dependencies
+published at runtime scope. The experimental `third-party-rc-embedded-player` now requests AndroidX
+Compose **1.12.1**. Before this update its `1.10.0` direct pins already resolved Compose UI to
+**1.11.4** through Remote Compose `1.0.0-alpha19`; the direct pins were not a promise of 1.10 runtime
+compatibility. Compose UI 1.12.1's AAR metadata requires **compileSdk 37 and AGP 9.1.0** (other
+transitive artifacts can impose additional requirements).
+
+An application declaring an older Compose version will normally resolve the higher transitive
+version. Strict older constraints can instead fail resolution; forcing or excluding dependencies
+to retain an older runtime is unverified and can cause linkage failures. This update is therefore
+unsuitable for clients that must remain on Compose 1.11 or earlier. See
+[Gradle's conflict-resolution rules](https://docs.gradle.org/current/userguide/dependency_graph_resolution.html).
+
+The supported `rc-player-compose` artifact uses the separate Compose Multiplatform dependency line
+and `androidx-compose-for-cmp` Android pin; changing the vendored player's `androidx-compose` pin
+does not change that artifact's requirements. It already requests AndroidX Google Fonts 1.12.1,
+so it likewise does not promise support for an older forced Android Compose runtime. The protocol,
+runtime and trace modules do not gain Compose dependencies from this update.
+
 The common Compose API also supports host-rendered custom components. A document names a component
 through `LAYOUT_CUSTOM`; the host registers Compose content under that name. Because the content is
 inserted into the player's existing Compose tree, it can be a native control, a named slot, or
