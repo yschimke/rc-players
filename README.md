@@ -196,7 +196,9 @@ when you only need to read or write the wire format.
 
 Compose dependency versions are consumer requirements, including `implementation` dependencies
 published at runtime scope. The experimental `third-party-rc-embedded-player` now requests AndroidX
-Compose **1.12.1**. Before this update its `1.10.0` direct pins already resolved Compose UI to
+Compose **1.12.1**, intentionally matching the CMP player's resolved Android Compose UI floor.
+Renovate permits stable 1.12.x patches for these core coordinates; moving to a newer minor line
+requires a coordinated compatibility review. Before this update its `1.10.0` direct pins already resolved Compose UI to
 **1.11.4** through Remote Compose `1.0.0-alpha19`; the direct pins were not a promise of 1.10 runtime
 compatibility. Compose UI 1.12.1's AAR metadata requires **compileSdk 37 and AGP 9.1.0** (other
 transitive artifacts can impose additional requirements).

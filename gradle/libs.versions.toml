@@ -76,7 +76,8 @@ androidx-tracing-kmp = "2.0.3"
 # across on the strength of the shared ref name.
 compose-bom-compat = "2025.12.01"
 # Explicit Compose requirements published by `third_party/rc-embedded-player`, without a BOM.
-# Updating these is a consumer compatibility decision: 1.12.1 raises the resolved UI/core line
+# Intentionally aligned to the CMP Android floor at 1.12.1; Renovate permits only stable 1.12.x
+# patches. Raising the minor line is a manual consumer compatibility decision. This raises UI
 # from 1.11.4 (already pulled by Remote Compose alpha19 despite the previous 1.10.0 pins).
 # Compose UI 1.12.1 requires compileSdk 37 / AGP 9.1.0. Older Compose declarations are upgraded
 # by normal resolution; strictly pinned older consumers can fail resolution. Do not force a
