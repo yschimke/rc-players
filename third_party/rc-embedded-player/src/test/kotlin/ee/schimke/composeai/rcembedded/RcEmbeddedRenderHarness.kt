@@ -69,11 +69,10 @@ import org.robolectric.annotation.GraphicsMode
  * **Why the capture still draws the view by hand.** Every harness here settles with `waitForIdle()`
  * now that the player's frame loop lets the composition reach idle ([RcIdleProbeTest]), but the
  * rasterization itself stays a direct `View.draw(Canvas(bitmap))` rather than `captureToImage()`.
- * That is a Robolectric limit, not a player one: `captureToImage()` calls `forceRedraw`, which
- * waits on a `ViewTreeObserver.OnDrawListener` Robolectric never fires, and times out after 2s for
- * *any* content — [RobolectricCaptureToImageProbeTest] pins that with a bare `Box` and no player at
- * all. When that probe starts failing, Robolectric has grown the draw pass and this can become a
- * `captureToImage()`.
+ * Older Compose versions timed out waiting for Robolectric's draw pass. With Compose 1.12.1,
+ * [RobolectricCaptureToImageProbeTest] verifies that capture succeeds and returns real pixels. Keep
+ * the existing capture path to preserve the reference images; migrating it requires a separate
+ * rendered comparison.
  *
  * Density comes from each document's `DOC_DENSITY_AT_GENERATION` header property, staged in the
  * manifest by `rc-compare.mjs`. The Robolectric device remains xhdpi for platform resources, while

@@ -21,6 +21,20 @@
       "allowedVersions": "/^1\\.11\\./"
     },
     {
+      "description": "Hold AndroidX Compose core dependencies on 1.12.x. The vendored Remote Compose player intentionally shares the CMP Android floor (1.12.1); raising the minor line changes published consumer requirements and must be reviewed with CMP. Keep the BOM, Material3 and Remote Compose alpha coordinates under their separate policies.",
+      "matchManagers": ["gradle"],
+      "matchPackageNames": [
+        "androidx.compose.runtime:runtime",
+        "androidx.compose.ui:ui",
+        "androidx.compose.foundation:foundation",
+        "androidx.compose.animation:animation",
+        "androidx.compose.material:material-ripple",
+        "androidx.compose.ui:ui-text-google-fonts"
+      ],
+      "matchCurrentValue": "/^1\\.12\\./",
+      "allowedVersions": "/^1\\.12\\.\\d+$/"
+    },
+    {
       "description": "Remote Compose and its Wear widget layer resolve from Google Maven on released alpha coordinates, and the groups only work together when built against the same `remote-creation*` — `remote-material3` names that version in its POM, and `settings.gradle.kts` enforces the same constraint for the release/snapshot flip (`composeai.remoteCompose`), flipping every key at once so no group straddles the line. Renovate updates one dependency at a time, so an automated bump of any one group produces exactly that skew. Bump `compose-remote` and `wear-compose-remote` in gradle/libs.versions.toml as one set after checking the POMs, and re-verify a render, not just a compile.",
       "matchManagers": ["gradle"],
       "matchPackageNames": [
