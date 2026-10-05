@@ -59,3 +59,6 @@ run_id,lane,core_golds,core_passed,raster_failures,errored,commit
 2026-10-04,cmp,353,315,113,20,3c59c85f02bbd8cdeeb7b2eebcfa6d16e059d9e3
 2026-10-04,native-appkit,353,311,227,0,3c59c85f02bbd8cdeeb7b2eebcfa6d16e059d9e3
 2026-10-04,typescript,353,352,174,0,3c59c85f02bbd8cdeeb7b2eebcfa6d16e059d9e3
+2026-10-05,cmp,353,315,113,20,efb5f70c405ae6c4ab8cb08f159317c38eef32b7
+2026-10-05,native-appkit,353,311,227,0,efb5f70c405ae6c4ab8cb08f159317c38eef32b7
+2026-10-05,typescript,353,352,174,0,efb5f70c405ae6c4ab8cb08f159317c38eef32b7
