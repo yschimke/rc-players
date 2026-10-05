@@ -1,5 +1,5 @@
---- /tmp/opencode/harness-before.kt	2026-09-19 08:18:40.403475433 +0100
-+++ /tmp/opencode/harness-embedded-recorder.kt	2026-09-19 09:13:55.813074057 +0100
+--- a/compose/remote/remote-player-compose/src/test/java/androidx/compose/remote/player/compose/embedded/conformance/RcPlayerConformanceTest.kt
++++ b/compose/remote/remote-player-compose/src/test/java/androidx/compose/remote/player/compose/embedded/conformance/RcPlayerConformanceTest.kt
 @@ -218,7 +218,15 @@
                  .sortedBy { it.relativeTo(goldRoot).path }
                  .toList()
