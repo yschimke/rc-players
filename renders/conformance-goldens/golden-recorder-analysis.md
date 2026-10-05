@@ -76,3 +76,28 @@ leave the reference lane as the one being judged.
 Keep the CL3 **initial** frames: they fixed genuinely stale software baselines (for example
 `clock_digital_calendar` dropped from 18,808 to 1,486 differing pixels, `text_anchored_pan_alignment`
 from 13,536 to 1,186) and agree with every implementation.
+
+## Applying the recorder patches
+
+These are alternative patches for the **AndroidX source checkout**, not the corpus-only
+`vendor/androidx-rc-conformance` branch. Both target
+`compose/remote/remote-player-compose/src/test/java/androidx/compose/remote/player/compose/embedded/conformance/RcPlayerConformanceTest.kt`.
+They apply independently to Gerrit change 4305834, patch set 6
+(`79ea4f541995275b8bae5eb1215f7d51f9aa1cf2`), the recorder revision used above.
+
+From that AndroidX checkout, choose one patch and check it before applying:
+
+```sh
+git apply --check /path/to/rc-players/renders/conformance-goldens/harness-embedded-recorder.patch
+git apply /path/to/rc-players/renders/conformance-goldens/harness-embedded-recorder.patch
+```
+
+Use `harness-resize-fix.patch` instead for the View-player alternative. The paths are relative to
+the AndroidX repository root; no path stripping beyond `git apply`'s default is needed.
+
+The separate `build-corrected-corpus.py` script operates on the **corpus checkout**, with revisions
+`40c0e9e` and `0159a6e` available. Pass its location explicitly, or run from that checkout:
+
+```sh
+python3 /path/to/rc-players/renders/conformance-goldens/build-corrected-corpus.py /path/to/corpus-checkout
+```
