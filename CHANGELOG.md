@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.4](https://github.com/yschimke/rc-players/compare/v2.1.3...v2.1.4) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** align vendored Android Compose with the CMP 1.12 floor ([#577](https://github.com/yschimke/rc-players/issues/577)) ([9f4bff0](https://github.com/yschimke/rc-players/commit/9f4bff00e29eac18d6d702f77a0e336472a47687))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.17.0 ([#578](https://github.com/yschimke/rc-players/issues/578)) ([7856758](https://github.com/yschimke/rc-players/commit/785675814c93838bb7cc577b673adbc23da6460c))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.14.0 ([#579](https://github.com/yschimke/rc-players/issues/579)) ([aeb86e4](https://github.com/yschimke/rc-players/commit/aeb86e4a17776753e54163722b57a6b4f02269cc))
+* make historical conformance recorder patches portable ([#582](https://github.com/yschimke/rc-players/issues/582)) ([ad96e18](https://github.com/yschimke/rc-players/commit/ad96e18937e48c7a05281629be67e869ccf17d3d))
+
 ## [2.1.3](https://github.com/yschimke/rc-players/compare/v2.1.2...v2.1.3) (2026-10-03)
 
 
