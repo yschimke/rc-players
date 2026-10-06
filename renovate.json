@@ -48,6 +48,32 @@
       "description": "One PR a week for the workflow pins rather than one per action: these land as a workflow-only change that the same required checks gate, and reviewing them together is how a bad action bump is spotted.",
       "matchManagers": ["github-actions"],
       "groupName": "github-actions"
+    },
+    {
+      "description": "Update this release BOM independently; module versions come from its constraints.",
+      "matchPackageNames": [
+        "ee.schimke.composeai:compose-preview-contracts-bom"
+      ],
+      "groupName": "compose-preview-contracts",
+      "rangeStrategy": "pin",
+      "enabled": true,
+      "schedule": [
+        "at any time"
+      ],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "Update this release BOM independently; module versions come from its constraints.",
+      "matchPackageNames": [
+        "ee.schimke.composeai:compose-preview-daemon-bom"
+      ],
+      "groupName": "compose-preview-daemon",
+      "rangeStrategy": "pin",
+      "enabled": true,
+      "schedule": [
+        "at any time"
+      ],
+      "minimumReleaseAge": null
     }
   ]
 }
