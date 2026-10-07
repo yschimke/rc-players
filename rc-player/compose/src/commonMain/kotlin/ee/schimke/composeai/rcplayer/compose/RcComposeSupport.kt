@@ -356,7 +356,18 @@ public fun RcDocument.composeSupportReport(
       paintIssue(
           operation,
           shaderIds,
-          textIds = textIds,
+          axisTagIssue = { word ->
+            val literal = texts[word]
+            when {
+              literal != null ->
+                if (isFontAxisTag(literal)) null
+                else "font axis tag \"$literal\" is not a four-character OpenType tag"
+              // Published at run time (TextMerge and the like): nothing to inspect here.
+              word in textIds -> null
+              fourCharacterTag(word) != null -> null
+              else -> "font axis tag $word is not declared"
+            }
+          },
           // A paint family is held to CoreText's rule: canvas text has no FontData path, so a
           // named family must be a generic or one the host supplies.
           familyIssue = { id -> fontFamilyIssue(id, texts, emptySet(), availableFontFamilies) },
@@ -1637,8 +1648,8 @@ private fun paintIssue(
   shaderIds: Set<Int> = emptySet(),
   /** Filled with each DECLARED shader id this paint installs — see [referencedShaderIds]. */
   referenced: MutableSet<Int>? = null,
-  /** The document's text ids, which name font axes; null skips the check. */
-  textIds: Set<Int>? = null,
+  /** Why a `FONT_AXIS` tag word cannot name an axis, or null; null skips the check. */
+  axisTagIssue: ((Int) -> String?)? = null,
   /**
    * Why the family a `TYPEFACE` names by text id cannot be drawn, or null; null skips the check.
    */
@@ -1731,12 +1742,11 @@ private fun paintIssue(
       if (paint.words[index] !in shaderIds) return "shader id ${paint.words[index]} is not declared"
       referenced?.add(paint.words[index])
     }
-    if (type == PAINT_FONT_AXIS && textIds != null) {
-      // Any axis is applied — the face is instanced at it — so only an unnamed one is a fault.
+    if (type == PAINT_FONT_AXIS && axisTagIssue != null) {
+      // Any axis is applied — the face is instanced at it — so only a malformed tag is a fault.
       for (axisIndex in 0 until (command ushr 16)) {
-        val tag = paint.words[index + axisIndex * 2]
-        if (tag !in textIds && fourCharacterTag(tag) == null) {
-          return "font axis tag $tag is not declared"
+        axisTagIssue(paint.words[index + axisIndex * 2])?.let {
+          return it
         }
       }
     }

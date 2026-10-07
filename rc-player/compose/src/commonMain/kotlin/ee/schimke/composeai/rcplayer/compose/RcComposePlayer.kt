@@ -6318,12 +6318,19 @@ private fun gradientTileMode(value: Int): TileMode =
  * also accepted, for documents written by hand. Null when the word is neither.
  */
 internal fun paintFontAxisTag(word: Int, values: RcPlayerState): String? =
-  values.text(word)?.takeIf { it.isNotBlank() } ?: fourCharacterTag(word)
+  values.text(word)?.takeIf(::isFontAxisTag) ?: fourCharacterTag(word)
 
-internal fun fourCharacterTag(word: Int): String? {
-  val chars = CharArray(4) { ((word ushr (24 - it * 8)) and 0xff).toChar() }
-  return if (chars.all { it in ' '..'~' } && chars[0] != ' ') chars.concatToString() else null
-}
+internal fun fourCharacterTag(word: Int): String? =
+  CharArray(4) { ((word ushr (24 - it * 8)) and 0xff).toChar() }
+    .concatToString()
+    .takeIf(::isFontAxisTag)
+
+/**
+ * An OpenType axis tag: four printable ASCII characters, not starting with a space. Anything else
+ * would fail when the face is instanced and take the whole family down to the default with it.
+ */
+internal fun isFontAxisTag(tag: String): Boolean =
+  tag.length == 4 && tag.all { it in ' '..'~' } && tag[0] != ' '
 
 /**
  * AndroidX `PaintBundle` reads a `TYPEFACE` font type above this as a text id naming the family; at

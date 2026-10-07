@@ -649,6 +649,17 @@ class RcComposeSupportTest {
         .issues
         .single()
     assertEquals("font axis tag 44 is not declared", undeclared.detail)
+    // A declared tag must still be a four-character OpenType tag: instancing a face at "width"
+    // fails and drops the whole family to the default.
+    val malformed =
+      RcDocument(
+          header,
+          listOf(RcTextData(44, "width"), RcPaintData(listOf(23 or (1 shl 16), 44, 0))),
+        )
+        .composeSupportReport()
+        .issues
+        .single()
+    assertEquals("font axis tag \"width\" is not a four-character OpenType tag", malformed.detail)
   }
 
   @Test
