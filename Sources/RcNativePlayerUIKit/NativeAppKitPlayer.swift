@@ -3023,6 +3023,18 @@ private final class NativeMacComponentView: NSView, NSGestureRecognizerDelegate,
     {
       font = italic
     }
+    // Last, so a `wght` the document sets overrides the run's weight on a variable face.
+    if !text.fontSettings.isEmpty {
+      let applied = RemoteComposeFontSettings.descriptor(
+        font.fontDescriptor as CTFontDescriptor,
+        applyingAxes: NativeSwiftFontSettings.axes(text.fontSettings).map {
+          (tag: $0.tag, value: CGFloat($0.value))
+        },
+        features: NativeSwiftFontSettings.features(text.fontSettings).map {
+          (tag: $0.tag, value: $0.value)
+        })
+      font = NSFont(descriptor: applied as NSFontDescriptor, size: size) ?? font
+    }
     if label.font != font { label.font = font }
     let textColor = color(Int32(bitPattern: text.colorARGB))
     if label.textColor != textColor { label.textColor = textColor }

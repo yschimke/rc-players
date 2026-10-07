@@ -537,6 +537,8 @@
     let isJustified: Bool
     let isUnderlined: Bool
     let isStruckThrough: Bool
+    /// `CoreText`'s variation axes and layout features, in the one list the document wrote.
+    let fontSettings: [NativeSwiftFontSetting]
 
     static let `default` = NativeTextStyle(
       swiftSnapshot: NativeSwiftTextSnapshot(
@@ -559,6 +561,7 @@
       isJustified = false
       isUnderlined = false
       isStruckThrough = false
+      fontSettings = snapshot.fontSettings
     }
   }
 
@@ -1747,8 +1750,25 @@
         descriptor =
           descriptor.withSymbolicTraits(descriptor.symbolicTraits.union(.traitItalic)) ?? descriptor
       }
+      // Last, so a `wght` the document sets overrides the run's weight on a variable face.
+      descriptor = withFontSettings(descriptor, command.textStyle.fontSettings)
       let resolved = UIFont(descriptor: descriptor, size: size)
       return scalesForDynamicType ? UIFontMetrics.default.scaledFont(for: resolved) : resolved
+    }
+
+    /// `descriptor` with the run's variation axes, where the face declares them, and its OpenType
+    /// layout features.
+    private static func withFontSettings(
+      _ descriptor: UIFontDescriptor, _ settings: [NativeSwiftFontSetting]
+    ) -> UIFontDescriptor {
+      guard !settings.isEmpty else { return descriptor }
+      return RemoteComposeFontSettings.descriptor(
+        descriptor as CTFontDescriptor,
+        applyingAxes: NativeSwiftFontSettings.axes(settings).map {
+          (tag: $0.tag, value: CGFloat($0.value))
+        },
+        features: NativeSwiftFontSettings.features(settings).map { (tag: $0.tag, value: $0.value) }
+      ) as UIFontDescriptor
     }
 
     /// Resolves an installed Apple font by family or PostScript name without falling back.

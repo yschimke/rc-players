@@ -3333,6 +3333,86 @@ private final class FailureLog: @unchecked Sendable {
   }
 }
 
+/// `CoreText`'s font settings: the one tag/value list Remote Compose writes both
+/// `fontVariationSettings` and `fontFeatureSettings` into (properties 20 and 21).
+@Suite struct NativeSwiftFontSettingsTests {
+  private func setting(_ tag: String, _ value: Float) -> NativeSwiftFontSetting {
+    NativeSwiftFontSetting(tag: tag, value: value)
+  }
+
+  @Test func coreTextKeepsItsFontSettings() throws {
+    // Texts 1 and 6 are drawn; texts 2 to 5 are the tags. Style 10 carries `wdth 75`. The first
+    // CoreText only names the style and inherits it; the second sets its own list, which replaces
+    // the style's whole, as AndroidX's does.
+    let writer = Writer()
+    writer.header(width: 200, height: 100)
+    writer.text(id: 1, "1/2")
+    writer.text(id: 2, "wdth")
+    writer.text(id: 3, "frac")
+    writer.text(id: 4, "wght")
+    writer.text(id: 5, "liga")
+    writer.text(id: 6, "3/4")
+    writer.u8(242).u16(3).u8(1).int(10)
+    writer.u8(20).u16(1).int(2)
+    writer.u8(21).u16(1).float(75)
+    writer.u8(200).int(1)
+    writer.u8(239).int(1).u16(1).u8(24).int(10)
+    writer.u8(214)
+    writer.u8(239).int(6).u16(2)
+    writer.u8(20).u16(3).int(3).int(4).int(5)
+    writer.u8(21).u16(3).float(1).float(650).float(0)
+    writer.u8(214)
+    writer.u8(214)
+    let texts = try NativeSwiftDocumentSession.open(data: writer.data).snapshot().root
+      .children.flatMap { [$0] + $0.children }.compactMap(\.text)
+    #expect(
+      texts.map(\.fontSettings) == [
+        [setting("wdth", 75)],
+        [setting("frac", 1), setting("wght", 650), setting("liga", 0)],
+      ], Comment(rawValue: "font settings resolved to \(texts.map(\.fontSettings))"))
+  }
+
+  @Test func featuresAreTheLowercaseTagsThatAreNotRegisteredAxes() {
+    for tag in ["tnum", "liga", "ss01", "cv11", "frac", "smcp"] {
+      #expect(NativeSwiftFontSettings.isFeatureTag(tag), Comment(rawValue: tag))
+    }
+    for tag in ["wght", "wdth", "opsz", "ital", "slnt", "GRAD", "XOPQ", "tnu", "Tnum", "tnum5"] {
+      #expect(!NativeSwiftFontSettings.isFeatureTag(tag), Comment(rawValue: tag))
+    }
+  }
+
+  @Test func settingsSplitIntoAxesAndFeatures() {
+    let mixed = [
+      setting("wght", 650), setting("tnum", 1), setting("liga", 0), setting("GRAD", -50),
+      setting("salt", 2),
+    ]
+    #expect(NativeSwiftFontSettings.axes(mixed) == [setting("wght", 650), setting("GRAD", -50)])
+    #expect(
+      NativeSwiftFontSettings.features(mixed) == [
+        NativeSwiftFontFeature(tag: "tnum", value: 1),
+        NativeSwiftFontFeature(tag: "liga", value: 0),
+        NativeSwiftFontFeature(tag: "salt", value: 2),
+      ])
+  }
+
+  @Test func ambiguousTagsWithAFeatureValueAreBoth() {
+    // `ital` is an axis and the Italics feature; an uppercase tag is a foundry axis or a private
+    // feature. A whole value from zero is applied both ways; any other value is an axis alone.
+    let ambiguous = [
+      setting("ital", 1), setting("PKRN", 1), setting("GRAD", -50), setting("XOPQ", 96.5),
+    ]
+    #expect(NativeSwiftFontSettings.axes(ambiguous) == ambiguous)
+    #expect(
+      NativeSwiftFontSettings.features(ambiguous) == [
+        NativeSwiftFontFeature(tag: "ital", value: 1),
+        NativeSwiftFontFeature(tag: "PKRN", value: 1),
+      ])
+    #expect(
+      NativeSwiftFontSettings.features([setting("salt", 1e20)])
+        == [NativeSwiftFontFeature(tag: "salt", value: 65_535)])
+  }
+}
+
 private final class Writer {
   static func nanReference(_ id: Int) -> Int {
     Int(Int32(bitPattern: 0xff80_0000 | UInt32(id)))

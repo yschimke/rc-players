@@ -32,6 +32,7 @@ question:
 | **CMP JVM** (removed) — font-variation axes | ✅ layout ops, on the family's variable file | — | ✅ `loadVariable` + an axis-carrying font identity | ❌ canvas ops |
 | **CMP Apple Swift API** | ✅ Compose families | ⚠️ host loader | ✅ opt-in `RemoteComposeGoogleFontsResolver` | ✅ `decodeInlineFonts` |
 | **Native UIKit** | ✅ native system designs | ⚠️ deterministic system fallback | ✅ opt-in `RemoteComposeGoogleFontsResolver` + CoreText registration | ✅ bounded CoreText registration |
+| **Native UIKit** — font-variation axes and OpenType features | ✅ layout ops (`CoreText`), on faces that declare the axis | ✅ the same | ✅ the same, on the variable face | ❌ canvas ops |
 
 Two rows of that table are worth stating as findings, because they make two chips in the *same*
 viewer disagree about the *same* document:

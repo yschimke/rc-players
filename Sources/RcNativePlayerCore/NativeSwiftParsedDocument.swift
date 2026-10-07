@@ -480,7 +480,12 @@ extension ParsedNode {
     if let offsetXWord, matches(offsetXWord) { return true }
     if let offsetYWord, matches(offsetYWord) { return true }
     if let zIndexWord, matches(zIndexWord) { return true }
-    if let text, matches(text.sizeWord) || matches(text.weightWord) { return true }
+    if let text,
+      matches(text.sizeWord) || matches(text.weightWord)
+        || text.fontSettingValueWords.contains(where: matches)
+    {
+      return true
+    }
     // A layout computation reads its values each time the component is laid out, so one that
     // reads the clock moves the layout with it.
     let computeReads = layoutComputes.contains { compute in

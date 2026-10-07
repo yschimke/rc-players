@@ -751,7 +751,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
           return NativeSwiftTextAutosize(
             minimumFontSize: min(minimum > 0 ? minimum : 4, resolvedMaximum),
             maximumFontSize: resolvedMaximum)
-        })
+        },
+        fontSettings: fontSettings(source, values: values))
     } else {
       text = nil
     }
@@ -1032,6 +1033,20 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// `Float` these fields used to hold; a NaN-boxed word is a reference into `values`. Validation
   /// that used to run while parsing runs here, because a computed field has nothing to validate
   /// until it resolves — and failing here is what keeps a garbage value from reaching UIKit.
+  /// A `CoreText`'s font settings with their tags and values resolved. A tag with no text, or a
+  /// value that does not resolve to a number, is dropped, as the Compose player drops it.
+  private func fontSettings(
+    _ source: ParsedText, values: [Int: Float]
+  ) -> [NativeSwiftFontSetting] {
+    var settings: [NativeSwiftFontSetting] = []
+    for (tagID, word) in zip(source.fontSettingTagIDs, source.fontSettingValueWords) {
+      guard let tag = texts[tagID], !tag.isEmpty else { continue }
+      let value = NativeSwiftFloatExpression.resolve(word, values: values)
+      if value.isFinite { settings.append(NativeSwiftFontSetting(tag: tag, value: value)) }
+    }
+    return settings
+  }
+
   private func resolvedFloat(
     _ word: UInt32, _ field: String, values: [Int: Float], positive: Bool = false
   ) throws -> Float {

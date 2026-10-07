@@ -45,6 +45,27 @@
       #expect(label.frame == frame)
     }
 
+    /// `CoreText`'s font settings reach the label's font: `tnum` and `pnum` set a run of ones to
+    /// different widths, which they cannot do unless the features are shaped.
+    @Test func fontFeaturesReachTheFont() {
+      func width(_ settings: [NativeSwiftFontSetting]) -> CGFloat {
+        let snapshot = NativeSwiftTextSnapshot(
+          value: "1111111111", colorARGB: 0xff00_0000, size: 16, style: 0, weight: 400,
+          familyID: -1, alignment: .left, overflow: NativeSwiftTextOverflow.clip,
+          maximumLines: 1, fontSettings: settings)
+        let label = NativeTextLabel(
+          componentID: 1, commandIndex: 0, command: NativeDrawCommand(text: snapshot),
+          fontNames: [:])
+        label.apply(documentScale: 1)
+        return label.preferredSize(maximumWidth: 1_000).width
+      }
+      let tabular = width([NativeSwiftFontSetting(tag: "tnum", value: 1)])
+      let proportional = width([NativeSwiftFontSetting(tag: "pnum", value: 1)])
+      #expect(
+        tabular != proportional,
+        Comment(rawValue: "tnum measured \(tabular) and pnum \(proportional)"))
+    }
+
     @Test func measuringDoesNotConfigureTheLabel() {
       let label = makeLabel()
       let font = label.font
