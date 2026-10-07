@@ -1168,14 +1168,19 @@ class RcComposeSupportTest {
         .composeSupportReport()
         .fullyRenderable
     )
-    // Above 10, a font type is the text id of a family name — `RcPaint.setTypeface(String)`.
-    assertTrue(
+    // Above 10, a font type is the text id of a family name — `RcPaint.setTypeface(String)` —
+    // held to CoreText's rule: renderable only when the host supplies the family.
+    val named =
       RcDocument(header, listOf(RcTextData(42, "Roboto Flex"), RcPaintData(listOf(typeface, 42))))
-        .composeSupportReport()
-        .fullyRenderable
+    assertTrue(
+      named.composeSupportReport(availableFontFamilies = setOf("roboto flex")).fullyRenderable
     )
     assertEquals(
-      "font family text 42 is not declared",
+      "custom font family Roboto Flex (42) has no DataFont",
+      named.composeSupportReport().issues.single().detail,
+    )
+    assertEquals(
+      "font family name id 42 is not declared",
       RcDocument(header, listOf(RcPaintData(listOf(typeface, 42))))
         .composeSupportReport()
         .issues

@@ -353,9 +353,15 @@ public fun RcDocument.composeSupportReport(
       }
     }
     if (operation is RcPaintData) {
-      paintIssue(operation, shaderIds, textIds = textIds)?.let { detail ->
-        issues += RcComposeSupportIssue(index, "PaintData", detail)
-      }
+      paintIssue(
+          operation,
+          shaderIds,
+          textIds = textIds,
+          // A paint family is held to CoreText's rule: canvas text has no FontData path, so a
+          // named family must be a generic or one the host supplies.
+          familyIssue = { id -> fontFamilyIssue(id, texts, emptySet(), availableFontFamilies) },
+        )
+        ?.let { detail -> issues += RcComposeSupportIssue(index, "PaintData", detail) }
     }
     if (operation is RcShaderData) {
       when {
@@ -1631,8 +1637,12 @@ private fun paintIssue(
   shaderIds: Set<Int> = emptySet(),
   /** Filled with each DECLARED shader id this paint installs — see [referencedShaderIds]. */
   referenced: MutableSet<Int>? = null,
-  /** The document's text ids, which name typeface families and font axes; null skips the check. */
+  /** The document's text ids, which name font axes; null skips the check. */
   textIds: Set<Int>? = null,
+  /**
+   * Why the family a `TYPEFACE` names by text id cannot be drawn, or null; null skips the check.
+   */
+  familyIssue: ((Int) -> String?)? = null,
 ): String? {
   var index = 0
   while (index < paint.words.size) {
@@ -1711,8 +1721,10 @@ private fun paintIssue(
       when {
         fontType in 0..3 -> Unit
         !namedFamily -> return "font id $fontType is not implemented"
-        textIds != null && fontType !in textIds ->
-          return "font family text $fontType is not declared"
+        else ->
+          familyIssue?.invoke(fontType)?.let {
+            return it
+          }
       }
     }
     if (type == PAINT_SHADER && paint.words[index] != 0) {
