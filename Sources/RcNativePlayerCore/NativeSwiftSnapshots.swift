@@ -873,11 +873,15 @@ public struct NativeSwiftTextSnapshot: Sendable {
   /// the size, because only it can measure the text: `NativeSwiftTextAutosize.fontSize` is the
   /// search. A bound the document left out defaults as the Compose player's does (4 to 400).
   public let autosize: NativeSwiftTextAutosize?
+  /// The `CoreText` font settings, in document order: variation axes and OpenType layout features
+  /// in one list, as Remote Compose writes them. `NativeSwiftFontSettings` splits them.
+  public let fontSettings: [NativeSwiftFontSetting]
 
   public init(
     value: String, colorARGB: UInt32, size: Float, style: Int, weight: Float,
     familyID: Int, familyName: String? = nil, alignment: NativeSwiftTextAlignment, overflow: Int,
-    maximumLines: Int, autosize: NativeSwiftTextAutosize? = nil
+    maximumLines: Int, autosize: NativeSwiftTextAutosize? = nil,
+    fontSettings: [NativeSwiftFontSetting] = []
   ) {
     self.value = value
     self.colorARGB = colorARGB
@@ -890,6 +894,7 @@ public struct NativeSwiftTextSnapshot: Sendable {
     self.overflow = overflow
     self.maximumLines = maximumLines
     self.autosize = autosize
+    self.fontSettings = fontSettings
   }
 }
 

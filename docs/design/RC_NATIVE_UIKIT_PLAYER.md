@@ -51,7 +51,8 @@ either form remains inside the native view tree and can write through declared r
 - Complete operation coverage.
 - Drag/scroll/raw touch expressions, long/double click, automatic sound playback, or inferred
   haptics.
-- Text on paths, inline link spans, font variation axes, or exact CMP text metrics.
+- Text on paths, inline link spans, canvas font axes (`FONT_AXIS` paint), or exact CMP text
+  metrics.
 - Replacing, deprecating, or internally modifying `RcComposePlayer`.
 - A stabilized reusable AppKit API; the macOS sample currently consumes the shared core directly.
 
@@ -449,7 +450,7 @@ Graphics-representable blend modes, ordered line/quadratic/cubic paths, path cli
 linear/radial/sweep gradients, and system-font size. Sweep gradients use bounded Core Graphics
 tessellation because `CGContext` has no conic-gradient primitive. Non-clamp gradient tile modes and
 rational conics are approximated with explicit diagnostics. Referenced shaders, color filters, path
-effects, and document-declared font axes produce diagnostics or unsupported opcodes.
+effects, and canvas (`FONT_AXIS` paint) font axes produce diagnostics or unsupported opcodes.
 
 A bitmap texture paint carries a `SHADER_MATRIX` — an RPN `MATRIX_EXPRESSION` over the document's
 floats — that maps the bitmap onto the shape, and a tile mode per axis. Both are applied: the matrix
@@ -480,6 +481,14 @@ weight is set on that axis; a static instance has no axis to set, so the weight 
 bold symbolic trait instead. The shared `RemoteComposeGoogleFontsResolver` requests the variable
 face (modern agent, full weight range) so the axis exists to be set, and falls back to the plain
 family and then the legacy TrueType response when a family has no such axis.
+
+A `CoreText` also carries a tag/value list (properties 20 and 21) into which Remote Compose writes
+both `fontVariationSettings` and `fontFeatureSettings`. `NativeSwiftFontSettings` splits it by the
+OpenType tag rules the Compose player uses: the registered axes and uppercase foundry tags are
+variation axes, any other four-character lowercase tag (`tnum`, `liga`, `ss01`) is a layout feature,
+and `ital` or an uppercase tag with a whole, non-negative value is applied as both. Axes are set on
+the face only where it declares them, after the run's weight, so a document's `wght` wins; features
+go on the descriptor as OpenType feature settings, which a face without them simply does not shape.
 
 Canvas text uses Core Text inside the ordered Core Graphics command stream, preserving the active
 transform, clip, blend state, baseline anchor, and primitive interleaving. Canvas glyphs intentionally
@@ -527,7 +536,7 @@ RemoteComposeNativePlayerRepresentable(
 The standard protocol text operations carry a single style rather than inline attributed runs, and
 they do not carry a locale property. Link spans are a separate `SupportSpannableString` custom
 component, to be handled by the semantic component registry. UIKit uses its Unicode script and host
-locale behavior for the standard operations. Font variation axes, autosizing properties, exact CMP
+locale behavior for the standard operations. Canvas font axes, autosizing properties, exact CMP
 metrics, and exact text pixels remain outside the current static profile and are reported rather
 than silently claimed.
 

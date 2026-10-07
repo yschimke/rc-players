@@ -274,8 +274,8 @@ enum NativeSwiftDocumentDecoder {
     // paint a base layer before defining and inflating a pattern, so it is not equivalent to a
     // rootless data document.  Create the implicit canvas only at the first drawing operation:
     // doing it eagerly would hide a genuinely missing layout root in an otherwise data-only file.
-    /// The sparse property list `TEXT_STYLE` and `CoreText` share. Booleans and font-axis arrays
-    /// are read past; nothing in this core renders them yet.
+    /// The sparse property list `TEXT_STYLE` and `CoreText` share. Underline and strikethrough are
+    /// read past; nothing in this core renders them yet.
     func textProperties(_ label: String) throws -> ParsedTextProperties {
       let count = Int(try input.u16("\(label) property count"))
       guard count <= 26 else { throw input.malformed("Too many \(label) properties") }
@@ -306,7 +306,10 @@ enum NativeSwiftDocumentDecoder {
           guard count <= maximumProperties else {
             throw input.malformed("\(label) array is too long")
           }
-          for _ in 0..<count { _ = try input.int("\(label) array value") }
+          var values: [Int] = []
+          values.reserveCapacity(count)
+          for _ in 0..<count { values.append(try input.int("\(label) array value")) }
+          properties.arrays[id] = values
         } else {
           throw input.malformed("Unknown \(label) property \(id)")
         }
@@ -351,6 +354,7 @@ enum NativeSwiftDocumentDecoder {
           merged.integers[id] = value
         }
         merged.floats.merge(style.floats) { _, own in own }
+        merged.arrays.merge(style.arrays) { _, own in own }
       }
       return merged
     }
@@ -2448,6 +2452,7 @@ enum NativeSwiftDocumentDecoder {
         }
         properties.integers.merge(own.integers) { _, own in own }
         properties.floats.merge(own.floats) { _, own in own }
+        properties.arrays.merge(own.arrays) { _, own in own }
         let integers = properties.integers
         let floats = properties.floats
         let componentID = integers[NativeSwiftTextProperty.componentID] ?? -(textID + 1)
@@ -2472,7 +2477,10 @@ enum NativeSwiftDocumentDecoder {
                 minimumWord: floats[NativeSwiftTextProperty.minFontSize],
                 maximumWord: floats[NativeSwiftTextProperty.maxFontSize]
               ) : nil
-          })
+          },
+          fontSettingTagIDs: properties.arrays[NativeSwiftTextProperty.fontAxis] ?? [],
+          fontSettingValueWords: (properties.arrays[NativeSwiftTextProperty.fontAxisValues] ?? [])
+            .map { UInt32(truncatingIfNeeded: $0) })
         try begin(node)
       case NativeSwiftWireOpcode.accessibilitySemantics:  // Accessibility semantics
         // Outside any component the semantics describe the document itself, beside its root

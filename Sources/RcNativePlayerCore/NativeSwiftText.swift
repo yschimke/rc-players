@@ -62,6 +62,9 @@ struct ParsedTextLength {
 struct ParsedTextProperties {
   var integers: [Int: Int] = [:]
   var floats: [Int: UInt32] = [:]
+  /// The font-axis arrays, by property: tag text ids for `fontAxis`, float words for
+  /// `fontAxisValues`. A style's array replaces its parent's whole, as AndroidX's does.
+  var arrays: [Int: [Int]] = [:]
 }
 
 struct ParsedText {
@@ -78,4 +81,9 @@ struct ParsedText {
   /// `CoreText`'s autosize flag and the font-size range it searches, as float words so a variable
   /// resolves with the frame's values. Nil when the component does not autosize.
   var autosize: (minimumWord: UInt32?, maximumWord: UInt32?)? = nil
+  /// `CoreText`'s font settings: the text ids of the tags and, index for index, the float words of
+  /// their values. Remote Compose writes variation axes and layout features into this one list;
+  /// `NativeSwiftFontSettings` tells them apart.
+  var fontSettingTagIDs: [Int] = []
+  var fontSettingValueWords: [UInt32] = []
 }
