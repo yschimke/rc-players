@@ -309,13 +309,13 @@ public object RcLayoutTree {
       if (value.type !in RcComponentValue.VALID_TYPES) {
         throw RcLayoutException("ComponentValue ${value.valueId} has unknown type ${value.type}")
       }
-      if (value.componentId !in componentIds) {
-        throw RcLayoutException(
-          "ComponentValue ${value.valueId} references missing component ${value.componentId}"
-        )
-      }
     }
+    // A value naming no component is skipped, as AndroidX's `CoreDocument.registerVariables` skips
+    // it ("Component not found"): its output is simply never published. Remote Material 3 writes
+    // these — `RemoteSlider`'s `drawWithContent` records the component size before any component
+    // has started, so the writer stamps it with component 0.
     values
+      .filter { it.componentId in componentIds }
       .groupBy { it.valueId }
       .forEach { (valueId, bindings) ->
         val targets = bindings.map { it.componentId to it.type }.distinct()

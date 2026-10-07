@@ -199,6 +199,7 @@ tasks.withType<Test>().configureEach {
       "rc.cmp.output",
       "rc.cmp.fonts",
       "rc.bitmapFilter.out",
+      "rc.conic.out",
       "rc.android.out",
       "rc.android.settleFrames",
     )) {

@@ -117,13 +117,16 @@ class RcLayoutTreeTest {
         ends = 4,
       )
     )
-    assertFailsWith<RcLayoutException> {
+    // AndroidX skips a value naming no component rather than rejecting the document; RemoteSlider
+    // writes one with component 0 ahead of its root.
+    requireNotNull(
       treeOf(
+        RcComponentValue(RcComponentValue.WIDTH, componentId = 0, valueId = 91),
         RcRootLayout(1),
         RcComponentValue(RcComponentValue.WIDTH, componentId = 404, valueId = 90),
         ends = 1,
       )
-    }
+    )
     assertFailsWith<RcLayoutException> {
       treeOf(
         RcRootLayout(1),
