@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.2.0](https://github.com/yschimke/rc-players/compare/v2.1.4...v2.2.0) (2026-10-07)
+
+
+### Features
+
+* **compose:** apply OpenType font features a CoreText style carries ([#586](https://github.com/yschimke/rc-players/issues/586)) ([f6f368e](https://github.com/yschimke/rc-players/commit/f6f368effb0ae71b6b8a22f91798aa073a30ecb4))
+* **native:** apply the font axes and OpenType features a CoreText style carries ([#589](https://github.com/yschimke/rc-players/issues/589)) ([ed71b2c](https://github.com/yschimke/rc-players/commit/ed71b2c0576a95a1a2a8d761e5b3e5af0cec1ce5))
+
+
+### Bug Fixes
+
+* **compose:** apply paint font axes and named typefaces, bound the axis-instance cache ([#585](https://github.com/yschimke/rc-players/issues/585)) ([6dfc468](https://github.com/yschimke/rc-players/commit/6dfc468500bef0c0ae4e6e4a42948cdd90c53223))
+* **native:** add the font-settings sources to the Apple sample builds ([#590](https://github.com/yschimke/rc-players/issues/590)) ([f831323](https://github.com/yschimke/rc-players/commit/f831323673946a455a3e1c6d71d052db4fae7c47))
+
 ## [2.1.4](https://github.com/yschimke/rc-players/compare/v2.1.3...v2.1.4) (2026-10-05)
 
 
