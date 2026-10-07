@@ -1,22 +1,20 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.asSkiaPath
 
 internal actual fun Path.rcConicTo(
-  @Suppress("UNUSED_PARAMETER") x0: Float,
-  @Suppress("UNUSED_PARAMETER") y0: Float,
+  x0: Float,
+  y0: Float,
   x1: Float,
   y1: Float,
   x2: Float,
   y2: Float,
   weight: Float,
 ) {
-  // Skiko m144 (CMP 1.11, skiko 0.144.6) deprecated the mutating `Path` API at
-  // DeprecationLevel.ERROR in favour of `PathBuilder`. Source-level only — the native still exports
-  // `Java_org_jetbrains_skia_PathKt__1nConicTo`, so the geometry is unchanged. This seam exists
-  // precisely because `androidx.compose.ui.graphics.Path` exposes no conic; migrating it to
-  // `PathBuilder` would mean returning a *new* path rather than mutating the receiver, which is the
-  // opposite of what the `expect` contract promises its caller.
-  @Suppress("DEPRECATION_ERROR") asSkiaPath().conicTo(x1, y1, x2, y2, weight)
+  // Skia's own chop into quads, within a quarter pixel of the conic. The mutating
+  // `org.jetbrains.skia.Path.conicTo` cannot be called here: skiko 0.144 deprecated it at
+  // DeprecationLevel.ERROR and skiko 0.150 (CMP 1.12) removed it, so a host on CMP 1.12 resolving
+  // this player died with `NoSuchMethodError` on the first conic. Compose's `Path` has no conic and
+  // its replacement, `PathBuilder`, builds a new path rather than mutating this one.
+  rcConicAsQuads(x0, y0, x1, y1, x2, y2, weight) { cx, cy, ex, ey -> quadraticTo(cx, cy, ex, ey) }
 }

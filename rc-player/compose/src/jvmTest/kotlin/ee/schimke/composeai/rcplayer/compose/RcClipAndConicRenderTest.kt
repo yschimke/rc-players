@@ -29,10 +29,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
+import java.io.File
 import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.EncodedImageFormat
 
 /**
  * Pins the component clip modifiers (Compose layer clips) and conic path segments (drawn by Skia
@@ -86,6 +88,25 @@ class RcClipAndConicRenderTest {
     val pixels = render(conicCanvas(weight = 1f))
     assertEquals(GREEN, pixels.getColor(58, 58))
     assertEquals(0, pixels.getColor(62, 62))
+  }
+
+  /**
+   * Writes the √½ quarter disc to `conic.png` under `-Prc.conic.out=<dir>`, the before/after
+   * evidence for a change to how conics reach Skia. Skipped without it.
+   */
+  @Test
+  fun renderConicEvidence() {
+    val out = System.getProperty("rc.conic.out") ?: return
+    val scene =
+      ImageComposeScene(width = SIZE, height = SIZE, density = Density(1f)) {
+        RcComposePlayer(conicCanvas(weight = sqrt(0.5f)), Modifier.fillMaxSize())
+      }
+    try {
+      val png = scene.render().encodeToData(EncodedImageFormat.PNG)!!.bytes
+      File(out).apply { mkdirs() }.resolve("conic.png").writeBytes(png)
+    } finally {
+      scene.close()
+    }
   }
 
   private fun assertCorners(bitmap: Bitmap, left: Int = 0) {
