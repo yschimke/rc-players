@@ -353,9 +353,26 @@ public fun RcDocument.composeSupportReport(
       }
     }
     if (operation is RcPaintData) {
-      paintIssue(operation, shaderIds)?.let { detail ->
-        issues += RcComposeSupportIssue(index, "PaintData", detail)
-      }
+      paintIssue(
+          operation,
+          shaderIds,
+          axisTagIssue = { word ->
+            val literal = texts[word]
+            when {
+              literal != null ->
+                if (isFontAxisTag(literal)) null
+                else "font axis tag \"$literal\" is not a four-character OpenType tag"
+              // Published at run time (TextMerge and the like): nothing to inspect here.
+              word in textIds -> null
+              fourCharacterTag(word) != null -> null
+              else -> "font axis tag $word is not declared"
+            }
+          },
+          // A paint family is held to CoreText's rule: canvas text has no FontData path, so a
+          // named family must be a generic or one the host supplies.
+          familyIssue = { id -> fontFamilyIssue(id, texts, emptySet(), availableFontFamilies) },
+        )
+        ?.let { detail -> issues += RcComposeSupportIssue(index, "PaintData", detail) }
     }
     if (operation is RcShaderData) {
       when {
@@ -1631,6 +1648,12 @@ private fun paintIssue(
   shaderIds: Set<Int> = emptySet(),
   /** Filled with each DECLARED shader id this paint installs — see [referencedShaderIds]. */
   referenced: MutableSet<Int>? = null,
+  /** Why a `FONT_AXIS` tag word cannot name an axis, or null; null skips the check. */
+  axisTagIssue: ((Int) -> String?)? = null,
+  /**
+   * Why the family a `TYPEFACE` names by text id cannot be drawn, or null; null skips the check.
+   */
+  familyIssue: ((Int) -> String?)? = null,
 ): String? {
   var index = 0
   while (index < paint.words.size) {
@@ -1701,17 +1724,30 @@ private fun paintIssue(
     if (type in setOf(PAINT_COLOR_FILTER, PAINT_COLOR_FILTER_ID) && command ushr 16 !in 0..28) {
       return "color filter mode ${command ushr 16} is not implemented"
     }
-    if (type == PAINT_TYPEFACE && paint.words[index] !in 0..3) {
-      return "font id ${paint.words[index]} is not implemented"
+    if (type == PAINT_TYPEFACE) {
+      val fontType = paint.words[index]
+      val namedFamily =
+        fontType > PAINT_MAX_GENERIC_FONT_TYPE &&
+          (command ushr 16) and PAINT_TYPEFACE_FONT_DATA == 0
+      when {
+        fontType in 0..3 -> Unit
+        !namedFamily -> return "font id $fontType is not implemented"
+        else ->
+          familyIssue?.invoke(fontType)?.let {
+            return it
+          }
+      }
     }
     if (type == PAINT_SHADER && paint.words[index] != 0) {
       if (paint.words[index] !in shaderIds) return "shader id ${paint.words[index]} is not declared"
       referenced?.add(paint.words[index])
     }
-    if (type == PAINT_FONT_AXIS) {
+    if (type == PAINT_FONT_AXIS && axisTagIssue != null) {
+      // Any axis is applied — the face is instanced at it — so only a malformed tag is a fault.
       for (axisIndex in 0 until (command ushr 16)) {
-        val tag = paint.words[index + axisIndex * 2]
-        if (tag !in SUPPORTED_FONT_AXES) return "font axis ${fontAxisName(tag)} is not implemented"
+        axisTagIssue(paint.words[index + axisIndex * 2])?.let {
+          return it
+        }
       }
     }
     index += argumentWords
@@ -1774,10 +1810,9 @@ private const val PAINT_SHADER_MATRIX = 22
 private const val PAINT_FONT_AXIS = 23
 private const val PAINT_TEXTURE = 24
 
-private const val FONT_AXIS_WEIGHT = 0x77676874 // wght
-private const val FONT_AXIS_ITALIC = 0x6974616c // ital
-private const val FONT_AXIS_SLANT = 0x736c6e74 // slnt
-private val SUPPORTED_FONT_AXES = setOf(FONT_AXIS_WEIGHT, FONT_AXIS_ITALIC, FONT_AXIS_SLANT)
+/** See the player's constant of the same name: font types above it name a family by text id. */
+private const val PAINT_MAX_GENERIC_FONT_TYPE = 10
+private const val PAINT_TYPEFACE_FONT_DATA = 1024
 
 private fun particleCompareWork(operation: RcParticleCompare, particleCount: Int): Long {
   fun literalIndex(word: RcFloatWord, fallback: Int): Int =
@@ -1798,14 +1833,6 @@ private fun particleCompareWork(operation: RcParticleCompare, particleCount: Int
     if (operation.secondEquations.isEmpty()) selected else selected * (selected - 1L) / 2L
   return visits * evaluations
 }
-
-private fun fontAxisName(tag: Int): String =
-  buildString(4) {
-    append((tag ushr 24).toChar())
-    append((tag ushr 16 and 0xff).toChar())
-    append((tag ushr 8 and 0xff).toChar())
-    append((tag and 0xff).toChar())
-  }
 
 /**
  * Graphics-layer attributes the CMP backend accepts, by the value kind each is written as: every
