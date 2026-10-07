@@ -4842,12 +4842,14 @@ internal fun isFontFeatureTag(tag: String): Boolean =
     tag.all { it in 'a'..'z' || it in '0'..'9' }
 
 /**
- * The one tag OpenType registers as both a variation axis and a layout feature (the Italics GSUB
- * feature, which CJK fonts use for italic Latin glyphs). The shared list does not record which one
- * the document meant, so `ital` is applied as both: the axis to a face that has it, the feature to
- * a face that has that, and each is a no-op on a face that lacks it.
+ * Whether [tag] could be either a variation axis or a layout feature, so the shared list cannot say
+ * which the document meant: `ital`, which OpenType registers as both (the Italics GSUB feature is
+ * what CJK fonts use for italic Latin), and the uppercase tags, which name foundry axes (`GRAD`)
+ * and private features (`PKRN`) alike. Such a tag is applied as both; each is a no-op on a face
+ * that lacks it.
  */
-private const val AXIS_AND_FEATURE_TAG = "ital"
+private fun isAxisOrFeatureTag(tag: String): Boolean =
+  tag == "ital" || (tag.length == 4 && tag[0] in 'A'..'Z')
 
 /**
  * The layout features in [settings], as a `TextStyle.fontFeatureSettings` value — `tnum, liga 0,
@@ -4860,7 +4862,13 @@ private const val AXIS_AND_FEATURE_TAG = "ital"
 internal fun fontFeatureSettings(settings: RcFontVariations?): String? =
   settings
     ?.axes
-    ?.filter { isFontFeatureTag(it.tag) || it.tag == AXIS_AND_FEATURE_TAG }
+    ?.filter {
+      isFontFeatureTag(it.tag) ||
+        // A feature value is a whole number from zero: `GRAD -50` can only be the axis.
+        (isAxisOrFeatureTag(it.tag) &&
+          it.value >= 0f &&
+          it.value == it.value.roundToInt().toFloat())
+    }
     ?.joinToString(", ") { feature ->
       val value = feature.value.roundToInt().coerceAtLeast(0)
       if (value == 1) feature.tag else "${feature.tag} $value"

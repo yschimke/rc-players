@@ -129,6 +129,16 @@ class RcFontFeatureSettingsTest {
   }
 
   @Test
+  fun anUppercaseTagWithAFeatureValueIsBothAnAxisAndAFeature() {
+    val private = settings("PKRN" to 1f, "GRAD" to -50f, "XOPQ" to 96.5f)
+    assertEquals("PKRN", fontFeatureSettings(private))
+    assertEquals(
+      listOf("PKRN" to 1f, "GRAD" to -50f, "XOPQ" to 96.5f),
+      private.withoutFeatures().pairs(),
+    )
+  }
+
+  @Test
   fun aListOfOnlyAxesOrOnlyFeaturesLeavesTheOtherSideEmpty() {
     val axes = settings("wdth" to 25f)
     assertNull(fontFeatureSettings(axes))
