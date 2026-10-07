@@ -22,6 +22,7 @@ import android.view.View.MeasureSpec
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.remote.player.core.RemoteDocument
@@ -32,6 +33,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcembedded.player.ExperimentalRemoteDocumentPlayer
 import ee.schimke.composeai.rcembedded.player.RemoteImageSupport
+import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -81,12 +83,29 @@ class RcPathAndBitmapMeasureRenderTest {
     @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun textReadThroughBitmapTextMeasureDraws() {
+    fun textReadThroughBitmapTextMeasureDrawsAsTheStringDoes() {
         // "Hamburg" in Roboto Flex at 22 dp, weight 700, its characters read with
-        // BitmapTextMeasure. The View player draws about 4,400 ink pixels; with the measure
-        // unevaluated nothing drew at all.
-        val ink = ink(render("BitmapTextMeasureRemoteString-400x64.rc", width = 400, height = 64))
-        assertTrue("the RemoteString text drew $ink ink pixels", ink > 2000)
+        // BitmapTextMeasure, against the same text written as a String: the same glyphs at the same
+        // places. With the measure unevaluated the RemoteString text drew nothing.
+        val (text, reference) =
+            render(
+                listOf(
+                    "BitmapTextMeasureRemoteString-400x64.rc",
+                    "BitmapTextMeasureReferenceString-400x64.rc",
+                ),
+                width = 400,
+                height = 64,
+            )
+        // The String text is drawn as tweened outlines and the RemoteString text as point
+        // expressions, which round differently: a few edge pixels may differ by a level or two.
+        val worst =
+            (0 until 400).maxOf { x ->
+                (0 until 64).maxOf { y ->
+                    abs((text.getPixel(x, y) ushr 24) - (reference.getPixel(x, y) ushr 24))
+                }
+            }
+        assertTrue("the String text drew ${ink(reference)} ink pixels", ink(reference) > 2000)
+        assertTrue("a pixel's alpha differs from the String text's by $worst", worst <= 16)
     }
 
     @Test
@@ -102,41 +121,51 @@ class RcPathAndBitmapMeasureRenderTest {
             (0 until bitmap.height).count { y -> (bitmap.getPixel(x, y) ushr 24) > 8 }
         }
 
-    private fun render(fixture: String, width: Int, height: Int): Bitmap {
-        val bytes =
+    private fun render(fixture: String, width: Int, height: Int): Bitmap =
+        render(listOf(fixture), width, height).single()
+
+    /** Each of [fixtures] at [width] by [height], side by side in one composition. */
+    private fun render(fixtures: List<String>, width: Int, height: Int): List<Bitmap> {
+        val documents = fixtures.map { fixture ->
             checkNotNull(javaClass.getResourceAsStream("/rc-fixtures/$fixture")) {
                     "missing fixture /rc-fixtures/$fixture"
                 }
                 .use { it.readBytes() }
+        }
 
         composeRule.setContent {
             val documentDensity = Density(DENSITY, LocalDensity.current.fontScale)
             CompositionLocalProvider(LocalDensity provides documentDensity) {
-                Box(
-                    Modifier.size(
-                        with(documentDensity) { width.toDp() },
-                        with(documentDensity) { height.toDp() },
-                    )
-                ) {
-                    RemoteImageSupport.enableEncodedImageReferences()
-                    ExperimentalRemoteDocumentPlayer(
-                        document = RemoteDocument(bytes),
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                Row {
+                    for (bytes in documents) {
+                        Box(
+                            Modifier.size(
+                                with(documentDensity) { width.toDp() },
+                                with(documentDensity) { height.toDp() },
+                            )
+                        ) {
+                            RemoteImageSupport.enableEncodedImageReferences()
+                            ExperimentalRemoteDocumentPlayer(
+                                document = RemoteDocument(bytes),
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
                 }
             }
         }
         composeRule.waitForIdle()
 
+        val total = width * documents.size
         val root = composeRule.activity.findViewById<ViewGroup>(android.R.id.content)
         root.measure(
-            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(total, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
         )
-        root.layout(0, 0, width, height)
-        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
-            root.draw(Canvas(it))
-        }
+        root.layout(0, 0, total, height)
+        val whole = Bitmap.createBitmap(total, height, Bitmap.Config.ARGB_8888)
+        root.draw(Canvas(whole))
+        return documents.indices.map { Bitmap.createBitmap(whole, it * width, 0, width, height) }
     }
 
     private companion object {
