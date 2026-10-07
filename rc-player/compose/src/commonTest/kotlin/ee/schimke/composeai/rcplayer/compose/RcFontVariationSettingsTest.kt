@@ -92,3 +92,43 @@ class RcFontVariationSettingsTest {
   private fun RcFontVariations?.pairs(): List<Pair<String, Float>> =
     this?.axes.orEmpty().map { it.tag to it.value }
 }
+
+/**
+ * Remote Compose writes a text's features into the same list as its axes; the OpenType tag rules
+ * split them back apart — registered axes are five lowercase tags, foundry axes start uppercase.
+ */
+class RcFontFeatureSettingsTest {
+  private fun RcFontVariations?.pairs(): List<Pair<String, Float>> =
+    this?.axes.orEmpty().map { it.tag to it.value }
+
+  private fun settings(vararg pairs: Pair<String, Float>) =
+    fontVariationSettings(pairs.map { it.first }, pairs.map { it.second })
+
+  @Test
+  fun featuresAreTheLowercaseTagsThatAreNotRegisteredAxes() {
+    listOf("tnum", "liga", "ss01", "cv11", "frac", "smcp").forEach {
+      assertEquals(true, isFontFeatureTag(it), it)
+    }
+    listOf("wght", "wdth", "opsz", "ital", "slnt", "GRAD", "XOPQ", "YTUC", "tnu", "Tnum").forEach {
+      assertEquals(false, isFontFeatureTag(it), it)
+    }
+  }
+
+  @Test
+  fun featuresBecomeTheStylesFeatureSettingsAndLeaveTheAxes() {
+    val mixed = settings("wght" to 650f, "tnum" to 1f, "liga" to 0f, "GRAD" to -50f, "salt" to 2f)
+    assertEquals("tnum, liga 0, salt 2", fontFeatureSettings(mixed))
+    assertEquals(listOf("wght" to 650f, "GRAD" to -50f), mixed.withoutFeatures().pairs())
+  }
+
+  @Test
+  fun aListOfOnlyAxesOrOnlyFeaturesLeavesTheOtherSideEmpty() {
+    val axes = settings("wdth" to 25f)
+    assertNull(fontFeatureSettings(axes))
+    assertEquals(axes, axes.withoutFeatures())
+    val features = settings("tnum" to 1f)
+    assertEquals("tnum", fontFeatureSettings(features))
+    assertNull(features.withoutFeatures())
+    assertNull(fontFeatureSettings(null))
+  }
+}
