@@ -122,6 +122,13 @@ class RcFontFeatureSettingsTest {
   }
 
   @Test
+  fun italIsBothAnAxisAndAFeature() {
+    val italic = settings("ital" to 1f, "tnum" to 1f)
+    assertEquals("ital, tnum", fontFeatureSettings(italic))
+    assertEquals(listOf("ital" to 1f), italic.withoutFeatures().pairs())
+  }
+
+  @Test
   fun aListOfOnlyAxesOrOnlyFeaturesLeavesTheOtherSideEmpty() {
     val axes = settings("wdth" to 25f)
     assertNull(fontFeatureSettings(axes))

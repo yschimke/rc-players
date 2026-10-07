@@ -4842,6 +4842,14 @@ internal fun isFontFeatureTag(tag: String): Boolean =
     tag.all { it in 'a'..'z' || it in '0'..'9' }
 
 /**
+ * The one tag OpenType registers as both a variation axis and a layout feature (the Italics GSUB
+ * feature, which CJK fonts use for italic Latin glyphs). The shared list does not record which one
+ * the document meant, so `ital` is applied as both: the axis to a face that has it, the feature to
+ * a face that has that, and each is a no-op on a face that lacks it.
+ */
+private const val AXIS_AND_FEATURE_TAG = "ital"
+
+/**
  * The layout features in [settings], as a `TextStyle.fontFeatureSettings` value — `tnum, liga 0,
  * salt 2` — or null when there are none.
  *
@@ -4852,7 +4860,7 @@ internal fun isFontFeatureTag(tag: String): Boolean =
 internal fun fontFeatureSettings(settings: RcFontVariations?): String? =
   settings
     ?.axes
-    ?.filter { isFontFeatureTag(it.tag) }
+    ?.filter { isFontFeatureTag(it.tag) || it.tag == AXIS_AND_FEATURE_TAG }
     ?.joinToString(", ") { feature ->
       val value = feature.value.roundToInt().coerceAtLeast(0)
       if (value == 1) feature.tag else "${feature.tag} $value"
