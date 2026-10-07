@@ -1483,12 +1483,19 @@ private fun RenderLayoutNode(
         // Font-variation axes (properties 20/21) — a variable font's `wght` / `wdth` / … instance.
         // The tags arrive as text ids and the values may be document floats, so both are resolved
         // through the player state before they are paired up.
-        val variations =
+        //
+        // The same list carries the style's OpenType *features*: Remote Compose's `RemoteTextStyle`
+        // writes `fontFeatureSettings` into it beside the axes (`tnum` = 1 next to `wght` = 650).
+        // Those are split back out and applied as the style's `fontFeatureSettings`; handed to the
+        // font as variation axes they were silently ignored.
+        val fontSettings =
           fontVariationSettings(
             axisTags = properties.intArrayProperty(CORE_TEXT_FONT_AXIS_TAGS).map { state.text(it) },
             axisValues =
               properties.floatArrayProperty(CORE_TEXT_FONT_AXIS_VALUES).map { state.resolve(it) },
           )
+        val variations = fontSettings.withoutFeatures()
+        val fontFeatures = fontFeatureSettings(fontSettings)
         val lines = remember { RcTextLines() }
         val text = state.text(node.operation.textId).orEmpty()
         val overflow = properties.intProperty(10, RcTextLayout.OVERFLOW_CLIP)
@@ -1556,6 +1563,7 @@ private fun RenderLayoutNode(
                 LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
               fontWeight = FontWeight(boldWeight),
               fontStyle = if (fontStyle and 2 != 0) FontStyle.Italic else FontStyle.Normal,
+              fontFeatureSettings = fontFeatures,
               fontFamily =
                 resolveFontFamily(
                   properties.intProperty(8, -1),
@@ -4812,6 +4820,66 @@ internal fun fontVariationSettings(
     tag?.takeIf { it.isNotBlank() }?.let { RcFontAxis(it, value) }
   }
   return if (axes.isEmpty()) null else RcFontVariations(axes)
+}
+
+/**
+ * The axes OpenType registers, all lowercase: every other variation axis is foundry-defined and its
+ * tag must begin with an uppercase letter (`GRAD`, `XOPQ`). So a four-character, all-lowercase tag
+ * outside this set is not an axis of any font — it is a layout feature (`tnum`, `liga`, `ss01`).
+ */
+private val REGISTERED_FONT_AXES = setOf("wght", "wdth", "opsz", "ital", "slnt")
+
+/**
+ * Whether [tag], from a `CoreText` style's axis list, is an OpenType layout feature rather than a
+ * variation axis. Remote Compose writes both into the one list
+ * (`RemoteTextStyle.fontFeatureSettings` beside `fontVariationSettings`); the OpenType tag rules
+ * tell them apart — see [REGISTERED_FONT_AXES].
+ */
+internal fun isFontFeatureTag(tag: String): Boolean =
+  tag.length == 4 &&
+    tag !in REGISTERED_FONT_AXES &&
+    tag[0] in 'a'..'z' &&
+    tag.all { it in 'a'..'z' || it in '0'..'9' }
+
+/**
+ * Whether [tag] could be either a variation axis or a layout feature, so the shared list cannot say
+ * which the document meant: `ital`, which OpenType registers as both (the Italics GSUB feature is
+ * what CJK fonts use for italic Latin), and the uppercase tags, which name foundry axes (`GRAD`)
+ * and private features (`PKRN`) alike. Such a tag is applied as both; each is a no-op on a face
+ * that lacks it.
+ */
+private fun isAxisOrFeatureTag(tag: String): Boolean =
+  tag == "ital" || (tag.length == 4 && tag[0] in 'A'..'Z')
+
+/**
+ * The layout features in [settings], as a `TextStyle.fontFeatureSettings` value — `tnum, liga 0,
+ * salt 2` — or null when there are none.
+ *
+ * Tags are written bare, not CSS-quoted: Skia's `FontFeature.parseW3`, which Compose Desktop, Web
+ * and iOS parse this with, takes a tag only when it is exactly four characters, so `'tnum'` is
+ * dropped there; Android's HarfBuzz parser takes either spelling. A value of 1 is the tag alone.
+ */
+internal fun fontFeatureSettings(settings: RcFontVariations?): String? =
+  settings
+    ?.axes
+    ?.filter {
+      isFontFeatureTag(it.tag) ||
+        // A feature value is a whole number from zero: `GRAD -50` can only be the axis.
+        (isAxisOrFeatureTag(it.tag) &&
+          it.value >= 0f &&
+          it.value == it.value.roundToInt().toFloat())
+    }
+    ?.joinToString(", ") { feature ->
+      val value = feature.value.roundToInt().coerceAtLeast(0)
+      if (value == 1) feature.tag else "${feature.tag} $value"
+    }
+    ?.ifEmpty { null }
+
+/** [this] without its layout features: the variation axes alone, or null when none are left. */
+internal fun RcFontVariations?.withoutFeatures(): RcFontVariations? {
+  val axes = this?.axes?.filterNot { isFontFeatureTag(it.tag) }.orEmpty()
+  return if (axes.isEmpty()) null
+  else if (axes.size == this?.axes?.size) this else RcFontVariations(axes)
 }
 
 /**
