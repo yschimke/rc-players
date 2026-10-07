@@ -29,7 +29,9 @@ public class RcFontFace(
  * not a scaled one) and for a static font is a no-op the font engine ignores.
  *
  * Instances are cached per axis set: a document draws the same family at the same axes on every
- * frame, and re-parsing the file per frame would be visible on a text-heavy watch face.
+ * frame, and re-parsing the file per frame would be visible on a text-heavy watch face. The cache
+ * is bounded, least recently used out first, because an *animated* axis — a `RemoteFloat` value —
+ * asks for a new set on nearly every frame and would otherwise keep every instance it ever drew.
  */
 public class RcFontFaces(private val faces: List<RcFontFace>) {
 
@@ -49,13 +51,19 @@ public class RcFontFaces(private val faces: List<RcFontFace>) {
   private fun instanceSuffix(axes: List<Pair<String, Float>>): String =
     axes.joinToString(separator = ",", prefix = "#") { (tag, value) -> "$tag=$value" }
 
-  private val instances = mutableMapOf<List<Pair<String, Float>>, FontFamily>()
+  /** Insertion-ordered, and re-inserted on each hit, so the first entry is the least recent. */
+  private val instances = LinkedHashMap<List<Pair<String, Float>>, FontFamily>()
+
+  /** Test-only: how many axis-set instances are held. */
+  internal val cachedInstanceCount: Int
+    get() = instances.size
 
   /** The [FontFamily] for these faces at [variations], or null when there are no faces at all. */
   public fun family(variations: RcFontVariations? = null): FontFamily? {
     if (faces.isEmpty()) return null
     val key = variations?.axes.orEmpty().map { it.tag to it.value }
-    instances[key]?.let {
+    instances.remove(key)?.let {
+      instances[key] = it
       return it
     }
     // Converted once here rather than per face: this is the only place the player needs Compose's
@@ -91,7 +99,17 @@ public class RcFontFaces(private val faces: List<RcFontFace>) {
         )
       }
         .getOrNull() ?: return null
+    if (instances.size >= MAX_INSTANCES) instances.remove(instances.keys.first())
     instances[key] = built
     return built
+  }
+
+  internal companion object {
+    /**
+     * Enough for every static axis set a document draws plus a full sweep of an animated one at a
+     * few distinct values per frame of a short transition; past it the oldest instance is rebuilt
+     * if it is needed again.
+     */
+    const val MAX_INSTANCES: Int = 32
   }
 }

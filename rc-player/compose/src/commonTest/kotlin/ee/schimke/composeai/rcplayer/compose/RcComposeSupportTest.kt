@@ -628,15 +628,27 @@ class RcComposeSupportTest {
         .single()
     assertEquals("font axis count 9 is invalid", invalidCount.detail)
 
-    val unsupported =
+    // Any axis is instanced, whether its tag is a text id (what AndroidX writes) or a packed
+    // four-character code; only a tag that names nothing is a fault.
+    assertTrue(
       RcDocument(
           header,
-          listOf(RcPaintData(listOf(23 or (1 shl 16), 0x77647468, 0))), // wdth
+          listOf(RcTextData(44, "ROND"), RcPaintData(listOf(23 or (1 shl 16), 44, 0))),
         )
+        .composeSupportReport()
+        .fullyRenderable
+    )
+    assertTrue(
+      RcDocument(header, listOf(RcPaintData(listOf(23 or (1 shl 16), 0x77647468, 0)))) // wdth
+        .composeSupportReport()
+        .fullyRenderable
+    )
+    val undeclared =
+      RcDocument(header, listOf(RcPaintData(listOf(23 or (1 shl 16), 44, 0))))
         .composeSupportReport()
         .issues
         .single()
-    assertEquals("font axis wdth is not implemented", unsupported.detail)
+    assertEquals("font axis tag 44 is not declared", undeclared.detail)
   }
 
   @Test
@@ -1148,7 +1160,7 @@ class RcComposeSupportTest {
   }
 
   @Test
-  fun acceptsBuiltInTypefaceAndRejectsUnmappedAndroidFontIds() {
+  fun acceptsBuiltInAndNamedTypefacesAndRejectsUnmappedAndroidFontIds() {
     val typeface = 16 or (600 shl 16)
 
     assertTrue(
@@ -1156,12 +1168,40 @@ class RcComposeSupportTest {
         .composeSupportReport()
         .fullyRenderable
     )
-    val issue =
+    // Above 10, a font type is the text id of a family name — `RcPaint.setTypeface(String)`.
+    assertTrue(
+      RcDocument(header, listOf(RcTextData(42, "Roboto Flex"), RcPaintData(listOf(typeface, 42))))
+        .composeSupportReport()
+        .fullyRenderable
+    )
+    assertEquals(
+      "font family text 42 is not declared",
       RcDocument(header, listOf(RcPaintData(listOf(typeface, 42))))
         .composeSupportReport()
         .issues
         .single()
-    assertEquals("font id 42 is not implemented", issue.detail)
+        .detail,
+    )
+    assertEquals(
+      "font id 5 is not implemented",
+      RcDocument(header, listOf(RcPaintData(listOf(typeface, 5))))
+        .composeSupportReport()
+        .issues
+        .single()
+        .detail,
+    )
+    // The font-data bit makes 42 a `FontData` id, which canvas text does not resolve.
+    assertEquals(
+      "font id 42 is not implemented",
+      RcDocument(
+          header,
+          listOf(RcTextData(42, "Roboto Flex"), RcPaintData(listOf(16 or (1024 shl 16), 42))),
+        )
+        .composeSupportReport()
+        .issues
+        .single()
+        .detail,
+    )
   }
 
   @Test

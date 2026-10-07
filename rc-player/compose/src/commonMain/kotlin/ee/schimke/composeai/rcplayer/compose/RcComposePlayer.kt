@@ -4284,8 +4284,21 @@ private class RcPaintState(
   /** How bitmaps are sampled when scaled — `FILTER_BITMAP` / `IMAGE_FILTER_QUALITY`. */
   var filterQuality: FilterQuality = FilterQuality.Low
   var textSize: Float = 16f
-  /** Until a `PaintData` names a font type, the host's default face — as `CoreText` gets it. */
-  var fontFamily: FontFamily = rcResolveTypeface(null, -1, emptyMap(), typefaces)
+  /**
+   * The family a `TYPEFACE` command named — a generic or a host family — or null for the default.
+   * Kept as a name rather than a resolved [FontFamily] because `FONT_AXIS` may come after it in the
+   * same `PaintData`, and the family has to be instanced at those axes.
+   */
+  var fontName: String? = null
+  /** The axes the last `FONT_AXIS` command set; it replaces the whole set, as AndroidX does. */
+  var fontVariations: RcFontVariations? = null
+  /**
+   * Until a `PaintData` names a font type, the host's default face — as `CoreText` gets it.
+   * Resolved per use: the host caches each family per axis set, so this is a lookup.
+   */
+  val fontFamily: FontFamily
+    get() = rcResolveTypeface(fontName, -1, emptyMap(), typefaces, fontVariations)
+
   var fontWeight: FontWeight = FontWeight.Normal
   var fontStyle: FontStyle = FontStyle.Normal
   var fontType: Int = 0
@@ -6116,20 +6129,23 @@ private fun applyPaint(
       }
       23 -> {
         val count = command ushr 16
+        val axes = mutableListOf<RcFontAxis>()
         repeat(count) {
-          val axis = operation.words[index++]
+          val tag = paintFontAxisTag(operation.words[index++], values)
           val value =
             values.resolve(
               ee.schimke.composeai.rcplayer.protocol.RcFloatWord(operation.words[index++])
             )
-          when (axis) {
-            FONT_AXIS_WEIGHT -> state.fontWeight = FontWeight(value.roundToInt().coerceIn(1, 1000))
-            FONT_AXIS_ITALIC ->
-              state.fontStyle = if (value >= 0.5f) FontStyle.Italic else FontStyle.Normal
-            FONT_AXIS_SLANT ->
-              state.fontStyle = if (value != 0f) FontStyle.Italic else FontStyle.Normal
+          // The face is instanced at every axis below; wght/ital/slnt also pick the face when the
+          // family is not a variable host face, as a static family's weights and styles do.
+          when (tag) {
+            "wght" -> state.fontWeight = FontWeight(value.roundToInt().coerceIn(1, 1000))
+            "ital" -> state.fontStyle = if (value >= 0.5f) FontStyle.Italic else FontStyle.Normal
+            "slnt" -> state.fontStyle = if (value != 0f) FontStyle.Italic else FontStyle.Normal
           }
+          if (tag != null) axes += RcFontAxis(tag, value)
         }
+        state.fontVariations = RcFontVariations(axes).takeUnless { it.isEmpty }
       }
       24 -> {
         val imageId = operation.words[index++]
@@ -6149,15 +6165,19 @@ private fun applyPaint(
         val style = command ushr 16
         val fontType = operation.words[index++]
         state.fontType = fontType
-        val family =
-          when (fontType) {
-            0 -> RC_DEFAULT_FAMILY
-            1 -> "sans-serif"
-            2 -> "serif"
-            3 -> "monospace"
+        state.fontName =
+          when {
+            fontType == 0 -> RC_DEFAULT_FAMILY
+            fontType == 1 -> "sans-serif"
+            fontType == 2 -> "serif"
+            fontType == 3 -> "monospace"
+            // Above the generic range, and without the font-data bit, AndroidX reads the word as
+            // the text id of a family name — what `RcPaint.setTypeface(String)` writes.
+            fontType > PAINT_MAX_GENERIC_FONT_TYPE && style and PAINT_TYPEFACE_FONT_DATA == 0 ->
+              values.text(fontType)
+                ?: error("AndroidX font family text $fontType is not in the document")
             else -> error("AndroidX font id $fontType is not implemented by the CMP backend")
           }
-        state.fontFamily = rcResolveTypeface(family, -1, emptyMap(), state.typefaces)
         state.fontWeight = FontWeight((style and 0x3ff).takeIf { it > 0 } ?: 400)
         state.fontStyle = if (style and 0x800 != 0) FontStyle.Italic else FontStyle.Normal
       }
@@ -6292,9 +6312,27 @@ private fun gradientTileMode(value: Int): TileMode =
     else -> TileMode.Clamp
   }
 
-private const val FONT_AXIS_WEIGHT = 0x77676874 // wght
-private const val FONT_AXIS_ITALIC = 0x6974616c // ital
-private const val FONT_AXIS_SLANT = 0x736c6e74 // slnt
+/**
+ * The axis tag a `FONT_AXIS` word names. AndroidX writes the text id of the tag (`RcPaint.setAxis`
+ * and the Compose paint tracker both `addText` it); a four-character code packed into the word is
+ * also accepted, for documents written by hand. Null when the word is neither.
+ */
+internal fun paintFontAxisTag(word: Int, values: RcPlayerState): String? =
+  values.text(word)?.takeIf { it.isNotBlank() } ?: fourCharacterTag(word)
+
+internal fun fourCharacterTag(word: Int): String? {
+  val chars = CharArray(4) { ((word ushr (24 - it * 8)) and 0xff).toChar() }
+  return if (chars.all { it in ' '..'~' } && chars[0] != ' ') chars.concatToString() else null
+}
+
+/**
+ * AndroidX `PaintBundle` reads a `TYPEFACE` font type above this as a text id naming the family; at
+ * or below it, as a generic family (0–3) or a `FontData` id.
+ */
+private const val PAINT_MAX_GENERIC_FONT_TYPE = 10
+
+/** The `TYPEFACE` style bit marking the font type as a `FontData` id rather than a family name. */
+private const val PAINT_TYPEFACE_FONT_DATA = 1024
 
 private fun blendMode(value: Int): BlendMode =
   when (value) {
