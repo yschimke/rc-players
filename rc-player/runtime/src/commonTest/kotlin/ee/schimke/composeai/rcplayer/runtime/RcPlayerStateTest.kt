@@ -275,6 +275,45 @@ class RcPlayerStateTest {
   }
 
   @Test
+  fun loopRefreshesHoistedExpressionsThatReadItsIndex() {
+    // The writer hoists `i * 20` and its scale to the header, outside the loop that writes i.
+    val mul = RcFloatExpressionEvaluator.operatorWord(RcFloatExpressionEvaluator.OFFSET + 3)
+    val state =
+      RcPlayerState(
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0)),
+          listOf(
+            RcFloatExpression(43, listOf(RcFloatWord(0x7fc00000 or 42)), null),
+            RcFloatExpression(
+              44,
+              listOf(RcFloatWord(0x7fc00000 or 43), RcFloatWord.literal(20f), mul),
+              null,
+            ),
+            RcFloatExpression(
+              45,
+              listOf(RcFloatWord(0x7fc00000 or 44), RcFloatWord.literal(2f), mul),
+              null,
+            ),
+          ),
+        )
+      )
+    val xs = mutableListOf<Float>()
+
+    state.forEachLoopValue(
+      RcLoopOperation(
+        42,
+        RcFloatWord.literal(0f),
+        RcFloatWord.literal(1f),
+        RcFloatWord.literal(3f),
+      )
+    ) {
+      xs += state.resolve(RcFloatWord(0x7fc00000 or 45))
+    }
+
+    assertEquals(listOf(0f, 40f, 80f), xs)
+  }
+
+  @Test
   fun debugMessageResolvesTextAndDynamicFloatIntoATypedEvent() {
     val events = mutableListOf<RcPlayerEvent>()
     val state =

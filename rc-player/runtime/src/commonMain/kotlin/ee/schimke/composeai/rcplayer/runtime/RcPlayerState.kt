@@ -622,13 +622,44 @@ public class RcPlayerState(
     var iterations = 0
     while (value < until) {
       require(iterations++ < MAX_LOOP_ITERATIONS) { "Loop exceeds $MAX_LOOP_ITERATIONS iterations" }
-      if (operation.indexVariableId != 0) setFloat(operation.indexVariableId, value)
+      if (operation.indexVariableId != 0) {
+        setFloat(operation.indexVariableId, value)
+        loopDependents(operation.indexVariableId).forEach(::applyFloatExpression)
+      }
       block(value)
       val next = value + step
       require(next > value) { "Loop step does not advance the index" }
       value = next
     }
   }
+
+  private val loopDependentExpressions = mutableMapOf<Int, List<RcFloatExpression>>()
+
+  /**
+   * The float expressions that read loop index [indexId], directly or through each other, in
+   * document order. The writer hoists an index formula (`i * 20`, its dp-to-px scale) into the
+   * header, outside the loop; AndroidX re-evaluates it as a listener each time the loop writes the
+   * index, so every iteration draws its own value rather than the header's.
+   */
+  private fun loopDependents(indexId: Int): List<RcFloatExpression> =
+    loopDependentExpressions.getOrPut(indexId) {
+      val expressions = document.operations.filterIsInstance<RcFloatExpression>()
+      val reads = mutableSetOf(indexId)
+      var growing = true
+      while (growing) {
+        growing = false
+        expressions.forEach { expression ->
+          if (expression.id in reads) return@forEach
+          if (
+            expression.expression.any { word -> word.referencedId?.let { it in reads } == true }
+          ) {
+            reads += expression.id
+            growing = true
+          }
+        }
+      }
+      expressions.filter { it.id in reads }
+    }
 
   /**
    * Evaluates one immutable impulse container while keeping Java's per-instance initial-pass bit.
