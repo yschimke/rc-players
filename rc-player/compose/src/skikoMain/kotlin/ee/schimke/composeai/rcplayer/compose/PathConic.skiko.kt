@@ -16,5 +16,17 @@ internal actual fun Path.rcConicTo(
   // DeprecationLevel.ERROR and skiko 0.150 (CMP 1.12) removed it, so a host on CMP 1.12 resolving
   // this player died with `NoSuchMethodError` on the first conic. Compose's `Path` has no conic and
   // its replacement, `PathBuilder`, builds a new path rather than mutating this one.
-  rcConicAsQuads(x0, y0, x1, y1, x2, y2, weight) { cx, cy, ex, ey -> quadraticTo(cx, cy, ex, ey) }
+  //
+  // The depth is chosen in path units, before the canvas's own scale and the document's matrices,
+  // so the tolerance is a hundredth of a unit rather than a quarter: a document drawn at 25x still
+  // lands within a quarter pixel, for at most four times the quads (each level divides the error by
+  // four).
+  val levels =
+    rcConicQuadLevels(x0, y0, x1, y1, x2, y2, weight, tolerance = RC_CONIC_PATH_TOLERANCE)
+  rcConicAsQuads(x0, y0, x1, y1, x2, y2, weight, levels) { cx, cy, ex, ey ->
+    quadraticTo(cx, cy, ex, ey)
+  }
 }
+
+/** The conic-to-quads error allowed in path units — see [rcConicTo]. */
+private const val RC_CONIC_PATH_TOLERANCE = 0.01f
