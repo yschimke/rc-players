@@ -43,7 +43,8 @@
   }
 
   function toBytes(data) {
-    if (data instanceof ArrayBuffer) return new Uint8Array(data);
+    // A brand check, not `instanceof`, so a buffer from another frame's realm is accepted too.
+    if (Object.prototype.toString.call(data) === '[object ArrayBuffer]') return new Uint8Array(data);
     if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     throw new TypeError('expected an ArrayBuffer or an ArrayBufferView');
   }

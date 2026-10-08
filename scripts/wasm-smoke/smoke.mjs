@@ -482,10 +482,34 @@ async function runEmbedCase(page, origin, embed, pageErrors, consoleErrors) {
   });
   const second = assertNotBlank(await page.screenshot(), 'after loading a URL, ');
   const changed = assertRenderChanged(first.png, second.png);
+
+  // A host that calls the contract itself, without the library: `frame.contentWindow
+  // .rcPlayerLoadBytes(buffer)` hands over an ArrayBuffer from the *host's* realm, which fails the
+  // player realm's `instanceof ArrayBuffer`. The library's own calls pass a Uint8Array, which
+  // `ArrayBuffer.isView` accepts across realms, so only a direct call shows it.
+  await settle('a direct cross-realm rcPlayerLoadBytes call', async ({ first }) => {
+    const buffer = await (await fetch(first)).arrayBuffer();
+    const frame = window.player.iframe;
+    try {
+      frame.contentWindow.rcPlayerLoadBytes(buffer);
+    } catch (error) {
+      return { error: String(error.message || error) };
+    }
+    const root = frame.contentDocument.documentElement;
+    while (root.dataset.rcPlayerState === 'loading') {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return root.dataset.rcPlayerState === 'ready'
+      ? null
+      : { error: root.dataset.rcPlayerError || 'the player reported an error' };
+  });
+  const third = assertNotBlank(await page.screenshot(), 'after a direct cross-realm call, ');
+  assertRenderChanged(second.png, third.png);
   return {
     note:
       `${second.ink} px drawn in ${second.colours} distinct colours, ` +
-      `${(changed * 100).toFixed(0)}% of the viewport repainted by the second load`,
+      `${(changed * 100).toFixed(0)}% of the viewport repainted by the second load, ` +
+      'and a host-realm ArrayBuffer accepted',
   };
 }
 

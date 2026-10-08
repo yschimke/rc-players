@@ -337,7 +337,9 @@ private fun installDocumentSwap(): Unit =
       };
       window.rcPlayerLoadBytes = function (data) {
         var bytes;
-        if (data instanceof ArrayBuffer) {
+        // A brand check, not `instanceof`: a same-origin parent calling in hands over an
+        // ArrayBuffer from its own realm, which is not an instance of this page's ArrayBuffer.
+        if (Object.prototype.toString.call(data) === '[object ArrayBuffer]') {
           bytes = new Uint8Array(data);
         } else if (ArrayBuffer.isView(data)) {
           bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
