@@ -54,12 +54,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -264,6 +266,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
+import ee.schimke.composeai.rcplayer.protocol.RcPlaySound
 import ee.schimke.composeai.rcplayer.protocol.RcRippleModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentBehavior
 import ee.schimke.composeai.rcplayer.protocol.RcRoundedClipRectModifier
@@ -584,6 +587,7 @@ private fun RcComposePlayerResolved(
   val needsContinuousFrames =
     documentReadsContinuousClock || (animationClock != null && documentDeclaresFloatAnimation)
   var frameNanos by remember { mutableLongStateOf(0L) }
+  val layerFrame = remember { mutableFloatStateOf(0f) }
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
   // The latest frame time any loop below was handed, un-rebased, so a restarted animation loop can
   // tell how long the player sat idle.
@@ -748,7 +752,11 @@ private fun RcComposePlayerResolved(
     // composition/measurement rather than painting, so action mutations must invalidate this
     // branch as well as the draw layer.
     invalidationVersion
-    state.beginFrame(animationClock?.seconds() ?: (frameNanos / 1_000_000_000f))
+    val frameSeconds = animationClock?.seconds() ?: (frameNanos / 1_000_000_000f)
+    state.beginFrame(frameSeconds)
+    // Written, never read, here — after `beginFrame`, so a layer that reads it in its own block
+    // re-runs with this frame's values. See [LocalRcLayerFrame].
+    layerFrame.floatValue = frameSeconds
     // beginFrame resets derived text to the document's literals, so the ids the layout's own data
     // operations publish must be recomputed before this same composition measures and draws.
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
@@ -759,6 +767,7 @@ private fun RcComposePlayerResolved(
         CompositionLocalProvider(
           LocalRcLookaheadScope provides this,
           LocalRcLayoutVersion provides version,
+          LocalRcLayerFrame provides layerFrame,
           LocalRcGeometryProbe provides probe,
           LocalRcFonts provides fonts,
           LocalRcTypefaces provides typefaces,
@@ -1767,6 +1776,14 @@ private enum class RcFitBoxSlot {
 
 private val LocalRcLookaheadScope = compositionLocalOf<LookaheadScope?> { null }
 private val LocalRcLayoutVersion = compositionLocalOf { 0 }
+
+/**
+ * The frame time the layout branch last handed to `RcPlayerState.beginFrame`, published as state
+ * for readers that follow the document's clock without recomposing: a graphics layer bound to
+ * `ANIMATION_TIME` reads it in its own block. It is written after `beginFrame`, so that block
+ * re-runs once the state holds the frame's values rather than the previous frame's.
+ */
+private val LocalRcLayerFrame = staticCompositionLocalOf<FloatState?> { null }
 private val LocalRcGeometryProbe = staticCompositionLocalOf<RcGeometryProbe?> { null }
 private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap() }
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
@@ -3709,8 +3726,17 @@ private fun rcLayerFloat(
 ): () -> Float {
   val word = (attribute as? RcGraphicsLayerAttribute.FloatValue)?.value ?: return { default }
   val target = state.resolve(word)
-  val referencedId = word.referencedId
-  if (referencedId == null || state.isContinuouslyDriven(referencedId)) return { target }
+  val referencedId = word.referencedId ?: return { target }
+  if (state.isContinuouslyDriven(referencedId)) {
+    // Resolved in the layer block, not captured here: a component whose parameters did not change
+    // is skipped on recomposition, so a captured value left a clock-bound layer on its first frame
+    // for good. Reading the layer frame in the same block is what re-runs it each frame.
+    val frame = LocalRcLayerFrame.current ?: return { target }
+    return {
+      frame.floatValue
+      state.resolve(word)
+    }
+  }
   val animatable = remember(state) { Animatable(target) }
   LaunchedEffect(animatable, target) {
     when {
@@ -4715,6 +4741,7 @@ private fun DrawScope.drawOperationsRouted(
       is RcColorTheme -> state.applyColorTheme(operation, requestedTheme)
       is RcIntegerExpression -> state.applyIntegerExpression(operation)
       is RcHapticFeedback -> state.performHapticFeedback(operation)
+      is RcPlaySound -> state.playSound(operation)
       is RcTimeAttribute -> state.applyTimeAttribute(operation)
       is RcWakeIn -> state.requestWakeIn(operation)
       is RcDebugMessage -> state.emitDebugMessage(operation)
