@@ -50,7 +50,13 @@ private sealed interface LoadState {
     val namedValues: Map<String, RcNamedValue>,
   ) : LoadState
 
-  data class Failed(val message: String) : LoadState
+  /**
+   * [generation] is the [LoadRequest] that failed. A swap changes the request a frame before the
+   * load effect resets the state, so without it the outgoing failure would be reported again as the
+   * incoming document's — after a `?src=` that 404s, or the missing `?src=` a bytes-only host
+   * starts from, the next document would read as failed before it had loaded.
+   */
+  data class Failed(val message: String, val generation: Int) : LoadState
 }
 
 /**
@@ -61,7 +67,19 @@ private sealed interface LoadState {
  * a reload — and two consecutive documents can decode to equal [RcDocument]s. Counting the requests
  * gives both the fetch and the readiness signal a key that always moves.
  */
-private data class LoadRequest(val source: String?, val generation: Int)
+private data class LoadRequest(val source: DocumentSource?, val generation: Int)
+
+/**
+ * Where a document's bytes come from: a URL the player fetches (`?src=`, `window.rcPlayerLoad`), or
+ * bytes the host already holds (`window.rcPlayerLoadBytes`).
+ *
+ * [Bytes] compares by identity, which is fine: [LoadRequest.generation] is what keys a reload.
+ */
+private sealed interface DocumentSource {
+  data class Url(val url: String) : DocumentSource
+
+  class Bytes(val bytes: ByteArray) : DocumentSource
+}
 
 private var loadRequest by mutableStateOf(LoadRequest(null, 0))
 private var loadState by mutableStateOf<LoadState>(LoadState.Loading)
@@ -79,7 +97,7 @@ public fun main() {
   // not about which release it happens to have.
   publishContractVersion(RC_PLAYER_EMBED_CONTRACT_VERSION)
   setRcPlatformTracingEnabled(queryParameter("rcTrace") == "1")
-  loadRequest = LoadRequest(queryParameter("src"), generation = 0)
+  loadRequest = LoadRequest(queryParameter("src")?.let(DocumentSource::Url), generation = 0)
   installDocumentSwap()
   // `?theme=` is part of the embed contract, so the accepted spellings stay exactly as they were;
   // only the type the player takes has changed. Anything else — including no parameter at all —
@@ -93,8 +111,9 @@ public fun main() {
     }
   ComposeViewport(viewportContainerId = "rcPlayer") {
     LaunchedEffect(Unit) {
-      // One waiter, re-armed after every swap: `window.rcPlayerLoad(src)` hands the next source in
-      // here instead of the host navigating the page again. See [installDocumentSwap].
+      // One waiter, re-armed after every swap: `window.rcPlayerLoad(src)` and
+      // `window.rcPlayerLoadBytes(bytes)` hand the next source in here instead of the host
+      // navigating the page again. See [installDocumentSwap].
       while (true) {
         val next = awaitDocumentSwap()
         loadRequest = LoadRequest(next, loadRequest.generation + 1)
@@ -109,11 +128,15 @@ public fun main() {
       // waits on the readiness marker cannot mistake the outgoing render for the incoming one.
       loadState = LoadState.Loading
       loadState =
-        if (source == null) LoadState.Failed("Missing ?src=<document.rc>")
+        if (source == null) LoadState.Failed("Missing ?src=<document.rc>", request.generation)
         else
           runCatching {
               val bytes =
-                rcTrace(RcTraceCategory.DOCUMENT, "rc:fetchDocument") { fetchBytes(source) }
+                when (source) {
+                  is DocumentSource.Url ->
+                    rcTrace(RcTraceCategory.DOCUMENT, "rc:fetchDocument") { fetchBytes(source.url) }
+                  is DocumentSource.Bytes -> source.bytes
+                }
               val document = RcDocumentCodec.decode(bytes)
               // Async work stays in construction: the manifest is fetched and decoded here, and the
               // player is handed a loader that only looks things up. `RcTypefaceLoader.typeface` is
@@ -132,14 +155,21 @@ public fun main() {
                 .requireRenderable(queryParameter("lenient") == "1")
               LoadState.Ready(document, typefaces, namedValuesFromLocation())
             }
-            .fold(onSuccess = { it }, onFailure = { LoadState.Failed(it.message ?: "load failed") })
+            .fold(
+              onSuccess = { it },
+              onFailure = { LoadState.Failed(it.message ?: "load failed", request.generation) },
+            )
     }
 
     when (val state = loadState) {
       LoadState.Loading -> Unit
-      // Keyed by request as well as message: two documents can fail the same way, and the second
-      // failure still has to be reported — `rcPlayerLoad` cleared the marker the first one set.
-      is LoadState.Failed -> LaunchedEffect(request, state.message) { reportFailure(state.message) }
+      // Keyed by the failed request: two documents can fail the same way, and the second failure
+      // still has to be reported — `rcPlayerLoad` cleared the marker the first one set. Reported
+      // only while that request is still the current one; see [LoadState.Failed.generation].
+      is LoadState.Failed ->
+        if (state.generation == request.generation) {
+          LaunchedEffect(state) { reportFailure(state.message) }
+        }
       is LoadState.Ready -> {
         // Keyed on the document, not the page: `?namedValues=` belongs to the page, but the
         // *variables* belong to the document, so a swap starts from the URL's values again rather
@@ -256,8 +286,8 @@ private val handoffDelayMs: Long
       ?: DEFAULT_HANDOFF_DELAY_MS
 
 /**
- * Install `window.rcPlayerLoad(src)`: show another document in the player that is already running,
- * instead of navigating the page again.
+ * Install `window.rcPlayerLoad(src)` and `window.rcPlayerLoadBytes(bytes)`: show another document
+ * in the player that is already running, instead of navigating the page again.
  *
  * A navigation is the honest way to load the *first* document, but it is a poor way to load the
  * next one — it throws away the instantiated Wasm module, the Compose runtime and the host fonts,
@@ -267,6 +297,14 @@ private val handoffDelayMs: Long
  * player warm and leaves the reload contract unchanged: the marker on `<html>` goes back to
  * `loading` synchronously here, so a host that waits for `ready` cannot read the outgoing render's
  * marker and screenshot the document it just replaced.
+ *
+ * `rcPlayerLoadBytes` is the same swap for a host that already holds the document — a file the user
+ * dropped, a response it fetched itself, bytes it generated — so it need not mint a URL for the
+ * player to fetch back. It takes an `ArrayBuffer` or any `ArrayBufferView` (`Uint8Array`,
+ * `DataView`, a Node `Buffer`) and copies it synchronously, so the host may reuse or detach its
+ * buffer as soon as the call returns. Anything else throws a `TypeError` *before* the marker moves,
+ * so a host that passed the wrong thing is told so rather than left waiting on `loading`. The bytes
+ * cross into Wasm as base64, the same way a fetched document does.
  *
  * `?theme` and `?namedValues` are *not* re-read — they belong to the page, and a host that needs
  * different ones should navigate. Only the document changes.
@@ -281,8 +319,7 @@ private fun installDocumentSwap(): Unit =
   js(
     """{
       window.__rcPlayerSwap = { pending: null, resolve: null };
-      window.rcPlayerLoad = function (source) {
-        var request = String(source);
+      var deliver = function (request) {
         var root = document.documentElement;
         root.dataset.rcPlayerState = 'loading';
         delete root.dataset.rcPlayerError;
@@ -295,10 +332,30 @@ private fun installDocumentSwap(): Unit =
           swap.pending = request;
         }
       };
+      window.rcPlayerLoad = function (source) {
+        deliver({ url: String(source) });
+      };
+      window.rcPlayerLoadBytes = function (data) {
+        var bytes;
+        // A brand check, not `instanceof`: a same-origin parent calling in hands over an
+        // ArrayBuffer from its own realm, which is not an instance of this page's ArrayBuffer.
+        if (Object.prototype.toString.call(data) === '[object ArrayBuffer]') {
+          bytes = new Uint8Array(data);
+        } else if (ArrayBuffer.isView(data)) {
+          bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+        } else {
+          throw new TypeError('rcPlayerLoadBytes expects an ArrayBuffer or an ArrayBufferView');
+        }
+        var chunks = [], chunkSize = 0x8000;
+        for (var i = 0; i < bytes.length; i += chunkSize) {
+          chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
+        }
+        deliver({ base64: btoa(chunks.join('')) });
+      };
     }"""
   )
 
-private fun nextDocumentSwap(): Promise<JsString> =
+private fun nextDocumentSwap(): Promise<JsAny> =
   js(
     """new Promise(function (resolve) {
       var swap = window.__rcPlayerSwap;
@@ -312,19 +369,30 @@ private fun nextDocumentSwap(): Promise<JsString> =
     })"""
   )
 
-private suspend fun awaitDocumentSwap(): String = suspendCancellableCoroutine { continuation ->
-  nextDocumentSwap()
-    .then { source ->
-      if (continuation.isActive) continuation.resume(source.toString())
-      null
-    }
-    .catch { failure ->
-      if (continuation.isActive) {
-        continuation.resumeWithException(IllegalStateException(failure.toString()))
+private fun swapUrl(request: JsAny): JsString? =
+  js("request.url === undefined ? null : request.url")
+
+private fun swapBase64(request: JsAny): JsString? =
+  js("request.base64 === undefined ? null : request.base64")
+
+private suspend fun awaitDocumentSwap(): DocumentSource =
+  suspendCancellableCoroutine { continuation ->
+    nextDocumentSwap()
+      .then { request ->
+        val base64 = swapBase64(request)?.toString()
+        val source =
+          if (base64 != null) DocumentSource.Bytes(Base64.decode(base64))
+          else DocumentSource.Url(swapUrl(request).toString())
+        if (continuation.isActive) continuation.resume(source)
+        null
       }
-      null
-    }
-}
+      .catch { failure ->
+        if (continuation.isActive) {
+          continuation.resumeWithException(IllegalStateException(failure.toString()))
+        }
+        null
+      }
+  }
 
 private fun queryParameter(name: String): String? =
   queryParameterFromLocation(name).toString().takeUnless { it == "null" }
@@ -380,8 +448,9 @@ private fun decodeUriComponentJs(value: String): JsString = js("decodeURICompone
  * The embed contract's version — see docs/design/RC_PLAYER_EMBED.md.
  *
  * Bump on any change a host could observe: a query parameter's meaning, the `data-rc-player-state`
- * values, the `postMessage` payloads, or `window.rcPlayerLoad`'s behaviour. Adding a parameter or a
- * message type is additive and does not bump it; a host feature-detects those.
+ * values, the `postMessage` payloads, or `window.rcPlayerLoad`'s behaviour. Adding a parameter, a
+ * message type or a `window` function (`rcPlayerLoadBytes`) is additive and does not bump it; a
+ * host feature-detects those.
  */
 private const val RC_PLAYER_EMBED_CONTRACT_VERSION: Int = 1
 

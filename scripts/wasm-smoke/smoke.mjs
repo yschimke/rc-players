@@ -114,7 +114,47 @@ const CASES = [
     query: `src=androidx-baseline.rc&${COMMON_QUERY}`,
     swapTo: 'androidx-layout.rc',
   },
+  {
+    // `window.rcPlayerLoadBytes` is the same swap for a host that already holds the bytes — a
+    // dropped file, say — and is just as unreachable from Kotlin. The page fetches the document
+    // itself and hands over a view into the *middle* of a larger buffer, so a player that read the
+    // whole backing `ArrayBuffer` instead of the view's window would decode garbage and fail.
+    name: 'document-swap-bytes',
+    description: '`window.rcPlayerLoadBytes` swaps a document handed over as bytes',
+    query: `src=androidx-baseline.rc&${COMMON_QUERY}`,
+    swapTo: 'androidx-layout.rc',
+    swapAsBytes: true,
+  },
+  {
+    // `rc-cmp-player.js`, the library a page includes instead of driving the iframe by hand. It
+    // ships in the distribution beside `index.html`, so it is tested against the same bundle: a
+    // host page creates a player, hands it bytes, then swaps to a URL, awaiting each promise.
+    name: 'embed-library',
+    description: '`rc-cmp-player.js` loads bytes, then a URL, from a host page',
+    embed: { first: 'androidx-baseline.rc', then: 'androidx-layout.rc' },
+  },
 ];
+
+/**
+ * The host page for the `embed` case: what a site including the library writes. Served by the
+ * smoke server itself rather than staged, because it is the test's page, not the product's.
+ */
+const EMBED_HOST_PATH = '/__embed-host.html';
+const EMBED_HOST_PAGE = `<!doctype html>
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><style>html,body{margin:0;background:#fff}</style></head>
+<body><div id="host"></div><script src="rc-cmp-player.js"></script>
+<script>
+  window.player = RcCmp.createPlayer(document.getElementById('host'), {
+    width: ${VIEWPORT.width}, height: ${VIEWPORT.height}, handoffDelayMs: 0,
+    onError: (error) => (window.embedErrors = window.embedErrors || []).push(error.message),
+  });
+</script></body></html>`;
+
+/**
+ * The one console error the embed case expects: the library opens the player page with no
+ * `?src=` and waits for it to settle on exactly this, as RC_PLAYER_EMBED.md prescribes.
+ */
+const EXPECTED_EMBED_STARTUP_ERROR = 'Missing ?src';
 
 const MIME_TYPES = new Map(
   Object.entries({
@@ -143,6 +183,12 @@ const MIME_TYPES = new Map(
 function startServer() {
   const server = createServer(async (request, response) => {
     const requestedPath = new URL(request.url, 'http://127.0.0.1').pathname;
+    if (requestedPath === EMBED_HOST_PATH) {
+      response
+        .writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+        .end(EMBED_HOST_PAGE);
+      return;
+    }
     const relative = normalize(decodeURIComponent(requestedPath)).replace(/^([/\\])+/, '');
     const file = join(DIST, relative === '' ? 'index.html' : relative);
     if (file !== DIST && !file.startsWith(DIST + sep)) {
@@ -306,6 +352,14 @@ async function runCase(browser, origin, testCase) {
   // because the listeners above push into these lists *while* the wait is running.
   const watched = expectsError ? () => pageErrors : () => [...pageErrors, ...consoleErrors];
 
+  if (testCase.embed) {
+    try {
+      return await runEmbedCase(page, origin, testCase.embed, pageErrors, consoleErrors);
+    } finally {
+      await context.close();
+    }
+  }
+
   try {
     await page.goto(`${origin}/index.html?${testCase.query}`, { waitUntil: 'domcontentloaded' });
     let settled = await waitForSettled(page, watched);
@@ -356,8 +410,20 @@ async function runCase(browser, origin, testCase) {
 
     if (testCase.swapTo) {
       const before = pixels.png;
-      await page.evaluate((source) => window.rcPlayerLoad(source), testCase.swapTo);
-      // The marker goes back to `loading` synchronously inside `rcPlayerLoad`, so this cannot
+      if (testCase.swapAsBytes) {
+        await page.evaluate(async (source) => {
+          const bytes = new Uint8Array(await (await fetch(source)).arrayBuffer());
+          const padded = new Uint8Array(bytes.length + 32).fill(0xff);
+          padded.set(bytes, 16);
+          window.rcPlayerLoadBytes(padded.subarray(16, 16 + bytes.length));
+          // Copied during the call: scribbling over the buffer afterwards must not reach the
+          // document the player decodes.
+          padded.fill(0);
+        }, testCase.swapTo);
+      } else {
+        await page.evaluate((source) => window.rcPlayerLoad(source), testCase.swapTo);
+      }
+      // The marker goes back to `loading` synchronously inside both swap functions, so this cannot
       // observe the outgoing render's `ready` and screenshot the document it just replaced.
       settled = await waitForSettled(page, watched);
       if (settled.state !== 'ready') {
@@ -380,6 +446,95 @@ async function runCase(browser, origin, testCase) {
   } finally {
     await context.close();
   }
+}
+
+/** The `embed` case: drive the library from a host page, as a site including it would. */
+async function runEmbedCase(page, origin, embed, pageErrors, consoleErrors) {
+  await page.goto(`${origin}${EMBED_HOST_PATH}`, { waitUntil: 'domcontentloaded' });
+  const unexpected = () => [
+    ...pageErrors,
+    ...consoleErrors.filter((text) => !text.includes(EXPECTED_EMBED_STARTUP_ERROR)),
+  ];
+  const settle = async (label, action) => {
+    const outcome = await page.evaluate(action, embed).catch((error) => ({ error: error.message }));
+    if (outcome && outcome.error) throw new Error(`${label}: ${outcome.error}`);
+    const faults = unexpected();
+    if (faults.length > 0) throw new Error(`${label}: the page reported errors:\n  ${faults.join('\n  ')}`);
+  };
+
+  await settle('loading bytes', async ({ first }) => {
+    const bytes = await (await fetch(first)).arrayBuffer();
+    try {
+      await window.player.loadFromArrayBuffer(bytes);
+      return null;
+    } catch (error) {
+      return { error: String(error.message || error) };
+    }
+  });
+  const first = assertNotBlank(await page.screenshot(), 'after loading bytes, ');
+
+  await settle('loading a URL', async ({ then }) => {
+    try {
+      await window.player.loadFromUrl(then);
+      return null;
+    } catch (error) {
+      return { error: String(error.message || error) };
+    }
+  });
+  const second = assertNotBlank(await page.screenshot(), 'after loading a URL, ');
+  const changed = assertRenderChanged(first.png, second.png);
+
+  // A host that calls the contract itself, without the library: `frame.contentWindow
+  // .rcPlayerLoadBytes(buffer)` hands over an ArrayBuffer from the *host's* realm, which fails the
+  // player realm's `instanceof ArrayBuffer`. The library's own calls pass a Uint8Array, which
+  // `ArrayBuffer.isView` accepts across realms, so only a direct call shows it.
+  await settle('a direct cross-realm rcPlayerLoadBytes call', async ({ first }) => {
+    const buffer = await (await fetch(first)).arrayBuffer();
+    const frame = window.player.iframe;
+    try {
+      frame.contentWindow.rcPlayerLoadBytes(buffer);
+    } catch (error) {
+      return { error: String(error.message || error) };
+    }
+    const root = frame.contentDocument.documentElement;
+    while (root.dataset.rcPlayerState === 'loading') {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return root.dataset.rcPlayerState === 'ready'
+      ? null
+      : { error: root.dataset.rcPlayerError || 'the player reported an error' };
+  });
+  const third = assertNotBlank(await page.screenshot(), 'after a direct cross-realm call, ');
+  assertRenderChanged(second.png, third.png);
+
+  // A document the player reports as failed must reject the load *and* reach `onError` — the
+  // `<rc-cmp-player>` element's `rc-error` event hangs off that callback. Last, because the 404
+  // and the player's own report are console errors this case otherwise counts as faults.
+  const reported = await page.evaluate(async () => {
+    let rejected = null;
+    try {
+      await window.player.loadFromUrl('does-not-exist.rc');
+    } catch (error) {
+      rejected = String(error.message || error);
+    }
+    return { rejected, onError: window.embedErrors || [] };
+  });
+  if (!reported.rejected) throw new Error('a missing document resolved instead of rejecting');
+  if (reported.onError.length !== 1) {
+    throw new Error(
+      `a missing document reached onError ${reported.onError.length} time(s), expected once ` +
+        `(rejected with "${reported.rejected}")`,
+    );
+  }
+  if (pageErrors.length > 0) {
+    throw new Error(`the page threw while reporting the error:\n  ${pageErrors.join('\n  ')}`);
+  }
+  return {
+    note:
+      `${second.ink} px drawn in ${second.colours} distinct colours, ` +
+      `${(changed * 100).toFixed(0)}% of the viewport repainted by the second load, ` +
+      'a host-realm ArrayBuffer accepted, and a failed load reported to onError',
+  };
 }
 
 async function main() {

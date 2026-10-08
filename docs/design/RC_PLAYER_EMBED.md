@@ -17,6 +17,28 @@ own document, not something imported into an application bundle:
 <iframe src="/rc-player/index.html?src=/documents/watch-face.rc&theme=dark"></iframe>
 ```
 
+Or include the embed library that ships beside `index.html`, and let it own the iframe:
+
+```html
+<script src="/rc-player/rc-cmp-player.js"></script>
+<rc-cmp-player src="/documents/watch-face.rc" width="400" height="400"></rc-cmp-player>
+<script>
+  // Or programmatically, with bytes the page already holds:
+  const player = RcCmp.createPlayer(container, { width: 400, height: 400, theme: 'dark' });
+  await player.loadFromArrayBuffer(bytes); // resolves once the document is on screen
+</script>
+```
+
+`rc-cmp-player.js` is a plain script with no dependencies. It speaks the contract below — start
+the page, wait for it to settle, swap documents, read the marker — and turns it into promises
+(`loadFromArrayBuffer`, `loadFromUrl`, `loadFromBase64`, `resize`, `setTheme`, `setLenient`,
+`destroy`) and DOM events (`rc-load`, `rc-error`, `rc-event`). Its shape mirrors the TypeScript
+player's `RC.createPlayer`, so a page can drive both the same way —
+[`samples/web-compare`](../../samples/web-compare/index.html) does. It resolves `index.html` next to
+itself by default (`playerUrl` overrides that), and like any host that reaches into the iframe it
+needs the distribution served **from the page's own origin**. The library is a convenience over
+the contract, not part of it: everything it does, a host can do by hand.
+
 `:rc-player-wasm:rcPlayerNpmPackage` stages the package directory; `release.yml` runs `npm publish`
 from it. **No Node enters the Gradle build** — a `Sync` task is all the staging needs, which keeps
 the coupling the CLI's vendored JS player was specifically arranged to avoid.
@@ -117,6 +139,22 @@ long. Requests are last-one-wins.
 The marker returns to `loading` **synchronously** inside that call, so a host waiting for `ready`
 cannot read the outgoing render's marker and screenshot the document it just replaced.
 
+**`window.rcPlayerLoadBytes(bytes)`** is the same swap for a host that already holds the document —
+a file the user dropped, a response it fetched itself — so it need not mint a URL for the player to
+fetch back. It takes an `ArrayBuffer` or any `ArrayBufferView` (`Uint8Array`, `DataView`, a Node
+`Buffer`), honouring a view's offset and length, and copies it **synchronously**: the host may reuse
+or detach its buffer as soon as the call returns. Anything else throws a `TypeError` before the
+marker moves. Readiness, last-one-wins and the synchronous return to `loading` are exactly as for
+`rcPlayerLoad`. Added after version 1 shipped, so a host feature-detects it
+(`typeof frame.contentWindow.rcPlayerLoadBytes === 'function'`).
+
+`?src=` is still required to load a *first* document, so a host that only ever has bytes opens the
+page without one, waits for the marker to settle on `error` ("Missing ?src") with
+`rcPlayerLoadBytes` installed, and swaps from there. Waiting for that first `error` matters: sent
+any earlier, a document can be overtaken by the player reporting the missing source.
+[`samples/web-compare`](../../samples/web-compare/index.html) does exactly this. Calling either
+function needs a same-origin page, as reaching into an iframe's `window` always does.
+
 **`window.rcPlayerContractVersion`** — the integer above.
 
 ## The readiness marker
@@ -134,7 +172,8 @@ ran": Compose schedules Skiko's raster work after composition, so the player wai
 frames plus `handoffDelayMs` before setting it. Chromium can acknowledge frames before the Skiko
 surface reaches the compositor.
 
-Both markers, the contract version and `window.rcPlayerLoad` are asserted on every pull request by
+Both markers, the contract version, `window.rcPlayerLoad`, `window.rcPlayerLoadBytes` and the
+`rc-cmp-player.js` library are asserted on every pull request by
 [`scripts/wasm-smoke`](../../scripts/wasm-smoke/smoke.mjs), which drives the shipped bundle in
 headless Chromium. That lane exists because none of this is reachable from a Kotlin test: it lives
 in the `js(...)` blocks of the bundle a host actually loads.

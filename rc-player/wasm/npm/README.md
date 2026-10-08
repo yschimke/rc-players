@@ -8,6 +8,21 @@ parameters and one `window` function — no JavaScript API to learn and no bundl
 <iframe src="/rc-player/index.html?src=/documents/watch-face.rc&theme=dark"></iframe>
 ```
 
+Or include the embed library beside it, which owns the iframe and turns the contract into promises:
+
+```html
+<script src="/rc-player/rc-cmp-player.js"></script>
+<rc-cmp-player src="/documents/watch-face.rc" width="400" height="400"></rc-cmp-player>
+<script>
+  const player = RcCmp.createPlayer(container, { width: 400, height: 400 });
+  await player.loadFromArrayBuffer(bytes); // e.g. a dropped file; resolves once it is on screen
+</script>
+```
+
+`rc-cmp-player.js` needs the rest of `dist/` served from **your page's origin**, because documents
+cross by calling into the iframe's `window`; it finds `index.html` next to itself (override with
+`playerUrl`).
+
 ## Install
 
 ```
@@ -15,9 +30,10 @@ npm install @yschimke/remote-compose-player-cmp
 ```
 
 The package ships a `dist/` directory: `index.html`, the compiled Wasm module, the Skiko runtime,
-and a fonts manifest. Serve it as static files — copy `dist/` into your public directory, or point
+a fonts manifest and the `rc-cmp-player.js` embed library. Serve it as static files — copy `dist/` into your public directory, or point
 your server at `node_modules/@yschimke/remote-compose-player-cmp/dist`. Nothing here is meant to be
-imported into an app bundle; the player runs in its own document.
+imported into an app bundle; the player runs in its own document, and `rc-cmp-player.js` is a plain
+`<script>`.
 
 Every file must be served from the same directory, and `.wasm` must be served as
 `application/wasm` — the module is instantiated by streaming.
@@ -53,6 +69,10 @@ Summary:
 
 - `window.rcPlayerLoad(src)` swaps the document without reloading the page, keeping the Wasm module,
   the Compose runtime and the fetched fonts warm.
+- `window.rcPlayerLoadBytes(bytes)` does the same from an `ArrayBuffer` or `Uint8Array` the page
+  already holds, such as a dropped file. Open the page without `?src=`, wait for the marker to
+  settle on `error` ("Missing ?src"), then call it. Feature-detect it: it was added within
+  contract version 1.
 - `document.documentElement.dataset.rcPlayerState` is `loading`, `ready` or `error`. Wait for
   `ready` before revealing the frame; `rcPlayerError` carries the message on `error`.
 - The player also `postMessage`s `cp-rc-wasm-ready` / `cp-rc-wasm-error:<message>` and structured
