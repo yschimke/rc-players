@@ -587,7 +587,7 @@ private fun RcComposePlayerResolved(
   val needsContinuousFrames =
     documentReadsContinuousClock || (animationClock != null && documentDeclaresFloatAnimation)
   var frameNanos by remember { mutableLongStateOf(0L) }
-  val layerFrame = remember { mutableFloatStateOf(0f) }
+  val frameTime = remember { mutableFloatStateOf(0f) }
   var frameOriginNanos by remember(document) { mutableLongStateOf(Long.MIN_VALUE) }
   // The latest frame time any loop below was handed, un-rebased, so a restarted animation loop can
   // tell how long the player sat idle.
@@ -754,9 +754,9 @@ private fun RcComposePlayerResolved(
     invalidationVersion
     val frameSeconds = animationClock?.seconds() ?: (frameNanos / 1_000_000_000f)
     state.beginFrame(frameSeconds)
-    // Written, never read, here — after `beginFrame`, so a layer that reads it in its own block
-    // re-runs with this frame's values. See [LocalRcLayerFrame].
-    layerFrame.floatValue = frameSeconds
+    // Written, never read, here — after `beginFrame`, so a draw or layer block reading it redraws
+    // with this frame's values. See [LocalRcFrameTime].
+    frameTime.floatValue = frameSeconds
     // beginFrame resets derived text to the document's literals, so the ids the layout's own data
     // operations publish must be recomputed before this same composition measures and draws.
     state.applyLayoutContentStateOperations(linkedDocument.operations, theme)
@@ -767,7 +767,7 @@ private fun RcComposePlayerResolved(
         CompositionLocalProvider(
           LocalRcLookaheadScope provides this,
           LocalRcLayoutVersion provides version,
-          LocalRcLayerFrame provides layerFrame,
+          LocalRcFrameTime provides frameTime,
           LocalRcGeometryProbe provides probe,
           LocalRcFonts provides fonts,
           LocalRcTypefaces provides typefaces,
@@ -883,6 +883,7 @@ private fun RenderLayoutNode(
   theme: Int,
 ) {
   val layoutVersion = LocalRcLayoutVersion.current
+  val frameTime = LocalRcFrameTime.current
   val lookaheadScope = LocalRcLookaheadScope.current
   val geometryProbe = LocalRcGeometryProbe.current
   val fontFamilies = LocalRcFonts.current
@@ -1019,6 +1020,7 @@ private fun RenderLayoutNode(
             ?.takeIf { it.isNotEmpty() }
             ?.let { operations ->
               Canvas(Modifier.fillMaxSize()) {
+                frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
                 rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
                   drawOperations(
                     operations,
@@ -1047,6 +1049,7 @@ private fun RenderLayoutNode(
         }
       is RcLayoutNode.CanvasContent ->
         Canvas(Modifier.fillMaxSize()) {
+          frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
           rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
             drawOperations(
               node.operations,
@@ -1779,11 +1782,13 @@ private val LocalRcLayoutVersion = compositionLocalOf { 0 }
 
 /**
  * The frame time the layout branch last handed to `RcPlayerState.beginFrame`, published as state
- * for readers that follow the document's clock without recomposing: a graphics layer bound to
- * `ANIMATION_TIME` reads it in its own block. It is written after `beginFrame`, so that block
- * re-runs once the state holds the frame's values rather than the previous frame's.
+ * for readers that follow the document's clock without recomposing. Layout components are skipped
+ * when their parameters do not change, so a canvas drawing `ANIMATION_TIME` or a graphics layer
+ * bound to it reads this in its own draw or layer block, and that one block re-runs each frame. It
+ * is written after `beginFrame`, so the block runs once the state holds the frame's values rather
+ * than the previous frame's. A document that never reads the clock never moves it.
  */
-private val LocalRcLayerFrame = staticCompositionLocalOf<FloatState?> { null }
+private val LocalRcFrameTime = staticCompositionLocalOf<FloatState?> { null }
 private val LocalRcGeometryProbe = staticCompositionLocalOf<RcGeometryProbe?> { null }
 private val LocalRcFonts = compositionLocalOf<Map<Int, FontFamily>> { emptyMap() }
 private val LocalRcTypefaces = compositionLocalOf<RcTypefaceLoader> { RcTypefaceLoader.Empty }
@@ -2328,6 +2333,7 @@ private fun Modifier.applyComponentModifiers(
   val offscreenTargets = LocalRcOffscreenTargets.current
   val typefaces = LocalRcTypefaces.current
   val drawObserver = LocalRcDrawObserver.current
+  val frameTime = LocalRcFrameTime.current
   // A `RippleModifier` is an `Indication` at its wire position, driven by the presses of the
   // component's clickable through this shared source (see `applyAndroidXRipple`).
   val rippleInteractions =
@@ -2375,6 +2381,7 @@ private fun Modifier.applyComponentModifiers(
     val operations = canvasOperations ?: return modifier
     appliedCanvasOperations = true
     return modifier.drawWithContent {
+      frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
       rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
         drawOperations(
           operations,
@@ -3730,8 +3737,8 @@ private fun rcLayerFloat(
   if (state.isContinuouslyDriven(referencedId)) {
     // Resolved in the layer block, not captured here: a component whose parameters did not change
     // is skipped on recomposition, so a captured value left a clock-bound layer on its first frame
-    // for good. Reading the layer frame in the same block is what re-runs it each frame.
-    val frame = LocalRcLayerFrame.current ?: return { target }
+    // for good. Reading the frame time in the same block is what re-runs it each frame.
+    val frame = LocalRcFrameTime.current ?: return { target }
     return {
       frame.floatValue
       state.resolve(word)
