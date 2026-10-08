@@ -133,6 +133,14 @@ const CASES = [
     description: '`rc-cmp-player.js` loads bytes, then a URL, from a host page',
     embed: { first: 'androidx-baseline.rc', then: 'androidx-layout.rc' },
   },
+  {
+    // The same, with the host page on another origin from the library and the player — the shape
+    // of a site including them from a CDN. `localhost` and `127.0.0.1` on one port are different
+    // origins, so the one static server stands in for both. Nothing but `postMessage` crosses.
+    name: 'embed-library-cross-origin',
+    description: '`rc-cmp-player.js` drives a player on another origin',
+    embed: { first: 'androidx-baseline.rc', then: 'androidx-layout.rc', crossOrigin: true },
+  },
 ];
 
 /**
@@ -140,15 +148,18 @@ const CASES = [
  * smoke server itself rather than staged, because it is the test's page, not the product's.
  */
 const EMBED_HOST_PATH = '/__embed-host.html';
-const EMBED_HOST_PAGE = `<!doctype html>
+/** The host page; `lib` is the URL of `rc-cmp-player.js`, which may be on another origin. */
+function embedHostPage(lib) {
+  return `<!doctype html>
 <html><head><meta charset="utf-8"><link rel="icon" href="data:,"><style>html,body{margin:0;background:#fff}</style></head>
-<body><div id="host"></div><script src="rc-cmp-player.js"></script>
+<body><div id="host"></div><script src="${lib}"></script>
 <script>
   window.player = RcCmp.createPlayer(document.getElementById('host'), {
     width: ${VIEWPORT.width}, height: ${VIEWPORT.height}, handoffDelayMs: 0,
     onError: (error) => (window.embedErrors = window.embedErrors || []).push(error.message),
   });
 </script></body></html>`;
+}
 
 /**
  * The one console error the embed case expects: the library opens the player page with no
@@ -184,9 +195,14 @@ function startServer() {
   const server = createServer(async (request, response) => {
     const requestedPath = new URL(request.url, 'http://127.0.0.1').pathname;
     if (requestedPath === EMBED_HOST_PATH) {
+      const lib = new URL(request.url, 'http://127.0.0.1').searchParams.get('lib') ?? '';
+      if (!/^(https?:\/\/[^"<>\s]+|[\w./-]+)$/.test(lib)) {
+        response.writeHead(400).end('bad lib');
+        return;
+      }
       response
         .writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
-        .end(EMBED_HOST_PAGE);
+        .end(embedHostPage(lib));
       return;
     }
     const relative = normalize(decodeURIComponent(requestedPath)).replace(/^([/\\])+/, '');
@@ -450,7 +466,12 @@ async function runCase(browser, origin, testCase) {
 
 /** The `embed` case: drive the library from a host page, as a site including it would. */
 async function runEmbedCase(page, origin, embed, pageErrors, consoleErrors) {
-  await page.goto(`${origin}${EMBED_HOST_PATH}`, { waitUntil: 'domcontentloaded' });
+  // Cross-origin: the host page on `localhost`, the library and player on `127.0.0.1`.
+  const hostOrigin = embed.crossOrigin ? origin.replace('127.0.0.1', 'localhost') : origin;
+  const lib = embed.crossOrigin ? `${origin}/rc-cmp-player.js` : 'rc-cmp-player.js';
+  await page.goto(`${hostOrigin}${EMBED_HOST_PATH}?lib=${encodeURIComponent(lib)}`, {
+    waitUntil: 'domcontentloaded',
+  });
   const unexpected = () => [
     ...pageErrors,
     ...consoleErrors.filter((text) => !text.includes(EXPECTED_EMBED_STARTUP_ERROR)),
@@ -483,47 +504,71 @@ async function runEmbedCase(page, origin, embed, pageErrors, consoleErrors) {
   });
   const second = assertNotBlank(await page.screenshot(), 'after loading a URL, ');
   const changed = assertRenderChanged(first.png, second.png);
+  let directNote = 'a host-realm ArrayBuffer accepted';
 
-  // A host that calls the contract itself, without the library: `frame.contentWindow
-  // .rcPlayerLoadBytes(buffer)` hands over an ArrayBuffer from the *host's* realm, which fails the
-  // player realm's `instanceof ArrayBuffer`. The library's own calls pass a Uint8Array, which
-  // `ArrayBuffer.isView` accepts across realms, so only a direct call shows it.
-  await settle('a direct cross-realm rcPlayerLoadBytes call', async ({ first }) => {
-    const buffer = await (await fetch(first)).arrayBuffer();
-    const frame = window.player.iframe;
-    try {
-      frame.contentWindow.rcPlayerLoadBytes(buffer);
-    } catch (error) {
-      return { error: String(error.message || error) };
-    }
-    const root = frame.contentDocument.documentElement;
-    while (root.dataset.rcPlayerState === 'loading') {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    return root.dataset.rcPlayerState === 'ready'
-      ? null
-      : { error: root.dataset.rcPlayerError || 'the player reported an error' };
-  });
-  const third = assertNotBlank(await page.screenshot(), 'after a direct cross-realm call, ');
-  assertRenderChanged(second.png, third.png);
+  if (embed.crossOrigin) {
+    // Proves the case is what it claims: the host cannot reach into the player at all, so the
+    // renders above can only have come over postMessage.
+    const reachable = await page.evaluate(() => {
+      try {
+        return window.player.iframe.contentDocument !== null;
+      } catch (error) {
+        return false;
+      }
+    });
+    if (reachable) throw new Error('the player iframe is reachable, so this is not cross-origin');
+    directNote = 'the player unreachable except by postMessage';
+  } else {
+    // A host that calls the contract itself, without the library: `frame.contentWindow
+    // .rcPlayerLoadBytes(buffer)` hands over an ArrayBuffer from the *host's* realm, which fails the
+    // player realm's `instanceof ArrayBuffer`. The library's own calls pass a Uint8Array, which
+    // `ArrayBuffer.isView` accepts across realms, so only a direct call shows it.
+    await settle('a direct cross-realm rcPlayerLoadBytes call', async ({ first }) => {
+      const buffer = await (await fetch(first)).arrayBuffer();
+      const frame = window.player.iframe;
+      try {
+        frame.contentWindow.rcPlayerLoadBytes(buffer);
+      } catch (error) {
+        return { error: String(error.message || error) };
+      }
+      const root = frame.contentDocument.documentElement;
+      while (root.dataset.rcPlayerState === 'loading') {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return root.dataset.rcPlayerState === 'ready'
+        ? null
+        : { error: root.dataset.rcPlayerError || 'the player reported an error' };
+    });
+    const third = assertNotBlank(await page.screenshot(), 'after a direct cross-realm call, ');
+    assertRenderChanged(second.png, third.png);
+  }
 
-  // A document the player reports as failed must reject the load *and* reach `onError` — the
-  // `<rc-cmp-player>` element's `rc-error` event hangs off that callback. Last, because the 404
+  // Failures must reject the load *and* reach `onError` — the `<rc-cmp-player>` element's
+  // `rc-error` event hangs off that callback. Two kinds: bytes the *player* refuses, which come
+  // back as an `rc-player-state` error, and a URL the *host* cannot fetch. Last, because the 404
   // and the player's own report are console errors this case otherwise counts as faults.
   const reported = await page.evaluate(async () => {
-    let rejected = null;
-    try {
-      await window.player.loadFromUrl('does-not-exist.rc');
-    } catch (error) {
-      rejected = String(error.message || error);
+    const rejected = [];
+    for (const attempt of [
+      () => window.player.loadFromArrayBuffer(new Uint8Array([1, 2, 3])),
+      () => window.player.loadFromUrl('does-not-exist.rc'),
+    ]) {
+      try {
+        await attempt();
+        rejected.push(null);
+      } catch (error) {
+        rejected.push(String(error.message || error));
+      }
     }
     return { rejected, onError: window.embedErrors || [] };
   });
-  if (!reported.rejected) throw new Error('a missing document resolved instead of rejecting');
-  if (reported.onError.length !== 1) {
+  if (reported.rejected.includes(null)) {
+    throw new Error(`a failed load resolved instead of rejecting: ${JSON.stringify(reported)}`);
+  }
+  if (reported.onError.length !== 2) {
     throw new Error(
-      `a missing document reached onError ${reported.onError.length} time(s), expected once ` +
-        `(rejected with "${reported.rejected}")`,
+      `two failed loads reached onError ${reported.onError.length} time(s), expected twice ` +
+        `(rejected with ${JSON.stringify(reported.rejected)})`,
     );
   }
   if (pageErrors.length > 0) {
@@ -533,7 +578,7 @@ async function runEmbedCase(page, origin, embed, pageErrors, consoleErrors) {
     note:
       `${second.ink} px drawn in ${second.colours} distinct colours, ` +
       `${(changed * 100).toFixed(0)}% of the viewport repainted by the second load, ` +
-      'a host-realm ArrayBuffer accepted, and a failed load reported to onError',
+      `${directNote}, and failed loads reported to onError`,
   };
 }
 

@@ -1,7 +1,7 @@
 /*
  * rc-cmp-player.js — include the CMP Remote Compose player in an HTML page.
  *
- *   <script src="/rc-player/rc-cmp-player.js"></script>
+ *   <script src="https://cdn.example/rc-player/rc-cmp-player.js"></script>
  *   <rc-cmp-player src="/documents/watch-face.rc" width="400" height="400"></rc-cmp-player>
  *
  *   const player = RcCmp.createPlayer(container, { width: 400, height: 400 });
@@ -9,14 +9,17 @@
  *
  * The player itself is the Compose Multiplatform renderer compiled to Wasm, which runs as its own
  * page (`index.html` beside this file) inside an iframe; this script owns that iframe and the embed
- * contract it speaks (docs/design/RC_PLAYER_EMBED.md): it starts the page, waits for it to settle,
- * hands documents over with `window.rcPlayerLoad` / `window.rcPlayerLoadBytes`, and turns the
- * `data-rc-player-state` marker into promises. The API mirrors the TypeScript player's
- * `RC.createPlayer`, so a page can drive both the same way.
+ * contract it speaks (docs/design/RC_PLAYER_EMBED.md). It talks to the page only by `postMessage`
+ * — `rc-player-hello` until the page answers, then `rc-player-load` per document, each settled by an
+ * `rc-player-state` reply carrying its id — so the player may be served from **any origin**, a CDN
+ * included, and the page including it needs no access to the iframe. The API mirrors the
+ * TypeScript player's `RC.createPlayer`, so a page can drive both the same way.
  *
- * The iframe must be **same-origin** with the page: the documents cross by calling into its
- * `window`. Serve this file and the rest of the distribution from your own site (the npm package's
- * `dist/`, or the GitHub release's zip); by default the player page is resolved next to this script.
+ * Documents always cross as bytes. `loadFromUrl` fetches on *this* page, with this page's
+ * credentials and origin, so a document beside the page needs no CORS headers for the player.
+ *
+ * By default the player page is resolved next to this script. Wherever it is served from, it must
+ * come back as `text/html`, with `.wasm` as `application/wasm`, and be allowed in a frame.
  *
  * Plain script, no dependencies, no build step; defines `window.RcCmp` and `<rc-cmp-player>`.
  */
@@ -28,12 +31,10 @@
     (document.currentScript && document.currentScript.src) || document.baseURI || location.href;
   var DEFAULT_PLAYER_URL = new URL('index.html', scriptBase).href;
 
-  var POLL_MS = 50;
+  var HELLO_INTERVAL_MS = 100;
   var START_TIMEOUT_MS = 60000;
   var LOAD_TIMEOUT_MS = 60000;
 
-  // Each player tags its iframe navigations, so a poll can never mistake the outgoing page — still
-  // `ready` until the new one commits — for the page it asked for. The player ignores the parameter.
   var instanceCounter = 0;
 
   function superseded() {
@@ -42,10 +43,15 @@
     return error;
   }
 
-  function toBytes(data) {
+  /** A fresh copy of the bytes, which this script owns and may transfer to the player. */
+  function copyBytes(data) {
     // A brand check, not `instanceof`, so a buffer from another frame's realm is accepted too.
-    if (Object.prototype.toString.call(data) === '[object ArrayBuffer]') return new Uint8Array(data);
-    if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    if (Object.prototype.toString.call(data) === '[object ArrayBuffer]') {
+      return new Uint8Array(data).slice();
+    }
+    if (ArrayBuffer.isView(data)) {
+      return new Uint8Array(data.buffer, data.byteOffset, data.byteLength).slice();
+    }
     throw new TypeError('expected an ArrayBuffer or an ArrayBufferView');
   }
 
@@ -67,19 +73,16 @@
    */
   function createPlayer(container, options) {
     options = Object.assign({}, options);
-    var id = 'rc-cmp-' + ++instanceCounter;
-    var iframe = document.createElement('iframe');
-    iframe.title = options.title || 'Remote Compose player';
-    iframe.style.border = '0';
-    iframe.style.display = 'block';
-    iframe.style.background = 'transparent';
-    iframe.setAttribute('allowtransparency', 'true');
-    container.appendChild(iframe);
+    var instance = 'rc-cmp-' + ++instanceCounter;
+    var playerOrigin = new URL(options.playerUrl || DEFAULT_PLAYER_URL, location.href).origin;
 
-    var page = 0; // navigation counter, see `instanceCounter`; a navigation cancels every wait
+    var iframe = null; // replaced on every navigation, so its window identifies the page
+    var page = 0; // navigation counter; a navigation cancels every wait on the old page
     var generation = 0; // load counter; a newer load cancels an older one's wait
-    var started = null; // promise: the current page is up and has settled once
-    var current = null; // the last document requested: { url } or { bytes }
+    var started = null; // promise: the current page answered `rc-player-hello`
+    var onHello = null; // resolver for `started`, keyed to the hello id
+    var pending = null; // { id, resolve, reject } of the load awaiting its `rc-player-state`
+    var current = null; // the last document requested, as bytes, kept for reloads
     var destroyed = false;
 
     function playerUrl() {
@@ -93,115 +96,146 @@
       if (options.handoffDelayMs != null) {
         url.searchParams.set('handoffDelayMs', String(options.handoffDelayMs));
       }
-      url.searchParams.set('rcEmbed', id + '.' + page);
       return url.href;
     }
 
-    /** The player page's surface, or null while the iframe still shows another page. */
-    function probe() {
-      var win = iframe.contentWindow;
-      var doc;
-      try {
-        doc = win && win.document;
-      } catch (e) {
-        throw new Error(
-          'rc-cmp-player: the player page must be served from the same origin as this page',
-        );
-      }
-      if (!doc || !doc.documentElement) return null;
-      var tag;
-      try {
-        tag = new URL(doc.location.href).searchParams.get('rcEmbed');
-      } catch (e) {
-        return null;
-      }
-      if (tag !== id + '.' + page) return null;
-      var data = doc.documentElement.dataset;
-      return {
-        win: win,
-        state: data.rcPlayerState,
-        error: data.rcPlayerError,
-        settled: data.rcPlayerState === 'ready' || data.rcPlayerState === 'error',
-        canLoad: typeof win.rcPlayerLoad === 'function',
-        canLoadBytes: typeof win.rcPlayerLoadBytes === 'function',
-      };
+    function applySize() {
+      if (!iframe) return;
+      if (options.width != null) iframe.style.width = options.width + 'px';
+      if (options.height != null) iframe.style.height = options.height + 'px';
     }
 
-    function poll(isCurrent, test, timeoutMs, timeoutMessage) {
-      return new Promise(function (resolve, reject) {
-        var deadline = Date.now() + timeoutMs;
-        (function tick() {
-          if (destroyed || !isCurrent()) return reject(superseded());
-          var p;
-          try {
-            p = probe();
-          } catch (e) {
-            return reject(e);
-          }
-          if (p && test(p)) return resolve(p);
-          if (Date.now() > deadline) return reject(new Error('rc-cmp-player: ' + timeoutMessage));
-          setTimeout(tick, POLL_MS);
-        })();
-      });
+    function settlePending(error) {
+      if (!pending) return;
+      var settling = pending;
+      pending = null;
+      settling.reject(error);
     }
+
+    function onMessage(event) {
+      if (!iframe || event.source !== iframe.contentWindow || event.origin !== playerOrigin) return;
+      var data = event.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.type === 'rc-player-hello') {
+        if (onHello && data.id === onHello.id) onHello.resolve(data);
+      } else if (data.type === 'rc-player-state') {
+        if (!pending || data.id !== pending.id) return; // an earlier load's answer
+        var settling = pending;
+        pending = null;
+        if (data.state === 'ready') settling.resolve();
+        else settling.reject(new Error(data.error || 'the player reported an error'));
+      } else if (
+        options.onEvent &&
+        typeof data.type === 'string' &&
+        data.type.indexOf('cp-rc-') === 0
+      ) {
+        options.onEvent(data);
+      }
+    }
+    window.addEventListener('message', onMessage);
 
     /**
-     * (Re)start the player page. It opens with no `?src=`, so it settles on `error` ("Missing
-     * ?src") with the swap functions installed; documents are only handed over after that, or the
-     * page's own report of the missing source could overtake them.
+     * (Re)start the player page in a new iframe and say hello until it answers. The page only
+     * installs its listener once the Wasm module is running, so the first hellos go unheard; and a
+     * hello posted while the frame still holds `about:blank` is dropped by the target origin.
      */
     function navigate() {
       page += 1;
       var forPage = page;
-      iframe.src = playerUrl();
-      started = poll(
-        function () {
-          return forPage === page;
-        },
-        function (p) {
-          return p.canLoad && p.settled;
-        },
-        START_TIMEOUT_MS,
-        'the player page did not start within ' + START_TIMEOUT_MS / 1000 + 's',
-      );
+      settlePending(superseded());
+      var next = document.createElement('iframe');
+      next.title = options.title || 'Remote Compose player';
+      next.style.border = '0';
+      next.style.display = 'block';
+      next.style.background = 'transparent';
+      next.setAttribute('allowtransparency', 'true');
+      next.src = playerUrl();
+      if (iframe) iframe.replaceWith(next);
+      else container.appendChild(next);
+      iframe = next;
+      applySize();
+
+      var helloId = instance + '.hello.' + forPage;
+      started = new Promise(function (resolve, reject) {
+        var deadline = Date.now() + START_TIMEOUT_MS;
+        onHello = { id: helloId, resolve: resolve };
+        (function hello() {
+          if (destroyed || forPage !== page) return reject(superseded());
+          if (!onHello || onHello.id !== helloId) return; // answered
+          if (Date.now() > deadline) {
+            return reject(
+              new Error(
+                'rc-cmp-player: the player page at ' +
+                  playerOrigin +
+                  ' did not answer within ' +
+                  START_TIMEOUT_MS / 1000 +
+                  's; check it is served as text/html (and .wasm as application/wasm) and may ' +
+                  'be framed',
+              ),
+            );
+          }
+          try {
+            next.contentWindow.postMessage({ type: 'rc-player-hello', id: helloId }, playerOrigin);
+          } catch (e) {
+            // The frame is between documents; the next tick tries again.
+          }
+          setTimeout(hello, HELLO_INTERVAL_MS);
+        })();
+      }).then(function (reply) {
+        if (onHello && onHello.id === helloId) onHello = null;
+        return reply;
+      });
       // A rejection here is reported by whichever load awaits it.
       started.catch(function () {});
       return started;
     }
 
-    function load(request) {
+    function load(bytes) {
       if (destroyed) return Promise.reject(new Error('rc-cmp-player: destroyed'));
-      current = request;
+      current = bytes;
       generation += 1;
       var forGeneration = generation;
       var forPage = page;
-      var isCurrent = function () {
-        return forGeneration === generation && forPage === page;
-      };
+      settlePending(superseded());
       return started
         .then(function () {
-          var p = probe();
-          if (!isCurrent() || !p) throw superseded();
-          if (request.bytes) {
-            if (!p.canLoadBytes) {
-              throw new Error('rc-cmp-player: this player build has no rcPlayerLoadBytes');
-            }
-            // Copied synchronously; the marker is `loading` again when this returns.
-            p.win.rcPlayerLoadBytes(request.bytes);
-          } else {
-            p.win.rcPlayerLoad(request.url);
-          }
-          return poll(
-            isCurrent,
-            function (q) {
-              return q.settled;
-            },
-            LOAD_TIMEOUT_MS,
-            'the document did not finish loading within ' + LOAD_TIMEOUT_MS / 1000 + 's',
-          );
+          if (destroyed || forGeneration !== generation || forPage !== page) throw superseded();
+          var id = instance + '.load.' + forGeneration;
+          return new Promise(function (resolve, reject) {
+            var timer = setTimeout(function () {
+              if (pending && pending.id === id) {
+                pending = null;
+                reject(
+                  new Error(
+                    'rc-cmp-player: the document did not finish loading within ' +
+                      LOAD_TIMEOUT_MS / 1000 +
+                      's',
+                  ),
+                );
+              }
+            }, LOAD_TIMEOUT_MS);
+            pending = {
+              id: id,
+              resolve: function () {
+                clearTimeout(timer);
+                resolve();
+              },
+              reject: function (error) {
+                clearTimeout(timer);
+                reject(error);
+              },
+            };
+            // Our own copy each time, transferred rather than cloned; `current` stays intact for
+            // a reload.
+            var payload = bytes.slice();
+            iframe.contentWindow.postMessage(
+              { type: 'rc-player-load', id: id, bytes: payload.buffer },
+              playerOrigin,
+              [payload.buffer],
+            );
+          });
         })
-        .then(function (p) {
-          if (p.state === 'error') throw new Error(p.error || 'the player reported an error');
+        .then(function () {
           return { iframe: iframe };
         })
         // A separate stage, so the player's own `error` above reaches `onError` too: a rejection
@@ -218,41 +252,58 @@
         );
     }
 
-    function onMessage(event) {
-      if (event.source !== iframe.contentWindow || event.origin !== location.origin) return;
-      if (options.onEvent && event.data && typeof event.data === 'object') options.onEvent(event.data);
-    }
-    window.addEventListener('message', onMessage);
-
-    function applySize() {
-      if (options.width != null) iframe.style.width = options.width + 'px';
-      if (options.height != null) iframe.style.height = options.height + 'px';
-    }
-
     function reloadCurrent() {
       navigate();
       if (current) return load(current);
       return started.then(function () {});
     }
 
+    function failed(error) {
+      if (options.onError) options.onError(error);
+      return Promise.reject(error);
+    }
+
     var handle = {
-      iframe: iframe,
+      /** The current iframe; replaced when the player page restarts (theme, lenient). */
+      get iframe() {
+        return iframe;
+      },
       /** Resolves when the player page is up and ready for documents. */
       ready: function () {
         return started.then(function () {});
       },
+      /** Fetched here, on the including page, then handed over as bytes. */
       loadFromUrl: function (url) {
-        return load({ url: new URL(url, location.href).href });
+        var forGeneration = ++generation;
+        settlePending(superseded());
+        return fetch(new URL(url, location.href).href).then(
+          function (response) {
+            if (!response.ok) return failed(new Error('HTTP ' + response.status + ' for ' + url));
+            return response.arrayBuffer().then(function (buffer) {
+              // A newer request made while this one was downloading wins.
+              if (forGeneration !== generation) throw superseded();
+              return load(new Uint8Array(buffer));
+            });
+          },
+          function (error) {
+            return failed(error);
+          },
+        );
       },
       loadFromArrayBuffer: function (data) {
-        // Copied now, so the caller may reuse the buffer and a reload can resend it.
-        return load({ bytes: toBytes(data).slice() });
+        var bytes;
+        try {
+          bytes = copyBytes(data);
+        } catch (error) {
+          return Promise.reject(error);
+        }
+        return load(bytes);
       },
       loadFromBase64: function (base64) {
         var binary = atob(base64);
         var bytes = new Uint8Array(binary.length);
         for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        return load({ bytes: bytes });
+        return load(bytes);
       },
       /** The iframe's viewport *is* the layout size, so a resize reflows without a reload. */
       resize: function (width, height) {
@@ -272,12 +323,13 @@
       },
       destroy: function () {
         destroyed = true;
+        settlePending(superseded());
         window.removeEventListener('message', onMessage);
-        iframe.remove();
+        if (iframe) iframe.remove();
+        iframe = null;
       },
     };
 
-    applySize();
     navigate();
     if (options.buffer) handle.loadFromArrayBuffer(options.buffer).catch(function () {});
     else if (options.src) handle.loadFromUrl(options.src).catch(function () {});

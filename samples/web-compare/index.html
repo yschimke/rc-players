@@ -10,8 +10,8 @@
       script tag:
 
         * the CMP player (`rc-player/wasm`) through its embed library, `rc-cmp-player.js` —
-          `RcCmp.createPlayer(...).loadFromArrayBuffer(bytes)`, which hands the bytes to the Wasm
-          player page over `window.rcPlayerLoadBytes` (docs/design/RC_PLAYER_EMBED.md);
+          `RcCmp.createPlayer(...).loadFromArrayBuffer(bytes)`, which posts the bytes to the Wasm
+          player page (`rc-player-load`, docs/design/RC_PLAYER_EMBED.md);
         * the vendored TypeScript player (`third_party/remote-compose-player`) through its bundle,
           `RC.RcdPlayer(...).loadFromArrayBuffer(bytes)`, on a canvas.
 

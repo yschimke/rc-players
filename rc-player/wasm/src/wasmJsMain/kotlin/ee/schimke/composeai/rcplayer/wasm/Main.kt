@@ -67,7 +67,16 @@ private sealed interface LoadState {
  * a reload — and two consecutive documents can decode to equal [RcDocument]s. Counting the requests
  * gives both the fetch and the readiness signal a key that always moves.
  */
-private data class LoadRequest(val source: DocumentSource?, val generation: Int)
+private data class LoadRequest(
+  val source: DocumentSource?,
+  val generation: Int,
+  /**
+   * The `id` of the `rc-player-load` message that asked for this document, echoed in the
+   * `rc-player-state` reply so a host — possibly on another origin, with no access to the marker —
+   * can tell its own result from an earlier one. Null for `?src=` and the `window` functions.
+   */
+  val hostId: String? = null,
+)
 
 /**
  * Where a document's bytes come from: a URL the player fetches (`?src=`, `window.rcPlayerLoad`), or
@@ -115,8 +124,8 @@ public fun main() {
       // `window.rcPlayerLoadBytes(bytes)` hand the next source in here instead of the host
       // navigating the page again. See [installDocumentSwap].
       while (true) {
-        val next = awaitDocumentSwap()
-        loadRequest = LoadRequest(next, loadRequest.generation + 1)
+        val (next, hostId) = awaitDocumentSwap()
+        loadRequest = LoadRequest(next, loadRequest.generation + 1, hostId)
       }
     }
 
@@ -168,7 +177,7 @@ public fun main() {
       // only while that request is still the current one; see [LoadState.Failed.generation].
       is LoadState.Failed ->
         if (state.generation == request.generation) {
-          LaunchedEffect(state) { reportFailure(state.message) }
+          LaunchedEffect(state) { reportFailure(state.message, request.hostId) }
         }
       is LoadState.Ready -> {
         // Keyed on the document, not the page: `?namedValues=` belongs to the page, but the
@@ -199,7 +208,7 @@ public fun main() {
           // Chromium can acknowledge those frames before the Skiko surface is presented to the
           // compositor. Keep the parent snapshot visible through that short cold-start tail.
           delay(handoffDelayMs)
-          postReady()
+          postReady(request.hostId)
         }
       }
     }
@@ -309,6 +318,16 @@ private val handoffDelayMs: Long
  * `?theme` and `?namedValues` are *not* re-read — they belong to the page, and a host that needs
  * different ones should navigate. Only the document changes.
  *
+ * The same swap is reachable by `postMessage`, which is what makes the player embeddable from
+ * another origin — a page including `rc-cmp-player.js` from a CDN cannot touch this `window`. Its
+ * parent sends `{type: 'rc-player-hello', id}` (answered in kind, with the contract version) and
+ * `{type: 'rc-player-load', id, bytes | src}`, answered by `{type: 'rc-player-state', id, state,
+ * error?}` once the document is `ready` or in `error`. Messages are accepted only from
+ * `window.parent`, from any origin: whoever frames the page can already choose its `?src=`. The
+ * origin that last spoke is remembered, and from then on everything the player posts — the
+ * readiness messages and the document's host actions and debug messages — goes there as well as to
+ * this page's own origin, where it always went. A parent that never speaks hears nothing new.
+ *
  * The handshake is a one-slot mailbox rather than an event listener because this module reaches the
  * browser exclusively through `js(...)` (no `kotlinx-browser` dependency): [awaitDocumentSwap]
  * parks a resolver here, and a call that arrives while the player is busy loading is held in
@@ -319,6 +338,14 @@ private fun installDocumentSwap(): Unit =
   js(
     """{
       window.__rcPlayerSwap = { pending: null, resolve: null };
+      // The origin of the parent that last sent a message; see `__rcPlayerPost`.
+      var host = { origin: null };
+      window.__rcPlayerPost = function (message) {
+        window.parent.postMessage(message, window.location.origin);
+        if (host.origin && host.origin !== window.location.origin) {
+          window.parent.postMessage(message, host.origin);
+        }
+      };
       var deliver = function (request) {
         var root = document.documentElement;
         root.dataset.rcPlayerState = 'loading';
@@ -335,7 +362,7 @@ private fun installDocumentSwap(): Unit =
       window.rcPlayerLoad = function (source) {
         deliver({ url: String(source) });
       };
-      window.rcPlayerLoadBytes = function (data) {
+      var base64Of = function (data) {
         var bytes;
         // A brand check, not `instanceof`: a same-origin parent calling in hands over an
         // ArrayBuffer from its own realm, which is not an instance of this page's ArrayBuffer.
@@ -350,8 +377,34 @@ private fun installDocumentSwap(): Unit =
         for (var i = 0; i < bytes.length; i += chunkSize) {
           chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
         }
-        deliver({ base64: btoa(chunks.join('')) });
+        return btoa(chunks.join(''));
       };
+      window.rcPlayerLoadBytes = function (data) {
+        deliver({ base64: base64Of(data) });
+      };
+      window.addEventListener('message', function (event) {
+        if (window.parent === window || event.source !== window.parent) return;
+        var data = event.data;
+        if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;
+        var id = data.id == null ? null : String(data.id);
+        if (data.type === 'rc-player-hello') {
+          host.origin = event.origin;
+          event.source.postMessage(
+            { type: 'rc-player-hello', id: id, contractVersion: window.rcPlayerContractVersion },
+            event.origin);
+        } else if (data.type === 'rc-player-load') {
+          host.origin = event.origin;
+          try {
+            if (data.bytes != null) deliver({ base64: base64Of(data.bytes), id: id });
+            else if (data.src != null) deliver({ url: String(data.src), id: id });
+            else throw new TypeError('rc-player-load needs bytes or src');
+          } catch (error) {
+            event.source.postMessage(
+              { type: 'rc-player-state', id: id, state: 'error', error: String(error.message || error) },
+              event.origin);
+          }
+        }
+      });
     }"""
   )
 
@@ -375,7 +428,10 @@ private fun swapUrl(request: JsAny): JsString? =
 private fun swapBase64(request: JsAny): JsString? =
   js("request.base64 === undefined ? null : request.base64")
 
-private suspend fun awaitDocumentSwap(): DocumentSource =
+private fun swapId(request: JsAny): JsString? = js("request.id == null ? null : request.id")
+
+/** The next document a host handed over, and the `rc-player-load` id it came with, if any. */
+private suspend fun awaitDocumentSwap(): Pair<DocumentSource, String?> =
   suspendCancellableCoroutine { continuation ->
     nextDocumentSwap()
       .then { request ->
@@ -383,7 +439,7 @@ private suspend fun awaitDocumentSwap(): DocumentSource =
         val source =
           if (base64 != null) DocumentSource.Bytes(Base64.decode(base64))
           else DocumentSource.Url(swapUrl(request).toString())
-        if (continuation.isActive) continuation.resume(source)
+        if (continuation.isActive) continuation.resume(source to swapId(request)?.toString())
         null
       }
       .catch { failure ->
@@ -460,18 +516,25 @@ private fun publishContractVersion(version: Int): Unit =
       "document.documentElement.dataset.rcPlayerContract = String(version))"
   )
 
-private fun postReady(): Unit =
+/**
+ * Mark the document `ready` and say so: the legacy string message, and the structured reply a
+ * `postMessage` host correlates by [hostId] (see [installDocumentSwap]).
+ */
+private fun postReady(hostId: String?): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerState = 'ready', " +
-      "window.parent.postMessage('cp-rc-wasm-ready', window.location.origin))"
+      "window.__rcPlayerPost('cp-rc-wasm-ready'), " +
+      "window.__rcPlayerPost({ type: 'rc-player-state', id: hostId, state: 'ready' }))"
   )
 
-private fun reportFailure(message: String): Unit =
+private fun reportFailure(message: String, hostId: String?): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerState = 'error', " +
       "document.documentElement.dataset.rcPlayerError = message, " +
       "console.error('[rc-player-wasm] ' + message), " +
-      "window.parent.postMessage('cp-rc-wasm-error:' + message, window.location.origin))"
+      "window.__rcPlayerPost('cp-rc-wasm-error:' + message), " +
+      "window.__rcPlayerPost({ type: 'rc-player-state', id: hostId, state: 'error', " +
+      "error: message }))"
   )
 
 private fun postPlayerEvent(event: RcPlayerEvent) {
@@ -497,8 +560,8 @@ private fun postDebugMessage(message: String, value: Float, flags: Int): Unit =
       "document.documentElement.dataset.rcPlayerDebugValue = String(value), " +
       "document.documentElement.dataset.rcPlayerDebugFlags = String(flags), " +
       "console.debug('[rc-player-wasm] ' + message + ' ' + String(value)), " +
-      "window.parent.postMessage({ type: 'cp-rc-debug-message', message: message, " +
-      "value: value, flags: flags }, window.location.origin))"
+      "window.__rcPlayerPost({ type: 'cp-rc-debug-message', message: message, " +
+      "value: value, flags: flags }))"
   )
 
 private fun postHostAction(actionId: Int): Unit =
@@ -507,8 +570,7 @@ private fun postHostAction(actionId: Int): Unit =
       "document.documentElement.dataset.rcPlayerActionTrace = " +
       "(document.documentElement.dataset.rcPlayerActionTrace ? " +
       "document.documentElement.dataset.rcPlayerActionTrace + ',' : '') + String(actionId), " +
-      "window.parent.postMessage({ type: 'cp-rc-host-action', actionId: actionId }, " +
-      "window.location.origin))"
+      "window.__rcPlayerPost({ type: 'cp-rc-host-action', actionId: actionId }))"
   )
 
 private fun postHostMetadataAction(actionId: Int, metadata: String): Unit =
@@ -518,47 +580,47 @@ private fun postHostMetadataAction(actionId: Int, metadata: String): Unit =
       "(document.documentElement.dataset.rcPlayerActionTrace ? " +
       "document.documentElement.dataset.rcPlayerActionTrace + ',' : '') + String(actionId), " +
       "document.documentElement.dataset.rcPlayerMetadata = metadata, " +
-      "window.parent.postMessage({ type: 'cp-rc-host-action', actionId: actionId, " +
-      "metadata: metadata }, window.location.origin))"
+      "window.__rcPlayerPost({ type: 'cp-rc-host-action', actionId: actionId, " +
+      "metadata: metadata }))"
   )
 
 private fun postHostNamedActionNone(name: String): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'none', " +
-      "window.parent.postMessage({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'none', value: null }, window.location.origin))"
+      "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
+      "valueType: 'none', value: null }))"
   )
 
 private fun postHostNamedActionFloat(name: String, value: Float): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'float:' + String(value), " +
-      "window.parent.postMessage({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'float', value: value }, window.location.origin))"
+      "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
+      "valueType: 'float', value: value }))"
   )
 
 private fun postHostNamedActionInt(name: String, value: Int): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'int:' + String(value), " +
-      "window.parent.postMessage({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'int', value: value }, window.location.origin))"
+      "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
+      "valueType: 'int', value: value }))"
   )
 
 private fun postHostNamedActionText(name: String, value: String): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'string:' + value, " +
-      "window.parent.postMessage({ type: 'cp-rc-host-named-action', name: name, " +
-      "valueType: 'string', value: value }, window.location.origin))"
+      "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
+      "valueType: 'string', value: value }))"
   )
 
 private fun postHostNamedActionFloatList(name: String, encoded: String): Unit =
   js(
     "(document.documentElement.dataset.rcPlayerNamedAction = name, " +
       "document.documentElement.dataset.rcPlayerNamedActionValue = 'float-array:' + encoded, " +
-      "window.parent.postMessage({ type: 'cp-rc-host-named-action', name: name, " +
+      "window.__rcPlayerPost({ type: 'cp-rc-host-named-action', name: name, " +
       "valueType: 'float-array', " +
-      "value: encoded === '' ? [] : encoded.split(',').map(Number) }, window.location.origin))"
+      "value: encoded === '' ? [] : encoded.split(',').map(Number) }))"
   )
