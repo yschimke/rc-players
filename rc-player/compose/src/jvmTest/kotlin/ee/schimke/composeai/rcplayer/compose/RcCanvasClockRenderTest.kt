@@ -9,8 +9,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
-import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeightModifier
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
@@ -21,22 +19,23 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.jetbrains.skia.Bitmap
 
 /**
- * A graphics layer bound to the document clock — a card that spins or slides on `ANIMATION_TIME` —
- * has to follow that clock frame by frame, the way AndroidX's players read it on every paint.
+ * A layout canvas that draws from the document clock — a dial, a sweep, a cube spinning on a matrix
+ * expression — has to redraw every frame, the way AndroidX's players paint it. Raw draw-list
+ * documents always did; a canvas inside the layout tree drew once and held that pose, because
+ * nothing it read in its draw block changed from one frame to the next.
  *
- * The layer's `TRANSLATION_X` is a float expression that reads `ANIMATION_TIME`, so the block's
- * left edge is the time in seconds. Nothing but the scene's frame clock moves it.
+ * The canvas draws a rect whose left edge is a float expression reading `ANIMATION_TIME`, so the
+ * first red pixel is the time in seconds. Nothing but the scene's frame clock moves it.
  */
-class RcGraphicsLayerClockRenderTest {
+class RcCanvasClockRenderTest {
   @OptIn(ExperimentalComposeUiApi::class)
   @Test
-  fun aClockBoundLayerFollowsTheFrameClock() {
+  fun aClockDrawingLayoutCanvasRedrawsEveryFrame() {
     val scene =
       ImageComposeScene(width = WIDTH, height = HEIGHT, density = Density(1f)) {
         RcComposePlayer(clockDocument())
@@ -52,31 +51,7 @@ class RcGraphicsLayerClockRenderTest {
           scene.render(it * 1_000_000_000L - 16_000_000L)
           scene.blockLeftEdge(nanos = it * 1_000_000_000L)
         }
-      assertEquals((1..10).toList(), edges, "the layer follows the clock frame by frame")
-    } finally {
-      scene.close()
-    }
-  }
-
-  /** Writes PR evidence when explicitly requested; ordinary test runs remain side-effect free. */
-  @OptIn(ExperimentalComposeUiApi::class)
-  @Test
-  fun writeClockBoundLayerEvidence() {
-    val directory = System.getenv("RC_LAYOUT_EVIDENCE_DIR")?.let(::File) ?: return
-    directory.mkdirs()
-    val scene =
-      ImageComposeScene(width = WIDTH, height = HEIGHT, density = Density(1f)) {
-        RcComposePlayer(clockDocument())
-      }
-    try {
-      for (second in 0..EVIDENCE_SECONDS step 10) {
-        val frame = scene.render(second * 1_000_000_000L)
-        directory
-          .resolve("clock-layer-${second}s.png")
-          .writeBytes(
-            checkNotNull(frame.encodeToData()) { "Skia declined to encode the render" }.bytes
-          )
-      }
+      assertEquals((1..10).toList(), edges, "the canvas redraws with the clock frame by frame")
     } finally {
       scene.close()
     }
@@ -94,8 +69,8 @@ class RcGraphicsLayerClockRenderTest {
     return RcDocument(
       RcHeader(RcVersion(1, 0, 0), legacyWidth = WIDTH, legacyHeight = HEIGHT, modern = false),
       listOf(
-        // What a writer emits for `animationTime()` handed to a graphics layer: a float expression
-        // over the clock, and the layer bound to the expression's id.
+        // What a writer emits for `animationTime()` used as a draw coordinate: a float expression
+        // over the clock, and the draw operation reading the expression's id.
         RcFloatExpression(
           TIME_ID,
           listOf(RcFloatWord(0x7fc00000 or RcSystemVariables.ANIMATION_TIME)),
@@ -106,21 +81,13 @@ class RcGraphicsLayerClockRenderTest {
         RcCanvasLayout(5, 50),
         RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(WIDTH.toFloat())),
         RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(HEIGHT.toFloat())),
-        RcGraphicsLayerModifier(
-          listOf(
-            RcGraphicsLayerAttribute.FloatValue(
-              RcGraphicsLayerModifier.TRANSLATION_X,
-              RcFloatWord(0x7fc00000 or TIME_ID),
-            )
-          )
-        ),
         RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
         RcPaintData(listOf(4, RED)),
         RcDraw4(
           RcOpcodes.DRAW_RECT,
+          RcFloatWord(0x7fc00000 or TIME_ID),
           RcFloatWord.literal(0f),
-          RcFloatWord.literal(0f),
-          RcFloatWord.literal(10f),
+          RcFloatWord.literal(WIDTH.toFloat()),
           RcFloatWord.literal(HEIGHT.toFloat()),
         ),
         end,
@@ -136,6 +103,5 @@ class RcGraphicsLayerClockRenderTest {
     const val HEIGHT = 20
     const val RED = 0xffff0000.toInt()
     const val TIME_ID = 42
-    const val EVIDENCE_SECONDS = 40
   }
 }
