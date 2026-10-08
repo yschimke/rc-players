@@ -40,7 +40,7 @@ tasks.register<Sync>("wasmPlayerDist") {
   // manifest-only and never fetches, so a named family the distribution doesn't carry fails
   // `RcComposeSupport.fontFamilyIssue`'s availability check outright, and reaching across a repo
   // boundary for a load-bearing payload is not something the extraction could keep. Licences ride
-  // with the faces (`fonts/*-OFL.txt`, `fonts/LICENSE.txt`).
+  // with the faces (`fonts/*-OFL.txt`).
   from(layout.projectDirectory.dir("dist-assets/fonts")) { into("fonts") }
   from(layout.projectDirectory.file("dist-assets/js-joda.esm.js"))
   into(layout.buildDirectory.dir("wasmDist"))
@@ -92,9 +92,13 @@ tasks.register<Sync>("wasmPlayerDist") {
   // production distribution measured 25_393_417 bytes after those runtime paths were linked, an
   // increase of 358 KB over the preceding measured payload. Keep roughly 256 KB of slack so the
   // ratchet continues to catch unrelated growth.
+  // Raised 25_650_000 -> 29_350_000 when the vendored fonts became variable files: the font
+  // directory grew from 4_602_286 to 9_434_767 bytes (+4_832_481), mostly the `gvar` tables of
+  // Google Sans Flex, Noto Serif and Inter. The distribution measured 29_090_383 bytes after the
+  // swap; the same ~256 KB of slack as before.
   inputs.property(
     "maximumDistributionBytes",
-    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("25650000"),
+    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("29350000"),
   )
   doLast {
     val maximumBytes = inputs.properties.getValue("maximumDistributionBytes").toString().toLong()

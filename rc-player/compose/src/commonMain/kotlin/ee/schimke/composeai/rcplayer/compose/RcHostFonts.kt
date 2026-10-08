@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 
 /**
@@ -49,7 +50,11 @@ public class RcFontFaces(private val faces: List<RcFontFace>) {
     get() = faces.map { it.identity }
 
   private fun instanceSuffix(axes: List<Pair<String, Float>>): String =
-    axes.joinToString(separator = ",", prefix = "#") { (tag, value) -> "$tag=$value" }
+    if (axes.isEmpty()) ""
+    else axes.joinToString(separator = ",", prefix = "#") { (tag, value) -> "$tag=$value" }
+
+  private fun faceSuffix(face: RcFontFace): String =
+    "@${face.weight}" + if (face.italic) "i" else ""
 
   /** Insertion-ordered, and re-inserted on each hit, so the first entry is the least recent. */
   private val instances = LinkedHashMap<List<Pair<String, Float>>, FontFamily>()
@@ -66,35 +71,36 @@ public class RcFontFaces(private val faces: List<RcFontFace>) {
       instances[key] = it
       return it
     }
-    // Converted once here rather than per face: this is the only place the player needs Compose's
-    // own type, and `RcFontVariations` is what the published API speaks (see that class).
-    val composeSettings = variations?.takeIf { !it.isEmpty }?.toComposeSettings()
+    val documentAxes = variations?.takeIf { !it.isEmpty }?.axes.orEmpty()
     val built =
       runCatching {
         FontFamily(
           faces.map { face ->
             val weight = FontWeight(face.weight)
             val style = if (face.italic) FontStyle.Italic else FontStyle.Normal
-            if (composeSettings == null) {
-              rcFontFromBytes(
-                identity = face.identity,
-                data = face.data,
-                weight = weight,
-                style = style,
-              )
-            } else {
-              rcFontFromBytes(
-                // The identity carries the axes, because Compose's font cache keys on it: two
-                // instances of one file that share an identity are the *same* cached typeface, so
-                // the first axis set drawn would silently be used for every later one (every line
-                // of a `wght` ramp rendering at the first line's weight).
-                identity = face.identity + instanceSuffix(key),
-                data = face.data,
-                weight = weight,
-                style = style,
-                variationSettings = composeSettings,
-              )
+            // Every face carries its own `wght`/`ital` unless the document sets them, as Android's
+            // file `Font` does by default. Without them a variable file listed at several weights
+            // (one row per weight, one file) draws its default instance at all of them; a static
+            // face ignores the settings.
+            val settings = buildList {
+              if (documentAxes.none { it.tag == "wght" }) add(FontVariation.weight(face.weight))
+              if (documentAxes.none { it.tag == "ital" }) {
+                add(FontVariation.italic(if (face.italic) 1f else 0f))
+              }
+              documentAxes.forEach { add(FontVariation.Setting(it.tag, it.value)) }
             }
+            rcFontFromBytes(
+              // The identity carries the face's weight and the axes, because Compose's font cache
+              // keys on it: two instances of one file that share an identity are the *same* cached
+              // typeface, so the first one drawn would silently be used for every later one (every
+              // line of a `wght` ramp rendering at the first line's weight, or every row of a
+              // variable family at its first row's).
+              identity = face.identity + faceSuffix(face) + instanceSuffix(key),
+              data = face.data,
+              weight = weight,
+              style = style,
+              variationSettings = FontVariation.Settings(*settings.toTypedArray()),
+            )
           }
         )
       }

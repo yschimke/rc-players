@@ -52,6 +52,33 @@ class RcPaintFontAxisRenderTest {
   }
 
   @Test
+  fun `a variable file listed at two weights draws a paint's weight`() {
+    val face = File(VARIABLE_FACE_PATH).takeIf { it.isFile }?.readBytes()
+    assertNotNull(face, "vendored Roboto Flex not found at $VARIABLE_FACE_PATH")
+    // One file at two weights, as `fonts.json` lists a variable family, and a paint that names a
+    // weight and no axis: `CoreText` adds a `wght` axis for its weight, canvas text does not, so
+    // each face must carry its own or both draw the file's default instance.
+    val fonts =
+      mapOf(
+        "roboto flex" to
+          RcFontFaces(
+            listOf(
+              RcFontFace("RobotoFlex.ttf", face, weight = 400),
+              RcFontFace("RobotoFlex.ttf", face, weight = 900),
+            )
+          )
+      )
+    val regular = inkArea(document(wdth = null, weight = 400), fonts)
+    val black = inkArea(document(wdth = null, weight = 900), fonts)
+
+    assertTrue(regular > 0, "the 400 run drew nothing at all")
+    assertTrue(
+      black > regular * 13 / 10,
+      "the 900 face must draw heavier than the 400 one (regular=$regular, black=$black)",
+    )
+  }
+
+  @Test
   fun `an animated axis keeps a bounded number of face instances`() {
     val faces = robotoFlexFonts().getValue("roboto flex")
     repeat(RcFontFaces.MAX_INSTANCES * 3) { i ->
@@ -60,7 +87,7 @@ class RcPaintFontAxisRenderTest {
     assertEquals(RcFontFaces.MAX_INSTANCES, faces.cachedInstanceCount)
   }
 
-  private fun document(wdth: RcFloatWord): RcDocument =
+  private fun document(wdth: RcFloatWord?, weight: Int = 400): RcDocument =
     RcDocument(
       RcHeader(RcVersion(1, 0, 0), legacyWidth = WIDTH, legacyHeight = HEIGHT, modern = false),
       listOf(
@@ -75,12 +102,10 @@ class RcPaintFontAxisRenderTest {
             0xff000000.toInt(),
             PAINT_TEXT_SIZE,
             RcFloatWord.literal(40f).bits,
-            PAINT_TYPEFACE or (400 shl 16),
+            PAINT_TYPEFACE or (weight shl 16),
             43,
-            PAINT_FONT_AXIS or (1 shl 16),
-            44,
-            wdth.bits,
-          )
+          ) +
+            if (wdth == null) emptyList() else listOf(PAINT_FONT_AXIS or (1 shl 16), 44, wdth.bits)
         ),
         RcDrawText(
           42,
@@ -99,7 +124,22 @@ class RcPaintFontAxisRenderTest {
     document: RcDocument,
     fonts: Map<String, RcFontFaces>,
     named: Map<String, RcNamedValue> = emptyMap(),
-  ): Int {
+  ): Int =
+    render(document, fonts, named).let { bitmap ->
+      (0 until WIDTH).count { x -> (0 until HEIGHT).any { y -> bitmap.getColor(x, y) != 0 } }
+    }
+
+  /** Pixels holding any ink: how heavy the run is, which is what a weight changes. */
+  private fun inkArea(document: RcDocument, fonts: Map<String, RcFontFaces>): Int =
+    render(document, fonts).let { bitmap ->
+      (0 until WIDTH).sumOf { x -> (0 until HEIGHT).count { y -> bitmap.getColor(x, y) != 0 } }
+    }
+
+  private fun render(
+    document: RcDocument,
+    fonts: Map<String, RcFontFaces>,
+    named: Map<String, RcNamedValue> = emptyMap(),
+  ): Bitmap {
     val scene =
       ImageComposeScene(width = WIDTH, height = HEIGHT, density = Density(1f)) {
         RcComposePlayer(
@@ -111,7 +151,7 @@ class RcPaintFontAxisRenderTest {
     try {
       val bitmap = Bitmap().apply { allocN32Pixels(WIDTH, HEIGHT) }
       check(scene.render(0L).readPixels(bitmap))
-      return (0 until WIDTH).count { x -> (0 until HEIGHT).any { y -> bitmap.getColor(x, y) != 0 } }
+      return bitmap
     } finally {
       scene.close()
     }

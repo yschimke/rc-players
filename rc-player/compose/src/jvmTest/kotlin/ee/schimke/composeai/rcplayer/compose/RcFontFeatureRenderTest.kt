@@ -112,7 +112,7 @@ class RcFontFeatureRenderTest {
     /** The wasm catalog's vendored faces, as `RcFontAxisRenderTest` reads them. */
     const val FONTS = "../../rc-player/wasm/dist-assets/fonts"
 
-    val INTER = Face("Inter", "inter-400.ttf")
+    val INTER = Face("Inter", "inter-variable.ttf")
     val ROBOTO_FLEX = Face("Roboto Flex", "RobotoFlex.ttf")
   }
 }

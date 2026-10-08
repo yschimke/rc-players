@@ -257,7 +257,7 @@ class RcAndroidRenderTest {
   @Test
   fun drawsAGoogleFamilyFromTheSharedFontCache() {
     // The shared Google Fonts cache the embedded player reads, pointed offline at the files the
-    // wasm host vendors — they use the cache's `<slug>-<weight>.ttf` names. The branded text
+    // wasm host vendors — they use the cache's `<slug>-variable.ttf` names. The branded text
     // sticker names `google:Orbitron`; with the loader it must draw differently from the default
     // face.
     val cache = RcSharedFontCache(File("../wasm/dist-assets/fonts"))
@@ -296,9 +296,9 @@ class RcAndroidRenderTest {
     assertEquals("jetbrains-mono", RcSharedFontCache.slug("  JetBrains   Mono! "))
     assertEquals("font", RcSharedFontCache.slug("***"))
     val cache = RcSharedFontCache(File("../wasm/dist-assets/fonts"))
-    assertEquals("orbitron-700.ttf", cache.static("Orbitron", 700, italic = false)?.name)
-    assertEquals(null, cache.static("Orbitron", 700, italic = true))
-    assertEquals(null, cache.variable("Orbitron", italic = false))
+    assertEquals("orbitron-variable.ttf", cache.variable("Orbitron", italic = false)?.name)
+    assertEquals(null, cache.variable("Orbitron", italic = true))
+    assertEquals(null, cache.static("Orbitron", 700, italic = false))
   }
 
   private fun Bitmap.pixels(): IntArray =

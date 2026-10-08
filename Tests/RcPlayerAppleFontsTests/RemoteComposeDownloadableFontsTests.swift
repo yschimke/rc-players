@@ -73,7 +73,8 @@ enum RemoteComposeDownloadableFontsTests {
 
   /// The weight a document carries on a text run has to survive resolution.
   ///
-  /// Uses the vendored variable face and its static sibling, so the axis/no-axis split is measured
+  /// Uses a vendored variable face and the one static face vendored beside it (Lobster Two, which
+  /// has no variable release), so the axis/no-axis split is measured
   /// against real fonts rather than against a mock.
   private static func testFontVariation() throws {
     let root = URL(fileURLWithPath: #filePath)
@@ -82,7 +83,7 @@ enum RemoteComposeDownloadableFontsTests {
     let variable = descriptor(
       forFontAt: fonts.appendingPathComponent("RobotoFlex.ttf").path)
     let staticFace = descriptor(
-      forFontAt: fonts.appendingPathComponent("Roboto-Regular.ttf").path)
+      forFontAt: fonts.appendingPathComponent("LobsterTwo-Regular.ttf").path)
 
     precondition(RemoteComposeFontVariation.hasWeightAxis(variable))
     precondition(!RemoteComposeFontVariation.hasWeightAxis(staticFace))
