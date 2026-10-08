@@ -146,6 +146,7 @@ const EMBED_HOST_PAGE = `<!doctype html>
 <script>
   window.player = RcCmp.createPlayer(document.getElementById('host'), {
     width: ${VIEWPORT.width}, height: ${VIEWPORT.height}, handoffDelayMs: 0,
+    onError: (error) => (window.embedErrors = window.embedErrors || []).push(error.message),
   });
 </script></body></html>`;
 
@@ -505,11 +506,34 @@ async function runEmbedCase(page, origin, embed, pageErrors, consoleErrors) {
   });
   const third = assertNotBlank(await page.screenshot(), 'after a direct cross-realm call, ');
   assertRenderChanged(second.png, third.png);
+
+  // A document the player reports as failed must reject the load *and* reach `onError` — the
+  // `<rc-cmp-player>` element's `rc-error` event hangs off that callback. Last, because the 404
+  // and the player's own report are console errors this case otherwise counts as faults.
+  const reported = await page.evaluate(async () => {
+    let rejected = null;
+    try {
+      await window.player.loadFromUrl('does-not-exist.rc');
+    } catch (error) {
+      rejected = String(error.message || error);
+    }
+    return { rejected, onError: window.embedErrors || [] };
+  });
+  if (!reported.rejected) throw new Error('a missing document resolved instead of rejecting');
+  if (reported.onError.length !== 1) {
+    throw new Error(
+      `a missing document reached onError ${reported.onError.length} time(s), expected once ` +
+        `(rejected with "${reported.rejected}")`,
+    );
+  }
+  if (pageErrors.length > 0) {
+    throw new Error(`the page threw while reporting the error:\n  ${pageErrors.join('\n  ')}`);
+  }
   return {
     note:
       `${second.ink} px drawn in ${second.colours} distinct colours, ` +
       `${(changed * 100).toFixed(0)}% of the viewport repainted by the second load, ` +
-      'and a host-realm ArrayBuffer accepted',
+      'a host-realm ArrayBuffer accepted, and a failed load reported to onError',
   };
 }
 

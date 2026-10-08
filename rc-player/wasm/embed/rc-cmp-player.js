@@ -200,10 +200,14 @@
             'the document did not finish loading within ' + LOAD_TIMEOUT_MS / 1000 + 's',
           );
         })
+        .then(function (p) {
+          if (p.state === 'error') throw new Error(p.error || 'the player reported an error');
+          return { iframe: iframe };
+        })
+        // A separate stage, so the player's own `error` above reaches `onError` too: a rejection
+        // handler never sees what its sibling fulfilment handler throws.
         .then(
-          function (p) {
-            if (p.state === 'error') throw new Error(p.error || 'the player reported an error');
-            var info = { iframe: iframe };
+          function (info) {
             if (options.onLoad) options.onLoad(info);
             return info;
           },
