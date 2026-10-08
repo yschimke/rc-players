@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.1](https://github.com/yschimke/rc-players/compare/v2.2.0...v2.2.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.20.0 ([#591](https://github.com/yschimke/rc-players/issues/591)) ([3cbb41d](https://github.com/yschimke/rc-players/commit/3cbb41d12921f7a41f1120b0ce9e3a23213168e7))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.14.1 ([#594](https://github.com/yschimke/rc-players/issues/594)) ([3cdeb27](https://github.com/yschimke/rc-players/commit/3cdeb27b552d7b5f25e5d7debff95217d0792bec))
+* play conics, slider ComponentValues and hoisted loop expressions ([#595](https://github.com/yschimke/rc-players/issues/595)) ([d910e8a](https://github.com/yschimke/rc-players/commit/d910e8a1a594e2d6d0cf34ab842cf164833194e4))
+* size conic subdivision for scaled documents ([#596](https://github.com/yschimke/rc-players/issues/596)) ([2416c11](https://github.com/yschimke/rc-players/commit/2416c110593d05979b9aaf66215926622ab264ff))
+
 ## [2.2.0](https://github.com/yschimke/rc-players/compare/v2.1.4...v2.2.0) (2026-10-07)
 
 
