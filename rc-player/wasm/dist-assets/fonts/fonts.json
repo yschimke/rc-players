@@ -7,7 +7,39 @@
       "fonts": [
         {
           "file": "RobotoFlex.ttf",
+          "weight": 100
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 200
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 300
+        },
+        {
+          "file": "RobotoFlex.ttf",
           "weight": 400
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 500
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 600
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 700
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 800
+        },
+        {
+          "file": "RobotoFlex.ttf",
+          "weight": 900
         }
       ]
     },
@@ -16,8 +48,40 @@
       "role": "generic",
       "fonts": [
         {
-          "file": "NotoSerif-Regular.ttf",
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 100
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 200
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
           "weight": 400
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 700
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 800
+        },
+        {
+          "file": "NotoSerif-Variable.ttf",
+          "weight": 900
         }
       ]
     },
@@ -26,8 +90,40 @@
       "role": "generic",
       "fonts": [
         {
-          "file": "DroidSansMono.ttf",
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 100
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 200
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
           "weight": 400
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 700
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 800
+        },
+        {
+          "file": "NotoSansMono-Variable.ttf",
+          "weight": 900
         }
       ]
     },
@@ -36,12 +132,28 @@
       "role": "named",
       "fonts": [
         {
-          "file": "orbitron-400.ttf",
+          "file": "orbitron-variable.ttf",
           "weight": 400
         },
         {
-          "file": "orbitron-700.ttf",
+          "file": "orbitron-variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "orbitron-variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "orbitron-variable.ttf",
           "weight": 700
+        },
+        {
+          "file": "orbitron-variable.ttf",
+          "weight": 800
+        },
+        {
+          "file": "orbitron-variable.ttf",
+          "weight": 900
         }
       ]
     },
@@ -64,11 +176,23 @@
       "role": "named",
       "fonts": [
         {
-          "file": "space-grotesk-400.ttf",
+          "file": "space-grotesk-variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "space-grotesk-variable.ttf",
           "weight": 400
         },
         {
-          "file": "space-grotesk-700.ttf",
+          "file": "space-grotesk-variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "space-grotesk-variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "space-grotesk-variable.ttf",
           "weight": 700
         }
       ]
@@ -78,12 +202,36 @@
       "role": "named",
       "fonts": [
         {
-          "file": "jetbrains-mono-400.ttf",
+          "file": "jetbrains-mono-variable.ttf",
+          "weight": 100
+        },
+        {
+          "file": "jetbrains-mono-variable.ttf",
+          "weight": 200
+        },
+        {
+          "file": "jetbrains-mono-variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "jetbrains-mono-variable.ttf",
           "weight": 400
         },
         {
-          "file": "jetbrains-mono-700.ttf",
+          "file": "jetbrains-mono-variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "jetbrains-mono-variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "jetbrains-mono-variable.ttf",
           "weight": 700
+        },
+        {
+          "file": "jetbrains-mono-variable.ttf",
+          "weight": 800
         }
       ]
     },
@@ -92,12 +240,40 @@
       "role": "named",
       "fonts": [
         {
-          "file": "google-sans-flex-400.ttf",
+          "file": "google-sans-flex-variable.ttf",
+          "weight": 100
+        },
+        {
+          "file": "google-sans-flex-variable.ttf",
+          "weight": 200
+        },
+        {
+          "file": "google-sans-flex-variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "google-sans-flex-variable.ttf",
           "weight": 400
         },
         {
-          "file": "google-sans-flex-700.ttf",
+          "file": "google-sans-flex-variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "google-sans-flex-variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "google-sans-flex-variable.ttf",
           "weight": 700
+        },
+        {
+          "file": "google-sans-flex-variable.ttf",
+          "weight": 800
+        },
+        {
+          "file": "google-sans-flex-variable.ttf",
+          "weight": 900
         }
       ]
     },
@@ -106,12 +282,40 @@
       "role": "named",
       "fonts": [
         {
-          "file": "inter-400.ttf",
+          "file": "inter-variable.ttf",
+          "weight": 100
+        },
+        {
+          "file": "inter-variable.ttf",
+          "weight": 200
+        },
+        {
+          "file": "inter-variable.ttf",
+          "weight": 300
+        },
+        {
+          "file": "inter-variable.ttf",
           "weight": 400
         },
         {
-          "file": "inter-700.ttf",
+          "file": "inter-variable.ttf",
+          "weight": 500
+        },
+        {
+          "file": "inter-variable.ttf",
+          "weight": 600
+        },
+        {
+          "file": "inter-variable.ttf",
           "weight": 700
+        },
+        {
+          "file": "inter-variable.ttf",
+          "weight": 800
+        },
+        {
+          "file": "inter-variable.ttf",
+          "weight": 900
         }
       ]
     }

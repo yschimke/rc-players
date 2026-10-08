@@ -59,6 +59,9 @@ public class RcManifestTypefaceLoader(private val fetchBytes: suspend (url: Stri
     directory: String,
     entries: List<RcManifestFace>,
   ): Map<String, RcFontFaces> = buildMap {
+    // A variable family lists one file once per weight; fetch it once.
+    val fetched = mutableMapOf<String, ByteArray>()
+
     suspend fun facesFor(group: List<RcManifestFace>): RcFontFaces? = runCatching {
       RcFontFaces(
         group.map { entry ->
@@ -69,7 +72,7 @@ public class RcManifestTypefaceLoader(private val fetchBytes: suspend (url: Stri
             // one cached typeface in a process that loads both — and the second catalog would
             // silently render the first one's bytes, even though `load` correctly refetched.
             identity = directory + entry.file,
-            data = fetchBytes(directory + entry.file),
+            data = fetched.getOrPut(entry.file) { fetchBytes(directory + entry.file) },
             weight = entry.weight,
             italic = entry.italic,
           )

@@ -26,7 +26,9 @@ import kotlin.test.assertTrue
  * endpoint returns its `@font-face` blocks in **descending** weight, so the first URL for
  * `wght@400;700` is the *700*. Naming the downloads in the order they appear silently swaps the
  * pair — which is what happened while adding Inter here, and a 400/700 swap is not something a
- * reviewer catches by eye in a render. Reading the weight out of the file is the check that does.
+ * reviewer catches by eye in a render. Reading the weight out of the file is the check that does. A
+ * variable file is listed once per weight it covers, so for one the check is that the declared
+ * weight lies inside its `fvar` `wght` range instead.
  */
 class RcVendoredFontManifestTest {
 
@@ -69,6 +71,13 @@ class RcVendoredFontManifestTest {
   fun `every declared weight matches the face's own usWeightClass`() {
     for ((name, fonts) in families()) {
       for ((file, declared) in fonts) {
+        weightRange(File(fontsDir, file))?.let { range ->
+          assertTrue(
+            declared.toFloat() in range,
+            "$name: $file is declared weight $declared, outside its wght axis $range",
+          )
+          continue
+        }
         val actual = usWeightClass(File(fontsDir, file)) ?: continue
         assertEquals(
           declared,
@@ -93,20 +102,43 @@ class RcVendoredFontManifestTest {
   }
 
   /** `OS/2.usWeightClass`, or null when the file has no `OS/2` table. */
-  private fun usWeightClass(file: File): Int? {
+  private fun usWeightClass(file: File): Int? =
     RandomAccessFile(file, "r").use { raf ->
-      raf.seek(4)
-      val tables = raf.readUnsignedShort()
-      for (i in 0 until tables) {
-        raf.seek(12L + 16L * i)
-        val tag = ByteArray(4).also { raf.readFully(it) }.decodeToString()
-        raf.skipBytes(4)
-        val offset = raf.readInt().toLong() and 0xffffffffL
-        if (tag == "OS/2") {
-          raf.seek(offset + 4)
-          return raf.readUnsignedShort()
-        }
+      tableOffset(raf, "OS/2")?.let {
+        raf.seek(it + 4)
+        raf.readUnsignedShort()
       }
+    }
+
+  /** The `fvar` `wght` axis's `min..max`, or null for a static face or one without that axis. */
+  private fun weightRange(file: File): ClosedFloatingPointRange<Float>? =
+    RandomAccessFile(file, "r").use { raf ->
+      val fvar = tableOffset(raf, "fvar") ?: return@use null
+      raf.seek(fvar + 4)
+      val axesOffset = raf.readUnsignedShort()
+      raf.skipBytes(2)
+      val axisCount = raf.readUnsignedShort()
+      val axisSize = raf.readUnsignedShort()
+      (0 until axisCount).firstNotNullOfOrNull { i ->
+        raf.seek(fvar + axesOffset + i.toLong() * axisSize)
+        val tag = ByteArray(4).also { raf.readFully(it) }.decodeToString()
+        val min = raf.readInt() / 65536f
+        raf.skipBytes(4)
+        val max = raf.readInt() / 65536f
+        if (tag == "wght") min..max else null
+      }
+    }
+
+  /** The offset of table [tag] in [raf]'s font, or null when it has none. */
+  private fun tableOffset(raf: RandomAccessFile, tag: String): Long? {
+    raf.seek(4)
+    val tables = raf.readUnsignedShort()
+    for (i in 0 until tables) {
+      raf.seek(12L + 16L * i)
+      val name = ByteArray(4).also { raf.readFully(it) }.decodeToString()
+      raf.skipBytes(4)
+      val offset = raf.readInt().toLong() and 0xffffffffL
+      if (name == tag) return offset
     }
     return null
   }
