@@ -19,9 +19,11 @@ Or include the embed library beside it, which owns the iframe and turns the cont
 </script>
 ```
 
-`rc-cmp-player.js` needs the rest of `dist/` served from **your page's origin**, because documents
-cross by calling into the iframe's `window`; it finds `index.html` next to itself (override with
-`playerUrl`).
+`rc-cmp-player.js` talks to the player only by `postMessage`, so `dist/` may be served from any
+origin, a CDN included. It finds `index.html` next to itself (override with `playerUrl`), and
+`loadFromUrl` fetches on your page and sends the bytes, so documents need no CORS headers. The
+server, whichever it is, must send `index.html` as `text/html` and `.wasm` as `application/wasm`,
+and must allow the page to be framed.
 
 ## Install
 
@@ -75,8 +77,12 @@ Summary:
   contract version 1.
 - `document.documentElement.dataset.rcPlayerState` is `loading`, `ready` or `error`. Wait for
   `ready` before revealing the frame; `rcPlayerError` carries the message on `error`.
+- From another origin, `postMessage` the iframe `{type: 'rc-player-hello', id}` until it answers,
+  then `{type: 'rc-player-load', id, bytes}`; each load is answered by
+  `{type: 'rc-player-state', id, state, error?}`.
 - The player also `postMessage`s `cp-rc-wasm-ready` / `cp-rc-wasm-error:<message>` and structured
-  host-action and debug-message events to `window.parent`, same-origin.
+  host-action and debug-message events to `window.parent`: same-origin, and to the origin of a
+  parent that has sent it a message.
 
 ## Size
 

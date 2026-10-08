@@ -29,15 +29,23 @@ Or include the embed library that ships beside `index.html`, and let it own the 
 </script>
 ```
 
-`rc-cmp-player.js` is a plain script with no dependencies. It speaks the contract below — start
-the page, wait for it to settle, swap documents, read the marker — and turns it into promises
+`rc-cmp-player.js` is a plain script with no dependencies. It speaks the contract's `postMessage`
+protocol below — hello, load, state — and turns it into promises
 (`loadFromArrayBuffer`, `loadFromUrl`, `loadFromBase64`, `resize`, `setTheme`, `setLenient`,
 `destroy`) and DOM events (`rc-load`, `rc-error`, `rc-event`). Its shape mirrors the TypeScript
 player's `RC.createPlayer`, so a page can drive both the same way —
 [`samples/web-compare`](../../samples/web-compare/index.html) does. It resolves `index.html` next to
-itself by default (`playerUrl` overrides that), and like any host that reaches into the iframe it
-needs the distribution served **from the page's own origin**. The library is a convenience over
-the contract, not part of it: everything it does, a host can do by hand.
+itself by default (`playerUrl` overrides that). Because it only ever posts messages, the
+distribution may be served **from any origin**, a CDN included, and `loadFromUrl` fetches the
+document on the including page and sends the bytes, so the document needs no CORS headers for the
+player either. The library is a convenience over the contract, not part of it: everything it does,
+a host can do by hand.
+
+Wherever the distribution is served from, three things are the server's job: `index.html` must come
+back as `text/html` (a host that serves files as `text/plain` or as downloads cannot be framed),
+`.wasm` as `application/wasm`, and the page must be allowed in a frame (no `X-Frame-Options` or
+`frame-ancestors` that excludes the including site). Check a CDN for all three before relying on
+it; when the player page does not answer, the library's error names them.
 
 `:rc-player-wasm:rcPlayerNpmPackage` stages the package directory; `release.yml` runs `npm publish`
 from it. **No Node enters the Gradle build** — a `Sync` task is all the staging needs, which keeps
@@ -152,8 +160,8 @@ marker moves. Readiness, last-one-wins and the synchronous return to `loading` a
 page without one, waits for the marker to settle on `error` ("Missing ?src") with
 `rcPlayerLoadBytes` installed, and swaps from there. Waiting for that first `error` matters: sent
 any earlier, a document can be overtaken by the player reporting the missing source.
-[`samples/web-compare`](../../samples/web-compare/index.html) does exactly this. Calling either
-function needs a same-origin page, as reaching into an iframe's `window` always does.
+Calling either function needs a same-origin page, as reaching into an iframe's `window` always
+does; a host on another origin uses the messages below instead.
 
 **`window.rcPlayerContractVersion`** — the integer above.
 
@@ -172,15 +180,44 @@ ran": Compose schedules Skiko's raster work after composition, so the player wai
 frames plus `handoffDelayMs` before setting it. Chromium can acknowledge frames before the Skiko
 surface reaches the compositor.
 
-Both markers, the contract version, `window.rcPlayerLoad`, `window.rcPlayerLoadBytes` and the
-`rc-cmp-player.js` library are asserted on every pull request by
+Both markers, the contract version, `window.rcPlayerLoad`, `window.rcPlayerLoadBytes`, the
+`postMessage` protocol and the `rc-cmp-player.js` library — same-origin and cross-origin — are
+asserted on every pull request by
 [`scripts/wasm-smoke`](../../scripts/wasm-smoke/smoke.mjs), which drives the shipped bundle in
 headless Chromium. That lane exists because none of this is reachable from a Kotlin test: it lives
 in the `js(...)` blocks of the bundle a host actually loads.
 
 ## `postMessage`
 
-All same-origin, to `window.parent`:
+### Host to player
+
+The way in for a host on another origin, and the one `rc-cmp-player.js` uses everywhere. The player
+accepts these only from `window.parent`, from **any origin** — whoever frames the page can already
+choose its `?src=`, so there is nothing further to guard — and ignores anything else.
+
+| message | reply |
+|---|---|
+| `{type: 'rc-player-hello', id}` | `{type: 'rc-player-hello', id, contractVersion}` |
+| `{type: 'rc-player-load', id, bytes}` | `{type: 'rc-player-state', id, state: 'ready' \| 'error', error?}` |
+| `{type: 'rc-player-load', id, src}` | the same; `src` resolves against the *player* page and is fetched from its origin |
+
+`bytes` is an `ArrayBuffer` or any `ArrayBufferView`; transfer it rather than clone it if the
+host has no further use for it. `id` is the host's own string, echoed so it can match a reply to its
+request — an earlier load's reply can still be in flight when a later one is sent, and requests
+are last-one-wins, so a superseded load gets **no** reply. A malformed load is answered with an
+`error` state at once.
+
+The player installs its listener only once the Wasm module is running, so a host says hello on a
+short interval until one is answered, then loads. There is no need to wait for the missing-`?src`
+error a bytes-only page starts with: replies are matched by `id`, so that report cannot be mistaken
+for a load's. Prefer `bytes` to `src` across origins: the host fetches with its own credentials and
+the document needs no CORS headers.
+
+### Player to host
+
+To `window.parent`, at this page's own origin as always — and, once a host has sent any of the
+messages above, at that host's origin as well, which is how a cross-origin host hears anything. A
+parent that never speaks gets exactly what it got before.
 
 | message | when |
 |---|---|
@@ -188,6 +225,7 @@ All same-origin, to `window.parent`:
 | `'cp-rc-wasm-error:<message>'` | alongside the `error` marker |
 | `{type: 'cp-rc-debug-message', message, value, flags}` | the document executed `DebugMessage` |
 | `{type: 'cp-rc-host-action', actionId}` | a host action fired |
+| `{type: 'rc-player-state', id, state, error?}` | alongside either marker; `id` is the `rc-player-load` that asked, or `null` |
 | host-metadata and host-named-action variants | as documented in `Main.kt` |
 
 Host actions also accumulate on `dataset.rcPlayerActionTrace`, comma-separated, for a driver that
