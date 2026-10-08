@@ -232,3 +232,30 @@ test("separates a work list entry the runner cannot observe from one the player 
   assert.match(run, /\*\*1 this runner:[^*]*\*\*/);
   assert.match(run, /- `blind` — trace:branches ×1/);
 });
+
+// The Pages index, rendered by its sibling script. Only its one conditional link is tested here:
+// the player comparison page is built by a separate job that may fail, and the index must neither
+// lose the reports nor link a page that is not there.
+const siteIndexScript = fileURLToPath(new URL("./render-site-index.mjs", import.meta.url));
+
+function renderSiteIndex(out, lanes) {
+  const result = spawnSync(process.execPath, [siteIndexScript, "--out", out, ...lanes], {
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return fs.readFileSync(path.join(out, "index.html"), "utf8");
+}
+
+test("the site index links the player comparison only when it was staged", () => {
+  const root = workspace();
+  const lane = writeResults(root, "cmp", [gold("settled")]);
+
+  const without = path.join(root, "without");
+  fs.mkdirSync(without);
+  assert.doesNotMatch(renderSiteIndex(without, [lane]), /href="compare\/"/);
+
+  const staged = path.join(root, "staged");
+  fs.mkdirSync(path.join(staged, "compare"), { recursive: true });
+  fs.writeFileSync(path.join(staged, "compare", "index.html"), "<!doctype html>");
+  assert.match(renderSiteIndex(staged, [lane]), /<a href="compare\/">Player comparison<\/a>/);
+});

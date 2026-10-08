@@ -301,9 +301,43 @@ jobs:
               commit -m "report: conformance run $(date -u +%Y-%m-%d)"
           git push origin reports/conformance
 
+  # The drag-and-drop player comparison (`samples/web-compare`), published at `compare/` on the same
+  # Pages site. It rides this workflow rather than one of its own because a repository has exactly
+  # one Pages site and every deploy replaces all of it: a separate workflow would wipe the reports
+  # each time it ran, and this one would wipe the comparison. So the comparison is as fresh as the
+  # last run here — daily, or on dispatch — and is built from the same commit as the reports.
+  compare-site:
+    name: Build the player comparison page
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "17.0.20+101"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # The Wasm player (`cmp/`), the vendored TypeScript bundle (`js/`) and the page, in one
+      # directory: the page drives both players from the same origin.
+      - name: Stage the comparison page
+        run: |
+          ./gradlew :rc-player-wasm:rcCompareSite
+          test -f rc-player/wasm/build/rcCompareSite/index.html
+          du -sh rc-player/wasm/build/rcCompareSite
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compare-site
+          path: rc-player/wasm/build/rcCompareSite
+          retention-days: 7
+
   site:
     name: Publish the site
-    needs: [score, score-apple]
+    # `compare-site` is listed so its page can be folded in, not because the reports depend on it:
+    # `!cancelled()` below still deploys when it failed, and the index then leaves its link out.
+    needs: [score, score-apple, compare-site]
     # A red lane must not cost the site: the index renders a lane with no results as *not measured*,
     # which is the statement a reader needs, and the other lanes' reports are still worth having.
     # A cancelled run deploys nothing, and branch dispatches stop at the scored artifacts, both as
@@ -337,6 +371,15 @@ jobs:
         with:
           path: artifacts
           pattern: conformance-*
+
+      # Before the index renders, so it can link the page. Missing when `compare-site` failed, which
+      # must not cost the reports.
+      - name: Fold in the player comparison page
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: compare-site
+          path: site/compare
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
