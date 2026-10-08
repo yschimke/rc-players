@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>Remote Compose player comparison</title>
+    <!--
+      Drop a .rc file and see it drawn by both browser players side by side, each included with one
+      script tag:
+
+        * the CMP player (`rc-player/wasm`) through its embed library, `rc-cmp-player.js` —
+          `RcCmp.createPlayer(...).loadFromArrayBuffer(bytes)`, which hands the bytes to the Wasm
+          player page over `window.rcPlayerLoadBytes` (docs/design/RC_PLAYER_EMBED.md);
+        * the vendored TypeScript player (`third_party/remote-compose-player`) through its bundle,
+          `RC.RcdPlayer(...).loadFromArrayBuffer(bytes)`, on a canvas.
+
+      Nothing is uploaded: the file is read in the page and both players draw it locally.
+      `:rc-player-wasm:rcCompareSite` stages this page with `cmp/` (the Wasm distribution) and
+      `js/bundle.js` (the TypeScript bundle) beside it; serve that directory over HTTP.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7f9;
+        --fg: #1b1d21;
+        --muted: #5d6370;
+        --panel: #ffffff;
+        --border: #d6d9df;
+        --accent: #3366cc;
+        --error: #b3261e;
+        --checker-a: #eceef2;
+        --checker-b: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #15171b;
+          --fg: #e6e8ec;
+          --muted: #9aa1ad;
+          --panel: #1e2126;
+          --border: #343841;
+          --accent: #8ab4f8;
+          --error: #f2b8b5;
+          --checker-a: #23262c;
+          --checker-b: #1b1d21;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 4px;
+      }
+      p.lede {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+      #drop {
+        border: 2px dashed var(--border);
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        background: var(--panel);
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      #drop.over {
+        border-color: var(--accent);
+      }
+      #drop strong {
+        color: var(--accent);
+      }
+      #file-name {
+        margin-top: 6px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        align-items: center;
+        margin: 12px 0 16px;
+      }
+      .controls label {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .controls input[type="number"] {
+        width: 72px;
+      }
+      .panes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+      }
+      .pane {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        min-width: 0;
+      }
+      .pane h2 {
+        font-size: 15px;
+        margin: 0;
+      }
+      .pane .sub {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 2px 0 10px;
+      }
+      .stage {
+        max-width: 100%;
+        overflow: auto;
+        border-radius: 6px;
+        background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 /
+          16px 16px;
+      }
+      .stage iframe,
+      .stage canvas {
+        display: block;
+        border: 0;
+        background: transparent;
+      }
+      .status {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 1.45em;
+        overflow-wrap: anywhere;
+      }
+      .status.error {
+        color: var(--error);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Remote Compose player comparison</h1>
+    <p class="lede">
+      Drop a <code>.rc</code> document to render it in both browser players. The file never leaves
+      this page.
+    </p>
+
+    <div id="drop" tabindex="0" role="button" aria-label="Choose or drop a .rc file">
+      <div><strong>Drop a .rc file here</strong> or click to choose one</div>
+      <div id="file-name">No document loaded</div>
+      <input id="file" type="file" accept=".rc,.rcd,application/octet-stream" hidden />
+    </div>
+
+    <div class="controls">
+      <label>Width <input id="width" type="number" min="32" max="2000" value="400" /></label>
+      <label>Height <input id="height" type="number" min="32" max="2000" value="400" /></label>
+      <label>
+        Theme
+        <select id="theme">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <label title="CMP only: draw nothing for operations the browser backend lacks instead of refusing the document">
+        <input id="lenient" type="checkbox" checked /> CMP lenient
+      </label>
+    </div>
+
+    <div class="panes">
+      <section class="pane">
+        <h2>CMP player (Wasm)</h2>
+        <div class="sub">rc-cmp-player.js · Compose Multiplatform + Skiko, in Wasm</div>
+        <div class="stage" id="cmp-stage"></div>
+        <div id="cmp-status" class="status">Starting the Wasm player…</div>
+      </section>
+      <section class="pane">
+        <h2>TypeScript player</h2>
+        <div class="sub">bundle.js · TypeScript, Canvas2D</div>
+        <div class="stage"><canvas id="js-canvas"></canvas></div>
+        <div id="js-status" class="status">Waiting for a document</div>
+      </section>
+    </div>
+
+    <!-- The two libraries: the TypeScript player's bundle (`RC`), and the CMP player's embed script
+         (`RcCmp`), which loads the Wasm player page that sits beside it in `cmp/`. -->
+    <script src="js/bundle.js"></script>
+    <script src="cmp/rc-cmp-player.js"></script>
+    <script>
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const drop = $('drop');
+      const fileInput = $('file');
+      const widthInput = $('width');
+      const heightInput = $('height');
+      const themeSelect = $('theme');
+      const lenientBox = $('lenient');
+
+      /** The dropped document, kept so a size or theme change can redraw it in both players. */
+      let current = null; // { name, bytes: Uint8Array }
+
+      themeSelect.value = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+      function setStatus(id, text, isError = false) {
+        const el = $(id);
+        el.textContent = text;
+        el.classList.toggle('error', isError);
+      }
+
+      function size() {
+        const clamp = (v) => Math.max(32, Math.min(2000, Math.round(Number(v) || 400)));
+        return { width: clamp(widthInput.value), height: clamp(heightInput.value) };
+      }
+
+      const isSuperseded = (e) => e && e.name === 'AbortError';
+      const message = (e) => String((e && e.message) || e);
+
+      // ---- CMP player (RcCmp) ------------------------------------------------------------------
+
+      const cmp = RcCmp.createPlayer($('cmp-stage'), {
+        ...size(),
+        theme: themeSelect.value,
+        lenient: lenientBox.checked,
+      });
+      cmp.ready().then(
+        () => current || setStatus('cmp-status', 'Waiting for a document'),
+        (e) => isSuperseded(e) || setStatus('cmp-status', message(e), true),
+      );
+
+      async function trackCmp(promise) {
+        setStatus('cmp-status', 'Rendering…');
+        const started = performance.now();
+        try {
+          await promise;
+          // `ready` includes the player's 1.5 s presentation delay; see RC_PLAYER_EMBED.md.
+          const ms = Math.round(performance.now() - started);
+          setStatus('cmp-status', `Ready in ${ms} ms (includes the player's presentation delay)`);
+        } catch (e) {
+          if (!isSuperseded(e)) setStatus('cmp-status', message(e), true);
+        }
+      }
+
+      // ---- TypeScript player (RC) --------------------------------------------------------------
+
+      const jsCanvas = $('js-canvas');
+      const jsPlayer = new RC.RcdPlayer(jsCanvas);
+
+      async function renderJs(bytes) {
+        const { width, height } = size();
+        const density = window.devicePixelRatio || 1;
+        // Same footprint as the CMP iframe: the canvas holds physical pixels laid out in CSS
+        // pixels, and the document's dp scale by the same density the CMP player sees.
+        jsPlayer.setDensity(density);
+        jsPlayer.setTheme(themeSelect.value);
+        jsCanvas.width = Math.round(width * density);
+        jsCanvas.height = Math.round(height * density);
+        jsCanvas.style.width = `${width}px`;
+        jsCanvas.style.height = `${height}px`;
+        setStatus('js-status', 'Rendering…');
+        const started = performance.now();
+        try {
+          // The player keeps the buffer, so hand it its own copy.
+          await jsPlayer.loadFromArrayBuffer(bytes.slice().buffer);
+          await jsPlayer.fontsReady();
+          setStatus('js-status', `Ready in ${Math.round(performance.now() - started)} ms`);
+        } catch (e) {
+          jsPlayer.stop();
+          jsCanvas.getContext('2d').clearRect(0, 0, jsCanvas.width, jsCanvas.height);
+          setStatus('js-status', message(e), true);
+        }
+      }
+
+      // ---- Wiring ------------------------------------------------------------------------------
+
+      async function openFile(file) {
+        if (!file) return;
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        current = { name: file.name, bytes };
+        $('file-name').textContent = `${file.name} · ${bytes.length.toLocaleString()} bytes`;
+        trackCmp(cmp.loadFromArrayBuffer(bytes));
+        renderJs(bytes);
+      }
+
+      drop.addEventListener('click', () => fileInput.click());
+      drop.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          fileInput.click();
+        }
+      });
+      fileInput.addEventListener('change', () => openFile(fileInput.files[0]));
+      // Accept a drop anywhere on the page, so a near miss does not navigate away to the file.
+      document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        drop.classList.add('over');
+      });
+      document.addEventListener('dragleave', (e) => {
+        if (e.relatedTarget === null) drop.classList.remove('over');
+      });
+      document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        drop.classList.remove('over');
+        openFile(e.dataTransfer.files[0]);
+      });
+
+      for (const input of [widthInput, heightInput]) {
+        input.addEventListener('change', () => {
+          const { width, height } = size();
+          cmp.resize(width, height);
+          if (current) renderJs(current.bytes);
+        });
+      }
+      themeSelect.addEventListener('change', () => {
+        const reload = cmp.setTheme(themeSelect.value);
+        if (current) {
+          trackCmp(reload);
+          renderJs(current.bytes);
+        }
+      });
+      lenientBox.addEventListener('change', () => {
+        const reload = cmp.setLenient(lenientBox.checked);
+        if (current) trackCmp(reload);
+      });
+    </script>
+  </body>
+</html>

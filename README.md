@@ -15,7 +15,7 @@ questions. The supported renderer remains CMP; UIKit is an explicitly experiment
 | Player | Target | Language / runtime | Supported? | Why it exists |
 | --- | --- | --- | --- | --- |
 | **CMP player** (`rc-player/compose`) | JVM · Android · iOS (`iosArm64`, `iosSimulatorArm64`) · macOS (`macosArm64`) · `wasmJs` | Kotlin Multiplatform + Compose Multiplatform | **Yes** — the one supported API here | The player written here. One implementation that draws a document natively on every surface this stack targets, with a platform-neutral wire model underneath it. This is what a consumer should depend on. |
-| **Wasm host** (`rc-player/wasm`) | Browser | The CMP player compiled to WebAssembly | Yes, as an embed contract | Makes the CMP player renderable in a page with no server: an iframe driven by query parameters and `window.rcPlayerLoad`. It is the CMP player, not a second implementation — same pixels, different host. |
+| **Wasm host** (`rc-player/wasm`) | Browser | The CMP player compiled to WebAssembly | Yes, as an embed contract | Makes the CMP player renderable in a page with no server: an iframe driven by query parameters, `window.rcPlayerLoad` and `window.rcPlayerLoadBytes`. It is the CMP player, not a second implementation — same pixels, different host. |
 | **Apple XCFramework** (`Package.swift`) | iOS + Apple-silicon macOS, from Swift | The CMP player's native Apple targets, packaged for SwiftPM | Yes | Same code again, reachable from a Swift app that does not build Kotlin. Distribution, not implementation. |
 | **Native UIKit POC** (`Sources/RcNativePlayerUIKit`) | iOS | Pure Swift + UIKit/Core Graphics/Core Text | **Experimental** | A second renderer beside CMP. It explores an idiomatic native component tree and reports unsupported operations explicitly; it is not a replacement or compatibility claim. |
 | **macOS player app** (`samples/macos-player`) | Apple-silicon macOS | SwiftUI host + CMP or experimental AppKit-native rendering | **Release utility** | Opens local `.rc` files and persists a renderer preference, so both Apple desktop paths can be exercised from one downloadable app. |
@@ -88,6 +88,18 @@ the other:
 
 Both are cut from `wasmPlayerDist`, which enforces a size budget — a ratchet, not a target, so an
 unintended jump fails the build before an irreversible publish.
+
+A page can include the player with one script tag: `rc-cmp-player.js`, shipped in the
+distribution beside `index.html`, owns the iframe and exposes `RcCmp.createPlayer(...)` and an
+`<rc-cmp-player>` element, the same shape as the TypeScript player's `RC.createPlayer` and
+`<rc-player>` ([embed contract](docs/design/RC_PLAYER_EMBED.md)). The drag-and-drop comparison page
+([`samples/web-compare`](samples/web-compare/)) includes both libraries and draws a dropped `.rc`
+file in each; stage and serve it with:
+
+```
+build-brief ./gradlew :rc-player-wasm:rcCompareSite
+python3 -m http.server -d rc-player/wasm/build/rcCompareSite 8000   # open http://localhost:8000
+```
 
 The distribution carries its own font faces (`rc-player/wasm/dist-assets/`) because the lane is
 manifest-only and never fetches: a family the bundle does not carry fails the availability check

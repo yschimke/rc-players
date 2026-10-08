@@ -35,6 +35,9 @@ tasks.register<Sync>("wasmPlayerDist") {
     include("skiko.mjs", "skiko.wasm")
   }
   from(layout.projectDirectory.dir("src/wasmJsMain/resources")) { include("index.html") }
+  // The embedding library: owns the iframe and the embed contract, so an HTML page can include the
+  // player with one script tag. It resolves `index.html` next to itself, so it ships beside it.
+  from(layout.projectDirectory.file("embed/rc-cmp-player.js"))
   // The font faces and the js-joda ESM shim used to be read out of `:samples:cmp-wasm-catalog` in
   // compose-ai-tools, which is where they were first vendored. They live here now — this lane is
   // manifest-only and never fetches, so a named family the distribution doesn't carry fails
@@ -161,4 +164,23 @@ tasks.register<Sync>("rcPlayerNpmPackage") {
   from(layout.projectDirectory.dir("npm"))
   from(layout.buildDirectory.dir("wasmDist")) { into("dist") }
   into(layout.buildDirectory.dir("npmPackage"))
+}
+
+// The side-by-side comparison page (`samples/web-compare/`): drop a `.rc` file and see it drawn by
+// this player and by the vendored TypeScript one. Both players are handed the same bytes in the
+// page — this one through `window.rcPlayerLoadBytes` — so the page, `cmp/` and `js/` must share an
+// origin, which is why this stages one directory rather than pointing at two. Serve it with any
+// static file server, e.g. `python3 -m http.server -d rc-player/wasm/build/rcCompareSite`.
+tasks.register<Sync>("rcCompareSite") {
+  description = "Stage the drag-and-drop page comparing the CMP and TypeScript browser players."
+  group = "distribution"
+  dependsOn("wasmPlayerDist")
+  from(rootProject.layout.projectDirectory.dir("samples/web-compare")) { include("index.html") }
+  from(layout.buildDirectory.dir("wasmDist")) { into("cmp") }
+  from(
+    rootProject.layout.projectDirectory.file("third_party/remote-compose-player/dist/bundle.js")
+  ) {
+    into("js")
+  }
+  into(layout.buildDirectory.dir("rcCompareSite"))
 }
