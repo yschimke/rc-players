@@ -182,6 +182,68 @@ class RcStateLayoutTransitionTest {
       assertTrue(after[10, 10].red < 0.05f, "with nothing left behind")
     }
 
+  /**
+   * A component whose own spec names a slide plays it as its branch comes in, rather than only
+   * fading with the branch: halfway through the switch the square is still on its way in from the
+   * right, so its first columns are empty and the columns past its final edge are not.
+   */
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aComponentSlidesInWithItsBranchWhenItsSpecSaysSo() =
+    runSkikoComposeUiTest(size = Size(60f, 60f), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      val document =
+        stateLayoutDocument(
+          canvas(componentId = 5, animationId = 0, size = 60f, color = BLUE),
+          slidingSquare(componentId = 6),
+        )
+      setContent { RcComposePlayer(document) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+
+      onNode(hasClickAction()).performTouchInput { click() }
+      mainClock.advanceTimeBy(150)
+      waitForIdle()
+      val halfway = onRoot().captureToImage().toPixelMap()
+      assertTrue(
+        halfway[2, 10].red < 0.05f,
+        "the square has not reached x=2 yet, ${halfway[2, 10]}",
+      )
+      assertTrue(halfway[24, 10].red > 0.05f, "it is on its way in, ${halfway[24, 10]}")
+
+      mainClock.advanceTimeBy(1000)
+      waitForIdle()
+      val after = onRoot().captureToImage().toPixelMap()
+      assertTrue(after[2, 10].red > 0.5f, "and it lands in the corner")
+      assertTrue(after[24, 10].red < 0.05f, "at its own size")
+    }
+
+  /** A full-size box parking a 20px red square top-left, the square sliding in from the right. */
+  private fun slidingSquare(componentId: Int): List<RcOperation> =
+    listOf(
+      RcBoxLayout(componentId, 0, horizontalPositioning = 1, verticalPositioning = 4),
+      RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+      RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+      RcLayoutContent(componentId * 100),
+      RcCanvasLayout(componentId * 100 + 1, -1),
+      RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+      RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
+      animationSpec(-1).copy(enterAnimation = RcLayoutAnimation.SlideLeft),
+      RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+      RcPaintData(listOf(4, RED)),
+      RcDraw4(
+        RcOpcodes.DRAW_RECT,
+        RcFloatWord.literal(0f),
+        RcFloatWord.literal(0f),
+        RcFloatWord.literal(20f),
+        RcFloatWord.literal(20f),
+      ),
+      end,
+      end,
+      end,
+      end,
+    )
+
   private fun stateLayoutDocument(
     first: List<RcOperation>,
     second: List<RcOperation>,
