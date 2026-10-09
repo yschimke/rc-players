@@ -130,17 +130,28 @@ class RcStateLayoutTransitionTest {
       assertEquals(BLUE, onRoot().captureToImage().toPixelMap()[30, 30].toArgb())
     }
 
-  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
   @Test
   fun aComponentSharedByBothBranchesMorphsBetweenItsTwoPositions() =
+    assertMorphs(componentAnimationId = SHARED_ID)
+
+  /**
+   * The creation library names a shared element on its `AnimationSpec` modifier alone —
+   * `RemoteModifier.animationSpec(id, true)` leaves the component's own id at -1 — and AndroidX
+   * `LayoutComponent.inflate` takes the component's id from that spec. Reading only the component's
+   * id cross-faded every Kotlin-authored shared element instead of moving it.
+   */
+  @Test fun anElementNamedOnlyByItsAnimationSpecMorphs() = assertMorphs(componentAnimationId = -1)
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  private fun assertMorphs(componentAnimationId: Int) =
     runSkikoComposeUiTest(size = Size(60f, 60f), density = Density(1f)) {
       mainClock.autoAdvance = false
       // The same animation id on both sides is what makes this one element rather than two: a 20px
       // square in the top-left corner of the first branch and in the bottom-right of the second.
       val document =
         stateLayoutDocument(
-          branch(componentId = 5, horizontal = 1, vertical = 4),
-          branch(componentId = 6, horizontal = 3, vertical = 5),
+          branch(componentId = 5, horizontal = 1, vertical = 4, componentAnimationId),
+          branch(componentId = 6, horizontal = 3, vertical = 5, componentAnimationId),
         )
       setContent { RcComposePlayer(document) }
       mainClock.advanceTimeByFrame()
@@ -266,7 +277,12 @@ class RcStateLayoutTransitionTest {
    * [horizontal] / [vertical] names. The square — not the box — carries the shared animation id, so
    * what the transition has to interpolate is its position.
    */
-  private fun branch(componentId: Int, horizontal: Int, vertical: Int): List<RcOperation> =
+  private fun branch(
+    componentId: Int,
+    horizontal: Int,
+    vertical: Int,
+    componentAnimationId: Int,
+  ): List<RcOperation> =
     listOf(
       RcBoxLayout(
         componentId,
@@ -277,7 +293,7 @@ class RcStateLayoutTransitionTest {
       RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
       RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
       RcLayoutContent(componentId * 100),
-      RcCanvasLayout(componentId * 100 + 1, SHARED_ID),
+      RcCanvasLayout(componentId * 100 + 1, componentAnimationId),
       RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
       RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(20f)),
       animationSpec(SHARED_ID),
