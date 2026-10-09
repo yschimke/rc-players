@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.3.0](https://github.com/yschimke/rc-players/compare/v2.2.1...v2.3.0) (2026-10-09)
+
+
+### Features
+
+* **fonts:** vendor variable fonts everywhere, Lobster Two aside ([#597](https://github.com/yschimke/rc-players/issues/597)) ([e3cd170](https://github.com/yschimke/rc-players/commit/e3cd170a8a5ed62e11f6c08a0a0e65f93372b20a))
+* **wasm:** drive the player by postMessage so it embeds cross-origin ([#602](https://github.com/yschimke/rc-players/issues/602)) ([5e9303f](https://github.com/yschimke/rc-players/commit/5e9303f242c705c90f92c04a54c989d4e10d3812))
+* **wasm:** rcPlayerLoadBytes, an embed library and a two-player comparison page ([#600](https://github.com/yschimke/rc-players/issues/600)) ([ecc4553](https://github.com/yschimke/rc-players/commit/ecc45539061d0199cfc0be64553b2e7778c1d128))
+
+
+### Bug Fixes
+
+* **compose:** play draw-list sounds and keep clock-bound graphics layers moving ([#599](https://github.com/yschimke/rc-players/issues/599)) ([1a09697](https://github.com/yschimke/rc-players/commit/1a09697821d0d679d1618c1ba6fa3fa7bc531976))
+* **compose:** redraw clock-driven layout canvases every frame ([#601](https://github.com/yschimke/rc-players/issues/601)) ([d5973e0](https://github.com/yschimke/rc-players/commit/d5973e08faeb2e36bf4137d478057c69a2dad030))
+
 ## [2.2.1](https://github.com/yschimke/rc-players/compare/v2.2.0...v2.2.1) (2026-10-07)
 
 
