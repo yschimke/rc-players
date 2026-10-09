@@ -911,7 +911,12 @@ private fun RenderLayoutNode(
   val layoutAnimations = LocalRcLayoutAnimations.current
   val sharedElementModifier =
     if (node is RcLayoutNode.Content) null
-    else rcSharedElementModifier(node.componentId, node.animationId, node.modifiers.animationSpec)
+    else
+      rcSharedElementModifier(
+        node.componentId,
+        node.sharedAnimationId,
+        node.modifiers.animationSpec,
+      )
   val boundsModifier =
     if (sharedElementModifier != null) {
       modifier.then(sharedElementModifier)

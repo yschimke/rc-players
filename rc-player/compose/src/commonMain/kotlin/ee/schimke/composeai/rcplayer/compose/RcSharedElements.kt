@@ -8,6 +8,7 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.SharedTransitionScope.ResizeMode
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -161,10 +162,18 @@ internal fun rcSharedElementModifier(
         if (duration <= 0) snap() else tween(durationMillis = duration, easing = easing)
       }
     }
+  // The element's two copies fade over its own motion curve, as upstream's do. Compose's default is
+  // a spring, which left the outgoing copy visible past the end of the move it was part of.
+  val fadeSpec: FiniteAnimationSpec<Float> =
+    remember(duration, easing) {
+      if (duration <= 0) snap() else tween(durationMillis = duration, easing = easing)
+    }
   with(sharedTransitionScope) {
     return Modifier.sharedBounds(
       sharedContentState = rememberSharedContentState(key = animationId),
       animatedVisibilityScope = animatedVisibilityScope,
+      enter = fadeIn(animationSpec = fadeSpec),
+      exit = fadeOut(animationSpec = fadeSpec),
       boundsTransform = boundsTransform,
       resizeMode = ResizeMode.RemeasureToBounds,
     )
@@ -181,7 +190,7 @@ internal fun RcLayoutNode.sharedElementComponents(): Map<Int, Int> {
   val components = mutableMapOf<Int, Int>()
 
   fun collect(node: RcLayoutNode) {
-    val animationId = node.animationId
+    val animationId = node.sharedAnimationId
     if (animationId != null && animationId != 0 && animationId != -1) {
       components[animationId] = node.componentId
     }
@@ -191,6 +200,18 @@ internal fun RcLayoutNode.sharedElementComponents(): Map<Int, Int> {
   collect(this)
   return components
 }
+
+/**
+ * The identity a component takes part in a shared transition under.
+ *
+ * AndroidX `LayoutComponent.inflate` overwrites a component's animation id with its `AnimationSpec`
+ * modifier's, so the spec is what names the element whenever there is one. The creation library
+ * writes it there — `RemoteModifier.animationSpec(id, true)` leaves the component's own id at -1 —
+ * so reading only the component's id dropped every shared element a Kotlin-authored document
+ * declares, and the switch fell back to a plain cross-fade.
+ */
+internal val RcLayoutNode.sharedAnimationId: Int?
+  get() = modifiers.animationSpec?.animationId ?: animationId
 
 private fun RcLayoutNode.sharedElementChildren(): List<RcLayoutNode> =
   when (this) {
