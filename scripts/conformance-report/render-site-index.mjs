@@ -51,6 +51,15 @@ if (!options.out) usage("--out is required");
 if (options.lanes.length === 0) usage("at least one lane is required");
 
 /** What each lane observes, which is the difference between a score and a reference number. */
+// The drag-and-drop player comparison, staged beside the reports by the workflow's `compare-site`
+// job. Linked only when it is there: that job can fail without costing the reports, and a link to a
+// missing page is worse than none.
+const compareLink = fs.existsSync(path.join(options.out, "compare", "index.html"))
+  ? `
+        <li><a href="compare/">Player comparison</a>
+          <span>Drop a <code>.rc</code> file and see it drawn by the CMP and TypeScript players side by side.</span></li>`
+  : "";
+
 const CHANNELS = {
   cmp: "every probe",
   "native-appkit": "tree + scalar values + raster",
@@ -222,7 +231,7 @@ ${cards}
       <h2>Also here</h2>
       <ul>
         <li><a href="gold-overview.html">Gold overview</a>
-          <span>What the corpus asserts, by subsystem. About the golds, not about a player.</span></li>
+          <span>What the corpus asserts, by subsystem. About the golds, not about a player.</span></li>${compareLink}
         <li><a href="https://github.com/yschimke/rc-players/blob/reports/conformance/README.md">Report branch</a>
           <span>The durable record: the cross-lane split and the trend, in Markdown, kept per run.</span></li>
         <li><a href="https://github.com/yschimke/rc-players/blob/main/docs/design/RC_CONFORMANCE.md">What the score measures</a>
