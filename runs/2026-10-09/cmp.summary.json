@@ -1,7 +1,7 @@
 {
  "player": {
   "name": "cmp",
-  "version": "2.2.2-SNAPSHOT"
+  "version": "2.3.1-SNAPSHOT"
  },
  "corpus": {
   "path": "/home/runner/work/rc-players/rc-players/conformance-spec/third_party/rc-conformance-spec/compose/remote/specification/conformance/gold",
@@ -1122,7 +1122,7 @@
    "checks_failed": 5,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 39
+    "tree": 33
    },
    "raster_failures": [
     "frame_0",
@@ -1140,7 +1140,7 @@
    "checks_failed": 5,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 58
+    "tree": 50
    },
    "raster_failures": [
     "frame_0",
@@ -1158,7 +1158,7 @@
    "checks_failed": 5,
    "diffs_by_probe": {
     "raster": 3,
-    "tree": 19
+    "tree": 18
    },
    "raster_failures": [
     "frame_0",

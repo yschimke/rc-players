@@ -2,7 +2,7 @@
 
 Every player in this repository, scored against the AndroidX RemoteCompose conformance corpus. The corpus comes from an unmerged AOSP Gerrit change and is held on `vendor/androidx-rc-conformance`; it is deliberately not in the main line.
 
-Measured at `93ded18c8f3393a8961d3774152b3674428e649b` on `main`.
+Measured at `9ed616f22b18cc17bc853cb6d5c33ed838072208` on `main`.
 
 ## Lanes
 
@@ -31,9 +31,9 @@ The corpus was generated *by* AndroidX, from its own player. So a gold both lane
 
 - `animation_box_offset` — tree ×12, raster ×2
 - `animation_measure_transition` — tree ×6, raster ×2
-- `animation_state_3_states` — tree ×39, raster ×3
-- `animation_state_row_to_column` — tree ×58, raster ×3
-- `animation_state_transition` — tree ×19, raster ×3
+- `animation_state_3_states` — tree ×33, raster ×3
+- `animation_state_row_to_column` — tree ×50, raster ×3
+- `animation_state_transition` — tree ×18, raster ×3
 - `conditional_skip_api_gate` — ops:present ×1, ops:absent ×1, ops:counts ×4
 - `expr_integer_bitwise_ops` — int ×8
 - `fitbox_fit` — tree ×8
@@ -108,7 +108,7 @@ Counted as **diffs**, not checks: one `particles` check compares a whole emitter
 
 | probe | diffs | of which the lane cannot observe |
 | --- | ---: | ---: |
-| `tree` | 274 | — |
+| `tree` | 259 | — |
 | `raster` | 113 | — |
 | `ops:present` | 20 | — |
 | `float` | 18 | — |
