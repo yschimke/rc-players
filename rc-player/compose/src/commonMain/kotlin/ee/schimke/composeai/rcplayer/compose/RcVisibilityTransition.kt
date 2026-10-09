@@ -144,7 +144,10 @@ internal fun RcAnimationSpec.rcExitTransition(durationMillis: Int, easing: Easin
  * exit keeps the finished angle, so whatever exit the spec names runs without a reverse turn.
  */
 @Composable
-private fun AnimatedVisibilityScope.rcEnterRotation(durationMillis: Int, easing: Easing): Modifier {
+internal fun AnimatedVisibilityScope.rcEnterRotation(
+  durationMillis: Int,
+  easing: Easing,
+): Modifier {
   val degrees by
     transition.animateFloat(transitionSpec = { tween(durationMillis, easing = easing) }) {
       if (it == EnterExitState.PreEnter) 0f else 360f

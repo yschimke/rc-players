@@ -218,6 +218,68 @@ class RcStateLayoutTransitionTest {
       assertTrue(after[24, 10].red < 0.05f, "at its own size")
     }
 
+  /**
+   * `ROTATE` in turns the component as it scales in, on the branch's clock. Codex caught the branch
+   * path playing only `rcEnterTransition`'s fade and scale, without the turn
+   * [RcVisibilityTransition] adds.
+   */
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
+  fun aComponentRotatesInWithItsBranchWhenItsSpecSaysSo() =
+    runSkikoComposeUiTest(size = Size(60f, 60f), density = Density(1f)) {
+      mainClock.autoAdvance = false
+      val document =
+        stateLayoutDocument(
+          canvas(componentId = 5, animationId = 0, size = 60f, color = BLUE),
+          enteringBar(componentId = 6, enter = RcLayoutAnimation.Rotate),
+        )
+      setContent { RcComposePlayer(document) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+
+      onNode(hasClickAction()).performTouchInput { click() }
+      // The bar's red width per frame. Scaling in alone only ever widens it; a turn narrows it
+      // again as the bar swings upright (clipped to its own bounds), then widens as it comes round.
+      val widths =
+        List(30) {
+          mainClock.advanceTimeByFrame()
+          val pixels = onRoot().captureToImage().toPixelMap()
+          (0 until 60).count { x -> (0 until 10).any { y -> pixels[x, y].red > 0.2f } }
+        }
+      val widest = widths.indices.maxBy { widths.take(it + 1).max() - widths[it] }
+      assertTrue(
+        widths.take(widest + 1).max() - widths[widest] > 4,
+        "the bar turns as it comes in, widths $widths",
+      )
+      assertEquals(40, widths.last(), "and lands flat at its own size, widths $widths")
+    }
+
+  /** A full-size box parking a 40x10 red bar top-left, entering the way [enter] names. */
+  private fun enteringBar(componentId: Int, enter: RcLayoutAnimation): List<RcOperation> =
+    listOf(
+      RcBoxLayout(componentId, 0, horizontalPositioning = 1, verticalPositioning = 4),
+      RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+      RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(60f)),
+      RcLayoutContent(componentId * 100),
+      RcCanvasLayout(componentId * 100 + 1, -1),
+      RcWidthModifier(RcDimensionType.EXACT, RcFloatWord.literal(40f)),
+      RcHeightModifier(RcDimensionType.EXACT, RcFloatWord.literal(10f)),
+      animationSpec(-1).copy(enterAnimation = enter),
+      RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+      RcPaintData(listOf(4, RED)),
+      RcDraw4(
+        RcOpcodes.DRAW_RECT,
+        RcFloatWord.literal(0f),
+        RcFloatWord.literal(0f),
+        RcFloatWord.literal(40f),
+        RcFloatWord.literal(10f),
+      ),
+      end,
+      end,
+      end,
+      end,
+    )
+
   /** A full-size box parking a 20px red square top-left, the square sliding in from the right. */
   private fun slidingSquare(componentId: Int): List<RcOperation> =
     listOf(

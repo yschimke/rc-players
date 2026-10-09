@@ -212,7 +212,14 @@ internal fun rcBranchEnterExitModifier(spec: RcAnimationSpec?, shared: Boolean):
   val easing = remember(spec) { spec.rcVisibilityEasing() }
   val enter = if (enters) spec.rcEnterTransition(durationMillis, easing) else EnterTransition.None
   val exit = if (exits) spec.rcExitTransition(durationMillis, easing) else ExitTransition.None
-  return with(animatedVisibilityScope) { Modifier.animateEnterExit(enter = enter, exit = exit) }
+  return with(animatedVisibilityScope) {
+    // `ROTATE`'s turn rides the branch's own transition, as it rides the visibility one there.
+    val rotation =
+      if (spec.enterAnimation.androidXValue == RcLayoutAnimation.Rotate.wireValue) {
+        rcEnterRotation(durationMillis, easing)
+      } else Modifier
+    Modifier.animateEnterExit(enter = enter, exit = exit).then(rotation)
+  }
 }
 
 /**
