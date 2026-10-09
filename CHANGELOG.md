@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0](https://github.com/yschimke/rc-players/compare/v2.3.0...v2.4.0) (2026-10-09)
+
+
+### Features
+
+* **compose:** play a component's own enter and exit when its StateLayout branch switches ([#606](https://github.com/yschimke/rc-players/issues/606)) ([a725cc8](https://github.com/yschimke/rc-players/commit/a725cc8a034e2385162bc402ad5c86da8eb7445e))
+
+
+### Bug Fixes
+
+* **compose:** match shared elements by their AnimationSpec id ([#604](https://github.com/yschimke/rc-players/issues/604)) ([9ed616f](https://github.com/yschimke/rc-players/commit/9ed616f22b18cc17bc853cb6d5c33ed838072208))
+
 ## [2.3.0](https://github.com/yschimke/rc-players/compare/v2.2.1...v2.3.0) (2026-10-09)
 
 
