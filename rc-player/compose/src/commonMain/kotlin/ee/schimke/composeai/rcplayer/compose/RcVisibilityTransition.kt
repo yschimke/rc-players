@@ -89,7 +89,7 @@ private class RcShownVisibility(var value: Int)
  * The spec's visibility curve as a Compose [Easing], sampled from the same [RcAnimationTimeline]
  * the player evaluates every other animated value with.
  */
-private fun RcAnimationSpec.rcVisibilityEasing(): Easing {
+internal fun RcAnimationSpec.rcVisibilityEasing(): Easing {
   val duration =
     visibilityDurationMillis.value.takeIf { it.isFinite() && it > 0f } ?: return Easing { it }
   val timeline = RcAnimationTimeline(this)
@@ -102,7 +102,7 @@ private val Hidden = Easing { 0f }
 /** Hides the content for the whole exit: AndroidX's `ParticleAnimation` branch. */
 private val HiddenAtOnce = Easing { 1f }
 
-private fun RcAnimationSpec.rcEnterTransition(
+internal fun RcAnimationSpec.rcEnterTransition(
   durationMillis: Int,
   easing: Easing,
 ): EnterTransition =
@@ -123,7 +123,7 @@ private fun RcAnimationSpec.rcEnterTransition(
     else -> fadeIn(tween(durationMillis, easing = Hidden))
   }
 
-private fun RcAnimationSpec.rcExitTransition(durationMillis: Int, easing: Easing): ExitTransition =
+internal fun RcAnimationSpec.rcExitTransition(durationMillis: Int, easing: Easing): ExitTransition =
   when (exitAnimation.androidXValue) {
     RcLayoutAnimation.FadeOut.wireValue -> fadeOut(tween(durationMillis, easing = easing))
     RcLayoutAnimation.SlideLeft.wireValue ->
@@ -144,7 +144,10 @@ private fun RcAnimationSpec.rcExitTransition(durationMillis: Int, easing: Easing
  * exit keeps the finished angle, so whatever exit the spec names runs without a reverse turn.
  */
 @Composable
-private fun AnimatedVisibilityScope.rcEnterRotation(durationMillis: Int, easing: Easing): Modifier {
+internal fun AnimatedVisibilityScope.rcEnterRotation(
+  durationMillis: Int,
+  easing: Easing,
+): Modifier {
   val degrees by
     transition.animateFloat(transitionSpec = { tween(durationMillis, easing = easing) }) {
       if (it == EnterExitState.PreEnter) 0f else 360f

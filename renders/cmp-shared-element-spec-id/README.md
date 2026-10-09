@@ -18,3 +18,10 @@ one state, 120 dp in the other), with the AndroidX View player for reference. Pa
 component in Remote Compose, so it is part of what morphs, in both players. After the fix the CMP
 player morphs the padded bounds rather than cross-fading, and neither player moves the square
 cleanly. A shared element that should travel is placed by its parent, not by its own padding.
+
+## A component's own enter and exit across a switch
+
+`slide-in-before-after.png` is `RcStateLayoutTransitionTest.aComponentSlidesInWithItsBranchWhenItsSpecSaysSo`'
+document: a blue branch switches to one holding a 20px red square whose spec says `SLIDE_LEFT` in.
+Before, the square only fades in with its branch, already in its corner. After, it travels in
+from the right on the branch's clock while the branch fades.

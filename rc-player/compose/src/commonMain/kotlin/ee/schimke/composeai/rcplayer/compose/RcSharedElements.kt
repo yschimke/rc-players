@@ -3,6 +3,8 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
@@ -22,7 +24,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
+import ee.schimke.composeai.rcplayer.protocol.RcLayoutAnimation
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
+import kotlin.math.roundToInt
 
 /**
  * Shared-element transitions between the alternatives of a `StateLayout`.
@@ -177,6 +181,44 @@ internal fun rcSharedElementModifier(
       boundsTransform = boundsTransform,
       resizeMode = ResizeMode.RemeasureToBounds,
     )
+  }
+}
+
+/**
+ * The enter and exit a component's own spec names, played as its `StateLayout` branch comes in or
+ * goes out — or null when it names nothing the branch's cross-fade does not already do.
+ *
+ * `RemoteModifier.animationSpec(…, enter, exit)` gives a component a way in and out: a slide, a
+ * rotation. When the component's visibility changes, [RcVisibilityTransition] plays them. A switch
+ * between branches is the other way a component comes and goes, and here the whole branch fades
+ * over the switcher's spec; a component that asked to slide in slid nowhere. It now plays its own
+ * transition on the branch's clock, through Compose's `animateEnterExit`.
+ *
+ * Fades are left to the branch: the branch already fades every component in it, and fading a
+ * component again on top would square its alpha. A shared element is left to `sharedBounds`, which
+ * owns its way in and out.
+ */
+@Composable
+internal fun rcBranchEnterExitModifier(spec: RcAnimationSpec?, shared: Boolean): Modifier? {
+  if (spec == null || shared || !spec.isEnabled) return null
+  val animatedVisibilityScope = LocalRcAnimatedVisibilityScope.current ?: return null
+  if (!LocalRcLayoutAnimations.current) return null
+  val enters = spec.enterAnimation.androidXValue != RcLayoutAnimation.FadeIn.wireValue
+  val exits = spec.exitAnimation.androidXValue != RcLayoutAnimation.FadeOut.wireValue
+  if (!enters && !exits) return null
+  val durationMillis =
+    spec.visibilityDurationMillis.value.takeIf { it.isFinite() && it > 0f }?.roundToInt()
+      ?: return null
+  val easing = remember(spec) { spec.rcVisibilityEasing() }
+  val enter = if (enters) spec.rcEnterTransition(durationMillis, easing) else EnterTransition.None
+  val exit = if (exits) spec.rcExitTransition(durationMillis, easing) else ExitTransition.None
+  return with(animatedVisibilityScope) {
+    // `ROTATE`'s turn rides the branch's own transition, as it rides the visibility one there.
+    val rotation =
+      if (spec.enterAnimation.androidXValue == RcLayoutAnimation.Rotate.wireValue) {
+        rcEnterRotation(durationMillis, easing)
+      } else Modifier
+    Modifier.animateEnterExit(enter = enter, exit = exit).then(rotation)
   }
 }
 

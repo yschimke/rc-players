@@ -917,17 +917,21 @@ private fun RenderLayoutNode(
         node.sharedAnimationId,
         node.modifiers.animationSpec,
       )
+  val branchEnterExit =
+    if (node is RcLayoutNode.Content) null
+    else rcBranchEnterExitModifier(node.modifiers.animationSpec, sharedElementModifier != null)
+  val outerModifier = if (branchEnterExit != null) modifier.then(branchEnterExit) else modifier
   val boundsModifier =
     if (sharedElementModifier != null) {
-      modifier.then(sharedElementModifier)
+      outerModifier.then(sharedElementModifier)
     } else if (node is RcLayoutNode.Content || lookaheadScope == null) {
-      modifier
+      outerModifier
     } else {
       // AndroidX animates every component but layout content to its new measure, over the
       // component's spec or the 300 ms default (`Component.layout`). A resize lands at once only
       // because the host turns animation off for it, which is what `LocalRcLayoutAnimations` is.
       val spec = node.modifiers.animationSpec ?: DefaultRcAnimationSpec
-      if (layoutAnimations) modifier.animateRcBounds(lookaheadScope, spec) else modifier
+      if (layoutAnimations) outerModifier.animateRcBounds(lookaheadScope, spec) else outerModifier
     }
   val geometryIds = node.geometryComponentIds()
   val inspecting = LocalRcInspection.current
