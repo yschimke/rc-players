@@ -79,10 +79,10 @@ public enum NativeMacPolicy {
         throw NativeSwiftCoreError.malformed(
           offset: 0, reason: "Image \(image.id) dimensions are unsafe")
       }
-      guard image.encoding == NativeSwiftBitmapEncoding.inline else {
+      guard [NativeSwiftBitmapEncoding.inline, NativeSwiftBitmapEncoding.url, NativeSwiftBitmapEncoding.file].contains(image.encoding) else {
         throw NativeSwiftCoreError.unsupported(
           opcode: NativeSwiftWireOpcode.dataBitmap, offset: 0,
-          reason: "external AppKit image resources")
+          reason: "unsupported AppKit image encoding \(image.encoding)")
       }
     }
   }

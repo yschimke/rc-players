@@ -19,6 +19,7 @@
       height: Float = 600,
       configuration: RemoteComposePlayerConfiguration = .init(),
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+        resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
     ) {
@@ -113,6 +114,7 @@
         height: Float = 600,
         configuration: RemoteComposePlayerConfiguration = .init(),
         downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+        resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
         onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
         onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
       ) {
@@ -130,6 +132,7 @@
               height: CGFloat(height),
               opaque: configuration.background.isOpaque,
               downloadableFontResolver: downloadableFontResolver,
+              resourceResolver: resourceResolver,
               onFontFallback: { onError(.playback($0)) },
               onEvent: { onEvent(RemoteComposePlayerEvent(nativeEvent: $0)) },
               onDiagnostics: { _ in },

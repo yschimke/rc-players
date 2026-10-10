@@ -2,9 +2,8 @@
 
 The reference snapshot is `11ece46a49d485c7644e53cb0684a611d7a0ec10` (October 2).
 This review examines subsequent merged AndroidX embedded-player changes, including commits
-authored by `yschimke@google.com`, through the AndroidX GitHub mirror. The Android Review endpoint
-could not be reached in this environment, so this does not establish the status of pending Gerrit
-reviews. The vendored AndroidX implementation is unchanged; CMP implementations use this
+authored by `yschimke@google.com`, through the AndroidX GitHub mirror. The nine Gerrit patch files supplied by the user were reviewed for intent; their
+status was not inferred from the patch artifacts. The vendored AndroidX implementation is unchanged; CMP implementations use this
 repository's protocol model, runtime and Compose renderer.
 
 | Upstream change | CMP disposition |
@@ -37,3 +36,34 @@ images through Coil's error result; coroutine cancellation remains cancellation.
 The new input adapter uses the existing CMP TouchExpression evaluator. Inertial/eased release
 for general root/component expressions remains a limitation of that evaluator; notch/end targets
 are applied on release. This change does not claim full AndroidX physics parity.
+
+## October Gerrit patch review
+
+The supplied patches describe independent embedded-player capabilities. CMP already executes
+matrix expressions, vector projection, and path-derived transforms through its own runtime and
+renderer, including a 4×4 evaluator. Its existing `RcSoundHost`, `LocalRcSoundHost` and state
+sound dispatcher load and play document sounds on a host-provided engine. CMP also re-evaluates
+text/id/data-map lookups and dynamic float-list writes during draw, dispatches metadata host
+actions, and invokes the host's haptic feedback from the document stream. These paths remain in
+the normal player; they do not need the AndroidX feature-set abstraction.
+
+The native Swift core likewise evaluates 4×4 matrix expressions, perspective vector math and
+matrix-from-path transforms. It resolves derived text/data values when snapshots are refreshed.
+Native Swift still consumes sound data and play operations without playback, and experimental 2D
+meshes have no portable protocol/renderer model in this repository. Sensor subscriptions are not
+hosted by either player. The uploaded mesh patch delegates drawing to an Android-only paint
+context and reads a texture field reflectively, so it cannot be ported directly to Apple or KMP.
+Those capabilities need separate rendering/audio/sensor contracts before claiming support. The
+shared upstream test-document patch contains test helpers, not a player behavior change.
+
+| Gerrit change | Player disposition |
+| --- | --- |
+| [3D matrix operations](https://android-review.googlesource.com/c/4350689) | CMP and native Swift already evaluate expressions, project vectors and follow paths. |
+| [Sound playback](https://android-review.googlesource.com/c/4350692) | CMP exposes a sound host and dispatches sound operations. Native Swift has no audio host yet. |
+| [2D vertex meshes](https://android-review.googlesource.com/c/4350691) | Experimental mesh opcodes need new portable protocol and rendering support. |
+| [Optional features](https://android-review.googlesource.com/c/4354387) | Keep opt-in host interfaces in CMP; do not recreate AndroidX's class/graph bridge. |
+| [Device sensors](https://android-review.googlesource.com/c/4350694) | Requires an opt-in lifecycle-bound sensor source on each platform. |
+| [Document haptics](https://android-review.googlesource.com/c/4350693) | CMP already forwards document haptics to `LocalHapticFeedback`. Native Swift has no haptic host yet. |
+| [Metadata host actions](https://android-review.googlesource.com/c/4354328) | CMP already emits `HostActionMetadata`; native Swift explicitly reports unsupported click actions. |
+| [Reactive lookups and stream data](https://android-review.googlesource.com/c/4354389) | CMP already resolves these in draw order; Swift refreshes its snapshots. |
+| [Shared test documents](https://android-review.googlesource.com/c/4354488) | Test scaffolding only; existing player tests use local wire builders and captures. |

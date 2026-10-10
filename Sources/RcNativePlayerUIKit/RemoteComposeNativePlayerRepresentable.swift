@@ -27,7 +27,8 @@
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
-      resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? =
+        RemoteComposeNativeURLSessionResourceResolver.shared,
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
       onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in }
