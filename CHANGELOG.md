@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/yschimke/rc-players/compare/v2.6.1...v2.7.0) (2026-10-10)
+
+
+### Features
+
+* support Swift native document sounds haptics and click areas ([#621](https://github.com/yschimke/rc-players/issues/621)) ([52f9966](https://github.com/yschimke/rc-players/commit/52f99669511e74d86ff24f9aa4668c9c0c2320b5))
+
 ## [2.6.1](https://github.com/yschimke/rc-players/compare/v2.6.0...v2.6.1) (2026-10-10)
 
 
