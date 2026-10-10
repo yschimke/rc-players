@@ -95,6 +95,14 @@ public enum NativeMacPolicy {
         let text: String?
         if case .text(let value) = value { text = value } else { text = nil }
         try budget.recordEvent(strings: [name, text], limits: executionLimits)
+      case .action:
+        try budget.recordEvent(limits: executionLimits)
+      case .actionWithMetadata(_, let metadata):
+        try budget.recordEvent(strings: [metadata], limits: executionLimits)
+      case .haptic:
+        try budget.recordEvent(limits: executionLimits)
+      case .playSound:
+        try budget.recordEvent(limits: executionLimits)
       }
     }
   }

@@ -15,6 +15,7 @@
     let androidCompatibility: RemoteComposeNativePlayerAndroidCompatibility
     let root: NativeNode
     let images: [NativeImageResource]
+    let clickAreas: [NativeSwiftClickAreaSnapshot]
     let fonts: [NativeFontResource]
     let downloadableFonts: [NativeDownloadableFont]
     let diagnostics: RemoteComposeNativePlayerDiagnostics
@@ -144,6 +145,7 @@
           id: $0.id, width: $0.width, height: $0.height, type: $0.type,
           encoding: $0.encoding, data: $0.data)
       }
+      clickAreas = swiftSnapshot.clickAreas
       fonts = []
       downloadableFonts = downloadableByID.values.sorted { $0.id < $1.id }
       diagnostics = RemoteComposeNativePlayerDiagnostics(
@@ -568,6 +570,7 @@
   final class NativeDocumentView: UIView {
     private var document: NativeDocument
     private var resources: NativeResourceStore
+    private let onClickArea: (Float, Float) -> Void
     /// The measurements the current tree was refined from, so a settled layout stops re-resolving.
     private var appliedMeasurements: [Int: NativeSwiftMeasuredSize] = [:]
     private let customComponents: RemoteComposeNativeCustomComponentRegistry
@@ -585,11 +588,13 @@
       resources: NativeResourceStore,
       customComponents: RemoteComposeNativeCustomComponentRegistry,
       onGesture: @escaping (Int, NativeSwiftGestureKind, NativeSwiftPointerSample?) -> Void,
+      onClickArea: @escaping (Float, Float) -> Void,
       onCustomReturn: @escaping (Int, Int, NativeCustomReturnValue) -> Void
     ) {
       self.document = document
       self.resources = resources
       self.customComponents = customComponents
+      self.onClickArea = onClickArea
       customComponentsRevision = customComponents.revision
       let offscreenTargets = NativeOffscreenTargets()
       self.offscreenTargets = offscreenTargets
@@ -605,6 +610,9 @@
       isOpaque = false
       backgroundColor = .clear
       addSubview(componentView)
+      let click = UITapGestureRecognizer(target: self, action: #selector(handleClickArea(_:)))
+      click.cancelsTouchesInView = false
+      addGestureRecognizer(click)
       isAccessibilityElement = false
       publishAccessibilityElements()
       accessibilityIdentifier = "rc-native-document"
@@ -638,17 +646,65 @@
       return true
     }
 
+    @objc private func handleClickArea(_ recognizer: UITapGestureRecognizer) {
+      guard recognizer.state == .recognized, !document.clickAreas.isEmpty else { return }
+      let point = recognizer.location(in: componentView)
+      let x = Float(point.x)
+      let y = Float(point.y)
+      guard document.clickAreas.contains(where: { $0.contains(x: x, y: y) }) else { return }
+      onClickArea(x, y)
+    }
+
     /// The document is the one accessibility container: every semantic element it lists names it as
     /// its container, so VoiceOver and XCUITest walk the same parent chain they enumerate.
     ///
     /// Layout republishes it too, through the component views' refresh, because a container that
     /// hides or restores a child at layout changes which elements are listed.
     func publishAccessibilityElements() {
-      let elements = componentView.accessibilityOrder
+      var elements = componentView.accessibilityOrder
       for case let element as NativeSemanticElement in elements {
         element.accessibilityContainer = self
       }
+      for area in document.clickAreas where area.right > area.left && area.bottom > area.top {
+        let element = NativeClickAreaElement(owner: componentView, area: area) { [weak self] in
+          guard let self else { return }
+          self.onClickArea((area.left + area.right) / 2, (area.top + area.bottom) / 2)
+        }
+        element.accessibilityContainer = self
+        elements.append(element)
+      }
       accessibilityElements = elements
+    }
+
+    private final class NativeClickAreaElement: UIAccessibilityElement {
+      private weak var owner: UIView?
+      private let area: NativeSwiftClickAreaSnapshot
+      private let activate: () -> Void
+
+      init(owner: UIView, area: NativeSwiftClickAreaSnapshot, activate: @escaping () -> Void) {
+        self.owner = owner
+        self.area = area
+        self.activate = activate
+        super.init(accessibilityContainer: owner)
+        accessibilityLabel = area.contentDescription ?? area.metadata ?? "Action"
+        accessibilityTraits = .button
+      }
+
+      override var accessibilityFrame: CGRect {
+        get {
+          guard let owner, owner.window != nil else { return .zero }
+          let frame = CGRect(
+            x: CGFloat(area.left), y: CGFloat(area.top),
+            width: CGFloat(area.right - area.left), height: CGFloat(area.bottom - area.top))
+          return UIAccessibility.convertToScreenCoordinates(frame, in: owner)
+        }
+        set {}
+      }
+
+      override func accessibilityActivate() -> Bool {
+        activate()
+        return true
+      }
     }
 
     override func layoutSubviews() {

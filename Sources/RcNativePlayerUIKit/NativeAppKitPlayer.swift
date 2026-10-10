@@ -13,6 +13,22 @@ import QuartzCore
 func nativeEventSummary(_ event: NativeSwiftEvent) -> String {
   switch event {
   case .namedAction(let name, let value): return "Named \(name): \(value.summary)"
+  case .action(let id): return "Action \(id)"
+  case .actionWithMetadata(let id, let metadata): return "Action \(id): \(metadata)"
+  case .haptic(let type): return "Haptic \(type)"
+  case .playSound(let id, _): return "Sound \(id)"
+  }
+}
+
+private func nativePlayerEvent(_ event: NativeSwiftEvent) -> RemoteComposeNativePlayerEvent {
+  switch event {
+  case .namedAction(let name, let value):
+    return .namedAction(name: name, value: nativePlayerActionValue(value))
+  case .action(let id): return .action(id: id)
+  case .actionWithMetadata(let id, let metadata):
+    return .actionWithMetadata(id: id, metadata: metadata)
+  case .haptic(let type): return .haptic(type: type)
+  case .playSound(let id, let data): return .playSound(id: id, data: data)
   }
 }
 
@@ -21,6 +37,8 @@ func nativeEventSummary(_ event: RemoteComposeNativePlayerEvent) -> String {
   case .action(let id): "Action \(id)"
   case .actionWithMetadata(let id, let metadata): "Action \(id): \(metadata)"
   case .namedAction(let name, let value): "Named \(name): \(value.summary)"
+  case .haptic(let type): "Haptic \(type)"
+  case .playSound(let id, _): "Sound \(id)"
   case .debug(let message, let value, let flags): "Debug \(message): \(value) [\(flags)]"
   }
 }
@@ -402,8 +420,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       compatibility: compatibility, report: report,
       fonts: fonts,
       onEvent: { event in
-        guard case let .namedAction(name, value) = event else { return }
-        onEvent(.namedAction(name: name, value: nativePlayerActionValue(value)))
+        onEvent(nativePlayerEvent(event))
       }, onDiagnostics: onDiagnostics, onError: onError)
   }
 
@@ -1196,8 +1213,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       compatibility: compatibility, report: report, fonts: fonts,
       resolvedImages: resolvedImages,
       onEvent: { event in
-        guard case let .namedAction(name, value) = event else { return }
-        onEvent(.namedAction(name: name, value: nativePlayerActionValue(value)))
+        onEvent(nativePlayerEvent(event))
       }, onDiagnostics: onDiagnostics, onError: onError)
     let scroll = NSScrollView()
     scroll.drawsBackground = opaque
@@ -1368,6 +1384,7 @@ private final class NativeMacDocumentView: NSView {
   private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
   private let onEvent: (NativeSwiftEvent) -> Void
+  private let soundPlayer = RemoteComposeNativeAVSoundPlayer()
   private let onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
   private let onError: (String) -> Void
   private var snapshot: NativeSwiftDocumentSnapshot
@@ -1541,6 +1558,9 @@ private final class NativeMacDocumentView: NSView {
         height: CGFloat(snapshot.height)))
     timeline.resume(at: Self.now)
     try install(snapshot, report: report)
+    for event in session.takeFrameEffects() { deliver(event) }
+    let click = NSClickGestureRecognizer(target: self, action: #selector(handleClickArea(_:)))
+    addGestureRecognizer(click)
     // The document is the one accessibility container, as on UIKit: it lists every element its
     // components publish, and each semantic element names it as its parent.
     setAccessibilityElement(true)
@@ -1586,6 +1606,46 @@ private final class NativeMacDocumentView: NSView {
     layoutSubtreeIfNeeded()
   }
 
+  @objc private func handleClickArea(_ recognizer: NSClickGestureRecognizer) {
+    guard recognizer.state == .ended, !snapshot.clickAreas.isEmpty else { return }
+    let point = recognizer.location(in: self)
+    let x = Float(point.x)
+    let y = Float(point.y)
+    guard snapshot.clickAreas.contains(where: { $0.contains(x: x, y: y) }) else { return }
+    do {
+      guard let events = try session.clickAreas(x: x, y: y, timeSeconds: sampleTime()) else {
+        return
+      }
+      try resolveAndInstall(timeSeconds: sampleTime(), wallClock: nativeSystemWallClock(), events: events)
+      for event in events { deliver(event) }
+    } catch {
+      onError("Native click area failed: \(error.localizedDescription)")
+    }
+  }
+
+  private func activateClickArea(_ area: NativeSwiftClickAreaSnapshot) {
+    let x = (area.left + area.right) / 2
+    let y = (area.top + area.bottom) / 2
+    do {
+      guard let events = try session.clickAreas(x: x, y: y, timeSeconds: sampleTime()) else {
+        return
+      }
+      try resolveAndInstall(timeSeconds: sampleTime(), wallClock: nativeSystemWallClock(), events: events)
+      for event in events { deliver(event) }
+    } catch {
+      onError("Native click area failed: \(error.localizedDescription)")
+    }
+  }
+
+  private func deliver(_ event: NativeSwiftEvent) {
+    switch event {
+    case .haptic(let type): performNativeDocumentHaptic(type)
+    case .playSound(let id, let data): soundPlayer.playSound(id: id, data: data)
+    default: break
+    }
+    onEvent(event)
+  }
+
   /// Resolves the document at `timeSeconds` with the component sizes the last layout measured, and
   /// installs it. Supplying the measurements up front is what keeps a document with bound geometry
   /// to one resolution per frame: `refineBoundGeometry()` re-resolves only when a layout pass
@@ -1596,9 +1656,11 @@ private final class NativeMacDocumentView: NSView {
   ) throws {
     let next = try session.snapshot(
       timeSeconds: timeSeconds, wallClock: wallClock, measuredComponents: appliedMeasurements)
+    let effects = session.takeFrameEffects()
     snapshotTimeSeconds = timeSeconds
     snapshotWallClock = wallClock
-    try install(next, events: events, usesMeasurements: !appliedMeasurements.isEmpty)
+    try install(next, events: events + effects, usesMeasurements: !appliedMeasurements.isEmpty)
+    for event in effects { deliver(event) }
   }
 
   /// The component a point lands on, for the conformance lane's input steps.
@@ -1740,7 +1802,7 @@ private final class NativeMacDocumentView: NSView {
       else { return }
       try resolveAndInstall(
         timeSeconds: sampleTime(), wallClock: nativeSystemWallClock(), events: events)
-      for event in events { onEvent(event) }
+      for event in events { deliver(event) }
     } catch {
       onError("Native input failed: \(error.localizedDescription)")
     }
@@ -1749,9 +1811,16 @@ private final class NativeMacDocumentView: NSView {
   /// The active component tree's elements in document order. An outgoing StateLayout branch is a
   /// transient presentation and is not listed, as it is not in the tree dump.
   override func accessibilityChildren() -> [Any]? {
-    let children = component?.accessibilityOrder ?? []
+    var children = component?.accessibilityOrder ?? []
     for case let element as NativeMacSemanticElement in children {
       element.setAccessibilityParent(self)
+    }
+    for area in snapshot.clickAreas where area.right > area.left && area.bottom > area.top {
+      let element = NativeMacClickAreaElement(owner: self, area: area) { [weak self] in
+        self?.activateClickArea(area)
+      }
+      element.setAccessibilityParent(self)
+      children.append(element)
     }
     return children
   }
@@ -1770,7 +1839,7 @@ private final class NativeMacDocumentView: NSView {
 
   private func semanticElement(at point: NSPoint) -> Any? {
     for child in (accessibilityChildren() ?? []).reversed() {
-      if let element = child as? NativeMacSemanticElement,
+      if let element = child as? NSAccessibilityElement,
         element.accessibilityFrame().contains(point)
       {
         return element
@@ -2175,6 +2244,38 @@ enum NativeAppKitAccessibility {
 /// accessibility element rather than a control overlaid on the component. It announces the owning
 /// component view's area (the structural union for a flattened component), and activation
 /// dispatches the same tap event the pointer path does.
+private final class NativeMacClickAreaElement: NSAccessibilityElement {
+  private weak var owner: NSView?
+  private let area: NativeSwiftClickAreaSnapshot
+  private let activate: () -> Void
+
+  init(owner: NSView, area: NativeSwiftClickAreaSnapshot, activate: @escaping () -> Void) {
+    self.owner = owner
+    self.area = area
+    self.activate = activate
+    super.init()
+    setAccessibilityRole(.button)
+    setAccessibilityLabel(area.contentDescription ?? area.metadata ?? "Action")
+  }
+
+  override func accessibilityFrame() -> NSRect {
+    let owner = self.owner
+    let area = self.area
+    return MainActor.assumeIsolated {
+      guard let owner, let window = owner.window else { return .zero }
+      let frame = NSRect(
+        x: CGFloat(area.left), y: CGFloat(area.top),
+        width: CGFloat(area.right - area.left), height: CGFloat(area.bottom - area.top))
+      return window.convertToScreen(owner.convert(frame, to: nil))
+    }
+  }
+
+  override func accessibilityPerformPress() -> Bool {
+    activate()
+    return true
+  }
+}
+
 private final class NativeMacSemanticElement: NSAccessibilityElement {
   let kind: NativeAccessibilityElementKind
   /// Dispatches the node's tap; nil when it has none or is disabled.
