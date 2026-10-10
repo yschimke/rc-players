@@ -99,9 +99,14 @@ tasks.register<Sync>("wasmPlayerDist") {
   // directory grew from 4_602_286 to 9_434_767 bytes (+4_832_481), mostly the `gvar` tables of
   // Google Sans Flex, Noto Serif and Inter. The distribution measured 29_090_383 bytes after the
   // swap; the same ~256 KB of slack as before.
+  // The Compose/Coil image-loading upgrade in #613 links the image fetch/decode stack into the
+  // browser player. The same-host main (0440932) distribution is 29_124_741 bytes and this
+  // branch is 31_306_221: rcPlayer.wasm adds 2_188_870 bytes, import glue adds 14_049, Skiko
+  // shrinks by 21_439, and fonts are unchanged. CI measured 31_304_978 before the macro-image
+  // fix. Keep approximately 256 KB of slack.
   inputs.property(
     "maximumDistributionBytes",
-    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("29350000"),
+    providers.gradleProperty("rcPlayerWasmMaxBytes").orElse("31560000"),
   )
   doLast {
     val maximumBytes = inputs.properties.getValue("maximumDistributionBytes").toString().toLong()

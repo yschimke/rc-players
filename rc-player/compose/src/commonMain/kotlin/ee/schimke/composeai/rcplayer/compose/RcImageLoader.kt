@@ -15,6 +15,8 @@ import coil3.request.SuccessResult
 import coil3.size.Size
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.runtime.RcLinkedDocument
+import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 import kotlinx.coroutines.launch
 
 /**
@@ -72,6 +74,7 @@ internal expect fun Image.toRcImageBitmap(): ImageBitmap
 @Composable
 internal fun rememberRcImages(
   document: RcDocument,
+  linked: RcLinkedDocument,
   inlineImages: Map<Int, ImageBitmap>,
   onLoaded: () -> Unit,
 ): MutableMap<Int, ImageBitmap> {
@@ -80,7 +83,17 @@ internal fun rememberRcImages(
   val notifyLoaded by rememberUpdatedState(onLoaded)
   val images = remember(document, loader) { inlineImages.toMutableMap() }
   LaunchedEffect(document, loader) {
-    document.operations
+    // Keep wire declarations, including referenced definitions, and add expanded macro bodies.
+    // Linked operations carry the remapped ids used by the renderer.
+    val bitmaps = document.operations.filterIsInstance<RcBitmapData>().toMutableList()
+    fun visit(node: RcLinkedNode) {
+      when (node) {
+        is RcLinkedNode.Operation -> (node.operation as? RcBitmapData)?.let(bitmaps::add)
+        is RcLinkedNode.Container -> node.children.forEach(::visit)
+      }
+    }
+    linked.operations.forEach(::visit)
+    bitmaps
       .filterIsInstance<RcBitmapData>()
       .filter {
         it.encoding == RcBitmapData.ENCODING_URL || it.encoding == RcBitmapData.ENCODING_FILE

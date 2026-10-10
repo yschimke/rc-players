@@ -118,6 +118,38 @@ class RcImageLoaderTest {
     }
 
   @Test
+  fun loadsAndDrawsAnExternalImageDeclaredInsideACalledMacro() =
+    runSkikoComposeUiTest(size = Size(8f, 8f), density = Density(1f)) {
+      val requests = mutableListOf<RcBitmapData>()
+      val loader = RcImageLoader { bitmap ->
+        requests += bitmap
+        redImage()
+      }
+      val body =
+        RcWireWriter()
+          .apply {
+            RcDocumentCodec.encodeOperation(this, externalBitmap())
+            RcDocumentCodec.encodeOperation(this, RcDrawBitmapInt(42, 0, 0, 8, 8, 0, 0, 8, 8, 0))
+          }
+          .toByteArray()
+      val document =
+        document(
+          listOf(
+            RcMacroDefine(9, emptyList(), body),
+            RcMacroCall(9, emptyList()),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+          )
+        )
+      setContent { RcComposePlayer(document, loader, Modifier.testTag("player")) }
+      waitForIdle()
+      val rendered = onNodeWithTag("player").captureToImage()
+      writeEvidence("macro.png", rendered)
+      assertEquals(1, requests.size)
+      assertEquals(externalBitmap().data.decodeToString(), requests.single().data.decodeToString())
+      assertEquals(Color.Red, rendered.toPixelMap()[4, 4])
+    }
+
+  @Test
   fun replacingADocumentCancelsItsPendingImageRequest() =
     runSkikoComposeUiTest(size = Size(8f, 8f), density = Density(1f)) {
       val pending = CompletableDeferred<ImageBitmap?>()

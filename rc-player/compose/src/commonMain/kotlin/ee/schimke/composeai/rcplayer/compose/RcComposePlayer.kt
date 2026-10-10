@@ -747,7 +747,7 @@ private fun RcComposePlayerResolved(
     }
   }
   val inlineImages = remember(document) { decodeInlineImages(document) }
-  val images = rememberRcImages(document, inlineImages) { invalidationVersion += 1 }
+  val images = rememberRcImages(document, linkedDocument, inlineImages) { invalidationVersion += 1 }
   val touchExpressions = remember(linkedDocument) { rcTouchExpressions(linkedDocument.operations) }
   val offscreenTargets = remember(document) { RcOffscreenTargetPool() }
   DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }

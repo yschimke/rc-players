@@ -70,7 +70,12 @@ kotlin {
     }
   }
 
-  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+  wasmJs {
+    browser()
+    // Compose UI tests use webpack to load Skiko, which requires an executable target.
+    binaries.executable()
+  }
 
   // Android, through AGP's KMP library plugin — see `:rc-player-trace` for the SDK levels. Compose
   // on Android draws through `android.graphics`, not Skiko, so the few primitives common Compose
