@@ -150,6 +150,29 @@ class RcImageLoaderTest {
     }
 
   @Test
+  fun loadsABitmapDeclaredInAnUnincludedBlockWhenTheRootDrawsIt() =
+    runSkikoComposeUiTest(size = Size(8f, 8f), density = Density(1f)) {
+      var calls = 0
+      val loader = RcImageLoader {
+        calls += 1
+        redImage()
+      }
+      val document =
+        document(
+          listOf(
+            RcReferencedOperations(7),
+            externalBitmap(),
+            RcNoArg(RcOpcodes.CONTAINER_END),
+            RcDrawBitmapInt(42, 0, 0, 8, 8, 0, 0, 8, 8, 0),
+          )
+        )
+      setContent { RcComposePlayer(document, loader, Modifier.testTag("player")) }
+      waitForIdle()
+      assertEquals(1, calls)
+      assertEquals(Color.Red, onNodeWithTag("player").captureToImage().toPixelMap()[4, 4])
+    }
+
+  @Test
   fun replacingADocumentCancelsItsPendingImageRequest() =
     runSkikoComposeUiTest(size = Size(8f, 8f), density = Density(1f)) {
       val pending = CompletableDeferred<ImageBitmap?>()

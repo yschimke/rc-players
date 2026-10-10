@@ -12,3 +12,10 @@ The host loader returns a red image, so no network access is needed.
 Reproduce with `scripts/agent-gradle.sh :rc-player-compose:jvmTest --tests
 '*RcImageLoaderTest.loadsAndDrawsAnExternalImageDeclaredInsideACalledMacro'
 -Prc.imageLoader.out=/tmp/rc-macro-image-loader`.
+
+Bitmap declarations are global resources, consistent with `decodeInlineImages`: a root
+draw can use a bitmap declared inside a `ReferencedOperations` block without including
+the block. `loadsABitmapDeclaredInAnUnincludedBlockWhenTheRootDrawsIt` verifies that
+contract. Scanning only the linked stream would drop that valid image. The loader
+continues to eagerly request declared URL/file bitmaps once per ID, as documented by
+`RcImageLoader`; macro bodies contribute declarations only when expanded.
