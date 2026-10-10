@@ -449,8 +449,14 @@ Current paint support is color, alpha, fill/stroke, stroke width/cap/join, Core
 Graphics-representable blend modes, ordered line/quadratic/cubic paths, path clipping, inline
 linear/radial/sweep gradients, and system-font size. Sweep gradients use bounded Core Graphics
 tessellation because `CGContext` has no conic-gradient primitive. Non-clamp gradient tile modes and
-rational conics are approximated with explicit diagnostics. Referenced shaders, color filters, path
-effects, and canvas (`FONT_AXIS` paint) font axes produce diagnostics or unsupported opcodes.
+rational conics are approximated with explicit diagnostics. SRC_IN color filters on solid shapes
+and paths preserve the source RGB and multiply source and destination alpha; the paint's separate
+alpha remains renderer state. Color IDs are resolved on every snapshot, including live updates.
+Other filter modes and filters on images, textures, gradients or text report an unsupported
+operation when a drawing command consumes them. Transform, clip and redirect commands do not
+consume paint filters, and clearing a filter restores normal shader/image drawing. Referenced
+shaders, path effects, and canvas (`FONT_AXIS` paint) font axes produce diagnostics or unsupported
+opcodes.
 
 A bitmap texture paint carries a `SHADER_MATRIX` — an RPN `MATRIX_EXPRESSION` over the document's
 floats — that maps the bitmap onto the shape, and a tile mode per axis. Both are applied: the matrix

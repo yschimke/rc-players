@@ -2986,10 +2986,12 @@ enum NativeSwiftDocumentDecoder {
         paint.colorFilterARGB = UInt32(bitPattern: Int32(words[index]))
         paint.colorFilterID = nil
         paint.colorFilterMode = NativeSwiftPaintBlendMode(wireValue: highBits)
+        paint.colorFilterOffset = input.offset
       case NativeSwiftPaintCommand.colorFilterID:
         paint.colorFilterID = words[index]
         paint.colorFilterARGB = nil
         paint.colorFilterMode = NativeSwiftPaintBlendMode(wireValue: highBits)
+        paint.colorFilterOffset = input.offset
       case NativeSwiftPaintCommand.clearColorFilter:
         paint.colorFilterARGB = nil
         paint.colorFilterID = nil

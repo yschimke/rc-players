@@ -65,6 +65,8 @@ struct ParsedPaint {
   var colorFilterARGB: UInt32?
   var colorFilterID: Int?
   var colorFilterMode: NativeSwiftPaintBlendMode?
+  /// Byte offset of the bundle that installed the filter, for deferred draw diagnostics.
+  var colorFilterOffset = 0
   var gradient: ParsedGradient?
   var alpha: Float = 1
   var strokeWidth: UInt32 = Float(1).bitPattern
