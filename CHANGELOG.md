@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/yschimke/rc-players/compare/v2.5.0...v2.6.0) (2026-10-10)
+
+
+### Features
+
+* load native Swift images with Apple URLSession ([#617](https://github.com/yschimke/rc-players/issues/617)) ([4977be5](https://github.com/yschimke/rc-players/commit/4977be57c002776bfad8c0879fd254b678f2ff10))
+
 ## [2.5.0](https://github.com/yschimke/rc-players/compare/v2.4.0...v2.5.0) (2026-10-10)
 
 
