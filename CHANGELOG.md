@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.1](https://github.com/yschimke/rc-players/compare/v2.6.0...v2.6.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* order Swift native resolver arguments ([#619](https://github.com/yschimke/rc-players/issues/619)) ([aabdfb0](https://github.com/yschimke/rc-players/commit/aabdfb0a937169c86161c4928d65bf62135e8d0b))
+
 ## [2.6.0](https://github.com/yschimke/rc-players/compare/v2.5.0...v2.6.0) (2026-10-10)
 
 
