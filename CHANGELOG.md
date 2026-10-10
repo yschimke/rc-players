@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.5.0](https://github.com/yschimke/rc-players/compare/v2.4.0...v2.5.0) (2026-10-10)
+
+
+### Features
+
+* add Coil image loading and upstream CMP player support ([#613](https://github.com/yschimke/rc-players/issues/613)) ([bce0ea9](https://github.com/yschimke/rc-players/commit/bce0ea99f5ddef32787e2912793f68190fd2cb25))
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.24.0 ([#607](https://github.com/yschimke/rc-players/issues/607)) ([0065993](https://github.com/yschimke/rc-players/commit/0065993ce48b52f28a91ced72416af425760cc8a))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.25.0 ([#610](https://github.com/yschimke/rc-players/issues/610)) ([ac86ed5](https://github.com/yschimke/rc-players/commit/ac86ed5b06d82a22d87a6320dc90de11e77d2646))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.26.0 ([#616](https://github.com/yschimke/rc-players/issues/616)) ([7462803](https://github.com/yschimke/rc-players/commit/746280309e5fea7f4a24b369830ffa8c2ad473f1))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.15.1 ([#608](https://github.com/yschimke/rc-players/issues/608)) ([4d55423](https://github.com/yschimke/rc-players/commit/4d5542367c9c83c2df10c802c8695ea9301ef879))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.15.2 ([#612](https://github.com/yschimke/rc-players/issues/612)) ([7048fa2](https://github.com/yschimke/rc-players/commit/7048fa2a0c840be9884eb9cca5f97eff72517b63))
+* **native:** preserve SRC_IN alpha and reject unsupported filters ([#614](https://github.com/yschimke/rc-players/issues/614)) ([8206162](https://github.com/yschimke/rc-players/commit/82061629817e884e2eedb7f5ab382445ec9660c3))
+
 ## [2.4.0](https://github.com/yschimke/rc-players/compare/v2.3.0...v2.4.0) (2026-10-09)
 
 
