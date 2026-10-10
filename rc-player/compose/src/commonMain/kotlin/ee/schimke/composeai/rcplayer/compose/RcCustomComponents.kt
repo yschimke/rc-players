@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCustomProperty
@@ -42,7 +43,29 @@ internal constructor(
   public val properties: List<RcCustomProperty>,
   private val state: RcPlayerState,
   private val invalidate: () -> Unit,
+  private val children: List<RcCustomComponent?> = emptyList(),
+  private val renderChild: @Composable (Int, Modifier) -> Unit = { _, _ -> },
 ) {
+  /** Number of remote children, in wire order. The host chooses their layout. */
+  public val childCount: Int
+    get() = children.size
+
+  /** Renders one remote child through the same player state and plugin registry. */
+  @Composable
+  public fun Child(index: Int, modifier: Modifier = Modifier) {
+    require(index in children.indices) { "Custom child index $index outside 0 until $childCount" }
+    key(componentId, index) { renderChild(index, modifier) }
+  }
+
+  /** Renders all children in wire order inside the host's current layout. */
+  @Composable
+  public fun Children() {
+    children.indices.forEach { Child(it) }
+  }
+
+  /** Reads a custom child's config and properties without dispatching its host renderer. */
+  public fun customChild(index: Int): RcCustomComponent? = children.getOrNull(index)
+
   /** Returns the property with author-defined [type], if present. */
   public fun property(type: Int): RcCustomProperty? = properties.firstOrNull { it.type == type }
 

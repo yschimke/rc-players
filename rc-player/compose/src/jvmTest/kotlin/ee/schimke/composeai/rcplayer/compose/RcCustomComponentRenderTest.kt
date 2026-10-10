@@ -31,6 +31,51 @@ import kotlin.test.Test
 class RcCustomComponentRenderTest {
   @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
   @Test
+  fun hostCanRenderRemoteChildrenAndReadAnUnregisteredSlot() =
+    runSkikoComposeUiTest(size = Size(200f, 40f), density = Density(1f)) {
+      val registry =
+        RcCustomComponentRegistry(
+          "container" to
+            { component, modifier ->
+              androidx.compose.foundation.layout.Column(modifier) {
+                kotlin.test.assertEquals(1, component.childCount)
+                val slot = kotlin.test.assertNotNull(component.customChild(0))
+                kotlin.test.assertEquals("slot", slot.config)
+                // Reading the slot bypasses registry dispatch; its children still use the live
+                // player.
+                slot.Children()
+              }
+            },
+          "label" to { component, modifier -> BasicText(component.text(LABEL), modifier) },
+        )
+      val end = RcNoArg(RcOpcodes.CONTAINER_END)
+      val document =
+        RcDocument(
+          RcHeader(RcVersion(1, 0, 0), legacyWidth = 200, legacyHeight = 40, modern = false),
+          listOf(
+            RcTextData(50, "container"),
+            RcTextData(51, "slot"),
+            RcTextData(52, "label"),
+            RcTextData(53, "Remote child"),
+            RcRootLayout(1),
+            RcLayoutContent(2),
+            RcCustomLayout(3, 0, 50, emptyList()),
+            RcCustomLayout(4, 0, 51, emptyList()),
+            RcCustomLayout(5, 0, 52, listOf(RcCustomProperty.string(LABEL, 53))),
+            end,
+            end,
+            end,
+            end,
+            end,
+          ),
+        )
+      setContent { RcComposePlayer(document, customComponents = registry) }
+      waitForIdle()
+      onNodeWithText("Remote child").assertExists()
+    }
+
+  @OptIn(ExperimentalTestApi::class, ExperimentalComposeUiApi::class)
+  @Test
   fun hostComponentReadsLivePropertiesAndWritesReturnChannels() =
     runSkikoComposeUiTest(size = Size(80f, 20f), density = Density(1f)) {
       val registry =

@@ -116,6 +116,8 @@ kotlin {
       // artifact in transitively, and declaring it is what keeps that an accident rather than a
       // dependency this module relies on silently.
       @Suppress("DEPRECATION") implementation(compose.animation)
+      implementation(libs.coil.compose)
+      implementation(libs.coil.network.ktor)
     }
     commonTest.dependencies {
       implementation(kotlin("test"))
@@ -127,7 +129,14 @@ kotlin {
     // `RcGoogleFontsTypefaceLoader`'s on-device path: Compose's GMS downloadable fonts. The shared
     // Google Fonts cache is read directly (`RcSharedFontCache`) rather than through
     // `data-fonts-google`, whose okhttp 5 would force API 37 on every consumer.
-    androidMain.dependencies { implementation(libs.androidx.compose.ui.text.google.fonts.cmp) }
+    androidMain.dependencies {
+      implementation(libs.androidx.compose.ui.text.google.fonts.cmp)
+      implementation(libs.ktor.client.cio)
+    }
+    jvmMain.dependencies { implementation(libs.ktor.client.cio) }
+    iosMain.dependencies { implementation(libs.ktor.client.darwin) }
+    macosMain.dependencies { implementation(libs.ktor.client.darwin) }
+    wasmJsMain.dependencies { implementation(libs.ktor.client.js) }
     named("androidHostTest").dependencies {
       implementation(libs.robolectric)
       implementation(libs.junit)
@@ -199,6 +208,7 @@ tasks.withType<Test>().configureEach {
       "rc.cmp.output",
       "rc.cmp.fonts",
       "rc.bitmapFilter.out",
+      "rc.imageLoader.out",
       "rc.conic.out",
       "rc.loop.out",
       "rc.android.out",

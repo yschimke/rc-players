@@ -29,7 +29,10 @@ internal class RcFloatExpressionRuntime(
         // is a spring over a constant `checked` flag, drew unchecked and dimmed in a still.
         spring?.settleAt(target, timeSeconds)
       } else {
-        tween?.setInitial(tween.targetValue)
+        // A reactive target can change before the previous tween settles. Continue from the
+        // displayed value, as the embedded player's Animatable does, rather than jumping to the
+        // target of the interrupted animation.
+        tween?.setInitial(tween.value(timeSeconds - lastChange))
         tween?.setTarget(target)
         spring?.retarget(target, timeSeconds)
       }

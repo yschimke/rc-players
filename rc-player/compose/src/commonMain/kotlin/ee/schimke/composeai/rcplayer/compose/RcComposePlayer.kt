@@ -120,8 +120,12 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
@@ -184,6 +188,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
@@ -367,6 +372,60 @@ public fun RcComposePlayer(
     systemColors,
     customComponents,
   )
+}
+
+/** Plays encoded bytes with a host image loader. */
+@Composable
+public fun RcComposePlayer(
+  bytes: ByteArray,
+  imageLoader: RcImageLoader,
+  modifier: Modifier = Modifier,
+  theme: RcPlayerTheme = RcPlayerTheme.System,
+  namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
+  onEvent: (RcPlayerEvent) -> Unit = {},
+  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
+  customComponents: RcCustomComponentRegistry = RcCustomComponentRegistry.Empty,
+) {
+  val document = remember(bytes) { decodeCmpDocument(bytes) }
+  RcComposePlayer(
+    document,
+    imageLoader,
+    modifier,
+    theme,
+    namedValues,
+    onEvent,
+    typefaces,
+    systemColors,
+    customComponents,
+  )
+}
+
+/** Plays a document with a host image loader, also inherited by nested players. */
+@Composable
+public fun RcComposePlayer(
+  document: RcDocument,
+  imageLoader: RcImageLoader,
+  modifier: Modifier = Modifier,
+  theme: RcPlayerTheme = RcPlayerTheme.System,
+  namedValues: SnapshotStateMap<String, RcNamedValue> = rememberRcNamedValues(),
+  onEvent: (RcPlayerEvent) -> Unit = {},
+  typefaces: RcTypefaceLoader = RcTypefaceLoader.Default,
+  systemColors: (name: String) -> Color? = rememberRcPlatformSystemColors(),
+  customComponents: RcCustomComponentRegistry = RcCustomComponentRegistry.Empty,
+) {
+  CompositionLocalProvider(LocalRcImageLoader provides imageLoader) {
+    RcComposePlayer(
+      document,
+      modifier,
+      theme,
+      namedValues,
+      onEvent,
+      typefaces,
+      systemColors,
+      customComponents,
+    )
+  }
 }
 
 /** CMP implements the opt-in operation family, so `Skip` must observe the experimental bit. */
@@ -687,7 +746,9 @@ private fun RcComposePlayerResolved(
       }
     }
   }
-  val images = remember(document) { decodeInlineImages(document) }
+  val inlineImages = remember(document) { decodeInlineImages(document) }
+  val images = rememberRcImages(document, inlineImages) { invalidationVersion += 1 }
+  val touchExpressions = remember(linkedDocument) { rcTouchExpressions(linkedDocument.operations) }
   val offscreenTargets = remember(document) { RcOffscreenTargetPool() }
   DisposableEffect(offscreenTargets) { onDispose { offscreenTargets.dispose() } }
   val fonts = remember(document) { decodeInlineFonts(document) }
@@ -733,6 +794,12 @@ private fun RcComposePlayerResolved(
         documentHeight = document.header.height.coerceAtLeast(1).toFloat(),
         rootContentBehavior = state.rootContentBehavior,
       )
+      .rcTouchExpressions(
+        touchExpressions[null].orEmpty(),
+        state,
+        { invalidationVersion += 1 },
+        root = true,
+      )
   val redrawModifier =
     interactiveModifier
       .drawWithContent {
@@ -774,6 +841,7 @@ private fun RcComposePlayerResolved(
           LocalRcCustomComponents provides customComponents,
           LocalRcInvalidate provides { invalidationVersion += 1 },
           LocalRcOffscreenTargets provides offscreenTargets,
+          LocalRcTouchExpressions provides touchExpressions,
         ) {
           // The root sits at the window's origin at its own size. A root smaller than the window's
           // minimum — one still animating toward a resize, or one the document sizes below the
@@ -966,6 +1034,11 @@ private fun RenderLayoutNode(
       } else null
     val effectiveModifier =
       (collapse?.let { Modifier.goneWhenCollapsed(it).then(visibleModifier) } ?: visibleModifier)
+        .rcTouchExpressions(
+          LocalRcTouchExpressions.current[node.componentId].orEmpty(),
+          state,
+          invalidate,
+        )
         .trackComponentGeometry(geometryIds, state, geometryProbe)
         .inspectComponent(
           node,
@@ -1088,10 +1161,28 @@ private fun RenderLayoutNode(
           )
         Box(customModifier) {
           val config = state.text(node.operation.configId).orEmpty()
+          fun component(child: RcLayoutNode.Custom): RcCustomComponent =
+            RcCustomComponent(
+              state.text(child.operation.configId).orEmpty(),
+              child.componentId,
+              child.operation.properties,
+              state,
+              invalidate,
+              child.children.map { (it as? RcLayoutNode.Custom)?.let(::component) },
+            ) { index, childModifier ->
+              RenderLayoutNode(
+                child.children[index],
+                state = state,
+                textMeasurer = textMeasurer,
+                images = images,
+                theme = theme,
+                modifier = childModifier,
+              )
+            }
           customComponents
             .content(config)
             ?.invoke(
-              node.operation.component(config, state, invalidate),
+              component(node),
               Modifier.fillMaxSize(),
             )
         }
@@ -3005,6 +3096,7 @@ private data class RcTouchActionsElement(
   override fun create(): RcTouchActionsNode = RcTouchActionsNode(actions, state)
 
   override fun update(node: RcTouchActionsNode) {
+    if (node.actions != actions || node.state !== state) node.onCancelPointerInput()
     node.actions = actions
     node.state = state
   }
@@ -3016,29 +3108,38 @@ private data class RcTouchActionsElement(
 
 private class RcTouchActionsNode(var actions: List<RcTouchActionBlock>, var state: RcPlayerState) :
   Modifier.Node(), PointerInputModifierNode {
-  private var pressed: Boolean = false
+  private var pointer: PointerId? = null
 
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
-    if (pass != PointerEventPass.Main) return
-    if (!pressed && pointerEvent.changes.any { it.changedToDownIgnoreConsumed() }) {
-      pressed = true
-      dispatch(RcTouchActionType.DOWN)
+    if (pass == PointerEventPass.Initial && pointer == null) {
+      pointerEvent.changes
+        .firstOrNull { it.changedToDownIgnoreConsumed() }
+        ?.let {
+          pointer = it.id
+          dispatch(RcTouchActionType.DOWN)
+        }
     }
-    if (pressed && pointerEvent.changes.isNotEmpty() && pointerEvent.changes.all { !it.pressed }) {
-      pressed = false
-      if (pointerEvent.changes.all { it.changedToUpIgnoreConsumed() }) {
-        dispatch(RcTouchActionType.UP)
-      } else {
-        dispatch(RcTouchActionType.CANCEL)
-      }
+    if (pass != PointerEventPass.Final) return
+    val change = pointerEvent.changes.firstOrNull { it.id == pointer } ?: return
+    when {
+      change.changedToUpIgnoreConsumed() -> finish(RcTouchActionType.UP)
+      !change.pressed || (change.isConsumed && change.position != change.previousPosition) ->
+        finish(RcTouchActionType.CANCEL)
     }
   }
 
   override fun onCancelPointerInput() {
-    if (pressed) {
-      pressed = false
-      dispatch(RcTouchActionType.CANCEL)
-    }
+    finish(RcTouchActionType.CANCEL)
+  }
+
+  override fun onDetach() {
+    finish(RcTouchActionType.CANCEL)
+  }
+
+  private fun finish(type: RcTouchActionType) {
+    if (pointer == null) return
+    pointer = null
+    dispatch(type)
   }
 
   private fun dispatch(type: RcTouchActionType) {
@@ -3146,11 +3247,18 @@ private fun Modifier.applyAndroidXScroll(
       ScrollableDefaults.flingBehavior()
     }
 
+  val connection =
+    remember(scrollState, operation.direction) {
+      RcScrollBoundaryConnection(operation.direction) {
+        scrollState.maxValue in 1 until Int.MAX_VALUE
+      }
+    }
+  val boundary = nestedScroll(connection)
   val scrolled =
     if (operation.direction == RcScrollModifier.VERTICAL) {
-      verticalScroll(scrollState, flingBehavior = flingBehavior)
+      boundary.verticalScroll(scrollState, flingBehavior = flingBehavior)
     } else {
-      horizontalScroll(scrollState, flingBehavior = flingBehavior)
+      boundary.horizontalScroll(scrollState, flingBehavior = flingBehavior)
     }
   if (!LocalRcInspection.current) return scrolled
   // The offset the children are drawn under, published so the tree reader can take it back out of
@@ -3168,6 +3276,26 @@ private fun Modifier.applyAndroidXScroll(
       }
     }
   return scrolled.semantics { rcScrollOffset = scrollOffset }
+}
+
+/** Keep a scrollable remote container's same-axis remainder inside the player. */
+internal class RcScrollBoundaryConnection(
+  private val direction: Int,
+  private val canScroll: () -> Boolean,
+) : NestedScrollConnection {
+  override fun onPostScroll(
+    consumed: Offset,
+    available: Offset,
+    source: NestedScrollSource,
+  ): Offset =
+    if (!canScroll()) Offset.Zero
+    else if (direction == RcScrollModifier.VERTICAL) Offset(0f, available.y)
+    else Offset(available.x, 0f)
+
+  override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+    if (!canScroll()) Velocity.Zero
+    else if (direction == RcScrollModifier.VERTICAL) Velocity(0f, available.y)
+    else Velocity(available.x, 0f)
 }
 
 /** Stop modes whose release settles on a stop other than where the fling leaves the value. */

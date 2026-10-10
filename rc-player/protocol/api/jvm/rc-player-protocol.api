@@ -129,7 +129,11 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcBackgroundModifier$C
 
 public final class ee/schimke/composeai/rcplayer/protocol/RcBitmapData : ee/schimke/composeai/rcplayer/protocol/RcOperation {
 	public static final field Companion Lee/schimke/composeai/rcplayer/protocol/RcBitmapData$Companion;
+	public static final field ENCODING_COMPONENT_OFFSCREEN_BUFFER I
+	public static final field ENCODING_EMPTY I
+	public static final field ENCODING_FILE I
 	public static final field ENCODING_INLINE I
+	public static final field ENCODING_URL I
 	public static final field TYPE_PNG I
 	public static final field TYPE_PNG_8888 I
 	public static final field TYPE_PNG_ALPHA_8 I

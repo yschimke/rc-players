@@ -14,6 +14,12 @@
       "allowedVersions": "!/(-compat|-SNAPSHOT)$/"
     },
     {
+      "description": "Keep Coil on 3.5.x alongside CMP 1.11.1. Coil 3.6 raises Compose and Skiko to the 1.12 line, which requires the coordinated renderer migration described by the Compose rule below.",
+      "matchManagers": ["gradle"],
+      "matchPackageNames": ["io.coil-kt.coil3:*"],
+      "allowedVersions": "/^3\\.5\\.\\d+$/"
+    },
+    {
       "description": "compose-multiplatform: pin to the 1.11.x line. This repository is where the skiko seams actually live: `rc-player/compose/src/skikoMain/kotlin/…/PathConic.skiko.kt` calls the mutating `org.jetbrains.skia.Path` API (`Path.conicTo`) that skiko 0.150.1 — what compose-multiplatform 1.12.0 resolves — DELETES; m144 had only deprecated it at `DeprecationLevel.ERROR`. The replacement (`PathBuilder`) is build-then-`snapshot()`, so that `actual` has to be restructured before the line can move. The ref is also a floor for consumers, since `:rc-player-compose` exposes `org.jetbrains.compose.{runtime,ui}` as `api` on a published artifact. Raising it is a manual, coordinated decision — see gradle/libs.versions.toml.",
       "matchManagers": ["gradle"],
       "matchPackageNames": ["org.jetbrains.compose", "org.jetbrains.compose{/,}**"],

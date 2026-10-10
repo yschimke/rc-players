@@ -1,3 +1,9 @@
+public final class ee/schimke/composeai/rcplayer/compose/ComposableSingletons$RcCustomComponentsKt {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/ComposableSingletons$RcCustomComponentsKt;
+	public fun <init> ()V
+	public final fun getLambda$291323985$ee_schimke_composeai_rc_player_compose ()Lkotlin/jvm/functions/Function4;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/ComposableSingletons$RcSpannableStringKt {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/compose/ComposableSingletons$RcSpannableStringKt;
 	public fun <init> ()V
@@ -35,8 +41,10 @@ public final class ee/schimke/composeai/rcplayer/compose/RcBundledTypefaceLoader
 public final class ee/schimke/composeai/rcplayer/compose/RcComposePlayerKt {
 	public static final fun RcComposePlayer (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
 	public static final fun RcComposePlayer (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcComposePlayer (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/compose/RcImageLoader;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;Landroidx/compose/runtime/Composer;II)V
 	public static final fun RcComposePlayer ([BLandroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
 	public static final fun RcComposePlayer ([BLandroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;Landroidx/compose/runtime/Composer;II)V
+	public static final fun RcComposePlayer ([BLee/schimke/composeai/rcplayer/compose/RcImageLoader;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;Landroidx/compose/runtime/Composer;II)V
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue {
@@ -61,8 +69,10 @@ public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportIssue {
 public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportKt {
 	public static final fun composeSupportReport (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;Ljava/util/Set;Z)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
 	public static final fun composeSupportReport (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;Ljava/util/Set;ZLjava/util/Set;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
+	public static final fun composeSupportReport (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;Ljava/util/Set;ZLjava/util/Set;Ljava/util/Set;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
 	public static synthetic fun composeSupportReport$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;Ljava/util/Set;ZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
 	public static synthetic fun composeSupportReport$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;Ljava/util/Set;ZLjava/util/Set;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
+	public static synthetic fun composeSupportReport$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/protocol/RcOperationProfile;Ljava/util/Set;ZLjava/util/Set;Ljava/util/Set;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcComposeSupportReport;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportReport {
@@ -93,10 +103,14 @@ public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverit
 
 public final class ee/schimke/composeai/rcplayer/compose/RcCustomComponent {
 	public static final field $stable I
+	public final fun Child (ILandroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+	public final fun Children (Landroidx/compose/runtime/Composer;I)V
 	public final fun color (II)I
 	public static synthetic fun color$default (Lee/schimke/composeai/rcplayer/compose/RcCustomComponent;IIILjava/lang/Object;)I
+	public final fun customChild (I)Lee/schimke/composeai/rcplayer/compose/RcCustomComponent;
 	public final fun float (IF)F
 	public static synthetic fun float$default (Lee/schimke/composeai/rcplayer/compose/RcCustomComponent;IFILjava/lang/Object;)F
+	public final fun getChildCount ()I
 	public final fun getComponentId ()I
 	public final fun getConfig ()Ljava/lang/String;
 	public final fun getProperties ()Ljava/util/List;
@@ -236,6 +250,21 @@ public final class ee/schimke/composeai/rcplayer/compose/RcGoogleFontsTypefaceLo
 	public static final fun rcGoogleFontsTypefaceLoader ([BLee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
 	public static synthetic fun rcGoogleFontsTypefaceLoader$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
 	public static synthetic fun rcGoogleFontsTypefaceLoader$default ([BLee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcImageLoader {
+	public static final field Companion Lee/schimke/composeai/rcplayer/compose/RcImageLoader$Companion;
+	public abstract fun load (Lee/schimke/composeai/rcplayer/protocol/RcBitmapData;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcImageLoader$Companion {
+	public final fun getDefault ()Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
+	public final fun getEmpty ()Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcImageLoaderKt {
+	public static final fun getLocalRcImageLoader ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun rememberCoilRcImageLoader (Landroidx/compose/runtime/Composer;I)Lee/schimke/composeai/rcplayer/compose/RcImageLoader;
 }
 
 public final class ee/schimke/composeai/rcplayer/compose/RcLayoutAnimationsKt {
