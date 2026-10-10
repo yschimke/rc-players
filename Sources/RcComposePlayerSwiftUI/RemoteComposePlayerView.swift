@@ -408,8 +408,8 @@
         data: documentData,
         background: configuration.nativeFallbackBackground,
         compatibilityPolicy: configuration.compatibility.nativeValue,
-        downloadableFontResolver: downloadableFontResolver,
         resourceResolver: resourceResolver,
+        downloadableFontResolver: downloadableFontResolver,
         onEvent: { [weak self] event in self?.eventHandler(.init(nativeEvent: event)) },
         onDiagnostics: { _ in },
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
