@@ -1370,6 +1370,94 @@ import Testing
     #expect(!staticUpdate.needsContinuousFrames)
   }
 
+  @Test func nativeHostEffectsAndLegacyClickAreas() throws {
+    let sound = Data([0x52, 0x49, 0x46, 0x46])
+    let output = Writer()
+    output.header(width: 100, height: 100)
+    output.text(id: 10, "open://door")
+    output.text(id: 11, "Door")
+    output.u8(NativeSwiftWireOpcode.dataFloat).int(50).float(10)
+    output.namedVariable(id: 50, type: NativeSwiftNamedVariableType.float, name: "edge")
+    output.u8(NativeSwiftWireOpcode.dataSound).int(9).int(sound.count).raw(sound)
+    output.u8(NativeSwiftWireOpcode.clickArea).int(7).int(11)
+      .float(0).float(0).int(Writer.nanReference(50)).float(20).int(10)
+    output.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    output.u8(NativeSwiftWireOpcode.layoutContent).int(3)
+    output.u8(NativeSwiftWireOpcode.modifierClick)
+    output.u8(NativeSwiftWireOpcode.hostAction).int(4)
+    output.u8(NativeSwiftWireOpcode.hostMetadataAction).int(5).int(10)
+    output.u8(NativeSwiftWireOpcode.hapticFeedback).int(2)
+    output.u8(NativeSwiftWireOpcode.playSound).int(9)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    let session = try NativeSwiftDocumentSession.open(data: output.data)
+    let snapshot = try session.snapshot()
+    #expect(snapshot.clickAreas.count == 1)
+    #expect(snapshot.clickAreas[0].contentDescription == "Door")
+    #expect(snapshot.clickAreas[0].right == 10)
+    #expect(try session.clickAreas(x: 10, y: 5, timeSeconds: 0) == nil)
+    #expect(try session.clickAreas(x: 9, y: 5, timeSeconds: 0)
+      == [.actionWithMetadata(id: 7, metadata: "open://door")])
+    #expect(try session.click(componentID: 3, timeSeconds: 0) == [
+      .action(id: 4), .actionWithMetadata(id: 5, metadata: "open://door"),
+      .haptic(type: 2), .playSound(id: 9, data: sound),
+    ])
+    #expect(session.setFloat(20, for: "edge"))
+    #expect(try session.snapshot().clickAreas[0].right == 20)
+    #expect(try session.clickAreas(x: 10, y: 5, timeSeconds: 0)
+      == [.actionWithMetadata(id: 7, metadata: "open://door")])
+  }
+
+  @Test func nativeToneSynthesisIsBounded() {
+    let tone: [UInt32] = [0xff80_000a, Float(440).bitPattern, Float(0.1).bitPattern,
+      Float(0).bitPattern]
+    let wav = NativeSwiftToneSynthesizer.synthesize(parameters: tone, values: [:])
+    #expect(wav?.count == 44 + 2_205 * 2)
+    #expect(wav?.prefix(4) == Data("RIFF".utf8))
+    let tooLong: [UInt32] = [0xff80_000a, Float(440).bitPattern, Float(100).bitPattern,
+      Float(0).bitPattern]
+    #expect(NativeSwiftToneSynthesizer.synthesize(parameters: tooLong, values: [:]) == nil)
+  }
+
+  @Test func standaloneSoundAndHapticRunOncePerFrameInstant() throws {
+    let sound = Data([1, 2, 3])
+    let output = Writer()
+    output.header(width: 20, height: 20)
+    output.u8(NativeSwiftWireOpcode.dataSound).int(6).int(sound.count).raw(sound)
+    output.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    output.u8(NativeSwiftWireOpcode.playSound).int(6)
+    output.u8(NativeSwiftWireOpcode.hapticFeedback).int(3)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    let session = try NativeSwiftDocumentSession.open(data: output.data)
+    _ = try session.snapshot(timeSeconds: 0)
+    #expect(session.takeFrameEffects() == [.playSound(id: 6, data: sound), .haptic(type: 3)])
+    _ = try session.snapshot(timeSeconds: 0)
+    #expect(session.takeFrameEffects().isEmpty)
+    _ = try session.snapshot(timeSeconds: 1)
+    #expect(session.takeFrameEffects() == [.playSound(id: 6, data: sound), .haptic(type: 3)])
+  }
+
+  @Test func soundAndHapticInImpulseRunOnlyDuringInitialization() throws {
+    let sound = Data([1, 2, 3])
+    let output = Writer()
+    output.header(width: 20, height: 20)
+    output.u8(NativeSwiftWireOpcode.dataSound).int(6).int(sound.count).raw(sound)
+    output.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    output.u8(NativeSwiftWireOpcode.impulseStart).float(1).float(0)
+    output.u8(NativeSwiftWireOpcode.playSound).int(6)
+    output.u8(NativeSwiftWireOpcode.hapticFeedback).int(3)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    let session = try NativeSwiftDocumentSession.open(data: output.data)
+    _ = try session.snapshot(timeSeconds: 0)
+    #expect(session.takeFrameEffects() == [.playSound(id: 6, data: sound), .haptic(type: 3)])
+    _ = try session.snapshot(timeSeconds: 0.5)
+    #expect(session.takeFrameEffects().isEmpty)
+    _ = try session.snapshot(timeSeconds: 2)
+    #expect(session.takeFrameEffects().isEmpty)
+  }
+
   @Test func floatAnimationSamples() throws {
     // These samples are from the Kotlin RcFloatAnimation reference at 250ms intervals, scaled from
     // 0 to 10. They exercise the descriptor's packed type/parameter fields as well as each curve.
@@ -3467,6 +3555,12 @@ private final class Writer {
   @discardableResult
   func float(_ value: Float) -> Writer {
     int(Int(Int32(bitPattern: value.bitPattern)))
+  }
+
+  @discardableResult
+  func raw(_ data: Data) -> Writer {
+    bytes.append(contentsOf: data)
+    return self
   }
 
   func header(width: Int, height: Int) {

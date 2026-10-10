@@ -28,6 +28,9 @@ struct ParsedDocument {
   let textLengths: [ParsedTextLength]
   let colorExpressions: [ParsedColorExpression]
   let images: [Int: ParsedImageResource]
+  let sounds: [Int: ParsedSound]
+  let clickAreas: [ParsedClickArea]
+  let frameEffects: [ParsedFrameEffect]
   /// Text producers in exactly the order the wire declared them. A later operation may consume an
   /// earlier result regardless of their concrete operation types.
   let textOperations: [ParsedTextOperation]
@@ -199,6 +202,25 @@ enum ParsedAction {
   case floatValue(targetID: Int, value: UInt32)
   /// `VALUE_STRING_CHANGE_ACTION`: set a text to another text's value.
   case textValue(targetID: Int, textID: Int)
+  case hostAction(id: Int)
+  case hostMetadataAction(id: Int, textID: Int)
+  case haptic(type: Int)
+  case playSound(id: Int)
+}
+
+enum ParsedSound {
+  case data(Data)
+  case expression([UInt32])
+}
+
+struct ParsedClickArea {
+  let id: Int
+  let contentDescriptionID: Int
+  let left: UInt32
+  let top: UInt32
+  let right: UInt32
+  let bottom: UInt32
+  let metadataID: Int
 }
 
 struct ParsedModifierContainer {
@@ -264,6 +286,11 @@ struct ParsedImpulse {
 struct ParsedImpulseGate {
   let impulse: Int
   let segment: Int
+}
+
+struct ParsedFrameEffect {
+  let action: ParsedAction
+  let impulseGate: ParsedImpulseGate?
 }
 
 /// AndroidX `ImpulseOperation`'s phase at one frame.

@@ -62,6 +62,8 @@ public enum RemoteComposePlayerEvent: Equatable, Sendable {
   case action(id: Int)
   case actionWithMetadata(id: Int, metadata: String)
   case namedAction(name: String, value: RemoteComposePlayerActionValue)
+  case haptic(type: Int)
+  case playSound(id: Int)
   case debug(message: String, value: Float, flags: Int)
   case unsupported(String)
 

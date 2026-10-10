@@ -180,6 +180,8 @@
           self = .actionWithMetadata(id: id, metadata: metadata)
         case .namedAction(let name, let value):
           self = .namedAction(name: name, value: .init(nativeValue: value))
+        case .haptic(let type): self = .haptic(type: type)
+        case .playSound(let id, _): self = .playSound(id: id)
         case .debug(let message, let value, let flags):
           self = .debug(message: message, value: value, flags: flags)
         }

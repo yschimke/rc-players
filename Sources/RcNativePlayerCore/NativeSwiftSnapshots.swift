@@ -296,6 +296,7 @@ public struct NativeSwiftDocumentSnapshot: Sendable {
   public let densityBehavior: Int
   public let root: NativeSwiftNodeSnapshot
   public let images: [NativeSwiftImageResourceSnapshot]
+  public let clickAreas: [NativeSwiftClickAreaSnapshot]
   public let needsContinuousFrames: Bool
   /// Whether the document reads a wall-clock variable that only changes on a second boundary.
   ///
@@ -715,6 +716,24 @@ public struct NativeSwiftPathElementSnapshot: Sendable {
 
 public enum NativeSwiftEvent: Equatable, Sendable {
   case namedAction(name: String, value: NativeSwiftActionValue)
+  case action(id: Int)
+  case actionWithMetadata(id: Int, metadata: String)
+  case haptic(type: Int)
+  case playSound(id: Int, data: Data)
+}
+
+public struct NativeSwiftClickAreaSnapshot: Equatable, Sendable {
+  public let id: Int
+  public let contentDescription: String?
+  public let left: Float
+  public let top: Float
+  public let right: Float
+  public let bottom: Float
+  public let metadata: String?
+
+  public func contains(x: Float, y: Float) -> Bool {
+    x >= left && x < right && y >= top && y < bottom
+  }
 }
 
 /// What delivering one host event to a document's `EVENT_ACTION` handlers did.

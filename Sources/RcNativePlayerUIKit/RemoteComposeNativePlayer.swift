@@ -273,6 +273,9 @@
 
     public var onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
     public var onEvent: (RemoteComposeNativePlayerEvent) -> Void
+    public var soundPlayer: any RemoteComposeNativeSoundPlaying = RemoteComposeNativeAVSoundPlayer()
+    /// Replaces the platform haptic behavior when the embedding app owns feedback policy.
+    public var hapticHandler: ((Int) -> Void)?
     public var onError: (RemoteComposeNativePlayerError) -> Void
     public private(set) var resourceLimits: RemoteComposeNativeResourceLimits
     public private(set) var executionLimits: RemoteComposeNativeExecutionLimits
@@ -373,6 +376,7 @@
     public func load(_ data: Data) {
       if data == documentData, !isShowingError { return }
       if data != documentData {
+        soundPlayer.stopAll()
         animationTimeline.reset(
           at: clock.now(),
           active: isSceneActive && window != nil && !UIAccessibility.isReduceMotionEnabled)
@@ -550,7 +554,7 @@
             cache: resourceCache)
           try Task.checkCancellation()
           guard let self, generation == self.generation else { return }
-          self.presentOpened(model, engine: engine, resources: resources)
+          self.presentOpened(model, engine: engine, resources: resources, effects: frame.effects)
         } catch {
           guard !Task.isCancelled, let self, generation == self.generation else { return }
           self.show(error: error, retaining: nil)
@@ -561,11 +565,14 @@
 
     /// Install the first frame of a freshly opened session.
     private func presentOpened(
-      _ model: NativeDocument, engine: NativePlayerEngine, resources: NativeResourceStore
+      _ model: NativeDocument, engine: NativePlayerEngine, resources: NativeResourceStore,
+      effects: [RemoteComposeNativePlayerEvent]
     ) {
       let presentation = NativePlayerPresentation(engine: engine, resources: resources)
       do {
+        try validateExecution(model, events: effects)
         try install(model, for: presentation)
+        dispatch(effects, generation: generation)
       } catch {
         // The session is open even though its first frame could not be installed, so it keeps
         // accepting input, exactly as after any later failure.
@@ -722,6 +729,7 @@
           frame: frame, timeSeconds: request.time, limits: executionLimits,
           androidCompatibility: androidCompatibility)
         try validate(model)
+        try validateExecution(model, events: frame.effects)
         guard generation == self.generation else { return }
         var installError: (any Error)?
         do {
@@ -732,6 +740,7 @@
         // Input from here on resolves at this frame's time, even if installing it failed.
         await presentation.engine.present(frameTime: request.time)
         if let installError { throw installError }
+        dispatch(frame.effects, generation: generation)
       } catch {
         guard generation == self.generation else { return }
         show(error: error, retaining: presentation)
@@ -802,6 +811,13 @@
     private func dispatch(_ events: [RemoteComposeNativePlayerEvent], generation: UInt64) {
       for event in events {
         guard generation == self.generation else { return }
+        switch event {
+        case .haptic(let type):
+          if let hapticHandler { hapticHandler(type) } else { performNativeDocumentHaptic(type) }
+        case .playSound(let id, let data):
+          soundPlayer.playSound(id: id, data: data)
+        default: break
+        }
         onEvent(event)
       }
     }
@@ -838,6 +854,10 @@
           }
         case .debug(let message, _, _):
           try budget.recordEvent(strings: [message], limits: executionLimits)
+        case .haptic:
+          try budget.recordEvent(limits: executionLimits)
+        case .playSound:
+          try budget.recordEvent(limits: executionLimits)
         }
       }
     }
@@ -859,6 +879,9 @@
           customComponents: customComponents,
           onGesture: { [weak self] componentID, gesture, sample in
             self?.performGesture(gesture, componentID: componentID, sample: sample)
+          },
+          onClickArea: { [weak self] x, y in
+            self?.enqueue(.clickAreas(x: x, y: y), reply: nil)
           },
           onCustomReturn: { [weak self] componentID, propertyID, value in
             self?.performCustomReturn(

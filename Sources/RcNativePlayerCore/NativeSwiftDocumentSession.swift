@@ -37,6 +37,8 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
   /// The frame instant `RUN_ACTION` bodies last ran at, so that resolving one frame twice (a
   /// snapshot and a probe) runs them once.
   private var lastRunActionFrameTime: TimeInterval?
+  private var lastFrameEffectsTime: TimeInterval?
+  private var pendingFrameEffects: [NativeSwiftEvent] = []
   /// The instant this session was first painted at, on the clock its frames are resolved against;
   /// what a marquee times itself from. Latched by the first snapshot unless a host pinned it.
   private var firstPaintSeconds: TimeInterval?
@@ -111,6 +113,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     lastParticleFrameTime = other.lastParticleFrameTime
     particleCompareFired = other.particleCompareFired
     lastRunActionFrameTime = other.lastRunActionFrameTime
+    lastFrameEffectsTime = other.lastFrameEffectsTime
     firstPaintSeconds = other.firstPaintSeconds
     staticSnapshotCache = other.staticSnapshotCache
   }
@@ -245,6 +248,14 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       }
     }
     let resolvedColors = resolveColors(values: values)
+    if lastFrameEffectsTime != timeSeconds, !document.frameEffects.isEmpty {
+      lastFrameEffectsTime = timeSeconds
+      if document.runActions.isEmpty { pendingFrameEffects.removeAll() }
+      var effectValues = values
+      pendingFrameEffects += try execute(
+        document.frameEffects.filter { impulseAllows($0.impulseGate) }.map(\.action),
+        values: &effectValues)
+    }
     let snapshot = NativeSwiftDocumentSnapshot(
       width: document.width,
       height: document.height,
@@ -252,6 +263,15 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       densityBehavior: document.densityBehavior,
       root: try resolve(document.root, values: values, colors: resolvedColors),
       images: document.imageSnapshots,
+      clickAreas: document.clickAreas.map { area in
+        NativeSwiftClickAreaSnapshot(
+          id: area.id, contentDescription: texts[area.contentDescriptionID],
+          left: NativeSwiftFloatExpression.resolve(area.left, values: values),
+          top: NativeSwiftFloatExpression.resolve(area.top, values: values),
+          right: NativeSwiftFloatExpression.resolve(area.right, values: values),
+          bottom: NativeSwiftFloatExpression.resolve(area.bottom, values: values),
+          metadata: texts[area.metadataID])
+      },
       needsContinuousFrames: document.needsContinuousFrames || document.hasParticleLoop
         || particleCompareFired
         || floatAnimationRuntimes.contains {
@@ -365,6 +385,37 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     return try gesture(.tap, componentID: componentID, sample: nil, timeSeconds: timeSeconds)
   }
 
+  /// Effects emitted while resolving the latest frame. Draining prevents layout refinements from
+  /// replaying a sound or haptic that belongs to the frame already presented.
+  public func takeFrameEffects() -> [NativeSwiftEvent] {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    let events = pendingFrameEffects
+    pendingFrameEffects.removeAll()
+    return events
+  }
+
+  /// Dispatches every legacy document-space click area containing the point, in wire order.
+  public func clickAreas(x: Float, y: Float, timeSeconds: TimeInterval) throws -> [NativeSwiftEvent]? {
+    stateLock.lock()
+    defer { stateLock.unlock() }
+    guard x.isFinite, y.isFinite, !document.clickAreas.isEmpty else { return nil }
+    try resolveIntegerExpressions()
+    let values = try resolvedFloats(timeSeconds: timeSeconds)
+    resolveTextOperations(values: values)
+    var events: [NativeSwiftEvent] = []
+    for area in document.clickAreas {
+      let left = NativeSwiftFloatExpression.resolve(area.left, values: values)
+      let top = NativeSwiftFloatExpression.resolve(area.top, values: values)
+      let right = NativeSwiftFloatExpression.resolve(area.right, values: values)
+      let bottom = NativeSwiftFloatExpression.resolve(area.bottom, values: values)
+      if x >= left && x < right && y >= top && y < bottom {
+        events.append(.actionWithMetadata(id: area.id, metadata: texts[area.metadataID] ?? ""))
+      }
+    }
+    return events.isEmpty ? nil : events
+  }
+
   public func gesture(
     _ kind: NativeSwiftGestureKind, componentID: Int,
     sample: NativeSwiftPointerSample? = nil, timeSeconds: TimeInterval
@@ -423,10 +474,11 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
     lastRunActionFrameTime = timeSeconds
     var values = values
     var ran = false
+    pendingFrameEffects.removeAll()
     for runAction in document.runActions where runAction.followsComponent {
       guard !runAction.actions.isEmpty else { continue }
       // A RUN_ACTION holds no host action (the decoder drops them), so nothing reaches the host.
-      _ = try execute(runAction.actions, values: &values)
+      pendingFrameEffects += try execute(runAction.actions, values: &values)
       ran = true
     }
     return ran
@@ -480,6 +532,23 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
         if resolved.isFinite { storeFloat(targetID, resolved) }
       case .textValue(let targetID, let textID):
         if let text = texts[textID] { texts[targetID] = text }
+      case .hostAction(let id):
+        events.append(.action(id: id))
+      case .hostMetadataAction(let id, let textID):
+        events.append(.actionWithMetadata(id: id, metadata: texts[textID] ?? ""))
+      case .haptic(let type):
+        if type >= 0 { events.append(.haptic(type: type)) }
+      case .playSound(let id):
+        if let sound = document.sounds[id] {
+          switch sound {
+          case .data(let data): events.append(.playSound(id: id, data: data))
+          case .expression(let parameters):
+            if let data = NativeSwiftToneSynthesizer.synthesize(parameters: parameters, values: values)
+            {
+              events.append(.playSound(id: id, data: data))
+            }
+          }
+        }
       case .named(let action):
         guard let name = texts[action.nameTextID] else { continue }
         let value: NativeSwiftActionValue
@@ -710,6 +779,7 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       && document.impulses.isEmpty
       && document.particleOperations.isEmpty
       && document.runActions.isEmpty
+      && document.frameEffects.isEmpty
       && !floatAnimationRuntimes.contains {
         floatOverrides[$0.key] == nil && $0.value.isAnimating(at: Float(timeSeconds))
       }

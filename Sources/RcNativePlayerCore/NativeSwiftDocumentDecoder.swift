@@ -122,6 +122,9 @@ enum NativeSwiftDocumentDecoder {
     var colorExpressions: [ParsedColorExpression] = []
     var paths: [Int: ParsedPath] = [:]
     var images: [Int: ParsedImageResource] = [:]
+    var sounds: [Int: ParsedSound] = [:]
+    var clickAreas: [ParsedClickArea] = []
+    var frameEffects: [ParsedFrameEffect] = []
     /// The distinct bitmaps `DrawToBitmap` draws into, and their pixels. Each is an offscreen
     /// target a host allocates, so both are bounded as the CMP player's `RcOffscreenTargetLimits`.
     var offscreenTargetIDs: Set<Int> = []
@@ -899,6 +902,7 @@ enum NativeSwiftDocumentDecoder {
       let opcode = try input.u8("opcode")
       census(opcode)
       let impulseScope = impulseScopes.last
+      let frameEffectCountBeforeOperation = frameEffects.count
       // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
       // own their children; macro definitions and calls expand into those children; neither is an
       // independent top-level operation. Template bytes execute through `suspendedInputs` and are
@@ -2189,13 +2193,16 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.word("align by line")
         _ = try input.int("align by flags")
       case NativeSwiftWireOpcode.clickArea:  // Legacy click area
-        // INT id, INT content description id, four FLOAT bounds words, INT metadata id. A
-        // pre-layout document registers these for the host to hit-test. They draw nothing, and
-        // hosts do not hit-test them yet, so a click inside one is not reported.
-        _ = try input.int("click area id")
-        _ = try input.int("click area content description id")
-        for _ in 0..<4 { _ = try input.word("click area bounds") }
-        _ = try input.int("click area metadata id")
+        let id = try input.int("click area id")
+        let descriptionID = try input.int("click area content description id")
+        let left = try input.word("click area left")
+        let top = try input.word("click area top")
+        let right = try input.word("click area right")
+        let bottom = try input.word("click area bottom")
+        let metadataID = try input.int("click area metadata id")
+        clickAreas.append(ParsedClickArea(
+          id: id, contentDescriptionID: descriptionID, left: left, top: top,
+          right: right, bottom: bottom, metadataID: metadataID))
       case NativeSwiftWireOpcode.modifierZindex:  // Z-index modifier
         try currentNode(stack, input: input).zIndexWord = try input.word("z-index")
       case NativeSwiftWireOpcode.modifierOffset:  // Offset modifier
@@ -2550,20 +2557,29 @@ enum NativeSwiftDocumentDecoder {
         _ = try input.word("debug message value")
         _ = try input.int("debug message flags")
       case NativeSwiftWireOpcode.dataSound:
-        // Sound is a host capability these players do not have. A document that carries a cue
-        // still draws, silently, rather than being refused for it.
-        _ = try input.int("sound data id")
-        _ = try input.data("sound data", maximum: maximumSoundBytes)
+        let id = try input.int("sound data id")
+        sounds[id] = .data(try input.data("sound data", maximum: maximumSoundBytes))
       case NativeSwiftWireOpcode.playSound:
-        _ = try input.int("play sound id")
+        let id = try input.int("play sound id")
+        if let container = actionContainer(),
+          container.gesture != nil || container.actionSink != nil
+        {
+          appendAction(.playSound(id: id), to: container)
+        } else {
+          frameEffects.append(ParsedFrameEffect(
+            action: .playSound(id: id),
+            impulseGate: impulseScope.map { ParsedImpulseGate(impulse: $0.impulse, segment: $0.segment) }))
+        }
       case NativeSwiftWireOpcode.soundExpression:
-        _ = try input.int("sound expression id")
+        let id = try input.int("sound expression id")
         for field in ["left volume", "right volume", "rate"] {
           _ = try input.word("sound expression \(field)")
         }
         let count = try input.count(
           "sound expression parameter count", maximum: maximumSoundParameters)
-        for _ in 0..<count { _ = try input.word("sound expression parameter") }
+        sounds[id] = .expression(try (0..<count).map { _ in
+          try input.word("sound expression parameter")
+        })
       case NativeSwiftWireOpcode.impulseStart:
         // A window of time on the animation clock. Its children run once, on the first frame
         // inside the window; a trailing IMPULSE_PROCESS runs on every frame after that until the
@@ -2596,10 +2612,8 @@ enum NativeSwiftDocumentDecoder {
         NativeSwiftWireOpcode.hapticFeedback:
         // Actions run when the click modifier that encloses them fires. Outside one there is
         // nothing to fire them, and the reference leaves them inert rather than rejecting the
-        // document. Host actions and haptics need an event the hosts do not have yet, so inside a
-        // click modifier they still refuse rather than being dropped silently. An EVENT_ACTION or
-        // RUN_ACTION body runs only action operations, which haptic feedback is not, so there it
-        // is inert; and a RUN_ACTION body never runs a host action (see `ParsedRunAction`).
+        // document. RUN_ACTION does not dispatch host effects, and EVENT_ACTION does not run
+        // haptics, matching the reference's action container rules.
         let container = actionContainer()
         let action: ParsedAction?
         switch opcode {
@@ -2612,28 +2626,33 @@ enum NativeSwiftDocumentDecoder {
             targetID: try input.int("text value action target id"),
             textID: try input.int("text value action text id"))
         case NativeSwiftWireOpcode.hostAction:
-          _ = try input.int("host action id")
-          action = nil
+          action = .hostAction(id: try input.int("host action id"))
         case NativeSwiftWireOpcode.hostMetadataAction:
-          _ = try input.int("host metadata action id")
-          _ = try input.int("host metadata action text id")
-          action = nil
+          let id = try input.int("host metadata action id")
+          action = .hostMetadataAction(id: id, textID: try input.int("host metadata action text id"))
         default:
-          _ = try input.int("haptic feedback type")
-          action = nil
+          action = .haptic(type: try input.int("haptic feedback type"))
         }
-        guard let container else { break }
-        if let action {
-          appendAction(action, to: container)
+        guard let container, container.gesture != nil || container.actionSink != nil else {
+          if opcode == NativeSwiftWireOpcode.hapticFeedback, let action {
+            frameEffects.append(ParsedFrameEffect(
+              action: action,
+              impulseGate: impulseScope.map { ParsedImpulseGate(impulse: $0.impulse, segment: $0.segment) }))
+          }
           break
         }
-        switch container.actionSink {
-        case .runAction: break
-        case .eventHandler where opcode == NativeSwiftWireOpcode.hapticFeedback: break
-        default:
-          throw NativeSwiftCoreError.unsupported(
-            opcode: opcode, offset: opcodeOffset,
-            reason: "host actions and haptics need a host event")
+        if let action {
+          switch container.actionSink {
+          case .runAction where opcode == NativeSwiftWireOpcode.hostAction
+            || opcode == NativeSwiftWireOpcode.hostMetadataAction
+            || opcode == NativeSwiftWireOpcode.hapticFeedback:
+            break
+          case .eventHandler where opcode == NativeSwiftWireOpcode.hapticFeedback:
+            break
+          default:
+            appendAction(action, to: container)
+          }
+          break
         }
       case NativeSwiftWireOpcode.eventAction:
         // EventActionOperation.read: a payload version (0 is the only one), the event type, the
@@ -2765,7 +2784,9 @@ enum NativeSwiftDocumentDecoder {
         // An impulse gates what it draws. Anything else inside one — state, layout, a wake —
         // would run on every frame here rather than only in its window, so it is refused rather
         // than run at the wrong time.
-        if impulseDrawTargets.isEmpty, !structural {
+        if impulseDrawTargets.isEmpty, frameEffects.count == frameEffectCountBeforeOperation,
+          !structural
+        {
           throw NativeSwiftCoreError.unsupported(
             opcode: opcode, offset: opcodeOffset,
             reason: "only drawing is migrated inside an impulse")
@@ -2876,7 +2897,9 @@ enum NativeSwiftDocumentDecoder {
       componentValues: componentValues, colorAttributes: colorAttributes,
       longConstants: longConstants, booleanConstants: booleanConstants,
       timeAttributes: timeAttributes, idLookups: idLookups, textLengths: textLengths,
-      colorExpressions: colorExpressions, images: images, textOperations: textOperations,
+      colorExpressions: colorExpressions, images: images, sounds: sounds, clickAreas: clickAreas,
+      frameEffects: frameEffects,
+      textOperations: textOperations,
       textFromFloats: textFromFloats,
       textMerges: textMerges, textTransforms: textTransforms, idLists: idLists, floatLists: floatLists,
       floatListUpdates: floatListUpdates, dynamicFloatLists: dynamicFloatLists,

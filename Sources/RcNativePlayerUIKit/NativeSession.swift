@@ -16,6 +16,8 @@
     case action(id: Int)
     case actionWithMetadata(id: Int, metadata: String)
     case namedAction(name: String, value: RemoteComposeNativePlayerActionValue)
+    case haptic(type: Int)
+    case playSound(id: Int, data: Data)
     case debug(message: String, value: Float, flags: Int)
   }
 
@@ -36,12 +38,14 @@
       case setColor(UInt32, name: String)
       case setInteger(Int, name: String)
       case gesture(NativeSwiftGestureKind, componentID: Int, sample: NativeSwiftPointerSample?)
+      case clickAreas(x: Float, y: Float)
       case customFloat(Float, componentID: Int, propertyID: Int)
       case customText(String, componentID: Int, propertyID: Int)
     }
 
     struct Frame: Sendable {
       let snapshot: NativeSwiftDocumentSnapshot
+      let effects: [RemoteComposeNativePlayerEvent]
       /// The host's absolute time at the instant this frame was resolved, so a refinement of the
       /// frame resolves its calendar fields against the same instant rather than a later one.
       let wallClock: NativeSwiftWallClock?
@@ -58,6 +62,7 @@
         wallClock: NativeSwiftWallClock?
       ) {
         self.snapshot = snapshot
+        effects = session.takeFrameEffects().map(remoteComposeNativeEvent)
         self.wallClock = wallClock
         refiner = snapshot.boundComponents.isEmpty ? nil : session.detachedCopy()
       }
@@ -156,6 +161,8 @@
         return try setInteger(value, for: name, at: time)
       case .gesture(let kind, let componentID, let sample):
         return try gesture(kind, componentID: componentID, sample: sample, at: time)
+      case .clickAreas(let x, let y):
+        return try clickAreas(x: x, y: y, at: time)
       case .customFloat(let value, let componentID, let propertyID):
         return try returnCustomFloat(
           value, componentID: componentID, propertyID: propertyID, at: time)
@@ -184,29 +191,25 @@
       return try eventUpdate(nativeEvents, timeSeconds: timeSeconds)
     }
 
+    func clickAreas(x: Float, y: Float, at timeSeconds: TimeInterval) throws -> Update {
+      guard let events = try session.clickAreas(x: x, y: y, timeSeconds: timeSeconds) else {
+        return try unchangedUpdate(timeSeconds: timeSeconds)
+      }
+      return try eventUpdate(events, timeSeconds: timeSeconds)
+    }
+
     private func eventUpdate(
       _ nativeEvents: [NativeSwiftEvent], timeSeconds: TimeInterval
     ) throws -> Update {
-      let events = nativeEvents.map { event -> RemoteComposeNativePlayerEvent in
-        switch event {
-        case .namedAction(let name, let value):
-          let publicValue: RemoteComposeNativePlayerActionValue
-          switch value {
-          case .none: publicValue = .none
-          case .float(let value): publicValue = .float(value)
-          case .integer(let value): publicValue = .integer(value)
-          case .text(let value): publicValue = .text(value)
-          }
-          return .namedAction(name: name, value: publicValue)
-        }
-      }
+      let events = nativeEvents.map(remoteComposeNativeEvent)
+      let frame = Frame(
+        session: session,
+        snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+        wallClock: wallClock)
       return Update(
         accepted: true,
-        frame: Frame(
-          session: session,
-          snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-          wallClock: wallClock),
-        events: events,
+        frame: frame,
+        events: events + frame.effects,
         timeSeconds: timeSeconds)
     }
 
@@ -252,14 +255,36 @@
     }
 
     private func update(accepted: Bool, timeSeconds: TimeInterval) throws -> Update {
-      Update(
+      let frame = Frame(
+        session: session,
+        snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
+        wallClock: wallClock)
+      return Update(
         accepted: accepted,
-        frame: Frame(
-          session: session,
-          snapshot: try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock),
-          wallClock: wallClock),
-        events: [],
+        frame: frame,
+        events: frame.effects,
         timeSeconds: timeSeconds)
+    }
+  }
+
+  private func remoteComposeNativeEvent(_ event: NativeSwiftEvent)
+    -> RemoteComposeNativePlayerEvent
+  {
+    switch event {
+    case .namedAction(let name, let value):
+      let publicValue: RemoteComposeNativePlayerActionValue
+      switch value {
+      case .none: publicValue = .none
+      case .float(let value): publicValue = .float(value)
+      case .integer(let value): publicValue = .integer(value)
+      case .text(let value): publicValue = .text(value)
+      }
+      return .namedAction(name: name, value: publicValue)
+    case .action(let id): return .action(id: id)
+    case .actionWithMetadata(let id, let metadata):
+      return .actionWithMetadata(id: id, metadata: metadata)
+    case .haptic(let type): return .haptic(type: type)
+    case .playSound(let id, let data): return .playSound(id: id, data: data)
     }
   }
 
