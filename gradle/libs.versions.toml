@@ -188,7 +188,7 @@ maven-publish = "0.37.0"
 # exist at the release version: `common-io` is published at 3.13.0 and absent at 3.15.0 and
 # 3.17.0, whose BOMs still map it to 3.13.0. Bumping this ref moves the BOM; the BOM moves the
 # modules.
-composeai-contracts = "3.25.0"
+composeai-contracts = "3.26.0"
 
 # compose-preview-daemon, for the two modules this build consumes from it: `data-fonts-google`
 # (the `(family, weight, italic) -> File` downloadable-font cache both vendored players share) and
