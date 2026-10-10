@@ -55,7 +55,8 @@
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
-      resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? =
+        RemoteComposeNativeURLSessionResourceResolver.shared,
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
@@ -278,8 +279,7 @@
     public private(set) var customComponents: RemoteComposeNativeCustomComponentRegistry
     private var customComponentsRevision: UInt
     public private(set) var resourceResolver: (any RemoteComposeNativeResourceResolving)?
-    public private(set) var downloadableFontResolver:
-      (any RemoteComposeDownloadableFontResolving)?
+    public private(set) var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
     private var documentView: NativeDocumentView?
     private var documentData: Data?
     /// The resources behind the frame on screen, whose fonts stay registered until replaced.
@@ -315,7 +315,8 @@
       resourceLimits: RemoteComposeNativeResourceLimits = .default,
       executionLimits: RemoteComposeNativeExecutionLimits = .default,
       customComponents: RemoteComposeNativeCustomComponentRegistry? = nil,
-      resourceResolver: (any RemoteComposeNativeResourceResolving)? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? =
+        RemoteComposeNativeURLSessionResourceResolver.shared,
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
       clock: any RemoteComposeNativePlayerClock = RemoteComposeNativeSystemClock(),
       onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },

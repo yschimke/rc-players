@@ -517,10 +517,12 @@ repeated document replacement cannot retain one maximum-sized image per count sl
 malformed bytes, invalid references, and limit violations are typed
 `RemoteComposeNativeResourceError` failures.
 
-Referenced images are inert unless the host injects a `RemoteComposeNativeResourceResolving`
-implementation. The resolver receives the original opaque reference and declared metadata; URL
-policy, authentication, transport, and persistence remain host responsibilities. Replacement and
-deallocation cancel the owning task, and cancellation is checked before resolved bytes are installed.
+Referenced URL and file images load through Apple's `URLSession` and bounded file reads by
+default. `RemoteComposeNativeURLSessionResourceResolver.shared` is the default in UIKit,
+SwiftUI and AppKit hosts. A host can inject `RemoteComposeNativeResourceResolving` to supply its
+own authentication, caching or transport; passing `nil` disables external loading. The resolver
+receives the original reference and declared metadata. Replacement and deallocation cancel the
+owning task, and cancellation is checked before resolved bytes are installed.
 The in-memory cache key includes the opaque reference, encoding, type, and declared dimensions.
 
 Conceptual `ImageLayout` nodes own a `UIImageView`. Bitmap commands inside a canvas remain in the

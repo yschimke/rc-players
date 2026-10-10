@@ -1123,6 +1123,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     title: String,
     compatibility: NativeMacCompatibility,
     downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+    resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
     onFontFallback: @escaping (String) -> Void = { _ in },
     onEvent: @escaping (String) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
@@ -1131,6 +1132,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     try await openNative(
       data: data, title: title, compatibility: compatibility,
       downloadableFontResolver: downloadableFontResolver,
+      resourceResolver: resourceResolver,
       onFontFallback: onFontFallback,
       onEvent: { onEvent(nativeEventSummary($0)) },
       onDiagnostics: onDiagnostics, onError: onError)
@@ -1146,6 +1148,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     height: CGFloat? = nil,
     opaque: Bool = true,
     downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+    resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
     onFontFallback: @escaping (String) -> Void = { _ in },
     onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
@@ -1166,9 +1169,32 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
       onFontFallback("Google Fonts unavailable; using the system font: \(error.localizedDescription)")
       fonts = NativeMacFontRegistry()
     }
+    var resolvedImages: [Int: Data] = [:]
+    var resourceBytes = 0
+    for image in snapshot.images {
+      try Task.checkCancellation()
+      let bytes: Data
+      if image.encoding == NativeSwiftBitmapEncoding.inline {
+        bytes = image.data
+      } else {
+        guard let resourceResolver else {
+          throw RemoteComposeNativeResourceError.unresolvedReference(id: image.id)
+        }
+        bytes = try await resourceResolver.resolve(RemoteComposeNativeResourceRequest(
+          id: image.id, reference: try NativeResourcePolicy.reference(from: image.data, id: image.id),
+          declaredWidth: image.width, declaredHeight: image.height,
+          type: image.type, encoding: image.encoding))
+      }
+      try NativeResourcePolicy.validate(
+        id: image.id, byteCount: bytes.count, width: image.width, height: image.height,
+        runningTotal: &resourceBytes, limits: .default)
+      resolvedImages[image.id] = bytes
+    }
+    try Task.checkCancellation()
     let player = try NativeMacDocumentView(
       snapshot: snapshot, resolvedAt: 0, wallClock: wallClock, session: session,
       compatibility: compatibility, report: report, fonts: fonts,
+      resolvedImages: resolvedImages,
       onEvent: { event in
         guard case let .namedAction(name, value) = event else { return }
         onEvent(.namedAction(name: name, value: nativePlayerActionValue(value)))
@@ -1476,6 +1502,7 @@ private final class NativeMacDocumentView: NSView {
     report: NativeMacPolicyReport,
     fonts: NativeMacFontRegistry,
     conformanceFontName: String? = nil,
+    resolvedImages: [Int: Data] = [:],
     onEvent: @escaping (NativeSwiftEvent) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
@@ -1487,8 +1514,9 @@ private final class NativeMacDocumentView: NSView {
     self.conformanceFontName = conformanceFontName
     images = try Dictionary(
       uniqueKeysWithValues: snapshot.images.map { resource in
-        guard resource.encoding == NativeSwiftBitmapEncoding.inline,
-          let image = NSImage(data: resource.data)
+        let bytes = resolvedImages[resource.id]
+          ?? (resource.encoding == NativeSwiftBitmapEncoding.inline ? resource.data : nil)
+        guard let bytes, let image = NSImage(data: bytes)
         else {
           throw NativeSwiftCoreError.malformed(
             offset: 0, reason: "Could not decode embedded image \(resource.id)")

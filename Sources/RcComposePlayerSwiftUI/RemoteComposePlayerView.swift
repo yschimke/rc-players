@@ -329,6 +329,7 @@
     private var errorHandler: (RemoteComposePlayerError) -> Void
     private var playerController: RemoteComposePlayerController
     private var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
+    private var resourceResolver: (any RemoteComposeNativeResourceResolving)?
     private var nativeController: RemoteComposeNativePlayerViewController?
     /// The latest native value update for each name, as a token from `nextNativeUpdateToken`. A
     /// retry loop gives up once a newer update for its name has started, so a stale value cannot
@@ -341,12 +342,14 @@
       controller: RemoteComposePlayerController? = nil,
       configuration: RemoteComposePlayerConfiguration = .init(),
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
     ) {
       documentData = data
       playerController = controller ?? RemoteComposePlayerController()
       self.configuration = configuration
+      self.resourceResolver = resourceResolver
       self.downloadableFontResolver = downloadableFontResolver
       eventHandler = onEvent
       errorHandler = onError
@@ -368,7 +371,7 @@
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
       update(data: data, controller: playerController, configuration: configuration,
-             downloadableFontResolver: downloadableFontResolver, onEvent: onEvent, onError: onError)
+             downloadableFontResolver: downloadableFontResolver, resourceResolver: resourceResolver, onEvent: onEvent, onError: onError)
     }
 
     public func update(
@@ -376,17 +379,20 @@
       controller: RemoteComposePlayerController,
       configuration: RemoteComposePlayerConfiguration,
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void,
       onError: @escaping (RemoteComposePlayerError) -> Void
     ) {
       eventHandler = onEvent
       errorHandler = onError
       guard data != documentData || configuration != self.configuration || controller !== playerController
-          || !sameResolver(downloadableFontResolver, self.downloadableFontResolver) else { return }
+          || !sameResolver(downloadableFontResolver, self.downloadableFontResolver)
+          || resourceResolver !== self.resourceResolver else { return }
       playerController.installNativeUpdateHandler(nil)
       documentData = data
       playerController = controller
       self.configuration = configuration
+      self.resourceResolver = resourceResolver
       self.downloadableFontResolver = downloadableFontResolver
       if isViewLoaded { rebuildContent() }
     }
@@ -403,6 +409,7 @@
         background: configuration.nativeFallbackBackground,
         compatibilityPolicy: configuration.compatibility.nativeValue,
         downloadableFontResolver: downloadableFontResolver,
+        resourceResolver: resourceResolver,
         onEvent: { [weak self] event in self?.eventHandler(.init(nativeEvent: event)) },
         onDiagnostics: { _ in },
         onError: { [weak self] error in self?.errorHandler(.playback(error.localizedDescription)) })
@@ -473,26 +480,29 @@
     public let controller: RemoteComposePlayerController?
     public var configuration: RemoteComposePlayerConfiguration
     public var downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)?
+    public var resourceResolver: (any RemoteComposeNativeResourceResolving)?
     public var onEvent: (RemoteComposePlayerEvent) -> Void
     public var onError: (RemoteComposePlayerError) -> Void
 
     public init(data: Data, controller: RemoteComposePlayerController? = nil,
                 configuration: RemoteComposePlayerConfiguration = .init(),
                 downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
+      resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
                 onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
                 onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }) {
       self.data = data; self.controller = controller; self.configuration = configuration
+      self.resourceResolver = resourceResolver
       self.downloadableFontResolver = downloadableFontResolver; self.onEvent = onEvent; self.onError = onError
     }
 
     public func makeUIViewController(context: Context) -> RemoteComposePlayerViewController {
       RemoteComposePlayerViewController(data: data, controller: controller ?? context.coordinator.defaultController,
-        configuration: configuration, downloadableFontResolver: downloadableFontResolver, onEvent: onEvent, onError: onError)
+        configuration: configuration, downloadableFontResolver: downloadableFontResolver, resourceResolver: resourceResolver, onEvent: onEvent, onError: onError)
     }
     public func makeCoordinator() -> Coordinator { Coordinator() }
     public func updateUIViewController(_ controller: RemoteComposePlayerViewController, context: Context) {
       controller.update(data: data, controller: self.controller ?? context.coordinator.defaultController,
-        configuration: configuration, downloadableFontResolver: downloadableFontResolver, onEvent: onEvent, onError: onError)
+        configuration: configuration, downloadableFontResolver: downloadableFontResolver, resourceResolver: resourceResolver, onEvent: onEvent, onError: onError)
     }
   }
 

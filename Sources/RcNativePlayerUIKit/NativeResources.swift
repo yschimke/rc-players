@@ -34,7 +34,7 @@ public struct RemoteComposeNativeResourceLimits: Equatable, Sendable {
   public static let `default` = RemoteComposeNativeResourceLimits()
 }
 
-/// An external image reference from a document. The player never resolves it without a host.
+/// An external image reference from a document.
 public struct RemoteComposeNativeResourceRequest: Equatable, Sendable {
   public let id: Int
   public let reference: String
@@ -60,9 +60,25 @@ public struct RemoteComposeNativeResourceRequest: Equatable, Sendable {
   }
 }
 
-/// Opt-in host ownership for referenced resource bytes. No default implementation performs I/O.
+/// Host-overridable ownership for referenced resource bytes.
 public protocol RemoteComposeNativeResourceResolving: AnyObject, Sendable {
   func resolve(_ request: RemoteComposeNativeResourceRequest) async throws -> Data
+}
+
+/// The default Apple image resolver. Pass a custom resolver to override it, or nil to disable I/O.
+public final class RemoteComposeNativeURLSessionResourceResolver:
+  RemoteComposeNativeResourceResolving
+{
+  public static let shared = RemoteComposeNativeURLSessionResourceResolver()
+  private let loader: NativeSwiftImageLoader
+
+  public init(session: URLSession = .shared, maximumBytes: Int = 8 * 1024 * 1024) {
+    loader = NativeSwiftImageLoader(session: session, maximumBytes: maximumBytes)
+  }
+
+  public func resolve(_ request: RemoteComposeNativeResourceRequest) async throws -> Data {
+    try await loader.load(reference: request.reference, encoding: request.encoding)
+  }
 }
 
 public enum RemoteComposeNativeResourceError: Error, Equatable, LocalizedError, Sendable {
