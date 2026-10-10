@@ -11,7 +11,7 @@ internal actual fun transformRcShader(shader: Shader, matrix: FloatArray?): Shad
 
 private fun FloatArray.toSkiaMatrix(): Matrix33 =
   when (size) {
-    9 -> Matrix33(*this)
+    9 -> Matrix33(this[0], this[1], this[2], this[3], this[4], this[5], this[6], this[7], this[8])
     16 -> Matrix33(this[0], this[1], this[3], this[4], this[5], this[7], this[8], this[9], this[15])
     else -> error("AndroidX shader matrix has $size values")
   }

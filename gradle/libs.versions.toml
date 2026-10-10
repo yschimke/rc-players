@@ -1,6 +1,6 @@
 [versions]
-# Coil 3.5 matches CMP 1.11.1; 3.6 would raise the player's Compose runtime floor to 1.12.
-coil = "3.5.0"
+# Keep Coil's Compose/Skiko requirements aligned with the player's CMP line.
+coil = "3.6.3"
 ktor = "3.6.0"
 # Held at 2.4.0: CodeQL's Kotlin extractor doesn't support 2.4.10 yet — it aborts with
 # `Kotlin version too new`, which fails the `Analyze (java-kotlin)` job as a configuration error
@@ -99,18 +99,10 @@ androidx-compose-material3 = "1.4.0"
 # ref is therefore a SERVE-HOST RELEASE concern, not just a build-hygiene one — see
 # `docs/RENDERER_COMPATIBILITY.md`.
 #
-# HELD AT 1.11.1 — 1.12.0 is not a minor/patch bump this ref can take on its own (#4503):
-#   * `androidx.compose.*:1.12.0` AAR metadata declares `minCompileSdk = 37`, so every Android
-#     module on the conventions default (`compileSdk = 36`) fails `checkAarMetadata` — the bump is
-#     a repo-wide platform move, not a version-ref edit.
-#   * skiko 0.150.1 (what 1.12.0 resolves) REMOVES the mutating `org.jetbrains.skia.Path` API that
-#     m144 had only deprecated at `DeprecationLevel.ERROR`. `PathConic.skiko.kt` no longer calls it
-#     (it splits conics into quads), so this player already links against a 1.12 host's skiko.
-#   * `compose-multiplatform-material3` (1.11.0-alpha07) and `compottie` (built against foundation
-#     1.11.0) move in lockstep with this ref — see their comments below.
-# The Renovate rule for `org.jetbrains.compose**` in `.github/renovate.json` now tracks the 1.11.x
-# line so the group stops re-proposing this; moving to 1.12 is a deliberate, coordinated change.
-compose-multiplatform = "1.11.1"
+# CMP 1.12 requires compileSdk 37 (the Android conventions and player stack use it) and Skiko
+# 0.150.1. PathConic uses the shared conic-to-quads implementation, avoiding removed mutating
+# Skia Path APIs. Renovate keeps stable patches on this coordinated Compose/Coil line.
+compose-multiplatform = "1.12.1"
 wear-compose = "1.7.0-beta02"
 # `androidx.wear:wear` carries `androidx.wear.ambient.AmbientLifecycleObserver` —
 # the AOSP entry point both horologist's `AmbientAware` and direct subscribers

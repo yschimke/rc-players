@@ -2039,7 +2039,8 @@ class AndroidxWireCompatibilityTest {
       )
     }
 
-    expected.setInitialValue(expected.targetValue)
+    // Retarget at the current presentation value, including wrapped angles.
+    expected.setInitialValue(expected.get(1.25f))
     expected.setTargetValue(40f)
     state.setFloat(targetId, 40f)
     listOf(1.25f, 1.5f, 2f).forEach { absoluteTime ->

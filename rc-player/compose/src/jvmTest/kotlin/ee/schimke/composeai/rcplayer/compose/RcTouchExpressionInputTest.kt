@@ -40,6 +40,32 @@ class RcTouchExpressionInputTest {
   }
 
   @Test
+  fun velocityOnlyExpressionsClaimTheirDragAxis() {
+    for (axis in listOf(15, 16)) runSkikoComposeUiTest(
+      size = Size(100f, 100f),
+      density = Density(1f),
+    ) {
+      val registry =
+        RcCustomComponentRegistry(
+          "probe" to { component, modifier -> BasicText(component.float(1).toString(), modifier) }
+        )
+      setContent {
+        RcComposePlayer(document(root = true, touchReference = axis), customComponents = registry)
+      }
+      waitForIdle()
+      onRoot().performTouchInput {
+        down(Offset(20f, 20f))
+        for (position in listOf(40f, 60f, 80f)) {
+          moveTo(if (axis == 15) Offset(position, 20f) else Offset(20f, position), delayMillis = 16)
+        }
+        up()
+      }
+      waitForIdle()
+      onNodeWithText("100.0").assertExists()
+    }
+  }
+
+  @Test
   fun aChildTakingTheDragCancelsTouchActionsExactlyOnce() =
     runSkikoComposeUiTest(size = Size(100f, 100f), density = Density(1f)) {
       val events = mutableListOf<RcPlayerEvent>()
@@ -97,6 +123,7 @@ class RcTouchExpressionInputTest {
     root: Boolean,
     actions: List<RcOperation> = emptyList(),
     expression: Boolean = true,
+    touchReference: Int = 13,
   ): RcDocument {
     val touch =
       RcTouchExpression(
@@ -106,7 +133,7 @@ class RcTouchExpressionInputTest {
         literal(100f),
         literal(0f),
         0,
-        listOf(reference(13)),
+        listOf(reference(touchReference)),
         RcTouchExpression.STOP_ABSOLUTE_POS,
         emptyList(),
         emptyList(),

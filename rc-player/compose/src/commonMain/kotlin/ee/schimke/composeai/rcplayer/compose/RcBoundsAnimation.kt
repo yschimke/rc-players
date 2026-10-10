@@ -3,7 +3,6 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.DeferredTargetAnimation
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.ExperimentalAnimatableApi
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
@@ -49,7 +48,6 @@ private data class RcAnimateBoundsElement(
   }
 }
 
-@OptIn(ExperimentalAnimatableApi::class)
 private class RcAnimateBoundsNode(var lookaheadScope: LookaheadScope, var spec: RcAnimationSpec) :
   ApproachLayoutModifierNode, Modifier.Node() {
   private val sizeAnimation =

@@ -239,6 +239,33 @@ public fun RcComposeViewController(
     controller,
   )
 
+/** [RcComposeViewController] with an overridable external-image loader for Swift hosts. */
+@OptIn(ExperimentalComposeUiApi::class)
+public fun RcComposeViewController(
+  bytes: ByteArray,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  opaque: Boolean,
+  soundHost: RcSoundHost,
+  controller: RcComposePlayerController,
+  imageLoader: RcImageLoader,
+): UIViewController =
+  createRcComposeViewController(
+    bytes,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    opaque,
+    soundHost,
+    controller,
+    imageLoader,
+  )
+
 @OptIn(ExperimentalComposeUiApi::class)
 private fun createRcComposeViewController(
   bytes: ByteArray,
@@ -250,6 +277,7 @@ private fun createRcComposeViewController(
   opaque: Boolean,
   soundHost: RcSoundHost,
   controller: RcComposePlayerController?,
+  imageLoader: RcImageLoader = RcImageLoader.Default,
 ): UIViewController {
   warnIfHighRefreshRatePlistEntryIsMissing()
   val document = runCatching {
@@ -258,6 +286,7 @@ private fun createRcComposeViewController(
         .composeSupportReport(
           RcOperationProfiles.CMP_IOS_ALPHA18,
           availableFontFamilies = typefaces.families,
+          allowExternalImagePlaceholders = imageLoader !== RcImageLoader.Empty,
         )
         .requireRenderable(lenient)
     }
@@ -279,7 +308,10 @@ private fun createRcComposeViewController(
       enforceStrictPlistSanityCheck = false
     }
   ) {
-    CompositionLocalProvider(LocalRcSoundHost provides soundHost) {
+    CompositionLocalProvider(
+      LocalRcSoundHost provides soundHost,
+      LocalRcImageLoader provides imageLoader,
+    ) {
       RcComposePlayer(
         document,
         Modifier.fillMaxSize(),

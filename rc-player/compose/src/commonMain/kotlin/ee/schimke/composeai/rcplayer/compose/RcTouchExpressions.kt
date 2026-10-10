@@ -122,12 +122,18 @@ private class RcTouchExpressionNode(
   private var dragging = false
   private val readsX
     get() = expressions.any { expression ->
-      expression.expression.any { it.referencedId == RcTouchExpressionRuntime.ID_TOUCH_POS_X }
+      expression.expression.any {
+        it.referencedId == RcTouchExpressionRuntime.ID_TOUCH_POS_X ||
+          it.referencedId == RcTouchExpressionRuntime.ID_TOUCH_VEL_X
+      }
     }
 
   private val readsY
     get() = expressions.any { expression ->
-      expression.expression.any { it.referencedId == RcTouchExpressionRuntime.ID_TOUCH_POS_Y }
+      expression.expression.any {
+        it.referencedId == RcTouchExpressionRuntime.ID_TOUCH_POS_Y ||
+          it.referencedId == RcTouchExpressionRuntime.ID_TOUCH_VEL_Y
+      }
     }
 
   fun reset(
