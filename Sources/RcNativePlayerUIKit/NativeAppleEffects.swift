@@ -81,25 +81,54 @@
   }
 
   @MainActor func performNativeDocumentHaptic(_ type: Int) {
+    guard type >= 0, let cue = NativeDocumentHaptic(rawValue: type % 21), cue != .none else {
+      return
+    }
     #if canImport(UIKit)
-      switch type % 21 {
-      case 0:
-        return
-      case 10, 16, 17:
+      switch cue {
+      case .longPress, .contextClick, .gestureThresholdActivate, .dragStart:
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-      case 2, 7, 19, 20:
-        UISelectionFeedbackGenerator().selectionChanged()
-      case 3, 8:
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-      case 4, 9:
-        UINotificationFeedbackGenerator().notificationOccurred(.warning)
-      case 5:
-        UINotificationFeedbackGenerator().notificationOccurred(.error)
-      default:
+      case .gestureStart, .gestureEnd, .gestureThresholdDeactivate:
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+      case .virtualKey, .keyboardTap, .clockTick, .keyboardPress, .keyboardRelease,
+        .virtualKeyRelease, .textHandleMove, .segmentTick, .segmentFrequentTick:
+        UISelectionFeedbackGenerator().selectionChanged()
+      case .confirm, .toggleOn:
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+      case .toggleOff:
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+      case .reject:
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+      case .none:
+        break
       }
     #elseif canImport(AppKit)
       NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
     #endif
+  }
+
+  /// AndroidX's full wire vocabulary. The host maps intent to the nearest platform feedback.
+  private enum NativeDocumentHaptic: Int {
+    case none = 0
+    case longPress = 1
+    case virtualKey = 2
+    case keyboardTap = 3
+    case clockTick = 4
+    case contextClick = 5
+    case keyboardPress = 6
+    case keyboardRelease = 7
+    case virtualKeyRelease = 8
+    case textHandleMove = 9
+    case gestureStart = 10
+    case gestureEnd = 11
+    case confirm = 12
+    case reject = 13
+    case toggleOn = 14
+    case toggleOff = 15
+    case gestureThresholdActivate = 16
+    case gestureThresholdDeactivate = 17
+    case dragStart = 18
+    case segmentTick = 19
+    case segmentFrequentTick = 20
   }
 #endif

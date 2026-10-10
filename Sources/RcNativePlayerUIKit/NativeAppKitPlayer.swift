@@ -405,6 +405,8 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
   public static func makeView(
     data: Data,
     compatibility: NativeMacCompatibility = .compatible,
+    soundPlayer: any RemoteComposeNativeSoundPlaying = RemoteComposeNativeAVSoundPlayer(),
+    hapticHandler: ((Int) -> Void)? = nil,
     onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void = { _ in },
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void = { _ in },
     onError: @escaping (String) -> Void = { _ in }
@@ -418,7 +420,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     return try NativeMacDocumentView(
       snapshot: snapshot, resolvedAt: 0, wallClock: wallClock, session: session,
       compatibility: compatibility, report: report,
-      fonts: fonts,
+      fonts: fonts, soundPlayer: soundPlayer, hapticHandler: hapticHandler,
       onEvent: { event in
         onEvent(nativePlayerEvent(event))
       }, onDiagnostics: onDiagnostics, onError: onError)
@@ -1166,6 +1168,8 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     opaque: Bool = true,
     downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
     resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
+    soundPlayer: any RemoteComposeNativeSoundPlaying = RemoteComposeNativeAVSoundPlayer(),
+    hapticHandler: ((Int) -> Void)? = nil,
     onFontFallback: @escaping (String) -> Void = { _ in },
     onEvent: @escaping (RemoteComposeNativePlayerEvent) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
@@ -1211,7 +1215,7 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     let player = try NativeMacDocumentView(
       snapshot: snapshot, resolvedAt: 0, wallClock: wallClock, session: session,
       compatibility: compatibility, report: report, fonts: fonts,
-      resolvedImages: resolvedImages,
+      resolvedImages: resolvedImages, soundPlayer: soundPlayer, hapticHandler: hapticHandler,
       onEvent: { event in
         onEvent(nativePlayerEvent(event))
       }, onDiagnostics: onDiagnostics, onError: onError)
@@ -1384,7 +1388,8 @@ private final class NativeMacDocumentView: NSView {
   private let session: NativeSwiftDocumentSession
   private let compatibility: NativeMacCompatibility
   private let onEvent: (NativeSwiftEvent) -> Void
-  private let soundPlayer = RemoteComposeNativeAVSoundPlayer()
+  private let soundPlayer: any RemoteComposeNativeSoundPlaying
+  private let hapticHandler: ((Int) -> Void)?
   private let onDiagnostics: (RemoteComposeNativePlayerDiagnostics) -> Void
   private let onError: (String) -> Void
   private var snapshot: NativeSwiftDocumentSnapshot
@@ -1520,6 +1525,8 @@ private final class NativeMacDocumentView: NSView {
     fonts: NativeMacFontRegistry,
     conformanceFontName: String? = nil,
     resolvedImages: [Int: Data] = [:],
+    soundPlayer: any RemoteComposeNativeSoundPlaying = RemoteComposeNativeAVSoundPlayer(),
+    hapticHandler: ((Int) -> Void)? = nil,
     onEvent: @escaping (NativeSwiftEvent) -> Void,
     onDiagnostics: @escaping (RemoteComposeNativePlayerDiagnostics) -> Void,
     onError: @escaping (String) -> Void
@@ -1549,6 +1556,8 @@ private final class NativeMacDocumentView: NSView {
       })
     self.session = session
     self.compatibility = compatibility
+    self.soundPlayer = soundPlayer
+    self.hapticHandler = hapticHandler
     self.onEvent = onEvent
     self.onDiagnostics = onDiagnostics
     self.onError = onError
@@ -1639,7 +1648,8 @@ private final class NativeMacDocumentView: NSView {
 
   private func deliver(_ event: NativeSwiftEvent) {
     switch event {
-    case .haptic(let type): performNativeDocumentHaptic(type)
+    case .haptic(let type):
+      if let hapticHandler { hapticHandler(type) } else { performNativeDocumentHaptic(type) }
     case .playSound(let id, let data): soundPlayer.playSound(id: id, data: data)
     default: break
     }
@@ -1855,6 +1865,7 @@ private final class NativeMacDocumentView: NSView {
     super.viewDidMoveToWindow()
     if window == nil {
       pauseTimeline()
+      soundPlayer.stopAll()
     } else if NSApplication.shared.isActive {
       resumeTimeline()
     }

@@ -1382,7 +1382,7 @@ import Testing
     output.u8(NativeSwiftWireOpcode.clickArea).int(7).int(11)
       .float(0).float(0).int(Writer.nanReference(50)).float(20).int(10)
     output.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
-    output.u8(NativeSwiftWireOpcode.layoutContent).int(3).int(-1).int(1).int(4)
+    output.u8(NativeSwiftWireOpcode.layoutContent).int(3)
     output.u8(NativeSwiftWireOpcode.modifierClick)
     output.u8(NativeSwiftWireOpcode.hostAction).int(4)
     output.u8(NativeSwiftWireOpcode.hostMetadataAction).int(5).int(10)
@@ -1436,6 +1436,26 @@ import Testing
     #expect(session.takeFrameEffects().isEmpty)
     _ = try session.snapshot(timeSeconds: 1)
     #expect(session.takeFrameEffects() == [.playSound(id: 6, data: sound), .haptic(type: 3)])
+  }
+
+  @Test func soundAndHapticInImpulseRunOnlyDuringInitialization() throws {
+    let sound = Data([1, 2, 3])
+    let output = Writer()
+    output.header(width: 20, height: 20)
+    output.u8(NativeSwiftWireOpcode.dataSound).int(6).int(sound.count).raw(sound)
+    output.u8(NativeSwiftWireOpcode.layoutRoot).int(1)
+    output.u8(NativeSwiftWireOpcode.impulseStart).float(1).float(0)
+    output.u8(NativeSwiftWireOpcode.playSound).int(6)
+    output.u8(NativeSwiftWireOpcode.hapticFeedback).int(3)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    output.u8(NativeSwiftWireOpcode.containerEnd)
+    let session = try NativeSwiftDocumentSession.open(data: output.data)
+    _ = try session.snapshot(timeSeconds: 0)
+    #expect(session.takeFrameEffects() == [.playSound(id: 6, data: sound), .haptic(type: 3)])
+    _ = try session.snapshot(timeSeconds: 0.5)
+    #expect(session.takeFrameEffects().isEmpty)
+    _ = try session.snapshot(timeSeconds: 2)
+    #expect(session.takeFrameEffects().isEmpty)
   }
 
   @Test func floatAnimationSamples() throws {

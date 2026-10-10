@@ -252,7 +252,9 @@ public final class NativeSwiftDocumentSession: @unchecked Sendable {
       lastFrameEffectsTime = timeSeconds
       if document.runActions.isEmpty { pendingFrameEffects.removeAll() }
       var effectValues = values
-      pendingFrameEffects += try execute(document.frameEffects, values: &effectValues)
+      pendingFrameEffects += try execute(
+        document.frameEffects.filter { impulseAllows($0.impulseGate) }.map(\.action),
+        values: &effectValues)
     }
     let snapshot = NativeSwiftDocumentSnapshot(
       width: document.width,

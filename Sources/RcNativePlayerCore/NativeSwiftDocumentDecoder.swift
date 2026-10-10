@@ -124,7 +124,7 @@ enum NativeSwiftDocumentDecoder {
     var images: [Int: ParsedImageResource] = [:]
     var sounds: [Int: ParsedSound] = [:]
     var clickAreas: [ParsedClickArea] = []
-    var frameEffects: [ParsedAction] = []
+    var frameEffects: [ParsedFrameEffect] = []
     /// The distinct bitmaps `DrawToBitmap` draws into, and their pixels. Each is an offscreen
     /// target a host allocates, so both are bounded as the CMP player's `RcOffscreenTargetLimits`.
     var offscreenTargetIDs: Set<Int> = []
@@ -902,6 +902,7 @@ enum NativeSwiftDocumentDecoder {
       let opcode = try input.u8("opcode")
       census(opcode)
       let impulseScope = impulseScopes.last
+      let frameEffectCountBeforeOperation = frameEffects.count
       // `ops:count` is a census of the linked top-level tree, not decoder iterations. Containers
       // own their children; macro definitions and calls expand into those children; neither is an
       // independent top-level operation. Template bytes execute through `suspendedInputs` and are
@@ -2565,7 +2566,9 @@ enum NativeSwiftDocumentDecoder {
         {
           appendAction(.playSound(id: id), to: container)
         } else {
-          frameEffects.append(.playSound(id: id))
+          frameEffects.append(ParsedFrameEffect(
+            action: .playSound(id: id),
+            impulseGate: impulseScope.map { ParsedImpulseGate(impulse: $0.impulse, segment: $0.segment) }))
         }
       case NativeSwiftWireOpcode.soundExpression:
         let id = try input.int("sound expression id")
@@ -2632,7 +2635,9 @@ enum NativeSwiftDocumentDecoder {
         }
         guard let container, container.gesture != nil || container.actionSink != nil else {
           if opcode == NativeSwiftWireOpcode.hapticFeedback, let action {
-            frameEffects.append(action)
+            frameEffects.append(ParsedFrameEffect(
+              action: action,
+              impulseGate: impulseScope.map { ParsedImpulseGate(impulse: $0.impulse, segment: $0.segment) }))
           }
           break
         }
@@ -2779,7 +2784,9 @@ enum NativeSwiftDocumentDecoder {
         // An impulse gates what it draws. Anything else inside one — state, layout, a wake —
         // would run on every frame here rather than only in its window, so it is refused rather
         // than run at the wrong time.
-        if impulseDrawTargets.isEmpty, !structural {
+        if impulseDrawTargets.isEmpty, frameEffects.count == frameEffectCountBeforeOperation,
+          !structural
+        {
           throw NativeSwiftCoreError.unsupported(
             opcode: opcode, offset: opcodeOffset,
             reason: "only drawing is migrated inside an impulse")

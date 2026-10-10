@@ -30,7 +30,7 @@ struct ParsedDocument {
   let images: [Int: ParsedImageResource]
   let sounds: [Int: ParsedSound]
   let clickAreas: [ParsedClickArea]
-  let frameEffects: [ParsedAction]
+  let frameEffects: [ParsedFrameEffect]
   /// Text producers in exactly the order the wire declared them. A later operation may consume an
   /// earlier result regardless of their concrete operation types.
   let textOperations: [ParsedTextOperation]
@@ -286,6 +286,11 @@ struct ParsedImpulse {
 struct ParsedImpulseGate {
   let impulse: Int
   let segment: Int
+}
+
+struct ParsedFrameEffect {
+  let action: ParsedAction
+  let impulseGate: ParsedImpulseGate?
 }
 
 /// AndroidX `ImpulseOperation`'s phase at one frame.
