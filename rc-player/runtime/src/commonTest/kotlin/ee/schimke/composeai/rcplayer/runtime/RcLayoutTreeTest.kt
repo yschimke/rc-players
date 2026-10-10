@@ -53,6 +53,19 @@ class RcLayoutTreeTest {
   private val header = RcHeader(RcVersion(1, 0, 0), modern = false)
 
   @Test
+  fun customCopyKeepsRemoteChildrenAndTheOriginalDestructuringContract() {
+    val modifiers = RcLayoutModifiers()
+    val child = RcLayoutNode.Custom(RcCustomLayout(2, 0, 50, emptyList()), modifiers)
+    val parent =
+      RcLayoutNode.Custom(RcCustomLayout(1, 0, 50, emptyList()), modifiers, listOf(child))
+    val copied = parent.copy(operation = parent.operation.copy(componentId = 3))
+    assertEquals(listOf(child), copied.children)
+    val (operation, copiedModifiers) = copied
+    assertEquals(3, operation.componentId)
+    assertEquals(modifiers, copiedModifiers)
+  }
+
+  @Test
   fun emptyBoxRetainsItsIdentityAndModifiersWithoutInventingContent() {
     val root =
       requireNotNull(

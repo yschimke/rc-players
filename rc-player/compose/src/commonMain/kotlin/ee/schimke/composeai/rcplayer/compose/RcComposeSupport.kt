@@ -190,6 +190,22 @@ public fun RcDocument.composeSupportReport(
   availableFontFamilies: Set<String> = emptySet(),
   allowExternalImagePlaceholders: Boolean = false,
   availableCustomComponents: Set<String>,
+): RcComposeSupportReport =
+  composeSupportReport(
+    profile,
+    availableFontFamilies,
+    allowExternalImagePlaceholders,
+    availableCustomComponents,
+    emptySet(),
+  )
+
+/** [availableImageIds] lists external bitmaps already supplied by the host. */
+public fun RcDocument.composeSupportReport(
+  profile: RcOperationProfile? = null,
+  availableFontFamilies: Set<String> = emptySet(),
+  allowExternalImagePlaceholders: Boolean = false,
+  availableCustomComponents: Set<String> = emptySet(),
+  availableImageIds: Set<Int>,
 ): RcComposeSupportReport {
   val issues = mutableListOf<RcComposeSupportIssue>()
   val bitmapIds = operations.filterIsInstance<RcBitmapData>().mapTo(mutableSetOf()) { it.imageId }
@@ -492,13 +508,16 @@ public fun RcDocument.composeSupportReport(
     }
     if (operation is RcBitmapData) {
       when {
-        operation.encoding != RcBitmapData.ENCODING_INLINE && !allowExternalImagePlaceholders ->
+        operation.encoding != RcBitmapData.ENCODING_INLINE &&
+          !allowExternalImagePlaceholders &&
+          operation.imageId !in availableImageIds ->
           issues +=
             RcComposeSupportIssue(
               index,
               "BitmapData",
               "encoding ${operation.encoding} requires an image host",
             )
+        operation.encoding != RcBitmapData.ENCODING_INLINE -> Unit
         operation.type !in
           setOf(
             RcBitmapData.TYPE_PNG_8888,

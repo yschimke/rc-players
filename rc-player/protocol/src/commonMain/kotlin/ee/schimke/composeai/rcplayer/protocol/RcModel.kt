@@ -703,6 +703,10 @@ public data class RcBitmapData(
 
   public companion object {
     public const val ENCODING_INLINE: Int = 0
+    public const val ENCODING_URL: Int = 1
+    public const val ENCODING_FILE: Int = 2
+    public const val ENCODING_EMPTY: Int = 3
+    public const val ENCODING_COMPONENT_OFFSCREEN_BUFFER: Int = 4
     public const val TYPE_PNG_8888: Int = 0
     public const val TYPE_PNG: Int = 1
     public const val TYPE_RAW8: Int = 2

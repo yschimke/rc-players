@@ -206,6 +206,29 @@ dependencies {
 `rc-player-compose` pulls the rest of the stack transitively. Take `rc-player-protocol` on its own
 when you only need to read or write the wire format.
 
+URL and file bitmap payloads load asynchronously through Coil 3 by default, using the app's
+`SingletonImageLoader` and its caches. The player includes Ktor networking with JVM/Android,
+Apple and browser engines. Inline bitmap decoding stays in the player. Pending requests cancel
+when the document or loader changes or the player leaves composition.
+
+Override image loading for one player, or provide `LocalRcImageLoader` around several players:
+
+```kotlin
+val images = RcImageLoader { bitmap -> hostImages.load(bitmap.data.decodeToString()) }
+RcComposePlayer(document, imageLoader = images)
+
+CompositionLocalProvider(LocalRcImageLoader provides images) {
+  RcComposePlayer(document)
+}
+```
+
+An override returns a Compose `ImageBitmap`, or null for an unavailable image. It owns its access
+policy and recoverable errors; it must not block the composition dispatcher. Use
+`RcImageLoader.Empty` to disable external loading. To keep Coil while configuring authentication,
+fetchers or caching, configure Coil's singleton before the first player is composed.
+`rememberCoilRcImageLoader()` also returns the default adapter explicitly. Support reports remain
+conservative until image ids are supplied through `availableImageIds`.
+
 Compose dependency versions are consumer requirements, including `implementation` dependencies
 published at runtime scope. The experimental `third-party-rc-embedded-player` now requests AndroidX
 Compose **1.12.1**, intentionally matching the CMP player's resolved Android Compose UI floor.
@@ -256,6 +279,11 @@ Custom properties can contain literals, live float references, text references a
 float/text return channels. See
 [`docs/design/RC_COMPOSITION.md`](docs/design/RC_COMPOSITION.md) for the composite-document, slot and
 state-ownership model.
+
+Custom component renderers can display document children using `component.Child(index, modifier)`
+or `component.Children()`. `component.childCount` includes all direct slots;
+`component.customChild(index)` exposes a custom child's properties even when that child's config
+has no registered renderer. See the [upstream adaptation review](docs/design/RC_CMP_UPSTREAM_REVIEW_2026_10.md).
 
 Swift Package Manager, by the **bare** version tag — not `main`, and not the `v`-prefixed release
 tag, neither of which carries a resolvable checksum:

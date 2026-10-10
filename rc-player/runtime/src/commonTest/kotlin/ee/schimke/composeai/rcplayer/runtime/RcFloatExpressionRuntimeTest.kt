@@ -18,6 +18,29 @@ import kotlin.test.assertTrue
  * 0 and then integrated it to ±infinity.
  */
 class RcFloatExpressionRuntimeTest {
+  @Test
+  fun aTweenRetargetsFromItsCurrentValue() {
+    var target = 0f
+    val tween =
+      RcFloatExpressionRuntime(
+        RcFloatExpression(
+          59,
+          listOf(RcFloatWord(SOURCE_REFERENCE)),
+          listOf(RcFloatWord.literal(1f), RcFloatWord(4)),
+        ),
+        { null },
+      )
+    fun at(time: Float) = tween.evaluate(time) { target }
+    assertEquals(0f, at(0f))
+    target = 100f
+    at(1f)
+    val middle = at(1.5f)
+    assertEquals(50f, middle, 0.01f)
+    target = 0f
+    assertEquals(middle, at(1.5f), 0.01f)
+    assertEquals(25f, at(2f), 0.01f)
+    assertEquals(0f, at(2.5f))
+  }
 
   private var source = 1f
 

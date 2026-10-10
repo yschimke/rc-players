@@ -323,9 +323,12 @@ sealed interface ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schi
 
     final class Custom : ee.schimke.composeai.rcplayer.runtime/RcLayoutNode { // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom|null[0]
         constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcCustomLayout, ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers) // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcCustomLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers){}[0]
+        constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcCustomLayout, ee.schimke.composeai.rcplayer.runtime/RcLayoutModifiers, kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLayoutNode>) // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcCustomLayout;ee.schimke.composeai.rcplayer.runtime.RcLayoutModifiers;kotlin.collections.List<ee.schimke.composeai.rcplayer.runtime.RcLayoutNode>){}[0]
 
         final val animationId // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.animationId|{}animationId[0]
             final fun <get-animationId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.animationId.<get-animationId>|<get-animationId>(){}[0]
+        final val children // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.children|{}children[0]
+            final fun <get-children>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.runtime/RcLayoutNode> // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.children.<get-children>|<get-children>(){}[0]
         final val componentId // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.componentId|{}componentId[0]
             final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.componentId.<get-componentId>|<get-componentId>(){}[0]
         final val modifiers // ee.schimke.composeai.rcplayer.runtime/RcLayoutNode.Custom.modifiers|{}modifiers[0]

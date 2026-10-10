@@ -149,12 +149,40 @@ public sealed interface RcLayoutNode {
     override val modifiers: RcLayoutModifiers = RcLayoutModifiers()
   }
 
-  public data class Custom(
-    val operation: RcCustomLayout,
-    override val modifiers: RcLayoutModifiers,
+  public class Custom(
+    public val operation: RcCustomLayout,
+    public override val modifiers: RcLayoutModifiers,
+    public val children: List<RcLayoutNode>,
   ) : RcLayoutNode {
+    public constructor(
+      operation: RcCustomLayout,
+      modifiers: RcLayoutModifiers,
+    ) : this(operation, modifiers, emptyList())
+
     override val componentId: Int = operation.componentId
     override val animationId: Int = operation.animationId
+
+    // Keep the original constructor, destructuring and copy ABI when adding remote children.
+    public operator fun component1(): RcCustomLayout = operation
+
+    public operator fun component2(): RcLayoutModifiers = modifiers
+
+    public fun copy(
+      operation: RcCustomLayout = this.operation,
+      modifiers: RcLayoutModifiers = this.modifiers,
+    ): Custom = Custom(operation, modifiers, children)
+
+    override fun equals(other: Any?): Boolean =
+      other is Custom &&
+        operation == other.operation &&
+        modifiers == other.modifiers &&
+        children == other.children
+
+    override fun hashCode(): Int =
+      31 * (31 * operation.hashCode() + modifiers.hashCode()) + children.hashCode()
+
+    override fun toString(): String =
+      "Custom(operation=$operation, modifiers=$modifiers, children=$children)"
   }
 
   public data class Box(
@@ -361,7 +389,13 @@ public object RcLayoutTree {
           )
         }
         is RcCanvasContent -> RcLayoutNode.CanvasContent(operation.componentId, container.children)
-        is RcCustomLayout -> RcLayoutNode.Custom(operation, modifiers)
+        is RcCustomLayout ->
+          RcLayoutNode.Custom(
+            operation,
+            modifiers,
+            optionalContent(container, seenIds, styles)?.children
+              ?: childComponents(container, seenIds, styles),
+          )
         is RcBoxLayout ->
           RcLayoutNode.Box(
             operation,

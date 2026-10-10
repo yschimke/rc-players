@@ -52,6 +52,34 @@ public fun RcComposeWindow(
   onError: (String) -> Unit,
   lenient: Boolean,
   soundHost: RcSoundHost,
+): Unit =
+  RcComposeWindow(
+    bytes,
+    title,
+    width,
+    height,
+    theme,
+    onEvent,
+    typefaces,
+    onError,
+    lenient,
+    soundHost,
+    RcImageLoader.Default,
+  )
+
+/** [RcComposeWindow] with an overridable external-image loader for Swift hosts. */
+public fun RcComposeWindow(
+  bytes: ByteArray,
+  title: String,
+  width: Float,
+  height: Float,
+  theme: RcPlayerTheme,
+  onEvent: (RcPlayerEvent) -> Unit,
+  typefaces: RcTypefaceLoader,
+  onError: (String) -> Unit,
+  lenient: Boolean,
+  soundHost: RcSoundHost,
+  imageLoader: RcImageLoader,
 ): Unit {
   val document = runCatching {
     decodeCmpDocument(bytes).also {
@@ -59,6 +87,7 @@ public fun RcComposeWindow(
         .composeSupportReport(
           RcOperationProfiles.CMP_MACOS_ALPHA18,
           availableFontFamilies = typefaces.families,
+          allowExternalImagePlaceholders = imageLoader !== RcImageLoader.Empty,
         )
         .requireRenderable(lenient)
     }
@@ -69,7 +98,10 @@ public fun RcComposeWindow(
     }
 
   Window(title = title, size = DpSize(width.dp, height.dp)) {
-    CompositionLocalProvider(LocalRcSoundHost provides soundHost) {
+    CompositionLocalProvider(
+      LocalRcSoundHost provides soundHost,
+      LocalRcImageLoader provides imageLoader,
+    ) {
       RcComposePlayer(
         document,
         Modifier.fillMaxSize(),

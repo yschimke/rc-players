@@ -268,8 +268,8 @@ private fun RcLayoutNode.sharedElementChildren(): List<RcLayoutNode> =
     is RcLayoutNode.CollapsibleRow -> listOf(content)
     is RcLayoutNode.CollapsibleColumn -> listOf(content)
     is RcLayoutNode.FitBox -> listOf(content)
+    is RcLayoutNode.Custom -> children
     is RcLayoutNode.CanvasContent,
-    is RcLayoutNode.Custom,
     is RcLayoutNode.Image,
     is RcLayoutNode.Text,
     is RcLayoutNode.CoreText -> emptyList()

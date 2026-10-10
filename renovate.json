@@ -14,11 +14,17 @@
       "allowedVersions": "!/(-compat|-SNAPSHOT)$/"
     },
     {
-      "description": "compose-multiplatform: pin to the 1.11.x line. This repository is where the skiko seams actually live: `rc-player/compose/src/skikoMain/kotlin/…/PathConic.skiko.kt` calls the mutating `org.jetbrains.skia.Path` API (`Path.conicTo`) that skiko 0.150.1 — what compose-multiplatform 1.12.0 resolves — DELETES; m144 had only deprecated it at `DeprecationLevel.ERROR`. The replacement (`PathBuilder`) is build-then-`snapshot()`, so that `actual` has to be restructured before the line can move. The ref is also a floor for consumers, since `:rc-player-compose` exposes `org.jetbrains.compose.{runtime,ui}` as `api` on a published artifact. Raising it is a manual, coordinated decision — see gradle/libs.versions.toml.",
+      "description": "Keep Coil on stable 3.6.x alongside CMP 1.12.x; review the next minor line with its Compose/Skiko requirements.",
+      "matchManagers": ["gradle"],
+      "matchPackageNames": ["io.coil-kt.coil3:*"],
+      "allowedVersions": "/^3\\.6\\.\\d+$/"
+    },
+    {
+      "description": "Keep Compose Multiplatform on stable 1.12.x patches. The player uses compileSdk 37 and the conic-to-quads Skiko seam; review newer minor lines with Coil and published consumer requirements.",
       "matchManagers": ["gradle"],
       "matchPackageNames": ["org.jetbrains.compose", "org.jetbrains.compose{/,}**"],
-      "matchCurrentValue": "/^1\\.11\\./",
-      "allowedVersions": "/^1\\.11\\./"
+      "matchCurrentValue": "/^1\\.12\\./",
+      "allowedVersions": "/^1\\.12\\.\\d+$/"
     },
     {
       "description": "Hold AndroidX Compose core dependencies on 1.12.x. The vendored Remote Compose player intentionally shares the CMP Android floor (1.12.1); raising the minor line changes published consumer requirements and must be reviewed with CMP. Keep the BOM, Material3 and Remote Compose alpha coordinates under their separate policies.",
