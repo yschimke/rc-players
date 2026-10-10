@@ -144,8 +144,12 @@ formatter rule means, just run through `build-brief`.
   conversation comments, inline review comments, review states, and CI checks after opening or
   updating a PR. Address valid findings on an unmerged PR; if it has already merged, carry them on a
   fresh follow-up branch. Never report a PR as complete based only on a local build or merge state.
-- **Don't auto-merge.** Opening, tracking and fix-up commits are automatic; merging is the user's
-  call.
+- **Merge only when explicitly requested.** Only merge a PR or enable auto-merge
+  when the user specifically asks. If the request or intended PRs are unclear,
+  ask for clarification before merging. A request to implement, fix, review,
+  or open a PR does not by itself authorize merging. Honor required checks,
+  reviews, and branch protections. Opening,
+  tracking and fix-up commits remain automatic.
 
 <!-- build-brief:instructions:start -->
 ## build-brief
