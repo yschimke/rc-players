@@ -363,12 +363,7 @@ struct ParsedDrawCommand {
         ? NativeSwiftPathMeasure(resolvedPath).matrix(
           fraction: resolvedValues.first ?? 0, flags: matrixFlags)
         : resolvedValues,
-      // SRC_IN is the vector-tint path emitted by Remote Compose. Its source is the filter colour,
-      // while the glyph alpha remains in the path rasterization performed by Core Graphics.
-      colorARGB:
-        paint.colorFilterMode == NativeSwiftPaintBlendMode.sourceIn
-        ? (paint.colorFilterID.flatMap { colors[$0] } ?? paint.colorFilterARGB ?? paint.colorARGB)
-        : (paint.colorID.flatMap { colors[$0] } ?? paint.colorARGB),
+      colorARGB: try resolvePaintColor(colors: colors),
       alpha: alphaWord.map { NativeSwiftFloatExpression.resolve($0, values: values) } ?? paint.alpha,
       strokeWidth: NativeSwiftFloatExpression.resolve(paint.strokeWidth, values: values),
       isStroke: paint.isStroke,
@@ -416,6 +411,42 @@ struct ParsedDrawCommand {
       }, textSize: NativeSwiftFloatExpression.resolve(paint.textSize, values: values),
       textFlags: textFlags,
       unsetValueIndices: nanSentinelIndices.sorted(), offscreenTarget: offscreenTarget)
+  }
+
+  private func resolvePaintColor(colors: [Int: UInt32]) throws -> UInt32 {
+    let destination = paint.colorID.flatMap { colors[$0] } ?? paint.colorARGB
+    guard let mode = paint.colorFilterMode else { return destination }
+    // These commands carry paint state but do not draw it. Validate when a later command
+    // consumes the filter, allowing a document to clear it before an image/shader draw.
+    switch kind {
+    case NativeSwiftDrawKind.matrixSave, NativeSwiftDrawKind.matrixRestore,
+      NativeSwiftDrawKind.matrixTranslate, NativeSwiftDrawKind.matrixScale,
+      NativeSwiftDrawKind.matrixRotate, NativeSwiftDrawKind.matrixSkew,
+      NativeSwiftDrawKind.matrixFromPath, NativeSwiftDrawKind.clipRect,
+      NativeSwiftDrawKind.clipPath, NativeSwiftDrawKind.drawToBitmap:
+      return destination
+    default: break
+    }
+    let solidPrimitive: Bool
+    switch kind {
+    case NativeSwiftDrawKind.rect, NativeSwiftDrawKind.oval, NativeSwiftDrawKind.circle,
+      NativeSwiftDrawKind.line, NativeSwiftDrawKind.roundRect, NativeSwiftDrawKind.arc,
+      NativeSwiftDrawKind.sector, NativeSwiftDrawKind.path, NativeSwiftDrawKind.tweenPath:
+      solidPrimitive = true
+    default: solidPrimitive = false
+    }
+    guard mode == .sourceIn, solidPrimitive, image == nil,
+      paint.gradient == nil, paint.textureImageID == nil
+    else {
+      throw NativeSwiftCoreError.unsupported(
+        opcode: NativeSwiftWireOpcode.paintValues, offset: paint.colorFilterOffset,
+        reason: "Color filters support only SRC_IN on solid primitives (draw kind \(kind))")
+    }
+    let source = paint.colorFilterID.flatMap { colors[$0] } ?? paint.colorFilterARGB ?? destination
+    // SRC_IN keeps source RGB and multiplies source and destination alpha. Paint alpha is
+    // separate snapshot state and is applied once by the renderer, after the color filter.
+    let alpha = ((source >> 24) * (destination >> 24) + 127) / 255
+    return (source & 0x00ff_ffff) | (alpha << 24)
   }
 }
 
