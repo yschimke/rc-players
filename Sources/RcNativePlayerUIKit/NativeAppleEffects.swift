@@ -83,7 +83,9 @@
   @MainActor func performNativeDocumentHaptic(_ type: Int) {
     #if canImport(UIKit)
       switch type % 21 {
-      case 0, 10, 16, 17:
+      case 0:
+        return
+      case 10, 16, 17:
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
       case 2, 7, 19, 20:
         UISelectionFeedbackGenerator().selectionChanged()
