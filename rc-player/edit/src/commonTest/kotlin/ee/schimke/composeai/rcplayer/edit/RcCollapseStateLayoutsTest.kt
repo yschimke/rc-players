@@ -16,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
 import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
+import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
@@ -193,5 +194,11 @@ class RcCollapseStateLayoutsTest {
   private companion object {
     const val INDEX = 60
     const val SOURCE = 61
+  }
+
+  @Test
+  fun aBranchThatGatesItsDefinitionsByThemeIsNotCollapsed() {
+    val source = branches(0, box(20), box(30, RcTheme(RcTheme.DARK), RcTextData(100, "dark")))
+    assertSame(source, source.collapseConstantStateLayouts())
   }
 }

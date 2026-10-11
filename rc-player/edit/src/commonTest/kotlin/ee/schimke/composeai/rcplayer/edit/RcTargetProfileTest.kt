@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.edit.RcProfileViolation.Kind
+import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -202,5 +203,23 @@ class RcTargetProfileTest {
       listOf<RcOperation>(RcTextData(71, "new")),
       RcTargetProfiles.ANDROIDX.decode(bytes).operations,
     )
+  }
+
+  @Test
+  fun aConstantAnotherProducerAlsoWritesIsNotFolded() {
+    val document =
+      androidxDocument(
+        RcFloatConstant(60, RcFloatWord.literal(0.5f)),
+        RcColorAttribute(60, 5, RcColorAttribute.COLOR_HUE),
+        image(ref(60)),
+      )
+    assertEquals(listOf(Kind.DYNAMIC_VALUE), document.adaptTo(RcTargetProfiles.WIDGETS_V6).kinds())
+  }
+
+  @Test
+  fun textOnACircleIsDecodedOnlyByWear() {
+    assertFalse(RcOpcodes.DRAW_TEXT_ON_CIRCLE in RcTargetProfiles.WIDGETS_V6.supportedOpcodes)
+    assertFalse(RcOpcodes.DRAW_TEXT_ON_CIRCLE in RcTargetProfiles.ANDROIDX.supportedOpcodes)
+    assertTrue(RcOpcodes.DRAW_TEXT_ON_CIRCLE in RcTargetProfiles.WEAR_WIDGETS.supportedOpcodes)
   }
 }

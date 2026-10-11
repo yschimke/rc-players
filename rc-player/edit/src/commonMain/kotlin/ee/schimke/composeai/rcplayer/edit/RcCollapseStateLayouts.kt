@@ -1,54 +1,25 @@
 package ee.schimke.composeai.rcplayer.edit
 
-import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
-import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
-import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
-import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
-import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
-import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
-import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
-import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
-import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcFontData
-import ee.schimke.composeai.rcplayer.protocol.RcIdList
 import ee.schimke.composeai.rcplayer.protocol.RcIdLookup
-import ee.schimke.composeai.rcplayer.protocol.RcIdMap
-import ee.schimke.composeai.rcplayer.protocol.RcImageAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
-import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
-import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
-import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
-import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
-import ee.schimke.composeai.rcplayer.protocol.RcPathData
-import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
-import ee.schimke.composeai.rcplayer.protocol.RcTextData
-import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
-import ee.schimke.composeai.rcplayer.protocol.RcTextLength
-import ee.schimke.composeai.rcplayer.protocol.RcTextLookup
-import ee.schimke.composeai.rcplayer.protocol.RcTextLookupInt
-import ee.schimke.composeai.rcplayer.protocol.RcTextMeasure
-import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
-import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
-import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
-import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
-import ee.schimke.composeai.rcplayer.protocol.RcUpdateDynamicFloatList
+import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
@@ -208,7 +179,12 @@ private fun RcOperationNode.keptDefinitions(
       else -> ids.none { reads.mayRead(it, outside) }
     }
   }
-  return kept.takeIf { collect(this, layoutScope = true) }
+  if (!collect(this, layoutScope = true)) return null
+  // A theme marker gates what follows it to one theme. Moved out of its branch, a definition would
+  // run under every theme, so a branch that both gates and defines is not collapsed.
+  var themed = false
+  walk { themed = themed || (it.operation is RcTheme && it.operation.theme != RcTheme.UNSPECIFIED) }
+  return kept.takeUnless { themed && it.isNotEmpty() }
 }
 
 private val ACTION_CONTAINERS: Set<Int> =
@@ -220,52 +196,6 @@ private val ACTION_CONTAINERS: Set<Int> =
     RcOpcodes.MODIFIER_TOUCH_CANCEL,
     RcOpcodes.RUN_ACTION,
   )
-
-/**
- * The ids an operation gives a value, or null for one that defines nothing. Covers what the player
- * loads when a document opens and every producer it evaluates in a layout's content.
- */
-private fun RcOperation.definedIds(): List<Int>? =
-  when (this) {
-    is RcTextData -> listOf(id)
-    is RcFloatConstant -> listOf(id)
-    is RcColorConstant -> listOf(id)
-    is RcIntegerConstant -> listOf(id)
-    is RcBooleanConstant -> listOf(id)
-    is RcLongConstant -> listOf(id)
-    is RcPathData -> listOf(id)
-    is RcMatrixConstant -> listOf(id)
-    is RcIdList -> listOf(id)
-    is RcFloatList -> listOf(id)
-    is RcIdMap -> listOf(id)
-    is RcBitmapData -> listOf(imageId)
-    is RcFontData -> listOf(fontId)
-    is RcNamedVariable -> listOf(id)
-    is RcDynamicFloatList -> listOf(id)
-    is RcUpdateDynamicFloatList -> listOf(listId)
-    is RcFloatExpression -> listOf(id)
-    is RcIntegerExpression -> listOf(outId)
-    is RcColorExpression -> listOf(outId)
-    is RcColorTheme -> listOf(outId)
-    is RcColorAttribute -> listOf(outId)
-    is RcImageAttribute -> listOf(outId)
-    is RcDataMapLookup -> listOf(outId)
-    is RcIdLookup -> listOf(outId)
-    is RcMatrixExpression -> listOf(id)
-    is RcMatrixVectorMath -> outputs
-    is RcPathExpression -> listOf(id)
-    is RcTextFromFloat -> listOf(outId)
-    is RcTextMerge -> listOf(outId)
-    is RcTextLength -> listOf(outId)
-    is RcTextSubtext -> listOf(outId)
-    is RcTextTransform -> listOf(outId)
-    is RcTextLookup -> listOf(outId)
-    is RcTextLookupInt -> listOf(outId)
-    is RcTextMeasure -> listOf(outId)
-    is RcTouchExpression -> listOf(id)
-    is RcComponentValue -> listOf(valueId)
-    else -> null
-  }
 
 /**
  * Whether any operation might read an id, found the way `referencesAnyOf` finds system variables:

@@ -1,18 +1,25 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
-import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
-import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
-import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFontData
+import ee.schimke.composeai.rcplayer.protocol.RcIdList
+import ee.schimke.composeai.rcplayer.protocol.RcIdMap
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
-import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
+import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcUpdateDynamicFloatList
 
 /**
  * A value to write into a document in place of host-bound state.
@@ -63,6 +70,16 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
     namedVariables.filter { it.name in byName }.associateWith { byName.getValue(it.name) }
   if (targets.isEmpty()) return this
   val byId = targets.entries.associate { (variable, value) -> variable.id to (variable to value) }
+  operations
+    .firstOrNull { operation ->
+      (operation.definedIds()?.size ?: 0) > 1 && operation.definedIds()!!.any { it in byId }
+    }
+    ?.let { operation ->
+      throw IllegalArgumentException(
+        "${operationName(operation.opcode)} writes a hardcoded named variable along with other " +
+          "ids, so it cannot be replaced by a constant"
+      )
+    }
   val defined = mutableSetOf<Int>()
   val rewritten = buildList {
     operations.forEach { operation ->
@@ -124,20 +141,27 @@ private fun RcDocument.declaredName(key: String): String? {
   }
 }
 
-/** The id a value-defining operation writes, for the kinds a host's named value overrides. */
-private fun RcOperation.definedId(): Int? =
-  when (this) {
-    is RcTextData -> id
-    is RcFloatConstant -> id
-    is RcFloatExpression -> id
-    is RcColorConstant -> id
-    is RcColorExpression -> outId
-    is RcColorTheme -> outId
-    is RcIntegerConstant -> id
-    is RcIntegerExpression -> outId
-    is RcLongConstant -> id
-    else -> null
+/**
+ * The id this operation gives a single scalar value — the kinds a host's named value can stand in
+ * for — or null. An operation writing several ids at once cannot be swapped for one constant.
+ */
+private fun RcOperation.definedId(): Int? {
+  if (this is RcNamedVariable || definedIds()?.size != 1) return null
+  return when (this) {
+    is RcBitmapData,
+    is RcFontData,
+    is RcIdList,
+    is RcFloatList,
+    is RcIdMap,
+    is RcPathData,
+    is RcPathExpression,
+    is RcMatrixConstant,
+    is RcMatrixExpression,
+    is RcDynamicFloatList,
+    is RcUpdateDynamicFloatList -> null
+    else -> definedIds()?.single()
   }
+}
 
 private fun definition(variable: RcNamedVariable, value: RcHardcodedValue): RcOperation =
   when {

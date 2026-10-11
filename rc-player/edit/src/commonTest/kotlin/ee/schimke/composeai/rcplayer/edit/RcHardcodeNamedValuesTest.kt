@@ -6,8 +6,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -107,5 +109,30 @@ class RcHardcodeNamedValuesTest {
       listOf("USER:foo"),
       both.hardcodeUnboundNamedValues(bound = setOf("foo")).namedVariables.map { it.name },
     )
+  }
+
+  @Test
+  fun everyProducerOfAHardcodedIdIsReplaced() {
+    val result =
+      document(
+          RcNamedVariable(65, RcNamedVariable.STRING_TYPE, "USER:label"),
+          RcTextData(65, "On"),
+          RcTextMerge(65, 1, 2),
+        )
+        .hardcodeNamedValues(mapOf("label" to RcHardcodedValue.Text("Off")))
+    assertEquals(listOf(RcTextData(65, "Off"), RcTextData(65, "Off")), result.operations)
+  }
+
+  @Test
+  fun anOperationWritingTheIdAmongOthersCannotBeHardcoded() {
+    val document =
+      document(
+        RcNamedVariable(52, RcNamedVariable.FLOAT_TYPE, "USER:x"),
+        RcFloatConstant(52, RcFloatWord.literal(0f)),
+        RcMatrixVectorMath(0, listOf(52, 53), 70, listOf(RcFloatWord.literal(1f))),
+      )
+    assertFailsWith<IllegalArgumentException> {
+      document.hardcodeNamedValues(mapOf("x" to RcHardcodedValue.FloatValue(1f)))
+    }
   }
 }

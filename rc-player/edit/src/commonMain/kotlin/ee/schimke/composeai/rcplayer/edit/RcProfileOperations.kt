@@ -28,7 +28,8 @@ internal val BASE_OPERATIONS: Set<Int> =
     RcOpcodes.DRAW_RECT,
     RcOpcodes.DRAW_ROUND_RECT,
     RcOpcodes.DRAW_TEXT_ON_PATH,
-    RcOpcodes.DRAW_TEXT_ON_CIRCLE,
+    // RcOpcodes.DRAW_TEXT_ON_CIRCLE: commented out of alpha19 `fillDefaultVersionMap`, so only
+    // the Wear allow-list, which names it, decodes it.
     RcOpcodes.DRAW_TEXT_RUN,
     RcOpcodes.DRAW_BITMAP_FONT_TEXT_RUN,
     RcOpcodes.DRAW_TWEEN_PATH,

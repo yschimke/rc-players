@@ -1,25 +1,20 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
-import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
-import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
-import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
-import ee.schimke.composeai.rcplayer.protocol.RcTextMeasure
-import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
@@ -199,8 +194,8 @@ private fun versionFor(apiLevel: Int): RcVersion = RcVersion(1, apiLevel - 6, 0)
 
 /**
  * Float ids whose value is fixed for the life of the document: defined only by float constants that
- * agree, and written by nothing else this recognises — no host binding, action, expression, touch,
- * measurement, loop or the player's own system variables.
+ * agree, and written by nothing else — no host binding, action, loop, producer of any kind, or the
+ * player's own system variables.
  */
 private class ConstantFloats(operations: List<RcOperation>) {
   private val constants = mutableMapOf<Int, MutableSet<Int>>()
@@ -211,15 +206,12 @@ private class ConstantFloats(operations: List<RcOperation>) {
       when (operation) {
         is RcFloatConstant ->
           constants.getOrPut(operation.id) { mutableSetOf() } += operation.value.bits
-        is RcFloatExpression -> variable += operation.id
-        is RcTouchExpression -> variable += operation.id
-        is RcComponentValue -> variable += operation.valueId
-        is RcTextMeasure -> variable += operation.outId
         is RcLoopOperation -> variable += operation.indexVariableId
-        is RcNamedVariable -> variable += operation.id
         is RcValueFloatChangeAction -> variable += operation.targetValueId
         is RcValueFloatExpressionChangeAction -> variable += operation.targetValueId
-        else -> Unit
+        // Every other producer — expressions, touch, measurements, attributes, lookups, host
+        // bindings — makes its ids variable.
+        else -> operation.definedIds()?.let(variable::addAll)
       }
     }
     variable += RcSystemVariables.ALL
