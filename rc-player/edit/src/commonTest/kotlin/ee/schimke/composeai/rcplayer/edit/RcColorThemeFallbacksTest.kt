@@ -119,21 +119,19 @@ class RcColorThemeFallbacksTest {
 
     val exact = source.adaptTo(RcTargetProfiles.WIDGETS_V6)
     assertTrue(exact.violations.any { it.opcode == RcOpcodes.COLOR_THEME })
-    assertEquals(emptyList(), exact.colorFallbacks)
 
-    val sectioned = source.adaptTo(RcTargetProfiles.WIDGETS_V6, approximateColors = true)
+    val sectioned = source.adaptTo(RcTargetProfiles.WIDGETS_V6, setOf(RcApproximation.THEME_COLORS))
     assertTrue(sectioned.violations.none { it.opcode == RcOpcodes.COLOR_THEME })
-    assertEquals(listOf(COLOR), sectioned.colorFallbacks)
     assertTrue(sectioned.document.operations.any { it is RcTheme })
 
     // Wear has no theme sections, and draws dark.
-    val wear = source.adaptTo(RcTargetProfiles.WEAR_WIDGETS, approximateColors = true)
+    val wear = source.adaptTo(RcTargetProfiles.WEAR_WIDGETS, setOf(RcApproximation.THEME_COLORS))
     assertTrue(wear.violations.none { it.opcode == RcOpcodes.COLOR_THEME })
     assertTrue(RcColorConstant(COLOR, DARK) in wear.document.operations)
     assertTrue(wear.document.operations.none { it is RcTheme })
 
     // A target with ColorTheme keeps the system palette.
-    val androidx = source.adaptTo(RcTargetProfiles.ANDROIDX, approximateColors = true)
+    val androidx = source.adaptTo(RcTargetProfiles.ANDROIDX, setOf(RcApproximation.THEME_COLORS))
     assertTrue(themed in androidx.document.operations)
     assertTrue(androidx.document.operations.first() !is RcRootLayout)
   }

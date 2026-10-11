@@ -1,6 +1,6 @@
 # `rc-player-edit` ColorTheme fallback
 
-Evidence for `colorThemesAsFallbacks()`, which `adaptTo(…, approximateColors = true)` uses for
+Evidence for `colorThemesAsFallbacks()`, which `adaptTo(…, setOf(RcApproximation.THEME_COLORS))` uses for
 targets without `COLOR_THEME` (launcher widgets at API level 6, Wear widgets).
 
 `color-theme-fallback.png` shows the catalog's system-theme swatches

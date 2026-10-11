@@ -32,17 +32,13 @@ import ee.schimke.composeai.rcplayer.protocol.RcTheme
  * A `ColorTheme` sitting where a theme marker is already in force, or whose id something else also
  * defines, is left alone.
  */
-public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocument =
-  colorThemeFallbacks(fixedTheme).first
-
-/** [colorThemesAsFallbacks], and the output ids it replaced. */
-internal fun RcDocument.colorThemeFallbacks(fixedTheme: Int?): Pair<RcDocument, List<Int>> {
+public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocument {
   require(fixedTheme == null || fixedTheme == RcTheme.DARK || fixedTheme == RcTheme.LIGHT) {
     "fixedTheme must be RcTheme.DARK, RcTheme.LIGHT or null"
   }
-  if (operations.none { it is RcColorTheme }) return this to emptyList()
-  val tree = operationTree(operations) ?: return this to emptyList()
-  val unthemed = unthemedOperations(operations) ?: return this to emptyList()
+  if (operations.none { it is RcColorTheme }) return this
+  val tree = operationTree(operations) ?: return this
+  val unthemed = unthemedOperations(operations) ?: return this
   val replaced = mutableListOf<Int>()
   // Theme sections gate only at the top level, so a themed colour inside a layout moves to just
   // before the top-level operation that holds it; one at the top level stays where it is.
@@ -67,11 +63,11 @@ internal fun RcDocument.colorThemeFallbacks(fixedTheme: Int?): Pair<RcDocument, 
       removed += node.start
     }
   }
-  if (replaced.isEmpty()) return this to emptyList()
+  if (replaced.isEmpty()) return this
   val rewritten = operations.flatMapIndexed { index, operation ->
     inserted[index].orEmpty() + listOfNotNull(operation.takeUnless { index in removed })
   }
-  return copy(operations = rewritten) to replaced
+  return copy(operations = rewritten)
 }
 
 /**

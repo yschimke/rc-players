@@ -6,6 +6,17 @@
 // - Show declarations: true
 
 // Library unique name: <ee.schimke.composeai:rc-player-edit>
+final enum class ee.schimke.composeai.rcplayer.edit/RcApproximation : kotlin/Enum<ee.schimke.composeai.rcplayer.edit/RcApproximation> { // ee.schimke.composeai.rcplayer.edit/RcApproximation|null[0]
+    enum entry TEXT // ee.schimke.composeai.rcplayer.edit/RcApproximation.TEXT|null[0]
+    enum entry THEME_COLORS // ee.schimke.composeai.rcplayer.edit/RcApproximation.THEME_COLORS|null[0]
+
+    final val entries // ee.schimke.composeai.rcplayer.edit/RcApproximation.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcplayer.edit/RcApproximation> // ee.schimke.composeai.rcplayer.edit/RcApproximation.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ee.schimke.composeai.rcplayer.edit/RcApproximation // ee.schimke.composeai.rcplayer.edit/RcApproximation.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcApproximation> // ee.schimke.composeai.rcplayer.edit/RcApproximation.values|values#static(){}[0]
+}
+
 sealed interface ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue|null[0]
     final class BooleanValue : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue|null[0]
         constructor <init>(kotlin/Boolean) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.<init>|<init>(kotlin.Boolean){}[0]
@@ -87,12 +98,10 @@ sealed interface ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.sch
 }
 
 final class ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation { // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation|null[0]
-    constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation>, kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextApproximation> = ..., kotlin.collections/List<kotlin/Int> = ...) // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcTextApproximation>;kotlin.collections.List<kotlin.Int>){}[0]
+    constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation>, kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextApproximation> = ...) // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcTextApproximation>){}[0]
 
     final val approximations // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.approximations|{}approximations[0]
         final fun <get-approximations>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextApproximation> // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.approximations.<get-approximations>|<get-approximations>(){}[0]
-    final val colorFallbacks // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.colorFallbacks|{}colorFallbacks[0]
-        final fun <get-colorFallbacks>(): kotlin.collections/List<kotlin/Int> // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.colorFallbacks.<get-colorFallbacks>|<get-colorFallbacks>(){}[0]
     final val document // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.document|{}document[0]
         final fun <get-document>(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.document.<get-document>|<get-document>(){}[0]
     final val isPlayable // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.isPlayable|{}isPlayable[0]
@@ -103,8 +112,7 @@ final class ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation { // ee.schim
     final fun component1(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.component1|component1(){}[0]
     final fun component2(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.component2|component2(){}[0]
     final fun component3(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextApproximation> // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.component3|component3(){}[0]
-    final fun component4(): kotlin.collections/List<kotlin/Int> // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.component4|component4(){}[0]
-    final fun copy(ee.schimke.composeai.rcplayer.protocol/RcDocument = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextApproximation> = ..., kotlin.collections/List<kotlin/Int> = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcTextApproximation>;kotlin.collections.List<kotlin.Int>){}[0]
+    final fun copy(ee.schimke.composeai.rcplayer.protocol/RcDocument = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextApproximation> = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcTextApproximation>){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.toString|toString(){}[0]
@@ -243,7 +251,8 @@ final val ee.schimke.composeai.rcplayer.edit/namedVariables // ee.schimke.compos
 final val ee.schimke.composeai.rcplayer.edit/profiles // ee.schimke.composeai.rcplayer.edit/profiles|@ee.schimke.composeai.rcplayer.protocol.RcHeader{}profiles[0]
     final fun (ee.schimke.composeai.rcplayer.protocol/RcHeader).<get-profiles>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/profiles.<get-profiles>|<get-profiles>@ee.schimke.composeai.rcplayer.protocol.RcHeader(){}[0]
 
-final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin/Boolean = ..., kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.Boolean;kotlin.Boolean){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin.collections/Set<ee.schimke.composeai.rcplayer.edit/RcApproximation>): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.collections.Set<ee.schimke.composeai.rcplayer.edit.RcApproximation>){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.Boolean){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts|collapseConstantStateLayouts@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks(kotlin/Int? = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks|colorThemesAsFallbacks@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Int?){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/embedBitmapUrls(kotlin.collections/Map<kotlin/String, kotlin/ByteArray>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/embedBitmapUrls|embedBitmapUrls@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
