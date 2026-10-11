@@ -125,6 +125,19 @@ class RcOptimizeTest {
   }
 
   @Test
+  fun aProducerReadBeforeItRunsDoesNotFold() {
+    // A constant is loaded when the document opens; the attribute before the expression would see
+    // the folded colour rather than the one in force when it ran.
+    val source =
+      document(
+        RcColorConstant(50, 0xFF000000.toInt()),
+        RcColorAttribute(53, 52, RcColorAttribute.COLOR_ALPHA),
+        RcColorExpression(52, RcColorExpression.COLOR_COLOR_INTERPOLATE, 1, 2, 0f.toRawBits()),
+      )
+    assertTrue(source.foldConstantExpressions().operations.any { it is RcColorExpression })
+  }
+
+  @Test
   fun aProducerInDrawnContentFolds() {
     val result =
       document(

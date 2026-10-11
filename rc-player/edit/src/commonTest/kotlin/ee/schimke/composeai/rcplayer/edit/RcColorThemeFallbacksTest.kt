@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
@@ -126,6 +127,20 @@ class RcColorThemeFallbacksTest {
         ),
       )
     sources.forEach { assertSame(it, it.colorThemesAsFallbacks()) }
+    // Neither replacement may make a conditional colour unconditional.
+    assertSame(sources.last(), sources.last().colorThemesAsFallbacks(fixedTheme = RcTheme.DARK))
+  }
+
+  @Test
+  fun aThemedColorReadBeforeItRunsStays() {
+    val source =
+      document(
+        group,
+        *rootLayout(RcColorAttribute(60, COLOR, RcColorAttribute.COLOR_ALPHA), themed)
+          .toTypedArray(),
+      )
+    assertSame(source, source.colorThemesAsFallbacks())
+    assertSame(source, source.colorThemesAsFallbacks(fixedTheme = RcTheme.DARK))
   }
 
   @Test

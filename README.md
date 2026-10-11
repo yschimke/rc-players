@@ -99,8 +99,8 @@ remaining value exactly what the original did.
 It pays most on a widget whose host values are baked in, as above: hardcoding turns the named
 colours and values a document reads into constants, and `optimize()` after it turns what is
 derived from them into constants too. Over the corpus, hardcoding every named value and
-optimising takes it to 1.46 MB (13% smaller), folds every colour channel read and two thirds of the
-colour expressions, and cuts the time the player spends computing values each frame by about a
+optimising takes it to 1.47 MB (13% smaller), folds nine in ten colour channel reads and two
+thirds of the colour expressions, and cuts the time the player spends computing values each frame by about a
 third.
 
 It also checks a document against the player it is meant for. `RcTargetProfiles` names the

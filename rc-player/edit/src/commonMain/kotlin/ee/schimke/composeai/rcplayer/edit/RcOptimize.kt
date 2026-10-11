@@ -65,11 +65,11 @@ public fun RcDocument.stripDebugOperations(): RcDocument {
  * holding that value, evaluated exactly as the player evaluates it: integer and float expressions,
  * colour expressions and the channels read from a colour, and merged, formatted and looked-up text.
  *
- * A producer folds when it always runs, writes an id nothing else writes, and reads only constants
- * — directly or through other foldable producers. Float expressions must also have no animation and
- * use only deterministic operators (no random numbers, registers, loop variables or arrays). An
- * expression an expression-change action evaluates stays an expression: the action looks it up by
- * id.
+ * A producer folds when it always runs, writes an id nothing else writes and nothing earlier in the
+ * document reads, and reads only constants — directly or through other foldable producers. Float
+ * expressions must also have no animation and use only deterministic operators (no random numbers,
+ * registers, loop variables or arrays). An expression an expression-change action evaluates stays
+ * an expression: the action looks it up by id.
  *
  * This is what makes a widget whose host values were baked in with [hardcodeNamedValues] cheap to
  * play: the colours, labels and sizes derived from those values become constants the player loads
@@ -90,6 +90,9 @@ public fun RcDocument.foldConstantExpressions(): RcDocument {
   var changed = false
   val rewritten = operations.mapIndexed { index, operation ->
     if (!unconditional[index]) return@mapIndexed operation
+    // A constant is loaded when the document opens: an earlier reader would see it sooner.
+    val output = operation.definedIds()?.singleOrNull() ?: return@mapIndexed operation
+    if (values.readBefore(output, index)) return@mapIndexed operation
     val folded =
       when (operation) {
         is RcIntegerExpression ->

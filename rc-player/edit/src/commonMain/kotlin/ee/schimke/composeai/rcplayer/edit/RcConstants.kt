@@ -73,6 +73,16 @@ internal class RcValueAnalysis(private val operations: List<RcOperation>) {
   fun text(id: Int, at: Int): String? =
     textWithLastWrite(id)?.takeIf { (_, last) -> last < at }?.first
 
+  /**
+   * Whether any operation before [at] mentions [id], other than one defining it: a reader that,
+   * with the id's producer folded into a constant the player loads up front, would see the value
+   * earlier than it did. Null mentions (an operation that cannot be encoded) count as a reader.
+   */
+  fun readBefore(id: Int, at: Int): Boolean {
+    val indices = mentions?.get(id) ?: return mentions == null
+    return indices.any { it < at && operations[it].definedIds()?.contains(id) != true }
+  }
+
   private fun integerWithLastWrite(id: Int): Pair<Int, Int>? =
     memoized(integers, id) {
       val writers = pinnedWriters(id) { it is RcIntegerConstant || it is RcIntegerExpression }

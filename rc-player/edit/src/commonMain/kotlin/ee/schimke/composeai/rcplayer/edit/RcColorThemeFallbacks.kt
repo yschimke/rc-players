@@ -29,9 +29,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcTheme
  * null each colour moves to just before the top-level operation holding it — usually the root
  * layout. Its value depends on nothing but the theme, so it is the same value earlier.
  *
- * A `ColorTheme` sitting where a theme marker is already in force, or whose id something else also
- * defines, is left alone, and so, for theme sections, is one inside a conditional or a loop, which
- * moving to the top level would make unconditional.
+ * A `ColorTheme` is left alone where its replacement could change when or whether the colour is
+ * set: under a theme marker, inside a conditional or a loop, read by something before it, or with
+ * an id something else also defines.
  */
 public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocument {
   require(fixedTheme == null || fixedTheme == RcTheme.DARK || fixedTheme == RcTheme.LIGHT) {
@@ -41,6 +41,7 @@ public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocumen
   val tree = operationTree(operations) ?: return this
   val unthemed = unthemedOperations(operations) ?: return this
   val unconditional = unconditionalOperations(operations) ?: return this
+  val values = RcValueAnalysis(operations)
   val replaced = mutableListOf<Int>()
   // Theme sections gate only at the top level, so a themed colour inside a layout moves to just
   // before the top-level operation that holds it; one at the top level stays where it is.
@@ -49,11 +50,13 @@ public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocumen
   tree.forEach { top ->
     top.walk { node ->
       val theme = node.operation as? RcColorTheme ?: return@walk
-      // Neither where it was nor, for sections, where they go may be under a theme marker. Sections
-      // move to the top level, so only a colour that always ran may move: one under a condition or
-      // in a loop could have been left unset, and stays.
-      if (!unthemed[node.start]) return@walk
-      if (fixedTheme == null && (!unthemed[top.start] || !unconditional[node.start])) return@walk
+      // The replacement is loaded up front (a constant) or moved to the top level (sections), so
+      // only a colour that always ran, and that nothing read before it, may be replaced: one under
+      // a condition, in a loop or under a theme marker could have been left unset. Sections also
+      // must not land under a top-level theme marker.
+      if (!unthemed[node.start] || !unconditional[node.start]) return@walk
+      if (fixedTheme == null && !unthemed[top.start]) return@walk
+      if (values.readBefore(theme.outId, node.start)) return@walk
       val definitions = operations.count { it.definedIds()?.contains(theme.outId) == true }
       if (definitions != 1) return@walk
       replaced += theme.outId
