@@ -19,11 +19,13 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
+import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLayoutNode
@@ -221,6 +223,38 @@ class RcCollapseStateLayoutsTest {
     val source = stateDocument(RcIntegerConstant(INDEX, 5))
     assertSame(source, source.collapseConstantStateLayouts())
   }
+
+  @Test
+  fun anIndexAFloatActionOrScrollWritesIsNotConstant() {
+    // The player keeps an id's integer and float views in step, and scroll writes its position
+    // back; neither is a definition, but each can change the index.
+    val writers =
+      listOf(
+        listOf(RcClickModifier, RcValueFloatChangeAction(INDEX, f(2f)), END),
+        listOf(RcScrollModifier(0, RcFloatWord(0x7fc00000 or INDEX), one, zero), END),
+      )
+    writers.forEach { writer ->
+      val source = stateDocument(RcIntegerConstant(INDEX, 1), *writer.toTypedArray())
+      assertSame(source, source.collapseConstantStateLayouts(), writer.toString())
+    }
+  }
+
+  @Test
+  fun anIndexReadingAValueDefinedLaterIsNotConstant() {
+    // The player evaluates in wire order: the expression runs before SOURCE has its value.
+    val source =
+      stateDocument(
+        RcIntegerExpression(
+          INDEX,
+          mask = 0b101,
+          values = listOf(SOURCE, 1, RcIntegerExpression.ADD),
+        ),
+        RcIntegerConstant(SOURCE, 1),
+      )
+    assertSame(source, source.collapseConstantStateLayouts())
+  }
+
+  private fun f(value: Float) = RcFloatWord.literal(value)
 
   private companion object {
     const val INDEX = 60

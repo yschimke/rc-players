@@ -155,4 +155,14 @@ class RcCoreTextConversionTest {
         .adaptTo(RcTargetProfiles.WEAR_WIDGETS)
     assertTrue(adapted.document.operations.any { it is RcCoreText })
   }
+
+  @Test
+  fun aStyleWhoseParentIsDeclaredLaterIsNotConverted() {
+    // The player applies the child before it has loaded the parent, so it never inherits it.
+    val child = RcTextStyle(listOf(IntValue(1, 6), IntValue(24, 5)))
+    val parent = RcTextStyle(listOf(IntValue(1, 5), FloatValue(5, f(40f))))
+    val adapted =
+      androidx(child, *text(IntValue(24, 6)), parent).adaptTo(RcTargetProfiles.WEAR_WIDGETS)
+    assertTrue(adapted.document.operations.any { it is RcCoreText })
+  }
 }

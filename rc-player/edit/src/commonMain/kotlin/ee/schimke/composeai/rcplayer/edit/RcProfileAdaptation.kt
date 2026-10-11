@@ -2,7 +2,6 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
-import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
@@ -12,10 +11,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
-import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
-import ee.schimke.composeai.rcplayer.protocol.RcValueFloatChangeAction
-import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
@@ -119,16 +115,16 @@ private fun RcDocument.dropRemarks(target: RcTargetProfile): RcDocument =
 
 private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
   if (target.apiLevel >= 7) return this
-  val constants = ConstantFloats(operations, unconditionalOperations(operations))
+  val values = RcValueAnalysis(operations)
   var changed = false
-  fun RcFloatWord.literal(): RcFloatWord {
+  fun RcFloatWord.literalAt(index: Int): RcFloatWord {
     val id = referencedId?.takeIf { isNaNEncoded } ?: return this
-    return constants.resolve(id)?.also { changed = true } ?: this
+    return values.float(id, at = index)?.also { changed = true } ?: this
   }
-  val rewritten = operations.map { operation ->
+  val rewritten = operations.mapIndexed { index, operation ->
     when (operation) {
-      is RcImageLayout -> operation.copy(alpha = operation.alpha.literal())
-      is RcTextLayout -> operation.copy(fontSize = operation.fontSize.literal())
+      is RcImageLayout -> operation.copy(alpha = operation.alpha.literalAt(index))
+      is RcTextLayout -> operation.copy(fontSize = operation.fontSize.literalAt(index))
       else -> operation
     }
   }
@@ -190,36 +186,3 @@ private fun modernHeader(
 }
 
 private fun versionFor(apiLevel: Int): RcVersion = RcVersion(1, apiLevel - 6, 0)
-
-/**
- * Float ids whose value is fixed for the life of the document: defined only by float constants that
- * agree, and written by nothing else — no host binding, action, loop, producer of any kind, or the
- * player's own system variables.
- */
-private class ConstantFloats(operations: List<RcOperation>, unconditional: BooleanArray?) {
-  private val constants = mutableMapOf<Int, MutableSet<Int>>()
-  private val variable = mutableSetOf<Int>()
-
-  init {
-    operations.forEachIndexed { index, operation ->
-      when (operation) {
-        // A constant the player may skip cannot be folded in where the field is always read.
-        is RcFloatConstant if unconditional?.get(index) != true -> variable += operation.id
-        is RcFloatConstant ->
-          constants.getOrPut(operation.id) { mutableSetOf() } += operation.value.bits
-        is RcValueFloatChangeAction -> variable += operation.targetValueId
-        is RcValueFloatExpressionChangeAction -> variable += operation.targetValueId
-        // Every other producer — expressions, touch, measurements, attributes, lookups, host
-        // bindings — makes its ids variable.
-        else -> operation.definedIds()?.let(variable::addAll)
-      }
-    }
-    variable += RcSystemVariables.ALL
-  }
-
-  fun resolve(id: Int): RcFloatWord? {
-    if (id in variable) return null
-    val value = constants[id]?.singleOrNull() ?: return null
-    return RcFloatWord(value).takeUnless { it.isNaNEncoded }
-  }
-}
