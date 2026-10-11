@@ -183,4 +183,19 @@ class RcHardcodeNamedValuesTest {
       document.hardcodeNamedValues(mapOf("i" to RcHardcodedValue.FloatValue(2f)))
     }
   }
+
+  @Test
+  fun onlyTheLastDeclarationOfANameIsHardcoded() {
+    val result =
+      document(
+          RcNamedVariable(1, RcNamedVariable.INT_TYPE, "USER:x"),
+          RcIntegerConstant(1, 0),
+          RcNamedVariable(2, RcNamedVariable.INT_TYPE, "USER:x"),
+          RcIntegerConstant(2, 0),
+        )
+        .hardcodeNamedValues(mapOf("x" to RcHardcodedValue.Integer(9)))
+    // The player binds `x` to id 2; id 1 was never host-bound and keeps its value. The earlier
+    // declaration goes too, so it cannot become the binding.
+    assertEquals(listOf(RcIntegerConstant(1, 0), RcIntegerConstant(2, 9)), result.operations)
+  }
 }

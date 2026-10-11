@@ -28,6 +28,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.protocol.RcSoundData
 import ee.schimke.composeai.rcplayer.protocol.RcSoundExpression
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcUpdateDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
@@ -79,8 +80,9 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
   if (values.isEmpty()) return this
   val byName =
     values.entries.mapNotNull { (key, value) -> declaredName(key)?.let { it to value } }.toMap()
-  val targets =
-    namedVariables.filter { it.name in byName }.associateWith { byName.getValue(it.name) }
+  // The player binds a name to its last declaration; an earlier duplicate is never host-bound.
+  val declarations = namedVariables.filter { it.name in byName }.associateBy { it.name }
+  val targets = declarations.values.associateWith { byName.getValue(it.name) }
   if (targets.isEmpty()) return this
   val byId = targets.entries.associate { (variable, value) -> variable.id to (variable to value) }
   operations
@@ -123,11 +125,12 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
   val defined = mutableSetOf<Int>()
   val rewritten = buildList {
     operations.forEach { operation ->
-      if (operation is RcNamedVariable && operation in targets) {
+      if (operation is RcNamedVariable && operation.name in byName) {
         // A variable with no defining operation of its own gets one where its name was declared.
         // Declarations come before or after the definition depending on the writer, so whether one
-        // exists is only known once the whole list is seen — see the second pass below.
-        add(operation)
+        // exists is only known once the whole list is seen — see the second pass below. An earlier
+        // duplicate of the name goes: left behind, it would become the declaration a host binds.
+        if (operation in targets) add(operation)
         return@forEach
       }
       val target = operation.definedId()?.let(byId::get)
@@ -207,6 +210,7 @@ private fun RcOperation.definedId(): Int? {
     is RcBitmapFontData,
     is RcShaderData,
     is RcSoundData,
+    is RcTextStyle,
     is RcLoopOperation -> null
     else -> definedIds()?.single()
   }

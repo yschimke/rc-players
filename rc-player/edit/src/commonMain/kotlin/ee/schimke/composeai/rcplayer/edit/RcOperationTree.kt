@@ -113,6 +113,7 @@ internal fun RcOperation.declaredComponentId(): Int? =
     is RcImageLayout -> componentId
     is RcTextLayout -> componentId
     is RcComponentStart -> componentId
+    is RcCoreText -> componentId.takeUnless { it == -1 }
     else -> null
   }
 

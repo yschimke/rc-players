@@ -3,6 +3,7 @@ package ee.schimke.composeai.rcplayer.edit
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
+import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
@@ -16,6 +17,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
 import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
@@ -254,5 +257,27 @@ class RcCollapseStateLayoutsTest {
         END,
       )
     assertSame(source, source.collapseConstantStateLayouts())
+  }
+
+  @Test
+  fun aRemovedBranchKeepsTheTextStylesItDeclares() {
+    val style = RcTextStyle(listOf(RcTextStyleProperty.IntValue(1, 5)))
+    val result = branches(0, box(20), box(30, style)).collapseConstantStateLayouts()
+    assertTrue(style in result.operations)
+  }
+
+  @Test
+  fun aMeasuredCoreTextInARemovedBranchPublishesZero() {
+    val text = RcCoreText(42, listOf(RcTextStyleProperty.IntValue(1, 77)))
+    val result =
+      branches(
+          0,
+          box(20),
+          box(30, text, RcLayoutContent(-77), END, END),
+          after = listOf(RcComponentValue(RcComponentValue.WIDTH, 77, 400)),
+        )
+        .collapseConstantStateLayouts()
+    assertTrue(RcFloatConstant(400, zero) in result.operations)
+    assertTrue(result.operations.none { it is RcComponentValue && it.componentId == 77 })
   }
 }

@@ -46,6 +46,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextLookup
 import ee.schimke.composeai.rcplayer.protocol.RcTextLookupInt
 import ee.schimke.composeai.rcplayer.protocol.RcTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
 import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
 import ee.schimke.composeai.rcplayer.protocol.RcTimeAttribute
@@ -107,6 +108,7 @@ internal fun RcOperation.definedIds(): List<Int>? =
     // A loop writes its index on every iteration.
     is RcLoopOperation -> listOf(indexVariableId)
     is RcBitmapFontData -> listOf(fontId)
+    is RcTextStyle -> listOfNotNull(styleId)
     is RcShaderData -> listOf(shaderId)
     is RcSoundData -> listOf(soundId)
     else -> null
