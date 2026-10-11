@@ -126,37 +126,51 @@ class RcTopLevelContentStateTest {
     }
   }
 
-  /** A loop under the other theme's marker does not run, so its index variable is not written. */
+  /**
+   * Only the themed-colour shape is replayed, and only under its own theme. Any other loop is the
+   * draw pass's alone, so a stateful body (an index, random numbers, registers) never runs twice.
+   */
   @Test
-  fun aLoopUnderTheOtherThemeDoesNotRun() {
-    val document =
-      RcDocument(
-        RcHeader(RcVersion(0, 1, 0)),
-        listOf(
-          RcTheme(RcTheme.DARK),
-          RcLoopOperation(
-            43,
-            RcFloatWord.literal(5f),
-            RcFloatWord.literal(1f),
-            RcFloatWord.literal(6f),
-          ),
-          RcNoArg(RcOpcodes.CONTAINER_END),
-          RcTheme(RcTheme.UNSPECIFIED),
-          RcRootLayout(1),
-          RcLayoutContent(2),
-          RcNoArg(RcOpcodes.CONTAINER_END),
-          RcNoArg(RcOpcodes.CONTAINER_END),
-        ),
+  fun onlyAThemedColorLoopUnderItsOwnThemeIsReplayed() {
+    val colour = 0xFF202020.toInt()
+    fun play(theme: Int, vararg operations: RcOperation): RcPlayerState {
+      val document =
+        RcDocument(
+          RcHeader(RcVersion(0, 1, 0)),
+          operations.toList() +
+            listOf(
+              RcTheme(RcTheme.UNSPECIFIED),
+              RcRootLayout(1),
+              RcLayoutContent(2),
+              RcNoArg(RcOpcodes.CONTAINER_END),
+              RcNoArg(RcOpcodes.CONTAINER_END),
+            ),
+        )
+      return RcPlayerState(document).apply {
+        applyLayoutContentStateOperations(RcDocumentLinker.link(document).operations, theme)
+      }
+    }
+    fun loop(index: Int) =
+      RcLoopOperation(
+        index,
+        RcFloatWord.literal(5f),
+        RcFloatWord.literal(1f),
+        RcFloatWord.literal(6f),
       )
-    val index = RcFloatWord(0x7fc00000 or 43)
-    val light = RcPlayerState(document)
-    light.applyLayoutContentStateOperations(
-      RcDocumentLinker.link(document).operations,
-      RcTheme.LIGHT,
+    val expression =
+      RcColorExpression(42, RcColorExpression.COLOR_COLOR_INTERPOLATE, colour, colour, 0)
+    val end = RcNoArg(RcOpcodes.CONTAINER_END)
+
+    assertEquals(
+      colour,
+      play(RcTheme.DARK, RcTheme(RcTheme.DARK), loop(0), expression, end).color(42),
     )
-    assertEquals(index.value.toRawBits(), light.resolve(index).toRawBits())
-    val dark = RcPlayerState(document)
-    dark.applyLayoutContentStateOperations(RcDocumentLinker.link(document).operations, RcTheme.DARK)
-    assertEquals(5f, dark.resolve(index))
+    // Under the other theme's marker.
+    assertEquals(0, play(RcTheme.LIGHT, RcTheme(RcTheme.DARK), loop(0), expression, end).color(42))
+    // A loop that writes an index is not the themed-colour shape: the replay leaves it alone.
+    val indexed = play(RcTheme.DARK, loop(43), expression, end)
+    assertEquals(0, indexed.color(42))
+    val index = RcFloatWord(0x7fc00000 or 43)
+    assertEquals(index.value.toRawBits(), indexed.resolve(index).toRawBits())
   }
 }
