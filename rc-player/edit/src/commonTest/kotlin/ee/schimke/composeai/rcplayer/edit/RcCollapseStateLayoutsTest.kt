@@ -1,28 +1,28 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
+import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
-import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDraw4
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcHostAction
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
-import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
-import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
-import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
-import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
@@ -31,23 +31,29 @@ import ee.schimke.composeai.rcplayer.runtime.RcLayoutTree
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 
 class RcCollapseStateLayoutsTest {
-  private fun stateDocument(
-    vararg before: RcOperation,
-    indexId: Int = INDEX,
+  private val zero = RcFloatWord.literal(0f)
+  private val one = RcFloatWord.literal(1f)
+
+  /** A state layout over three empty boxes, its index id [INDEX]. */
+  private fun stateDocument(vararg before: RcOperation, after: List<RcOperation> = emptyList()) =
+    branches(null, box(20), box(30), box(40), before = before.toList(), after = after)
+
+  /** A state layout over [branches]; [selected] becomes the index constant when not null. */
+  private fun branches(
+    selected: Int?,
+    vararg branches: List<RcOperation>,
+    before: List<RcOperation> = emptyList(),
     after: List<RcOperation> = emptyList(),
   ) =
     document(
-      *before,
+      *listOfNotNull(selected?.let { RcIntegerConstant(INDEX, it) }).toTypedArray(),
+      *before.toTypedArray(),
       *rootLayout(
-          RcStateLayout(10, -1, 0, 0, indexId),
+          RcStateLayout(10, -1, 0, 0, INDEX),
           RcLayoutContent(9),
-          *box(20, RcTextData(100, "zero")).toTypedArray(),
-          *box(30, RcTextData(101, "one")).toTypedArray(),
-          *box(40, RcTextData(102, "two"), RcComponentValue(RcComponentValue.WIDTH, 40, 200))
-            .toTypedArray(),
+          *branches.toList().flatten().toTypedArray(),
           END,
           END,
         )
@@ -55,12 +61,24 @@ class RcCollapseStateLayoutsTest {
       *after.toTypedArray(),
     )
 
+  /** The component ids of the branches the player's layout tree gives the one state layout. */
+  private fun shownBranches(document: RcDocument): List<Int> {
+    val root = RcLayoutTree.build(RcDocumentLinker.link(document))!!
+    val content = root.children.single() as RcLayoutNode.Content
+    val state = content.children.single() as RcLayoutNode.State
+    return state.content.children.map { it.componentId }
+  }
+
   @Test
   fun aConstantIndexKeepsOnlyTheSelectedBranch() {
     val source =
       stateDocument(
         RcIntegerConstant(INDEX, 1),
-        after = listOf(RcComponentValue(RcComponentValue.HEIGHT, 20, 201)),
+        after =
+          listOf(
+            RcComponentValue(RcComponentValue.HEIGHT, 20, 201),
+            RcComponentValue(RcComponentValue.WIDTH, 30, 202),
+          ),
       )
 
     val result = assertRoundTrips(source.collapseConstantStateLayouts())
@@ -69,26 +87,56 @@ class RcCollapseStateLayoutsTest {
       listOf(
         RcIntegerConstant(INDEX, 1),
         *rootLayout(
-            // Branch 0's definitions stay before the kept branch and branch 2's after it, so
-            // whichever defines an id last still does. The width a removed branch published is now
-            // the zero a hidden branch publishes.
-            RcTextData(100, "zero"),
             RcStateLayout(10, -1, 0, 0, indexId = 0),
             RcLayoutContent(9),
-            *box(30, RcTextData(101, "one")).toTypedArray(),
+            *box(30).toTypedArray(),
             END,
             END,
-            RcTextData(102, "two"),
-            RcFloatConstant(200, RcFloatWord.literal(0f)),
           )
           .toTypedArray(),
-        RcFloatConstant(201, RcFloatWord.literal(0f)),
+        // A removed component publishes the zero a hidden branch does; the kept one still measures.
+        RcFloatConstant(201, zero),
+        RcComponentValue(RcComponentValue.WIDTH, 30, 202),
       ),
       result.operations,
     )
-
-    // And the player still reads it: one state layout, one branch, the selected one.
     assertEquals(listOf(30), shownBranches(result))
+  }
+
+  @Test
+  fun aBranchOfLayoutModifiersDrawingAndHandlersIsRemoved() {
+    val local =
+      box(
+        30,
+        RcPaddingModifier(one, one, one, one),
+        RcClickModifier,
+        RcHostAction(5),
+        RcValueIntegerChangeAction(70, 1),
+        END,
+        RcDraw4(RcOpcodes.DRAW_RECT, zero, zero, one, one),
+      )
+    val result = branches(0, box(20), local).collapseConstantStateLayouts()
+    assertEquals(listOf(20), shownBranches(result))
+  }
+
+  @Test
+  fun aBranchHoldingAnythingElseIsNotCollapsed() {
+    val blockers: List<List<RcOperation>> =
+      listOf(
+        listOf(RcTextData(100, "hidden")),
+        listOf(RcTextStyle(listOf(RcTextStyleProperty.IntValue(1, 5)))),
+        listOf(RcBitmapFontData(300, emptyList())),
+        listOf(RcFloatExpression(301, listOf(one), animation = null)),
+        listOf(RcPathCreate(302, zero, zero)),
+        listOf(RcTheme(RcTheme.DARK)),
+        listOf(RcConditionalOperations(RcConditionalOperations.EQUAL, zero, zero), END),
+        // An action outside a handler runs as the branch draws, not on touch.
+        listOf(RcValueIntegerChangeAction(70, 1)),
+      )
+    blockers.forEach { content ->
+      val source = branches(0, box(20), box(30, *content.toTypedArray()))
+      assertSame(source, source.collapseConstantStateLayouts(), content.toString())
+    }
   }
 
   @Test
@@ -124,88 +172,13 @@ class RcCollapseStateLayoutsTest {
   }
 
   @Test
-  fun anOutOfRangeIndexIsLeftForThePlayerToInterpret() {
-    val source = stateDocument(RcIntegerConstant(INDEX, 5))
-    assertSame(source, source.collapseConstantStateLayouts())
-  }
-
-  private fun branches(
-    selected: Int,
-    vararg branches: List<RcOperation>,
-    after: List<RcOperation> = emptyList(),
-  ) =
-    document(
-      RcIntegerConstant(INDEX, selected),
-      *rootLayout(
-          RcStateLayout(10, -1, 0, 0, INDEX),
-          RcLayoutContent(9),
-          *branches.toList().flatten().toTypedArray(),
-          END,
-          END,
-        )
-        .toTypedArray(),
-      *after.toTypedArray(),
-    )
-
-  private val one = RcFloatWord.literal(1f)
-  private val zero = RcFloatWord.literal(0f)
-
-  @Test
-  fun everyValueTheTextProducersDefineIsKept() {
-    val producers =
-      listOf(
-        RcTextFromFloat(103, one, 1, 1, 0),
-        RcTextSubtext(104, 100, zero, one),
-        RcTextTransform(105, 100, zero, one, 0),
-      )
-    val result =
-      branches(0, box(20), box(30, *producers.toTypedArray())).collapseConstantStateLayouts()
-    assertEquals(producers, result.operations.filter { it in producers })
-  }
-
-  @Test
-  fun aLaterBranchStillWinsAnIdItRedefines() {
-    val result =
-      branches(0, box(20, RcTextData(100, "a")), box(30, RcTextData(100, "b")))
-        .collapseConstantStateLayouts()
-    assertEquals("b", result.operations.filterIsInstance<RcTextData>().last { it.id == 100 }.text)
-  }
-
-  @Test
-  fun aConditionalValueIsDroppedOnlyWhenNothingOutsideReadsIt() {
-    val conditional =
-      box(
-        30,
-        RcConditionalOperations(RcConditionalOperations.EQUAL, zero, zero),
-        RcFloatExpression(300, listOf(one), animation = null),
+  fun anIndexALoopWritesIsNotConstant() {
+    val source =
+      stateDocument(
+        RcIntegerConstant(INDEX, 1),
+        RcLoopOperation(INDEX, zero, one, RcFloatWord.literal(3f)),
         END,
       )
-    val reader = RcFloatExpression(301, listOf(RcFloatWord(0x7fc00000 or 300)), animation = null)
-
-    val read = branches(0, box(20), conditional, after = listOf(reader))
-    assertSame(read, read.collapseConstantStateLayouts())
-
-    val unread = branches(0, box(20), conditional).collapseConstantStateLayouts()
-    assertTrue(unread.operations.filterIsInstance<RcStateLayout>().single().indexId == 0)
-    assertTrue(unread.operations.none { it is RcFloatExpression })
-  }
-
-  /** The component ids of the branches the player's layout tree gives the one state layout. */
-  private fun shownBranches(document: RcDocument): List<Int> {
-    val root = RcLayoutTree.build(RcDocumentLinker.link(document))!!
-    val content = root.children.single() as RcLayoutNode.Content
-    val state = content.children.single() as RcLayoutNode.State
-    return state.content.children.map { it.componentId }
-  }
-
-  private companion object {
-    const val INDEX = 60
-    const val SOURCE = 61
-  }
-
-  @Test
-  fun aBranchThatGatesItsDefinitionsByThemeIsNotCollapsed() {
-    val source = branches(0, box(20), box(30, RcTheme(RcTheme.DARK), RcTextData(100, "dark")))
     assertSame(source, source.collapseConstantStateLayouts())
   }
 
@@ -244,59 +217,13 @@ class RcCollapseStateLayoutsTest {
   }
 
   @Test
-  fun aRemovedBranchKeepsTheResourcesItDeclares() {
-    val font = RcBitmapFontData(300, emptyList())
-    val result = branches(0, box(20), box(30, font)).collapseConstantStateLayouts()
-    assertTrue(font in result.operations)
-  }
-
-  @Test
-  fun anIndexALoopWritesIsNotConstant() {
-    val source =
-      stateDocument(
-        RcIntegerConstant(INDEX, 1),
-        RcLoopOperation(INDEX, zero, one, RcFloatWord.literal(3f)),
-        END,
-      )
+  fun anOutOfRangeIndexIsLeftForThePlayerToInterpret() {
+    val source = stateDocument(RcIntegerConstant(INDEX, 5))
     assertSame(source, source.collapseConstantStateLayouts())
   }
 
-  @Test
-  fun aRemovedBranchKeepsTheTextStylesItDeclares() {
-    val style = RcTextStyle(listOf(RcTextStyleProperty.IntValue(1, 5)))
-    val result = branches(0, box(20), box(30, style)).collapseConstantStateLayouts()
-    assertTrue(style in result.operations)
-  }
-
-  @Test
-  fun aMeasuredCoreTextInARemovedBranchPublishesZero() {
-    val text = RcCoreText(42, listOf(RcTextStyleProperty.IntValue(1, 77)))
-    val result =
-      branches(
-          0,
-          box(20),
-          box(30, text, RcLayoutContent(-77), END, END),
-          after = listOf(RcComponentValue(RcComponentValue.WIDTH, 77, 400)),
-        )
-        .collapseConstantStateLayouts()
-    assertTrue(RcFloatConstant(400, zero) in result.operations)
-    assertTrue(result.operations.none { it is RcComponentValue && it.componentId == 77 })
-  }
-
-  @Test
-  fun aBranchWithOnlyAThemeMarkerIsNotCollapsed() {
-    val source = branches(0, box(20), box(30, RcTheme(RcTheme.DARK)))
-    assertSame(source, source.collapseConstantStateLayouts())
-  }
-
-  @Test
-  fun aDrawTimeProducerIsDroppedOnlyWhenNothingOutsideReadsIt() {
-    val path = RcPathCreate(300, zero, zero)
-    val read = branches(0, box(20), box(30, path), after = listOf(RcPathTween(301, 300, 300, one)))
-    assertSame(read, read.collapseConstantStateLayouts())
-
-    val unread = branches(0, box(20), box(30, path)).collapseConstantStateLayouts()
-    assertTrue(unread.operations.none { it is RcPathCreate })
-    assertEquals(0, unread.operations.filterIsInstance<RcStateLayout>().single().indexId)
+  private companion object {
+    const val INDEX = 60
+    const val SOURCE = 61
   }
 }

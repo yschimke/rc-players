@@ -74,7 +74,7 @@ Beside the stack, and depending on `protocol` and `runtime` rather than the othe
 
 | Module | Artifact | What it is |
 | --- | --- | --- |
-| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, and collapse state layouts whose index can no longer change to their one live branch. No Compose. |
+| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, and collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing and touch handlers, so nothing outside can depend on them. No Compose. |
 
 ```kotlin
 val document = RcDocumentCodec.decode(bytes)
