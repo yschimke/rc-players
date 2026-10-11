@@ -3,6 +3,7 @@ package ee.schimke.composeai.rcplayer.edit
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
+import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
@@ -109,6 +110,20 @@ class RcColorThemeFallbacksTest {
       listOf(
         document(group, RcTheme(RcTheme.DARK), themed, RcTheme(RcTheme.UNSPECIFIED)),
         document(group, RcColorConstant(COLOR, 0), themed),
+        // Under a condition: the sections would set it whether or not the condition holds.
+        document(
+          group,
+          *rootLayout(
+              RcConditionalOperations(
+                RcConditionalOperations.EQUAL,
+                RcFloatWord.literal(0f),
+                RcFloatWord.literal(1f),
+              ),
+              themed,
+              END,
+            )
+            .toTypedArray(),
+        ),
       )
     sources.forEach { assertSame(it, it.colorThemesAsFallbacks()) }
   }

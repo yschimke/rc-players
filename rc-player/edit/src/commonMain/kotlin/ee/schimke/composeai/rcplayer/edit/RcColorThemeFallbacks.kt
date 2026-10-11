@@ -30,7 +30,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcTheme
  * layout. Its value depends on nothing but the theme, so it is the same value earlier.
  *
  * A `ColorTheme` sitting where a theme marker is already in force, or whose id something else also
- * defines, is left alone.
+ * defines, is left alone, and so, for theme sections, is one inside a conditional or a loop, which
+ * moving to the top level would make unconditional.
  */
 public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocument {
   require(fixedTheme == null || fixedTheme == RcTheme.DARK || fixedTheme == RcTheme.LIGHT) {
@@ -39,6 +40,7 @@ public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocumen
   if (operations.none { it is RcColorTheme }) return this
   val tree = operationTree(operations) ?: return this
   val unthemed = unthemedOperations(operations) ?: return this
+  val unconditional = unconditionalOperations(operations) ?: return this
   val replaced = mutableListOf<Int>()
   // Theme sections gate only at the top level, so a themed colour inside a layout moves to just
   // before the top-level operation that holds it; one at the top level stays where it is.
@@ -47,8 +49,11 @@ public fun RcDocument.colorThemesAsFallbacks(fixedTheme: Int? = null): RcDocumen
   tree.forEach { top ->
     top.walk { node ->
       val theme = node.operation as? RcColorTheme ?: return@walk
-      // Neither where it was nor, for sections, where they go may be under a theme marker.
-      if (!unthemed[node.start] || (fixedTheme == null && !unthemed[top.start])) return@walk
+      // Neither where it was nor, for sections, where they go may be under a theme marker. Sections
+      // move to the top level, so only a colour that always ran may move: one under a condition or
+      // in a loop could have been left unset, and stays.
+      if (!unthemed[node.start]) return@walk
+      if (fixedTheme == null && (!unthemed[top.start] || !unconditional[node.start])) return@walk
       val definitions = operations.count { it.definedIds()?.contains(theme.outId) == true }
       if (definitions != 1) return@walk
       replaced += theme.outId
