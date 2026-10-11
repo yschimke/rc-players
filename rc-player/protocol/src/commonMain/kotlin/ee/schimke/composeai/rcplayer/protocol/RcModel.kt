@@ -1868,6 +1868,56 @@ public object RcOpcodes {
   public const val MACRO_ARGUMENT: Int = 248
   public const val MACRO_BLOCK: Int = 249
   public const val ACCESSIBILITY_SEMANTICS: Int = 250
+
+  /**
+   * Opcodes that open a container: everything after one, up to its matching [CONTAINER_END], is its
+   * body. A flat operation list is a tree only through this set, so the linker and anything else
+   * that walks that tree (an editor removing a subtree) read it from here rather than keeping
+   * copies that could disagree.
+   *
+   * A wire-form `MacroDefine` — one with an empty body blob — is also closed by a [CONTAINER_END],
+   * but whether it opens one depends on the payload, so it is not listed here.
+   */
+  public val CONTAINER_STARTS: Set<Int> =
+    setOf(
+      CANVAS_OPERATIONS,
+      MODIFIER_CLICK,
+      MODIFIER_MULTI_CLICK,
+      MODIFIER_TOUCH_DOWN,
+      MODIFIER_TOUCH_UP,
+      MODIFIER_TOUCH_CANCEL,
+      MODIFIER_SCROLL,
+      RUN_ACTION,
+      LAYOUT_CANVAS_CONTENT,
+      FUNCTION_DEFINE,
+      IMPULSE_START,
+      IMPULSE_PROCESS,
+      CONDITIONAL_OPERATIONS,
+      LOOP_START,
+      PARTICLE_LOOP,
+      PARTICLE_COMPARE,
+      LAYOUT_ROOT,
+      LAYOUT_CONTENT,
+      LAYOUT_CUSTOM,
+      LAYOUT_BOX,
+      LAYOUT_ROW,
+      LAYOUT_COLUMN,
+      LAYOUT_STATE,
+      LAYOUT_FLOW,
+      LAYOUT_COLLAPSIBLE_ROW,
+      LAYOUT_COLLAPSIBLE_COLUMN,
+      LAYOUT_COMPUTE,
+      LAYOUT_CANVAS,
+      LAYOUT_FIT_BOX,
+      LAYOUT_IMAGE,
+      LAYOUT_TEXT,
+      CORE_TEXT,
+      COMPONENT_START,
+      REFERENCED_OPERATIONS,
+      MACRO_FOR_EACH,
+      MACRO_CALL,
+      MACRO_BLOCK,
+    )
 }
 
 public object RcPathCommands {

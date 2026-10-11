@@ -104,7 +104,7 @@ public object RcDocumentLinker {
         if (candidate.opcode == RcOpcodes.CONTAINER_END) {
           if (depth == 0) break
           depth--
-        } else if (candidate.opcode in containerStartOpcodes) {
+        } else if (candidate.opcode in RcOpcodes.CONTAINER_STARTS) {
           depth++
         }
         body += candidate
@@ -128,7 +128,7 @@ public object RcDocumentLinker {
     var destination = root
     operations.forEachIndexed { index, operation ->
       when {
-        operation.opcode in containerStartOpcodes -> {
+        operation.opcode in RcOpcodes.CONTAINER_STARTS -> {
           if (stack.size >= MAX_NESTING_DEPTH) {
             throw RcLinkException(
               "Container nesting exceeds $MAX_NESTING_DEPTH at operation $index"
@@ -362,45 +362,4 @@ public object RcDocumentLinker {
     val parent: MutableList<RcLinkedNode>,
     val children: MutableList<RcLinkedNode>,
   )
-
-  private val containerStartOpcodes =
-    setOf(
-      RcOpcodes.CANVAS_OPERATIONS,
-      RcOpcodes.MODIFIER_CLICK,
-      RcOpcodes.MODIFIER_MULTI_CLICK,
-      RcOpcodes.MODIFIER_TOUCH_DOWN,
-      RcOpcodes.MODIFIER_TOUCH_UP,
-      RcOpcodes.MODIFIER_TOUCH_CANCEL,
-      RcOpcodes.MODIFIER_SCROLL,
-      RcOpcodes.RUN_ACTION,
-      RcOpcodes.LAYOUT_CANVAS_CONTENT,
-      RcOpcodes.FUNCTION_DEFINE,
-      RcOpcodes.IMPULSE_START,
-      RcOpcodes.IMPULSE_PROCESS,
-      RcOpcodes.CONDITIONAL_OPERATIONS,
-      RcOpcodes.LOOP_START,
-      RcOpcodes.PARTICLE_LOOP,
-      RcOpcodes.PARTICLE_COMPARE,
-      RcOpcodes.LAYOUT_ROOT,
-      RcOpcodes.LAYOUT_CONTENT,
-      RcOpcodes.LAYOUT_CUSTOM,
-      RcOpcodes.LAYOUT_BOX,
-      RcOpcodes.LAYOUT_ROW,
-      RcOpcodes.LAYOUT_COLUMN,
-      RcOpcodes.LAYOUT_STATE,
-      RcOpcodes.LAYOUT_FLOW,
-      RcOpcodes.LAYOUT_COLLAPSIBLE_ROW,
-      RcOpcodes.LAYOUT_COLLAPSIBLE_COLUMN,
-      RcOpcodes.LAYOUT_COMPUTE,
-      RcOpcodes.LAYOUT_CANVAS,
-      RcOpcodes.LAYOUT_FIT_BOX,
-      RcOpcodes.LAYOUT_IMAGE,
-      RcOpcodes.LAYOUT_TEXT,
-      RcOpcodes.CORE_TEXT,
-      RcOpcodes.COMPONENT_START,
-      RcOpcodes.REFERENCED_OPERATIONS,
-      RcOpcodes.MACRO_FOR_EACH,
-      RcOpcodes.MACRO_CALL,
-      RcOpcodes.MACRO_BLOCK,
-    )
 }

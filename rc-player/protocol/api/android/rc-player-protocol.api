@@ -800,6 +800,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcDocument {
 public final class ee/schimke/composeai/rcplayer/protocol/RcDocumentCodec {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/protocol/RcDocumentCodec;
 	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;II)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static synthetic fun decode$default (Lee/schimke/composeai/rcplayer/protocol/RcDocumentCodec;[BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun decodeOperations ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;Lee/schimke/composeai/rcplayer/protocol/RcIdRemapper;)Ljava/util/List;
 	public final fun decodeOperations ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;Lee/schimke/composeai/rcplayer/protocol/RcIdRemapper;Lee/schimke/composeai/rcplayer/protocol/RcOperationBudget;)Ljava/util/List;
@@ -2438,6 +2439,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field VALUE_INTEGER_EXPRESSION_CHANGE_ACTION I
 	public static final field VALUE_STRING_CHANGE_ACTION I
 	public static final field WAKE_IN I
+	public final fun getCONTAINER_STARTS ()Ljava/util/Set;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/protocol/RcOperation {

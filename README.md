@@ -70,10 +70,48 @@ next, and the dependency arrow is also the dependency-weight arrow:
 | `rc-player/runtime` | `rc-player-runtime` | Document semantics with no drawing: expression evaluation, animation timelines, layout tree, theming, named values. Still no Compose. |
 | `rc-player/compose` | `rc-player-compose` | The Compose Multiplatform renderer. `RcComposePlayer` draws a document; this is the module most consumers want. |
 
+Beside the stack, and depending on `protocol` and `runtime` rather than the other way round:
+
+| Module | Artifact | What it is |
+| --- | --- | --- |
+| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, and collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing and touch handlers, so nothing outside can depend on them. No Compose. |
+
+```kotlin
+val document = RcDocumentCodec.decode(bytes)
+val baked =
+  document
+    .embedBitmapUrls { url -> httpClient.get(url).readBytes() } // may suspend
+    .hardcodeNamedValues(mapOf("tab" to RcHardcodedValue.Integer(2)))
+    .hardcodeUnboundNamedValues(bound = setOf("progress"))
+    .collapseConstantStateLayouts()
+File("baked.rc").writeBytes(RcDocumentCodec.encode(baked))
+```
+
+It also checks a document against the player it is meant for. `RcTargetProfiles` names the
+profiles AndroidX's creation API writes for — `WIDGETS_V6` (launcher widgets on Android 16),
+`WIDGETS_V7`, `ANDROIDX`, `ANDROIDX_EXPERIMENTAL`, `WEAR_WIDGETS` — with operation sets transcribed
+from AndroidX's own tables; `RcTargetProfile.of(apiLevel, profiles)` builds any other.
+
+```kotlin
+val wear = RcTargetProfiles.WEAR_WIDGETS
+val document = wear.decode(bytes) // resolves `Skip` guards as the Wear player does
+document.validateFor(wear) // every operation, field and header the player would reject
+val adapted = document.adaptTo(wear) // inline macros, fold constants, re-declare the header
+if (!adapted.isPlayable) println(adapted.violations)
+```
+
+A target without `CoreText` — Android 16 launcher widgets, Wear widgets — gets the older
+`TextLayout` wherever it can say the same thing. Material typography also sets letter spacing,
+line height and font axes, which `TextLayout` has no field for:
+`adaptTo(target, approximateText = true)` drops those and lists each drop in
+`RcProfileAdaptation.approximations`; underline, strikethrough and autosize still block. To serve
+older devices a different design instead, keep a separate template per profile and check each with
+`validateFor`.
+
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 
-All four run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the real public surface
+All five run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the real public surface
 against the committed dumps in each module's `api/`, so a change to the published API shows up as a
 diff in review. Regenerate with `./gradlew updateKotlinAbi`.
 
