@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.1](https://github.com/yschimke/rc-players/compare/v2.7.0...v2.7.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.29.0 ([#623](https://github.com/yschimke/rc-players/issues/623)) ([f1473b3](https://github.com/yschimke/rc-players/commit/f1473b35da58b1f4deed8a93dddf248f7728aff9))
+* ignore undeclared named values and wrap the layout root to its content ([#626](https://github.com/yschimke/rc-players/issues/626)) ([8b548ec](https://github.com/yschimke/rc-players/commit/8b548ecfceae77232bd9263d190c7fc372199b1e))
+
 ## [2.7.0](https://github.com/yschimke/rc-players/compare/v2.6.1...v2.7.0) (2026-10-10)
 
 
