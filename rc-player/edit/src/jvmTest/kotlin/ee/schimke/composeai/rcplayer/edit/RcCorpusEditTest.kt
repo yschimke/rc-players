@@ -51,4 +51,44 @@ class RcCorpusEditTest {
       assertTrue(RcDocumentCodec.encode(edited).contentEquals(bytes), file.name)
     }
   }
+
+  @Test
+  fun adaptingToEveryProfileNeverAddsAViolationAndKeepsTheDocumentPlayable() {
+    val profiles =
+      listOf(
+        RcTargetProfiles.WIDGETS_V6,
+        RcTargetProfiles.WIDGETS_V7,
+        RcTargetProfiles.ANDROIDX,
+        RcTargetProfiles.ANDROIDX_EXPERIMENTAL,
+        RcTargetProfiles.WEAR_WIDGETS,
+      )
+    val summary = profiles.map { profile ->
+      var validBefore = 0
+      var validAfter = 0
+      val remaining = mutableMapOf<String, Int>()
+      corpus.forEach { file ->
+        val original = RcDocumentCodec.decode(file.readBytes())
+        val playable = runCatching { RcLayoutTree.build(RcDocumentLinker.link(original)) }.isSuccess
+        val before = original.validateFor(profile)
+        val adaptation = original.adaptTo(profile)
+
+        assertTrue(
+          adaptation.violations.size <= before.size,
+          "${file.name} on ${profile.name}: $before -> ${adaptation.violations}",
+        )
+        val reread = RcDocumentCodec.decode(RcDocumentCodec.encode(adaptation.document))
+        assertEquals(adaptation.document, reread, file.name)
+        if (playable) RcLayoutTree.build(RcDocumentLinker.link(reread))
+        if (before.isEmpty()) validBefore++
+        if (adaptation.isPlayable) validAfter++
+        adaptation.violations
+          .map { it.opcode?.let(::operationName) ?: it.kind.name }
+          .distinct()
+          .forEach { remaining[it] = (remaining[it] ?: 0) + 1 }
+      }
+      "${profile.name}: $validBefore valid, $validAfter after adaptTo; still blocking: " +
+        remaining.entries.sortedByDescending { it.value }.joinToString { "${it.key} (${it.value})" }
+    }
+    println("Corpus of ${corpus.size}:\n" + summary.joinToString("\n"))
+  }
 }

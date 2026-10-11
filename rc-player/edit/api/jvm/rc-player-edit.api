@@ -84,3 +84,96 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;)V
+	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun getViolations ()Ljava/util/List;
+	public fun hashCode ()I
+	public final fun isPlayable ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptationKt {
+	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcProfileValidationKt {
+	public static final fun validateFor (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Ljava/util/List;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcProfileViolation {
+	public fun <init> (Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;)V
+	public final fun component1 ()Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public final fun component2 ()Ljava/lang/Integer;
+	public final fun component3 ()Ljava/lang/Integer;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcProfileViolation;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcProfileViolation;Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileViolation;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKind ()Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public final fun getMessage ()Ljava/lang/String;
+	public final fun getOpcode ()Ljava/lang/Integer;
+	public final fun getOperationIndex ()Ljava/lang/Integer;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind : java/lang/Enum {
+	public static final field DYNAMIC_VALUE Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static final field FLOAT_OPERATOR Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static final field HEADER_API_LEVEL Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static final field HEADER_FORMAT Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static final field UNDECLARED_OPERATION Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static final field UNSUPPORTED_OPERATION Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcProfileViolation$Kind;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcProfiles {
+	public static final field ANDROIDX I
+	public static final field ANDROID_NATIVE I
+	public static final field BASELINE I
+	public static final field DEPRECATED I
+	public static final field EXPERIMENTAL I
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/edit/RcProfiles;
+	public static final field LOW_POWER I
+	public static final field OEM I
+	public static final field WEAR_WIDGETS I
+	public static final field WIDGETS I
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile {
+	public static final field Companion Lee/schimke/composeai/rcplayer/edit/RcTargetProfile$Companion;
+	public final fun decode ([BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun decode$default (Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;[BLee/schimke/composeai/rcplayer/protocol/RcWireLimits;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun getApiLevel ()I
+	public final fun getName ()Ljava/lang/String;
+	public final fun getProfiles ()I
+	public final fun getSupportedOpcodes ()Ljava/util/Set;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile$Companion {
+	public final fun of (II)Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfileKt {
+	public static final fun getApiLevel (Lee/schimke/composeai/rcplayer/protocol/RcHeader;)Ljava/lang/Integer;
+	public static final fun getProfiles (Lee/schimke/composeai/rcplayer/protocol/RcHeader;)I
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfiles {
+	public static final field INSTANCE Lee/schimke/composeai/rcplayer/edit/RcTargetProfiles;
+	public final fun getANDROIDX ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public final fun getANDROIDX_EXPERIMENTAL ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public final fun getWEAR_WIDGETS ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public final fun getWIDGETS_V6 ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+	public final fun getWIDGETS_V7 ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+}
+

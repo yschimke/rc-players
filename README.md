@@ -87,6 +87,19 @@ val baked =
 File("baked.rc").writeBytes(RcDocumentCodec.encode(baked))
 ```
 
+It also checks a document against the player it is meant for. `RcTargetProfiles` names the
+profiles AndroidX's creation API writes for — `WIDGETS_V6` (launcher widgets on Android 16),
+`WIDGETS_V7`, `ANDROIDX`, `ANDROIDX_EXPERIMENTAL`, `WEAR_WIDGETS` — with operation sets transcribed
+from AndroidX's own tables; `RcTargetProfile.of(apiLevel, profiles)` builds any other.
+
+```kotlin
+val wear = RcTargetProfiles.WEAR_WIDGETS
+val document = wear.decode(bytes) // resolves `Skip` guards as the Wear player does
+document.validateFor(wear) // every operation, field and header the player would reject
+val adapted = document.adaptTo(wear) // inline macros, fold constants, re-declare the header
+if (!adapted.isPlayable) println(adapted.violations)
+```
+
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 

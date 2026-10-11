@@ -86,13 +86,126 @@ sealed interface ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.sch
     }
 }
 
+final class ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation { // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation|null[0]
+    constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation>) // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>){}[0]
+
+    final val document // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.document|{}document[0]
+        final fun <get-document>(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.document.<get-document>|<get-document>(){}[0]
+    final val isPlayable // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.isPlayable|{}isPlayable[0]
+        final fun <get-isPlayable>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.isPlayable.<get-isPlayable>|<get-isPlayable>(){}[0]
+    final val violations // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.violations|{}violations[0]
+        final fun <get-violations>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.violations.<get-violations>|<get-violations>(){}[0]
+
+    final fun component1(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.component2|component2(){}[0]
+    final fun copy(ee.schimke.composeai.rcplayer.protocol/RcDocument = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcProfileViolation>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcplayer.edit/RcProfileViolation { // ee.schimke.composeai.rcplayer.edit/RcProfileViolation|null[0]
+    constructor <init>(ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind, kotlin/Int?, kotlin/Int?, kotlin/String) // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.<init>|<init>(ee.schimke.composeai.rcplayer.edit.RcProfileViolation.Kind;kotlin.Int?;kotlin.Int?;kotlin.String){}[0]
+
+    final val kind // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.kind|{}kind[0]
+        final fun <get-kind>(): ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.kind.<get-kind>|<get-kind>(){}[0]
+    final val message // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.message|{}message[0]
+        final fun <get-message>(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.message.<get-message>|<get-message>(){}[0]
+    final val opcode // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.opcode|{}opcode[0]
+        final fun <get-opcode>(): kotlin/Int? // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.opcode.<get-opcode>|<get-opcode>(){}[0]
+    final val operationIndex // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.operationIndex|{}operationIndex[0]
+        final fun <get-operationIndex>(): kotlin/Int? // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.operationIndex.<get-operationIndex>|<get-operationIndex>(){}[0]
+
+    final fun component1(): ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.component1|component1(){}[0]
+    final fun component2(): kotlin/Int? // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.component2|component2(){}[0]
+    final fun component3(): kotlin/Int? // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.component3|component3(){}[0]
+    final fun component4(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.component4|component4(){}[0]
+    final fun copy(ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind = ..., kotlin/Int? = ..., kotlin/Int? = ..., kotlin/String = ...): ee.schimke.composeai.rcplayer.edit/RcProfileViolation // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.copy|copy(ee.schimke.composeai.rcplayer.edit.RcProfileViolation.Kind;kotlin.Int?;kotlin.Int?;kotlin.String){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.toString|toString(){}[0]
+
+    final enum class Kind : kotlin/Enum<ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind> { // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind|null[0]
+        enum entry DYNAMIC_VALUE // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.DYNAMIC_VALUE|null[0]
+        enum entry FLOAT_OPERATOR // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.FLOAT_OPERATOR|null[0]
+        enum entry HEADER_API_LEVEL // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.HEADER_API_LEVEL|null[0]
+        enum entry HEADER_FORMAT // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.HEADER_FORMAT|null[0]
+        enum entry UNDECLARED_OPERATION // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.UNDECLARED_OPERATION|null[0]
+        enum entry UNSUPPORTED_OPERATION // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.UNSUPPORTED_OPERATION|null[0]
+
+        final val entries // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.entries|#static{}entries[0]
+            final fun <get-entries>(): kotlin.enums/EnumEntries<ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind> // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.entries.<get-entries>|<get-entries>#static(){}[0]
+
+        final fun valueOf(kotlin/String): ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.valueOf|valueOf#static(kotlin.String){}[0]
+        final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind> // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.values|values#static(){}[0]
+    }
+}
+
+final class ee.schimke.composeai.rcplayer.edit/RcTargetProfile { // ee.schimke.composeai.rcplayer.edit/RcTargetProfile|null[0]
+    final val apiLevel // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.apiLevel|{}apiLevel[0]
+        final fun <get-apiLevel>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.apiLevel.<get-apiLevel>|<get-apiLevel>(){}[0]
+    final val name // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.name|{}name[0]
+        final fun <get-name>(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.name.<get-name>|<get-name>(){}[0]
+    final val profiles // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.profiles|{}profiles[0]
+        final fun <get-profiles>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.profiles.<get-profiles>|<get-profiles>(){}[0]
+    final val supportedOpcodes // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.supportedOpcodes|{}supportedOpcodes[0]
+        final fun <get-supportedOpcodes>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.supportedOpcodes.<get-supportedOpcodes>|<get-supportedOpcodes>(){}[0]
+
+    final fun decode(kotlin/ByteArray, ee.schimke.composeai.rcplayer.protocol/RcWireLimits = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.decode|decode(kotlin.ByteArray;ee.schimke.composeai.rcplayer.protocol.RcWireLimits){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.toString|toString(){}[0]
+
+    final object Companion { // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.Companion|null[0]
+        final fun of(kotlin/Int, kotlin/Int): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfile.Companion.of|of(kotlin.Int;kotlin.Int){}[0]
+    }
+}
+
+final object ee.schimke.composeai.rcplayer.edit/RcProfiles { // ee.schimke.composeai.rcplayer.edit/RcProfiles|null[0]
+    final const val ANDROIDX // ee.schimke.composeai.rcplayer.edit/RcProfiles.ANDROIDX|{}ANDROIDX[0]
+        final fun <get-ANDROIDX>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.ANDROIDX.<get-ANDROIDX>|<get-ANDROIDX>(){}[0]
+    final const val ANDROID_NATIVE // ee.schimke.composeai.rcplayer.edit/RcProfiles.ANDROID_NATIVE|{}ANDROID_NATIVE[0]
+        final fun <get-ANDROID_NATIVE>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.ANDROID_NATIVE.<get-ANDROID_NATIVE>|<get-ANDROID_NATIVE>(){}[0]
+    final const val BASELINE // ee.schimke.composeai.rcplayer.edit/RcProfiles.BASELINE|{}BASELINE[0]
+        final fun <get-BASELINE>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.BASELINE.<get-BASELINE>|<get-BASELINE>(){}[0]
+    final const val DEPRECATED // ee.schimke.composeai.rcplayer.edit/RcProfiles.DEPRECATED|{}DEPRECATED[0]
+        final fun <get-DEPRECATED>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.DEPRECATED.<get-DEPRECATED>|<get-DEPRECATED>(){}[0]
+    final const val EXPERIMENTAL // ee.schimke.composeai.rcplayer.edit/RcProfiles.EXPERIMENTAL|{}EXPERIMENTAL[0]
+        final fun <get-EXPERIMENTAL>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.EXPERIMENTAL.<get-EXPERIMENTAL>|<get-EXPERIMENTAL>(){}[0]
+    final const val LOW_POWER // ee.schimke.composeai.rcplayer.edit/RcProfiles.LOW_POWER|{}LOW_POWER[0]
+        final fun <get-LOW_POWER>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.LOW_POWER.<get-LOW_POWER>|<get-LOW_POWER>(){}[0]
+    final const val OEM // ee.schimke.composeai.rcplayer.edit/RcProfiles.OEM|{}OEM[0]
+        final fun <get-OEM>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.OEM.<get-OEM>|<get-OEM>(){}[0]
+    final const val WEAR_WIDGETS // ee.schimke.composeai.rcplayer.edit/RcProfiles.WEAR_WIDGETS|{}WEAR_WIDGETS[0]
+        final fun <get-WEAR_WIDGETS>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.WEAR_WIDGETS.<get-WEAR_WIDGETS>|<get-WEAR_WIDGETS>(){}[0]
+    final const val WIDGETS // ee.schimke.composeai.rcplayer.edit/RcProfiles.WIDGETS|{}WIDGETS[0]
+        final fun <get-WIDGETS>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.WIDGETS.<get-WIDGETS>|<get-WIDGETS>(){}[0]
+}
+
+final object ee.schimke.composeai.rcplayer.edit/RcTargetProfiles { // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles|null[0]
+    final val ANDROIDX // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX|{}ANDROIDX[0]
+        final fun <get-ANDROIDX>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX.<get-ANDROIDX>|<get-ANDROIDX>(){}[0]
+    final val ANDROIDX_EXPERIMENTAL // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX_EXPERIMENTAL|{}ANDROIDX_EXPERIMENTAL[0]
+        final fun <get-ANDROIDX_EXPERIMENTAL>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.ANDROIDX_EXPERIMENTAL.<get-ANDROIDX_EXPERIMENTAL>|<get-ANDROIDX_EXPERIMENTAL>(){}[0]
+    final val WEAR_WIDGETS // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WEAR_WIDGETS|{}WEAR_WIDGETS[0]
+        final fun <get-WEAR_WIDGETS>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WEAR_WIDGETS.<get-WEAR_WIDGETS>|<get-WEAR_WIDGETS>(){}[0]
+    final val WIDGETS_V6 // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WIDGETS_V6|{}WIDGETS_V6[0]
+        final fun <get-WIDGETS_V6>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WIDGETS_V6.<get-WIDGETS_V6>|<get-WIDGETS_V6>(){}[0]
+    final val WIDGETS_V7 // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WIDGETS_V7|{}WIDGETS_V7[0]
+        final fun <get-WIDGETS_V7>(): ee.schimke.composeai.rcplayer.edit/RcTargetProfile // ee.schimke.composeai.rcplayer.edit/RcTargetProfiles.WIDGETS_V7.<get-WIDGETS_V7>|<get-WIDGETS_V7>(){}[0]
+}
+
+final val ee.schimke.composeai.rcplayer.edit/apiLevel // ee.schimke.composeai.rcplayer.edit/apiLevel|@ee.schimke.composeai.rcplayer.protocol.RcHeader{}apiLevel[0]
+    final fun (ee.schimke.composeai.rcplayer.protocol/RcHeader).<get-apiLevel>(): kotlin/Int? // ee.schimke.composeai.rcplayer.edit/apiLevel.<get-apiLevel>|<get-apiLevel>@ee.schimke.composeai.rcplayer.protocol.RcHeader(){}[0]
 final val ee.schimke.composeai.rcplayer.edit/bitmapUrls // ee.schimke.composeai.rcplayer.edit/bitmapUrls|@ee.schimke.composeai.rcplayer.protocol.RcDocument{}bitmapUrls[0]
     final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).<get-bitmapUrls>(): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcplayer.edit/bitmapUrls.<get-bitmapUrls>|<get-bitmapUrls>@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final val ee.schimke.composeai.rcplayer.edit/namedVariables // ee.schimke.composeai.rcplayer.edit/namedVariables|@ee.schimke.composeai.rcplayer.protocol.RcDocument{}namedVariables[0]
     final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).<get-namedVariables>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcNamedVariable> // ee.schimke.composeai.rcplayer.edit/namedVariables.<get-namedVariables>|<get-namedVariables>@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
+final val ee.schimke.composeai.rcplayer.edit/profiles // ee.schimke.composeai.rcplayer.edit/profiles|@ee.schimke.composeai.rcplayer.protocol.RcHeader{}profiles[0]
+    final fun (ee.schimke.composeai.rcplayer.protocol/RcHeader).<get-profiles>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/profiles.<get-profiles>|<get-profiles>@ee.schimke.composeai.rcplayer.protocol.RcHeader(){}[0]
 
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts|collapseConstantStateLayouts@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/embedBitmapUrls(kotlin.collections/Map<kotlin/String, kotlin/ByteArray>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/embedBitmapUrls|embedBitmapUrls@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/hardcodeNamedValues(kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/hardcodeNamedValues|hardcodeNamedValues@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/hardcodeUnboundNamedValues(kotlin.collections/Set<kotlin/String> = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/hardcodeUnboundNamedValues|hardcodeUnboundNamedValues@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Set<kotlin.String>){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/validateFor(ee.schimke.composeai.rcplayer.edit/RcTargetProfile): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcProfileViolation> // ee.schimke.composeai.rcplayer.edit/validateFor|validateFor@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile){}[0]
 final inline fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/embedBitmapUrls(kotlin/Function1<kotlin/String, kotlin/ByteArray?>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/embedBitmapUrls|embedBitmapUrls@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Function1<kotlin.String,kotlin.ByteArray?>){}[0]
