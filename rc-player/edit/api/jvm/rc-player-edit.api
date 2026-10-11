@@ -84,6 +84,15 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcOptimizeKt {
+	public static final fun foldConstantExpressions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun optimize (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun removeDuplicateDefinitions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun removeUnreadDefinitions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun sizeReport (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/edit/RcSizeReport;
+	public static final fun stripDebugOperations (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)V
 	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -150,6 +159,19 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfiles {
 	public static final field OEM I
 	public static final field WEAR_WIDGETS I
 	public static final field WIDGETS I
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcSizeReport {
+	public fun <init> (ILjava/util/Map;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/util/Map;
+	public final fun copy (ILjava/util/Map;)Lee/schimke/composeai/rcplayer/edit/RcSizeReport;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcSizeReport;ILjava/util/Map;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcSizeReport;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getByOperation ()Ljava/util/Map;
+	public final fun getTotalBytes ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfile {
