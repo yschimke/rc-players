@@ -575,9 +575,8 @@ private fun RcComposePlayerResolved(
   // type; nothing on the public path called it. A removal means "stop overriding this", which needs
   // the pre-override value, so `clearNamedValue` is its inverse (see `RcPlayerState`).
   //
-  // Errors are deliberately not caught: an unknown name or a type mismatch threw from the
-  // `RcPlayerState` constructor before this change, and a host that names a variable the document
-  // does not have should still hear about it rather than watch the value quietly not apply.
+  // A name the document does not declare is ignored by the state, as AndroidX ignores it, so one
+  // host map can drive several documents. A type mismatch on a declared name still throws.
   //
   // `appliedNamedValues` tracks what the *state* holds, not what the holder holds, and is
   // remembered on `state` so it survives the effect restarting. Two things need that:
@@ -1053,7 +1052,13 @@ private fun RenderLayoutNode(
             node.modifiers,
             state,
             geometryIds,
-            fillMissingDimensions = true,
+            // A root with no size of its own wraps its content within the host's constraints, as
+            // the View player does under `wrap_content`; a host that pins a dimension (`min ==
+            // max`, e.g. `fillMaxSize()`) still gets it filled, because Compose coerces the wrapped
+            // size up to the minimum. Filling here made a player in a `Column`, a `Row` or a lazy
+            // list item take every pixel it was offered, so wrapping needed the host to measure it
+            // with unbounded constraints.
+            fillMissingDimensions = false,
             node.canvasOperations,
             textMeasurer,
             images,

@@ -85,14 +85,33 @@ class RcNamedValueLifecycleTest {
   }
 
   @Test
-  fun clearingIsIdempotentAndClearingAnUnknownNameStillFailsLoudly() {
+  fun clearingIsIdempotentAndUndeclaredNamesAreIgnored() {
     val state = RcPlayerState(document())
     state.clearNamedValue("USER:temperature")
     state.clearNamedValue("USER:temperature")
     assertEquals(RcNamedValue.FloatValue(21.5f), state.namedValue("USER:temperature"))
 
-    assertFailsWith<IllegalArgumentException> { state.clearNamedValue("USER:nothing") }
+    // Writing or clearing a name the document does not declare is a no-op, as in AndroidX.
+    state.setNamedValue("USER:nothing", RcNamedValue.FloatValue(1f))
+    state.clearNamedValue("USER:nothing")
+    assertEquals(RcNamedValue.FloatValue(21.5f), state.namedValue("USER:temperature"))
+    // Reading one still fails: there is no value to return.
     assertFailsWith<IllegalArgumentException> { state.namedValue("USER:nothing") }
+  }
+
+  @Test
+  fun constructingWithAnUndeclaredNameIgnoresIt() {
+    val state =
+      RcPlayerState(
+        document(),
+        namedValues =
+          mapOf(
+            "USER:nothing" to RcNamedValue.FloatValue(1f),
+            "USER:temperature" to RcNamedValue.FloatValue(-4f),
+          ),
+      )
+
+    assertEquals(RcNamedValue.FloatValue(-4f), state.namedValue("USER:temperature"))
   }
 
   /**

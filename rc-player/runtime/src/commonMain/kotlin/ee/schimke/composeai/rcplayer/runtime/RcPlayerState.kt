@@ -1585,10 +1585,13 @@ public class RcPlayerState(
    * pre-override value — captured at construction, because by the time a removal happens the
    * original has been overwritten. Values a document action changed are *not* restored: those are
    * the document's own, not the host's, and the host never overrode them.
+   *
+   * A name the document does not declare is a no-op, as it is for [setNamedValue]: there is no
+   * override to remove.
    */
   public fun clearNamedValue(hostName: String) {
     val name = resolveName(hostName)
-    val variable = requireNotNull(variableNames[name]) { "Unknown named variable '$name'" }
+    val variable = variableNames[name] ?: return
     if (variable.type == RcNamedVariable.FLOAT_ARRAY_TYPE) {
       // The override sits on top of whatever list the document keeps; removing it is the restore.
       floatArrayOverrides.remove(variable.id)
@@ -1653,9 +1656,19 @@ public class RcPlayerState(
     }
   }
 
+  /**
+   * Override the named variable [hostName] with [value].
+   *
+   * A name the document does not declare is ignored, as AndroidX ignores a named override with no
+   * matching variable. A host typically holds one map of values for a family of documents, and not
+   * every document declares every name; throwing made each host filter its map against the
+   * document's `RcNamedVariable`s before handing it over. A declared name written with an
+   * incompatible type is still an error — that is a host bug, not a document that happens not to
+   * use the value.
+   */
   public fun setNamedValue(hostName: String, value: RcNamedValue) {
     val name = resolveName(hostName)
-    val variable = requireNotNull(variableNames[name]) { "Unknown named variable '$name'" }
+    val variable = variableNames[name] ?: return
     when {
       variable.type == RcNamedVariable.STRING_TYPE && value is RcNamedValue.Text ->
         setText(variable.id, value.value)
