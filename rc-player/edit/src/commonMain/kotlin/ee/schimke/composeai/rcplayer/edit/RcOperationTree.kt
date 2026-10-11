@@ -20,6 +20,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRootLayout
 import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTheme
 
 /**
  * One operation of a flat document, with the container body it opens.
@@ -114,3 +115,32 @@ internal fun RcOperation.declaredComponentId(): Int? =
     is RcComponentStart -> componentId
     else -> null
   }
+
+/**
+ * Which of [operations] run every time the document plays, by index, or null when its containers do
+ * not balance.
+ *
+ * An operation runs unconditionally when it sits at the top level or in layout scope — inside
+ * layout components and their content — rather than inside a container that runs its body on its
+ * own terms (a conditional, a loop, a canvas, an action handler, a function), and when no theme
+ * marker earlier in the stream has gated it to a single theme. A value written anywhere else may
+ * never be written at all, so nothing that reasons about constants can count on it.
+ */
+internal fun unconditionalOperations(operations: List<RcOperation>): BooleanArray? {
+  val tree = operationTree(operations) ?: return null
+  val result = BooleanArray(operations.size)
+  fun visit(node: RcOperationNode, inScope: Boolean) {
+    result[node.start] = inScope
+    val childScope =
+      inScope && node.operation.isLayoutComponent() && node.operation !is RcCanvasContent
+    node.children.forEach { visit(it, childScope) }
+  }
+  tree.forEach { visit(it, inScope = true) }
+  // A theme marker gates everything after it in the stream until a marker lifts the gate.
+  var gated = false
+  operations.forEachIndexed { index, operation ->
+    if (operation is RcTheme) gated = operation.theme != RcTheme.UNSPECIFIED
+    else if (gated) result[index] = false
+  }
+  return result
+}

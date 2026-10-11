@@ -201,4 +201,26 @@ class RcCollapseStateLayoutsTest {
     val source = branches(0, box(20), box(30, RcTheme(RcTheme.DARK), RcTextData(100, "dark")))
     assertSame(source, source.collapseConstantStateLayouts())
   }
+
+  @Test
+  fun anIndexWrittenOnlyUnderAConditionIsNotConstant() {
+    val source =
+      stateDocument(
+        RcConditionalOperations(RcConditionalOperations.EQUAL, zero, one),
+        RcIntegerConstant(INDEX, 1),
+        END,
+      )
+    assertSame(source, source.collapseConstantStateLayouts())
+  }
+
+  @Test
+  fun anIndexWrittenOnlyUnderOneThemeIsNotConstant() {
+    val source =
+      stateDocument(
+        RcTheme(RcTheme.DARK),
+        RcIntegerConstant(INDEX, 1),
+        RcTheme(RcTheme.UNSPECIFIED),
+      )
+    assertSame(source, source.collapseConstantStateLayouts())
+  }
 }

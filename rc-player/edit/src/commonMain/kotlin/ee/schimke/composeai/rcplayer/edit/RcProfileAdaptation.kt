@@ -120,7 +120,7 @@ private fun RcDocument.dropRemarks(target: RcTargetProfile): RcDocument =
 
 private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
   if (target.apiLevel >= 7) return this
-  val constants = ConstantFloats(operations)
+  val constants = ConstantFloats(operations, unconditionalOperations(operations))
   var changed = false
   fun RcFloatWord.literal(): RcFloatWord {
     val id = referencedId?.takeIf { isNaNEncoded } ?: return this
@@ -197,13 +197,15 @@ private fun versionFor(apiLevel: Int): RcVersion = RcVersion(1, apiLevel - 6, 0)
  * agree, and written by nothing else — no host binding, action, loop, producer of any kind, or the
  * player's own system variables.
  */
-private class ConstantFloats(operations: List<RcOperation>) {
+private class ConstantFloats(operations: List<RcOperation>, unconditional: BooleanArray?) {
   private val constants = mutableMapOf<Int, MutableSet<Int>>()
   private val variable = mutableSetOf<Int>()
 
   init {
-    operations.forEach { operation ->
+    operations.forEachIndexed { index, operation ->
       when (operation) {
+        // A constant the player may skip cannot be folded in where the field is always read.
+        is RcFloatConstant if unconditional?.get(index) != true -> variable += operation.id
         is RcFloatConstant ->
           constants.getOrPut(operation.id) { mutableSetOf() } += operation.value.bits
         is RcLoopOperation -> variable += operation.indexVariableId

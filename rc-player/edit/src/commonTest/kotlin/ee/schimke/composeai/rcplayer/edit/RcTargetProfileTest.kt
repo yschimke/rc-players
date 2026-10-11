@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.edit.RcProfileViolation.Kind
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
@@ -109,6 +110,7 @@ class RcTargetProfileTest {
         RcRemark("generated"),
         RcFloatConstant(60, RcFloatWord.literal(0.5f)),
         image(ref(60)),
+        END,
       )
 
     val adaptation = document.adaptTo(RcTargetProfiles.WIDGETS_V6)
@@ -119,7 +121,7 @@ class RcTargetProfileTest {
     assertFalse(adapted.header.modern)
     assertEquals(200 to 100, adapted.header.width to adapted.header.height)
     assertEquals(
-      listOf(RcFloatConstant(60, RcFloatWord.literal(0.5f)), image(RcFloatWord.literal(0.5f))),
+      listOf(RcFloatConstant(60, RcFloatWord.literal(0.5f)), image(RcFloatWord.literal(0.5f)), END),
       adapted.operations,
     )
   }
@@ -131,6 +133,7 @@ class RcTargetProfileTest {
         RcFloatConstant(60, RcFloatWord.literal(0.5f)),
         RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:fade"),
         image(ref(60)),
+        END,
       )
     assertEquals(listOf(Kind.DYNAMIC_VALUE), document.adaptTo(RcTargetProfiles.WIDGETS_V6).kinds())
 
@@ -212,6 +215,7 @@ class RcTargetProfileTest {
         RcFloatConstant(60, RcFloatWord.literal(0.5f)),
         RcColorAttribute(60, 5, RcColorAttribute.COLOR_HUE),
         image(ref(60)),
+        END,
       )
     assertEquals(listOf(Kind.DYNAMIC_VALUE), document.adaptTo(RcTargetProfiles.WIDGETS_V6).kinds())
   }
@@ -221,5 +225,22 @@ class RcTargetProfileTest {
     assertFalse(RcOpcodes.DRAW_TEXT_ON_CIRCLE in RcTargetProfiles.WIDGETS_V6.supportedOpcodes)
     assertFalse(RcOpcodes.DRAW_TEXT_ON_CIRCLE in RcTargetProfiles.ANDROIDX.supportedOpcodes)
     assertTrue(RcOpcodes.DRAW_TEXT_ON_CIRCLE in RcTargetProfiles.WEAR_WIDGETS.supportedOpcodes)
+  }
+
+  @Test
+  fun aConstantWrittenUnderAConditionIsNotFolded() {
+    val document =
+      androidxDocument(
+        RcConditionalOperations(
+          RcConditionalOperations.EQUAL,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(1f),
+        ),
+        RcFloatConstant(60, RcFloatWord.literal(0.5f)),
+        END,
+        image(ref(60)),
+        END,
+      )
+    assertEquals(listOf(Kind.DYNAMIC_VALUE), document.adaptTo(RcTargetProfiles.WIDGETS_V6).kinds())
   }
 }

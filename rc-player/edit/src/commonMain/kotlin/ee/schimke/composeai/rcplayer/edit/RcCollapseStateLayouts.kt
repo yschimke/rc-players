@@ -2,19 +2,16 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
-import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcIdLookup
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
-import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
@@ -63,7 +60,7 @@ public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
     return this
   }
   val tree = operationTree(operations) ?: return this
-  val constants = ConstantIntegers(operations)
+  val constants = ConstantIntegers(operations, unconditionalOperations(operations))
   val reads = PossibleReads(operations)
 
   val removed = BooleanArray(operations.size)
@@ -248,23 +245,29 @@ private class PossibleReads(private val operations: List<RcOperation>) {
  * constant. An id written by anything this does not recognise as a constant — an action, a lookup,
  * a host binding, the player's own system variables — is not.
  */
-private class ConstantIntegers(operations: List<RcOperation>) {
+private class ConstantIntegers(operations: List<RcOperation>, unconditional: BooleanArray?) {
   private val writers = mutableMapOf<Int, MutableList<RcOperation>>()
   private val variable = mutableSetOf<Int>()
   private val resolved = mutableMapOf<Int, Int?>()
   private val resolving = mutableSetOf<Int>()
 
   init {
-    operations.forEach { operation ->
-      when (operation) {
-        is RcIntegerConstant -> writers.getOrPut(operation.id) { mutableListOf() } += operation
-        is RcIntegerExpression -> writers.getOrPut(operation.outId) { mutableListOf() } += operation
-        is RcNamedVariable -> variable += operation.id
-        is RcValueIntegerChangeAction -> variable += operation.targetValueId
-        is RcValueIntegerExpressionChangeAction -> variable += operation.targetValueId.toInt()
-        is RcIdLookup -> variable += operation.outId
-        is RcDataMapLookup -> variable += operation.outId
-        else -> Unit
+    operations.forEachIndexed { index, operation ->
+      val always = unconditional?.get(index) == true
+      when {
+        // A constant or expression the player may skip — under a conditional, in a loop or an
+        // action, gated by theme — is not something an index can be shown constant through.
+        (operation is RcIntegerConstant || operation is RcIntegerExpression) && !always ->
+          operation.definedIds()?.let(variable::addAll)
+        operation is RcIntegerConstant ->
+          writers.getOrPut(operation.id) { mutableListOf() } += operation
+        operation is RcIntegerExpression ->
+          writers.getOrPut(operation.outId) { mutableListOf() } += operation
+        operation is RcValueIntegerChangeAction -> variable += operation.targetValueId
+        operation is RcValueIntegerExpressionChangeAction ->
+          variable += operation.targetValueId.toInt()
+        // Every other producer — host bindings, lookups, attributes — makes its ids variable.
+        else -> operation.definedIds()?.let(variable::addAll)
       }
     }
     variable += RcSystemVariables.ALL
