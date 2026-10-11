@@ -85,4 +85,27 @@ class RcHardcodeNamedValuesTest {
       result.operations.filterNot { it is RcNamedVariable },
     )
   }
+
+  @Test
+  fun anUnqualifiedKeyNamesTheUserDeclarationWhenBothExist() {
+    val both =
+      document(
+        RcNamedVariable(1, RcNamedVariable.INT_TYPE, "foo"),
+        RcIntegerConstant(1, 0),
+        RcNamedVariable(2, RcNamedVariable.INT_TYPE, "USER:foo"),
+        RcIntegerConstant(2, 0),
+      )
+
+    val hardcoded = both.hardcodeNamedValues(mapOf("foo" to RcHardcodedValue.Integer(5)))
+    assertEquals(listOf("foo"), hardcoded.namedVariables.map { it.name })
+    assertEquals(
+      listOf(RcIntegerConstant(1, 0), RcIntegerConstant(2, 5)),
+      hardcoded.operations.filterIsInstance<RcIntegerConstant>(),
+    )
+
+    assertEquals(
+      listOf("USER:foo"),
+      both.hardcodeUnboundNamedValues(bound = setOf("foo")).namedVariables.map { it.name },
+    )
+  }
 }

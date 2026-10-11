@@ -2,6 +2,7 @@ package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
@@ -9,6 +10,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatList
@@ -17,6 +20,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcIdList
 import ee.schimke.composeai.rcplayer.protocol.RcIdLookup
 import ee.schimke.composeai.rcplayer.protocol.RcIdMap
+import ee.schimke.composeai.rcplayer.protocol.RcImageAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
@@ -25,20 +29,29 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
+import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLength
 import ee.schimke.composeai.rcplayer.protocol.RcTextLookup
 import ee.schimke.composeai.rcplayer.protocol.RcTextLookupInt
 import ee.schimke.composeai.rcplayer.protocol.RcTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
+import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
+import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
+import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
+import ee.schimke.composeai.rcplayer.protocol.RcUpdateDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 import ee.schimke.composeai.rcplayer.runtime.RcIntegerExpressionEvaluator
 
 /**
@@ -54,14 +67,20 @@ import ee.schimke.composeai.rcplayer.runtime.RcIntegerExpressionEvaluator
  * fill modifiers; a box in its place would not.
  *
  * What the removed branches leave behind:
- * - Values they define — text, constants, expressions, bitmaps, lists — are moved ahead of the
- *   state layout rather than deleted. A player loads them whether or not their branch shows, so
- *   something outside the branch may read one. Definitions inside click and touch handlers are
- *   actions, not definitions, and go with their branch.
+ * - Values they define in layout scope — text, constants, expressions, bitmaps, lists — are kept
+ *   rather than deleted, because a player evaluates them whether or not their branch shows and
+ *   something outside the branch may read one. A removed branch's values move to just before the
+ *   state layout if the branch came before the selected one, and to just after it otherwise, so a
+ *   later definition of the same id still wins.
+ * - Values defined inside a conditional, loop or canvas run only as that container runs them, so
+ *   they cannot be lifted out. They are dropped when nothing outside the removed branches can read
+ *   them; when something might, the state layout is left as it is.
+ * - Definitions inside click and touch handlers are actions, not definitions, and go with their
+ *   branch.
  * - A `ComponentValue` that measures a component in a removed branch becomes a constant `0`, the
  *   geometry a hidden branch publishes.
  *
- * A state layout is left as it is when its index is out of range for its branches, or when a
+ * A state layout is also left as it is when its index is out of range for its branches, or when a
  * removed branch declares something that can be called from elsewhere (a function, a referenced
  * operation block). A document using macros is returned unchanged: an expanded macro can write any
  * id, so no index can be shown constant without expanding them.
@@ -74,20 +93,23 @@ public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
   }
   val tree = operationTree(operations) ?: return this
   val constants = ConstantIntegers(operations)
+  val reads = PossibleReads(operations)
 
   val removed = BooleanArray(operations.size)
   val replaced = mutableMapOf<Int, RcOperation>()
-  val hoisted = mutableMapOf<Int, List<RcOperation>>()
+  val insertBefore = mutableMapOf<Int, List<RcOperation>>()
+  val insertAfter = mutableMapOf<Int, List<RcOperation>>()
   val removedComponents = mutableSetOf<Int>()
 
   fun visit(node: RcOperationNode) {
     if (removed[node.start]) return
     val layout = node.operation as? RcStateLayout
-    val collapse = layout?.let { planCollapse(node, it, constants) }
-    if (collapse != null) {
+    val plan = layout?.let { planCollapse(node, it, constants, reads) }
+    if (plan != null) {
       replaced[node.start] = layout.copy(indexId = 0)
-      hoisted[node.start] = collapse.flatMap { it.hoistableDefinitions() }
-      collapse.forEach { branch ->
+      insertBefore[node.start] = plan.before
+      insertAfter[node.end] = plan.after
+      plan.removed.forEach { branch ->
         for (index in branch.start..branch.end) removed[index] = true
         branch.walk { it.operation.declaredComponentId()?.let(removedComponents::add) }
       }
@@ -106,15 +128,23 @@ public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
 
   val rewritten = buildList {
     operations.forEachIndexed { index, operation ->
-      hoisted[index]?.forEach { add(it.unpublished()) }
+      insertBefore[index]?.forEach { add(it.unpublished()) }
       if (!removed[index]) add((replaced[index] ?: operation).unpublished())
+      insertAfter[index]?.forEach { add(it.unpublished()) }
     }
   }
   return copy(operations = rewritten)
 }
 
+/** The branches a collapse removes, and the definitions kept from them on either side. */
+private class CollapsePlan(
+  val removed: List<RcOperationNode>,
+  val before: List<RcOperation>,
+  val after: List<RcOperation>,
+)
+
 /**
- * The branches of [layout] to remove, or null to leave it alone.
+ * How to collapse [layout], or null to leave it alone.
  *
  * Branches are counted as the player counts them: the layout components inside its
  * `LayoutComponentContent`, or — a content wrapper being optional on the wire — directly inside it.
@@ -123,7 +153,8 @@ private fun planCollapse(
   node: RcOperationNode,
   layout: RcStateLayout,
   constants: ConstantIntegers,
-): List<RcOperationNode>? {
+  reads: PossibleReads,
+): CollapsePlan? {
   if (layout.indexId == 0) return null
   val selected = constants.resolve(layout.indexId) ?: return null
   val contents = node.children.filter { it.isContainer && it.operation is RcLayoutContent }
@@ -143,17 +174,41 @@ private fun planCollapse(
           it.operation.opcode == RcOpcodes.REFERENCED_OPERATIONS
     }
   }
-  return removed.takeUnless { callable }
+  if (callable) return null
+  val outside = { index: Int -> removed.none { index in it.start..it.end } }
+  fun kept(from: List<RcOperationNode>): List<RcOperation>? = from.flatMap { branch ->
+    branch.keptDefinitions(reads, outside) ?: return null
+  }
+  return CollapsePlan(
+    removed = removed,
+    before = kept(branches.take(selected)) ?: return null,
+    after = kept(branches.drop(selected + 1)) ?: return null,
+  )
 }
 
-/** The value definitions inside this subtree, in order, skipping action handler bodies. */
-private fun RcOperationNode.hoistableDefinitions(): List<RcOperation> = buildList {
-  fun collect(node: RcOperationNode) {
-    if (node.isContainer && node.operation.opcode in ACTION_CONTAINERS) return
-    if (!node.isContainer && node.operation.isDefinition()) add(node.operation)
-    node.children.forEach(::collect)
+/**
+ * The definitions to keep from this removed subtree, in order, or null when one that cannot be kept
+ * may still be read from an operation [outside] the removed branches.
+ */
+private fun RcOperationNode.keptDefinitions(
+  reads: PossibleReads,
+  outside: (Int) -> Boolean,
+): List<RcOperation>? {
+  val kept = mutableListOf<RcOperation>()
+  fun collect(node: RcOperationNode, layoutScope: Boolean): Boolean {
+    val operation = node.operation
+    if (node.isContainer) {
+      if (operation.opcode in ACTION_CONTAINERS) return true
+      val childScope = layoutScope && operation.isLayoutComponent() && operation !is RcCanvasContent
+      return node.children.all { collect(it, childScope) }
+    }
+    val ids = operation.definedIds() ?: return true
+    return when {
+      layoutScope -> kept.add(operation)
+      else -> ids.none { reads.mayRead(it, outside) }
+    }
   }
-  collect(this@hoistableDefinitions)
+  return kept.takeIf { collect(this, layoutScope = true) }
 }
 
 private val ACTION_CONTAINERS: Set<Int> =
@@ -166,35 +221,95 @@ private val ACTION_CONTAINERS: Set<Int> =
     RcOpcodes.RUN_ACTION,
   )
 
-/** Operations that only give an id a value — safe to move, and possibly read from elsewhere. */
-private fun RcOperation.isDefinition(): Boolean =
-  this is RcTextData ||
-    this is RcFloatConstant ||
-    this is RcFloatExpression ||
-    this is RcColorConstant ||
-    this is RcColorExpression ||
-    this is RcColorTheme ||
-    this is RcColorAttribute ||
-    this is RcIntegerConstant ||
-    this is RcIntegerExpression ||
-    this is RcBooleanConstant ||
-    this is RcLongConstant ||
-    this is RcIdList ||
-    this is RcFloatList ||
-    this is RcIdMap ||
-    this is RcIdLookup ||
-    this is RcDataMapLookup ||
-    this is RcNamedVariable ||
-    this is RcPathData ||
-    this is RcMatrixConstant ||
-    this is RcTextMerge ||
-    this is RcTextLength ||
-    this is RcTextLookup ||
-    this is RcTextLookupInt ||
-    this is RcTextMeasure ||
-    this is RcBitmapData ||
-    this is RcFontData ||
-    this is RcComponentValue
+/**
+ * The ids an operation gives a value, or null for one that defines nothing. Covers what the player
+ * loads when a document opens and every producer it evaluates in a layout's content.
+ */
+private fun RcOperation.definedIds(): List<Int>? =
+  when (this) {
+    is RcTextData -> listOf(id)
+    is RcFloatConstant -> listOf(id)
+    is RcColorConstant -> listOf(id)
+    is RcIntegerConstant -> listOf(id)
+    is RcBooleanConstant -> listOf(id)
+    is RcLongConstant -> listOf(id)
+    is RcPathData -> listOf(id)
+    is RcMatrixConstant -> listOf(id)
+    is RcIdList -> listOf(id)
+    is RcFloatList -> listOf(id)
+    is RcIdMap -> listOf(id)
+    is RcBitmapData -> listOf(imageId)
+    is RcFontData -> listOf(fontId)
+    is RcNamedVariable -> listOf(id)
+    is RcDynamicFloatList -> listOf(id)
+    is RcUpdateDynamicFloatList -> listOf(listId)
+    is RcFloatExpression -> listOf(id)
+    is RcIntegerExpression -> listOf(outId)
+    is RcColorExpression -> listOf(outId)
+    is RcColorTheme -> listOf(outId)
+    is RcColorAttribute -> listOf(outId)
+    is RcImageAttribute -> listOf(outId)
+    is RcDataMapLookup -> listOf(outId)
+    is RcIdLookup -> listOf(outId)
+    is RcMatrixExpression -> listOf(id)
+    is RcMatrixVectorMath -> outputs
+    is RcPathExpression -> listOf(id)
+    is RcTextFromFloat -> listOf(outId)
+    is RcTextMerge -> listOf(outId)
+    is RcTextLength -> listOf(outId)
+    is RcTextSubtext -> listOf(outId)
+    is RcTextTransform -> listOf(outId)
+    is RcTextLookup -> listOf(outId)
+    is RcTextLookupInt -> listOf(outId)
+    is RcTextMeasure -> listOf(outId)
+    is RcTouchExpression -> listOf(id)
+    is RcComponentValue -> listOf(valueId)
+    else -> null
+  }
+
+/**
+ * Whether any operation might read an id, found the way `referencesAnyOf` finds system variables:
+ * by scanning each operation's encoding for the id as a plain word or a NaN-boxed reference at
+ * every offset. It over-reports — a literal that happens to equal the id counts — which only ever
+ * makes a collapse more cautious.
+ */
+private class PossibleReads(private val operations: List<RcOperation>) {
+  private val words = arrayOfNulls<Set<Int>>(operations.size)
+
+  fun mayRead(id: Int, include: (Int) -> Boolean): Boolean =
+    operations.indices.any { index ->
+      include(index) && wordsAt(index).let { ANY in it || id in it }
+    }
+
+  private fun wordsAt(index: Int): Set<Int> =
+    words[index]
+      ?: buildSet {
+        val bytes = runCatching {
+          RcWireWriter()
+            .also { RcDocumentCodec.encodeOperation(it, operations[index]) }
+            .toByteArray()
+        }
+          .getOrNull()
+        if (bytes == null) {
+          // An operation that cannot be encoded cannot be scanned: assume it reads everything.
+          add(ANY)
+          return@buildSet
+        }
+        for (offset in 0..bytes.size - Int.SIZE_BYTES) {
+          var bits = 0
+          for (i in 0 until Int.SIZE_BYTES) {
+            bits = (bits shl 8) or (bytes[offset + i].toInt() and 0xff)
+          }
+          add(bits)
+          RcFloatWord(bits).referencedId?.let(::add)
+        }
+      }
+        .also { words[index] = it }
+
+  private companion object {
+    const val ANY = Int.MIN_VALUE
+  }
+}
 
 /**
  * Integer ids whose value is fixed for the life of the document.

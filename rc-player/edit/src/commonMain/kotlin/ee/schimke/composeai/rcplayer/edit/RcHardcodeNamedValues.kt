@@ -44,8 +44,9 @@ public val RcDocument.namedVariables: List<RcNamedVariable>
  * the given value, and its name declaration is removed so no host can bind it any more.
  *
  * A key matches a variable by its full name (`USER:progress`) or, as the player resolves a host's
- * names, by the name without the `USER:` prefix (`progress`). Keys that match nothing are ignored,
- * as the player ignores them.
+ * names, by the name without the `USER:` prefix (`progress`) — which names the `USER:` declaration
+ * when a document declares both `progress` and `USER:progress`. Keys that match nothing are
+ * ignored, as the player ignores them.
  *
  * The variable stays a variable inside the document: an action the document runs can still change
  * it. What goes is the host's handle on it. Pair with [collapseConstantStateLayouts] to then drop
@@ -56,10 +57,10 @@ public val RcDocument.namedVariables: List<RcNamedVariable>
  */
 public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>): RcDocument {
   if (values.isEmpty()) return this
+  val byName =
+    values.entries.mapNotNull { (key, value) -> declaredName(key)?.let { it to value } }.toMap()
   val targets =
-    namedVariables
-      .mapNotNull { variable -> valueFor(variable.name, values)?.let { variable to it } }
-      .toMap()
+    namedVariables.filter { it.name in byName }.associateWith { byName.getValue(it.name) }
   if (targets.isEmpty()) return this
   val byId = targets.entries.associate { (variable, value) -> variable.id to (variable to value) }
   val defined = mutableSetOf<Int>()
@@ -104,13 +105,24 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
  * unbound variable at something other than its default.
  */
 public fun RcDocument.hardcodeUnboundNamedValues(bound: Set<String> = emptySet()): RcDocument {
-  val keep = bound.associateWith { true }
-  val rewritten = operations.filterNot { it is RcNamedVariable && valueFor(it.name, keep) == null }
+  val keep = bound.mapNotNullTo(mutableSetOf()) { declaredName(it) }
+  val rewritten = operations.filterNot { it is RcNamedVariable && it.name !in keep }
   return if (rewritten.size == operations.size) this else copy(operations = rewritten)
 }
 
-private fun <T : Any> valueFor(name: String, values: Map<String, T>): T? =
-  values[name] ?: name.removePrefix("$USER_PREFIX:").takeIf { it != name }?.let(values::get)
+/**
+ * The declared name a host's [key] binds, resolved as the player resolves it: a qualified key
+ * (`USER:progress`) names itself, and an unqualified one names the `USER:` declaration when there
+ * is one, else the bare declaration. One key never names two variables.
+ */
+private fun RcDocument.declaredName(key: String): String? {
+  val names = namedVariables.mapTo(mutableSetOf()) { it.name }
+  return when {
+    ':' in key -> key.takeIf { it in names }
+    "$USER_PREFIX:$key" in names -> "$USER_PREFIX:$key"
+    else -> key.takeIf { it in names }
+  }
+}
 
 /** The id a value-defining operation writes, for the kinds a host's named value overrides. */
 private fun RcOperation.definedId(): Int? =
