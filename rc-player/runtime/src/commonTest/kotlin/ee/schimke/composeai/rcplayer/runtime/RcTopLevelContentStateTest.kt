@@ -125,4 +125,38 @@ class RcTopLevelContentStateTest {
       assertEquals(expected, state.color(42), "theme $theme")
     }
   }
+
+  /** A loop under the other theme's marker does not run, so its index variable is not written. */
+  @Test
+  fun aLoopUnderTheOtherThemeDoesNotRun() {
+    val document =
+      RcDocument(
+        RcHeader(RcVersion(0, 1, 0)),
+        listOf(
+          RcTheme(RcTheme.DARK),
+          RcLoopOperation(
+            43,
+            RcFloatWord.literal(5f),
+            RcFloatWord.literal(1f),
+            RcFloatWord.literal(6f),
+          ),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcTheme(RcTheme.UNSPECIFIED),
+          RcRootLayout(1),
+          RcLayoutContent(2),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+          RcNoArg(RcOpcodes.CONTAINER_END),
+        ),
+      )
+    val index = RcFloatWord(0x7fc00000 or 43)
+    val light = RcPlayerState(document)
+    light.applyLayoutContentStateOperations(
+      RcDocumentLinker.link(document).operations,
+      RcTheme.LIGHT,
+    )
+    assertEquals(index.value.toRawBits(), light.resolve(index).toRawBits())
+    val dark = RcPlayerState(document)
+    dark.applyLayoutContentStateOperations(RcDocumentLinker.link(document).operations, RcTheme.DARK)
+    assertEquals(5f, dark.resolve(index))
+  }
 }

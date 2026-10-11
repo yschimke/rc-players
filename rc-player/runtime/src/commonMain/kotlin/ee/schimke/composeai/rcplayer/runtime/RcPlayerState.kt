@@ -979,10 +979,18 @@ public class RcPlayerState(
             // AndroidX's flat stream runs it. AndroidX's level 6 widget writer sets a themed colour
             // that way — a `Theme(DARK)` and a `Theme(LIGHT)` section, each a one-pass loop over a
             // `ColorExpression` — and skipping the body left that colour unset. A loop whose bounds
-            // do not resolve to a finite, advancing range is left to the draw pass to report.
+            // do not resolve to a finite, advancing range is left to the draw pass to report. A
+            // loop under the other theme's marker does not run at all, index included, as the draw
+            // pass skips it.
             val theme = currentTheme
-            runCatching {
-              forEachLoopValue(loop) { applyScope(node.children, theme, applyDirect = true) }
+            val visible =
+              requestedTheme == RcTheme.UNSPECIFIED ||
+                theme == RcTheme.UNSPECIFIED ||
+                theme == requestedTheme
+            if (visible) {
+              runCatching {
+                forEachLoopValue(loop) { applyScope(node.children, theme, applyDirect = true) }
+              }
             }
           }
           is RcLinkedNode.Container -> {
