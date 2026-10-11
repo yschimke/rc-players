@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.8.0](https://github.com/yschimke/rc-players/compare/v2.7.1...v2.8.0) (2026-10-11)
+
+
+### Features
+
+* add an optimisation pass to rc-player-edit, and decide constants conservatively ([#631](https://github.com/yschimke/rc-players/issues/631)) ([5e22e6d](https://github.com/yschimke/rc-players/commit/5e22e6dc288e3046832ecd8b69a0486e3cd46841))
+* add rc-player-edit, a published library for rewriting and profiling .rc documents ([#629](https://github.com/yschimke/rc-players/issues/629)) ([4280e23](https://github.com/yschimke/rc-players/commit/4280e233aa59691eb55b162a96bf2b0ca3d1d2d5))
+
 ## [2.7.1](https://github.com/yschimke/rc-players/compare/v2.7.0...v2.7.1) (2026-10-11)
 
 
