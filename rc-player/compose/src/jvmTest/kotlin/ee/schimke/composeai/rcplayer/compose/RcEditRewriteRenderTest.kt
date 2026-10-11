@@ -3,11 +3,9 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
 import ee.schimke.composeai.rcplayer.edit.colorThemesAsFallbacks
-import ee.schimke.composeai.rcplayer.edit.lowerMatrixExpressions
 import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
-import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,41 +13,14 @@ import kotlin.test.assertTrue
 import org.jetbrains.skia.Bitmap
 
 /**
- * `rc-player-edit`'s rewrites that claim to draw what the original drew, held to it: every catalog
- * document they touch, rendered before and after.
+ * `rc-player-edit`'s ColorTheme fallback held to what a palette-less host drew: every catalog
+ * document it touches, rendered before and after.
  */
 class RcEditRewriteRenderTest {
   private val corpus =
     File("../../scripts/rc-catalog-corpus/corpus")
       .listFiles { file -> file.extension == "rc" }!!
       .sortedBy { it.name }
-
-  /**
-   * A lowered shader matrix draws the same image in the same shape. The only pixels allowed to
-   * differ are partly covered ones on a curved edge, where a curve rasterized under a scaled canvas
-   * can land a fraction of a pixel's coverage differently.
-   */
-  @Test
-  fun aLoweredShaderMatrixDrawsTheSameImage() {
-    val documents =
-      corpus.map(::decode).filter { doc -> doc.operations.any { it is RcMatrixExpression } }
-    assertTrue(documents.isNotEmpty(), "no corpus document uses a matrix")
-    documents.forEach { original ->
-      val lowered = original.lowerMatrixExpressions()
-      assertTrue(lowered.operations.none { it is RcMatrixExpression })
-      val before = render(original, RcPlayerTheme.Light)
-      val after = render(lowered, RcPlayerTheme.Light)
-      val differing = before.indices.filter { before[it] != after[it] }
-      assertTrue(differing.size <= before.size / 1000, "${differing.size} pixels differ")
-      differing.forEach {
-        assertTrue(
-          before[it] ushr 24 != 0xff && after[it] ushr 24 != 0xff,
-          "a fully covered pixel changed: ${before[it].toUInt().toString(16)} -> " +
-            after[it].toUInt().toString(16),
-        )
-      }
-    }
-  }
 
   /** On a host with no system palette, a `ColorTheme` already draws its fallbacks: so must they. */
   @Test

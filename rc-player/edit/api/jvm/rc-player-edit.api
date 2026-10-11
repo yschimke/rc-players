@@ -89,10 +89,6 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ee/schimke/composeai/rcplayer/edit/RcLowerMatricesKt {
-	public static final fun lowerMatrixExpressions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
-}
-
 public final class ee/schimke/composeai/rcplayer/edit/RcOptimizeKt {
 	public static final fun foldConstantExpressions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static final fun optimize (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;

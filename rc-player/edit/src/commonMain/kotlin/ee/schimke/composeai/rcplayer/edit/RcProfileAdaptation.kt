@@ -58,8 +58,6 @@ public data class RcProfileAdaptation(
  *   line height, autosize, decoration, font axes or a line-breaking strategy stays `CoreText` and
  *   is reported. The two components still lay text out through different player code, so check a
  *   converted document's rendering on the target.
- * - **A matrix that positions a shader becomes canvas transforms** for a target without
- *   `MatrixExpression`, exactly — see [lowerMatrixExpressions].
  * - **`ColorTheme` becomes its fallbacks** for a target without it, when [approximateColors] is
  *   set, in theme sections where the target has them and as the dark fallback where it does not
  *   (Wear OS) — see [colorThemesAsFallbacks]. The system palette is lost; the converted ids are
@@ -87,16 +85,12 @@ public fun RcDocument.adaptTo(
   val adapted =
     inlineStructuralOperations(target)
       .coreTextAsTextLayout(target, approximateText, approximations)
-      .lowerMatrices(target)
       .colorThemes(target, approximateColors, colorFallbacks)
       .dropRemarks(target)
       .foldLiteralFields(target)
       .headerFor(target)
   return RcProfileAdaptation(adapted, adapted.validateFor(target), approximations, colorFallbacks)
 }
-
-private fun RcDocument.lowerMatrices(target: RcTargetProfile): RcDocument =
-  if (RcOpcodes.MATRIX_EXPRESSION in target.supportedOpcodes) this else lowerMatrixExpressions()
 
 private fun RcDocument.colorThemes(
   target: RcTargetProfile,

@@ -243,4 +243,4 @@ private fun encoded(operation: RcOperation): ByteArray? = runCatching {
 private fun encodedSize(operation: RcOperation): Int = encoded(operation)?.size ?: 0
 
 /** The first id the player leaves to documents; everything below is its own variables. */
-internal const val FIRST_DOCUMENT_ID = 42
+private const val FIRST_DOCUMENT_ID = 42

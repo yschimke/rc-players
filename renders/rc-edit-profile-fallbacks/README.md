@@ -1,18 +1,14 @@
-# `rc-player-edit` profile fallbacks
+# `rc-player-edit` ColorTheme fallback
 
-Evidence for `lowerMatrixExpressions()` and `colorThemesAsFallbacks()`, the two rewrites
-`adaptTo` uses for targets without `MATRIX_EXPRESSION` (launcher widgets at API level 6) or
-`COLOR_THEME` (level 6 and Wear widgets). Each image shows catalog corpus documents
-(`scripts/rc-catalog-corpus/corpus`) before and after the rewrite, on the CMP player and on
-AndroidX's `remote-player-view` (the `RcViewPlayerRenderHarness` lane, Robolectric, light theme).
+Evidence for `colorThemesAsFallbacks()`, which `adaptTo(…, approximateColors = true)` uses for
+targets without `COLOR_THEME` (launcher widgets at API level 6, Wear widgets).
 
-- `matrix-lowering.png`: the `RemoteImageBrush` shader matrix rewritten as canvas transforms around
-  the inverse path. The title cards match pixel for pixel on both players. The image buttons differ
-  only in 50 partly covered pixels along the top curves of the pill.
-- `color-theme-fallback.png`: the theme sections that replace each `ColorTheme`. Column 2 is the
-  CMP player before this change, which skipped the one-pass loop that sets the colour, so the
-  swatches were never filled. Column 3 is after. Column 4 is AndroidX drawing the same rewritten
-  document.
+`color-theme-fallback.png` shows the catalog's system-theme swatches
+(`scripts/rc-catalog-corpus/corpus`) with each `ColorTheme` replaced by theme sections holding its
+fallbacks. Column 2 is the CMP player before this change, which skipped the one-pass loop that sets
+the colour, so the swatches were never filled. Column 3 is after, identical to the original on a
+host with no system palette. Column 4 is AndroidX's `remote-player-view` (the
+`RcViewPlayerRenderHarness` lane, Robolectric, light theme) drawing the same rewritten document.
 
-`RcEditRewriteRenderTest` (`:rc-player-compose:jvmTest`) checks both rewrites against every
-corpus document they touch.
+`RcEditRewriteRenderTest` (`:rc-player-compose:jvmTest`) checks the rewrite against every corpus
+document it touches.
