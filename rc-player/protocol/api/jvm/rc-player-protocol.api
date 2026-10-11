@@ -2438,6 +2438,7 @@ public final class ee/schimke/composeai/rcplayer/protocol/RcOpcodes {
 	public static final field VALUE_INTEGER_EXPRESSION_CHANGE_ACTION I
 	public static final field VALUE_STRING_CHANGE_ACTION I
 	public static final field WAKE_IN I
+	public final fun getCONTAINER_STARTS ()Ljava/util/Set;
 }
 
 public abstract interface class ee/schimke/composeai/rcplayer/protocol/RcOperation {

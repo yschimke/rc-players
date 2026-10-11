@@ -70,10 +70,27 @@ next, and the dependency arrow is also the dependency-weight arrow:
 | `rc-player/runtime` | `rc-player-runtime` | Document semantics with no drawing: expression evaluation, animation timelines, layout tree, theming, named values. Still no Compose. |
 | `rc-player/compose` | `rc-player-compose` | The Compose Multiplatform renderer. `RcComposePlayer` draws a document; this is the module most consumers want. |
 
+Beside the stack, and depending on `protocol` and `runtime` rather than the other way round:
+
+| Module | Artifact | What it is |
+| --- | --- | --- |
+| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, and collapse state layouts whose index can no longer change to their one live branch. No Compose. |
+
+```kotlin
+val document = RcDocumentCodec.decode(bytes)
+val baked =
+  document
+    .embedBitmapUrls { url -> httpClient.get(url).readBytes() } // may suspend
+    .hardcodeNamedValues(mapOf("tab" to RcHardcodedValue.Integer(2)))
+    .hardcodeUnboundNamedValues(bound = setOf("progress"))
+    .collapseConstantStateLayouts()
+File("baked.rc").writeBytes(RcDocumentCodec.encode(baked))
+```
+
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 
-All four run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the real public surface
+All five run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the real public surface
 against the committed dumps in each module's `api/`, so a change to the published API shows up as a
 diff in review. Regenerate with `./gradlew updateKotlinAbi`.
 

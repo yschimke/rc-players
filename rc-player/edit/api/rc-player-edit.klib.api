@@ -1,0 +1,98 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <ee.schimke.composeai:rc-player-edit>
+sealed interface ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue|null[0]
+    final class BooleanValue : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue|null[0]
+        constructor <init>(kotlin/Boolean) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.<init>|<init>(kotlin.Boolean){}[0]
+
+        final val value // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.value|{}value[0]
+            final fun <get-value>(): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.component1|component1(){}[0]
+        final fun copy(kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.copy|copy(kotlin.Boolean){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.BooleanValue.toString|toString(){}[0]
+    }
+
+    final class Color : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color|null[0]
+        constructor <init>(kotlin/Int) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.<init>|<init>(kotlin.Int){}[0]
+
+        final val argb // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.argb|{}argb[0]
+            final fun <get-argb>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.argb.<get-argb>|<get-argb>(){}[0]
+
+        final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.component1|component1(){}[0]
+        final fun copy(kotlin/Int = ...): ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.copy|copy(kotlin.Int){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Color.toString|toString(){}[0]
+    }
+
+    final class FloatValue : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue|null[0]
+        constructor <init>(kotlin/Float) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.<init>|<init>(kotlin.Float){}[0]
+
+        final val value // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.value|{}value[0]
+            final fun <get-value>(): kotlin/Float // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Float // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.component1|component1(){}[0]
+        final fun copy(kotlin/Float = ...): ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.copy|copy(kotlin.Float){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.FloatValue.toString|toString(){}[0]
+    }
+
+    final class Integer : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer|null[0]
+        constructor <init>(kotlin/Int) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.<init>|<init>(kotlin.Int){}[0]
+
+        final val value // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.value|{}value[0]
+            final fun <get-value>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.component1|component1(){}[0]
+        final fun copy(kotlin/Int = ...): ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.copy|copy(kotlin.Int){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Integer.toString|toString(){}[0]
+    }
+
+    final class LongValue : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue|null[0]
+        constructor <init>(kotlin/Long) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.<init>|<init>(kotlin.Long){}[0]
+
+        final val value // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.value|{}value[0]
+            final fun <get-value>(): kotlin/Long // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Long // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.component1|component1(){}[0]
+        final fun copy(kotlin/Long = ...): ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.copy|copy(kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.LongValue.toString|toString(){}[0]
+    }
+
+    final class Text : ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text|null[0]
+        constructor <init>(kotlin/String) // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.<init>|<init>(kotlin.String){}[0]
+
+        final val value // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.value|{}value[0]
+            final fun <get-value>(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.component1|component1(){}[0]
+        final fun copy(kotlin/String = ...): ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.copy|copy(kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcHardcodedValue.Text.toString|toString(){}[0]
+    }
+}
+
+final val ee.schimke.composeai.rcplayer.edit/bitmapUrls // ee.schimke.composeai.rcplayer.edit/bitmapUrls|@ee.schimke.composeai.rcplayer.protocol.RcDocument{}bitmapUrls[0]
+    final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).<get-bitmapUrls>(): kotlin.collections/List<kotlin/String> // ee.schimke.composeai.rcplayer.edit/bitmapUrls.<get-bitmapUrls>|<get-bitmapUrls>@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
+final val ee.schimke.composeai.rcplayer.edit/namedVariables // ee.schimke.composeai.rcplayer.edit/namedVariables|@ee.schimke.composeai.rcplayer.protocol.RcDocument{}namedVariables[0]
+    final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).<get-namedVariables>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.protocol/RcNamedVariable> // ee.schimke.composeai.rcplayer.edit/namedVariables.<get-namedVariables>|<get-namedVariables>@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
+
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts|collapseConstantStateLayouts@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/embedBitmapUrls(kotlin.collections/Map<kotlin/String, kotlin/ByteArray>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/embedBitmapUrls|embedBitmapUrls@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/hardcodeNamedValues(kotlin.collections/Map<kotlin/String, ee.schimke.composeai.rcplayer.edit/RcHardcodedValue>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/hardcodeNamedValues|hardcodeNamedValues@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Map<kotlin.String,ee.schimke.composeai.rcplayer.edit.RcHardcodedValue>){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/hardcodeUnboundNamedValues(kotlin.collections/Set<kotlin/String> = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/hardcodeUnboundNamedValues|hardcodeUnboundNamedValues@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Set<kotlin.String>){}[0]
+final inline fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/embedBitmapUrls(kotlin/Function1<kotlin/String, kotlin/ByteArray?>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/embedBitmapUrls|embedBitmapUrls@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Function1<kotlin.String,kotlin.ByteArray?>){}[0]

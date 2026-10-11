@@ -109,6 +109,13 @@ include(":rc-player-compose")
 
 project(":rc-player-compose").projectDir = file("rc-player/compose")
 
+// Rewrites over a decoded document — embed, hardcode, collapse — for code that changes a document
+// rather than plays it. Published, but beside the stack rather than in it: it depends on `protocol`
+// and `runtime`, and no player module depends on it.
+include(":rc-player-edit")
+
+project(":rc-player-edit").projectDir = file("rc-player/edit")
+
 include(":rc-player-wasm")
 
 project(":rc-player-wasm").projectDir = file("rc-player/wasm")

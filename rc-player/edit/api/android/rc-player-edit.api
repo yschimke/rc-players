@@ -1,0 +1,86 @@
+public final class ee/schimke/composeai/rcplayer/edit/RcCollapseStateLayoutsKt {
+	public static final fun collapseConstantStateLayouts (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcEmbedBitmapsKt {
+	public static final fun embedBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun embedBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun getBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Ljava/util/List;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcHardcodeNamedValuesKt {
+	public static final fun getNamedVariables (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Ljava/util/List;
+	public static final fun hardcodeNamedValues (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static final fun hardcodeUnboundNamedValues (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Set;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun hardcodeUnboundNamedValues$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Set;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue {
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$BooleanValue : ee/schimke/composeai/rcplayer/edit/RcHardcodedValue {
+	public fun <init> (Z)V
+	public final fun component1 ()Z
+	public final fun copy (Z)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$BooleanValue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$BooleanValue;ZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$BooleanValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Color : ee/schimke/composeai/rcplayer/edit/RcHardcodedValue {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Color;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Color;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Color;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getArgb ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$FloatValue : ee/schimke/composeai/rcplayer/edit/RcHardcodedValue {
+	public fun <init> (F)V
+	public final fun component1 ()F
+	public final fun copy (F)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$FloatValue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$FloatValue;FILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$FloatValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Integer : ee/schimke/composeai/rcplayer/edit/RcHardcodedValue {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Integer;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Integer;IILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Integer;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$LongValue : ee/schimke/composeai/rcplayer/edit/RcHardcodedValue {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$LongValue;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$LongValue;JILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$LongValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee/schimke/composeai/rcplayer/edit/RcHardcodedValue {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text;Ljava/lang/String;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+

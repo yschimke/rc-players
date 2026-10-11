@@ -1,0 +1,85 @@
+plugins {
+  id("composeai.base-conventions")
+  id("composeai.jvm-conventions")
+  id("org.jetbrains.kotlin.multiplatform")
+  id("com.android.kotlin.multiplatform.library")
+  id("composeai.maven-publishing")
+}
+
+// `:rc-player-edit` — rewrites over a decoded `.rc` document, for code that has to change a
+// document rather than play it: a server baking a document for a host that cannot fetch or bind,
+// a build step freezing a catalog entry. It sits beside the player rather than in it: it depends on
+// `protocol` (the model and codec) and borrows one evaluator from `runtime`, and nothing in the
+// player depends on it.
+
+kotlin {
+  // `explicitApi()` — every declaration in this module must state its visibility, and every public
+  // declaration must state its return type. The player modules were already written this way by
+  // convention (`public` modifiers throughout); this makes the convention a compile error rather
+  // than a habit, so a `public` that should have been `internal` can't slip into the published
+  // surface. See docs/API_STABILITY.md and #4062.
+  explicitApi()
+
+  // ABI dump gate. `checkKotlinAbi` (wired into `check` below) diffs the module's real public ABI
+  // against the committed dumps in `api/`, so a change to the published surface shows up as a diff
+  // in review rather than as a surprise after release. Kotlin's own ABI validation ships in the
+  // Kotlin Gradle plugin from 2.2 (still `@ExperimentalAbiValidation` at 2.4), so this needs no
+  // extra plugin on the classpath — which is why the player stack gets the gate first rather than
+  // waiting for a repo-wide rollout (docs/API_STABILITY.md notes no module had one until now).
+  // Three dumps are written: `jvm/<module>.api` and `android/<module>.api` for the two JVM-bytecode
+  // targets, and `<module>.klib.api` covering the klib-based targets (Apple + wasmJs) together.
+  // Regenerate with `./gradlew updateKotlinAbi`.
+  @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class) abiValidation()
+
+  // Unnamed `jvm()`, not `jvm("desktop")`. This module is published, and the JVM artifact should
+  // carry the conventional `-jvm` classifier — the decision `runtimes/slots/build.gradle.kts`
+  // already records for a published KMP module. `-desktop` also misnames bytecode that Android
+  // resolves perfectly well. The cost is that the source sets are `jvmMain`/`jvmTest` and the test
+  // task is `:rc-player-<module>:jvmTest`; nothing in `ci.yml` named the old paths (it runs
+  // `allTests`), so the rename is contained to this repo's source layout. See #4063.
+  jvm()
+  // No `iosX64()`. `:rc-player-compose` cannot declare one — CMP 1.11 dropped the Intel iOS
+  // simulator variant (see that module's build comment) — and these three are published as one
+  // stack with it. Keeping `iosX64` here would publish a stack that resolves three of its four
+  // artifacts on that target and fails on the fourth, which is the worst of the options #4066
+  // lists. Native Apple targets are arm64-only; macOS joins the device and simulator below.
+  iosArm64()
+  iosSimulatorArm64()
+  macosArm64()
+
+  // Android, through AGP's KMP library plugin — see `:rc-player-trace` for the SDK levels.
+  android {
+    namespace = "ee.schimke.composeai.rcplayer.edit"
+    compileSdk = libs.versions.rc.player.compileSdk.get().toInt()
+    minSdk = libs.versions.rc.player.minSdk.get().toInt()
+    // `commonTest` also runs on the Android host JVM, against the SDK's stub `android.jar`.
+    withHostTest { isReturnDefaultValues = true }
+  }
+
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
+
+  sourceSets {
+    commonMain.dependencies {
+      // `api`: every entry point takes and returns an `RcDocument`, so the protocol model is this
+      // module's vocabulary. The runtime is an implementation detail — it lends its integer
+      // expression evaluator, so a state index computed from constants folds exactly as the
+      // player would compute it — and carries no Compose either.
+      api(project(":rc-player-protocol"))
+      implementation(project(":rc-player-runtime"))
+    }
+    commonTest.dependencies { implementation(kotlin("test")) }
+  }
+}
+
+// `checkKotlinAbi` is not wired into `check` by the Kotlin Gradle plugin, so an unrecorded surface
+// change would pass CI silently. Wire it explicitly — the gate is only worth having if it runs.
+tasks.named("check") { dependsOn("checkKotlinAbi") }
+
+composeAiMavenPublishing {
+  coordinates(
+    artifactId = "rc-player-edit",
+    displayName = "Remote Compose Player — Document Editing",
+    description =
+      "Open, rewrite and re-encode Remote Compose .rc documents without a player: embed URL bitmaps, hardcode host-bound named values and collapse state layouts whose index is constant. No Compose dependency.",
+  )
+}

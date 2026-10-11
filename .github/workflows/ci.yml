@@ -241,10 +241,12 @@ jobs:
             :rc-player-protocol:jvmTest \
             :rc-player-runtime:jvmTest \
             :rc-player-compose:jvmTest \
+            :rc-player-edit:jvmTest \
             :rc-player-trace:testAndroidHostTest \
             :rc-player-protocol:testAndroidHostTest \
             :rc-player-runtime:testAndroidHostTest \
             :rc-player-compose:testAndroidHostTest \
+            :rc-player-edit:testAndroidHostTest \
             :rc-player-compat-tests:test \
             :rc-player-metrics:test \
             :rc-player-profile:test \
@@ -258,6 +260,7 @@ jobs:
             rc-player/protocol:jvmTest,testAndroidHostTest \
             rc-player/runtime:jvmTest,testAndroidHostTest \
             rc-player/compose:jvmTest,testAndroidHostTest \
+            rc-player/edit:jvmTest,testAndroidHostTest \
             rc-player/compat-tests:test \
             rc-player/metrics:test \
             rc-player/profile:test \
@@ -359,14 +362,17 @@ jobs:
             -x :rc-player-protocol:testAndroidHostTest \
             -x :rc-player-runtime:testAndroidHostTest \
             -x :rc-player-compose:testAndroidHostTest \
+            -x :rc-player-edit:testAndroidHostTest \
             :rc-player-trace:checkKotlinAbi \
             :rc-player-protocol:checkKotlinAbi \
             :rc-player-runtime:checkKotlinAbi \
             :rc-player-compose:checkKotlinAbi \
+            :rc-player-edit:checkKotlinAbi \
             :rc-player-trace:allTests \
             :rc-player-protocol:allTests \
             :rc-player-runtime:allTests \
             :rc-player-compose:allTests \
+            :rc-player-edit:allTests \
             :rc-player-protocol:compileTestKotlinIosArm64 \
             :rc-player-protocol:compileTestKotlinIosSimulatorArm64 \
             :rc-player-runtime:compileTestKotlinIosArm64 \
@@ -388,7 +394,8 @@ jobs:
             rc-player/trace:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
             rc-player/protocol:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
             rc-player/runtime:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
-            rc-player/compose:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest
+            rc-player/compose:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest \
+            rc-player/edit:jvmTest,macosArm64Test,iosSimulatorArm64Test,wasmJsBrowserTest
 
       # Everything from here down is the Apple *packaging* half, and the only half the path filter
       # gates: the release link, the Swift type check and the Xcode build are what make this lane

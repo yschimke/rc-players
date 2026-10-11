@@ -5051,6 +5051,9 @@ final object ee.schimke.composeai.rcplayer.protocol/RcOpcodes { // ee.schimke.co
         final fun <get-VALUE_STRING_CHANGE_ACTION>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.VALUE_STRING_CHANGE_ACTION.<get-VALUE_STRING_CHANGE_ACTION>|<get-VALUE_STRING_CHANGE_ACTION>(){}[0]
     final const val WAKE_IN // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.WAKE_IN|{}WAKE_IN[0]
         final fun <get-WAKE_IN>(): kotlin/Int // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.WAKE_IN.<get-WAKE_IN>|<get-WAKE_IN>(){}[0]
+
+    final val CONTAINER_STARTS // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.CONTAINER_STARTS|{}CONTAINER_STARTS[0]
+        final fun <get-CONTAINER_STARTS>(): kotlin.collections/Set<kotlin/Int> // ee.schimke.composeai.rcplayer.protocol/RcOpcodes.CONTAINER_STARTS.<get-CONTAINER_STARTS>|<get-CONTAINER_STARTS>(){}[0]
 }
 
 final object ee.schimke.composeai.rcplayer.protocol/RcOperationInventory { // ee.schimke.composeai.rcplayer.protocol/RcOperationInventory|null[0]
