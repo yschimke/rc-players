@@ -575,9 +575,8 @@ private fun RcComposePlayerResolved(
   // type; nothing on the public path called it. A removal means "stop overriding this", which needs
   // the pre-override value, so `clearNamedValue` is its inverse (see `RcPlayerState`).
   //
-  // Errors are deliberately not caught: an unknown name or a type mismatch threw from the
-  // `RcPlayerState` constructor before this change, and a host that names a variable the document
-  // does not have should still hear about it rather than watch the value quietly not apply.
+  // A name the document does not declare is ignored by the state, as AndroidX ignores it, so one
+  // host map can drive several documents. A type mismatch on a declared name still throws.
   //
   // `appliedNamedValues` tracks what the *state* holds, not what the holder holds, and is
   // remembered on `state` so it survives the effect restarting. Two things need that:
@@ -1058,6 +1057,12 @@ private fun RenderLayoutNode(
             textMeasurer,
             images,
             theme,
+            // A root with no height of its own wraps its content within the host's height, as the
+            // View player does under `wrap_content`; a host that pins the height (`min == max`)
+            // still gets it filled, because Compose coerces the wrapped size up to the minimum.
+            // Filling it here made a player in a `Column` or a lazy list item take every pixel it
+            // was offered, so wrapping needed the host to measure it with an unbounded height.
+            fillMissingHeight = false,
           )
         ) {
           node.children.forEach {
@@ -2428,6 +2433,7 @@ private fun Modifier.applyComponentModifiers(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
+  fillMissingHeight: Boolean = fillMissingDimensions,
 ): Modifier {
   val density = androidx.compose.ui.platform.LocalDensity.current
   val offscreenTargets = LocalRcOffscreenTargets.current
@@ -2454,7 +2460,7 @@ private fun Modifier.applyComponentModifiers(
     result = result.applyDimensionConstraint(constraint, state, density)
   }
   if (fillMissingDimensions && modifiers.width == null) result = result.fillMaxWidth()
-  if (fillMissingDimensions && modifiers.height == null) result = result.fillMaxHeight()
+  if (fillMissingHeight && modifiers.height == null) result = result.fillMaxHeight()
   var appliedWidth = false
   var appliedHeight = false
   var appliedCanvasOperations = false

@@ -1,6 +1,8 @@
 package ee.schimke.composeai.rcplayer.compose
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
@@ -173,7 +175,9 @@ class RcAnimationRenderTest {
             end,
           ),
         )
-      setContent { RcComposePlayer(document, onEvent = events::add) }
+      // Pinned like a real host: a bare player wraps its height, and collapses as the content
+      // exits.
+      setContent { RcComposePlayer(document, Modifier.fillMaxSize(), onEvent = events::add) }
       // The data operation is applied during the first frame; let its initial enter settle.
       mainClock.advanceTimeByFrame()
       waitForIdle()
@@ -219,7 +223,8 @@ class RcAnimationRenderTest {
             enter = RcLayoutAnimation.FadeIn,
             exit = RcLayoutAnimation.SlideLeft,
             redWidth = 20f,
-          )
+          ),
+          Modifier.fillMaxSize(),
         )
       }
       mainClock.advanceTimeByFrame()
@@ -252,7 +257,8 @@ class RcAnimationRenderTest {
             enter = RcLayoutAnimation.Rotate,
             exit = RcLayoutAnimation.FadeOut,
             redWidth = 10f,
-          )
+          ),
+          Modifier.fillMaxSize(),
         )
       }
       mainClock.advanceTimeByFrame()
