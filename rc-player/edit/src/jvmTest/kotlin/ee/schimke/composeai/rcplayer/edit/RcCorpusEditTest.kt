@@ -73,7 +73,8 @@ class RcCorpusEditTest {
         val original = RcDocumentCodec.decode(file.readBytes())
         val playable = runCatching { RcLayoutTree.build(RcDocumentLinker.link(original)) }.isSuccess
         val before = original.validateFor(profile)
-        val adaptation = original.adaptTo(profile, approximateText = approximate)
+        val adaptation =
+          original.adaptTo(profile, approximateText = approximate, approximateColors = approximate)
 
         assertTrue(
           adaptation.violations.size <= before.size,
@@ -89,7 +90,7 @@ class RcCorpusEditTest {
           .distinct()
           .forEach { remaining[it] = (remaining[it] ?: 0) + 1 }
       }
-      val mode = if (approximate) "adaptTo(approximateText)" else "adaptTo"
+      val mode = if (approximate) "adaptTo(approximateText, approximateColors)" else "adaptTo"
       "${profile.name}: $validBefore valid, $validAfter after $mode; still blocking: " +
         remaining.entries.sortedByDescending { it.value }.joinToString { "${it.key} (${it.value})" }
     }

@@ -12,6 +12,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
@@ -33,6 +34,11 @@ public data class RcProfileAdaptation(
   val violations: List<RcProfileViolation>,
   /** What an approximating text conversion dropped, one entry per converted text. */
   val approximations: List<RcTextApproximation> = emptyList(),
+  /**
+   * The colour ids an approximating colour conversion now draws from their recorded fallbacks
+   * rather than the system palette — see [colorThemesAsFallbacks].
+   */
+  val colorFallbacks: List<Int> = emptyList(),
 ) {
   /** Whether the adapted document plays on the target. */
   public val isPlayable: Boolean
@@ -52,6 +58,12 @@ public data class RcProfileAdaptation(
  *   line height, autosize, decoration, font axes or a line-breaking strategy stays `CoreText` and
  *   is reported. The two components still lay text out through different player code, so check a
  *   converted document's rendering on the target.
+ * - **A matrix that positions a shader becomes canvas transforms** for a target without
+ *   `MatrixExpression`, exactly — see [lowerMatrixExpressions].
+ * - **`ColorTheme` becomes its fallbacks** for a target without it, when [approximateColors] is
+ *   set, in theme sections where the target has them and as the dark fallback where it does not
+ *   (Wear OS) — see [colorThemesAsFallbacks]. The system palette is lost; the converted ids are
+ *   reported in [RcProfileAdaptation.colorFallbacks].
  * - **Remarks are dropped** where the target does not decode them; they draw nothing.
  * - **A variable image alpha or text size is replaced by its value** below API level 7, where those
  *   fields must be literals, when the variable is a constant nothing can change.
@@ -68,15 +80,34 @@ public data class RcProfileAdaptation(
 public fun RcDocument.adaptTo(
   target: RcTargetProfile,
   approximateText: Boolean = false,
+  approximateColors: Boolean = false,
 ): RcProfileAdaptation {
   val approximations = mutableListOf<RcTextApproximation>()
+  val colorFallbacks = mutableListOf<Int>()
   val adapted =
     inlineStructuralOperations(target)
       .coreTextAsTextLayout(target, approximateText, approximations)
+      .lowerMatrices(target)
+      .colorThemes(target, approximateColors, colorFallbacks)
       .dropRemarks(target)
       .foldLiteralFields(target)
       .headerFor(target)
-  return RcProfileAdaptation(adapted, adapted.validateFor(target), approximations)
+  return RcProfileAdaptation(adapted, adapted.validateFor(target), approximations, colorFallbacks)
+}
+
+private fun RcDocument.lowerMatrices(target: RcTargetProfile): RcDocument =
+  if (RcOpcodes.MATRIX_EXPRESSION in target.supportedOpcodes) this else lowerMatrixExpressions()
+
+private fun RcDocument.colorThemes(
+  target: RcTargetProfile,
+  approximate: Boolean,
+  replaced: MutableList<Int>,
+): RcDocument {
+  if (!approximate || RcOpcodes.COLOR_THEME in target.supportedOpcodes) return this
+  val fixedTheme = if (RcOpcodes.THEME in target.supportedOpcodes) null else RcTheme.DARK
+  val (document, ids) = colorThemeFallbacks(fixedTheme)
+  replaced += ids
+  return document
 }
 
 private val STRUCTURAL_OPCODES: Set<Int> =

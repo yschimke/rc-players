@@ -114,6 +114,15 @@ line height and font axes, which `TextLayout` has no field for:
 older devices a different design instead, keep a separate template per profile and check each with
 `validateFor`.
 
+API level 6 has no matrices. `adaptTo` rewrites the shader matrix `RemoteImageBrush` uses to scale
+an image into a shape (`lowerMatrixExpressions()`) as canvas transforms around the shape's inverse
+path, which draws the same image. Neither level 6 nor Wear has `ColorTheme`, the light/dark pair of
+system colours. `adaptTo(target, approximateColors = true)` replaces each one with its recorded
+fallbacks (`colorThemesAsFallbacks()`): in theme sections, the way AndroidX's level 6 widget
+writer writes a themed colour, or as the dark fallback on Wear. The device's palette is lost, and
+the converted ids are listed in `RcProfileAdaptation.colorFallbacks`. Evidence for both is under
+[`renders/rc-edit-profile-fallbacks/`](renders/rc-edit-profile-fallbacks/).
+
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 

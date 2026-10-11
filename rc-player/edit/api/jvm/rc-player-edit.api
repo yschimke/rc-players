@@ -2,6 +2,11 @@ public final class ee/schimke/composeai/rcplayer/edit/RcCollapseStateLayoutsKt {
 	public static final fun collapseConstantStateLayouts (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcColorThemeFallbacksKt {
+	public static final fun colorThemesAsFallbacks (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/Integer;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun colorThemesAsFallbacks$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/Integer;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcEmbedBitmapsKt {
 	public static final fun embedBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/Map;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static final fun embedBitmapUrls (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
@@ -84,6 +89,10 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcLowerMatricesKt {
+	public static final fun lowerMatrixExpressions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcOptimizeKt {
 	public static final fun foldConstantExpressions (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public static final fun optimize (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
@@ -94,15 +103,17 @@ public final class ee/schimke/composeai/rcplayer/edit/RcOptimizeKt {
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
-	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)V
-	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun component2 ()Ljava/util/List;
 	public final fun component3 ()Ljava/util/List;
-	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public final fun component4 ()Ljava/util/List;
+	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getApproximations ()Ljava/util/List;
+	public final fun getColorFallbacks ()Ljava/util/List;
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun getViolations ()Ljava/util/List;
 	public fun hashCode ()I
@@ -111,8 +122,8 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptationKt {
-	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Z)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
-	public static synthetic fun adaptTo$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;ZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;ZZ)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static synthetic fun adaptTo$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;ZZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileValidationKt {

@@ -973,6 +973,18 @@ public class RcPlayerState(
               currentTheme =
                 applyContentStateOperation(node.operation, currentTheme, requestedTheme)
             }
+          is RcLinkedNode.Container if applyDirect && node.operation is RcLoopOperation -> {
+            val loop = node.operation as RcLoopOperation
+            // A loop in a scope this replays runs its body there, once per index, exactly as
+            // AndroidX's flat stream runs it. AndroidX's level 6 widget writer sets a themed colour
+            // that way — a `Theme(DARK)` and a `Theme(LIGHT)` section, each a one-pass loop over a
+            // `ColorExpression` — and skipping the body left that colour unset. A loop whose bounds
+            // do not resolve to a finite, advancing range is left to the draw pass to report.
+            val theme = currentTheme
+            runCatching {
+              forEachLoopValue(loop) { applyScope(node.children, theme, applyDirect = true) }
+            }
+          }
           is RcLinkedNode.Container -> {
             // A canvas-operations block is a scope too. Its own draw runs in the draw phase, but
             // the values it *publishes* — a `ColorAttribute` decomposing the container colour, an
