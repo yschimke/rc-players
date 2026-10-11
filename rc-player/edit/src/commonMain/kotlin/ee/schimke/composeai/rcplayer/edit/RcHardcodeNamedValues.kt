@@ -16,10 +16,17 @@ import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
+import ee.schimke.composeai.rcplayer.protocol.RcPathCombine
+import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
+import ee.schimke.composeai.rcplayer.protocol.RcPathTween
+import ee.schimke.composeai.rcplayer.protocol.RcSoundExpression
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcUpdateDynamicFloatList
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 
 /**
  * A value to write into a document in place of host-bound state.
@@ -60,7 +67,9 @@ public val RcDocument.namedVariables: List<RcNamedVariable>
  * the state-layout branches a hardcoded index can no longer select.
  *
  * @throws IllegalArgumentException when a value's shape does not fit the variable's declared type,
- *   or the variable is an image or float array, which have no single value to write.
+ *   or the variable is an image or float array, which have no single value to write, or its value
+ *   comes from an operation that cannot be swapped for one constant — one writing several ids, or
+ *   an expression an expression-change action evaluates.
  */
 public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>): RcDocument {
   if (values.isEmpty()) return this
@@ -78,6 +87,23 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
       throw IllegalArgumentException(
         "${operationName(operation.opcode)} writes a hardcoded named variable along with other " +
           "ids, so it cannot be replaced by a constant"
+      )
+    }
+  // An expression-change action looks its expression up by id when it runs. Replacing that
+  // expression with a constant would leave the action nothing to evaluate.
+  operations
+    .mapNotNull {
+      when (it) {
+        is RcValueFloatExpressionChangeAction -> it.expressionId
+        is RcValueIntegerExpressionChangeAction -> it.expressionId.toInt()
+        else -> null
+      }
+    }
+    .firstOrNull { it in byId }
+    ?.let { id ->
+      throw IllegalArgumentException(
+        "Named variable '${byId.getValue(id).first.name}' is also the expression an " +
+          "expression-change action evaluates, so it cannot be replaced by a constant"
       )
     }
   val defined = mutableSetOf<Int>()
@@ -158,7 +184,12 @@ private fun RcOperation.definedId(): Int? {
     is RcMatrixConstant,
     is RcMatrixExpression,
     is RcDynamicFloatList,
-    is RcUpdateDynamicFloatList -> null
+    is RcUpdateDynamicFloatList,
+    is RcPathCreate,
+    is RcPathAppend,
+    is RcPathCombine,
+    is RcPathTween,
+    is RcSoundExpression -> null
     else -> definedIds()?.single()
   }
 }

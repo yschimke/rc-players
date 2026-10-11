@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
@@ -25,8 +26,15 @@ import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
+import ee.schimke.composeai.rcplayer.protocol.RcPathAppend
+import ee.schimke.composeai.rcplayer.protocol.RcPathCombine
+import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
+import ee.schimke.composeai.rcplayer.protocol.RcPathTween
+import ee.schimke.composeai.rcplayer.protocol.RcSoundExpression
+import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
 import ee.schimke.composeai.rcplayer.protocol.RcTextLength
@@ -36,6 +44,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
 import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
 import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
+import ee.schimke.composeai.rcplayer.protocol.RcTimeAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
 import ee.schimke.composeai.rcplayer.protocol.RcUpdateDynamicFloatList
 
@@ -82,5 +91,14 @@ internal fun RcOperation.definedIds(): List<Int>? =
     is RcTextMeasure -> listOf(outId)
     is RcTouchExpression -> listOf(id)
     is RcComponentValue -> listOf(valueId)
+    is RcTextAttribute -> listOf(outId)
+    is RcTimeAttribute -> listOf(outId)
+    is RcBitmapTextMeasure -> listOf(outId)
+    is RcPathCreate -> listOf(id)
+    is RcPathAppend -> listOf(id)
+    is RcPathCombine -> listOf(outId)
+    is RcPathTween -> listOf(outId)
+    is RcParticleDefine -> listOf(id) + variableIds
+    is RcSoundExpression -> listOf(id)
     else -> null
   }

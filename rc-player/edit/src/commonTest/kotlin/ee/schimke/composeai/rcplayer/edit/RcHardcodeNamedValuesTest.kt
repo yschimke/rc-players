@@ -8,12 +8,15 @@ import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
+import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class RcHardcodeNamedValuesTest {
   // The two orders AndroidX writers emit: a colour's name follows its constant, while floats,
@@ -134,5 +137,30 @@ class RcHardcodeNamedValuesTest {
     assertFailsWith<IllegalArgumentException> {
       document.hardcodeNamedValues(mapOf("x" to RcHardcodedValue.FloatValue(1f)))
     }
+  }
+
+  @Test
+  fun anExpressionAChangeActionEvaluatesCannotBeHardcoded() {
+    val document =
+      document(
+        RcNamedVariable(52, RcNamedVariable.FLOAT_TYPE, "USER:x"),
+        RcFloatExpression(52, listOf(RcFloatWord.literal(1f)), animation = null),
+        RcValueFloatExpressionChangeAction(targetValueId = 53, expressionId = 52),
+      )
+    assertFailsWith<IllegalArgumentException> {
+      document.hardcodeNamedValues(mapOf("x" to RcHardcodedValue.FloatValue(2f)))
+    }
+  }
+
+  @Test
+  fun aTextAttributeWritingTheIdIsReplacedToo() {
+    val result =
+      document(
+          RcNamedVariable(52, RcNamedVariable.FLOAT_TYPE, "USER:width"),
+          RcFloatConstant(52, RcFloatWord.literal(0f)),
+          RcTextAttribute(52, 65, 0),
+        )
+        .hardcodeNamedValues(mapOf("width" to RcHardcodedValue.FloatValue(3f)))
+    assertTrue(result.operations.none { it is RcTextAttribute })
   }
 }
