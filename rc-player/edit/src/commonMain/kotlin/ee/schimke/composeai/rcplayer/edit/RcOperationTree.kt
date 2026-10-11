@@ -121,11 +121,15 @@ internal fun RcOperation.declaredComponentId(): Int? =
  * Which of [operations] run every time the document plays, by index, or null when its containers do
  * not balance.
  *
- * An operation runs unconditionally when it sits at the top level or in layout scope — inside
- * layout components and their content — rather than inside a container that runs its body on its
- * own terms (a conditional, a loop, a canvas, an action handler, a function), and when no theme
- * marker gates it to a single theme. A value written anywhere else may never be written at all, so
- * nothing that reasons about constants can count on it.
+ * An operation runs unconditionally when it sits at the top level, in layout scope — inside layout
+ * components and their content — or in a component's drawn content, rather than inside a container
+ * that runs its body on its own terms (a conditional, a loop, an action handler, a function), and
+ * when no theme marker gates it to a single theme.
+ *
+ * Drawn content runs whenever its component is drawn. A constant written there therefore holds
+ * whenever anything drawn reads it; and a producer over constants, folded into a constant the
+ * player loads up front, only differs for a reader that would otherwise have read the id before
+ * anything set it.
  *
  * Theme markers are read both ways the players read them, and an operation either way gates is
  * gated: the CMP player scopes a marker lexically, so a nested marker stops at its container's end,
@@ -140,7 +144,9 @@ internal fun unconditionalOperations(operations: List<RcOperation>): BooleanArra
       val operation = node.operation
       if (operation is RcTheme) theme = operation.theme
       result[node.start] = inScope && theme == RcTheme.UNSPECIFIED
-      val childScope = inScope && operation.isLayoutComponent() && operation !is RcCanvasContent
+      val childScope =
+        inScope &&
+          (operation.isLayoutComponent() || operation.opcode == RcOpcodes.CANVAS_OPERATIONS)
       visit(node.children, theme, childScope)
     }
   }

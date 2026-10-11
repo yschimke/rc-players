@@ -38,6 +38,7 @@ class RcCorpusOptimizeTest {
     assertTrue(corpus.size > 100, "Corpus not found")
     var before = 0
     var after = 0
+    var bakedBytes = 0
     val removedByOperation = mutableMapOf<String, Int>()
     val sizes = mutableMapOf<String, Int>()
     corpus.forEach { file ->
@@ -56,7 +57,15 @@ class RcCorpusOptimizeTest {
           original.validateFor(RcTargetProfiles.ANDROIDX).size,
         file.name,
       )
-      if (tree.isSuccess) assertSameValues(original, optimized, file.name)
+      if (tree.isSuccess) {
+        assertSameValues(original, optimized, file.name)
+        // A widget whose host values are baked in: unbound, the original plays its defaults, so
+        // hardcoding them and optimising must leave every value where it was.
+        val baked = original.hardcodeUnboundNamedValues().optimize()
+        RcLayoutTree.build(RcDocumentLinker.link(baked))
+        assertSameValues(original, baked, "${file.name} baked")
+        bakedBytes += RcDocumentCodec.encode(baked).size
+      }
 
       optimized.sizeReport().byOperation.forEach { (op, size) ->
         sizes[op] = (sizes[op] ?: 0) + size
@@ -69,7 +78,8 @@ class RcCorpusOptimizeTest {
       }
     }
     println(
-      "Corpus of ${corpus.size}: $before -> $after bytes (${100 - after * 100 / before}% smaller)\n" +
+      "Corpus of ${corpus.size}: $before -> $after bytes (${100 - after * 100 / before}% smaller); " +
+        "hardcoded and optimised: $bakedBytes bytes\n" +
         "Removed or folded: " +
         removedByOperation.entries
           .sortedByDescending { it.value }
