@@ -172,5 +172,12 @@ class RcTopLevelContentStateTest {
     assertEquals(0, indexed.color(42))
     val index = RcFloatWord(0x7fc00000 or 43)
     assertEquals(index.value.toRawBits(), indexed.resolve(index).toRawBits())
+    // A colour feeding back into itself would advance once more in the replay than in the draw.
+    val feedback =
+      RcColorExpression(42, RcColorExpression.ID_COLOR_INTERPOLATE, 42, colour, 0.5f.toRawBits())
+    assertEquals(
+      0,
+      play(RcTheme.DARK, RcColorConstant(42, 0), loop(0), feedback, end).color(42),
+    )
   }
 }

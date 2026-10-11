@@ -978,8 +978,8 @@ public class RcPlayerState(
             // AndroidX's level 6 widget writer sets a themed colour from a loop — a `Theme(DARK)`
             // and a `Theme(LIGHT)` section, each a one-pass loop over a `ColorExpression` — which
             // AndroidX's flat stream runs where it stands; skipping the body left that colour
-            // unset. Only that shape is replayed here: a loop writing no index and holding only
-            // colour expressions, which give the same colour however often they run. Any other
+            // unset. Only that shape is replayed here (see [isThemedColorLoop]): colours that come
+            // out the same however often the loop runs. Any other
             // loop is the draw pass's alone, so nothing stateful in it runs twice. A loop whose
             // bounds do not resolve to a finite, advancing range is left to the draw pass to
             // report, and one under the other theme's marker does not run, as the draw pass skips
@@ -1026,10 +1026,25 @@ public class RcPlayerState(
     applyScope(children, RcTheme.UNSPECIFIED, applyDirect = true)
   }
 
-  /** A loop of the themed-colour shape: no index variable, and only colour expressions. */
-  private fun RcLinkedNode.Container.isThemedColorLoop(): Boolean =
-    (operation as? RcLoopOperation)?.indexVariableId == 0 &&
-      children.all { (it as? RcLinkedNode.Operation)?.operation is RcColorExpression }
+  /**
+   * A loop of the themed-colour shape: no index variable, and only colour interpolations at a
+   * literal tween that read no colour the loop itself writes — so running it again gives the same
+   * colours, however often it runs.
+   */
+  private fun RcLinkedNode.Container.isThemedColorLoop(): Boolean {
+    if ((operation as? RcLoopOperation)?.indexVariableId != 0) return false
+    val expressions = children.map {
+      (it as? RcLinkedNode.Operation)?.operation as? RcColorExpression ?: return false
+    }
+    val written = expressions.mapTo(mutableSetOf()) { it.outId }
+    return expressions.all { expression ->
+      val mode = expression.mode
+      mode in RcColorExpression.COLOR_COLOR_INTERPOLATE..RcColorExpression.ID_ID_INTERPOLATE &&
+        !RcFloatWord(expression.third).isNaNEncoded &&
+        (mode and 1 == 0 || expression.first !in written) &&
+        (mode and 2 == 0 || expression.second !in written)
+    }
+  }
 
   private fun applyContentStateOperation(
     operation: RcOperation?,
