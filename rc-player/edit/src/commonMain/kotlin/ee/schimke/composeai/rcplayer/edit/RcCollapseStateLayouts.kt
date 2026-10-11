@@ -1,22 +1,53 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
+import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
+import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
+import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
+import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
+import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
+import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
+import ee.schimke.composeai.rcplayer.protocol.RcFloatList
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFontData
+import ee.schimke.composeai.rcplayer.protocol.RcIdList
+import ee.schimke.composeai.rcplayer.protocol.RcIdLookup
+import ee.schimke.composeai.rcplayer.protocol.RcIdMap
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
+import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
+import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPathData
+import ee.schimke.composeai.rcplayer.protocol.RcShaderData
+import ee.schimke.composeai.rcplayer.protocol.RcSoundData
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
+import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
+import ee.schimke.composeai.rcplayer.protocol.RcTextLength
+import ee.schimke.composeai.rcplayer.protocol.RcTextLookup
+import ee.schimke.composeai.rcplayer.protocol.RcTextLookupInt
+import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
+import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
+import ee.schimke.composeai.rcplayer.protocol.RcTextSubtext
+import ee.schimke.composeai.rcplayer.protocol.RcTextTransform
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
+import ee.schimke.composeai.rcplayer.protocol.RcTouchExpression
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
@@ -35,23 +66,26 @@ import ee.schimke.composeai.rcplayer.runtime.RcIntegerExpressionEvaluator
  * fill modifiers; a box in its place would not.
  *
  * What the removed branches leave behind:
- * - Values they define in layout scope — text, constants, expressions, bitmaps, lists — are kept
- *   rather than deleted, because a player evaluates them whether or not their branch shows and
- *   something outside the branch may read one. A removed branch's values move to just before the
- *   state layout if the branch came before the selected one, and to just after it otherwise, so a
- *   later definition of the same id still wins.
- * - Values defined inside a conditional, loop or canvas run only as that container runs them, so
- *   they cannot be lifted out. They are dropped when nothing outside the removed branches can read
- *   them; when something might, the state layout is left as it is.
+ * - Values they define in layout scope that the player loads at open or evaluates in content state
+ *   — text, constants, expressions, bitmaps, fonts, styles, lists — are kept rather than deleted,
+ *   because they get their values whether or not their branch shows and something outside the
+ *   branch may read one. A removed branch's values move to just before the state layout if the
+ *   branch came before the selected one, and to just after it otherwise, so a later definition of
+ *   the same id still wins.
+ * - Values defined inside a conditional, loop or canvas run only as that container runs them, and
+ *   draw-time producers (matrices, paths, attributes) only while their branch draws, so neither can
+ *   be lifted out. They are dropped when nothing outside the removed branches can read them; when
+ *   something might, the state layout is left as it is.
  * - Definitions inside click and touch handlers are actions, not definitions, and go with their
  *   branch.
  * - A `ComponentValue` that measures a component in a removed branch becomes a constant `0`, the
  *   geometry a hidden branch publishes.
  *
- * A state layout is also left as it is when its index is out of range for its branches, or when a
- * removed branch declares something that can be called from elsewhere (a function, a referenced
- * operation block). A document using macros is returned unchanged: an expanded macro can write any
- * id, so no index can be shown constant without expanding them.
+ * A state layout is also left as it is when its index is out of range for its branches, when a
+ * removed branch holds a theme marker (which gates the rest of the stream), or when a removed
+ * branch declares something that can be called from elsewhere (a function, a referenced operation
+ * block). A document using macros is returned unchanged: an expanded macro can write any id, so no
+ * index can be shown constant without expanding them.
  */
 public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
   val operations = operations
@@ -162,6 +196,11 @@ private fun RcOperationNode.keptDefinitions(
   reads: PossibleReads,
   outside: (Int) -> Boolean,
 ): List<RcOperation>? {
+  // A theme marker changes what runs after it — through the rest of the stream, as AndroidX reads
+  // it — so a branch holding one cannot be removed without changing what else plays.
+  var themed = false
+  walk { themed = themed || it.operation is RcTheme }
+  if (themed) return null
   val kept = mutableListOf<RcOperation>()
   fun collect(node: RcOperationNode, layoutScope: Boolean): Boolean {
     val operation = node.operation
@@ -172,17 +211,57 @@ private fun RcOperationNode.keptDefinitions(
     }
     val ids = operation.definedIds() ?: return true
     return when {
-      layoutScope -> kept.add(operation)
+      layoutScope && operation.isLiftable() -> kept.add(operation)
+      // Anything else runs only while its branch draws, or only as its container runs it: lifted,
+      // it would run where it never did. It can go only if nothing outside can read it.
       else -> ids.none { reads.mayRead(it, outside) }
     }
   }
-  if (!collect(this, layoutScope = true)) return null
-  // A theme marker gates what follows it to one theme. Moved out of its branch, a definition would
-  // run under every theme, so a branch that both gates and defines is not collapsed.
-  var themed = false
-  walk { themed = themed || (it.operation is RcTheme && it.operation.theme != RcTheme.UNSPECIFIED) }
-  return kept.takeUnless { themed && it.isNotEmpty() }
+  return kept.takeIf { collect(this, layoutScope = true) }
 }
+
+/**
+ * Whether the player gives this definition its value regardless of whether its branch shows, so it
+ * can move out of the branch: what it loads when the document opens (constants, data, resources)
+ * and what it evaluates in a layout's content state (expressions, text and colour producers).
+ * Draw-time producers — matrices, paths, attributes, measurements, particles — are not.
+ */
+private fun RcOperation.isLiftable(): Boolean =
+  this is RcTextData ||
+    this is RcFloatConstant ||
+    this is RcColorConstant ||
+    this is RcIntegerConstant ||
+    this is RcBooleanConstant ||
+    this is RcLongConstant ||
+    this is RcPathData ||
+    this is RcMatrixConstant ||
+    this is RcIdList ||
+    this is RcFloatList ||
+    this is RcIdMap ||
+    this is RcBitmapData ||
+    this is RcFontData ||
+    this is RcBitmapFontData ||
+    this is RcShaderData ||
+    this is RcSoundData ||
+    this is RcTextStyle ||
+    this is RcNamedVariable ||
+    this is RcDynamicFloatList ||
+    this is RcTouchExpression ||
+    this is RcComponentValue ||
+    this is RcFloatExpression ||
+    this is RcIntegerExpression ||
+    this is RcColorExpression ||
+    this is RcColorTheme ||
+    this is RcColorAttribute ||
+    this is RcDataMapLookup ||
+    this is RcIdLookup ||
+    this is RcTextFromFloat ||
+    this is RcTextLength ||
+    this is RcTextLookup ||
+    this is RcTextLookupInt ||
+    this is RcTextMerge ||
+    this is RcTextSubtext ||
+    this is RcTextTransform
 
 private val ACTION_CONTAINERS: Set<Int> =
   setOf(

@@ -14,6 +14,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
+import ee.schimke.composeai.rcplayer.protocol.RcPathTween
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
@@ -279,5 +281,22 @@ class RcCollapseStateLayoutsTest {
         .collapseConstantStateLayouts()
     assertTrue(RcFloatConstant(400, zero) in result.operations)
     assertTrue(result.operations.none { it is RcComponentValue && it.componentId == 77 })
+  }
+
+  @Test
+  fun aBranchWithOnlyAThemeMarkerIsNotCollapsed() {
+    val source = branches(0, box(20), box(30, RcTheme(RcTheme.DARK)))
+    assertSame(source, source.collapseConstantStateLayouts())
+  }
+
+  @Test
+  fun aDrawTimeProducerIsDroppedOnlyWhenNothingOutsideReadsIt() {
+    val path = RcPathCreate(300, zero, zero)
+    val read = branches(0, box(20), box(30, path), after = listOf(RcPathTween(301, 300, 300, one)))
+    assertSame(read, read.collapseConstantStateLayouts())
+
+    val unread = branches(0, box(20), box(30, path)).collapseConstantStateLayouts()
+    assertTrue(unread.operations.none { it is RcPathCreate })
+    assertEquals(0, unread.operations.filterIsInstance<RcStateLayout>().single().indexId)
   }
 }
