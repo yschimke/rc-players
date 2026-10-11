@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapTextMeasure
 import ee.schimke.composeai.rcplayer.protocol.RcBooleanConstant
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
@@ -33,6 +34,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
+import ee.schimke.composeai.rcplayer.protocol.RcShaderData
+import ee.schimke.composeai.rcplayer.protocol.RcSoundData
 import ee.schimke.composeai.rcplayer.protocol.RcSoundExpression
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -100,5 +103,8 @@ internal fun RcOperation.definedIds(): List<Int>? =
     is RcPathTween -> listOf(outId)
     is RcParticleDefine -> listOf(id) + variableIds
     is RcSoundExpression -> listOf(id)
+    is RcBitmapFontData -> listOf(fontId)
+    is RcShaderData -> listOf(shaderId)
+    is RcSoundData -> listOf(soundId)
     else -> null
   }

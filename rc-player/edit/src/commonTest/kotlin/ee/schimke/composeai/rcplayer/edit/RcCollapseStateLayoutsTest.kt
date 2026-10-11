@@ -1,5 +1,6 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -222,5 +223,24 @@ class RcCollapseStateLayoutsTest {
         RcTheme(RcTheme.UNSPECIFIED),
       )
     assertSame(source, source.collapseConstantStateLayouts())
+  }
+
+  @Test
+  fun aNestedThemeResetDoesNotUngateItsParentScope() {
+    // DARK at the root; a nested content block resets to UNSPECIFIED, which stops at its end.
+    val source =
+      stateDocument(
+        RcTheme(RcTheme.DARK),
+        *box(80, RcTheme(RcTheme.UNSPECIFIED)).toTypedArray(),
+        RcIntegerConstant(INDEX, 1),
+      )
+    assertSame(source, source.collapseConstantStateLayouts())
+  }
+
+  @Test
+  fun aRemovedBranchKeepsTheResourcesItDeclares() {
+    val font = RcBitmapFontData(300, emptyList())
+    val result = branches(0, box(20), box(30, font)).collapseConstantStateLayouts()
+    assertTrue(font in result.operations)
   }
 }

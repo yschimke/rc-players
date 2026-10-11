@@ -123,24 +123,31 @@ internal fun RcOperation.declaredComponentId(): Int? =
  * An operation runs unconditionally when it sits at the top level or in layout scope — inside
  * layout components and their content — rather than inside a container that runs its body on its
  * own terms (a conditional, a loop, a canvas, an action handler, a function), and when no theme
- * marker earlier in the stream has gated it to a single theme. A value written anywhere else may
- * never be written at all, so nothing that reasons about constants can count on it.
+ * marker gates it to a single theme. A value written anywhere else may never be written at all, so
+ * nothing that reasons about constants can count on it.
+ *
+ * Theme markers are read both ways the players read them, and an operation either way gates is
+ * gated: the CMP player scopes a marker lexically, so a nested marker stops at its container's end,
+ * while AndroidX runs one flat stream in which a marker holds until the next one.
  */
 internal fun unconditionalOperations(operations: List<RcOperation>): BooleanArray? {
   val tree = operationTree(operations) ?: return null
   val result = BooleanArray(operations.size)
-  fun visit(node: RcOperationNode, inScope: Boolean) {
-    result[node.start] = inScope
-    val childScope =
-      inScope && node.operation.isLayoutComponent() && node.operation !is RcCanvasContent
-    node.children.forEach { visit(it, childScope) }
+  fun visit(nodes: List<RcOperationNode>, inheritedTheme: Int, inScope: Boolean) {
+    var theme = inheritedTheme
+    nodes.forEach { node ->
+      val operation = node.operation
+      if (operation is RcTheme) theme = operation.theme
+      result[node.start] = inScope && theme == RcTheme.UNSPECIFIED
+      val childScope = inScope && operation.isLayoutComponent() && operation !is RcCanvasContent
+      visit(node.children, theme, childScope)
+    }
   }
-  tree.forEach { visit(it, inScope = true) }
-  // A theme marker gates everything after it in the stream until a marker lifts the gate.
-  var gated = false
+  visit(tree, RcTheme.UNSPECIFIED, inScope = true)
+  var flatTheme = RcTheme.UNSPECIFIED
   operations.forEachIndexed { index, operation ->
-    if (operation is RcTheme) gated = operation.theme != RcTheme.UNSPECIFIED
-    else if (gated) result[index] = false
+    if (operation is RcTheme) flatTheme = operation.theme
+    else if (flatTheme != RcTheme.UNSPECIFIED) result[index] = false
   }
   return result
 }

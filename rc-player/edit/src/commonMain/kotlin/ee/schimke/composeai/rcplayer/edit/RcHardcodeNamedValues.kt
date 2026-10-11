@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
+import ee.schimke.composeai.rcplayer.protocol.RcBitmapFontData
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
@@ -22,6 +23,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcPathCreate
 import ee.schimke.composeai.rcplayer.protocol.RcPathData
 import ee.schimke.composeai.rcplayer.protocol.RcPathExpression
 import ee.schimke.composeai.rcplayer.protocol.RcPathTween
+import ee.schimke.composeai.rcplayer.protocol.RcShaderData
+import ee.schimke.composeai.rcplayer.protocol.RcSoundData
 import ee.schimke.composeai.rcplayer.protocol.RcSoundExpression
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcUpdateDynamicFloatList
@@ -189,7 +192,10 @@ private fun RcOperation.definedId(): Int? {
     is RcPathAppend,
     is RcPathCombine,
     is RcPathTween,
-    is RcSoundExpression -> null
+    is RcSoundExpression,
+    is RcBitmapFontData,
+    is RcShaderData,
+    is RcSoundData -> null
     else -> definedIds()?.single()
   }
 }
