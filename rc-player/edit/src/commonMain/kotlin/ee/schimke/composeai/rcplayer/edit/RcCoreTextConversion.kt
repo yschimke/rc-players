@@ -35,10 +35,17 @@ internal fun RcDocument.coreTextAsTextLayout(
   if (RcOpcodes.CORE_TEXT in target.supportedOpcodes) return this
   if (RcOpcodes.LAYOUT_TEXT !in target.supportedOpcodes) return this
   if (operations.none { it is RcCoreText }) return this
-  val styles = operations.filterIsInstance<RcTextStyle>().groupBy { it.styleId }
-  val converted = operations.map { operation ->
-    val text = operation as? RcCoreText ?: return@map operation
-    val (layout, dropped) = textLayout(text, styles, approximate) ?: return@map operation
+  val styles =
+    operations
+      .withIndex()
+      .mapNotNull { (index, operation) ->
+        (operation as? RcTextStyle)?.let { IndexedValue(index, it) }
+      }
+      .groupBy { it.value.styleId }
+  val converted = operations.mapIndexed { index, operation ->
+    val text = operation as? RcCoreText ?: return@mapIndexed operation
+    val (layout, dropped) =
+      textLayout(text, index, styles, approximate) ?: return@mapIndexed operation
     if (dropped.isNotEmpty()) {
       approximations += RcTextApproximation(text.componentId, text.textId, dropped)
     }
@@ -52,12 +59,13 @@ internal fun RcDocument.coreTextAsTextLayout(
 
 private fun textLayout(
   text: RcCoreText,
-  styles: Map<Int?, List<RcTextStyle>>,
+  index: Int,
+  styles: Map<Int?, List<IndexedValue<RcTextStyle>>>,
   approximate: Boolean,
 ): Pair<RcTextLayout, Set<String>>? {
   val own = text.properties.associateBy { it.id }
   val inherited =
-    text.textStyleId?.takeUnless { it == -1 }?.let { inherited(it, styles) ?: return null }
+    text.textStyleId?.takeUnless { it == -1 }?.let { inherited(it, index, styles) ?: return null }
   val resolved = mutableMapOf<Int, RcTextStyleProperty>()
   for (id in (own.keys + inherited.orEmpty().keys)) {
     if (id == P_ID || id == P_ANIMATION_ID || id == P_PARENT_ID) continue
@@ -107,16 +115,16 @@ private fun textLayout(
 /** A style chain's properties, parent first, or null when it cannot be resolved statically. */
 private fun inherited(
   styleId: Int,
-  styles: Map<Int?, List<RcTextStyle>>,
-  visiting: Set<Int> = emptySet(),
+  before: Int,
+  styles: Map<Int?, List<IndexedValue<RcTextStyle>>>,
 ): Map<Int, RcTextStyleProperty>? {
-  if (styleId in visiting) return null
-  // A style redefined, or missing, is only known at playback.
-  val style = styles[styleId]?.singleOrNull() ?: return null
+  // A style redefined, missing, or declared after what reads it — which the player has not loaded
+  // when it applies it — is only known at playback.
+  val (index, style) = styles[styleId]?.singleOrNull()?.takeIf { it.index < before } ?: return null
   val merged = mutableMapOf<Int, RcTextStyleProperty>()
   style.parentStyleId
     ?.takeUnless { it == -1 }
-    ?.let { merged.putAll(inherited(it, styles, visiting + styleId) ?: return null) }
+    ?.let { merged.putAll(inherited(it, index, styles) ?: return null) }
   style.properties
     .filterNot { it.id == P_ID || it.id == P_ANIMATION_ID || it.id == P_PARENT_ID }
     .forEach { merged[it.id] = it }

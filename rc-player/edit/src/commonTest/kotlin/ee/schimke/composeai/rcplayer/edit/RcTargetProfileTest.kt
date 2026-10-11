@@ -1,6 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.edit.RcProfileViolation.Kind
+import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
@@ -22,6 +23,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcSkip
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
+import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.protocol.RcWireWriter
 import kotlin.test.Test
@@ -237,6 +239,20 @@ class RcTargetProfileTest {
           RcFloatWord.literal(1f),
         ),
         RcFloatConstant(60, RcFloatWord.literal(0.5f)),
+        END,
+        image(ref(60)),
+        END,
+      )
+    assertEquals(listOf(Kind.DYNAMIC_VALUE), document.adaptTo(RcTargetProfiles.WIDGETS_V6).kinds())
+  }
+
+  @Test
+  fun aConstantAnIntegerActionAlsoWritesIsNotFolded() {
+    val document =
+      androidxDocument(
+        RcFloatConstant(60, RcFloatWord.literal(0.5f)),
+        RcClickModifier,
+        RcValueIntegerChangeAction(60, 1),
         END,
         image(ref(60)),
         END,

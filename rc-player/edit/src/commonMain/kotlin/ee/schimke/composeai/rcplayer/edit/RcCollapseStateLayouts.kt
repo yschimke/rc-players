@@ -4,8 +4,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcComponentValue
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
-import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
-import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
@@ -13,22 +11,18 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroForEach
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
-import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
-import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerChangeAction
-import ee.schimke.composeai.rcplayer.protocol.RcValueIntegerExpressionChangeAction
-import ee.schimke.composeai.rcplayer.runtime.RcIntegerExpressionEvaluator
 
 /**
  * This document with every state layout whose index can never change rewritten to the one branch
  * that index selects.
  *
  * An index can never change when it is an integer constant, or an integer expression over such
- * constants, that no host can bind (no named variable — see [hardcodeNamedValues]), that no action,
- * loop or other producer in the document writes, and that is written where it always runs (not
- * under a conditional, in a loop or action, or behind a theme marker). The rewrite keeps the state
- * layout itself, with its modifiers and the selected branch, and points it at index id `0`: every
- * player reads that as "no index variable, show the first branch", which is now the only one.
- * Keeping the container rather than unwrapping the branch matters because a state layout sizes
+ * constants, written where it always runs and before the state layout reads it, and when nothing
+ * else in the document that mentions it could write it or hand it to a host — see
+ * [RcValueAnalysis], and [hardcodeNamedValues] to pin a host-bound index first. The rewrite keeps
+ * the state layout itself, with its modifiers and the selected branch, and points it at index id
+ * `0`: every player reads that as "no index variable, show the first branch", which is now the only
+ * one. Keeping the container rather than unwrapping the branch matters because a state layout sizes
  * itself to its showing branch and ignores its own fill modifiers; a box in its place would not.
  *
  * **Conservative by construction.** A branch is only removed when everything in it is local to it:
@@ -49,7 +43,7 @@ public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
     return this
   }
   val tree = operationTree(operations) ?: return this
-  val constants = ConstantIntegers(operations, unconditionalOperations(operations))
+  val values = RcValueAnalysis(operations)
 
   val removed = BooleanArray(operations.size)
   val replaced = mutableMapOf<Int, RcOperation>()
@@ -58,7 +52,7 @@ public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
   fun visit(node: RcOperationNode) {
     if (removed[node.start]) return
     val layout = node.operation as? RcStateLayout
-    val branches = layout?.let { removableBranches(node, it, constants) }
+    val branches = layout?.let { removableBranches(node, it, values) }
     if (branches != null) {
       replaced[node.start] = layout.copy(indexId = 0)
       branches.forEach { branch ->
@@ -91,10 +85,10 @@ public fun RcDocument.collapseConstantStateLayouts(): RcDocument {
 private fun removableBranches(
   node: RcOperationNode,
   layout: RcStateLayout,
-  constants: ConstantIntegers,
+  values: RcValueAnalysis,
 ): List<RcOperationNode>? {
   if (layout.indexId == 0) return null
-  val selected = constants.resolve(layout.indexId) ?: return null
+  val selected = values.integer(layout.indexId, at = node.start) ?: return null
   val contents = node.children.filter { it.isContainer && it.operation is RcLayoutContent }
   if (contents.size > 1) return null
   val branches =
@@ -218,66 +212,3 @@ private val ACTION_OPCODES: Set<Int> =
     RcOpcodes.HAPTIC_FEEDBACK,
     RcOpcodes.PLAY_SOUND,
   )
-
-/**
- * Integer ids whose value is fixed for the life of the document.
- *
- * Deliberately conservative: an id is constant only when everything that writes it is known and
- * constant. An id written by anything this does not recognise as a constant — an action, a lookup,
- * a host binding, the player's own system variables — is not.
- */
-private class ConstantIntegers(operations: List<RcOperation>, unconditional: BooleanArray?) {
-  private val writers = mutableMapOf<Int, MutableList<RcOperation>>()
-  private val variable = mutableSetOf<Int>()
-  private val resolved = mutableMapOf<Int, Int?>()
-  private val resolving = mutableSetOf<Int>()
-
-  init {
-    operations.forEachIndexed { index, operation ->
-      val always = unconditional?.get(index) == true
-      when {
-        // A constant or expression the player may skip — under a conditional, in a loop or an
-        // action, gated by theme — is not something an index can be shown constant through.
-        (operation is RcIntegerConstant || operation is RcIntegerExpression) && !always ->
-          operation.definedIds()?.let(variable::addAll)
-        operation is RcIntegerConstant ->
-          writers.getOrPut(operation.id) { mutableListOf() } += operation
-        operation is RcIntegerExpression ->
-          writers.getOrPut(operation.outId) { mutableListOf() } += operation
-        operation is RcValueIntegerChangeAction -> variable += operation.targetValueId
-        operation is RcValueIntegerExpressionChangeAction ->
-          variable += operation.targetValueId.toInt()
-        // Every other producer — host bindings, lookups, attributes — makes its ids variable.
-        else -> operation.definedIds()?.let(variable::addAll)
-      }
-    }
-    variable += RcSystemVariables.ALL
-  }
-
-  fun resolve(id: Int): Int? {
-    if (id in resolved) return resolved[id]
-    if (id in variable || !resolving.add(id)) return null
-    val value = compute(id)
-    resolving -= id
-    resolved[id] = value
-    return value
-  }
-
-  private fun compute(id: Int): Int? {
-    val definitions = writers[id] ?: return null
-    if (definitions.all { it is RcIntegerConstant }) {
-      return definitions.map { (it as RcIntegerConstant).value }.distinct().singleOrNull()
-    }
-    val expression = definitions.singleOrNull() as? RcIntegerExpression ?: return null
-    if (RcIntegerExpressionEvaluator.validationError(expression) != null) return null
-    return try {
-      RcIntegerExpressionEvaluator.evaluate(expression) { input ->
-        resolve(input) ?: throw NotConstant
-      }
-    } catch (_: NotConstant) {
-      null
-    }
-  }
-
-  private object NotConstant : RuntimeException()
-}
