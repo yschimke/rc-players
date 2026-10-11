@@ -22,6 +22,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcImageAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
+import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
@@ -103,6 +104,8 @@ internal fun RcOperation.definedIds(): List<Int>? =
     is RcPathTween -> listOf(outId)
     is RcParticleDefine -> listOf(id) + variableIds
     is RcSoundExpression -> listOf(id)
+    // A loop writes its index on every iteration.
+    is RcLoopOperation -> listOf(indexVariableId)
     is RcBitmapFontData -> listOf(fontId)
     is RcShaderData -> listOf(shaderId)
     is RcSoundData -> listOf(soundId)

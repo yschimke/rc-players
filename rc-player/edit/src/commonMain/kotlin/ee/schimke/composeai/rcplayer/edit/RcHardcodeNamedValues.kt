@@ -13,6 +13,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcIdList
 import ee.schimke.composeai.rcplayer.protocol.RcIdMap
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
+import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixConstant
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixExpression
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -71,8 +72,8 @@ public val RcDocument.namedVariables: List<RcNamedVariable>
  *
  * @throws IllegalArgumentException when a value's shape does not fit the variable's declared type,
  *   or the variable is an image or float array, which have no single value to write, or its value
- *   comes from an operation that cannot be swapped for one constant — one writing several ids, or
- *   an expression an expression-change action evaluates.
+ *   comes from an operation that cannot be swapped for one constant — one writing several ids, a
+ *   loop's index, or an expression an expression-change action evaluates.
  */
 public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>): RcDocument {
   if (values.isEmpty()) return this
@@ -90,6 +91,16 @@ public fun RcDocument.hardcodeNamedValues(values: Map<String, RcHardcodedValue>)
       throw IllegalArgumentException(
         "${operationName(operation.opcode)} writes a hardcoded named variable along with other " +
           "ids, so it cannot be replaced by a constant"
+      )
+    }
+  // A loop writes its index on every iteration, and a loop cannot be swapped for a constant.
+  operations
+    .filterIsInstance<RcLoopOperation>()
+    .firstOrNull { it.indexVariableId in byId }
+    ?.let {
+      throw IllegalArgumentException(
+        "Named variable '${byId.getValue(it.indexVariableId).first.name}' is a loop index, so " +
+          "it cannot be replaced by a constant"
       )
     }
   // An expression-change action looks its expression up by id when it runs. Replacing that
@@ -195,7 +206,8 @@ private fun RcOperation.definedId(): Int? {
     is RcSoundExpression,
     is RcBitmapFontData,
     is RcShaderData,
-    is RcSoundData -> null
+    is RcSoundData,
+    is RcLoopOperation -> null
     else -> definedIds()?.single()
   }
 }

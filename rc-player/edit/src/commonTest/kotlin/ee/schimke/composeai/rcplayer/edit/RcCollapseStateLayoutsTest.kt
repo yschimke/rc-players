@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
+import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcStateLayout
@@ -242,5 +243,16 @@ class RcCollapseStateLayoutsTest {
     val font = RcBitmapFontData(300, emptyList())
     val result = branches(0, box(20), box(30, font)).collapseConstantStateLayouts()
     assertTrue(font in result.operations)
+  }
+
+  @Test
+  fun anIndexALoopWritesIsNotConstant() {
+    val source =
+      stateDocument(
+        RcIntegerConstant(INDEX, 1),
+        RcLoopOperation(INDEX, zero, one, RcFloatWord.literal(3f)),
+        END,
+      )
+    assertSame(source, source.collapseConstantStateLayouts())
   }
 }

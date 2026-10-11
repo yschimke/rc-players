@@ -6,6 +6,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcLongConstant
+import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcMatrixVectorMath
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
@@ -162,5 +163,24 @@ class RcHardcodeNamedValuesTest {
         )
         .hardcodeNamedValues(mapOf("width" to RcHardcodedValue.FloatValue(3f)))
     assertTrue(result.operations.none { it is RcTextAttribute })
+  }
+
+  @Test
+  fun aLoopIndexCannotBeHardcoded() {
+    val document =
+      document(
+        RcNamedVariable(52, RcNamedVariable.FLOAT_TYPE, "USER:i"),
+        RcFloatConstant(52, RcFloatWord.literal(0f)),
+        RcLoopOperation(
+          52,
+          RcFloatWord.literal(0f),
+          RcFloatWord.literal(1f),
+          RcFloatWord.literal(3f),
+        ),
+        END,
+      )
+    assertFailsWith<IllegalArgumentException> {
+      document.hardcodeNamedValues(mapOf("i" to RcHardcodedValue.FloatValue(2f)))
+    }
   }
 }

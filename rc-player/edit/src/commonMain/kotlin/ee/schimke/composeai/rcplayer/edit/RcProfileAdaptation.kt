@@ -8,7 +8,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
-import ee.schimke.composeai.rcplayer.protocol.RcLoopOperation
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
@@ -208,7 +207,6 @@ private class ConstantFloats(operations: List<RcOperation>, unconditional: Boole
         is RcFloatConstant if unconditional?.get(index) != true -> variable += operation.id
         is RcFloatConstant ->
           constants.getOrPut(operation.id) { mutableSetOf() } += operation.value.bits
-        is RcLoopOperation -> variable += operation.indexVariableId
         is RcValueFloatChangeAction -> variable += operation.targetValueId
         is RcValueFloatExpressionChangeAction -> variable += operation.targetValueId
         // Every other producer — expressions, touch, measurements, attributes, lookups, host
