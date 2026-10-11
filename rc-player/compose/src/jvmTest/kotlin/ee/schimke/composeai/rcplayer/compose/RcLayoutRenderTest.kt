@@ -339,7 +339,10 @@ class RcLayoutRenderTest {
             List(4) { RcNoArg(RcOpcodes.CONTAINER_END) },
         )
       mainClock.autoAdvance = false
-      setContent { RcComposePlayer(document) }
+      // Pinned like a real host: a bare player wraps to its 40 px row, and the probe at x = 60
+      // needs
+      // the 80 px window.
+      setContent { RcComposePlayer(document, Modifier.fillMaxSize()) }
       mainClock.advanceTimeByFrame()
 
       val atRest = onRoot().captureToImage().toPixelMap()

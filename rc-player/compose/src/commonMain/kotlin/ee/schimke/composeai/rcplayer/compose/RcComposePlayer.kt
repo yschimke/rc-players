@@ -1052,17 +1052,17 @@ private fun RenderLayoutNode(
             node.modifiers,
             state,
             geometryIds,
-            fillMissingDimensions = true,
+            // A root with no size of its own wraps its content within the host's constraints, as
+            // the View player does under `wrap_content`; a host that pins a dimension (`min ==
+            // max`, e.g. `fillMaxSize()`) still gets it filled, because Compose coerces the wrapped
+            // size up to the minimum. Filling here made a player in a `Column`, a `Row` or a lazy
+            // list item take every pixel it was offered, so wrapping needed the host to measure it
+            // with unbounded constraints.
+            fillMissingDimensions = false,
             node.canvasOperations,
             textMeasurer,
             images,
             theme,
-            // A root with no height of its own wraps its content within the host's height, as the
-            // View player does under `wrap_content`; a host that pins the height (`min == max`)
-            // still gets it filled, because Compose coerces the wrapped size up to the minimum.
-            // Filling it here made a player in a `Column` or a lazy list item take every pixel it
-            // was offered, so wrapping needed the host to measure it with an unbounded height.
-            fillMissingHeight = false,
           )
         ) {
           node.children.forEach {
@@ -2433,7 +2433,6 @@ private fun Modifier.applyComponentModifiers(
   textMeasurer: TextMeasurer,
   images: MutableMap<Int, ImageBitmap>,
   theme: Int,
-  fillMissingHeight: Boolean = fillMissingDimensions,
 ): Modifier {
   val density = androidx.compose.ui.platform.LocalDensity.current
   val offscreenTargets = LocalRcOffscreenTargets.current
@@ -2460,7 +2459,7 @@ private fun Modifier.applyComponentModifiers(
     result = result.applyDimensionConstraint(constraint, state, density)
   }
   if (fillMissingDimensions && modifiers.width == null) result = result.fillMaxWidth()
-  if (fillMissingHeight && modifiers.height == null) result = result.fillMaxHeight()
+  if (fillMissingDimensions && modifiers.height == null) result = result.fillMaxHeight()
   var appliedWidth = false
   var appliedHeight = false
   var appliedCanvasOperations = false

@@ -1,7 +1,9 @@
 package ee.schimke.composeai.rcplayer.compose
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -23,15 +25,15 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * A layout document's root has no height of its own, so it wraps its content within the host's
- * height — the View player's `wrap_content` — instead of taking every pixel a bounded parent
- * offers. Hosts used to need a layout modifier measuring the player with an unbounded height to get
- * this.
+ * A layout document's root has no size of its own, so it wraps its content within the host's
+ * constraints — the View player's `wrap_content` — instead of taking every pixel a bounded parent
+ * offers. Hosts used to need a layout modifier measuring the player with unbounded constraints to
+ * get this.
  */
-class RcRootWrapHeightTest {
+class RcRootWrapSizeTest {
 
   @Test
-  fun aPlayerInABoundedColumnWrapsItsContentHeight() {
+  fun aPlayerInABoundedColumnWrapsItsContent() {
     var size = IntSize.Zero
     val scene =
       ImageComposeScene(width = 80, height = 100, density = Density(1f)) {
@@ -39,7 +41,42 @@ class RcRootWrapHeightTest {
       }
     try {
       scene.render(0L)
-      // Width still fills, as before; height is the 20 px child, not the column's 100.
+      // The 40x20 child, not the column's 80x100.
+      assertEquals(IntSize(40, 20), size)
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
+  fun aPlayerInABoundedRowWrapsItsContent() {
+    var size = IntSize.Zero
+    val scene =
+      ImageComposeScene(width = 80, height = 100, density = Density(1f)) {
+        Row { RcComposePlayer(document(), modifier = Modifier.onSizeChanged { size = it }) }
+      }
+    try {
+      scene.render(0L)
+      assertEquals(IntSize(40, 20), size)
+    } finally {
+      scene.close()
+    }
+  }
+
+  @Test
+  fun aHostThatPinsOneDimensionGetsOnlyThatOneFilled() {
+    var size = IntSize.Zero
+    val scene =
+      ImageComposeScene(width = 80, height = 100, density = Density(1f)) {
+        Column {
+          RcComposePlayer(
+            document(),
+            modifier = Modifier.fillMaxWidth().onSizeChanged { size = it },
+          )
+        }
+      }
+    try {
+      scene.render(0L)
       assertEquals(IntSize(80, 20), size)
     } finally {
       scene.close()
@@ -47,7 +84,7 @@ class RcRootWrapHeightTest {
   }
 
   @Test
-  fun aHostThatPinsTheHeightStillGetsItFilled() {
+  fun aHostThatPinsTheSizeStillGetsItFilled() {
     var size = IntSize.Zero
     val scene =
       ImageComposeScene(width = 80, height = 100, density = Density(1f)) {
