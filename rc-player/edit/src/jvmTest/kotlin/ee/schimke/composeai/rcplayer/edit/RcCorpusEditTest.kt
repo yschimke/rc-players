@@ -62,7 +62,10 @@ class RcCorpusEditTest {
         RcTargetProfiles.ANDROIDX_EXPERIMENTAL,
         RcTargetProfiles.WEAR_WIDGETS,
       )
-    val summary = profiles.map { profile ->
+    val summary = profiles.flatMap { profile ->
+      listOf(false, true).map { approximate -> profile to approximate }
+    }
+    val lines = summary.map { (profile, approximate) ->
       var validBefore = 0
       var validAfter = 0
       val remaining = mutableMapOf<String, Int>()
@@ -70,7 +73,7 @@ class RcCorpusEditTest {
         val original = RcDocumentCodec.decode(file.readBytes())
         val playable = runCatching { RcLayoutTree.build(RcDocumentLinker.link(original)) }.isSuccess
         val before = original.validateFor(profile)
-        val adaptation = original.adaptTo(profile)
+        val adaptation = original.adaptTo(profile, approximateText = approximate)
 
         assertTrue(
           adaptation.violations.size <= before.size,
@@ -86,9 +89,10 @@ class RcCorpusEditTest {
           .distinct()
           .forEach { remaining[it] = (remaining[it] ?: 0) + 1 }
       }
-      "${profile.name}: $validBefore valid, $validAfter after adaptTo; still blocking: " +
+      val mode = if (approximate) "adaptTo(approximateText)" else "adaptTo"
+      "${profile.name}: $validBefore valid, $validAfter after $mode; still blocking: " +
         remaining.entries.sortedByDescending { it.value }.joinToString { "${it.key} (${it.value})" }
     }
-    println("Corpus of ${corpus.size}:\n" + summary.joinToString("\n"))
+    println("Corpus of ${corpus.size}:\n" + lines.joinToString("\n"))
   }
 }

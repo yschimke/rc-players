@@ -85,12 +85,15 @@ public final class ee/schimke/composeai/rcplayer/edit/RcHardcodedValue$Text : ee
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
-	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;)V
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun component2 ()Ljava/util/List;
-	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
-	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public final fun component3 ()Ljava/util/List;
+	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getApproximations ()Ljava/util/List;
 	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 	public final fun getViolations ()Ljava/util/List;
 	public fun hashCode ()I
@@ -99,7 +102,8 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptationKt {
-	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Z)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
+	public static synthetic fun adaptTo$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;ZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileValidationKt {
@@ -175,5 +179,20 @@ public final class ee/schimke/composeai/rcplayer/edit/RcTargetProfiles {
 	public final fun getWEAR_WIDGETS ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 	public final fun getWIDGETS_V6 ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
 	public final fun getWIDGETS_V7 ()Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcTextApproximation {
+	public fun <init> (IILjava/util/Set;)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()Ljava/util/Set;
+	public final fun copy (IILjava/util/Set;)Lee/schimke/composeai/rcplayer/edit/RcTextApproximation;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcTextApproximation;IILjava/util/Set;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTextApproximation;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getComponentId ()I
+	public final fun getDropped ()Ljava/util/Set;
+	public final fun getTextId ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 

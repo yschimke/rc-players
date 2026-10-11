@@ -100,6 +100,14 @@ val adapted = document.adaptTo(wear) // inline macros, fold constants, re-declar
 if (!adapted.isPlayable) println(adapted.violations)
 ```
 
+A target without `CoreText` — Android 16 launcher widgets, Wear widgets — gets the older
+`TextLayout` wherever it can say the same thing. Material typography also sets letter spacing,
+line height and font axes, which `TextLayout` has no field for:
+`adaptTo(target, approximateText = true)` drops those and lists each drop in
+`RcProfileAdaptation.approximations`; underline, strikethrough and autosize still block. To serve
+older devices a different design instead, keep a separate template per profile and check each with
+`validateFor`.
+
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 

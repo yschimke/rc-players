@@ -26,11 +26,23 @@ import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
 
+/**
+ * A `CoreText` an approximating [adaptTo] converted to `TextLayout`, and the typographic properties
+ * it had to drop to do so (`letterSpacing`, `lineHeightMultiplier`, `fontAxis`, …).
+ */
+public data class RcTextApproximation(
+  val componentId: Int,
+  val textId: Int,
+  val dropped: Set<String>,
+)
+
 /** A document rewritten for a [RcTargetProfile], and what still keeps it from playing there. */
 public data class RcProfileAdaptation(
   val document: RcDocument,
   /** [document]'s remaining violations — [validateFor] on the result. */
   val violations: List<RcProfileViolation>,
+  /** What an approximating text conversion dropped, one entry per converted text. */
+  val approximations: List<RcTextApproximation> = emptyList(),
 ) {
   /** Whether the adapted document plays on the target. */
   public val isPlayable: Boolean
@@ -44,6 +56,12 @@ public data class RcProfileAdaptation(
  * - **Macros and referenced operations are inlined** for a target that decodes neither, by the
  *   player's own linker, so every call site becomes the operations it expands to. Not done for a
  *   document that also uses the legacy `ComponentStart`, which the linker unwraps.
+ * - **`CoreText` becomes `TextLayout`** for a target without it, where the older component can say
+ *   everything the text asks for: same text, colour, size, style, weight, family, alignment,
+ *   overflow and line limit, with any `TextStyle` chain applied first. Text using letter spacing,
+ *   line height, autosize, decoration, font axes or a line-breaking strategy stays `CoreText` and
+ *   is reported. The two components still lay text out through different player code, so check a
+ *   converted document's rendering on the target.
  * - **Remarks are dropped** where the target does not decode them; they draw nothing.
  * - **A variable image alpha or text size is replaced by its value** below API level 7, where those
  *   fields must be literals, when the variable is a constant nothing can change.
@@ -57,13 +75,18 @@ public data class RcProfileAdaptation(
  * state layouts first ([hardcodeNamedValues], [collapseConstantStateLayouts]); both can turn a
  * variable this pass must leave alone into a constant it can fold.
  */
-public fun RcDocument.adaptTo(target: RcTargetProfile): RcProfileAdaptation {
+public fun RcDocument.adaptTo(
+  target: RcTargetProfile,
+  approximateText: Boolean = false,
+): RcProfileAdaptation {
+  val approximations = mutableListOf<RcTextApproximation>()
   val adapted =
     inlineStructuralOperations(target)
+      .coreTextAsTextLayout(target, approximateText, approximations)
       .dropRemarks(target)
       .foldLiteralFields(target)
       .headerFor(target)
-  return RcProfileAdaptation(adapted, adapted.validateFor(target))
+  return RcProfileAdaptation(adapted, adapted.validateFor(target), approximations)
 }
 
 private val STRUCTURAL_OPCODES: Set<Int> =
