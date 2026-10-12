@@ -3,9 +3,11 @@ package ee.schimke.composeai.rcplayer.edit
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
@@ -15,6 +17,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcLayoutContent
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
 import ee.schimke.composeai.rcplayer.protocol.RcWidthModifier
@@ -45,22 +48,26 @@ public data class RcTextImages(
 /**
  * Every styled `CoreText` a [target] without `CoreText` would otherwise lose the styling of, drawn
  * by [rasterizer] and embedded as an image in its place — so letter spacing, line height, font axes
- * and decoration survive on Android 16 launchers and Wear widgets, where [adaptTo] can only keep
- * the text by dropping them ([RcApproximation.TEXT]).
+ * and decoration survive on Wear widgets and Android 16 launchers, where [adaptTo] can only keep
+ * the text by dropping them ([RcApproximation.TEXT]). Launcher widgets at level 7 have `CoreText`
+ * and are left alone.
  *
  * Run it before [adaptTo]; what it leaves is converted there as before. A text is drawn only when
- * it says something `TextLayout` cannot and every value it shows is constant — its text, colour,
- * size, family and axes, read as the player would after [hardcodeDensity] for [display]. A theme
- * colour, a text a host or timer changes, autosize, or a family neither the document nor
- * [rasterizer] can supply leaves the text as it was, listed in [RcTextImages.skipped].
+ * it says something `TextLayout` cannot and its text, size, family and axes are constant, read as
+ * the player would after [hardcodeDensity] for [display]. Its colour need not be: a colour the
+ * player sets at playback — a Wear host's named colour, a `ColorTheme`, which [adaptTo] turns into
+ * theme sections for Android 16 — is kept live by drawing the text as a white mask in a canvas
+ * whose paint tints it with that colour id. A text a host or timer changes, autosize, or a family
+ * neither the document nor [rasterizer] can supply leaves the text as it was, listed in
+ * [RcTextImages.skipped].
  *
  * The text's component becomes a box with the same id, animation id and modifiers, holding the
- * image at its laid-out size in dp, scaled down only where its slot is narrower, and labelled with
- * the text for accessibility. The image is drawn at [display]'s density and scales with the
- * device's; serve the result to that display. A text wraps, and truncates, at the width in dp
- * [wrapWidth] gives for its component id — the widest its slot can be — or at the document's own
- * width when that is null. A slot narrower than that shows the image smaller, never cropped: give
- * the slot's width where it is known to be narrower than the screen.
+ * image at its laid-out size in dp — an image scaled down only where its slot is narrower, or the
+ * tinted canvas — and labelled with the text for accessibility. The image is drawn at [display]'s
+ * density and scales with the device's; serve the result to that display. A text wraps, and
+ * truncates, at the width in dp [wrapWidth] gives for its component id — the widest its slot can be
+ * — or at the document's own width when that is null. A slot narrower than that shows the image
+ * smaller, never cropped: give the slot's width where it is known to be narrower than the screen.
  *
  * Images are larger than text: check [sizeReport] against the target's limits.
  */
@@ -75,6 +82,7 @@ public fun RcDocument.coreTextAsImages(
   if (!REQUIRED_OPCODES.all { it in target.supportedOpcodes }) return unchanged
   if (operations.none { it is RcCoreText }) return unchanged
   val tree = operationTree(operations) ?: return unchanged
+  val tintable = TINT_OPCODES.all { it in target.supportedOpcodes }
   val documentWidth = header.width / (header.density.takeIf { it > 0f } ?: 1f)
   val styles = operations.textStyles()
   // Same positions, density and font scale baked: what this display's player reads.
@@ -99,7 +107,7 @@ public fun RcDocument.coreTextAsImages(
       val styled =
         if (kept.all { it in DRAWABLE.keys }) {
           val wrapAt = wrapWidth(text.componentId) ?: documentWidth
-          styledText(text, properties, node.start, values, fonts, display, wrapAt)
+          styledText(text, properties, node.start, values, fonts, display, wrapAt, tintable)
         } else null
       val drawn = styled?.let(rasterizer::rasterize)
       val content = node.children.lastOrNull()
@@ -152,10 +160,34 @@ public fun RcDocument.coreTextAsImages(
         addAll(modifiers)
         addAll(semantics)
         add(RcLayoutContent(ids.nextComponent()))
-        add(RcImageLayout(ids.nextComponent(), -1, bitmapId, SCALE_INSIDE, RcFloatWord.literal(1f)))
-        add(RcWidthModifier(RcDimensionType.EXACT, widthWord))
-        add(RcHeightModifier(RcDimensionType.EXACT, heightWord))
-        add(END)
+        val tint = (properties[P_COLOR_ID] as? RcTextStyleProperty.IntValue)?.value
+        if (tint != null && tint != -1 && values.color(tint, node.start) == null) {
+          // Drawn through a paint that tints the mask with the live colour, as the text was.
+          add(RcCanvasLayout(ids.nextComponent(), -1))
+          add(RcWidthModifier(RcDimensionType.EXACT, widthWord))
+          add(RcHeightModifier(RcDimensionType.EXACT, heightWord))
+          add(RcNoArg(RcOpcodes.CANVAS_OPERATIONS))
+          add(RcPaintData(listOf(COLOR_FILTER_ID or (BLEND_SRC_IN shl 16), tint)))
+          add(
+            RcDrawBitmap(
+              bitmapId,
+              RcFloatWord.literal(0f),
+              RcFloatWord.literal(0f),
+              widthWord,
+              heightWord,
+              0,
+            )
+          )
+          add(END)
+          add(END)
+        } else {
+          add(
+            RcImageLayout(ids.nextComponent(), -1, bitmapId, SCALE_INSIDE, RcFloatWord.literal(1f))
+          )
+          add(RcWidthModifier(RcDimensionType.EXACT, widthWord))
+          add(RcHeightModifier(RcDimensionType.EXACT, heightWord))
+          add(END)
+        }
         add(END)
         add(END)
       }
@@ -195,6 +227,7 @@ private fun styledText(
   fonts: Map<Int, RcFontData>,
   display: RcDisplay,
   wrapWidth: Float,
+  tintable: Boolean,
 ): RcStyledText? {
   fun int(id: Int, default: Int): Int =
     (properties[id] as? RcTextStyleProperty.IntValue)?.value ?: default
@@ -210,9 +243,10 @@ private fun styledText(
 
   val string = values.text(text.textId, at) ?: return null
   val colorId = int(P_COLOR_ID, -1)
+  // A colour the host or theme sets at playback is drawn as a white mask the player tints.
   val color =
     if (colorId == -1) int(P_COLOR, 0xff000000.toInt())
-    else values.color(colorId, at) ?: return null
+    else values.color(colorId, at) ?: if (tintable) WHITE else return null
   val fontStyle = int(P_FONT_STYLE, 0)
   val weight = (float(P_FONT_WEIGHT, 400f) ?: return null).let { kotlin.math.round(it).toInt() }
   val familyId = int(P_FONT_FAMILY, -1)
@@ -271,6 +305,23 @@ private val MULTIPLY =
 private val END = RcNoArg(RcOpcodes.CONTAINER_END)
 
 private const val CENTER = 5
+
+private const val WHITE = 0xffffffff.toInt()
+
+/** AndroidX `PaintBundle.COLOR_FILTER_ID`, with the blend mode in its high half. */
+private const val COLOR_FILTER_ID = 20
+
+/** AndroidX `PaintBundle.BLEND_MODE_SRC_IN`: the mask's coverage in the filter's colour. */
+private const val BLEND_SRC_IN = 5
+
+/** What drawing a mask tinted by a colour id needs. */
+private val TINT_OPCODES: Set<Int> =
+  setOf(
+    RcOpcodes.LAYOUT_CANVAS,
+    RcOpcodes.CANVAS_OPERATIONS,
+    RcOpcodes.PAINT_VALUES,
+    RcOpcodes.DRAW_BITMAP,
+  )
 
 /** AndroidX `ImageScaling.SCALE_INSIDE`: as drawn, or smaller to fit, never larger. */
 private const val SCALE_INSIDE = 1

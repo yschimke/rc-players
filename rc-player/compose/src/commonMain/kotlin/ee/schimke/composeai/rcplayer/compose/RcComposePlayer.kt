@@ -5147,6 +5147,9 @@ private fun DrawScope.drawBitmap(
       image = image,
       dstSize = IntSize(image.width, image.height),
       alpha = paint.alpha,
+      // AndroidX draws a bitmap with the whole paint (`AndroidPaintContext.drawBitmap`), so a
+      // colour filter tints it: a text mask drawn in a host colour, say.
+      colorFilter = paint.colorFilter,
       blendMode = paint.blendMode,
       filterQuality = paint.filterQuality,
     )
@@ -5242,6 +5245,7 @@ private fun DrawScope.drawBitmapRegion(
     dstOffset = IntOffset(dstLeft, dstTop),
     dstSize = IntSize(dstWidth, dstHeight),
     alpha = paint.alpha,
+    colorFilter = paint.colorFilter,
     blendMode = paint.blendMode,
     filterQuality = paint.filterQuality,
   )

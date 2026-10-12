@@ -3,9 +3,11 @@ package ee.schimke.composeai.rcplayer.edit
 import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
 import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcDrawBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
@@ -14,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
+import ee.schimke.composeai.rcplayer.protocol.RcPaintData
 import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
@@ -117,15 +120,37 @@ class RcTextImagesTest {
   }
 
   @Test
-  fun aTextAHostCanRecolorIsLeftAndReported() {
+  fun aTextAHostRecolorsIsAMaskTheLiveColourTints() {
     val themed =
       screen(
         RcColorConstant(60, 0xff00ff00.toInt()),
         RcNamedVariable(60, RcNamedVariable.COLOR_TYPE, "USER:accent"),
         text = text(FloatValue(12, f(0.1f)), IntValue(4, 60)),
       )
-    val result = themed.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer)
-    assertEquals(themed, result.document)
+    val operations =
+      assertRoundTrips(themed.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer).document)
+        .operations
+    assertEquals(0xffffffff.toInt(), asked.single().color, "drawn as a white mask")
+    assertTrue(RcNamedVariable(60, RcNamedVariable.COLOR_TYPE, "USER:accent") in operations)
+    assertTrue(operations.any { it is RcCanvasLayout })
+    assertEquals(
+      RcPaintData(listOf(20 or (5 shl 16), 60)),
+      operations.filterIsInstance<RcPaintData>().single(),
+    )
+    val draw = operations.filterIsInstance<RcDrawBitmap>().single()
+    assertEquals(operations.filterIsInstance<RcBitmapData>().single().imageId, draw.imageId)
+  }
+
+  @Test
+  fun aTextAHostCanRewriteIsLeftAndReported() {
+    val named =
+      document(
+        RcTextData(42, "Hello"),
+        RcNamedVariable(42, RcNamedVariable.STRING_TYPE, "USER:greeting"),
+        *rootLayout(*text(FloatValue(12, f(0.1f))).toTypedArray()).toTypedArray(),
+      )
+    val result = named.coreTextAsImages(RcTargetProfiles.WEAR_WIDGETS, rasterizer)
+    assertEquals(named, result.document)
     assertEquals(listOf(-7), result.skipped)
   }
 

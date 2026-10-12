@@ -125,21 +125,22 @@ older devices a different design instead, keep a separate template per profile a
 `validateFor`.
 
 To keep that styling rather than drop it, draw the text: `coreTextAsImages(target, rasterizer,
-display, wrapWidth)` replaces each styled `CoreText` whose values are constant with an embedded
-image of it, in a box that keeps the component's id, modifiers and accessibility text, sized in dp
-so it scales with the device. `RcComposeTextRasterizer` (in `rc-player-compose`) draws with this
-player's own text stack and fonts; on the JVM, `coreTextWidths(density, typefaces)` measures where
-the player wraps each text, so a paragraph breaks its lines where it did. Run it before `adaptTo`,
-after baking the host's named values: a colour or text a host can change is left as text and listed
-in `skipped`. Over the catalog served to Wear widgets with named values baked, 314 texts in 199
-documents become images, each document closer to its `CoreText` original than with the styling
-dropped and 99 pixel-identical to it. Evidence — original, images, styling dropped — is under
-[`renders/rc-text-images/`](renders/rc-text-images/).
+display, wrapWidth)` replaces each styled `CoreText` whose text is constant with an embedded image
+of it, in a box that keeps the component's id, modifiers and accessibility text, sized in dp so it
+scales with the device. A colour set at playback stays live: a Wear host's named colour, or a
+`ColorTheme` that `adaptTo` turns into Android 16 theme sections, tints a white mask of the text
+drawn in a canvas. Launcher widgets at level 7 have `CoreText` and `ColorTheme` and need neither.
+`RcComposeTextRasterizer` (in `rc-player-compose`) draws with this player's own text stack and
+fonts; on the JVM, `coreTextWidths(density, typefaces)` measures where the player wraps each text,
+so a paragraph breaks its lines where it did. Over the catalog served to Wear widgets, 340 texts in
+213 documents become images (294 of them tinted masks), each document at least as close to its
+`CoreText` original as with the styling dropped and 184 matching it. Evidence — original, images,
+styling dropped — is under [`renders/rc-text-images/`](renders/rc-text-images/).
 
 ```kotlin
-val baked = document.hardcodeUnboundNamedValues()
-val widths = baked.coreTextWidths(density = 2f, typefaces)
-val drawn = baked.coreTextAsImages(wear, RcComposeTextRasterizer(typefaces), RcDisplay(2f)) { widths[it] }
+val widths = document.coreTextWidths(density = 2f, typefaces)
+val drawn =
+  document.coreTextAsImages(wear, RcComposeTextRasterizer(typefaces), RcDisplay(2f)) { widths[it] }
 val adapted = drawn.document.adaptTo(wear)
 ```
 

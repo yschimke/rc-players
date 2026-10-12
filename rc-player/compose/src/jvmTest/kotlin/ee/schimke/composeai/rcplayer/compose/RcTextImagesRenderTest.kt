@@ -7,7 +7,6 @@ import ee.schimke.composeai.rcplayer.edit.RcDisplay
 import ee.schimke.composeai.rcplayer.edit.RcTargetProfiles
 import ee.schimke.composeai.rcplayer.edit.adaptTo
 import ee.schimke.composeai.rcplayer.edit.coreTextAsImages
-import ee.schimke.composeai.rcplayer.edit.hardcodeUnboundNamedValues
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import java.io.File
@@ -41,9 +40,8 @@ class RcTextImagesRenderTest {
   fun styledTextDrawnAsImagesLooksAsItDidAsCoreText() {
     val out = System.getProperty("rc.textImages.out")?.let(::File)?.apply { mkdirs() }
     for (name in SAMPLES) {
-      // As a widget server serves it: the host's named values baked.
-      val original =
-        RcDocumentCodec.decode(File("$CORPUS/$name.rc").readBytes()).hardcodeUnboundNamedValues()
+      // Named colours stay live: the Wear host sets them, so a text in one becomes a tinted mask.
+      val original = RcDocumentCodec.decode(File("$CORPUS/$name.rc").readBytes())
       val widths = original.coreTextWidths(DENSITY, typefaces)
       val drawn = original.coreTextAsImages(TARGET, rasterizer, RcDisplay(DENSITY)) { widths[it] }
       assertTrue(drawn.images.isNotEmpty(), "$name: no text was drawn")
@@ -64,7 +62,8 @@ class RcTextImagesRenderTest {
 
   /**
    * The share of pixels whose channels differ by more than [TOLERANCE]: an image of text blended
-   * over a card rounds its antialiased edges a level apart from the text drawn there directly.
+   * over a card rounds its antialiased edges apart from the text drawn there directly, and a white
+   * mask tinted to the text's colour further still, by up to 16 levels at a glyph's edge.
    */
   private fun differing(a: Bitmap, b: Bitmap): Double {
     var count = 0
@@ -114,7 +113,7 @@ class RcTextImagesRenderTest {
   private companion object {
     const val DENSITY = 2f
     const val GAP = 12
-    const val TOLERANCE = 2
+    const val TOLERANCE = 16
     const val CORPUS = "../../scripts/rc-catalog-corpus/corpus"
     const val FONTS = "../../rc-player/wasm/dist-assets/fonts"
     val TARGET = RcTargetProfiles.WEAR_WIDGETS
