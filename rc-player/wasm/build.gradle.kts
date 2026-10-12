@@ -1,5 +1,6 @@
 plugins {
   id("composeai.base-conventions")
+  id("composeai.jvm-conventions")
   id("org.jetbrains.kotlin.multiplatform")
   alias(libs.plugins.compose.multiplatform)
   id("org.jetbrains.kotlin.plugin.compose")
@@ -12,9 +13,15 @@ kotlin {
     browser()
     binaries.executable()
   }
+  // Test-only target. The host's page-parameter parsing lives in `commonMain` as plain Kotlin so it
+  // can run under `jvmTest`: `wasmJs` tests need a headless browser, which CI's JVM lanes and agent
+  // sandboxes do not have. Nothing is built or shipped from this target; the player itself, and
+  // every Compose dependency, stays in `wasmJsMain`.
+  jvm()
 
   sourceSets {
-    commonMain.dependencies {
+    commonTest.dependencies { implementation(kotlin("test")) }
+    wasmJsMain.dependencies {
       implementation(project(":rc-player-compose"))
       @Suppress("DEPRECATION") implementation(compose.runtime)
       @Suppress("DEPRECATION") implementation(compose.foundation)
@@ -22,6 +29,12 @@ kotlin {
       implementation(libs.kotlinx.coroutines.core)
     }
   }
+}
+
+// The JVM target above carries no Compose code and no Compose runtime, which the Compose compiler
+// refuses outright; keep the plugin on the target that has both.
+composeCompiler {
+  targetKotlinPlatforms.set(setOf(org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.wasm))
 }
 
 tasks.register<Sync>("wasmPlayerDist") {

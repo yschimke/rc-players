@@ -68,6 +68,7 @@ Summary:
 | `?rcTrace=1` | Emit User Timing marks for a DevTools performance profile. |
 | `?allowExternalImagePlaceholders=1` | Render a placeholder instead of failing on an external image. |
 | `?handoffDelayMs=` | Cold-start tail before `ready`. Only lower it if you composite the result yourself. |
+| `?density=` | CSS pixels per dp. Pass a snapshot's capture density (× its display scale) to draw at the snapshot's scale. Default: the browser's `devicePixelRatio`. |
 
 - `window.rcPlayerLoad(src)` swaps the document without reloading the page, keeping the Wasm module,
   the Compose runtime and the fetched fonts warm.

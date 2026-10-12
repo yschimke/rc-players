@@ -100,6 +100,28 @@ Current version: **1**.
 | `allowExternalImagePlaceholders` | `1` renders a placeholder instead of refusing a document that names an external image. |
 | `lenient` | `1` plays a document carrying any operation the player *knows*, drawing nothing for the ones the browser backend has no branch for, instead of refusing it whole. Malformed data, an undeclared id and a missing typeface still fail — those throw from inside the draw pass. Note this also drops the `cmp-wasm-alpha16` profile's exclusions, so a document using `GraphicsLayerModifier` will play here with the surface loss that exclusion exists to avoid. |
 | `handoffDelayMs` | Cold-start tail before `ready`, clamped to 0–10 000, default 1 500. **Only lower it if you composite the result yourself** — the default guards a human seeing a blank frame, and the failure it guards against cannot be reproduced under CDP capture. |
+| `density` | CSS pixels per dp, as a positive finite decimal (`2.625`, `.5`, `1.5e3`). Absent, the document runs at the browser's density — one dp per CSS pixel. See below. |
+
+### `density` in detail
+
+The document's dp→pixel mapping, measured in **CSS pixels**: the player runs Compose at
+`density × devicePixelRatio`, so each dp spans `density` CSS pixels while the canvas keeps rendering
+at the screen's full device resolution. The document is laid out in the dp space that implies, not
+scaled after the fact.
+
+Its job is matching a snapshot. A preview captured at density *d* into a *W*×*H* PNG is *W*/*d* dp
+wide; shown at its natural size (one PNG pixel per CSS pixel) in a *W*×*H* CSS-pixel box, the player
+draws the same picture with `density=d`. A host that shows the snapshot at scale *s* (displayed CSS
+width ÷ natural width — a `max-width` cap, a zoom) and fits the player to the same box passes
+`density=d×s`. Without the parameter, the same box draws the document at `1/d` of the snapshot's
+scale on a DPR 1 screen.
+
+Anything else — empty, zero, negative, `NaN`, `Infinity`, a unit suffix, a comma decimal — is
+ignored, not reported, and the player runs at the browser's density as if the parameter were absent.
+The font scale is left as the platform reports it, and a page zoom or a move to a screen with a
+different `devicePixelRatio` still rescales. Like `theme`, it belongs to the page and is not re-read
+on a document swap. Adding it does not bump the contract version: a host that never sends it sees
+no change.
 
 ### `namedValues` in detail
 
@@ -133,7 +155,7 @@ falsified) override should validate before building the URL.
 shape used to hand the parsed array across the JS/Wasm boundary. They are not the wire format, and
 passing them as `namedValues` yields no overrides at all.)
 
-`theme` and `namedValues` belong to the *page* and are **not** re-read on a document swap. A host
+`theme`, `namedValues` and `density` belong to the *page* and are **not** re-read on a document swap. A host
 that needs different ones navigates.
 
 ## The `window` surface
