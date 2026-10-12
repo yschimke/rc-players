@@ -221,6 +221,7 @@ tasks.withType<Test>().configureEach {
       "rc.loop.out",
       "rc.android.out",
       "rc.android.settleFrames",
+      "rc.textImages.out",
     )) {
     (project.findProperty(name) as String?)?.let { systemProperty(name, it) }
   }

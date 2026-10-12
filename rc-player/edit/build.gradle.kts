@@ -61,11 +61,11 @@ kotlin {
   sourceSets {
     commonMain.dependencies {
       // `api`: every entry point takes and returns an `RcDocument`, so the protocol model is this
-      // module's vocabulary. The runtime is an implementation detail — it lends its integer
-      // expression evaluator, so a state index computed from constants folds exactly as the
-      // player would compute it — and carries no Compose either.
+      // module's vocabulary. The runtime lends its expression evaluators, so a value computed from
+      // constants folds exactly as the player would compute it, and the `RcTextRasterizer`
+      // contract `coreTextAsImages` takes — and carries no Compose either.
       api(project(":rc-player-protocol"))
-      implementation(project(":rc-player-runtime"))
+      api(project(":rc-player-runtime"))
     }
     commonTest.dependencies { implementation(kotlin("test")) }
   }

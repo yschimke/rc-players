@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
+import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyle
 import ee.schimke.composeai.rcplayer.protocol.RcTextStyleProperty
@@ -35,13 +36,7 @@ internal fun RcDocument.coreTextAsTextLayout(
   if (RcOpcodes.CORE_TEXT in target.supportedOpcodes) return this
   if (RcOpcodes.LAYOUT_TEXT !in target.supportedOpcodes) return this
   if (operations.none { it is RcCoreText }) return this
-  val styles =
-    operations
-      .withIndex()
-      .mapNotNull { (index, operation) ->
-        (operation as? RcTextStyle)?.let { IndexedValue(index, it) }
-      }
-      .groupBy { it.value.styleId }
+  val styles = operations.textStyles()
   val converted = operations.mapIndexed { index, operation ->
     val text = operation as? RcCoreText ?: return@mapIndexed operation
     val (layout, dropped) =
@@ -63,26 +58,7 @@ private fun textLayout(
   styles: Map<Int?, List<IndexedValue<RcTextStyle>>>,
   approximate: Boolean,
 ): Pair<RcTextLayout, Set<String>>? {
-  val own = text.properties.associateBy { it.id }
-  val inherited =
-    text.textStyleId?.takeUnless { it == -1 }?.let { inherited(it, index, styles) ?: return null }
-  val resolved = mutableMapOf<Int, RcTextStyleProperty>()
-  for (id in (own.keys + inherited.orEmpty().keys)) {
-    if (id == P_ID || id == P_ANIMATION_ID || id == P_PARENT_ID) continue
-    val mine = own[id]
-    val theirs = inherited?.get(id)
-    resolved[id] =
-      when {
-        mine != null && !mine.isDefault() -> mine
-        theirs != null -> {
-          // AndroidX lets the style win here; the CMP player lets an explicit value win. Only
-          // convert where both players agree.
-          if (mine != null && theirs != mine) return null
-          theirs
-        }
-        else -> mine ?: continue
-      }
-  }
+  val resolved = resolvedProperties(text, index, styles) ?: return null
   val unsaid = resolved.filter { (id, value) -> id !in TEXT_LAYOUT_FIELDS && !value.isDefault() }
   if (unsaid.keys.any { !approximate || it !in APPROXIMABLE.keys }) return null
   val dropped = unsaid.keys.map { APPROXIMABLE.getValue(it) }.sorted().toSet()
@@ -112,6 +88,47 @@ private fun textLayout(
   return layout to dropped
 }
 
+/**
+ * [text]'s properties with its `TextStyle` chain applied, without the id, animation id and parent
+ * entries, or null when the chain is only known at playback or the two players would resolve it
+ * differently.
+ */
+internal fun resolvedProperties(
+  text: RcCoreText,
+  index: Int,
+  styles: Map<Int?, List<IndexedValue<RcTextStyle>>>,
+): Map<Int, RcTextStyleProperty>? {
+  val own = text.properties.associateBy { it.id }
+  val inherited =
+    text.textStyleId?.takeUnless { it == -1 }?.let { inherited(it, index, styles) ?: return null }
+  val resolved = mutableMapOf<Int, RcTextStyleProperty>()
+  for (id in (own.keys + inherited.orEmpty().keys)) {
+    if (id == P_ID || id == P_ANIMATION_ID || id == P_PARENT_ID) continue
+    val mine = own[id]
+    val theirs = inherited?.get(id)
+    resolved[id] =
+      when {
+        mine != null && !mine.isDefault() -> mine
+        theirs != null -> {
+          // AndroidX lets the style win here; the CMP player lets an explicit value win. Only
+          // convert where both players agree.
+          if (mine != null && theirs != mine) return null
+          theirs
+        }
+        else -> mine ?: continue
+      }
+  }
+  return resolved
+}
+
+/** The document's `TextStyle` operations by style id, each with its position. */
+internal fun List<RcOperation>.textStyles(): Map<Int?, List<IndexedValue<RcTextStyle>>> =
+  withIndex()
+    .mapNotNull { (index, operation) ->
+      (operation as? RcTextStyle)?.let { IndexedValue(index, it) }
+    }
+    .groupBy { it.value.styleId }
+
 /** A style chain's properties, parent first, or null when it cannot be resolved statically. */
 private fun inherited(
   styleId: Int,
@@ -132,7 +149,7 @@ private fun inherited(
 }
 
 /** Whether this property holds AndroidX's `TextStyle.PARAMETERS` default for its id. */
-private fun RcTextStyleProperty.isDefault(): Boolean =
+internal fun RcTextStyleProperty.isDefault(): Boolean =
   when (this) {
     is RcTextStyleProperty.IntValue -> INT_DEFAULTS[id] == value
     is RcTextStyleProperty.FloatValue ->

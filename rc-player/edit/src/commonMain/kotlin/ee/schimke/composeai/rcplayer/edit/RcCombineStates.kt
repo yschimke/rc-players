@@ -420,13 +420,13 @@ private fun RcOperation.isConstantDefinition(): Boolean =
  * Allocates ids neither document uses: data ids upward from 42, skipping [used], and component ids
  * downward from below every one in [components].
  */
-private class RcFreshIds(private val used: Set<Int>, components: Collection<Int>) {
+internal class RcFreshIds(private val used: Set<Int>, components: Collection<Int>) {
   private var nextId = FIRST_DOCUMENT_ID
   private var nextComponentId = minOf(-2, (components.filter { it < -1 }.minOrNull() ?: -1) - 1)
 
   fun next(): Int {
     while (nextId in used) nextId++
-    check(nextId <= ID_MASK) { "the combined document has run out of ids" }
+    check(nextId <= ID_MASK) { "the document has run out of ids" }
     return nextId++
   }
 
@@ -434,7 +434,7 @@ private class RcFreshIds(private val used: Set<Int>, components: Collection<Int>
 }
 
 /** Every component id [operations] declare, layout content and canvas content included. */
-private fun componentIds(operations: List<RcOperation>): List<Int> =
+internal fun componentIds(operations: List<RcOperation>): List<Int> =
   operations.mapNotNull { operation ->
     operation.componentIdOrNull()
       ?: when (operation) {
