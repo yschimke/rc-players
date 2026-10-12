@@ -41,6 +41,12 @@ public data class RcProfileViolation(
 
     /** A float expression uses an operator added after the target's API level. */
     FLOAT_OPERATOR,
+
+    /**
+     * A size the document's header has in pixels, which the header form the target reads has in dp:
+     * reported by [adaptTo] when it needs the client's [RcDisplay] to convert it.
+     */
+    DENSITY_SCALED,
   }
 }
 

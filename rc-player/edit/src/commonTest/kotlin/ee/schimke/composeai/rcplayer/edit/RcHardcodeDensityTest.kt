@@ -62,6 +62,17 @@ class RcHardcodeDensityTest {
   }
 
   @Test
+  fun adaptingForTheClientsDisplayBakesTheDensityOnlyWhereTheTargetNeedsIt() {
+    val display = RcDisplay(density = 2.75f)
+    val served = dpPadding.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), display)
+    assertTrue(served.isPlayable, served.violations.toString())
+
+    // A level 7 player reads the padding as a variable: nothing needs baking.
+    val modern = dpPadding.adaptTo(RcTargetProfiles.WIDGETS_V7, emptySet(), display).document
+    assertEquals(dpPadding.operations, modern.operations)
+  }
+
+  @Test
   fun theHostTextSizeFollowsTheFontScale() {
     val text =
       document(RcFloatExpression(43, listOf(ref(RcSystemVariables.FONT_SIZE)), null))

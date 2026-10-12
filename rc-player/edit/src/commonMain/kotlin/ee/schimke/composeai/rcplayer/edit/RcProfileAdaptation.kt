@@ -10,6 +10,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
@@ -100,17 +101,56 @@ public fun RcDocument.adaptTo(
 public fun RcDocument.adaptTo(
   target: RcTargetProfile,
   approximations: Set<RcApproximation>,
+): RcProfileAdaptation = adaptTo(target, approximations, display = null)
+
+/**
+ * [adaptTo] for a document generated for one [display] — the density and font scale the client
+ * reported when it asked for the document.
+ *
+ * Below API level 7, where the player reads a text size or padding only as a literal, the
+ * document's density and font-size expressions are baked for [display] first ([hardcodeDensity]),
+ * so a `RemoteDensity.Host` document's sizes fold into the literals that player needs. [display]
+ * also lets a level 7 header with legacy density behaviour be rewritten to the level 6 form: that
+ * form makes Android 16 multiply border widths and offsets by the density, which the level 7 form
+ * reads as pixels, so each is divided by [display]'s density. Without [display] such a header is
+ * left as it is and reported.
+ *
+ * The result is right only on [display]: serve it to that client, not to others.
+ */
+public fun RcDocument.adaptTo(
+  target: RcTargetProfile,
+  approximations: Set<RcApproximation>,
+  display: RcDisplay?,
 ): RcProfileAdaptation {
   val dropped = mutableListOf<RcTextApproximation>()
+  val densityViolations = mutableListOf<RcProfileViolation>()
   val adapted =
     inlineStructuralOperations(target)
       .coreTextAsTextLayout(target, RcApproximation.TEXT in approximations, dropped)
       .colorThemes(target, RcApproximation.THEME_COLORS in approximations)
       .dropRemarks(target)
+      .bakeDensity(target, display)
       .foldLiteralFields(target)
-      .headerFor(target)
-  return RcProfileAdaptation(adapted, adapted.validateFor(target), dropped)
+      .headerFor(target, display, densityViolations)
+  return RcProfileAdaptation(adapted, adapted.validateFor(target) + densityViolations, dropped)
 }
+
+/** The display a document is generated for, as the client reports it. */
+public data class RcDisplay(
+  /** Device pixels per dp. */
+  val density: Float,
+  /** The user's text scale, by which the host's default text size grows. */
+  val fontScale: Float = 1f,
+) {
+  init {
+    require(density.isFinite() && density > 0f) { "density must be positive: $density" }
+    require(fontScale.isFinite() && fontScale > 0f) { "fontScale must be positive: $fontScale" }
+  }
+}
+
+private fun RcDocument.bakeDensity(target: RcTargetProfile, display: RcDisplay?): RcDocument =
+  if (display == null || target.apiLevel >= 7) this
+  else hardcodeDensity(display.density, display.fontScale)
 
 private fun RcDocument.colorThemes(target: RcTargetProfile, approximate: Boolean): RcDocument {
   if (!approximate || RcOpcodes.COLOR_THEME in target.supportedOpcodes) return this
@@ -218,10 +258,68 @@ private const val COLOR_REFERENCE = RcBackgroundModifier.COLOR_REFERENCE_FLAG
 
 private class LiteralColor(val flags: Int, val colorId: Int, val rgba: List<RcFloatWord>?)
 
-private fun RcDocument.headerFor(target: RcTargetProfile): RcDocument {
-  val rewritten =
-    if (target.apiLevel <= 6) legacyHeader(header) else modernHeader(header, target, operations)
-  return if (rewritten == header) this else copy(header = rewritten)
+private fun RcDocument.headerFor(
+  target: RcTargetProfile,
+  display: RcDisplay?,
+  violations: MutableList<RcProfileViolation>,
+): RcDocument {
+  if (target.apiLevel >= 7) {
+    val rewritten = modernHeader(header, target, operations)
+    return if (rewritten == header) this else copy(header = rewritten)
+  }
+  val rewritten = legacyHeader(header)
+  if (rewritten == header) return this
+  val scaled = densityScaledAsLegacy(display, violations) ?: return this
+  return scaled.copy(header = rewritten)
+}
+
+/**
+ * This document's border widths and offsets as the level 6 header form reads them: a level 7 header
+ * with legacy density behaviour has them in pixels, and Android 16 multiplies them by the density.
+ * Each literal is divided by [display]'s density; null, with the reason in [violations], when one
+ * is non-zero and there is no [display] or it is a variable.
+ */
+private fun RcDocument.densityScaledAsLegacy(
+  display: RcDisplay?,
+  violations: MutableList<RcProfileViolation>,
+): RcDocument? {
+  val scaled = mutableListOf<RcOperation>()
+  operations.forEachIndexed { index, operation ->
+    val fields =
+      when (operation) {
+        is RcBorderModifier -> listOf("borderWidth" to operation.borderWidth)
+        is RcOffsetModifier -> listOf("x" to operation.x, "y" to operation.y)
+        else -> {
+          scaled += operation
+          return@forEachIndexed
+        }
+      }
+    val unscalable = fields.filter { (_, word) ->
+      word.bits != 0 && (display == null || word.isNaNEncoded)
+    }
+    unscalable.forEach { (field, _) ->
+      violations +=
+        RcProfileViolation(
+          RcProfileViolation.Kind.DENSITY_SCALED,
+          index,
+          operation.opcode,
+          "${operationName(operation.opcode)}.$field is in pixels here and in dp on API level 6: " +
+            if (display == null) "adapt with the client's RcDisplay" else "it must be a literal",
+        )
+    }
+    if (unscalable.isNotEmpty() || display == null) {
+      scaled += operation
+      return@forEachIndexed
+    }
+    fun RcFloatWord.inDp() = if (bits == 0) this else RcFloatWord.literal(value / display.density)
+    scaled +=
+      when (operation) {
+        is RcBorderModifier -> operation.copy(borderWidth = operation.borderWidth.inDp())
+        is RcOffsetModifier -> operation.copy(x = operation.x.inDp(), y = operation.y.inDp())
+        else -> operation
+      }
+  }
+  return if (violations.isEmpty()) copy(operations = scaled) else null
 }
 
 /** The fixed level 6 header, or [header] itself when it says something that form cannot. */

@@ -20,6 +20,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
@@ -223,7 +224,9 @@ class RcTargetProfileTest {
         border(colorReference, 61, ref(60)),
       )
 
-    val adaptation = document.adaptTo(RcTargetProfiles.WIDGETS_V6)
+    // The header goes from pixels to dp: the 8px border is 4dp at density 2.
+    val adaptation =
+      document.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), RcDisplay(density = 2f))
 
     assertTrue(adaptation.isPlayable, adaptation.violations.toString())
     val adapted = assertRoundTrips(adaptation.document).operations
@@ -236,10 +239,56 @@ class RcTargetProfileTest {
       adapted[3],
     )
     assertEquals(
-      border(0, 0, RcFloatWord.literal(8f))
+      border(0, 0, RcFloatWord.literal(4f))
         .copy(red = red, green = none, blue = none, alpha = half),
       adapted[4],
     )
+  }
+
+  /**
+   * A level 7 header with legacy density behaviour has borders and offsets in pixels; the level 6
+   * form Android 16 reads has them in dp, so rewriting the header needs the client's density.
+   */
+  @Test
+  fun rewritingTheHeaderForBaklavaConvertsPixelBordersAndOffsetsWithTheClientsDensity() {
+    val document =
+      androidxDocument(
+        border(0, 0, RcFloatWord.literal(3f)),
+        RcOffsetModifier(RcFloatWord.literal(8f), RcFloatWord.literal(0f)),
+      )
+
+    val blind = document.adaptTo(RcTargetProfiles.WIDGETS_V6)
+    assertTrue(blind.document.header.modern, "the header was rewritten without a density")
+    assertEquals(
+      listOf(Kind.DENSITY_SCALED to 0, Kind.DENSITY_SCALED to 1),
+      blind.violations
+        .filter { it.kind == Kind.DENSITY_SCALED }
+        .map { it.kind to it.operationIndex },
+    )
+
+    val served = document.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), RcDisplay(density = 2f))
+    assertTrue(served.isPlayable, served.violations.toString())
+    assertFalse(served.document.header.modern)
+    assertEquals(
+      listOf(
+        border(0, 0, RcFloatWord.literal(1.5f)),
+        RcOffsetModifier(RcFloatWord.literal(4f), RcFloatWord.literal(0f)),
+      ),
+      assertRoundTrips(served.document).operations,
+    )
+  }
+
+  @Test
+  fun aVariableBorderWidthCannotBeConvertedEvenWithTheDensity() {
+    val document =
+      androidxDocument(
+        RcFloatConstant(60, RcFloatWord.literal(3f)),
+        RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:stroke"),
+        border(0, 0, ref(60)),
+      )
+    val served = document.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), RcDisplay(density = 2f))
+    assertTrue(Kind.DENSITY_SCALED in served.violations.map { it.kind })
+    assertTrue(served.document.header.modern)
   }
 
   @Test
