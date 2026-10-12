@@ -61,7 +61,7 @@ first unformatted file. Before each commit touching `*.kt` / `*.kts`, run `./gra
 
 ### The published ABI is gated
 
-`rc-player-trace`, `rc-player-protocol`, `rc-player-runtime` and `rc-player-compose` run
+`rc-player-trace`, `rc-player-protocol`, `rc-player-runtime`, `rc-player-compose` and `rc-player-edit` run
 `explicitApi()` and wire `checkKotlinAbi` into `check`. A change to the public surface fails the
 build until the dumps in each module's `api/` are regenerated with `./gradlew updateKotlinAbi` and
 committed — so the diff is reviewed rather than discovered after release.

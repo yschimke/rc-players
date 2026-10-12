@@ -53,6 +53,9 @@ var products: [Product] = [
   .library(name: "RcComposePlayerSwiftUI", targets: ["RcComposePlayerSwiftUI"]),
   .library(name: "RcNativePlayerCore", targets: ["RcNativePlayerCore"]),
   .library(name: "RcNativePlayerUIKit", targets: ["RcNativePlayerUIKit"]),
+  // The AppKit renderer as a command-line tool: what the preview server's `swift-appkit` lane
+  // spawns. Released as `rc-swift-render-macos-arm64.zip`; see docs/design/RC_SWIFT_RENDER.md.
+  .executable(name: "rc-swift-render", targets: ["RcSwiftRender"]),
 ]
 if !nativeOnly {
   products.insert(.library(name: "RcComposePlayer", targets: ["RcComposePlayer"]), at: 0)
@@ -80,6 +83,12 @@ var targets: [Target] = [
     name: "RcNativePlayerUIKit",
     dependencies: ["RcNativePlayerCore", "RcPlayerAppleFonts"],
     resources: [.copy("PrivacyInfo.xcprivacy")]
+  ),
+  // macOS-only in practice: on every other platform its sources compile to a stub that exits 2, so
+  // building the whole package for visionOS still succeeds.
+  .executableTarget(
+    name: "RcSwiftRender",
+    dependencies: ["RcNativePlayerCore", "RcNativePlayerUIKit"]
   ),
   // The native player's tests. They depend only on the pure-Swift targets, so
   // `RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test` runs them without resolving the binary target.

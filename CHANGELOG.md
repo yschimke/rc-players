@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.10.0](https://github.com/yschimke/rc-players/compare/v2.9.0...v2.10.0) (2026-10-12)
+
+
+### Features
+
+* adapt widgets for the client's display and what Android 16 reads only as literals ([d3be798](https://github.com/yschimke/rc-players/commit/d3be798f23d77ef77051111434ea2e517389cfee))
+
+## [2.9.0](https://github.com/yschimke/rc-players/compare/v2.8.0...v2.9.0) (2026-10-12)
+
+
+### Features
+
+* add a density query parameter to the Wasm player and guard unparseable browser locales ([#637](https://github.com/yschimke/rc-players/issues/637)) ([5bcd583](https://github.com/yschimke/rc-players/commit/5bcd583fe69e7cbad6cc83c750401cc62c113d26))
+* bake widgets for older players and fold what hardcoding makes constant ([#636](https://github.com/yschimke/rc-players/issues/636)) ([77e0dd7](https://github.com/yschimke/rc-players/commit/77e0dd7f34e005197b436178ddd800db956aafc9))
+
+## [2.8.0](https://github.com/yschimke/rc-players/compare/v2.7.1...v2.8.0) (2026-10-11)
+
+
+### Features
+
+* add an optimisation pass to rc-player-edit, and decide constants conservatively ([#631](https://github.com/yschimke/rc-players/issues/631)) ([5e22e6d](https://github.com/yschimke/rc-players/commit/5e22e6dc288e3046832ecd8b69a0486e3cd46841))
+* add rc-player-edit, a published library for rewriting and profiling .rc documents ([#629](https://github.com/yschimke/rc-players/issues/629)) ([4280e23](https://github.com/yschimke/rc-players/commit/4280e233aa59691eb55b162a96bf2b0ca3d1d2d5))
+
 ## [2.7.1](https://github.com/yschimke/rc-players/compare/v2.7.0...v2.7.1) (2026-10-11)
 
 

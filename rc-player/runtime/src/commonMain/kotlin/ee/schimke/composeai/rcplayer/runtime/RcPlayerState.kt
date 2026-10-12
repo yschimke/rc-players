@@ -973,6 +973,28 @@ public class RcPlayerState(
               currentTheme =
                 applyContentStateOperation(node.operation, currentTheme, requestedTheme)
             }
+          is RcLinkedNode.Container if applyDirect && node.isThemedColorLoop() -> {
+            val loop = node.operation as RcLoopOperation
+            // AndroidX's level 6 widget writer sets a themed colour from a loop — a `Theme(DARK)`
+            // and a `Theme(LIGHT)` section, each a one-pass loop over a `ColorExpression` — which
+            // AndroidX's flat stream runs where it stands; skipping the body left that colour
+            // unset. Only that shape is replayed here (see [isThemedColorLoop]): colours that come
+            // out the same however often the loop runs. Any other
+            // loop is the draw pass's alone, so nothing stateful in it runs twice. A loop whose
+            // bounds do not resolve to a finite, advancing range is left to the draw pass to
+            // report, and one under the other theme's marker does not run, as the draw pass skips
+            // it.
+            val theme = currentTheme
+            val visible =
+              requestedTheme == RcTheme.UNSPECIFIED ||
+                theme == RcTheme.UNSPECIFIED ||
+                theme == requestedTheme
+            if (visible) {
+              runCatching {
+                forEachLoopValue(loop) { applyScope(node.children, theme, applyDirect = true) }
+              }
+            }
+          }
           is RcLinkedNode.Container -> {
             // A canvas-operations block is a scope too. Its own draw runs in the draw phase, but
             // the values it *publishes* — a `ColorAttribute` decomposing the container colour, an
@@ -1002,6 +1024,26 @@ public class RcPlayerState(
     // transparent — while `composeSupportReport` counted the id as declared and passed the document
     // as renderable. Same shape as the canvas-scope bug the comment above records, one level up.
     applyScope(children, RcTheme.UNSPECIFIED, applyDirect = true)
+  }
+
+  /**
+   * A loop of the themed-colour shape: no index variable, and only colour interpolations at a
+   * literal tween that read no colour the loop itself writes — so running it again gives the same
+   * colours, however often it runs.
+   */
+  private fun RcLinkedNode.Container.isThemedColorLoop(): Boolean {
+    if ((operation as? RcLoopOperation)?.indexVariableId != 0) return false
+    val expressions = children.map {
+      (it as? RcLinkedNode.Operation)?.operation as? RcColorExpression ?: return false
+    }
+    val written = expressions.mapTo(mutableSetOf()) { it.outId }
+    return expressions.all { expression ->
+      val mode = expression.mode
+      mode in RcColorExpression.COLOR_COLOR_INTERPOLATE..RcColorExpression.ID_ID_INTERPOLATE &&
+        !RcFloatWord(expression.third).isNaNEncoded &&
+        (mode and 1 == 0 || expression.first !in written) &&
+        (mode and 2 == 0 || expression.second !in written)
+    }
   }
 
   private fun applyContentStateOperation(

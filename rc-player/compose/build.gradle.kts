@@ -151,6 +151,9 @@ kotlin {
     jvmTest.dependencies {
       @Suppress("DEPRECATION") implementation(compose.desktop.currentOs)
       implementation(libs.jetbrains.compose.ui.test)
+      // Test-only: renders `rc-player-edit`'s rewrites beside the documents they came from, so a
+      // rewrite that claims to draw the same thing is held to it pixel for pixel.
+      implementation(project(":rc-player-edit"))
     }
   }
 }

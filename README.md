@@ -70,10 +70,84 @@ next, and the dependency arrow is also the dependency-weight arrow:
 | `rc-player/runtime` | `rc-player-runtime` | Document semantics with no drawing: expression evaluation, animation timelines, layout tree, theming, named values. Still no Compose. |
 | `rc-player/compose` | `rc-player-compose` | The Compose Multiplatform renderer. `RcComposePlayer` draws a document; this is the module most consumers want. |
 
+Beside the stack, and depending on `protocol` and `runtime` rather than the other way round:
+
+| Module | Artifact | What it is |
+| --- | --- | --- |
+| `rc-player/edit` | `rc-player-edit` | Rewrites over a decoded document, for code that changes a `.rc` file rather than plays it: embed URL bitmaps inline, hardcode host-bound named values, collapse state layouts whose index can no longer change to their one live branch — when the hidden branches hold only layout, modifiers, drawing and touch handlers, so nothing outside can depend on them — fold and strip what a document no longer needs, and check or adapt a document for the player it targets. No Compose. |
+
+```kotlin
+val document = RcDocumentCodec.decode(bytes)
+val baked =
+  document
+    .embedBitmapUrls { url -> httpClient.get(url).readBytes() } // may suspend
+    .hardcodeNamedValues(mapOf("tab" to RcHardcodedValue.Integer(2)))
+    .hardcodeUnboundNamedValues(bound = setOf("progress"))
+    .collapseConstantStateLayouts()
+    .optimize()
+File("baked.rc").writeBytes(RcDocumentCodec.encode(baked))
+```
+
+`optimize()` makes a document smaller and cheaper to play without changing what it plays: it
+strips remarks and debug messages, folds every value producer whose value can never change into a
+constant (integer and float expressions, colour expressions and the channels read from a colour,
+merged, formatted and looked-up text — each evaluated by the player itself), drops repeated
+identical definitions, and removes definitions nothing reads. `sizeReport()` shows where the bytes
+are. Over the catalog corpus that is 7% (1.69 MB to 1.59 MB), every document checked to give every
+remaining value exactly what the original did.
+
+It pays most on a widget whose host values are baked in, as above: hardcoding turns the named
+colours and values a document reads into constants, and `optimize()` after it turns what is
+derived from them into constants too. Over the corpus, hardcoding every named value and
+optimising takes it to 1.47 MB (13% smaller), folds nine in ten colour channel reads and two
+thirds of the colour expressions, and cuts the time the player spends computing values each frame by about a
+third.
+
+It also checks a document against the player it is meant for. `RcTargetProfiles` names the
+profiles AndroidX's creation API writes for — `WIDGETS_V6` (launcher widgets on Android 16),
+`WIDGETS_V7`, `ANDROIDX`, `ANDROIDX_EXPERIMENTAL`, `WEAR_WIDGETS` — with operation sets transcribed
+from AndroidX's own tables; `RcTargetProfile.of(apiLevel, profiles)` builds any other.
+
+```kotlin
+val wear = RcTargetProfiles.WEAR_WIDGETS
+val document = wear.decode(bytes) // resolves `Skip` guards as the Wear player does
+document.validateFor(wear) // every operation, field and header the player would reject
+val adapted = document.adaptTo(wear) // inline macros, fold constants, re-declare the header
+if (!adapted.isPlayable) println(adapted.violations)
+```
+
+A target without `CoreText` — Android 16 launcher widgets, Wear widgets — gets the older
+`TextLayout` wherever it can say the same thing. Material typography also sets letter spacing,
+line height and font axes, which `TextLayout` has no field for:
+`adaptTo(target, approximateText = true)` drops those and lists each drop in
+`RcProfileAdaptation.approximations`; underline, strikethrough and autosize still block. To serve
+older devices a different design instead, keep a separate template per profile and check each with
+`validateFor`.
+
+Neither API level 6 nor Wear has `ColorTheme`, the light/dark pair of system colours.
+`adaptTo(target, setOf(RcApproximation.THEME_COLORS))` replaces each one with its recorded
+fallbacks (`colorThemesAsFallbacks()`): in theme sections, the way AndroidX's level 6 widget writer
+writes a themed colour, or as the dark fallback on Wear. The device's palette is lost. Evidence is
+under
+[`renders/rc-edit-profile-fallbacks/`](renders/rc-edit-profile-fallbacks/).
+
+Android 16's launcher also reads paddings, and background and border colours and sizes, only as
+literals, and it reads a background or border written as a colour reference as a transparent
+one: `validateFor(WIDGETS_V6)` reports each, and `adaptTo` folds any that are constant. A
+`RemoteDensity.Host` widget sizes its text and spacing as expressions over the player's density,
+which no level 6 player can take. `adaptTo(target, approximations, RcDisplay(density, fontScale))`
+bakes those expressions (`hardcodeDensity`) where the target needs literals, and converts the
+border widths and offsets a level 7 header with legacy density behaviour has in pixels into the dp
+Android 16's level 6 header has them in. Without a display it assumes `RcDisplay.DEFAULT`, a 420dpi
+phone. `needsDisplay(target)` says whether the adaptation depends on the display at all — every
+launcher catalog widget does for `WIDGETS_V6`, none for `WIDGETS_V7` — so a server asks the client
+for its density only when it does, and serves one document to every display otherwise. Every
+launcher catalog widget then plays on Android 16, and is 21% smaller after `optimize()`.
+
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 
-All four run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the real public surface
+All five run `explicitApi()` and an ABI dump gate: `checkKotlinAbi` diffs the real public surface
 against the committed dumps in each module's `api/`, so a change to the published API shows up as a
 diff in review. Regenerate with `./gradlew updateKotlinAbi`.
 

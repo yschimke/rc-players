@@ -174,6 +174,20 @@ public object RcDocumentCodec {
     codecs.values.map { it.spec }.sortedBy { it.opcode }
 
   public fun decode(bytes: ByteArray, limits: RcWireLimits = RcWireLimits()): RcDocument =
+    decode(bytes, limits, libraryApiLevel = 8, profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL)
+
+  /**
+   * Decodes [bytes] as a player at [libraryApiLevel] with the AndroidX profile bits [profile]
+   * would: a `Skip` guard is resolved against those two rather than against this player's own (API
+   * level 8, [RcWireProfiles.ANDROIDX_EXPERIMENTAL]). For a writer that guards newer content behind
+   * a `Skip`, this is the document an older or narrower player actually sees.
+   */
+  public fun decode(
+    bytes: ByteArray,
+    limits: RcWireLimits,
+    libraryApiLevel: Int,
+    profile: Int,
+  ): RcDocument =
     rcTrace(RcTraceCategory.DOCUMENT, "rc:decode") {
       if (bytes.size > limits.maxDocumentBytes) {
         throw RcWireException(0, message = "Document exceeds ${limits.maxDocumentBytes} bytes")
@@ -183,8 +197,8 @@ public object RcDocumentCodec {
           bytes,
           limits,
           idRemapper = null,
-          libraryApiLevel = 8,
-          profile = RcWireProfiles.ANDROIDX_EXPERIMENTAL,
+          libraryApiLevel = libraryApiLevel,
+          profile = profile,
         )
       val operations = mutableListOf<RcOperation>()
       val operationBudget = RcOperationBudget(limits.maxOperations)
