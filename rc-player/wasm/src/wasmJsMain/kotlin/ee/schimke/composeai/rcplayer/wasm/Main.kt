@@ -7,6 +7,8 @@
 package ee.schimke.composeai.rcplayer.wasm
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -18,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.window.ComposeViewport
 import ee.schimke.composeai.rcplayer.compose.RcComposePlayer
 import ee.schimke.composeai.rcplayer.compose.RcManifestTypefaceLoader
@@ -105,6 +109,9 @@ public fun main() {
   // host cares about whether `?src=` and `window.rcPlayerLoad` still mean what it coded against,
   // not about which release it happens to have.
   publishContractVersion(RC_PLAYER_EMBED_CONTRACT_VERSION)
+  // Before anything composes: Compose's `Locale.current` parses every `navigator.languages` entry
+  // with `Intl.Locale`, which throws on a tag like `en-US@posix`. See [usableLanguageTags].
+  guardNavigatorLanguages()
   setRcPlatformTracingEnabled(queryParameter("rcTrace") == "1")
   loadRequest = LoadRequest(queryParameter("src")?.let(DocumentSource::Url), generation = 0)
   installDocumentSwap()
@@ -118,98 +125,134 @@ public fun main() {
       "dark" -> RcPlayerTheme.Dark
       else -> RcPlayerTheme.System
     }
+  // `?density=` is part of the embed contract too: the document's pixels per dp, in CSS pixels.
+  // Absent or malformed, the player runs at the browser's own density, as it always has.
+  val requestedDensity = parseDensityParameter(queryParameter("density"))
   ComposeViewport(viewportContainerId = "rcPlayer") {
-    LaunchedEffect(Unit) {
-      // One waiter, re-armed after every swap: `window.rcPlayerLoad(src)` and
-      // `window.rcPlayerLoadBytes(bytes)` hand the next source in here instead of the host
-      // navigating the page again. See [installDocumentSwap].
-      while (true) {
-        val (next, hostId) = awaitDocumentSwap()
-        loadRequest = LoadRequest(next, loadRequest.generation + 1, hostId)
-      }
-    }
+    WithRequestedDensity(requestedDensity) { PlayerContent(theme) }
+  }
+}
 
-    val request = loadRequest
-    LaunchedEffect(request) {
-      val source = request.source
-      // Drop the previous document before fetching the next: the player leaves composition, so no
-      // state from the document being replaced can reach the one replacing it, and a host that
-      // waits on the readiness marker cannot mistake the outgoing render for the incoming one.
-      loadState = LoadState.Loading
-      loadState =
-        if (source == null) LoadState.Failed("Missing ?src=<document.rc>", request.generation)
-        else
-          runCatching {
-              val bytes =
-                when (source) {
-                  is DocumentSource.Url ->
-                    rcTrace(RcTraceCategory.DOCUMENT, "rc:fetchDocument") { fetchBytes(source.url) }
-                  is DocumentSource.Bytes -> source.bytes
-                }
-              val document = RcDocumentCodec.decode(bytes)
-              // Async work stays in construction: the manifest is fetched and decoded here, and the
-              // player is handed a loader that only looks things up. `RcTypefaceLoader.typeface` is
-              // called during composition and draw and cannot suspend.
-              val typefaces = withTimeout(8_000) { loadHostTypefaces() }
-              document
-                .composeSupportReport(
-                  RcOperationProfiles.CMP_WASM_ALPHA18,
-                  availableFontFamilies = typefaces.families,
-                  allowExternalImagePlaceholders =
-                    queryParameter("allowExternalImagePlaceholders") == "1",
-                )
-                // `?lenient=1` plays a document carrying any operation the player knows,
-                // drawing nothing for the ones this backend has no branch for, rather than
-                // refusing the whole document. Everything that would throw mid-draw still fails.
-                .requireRenderable(queryParameter("lenient") == "1")
-              LoadState.Ready(document, typefaces, namedValuesFromLocation())
-            }
-            .fold(
-              onSuccess = { it },
-              onFailure = { LoadState.Failed(it.message ?: "load failed", request.generation) },
-            )
+/**
+ * Run [content] at `?density=` when the page asked for one, and untouched otherwise.
+ *
+ * The baked snapshot a host lays this player over is the document drawn at its capture density in
+ * physical pixels, shown at one PNG pixel per CSS pixel. The viewport's own density is
+ * `devicePixelRatio`, so without this a document captured at 2.625 draws at `1 / 2.625` of that
+ * size on a DPR 1 screen. Overriding `LocalDensity` — rather than resizing or scaling the canvas —
+ * keeps the canvas at the screen's full device resolution, re-lays the document out in the dp space
+ * it was captured in, and reaches `RcPlayerState` through the same `LocalDensity` read that feeds
+ * its `DENSITY` system variable, so a `RemoteDensity.Host` document resolves against it too.
+ *
+ * The platform density is read on every composition, so a page zoom or a move to a screen with a
+ * different `devicePixelRatio` still rescales. Font scale is kept as the platform reports it.
+ */
+@Composable
+private fun WithRequestedDensity(requested: Float?, content: @Composable () -> Unit) {
+  if (requested == null) {
+    content()
+    return
+  }
+  val platform = LocalDensity.current
+  val density =
+    remember(platform, requested) {
+      Density(hostDensity(platform.density, requested), platform.fontScale)
     }
+  CompositionLocalProvider(LocalDensity provides density, content = content)
+}
 
-    when (val state = loadState) {
-      LoadState.Loading -> Unit
-      // Keyed by the failed request: two documents can fail the same way, and the second failure
-      // still has to be reported — `rcPlayerLoad` cleared the marker the first one set. Reported
-      // only while that request is still the current one; see [LoadState.Failed.generation].
-      is LoadState.Failed ->
-        if (state.generation == request.generation) {
-          LaunchedEffect(state) { reportFailure(state.message, request.hostId) }
-        }
-      is LoadState.Ready -> {
-        // Keyed on the document, not the page: `?namedValues=` belongs to the page, but the
-        // *variables* belong to the document, so a swap starts from the URL's values again rather
-        // than carrying the previous document's overrides into one that may not declare them.
-        // Seeded during composition so the player's `RcPlayerState` is constructed with them
-        // already in place, exactly as the old `Map` parameter was.
-        val namedValues =
-          remember(state.document) {
-            mutableStateMapOf<String, RcNamedValue>().apply { putAll(state.namedValues) }
+@Composable
+private fun PlayerContent(theme: RcPlayerTheme) {
+  LaunchedEffect(Unit) {
+    // One waiter, re-armed after every swap: `window.rcPlayerLoad(src)` and
+    // `window.rcPlayerLoadBytes(bytes)` hand the next source in here instead of the host
+    // navigating the page again. See [installDocumentSwap].
+    while (true) {
+      val (next, hostId) = awaitDocumentSwap()
+      loadRequest = LoadRequest(next, loadRequest.generation + 1, hostId)
+    }
+  }
+
+  val request = loadRequest
+  LaunchedEffect(request) {
+    val source = request.source
+    // Drop the previous document before fetching the next: the player leaves composition, so no
+    // state from the document being replaced can reach the one replacing it, and a host that
+    // waits on the readiness marker cannot mistake the outgoing render for the incoming one.
+    loadState = LoadState.Loading
+    loadState =
+      if (source == null) LoadState.Failed("Missing ?src=<document.rc>", request.generation)
+      else
+        runCatching {
+            val bytes =
+              when (source) {
+                is DocumentSource.Url ->
+                  rcTrace(RcTraceCategory.DOCUMENT, "rc:fetchDocument") { fetchBytes(source.url) }
+                is DocumentSource.Bytes -> source.bytes
+              }
+            val document = RcDocumentCodec.decode(bytes)
+            // Async work stays in construction: the manifest is fetched and decoded here, and the
+            // player is handed a loader that only looks things up. `RcTypefaceLoader.typeface` is
+            // called during composition and draw and cannot suspend.
+            val typefaces = withTimeout(8_000) { loadHostTypefaces() }
+            document
+              .composeSupportReport(
+                RcOperationProfiles.CMP_WASM_ALPHA18,
+                availableFontFamilies = typefaces.families,
+                allowExternalImagePlaceholders =
+                  queryParameter("allowExternalImagePlaceholders") == "1",
+              )
+              // `?lenient=1` plays a document carrying any operation the player knows,
+              // drawing nothing for the ones this backend has no branch for, rather than
+              // refusing the whole document. Everything that would throw mid-draw still fails.
+              .requireRenderable(queryParameter("lenient") == "1")
+            LoadState.Ready(document, typefaces, namedValuesFromLocation())
           }
-        RcComposePlayer(
-          state.document,
-          Modifier.fillMaxSize().drawWithContent {
-            drawRect(Color.Transparent, blendMode = BlendMode.Clear)
-            drawContent()
-          },
-          theme = theme,
-          namedValues = namedValues,
-          onEvent = ::postPlayerEvent,
-          typefaces = state.typefaces,
-        )
-        LaunchedEffect(request) {
-          // Compose schedules Skiko's raster work after composition. One frame only proves the
-          // composition ran; waiting through two further browser frames prevents the host from
-          // revealing an iframe whose backing surface is still blank on a cold Wasm start.
-          repeat(3) { withFrameNanos {} }
-          // Chromium can acknowledge those frames before the Skiko surface is presented to the
-          // compositor. Keep the parent snapshot visible through that short cold-start tail.
-          delay(handoffDelayMs)
-          postReady(request.hostId)
+          .fold(
+            onSuccess = { it },
+            onFailure = { LoadState.Failed(it.message ?: "load failed", request.generation) },
+          )
+  }
+
+  when (val state = loadState) {
+    LoadState.Loading -> Unit
+    // Keyed by the failed request: two documents can fail the same way, and the second failure
+    // still has to be reported — `rcPlayerLoad` cleared the marker the first one set. Reported
+    // only while that request is still the current one; see [LoadState.Failed.generation].
+    is LoadState.Failed ->
+      if (state.generation == request.generation) {
+        LaunchedEffect(state) { reportFailure(state.message, request.hostId) }
+      }
+    is LoadState.Ready -> {
+      // Keyed on the document, not the page: `?namedValues=` belongs to the page, but the
+      // *variables* belong to the document, so a swap starts from the URL's values again rather
+      // than carrying the previous document's overrides into one that may not declare them.
+      // Seeded during composition so the player's `RcPlayerState` is constructed with them
+      // already in place, exactly as the old `Map` parameter was.
+      val namedValues =
+        remember(state.document) {
+          mutableStateMapOf<String, RcNamedValue>().apply { putAll(state.namedValues) }
         }
+      RcComposePlayer(
+        state.document,
+        Modifier.fillMaxSize().drawWithContent {
+          drawRect(Color.Transparent, blendMode = BlendMode.Clear)
+          drawContent()
+        },
+        theme = theme,
+        namedValues = namedValues,
+        onEvent = ::postPlayerEvent,
+        typefaces = state.typefaces,
+      )
+      LaunchedEffect(request) {
+        // Compose schedules Skiko's raster work after composition. One frame only proves the
+        // composition ran; waiting through two further browser frames prevents the host from
+        // revealing an iframe whose backing surface is still blank on a cold Wasm start.
+        repeat(3) { withFrameNanos {} }
+        // Chromium can acknowledge those frames before the Skiko surface is presented to the
+        // compositor. Keep the parent snapshot visible through that short cold-start tail.
+        delay(handoffDelayMs)
+        postReady(request.hostId)
       }
     }
   }
@@ -449,6 +492,59 @@ private suspend fun awaitDocumentSwap(): Pair<DocumentSource, String?> =
         null
       }
   }
+
+/**
+ * Replace unparseable `navigator.languages` entries before Compose reads them.
+ *
+ * Compose's web `Locale.current` hands each entry to `new Intl.Locale(tag)`, which throws
+ * `RangeError: Incorrect locale information provided` for a POSIX-flavoured tag such as
+ * `en-US@posix` — and that throw fails the whole render. When every entry already parses, nothing
+ * is touched; otherwise `navigator.languages` (and `navigator.language`, its first entry) are
+ * shadowed on this page's `navigator` with the repaired list from [usableLanguageTags]. The page is
+ * the player's own document, so the override reaches nobody else.
+ */
+private fun guardNavigatorLanguages() {
+  val reported = navigatorLanguages()?.toString().orEmpty()
+  if (reported.isEmpty()) return
+  val tags = reported.split('\u0000')
+  val usable = usableLanguageTags(tags, ::isValidLanguageTag)
+  if (usable != tags) overrideNavigatorLanguages(usable.joinToString("\u0000"))
+}
+
+private fun navigatorLanguages(): JsString? =
+  js(
+    """(function () {
+      try {
+        var languages = window.navigator.languages;
+        if (!languages || !languages.length) {
+          languages = window.navigator.language ? [window.navigator.language] : [];
+        }
+        return Array.prototype.map.call(languages, String).join('\u0000');
+      } catch (error) { return null; }
+    })()"""
+  )
+
+private fun isValidLanguageTag(tag: String): Boolean =
+  js(
+    """(function () {
+      try { new Intl.Locale(tag); return true; } catch (error) { return false; }
+    })()"""
+  )
+
+private fun overrideNavigatorLanguages(joined: String): Unit =
+  js(
+    """(function () {
+      var tags = Object.freeze(joined.split('\u0000'));
+      try {
+        Object.defineProperty(window.navigator, 'languages', {
+          configurable: true, get: function () { return tags; } });
+        Object.defineProperty(window.navigator, 'language', {
+          configurable: true, get: function () { return tags[0]; } });
+      } catch (error) {
+        console.warn('[rc-player-wasm] could not repair navigator.languages: ' + error);
+      }
+    })()"""
+  )
 
 private fun queryParameter(name: String): String? =
   queryParameterFromLocation(name).toString().takeUnless { it == "null" }

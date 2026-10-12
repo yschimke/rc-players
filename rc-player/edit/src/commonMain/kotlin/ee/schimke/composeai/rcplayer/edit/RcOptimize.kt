@@ -61,16 +61,22 @@ public fun RcDocument.stripDebugOperations(): RcDocument {
 }
 
 /**
- * This document with every integer and float expression whose value can never change replaced by a
- * constant holding that value, evaluated exactly as the player evaluates it.
+ * This document with every value producer whose value can never change replaced by a constant
+ * holding that value, evaluated exactly as the player evaluates it: integer and float expressions,
+ * colour expressions and the channels read from a colour, and merged, formatted and looked-up text.
  *
- * An expression folds when it always runs, has no animation, writes an id nothing else writes, and
- * reads only constants — directly or through other foldable expressions — through deterministic
- * operators (no random numbers, registers, loop variables or arrays). An expression an
- * expression-change action evaluates stays an expression: the action looks it up by id.
+ * A producer folds when it always runs, writes an id nothing else writes and nothing earlier in the
+ * document reads, and reads only constants — directly or through other foldable producers. Float
+ * expressions must also have no animation and use only deterministic operators (no random numbers,
+ * registers, loop variables or arrays). An expression an expression-change action evaluates stays
+ * an expression: the action looks it up by id.
+ *
+ * This is what makes a widget whose host values were baked in with [hardcodeNamedValues] cheap to
+ * play: the colours, labels and sizes derived from those values become constants the player loads
+ * once rather than recomputes every frame.
  */
 public fun RcDocument.foldConstantExpressions(): RcDocument {
-  if (operations.none { it is RcIntegerExpression || it is RcFloatExpression }) return this
+  if (operations.none { it.isFoldableProducer() }) return this
   val unconditional = unconditionalOperations(operations) ?: return this
   val values = RcValueAnalysis(operations)
   val evaluatedByActions =
@@ -84,6 +90,9 @@ public fun RcDocument.foldConstantExpressions(): RcDocument {
   var changed = false
   val rewritten = operations.mapIndexed { index, operation ->
     if (!unconditional[index]) return@mapIndexed operation
+    // A constant is loaded when the document opens: an earlier reader would see it sooner.
+    val output = operation.definedIds()?.singleOrNull() ?: return@mapIndexed operation
+    if (values.readBefore(output, index)) return@mapIndexed operation
     val folded =
       when (operation) {
         is RcIntegerExpression ->
@@ -96,6 +105,20 @@ public fun RcDocument.foldConstantExpressions(): RcDocument {
             .takeUnless { it in evaluatedByActions || operation.animation != null }
             ?.let { values.float(it, at = index + 1) }
             ?.let { RcFloatConstant(operation.id, it) }
+        is RcColorAttribute ->
+          values.float(operation.outId, at = index + 1)?.let {
+            RcFloatConstant(operation.outId, it)
+          }
+        is RcColorExpression ->
+          values.color(operation.outId, at = index + 1)?.let {
+            RcColorConstant(operation.outId, it)
+          }
+        is RcTextMerge ->
+          values.text(operation.outId, at = index + 1)?.let { RcTextData(operation.outId, it) }
+        is RcTextFromFloat ->
+          values.text(operation.outId, at = index + 1)?.let { RcTextData(operation.outId, it) }
+        is RcTextLookupInt ->
+          values.text(operation.outId, at = index + 1)?.let { RcTextData(operation.outId, it) }
         else -> null
       }
     folded?.also { changed = true } ?: operation
@@ -192,6 +215,15 @@ public data class RcSizeReport(
   /** Bytes per operation name (`DATA_BITMAP`, `DRAW_TEXT_RUN`, …), largest first. */
   val byOperation: Map<String, Int>,
 )
+
+private fun RcOperation.isFoldableProducer(): Boolean =
+  this is RcIntegerExpression ||
+    this is RcFloatExpression ||
+    this is RcColorAttribute ||
+    this is RcColorExpression ||
+    this is RcTextMerge ||
+    this is RcTextFromFloat ||
+    this is RcTextLookupInt
 
 /** The values the player loads when a document opens, wherever in it they sit. */
 private fun RcOperation.isOpenTimeData(): Boolean =

@@ -1,22 +1,34 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
+import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcDebugMessage
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcIdList
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcNoArg
+import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcRootContentDescription
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
+import ee.schimke.composeai.rcplayer.protocol.RcTextFromFloat
+import ee.schimke.composeai.rcplayer.protocol.RcTextLookupInt
+import ee.schimke.composeai.rcplayer.protocol.RcTextMerge
 import ee.schimke.composeai.rcplayer.protocol.RcValueFloatExpressionChangeAction
+import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
+import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class RcOptimizeTest {
   private fun f(value: Float) = RcFloatWord.literal(value)
@@ -53,6 +65,92 @@ class RcOptimizeTest {
       ),
       result.operations,
     )
+  }
+
+  @Test
+  fun constantColourAndTextProducersFoldToWhatThePlayerComputes() {
+    val red = 0xFFFF0000.toInt()
+    val blue = 0xFF0000FF.toInt()
+    val result =
+      document(
+          RcColorConstant(50, red),
+          RcColorConstant(51, blue),
+          // Halfway from red to blue, by id; then red's channels.
+          RcColorExpression(52, RcColorExpression.ID_ID_INTERPOLATE, 50, 51, 0.5f.toRawBits()),
+          RcColorAttribute(53, 50, RcColorAttribute.COLOR_RED),
+          RcTextData(60, "Steps: "),
+          RcFloatConstant(61, f(1234f)),
+          RcTextFromFloat(62, ref(61), digitsBefore = 5, digitsAfter = 0, flags = 0),
+          RcTextMerge(63, 60, 62),
+          RcTextData(64, "zero"),
+          RcTextData(65, "one"),
+          RcIdList(LIST, listOf(64, 65)),
+          RcIntegerConstant(66, 1),
+          RcTextLookupInt(67, LIST, 66),
+        )
+        .foldConstantExpressions()
+
+    val folded = result.operations.associateBy { (it.definedIds() ?: emptyList()).firstOrNull() }
+    val player =
+      RcPlayerState(result).apply {
+        applyContentStateOperations(RcDocumentLinker.link(result).operations)
+      }
+    val original =
+      RcPlayerState(
+          document(
+            RcColorConstant(50, red),
+            RcColorConstant(51, blue),
+            RcColorExpression(52, RcColorExpression.ID_ID_INTERPOLATE, 50, 51, 0.5f.toRawBits()),
+          )
+        )
+        .apply { applyContentStateOperations(RcDocumentLinker.link(document).operations) }
+    assertEquals(RcColorConstant(52, original.color(52)), folded[52])
+    assertEquals(RcFloatConstant(53, f(1f)), folded[53])
+    assertEquals(RcTextData(63, "Steps: ${player.text(62)}"), folded[63])
+    assertEquals(RcTextData(67, "one"), folded[67])
+  }
+
+  @Test
+  fun aProducerReadingAHostValueFoldsOnceTheValueIsHardcoded() {
+    val source =
+      document(
+        RcColorConstant(50, 0xFF000000.toInt()),
+        RcNamedVariable(50, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        RcColorAttribute(53, 50, RcColorAttribute.COLOR_ALPHA),
+      )
+    assertSame(source, source.foldConstantExpressions())
+
+    val baked = source.hardcodeUnboundNamedValues().foldConstantExpressions()
+    assertEquals(RcFloatConstant(53, f(1f)), baked.operations.last())
+  }
+
+  @Test
+  fun aProducerReadBeforeItRunsDoesNotFold() {
+    // A constant is loaded when the document opens; the attribute before the expression would see
+    // the folded colour rather than the one in force when it ran.
+    val source =
+      document(
+        RcColorConstant(50, 0xFF000000.toInt()),
+        RcColorAttribute(53, 52, RcColorAttribute.COLOR_ALPHA),
+        RcColorExpression(52, RcColorExpression.COLOR_COLOR_INTERPOLATE, 1, 2, 0f.toRawBits()),
+      )
+    assertTrue(source.foldConstantExpressions().operations.any { it is RcColorExpression })
+  }
+
+  @Test
+  fun aProducerInDrawnContentFolds() {
+    val result =
+      document(
+          *rootLayout(
+              RcColorConstant(50, 0xFF336699.toInt()),
+              RcNoArg(RcOpcodes.CANVAS_OPERATIONS),
+              RcColorAttribute(53, 50, RcColorAttribute.COLOR_ALPHA),
+              END,
+            )
+            .toTypedArray()
+        )
+        .foldConstantExpressions()
+    assertTrue(RcFloatConstant(53, f(1f)) in result.operations)
   }
 
   @Test
@@ -130,6 +228,8 @@ class RcOptimizeTest {
 
   private companion object {
     const val MUL = 3
+    /** An id list's id, in the array region AndroidX's writer allocates them in. */
+    const val LIST = 0x20002A
     const val RAND = 39
   }
 }
