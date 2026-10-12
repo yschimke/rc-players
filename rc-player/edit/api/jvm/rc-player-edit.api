@@ -1,5 +1,18 @@
+public final class ee/schimke/composeai/rcplayer/edit/RcApproximation : java/lang/Enum {
+	public static final field TEXT Lee/schimke/composeai/rcplayer/edit/RcApproximation;
+	public static final field THEME_COLORS Lee/schimke/composeai/rcplayer/edit/RcApproximation;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lee/schimke/composeai/rcplayer/edit/RcApproximation;
+	public static fun values ()[Lee/schimke/composeai/rcplayer/edit/RcApproximation;
+}
+
 public final class ee/schimke/composeai/rcplayer/edit/RcCollapseStateLayoutsKt {
 	public static final fun collapseConstantStateLayouts (Lee/schimke/composeai/rcplayer/protocol/RcDocument;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcColorThemeFallbacksKt {
+	public static final fun colorThemesAsFallbacks (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/Integer;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public static synthetic fun colorThemesAsFallbacks$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/lang/Integer;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/protocol/RcDocument;
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcEmbedBitmapsKt {
@@ -111,6 +124,7 @@ public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptation {
 }
 
 public final class ee/schimke/composeai/rcplayer/edit/RcProfileAdaptationKt {
+	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Ljava/util/Set;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public static final fun adaptTo (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Z)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 	public static synthetic fun adaptTo$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;ZILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcProfileAdaptation;
 }

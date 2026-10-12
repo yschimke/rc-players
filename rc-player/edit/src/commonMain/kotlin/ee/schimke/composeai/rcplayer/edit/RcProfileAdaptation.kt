@@ -12,6 +12,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
+import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.runtime.RcDocumentLinker
 import ee.schimke.composeai.rcplayer.runtime.RcLinkedNode
@@ -25,6 +26,21 @@ public data class RcTextApproximation(
   val textId: Int,
   val dropped: Set<String>,
 )
+
+/**
+ * A rewrite [adaptTo] makes only when asked, because it changes what the document draws on the
+ * target rather than only how it says it.
+ */
+public enum class RcApproximation {
+  /**
+   * `CoreText` becomes `TextLayout` even where that drops letter spacing, line height or font axes;
+   * each drop is listed in [RcProfileAdaptation.approximations].
+   */
+  TEXT,
+
+  /** `ColorTheme` becomes its recorded fallbacks, losing the device's system palette. */
+  THEME_COLORS,
+}
 
 /** A document rewritten for a [RcTargetProfile], and what still keeps it from playing there. */
 public data class RcProfileAdaptation(
@@ -52,6 +68,10 @@ public data class RcProfileAdaptation(
  *   line height, autosize, decoration, font axes or a line-breaking strategy stays `CoreText` and
  *   is reported. The two components still lay text out through different player code, so check a
  *   converted document's rendering on the target.
+ * - **`ColorTheme` becomes its fallbacks** for a target without it, with
+ *   [RcApproximation.THEME_COLORS], in theme sections where the target has them and as the dark
+ *   fallback where it does not (Wear OS) — see [colorThemesAsFallbacks]. The system palette is
+ *   lost; a `ColorTheme` that cannot be converted stays among the violations.
  * - **Remarks are dropped** where the target does not decode them; they draw nothing.
  * - **A variable image alpha or text size is replaced by its value** below API level 7, where those
  *   fields must be literals, when the variable is a constant nothing can change.
@@ -68,15 +88,30 @@ public data class RcProfileAdaptation(
 public fun RcDocument.adaptTo(
   target: RcTargetProfile,
   approximateText: Boolean = false,
+): RcProfileAdaptation =
+  adaptTo(target, if (approximateText) setOf(RcApproximation.TEXT) else emptySet())
+
+/** [adaptTo], also making the [approximations] asked for, each of which changes what is drawn. */
+public fun RcDocument.adaptTo(
+  target: RcTargetProfile,
+  approximations: Set<RcApproximation>,
 ): RcProfileAdaptation {
-  val approximations = mutableListOf<RcTextApproximation>()
+  val dropped = mutableListOf<RcTextApproximation>()
   val adapted =
     inlineStructuralOperations(target)
-      .coreTextAsTextLayout(target, approximateText, approximations)
+      .coreTextAsTextLayout(target, RcApproximation.TEXT in approximations, dropped)
+      .colorThemes(target, RcApproximation.THEME_COLORS in approximations)
       .dropRemarks(target)
       .foldLiteralFields(target)
       .headerFor(target)
-  return RcProfileAdaptation(adapted, adapted.validateFor(target), approximations)
+  return RcProfileAdaptation(adapted, adapted.validateFor(target), dropped)
+}
+
+private fun RcDocument.colorThemes(target: RcTargetProfile, approximate: Boolean): RcDocument {
+  if (!approximate || RcOpcodes.COLOR_THEME in target.supportedOpcodes) return this
+  return colorThemesAsFallbacks(
+    fixedTheme = if (RcOpcodes.THEME in target.supportedOpcodes) null else RcTheme.DARK
+  )
 }
 
 private val STRUCTURAL_OPCODES: Set<Int> =
