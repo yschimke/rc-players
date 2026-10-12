@@ -2225,7 +2225,7 @@ internal fun selectCollapsibleChildren(
 
 private fun RcTextLayout.composeTextAlign(): TextAlign = androidXTextAlign(textAlign)
 
-private fun androidXTextAlign(value: Int): TextAlign =
+internal fun androidXTextAlign(value: Int): TextAlign =
   when (value) {
     RcTextLayout.ALIGN_LEFT -> TextAlign.Left
     RcTextLayout.ALIGN_RIGHT -> TextAlign.Right
@@ -2240,7 +2240,7 @@ private fun androidXTextAlign(value: Int): TextAlign =
 
 private fun RcTextLayout.composeTextOverflow(): TextOverflow = androidXTextOverflow(overflow)
 
-private fun androidXTextOverflow(value: Int): TextOverflow =
+internal fun androidXTextOverflow(value: Int): TextOverflow =
   when (value) {
     RcTextLayout.OVERFLOW_CLIP -> TextOverflow.Clip
     RcTextLayout.OVERFLOW_VISIBLE -> TextOverflow.Visible
@@ -2250,7 +2250,7 @@ private fun androidXTextOverflow(value: Int): TextOverflow =
     else -> error("Unsupported AndroidX text overflow $value")
   }
 
-private fun androidXMaxLines(overflow: Int, maxLines: Int): Int =
+internal fun androidXMaxLines(overflow: Int, maxLines: Int): Int =
   if (
     maxLines > 1 &&
       (overflow == RcTextLayout.OVERFLOW_CLIP || overflow == RcTextLayout.OVERFLOW_VISIBLE)
@@ -5147,6 +5147,9 @@ private fun DrawScope.drawBitmap(
       image = image,
       dstSize = IntSize(image.width, image.height),
       alpha = paint.alpha,
+      // AndroidX draws a bitmap with the whole paint (`AndroidPaintContext.drawBitmap`), so a
+      // colour filter tints it: a text mask drawn in a host colour, say.
+      colorFilter = paint.colorFilter,
       blendMode = paint.blendMode,
       filterQuality = paint.filterQuality,
     )
@@ -5242,6 +5245,7 @@ private fun DrawScope.drawBitmapRegion(
     dstOffset = IntOffset(dstLeft, dstTop),
     dstSize = IntSize(dstWidth, dstHeight),
     alpha = paint.alpha,
+    colorFilter = paint.colorFilter,
     blendMode = paint.blendMode,
     filterQuality = paint.filterQuality,
   )

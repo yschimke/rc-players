@@ -296,3 +296,42 @@ public final class ee/schimke/composeai/rcplayer/edit/RcTextApproximation {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/edit/RcTextImage {
+	public fun <init> (IILjava/util/Set;FF)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun component3 ()Ljava/util/Set;
+	public final fun component4 ()F
+	public final fun component5 ()F
+	public final fun copy (IILjava/util/Set;FF)Lee/schimke/composeai/rcplayer/edit/RcTextImage;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcTextImage;IILjava/util/Set;FFILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTextImage;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getComponentId ()I
+	public final fun getHeight ()F
+	public final fun getKept ()Ljava/util/Set;
+	public final fun getTextId ()I
+	public final fun getWidth ()F
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcTextImages {
+	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)V
+	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun copy (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/edit/RcTextImages;Lee/schimke/composeai/rcplayer/protocol/RcDocument;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDocument ()Lee/schimke/composeai/rcplayer/protocol/RcDocument;
+	public final fun getImages ()Ljava/util/List;
+	public final fun getSkipped ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ee/schimke/composeai/rcplayer/edit/RcTextImagesKt {
+	public static final fun coreTextAsImages (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Lkotlin/jvm/functions/Function1;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
+	public static synthetic fun coreTextAsImages$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Lee/schimke/composeai/rcplayer/edit/RcTargetProfile;Lee/schimke/composeai/rcplayer/runtime/RcTextRasterizer;Lee/schimke/composeai/rcplayer/edit/RcDisplay;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/edit/RcTextImages;
+}
+

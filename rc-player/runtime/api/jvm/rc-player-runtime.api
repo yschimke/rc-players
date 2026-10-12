@@ -942,6 +942,13 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcPlayerStateKt {
 	public static final fun isLayoutComputeExecutable (Lee/schimke/composeai/rcplayer/protocol/RcOperation;)Z
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcRasterizedText {
+	public fun <init> ([BII)V
+	public final fun getHeight ()I
+	public final fun getPng ()[B
+	public final fun getWidth ()I
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcScrollBlock {
 	public fun <init> (Lee/schimke/composeai/rcplayer/protocol/RcScrollModifier;Ljava/util/List;)V
 	public final fun component1 ()Lee/schimke/composeai/rcplayer/protocol/RcScrollModifier;
@@ -977,9 +984,65 @@ public final class ee/schimke/composeai/rcplayer/runtime/RcSoundEffect$Play : ee
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ee/schimke/composeai/rcplayer/runtime/RcStyledText {
+	public fun <init> (Ljava/lang/String;FFIIZLjava/lang/String;[BFFFLjava/util/List;IIIIZZIILjava/lang/Float;)V
+	public synthetic fun <init> (Ljava/lang/String;FFIIZLjava/lang/String;[BFFFLjava/util/List;IIIIZZIILjava/lang/Float;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component10 ()F
+	public final fun component11 ()F
+	public final fun component12 ()Ljava/util/List;
+	public final fun component13 ()I
+	public final fun component14 ()I
+	public final fun component15 ()I
+	public final fun component16 ()I
+	public final fun component17 ()Z
+	public final fun component18 ()Z
+	public final fun component19 ()I
+	public final fun component2 ()F
+	public final fun component20 ()I
+	public final fun component21 ()Ljava/lang/Float;
+	public final fun component3 ()F
+	public final fun component4 ()I
+	public final fun component5 ()I
+	public final fun component6 ()Z
+	public final fun component7 ()Ljava/lang/String;
+	public final fun component8 ()[B
+	public final fun component9 ()F
+	public final fun copy (Ljava/lang/String;FFIIZLjava/lang/String;[BFFFLjava/util/List;IIIIZZIILjava/lang/Float;)Lee/schimke/composeai/rcplayer/runtime/RcStyledText;
+	public static synthetic fun copy$default (Lee/schimke/composeai/rcplayer/runtime/RcStyledText;Ljava/lang/String;FFIIZLjava/lang/String;[BFFFLjava/util/List;IIIIZZIILjava/lang/Float;ILjava/lang/Object;)Lee/schimke/composeai/rcplayer/runtime/RcStyledText;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getColor ()I
+	public final fun getDensity ()F
+	public final fun getFontAxes ()Ljava/util/List;
+	public final fun getFontData ()[B
+	public final fun getFontFamily ()Ljava/lang/String;
+	public final fun getFontSize ()F
+	public final fun getFontWeight ()I
+	public final fun getHyphenation ()I
+	public final fun getItalic ()Z
+	public final fun getJustification ()I
+	public final fun getLetterSpacing ()F
+	public final fun getLineBreak ()I
+	public final fun getLineHeightAdd ()F
+	public final fun getLineHeightMultiplier ()F
+	public final fun getMaxLines ()I
+	public final fun getMaxWidth ()Ljava/lang/Float;
+	public final fun getOverflow ()I
+	public final fun getStrikethrough ()Z
+	public final fun getText ()Ljava/lang/String;
+	public final fun getTextAlign ()I
+	public final fun getUnderline ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ee/schimke/composeai/rcplayer/runtime/RcTextFormatter {
 	public static final field INSTANCE Lee/schimke/composeai/rcplayer/runtime/RcTextFormatter;
 	public final fun format (FIII)Ljava/lang/String;
+}
+
+public abstract interface class ee/schimke/composeai/rcplayer/runtime/RcTextRasterizer {
+	public abstract fun rasterize (Lee/schimke/composeai/rcplayer/runtime/RcStyledText;)Lee/schimke/composeai/rcplayer/runtime/RcRasterizedText;
 }
 
 public final class ee/schimke/composeai/rcplayer/runtime/RcTimeSnapshot {

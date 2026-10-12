@@ -271,6 +271,50 @@ final class ee.schimke.composeai.rcplayer.edit/RcTextApproximation { // ee.schim
     final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTextApproximation.toString|toString(){}[0]
 }
 
+final class ee.schimke.composeai.rcplayer.edit/RcTextImage { // ee.schimke.composeai.rcplayer.edit/RcTextImage|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin.collections/Set<kotlin/String>, kotlin/Float, kotlin/Float) // ee.schimke.composeai.rcplayer.edit/RcTextImage.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.collections.Set<kotlin.String>;kotlin.Float;kotlin.Float){}[0]
+
+    final val componentId // ee.schimke.composeai.rcplayer.edit/RcTextImage.componentId|{}componentId[0]
+        final fun <get-componentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTextImage.componentId.<get-componentId>|<get-componentId>(){}[0]
+    final val height // ee.schimke.composeai.rcplayer.edit/RcTextImage.height|{}height[0]
+        final fun <get-height>(): kotlin/Float // ee.schimke.composeai.rcplayer.edit/RcTextImage.height.<get-height>|<get-height>(){}[0]
+    final val kept // ee.schimke.composeai.rcplayer.edit/RcTextImage.kept|{}kept[0]
+        final fun <get-kept>(): kotlin.collections/Set<kotlin/String> // ee.schimke.composeai.rcplayer.edit/RcTextImage.kept.<get-kept>|<get-kept>(){}[0]
+    final val textId // ee.schimke.composeai.rcplayer.edit/RcTextImage.textId|{}textId[0]
+        final fun <get-textId>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTextImage.textId.<get-textId>|<get-textId>(){}[0]
+    final val width // ee.schimke.composeai.rcplayer.edit/RcTextImage.width|{}width[0]
+        final fun <get-width>(): kotlin/Float // ee.schimke.composeai.rcplayer.edit/RcTextImage.width.<get-width>|<get-width>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTextImage.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTextImage.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/Set<kotlin/String> // ee.schimke.composeai.rcplayer.edit/RcTextImage.component3|component3(){}[0]
+    final fun component4(): kotlin/Float // ee.schimke.composeai.rcplayer.edit/RcTextImage.component4|component4(){}[0]
+    final fun component5(): kotlin/Float // ee.schimke.composeai.rcplayer.edit/RcTextImage.component5|component5(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin.collections/Set<kotlin/String> = ..., kotlin/Float = ..., kotlin/Float = ...): ee.schimke.composeai.rcplayer.edit/RcTextImage // ee.schimke.composeai.rcplayer.edit/RcTextImage.copy|copy(kotlin.Int;kotlin.Int;kotlin.collections.Set<kotlin.String>;kotlin.Float;kotlin.Float){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcTextImage.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTextImage.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTextImage.toString|toString(){}[0]
+}
+
+final class ee.schimke.composeai.rcplayer.edit/RcTextImages { // ee.schimke.composeai.rcplayer.edit/RcTextImages|null[0]
+    constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextImage>, kotlin.collections/List<kotlin/Int>) // ee.schimke.composeai.rcplayer.edit/RcTextImages.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcTextImage>;kotlin.collections.List<kotlin.Int>){}[0]
+
+    final val document // ee.schimke.composeai.rcplayer.edit/RcTextImages.document|{}document[0]
+        final fun <get-document>(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcTextImages.document.<get-document>|<get-document>(){}[0]
+    final val images // ee.schimke.composeai.rcplayer.edit/RcTextImages.images|{}images[0]
+        final fun <get-images>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextImage> // ee.schimke.composeai.rcplayer.edit/RcTextImages.images.<get-images>|<get-images>(){}[0]
+    final val skipped // ee.schimke.composeai.rcplayer.edit/RcTextImages.skipped|{}skipped[0]
+        final fun <get-skipped>(): kotlin.collections/List<kotlin/Int> // ee.schimke.composeai.rcplayer.edit/RcTextImages.skipped.<get-skipped>|<get-skipped>(){}[0]
+
+    final fun component1(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcTextImages.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextImage> // ee.schimke.composeai.rcplayer.edit/RcTextImages.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/List<kotlin/Int> // ee.schimke.composeai.rcplayer.edit/RcTextImages.component3|component3(){}[0]
+    final fun copy(ee.schimke.composeai.rcplayer.protocol/RcDocument = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcTextImage> = ..., kotlin.collections/List<kotlin/Int> = ...): ee.schimke.composeai.rcplayer.edit/RcTextImages // ee.schimke.composeai.rcplayer.edit/RcTextImages.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcTextImage>;kotlin.collections.List<kotlin.Int>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcTextImages.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcTextImages.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcTextImages.toString|toString(){}[0]
+}
+
 final object ee.schimke.composeai.rcplayer.edit/RcProfiles { // ee.schimke.composeai.rcplayer.edit/RcProfiles|null[0]
     final const val ANDROIDX // ee.schimke.composeai.rcplayer.edit/RcProfiles.ANDROIDX|{}ANDROIDX[0]
         final fun <get-ANDROIDX>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcProfiles.ANDROIDX.<get-ANDROIDX>|<get-ANDROIDX>(){}[0]
@@ -320,6 +364,7 @@ final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.compose
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts|collapseConstantStateLayouts@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks(kotlin/Int? = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks|colorThemesAsFallbacks@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Int?){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/combineAsStates(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin/String = ..., kotlin.collections/List<kotlin/Pair<kotlin/Int, kotlin/Int>> = ..., kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.edit/RcCombinedDocument // ee.schimke.composeai.rcplayer.edit/combineAsStates|combineAsStates@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.String;kotlin.collections.List<kotlin.Pair<kotlin.Int,kotlin.Int>>;kotlin.Boolean){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/coreTextAsImages(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, ee.schimke.composeai.rcplayer.runtime/RcTextRasterizer, ee.schimke.composeai.rcplayer.edit/RcDisplay = ..., kotlin/Function1<kotlin/Int, kotlin/Float?> = ...): ee.schimke.composeai.rcplayer.edit/RcTextImages // ee.schimke.composeai.rcplayer.edit/coreTextAsImages|coreTextAsImages@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;ee.schimke.composeai.rcplayer.runtime.RcTextRasterizer;ee.schimke.composeai.rcplayer.edit.RcDisplay;kotlin.Function1<kotlin.Int,kotlin.Float?>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/embedBitmapUrls(kotlin.collections/Map<kotlin/String, kotlin/ByteArray>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/embedBitmapUrls|embedBitmapUrls@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/foldConstantExpressions(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/foldConstantExpressions|foldConstantExpressions@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/hardcodeDensity(kotlin/Float, kotlin/Float = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/hardcodeDensity|hardcodeDensity@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Float;kotlin.Float){}[0]

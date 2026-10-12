@@ -97,6 +97,19 @@ public final class ee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverit
 	public static fun values ()[Lee/schimke/composeai/rcplayer/compose/RcComposeSupportSeverity;
 }
 
+public final class ee/schimke/composeai/rcplayer/compose/RcComposeTextRasterizer : ee/schimke/composeai/rcplayer/runtime/RcTextRasterizer {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;)V
+	public synthetic fun <init> (Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun rasterize (Lee/schimke/composeai/rcplayer/runtime/RcStyledText;)Lee/schimke/composeai/rcplayer/runtime/RcRasterizedText;
+}
+
+public final class ee/schimke/composeai/rcplayer/compose/RcCoreTextWidthsKt {
+	public static final fun coreTextWidths (Lee/schimke/composeai/rcplayer/protocol/RcDocument;FLee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;II)Ljava/util/Map;
+	public static synthetic fun coreTextWidths$default (Lee/schimke/composeai/rcplayer/protocol/RcDocument;FLee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;IIILjava/lang/Object;)Ljava/util/Map;
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcCustomComponent {
 	public static final field $stable I
 	public final fun Child (ILandroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V

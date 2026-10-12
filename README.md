@@ -124,6 +124,26 @@ line height and font axes, which `TextLayout` has no field for:
 older devices a different design instead, keep a separate template per profile and check each with
 `validateFor`.
 
+To keep that styling rather than drop it, draw the text: `coreTextAsImages(target, rasterizer,
+display, wrapWidth)` replaces each styled `CoreText` whose text is constant with an embedded image
+of it, in a box that keeps the component's id, modifiers and accessibility text, sized in dp so it
+scales with the device. A colour set at playback stays live: a Wear host's named colour, or a
+`ColorTheme` that `adaptTo` turns into Android 16 theme sections, tints a white mask of the text
+drawn in a canvas. Launcher widgets at level 7 have `CoreText` and `ColorTheme` and need neither.
+`RcComposeTextRasterizer` (in `rc-player-compose`) draws with this player's own text stack and
+fonts; on the JVM, `coreTextWidths(density, typefaces)` measures where the player wraps each text,
+so a paragraph breaks its lines where it did. Over the catalog served to Wear widgets, 340 texts in
+213 documents become images (294 of them tinted masks), each document at least as close to its
+`CoreText` original as with the styling dropped and 184 matching it. Evidence — original, images,
+styling dropped — is under [`renders/rc-text-images/`](renders/rc-text-images/).
+
+```kotlin
+val widths = document.coreTextWidths(density = 2f, typefaces)
+val drawn =
+  document.coreTextAsImages(wear, RcComposeTextRasterizer(typefaces), RcDisplay(2f)) { widths[it] }
+val adapted = drawn.document.adaptTo(wear)
+```
+
 Neither API level 6 nor Wear has `ColorTheme`, the light/dark pair of system colours.
 `adaptTo(target, setOf(RcApproximation.THEME_COLORS))` replaces each one with its recorded
 fallbacks (`colorThemesAsFallbacks()`): in theme sections, the way AndroidX's level 6 widget writer
