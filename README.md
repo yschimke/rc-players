@@ -448,20 +448,26 @@ rather than by what the change touched:
 | Android host tests for all four published modules (`compose` under Robolectric, including a remote-m3 catalog sample) | ✅ | |
 | Vendored Android player, Robolectric (`testDebugUnitTest`) | ✅ | |
 | Vendored TypeScript player | ✅ | |
-| `macosArm64Test`, `iosSimulatorArm64Test`, `wasmJsBrowserTest` | | ✅ |
+| `wasmJsBrowserTest` | ✅ | ✅ (via `allTests`) |
+| `macosArm64Test`, `iosSimulatorArm64Test` | | ✅ |
 | `iosArm64` — device | | compiled only; a hosted runner has no device to run it on |
 | The shipped Wasm bundle, in a real browser | ✅ `scripts/wasm-smoke` | |
-| ABI gate (`checkKotlinAbi`) | | ✅ — the dumps cover the Apple klibs, which only build here |
+| ABI gate (`checkKotlinAbi`), Apple klibs included — Kotlin/Native cross-compiles them on Linux | ✅ | ✅ |
 | Native Swift player tests (`RC_COMPOSE_PLAYER_NATIVE_ONLY=1 swift test`, and the same target on an iOS simulator) | | ✅, path-gated with the row below |
 | XCFramework link, Swift type check, Xcode packaging | | ✅, and **only** when the change can affect them |
 
-Both lanes run on every pull request. Only the last two rows are path-gated (the `apple-changes`
-job): the release link is what makes the macOS lane expensive, and a change that cannot reach the
-Apple artifacts should not pay for it. The native Swift tests share that gate because nothing
-outside its paths — `Sources`, `Tests/RcNativePlayerCoreTests`, `Tests/RcNativePlayerUIKitTests`, the manifests — can change them. Test execution is never gated — a lane that can only run here is
-worth its minutes on every change, and the previous arrangement, where the path filter skipped the
-whole job, meant a change confined to `rc-player/wasm` or `third_party/` merged without a single
-Kotlin/Native or wasm test running.
+The Linux lane runs on every pull request and every push. The macOS lane runs on every push to
+main, but on a pull request **only when the change touches the Apple projects** (the `lane` output of
+the `apple-changes` job): `Package.swift`, `Sources`, the native Swift tests, the Apple samples and
+scripts, the Kotlin `apple*`/`ios*`/`macos*`/`native*` source sets, or the CI and release workflows
+themselves. A macOS runner queues for 30-80 minutes, and a Gradle dependency bump or a common-code
+change used to pay that on every PR. The trade: such a change gets its Kotlin/Native test run, its
+XCFramework link and its Swift checks from main's push run, after merge, rather than before. The
+wasm browser tests and the ABI gate, which once made the macOS lane mandatory, run on Linux, so a
+change confined to `rc-player/wasm` or `third_party/` still runs them before it merges (#77).
+
+Inside the macOS lane, the last two rows are gated again by the wider `required` list, so a push to
+main skips the release link and the Swift packaging when nothing they build from changed.
 
 Each lane then runs [`scripts/assert-test-execution.sh`](scripts/assert-test-execution.sh) over the
 JUnit XML. `allTests` resolves its members per target on the runner, so a target that cannot run

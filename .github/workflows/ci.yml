@@ -28,13 +28,21 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # What in the macOS lane is worth its minutes on this change. It used to gate the *whole* lane,
-  # which quietly made it the gate on all Kotlin/Native and wasm test execution: a change confined
-  # to `rc-player/wasm`, `rc-player/metrics`, `rc-player/profile`, `rc-player/compat-tests` or
-  # `third_party/` matched nothing here and shipped without a single non-JVM test running (#77).
-  # The expensive half was never the tests — it is the XCFramework link, the Swift type check and
-  # the Xcode packaging — so those are what this gates now, step by step below, and the tests and
-  # the ABI gate run on every pull request.
+  # Whether the macOS lane runs at all, and what in it is worth its minutes. Two outputs:
+  #
+  # `lane` decides whether `players-macos` runs. On a push to main it always does. On a pull
+  # request it runs only when the change touches the Apple projects themselves: the Swift package
+  # and its tests, the Apple samples, the Apple scripts, the Kotlin `apple*`/`ios*`/`macos*`/
+  # `native*` source sets, or this workflow. Everything else, including a Gradle dependency bump
+  # or a common-code change, waits for main's push run to exercise the XCFramework link and the
+  # Swift side: a macOS runner queues for 30-80 minutes, and every such PR paid that. What used to
+  # make the lane mandatory on every PR (#77) now runs on Linux in `jvm`: the wasm browser tests,
+  # and the ABI gate including the Apple klibs, which Kotlin/Native cross-compiles off macOS.
+  #
+  # `required` gates the packaging steps inside the lane once it runs: the XCFramework link, the
+  # Swift type check and the Xcode packaging. It is the wider list, so a push to main still skips
+  # packaging when nothing it builds from changed. On a pull request `lane` implies `required`,
+  # because every `lane` path lies inside a `required` one.
   #
   # Keep the list here (rather than a third-party path-filter action) so the exact trust boundary is
   # visible and changes to this workflow always exercise the lane once before changing its own gate.
@@ -53,6 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       required: ${{ steps.filter.outputs.required }}
+      lane: ${{ steps.filter.outputs.lane }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,6 +70,7 @@ jobs:
       - name: Check whether the Apple lane is required
         id: filter
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -123,6 +133,36 @@ jobs:
           fi
           echo "required=$required" | tee -a "$GITHUB_OUTPUT"
 
+          lane=true
+          if [ "$EVENT_NAME" = pull_request ] && \
+            git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null && \
+            git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+              .github/workflows/ci.yml \
+              .github/workflows/release.yml \
+              Package.swift \
+              Sources \
+              Tests/RcNativePlayerCoreTests \
+              Tests/RcNativePlayerUIKitTests \
+              distribution/native-uikit \
+              ':(glob)rc-player/*/src/apple*/**' \
+              ':(glob)rc-player/*/src/ios*/**' \
+              ':(glob)rc-player/*/src/macos*/**' \
+              ':(glob)rc-player/*/src/native*/**' \
+              samples/apple-player \
+              samples/macos-player \
+              ':(glob)scripts/*apple*' \
+              ':(glob)scripts/*macos*' \
+              ':(glob)scripts/*native-uikit*' \
+              ':(glob)scripts/*native-appkit*' \
+              ':(glob)scripts/*swift*' \
+              scripts/simulator-boot.sh \
+              scripts/rc-catalog-corpus \
+              docs/design/RC_PLAYER_SWIFT.md
+          then
+            lane=false
+          fi
+          echo "lane=$lane" | tee -a "$GITHUB_OUTPUT"
+
   # The pure-Swift document core on Linux. It imports Foundation alone, so the one part of the native
   # player that every Apple host sits on can be tested on the cheap lane, in minutes, instead of
   # only behind the macOS job's packaging gate. Off Apple platforms `Package.swift` declares only
@@ -167,10 +207,11 @@ jobs:
   # The Linux lane: everything that does not need a Mac. The JVM cuts of the whole player stack,
   # both vendored players, and the build-only fixture generators.
   #
-  # `checkKotlinAbi` is deliberately NOT here. The committed dumps include a `.klib.api` covering the
-  # Apple and wasmJs targets, and the Apple klibs only build on macOS — running the gate on Linux would
-  # diff a partial surface against a complete dump. It runs in `players-macos` below, which is the
-  # one job that can see all of it.
+  # `checkKotlinAbi` runs here as well as in `players-macos`. The committed `.klib.api` dumps cover
+  # the Apple and wasmJs targets, and Kotlin/Native cross-compiles Apple klibs on Linux (it cannot
+  # link them, which is the macOS lane's job), so this sees the whole surface: an edited
+  # `// Targets: [apple]` declaration in a dump fails it here. Since the macOS lane now skips pull
+  # requests that do not touch the Apple projects, this is where most PRs get the gate.
   #
   # Skipped on release-please's own release PR: it changes only the manifest, CHANGELOG.md and
   # version lines, and main's push run already verified all of the source. The PR author (or, for a
@@ -255,15 +296,32 @@ jobs:
             :rc-player-profile:test \
             :third-party-rc-embedded-player:testDebugUnitTest
 
+      # The wasm browser suites and the ABI gate, which until the macOS lane started skipping
+      # non-Apple PRs ran only there. Both work on Linux: wasmJs tests drive the runner's headless
+      # Chrome through Karma, and the gate cross-compiles the Apple klibs (see the note above).
+      - name: Run the wasm browser suites and the ABI gate
+        run: |
+          ./gradlew \
+            :rc-player-trace:checkKotlinAbi \
+            :rc-player-protocol:checkKotlinAbi \
+            :rc-player-runtime:checkKotlinAbi \
+            :rc-player-compose:checkKotlinAbi \
+            :rc-player-edit:checkKotlinAbi \
+            :rc-player-trace:wasmJsBrowserTest \
+            :rc-player-protocol:wasmJsBrowserTest \
+            :rc-player-runtime:wasmJsBrowserTest \
+            :rc-player-compose:wasmJsBrowserTest \
+            :rc-player-edit:wasmJsBrowserTest
+
       # A test task that resolves to nothing still goes green. See the script's header.
       - name: Assert the JVM and Android suites executed
         run: |
           scripts/assert-test-execution.sh \
-            rc-player/trace:jvmTest,testAndroidHostTest \
-            rc-player/protocol:jvmTest,testAndroidHostTest \
-            rc-player/runtime:jvmTest,testAndroidHostTest \
-            rc-player/compose:jvmTest,testAndroidHostTest \
-            rc-player/edit:jvmTest,testAndroidHostTest \
+            rc-player/trace:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
+            rc-player/protocol:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
+            rc-player/runtime:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
+            rc-player/compose:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
+            rc-player/edit:jvmTest,testAndroidHostTest,wasmJsBrowserTest \
             rc-player/wasm:jvmTest \
             rc-player/compat-tests:test \
             rc-player/metrics:test \
@@ -302,16 +360,16 @@ jobs:
             **/build/test-results/**
           retention-days: 7
 
-  # The macOS lane: the native Apple targets, the wasm browser tests, and the ABI gate that depends
-  # on them. This is the only host that can run any of the three, so it runs on every pull request —
-  # the `apple-changes` gate below applies to the packaging steps at the bottom of this job, not to
-  # the job (#77). A test-only run of this lane is a fraction of a full one: the release XCFramework
-  # link is the step that costs the minutes.
+  # The macOS lane: the Kotlin/Native Apple test targets, the Apple packaging, and (again, after
+  # `jvm`) the wasm browser tests and the ABI gate. It runs on every push to main and on the pull
+  # requests `apple-changes` says touch the Apple projects; the packaging steps at the bottom are
+  # gated a second time by its wider `required` list.
   players-macos:
     name: Apple + wasm tests, ABI gate, Apple packaging
     needs: apple-changes
-    # Skipped on the release-please PR; see the note on `jvm`.
-    if: ${{ !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
+    # Skipped on the release-please PR (see the note on `jvm`), and on a pull request that touches
+    # none of the Apple projects (see `apple-changes`). A skipped job satisfies the required check.
+    if: ${{ needs.apple-changes.outputs.lane == 'true' && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
     runs-on: macos-15
     timeout-minutes: 90
     steps:
