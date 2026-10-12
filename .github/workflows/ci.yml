@@ -242,6 +242,7 @@ jobs:
             :rc-player-runtime:jvmTest \
             :rc-player-compose:jvmTest \
             :rc-player-edit:jvmTest \
+            :rc-player-wasm:jvmTest \
             :rc-player-trace:testAndroidHostTest \
             :rc-player-protocol:testAndroidHostTest \
             :rc-player-runtime:testAndroidHostTest \
@@ -261,6 +262,7 @@ jobs:
             rc-player/runtime:jvmTest,testAndroidHostTest \
             rc-player/compose:jvmTest,testAndroidHostTest \
             rc-player/edit:jvmTest,testAndroidHostTest \
+            rc-player/wasm:jvmTest \
             rc-player/compat-tests:test \
             rc-player/metrics:test \
             rc-player/profile:test \
