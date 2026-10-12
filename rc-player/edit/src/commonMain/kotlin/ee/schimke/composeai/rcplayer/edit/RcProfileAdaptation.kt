@@ -4,6 +4,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
 import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
@@ -15,6 +16,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
+import ee.schimke.composeai.rcplayer.protocol.RcSystemVariables
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
 import ee.schimke.composeai.rcplayer.protocol.RcVersion
@@ -101,26 +103,27 @@ public fun RcDocument.adaptTo(
 public fun RcDocument.adaptTo(
   target: RcTargetProfile,
   approximations: Set<RcApproximation>,
-): RcProfileAdaptation = adaptTo(target, approximations, display = null)
+): RcProfileAdaptation = adaptTo(target, approximations, RcDisplay.DEFAULT)
 
 /**
  * [adaptTo] for a document generated for one [display] — the density and font scale the client
- * reported when it asked for the document.
+ * reported when it asked for the document. The overloads without one assume [RcDisplay.DEFAULT];
+ * [needsDisplay] says whether the result depends on it, and so whether to ask the client.
  *
  * Below API level 7, where the player reads a text size or padding only as a literal, the
  * document's density and font-size expressions are baked for [display] first ([hardcodeDensity]),
  * so a `RemoteDensity.Host` document's sizes fold into the literals that player needs. [display]
  * also lets a level 7 header with legacy density behaviour be rewritten to the level 6 form: that
  * form makes Android 16 multiply border widths and offsets by the density, which the level 7 form
- * reads as pixels, so each is divided by [display]'s density. Without [display] such a header is
- * left as it is and reported.
+ * reads as pixels, so each is divided by [display]'s density. A variable one cannot be, and leaves
+ * the header as it is, reported.
  *
  * The result is right only on [display]: serve it to that client, not to others.
  */
 public fun RcDocument.adaptTo(
   target: RcTargetProfile,
   approximations: Set<RcApproximation>,
-  display: RcDisplay?,
+  display: RcDisplay,
 ): RcProfileAdaptation {
   val dropped = mutableListOf<RcTextApproximation>()
   val densityViolations = mutableListOf<RcProfileViolation>()
@@ -135,7 +138,10 @@ public fun RcDocument.adaptTo(
   return RcProfileAdaptation(adapted, adapted.validateFor(target) + densityViolations, dropped)
 }
 
-/** The display a document is generated for, as the client reports it. */
+/**
+ * The display a document is generated for, as the client reports it — the hint to request when
+ * [needsDisplay] says a document's adaptation depends on it.
+ */
 public data class RcDisplay(
   /** Device pixels per dp. */
   val density: Float,
@@ -146,11 +152,43 @@ public data class RcDisplay(
     require(density.isFinite() && density > 0f) { "density must be positive: $density" }
     require(fontScale.isFinite() && fontScale > 0f) { "fontScale must be positive: $fontScale" }
   }
+
+  public companion object {
+    /**
+     * What [adaptTo] assumes when the client did not say: a 420dpi phone (density 2.625) at the
+     * default text size. Close for most phones; ask the client ([needsDisplay]) where it matters.
+     */
+    public val DEFAULT: RcDisplay = RcDisplay(density = 2.625f)
+  }
 }
 
-private fun RcDocument.bakeDensity(target: RcTargetProfile, display: RcDisplay?): RcDocument =
-  if (display == null || target.apiLevel >= 7) this
-  else hardcodeDensity(display.density, display.fontScale)
+/**
+ * Whether adapting this document to [target] depends on the display it is served to: whether
+ * [adaptTo] would bake the display's density into it, or convert sizes by it. When true, generate
+ * it per client from the density and font scale the client reports; when false, one adaptation
+ * serves every display.
+ */
+public fun RcDocument.needsDisplay(target: RcTargetProfile): Boolean {
+  if (target.apiLevel >= 7) return false
+  val readsDensity = operations.any { operation ->
+    operation is RcFloatExpression &&
+      operation.expression.any { it.referencedId in DISPLAY_VARIABLES }
+  }
+  if (readsDensity) return true
+  if (legacyHeader(header) == header) return false
+  return operations.any { operation ->
+    when (operation) {
+      is RcBorderModifier -> operation.borderWidth.bits != 0
+      is RcOffsetModifier -> operation.x.bits != 0 || operation.y.bits != 0
+      else -> false
+    }
+  }
+}
+
+private val DISPLAY_VARIABLES = setOf(RcSystemVariables.DENSITY, RcSystemVariables.FONT_SIZE)
+
+private fun RcDocument.bakeDensity(target: RcTargetProfile, display: RcDisplay): RcDocument =
+  if (target.apiLevel >= 7) this else hardcodeDensity(display.density, display.fontScale)
 
 private fun RcDocument.colorThemes(target: RcTargetProfile, approximate: Boolean): RcDocument {
   if (!approximate || RcOpcodes.COLOR_THEME in target.supportedOpcodes) return this
@@ -260,7 +298,7 @@ private class LiteralColor(val flags: Int, val colorId: Int, val rgba: List<RcFl
 
 private fun RcDocument.headerFor(
   target: RcTargetProfile,
-  display: RcDisplay?,
+  display: RcDisplay,
   violations: MutableList<RcProfileViolation>,
 ): RcDocument {
   if (target.apiLevel >= 7) {
@@ -277,10 +315,10 @@ private fun RcDocument.headerFor(
  * This document's border widths and offsets as the level 6 header form reads them: a level 7 header
  * with legacy density behaviour has them in pixels, and Android 16 multiplies them by the density.
  * Each literal is divided by [display]'s density; null, with the reason in [violations], when one
- * is non-zero and there is no [display] or it is a variable.
+ * is a variable.
  */
 private fun RcDocument.densityScaledAsLegacy(
-  display: RcDisplay?,
+  display: RcDisplay,
   violations: MutableList<RcProfileViolation>,
 ): RcDocument? {
   val scaled = mutableListOf<RcOperation>()
@@ -294,20 +332,18 @@ private fun RcDocument.densityScaledAsLegacy(
           return@forEachIndexed
         }
       }
-    val unscalable = fields.filter { (_, word) ->
-      word.bits != 0 && (display == null || word.isNaNEncoded)
-    }
+    val unscalable = fields.filter { (_, word) -> word.bits != 0 && word.isNaNEncoded }
     unscalable.forEach { (field, _) ->
       violations +=
         RcProfileViolation(
           RcProfileViolation.Kind.DENSITY_SCALED,
           index,
           operation.opcode,
-          "${operationName(operation.opcode)}.$field is in pixels here and in dp on API level 6: " +
-            if (display == null) "adapt with the client's RcDisplay" else "it must be a literal",
+          "${operationName(operation.opcode)}.$field is in pixels here and in dp on API level 6, " +
+            "so it must be a literal",
         )
     }
-    if (unscalable.isNotEmpty() || display == null) {
+    if (unscalable.isNotEmpty()) {
       scaled += operation
       return@forEachIndexed
     }

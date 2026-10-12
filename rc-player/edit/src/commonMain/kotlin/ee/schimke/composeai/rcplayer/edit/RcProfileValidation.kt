@@ -44,7 +44,7 @@ public data class RcProfileViolation(
 
     /**
      * A size the document's header has in pixels, which the header form the target reads has in dp:
-     * reported by [adaptTo] when it needs the client's [RcDisplay] to convert it.
+     * reported by [adaptTo] when it is a variable, which no display density can convert.
      */
     DENSITY_SCALED,
   }

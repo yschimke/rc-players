@@ -12,6 +12,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcVersion
 import ee.schimke.composeai.rcplayer.runtime.RcFloatExpressionEvaluator
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RcHardcodeDensityTest {
@@ -40,7 +41,7 @@ class RcHardcodeDensityTest {
 
   @Test
   fun aDensityExpressionDoesNotPlayOnBaklavaUntilTheDensityIsBaked() {
-    val kinds = dpPadding.adaptTo(RcTargetProfiles.WIDGETS_V6).violations.map { it.kind }
+    val kinds = dpPadding.validateFor(RcTargetProfiles.WIDGETS_V6).map { it.kind }
     assertEquals(List(4) { Kind.DYNAMIC_VALUE }, kinds)
 
     val baked = dpPadding.hardcodeDensity(2.75f)
@@ -66,6 +67,9 @@ class RcHardcodeDensityTest {
     val display = RcDisplay(density = 2.75f)
     val served = dpPadding.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), display)
     assertTrue(served.isPlayable, served.violations.toString())
+
+    assertTrue(dpPadding.needsDisplay(RcTargetProfiles.WIDGETS_V6))
+    assertFalse(dpPadding.needsDisplay(RcTargetProfiles.WIDGETS_V7))
 
     // A level 7 player reads the padding as a variable: nothing needs baking.
     val modern = dpPadding.adaptTo(RcTargetProfiles.WIDGETS_V7, emptySet(), display).document

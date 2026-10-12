@@ -250,21 +250,20 @@ class RcTargetProfileTest {
    * form Android 16 reads has them in dp, so rewriting the header needs the client's density.
    */
   @Test
-  fun rewritingTheHeaderForBaklavaConvertsPixelBordersAndOffsetsWithTheClientsDensity() {
+  fun rewritingTheHeaderForBaklavaConvertsPixelBordersAndOffsetsByTheDisplaysDensity() {
     val document =
       androidxDocument(
         border(0, 0, RcFloatWord.literal(3f)),
         RcOffsetModifier(RcFloatWord.literal(8f), RcFloatWord.literal(0f)),
       )
 
-    val blind = document.adaptTo(RcTargetProfiles.WIDGETS_V6)
-    assertTrue(blind.document.header.modern, "the header was rewritten without a density")
-    assertEquals(
-      listOf(Kind.DENSITY_SCALED to 0, Kind.DENSITY_SCALED to 1),
-      blind.violations
-        .filter { it.kind == Kind.DENSITY_SCALED }
-        .map { it.kind to it.operationIndex },
-    )
+    // The conversion depends on the display: the server should ask the client for it.
+    assertTrue(document.needsDisplay(RcTargetProfiles.WIDGETS_V6))
+    assertFalse(document.needsDisplay(RcTargetProfiles.WIDGETS_V7))
+
+    // Not asked, it assumes a typical phone.
+    val assumed = document.adaptTo(RcTargetProfiles.WIDGETS_V6).document.operations[0]
+    assertEquals(border(0, 0, RcFloatWord.literal(3f / 2.625f)), assumed)
 
     val served = document.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), RcDisplay(density = 2f))
     assertTrue(served.isPlayable, served.violations.toString())
