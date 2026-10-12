@@ -84,7 +84,8 @@
     guard type >= 0, let cue = NativeDocumentHaptic(rawValue: type % 21), cue != .none else {
       return
     }
-    #if canImport(UIKit)
+    // visionOS and tvOS have UIKit but none of its feedback generators.
+    #if canImport(UIKit) && !os(visionOS) && !os(tvOS)
       switch cue {
       case .longPress, .contextClick, .gestureThresholdActivate, .dragStart:
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -104,6 +105,8 @@
       }
     #elseif canImport(AppKit)
       NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+    #else
+      _ = cue
     #endif
   }
 
