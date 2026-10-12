@@ -686,12 +686,21 @@ private val textStyleIntProperties: Set<Int> =
 private val textStyleFloatProperties: Set<Int> = setOf(5, 7, 12, 13, 14, 25, 26)
 private val textStyleBooleanProperties: Set<Int> = setOf(18, 19, 22)
 
+/**
+ * The text style properties AndroidX's `TextStyle` and `CoreText` read through the remap context:
+ * component id, animation id, colour id, font family and parent style. A remapping reader — macro
+ * expansion, a merge — must move them with the ids they name.
+ */
+private val textStyleIdProperties: Set<Int> = setOf(1, 2, 4, 8, 24)
+
 private fun RcWireReader.readTextStyleProperties(field: String): List<RcTextStyleProperty> {
   val count = readU16("$field.count")
   if (count > 26) fail("$field.count", "Invalid text property count $count")
   return List(count) { index ->
     val propertyField = "$field[$index]"
     when (val id = readU8("$propertyField.id")) {
+      in textStyleIdProperties ->
+        RcTextStyleProperty.IntValue(id, resolveId(readInt("$propertyField.value")))
       in textStyleIntProperties -> RcTextStyleProperty.IntValue(id, readInt("$propertyField.value"))
       in textStyleFloatProperties ->
         RcTextStyleProperty.FloatValue(id, readFloatWord("$propertyField.value"))
@@ -1326,7 +1335,12 @@ private object GraphicsLayerModifierCodec : RcOperationCodec<RcGraphicsLayerModi
           0 ->
             RcGraphicsLayerAttribute.IntValue(
               attributeIndex,
-              input.readInt("attributes[$index].intValue"),
+              when (attributeIndex) {
+                RcGraphicsLayerModifier.SPOT_SHADOW_COLOR,
+                RcGraphicsLayerModifier.AMBIENT_SHADOW_COLOR ->
+                  input.readId("attributes[$index].intValue")
+                else -> input.readInt("attributes[$index].intValue")
+              },
             )
           1 ->
             RcGraphicsLayerAttribute.FloatValue(
@@ -1663,14 +1677,35 @@ private object ColorConstantCodec : RcOperationCodec<RcColorConstant> {
 private object ColorExpressionCodec : RcOperationCodec<RcColorExpression> {
   override val spec = RcOperationSpec(RcOpcodes.COLOR_EXPRESSIONS, "ColorExpression")
 
-  override fun decode(input: RcWireReader): RcColorExpression =
-    RcColorExpression(
-      input.readDeclaredId("outId"),
-      input.readInt("modeAndAlpha"),
-      input.readInt("first"),
-      input.readInt("second"),
-      input.readInt("third"),
-    )
+  /**
+   * AndroidX `ColorExpression.read`: interpolation modes name colour ids by their low mode bits,
+   * HSV and ARGB modes carry NaN-boxed floats, and IDARGB keeps its alpha id in the mode's high
+   * half.
+   */
+  override fun decode(input: RcWireReader): RcColorExpression {
+    val outId = input.readDeclaredId("outId")
+    var modeAndAlpha = input.readInt("modeAndAlpha")
+    val mode = modeAndAlpha and 0xff
+    fun color(field: String, isId: Boolean) =
+      if (isId) input.readId(field) else input.readInt(field)
+    fun float(field: String) = input.readFloatWord(field).bits
+    return when (mode) {
+      in 0..3 ->
+        RcColorExpression(
+          outId,
+          modeAndAlpha,
+          color("first", mode and 1 != 0),
+          color("second", mode and 2 != 0),
+          float("third"),
+        )
+      else -> {
+        if (mode == 6) {
+          modeAndAlpha = (input.resolveId(modeAndAlpha shr 16) shl 16) or (modeAndAlpha and 0xffff)
+        }
+        RcColorExpression(outId, modeAndAlpha, float("first"), float("second"), float("third"))
+      }
+    }
+  }
 
   override fun encode(output: RcWireWriter, value: RcColorExpression) {
     output.writeInt(value.outId)
@@ -1731,7 +1766,16 @@ private object IntegerExpressionCodec : RcOperationCodec<RcIntegerExpression> {
     if (count > input.limits.maxCollectionEntries) {
       input.fail("values.count", "Integer expression exceeds configured collection limit")
     }
-    return RcIntegerExpression(outId, mask, List(count) { input.readInt("values[$it]") })
+    // AndroidX `IntegerExpression.isId`: a masked value below the operator range is a variable id.
+    return RcIntegerExpression(
+      outId,
+      mask,
+      List(count) {
+        val value = input.readInt("values[$it]")
+        if (it < 32 && (1 shl it) and mask != 0 && value < 0x10000) input.resolveId(value)
+        else value
+      },
+    )
   }
 
   override fun encode(output: RcWireWriter, value: RcIntegerExpression) {
@@ -1936,13 +1980,77 @@ private object IdLookupCodec : RcOperationCodec<RcIdLookup> {
   }
 }
 
+/**
+ * AndroidX `PaintBundle.resolveIds`: the ids a paint bundle names — colour, colour filter, shader,
+ * typeface and texture ids, gradient colour registers, font-axis tags — and the NaN-boxed float ids
+ * in its stroke, alpha, text size, matrix, gradient and path-effect values, moved by [resolve] as a
+ * remapping reader reads them. A bundle that runs short is left as far as it was read.
+ */
+private fun resolvePaintIds(words: IntArray, resolve: (Int) -> Int) {
+  fun resolveFloat(at: Int) {
+    val word = RcFloatWord(words[at])
+    val id = word.referencedId ?: return
+    words[at] = (word.bits and 0xffc00000.toInt()) or (resolve(id) and 0x003fffff)
+  }
+  var i = 0
+  try {
+    while (i < words.size) {
+      val command = words[i++]
+      when (command and 0xffff) {
+        1,
+        5,
+        6,
+        12,
+        22 -> resolveFloat(i++)
+        9,
+        16,
+        19,
+        20,
+        24,
+        26 -> words[i] = resolve(words[i]).also { i++ }
+        4,
+        13 -> i++
+        23 ->
+          repeat(command shr 16) {
+            words[i] = resolve(words[i])
+            i++
+            resolveFloat(i++)
+          }
+        11 -> {
+          val type = command shr 16
+          val control = words[i++]
+          val registers = 0xffff and (control shr 16)
+          repeat(0xff and control) { j ->
+            if (registers and (1 shl j) != 0) words[i] = resolve(words[i])
+            i++
+          }
+          repeat(words[i++]) { resolveFloat(i++) }
+          resolveFloat(i++)
+          resolveFloat(i++)
+          when (type) {
+            0 -> repeat(2) { resolveFloat(i++) }
+            1 -> resolveFloat(i++)
+            3 -> repeat(4) { resolveFloat(i++) }
+          }
+          i++ // tile mode
+        }
+        25 -> repeat(command shr 16) { resolveFloat(i++) }
+      }
+    }
+  } catch (_: IndexOutOfBoundsException) {
+    // Malformed: the player rejects or truncates it; nothing past the end is an id to move.
+  }
+}
+
 private object PaintDataCodec : RcOperationCodec<RcPaintData> {
   override val spec = RcOperationSpec(RcOpcodes.PAINT_VALUES, "PaintData")
 
   override fun decode(input: RcWireReader): RcPaintData {
     val count = input.readCount("words.count", input.limits.maxPaintWords)
     if (count == 0) input.fail("words.count", "AndroidX PaintBundle requires at least one word")
-    return RcPaintData(List(count) { input.readInt("words[$it]") })
+    val words = IntArray(count) { input.readInt("words[$it]") }
+    resolvePaintIds(words, input::resolveId)
+    return RcPaintData(words.toList())
   }
 
   override fun encode(output: RcWireWriter, value: RcPaintData) {
@@ -2005,7 +2113,10 @@ private object PathDataCodec : RcOperationCodec<RcPathData> {
   override val spec = RcOperationSpec(RcOpcodes.DATA_PATH, "PathData")
 
   override fun decode(input: RcWireReader): RcPathData {
-    val idAndWinding = input.readInt("idAndWinding")
+    // The id shares its word with the winding rule; a remapping reader moves only the id.
+    val packed = input.readInt("idAndWinding")
+    val idAndWinding =
+      (packed and 0xff000000.toInt()) or (input.resolveId(packed and 0x00ffffff) and 0x00ffffff)
     val count = input.readCount("words.count", input.limits.maxPathWords)
     return RcPathData(idAndWinding, List(count) { input.readFloatWord("words[$it]") })
   }

@@ -97,6 +97,28 @@ sealed interface ee.schimke.composeai.rcplayer.edit/RcHardcodedValue { // ee.sch
     }
 }
 
+final class ee.schimke.composeai.rcplayer.edit/RcCombinedDocument { // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument|null[0]
+    constructor <init>(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin/String, kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcSharedElement>, kotlin/Int) // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.<init>|<init>(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.String;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcSharedElement>;kotlin.Int){}[0]
+
+    final val document // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.document|{}document[0]
+        final fun <get-document>(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.document.<get-document>|<get-document>(){}[0]
+    final val sharedDefinitions // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.sharedDefinitions|{}sharedDefinitions[0]
+        final fun <get-sharedDefinitions>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.sharedDefinitions.<get-sharedDefinitions>|<get-sharedDefinitions>(){}[0]
+    final val sharedElements // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.sharedElements|{}sharedElements[0]
+        final fun <get-sharedElements>(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcSharedElement> // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.sharedElements.<get-sharedElements>|<get-sharedElements>(){}[0]
+    final val stateName // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.stateName|{}stateName[0]
+        final fun <get-stateName>(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.stateName.<get-stateName>|<get-stateName>(){}[0]
+
+    final fun component1(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.component1|component1(){}[0]
+    final fun component2(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcSharedElement> // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.component3|component3(){}[0]
+    final fun component4(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.component4|component4(){}[0]
+    final fun copy(ee.schimke.composeai.rcplayer.protocol/RcDocument = ..., kotlin/String = ..., kotlin.collections/List<ee.schimke.composeai.rcplayer.edit/RcSharedElement> = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.edit/RcCombinedDocument // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.copy|copy(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.String;kotlin.collections.List<ee.schimke.composeai.rcplayer.edit.RcSharedElement>;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcCombinedDocument.toString|toString(){}[0]
+}
+
 final class ee.schimke.composeai.rcplayer.edit/RcDisplay { // ee.schimke.composeai.rcplayer.edit/RcDisplay|null[0]
     constructor <init>(kotlin/Float, kotlin/Float = ...) // ee.schimke.composeai.rcplayer.edit/RcDisplay.<init>|<init>(kotlin.Float;kotlin.Float){}[0]
 
@@ -175,6 +197,25 @@ final class ee.schimke.composeai.rcplayer.edit/RcProfileViolation { // ee.schimk
         final fun valueOf(kotlin/String): ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.valueOf|valueOf#static(kotlin.String){}[0]
         final fun values(): kotlin/Array<ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind> // ee.schimke.composeai.rcplayer.edit/RcProfileViolation.Kind.values|values#static(){}[0]
     }
+}
+
+final class ee.schimke.composeai.rcplayer.edit/RcSharedElement { // ee.schimke.composeai.rcplayer.edit/RcSharedElement|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int, kotlin/Int) // ee.schimke.composeai.rcplayer.edit/RcSharedElement.<init>|<init>(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+    final val animationId // ee.schimke.composeai.rcplayer.edit/RcSharedElement.animationId|{}animationId[0]
+        final fun <get-animationId>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcSharedElement.animationId.<get-animationId>|<get-animationId>(){}[0]
+    final val firstComponentId // ee.schimke.composeai.rcplayer.edit/RcSharedElement.firstComponentId|{}firstComponentId[0]
+        final fun <get-firstComponentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcSharedElement.firstComponentId.<get-firstComponentId>|<get-firstComponentId>(){}[0]
+    final val secondComponentId // ee.schimke.composeai.rcplayer.edit/RcSharedElement.secondComponentId|{}secondComponentId[0]
+        final fun <get-secondComponentId>(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcSharedElement.secondComponentId.<get-secondComponentId>|<get-secondComponentId>(){}[0]
+
+    final fun component1(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcSharedElement.component1|component1(){}[0]
+    final fun component2(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcSharedElement.component2|component2(){}[0]
+    final fun component3(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcSharedElement.component3|component3(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): ee.schimke.composeai.rcplayer.edit/RcSharedElement // ee.schimke.composeai.rcplayer.edit/RcSharedElement.copy|copy(kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ee.schimke.composeai.rcplayer.edit/RcSharedElement.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ee.schimke.composeai.rcplayer.edit/RcSharedElement.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ee.schimke.composeai.rcplayer.edit/RcSharedElement.toString|toString(){}[0]
 }
 
 final class ee.schimke.composeai.rcplayer.edit/RcSizeReport { // ee.schimke.composeai.rcplayer.edit/RcSizeReport|null[0]
@@ -278,6 +319,7 @@ final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.compose
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/adaptTo(ee.schimke.composeai.rcplayer.edit/RcTargetProfile, kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.edit/RcProfileAdaptation // ee.schimke.composeai.rcplayer.edit/adaptTo|adaptTo@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.edit.RcTargetProfile;kotlin.Boolean){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/collapseConstantStateLayouts|collapseConstantStateLayouts@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks(kotlin/Int? = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/colorThemesAsFallbacks|colorThemesAsFallbacks@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Int?){}[0]
+final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/combineAsStates(ee.schimke.composeai.rcplayer.protocol/RcDocument, kotlin/String = ..., kotlin.collections/List<kotlin/Pair<kotlin/Int, kotlin/Int>> = ..., kotlin/Boolean = ...): ee.schimke.composeai.rcplayer.edit/RcCombinedDocument // ee.schimke.composeai.rcplayer.edit/combineAsStates|combineAsStates@ee.schimke.composeai.rcplayer.protocol.RcDocument(ee.schimke.composeai.rcplayer.protocol.RcDocument;kotlin.String;kotlin.collections.List<kotlin.Pair<kotlin.Int,kotlin.Int>>;kotlin.Boolean){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/embedBitmapUrls(kotlin.collections/Map<kotlin/String, kotlin/ByteArray>): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/embedBitmapUrls|embedBitmapUrls@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.collections.Map<kotlin.String,kotlin.ByteArray>){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/foldConstantExpressions(): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/foldConstantExpressions|foldConstantExpressions@ee.schimke.composeai.rcplayer.protocol.RcDocument(){}[0]
 final fun (ee.schimke.composeai.rcplayer.protocol/RcDocument).ee.schimke.composeai.rcplayer.edit/hardcodeDensity(kotlin/Float, kotlin/Float = ...): ee.schimke.composeai.rcplayer.protocol/RcDocument // ee.schimke.composeai.rcplayer.edit/hardcodeDensity|hardcodeDensity@ee.schimke.composeai.rcplayer.protocol.RcDocument(kotlin.Float;kotlin.Float){}[0]
