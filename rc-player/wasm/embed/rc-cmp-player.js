@@ -65,6 +65,7 @@
    *   namedValues       [{ kind, name, value }] overrides, as RC_PLAYER_EMBED.md describes.
    *   fontsBase         directory of the player's `fonts.json`, relative to the player page.
    *   handoffDelayMs    cold-start tail before `ready`; keep the default unless you composite.
+   *   density           CSS pixels per dp; pass a snapshot's capture density to match its scale.
    *   playerUrl         the player page; default `index.html` next to this script.
    *   src | buffer      a first document, as a URL or bytes.
    *   onLoad(info)      called after each document is on screen.
@@ -96,6 +97,7 @@
       if (options.handoffDelayMs != null) {
         url.searchParams.set('handoffDelayMs', String(options.handoffDelayMs));
       }
+      if (options.density != null) url.searchParams.set('density', String(options.density));
       return url.href;
     }
 

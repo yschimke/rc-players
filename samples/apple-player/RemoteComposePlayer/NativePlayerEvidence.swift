@@ -143,7 +143,7 @@ private enum NativePlayerEvidence {
       let view = NativeDocumentView(
         document: document, resources: resources,
         customComponents: customComponents, onGesture: { _, _, _ in },
-        onCustomReturn: { _, _, _ in })
+        onClickArea: { _, _ in }, onCustomReturn: { _, _, _ in })
       view.frame = CGRect(origin: .zero, size: document.size)
       view.layoutIfNeeded()
       firstFrameSamples.append(milliseconds(since: started))

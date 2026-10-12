@@ -401,6 +401,88 @@ public final class NativeAppKitWindowController: NSObject, NSWindowDelegate {
     ).png
   }
 
+  /// Renders one frame into an exact pixel box, for hosts that rasterize on someone else's terms —
+  /// `rc-swift-render`, which the preview server drives with the same request every other `.rc`
+  /// lane gets.
+  ///
+  /// The document lays out in `pixelWidth / density` by `pixelHeight / density` points, because
+  /// AppKit points are this player's dp, and is then drawn into a `pixelWidth` × `pixelHeight`
+  /// bitmap. The bitmap's size is stated rather than inherited from a screen, so the output does
+  /// not depend on the backing scale of whichever display the process happens to see — a headless
+  /// runner and a Retina laptop produce the same pixels.
+  ///
+  /// - Parameter namedValues: host-set values, applied before the first snapshot. A name the
+  ///   document does not declare, or declares with another type, is ignored: a seed the document
+  ///   cannot take degrades to the authored default rather than to no picture.
+  public static func renderPNG(
+    data: Data,
+    pixelWidth: Int,
+    pixelHeight: Int,
+    density: CGFloat,
+    theme: Int = NativeSwiftTheme.unspecified,
+    fontScale: Float = 1,
+    namedValues: [String: RemoteComposeNativeNamedValue] = [:],
+    timeSeconds: TimeInterval = 0,
+    wallClock: NativeSwiftWallClock = .capture,
+    downloadedFonts: [String: RemoteComposeDownloadedFont] = [:]
+  ) throws -> Data {
+    guard pixelWidth > 0, pixelHeight > 0 else {
+      throw NativeSwiftCoreError.malformed(
+        offset: 0, reason: "Capture size must be positive (got \(pixelWidth)x\(pixelHeight))")
+    }
+    let scale = density.isFinite && density > 0 ? density : 1
+    try NativeMacPolicy.validateDocument(data)
+    let session = try NativeSwiftDocumentSession.open(data: data)
+    session.setRequestedTheme(theme)
+    // Density stays at the player's own 1.0 (points are dp); only the text multiplier moves.
+    session.setHostDensity(1, fontScale: fontScale)
+    for (name, value) in namedValues {
+      switch value {
+      case .text(let text): _ = session.setString(text, for: name)
+      case .float(let number): _ = session.setFloat(number, for: name)
+      case .integer(let number): _ = session.setInteger(number, for: name)
+      case .color(let argb): _ = session.setColor(argb, for: name)
+      }
+    }
+    let snapshot = try session.snapshot(timeSeconds: timeSeconds, wallClock: wallClock)
+    let report = try NativeMacPolicy.evaluate(snapshot, compatibility: .compatible)
+    let fonts = try NativeMacFontRegistry.register(
+      snapshot: snapshot, downloadedFonts: downloadedFonts)
+    let player = try NativeMacDocumentView(
+      snapshot: snapshot, resolvedAt: timeSeconds, wallClock: wallClock, session: session,
+      compatibility: .compatible, report: report, fonts: fonts,
+      onEvent: { _ in }, onDiagnostics: { _ in }, onError: { _ in })
+    let points = NSSize(
+      width: CGFloat(pixelWidth) / scale, height: CGFloat(pixelHeight) / scale)
+    let frame = NSRect(origin: .zero, size: points)
+    let window = NSWindow(
+      contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
+    // A long-lived worker renders thousands of these; close the window so AppKit lets it go.
+    window.isReleasedWhenClosed = false
+    defer {
+      window.contentView = nil
+      window.close()
+    }
+    window.contentView = player
+    player.frame = frame
+    player.layoutSubtreeIfNeeded()
+    guard
+      let bitmap = NSBitmapImageRep(
+        bitmapDataPlanes: nil, pixelsWide: pixelWidth, pixelsHigh: pixelHeight,
+        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+    else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not allocate AppKit capture")
+    }
+    // The rep's point size against its pixel size is what scales the drawing.
+    bitmap.size = points
+    player.cacheDisplay(in: player.bounds, to: bitmap)
+    guard let png = bitmap.representation(using: .png, properties: [:]) else {
+      throw NativeSwiftCoreError.malformed(offset: 0, reason: "Could not encode AppKit capture")
+    }
+    return png
+  }
+
   /// Builds an embeddable AppKit view from the same validation and snapshot path as a window.
   public static func makeView(
     data: Data,

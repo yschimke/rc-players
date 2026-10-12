@@ -28,6 +28,7 @@
 		100000000000000000000013 /* NativePath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* NativePath.swift */; };
 		100000000000000000000014 /* NativeTextPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* NativeTextPolicy.swift */; };
 		100000000000000000000015 /* NativeResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* NativeResources.swift */; };
+		1000000000000000000000F2 /* NativeAppleEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2000000000000000000000F2 /* NativeAppleEffects.swift */; };
 		100000000000000000000016 /* NativeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* NativeSession.swift */; };
 		100000000000000000000017 /* NativeAccessibilityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* NativeAccessibilityPolicy.swift */; };
 		100000000000000000000018 /* NativeFrameTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* NativeFrameTiming.swift */; };
@@ -46,6 +47,8 @@
 		100000000000000000000043 /* NativeSwiftSystemVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000043 /* NativeSwiftSystemVariables.swift */; };
 		100000000000000000000044 /* NativeSwiftLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000044 /* NativeSwiftLayout.swift */; };
 		100000000000000000000045 /* NativeSwiftDocumentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000045 /* NativeSwiftDocumentSession.swift */; };
+		1000000000000000000000F1 /* NativeSwiftToneSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2000000000000000000000F1 /* NativeSwiftToneSynthesizer.swift */; };
+		1000000000000000000000F0 /* NativeSwiftImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2000000000000000000000F0 /* NativeSwiftImageLoader.swift */; };
 		100000000000000000000046 /* NativeSwiftParsedDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000046 /* NativeSwiftParsedDocument.swift */; };
 		100000000000000000000047 /* NativeSwiftParticles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000047 /* NativeSwiftParticles.swift */; };
 		100000000000000000000048 /* NativeSwiftAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000048 /* NativeSwiftAnimation.swift */; };
@@ -109,6 +112,7 @@
 		200000000000000000000015 /* NativePath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativePath.swift; path = "../../Sources/RcNativePlayerUIKit/NativePath.swift"; sourceTree = "<group>"; };
 		200000000000000000000016 /* NativeTextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeTextPolicy.swift; path = "../../Sources/RcNativePlayerUIKit/NativeTextPolicy.swift"; sourceTree = "<group>"; };
 		200000000000000000000017 /* NativeResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeResources.swift; path = "../../Sources/RcNativePlayerUIKit/NativeResources.swift"; sourceTree = "<group>"; };
+		2000000000000000000000F2 /* NativeAppleEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeAppleEffects.swift; path = "../../Sources/RcNativePlayerUIKit/NativeAppleEffects.swift"; sourceTree = "<group>"; };
 		200000000000000000000018 /* NativeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSession.swift; path = "../../Sources/RcNativePlayerUIKit/NativeSession.swift"; sourceTree = "<group>"; };
 		200000000000000000000019 /* NativeAccessibilityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeAccessibilityPolicy.swift; path = "../../Sources/RcNativePlayerUIKit/NativeAccessibilityPolicy.swift"; sourceTree = "<group>"; };
 		20000000000000000000001A /* NativeFrameTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeFrameTiming.swift; path = "../../Sources/RcNativePlayerUIKit/NativeFrameTiming.swift"; sourceTree = "<group>"; };
@@ -128,6 +132,8 @@
 		200000000000000000000043 /* NativeSwiftSystemVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftSystemVariables.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftSystemVariables.swift"; sourceTree = "<group>"; };
 		200000000000000000000044 /* NativeSwiftLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftLayout.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftLayout.swift"; sourceTree = "<group>"; };
 		200000000000000000000045 /* NativeSwiftDocumentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftDocumentSession.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftDocumentSession.swift"; sourceTree = "<group>"; };
+		2000000000000000000000F1 /* NativeSwiftToneSynthesizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftToneSynthesizer.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftToneSynthesizer.swift"; sourceTree = "<group>"; };
+		2000000000000000000000F0 /* NativeSwiftImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftImageLoader.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftImageLoader.swift"; sourceTree = "<group>"; };
 		200000000000000000000046 /* NativeSwiftParsedDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftParsedDocument.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftParsedDocument.swift"; sourceTree = "<group>"; };
 		200000000000000000000047 /* NativeSwiftParticles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftParticles.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftParticles.swift"; sourceTree = "<group>"; };
 		200000000000000000000048 /* NativeSwiftAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NativeSwiftAnimation.swift; path = "../../Sources/RcNativePlayerCore/NativeSwiftAnimation.swift"; sourceTree = "<group>"; };
@@ -244,6 +250,7 @@
 				200000000000000000000015 /* NativePath.swift */,
 				200000000000000000000016 /* NativeTextPolicy.swift */,
 				200000000000000000000017 /* NativeResources.swift */,
+				2000000000000000000000F2 /* NativeAppleEffects.swift */,
 				200000000000000000000018 /* NativeSession.swift */,
 				200000000000000000000023 /* NativeSwiftCore.swift */,
 				20000000000000000000002E /* NativeSwiftWireReader.swift */,
@@ -253,6 +260,8 @@
 				200000000000000000000043 /* NativeSwiftSystemVariables.swift */,
 				200000000000000000000044 /* NativeSwiftLayout.swift */,
 				200000000000000000000045 /* NativeSwiftDocumentSession.swift */,
+				2000000000000000000000F1 /* NativeSwiftToneSynthesizer.swift */,
+				2000000000000000000000F0 /* NativeSwiftImageLoader.swift */,
 				200000000000000000000046 /* NativeSwiftParsedDocument.swift */,
 				200000000000000000000047 /* NativeSwiftParticles.swift */,
 				200000000000000000000048 /* NativeSwiftAnimation.swift */,
@@ -392,6 +401,7 @@
 				100000000000000000000013 /* NativePath.swift in Sources */,
 				100000000000000000000014 /* NativeTextPolicy.swift in Sources */,
 				100000000000000000000015 /* NativeResources.swift in Sources */,
+				1000000000000000000000F2 /* NativeAppleEffects.swift in Sources */,
 				100000000000000000000016 /* NativeSession.swift in Sources */,
 				100000000000000000000020 /* NativeSwiftCore.swift in Sources */,
 				10000000000000000000002D /* NativeSwiftWireReader.swift in Sources */,
@@ -401,6 +411,8 @@
 				100000000000000000000043 /* NativeSwiftSystemVariables.swift in Sources */,
 				100000000000000000000044 /* NativeSwiftLayout.swift in Sources */,
 				100000000000000000000045 /* NativeSwiftDocumentSession.swift in Sources */,
+				1000000000000000000000F1 /* NativeSwiftToneSynthesizer.swift in Sources */,
+				1000000000000000000000F0 /* NativeSwiftImageLoader.swift in Sources */,
 				100000000000000000000046 /* NativeSwiftParsedDocument.swift in Sources */,
 				100000000000000000000047 /* NativeSwiftParticles.swift in Sources */,
 				100000000000000000000048 /* NativeSwiftAnimation.swift in Sources */,
