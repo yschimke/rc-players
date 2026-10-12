@@ -11,6 +11,7 @@ can exercise the bytes a player actually receives rather than a hand-built appro
 | `TitleCardBackgroundImage-454x400.rc` | `CatalogPreviewsKt.TitleCardRemote_width_227dp_height_200dp_dpi_320_VARIANT_background_image.rc` from the remote-m3 catalog, snapshot lane |
 | `SwitchRowSplit-454x200.rc`, `CheckboxRowSplit-454x200.rc`, `RadioRowSplit-454x200.rc` | `SelectionPreviewsKt.{Switch,Checkbox,Radio}RowRemote_width_227dp_height_100dp_dpi_320_VARIANT_split.rc` from the remote-m3 catalog |
 | `TextRemoteButton-454x200.rc` | `CatalogPreviewsKt.TextRemoteButton_width_227dp_height_100dp_dpi_320.rc` from the remote-m3 catalog |
+| `PressureGaugeCanvasContent-500x500.rc` | `docs/advanced-samples/pressure-gauge/doc.rc` from `yschimke/RemoteCompose-Examples` |
 
 The indeterminate indicator is here because it is the shape that broke: it animates by reading the
 player-supplied clock (`RcSystemVariables.CONTINUOUS_SEC`) rather than by carrying an animation, so
@@ -42,3 +43,9 @@ selection progress (`remoteSpring` over a constant `checked = 1`). They are what
 `RcSpringSelectionRenderTest` draws: a player that starts a spring anywhere but its first target, or
 lets it diverge, draws them unchecked or greyed. `TextRemoteButton-454x200.rc` declares a press spring
 and nothing else that moves, which is what the same test's idle check needs.
+
+`PressureGaugeCanvasContent-500x500.rc` binds its `ComponentValue` width and height to the
+`CanvasContent` inside its canvas layout rather than to the `LayoutContent` around it, and derives
+every coordinate of the gauge from them. A player that draws the canvas content without publishing
+its geometry draws the ring and needle at zero radius and every label at the origin, which is what
+`RcCanvasContentGeometryRenderTest` catches.
