@@ -49,6 +49,12 @@ class RcHostParametersTest {
     assertEquals(5.25f, hostDensity(platformDensity = 2f, requested = 2.625f))
   }
 
+  @Test
+  fun aDensityThatOverflowsWhenScaledFallsBackToThePlatformDensity() {
+    // 3e38 parses as a finite float, but × devicePixelRatio 2 overflows to infinity.
+    assertEquals(2f, hostDensity(platformDensity = 2f, requested = 3e38f))
+  }
+
   private val bcp47 = Regex("[a-zA-Z]{2,8}(-[a-zA-Z0-9]{1,8})*")
 
   private fun isValid(tag: String) = bcp47.matches(tag)

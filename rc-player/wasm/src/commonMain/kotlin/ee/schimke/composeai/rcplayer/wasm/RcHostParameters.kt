@@ -33,10 +33,15 @@ internal fun parseDensityParameter(raw: String?): Float? {
  * derives from `devicePixelRatio`: device pixels per CSS pixel. With no [requested] density it is
  * returned unchanged. With one, a dp becomes [requested] CSS pixels, i.e. `requested ×
  * platformDensity` device pixels, so the canvas keeps rendering at the screen's full resolution
- * while the document is laid out and drawn at the scale it was captured at.
+ * while the document is laid out and drawn at the scale it was captured at. A product that is not a
+ * usable density (a huge [requested] overflowing to infinity) falls back to [platformDensity], as
+ * an unparseable one does.
  */
-internal fun hostDensity(platformDensity: Float, requested: Float?): Float =
-  if (requested == null) platformDensity else platformDensity * requested
+internal fun hostDensity(platformDensity: Float, requested: Float?): Float {
+  if (requested == null) return platformDensity
+  val scaled = platformDensity * requested
+  return if (scaled.isFinite() && scaled > 0f) scaled else platformDensity
+}
 
 /**
  * The browser's preferred language tags, reduced to ones Compose can parse.
