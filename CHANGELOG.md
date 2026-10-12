@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.0](https://github.com/yschimke/rc-players/compare/v2.9.0...v2.10.0) (2026-10-12)
+
+
+### Features
+
+* adapt widgets for the client's display and what Android 16 reads only as literals ([d3be798](https://github.com/yschimke/rc-players/commit/d3be798f23d77ef77051111434ea2e517389cfee))
+
 ## [2.9.0](https://github.com/yschimke/rc-players/compare/v2.8.0...v2.9.0) (2026-10-12)
 
 
