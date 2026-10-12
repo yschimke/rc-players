@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.11.0](https://github.com/yschimke/rc-players/compare/v2.10.0...v2.11.0) (2026-10-12)
+
+
+### Features
+
+* ship rc-swift-render, the native AppKit player as a render tool ([#641](https://github.com/yschimke/rc-players/issues/641)) ([cbf1c7f](https://github.com/yschimke/rc-players/commit/cbf1c7f609a9ade715f6203e53ba0970b422d740))
+
+
+### Bug Fixes
+
+* build the native player's haptics on visionOS ([#645](https://github.com/yschimke/rc-players/issues/645)) ([2925e96](https://github.com/yschimke/rc-players/commit/2925e96e3057feb38f3fae787a404ad73805c50c))
+* build the sample Apple player with the native player's new sources ([#646](https://github.com/yschimke/rc-players/issues/646)) ([8b2d817](https://github.com/yschimke/rc-players/commit/8b2d8179bd1a13d4f53b1b3057c8f438eed94d37))
+* compile the document effects into the macOS player ([#642](https://github.com/yschimke/rc-players/issues/642)) ([5963e75](https://github.com/yschimke/rc-players/commit/5963e75515fe2b7ab3b8ce9a517abd5e946d3294))
+* compile the macOS player with [#641](https://github.com/yschimke/rc-players/issues/641)'s shared types and Swift 6 default isolation ([#647](https://github.com/yschimke/rc-players/issues/647)) ([6c143c3](https://github.com/yschimke/rc-players/commit/6c143c355da7736cee7c7358613a923c6047c21b))
+* **compose:** publish CanvasContent geometry to ComponentValue bindings ([#644](https://github.com/yschimke/rc-players/issues/644)) ([ba60ed7](https://github.com/yschimke/rc-players/commit/ba60ed7f10c45afa04f9f9e0e4c5c8dec2e7d0db))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-contracts-bom to v3.30.0 ([#628](https://github.com/yschimke/rc-players/issues/628)) ([5056219](https://github.com/yschimke/rc-players/commit/5056219be821dbb7e5de272e517cd0549730768b))
+* **deps:** update dependency ee.schimke.composeai:compose-preview-daemon-bom to v3.16.0 ([#627](https://github.com/yschimke/rc-players/issues/627)) ([f370a7d](https://github.com/yschimke/rc-players/commit/f370a7dd2a1f89435fb19bb9849fcfbb4d7da6ab))
+
 ## [2.10.0](https://github.com/yschimke/rc-players/compare/v2.9.0...v2.10.0) (2026-10-12)
 
 
