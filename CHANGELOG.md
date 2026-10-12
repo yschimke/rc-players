@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.12.0](https://github.com/yschimke/rc-players/compare/v2.11.0...v2.12.0) (2026-10-12)
+
+
+### Features
+
+* combine two documents into one state layout with shared elements ([#649](https://github.com/yschimke/rc-players/issues/649)) ([2dd9501](https://github.com/yschimke/rc-players/commit/2dd9501060a94fef501f3a135d40100773a4419d))
+* keep text styling on players without CoreText by drawing it ([#651](https://github.com/yschimke/rc-players/issues/651)) ([990537e](https://github.com/yschimke/rc-players/commit/990537ec9a48c82f72a5edadf2c664b221ab8399))
+
+
+### Bug Fixes
+
+* **compose:** place out-of-table Box/Row/Column positions at start/top like AndroidX ([#653](https://github.com/yschimke/rc-players/issues/653)) ([f165ec9](https://github.com/yschimke/rc-players/commit/f165ec91e81a65a7c8f3bb3d90e31c9bfe833b97))
+* **deps:** update androidx ([#654](https://github.com/yschimke/rc-players/issues/654)) ([ff885d7](https://github.com/yschimke/rc-players/commit/ff885d7223efef93c72d5a9c2d01da06224a3bc7))
+* **deps:** update dependency org.jetbrains.compose.ui:ui-test-desktop to v1.12.1 ([#655](https://github.com/yschimke/rc-players/issues/655)) ([bedba2d](https://github.com/yschimke/rc-players/commit/bedba2d0cc1724f37e3be42ec845b4fe8e820243))
+* **deps:** update dependency org.ow2.asm:asm to v9.11 ([#656](https://github.com/yschimke/rc-players/issues/656)) ([db04d73](https://github.com/yschimke/rc-players/commit/db04d731a02949883cadff1451c188d574c10991))
+* **deps:** update dependency playwright to v1.64.0 ([#657](https://github.com/yschimke/rc-players/issues/657)) ([4553689](https://github.com/yschimke/rc-players/commit/45536896b3998542d2c5e3a5e5536450efe7025e))
+
 ## [2.11.0](https://github.com/yschimke/rc-players/compare/v2.10.0...v2.11.0) (2026-10-12)
 
 
