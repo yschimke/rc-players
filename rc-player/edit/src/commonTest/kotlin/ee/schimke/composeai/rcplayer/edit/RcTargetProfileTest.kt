@@ -1,8 +1,11 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.edit.RcProfileViolation.Kind
+import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -17,8 +20,10 @@ import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcMacroCall
 import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
+import ee.schimke.composeai.rcplayer.protocol.RcOffsetModifier
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcSkip
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -144,6 +149,145 @@ class RcTargetProfileTest {
         .hardcodeNamedValues(mapOf("fade" to RcHardcodedValue.FloatValue(0.25f)))
         .adaptTo(RcTargetProfiles.WIDGETS_V6)
     assertTrue(baked.isPlayable, baked.violations.toString())
+  }
+
+  private fun padding(all: RcFloatWord) = RcPaddingModifier(all, all, all, all)
+
+  private fun background(flags: Int, colorId: Int, rgba: Float) =
+    RcBackgroundModifier(
+      flags,
+      colorId,
+      0,
+      0,
+      RcFloatWord.literal(rgba),
+      RcFloatWord.literal(rgba),
+      RcFloatWord.literal(rgba),
+      RcFloatWord.literal(rgba),
+      RcBackgroundModifier.SHAPE_RECTANGLE,
+    )
+
+  private fun border(flags: Int, colorId: Int, width: RcFloatWord) =
+    RcBorderModifier(
+      flags,
+      colorId,
+      0,
+      0,
+      width,
+      RcFloatWord.literal(0f),
+      RcFloatWord.literal(1f),
+      RcFloatWord.literal(0f),
+      RcFloatWord.literal(0f),
+      RcFloatWord.literal(1f),
+      RcBackgroundModifier.SHAPE_RECTANGLE,
+    )
+
+  /** Android 16 reads paddings, backgrounds and borders as literals: newer writers do not. */
+  @Test
+  fun baklavaReadsPaddingsBackgroundsAndBordersOnlyAsLiterals() {
+    val colorReference = RcBackgroundModifier.COLOR_REFERENCE_FLAG
+    val document =
+      androidxDocument(
+        RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:inset"),
+        RcNamedVariable(61, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        RcPaddingModifier(ref(60), RcFloatWord.literal(0f), ref(60), RcFloatWord.literal(0f)),
+        background(colorReference, 61, 0f),
+        border(colorReference, 61, ref(60)),
+        padding(RcFloatWord.literal(4f)),
+        background(0, 0, 1f),
+      )
+
+    val dynamic =
+      document.validateFor(RcTargetProfiles.WIDGETS_V6).filter { it.kind == Kind.DYNAMIC_VALUE }
+
+    assertEquals(
+      listOf(
+        "MODIFIER_PADDING.left",
+        "MODIFIER_PADDING.right",
+        "MODIFIER_BACKGROUND.colorId",
+        "MODIFIER_BORDER.colorId",
+        "MODIFIER_BORDER.borderWidth",
+      ),
+      dynamic.map { it.message.substringBefore(" must") },
+    )
+    assertTrue(document.validateFor(RcTargetProfiles.ANDROIDX).isEmpty())
+  }
+
+  @Test
+  fun adaptingForBaklavaInlinesConstantPaddingsAndColourReferences() {
+    val colorReference = RcBackgroundModifier.COLOR_REFERENCE_FLAG
+    val document =
+      androidxDocument(
+        RcFloatConstant(60, RcFloatWord.literal(8f)),
+        RcColorConstant(61, 0x80ff0000.toInt()),
+        RcPaddingModifier(ref(60), ref(60), ref(60), ref(60)),
+        background(colorReference, 61, 0f),
+        border(colorReference, 61, ref(60)),
+      )
+
+    // The header goes from pixels to dp: the 8px border is 4dp at density 2.
+    val adaptation =
+      document.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), RcDisplay(density = 2f))
+
+    assertTrue(adaptation.isPlayable, adaptation.violations.toString())
+    val adapted = assertRoundTrips(adaptation.document).operations
+    assertEquals(padding(RcFloatWord.literal(8f)), adapted[2])
+    val red = RcFloatWord.literal(1f)
+    val none = RcFloatWord.literal(0f)
+    val half = RcFloatWord.literal(0x80 / 255f)
+    assertEquals(
+      RcBackgroundModifier(0, 0, 0, 0, red, none, none, half, RcBackgroundModifier.SHAPE_RECTANGLE),
+      adapted[3],
+    )
+    assertEquals(
+      border(0, 0, RcFloatWord.literal(4f))
+        .copy(red = red, green = none, blue = none, alpha = half),
+      adapted[4],
+    )
+  }
+
+  /**
+   * A level 7 header with legacy density behaviour has borders and offsets in pixels; the level 6
+   * form Android 16 reads has them in dp, so rewriting the header needs the client's density.
+   */
+  @Test
+  fun rewritingTheHeaderForBaklavaConvertsPixelBordersAndOffsetsByTheDisplaysDensity() {
+    val document =
+      androidxDocument(
+        border(0, 0, RcFloatWord.literal(3f)),
+        RcOffsetModifier(RcFloatWord.literal(8f), RcFloatWord.literal(0f)),
+      )
+
+    // The conversion depends on the display: the server should ask the client for it.
+    assertTrue(document.needsDisplay(RcTargetProfiles.WIDGETS_V6))
+    assertFalse(document.needsDisplay(RcTargetProfiles.WIDGETS_V7))
+
+    // Not asked, it assumes a typical phone.
+    val assumed = document.adaptTo(RcTargetProfiles.WIDGETS_V6).document.operations[0]
+    assertEquals(border(0, 0, RcFloatWord.literal(3f / 2.625f)), assumed)
+
+    val served = document.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), RcDisplay(density = 2f))
+    assertTrue(served.isPlayable, served.violations.toString())
+    assertFalse(served.document.header.modern)
+    assertEquals(
+      listOf(
+        border(0, 0, RcFloatWord.literal(1.5f)),
+        RcOffsetModifier(RcFloatWord.literal(4f), RcFloatWord.literal(0f)),
+      ),
+      assertRoundTrips(served.document).operations,
+    )
+  }
+
+  @Test
+  fun aVariableBorderWidthCannotBeConvertedEvenWithTheDensity() {
+    val document =
+      androidxDocument(
+        RcFloatConstant(60, RcFloatWord.literal(3f)),
+        RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:stroke"),
+        border(0, 0, ref(60)),
+      )
+    val served = document.adaptTo(RcTargetProfiles.WIDGETS_V6, emptySet(), RcDisplay(density = 2f))
+    assertTrue(Kind.DENSITY_SCALED in served.violations.map { it.kind })
+    assertTrue(served.document.header.modern)
   }
 
   @Test

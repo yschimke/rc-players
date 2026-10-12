@@ -1135,7 +1135,11 @@ private fun RenderLayoutNode(
           }
         }
       is RcLayoutNode.CanvasContent ->
-        Canvas(Modifier.fillMaxSize()) {
+        // `effectiveModifier` carries [trackComponentGeometry]: a document that binds a
+        // `ComponentValue` to the canvas content's own id (the AndroidX `RemoteCanvas` writer
+        // does) reads its width and height back, and drawing with `Modifier.fillMaxSize()` alone
+        // never published them, so every coordinate derived from them collapsed to the origin.
+        Canvas(effectiveModifier.fillMaxSize()) {
           frameTime?.floatValue // Redraw with the clock; see [LocalRcFrameTime].
           rcTrace(RcTraceCategory.FRAME, "rc:drawCanvas") {
             drawOperations(

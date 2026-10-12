@@ -19,7 +19,6 @@
       height: Float = 600,
       configuration: RemoteComposePlayerConfiguration = .init(),
       downloadableFontResolver: (any RemoteComposeDownloadableFontResolving)? = nil,
-        resourceResolver: (any RemoteComposeNativeResourceResolving)? = RemoteComposeNativeURLSessionResourceResolver.shared,
       onEvent: @escaping (RemoteComposePlayerEvent) -> Void = { _ in },
       onError: @escaping (RemoteComposePlayerError) -> Void = { _ in }
     ) {

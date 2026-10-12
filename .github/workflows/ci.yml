@@ -107,6 +107,8 @@ jobs:
               scripts/check-swift-sample.sh \
               scripts/package-apple-player.sh \
               scripts/package-macos-player.sh \
+              scripts/package-swift-render.sh \
+              scripts/check-swift-render.sh \
               scripts/render-native-uikit-lane.sh \
               scripts/simulator-boot.sh \
               scripts/check-native-uikit-corpus.sh \
@@ -242,6 +244,7 @@ jobs:
             :rc-player-runtime:jvmTest \
             :rc-player-compose:jvmTest \
             :rc-player-edit:jvmTest \
+            :rc-player-wasm:jvmTest \
             :rc-player-trace:testAndroidHostTest \
             :rc-player-protocol:testAndroidHostTest \
             :rc-player-runtime:testAndroidHostTest \
@@ -261,6 +264,7 @@ jobs:
             rc-player/runtime:jvmTest,testAndroidHostTest \
             rc-player/compose:jvmTest,testAndroidHostTest \
             rc-player/edit:jvmTest,testAndroidHostTest \
+            rc-player/wasm:jvmTest \
             rc-player/compat-tests:test \
             rc-player/metrics:test \
             rc-player/profile:test \
@@ -518,6 +522,13 @@ jobs:
         run: |
           scripts/package-apple-player.sh
           scripts/package-macos-player.sh
+
+      # The release asset the preview server's `swift-appkit` lane downloads. The script renders a
+      # fixture one-shot and through the worker frame protocol before it packages anything, so a
+      # binary that cannot draw fails here rather than on someone's first render.
+      - name: Build and smoke-test rc-swift-render
+        if: needs.apple-changes.outputs.required == 'true'
+        run: scripts/package-swift-render.sh
 
       - name: Measure native UIKit performance and footprint
         if: needs.apple-changes.outputs.required == 'true'
