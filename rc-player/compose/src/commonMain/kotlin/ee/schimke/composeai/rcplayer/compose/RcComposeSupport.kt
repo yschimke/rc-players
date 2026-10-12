@@ -4,13 +4,9 @@ import ee.schimke.composeai.rcplayer.protocol.RcAccessibilitySemantics
 import ee.schimke.composeai.rcplayer.protocol.RcAnimationSpec
 import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
 import ee.schimke.composeai.rcplayer.protocol.RcBitmapData
-import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
-import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCollapsiblePriorityModifier
-import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
-import ee.schimke.composeai.rcplayer.protocol.RcColumnLayout
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcCustomLayout
@@ -21,7 +17,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDrawTextOnCircle
 import ee.schimke.composeai.rcplayer.protocol.RcDrawToBitmap
 import ee.schimke.composeai.rcplayer.protocol.RcDynamicFloatList
-import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -51,7 +46,6 @@ import ee.schimke.composeai.rcplayer.protocol.RcParticleCompare
 import ee.schimke.composeai.rcplayer.protocol.RcParticleDefine
 import ee.schimke.composeai.rcplayer.protocol.RcParticleLoop
 import ee.schimke.composeai.rcplayer.protocol.RcPlaySound
-import ee.schimke.composeai.rcplayer.protocol.RcRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcScrollModifier
 import ee.schimke.composeai.rcplayer.protocol.RcShaderData
 import ee.schimke.composeai.rcplayer.protocol.RcTextAttribute
@@ -816,95 +810,11 @@ public fun RcDocument.composeSupportReport(
           "dimension type ${operation.type} is not implemented",
         )
     }
-    if (operation is RcBoxLayout) {
-      if (operation.horizontalPositioning !in 1..3) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "BoxLayout",
-            "horizontal position ${operation.horizontalPositioning} is not implemented",
-          )
-      }
-      if (operation.verticalPositioning !in setOf(2, 4, 5)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "BoxLayout",
-            "vertical position ${operation.verticalPositioning} is not implemented",
-          )
-      }
-    }
-    if (operation is RcFitBoxLayout) {
-      if (operation.horizontalPositioning !in 1..3) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "FitBoxLayout",
-            "horizontal position ${operation.horizontalPositioning} is not implemented",
-          )
-      }
-      if (operation.verticalPositioning !in setOf(2, 4, 5)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "FitBoxLayout",
-            "vertical position ${operation.verticalPositioning} is not implemented",
-          )
-      }
-    }
-    if (operation is RcRowLayout) {
-      if (operation.horizontalPositioning !in setOf(1, 2, 3, 6, 7, 8)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "RowLayout",
-            "horizontal position ${operation.horizontalPositioning} is not implemented",
-          )
-      }
-      if (operation.verticalPositioning !in setOf(2, 4, 5)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "RowLayout",
-            "vertical position ${operation.verticalPositioning} is not implemented",
-          )
-      }
-    }
-    if (operation is RcColumnLayout) {
-      if (operation.horizontalPositioning !in 1..3) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "ColumnLayout",
-            "horizontal position ${operation.horizontalPositioning} is not implemented",
-          )
-      }
-      if (operation.verticalPositioning !in setOf(2, 4, 5, 6, 7, 8)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "ColumnLayout",
-            "vertical position ${operation.verticalPositioning} is not implemented",
-          )
-      }
-    }
+    // Box/FitBox/Row/Column/Flow/Collapsible positioning is not checked: every value renders.
+    // AndroidX's layout switches send anything outside their table to a default that places the
+    // child at start/top, and the player mirrors that (see `androidXHorizontalPosition` and its
+    // siblings in RcComposePlayer.kt) instead of refusing the document.
     if (operation is RcFlowLayout) {
-      if (operation.horizontalPositioning !in setOf(1, 2, 3, 6, 7, 8)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "FlowLayout",
-            "horizontal position ${operation.horizontalPositioning} is not implemented",
-          )
-      }
-      if (operation.verticalPositioning !in setOf(2, 4, 5)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "FlowLayout",
-            "vertical position ${operation.verticalPositioning} is not implemented",
-          )
-      }
       if (operation.maxItemsInEachRow <= 0) {
         issues +=
           RcComposeSupportIssue(
@@ -919,42 +829,6 @@ public fun RcDocument.composeSupportReport(
             index,
             "FlowLayout",
             "maxLines ${operation.maxLines} must be positive",
-          )
-      }
-    }
-    if (operation is RcCollapsibleRowLayout) {
-      if (operation.horizontalPositioning !in setOf(1, 2, 3, 6, 7, 8)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "CollapsibleRowLayout",
-            "horizontal position ${operation.horizontalPositioning} is not implemented",
-          )
-      }
-      if (operation.verticalPositioning !in setOf(2, 4, 5)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "CollapsibleRowLayout",
-            "vertical position ${operation.verticalPositioning} is not implemented",
-          )
-      }
-    }
-    if (operation is RcCollapsibleColumnLayout) {
-      if (operation.horizontalPositioning !in 1..3) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "CollapsibleColumnLayout",
-            "horizontal position ${operation.horizontalPositioning} is not implemented",
-          )
-      }
-      if (operation.verticalPositioning !in setOf(2, 4, 5, 6, 7, 8)) {
-        issues +=
-          RcComposeSupportIssue(
-            index,
-            "CollapsibleColumnLayout",
-            "vertical position ${operation.verticalPositioning} is not implemented",
           )
       }
     }

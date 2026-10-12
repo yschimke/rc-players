@@ -10,6 +10,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasContent
 import ee.schimke.composeai.rcplayer.protocol.RcCanvasLayout
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
+import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleColumnLayout
+import ee.schimke.composeai.rcplayer.protocol.RcCollapsibleRowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcColorExpression
 import ee.schimke.composeai.rcplayer.protocol.RcColorTheme
@@ -21,10 +23,12 @@ import ee.schimke.composeai.rcplayer.protocol.RcDataMapEntry
 import ee.schimke.composeai.rcplayer.protocol.RcDataMapLookup
 import ee.schimke.composeai.rcplayer.protocol.RcDimensionType
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
+import ee.schimke.composeai.rcplayer.protocol.RcFitBoxLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionCall
 import ee.schimke.composeai.rcplayer.protocol.RcFloatFunctionDefine
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
+import ee.schimke.composeai.rcplayer.protocol.RcFlowLayout
 import ee.schimke.composeai.rcplayer.protocol.RcFontData
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerAttribute
 import ee.schimke.composeai.rcplayer.protocol.RcGraphicsLayerModifier
@@ -1129,13 +1133,80 @@ class RcComposeSupportTest {
   }
 
   @Test
-  fun rejectsUnknownBoxAlignmentBeforeRendering() {
-    val issue =
-      RcDocument(header, listOf(RcBoxLayout(2, 20, 8, 4))).composeSupportReport().issues.first {
-        it.operation == "BoxLayout"
-      }
+  fun placesOutOfTableBoxPositionsAtStartAndTopLikeAndroidx() {
+    // AndroidX `BoxLayout.internalLayoutMeasure`: horizontal is a 1..3 switch and vertical a 2..5
+    // one, both defaulting to offset 0. So 0 ("unset"), END (3) on the vertical axis, TOP (4) on
+    // the horizontal one and anything else land at start/top rather than refusing the document.
+    assertEquals(Alignment.TopStart, boxAlignment(0, 0))
+    assertEquals(Alignment.TopStart, boxAlignment(1, 1))
+    assertEquals(Alignment.TopStart, boxAlignment(8, 3))
+    assertEquals(Alignment.TopStart, boxAlignment(-1, 99))
+    assertEquals(Alignment.TopCenter, boxAlignment(2, 1))
+    assertEquals(Alignment.CenterStart, boxAlignment(4, 2))
+    assertEquals(Alignment.BottomStart, boxAlignment(5, 5))
+    assertEquals(Alignment.TopEnd, boxAlignment(3, 0))
+  }
 
-    assertEquals("horizontal position 8 is not implemented", issue.detail)
+  @Test
+  fun placesOutOfTableRowAndColumnCrossPositionsAtStartAndTopLikeAndroidx() {
+    listOf(0, 1, 3, 6, 7, 8, -1, 99).forEach {
+      assertEquals(Alignment.Top, rowAlignment(it), "row vertical $it")
+    }
+    assertEquals(Alignment.CenterVertically, rowAlignment(2))
+    assertEquals(Alignment.Bottom, rowAlignment(5))
+    listOf(0, 4, 5, 6, 7, 8, -1, 99).forEach {
+      assertEquals(Alignment.Start, columnAlignment(it), "column horizontal $it")
+    }
+    assertEquals(Alignment.CenterHorizontally, columnAlignment(2))
+    assertEquals(Alignment.End, columnAlignment(3))
+    // alignBy rows share the vertical switch.
+    assertContentEquals(
+      intArrayOf(20, 0, 30),
+      alignByCrossPositions(100, 40, 1, listOf(10f, 30f, 0f)),
+    )
+  }
+
+  @Test
+  fun placesOutOfTableRowAndColumnMainPositionsAtStartLikeAndroidx() {
+    // RowLayout's main axis handles 1/2/3/6/7/8 and ColumnLayout's 2/4/5/6/7/8; TOP/BOTTOM on a
+    // row and START/END on a column fall to the default, which is the origin.
+    listOf(0, 4, 5, 9, -1).forEach { assertEquals(1, androidXRowMainPosition(it), "row main $it") }
+    listOf(1, 2, 3, 6, 7, 8).forEach { assertEquals(it, androidXRowMainPosition(it)) }
+    listOf(0, 1, 3, 9, -1).forEach {
+      assertEquals(4, androidXColumnMainPosition(it), "column main $it")
+    }
+    listOf(2, 4, 5, 6, 7, 8).forEach { assertEquals(it, androidXColumnMainPosition(it)) }
+    assertContentEquals(
+      intArrayOf(0, 15),
+      arrangeLinear(100, intArrayOf(10, 20), androidXColumnMainPosition(3), 5, false),
+    )
+  }
+
+  @Test
+  fun reportsNoIssueForOutOfTableLayoutPositions() {
+    val zero = RcFloatWord.literal(0f)
+    val report =
+      RcDocument(
+          header,
+          listOf(
+            RcBoxLayout(2, 20, 0, 0),
+            RcBoxLayout(3, 30, 1, 1),
+            RcBoxLayout(4, 40, 8, 3),
+            RcFitBoxLayout(5, 50, 0, 1),
+            RcRowLayout(6, 60, 4, 1, zero),
+            RcColumnLayout(7, 70, 4, 1, zero),
+            RcFlowLayout(8, 80, 0, 1, zero, maxItemsInEachRow = 1, maxLines = 1),
+            RcCollapsibleRowLayout(9, 90, 5, 0, zero),
+            RcCollapsibleColumnLayout(10, 100, 0, 3, zero),
+          ),
+        )
+        .composeSupportReport()
+
+    assertEquals(
+      emptyList(),
+      report.issues.filter { "position" in it.detail },
+      "out-of-table positions are placed at start/top, not refused",
+    )
   }
 
   @Test
@@ -1149,25 +1220,6 @@ class RcComposeSupportTest {
     assertContentEquals(intArrayOf(23, 62), arrangeLinear(100, sizes, 7, 5, false))
     assertContentEquals(intArrayOf(18, 68), arrangeLinear(100, sizes, 8, 5, false))
     assertContentEquals(intArrayOf(90, 65), arrangeLinear(100, sizes, 1, 5, true))
-  }
-
-  @Test
-  fun validatesRowAndColumnAxesBeforeRendering() {
-    val issues =
-      RcDocument(
-          header,
-          listOf(
-            RcRowLayout(2, 20, 4, 1, RcFloatWord.literal(0f)),
-            RcColumnLayout(3, 30, 4, 1, RcFloatWord.literal(0f)),
-          ),
-        )
-        .composeSupportReport()
-        .issues
-
-    assertTrue(issues.any { it.operation == "RowLayout" && "horizontal" in it.detail })
-    assertTrue(issues.any { it.operation == "RowLayout" && "vertical" in it.detail })
-    assertTrue(issues.any { it.operation == "ColumnLayout" && "horizontal" in it.detail })
-    assertTrue(issues.any { it.operation == "ColumnLayout" && "vertical" in it.detail })
   }
 
   @Test

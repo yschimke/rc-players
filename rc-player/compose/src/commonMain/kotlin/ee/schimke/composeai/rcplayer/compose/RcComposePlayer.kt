@@ -1257,7 +1257,7 @@ private fun RenderLayoutNode(
           },
           horizontalArrangement =
             RcHorizontalArrangement(
-              node.operation.horizontalPositioning,
+              androidXRowMainPosition(node.operation.horizontalPositioning),
               visualSpacing = spacingDp,
               // AndroidX measures weighted children from all remaining row space, then adds the
               // configured gaps while positioning. Compose normally reserves those gaps before
@@ -1295,7 +1295,11 @@ private fun RenderLayoutNode(
             images,
             theme,
           ),
-          verticalArrangement = RcVerticalArrangement(node.operation.verticalPositioning, spacing),
+          verticalArrangement =
+            RcVerticalArrangement(
+              androidXColumnMainPosition(node.operation.verticalPositioning),
+              spacing,
+            ),
           horizontalAlignment = columnAlignment(node.operation.horizontalPositioning),
         ) {
           node.content.children.forEach { child ->
@@ -1326,8 +1330,15 @@ private fun RenderLayoutNode(
             theme,
           ),
           horizontalArrangement =
-            RcHorizontalArrangement(node.operation.horizontalPositioning, spacing),
-          verticalArrangement = RcVerticalArrangement(node.operation.verticalPositioning, 0.dp),
+            RcHorizontalArrangement(
+              androidXRowMainPosition(node.operation.horizontalPositioning),
+              spacing,
+            ),
+          verticalArrangement =
+            RcVerticalArrangement(
+              androidXVerticalPosition(node.operation.verticalPositioning),
+              0.dp,
+            ),
           itemVerticalAlignment = rowAlignment(node.operation.verticalPositioning),
           maxItemsInEachRow = node.operation.maxItemsInEachRow,
           maxLines = node.operation.maxLines,
@@ -1443,8 +1454,8 @@ private fun RenderLayoutNode(
           children = node.content.children,
           orientation = RcCollapseOrientation.Horizontal,
           collapse = requireNotNull(collapse),
-          mainPositioning = node.operation.horizontalPositioning,
-          crossPositioning = node.operation.verticalPositioning,
+          mainPositioning = androidXRowMainPosition(node.operation.horizontalPositioning),
+          crossPositioning = androidXVerticalPosition(node.operation.verticalPositioning),
           spacing =
             state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
           modifier =
@@ -1469,8 +1480,8 @@ private fun RenderLayoutNode(
           children = node.content.children,
           orientation = RcCollapseOrientation.Vertical,
           collapse = requireNotNull(collapse),
-          mainPositioning = node.operation.verticalPositioning,
-          crossPositioning = node.operation.horizontalPositioning,
+          mainPositioning = androidXColumnMainPosition(node.operation.verticalPositioning),
+          crossPositioning = androidXHorizontalPosition(node.operation.horizontalPositioning),
           spacing =
             state.dpTypedPixels(state.resolve(node.operation.spacedBy), density).roundToInt(),
           modifier =
@@ -1981,11 +1992,10 @@ internal fun alignByCrossPositions(
 ): IntArray {
   val maximumAnchor = anchors.maxOrNull() ?: 0f
   val base =
-    when (verticalPositioning) {
-      4 -> 0f
+    when (androidXVerticalPosition(verticalPositioning)) {
       2 -> (totalSize - maximumChildSize) / 2f
       5 -> (totalSize - maximumChildSize).toFloat()
-      else -> error("Unknown AndroidX row vertical position $verticalPositioning")
+      else -> 0f
     }
   return IntArray(anchors.size) { index -> (base + maximumAnchor - anchors[index]).roundToInt() }
 }
@@ -2290,13 +2300,41 @@ internal fun androidXVisibility(value: Int): Int =
     else -> 0
   }
 
+/**
+ * AndroidX's horizontal cross-axis switch: `BoxLayout`, `FitBoxLayout` and `ColumnLayout` handle
+ * START (1), CENTER (2) and END (3), and every other value — 0 for "unset", or anything a newer or
+ * odder producer writes — falls to the switch's default, which leaves the child at x = 0. The
+ * player resolves those to START rather than refusing the document.
+ */
+internal fun androidXHorizontalPosition(value: Int): Int = if (value in 1..3) value else 1
+
+/**
+ * AndroidX's vertical cross-axis switch: `BoxLayout`, `FitBoxLayout`, `RowLayout` and `FlowLayout`
+ * handle TOP (4), CENTER (2) and BOTTOM (5); every other value — including 0 and END (3), which is
+ * a horizontal constant — falls to the default, y = 0. Resolved to TOP.
+ */
+internal fun androidXVerticalPosition(value: Int): Int =
+  if (value == 2 || value == 4 || value == 5) value else 4
+
+/**
+ * `RowLayout`'s main-axis switch handles START, CENTER, END and the three SPACE_ values; TOP (4),
+ * BOTTOM (5) and anything else fall to the default, tx = 0, which is START.
+ */
+internal fun androidXRowMainPosition(value: Int): Int =
+  if (value in 1..3 || value in 6..8) value else 1
+
+/**
+ * `ColumnLayout`'s main-axis switch handles TOP, CENTER, BOTTOM and the three SPACE_ values; START
+ * (1), END (3) and anything else fall to the default, ty = 0, which is TOP.
+ */
+internal fun androidXColumnMainPosition(value: Int): Int =
+  if (value == 2 || value in 4..8) value else 4
+
 internal fun boxAlignment(horizontal: Int, vertical: Int): Alignment =
-  // 0 is "unset", not a positioning value: AndroidX numbers horizontal 1/2/3 and vertical 4/2/5,
-  // and
-  // writes 0 where a component states no preference — a spacer, or a box a macro expanded. Erroring
-  // on it refused the whole document over a field that simply was not filled in, so it resolves to
-  // the start/top default a Box has when nothing asks otherwise.
-  when ((horizontal.takeIf { it != 0 } ?: 1) to (vertical.takeIf { it != 0 } ?: 4)) {
+  // Out-of-table values, 0 ("unset") included, resolve to the start/top that AndroidX's
+  // `BoxLayout.internalLayoutMeasure` switch defaults leave a child at. See
+  // [androidXHorizontalPosition] and [androidXVerticalPosition].
+  when (androidXHorizontalPosition(horizontal) to androidXVerticalPosition(vertical)) {
     1 to 4 -> Alignment.TopStart
     2 to 4 -> Alignment.TopCenter
     3 to 4 -> Alignment.TopEnd
@@ -2305,29 +2343,21 @@ internal fun boxAlignment(horizontal: Int, vertical: Int): Alignment =
     3 to 2 -> Alignment.CenterEnd
     1 to 5 -> Alignment.BottomStart
     2 to 5 -> Alignment.BottomCenter
-    3 to 5 -> Alignment.BottomEnd
-    else -> error("Unknown AndroidX box alignment horizontal=$horizontal vertical=$vertical")
+    else -> Alignment.BottomEnd
   }
 
 internal fun rowAlignment(vertical: Int): Alignment.Vertical =
-  when (vertical) {
-    // 0 is "unset", not a positioning value — see [boxAlignment]. AndroidX lays an unpositioned
-    // row's children out from the top, which is what this player does for a document that states
-    // nothing at all.
-    0,
-    4 -> Alignment.Top
+  when (androidXVerticalPosition(vertical)) {
     2 -> Alignment.CenterVertically
     5 -> Alignment.Bottom
-    else -> error("Unknown AndroidX row vertical position $vertical")
+    else -> Alignment.Top
   }
 
 internal fun columnAlignment(horizontal: Int): Alignment.Horizontal =
-  when (horizontal) {
-    0,
-    1 -> Alignment.Start
+  when (androidXHorizontalPosition(horizontal)) {
     2 -> Alignment.CenterHorizontally
     3 -> Alignment.End
-    else -> error("Unknown AndroidX column horizontal position $horizontal")
+    else -> Alignment.Start
   }
 
 private class RcHorizontalArrangement(
@@ -2416,7 +2446,10 @@ internal fun arrangeLinear(
         distributedGap = (totalSize - childSize) / sizes.size
         distributedGap / 2f
       }
-      else -> error("Unknown AndroidX linear position $positioning")
+      // Callers resolve out-of-table values per axis first (see [androidXRowMainPosition] and
+      // [androidXColumnMainPosition]); anything still unknown starts at the origin, as AndroidX's
+      // switch default does.
+      else -> 0f
     }
   sizes.forEachIndexed { index, size ->
     val position = current.roundToInt()

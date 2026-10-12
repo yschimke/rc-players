@@ -12,6 +12,7 @@ can exercise the bytes a player actually receives rather than a hand-built appro
 | `SwitchRowSplit-454x200.rc`, `CheckboxRowSplit-454x200.rc`, `RadioRowSplit-454x200.rc` | `SelectionPreviewsKt.{Switch,Checkbox,Radio}RowRemote_width_227dp_height_100dp_dpi_320_VARIANT_split.rc` from the remote-m3 catalog |
 | `TextRemoteButton-454x200.rc` | `CatalogPreviewsKt.TextRemoteButton_width_227dp_height_100dp_dpi_320.rc` from the remote-m3 catalog |
 | `PressureGaugeCanvasContent-500x500.rc` | `docs/advanced-samples/pressure-gauge/doc.rc` from `yschimke/RemoteCompose-Examples` |
+| `MaterialToggleButton-400x450.rc` | `docs/render/material-toggle-button/doc.rc` from `yschimke/RemoteCompose-Examples` (sha256 `f4e7560d…bf3d0`); one of its boxes writes 0 for both positions, which `RcUnsetBoxPositionRenderTest` holds renderable |
 
 The indeterminate indicator is here because it is the shape that broke: it animates by reading the
 player-supplied clock (`RcSystemVariables.CONTINUOUS_SEC`) rather than by carrying an animation, so
