@@ -1,8 +1,11 @@
 package ee.schimke.composeai.rcplayer.edit
 
 import ee.schimke.composeai.rcplayer.edit.RcProfileViolation.Kind
+import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcClickModifier
 import ee.schimke.composeai.rcplayer.protocol.RcColorAttribute
+import ee.schimke.composeai.rcplayer.protocol.RcColorConstant
 import ee.schimke.composeai.rcplayer.protocol.RcConditionalOperations
 import ee.schimke.composeai.rcplayer.protocol.RcCoreText
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
@@ -19,6 +22,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcMacroDefine
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcSkip
 import ee.schimke.composeai.rcplayer.protocol.RcTextData
@@ -144,6 +148,98 @@ class RcTargetProfileTest {
         .hardcodeNamedValues(mapOf("fade" to RcHardcodedValue.FloatValue(0.25f)))
         .adaptTo(RcTargetProfiles.WIDGETS_V6)
     assertTrue(baked.isPlayable, baked.violations.toString())
+  }
+
+  private fun padding(all: RcFloatWord) = RcPaddingModifier(all, all, all, all)
+
+  private fun background(flags: Int, colorId: Int, rgba: Float) =
+    RcBackgroundModifier(
+      flags,
+      colorId,
+      0,
+      0,
+      RcFloatWord.literal(rgba),
+      RcFloatWord.literal(rgba),
+      RcFloatWord.literal(rgba),
+      RcFloatWord.literal(rgba),
+      RcBackgroundModifier.SHAPE_RECTANGLE,
+    )
+
+  private fun border(flags: Int, colorId: Int, width: RcFloatWord) =
+    RcBorderModifier(
+      flags,
+      colorId,
+      0,
+      0,
+      width,
+      RcFloatWord.literal(0f),
+      RcFloatWord.literal(1f),
+      RcFloatWord.literal(0f),
+      RcFloatWord.literal(0f),
+      RcFloatWord.literal(1f),
+      RcBackgroundModifier.SHAPE_RECTANGLE,
+    )
+
+  /** Android 16 reads paddings, backgrounds and borders as literals: newer writers do not. */
+  @Test
+  fun baklavaReadsPaddingsBackgroundsAndBordersOnlyAsLiterals() {
+    val colorReference = RcBackgroundModifier.COLOR_REFERENCE_FLAG
+    val document =
+      androidxDocument(
+        RcNamedVariable(60, RcNamedVariable.FLOAT_TYPE, "USER:inset"),
+        RcNamedVariable(61, RcNamedVariable.COLOR_TYPE, "USER:accent"),
+        RcPaddingModifier(ref(60), RcFloatWord.literal(0f), ref(60), RcFloatWord.literal(0f)),
+        background(colorReference, 61, 0f),
+        border(colorReference, 61, ref(60)),
+        padding(RcFloatWord.literal(4f)),
+        background(0, 0, 1f),
+      )
+
+    val dynamic =
+      document.validateFor(RcTargetProfiles.WIDGETS_V6).filter { it.kind == Kind.DYNAMIC_VALUE }
+
+    assertEquals(
+      listOf(
+        "MODIFIER_PADDING.left",
+        "MODIFIER_PADDING.right",
+        "MODIFIER_BACKGROUND.colorId",
+        "MODIFIER_BORDER.colorId",
+        "MODIFIER_BORDER.borderWidth",
+      ),
+      dynamic.map { it.message.substringBefore(" must") },
+    )
+    assertTrue(document.validateFor(RcTargetProfiles.ANDROIDX).isEmpty())
+  }
+
+  @Test
+  fun adaptingForBaklavaInlinesConstantPaddingsAndColourReferences() {
+    val colorReference = RcBackgroundModifier.COLOR_REFERENCE_FLAG
+    val document =
+      androidxDocument(
+        RcFloatConstant(60, RcFloatWord.literal(8f)),
+        RcColorConstant(61, 0x80ff0000.toInt()),
+        RcPaddingModifier(ref(60), ref(60), ref(60), ref(60)),
+        background(colorReference, 61, 0f),
+        border(colorReference, 61, ref(60)),
+      )
+
+    val adaptation = document.adaptTo(RcTargetProfiles.WIDGETS_V6)
+
+    assertTrue(adaptation.isPlayable, adaptation.violations.toString())
+    val adapted = assertRoundTrips(adaptation.document).operations
+    assertEquals(padding(RcFloatWord.literal(8f)), adapted[2])
+    val red = RcFloatWord.literal(1f)
+    val none = RcFloatWord.literal(0f)
+    val half = RcFloatWord.literal(0x80 / 255f)
+    assertEquals(
+      RcBackgroundModifier(0, 0, 0, 0, red, none, none, half, RcBackgroundModifier.SHAPE_RECTANGLE),
+      adapted[3],
+    )
+    assertEquals(
+      border(0, 0, RcFloatWord.literal(8f))
+        .copy(red = red, green = none, blue = none, alpha = half),
+      adapted[4],
+    )
   }
 
   @Test

@@ -1,11 +1,14 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
 import ee.schimke.composeai.rcplayer.protocol.RcOperationInventory
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 
 /** One reason a document will not play on a [RcTargetProfile]. */
@@ -47,7 +50,9 @@ public data class RcProfileViolation(
  *
  * Checked: the header's API level and form; every operation against the target's operation set and
  * against the set the document's own header selects; and the extra limits AndroidX's API level 6
- * writer enforces — no variable image alpha or text size, and no float operators beyond level 6.
+ * writer enforces — no variable image alpha or text size, and no float operators beyond level 6 —
+ * and what Android 16 itself reads only as literals: paddings, and background and border colours
+ * and sizes.
  *
  * `Skip` guards are not visible here: a decoded document has already resolved them for the player
  * that decoded it. Decode with [RcTargetProfile.decode] to validate what the target actually reads.
@@ -127,9 +132,42 @@ private fun levelSixViolations(
         "${operationName(operation.opcode)}.$field must be a literal on ${target.name}",
       )
     )
+  fun literals(vararg fields: Pair<String, RcFloatWord>) = fields.forEach { (field, value) ->
+    if (value.isNaNEncoded) dynamic(field)
+  }
   when (operation) {
     is RcImageLayout -> if (operation.alpha.isNaNEncoded) dynamic("alpha")
     is RcTextLayout -> if (operation.fontSize.isNaNEncoded) dynamic("fontSize")
+    // Android 16 stores these raw and never resolves a variable in them.
+    is RcPaddingModifier ->
+      literals(
+        "left" to operation.left,
+        "top" to operation.top,
+        "right" to operation.right,
+        "bottom" to operation.bottom,
+      )
+    // Android 16 reads the four words AndroidX now spends on flags and a colour id as a rectangle,
+    // so a colour reference draws the zero RGBA written beside it: transparent.
+    is RcBackgroundModifier -> {
+      if (operation.usesColorId) dynamic("colorId")
+      literals(
+        "red" to operation.red,
+        "green" to operation.green,
+        "blue" to operation.blue,
+        "alpha" to operation.alpha,
+      )
+    }
+    is RcBorderModifier -> {
+      if (operation.usesColorId) dynamic("colorId")
+      literals(
+        "borderWidth" to operation.borderWidth,
+        "roundedCorner" to operation.roundedCorner,
+        "red" to operation.red,
+        "green" to operation.green,
+        "blue" to operation.blue,
+        "alpha" to operation.alpha,
+      )
+    }
     is RcFloatExpression ->
       operation.expression
         .mapNotNull { it.floatOperator() }

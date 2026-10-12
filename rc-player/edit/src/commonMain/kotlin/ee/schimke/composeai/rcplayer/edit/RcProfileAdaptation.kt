@@ -1,5 +1,7 @@
 package ee.schimke.composeai.rcplayer.edit
 
+import ee.schimke.composeai.rcplayer.protocol.RcBackgroundModifier
+import ee.schimke.composeai.rcplayer.protocol.RcBorderModifier
 import ee.schimke.composeai.rcplayer.protocol.RcComponentStart
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
@@ -10,6 +12,7 @@ import ee.schimke.composeai.rcplayer.protocol.RcImageLayout
 import ee.schimke.composeai.rcplayer.protocol.RcNoArg
 import ee.schimke.composeai.rcplayer.protocol.RcOpcodes
 import ee.schimke.composeai.rcplayer.protocol.RcOperation
+import ee.schimke.composeai.rcplayer.protocol.RcPaddingModifier
 import ee.schimke.composeai.rcplayer.protocol.RcRemark
 import ee.schimke.composeai.rcplayer.protocol.RcTextLayout
 import ee.schimke.composeai.rcplayer.protocol.RcTheme
@@ -73,8 +76,10 @@ public data class RcProfileAdaptation(
  *   fallback where it does not (Wear OS) — see [colorThemesAsFallbacks]. The system palette is
  *   lost; a `ColorTheme` that cannot be converted stays among the violations.
  * - **Remarks are dropped** where the target does not decode them; they draw nothing.
- * - **A variable image alpha or text size is replaced by its value** below API level 7, where those
- *   fields must be literals, when the variable is a constant nothing can change.
+ * - **A variable image alpha, text size, padding, or background or border colour or size is
+ *   replaced by its value** below API level 7, where those fields must be literals, when the
+ *   variable is a constant nothing can change. A constant colour reference becomes the literal RGBA
+ *   Android 16 reads in its place.
  * - **The header is rewritten** to declare what the target reads: the fixed width/height form for
  *   level 6 (unless the document sizes itself in dp, which that form cannot say); for level 7 and
  *   above, the target's level and profile bits, but only when the header as written would select an
@@ -156,15 +161,62 @@ private fun RcDocument.foldLiteralFields(target: RcTargetProfile): RcDocument {
     val id = referencedId?.takeIf { isNaNEncoded } ?: return this
     return values.float(id, at = index)?.also { changed = true } ?: this
   }
+  // A colour reference Android 16 would read as a rectangle, inlined as the literal RGBA it reads.
+  fun literalColor(flags: Int, colorId: Int, index: Int): LiteralColor {
+    val argb = if (flags and COLOR_REFERENCE == 0) null else values.color(colorId, at = index)
+    if (argb == null) return LiteralColor(flags, colorId, null)
+    changed = true
+    val rgba = listOf(16, 8, 0, 24).map { RcFloatWord.literal(((argb ushr it) and 0xff) / 255f) }
+    return LiteralColor(flags and COLOR_REFERENCE.inv(), 0, rgba)
+  }
   val rewritten = operations.mapIndexed { index, operation ->
     when (operation) {
       is RcImageLayout -> operation.copy(alpha = operation.alpha.literalAt(index))
       is RcTextLayout -> operation.copy(fontSize = operation.fontSize.literalAt(index))
+      is RcPaddingModifier ->
+        operation.copy(
+          left = operation.left.literalAt(index),
+          top = operation.top.literalAt(index),
+          right = operation.right.literalAt(index),
+          bottom = operation.bottom.literalAt(index),
+        )
+      is RcBackgroundModifier -> {
+        val color = literalColor(operation.flags, operation.colorId, index)
+        val (red, green, blue, alpha) =
+          color.rgba ?: listOf(operation.red, operation.green, operation.blue, operation.alpha)
+        operation.copy(
+          flags = color.flags,
+          colorId = color.colorId,
+          red = red.literalAt(index),
+          green = green.literalAt(index),
+          blue = blue.literalAt(index),
+          alpha = alpha.literalAt(index),
+        )
+      }
+      is RcBorderModifier -> {
+        val color = literalColor(operation.flags, operation.colorId, index)
+        val (red, green, blue, alpha) =
+          color.rgba ?: listOf(operation.red, operation.green, operation.blue, operation.alpha)
+        operation.copy(
+          flags = color.flags,
+          colorId = color.colorId,
+          borderWidth = operation.borderWidth.literalAt(index),
+          roundedCorner = operation.roundedCorner.literalAt(index),
+          red = red.literalAt(index),
+          green = green.literalAt(index),
+          blue = blue.literalAt(index),
+          alpha = alpha.literalAt(index),
+        )
+      }
       else -> operation
     }
   }
   return if (changed) copy(operations = rewritten) else this
 }
+
+private const val COLOR_REFERENCE = RcBackgroundModifier.COLOR_REFERENCE_FLAG
+
+private class LiteralColor(val flags: Int, val colorId: Int, val rgba: List<RcFloatWord>?)
 
 private fun RcDocument.headerFor(target: RcTargetProfile): RcDocument {
   val rewritten =

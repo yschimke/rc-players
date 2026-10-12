@@ -131,6 +131,14 @@ writes a themed colour, or as the dark fallback on Wear. The device's palette is
 under
 [`renders/rc-edit-profile-fallbacks/`](renders/rc-edit-profile-fallbacks/).
 
+Android 16's launcher also reads paddings, and background and border colours and sizes, only as
+literals, and it reads a background or border written as a colour reference as a transparent
+one: `validateFor(WIDGETS_V6)` reports each, and `adaptTo` folds any that are constant. A
+`RemoteDensity.Host` widget sizes its text and spacing as expressions over the player's density,
+which no level 6 player can take; `hardcodeDensity(density, fontScale)` bakes them for the display
+the document is served to. Every launcher catalog widget then plays on Android 16, and is 21%
+smaller after `optimize()`.
+
 There are no Apple x86_64 slices anywhere in the stack — Compose Multiplatform 1.11 stopped
 publishing them — so Intel iOS simulators and Intel Macs cannot build against it.
 
