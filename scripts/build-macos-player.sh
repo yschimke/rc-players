@@ -31,10 +31,14 @@ cp "$repo_root/samples/macos-player/Info.plist" "$app/Contents/Info.plist"
 # drives the Kotlin/Native framework's non-Sendable API from detached tasks and blocking bridges.
 # The player sources it shares are held to the Swift 6 language mode by `Package.swift` — `swift
 # test` compiles them that way on every Apple lane — so their checking does not depend on this app.
+# `IsolatedDefaultValues` is the one Swift 6 rule those sources rely on that Swift 5 mode lacks: a
+# main-actor default argument (`soundPlayer: … = RemoteComposeNativeAVSoundPlayer()`) on a
+# main-actor function.
 CLANG_MODULE_CACHE_PATH="$build_root/module-cache" \
 SWIFT_MODULECACHE_PATH="$build_root/module-cache" \
 xcrun swiftc \
   -swift-version 5 \
+  -enable-upcoming-feature IsolatedDefaultValues \
   -parse-as-library \
   -target arm64-apple-macos12.0 \
   "${optimization[@]}" \
@@ -61,6 +65,7 @@ xcrun swiftc \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeFrameTiming.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeAccessibilityPolicy.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeAppleEffects.swift" \
+  "$repo_root/Sources/RcNativePlayerUIKit/NativeSharedTypes.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeAppKitPlayer.swift" \
   -o "$app/Contents/MacOS/RemoteComposePlayer"
 
