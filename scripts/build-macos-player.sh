@@ -60,6 +60,7 @@ xcrun swiftc \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeLayoutEngine.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeFrameTiming.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeAccessibilityPolicy.swift" \
+  "$repo_root/Sources/RcNativePlayerUIKit/NativeAppleEffects.swift" \
   "$repo_root/Sources/RcNativePlayerUIKit/NativeAppKitPlayer.swift" \
   -o "$app/Contents/MacOS/RemoteComposePlayer"
 
