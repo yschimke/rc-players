@@ -11,7 +11,8 @@ class RcHostParametersTest {
     assertEquals(2f, parseDensityParameter("2"))
     assertEquals(0.5f, parseDensityParameter(".5"))
     assertEquals(1f, parseDensityParameter(" 1 "))
-    assertEquals(1500f, parseDensityParameter("1.5e3"))
+    assertEquals(15f, parseDensityParameter("1.5e1"))
+    assertEquals(MAX_DENSITY_PARAMETER, parseDensityParameter("64"))
   }
 
   @Test
@@ -47,6 +48,14 @@ class RcHostParametersTest {
     // span 2.625 CSS px: 2.625 device px at devicePixelRatio 1, 5.25 at devicePixelRatio 2.
     assertEquals(2.625f, hostDensity(platformDensity = 1f, requested = 2.625f))
     assertEquals(5.25f, hostDensity(platformDensity = 2f, requested = 2.625f))
+  }
+
+  @Test
+  fun aDensityPastTheCeilingIsIgnored() {
+    // Finite, but large enough that dp values times it overflow layout downstream.
+    listOf("64.01", "1.5e3", "1e37", "3e38").forEach { raw ->
+      assertNull(parseDensityParameter(raw), "density=$raw")
+    }
   }
 
   @Test

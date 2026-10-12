@@ -14,16 +14,25 @@ package ee.schimke.composeai.rcplayer.wasm
 private val DENSITY_PATTERN = Regex("""[0-9]*\.?[0-9]+(?:[eE][+-]?[0-9]+)?""")
 
 /**
- * `?density=`: the document's pixels per dp, measured in CSS pixels. A positive finite decimal, or
- * null for anything else — absent, empty, zero, negative, non-finite or malformed — in which case
- * the host keeps the browser's own density (`devicePixelRatio`), exactly as before the parameter
- * existed. A bad value is ignored rather than reported: failing to *scale* a document is not
- * failing to *load* one, which is how `?namedValues=` treats its malformed input too.
+ * The largest `?density=` taken. Real screens run up to about 5 px per dp, and a host scaling a
+ * snapshot for display multiplies that by its zoom; past this, a dp value times the density can
+ * overflow layout arithmetic downstream (`RcComposePlayer` multiplies dp values by it again), so a
+ * larger value is treated as malformed rather than clamped.
+ */
+internal const val MAX_DENSITY_PARAMETER = 64f
+
+/**
+ * `?density=`: the document's pixels per dp, measured in CSS pixels. A positive finite decimal up
+ * to [MAX_DENSITY_PARAMETER], or null for anything else — absent, empty, zero, negative,
+ * non-finite, too large or malformed — in which case the host keeps the browser's own density
+ * (`devicePixelRatio`), exactly as before the parameter existed. A bad value is ignored rather than
+ * reported: failing to *scale* a document is not failing to *load* one, which is how
+ * `?namedValues=` treats its malformed input too.
  */
 internal fun parseDensityParameter(raw: String?): Float? {
   val text = raw?.trim().orEmpty()
   if (!DENSITY_PATTERN.matches(text)) return null
-  return text.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }
+  return text.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f && it <= MAX_DENSITY_PARAMETER }
 }
 
 /**

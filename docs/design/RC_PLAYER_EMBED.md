@@ -100,7 +100,7 @@ Current version: **1**.
 | `allowExternalImagePlaceholders` | `1` renders a placeholder instead of refusing a document that names an external image. |
 | `lenient` | `1` plays a document carrying any operation the player *knows*, drawing nothing for the ones the browser backend has no branch for, instead of refusing it whole. Malformed data, an undeclared id and a missing typeface still fail — those throw from inside the draw pass. Note this also drops the `cmp-wasm-alpha16` profile's exclusions, so a document using `GraphicsLayerModifier` will play here with the surface loss that exclusion exists to avoid. |
 | `handoffDelayMs` | Cold-start tail before `ready`, clamped to 0–10 000, default 1 500. **Only lower it if you composite the result yourself** — the default guards a human seeing a blank frame, and the failure it guards against cannot be reproduced under CDP capture. |
-| `density` | CSS pixels per dp, as a positive finite decimal (`2.625`, `.5`, `1.5e3`). Absent, the document runs at the browser's density — one dp per CSS pixel. See below. |
+| `density` | CSS pixels per dp, as a positive decimal up to 64 (`2.625`, `.5`, `1.5e1`). Absent, the document runs at the browser's density — one dp per CSS pixel. See below. |
 
 ### `density` in detail
 
