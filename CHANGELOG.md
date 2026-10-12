@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.9.0](https://github.com/yschimke/rc-players/compare/v2.8.0...v2.9.0) (2026-10-12)
+
+
+### Features
+
+* add a density query parameter to the Wasm player and guard unparseable browser locales ([#637](https://github.com/yschimke/rc-players/issues/637)) ([5bcd583](https://github.com/yschimke/rc-players/commit/5bcd583fe69e7cbad6cc83c750401cc62c113d26))
+* bake widgets for older players and fold what hardcoding makes constant ([#636](https://github.com/yschimke/rc-players/issues/636)) ([77e0dd7](https://github.com/yschimke/rc-players/commit/77e0dd7f34e005197b436178ddd800db956aafc9))
+
 ## [2.8.0](https://github.com/yschimke/rc-players/compare/v2.7.1...v2.8.0) (2026-10-11)
 
 
