@@ -182,6 +182,31 @@ check "a comment-only root build edit publishes nothing" "" \
 check "release wiring in root-tasks.gradle.kts publishes nothing" "" \
   sh -c 'echo "tasks.register(\"printPublishSet\")" >>root-tasks.gradle.kts'
 
+# A test-only change publishes nothing: no artifact carries a test source set. Covers the JVM
+# `src/test` and the KMP `…Test` source sets, in published and unpublished projects alike.
+check "a test-source-only change publishes nothing" "" \
+  sh -c 'mkdir -p lib/src/commonTest lib/src/jvmTest app/src/test other/src/iosTest app-dist/src/wasmJsTest app/src/androidHostTest &&
+    echo "class LibTest" >lib/src/commonTest/LibTest.kt &&
+    echo "class LibJvmTest" >lib/src/jvmTest/LibJvmTest.kt &&
+    echo "class AppTest" >app/src/test/AppTest.kt &&
+    echo "class AppHostTest" >app/src/androidHostTest/AppHostTest.kt &&
+    echo "class OtherTest" >other/src/iosTest/OtherTest.kt &&
+    echo "class DistTest" >app-dist/src/wasmJsTest/DistTest.kt'
+# ...but `src/testFixtures` is published as a variant by `java-test-fixtures`, so it counts.
+check "a testFixtures change publishes" "app-dist lib" \
+  sh -c 'mkdir -p lib/src/testFixtures && echo "class LibFixture" >lib/src/testFixtures/LibFixture.kt'
+# A test change beside a main change still publishes the module.
+check "a test change beside a main change publishes" "app-dist lib" \
+  sh -c 'mkdir -p lib/src/commonTest lib/src/commonMain &&
+    echo "class LibTest" >lib/src/commonTest/LibTest.kt && echo "class Lib" >lib/src/commonMain/Lib.kt'
+# A main file moved into a test source set is still a deletion from main (`--no-renames`).
+check "a main file moved into a test source set publishes" "app-dist lib" \
+  sh -c 'mkdir -p lib/src/test && git mv lib/src/Main.kt lib/src/test/Main.kt'
+# Only a PROJECT's test source sets are excluded: a directory packaged through a `"../…"` literal
+# (`srcDir("../vendored/src")`) compiles its `test/` subdirectory into main.
+check "a test-named directory under a packaged input still publishes" "literal-dist" \
+  sh -c 'mkdir -p vendored/src/test && echo "// vendored" >vendored/src/test/T.kt'
+
 if [ "${failures}" -ne 0 ]; then
   echo "${failures} publish-plan fixture case(s) failed" >&2
   exit 1
