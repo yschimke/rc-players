@@ -17,7 +17,7 @@
 #
 #   1. a file under it changed since the tag IT last published at (not since the last release —
 #      a module skipped for three releases is compared against its own baseline, so nothing is
-#      ever missed by a gap), or
+#      ever missed by a gap), other than in a test source set (see TEST_SOURCE), or
 #   2. a module it depends on is being published, or
 #   3. a shared build input changed, which can move every artifact at once, or
 #   4. the version catalog changed an entry used by a build script among its inputs (a catalog
@@ -171,7 +171,8 @@ for p in paths:
 deps = {a: [path_to_id[d] for d in ds if d in path_to_id] for a, ds in deps.items()}
 
 def module_inputs(project_path):
-    """Every directory `project_path`'s artifact can be built from, or None if one is unresolvable.
+    """(every directory `project_path`'s artifact can be built from, the project directories among
+    them), or (None, None) if one is unresolvable.
 
     Walks project dependencies transitively through published and unpublished projects alike, so
     an unpublished middle module (`:rc-player-wasm`) cannot hide a change from the published module
@@ -179,6 +180,7 @@ def module_inputs(project_path):
     """
     aid = path_to_id[project_path]
     seen, stack, inputs = set(), [project_path], set(EXTRA_INPUTS.get(aid, ()))
+    projects = set()
     while stack:
         q = stack.pop()
         if q in seen:
@@ -187,15 +189,16 @@ def module_inputs(project_path):
         if q not in proj_dir:
             print(f"  {aid}: depends on {q}, which settings.gradle.kts does not include; "
                   "publishing", file=sys.stderr)
-            return None
+            return None, None
         inputs.add(proj_dir[q])
+        projects.add(proj_dir[q])
         inputs.update(proj_inputs[q])
         stack.extend(proj_deps[q])
     for i in inputs:
         if i == ".." or i.startswith("../") or os.path.isabs(i):
             print(f"  {aid}: input {i} is outside the repository; publishing", file=sys.stderr)
-            return None
-    return sorted(inputs)
+            return None, None
+    return sorted(inputs), sorted(projects)
 
 def central_release(aid):
     """The newest version of `aid` on Central, or None if it has never published there.
@@ -491,16 +494,38 @@ def shared_verdict(tag, files):
         return True, None
     return False, pats
 
-def changed_since(aid, version, inputs):
-    """Did any of `inputs` move between the tag for `version` and head?"""
+# A test source set of a Gradle project, matched against a path RELATIVE TO THAT PROJECT'S
+# DIRECTORY: `src/test`, `src/functionalTest`, and the KMP `src/commonTest`, `src/jvmTest`,
+# `src/iosTest`, `src/wasmJsTest`, `src/androidHostTest`… No artifact carries one, so a change that
+# touches only these publishes nothing. Every `…Main` source set is published and never matches.
+# `src/testFixtures` IS published (`java-test-fixtures` adds it as a variant), so it still counts.
+#
+# Anchored at a project directory on purpose. A `"../…"` literal or an EXTRA_INPUTS path is a
+# directory a module packages wholesale (`srcDir("../vendored/src")` compiles `vendored/src/test`
+# into MAIN), so nothing under one is ever filtered — only a project's own source sets are.
+TEST_SOURCE = re.compile(r"^src/(?!testFixtures/)(test[A-Za-z0-9]*|[a-z][A-Za-z0-9]*Test[A-Za-z0-9]*)/")
+
+def test_source(path, projects):
+    """Is `path` inside a test source set of one of the project directories `projects`?"""
+    return any(path.startswith(d + "/") and TEST_SOURCE.match(path[len(d) + 1:]) for d in projects)
+
+def changed_since(aid, version, inputs, projects):
+    """Did anything published from `inputs` move between the tag for `version` and head?"""
     tag = f"v{version}"
     if subprocess.run(["git", "rev-parse", "--verify", "-q", tag + "^{commit}"],
                       capture_output=True).returncode != 0:
         print(f"  {aid}: no tag {tag}; publishing", file=sys.stderr)
         return True
     # `:(top)` anchors each pathspec at the repository root whatever the working directory.
-    out = git("diff", "--name-only", f"{tag}..{head}", "--", *(f":(top){i}" for i in inputs))
-    return bool(out.strip())
+    # `--no-renames`: a main file moved into a test source set must still show as a deletion from
+    # main, not only as an addition the test filter would then drop.
+    out = git("diff", "--no-renames", "--name-only", f"{tag}..{head}", "--",
+              *(f":(top){i}" for i in inputs))
+    changed = [f for f in out.split("\n") if f]
+    shipped = [f for f in changed if not test_source(f, projects)]
+    if changed and not shipped:
+        print(f"  {aid}: only test sources changed since {tag}", file=sys.stderr)
+    return bool(shipped)
 
 shared_changed = False
 catalog_pats = {}  # baseline version -> patterns for the catalog entries changed since it
@@ -529,8 +554,8 @@ for p, aid in path_to_id.items():
         print(f"  {aid}: never published; publishing", file=sys.stderr)
         dirty.add(aid)
         continue
-    inputs = module_inputs(p)
-    if inputs is None or changed_since(aid, recorded[aid], inputs):
+    inputs, projects = module_inputs(p)
+    if inputs is None or changed_since(aid, recorded[aid], inputs, projects):
         dirty.add(aid)
     elif recorded[aid] in catalog_pats and any(
         uses_catalog_change(i, catalog_pats[recorded[aid]]) for i in inputs
