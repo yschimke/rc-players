@@ -503,7 +503,7 @@ def shared_verdict(tag, files):
 # Anchored at a project directory on purpose. A `"../…"` literal or an EXTRA_INPUTS path is a
 # directory a module packages wholesale (`srcDir("../vendored/src")` compiles `vendored/src/test`
 # into MAIN), so nothing under one is ever filtered — only a project's own source sets are.
-TEST_SOURCE = re.compile(r"^src/(?!testFixtures/)(test[A-Za-z]*|[a-z][A-Za-z]*Test[A-Za-z]*)/")
+TEST_SOURCE = re.compile(r"^src/(?!testFixtures/)(test[A-Za-z0-9]*|[a-z][A-Za-z0-9]*Test[A-Za-z0-9]*)/")
 
 def test_source(path, projects):
     """Is `path` inside a test source set of one of the project directories `projects`?"""

@@ -185,12 +185,13 @@ check "release wiring in root-tasks.gradle.kts publishes nothing" "" \
 # A test-only change publishes nothing: no artifact carries a test source set. Covers the JVM
 # `src/test` and the KMP `…Test` source sets, in published and unpublished projects alike.
 check "a test-source-only change publishes nothing" "" \
-  sh -c 'mkdir -p lib/src/commonTest lib/src/jvmTest app/src/test other/src/iosTest app-dist/src/wasmJsTest app/src/androidHostTest &&
+  sh -c 'mkdir -p lib/src/commonTest lib/src/jvmTest app/src/test other/src/iosTest other/src/iosArm64Test app-dist/src/wasmJsTest app/src/androidHostTest &&
     echo "class LibTest" >lib/src/commonTest/LibTest.kt &&
     echo "class LibJvmTest" >lib/src/jvmTest/LibJvmTest.kt &&
     echo "class AppTest" >app/src/test/AppTest.kt &&
     echo "class AppHostTest" >app/src/androidHostTest/AppHostTest.kt &&
     echo "class OtherTest" >other/src/iosTest/OtherTest.kt &&
+    echo "class OtherArmTest" >other/src/iosArm64Test/OtherArmTest.kt &&
     echo "class DistTest" >app-dist/src/wasmJsTest/DistTest.kt'
 # ...but `src/testFixtures` is published as a variant by `java-test-fixtures`, so it counts.
 check "a testFixtures change publishes" "app-dist lib" \
