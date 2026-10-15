@@ -109,6 +109,20 @@ include(":rc-player-compose")
 
 project(":rc-player-compose").projectDir = file("rc-player/compose")
 
+// PROTOTYPE — creation moved in from yschimke/remote-m3-catalog `vendor/`, plus the module that
+// joins it to the player. Not for landing; see docs/design/RC_CREATION_BRIDGE.md.
+include(":rc-creation-writer")
+
+project(":rc-creation-writer").projectDir = file("rc-creation/writer")
+
+include(":rc-creation-compose")
+
+project(":rc-creation-compose").projectDir = file("rc-creation/compose")
+
+include(":rc-player-embedded")
+
+project(":rc-player-embedded").projectDir = file("rc-player/embedded")
+
 // Rewrites over a decoded document — embed, hardcode, collapse — for code that changes a document
 // rather than plays it. Published, but beside the stack rather than in it: it depends on `protocol`
 // and `runtime`, and no player module depends on it.
