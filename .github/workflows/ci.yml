@@ -371,7 +371,12 @@ jobs:
     # none of the Apple projects (see `apple-changes`). A skipped job satisfies the required check.
     if: ${{ needs.apple-changes.outputs.lane == 'true' && !(startsWith(github.head_ref || github.ref_name, 'release-please--') && (github.event.pull_request.user.login || github.actor) == 'github-actions[bot]') }}
     runs-on: macos-15
-    timeout-minutes: 90
+    # The tests alone take 6-15 minutes, but a run that reaches the packaging steps below needs
+    # well over 90: the release XCFramework is 20-30 minutes on its own, and the validation,
+    # benchmark and comparison steps after it add about 45 more. At 90, every such push to main was
+    # cancelled near the end (runs 38306485636, 38499815501, 38593701457, 38630564130, all at
+    # ~91 minutes), so main never went green on an Apple-packaging change.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
