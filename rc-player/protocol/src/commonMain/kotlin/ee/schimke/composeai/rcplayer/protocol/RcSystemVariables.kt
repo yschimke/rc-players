@@ -41,6 +41,18 @@ public object RcSystemVariables {
   public const val DAY_OF_MONTH: Int = 12
 
   /**
+   * The document's width on screen, in pixels: AndroidX `RemoteContext.ID_WINDOW_WIDTH`.
+   *
+   * As AndroidX loads it, from the header: the document's declared width, scaled by the player's
+   * density when the document's sizes are in dp. `RemoteConfiguration.windowWidth` reads it, so a
+   * widget's own surface is its window.
+   */
+  public const val WINDOW_WIDTH: Int = 5
+
+  /** The document's height on screen, in pixels: AndroidX `RemoteContext.ID_WINDOW_HEIGHT`. */
+  public const val WINDOW_HEIGHT: Int = 6
+
+  /**
    * The density the document is being played at, in device pixels per dp.
    *
    * A capture decides at authoring time whether it needs this. `RemoteDensity.from(displayInfo)`
@@ -86,6 +98,8 @@ public object RcSystemVariables {
       OFFSET_TO_UTC,
       WEEK_DAY,
       DAY_OF_MONTH,
+      WINDOW_WIDTH,
+      WINDOW_HEIGHT,
       DENSITY,
       ANIMATION_TIME,
       ANIMATION_DELTA_TIME,

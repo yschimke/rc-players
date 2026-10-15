@@ -5,6 +5,8 @@ import ee.schimke.composeai.rcplayer.protocol.RcFloatConstant
 import ee.schimke.composeai.rcplayer.protocol.RcFloatExpression
 import ee.schimke.composeai.rcplayer.protocol.RcFloatWord
 import ee.schimke.composeai.rcplayer.protocol.RcHeader
+import ee.schimke.composeai.rcplayer.protocol.RcHeaderProperty
+import ee.schimke.composeai.rcplayer.protocol.RcHeaderValue
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerConstant
 import ee.schimke.composeai.rcplayer.protocol.RcIntegerExpression
 import ee.schimke.composeai.rcplayer.protocol.RcNamedVariable
@@ -568,6 +570,41 @@ class RcSystemVariableTest {
 
     assertEquals(2.2625f, state.system(RcSystemVariables.DENSITY))
     assertEquals(14f * 1.3f * 2.2625f, state.system(RcSystemVariables.FONT_SIZE))
+  }
+
+  @Test
+  fun theWindowIsTheDeclaredSizeInPixelsAtThePlayedDensity() {
+    fun header(behavior: Int) =
+      RcHeader(
+        RcVersion(1, 0, 0),
+        listOf(
+          RcHeaderProperty(RcHeader.DOC_WIDTH, RcHeaderValue.IntValue(216)),
+          RcHeaderProperty(RcHeader.DOC_HEIGHT, RcHeaderValue.IntValue(124)),
+          RcHeaderProperty(RcHeader.DOC_DENSITY_BEHAVIOR, RcHeaderValue.IntValue(behavior)),
+        ),
+      )
+
+    // A dp document is as wide as it declares, at whatever density it is played: as AndroidX's
+    // `RemoteContext.header` scales it. `RemoteConfiguration.windowWidth` divides it back to dp.
+    val dp =
+      RcPlayerState(
+        RcDocument(header(RcHeader.DENSITY_BEHAVIOR_DP), emptyList()),
+        timeSource = clock,
+      )
+    dp.setHostDensity(density = 2f)
+    dp.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    assertEquals(432f, dp.system(RcSystemVariables.WINDOW_WIDTH))
+    assertEquals(248f, dp.system(RcSystemVariables.WINDOW_HEIGHT))
+
+    // A pixel document already declares pixels.
+    val px =
+      RcPlayerState(
+        RcDocument(header(RcHeader.DENSITY_BEHAVIOR_PIXELS), emptyList()),
+        timeSource = clock,
+      )
+    px.setHostDensity(density = 2f)
+    px.beginFrame(timeSeconds = 0f, epochMillis = EPOCH_MILLIS)
+    assertEquals(216f, px.system(RcSystemVariables.WINDOW_WIDTH))
   }
 
   @Test
