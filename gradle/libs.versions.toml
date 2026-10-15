@@ -102,7 +102,7 @@ androidx-compose-material3 = "1.4.0"
 # CMP 1.12 requires compileSdk 37 (the Android conventions and player stack use it) and Skiko
 # 0.150.1. PathConic uses the shared conic-to-quads implementation, avoiding removed mutating
 # Skia Path APIs. Renovate keeps stable patches on this coordinated Compose/Coil line.
-compose-multiplatform = "1.12.1"
+compose-multiplatform = "1.12.2"
 wear-compose = "1.7.0-beta02"
 # `androidx.wear:wear` carries `androidx.wear.ambient.AmbientLifecycleObserver` —
 # the AOSP entry point both horologist's `AmbientAware` and direct subscribers
