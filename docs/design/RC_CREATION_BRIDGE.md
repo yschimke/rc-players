@@ -156,7 +156,7 @@ The UI builder integration settled four things the unit tests alone did not:
 - **Custom component ids.** The port's `RemoteDocumentWriter.startCustom` wrote its content section
   with the custom layout's own component id. Upstream's `addContentStart` allocates a fresh one. The
   result was two components with one id, which the player rejects ("Duplicate layout component id").
-  It is fixed here, and remote-m3-catalog's `vendor/remote-write-core` has the same bug.
+  It is fixed here, and in remote-m3-catalog's `vendor/remote-write-core` (yschimke/remote-m3-catalog#133).
 - **Component ids drift in a live composition.** `RemoteComposeNode` allocates render ids from a
   counter that was never reset, so every re-render renumbered every component.
   `RemoteDocumentSession` resets it per render. Ids are still positional, so an insertion renumbers

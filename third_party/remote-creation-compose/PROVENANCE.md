@@ -125,7 +125,7 @@ to offer upstream, and the list is meant to shrink.
 | `capture/CommonCreationState.kt` | `writer` settable (internal); `resetComponentIds()` | A session renders each frame into a fresh writer. Without the reset, every render renumbers every component (upstream has the same drift). |
 | `layout/RemoteComposeApplier.kt` | `onChangesApplied` | Tells a session when to re-render |
 | `capture/DisplayInfo.kt` | `RemoteDensityBehavior.wireValue` | Lets a writer outside the module describe the same display |
-| `../remote-creation-writer/.../RemoteDocumentWriter.kt` | `startCustom` content section takes a fresh component id | **Port bug.** Upstream's `addContentStart` allocates one; the port reused the layout's own id, and rc-players' player rejects the duplicate. yschimke/remote-m3-catalog's vendor copy still has it. |
+| `../remote-creation-writer/.../RemoteDocumentWriter.kt` | `startCustom` content section takes a fresh component id | **Port bug.** Upstream's `addContentStart` allocates one; the port reused the layout's own id, and rc-players' player rejects the duplicate. The same fix is in yschimke/remote-m3-catalog's vendor copy (yschimke/remote-m3-catalog#133); this patch retires when that lands and the fork is re-taken from it. |
 | `src/androidMain/.../ComposeColorFilter.android.kt` | Inlines the port's blend-mode mapping | The rest of the port's Android sources are not carried |
 
 ## Refreshing
