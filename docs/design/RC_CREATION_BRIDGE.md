@@ -1,8 +1,8 @@
 # Creation in rc-players, and the host bridge
 
-**Status: prototype, not for landing.** This note records what the prototype in `rc-creation/` and
-`rc-player/embedded/` shows, and what landing it would take. It follows the measurements in
-yschimke/remote-m3-catalog#133.
+**Status: prototype, not for landing.** This note records what the prototype in
+`third_party/remote-creation-*`, `rc-creation/` and `rc-player/embedded/` shows, and what landing it
+would take. It follows the measurements in yschimke/remote-m3-catalog#133.
 
 ## Decision
 
@@ -17,13 +17,33 @@ mode does not invent a second representation. **The document stays canonical in 
 changes is the route a host-owned value takes to the screen.
 
 To make that a single change instead of a cross-repository dance, creation moves here, beside the
-player:
+player. It is split in two: one fork, plus a layer of rc-players' own.
 
-| Module | Contents |
-| --- | --- |
-| `:rc-creation-writer` (`rc-creation/writer`) | `RemoteWriter` and the common byte writer, from remote-m3-catalog `vendor/remote-write-core`. |
-| `:rc-creation-compose` (`rc-creation/compose`) | `@RemoteComposable` creation (`remote-creation-compose` + `remote-foundation`, commonMain only), `RemoteDocumentSession`, and the bridge contract (`ee.schimke.composeai.rccreation.bridge`). |
-| `:rc-player-embedded` (`rc-player/embedded`) | `RcLiveBridge` and `RcEmbeddedPlayer`: the only module that knows both sides. |
+| Module | Package | Contents |
+| --- | --- | --- |
+| `:third-party-remote-creation-writer` | `androidx.compose.remote.creation.common` | **Fork.** `RemoteWriter` and the common byte writer. |
+| `:third-party-remote-creation-compose` | `androidx.compose.remote.creation.compose`, `androidx.compose.remote.foundation` | **Fork.** `@RemoteComposable` creation, kept in AndroidX's package with marked local patches only ([PROVENANCE](../../third_party/remote-creation-compose/PROVENANCE.md)). |
+| `:rc-creation-bridge` | `ee.schimke.composeai.rccreation` | **Layer.** rc-players' own creation API: the host bridge contract, and later explicit component ids and the editor's authoring mode. |
+| `:rc-player-embedded` | `ee.schimke.composeai.rcplayer.embedded` | **Layer.** `RcLiveBridge` and `RcEmbeddedPlayer`; the only module that knows both creation and the player. |
+
+### Why one fork in AndroidX's package, not two
+
+A second fork, relocated and free to restructure, was considered and rejected.
+
+Component libraries are written against `androidx.compose.remote.creation.*`: Wear
+`remote-material3`, the catalog's components, and the Kotlin a UI builder exports. With the fork in
+that package, the same source compiles against the fork in a CMP host (editor, preview, desktop)
+and against real AndroidX on a device. A relocated fork would need a second build of every
+component library, and exported code would no longer match what ships.
+
+Structural work therefore goes in the layer, in rc-players' own package. When the layer needs
+something only the fork's internals can give (a capture seam, an id reset, an applier hook), the
+fork gets a small marked patch that is generic enough to offer upstream. The fork's diff from
+upstream stays reviewable, and refreshes stay mechanical.
+
+The one cost is on Android: the fork and AndroidX's own `remote-creation-compose` share class
+names. Publishing it needs a Gradle capability that both provide, so Gradle reports the conflict
+when both are present instead of silently loading duplicate classes.
 
 Creation does not depend on the player, and the player does not depend on creation.
 
@@ -93,7 +113,7 @@ still worth doing, because it would retire the second encoder. It is a cleanup, 
 - **`hostContentIsRealComposeLaidOutByTheRemoteTree`**: Compose UI is drawn in a remote-laid-out
   slot and updates without a new document.
 
-`rc-creation-compose` and `rc-player-embedded` compile for JVM, Wasm and Android. The Apple targets
+The fork, `rc-creation-bridge` and `rc-player-embedded` compile for JVM, Wasm and Android. The Apple targets
 are declared but not built here, because they need a macOS host.
 
 ## Bugs found on the way
@@ -118,11 +138,10 @@ are declared but not built here, because they need a macOS host.
 3. **Gate the creation API like the player.** Today `rc-creation-*` is not `explicitApi()` or
    ABI-dumped. The imported sources are not explicit-API clean, and the AndroidX-shaped surface is
    large. Mark it experimental and dump it, so churn is reviewed.
-4. **Decide the package question.** The modules keep upstream's `androidx.compose.remote.creation.*`
-   packages so refreshes stay a diff. On Android, a consumer that also takes AndroidX's own
-   `remote-creation-compose` would get duplicate classes. The options are to relocate, or to make
-   Android consumers choose one. yschimke/wear-m3-catalog#652 is the precedent for how badly a
-   duplicate FQN fails.
+4. **Declare the Android capability.** Publish the fork with the capability of AndroidX's
+   `remote-creation-compose`, so a consumer that takes both gets Gradle's capability-conflict error
+   rather than duplicate classes. yschimke/wear-m3-catalog#652 is the precedent for how badly a
+   silent duplicate FQN fails.
 5. **Player state across structural edits.** `RcComposePlayer` keys its state on the document, so a
    structural edit still resets scroll and animation. Live mode wants a host-owned state that
    carries variables and per-component state over by component id. That needs **explicit component

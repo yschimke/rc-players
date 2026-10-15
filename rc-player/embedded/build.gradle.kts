@@ -1,4 +1,4 @@
-// PROTOTYPE — joins creation (`rc-creation-compose`) to the player (`rc-player-compose`): one
+// PROTOTYPE — joins creation (`rc-creation-bridge`) to the player (`rc-player-compose`): one
 // remote composition that can either write a document or feed a player in the same process. Not
 // for landing; see docs/design/RC_CREATION_BRIDGE.md.
 plugins {
@@ -28,7 +28,7 @@ kotlin {
 
   sourceSets {
     commonMain.dependencies {
-      api(project(":rc-creation-compose"))
+      api(project(":rc-creation-bridge"))
       api(project(":rc-player-compose"))
       @Suppress("DEPRECATION") api(compose.runtime)
       implementation(libs.kotlinx.coroutines.core)

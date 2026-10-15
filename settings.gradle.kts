@@ -109,15 +109,12 @@ include(":rc-player-compose")
 
 project(":rc-player-compose").projectDir = file("rc-player/compose")
 
-// PROTOTYPE — creation moved in from yschimke/remote-m3-catalog `vendor/`, plus the module that
-// joins it to the player. Not for landing; see docs/design/RC_CREATION_BRIDGE.md.
-include(":rc-creation-writer")
+// PROTOTYPE — the creation layer: rc-players' own API over the creation fork, in its own package
+// (`ee.schimke.composeai.rccreation`), and the module that joins creation to the player. Not for
+// landing; see docs/design/RC_CREATION_BRIDGE.md.
+include(":rc-creation-bridge")
 
-project(":rc-creation-writer").projectDir = file("rc-creation/writer")
-
-include(":rc-creation-compose")
-
-project(":rc-creation-compose").projectDir = file("rc-creation/compose")
+project(":rc-creation-bridge").projectDir = file("rc-creation/bridge")
 
 include(":rc-player-embedded")
 
@@ -175,6 +172,19 @@ include(":prototype-remote-apple-components")
 
 project(":prototype-remote-apple-components").projectDir =
   file("prototypes/remote-apple-components")
+
+// PROTOTYPE — the Compose Multiplatform creation fork: AndroidX `remote-creation-compose` /
+// `foundation` and the common write core, in AndroidX's own package with marked local patches only.
+// See third_party/remote-creation-compose/PROVENANCE.md.
+include(":third-party-remote-creation-writer")
+
+project(":third-party-remote-creation-writer").projectDir =
+  file("third_party/remote-creation-writer")
+
+include(":third-party-remote-creation-compose")
+
+project(":third-party-remote-creation-compose").projectDir =
+  file("third_party/remote-creation-compose")
 
 // The vendored, locally patched AndroidX embedded player — the Android comparison lane the CMP
 // player above is measured against. Provenance and the patch log are in
