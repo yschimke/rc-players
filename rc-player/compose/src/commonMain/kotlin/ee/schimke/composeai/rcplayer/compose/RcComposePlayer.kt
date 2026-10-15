@@ -1002,6 +1002,7 @@ private fun RenderLayoutNode(
     }
   val geometryIds = node.geometryComponentIds()
   val inspecting = LocalRcInspection.current
+  val componentCoordinates = LocalRcComponentCoordinates.current
   // The modifiers a `StateLayout` actually applies — it drops its own fill and padding, see its
   // branch below. Derived here rather than in the branch so the reported content inset describes
   // the chain that was built: an inset left over from dropped padding subtracts 20 from every
@@ -1045,6 +1046,7 @@ private fun RenderLayoutNode(
           inspecting,
           contentInset,
         )
+        .reportComponentCoordinates(node.componentId, componentCoordinates)
     when (node) {
       is RcLayoutNode.Root ->
         Box(
@@ -3643,6 +3645,14 @@ private class RcAhemAutoSize(
   override fun hashCode(): Int =
     ((minPx.hashCode() * 31 + maxPx.hashCode()) * 31 + maxLines) * 31 + stepPx.hashCode()
 }
+
+/** Reports this component's coordinates to a host listener; nothing at all when there is none. */
+private fun Modifier.reportComponentCoordinates(
+  componentId: Int?,
+  listener: RcComponentCoordinatesListener?,
+): Modifier =
+  if (listener == null || componentId == null) this
+  else onGloballyPositioned { listener.onPositioned(componentId, it) }
 
 private fun Modifier.inspectComponent(
   node: RcLayoutNode,

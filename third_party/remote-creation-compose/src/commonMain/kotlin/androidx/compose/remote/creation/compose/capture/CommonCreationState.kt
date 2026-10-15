@@ -82,7 +82,14 @@ public open class RemoteComposeCreationState(
      */
     internal fun resetComponentIds() {
         nextComponentId = -1_000_000
+        claimedComponentIds.clear()
     }
+
+    // LOCAL PATCH (rc-players): explicit ids already used in this render; see ComponentIdModifier.
+    private val claimedComponentIds = HashSet<Int>()
+
+    /** Claims [id] for one component of this render; false if another already has it. */
+    internal fun claimComponentId(id: Int): Boolean = claimedComponentIds.add(id)
 
     internal fun enterComponentScope(componentId: Int): Int {
         val previous = componentCacheKey

@@ -25,6 +25,7 @@ import androidx.compose.remote.creation.compose.capture.WriterOp
 import androidx.compose.remote.creation.compose.modifier.RemoteModifier
 import androidx.compose.remote.creation.compose.modifier.drawWithContent
 import androidx.compose.remote.creation.compose.modifier.hasDrawWithContent
+import androidx.compose.remote.creation.compose.modifier.requestedComponentId
 import androidx.compose.remote.creation.compose.modifier.toRemoteModifierData
 import androidx.compose.remote.creation.compose.state.RemoteStateScope
 import androidx.compose.runtime.Composable
@@ -51,7 +52,10 @@ internal abstract class RemoteComposeNode {
         scope: RemoteStateScope,
         creationState: RemoteComposeCreationState,
     ): RemoteModifierData {
-        renderedComponentId = creationState.allocateComponentId()
+        // LOCAL PATCH (rc-players): honour an explicit id (`RemoteModifier.componentId`) once.
+        renderedComponentId =
+            modifier.requestedComponentId?.takeIf(creationState::claimComponentId)
+                ?: creationState.allocateComponentId()
         return scope.toRemoteModifierData(modifier).apply { componentId = renderedComponentId }
     }
 

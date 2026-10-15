@@ -101,7 +101,7 @@ still worth doing, because it would retire the second encoder. It is a cleanup, 
 
 ## What the prototype proves
 
-`RcEmbeddedPlayerTest` (JVM, Skiko UI test) covers seven behaviours:
+`RcEmbeddedPlayerTest` (JVM, Skiko UI test) covers eight behaviours, including:
 
 - **`aBridgedValueReachesThePlayerWithoutANewDocument`**: a host colour change shows in the
   player's pixels, and exactly one document was ever produced.
@@ -150,6 +150,21 @@ The UI builder integration settled four things the unit tests alone did not:
 - **Dispose quietly.** Disposing the session clears the tree, which the applier reports as a change.
   The change hook is detached first, or a dead session would replace the last good document with an
   empty one.
+
+## Explicit component ids and player geometry
+
+`RemoteModifier.componentId(id)` (a fork patch) asks for a component id instead of a positional
+one. `RcComponentIds` (`:rc-creation-bridge`) hands out stable ids per host key, and
+`LocalRcComponentCoordinates` (`:rc-player-compose`) reports each laid-out component's
+`LayoutCoordinates` by id. Together, a host can say where each of its own nodes was drawn.
+
+`RcComponentIds` is deliberately not snapshot state: a widget's content and background are two
+remote compositions composing concurrently in their own snapshots, and snapshot maps let both hand
+out the same first id.
+
+remote-m3-catalog's Visual Editor uses this (behind `-PrcPlayersDir`) to run its authoring surface
+on the real recording, played, instead of Compose UI stand-ins: every authored node of the golden
+designs gets bounds from the player, nested as the design nests them.
 
 ## Bugs found on the way
 

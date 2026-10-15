@@ -34,6 +34,10 @@ public final class ee/schimke/composeai/rcplayer/compose/RcBundledTypefaceLoader
 	public fun typeface (Ljava/lang/String;Lee/schimke/composeai/rcplayer/compose/RcFontVariations;)Landroidx/compose/ui/text/font/FontFamily;
 }
 
+public abstract interface class ee/schimke/composeai/rcplayer/compose/RcComponentCoordinatesListener {
+	public abstract fun onPositioned (ILandroidx/compose/ui/layout/LayoutCoordinates;)V
+}
+
 public final class ee/schimke/composeai/rcplayer/compose/RcComposePlayerKt {
 	public static final fun RcComposePlayer (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)V
 	public static final fun RcComposePlayer (Lee/schimke/composeai/rcplayer/protocol/RcDocument;Landroidx/compose/ui/Modifier;Lee/schimke/composeai/rcplayer/compose/RcPlayerTheme;Landroidx/compose/runtime/snapshots/SnapshotStateMap;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcTypefaceLoader;Lkotlin/jvm/functions/Function1;Lee/schimke/composeai/rcplayer/compose/RcCustomComponentRegistry;Landroidx/compose/runtime/Composer;II)V
@@ -818,6 +822,7 @@ public final class ee/schimke/composeai/rcplayer/compose/RcNativeTextStyle {
 
 public final class ee/schimke/composeai/rcplayer/compose/RcPlayerInspectionKt {
 	public static final fun getLocalRcAhemTextMetrics ()Landroidx/compose/runtime/ProvidableCompositionLocal;
+	public static final fun getLocalRcComponentCoordinates ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 	public static final fun getLocalRcInspection ()Landroidx/compose/runtime/ProvidableCompositionLocal;
 	public static final fun getRcAccessibilityOnlyClick (Landroidx/compose/ui/semantics/SemanticsPropertyReceiver;)Z
 	public static final fun getRcAccessibilityOnlyClickKey ()Landroidx/compose/ui/semantics/SemanticsPropertyKey;

@@ -130,6 +130,8 @@ public fun RemoteStateScope.toRemoteModifierData(modifier: RemoteModifier): Remo
     val result = RemoteModifierData()
     val seenNonRepeatable = mutableSetOf<NonRepeatableModifier>()
     modifier.foldIn(Unit) { _, element ->
+        // LOCAL PATCH (rc-players): a component id is not an operation; see ComponentIdModifier.
+        if (element is ComponentIdModifier) return@foldIn
         val nonRepeatable = element.nonRepeatableType()
         if (nonRepeatable == null || seenNonRepeatable.add(nonRepeatable)) {
             result.then(with(element) { scope.toRemoteModifierOperation() })

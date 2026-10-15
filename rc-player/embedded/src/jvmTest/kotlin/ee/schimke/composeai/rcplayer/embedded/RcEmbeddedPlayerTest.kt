@@ -16,14 +16,17 @@ import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SkikoComposeUiTest
 import androidx.compose.ui.test.captureToImage
@@ -35,6 +38,9 @@ import androidx.compose.ui.test.runSkikoComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import ee.schimke.composeai.rccreation.bridge.LocalRcHostBridge
+import ee.schimke.composeai.rccreation.bridge.RcComponentIds
+import ee.schimke.composeai.rcplayer.compose.LocalRcComponentCoordinates
+import ee.schimke.composeai.rcplayer.compose.RcComponentCoordinatesListener
 import ee.schimke.composeai.rcplayer.protocol.RcDocument
 import ee.schimke.composeai.rcplayer.protocol.RcDocumentCodec
 import kotlin.test.Test
@@ -245,5 +251,38 @@ class RcEmbeddedPlayerTest {
 
     rows = 2
     awaitDocuments(documents, 2)
+  }
+
+  /**
+   * The editor's path: content tagged with ids from a host-side registry, played, and its geometry
+   * read back per key through the player's coordinates listener.
+   */
+  @Test
+  fun hostKeysMapToLaidOutBounds() = run {
+    val ids = RcComponentIds()
+    val bounds = mutableMapOf<Any, Rect>()
+    val documents = mutableListOf<RcDocument>()
+    setContent {
+      CompositionLocalProvider(
+        LocalRcComponentCoordinates provides
+          RcComponentCoordinatesListener { id, coordinates ->
+            ids.keyFor(id)?.let { bounds[it] = coordinates.boundsInRoot() }
+          }
+      ) {
+        RcEmbeddedPlayer(display, Modifier.size(100.dp), onDocument = { documents += it }) {
+          RemoteColumn(ids.component(RemoteModifier.fillMaxSize(), "column")) {
+            RemoteBox(ids.component(RemoteModifier.fillMaxWidth().size(10.rdp), "first"))
+            RemoteBox(ids.component(RemoteModifier.fillMaxWidth().size(20.rdp), "second"))
+          }
+        }
+      }
+    }
+    awaitDocuments(documents, 1)
+    waitUntil { bounds.keys.containsAll(listOf("column", "first", "second")) }
+
+    assertEquals(Rect(0f, 0f, 100f, 100f), bounds.getValue("column"))
+    assertEquals(10f, bounds.getValue("first").height)
+    assertEquals(10f, bounds.getValue("second").top)
+    assertEquals(20f, bounds.getValue("second").height)
   }
 }

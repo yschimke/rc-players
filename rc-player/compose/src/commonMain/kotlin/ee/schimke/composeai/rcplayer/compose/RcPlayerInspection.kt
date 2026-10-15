@@ -3,6 +3,7 @@ package ee.schimke.composeai.rcplayer.compose
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
@@ -65,6 +66,25 @@ import ee.schimke.composeai.rcplayer.runtime.RcPlayerState
 public val LocalRcInspection: ProvidableCompositionLocal<Boolean> = staticCompositionLocalOf {
   false
 }
+
+/**
+ * A host's view of where each component landed: told, after every layout pass that moves it, the
+ * coordinates of each visible component's outer box (outside its padding, like [RcComponentIdKey]).
+ *
+ * For a host that has to read geometry from inside its own process, where the semantics tree is not
+ * reachable: an editor drawing selection over a player, say. It is the one inspection channel with
+ * a per-layout callback, so it is opt-in, null by default, and costs nothing when unset.
+ */
+public fun interface RcComponentCoordinatesListener {
+  public fun onPositioned(componentId: Int, coordinates: LayoutCoordinates)
+}
+
+/** The [RcComponentCoordinatesListener] the player reports to; none by default. */
+public val LocalRcComponentCoordinates:
+  ProvidableCompositionLocal<RcComponentCoordinatesListener?> =
+  staticCompositionLocalOf {
+    null
+  }
 
 /** The Remote Compose component id this node draws — the document's own id, a negative integer. */
 public val RcComponentIdKey: SemanticsPropertyKey<Int> = SemanticsPropertyKey("RcComponentId")
